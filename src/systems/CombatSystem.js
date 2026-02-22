@@ -125,8 +125,8 @@ export class CombatSystem {
     // 处理自动攻击
     this.handleAutoAttack(currentTime, entities);
     
-    // 检测武器碰撞并应用反作用力
-    this.checkWeaponCollisions(entities);
+    // 武器碰撞已禁用（使用滑动攻击）
+    // this.checkWeaponCollisions(entities);
     
     // 检查死亡
     this.checkDeath(entities);
@@ -792,10 +792,10 @@ export class CombatSystem {
       this.playHitEffect(target);
     }
     
-    // 如果有击退方向且目标未死亡，应用击退效果
-    if (knockbackDir && !isDead && transform) {
-      this.applyKnockback(target, knockbackDir);
-    }
+    // 击退已禁用 - 不再推动实体移动
+    // if (knockbackDir && !isDead && transform) {
+    //   this.applyKnockback(target, knockbackDir);
+    // }
     
     // 如果刚刚死亡，先生成掉落物，再触发死亡特效
     if (!wasDead && isDead) {
@@ -990,8 +990,8 @@ export class CombatSystem {
       y: position.y + yOffset, // 从实体上方开始
       damage: damage,
       damageType: damageType, // 添加伤害类型
-      life: 1.0, // 生命周期（秒）
-      maxLife: 1.0,
+      life: 2.0, // 生命周期（秒）
+      maxLife: 3.0,
       velocity: { x: (Math.random() - 0.5) * 20, y: -50 } // 向上飘动
     };
     

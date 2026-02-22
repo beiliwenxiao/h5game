@@ -78,6 +78,10 @@ export class BaseGameScene extends PrologueScene {
     this.sliceHitRadius = 40; // 切割命中半径（鼠标距离敌人多近算命中）
     this.sliceCooldowns = new Map(); // 每个敌人的切割冷却 entityId -> lastSliceTime
     this.sliceCooldownTime = 0.5; // 对同一敌人的切割冷却（秒）
+    this.sliceMouseSpeed = 0; // 当前鼠标移动速度（像素/秒）
+    this.sliceGlobalCooldown = 3.0; // 全局武器冷却（秒）
+    this.sliceLastAttackTime = 0; // 上次攻击时间（秒）
+    this.sliceCooldownShown = false; // 是否已显示冷却提示（防止刷屏）
     
     this.uiClickHandler = new UIClickHandler();
     
@@ -1164,41 +1168,32 @@ export class BaseGameScene extends PrologueScene {
     // 清理过期的轨迹点
     this.sliceTrail = this.sliceTrail.filter(p => currentTime - p.time < this.sliceTrailMaxAge);
     
-    // 战斗状态下，鼠标在攻击范围内直接移动就能攻击（不需要按住鼠标）
+    // 战斗状态下，鼠标在全屏幕移动都有刀光特效
     const inCombat = this.combatState && this.combatState.inCombat;
     if (!inCombat) {
       this.isSlicing = false;
       return;
     }
     
-    // 检查鼠标是否在攻击范围内（距离玩家）
-    const dx = mouseWorldPos.x - playerCenter.x;
-    const dy = mouseWorldPos.y - playerCenter.y;
-    const distToPlayer = Math.sqrt(dx * dx + dy * dy);
-    
-    if (distToPlayer <= this.sliceAttackRange) {
-      // 开始或继续滑动
-      if (!this.isSlicing) {
-        this.isSlicing = true;
-        this.slicedEnemies.clear();
-      }
-      
-      // 添加轨迹点
-      const lastPoint = this.sliceTrail.length > 0 ? this.sliceTrail[this.sliceTrail.length - 1] : null;
-      const minDist = 5;
-      if (!lastPoint || Math.hypot(mouseWorldPos.x - lastPoint.x, mouseWorldPos.y - lastPoint.y) > minDist) {
-        this.sliceTrail.push({
-          x: mouseWorldPos.x,
-          y: mouseWorldPos.y,
-          time: currentTime
-        });
-      }
-      
-      // 检测鼠标是否滑过敌人
-      this.checkSliceHits(mouseWorldPos, currentTime);
-    } else {
-      this.isSlicing = false;
+    // 开始或继续滑动（全屏幕有效）
+    if (!this.isSlicing) {
+      this.isSlicing = true;
+      this.slicedEnemies.clear();
     }
+    
+    // 添加轨迹点（全屏幕都显示刀光）
+    const lastPoint = this.sliceTrail.length > 0 ? this.sliceTrail[this.sliceTrail.length - 1] : null;
+    const minDist = 5;
+    if (!lastPoint || Math.hypot(mouseWorldPos.x - lastPoint.x, mouseWorldPos.y - lastPoint.y) > minDist) {
+      this.sliceTrail.push({
+        x: mouseWorldPos.x,
+        y: mouseWorldPos.y,
+        time: currentTime
+      });
+    }
+    
+    // 检测伤害（只有虚线框内的敌人才会受伤，checkSliceHits内部判定距离）
+    this.checkSliceHits(mouseWorldPos, currentTime);
   }
 
   /**
@@ -1224,6 +1219,9 @@ export class BaseGameScene extends PrologueScene {
       }
     }
     
+    // 更新速度显示
+    this.sliceMouseSpeed = mouseSpeed;
+    
     // 速度太慢不造成伤害（需要快速滑动）
     const minSpeed = 100; // 像素/秒
     if (mouseSpeed < minSpeed) return;
@@ -1246,31 +1244,69 @@ export class BaseGameScene extends PrologueScene {
       const dist = Math.hypot(mouseWorldPos.x - ex, mouseWorldPos.y - ey);
       
       if (dist <= this.sliceHitRadius) {
-        // 命中！计算伤害
-        const baseDamage = playerStats.attack || 15;
-        // 速度越快伤害越高，基础倍率 0.5 ~ 2.0
-        const speedMultiplier = Math.min(2.0, Math.max(0.5, mouseSpeed / 300));
-        const finalDamage = Math.floor(baseDamage * speedMultiplier);
-        
-        // 计算击退方向（沿鼠标移动方向）
-        let knockbackDir = null;
-        if (this.sliceTrail.length >= 2) {
-          const p1 = this.sliceTrail[this.sliceTrail.length - 2];
-          const p2 = this.sliceTrail[this.sliceTrail.length - 1];
-          const mdx = p2.x - p1.x;
-          const mdy = p2.y - p1.y;
-          const mlen = Math.hypot(mdx, mdy);
-          if (mlen > 0) {
-            knockbackDir = { x: mdx / mlen, y: mdy / mlen };
+        // 检查敌人是否在虚线框（攻击范围椭圆）内
+        const playerTransformCheck = this.playerEntity.getComponent('transform');
+        const playerSpriteCheck = this.playerEntity.getComponent('sprite');
+        if (playerTransformCheck) {
+          const pcx = playerTransformCheck.position.x;
+          const pcy = playerTransformCheck.position.y - (playerSpriteCheck?.height || 64) / 2;
+          const rx = this.sliceAttackRange;
+          const ry = this.sliceAttackRange * 0.5; // 与renderCombatAlertCircle一致
+          // 椭圆方程: (dx/rx)^2 + (dy/ry)^2 <= 1
+          const edx = ex - pcx;
+          const edy = ey - pcy;
+          const ellipseDist = (edx * edx) / (rx * rx) + (edy * edy) / (ry * ry);
+          if (ellipseDist > 1) continue; // 敌人在虚线框外，不造成伤害
+        }
+        // 从装备的武器读取攻击速度，优先主手，其次副手，默认3秒
+        let weaponCooldown = this.sliceGlobalCooldown;
+        const equipComp = this.playerEntity.getComponent('equipment');
+        if (equipComp) {
+          const mainhand = equipComp.getEquipment('mainhand');
+          const offhand = equipComp.getEquipment('offhand');
+          if (mainhand && mainhand.attackSpeed != null) {
+            weaponCooldown = mainhand.attackSpeed;
+          } else if (offhand && offhand.attackSpeed != null) {
+            weaponCooldown = offhand.attackSpeed;
           }
         }
         
-        // 应用伤害
-        const speedPercent = Math.floor(speedMultiplier * 100);
-        this.combatSystem.applyDamage(entity, finalDamage, knockbackDir, `斩击${speedPercent}%`);
+        // 检查全局武器冷却
+        const timeSinceLastAttack = currentTime - this.sliceLastAttackTime;
+        if (timeSinceLastAttack < weaponCooldown) {
+          // 冷却中，显示提示（每次冷却只提示一次）
+          if (!this.sliceCooldownShown) {
+            this.sliceCooldownShown = true;
+            const remaining = (weaponCooldown - timeSinceLastAttack).toFixed(1);
+            if (this.floatingTextManager) {
+              const playerTransform = this.playerEntity.getComponent('transform');
+              if (playerTransform) {
+                this.floatingTextManager.addText(
+                  playerTransform.position.x,
+                  playerTransform.position.y - 70,
+                  `武器冷却中 ${remaining}s`,
+                  '#888888'
+                );
+              }
+            }
+          }
+          continue;
+        }
         
-        // 记录冷却
-        this.sliceCooldowns.set(entity.id, currentTime);
+        // 命中！计算伤害
+        // km/h 作为百分比乘以基础攻击力，最多500%
+        const baseDamage = playerStats.attack || 15;
+        const speedKmh = mouseSpeed * 0.036;
+        const speedPercent = Math.min(500, Math.floor(speedKmh)); // km/h 即百分比，上限500%
+        const speedMultiplier = speedPercent / 100;
+        const finalDamage = Math.max(1, Math.floor(baseDamage * speedMultiplier));
+        
+        // 应用伤害（不击退）
+        this.combatSystem.applyDamage(entity, finalDamage, null, `斩击${speedPercent}% ${speedKmh.toFixed(1)}km/h`);
+        
+        // 记录全局冷却
+        this.sliceLastAttackTime = currentTime;
+        this.sliceCooldownShown = false; // 重置提示标记
         
         // 创建切割特效
         if (this.combatSystem.createSliceEffect) {
@@ -1319,6 +1355,67 @@ export class BaseGameScene extends PrologueScene {
     ctx.stroke();
     
     ctx.setLineDash([]);
+    
+    // 显示鼠标移动速度（椭圆底部）
+    if (this.sliceMouseSpeed > 0) {
+      const speedKmh = (this.sliceMouseSpeed * 0.036).toFixed(1);
+      const speedText = `${speedKmh} km/h`;
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = this.sliceMouseSpeed >= 100 ? 'rgba(255, 200, 100, 0.8)' : 'rgba(180, 180, 180, 0.6)';
+      ctx.fillText(speedText, cx, cy + ry + 16);
+    }
+    
+    // 武器冷却时间条（玩家头顶上方）
+    const currentTime = performance.now() / 1000;
+    const timeSinceLastAttack = currentTime - this.sliceLastAttackTime;
+    
+    // 获取武器冷却时间
+    let weaponCooldown = this.sliceGlobalCooldown;
+    const equipComp = this.playerEntity.getComponent('equipment');
+    if (equipComp) {
+      const mainhand = equipComp.getEquipment('mainhand');
+      const offhand = equipComp.getEquipment('offhand');
+      if (mainhand && mainhand.attackSpeed != null) {
+        weaponCooldown = mainhand.attackSpeed;
+      } else if (offhand && offhand.attackSpeed != null) {
+        weaponCooldown = offhand.attackSpeed;
+      }
+    }
+    
+    // 冷却中才显示冷却条
+    if (timeSinceLastAttack < weaponCooldown && this.sliceLastAttackTime > 0) {
+      const barWidth = 40;
+      const barHeight = 5;
+      const barX = cx - barWidth / 2;
+      const barY = transform.position.y - spriteHeight - 18; // 生命条上方
+      
+      const cooldownRatio = timeSinceLastAttack / weaponCooldown; // 0→1 表示冷却进度
+      
+      // 背景
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+      
+      // 冷却进度（从左到右填充，填满=冷却完成）
+      const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
+      gradient.addColorStop(0, '#ff6600');
+      gradient.addColorStop(1, '#ffcc00');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(barX, barY, barWidth * cooldownRatio, barHeight);
+      
+      // 边框
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(barX, barY, barWidth, barHeight);
+      
+      // 剩余时间文字
+      const remaining = (weaponCooldown - timeSinceLastAttack).toFixed(1);
+      ctx.font = '9px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(`${remaining}s`, cx, barY - 2);
+    }
+    
     ctx.restore();
   }
 
@@ -1934,6 +2031,7 @@ export class BaseGameScene extends PrologueScene {
       };
       
       if (item.heal) itemData.heal = item.heal;
+      if (item.attackSpeed != null) itemData.attackSpeed = item.attackSpeed;
       
       inventory.addItem(itemData);
       console.log('BaseGameScene: 拾取物品', itemData);

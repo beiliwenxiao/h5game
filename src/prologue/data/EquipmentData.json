@@ -35,6 +35,7 @@
       "level": 1,
       "description": "从地上捡到的树枝，勉强能当武器",
       "icon": "icon_wooden_stick",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 3
       },
@@ -78,6 +79,7 @@
       "level": 2,
       "description": "简单的木制剑，比树棍好用",
       "icon": "icon_wooden_sword",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 8,
         "speed": 2
@@ -98,6 +100,7 @@
       "level": 3,
       "description": "用铜钱串成的剑，张角称之为法器。实际上是用来掩护发钱的工具",
       "icon": "icon_coin_sword",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 12,
         "maxHealth": 5
@@ -127,6 +130,7 @@
       "level": 5,
       "description": "锋利的铁制长剑，战士的可靠伙伴",
       "icon": "icon_iron_sword",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 18,
         "speed": 3
@@ -168,6 +172,7 @@
       "level": 5,
       "description": "轻便的猎弓，适合远程攻击",
       "icon": "icon_hunting_bow",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 15,
         "speed": 8
@@ -189,6 +194,7 @@
       "level": 5,
       "description": "蕴含魔力的法杖，增强法术威力",
       "icon": "icon_magic_staff",
+      "attackSpeed": 3,
       "attributes": {
         "attack": 10,
         "maxMana": 30

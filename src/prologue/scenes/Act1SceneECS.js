@@ -323,6 +323,7 @@ export class Act1SceneECS extends BaseGameScene {
         subType: 'mainhand',  // 改为 mainhand，直接对应装备槽位
         x: 300, 
         y: 250,
+        attackSpeed: 3,
         stats: {
           attack: 5
         },

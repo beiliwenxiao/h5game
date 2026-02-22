@@ -221,7 +221,7 @@ export class Act2Scene extends BaseGameScene {
    */
   giveNewEquipment() {
     const clothArmor = { id: 'cloth_armor', name: '布衣', type: 'equipment', subType: 'armor', rarity: 0, maxStack: 1, stats: { defense: 5, maxHp: 20 } };
-    const woodenSword = { id: 'wooden_sword', name: '木剑', type: 'equipment', subType: 'weapon', rarity: 0, maxStack: 1, stats: { attack: 10 } };
+    const woodenSword = { id: 'wooden_sword', name: '木剑', type: 'equipment', subType: 'weapon', rarity: 0, maxStack: 1, attackSpeed: 3, stats: { attack: 10 } };
 
     if (this.playerEntity) {
       const inventory = this.playerEntity.getComponent('inventory');

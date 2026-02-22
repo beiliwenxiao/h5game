@@ -879,7 +879,8 @@ export class WeaponRenderer {
           id: this.thrownWeapon.weaponId,
           name: '木棍', // 这里应该从配置中获取
           type: 'equipment',
-          subType: 'mainhand'
+          subType: 'mainhand',
+          attackSpeed: 3
         };
         equipment.slots.mainhand = weaponData;
       }

@@ -404,7 +404,7 @@ export class InventoryPanel extends UIElement {
     
     const item = slot.item;
     const tooltipWidth = 280;
-    const tooltipHeight = 180;
+    const tooltipHeight = 200;
     
     // 获取canvas尺寸
     const canvas = document.getElementById('gameCanvas');
@@ -548,6 +548,19 @@ export class InventoryPanel extends UIElement {
         ctx.fillText(`速度: +${item.stats.speed}`, tooltipX + 15, tooltipY + yOffset);
         yOffset += 12;
       }
+    }
+    
+    // 攻击间隔（武器特有属性）
+    if (item.attackSpeed != null) {
+      ctx.fillStyle = '#ffaa00';
+      ctx.font = '10px Arial';
+      ctx.fillText(`攻击间隔: ${item.attackSpeed}秒`, tooltipX + 15, tooltipY + yOffset);
+      yOffset += 12;
+    } else if (item.subType === 'mainhand' || item.subType === 'offhand' || item.subType === 'weapon') {
+      ctx.fillStyle = '#ffaa00';
+      ctx.font = '10px Arial';
+      ctx.fillText(`攻击间隔: 3秒`, tooltipX + 15, tooltipY + yOffset);
+      yOffset += 12;
     }
     
     // 物品价值

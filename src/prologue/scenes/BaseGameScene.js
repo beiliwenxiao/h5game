@@ -1161,46 +1161,43 @@ export class BaseGameScene extends PrologueScene {
   updateSliceAttack(mouseWorldPos, playerCenter, currentTime) {
     if (!this.inputManager || !this.combatSystem) return;
     
-    const isMouseDown = this.inputManager.isMouseDown();
-    const mouseButton = this.inputManager.getMouseButton();
-    
     // 清理过期的轨迹点
     this.sliceTrail = this.sliceTrail.filter(p => currentTime - p.time < this.sliceTrailMaxAge);
     
-    // 只在鼠标左键按住时进行滑动攻击
-    if (isMouseDown && mouseButton === 0) {
-      // 检查鼠标是否在攻击范围内（距离玩家）
-      const dx = mouseWorldPos.x - playerCenter.x;
-      const dy = mouseWorldPos.y - playerCenter.y;
-      const distToPlayer = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distToPlayer <= this.sliceAttackRange) {
-        // 开始或继续滑动
-        if (!this.isSlicing) {
-          this.isSlicing = true;
-          this.slicedEnemies.clear();
-        }
-        
-        // 添加轨迹点
-        const lastPoint = this.sliceTrail.length > 0 ? this.sliceTrail[this.sliceTrail.length - 1] : null;
-        const minDist = 5; // 最小移动距离才添加新点
-        if (!lastPoint || Math.hypot(mouseWorldPos.x - lastPoint.x, mouseWorldPos.y - lastPoint.y) > minDist) {
-          this.sliceTrail.push({
-            x: mouseWorldPos.x,
-            y: mouseWorldPos.y,
-            time: currentTime
-          });
-        }
-        
-        // 检测鼠标是否滑过敌人
-        this.checkSliceHits(mouseWorldPos, currentTime);
-      }
-    } else {
-      // 松开鼠标，结束滑动
-      if (this.isSlicing) {
-        this.isSlicing = false;
+    // 战斗状态下，鼠标在攻击范围内直接移动就能攻击（不需要按住鼠标）
+    const inCombat = this.combatState && this.combatState.inCombat;
+    if (!inCombat) {
+      this.isSlicing = false;
+      return;
+    }
+    
+    // 检查鼠标是否在攻击范围内（距离玩家）
+    const dx = mouseWorldPos.x - playerCenter.x;
+    const dy = mouseWorldPos.y - playerCenter.y;
+    const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distToPlayer <= this.sliceAttackRange) {
+      // 开始或继续滑动
+      if (!this.isSlicing) {
+        this.isSlicing = true;
         this.slicedEnemies.clear();
       }
+      
+      // 添加轨迹点
+      const lastPoint = this.sliceTrail.length > 0 ? this.sliceTrail[this.sliceTrail.length - 1] : null;
+      const minDist = 5;
+      if (!lastPoint || Math.hypot(mouseWorldPos.x - lastPoint.x, mouseWorldPos.y - lastPoint.y) > minDist) {
+        this.sliceTrail.push({
+          x: mouseWorldPos.x,
+          y: mouseWorldPos.y,
+          time: currentTime
+        });
+      }
+      
+      // 检测鼠标是否滑过敌人
+      this.checkSliceHits(mouseWorldPos, currentTime);
+    } else {
+      this.isSlicing = false;
     }
   }
 
@@ -1287,11 +1284,42 @@ export class BaseGameScene extends PrologueScene {
             this.skillEffects.createSkillEffect('basic_attack', playerTransform.position, targetTransform.position);
           }
         }
-        
-        // 选中被切到的敌人
-        this.combatSystem.selectTarget(entity);
       }
     }
+  }
+
+  /**
+   * 渲染战斗警示圆圈
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderCombatAlertCircle(ctx) {
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    
+    const sprite = this.playerEntity.getComponent('sprite');
+    const spriteHeight = sprite?.height || 64;
+    const cx = transform.position.x;
+    const cy = transform.position.y - spriteHeight / 2;
+    
+    ctx.save();
+    
+    // 虚线动画偏移（旋转效果）
+    const time = performance.now() / 1000;
+    const dashOffset = (time * 20) % 20;
+    
+    // 外圈 - 攻击范围警示（2.5D俯视椭圆，水平放平）
+    ctx.beginPath();
+    const rx = this.sliceAttackRange;
+    const ry = this.sliceAttackRange * 0.5; // 纵向压扁一半，模拟俯视透视
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 100, 100, 0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 5]);
+    ctx.lineDashOffset = -dashOffset;
+    ctx.stroke();
+    
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 
   /**
@@ -1316,8 +1344,12 @@ export class BaseGameScene extends PrologueScene {
       
       if (alpha <= 0) continue;
       
-      // 计算线段宽度（越新越粗）
-      const width = alpha * 6 + 1;
+      // 计算轨迹在整体中的位置（0=最旧, 1=最新）
+      const posRatio = i / this.sliceTrail.length;
+      // 宽度：从细到粗再消失（前段细，中段最粗，尾段渐消）
+      // 使用 sin 曲线：开头细 -> 中间粗 -> 结尾细
+      const widthCurve = Math.sin(posRatio * Math.PI);
+      const width = widthCurve * 5 * alpha + 0.5;
       
       // 绘制发光刀光
       ctx.beginPath();
@@ -1345,16 +1377,7 @@ export class BaseGameScene extends PrologueScene {
   }
 
   handleEnemySelection() {
-    if (this.inputManager.isMouseClicked() && !this.inputManager.isMouseClickHandled()) {
-      const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
-      const clickedEnemy = this.combatSystem.findEnemyAtPosition(mouseWorldPos, this.entities);
-      
-      if (clickedEnemy) {
-        this.combatSystem.selectTarget(clickedEnemy);
-      } else {
-        this.combatSystem.selectTarget(null);
-      }
-    }
+    // 不再需要选中敌人，使用滑动攻击
   }
 
   /**
@@ -2131,7 +2154,10 @@ export class BaseGameScene extends PrologueScene {
     this.renderWorldObjects(ctx);
     
     // 武器渲染已禁用 - 使用水果忍者式滑动攻击
-    // 渲染滑动刀光轨迹
+    // 渲染战斗警示圆圈和滑动刀光轨迹
+    if (this.combatState && this.combatState.inCombat && this.playerEntity) {
+      this.renderCombatAlertCircle(ctx);
+    }
     if (this.sliceTrail && this.sliceTrail.length > 1) {
       this.renderSliceTrail(ctx);
     }
@@ -2582,19 +2608,11 @@ export class BaseGameScene extends PrologueScene {
     const size = sprite?.width || 32;
     const height = sprite?.height || 32;
     
-    // 检查是否被选中
-    const isSelected = this.combatSystem && this.combatSystem.selectedTarget === entity;
+    // 检查是否被选中 - 已禁用（不再需要选中敌人）
+    // const isSelected = this.combatSystem && this.combatSystem.selectedTarget === entity;
     
     // 渲染精灵（使用底部中心锚点）
     if (sprite && sprite.visible) {
-      // 选中高亮框（浅色虚线透明框）
-      if (isSelected) {
-        ctx.strokeStyle = 'rgba(255, 255, 200, 0.35)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 3]);
-        ctx.strokeRect(x - size/2 - 3, y - height - 3, size + 6, height + 6);
-        ctx.setLineDash([]);
-      }
       
       let rendered = false;
       

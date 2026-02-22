@@ -364,10 +364,10 @@ export class CombatSystem {
     //   this.renderTargetHighlight(ctx, this.selectedTarget);
     // }
     
-    // 渲染目标框架UI
-    if (this.selectedTarget) {
-      this.renderTargetFrame(ctx, this.selectedTarget);
-    }
+    // 渲染目标框架UI - 已禁用（不再需要选中敌人）
+    // if (this.selectedTarget) {
+    //   this.renderTargetFrame(ctx, this.selectedTarget);
+    // }
     
     // 渲染伤害数字
     this.renderDamageNumbers(ctx);

@@ -35,7 +35,7 @@
       "level": 1,
       "description": "从地上捡到的树枝，勉强能当武器",
       "icon": "icon_wooden_stick",
-      "attackSpeed": 3,
+      "attackSpeed": 1.5,
       "attributes": {
         "attack": 3
       },

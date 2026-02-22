@@ -4,6 +4,7 @@
  */
 
 import { UIElement } from './UIElement.js';
+import { ItemIconRenderer } from './ItemIconRenderer.js';
 
 /**
  * 底部控制栏
@@ -42,14 +43,24 @@ export class BottomControlBar extends UIElement {
       glowColor: '#6699ff'
     };
     
-    // 技能槽配置（5个技能）
-    this.skillSlots = [
-      { x: this.width / 2 - 180, y: 50, size: 60, hotkey: '1', skillIndex: 0 },
-      { x: this.width / 2 - 90, y: 50, size: 60, hotkey: '2', skillIndex: 1 },
-      { x: this.width / 2, y: 50, size: 60, hotkey: '3', skillIndex: 2 },
-      { x: this.width / 2 + 90, y: 50, size: 60, hotkey: '4', skillIndex: 3 },
-      { x: this.width / 2 + 180, y: 50, size: 60, hotkey: '5', skillIndex: 4 }
-    ];
+    // 技能槽配置（5个技能 + 2个药水快捷槽）
+    const slotSize = 40;
+    const slotGap = 6;
+    const totalSlots = 7;
+    const totalWidth = totalSlots * slotSize + (totalSlots - 1) * slotGap;
+    const startX = this.width / 2 - totalWidth / 2 + slotSize / 2;
+    
+    this.skillSlots = [];
+    for (let i = 0; i < totalSlots; i++) {
+      this.skillSlots.push({
+        x: startX + i * (slotSize + slotGap),
+        y: 50,
+        size: slotSize,
+        hotkey: `${i + 1}`,
+        skillIndex: i,
+        isPotion: i >= 5 // 6、7号槽是药水槽
+      });
+    }
     
     // 悬停状态
     this.hoveredSlot = -1;
@@ -58,6 +69,7 @@ export class BottomControlBar extends UIElement {
     
     // 事件回调
     this.onSkillClick = options.onSkillClick || null;
+    this.onPotionUse = options.onPotionUse || null;
   }
 
   /**
@@ -274,7 +286,7 @@ export class BottomControlBar extends UIElement {
     if (!this.entity) return;
     
     const combat = this.entity.getComponent('combat');
-    if (!combat || !combat.skills) return;
+    const inventory = this.entity.getComponent('inventory');
     
     for (let i = 0; i < this.skillSlots.length; i++) {
       const slot = this.skillSlots[i];
@@ -282,31 +294,91 @@ export class BottomControlBar extends UIElement {
       const slotY = this.y + slot.y;
       const halfSize = slot.size / 2;
       
-      // 获取对应的技能（使用索引0-4）
-      const skill = combat.skills[slot.skillIndex];
-      
       const isHovered = this.hoveredSlot === i;
       
       // 槽位背景
       ctx.fillStyle = isHovered ? 'rgba(100, 100, 100, 0.8)' : 'rgba(50, 50, 50, 0.8)';
       ctx.fillRect(slotX - halfSize, slotY - halfSize, slot.size, slot.size);
       
-      // 槽位边框
-      ctx.strokeStyle = isHovered ? '#ffffff' : '#666';
-      ctx.lineWidth = 2;
+      // 槽位边框（药水槽用不同颜色）
+      if (slot.isPotion) {
+        const potionColor = i === 5 ? '#cc3333' : '#3366cc';
+        ctx.strokeStyle = isHovered ? '#ffffff' : potionColor;
+      } else {
+        ctx.strokeStyle = isHovered ? '#ffffff' : '#666';
+      }
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(slotX - halfSize, slotY - halfSize, slot.size, slot.size);
       
-      // 渲染技能
-      if (skill) {
-        this.renderSkill(ctx, skill, slotX, slotY, slot.size, combat);
+      // 渲染内容
+      if (slot.isPotion) {
+        this.renderPotionSlot(ctx, slotX, slotY, slot.size, i, inventory);
+      } else if (combat && combat.skills) {
+        const skill = combat.skills[slot.skillIndex];
+        if (skill) {
+          this.renderSkill(ctx, skill, slotX, slotY, slot.size, combat);
+        }
       }
       
       // 快捷键提示
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 12px Arial';
+      ctx.fillStyle = '#aaaaaa';
+      ctx.font = '10px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 15);
+      ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 12);
     }
+  }
+
+  /**
+   * 渲染药水快捷槽
+   */
+  renderPotionSlot(ctx, x, y, size, slotIndex, inventory) {
+    const isHealth = slotIndex === 5;
+    const effectType = isHealth ? 'heal' : 'restore_mana';
+    
+    // 查找背包中对应效果的消耗品（第一个匹配的物品 + 总数量）
+    let potionCount = 0;
+    let potionItem = null;
+    if (inventory) {
+      const items = inventory.getAllItems();
+      for (const { slot } of items) {
+        if (slot.item && slot.item.type === 'consumable' && slot.item.usable &&
+            slot.item.effect && slot.item.effect.type === effectType) {
+          if (!potionItem) potionItem = slot.item;
+          potionCount += slot.quantity;
+        }
+      }
+    }
+    
+    ctx.save();
+    
+    if (potionCount > 0 && potionItem) {
+      // 使用 ItemIconRenderer 绘制实际物品图标
+      ItemIconRenderer.drawIcon(ctx, potionItem, x, y, size * 0.8);
+      
+      // 数量
+      ctx.font = 'bold 11px Arial';
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2;
+      const countText = `${potionCount}`;
+      const countX = x + size / 2 - 3;
+      const countY = y + size / 2 - 4;
+      ctx.strokeText(countText, countX, countY);
+      ctx.fillText(countText, countX, countY);
+    } else {
+      // 空槽 - 半透明占位图标
+      ctx.globalAlpha = 0.3;
+      const placeholderItem = {
+        id: isHealth ? 'health_potion' : 'mana_potion',
+        type: 'consumable',
+        effect: { type: effectType }
+      };
+      ItemIconRenderer.drawIcon(ctx, placeholderItem, x, y, size * 0.8);
+      ctx.globalAlpha = 1.0;
+    }
+    
+    ctx.restore();
   }
 
   /**
@@ -373,126 +445,27 @@ export class BottomControlBar extends UIElement {
   renderSkillIcon(ctx, skill, x, y, size) {
     const halfSize = size / 2;
     
-    // 根据技能类型显示不同图标
     ctx.save();
     ctx.translate(x, y);
     
-    if (skill.effectType === 'flame_palm') {
-      // 火焰掌 - 火焰图标
-      ctx.fillStyle = '#ff6600';
-      ctx.beginPath();
-      ctx.arc(0, 0, 15, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffaa00';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🔥', 0, 0);
-    } else if (skill.effectType === 'ice_finger') {
-      // 寒冰指 - 蓝色光束图标
-      ctx.fillStyle = '#1eeefcff';
-      ctx.beginPath();
-      ctx.moveTo(0, -15);
-      ctx.lineTo(5, 0);
-      ctx.lineTo(0, 15);
-      ctx.lineTo(-5, 0);
-      ctx.closePath();
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('☀', 0, 0);
-    } else if (skill.effectType === 'inferno_palm') {
-      // 烈焰掌 - 爆炸图标
-      ctx.fillStyle = '#ff0000';
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(angle) * 8, Math.sin(angle) * 8, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      
-      ctx.fillStyle = '#ffff00';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('💥', 0, 0);
-    } else if (skill.effectType === 'heal') {
-      // 治疗 - 绿色十字图标
-      ctx.fillStyle = '#00ff00';
-      ctx.fillRect(-3, -15, 6, 30);
-      ctx.fillRect(-15, -3, 30, 6);
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('💚', 0, 0);
-    } else if (skill.effectType === 'meditation') {
-      // 打坐 - 烟雾图标
-      ctx.fillStyle = '#88ccff';
-      ctx.beginPath();
-      ctx.arc(-8, 0, 8, 0, Math.PI * 2);
-      ctx.arc(0, -5, 8, 0, Math.PI * 2);
-      ctx.arc(8, 0, 8, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🧘', 0, 0);
-    } else if (skill.effectType === 'fireball') {
-      // 火球术 - 火焰图标（旧技能）
-      ctx.fillStyle = '#ff6600';
-      ctx.beginPath();
-      ctx.arc(0, 0, 15, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffaa00';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🔥', 0, 0);
-    } else if (skill.effectType === 'ice_lance') {
-      // 寒冰箭 - 冰晶图标（旧技能）
-      ctx.fillStyle = '#00ccff';
-      ctx.beginPath();
-      ctx.moveTo(0, -15);
-      ctx.lineTo(10, 0);
-      ctx.lineTo(0, 15);
-      ctx.lineTo(-10, 0);
-      ctx.closePath();
-      ctx.fill();
-      
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('❄', 0, 0);
-    } else if (skill.effectType === 'flame_burst') {
-      // 烈焰爆发 - 爆炸图标（旧技能）
-      ctx.fillStyle = '#ff0000';
-      for (let i = 0; i < 8; i++) {
-        const angle = (i / 8) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.arc(Math.cos(angle) * 8, Math.sin(angle) * 8, 5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      
-      ctx.fillStyle = '#ffff00';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('💥', 0, 0);
-    } else {
-      // 默认图标
-      ctx.fillStyle = '#888888';
-      ctx.fillRect(-halfSize + 5, -halfSize + 5, size - 10, size - 10);
-    }
+    // 技能图标映射表（纯 emoji，简洁好看）
+    const iconMap = {
+      'flame_palm': '🔥',
+      'fireball': '🔥',
+      'ice_finger': '❄',
+      'ice_lance': '❄',
+      'inferno_palm': '💥',
+      'flame_burst': '💥',
+      'heal': '💚',
+      'meditation': '🧘'
+    };
+    
+    const emoji = iconMap[skill.effectType] || '⚡';
+    
+    ctx.font = `${size * 0.55}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 0, 0);
     
     ctx.restore();
   }
@@ -543,6 +516,16 @@ export class BottomControlBar extends UIElement {
       if (x >= slotX - halfSize && x <= slotX + halfSize &&
           y >= slotY - halfSize && y <= slotY + halfSize) {
         
+        // 药水槽
+        if (slot.isPotion) {
+          if (this.onPotionUse) {
+            const potionType = i === 5 ? 'health' : 'mana';
+            this.onPotionUse(potionType);
+          }
+          return true;
+        }
+        
+        // 技能槽
         if (this.onSkillClick && this.entity) {
           const combat = this.entity.getComponent('combat');
           if (combat && combat.skills) {

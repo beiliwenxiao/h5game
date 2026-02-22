@@ -133,6 +133,9 @@ export class BaseGameScene extends PrologueScene {
     this.pickupItems = [];
     this.equipmentItems = [];
     
+    // 幕数据（从 ActXData.json 加载）
+    this.actData = null;
+    
     // 教程状态
     this.tutorialPhase = 'init';
     
@@ -240,6 +243,11 @@ export class BaseGameScene extends PrologueScene {
       this.onSkillClicked(skill);
     };
     
+    // 设置药水快捷键回调
+    this.combatSystem.onPotionUse = (potionType) => {
+      this.usePotionFromHotbar(potionType);
+    };
+    
     // 设置掉落回调
     this.combatSystem.setLootDropCallback((position, lootItems) => {
       this.spawnLootItems(position, lootItems);
@@ -275,6 +283,32 @@ export class BaseGameScene extends PrologueScene {
     }
     
     console.log(`BaseGameScene: 进入场景 ${this.name}`);
+    
+    // 异步加载幕数据（从 ActXData.json）
+    this.loadActData();
+  }
+
+  /**
+   * 异步加载幕数据
+   * 从 ActXData.json 加载当前幕的配置数据
+   */
+  loadActData() {
+    const actNumber = this.actNumber;
+    const url = `src/prologue/data/Act${actNumber}Data.json`;
+    
+    fetch(url)
+      .then(response => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then(data => {
+        this.actData = data;
+        console.log(`BaseGameScene: 加载幕数据成功 Act${actNumber}`, data);
+      })
+      .catch(error => {
+        console.warn(`BaseGameScene: 加载幕数据失败 Act${actNumber}`, error);
+        this.actData = null;
+      });
   }
 
   /**
@@ -337,6 +371,9 @@ export class BaseGameScene extends PrologueScene {
       visible: true,
       onSkillClick: (skill) => {
         this.onSkillClicked(skill);
+      },
+      onPotionUse: (potionType) => {
+        this.usePotionFromHotbar(potionType);
       }
     });
     
@@ -472,6 +509,51 @@ export class BaseGameScene extends PrologueScene {
       currentTime,
       this.entities
     );
+  }
+
+  /**
+   * 从快捷栏使用药水
+   * @param {string} potionType - 'health' 或 'mana'
+   */
+  usePotionFromHotbar(potionType) {
+    if (!this.playerEntity) return;
+    
+    const inventory = this.playerEntity.getComponent('inventory');
+    const stats = this.playerEntity.getComponent('stats');
+    if (!inventory || !stats) return;
+    
+    const effectType = potionType === 'health' ? 'heal' : 'restore_mana';
+    
+    // 在背包中查找对应效果的消耗品
+    const items = inventory.getAllItems();
+    let potionSlotIndex = -1;
+    
+    for (const { slot, index } of items) {
+      if (slot.item && slot.item.type === 'consumable' && slot.item.usable &&
+          slot.item.effect && slot.item.effect.type === effectType) {
+        potionSlotIndex = index;
+        break;
+      }
+    }
+    
+    if (potionSlotIndex === -1) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform && this.floatingTextManager) {
+        const name = potionType === 'health' ? '生命药水' : '魔法药水';
+        this.floatingTextManager.addText(
+          transform.position.x,
+          transform.position.y - 50,
+          `没有${name}`,
+          '#ff6666'
+        );
+      }
+      return;
+    }
+    
+    // 复用 InventoryPanel 的使用逻辑
+    if (this.inventoryPanel) {
+      this.inventoryPanel.useItem(potionSlotIndex);
+    }
   }
 
   /**

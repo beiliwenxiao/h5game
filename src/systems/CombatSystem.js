@@ -54,13 +54,19 @@ export class CombatSystem {
     // 伤害数字列表
     this.damageNumbers = [];
     
-    // 技能快捷键映射（5个技能）
+    // 技能快捷键映射（5个技能 + 2个药水）
     this.skillKeyMap = {
       'skill1': 0,
       'skill2': 1,
       'skill3': 2,
       'skill4': 3,
       'skill5': 4
+    };
+    
+    // 药水快捷键映射
+    this.potionKeyMap = {
+      'skill6': 'health',
+      'skill7': 'mana'
     };
     
     // 格挡状态：记录哪些敌人的攻击被格挡了
@@ -1083,6 +1089,15 @@ export class CombatSystem {
     
     const combat = this.playerEntity.getComponent('combat');
     if (!combat) return;
+    
+    // 检查药水快捷键
+    for (const [key, potionType] of Object.entries(this.potionKeyMap)) {
+      if (this.inputManager.isKeyPressed(key)) {
+        if (this.onPotionUse) {
+          this.onPotionUse(potionType);
+        }
+      }
+    }
     
     // 检查技能快捷键
     for (const [key, index] of Object.entries(this.skillKeyMap)) {

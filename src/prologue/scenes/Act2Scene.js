@@ -193,16 +193,23 @@ export class Act2Scene extends BaseGameScene {
    * 给予符水物品
    */
   giveTalismanWater() {
-    const talismanWater = {
-      id: 'talisman_water',
-      name: '符水',
-      type: 'consumable',
-      usable: true,
-      maxStack: 10,
-      rarity: 1,
-      description: '张角的符水，可以恢复50点生命值',
-      effect: { type: 'heal', value: 50 }
-    };
+    let talismanWater;
+    
+    if (this.actData && this.actData.rewards && this.actData.rewards.talisman_water) {
+      talismanWater = { ...this.actData.rewards.talisman_water };
+    } else {
+      // fallback
+      talismanWater = {
+        id: 'talisman_water',
+        name: '符水',
+        type: 'consumable',
+        usable: true,
+        maxStack: 10,
+        rarity: 1,
+        description: '张角的符水，可以恢复50点生命值',
+        effect: { type: 'heal', value: 50 }
+      };
+    }
 
     if (this.playerEntity) {
       const inventory = this.playerEntity.getComponent('inventory');
@@ -213,27 +220,38 @@ export class Act2Scene extends BaseGameScene {
 
     this.talismanWaterGiven = true;
     this.waitingForTalismanUse = true;
-    this.notify('得到 符水x1', 'success');
+    this.notify(`得到 ${talismanWater.name}x1`, 'success');
   }
 
   /**
-   * 给予新装备
+   * 给予新装备（从 ActData.json 读取）
    */
   giveNewEquipment() {
-    const clothArmor = { id: 'cloth_armor', name: '布衣', type: 'equipment', subType: 'armor', rarity: 0, maxStack: 1, stats: { defense: 5, maxHp: 20 } };
-    const woodenSword = { id: 'wooden_sword', name: '木剑', type: 'equipment', subType: 'weapon', rarity: 0, maxStack: 1, attackSpeed: 3, stats: { attack: 10 } };
+    let equipmentList;
+    
+    if (this.actData && this.actData.rewards && this.actData.rewards.equipment) {
+      equipmentList = this.actData.rewards.equipment.map(e => ({ ...e }));
+    } else {
+      // fallback
+      equipmentList = [
+        { id: 'cloth_armor', name: '布衣', type: 'equipment', subType: 'armor', rarity: 0, maxStack: 1, stats: { defense: 5, maxHp: 20 } },
+        { id: 'wooden_sword', name: '木剑', type: 'equipment', subType: 'weapon', rarity: 0, maxStack: 1, attackSpeed: 3, stats: { attack: 10 } }
+      ];
+    }
 
     if (this.playerEntity) {
       const inventory = this.playerEntity.getComponent('inventory');
       if (inventory) {
-        inventory.addItem(clothArmor, 1);
-        inventory.addItem(woodenSword, 1);
+        for (const equip of equipmentList) {
+          inventory.addItem(equip, 1);
+        }
       }
     }
     
     this.hasReceivedEquipment = true;
-    this.notify('得到 布衣x1', 'success');
-    setTimeout(() => this.notify('得到 木剑x1', 'success'), 500);
+    equipmentList.forEach((equip, index) => {
+      setTimeout(() => this.notify(`得到 ${equip.name}x1`, 'success'), index * 500);
+    });
   }
 
   /**

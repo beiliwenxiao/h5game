@@ -265,73 +265,91 @@ export class Act1SceneECS extends BaseGameScene {
   }
 
   /**
-   * 生成可拾取物品（第一批：只有残羹）
+   * 生成可拾取物品（从 ActData.json 读取）
    */
   spawnPickupItems() {
-    const items = [
-      { 
-        id: 'leftover_food', 
-        name: '残羹', 
-        type: 'consumable', 
-        x: 250, 
-        y: 300, 
-        heal: 20,
-        description: '剩余的食物，可以恢复少量生命值',
-        rarity: 0,
-        maxStack: 10,
-        usable: true,
-        effect: {
-          type: 'heal',
-          value: 20
+    let items = [];
+
+    if (this.actData && this.actData.pickupItems) {
+      items = this.actData.pickupItems.map(item => ({
+        ...item,
+        x: item.position ? item.position.x : item.x,
+        y: item.position ? item.position.y : item.y
+      }));
+    } else {
+      // fallback：数据未加载时使用默认值
+      console.warn('Act1SceneECS: actData未加载，使用默认物品数据');
+      items = [
+        { 
+          id: 'leftover_food', 
+          name: '残羹', 
+          type: 'consumable', 
+          x: 250, 
+          y: 300, 
+          heal: 20,
+          description: '剩余的食物，可以恢复少量生命值',
+          rarity: 0,
+          maxStack: 10,
+          usable: true,
+          effect: { type: 'heal', value: 20 }
         }
-      }
-    ];
-    
+      ];
+    }
+
     for (const item of items) {
       this.pickupItems.push({
         ...item,
         picked: false
       });
     }
-    
-    console.log('Act1SceneECS: 生成第一批拾取物品（残羹）', this.pickupItems);
+
+    console.log('Act1SceneECS: 生成拾取物品', this.pickupItems);
   }
 
+
   /**
-   * 生成装备物品（第二批：武器和护甲）
+   * 生成装备物品（从 ActData.json 读取）
    */
   spawnEquipmentItems() {
-    const items = [
-      { 
-        id: 'ragged_clothes', 
-        name: '破旧衣服', 
-        type: 'equipment',
-        subType: 'armor',
-        x: 200, 
-        y: 200,
-        stats: {
-          defense: 2
+    let items = [];
+    
+    if (this.actData && this.actData.equipmentItems) {
+      items = this.actData.equipmentItems.map(item => ({
+        ...item,
+        x: item.position ? item.position.x : item.x,
+        y: item.position ? item.position.y : item.y
+      }));
+    } else {
+      // fallback：数据未加载时使用默认值
+      console.warn('Act1SceneECS: actData未加载，使用默认装备数据');
+      items = [
+        { 
+          id: 'ragged_clothes', 
+          name: '破旧衣服', 
+          type: 'equipment',
+          subType: 'armor',
+          x: 200, 
+          y: 200,
+          stats: { defense: 2 },
+          description: '破旧的衣服，聊胜于无',
+          rarity: 0,
+          maxStack: 1
         },
-        description: '破旧的衣服，聊胜于无',
-        rarity: 0,
-        maxStack: 1
-      },
-      { 
-        id: 'wooden_stick', 
-        name: '树棍', 
-        type: 'equipment',
-        subType: 'mainhand',  // 改为 mainhand，直接对应装备槽位
-        x: 300, 
-        y: 250,
-        attackSpeed: 3,
-        stats: {
-          attack: 5
-        },
-        description: '简陋的木棍，可以用来防身',
-        rarity: 0,
-        maxStack: 1
-      }
-    ];
+        { 
+          id: 'wooden_stick', 
+          name: '树棍', 
+          type: 'equipment',
+          subType: 'mainhand',
+          x: 300, 
+          y: 250,
+          attackSpeed: 1.5,
+          stats: { attack: 5 },
+          description: '简陋的木棍，可以用来防身',
+          rarity: 0,
+          maxStack: 1
+        }
+      ];
+    }
     
     for (const item of items) {
       this.equipmentItems.push({
@@ -340,7 +358,7 @@ export class Act1SceneECS extends BaseGameScene {
       });
     }
     
-    console.log('Act1SceneECS: 生成第二批拾取物品（装备）', this.equipmentItems);
+    console.log('Act1SceneECS: 生成装备物品', this.equipmentItems);
   }
 
   /**

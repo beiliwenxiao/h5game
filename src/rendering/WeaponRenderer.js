@@ -880,7 +880,7 @@ export class WeaponRenderer {
           name: '木棍', // 这里应该从配置中获取
           type: 'equipment',
           subType: 'mainhand',
-          attackSpeed: 3
+          attackSpeed: 1.5
         };
         equipment.slots.mainhand = weaponData;
       }

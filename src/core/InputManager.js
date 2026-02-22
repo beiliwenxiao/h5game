@@ -46,6 +46,7 @@ export class InputManager {
             '4': 'skill4',
             '5': 'skill5',
             '6': 'skill6',
+            '7': 'skill7',
             
             // 其他功能键
             ' ': 'space',

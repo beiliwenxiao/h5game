@@ -908,7 +908,7 @@ export class BaseGameScene extends PrologueScene {
    * 检查实体之间的碰撞（玩家与敌人）
    */
   checkEntityCollisions() {
-    const aliveEntities = this.entities.filter(e => !e.isDead && !e.isDying);
+    const aliveEntities = this.entities.filter(e => !e.isDead && !e.isDying && (e.type === 'player' || e.type === 'enemy'));
     const entityRadius = 20;
     const collisionWidthRatio = 0.8;
     const collisionHeightRatio = 0.75;

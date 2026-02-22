@@ -2992,9 +2992,9 @@ export class CombatSystem {
     ctx.setLineDash([8, 6]);
     ctx.lineDashOffset = -indicator.dashOffset;
 
-    // 虚线圆圈
+    // 2.5D椭圆（纵向压扁0.5，模拟俯视透视）
     ctx.beginPath();
-    ctx.arc(indicator.x, indicator.y, indicator.radius, 0, Math.PI * 2);
+    ctx.ellipse(indicator.x, indicator.y, indicator.radius, indicator.radius * 0.5, 0, 0, Math.PI * 2);
     ctx.stroke();
 
     // 技能名称
@@ -3003,7 +3003,7 @@ export class CombatSystem {
     ctx.fillStyle = indicator.color;
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(indicator.skillName, indicator.x, indicator.y - indicator.radius - 8);
+    ctx.fillText(indicator.skillName, indicator.x, indicator.y - indicator.radius * 0.5 - 8);
     ctx.restore();
   }
 
@@ -3027,22 +3027,26 @@ export class CombatSystem {
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 1) { ctx.restore(); return; }
 
-    const nx = -dy / dist; // 法线方向
+    // 2.5D法线：Y方向压扁0.5模拟俯视透视
+    const nx = -dy / dist;
     const ny = dx / dist;
     const hw = indicator.pathWidth; // 半宽
+    // 应用2.5D压扁到法线的Y分量
+    const nx25d = nx;
+    const ny25d = ny * 0.5;
 
-    // 绘制路径矩形（虚线边框）
+    // 绘制路径矩形（2.5D虚线边框）
     ctx.beginPath();
-    ctx.moveTo(indicator.startX + nx * hw, indicator.startY + ny * hw);
-    ctx.lineTo(indicator.endX + nx * hw, indicator.endY + ny * hw);
-    ctx.lineTo(indicator.endX - nx * hw, indicator.endY - ny * hw);
-    ctx.lineTo(indicator.startX - nx * hw, indicator.startY - ny * hw);
+    ctx.moveTo(indicator.startX + nx25d * hw, indicator.startY + ny25d * hw);
+    ctx.lineTo(indicator.endX + nx25d * hw, indicator.endY + ny25d * hw);
+    ctx.lineTo(indicator.endX - nx25d * hw, indicator.endY - ny25d * hw);
+    ctx.lineTo(indicator.startX - nx25d * hw, indicator.startY - ny25d * hw);
     ctx.closePath();
     ctx.stroke();
 
-    // 终点AOE圆圈
+    // 终点AOE椭圆（2.5D）
     ctx.beginPath();
-    ctx.arc(indicator.endX, indicator.endY, indicator.endRadius, 0, Math.PI * 2);
+    ctx.ellipse(indicator.endX, indicator.endY, indicator.endRadius, indicator.endRadius * 0.5, 0, 0, Math.PI * 2);
     ctx.stroke();
 
     // 技能名称
@@ -3051,7 +3055,7 @@ export class CombatSystem {
     ctx.fillStyle = indicator.color;
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(indicator.skillName, indicator.endX, indicator.endY - indicator.endRadius - 8);
+    ctx.fillText(indicator.skillName, indicator.endX, indicator.endY - indicator.endRadius * 0.5 - 8);
     ctx.restore();
   }
 }

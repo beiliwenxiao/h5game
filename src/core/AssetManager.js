@@ -320,7 +320,7 @@ export class AssetManager {
     loadPlaceholderAssets() {
         console.log('AssetManager: Loading placeholder assets...');
 
-        // 加载4x9动画精灵（玩家角色）
+        // 加载4x8动画精灵（玩家角色）
         this.loadAnimatedSpriteImage('player_animated', 'assets/girl.png');
 
         // 九宫格方向精灵（用于玩家）
@@ -335,7 +335,14 @@ export class AssetManager {
             this.images.set(`character_${className}`, sprite);
         });
 
-        // 敌人精灵
+        // 敌人精灵（4x8动画格式）
+        const animatedEnemyTypes = ['wild_dog', 'soldier', 'government_soldier', 'bandit', 'starving', 'refugee'];
+        animatedEnemyTypes.forEach(enemyType => {
+            const sprite = this.placeholderAssets.createAnimatedEnemySprite(enemyType, 64);
+            this.images.set(`enemy_animated_${enemyType}`, sprite);
+        });
+
+        // 敌人精灵（旧格式备用）
         const enemyTypes = ['slime', 'goblin', 'skeleton'];
         enemyTypes.forEach(enemyType => {
             const sprite = this.placeholderAssets.createEnemySprite(enemyType, 64);

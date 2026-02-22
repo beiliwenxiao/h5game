@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * 对话框组件 (DialogueBox)
  * 需求: 6, 9, 35
  */
@@ -57,6 +57,14 @@ export class DialogueBox extends UIElement {
     this.showContinuePrompt = false;
     this.continuePromptAlpha = 0;
     this.continuePromptDirection = 1;
+    
+    // 预加载张角头像图片
+    this.zhangjiaoImage = new Image();
+    this.zhangjiaoImage.src = 'assets/zhangjiao.png';
+    
+    // 预加载主角头像图片
+    this.playerImage = new Image();
+    this.playerImage.src = 'assets/zhujiao.png';
     
     console.log('DialogueBox: 初始化完成');
   }
@@ -194,6 +202,31 @@ export class DialogueBox extends UIElement {
    * 绘制张角头像
    */
   drawZhangjiaoPortrait(ctx) {
+    // 优先使用图片
+    if (this.zhangjiaoImage && this.zhangjiaoImage.complete && this.zhangjiaoImage.naturalWidth > 0) {
+      const size = this.portraitSize - 10;
+      const halfSize = size / 2;
+      // 裁剪为圆角矩形
+      ctx.save();
+      const radius = 8;
+      ctx.beginPath();
+      ctx.moveTo(-halfSize + radius, -halfSize);
+      ctx.lineTo(halfSize - radius, -halfSize);
+      ctx.quadraticCurveTo(halfSize, -halfSize, halfSize, -halfSize + radius);
+      ctx.lineTo(halfSize, halfSize - radius);
+      ctx.quadraticCurveTo(halfSize, halfSize, halfSize - radius, halfSize);
+      ctx.lineTo(-halfSize + radius, halfSize);
+      ctx.quadraticCurveTo(-halfSize, halfSize, -halfSize, halfSize - radius);
+      ctx.lineTo(-halfSize, -halfSize + radius);
+      ctx.quadraticCurveTo(-halfSize, -halfSize, -halfSize + radius, -halfSize);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(this.zhangjiaoImage, -halfSize, -halfSize, size, size);
+      ctx.restore();
+      return;
+    }
+
+    // 回退：canvas 绘制
     // 脸部（圆形）
     ctx.fillStyle = '#f4d4a8';
     ctx.beginPath();
@@ -280,6 +313,30 @@ export class DialogueBox extends UIElement {
    * 绘制玩家头像
    */
   drawPlayerPortrait(ctx) {
+    // 优先使用图片
+    if (this.playerImage && this.playerImage.complete && this.playerImage.naturalWidth > 0) {
+      const size = this.portraitSize - 10;
+      const halfSize = size / 2;
+      ctx.save();
+      const radius = 8;
+      ctx.beginPath();
+      ctx.moveTo(-halfSize + radius, -halfSize);
+      ctx.lineTo(halfSize - radius, -halfSize);
+      ctx.quadraticCurveTo(halfSize, -halfSize, halfSize, -halfSize + radius);
+      ctx.lineTo(halfSize, halfSize - radius);
+      ctx.quadraticCurveTo(halfSize, halfSize, halfSize - radius, halfSize);
+      ctx.lineTo(-halfSize + radius, halfSize);
+      ctx.quadraticCurveTo(-halfSize, halfSize, -halfSize, halfSize - radius);
+      ctx.lineTo(-halfSize, -halfSize + radius);
+      ctx.quadraticCurveTo(-halfSize, -halfSize, -halfSize + radius, -halfSize);
+      ctx.closePath();
+      ctx.clip();
+      ctx.drawImage(this.playerImage, -halfSize, -halfSize, size, size);
+      ctx.restore();
+      return;
+    }
+
+    // 回退：canvas 绘制
     // 脸部（圆形，略显憔悴）
     ctx.fillStyle = '#e8c4a0';
     ctx.beginPath();

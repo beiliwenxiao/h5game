@@ -12,7 +12,7 @@ export class WeaponRenderer {
         width: 8,
         color: '#8B4513',
         type: 'melee',
-        attackRange: 1,  // 攻击范围倍率（武器长度的1倍）
+        attackRange: 1.5,  // 攻击范围倍率（武器长度的1.5倍，匹配视觉范围）
         throwRange: 10,  // 投掷范围倍率（武器长度的10倍）
         attackSpeed: 1.0 // 每秒攻击1次
       },

@@ -68,6 +68,17 @@ export class BaseGameScene extends PrologueScene {
     this.weaponRenderer = null;
     this.enemyWeaponRenderer = null;
     this.flightSystem = null;
+    
+    // 水果忍者式滑动攻击系统
+    this.sliceTrail = []; // 滑动轨迹点 [{x, y, time}]
+    this.sliceTrailMaxAge = 0.3; // 轨迹最大存活时间（秒）
+    this.isSlicing = false; // 是否正在滑动攻击
+    this.slicedEnemies = new Set(); // 本次滑动已经切到的敌人（防止重复伤害）
+    this.sliceAttackRange = 150; // 滑动攻击范围（鼠标距离玩家的最大距离）
+    this.sliceHitRadius = 40; // 切割命中半径（鼠标距离敌人多近算命中）
+    this.sliceCooldowns = new Map(); // 每个敌人的切割冷却 entityId -> lastSliceTime
+    this.sliceCooldownTime = 0.5; // 对同一敌人的切割冷却（秒）
+    
     this.uiClickHandler = new UIClickHandler();
     
     // 性能优化系统
@@ -502,9 +513,9 @@ export class BaseGameScene extends PrologueScene {
    * 创建玩家实体 - 子类可覆盖
    */
   createPlayerEntity() {
-    // 玩家初始位置在火堆右下方半个屏幕（火堆位置是 350, 250）
-    const startX = 650;  // 火堆x + 300
-    const startY = 550;  // 火堆y + 300
+    // 玩家初始位置在火堆附近（火堆位置是 350, 250）
+    const startX = 420;  // 火堆x + 70
+    const startY = 330;  // 火堆y + 80
     
     this.playerEntity = this.entityFactory.createPlayer({
       name: '玩家',
@@ -691,13 +702,12 @@ export class BaseGameScene extends PrologueScene {
     // 更新相机
     this.camera.update(deltaTime);
     
-    // 更新武器渲染器的鼠标角度
+    // 更新武器渲染器的鼠标角度（保留用于攻击范围计算）
     if (this.weaponRenderer && this.playerEntity && this.inputManager) {
       const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
       const transform = this.playerEntity.getComponent('transform');
       if (transform) {
-        const currentTime = performance.now() / 1000; // 转换为秒
-        // 使用人物中心位置（脚底上移半个精灵高度）
+        const currentTime = performance.now() / 1000;
         const sprite = this.playerEntity.getComponent('sprite');
         const spriteHeight = sprite?.height || 64;
         const playerCenter = {
@@ -706,10 +716,8 @@ export class BaseGameScene extends PrologueScene {
         };
         this.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
         
-        // 检测攻击（鼠标移动时自动攻击）
-        if (this.weaponRenderer.canAutoAttack(currentTime, this.playerEntity)) {
-          this.handleAutoAttack(currentTime);
-        }
+        // 水果忍者式滑动攻击检测
+        this.updateSliceAttack(mouseWorldPos, playerCenter, currentTime);
       }
     }
     
@@ -1144,6 +1152,198 @@ export class BaseGameScene extends PrologueScene {
   /**
    * 处理敌人选中
    */
+  /**
+   * 水果忍者式滑动攻击更新
+   * @param {Object} mouseWorldPos - 鼠标世界坐标
+   * @param {Object} playerCenter - 玩家中心坐标
+   * @param {number} currentTime - 当前时间（秒）
+   */
+  updateSliceAttack(mouseWorldPos, playerCenter, currentTime) {
+    if (!this.inputManager || !this.combatSystem) return;
+    
+    const isMouseDown = this.inputManager.isMouseDown();
+    const mouseButton = this.inputManager.getMouseButton();
+    
+    // 清理过期的轨迹点
+    this.sliceTrail = this.sliceTrail.filter(p => currentTime - p.time < this.sliceTrailMaxAge);
+    
+    // 只在鼠标左键按住时进行滑动攻击
+    if (isMouseDown && mouseButton === 0) {
+      // 检查鼠标是否在攻击范围内（距离玩家）
+      const dx = mouseWorldPos.x - playerCenter.x;
+      const dy = mouseWorldPos.y - playerCenter.y;
+      const distToPlayer = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distToPlayer <= this.sliceAttackRange) {
+        // 开始或继续滑动
+        if (!this.isSlicing) {
+          this.isSlicing = true;
+          this.slicedEnemies.clear();
+        }
+        
+        // 添加轨迹点
+        const lastPoint = this.sliceTrail.length > 0 ? this.sliceTrail[this.sliceTrail.length - 1] : null;
+        const minDist = 5; // 最小移动距离才添加新点
+        if (!lastPoint || Math.hypot(mouseWorldPos.x - lastPoint.x, mouseWorldPos.y - lastPoint.y) > minDist) {
+          this.sliceTrail.push({
+            x: mouseWorldPos.x,
+            y: mouseWorldPos.y,
+            time: currentTime
+          });
+        }
+        
+        // 检测鼠标是否滑过敌人
+        this.checkSliceHits(mouseWorldPos, currentTime);
+      }
+    } else {
+      // 松开鼠标，结束滑动
+      if (this.isSlicing) {
+        this.isSlicing = false;
+        this.slicedEnemies.clear();
+      }
+    }
+  }
+
+  /**
+   * 检测滑动是否命中敌人
+   * @param {Object} mouseWorldPos - 鼠标世界坐标
+   * @param {number} currentTime - 当前时间（秒）
+   */
+  checkSliceHits(mouseWorldPos, currentTime) {
+    if (!this.playerEntity || !this.combatSystem) return;
+    
+    const playerStats = this.playerEntity.getComponent('stats');
+    if (!playerStats) return;
+    
+    // 计算鼠标移动速度（需要至少2个轨迹点）
+    let mouseSpeed = 0;
+    if (this.sliceTrail.length >= 2) {
+      const p1 = this.sliceTrail[this.sliceTrail.length - 2];
+      const p2 = this.sliceTrail[this.sliceTrail.length - 1];
+      const dt = p2.time - p1.time;
+      if (dt > 0) {
+        const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        mouseSpeed = dist / dt; // 像素/秒
+      }
+    }
+    
+    // 速度太慢不造成伤害（需要快速滑动）
+    const minSpeed = 100; // 像素/秒
+    if (mouseSpeed < minSpeed) return;
+    
+    for (const entity of this.entities) {
+      if (entity.type !== 'enemy') continue;
+      if (entity.isDead || entity.isDying) continue;
+      
+      const targetTransform = entity.getComponent('transform');
+      const targetStats = entity.getComponent('stats');
+      if (!targetTransform || !targetStats || targetStats.hp <= 0) continue;
+      
+      // 检查冷却
+      const lastSlice = this.sliceCooldowns.get(entity.id);
+      if (lastSlice && currentTime - lastSlice < this.sliceCooldownTime) continue;
+      
+      // 检测鼠标是否在敌人附近
+      const ex = targetTransform.position.x;
+      const ey = targetTransform.position.y - 32; // 敌人中心偏上
+      const dist = Math.hypot(mouseWorldPos.x - ex, mouseWorldPos.y - ey);
+      
+      if (dist <= this.sliceHitRadius) {
+        // 命中！计算伤害
+        const baseDamage = playerStats.attack || 15;
+        // 速度越快伤害越高，基础倍率 0.5 ~ 2.0
+        const speedMultiplier = Math.min(2.0, Math.max(0.5, mouseSpeed / 300));
+        const finalDamage = Math.floor(baseDamage * speedMultiplier);
+        
+        // 计算击退方向（沿鼠标移动方向）
+        let knockbackDir = null;
+        if (this.sliceTrail.length >= 2) {
+          const p1 = this.sliceTrail[this.sliceTrail.length - 2];
+          const p2 = this.sliceTrail[this.sliceTrail.length - 1];
+          const mdx = p2.x - p1.x;
+          const mdy = p2.y - p1.y;
+          const mlen = Math.hypot(mdx, mdy);
+          if (mlen > 0) {
+            knockbackDir = { x: mdx / mlen, y: mdy / mlen };
+          }
+        }
+        
+        // 应用伤害
+        const speedPercent = Math.floor(speedMultiplier * 100);
+        this.combatSystem.applyDamage(entity, finalDamage, knockbackDir, `斩击${speedPercent}%`);
+        
+        // 记录冷却
+        this.sliceCooldowns.set(entity.id, currentTime);
+        
+        // 创建切割特效
+        if (this.combatSystem.createSliceEffect) {
+          this.combatSystem.createSliceEffect(targetTransform.position);
+        }
+        
+        // 创建攻击特效
+        if (this.skillEffects) {
+          const playerTransform = this.playerEntity.getComponent('transform');
+          if (playerTransform) {
+            this.skillEffects.createSkillEffect('basic_attack', playerTransform.position, targetTransform.position);
+          }
+        }
+        
+        // 选中被切到的敌人
+        this.combatSystem.selectTarget(entity);
+      }
+    }
+  }
+
+  /**
+   * 渲染滑动刀光轨迹
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderSliceTrail(ctx) {
+    if (this.sliceTrail.length < 2) return;
+    
+    const currentTime = performance.now() / 1000;
+    
+    ctx.save();
+    
+    // 绘制刀光轨迹（渐变消失效果）
+    for (let i = 1; i < this.sliceTrail.length; i++) {
+      const p0 = this.sliceTrail[i - 1];
+      const p1 = this.sliceTrail[i];
+      
+      // 根据时间计算透明度（越旧越透明）
+      const age = currentTime - p1.time;
+      const alpha = Math.max(0, 1 - age / this.sliceTrailMaxAge);
+      
+      if (alpha <= 0) continue;
+      
+      // 计算线段宽度（越新越粗）
+      const width = alpha * 6 + 1;
+      
+      // 绘制发光刀光
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      
+      // 外层光晕
+      ctx.strokeStyle = `rgba(200, 230, 255, ${alpha * 0.3})`;
+      ctx.lineWidth = width + 6;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      
+      // 中层光芒
+      ctx.strokeStyle = `rgba(180, 220, 255, ${alpha * 0.6})`;
+      ctx.lineWidth = width + 2;
+      ctx.stroke();
+      
+      // 内层白色核心
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
+      ctx.lineWidth = width;
+      ctx.stroke();
+    }
+    
+    ctx.restore();
+  }
+
   handleEnemySelection() {
     if (this.inputManager.isMouseClicked() && !this.inputManager.isMouseClickHandled()) {
       const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
@@ -1930,20 +2130,23 @@ export class BaseGameScene extends PrologueScene {
     // 渲染世界对象 - 子类可覆盖以添加自定义渲染
     this.renderWorldObjects(ctx);
     
-    // 渲染武器（在实体之后，特效之前）
-    if (this.weaponRenderer && this.playerEntity) {
-      this.weaponRenderer.render(ctx, this.playerEntity, this.camera);
+    // 武器渲染已禁用 - 使用水果忍者式滑动攻击
+    // 渲染滑动刀光轨迹
+    if (this.sliceTrail && this.sliceTrail.length > 1) {
+      this.renderSliceTrail(ctx);
     }
     
-    // 渲染敌人武器
+    // 渲染敌人武器（已禁用）
+    // 敌人武器渲染已禁用
+    /*
     if (this.enemyWeaponRenderer) {
       for (const entity of this.entities) {
         if (entity.type === 'enemy' && !entity.isDead && !entity.isDying) {
-          // 传入玩家实体作为目标，让武器朝向玩家
           this.enemyWeaponRenderer.render(ctx, entity, this.playerEntity);
         }
       }
     }
+    */
     
     // 渲染粒子系统（在世界坐标系中，相机变换生效时）
     this.particleSystem.render(ctx, this.camera);
@@ -2116,17 +2319,26 @@ export class BaseGameScene extends PrologueScene {
       const x = item.x;
       const y = item.y;
       
-      // 绘制物品圆形（底部对齐）
-      ctx.fillStyle = '#ffaa00';
-      ctx.beginPath();
-      ctx.arc(x, y - 5, 10, 0, Math.PI * 2);  // 向上偏移5像素，让物品看起来在地面上
-      ctx.fill();
+      // 根据物品类型绘制不同图标
+      if (item.id === 'leftover_food') {
+        this.renderLeftoverFoodSprite(ctx, x, y);
+      } else if (item.id === 'ragged_clothes') {
+        this.renderRaggedClothesSprite(ctx, x, y);
+      } else if (item.id === 'wooden_stick') {
+        this.renderWoodenStickSprite(ctx, x, y);
+      } else {
+        // 默认：绘制物品圆形（底部对齐）
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(x, y - 5, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
       
       // 绘制物品名称
       ctx.fillStyle = '#ffffff';
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(item.name, x, y - 20);  // 名称在物品上方
+      ctx.fillText(item.name, x, y - 20);
     }
     
     for (const item of this.equipmentItems) {
@@ -2135,11 +2347,18 @@ export class BaseGameScene extends PrologueScene {
       const x = item.x;
       const y = item.y;
       
-      // 绘制装备物品圆形（底部对齐）
-      ctx.fillStyle = '#ffaa00';
-      ctx.beginPath();
-      ctx.arc(x, y - 5, 10, 0, Math.PI * 2);  // 向上偏移5像素
-      ctx.fill();
+      // 根据装备类型绘制不同图标
+      if (item.id === 'ragged_clothes') {
+        this.renderRaggedClothesSprite(ctx, x, y);
+      } else if (item.id === 'wooden_stick') {
+        this.renderWoodenStickSprite(ctx, x, y);
+      } else {
+        // 绘制装备物品圆形（底部对齐）
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(x, y - 5, 10, 0, Math.PI * 2);
+        ctx.fill();
+      }
       
       // 绘制物品名称
       ctx.fillStyle = '#ffffff';
@@ -2148,6 +2367,205 @@ export class BaseGameScene extends PrologueScene {
       ctx.fillText(item.name, x, y - 20);
     }
   }
+
+  /**
+   * 渲染残羹精灵（场景地图上的破碗图标）
+   */
+  renderLeftoverFoodSprite(ctx, x, y) {
+      ctx.save();
+      ctx.translate(x, y - 8);
+
+      // 中国碗 - 口大底小，碗壁外展
+      // 碗身（用贝塞尔曲线画出口大底小的形状）
+      ctx.fillStyle = '#8B7355';
+      ctx.beginPath();
+      ctx.moveTo(-13, -5);  // 左碗口
+      ctx.bezierCurveTo(-12, 0, -6, 6, -4, 8);  // 左壁向内收
+      ctx.lineTo(4, 8);     // 碗底（小）
+      ctx.bezierCurveTo(6, 6, 12, 0, 13, -5);   // 右壁向内收
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#5a4a3a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 碗底座（小圆底）
+      ctx.fillStyle = '#7a6345';
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 4, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#5a4a3a';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // 碗口（大椭圆）
+      ctx.fillStyle = '#a08060';
+      ctx.beginPath();
+      ctx.ellipse(0, -5, 13, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#5a4a3a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 碗内部（深色）
+      ctx.fillStyle = '#6b5a48';
+      ctx.beginPath();
+      ctx.ellipse(0, -5, 11, 3.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 裂缝（破碗效果）
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(7, -8);
+      ctx.lineTo(9, -3);
+      ctx.lineTo(10, 2);
+      ctx.stroke();
+
+      // 碗口缺口
+      ctx.fillStyle = '#6b5a48';
+      ctx.beginPath();
+      ctx.arc(-9, -7, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 碗内米粒
+      ctx.fillStyle = '#f5f0e0';
+      const grains = [[-3, -5], [1, -6], [4, -5], [-1, -4], [2, -4]];
+      for (const [gx, gy] of grains) {
+        ctx.beginPath();
+        ctx.ellipse(gx, gy, 1.5, 0.8, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 碗外散落米粒
+      ctx.fillStyle = '#e8e0c8';
+      ctx.beginPath();
+      ctx.ellipse(-8, 2, 1.2, 0.7, 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(10, 3, 1, 0.6, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+  /**
+   * 渲染破旧衣服精灵（场景地图上的破衣服图标）
+   */
+  renderRaggedClothesSprite(ctx, x, y) {
+      ctx.save();
+      ctx.translate(x, y - 8);
+
+      // 衣服主体（褐色破旧布料）
+      ctx.fillStyle = '#8B6914';
+      ctx.beginPath();
+      ctx.moveTo(0, -12);
+      ctx.lineTo(-6, -10);
+      ctx.lineTo(-12, -4);
+      ctx.lineTo(-10, -2);
+      ctx.lineTo(-7, -6);
+      ctx.lineTo(-8, 10);
+      ctx.lineTo(8, 10);
+      ctx.lineTo(7, -6);
+      ctx.lineTo(10, -2);
+      ctx.lineTo(12, -4);
+      ctx.lineTo(6, -10);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#5a4a0a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // 领口
+      ctx.fillStyle = '#6b5210';
+      ctx.beginPath();
+      ctx.ellipse(0, -11, 4, 2, 0, 0, Math.PI);
+      ctx.fill();
+
+      // 补丁
+      ctx.fillStyle = '#6b5a10';
+      ctx.fillRect(-5, 0, 4, 4);
+      ctx.strokeStyle = '#4a3a08';
+      ctx.lineWidth = 0.5;
+      ctx.setLineDash([1, 1]);
+      ctx.strokeRect(-5, 0, 4, 4);
+      ctx.setLineDash([]);
+
+      // 破洞
+      ctx.fillStyle = '#2a1a00';
+      ctx.beginPath();
+      ctx.ellipse(4, 3, 2, 1.5, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 撕裂痕迹（下摆）
+      ctx.strokeStyle = '#5a4a0a';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-6, 10);
+      ctx.lineTo(-5, 12);
+      ctx.moveTo(-2, 10);
+      ctx.lineTo(-1, 11);
+      ctx.moveTo(3, 10);
+      ctx.lineTo(4, 12);
+      ctx.stroke();
+
+      ctx.restore();
+  }
+
+  /**
+   * 渲染树棍精灵（场景地图上的木棍图标）
+   */
+  renderWoodenStickSprite(ctx, x, y) {
+      ctx.save();
+      ctx.translate(x, y - 8);
+
+      // 木棍主体（斜放）
+      ctx.strokeStyle = '#8B6914';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-8, 12);
+      ctx.lineTo(8, -12);
+      ctx.stroke();
+
+      // 木棍纹理
+      ctx.strokeStyle = '#6b5210';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-5, 8);
+      ctx.lineTo(-3, 5);
+      ctx.moveTo(0, 2);
+      ctx.lineTo(2, -1);
+      ctx.moveTo(4, -5);
+      ctx.lineTo(6, -8);
+      ctx.stroke();
+
+      // 木棍高光
+      ctx.strokeStyle = '#a08030';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-6, 9);
+      ctx.lineTo(6, -9);
+      ctx.stroke();
+
+      // 小树枝分叉（顶部）
+      ctx.strokeStyle = '#8B6914';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(6, -9);
+      ctx.lineTo(10, -13);
+      ctx.stroke();
+
+      // 树皮节疤
+      ctx.fillStyle = '#5a4a0a';
+      ctx.beginPath();
+      ctx.ellipse(-2, 3, 1.5, 1, 0.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+  }
+
 
   /**
    * 渲染单个实体
@@ -2169,11 +2587,13 @@ export class BaseGameScene extends PrologueScene {
     
     // 渲染精灵（使用底部中心锚点）
     if (sprite && sprite.visible) {
-      // 选中高亮框（底部对齐）
+      // 选中高亮框（浅色虚线透明框）
       if (isSelected) {
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(255, 255, 200, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
         ctx.strokeRect(x - size/2 - 3, y - height - 3, size + 6, height + 6);
+        ctx.setLineDash([]);
       }
       
       let rendered = false;

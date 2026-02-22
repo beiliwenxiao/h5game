@@ -5,6 +5,7 @@
 
 import { UIElement } from './UIElement.js';
 import { ItemRarity } from '../data/ItemData.js';
+import { ItemIconRenderer } from './ItemIconRenderer.js';
 
 /**
  * 背包面板
@@ -357,12 +358,17 @@ export class InventoryPanel extends UIElement {
     ctx.fillRect(x + 2, y + 2, this.slotSize - 4, this.slotSize - 4);
     ctx.globalAlpha = 1.0;
     
-    // 物品图标（简化为文字）
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    const iconText = item.name.substring(0, 2);
-    ctx.fillText(iconText, x + this.slotSize / 2, y + this.slotSize / 2 + 4);
+    // 物品图标
+    const iconDrawn = this.drawItemIcon(ctx, item, x, y, this.slotSize);
+    
+    if (!iconDrawn) {
+      // 没有专用图标，使用文字
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      const iconText = item.name.substring(0, 2);
+      ctx.fillText(iconText, x + this.slotSize / 2, y + this.slotSize / 2 + 4);
+    }
     
     // 数量显示
     if (itemStack.quantity > 1) {
@@ -371,6 +377,16 @@ export class InventoryPanel extends UIElement {
       ctx.textAlign = 'right';
       ctx.fillText(itemStack.quantity.toString(), x + this.slotSize - 2, y + this.slotSize - 2);
     }
+  }
+
+  /**
+   * 绘制物品图标
+   * @returns {boolean} 是否成功绘制了图标
+   */
+  drawItemIcon(ctx, item, x, y, size) {
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    return ItemIconRenderer.drawIcon(ctx, item, cx, cy, size);
   }
 
   /**
@@ -925,6 +941,11 @@ export class InventoryPanel extends UIElement {
         case 'buff':
           // 应用增益效果（需要状态效果系统支持）
           console.log(`应用增益效果: ${item.effect.stat} +${item.effect.value * 100}%`);
+          break;
+          
+        case 'currency':
+          // 货币类物品，通过回调让场景处理
+          console.log(`使用货币物品: ${item.name}，获得 ${item.effect.value} 铜钱`);
           break;
           
         default:

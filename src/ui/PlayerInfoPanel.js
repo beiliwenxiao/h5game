@@ -1,4 +1,5 @@
 import { UIElement } from './UIElement.js';
+import { ItemIconRenderer } from './ItemIconRenderer.js';
 
 /**
  * 玩家信息面板
@@ -304,12 +305,17 @@ export class PlayerInfoPanel extends UIElement {
         ctx.fillStyle = rarityColors[equippedItem.rarity] || '#888888';
         ctx.fillRect(slotX + 5, slotY + 5, slotWidth - 10, slotHeight - 10);
         
-        // 绘制装备名称首字
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 16px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(equippedItem.name.charAt(0), slotX + slotWidth / 2, slotY + slotHeight / 2);
+        // 尝试绘制装备图标
+        const iconDrawn = this.drawEquipIcon(ctx, equippedItem, slotX, slotY, slotWidth, slotHeight);
+        
+        if (!iconDrawn) {
+          // 没有专用图标，绘制装备名称首字
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 16px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(equippedItem.name.charAt(0), slotX + slotWidth / 2, slotY + slotHeight / 2);
+        }
       } else {
         // 绘制空槽提示
         ctx.fillStyle = '#666666';
@@ -319,6 +325,15 @@ export class PlayerInfoPanel extends UIElement {
         ctx.fillText(position.label, slotX + slotWidth / 2, slotY + slotHeight / 2);
       }
     }
+  }
+
+  /**
+   * 绘制装备图标
+   */
+  drawEquipIcon(ctx, equipment, slotX, slotY, slotWidth, slotHeight) {
+    const cx = slotX + slotWidth / 2;
+    const cy = slotY + slotHeight / 2;
+    return ItemIconRenderer.drawIcon(ctx, equipment, cx, cy, slotWidth);
   }
 
   /**

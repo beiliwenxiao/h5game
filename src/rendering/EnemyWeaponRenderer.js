@@ -62,8 +62,9 @@ export class EnemyWeaponRenderer {
     const name = entity.name || '';
     
     // 根据 templateId 或名字匹配配置
+    // 野狗不显示武器
     if (templateId === 'wild_dog' || name.includes('野狗')) {
-      return this.weaponConfigs['wild_dog'];
+      return null;
     } else if (templateId === 'soldier' || name.includes('士兵')) {
       return this.weaponConfigs['soldier'];
     } else if (templateId === 'bandit' || name.includes('土匪')) {
@@ -82,6 +83,7 @@ export class EnemyWeaponRenderer {
    */
   startAttack(entity, targetPos) {
     const config = this.getWeaponConfig(entity);
+    if (!config) return; // 野狗无武器，跳过攻击动画
     const transform = entity.getComponent('transform');
     if (!transform) return;
     
@@ -133,6 +135,7 @@ export class EnemyWeaponRenderer {
     if (!transform) return;
     
     const config = this.getWeaponConfig(entity);
+    if (!config) return; // 无武器配置则跳过渲染
     const x = Math.round(transform.position.x);
     const y = Math.round(transform.position.y);
     

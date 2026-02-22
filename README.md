@@ -28,7 +28,7 @@
    npm run dev
    ```
 
-4. 打开浏览器访问 Vite 提示的地址（默认 `http://localhost:5173`）
+4. 打开浏览器访问 Vite 提示的地址（默认 `http://localhost:3000`）
 
 ### 或者直接打开
 

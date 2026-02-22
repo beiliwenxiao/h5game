@@ -10,6 +10,7 @@ export { Minimap } from './Minimap.js';
 export { NotificationSystem } from './NotificationSystem.js';
 export { EquipmentPanel } from './EquipmentPanel.js';
 export { InventoryPanel } from './InventoryPanel.js';
+export { ItemIconRenderer } from './ItemIconRenderer.js';
 export { PickupPrompt } from './PickupPrompt.js';
 export { EnhancementPanel } from './EnhancementPanel.js';
 export { SkillTreePanel } from './SkillTreePanel.js';

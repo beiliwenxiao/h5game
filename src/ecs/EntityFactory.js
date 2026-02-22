@@ -175,10 +175,27 @@ export class EntityFactory {
     
     // 添加精灵组件
     const spriteSheet = this.getSpriteSheetForEnemy(enemyData.templateId);
+    const isAnimated = spriteSheet.startsWith('enemy_animated_');
     const sprite = new SpriteComponent(spriteSheet, {
-      width: 32,
-      height: 32,
-      defaultAnimation: 'idle'
+      width: isAnimated ? 64 : 32,
+      height: isAnimated ? 64 : 32,
+      defaultAnimation: 'idle',
+      useAnimatedSprite: isAnimated,
+      spriteColumns: isAnimated ? 4 : undefined,
+      spriteRows: isAnimated ? 8 : undefined,
+      direction: 'down',
+      walkFrameDuration: 150,
+      directionRowMap: isAnimated ? {
+        'down-left': 0,
+        'up-right': 1,
+        'up-left': 2,
+        'down-right': 3,
+        'left': 4,
+        'right': 5,
+        'up': 6,
+        'down': 7,
+        'idle': 7
+      } : undefined
     });
     
     // 添加基础动画
@@ -239,6 +256,18 @@ export class EntityFactory {
    * @returns {string}
    */
   getSpriteSheetForEnemy(templateId) {
+    // 支持4x8动画精灵的敌人类型
+    const animatedEnemies = {
+      'wild_dog': 'enemy_animated_wild_dog',
+      'soldier': 'enemy_animated_soldier',
+      'government_soldier': 'enemy_animated_government_soldier',
+      'bandit': 'enemy_animated_bandit',
+      'starving': 'enemy_animated_starving',
+      'refugee': 'enemy_animated_refugee'
+    };
+    if (animatedEnemies[templateId]) {
+      return animatedEnemies[templateId];
+    }
     const spriteSheets = {
       'slime': 'slime_sprite',
       'goblin': 'goblin_sprite',

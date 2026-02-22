@@ -345,19 +345,16 @@ export class Act3Scene extends BaseGameScene {
     const coinSword = {
       id: 'coin_sword',
       name: '铜钱剑',
-      type: 'equipment',
-      subType: 'weapon',
+      type: 'consumable',
+      subType: 'currency_item',
       rarity: 1,
       maxStack: 1,
-      description: '用铜钱串成的剑，攻击力不错但耐久度较低',
-      stats: { 
-        attack: 15 
-      },
-      negativeStats: {
-        durability: -10  // 负属性：耐久度降低
-      },
-      durability: 80,  // 初始耐久度较低
-      enhancement: 0
+      usable: true,
+      description: '用铜钱串成的剑，使用后可获得300铜钱',
+      effect: {
+        type: 'currency',
+        value: 300
+      }
     };
 
     if (this.playerEntity) {
@@ -368,7 +365,7 @@ export class Act3Scene extends BaseGameScene {
     }
 
     this.hasReceivedCoinSword = true;
-    this.notify('得到 铜钱剑x1（注意：耐久度较低）', 'success');
+    this.notify('得到 铜钱剑x1（使用可获得300铜钱）', 'success');
   }
 
 
@@ -401,6 +398,22 @@ export class Act3Scene extends BaseGameScene {
     console.log(`Act3Scene 通知: ${message}`);
     if (this.onNotification) {
       this.onNotification(message, type);
+    }
+  }
+
+  /**
+   * 物品使用回调 - 覆盖父类方法，处理铜钱剑的货币效果
+   */
+  onItemUsed(item, healAmount, manaAmount) {
+    super.onItemUsed(item, healAmount, manaAmount);
+    
+    // 处理货币类物品
+    if (item && item.effect && item.effect.type === 'currency') {
+      const amount = item.effect.value || 0;
+      if (this.shopSystem && amount > 0) {
+        this.shopSystem.addCurrency('gold', amount);
+        this.notify(`使用 ${item.name}，获得 ${amount} 铜钱`, 'success');
+      }
     }
   }
 
@@ -496,7 +509,6 @@ export class Act3Scene extends BaseGameScene {
         console.log('Act3Scene: 铜钱法器对话完成');
         this.coinArtifactDialogueCompleted = true;
         this.giveCoinSword();
-        setTimeout(() => this.giveGold(), 500);
         setTimeout(() => this.startShopIntroDialogue(), 1500);
       }
       // 商店介绍对话结束 -> 触发商店教程

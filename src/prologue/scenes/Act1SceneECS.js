@@ -78,6 +78,15 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：角色创建标志
     this.characterCreated = false;
+    
+    // 第一幕特有：迷雾效果
+    this.fog = {
+      opacity: 0.85,        // 初始迷雾浓度
+      targetOpacity: 0.85,  // 目标浓度
+      fadeSpeed: 0.4,        // 每秒消散速度（约2秒完全消散）
+      color: 'rgba(30, 30, 40,',  // 灰黑色
+      active: true           // 迷雾是否激活
+    };
   }
 
   /**
@@ -522,6 +531,9 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：检查玩家是否死亡
     this.checkPlayerDeath();
+    
+    // 第一幕特有：更新迷雾效果
+    this.updateFog(deltaTime);
   }
 
   /**
@@ -1121,6 +1133,29 @@ export class Act1SceneECS extends BaseGameScene {
     }));
     
     console.log('Act1SceneECS: 火焰粒子效果已创建（1个发射点，7种粒子）');
+    
+    // 触发迷雾消散
+    this.fog.targetOpacity = 0;
+  }
+
+  /**
+   * 更新迷雾效果
+   */
+  updateFog(deltaTime) {
+    if (!this.fog.active) return;
+    
+    // 平滑过渡到目标浓度
+    if (Math.abs(this.fog.opacity - this.fog.targetOpacity) > 0.01) {
+      if (this.fog.opacity > this.fog.targetOpacity) {
+        this.fog.opacity -= this.fog.fadeSpeed * deltaTime;
+        if (this.fog.opacity < this.fog.targetOpacity) {
+          this.fog.opacity = this.fog.targetOpacity;
+        }
+      }
+    } else if (this.fog.targetOpacity === 0) {
+      this.fog.opacity = 0;
+      this.fog.active = false;
+    }
   }
 
   /**
@@ -1233,6 +1268,67 @@ export class Act1SceneECS extends BaseGameScene {
       pickupItems: this.pickupItems,
       tutorialsCompleted: this.tutorialsCompleted
     };
+  }
+
+  /**
+   * 渲染 - 覆盖父类，添加迷雾效果
+   */
+  render(ctx) {
+    // 调用父类渲染
+    super.render(ctx);
+    
+    // 渲染迷雾效果（在所有内容之上，UI之上）
+    if (this.fog.active && this.fog.opacity > 0.01) {
+      ctx.save();
+      
+      // 获取玩家屏幕位置（需要减去相机偏移）
+      const playerTransform = this.playerEntity?.getComponent('transform');
+      const viewBounds = this.camera.getViewBounds();
+      
+      if (playerTransform) {
+        const playerScreenX = playerTransform.position.x - viewBounds.left;
+        const playerScreenY = playerTransform.position.y - viewBounds.top;
+        const lightRadius = 120;
+        
+        // 使用径向渐变实现人物周围的光圈
+        // 创建一个临时 canvas 来绘制迷雾+光圈
+        if (!this._fogCanvas) {
+          this._fogCanvas = document.createElement('canvas');
+          this._fogCanvas.width = this.logicalWidth;
+          this._fogCanvas.height = this.logicalHeight;
+        }
+        const fogCtx = this._fogCanvas.getContext('2d');
+        
+        // 先画满迷雾
+        fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+        fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+        fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+        
+        // 用 destination-out 在玩家位置挖出光圈
+        fogCtx.globalCompositeOperation = 'destination-out';
+        const gradient = fogCtx.createRadialGradient(
+          playerScreenX, playerScreenY, 0,
+          playerScreenX, playerScreenY, lightRadius
+        );
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        fogCtx.fillStyle = gradient;
+        fogCtx.beginPath();
+        fogCtx.arc(playerScreenX, playerScreenY, lightRadius, 0, Math.PI * 2);
+        fogCtx.fill();
+        fogCtx.globalCompositeOperation = 'source-over';
+        
+        // 将迷雾 canvas 绘制到主 canvas
+        ctx.drawImage(this._fogCanvas, 0, 0);
+      } else {
+        // 没有玩家时直接画满迷雾
+        ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+        ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+      }
+      
+      ctx.restore();
+    }
   }
 
   /**

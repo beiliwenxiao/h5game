@@ -5,6 +5,7 @@
 
 import { UIElement } from './UIElement.js';
 import { QualityColors } from '../data/EquipmentData.js';
+import { ItemIconRenderer } from './ItemIconRenderer.js';
 
 /**
  * 装备栏面板
@@ -190,11 +191,16 @@ export class EquipmentPanel extends UIElement {
     ctx.fillRect(x + 2, y + 2, this.slotSize - 4, this.slotSize - 4);
     ctx.globalAlpha = 1.0;
 
-    // 装备图标（简化为文字显示）
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(equipment.name.substring(0, 2), x + this.slotSize / 2, y + this.slotSize / 2 + 4);
+    // 尝试绘制装备图标
+    const iconDrawn = this.drawEquipmentIcon(ctx, equipment, x, y);
+
+    if (!iconDrawn) {
+      // 没有专用图标，使用文字
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(equipment.name.substring(0, 2), x + this.slotSize / 2, y + this.slotSize / 2 + 4);
+    }
 
     // 强化等级
     if (equipment.enhancement > 0) {
@@ -210,6 +216,15 @@ export class EquipmentPanel extends UIElement {
       ctx.fillStyle = equipment.durability > 50 ? '#00ff00' : equipment.durability > 20 ? '#ffff00' : '#ff0000';
       ctx.fillRect(x + 2, y + this.slotSize - 6, durabilityWidth, 2);
     }
+  }
+
+  /**
+   * 绘制装备图标
+   */
+  drawEquipmentIcon(ctx, equipment, x, y) {
+    const cx = x + this.slotSize / 2;
+    const cy = y + this.slotSize / 2;
+    return ItemIconRenderer.drawIcon(ctx, equipment, cx, cy, this.slotSize);
   }
 
   /**

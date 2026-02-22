@@ -285,17 +285,34 @@ export class Act2Scene extends BaseGameScene {
         this.equipmentUpgradeDialogueCompleted = true;
         setTimeout(() => this.startEquipmentUpgradeDialogue(), 1000);
       }
-      // 装备升级对话结束 -> 给予装备并切换到第三幕
+      // 装备升级对话结束 -> 给予装备，等待玩家装备
       else if (this.dialoguePhase === 'upgrade' && this.equipmentUpgradeDialogueCompleted && !this.hasReceivedEquipment) {
         this.giveNewEquipment();
+        this.waitingForEquip = true;
+      }
+      // 玩家已装备两件物品 -> 切换到第三幕
+      else if (this.waitingForEquip && !this.isSceneComplete && this.checkEquipmentDone()) {
         this.isSceneComplete = true;
-        
-        // 延迟2秒后切换到第三幕
+        this.notify('装备完成！即将进入第三幕...', 'success');
         setTimeout(() => {
           this.transitionToAct3();
         }, 2000);
       }
     }
+  }
+
+  /**
+   * 检查玩家是否已装备布衣和木剑
+   * @returns {boolean}
+   */
+  checkEquipmentDone() {
+    if (!this.playerEntity) return false;
+    const equipment = this.playerEntity.getComponent('equipment');
+    if (!equipment) return false;
+    
+    const hasWeapon = equipment.getEquipment('mainhand') !== null;
+    const hasArmor = equipment.getEquipment('armor') !== null;
+    return hasWeapon && hasArmor;
   }
 
   /**
@@ -433,8 +450,10 @@ export class Act2Scene extends BaseGameScene {
       hints.push('按 空格键 继续对话');
     } else if (this.waitingForTalismanUse) {
       hints.push('按 B 键打开背包，使用符水');
+    } else if (this.waitingForEquip && !this.isSceneComplete) {
+      hints.push('按 B 键打开背包，装备布衣和木剑');
     } else if (this.isSceneComplete) {
-      hints.push('第二幕完成！');
+      hints.push('第二幕完成！即将进入第三幕...');
     }
     
     // 渲染提示

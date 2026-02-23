@@ -342,7 +342,7 @@ export class Act1SceneECS extends BaseGameScene {
           subType: 'mainhand',
           x: 300, 
           y: 250,
-          attackSpeed: 1.5,
+          attackSpeed: 1.0,
           stats: { attack: 5 },
           description: '简陋的木棍，可以用来防身',
           rarity: 0,
@@ -392,6 +392,7 @@ export class Act1SceneECS extends BaseGameScene {
       if (item.defense) itemData.stats.defense = item.defense;
       if (item.heal) itemData.heal = item.heal;
       if (item.stats) itemData.stats = { ...itemData.stats, ...item.stats };
+      if (item.attackSpeed != null) itemData.attackSpeed = item.attackSpeed;
       
       inventory.addItem(itemData);
       console.log('Act1SceneECS: 物品已添加到背包', itemData);

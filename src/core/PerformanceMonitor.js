@@ -161,53 +161,25 @@ export class PerformanceMonitor {
   }
 
   /**
-   * 渲染性能监控面板
-   * @param {CanvasRenderingContext2D} ctx - Canvas 渲染上下文
+   * 渲染性能监控面板 - 更新 HTML debug-panel 元素
+   * @param {CanvasRenderingContext2D} ctx - Canvas 渲染上下文（保留参数兼容性）
    */
   render(ctx) {
     if (!this.enabled) return;
     
-    ctx.save();
-    
-    // 绘制背景
-    const padding = 10;
-    const lineHeight = 18;
-    const lines = this.getDisplayLines();
-    const panelWidth = 280;
-    const panelHeight = padding * 2 + lines.length * lineHeight;
-    
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillRect(this.position.x, this.position.y, panelWidth, panelHeight);
-    
-    // 绘制边框
-    ctx.strokeStyle = '#4CAF50';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(this.position.x, this.position.y, panelWidth, panelHeight);
-    
-    // 绘制文本
-    ctx.font = '14px monospace';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    
-    let y = this.position.y + padding;
-    for (const line of lines) {
-      // 标签
-      ctx.fillStyle = '#aaa';
-      ctx.fillText(line.label, this.position.x + padding, y);
-      
-      // 值
-      ctx.fillStyle = this.getColorForMetric(line.metric, line.value);
-      ctx.fillText(line.value, this.position.x + 160, y);
-      
-      y += lineHeight;
+    // 更新 HTML 的 #fps 元素（复用已有的 debug-panel）
+    const fpsEl = document.getElementById('fps');
+    if (fpsEl) {
+      fpsEl.textContent = this.metrics.fps;
+      // 根据FPS着色
+      if (this.metrics.fps >= 50) {
+        fpsEl.style.color = '#4CAF50';
+      } else if (this.metrics.fps >= 30) {
+        fpsEl.style.color = '#FFC107';
+      } else {
+        fpsEl.style.color = '#F44336';
+      }
     }
-    
-    // 绘制图表（如果启用）
-    if (this.showGraph) {
-      this.renderGraph(ctx, this.position.x, y + 5);
-    }
-    
-    ctx.restore();
   }
 
   /**

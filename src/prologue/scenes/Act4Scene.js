@@ -588,13 +588,15 @@ export class Act4Scene extends BaseGameScene {
     this.hoveredInstructor = null;
 
     for (const instructor of this.instructors) {
-      const dx = mouseWorldPos.x - instructor.position.x;
-      const dy = mouseWorldPos.y - instructor.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      // 人物图形高度约 s*2.2 = 26*2.2 ≈ 57px，宽约 s*1.2 ≈ 31px
+      // position.y 是脚部，人物向上延伸
+      const hitW = 50;
+      const hitH = 100;
+      const dx = Math.abs(mouseWorldPos.x - instructor.position.x);
+      const dy = mouseWorldPos.y - instructor.position.y; // 负值=上方
 
-      if (distance <= 40) {
+      if (dx <= hitW / 2 && dy >= -hitH && dy <= 10) {
         this.hoveredInstructor = instructor;
-        console.log('Act4Scene: 悬停在教官上:', instructor.name, 'distance:', distance);
         break;
       }
     }
@@ -772,16 +774,17 @@ export class Act4Scene extends BaseGameScene {
       return;
     }
     
-    // 直接检查鼠标位置是否在教官上（不依赖hoveredInstructor）
+    // 直接检查鼠标位置是否在教官上（矩形碰撞，覆盖整个人物）
     const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
     let clickedInstructor = null;
     
     for (const instructor of this.instructors) {
-      const dx = mouseWorldPos.x - instructor.position.x;
+      const hitW = 50;
+      const hitH = 100;
+      const dx = Math.abs(mouseWorldPos.x - instructor.position.x);
       const dy = mouseWorldPos.y - instructor.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance <= 40) {
+
+      if (dx <= hitW / 2 && dy >= -hitH && dy <= 10) {
         clickedInstructor = instructor;
         break;
       }

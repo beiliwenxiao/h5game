@@ -63,7 +63,7 @@
       "type": "equipment",
       "subType": "mainhand",
       "position": { "x": 300, "y": 250 },
-      "attackSpeed": 1.5,
+      "attackSpeed": 1.0,
       "stats": {
         "attack": 5
       },

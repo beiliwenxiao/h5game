@@ -19,7 +19,7 @@ export class InventoryPanel extends UIElement {
       x: options.x || 400,
       y: options.y || 50,
       width: options.width || 370,  // 调整宽度: 20 + 6*(50+5) - 5 + 20 = 370
-      height: options.height || 350,  // 调整高度: 80 + 4*(50+5) - 5 + 20 = 315，留一些余量
+      height: options.height || 380,  // 调整高度: 80 + 4*(50+5) - 5 + 20 = 315，留余量 + 金币行
       visible: options.visible || false,
       zIndex: options.zIndex || 100
     });
@@ -106,6 +106,9 @@ export class InventoryPanel extends UIElement {
     // 绘制物品槽位
     this.renderItemSlots(ctx);
     
+    // 绘制金币
+    this.renderGold(ctx);
+    
     // 绘制右键菜单
     this.renderContextMenu(ctx);
     
@@ -116,6 +119,24 @@ export class InventoryPanel extends UIElement {
     this.renderDraggedItem(ctx);
 
     ctx.restore();
+  }
+
+  /**
+   * 渲染金币显示
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderGold(ctx) {
+    if (!this.entity) return;
+    const stats = this.entity.getComponent('stats');
+    const gold = stats ? (stats.gold || 0) : 0;
+    
+    const goldY = this.y + this.height - 22;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(this.x + 10, goldY - 14, 120, 20);
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(`💰 ${gold} 金币`, this.x + 16, goldY);
   }
 
   /**
@@ -874,8 +895,10 @@ export class InventoryPanel extends UIElement {
       const removed = inventoryComponent.removeItem(item.id, 1);
       console.log(`从背包移除了 ${removed} 个物品`);
       
-      // 装备到对应槽位
-      const oldItem = equipmentComponent.equip(subType, item);
+      // 装备到对应槽位（兼容 subType 别名）
+      const slotMap = { weapon: 'mainhand', shield: 'offhand' };
+      const targetSlot = slotMap[subType] || subType;
+      const oldItem = equipmentComponent.equip(targetSlot, item);
       
       // 如果有旧装备，放回背包
       if (oldItem) {

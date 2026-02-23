@@ -661,30 +661,144 @@ export class Act3Scene extends BaseGameScene {
   }
 
   /**
-   * 渲染NPC
+   * 渲染NPC - 人物图形
    */
   renderNPC(ctx, npc, color) {
     ctx.save();
     
-    // 绘制NPC圆形
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(npc.position.x, npc.position.y, 30, 0, Math.PI * 2);
-    ctx.fill();
+    const x = npc.position.x;
+    const y = npc.position.y;
     
-    // 绘制NPC名称
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Arial';
+    if (npc.id === 'zhangjiao') {
+      this._renderZhangjiao(ctx, x, y);
+    } else if (npc.id === 'merchant') {
+      this._renderMerchant(ctx, x, y);
+    } else {
+      // 默认圆形
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 30, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // 名称和称号
     ctx.textAlign = 'center';
-    ctx.fillText(npc.name, npc.position.x, npc.position.y - 40);
-    
-    // 绘制NPC称号
     ctx.font = '12px Arial';
     ctx.fillStyle = '#FFD700';
-    ctx.fillText(npc.title, npc.position.x, npc.position.y - 55);
+    ctx.fillText(npc.title, x, y - 90);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 15px Arial';
+    ctx.fillText(npc.name, x, y - 74);
     
     ctx.restore();
   }
+
+  /** 绘制张角（道士） */
+  _renderZhangjiao(ctx, x, y) {
+    const s = 28;
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath();
+    ctx.ellipse(x, y + s * 0.05, s * 0.5, s * 0.12, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // 腿
+    ctx.strokeStyle = '#d4a574'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s*0.15, y - s*0.5); ctx.quadraticCurveTo(x - s*0.17, y - s*0.28, x - s*0.18, y - s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.15, y - s*0.5); ctx.quadraticCurveTo(x + s*0.17, y - s*0.28, x + s*0.18, y - s*0.05); ctx.stroke();
+    ctx.fillStyle = '#2a2a2a';
+    ctx.beginPath(); ctx.ellipse(x - s*0.18, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s*0.18, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    // 道袍
+    const bg = ctx.createLinearGradient(x, y - s*1.15, x, y - s*0.45);
+    bg.addColorStop(0, '#c8a84e'); bg.addColorStop(1, '#a08830');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.42, y - s*1.08); ctx.quadraticCurveTo(x - s*0.5, y - s*0.8, x - s*0.38, y - s*0.45);
+    ctx.lineTo(x + s*0.38, y - s*0.45); ctx.quadraticCurveTo(x + s*0.5, y - s*0.8, x + s*0.42, y - s*1.08);
+    ctx.closePath(); ctx.fill();
+    // 腰带
+    ctx.fillStyle = '#5a4a20'; ctx.fillRect(x - s*0.42, y - s*0.78, s*0.84, s*0.08);
+    // 臂
+    ctx.strokeStyle = '#d4a574'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x - s*0.42, y - s*1.0); ctx.quadraticCurveTo(x - s*0.55, y - s*0.8, x - s*0.5, y - s*0.6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.42, y - s*1.0); ctx.quadraticCurveTo(x + s*0.55, y - s*0.8, x + s*0.5, y - s*0.6); ctx.stroke();
+    // 拂尘
+    ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x + s*0.5, y - s*0.6); ctx.lineTo(x + s*0.55, y - s*1.4); ctx.stroke();
+    ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 0.8;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath(); ctx.moveTo(x + s*0.55, y - s*1.4);
+      ctx.quadraticCurveTo(x + s*0.55 + (i-2)*2, y - s*1.25, x + s*0.55 + (i-2)*3, y - s*1.1); ctx.stroke();
+    }
+    // 头
+    const headY = y - s*1.4;
+    ctx.fillStyle = '#d4a574'; ctx.beginPath(); ctx.arc(x, headY, s*0.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#2a2a2a'; ctx.beginPath(); ctx.arc(x, headY - s*0.06, s*0.28, Math.PI*0.8, Math.PI*2.2); ctx.fill();
+    ctx.fillStyle = '#c8a84e'; ctx.beginPath(); ctx.ellipse(x, headY - s*0.35, s*0.08, s*0.12, 0, 0, Math.PI*2); ctx.fill();
+    // 胡须
+    ctx.strokeStyle = '#555'; ctx.lineWidth = 0.8;
+    for (const dx of [-s*0.06, 0, s*0.06]) {
+      ctx.beginPath(); ctx.moveTo(x + dx, headY + s*0.2); ctx.quadraticCurveTo(x + dx, headY + s*0.45, x + dx*0.8, headY + s*0.6); ctx.stroke();
+    }
+    // 眼
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(x - s*0.11, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s*0.11, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+  }
+
+  /** 绘制商人 */
+  _renderMerchant(ctx, x, y) {
+    const s = 24;
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + s*0.05, s*0.5, s*0.12, 0, 0, Math.PI*2); ctx.fill();
+    // 腿
+    ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s*0.15, y - s*0.5); ctx.lineTo(x - s*0.16, y - s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.15, y - s*0.5); ctx.lineTo(x + s*0.16, y - s*0.05); ctx.stroke();
+    ctx.fillStyle = '#4a3010';
+    ctx.beginPath(); ctx.ellipse(x - s*0.16, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s*0.16, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    // 身体（褐色长袍）
+    const bg = ctx.createLinearGradient(x, y - s*1.1, x, y - s*0.45);
+    bg.addColorStop(0, '#8B6030'); bg.addColorStop(1, '#6b4820');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.38, y - s*1.05); ctx.quadraticCurveTo(x - s*0.45, y - s*0.8, x - s*0.35, y - s*0.45);
+    ctx.lineTo(x + s*0.35, y - s*0.45); ctx.quadraticCurveTo(x + s*0.45, y - s*0.8, x + s*0.38, y - s*1.05);
+    ctx.closePath(); ctx.fill();
+    // 腰带
+    ctx.fillStyle = '#3a2810'; ctx.fillRect(x - s*0.38, y - s*0.75, s*0.76, s*0.08);
+    // 臂
+    ctx.strokeStyle = '#c4a070'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x - s*0.38, y - s*0.98); ctx.quadraticCurveTo(x - s*0.52, y - s*0.78, x - s*0.48, y - s*0.58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.38, y - s*0.98); ctx.quadraticCurveTo(x + s*0.52, y - s*0.78, x + s*0.48, y - s*0.58); ctx.stroke();
+    // 右手持算盘
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + s*0.42, y - s*0.72, s*0.18, s*0.28);
+    ctx.strokeStyle = '#5a2a08'; ctx.lineWidth = 0.8;
+    ctx.strokeRect(x + s*0.42, y - s*0.72, s*0.18, s*0.28);
+    // 算盘横线
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(x + s*0.42, y - s*(0.65 - i*0.07)); ctx.lineTo(x + s*0.6, y - s*(0.65 - i*0.07)); ctx.stroke();
+    }
+    // 头
+    const headY = y - s*1.35;
+    ctx.fillStyle = '#c4a070'; ctx.beginPath(); ctx.arc(x, headY, s*0.28, 0, Math.PI*2); ctx.fill();
+    // 帽子（商人帽）
+    ctx.fillStyle = '#3a2810';
+    ctx.beginPath(); ctx.ellipse(x, headY - s*0.22, s*0.32, s*0.1, 0, 0, Math.PI*2); ctx.fill();
+    ctx.fillRect(x - s*0.18, headY - s*0.22, s*0.36, -s*0.28);
+    ctx.beginPath(); ctx.ellipse(x, headY - s*0.5, s*0.18, s*0.08, 0, 0, Math.PI*2); ctx.fill();
+    // 眼
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(x - s*0.1, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s*0.1, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+    // 笑脸
+    ctx.strokeStyle = '#8B5030'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, headY + s*0.12, s*0.06, 0.1, Math.PI - 0.1); ctx.stroke();
+  }
+
 
 
   /**

@@ -2334,6 +2334,11 @@ export class BaseGameScene extends PrologueScene {
     this.renderWorldObjects(ctx);
     
     // 武器渲染已禁用 - 使用水果忍者式滑动攻击
+    // 但投掷武器时需要显示飞行中的武器
+    if (this.weaponRenderer && this.weaponRenderer.thrownWeapon.active) {
+      this.weaponRenderer.renderThrownWeapon(ctx, this.camera);
+    }
+    
     // 渲染战斗警示圆圈和滑动刀光轨迹
     if (this.combatState && this.combatState.inCombat && this.playerEntity) {
       this.renderCombatAlertCircle(ctx);

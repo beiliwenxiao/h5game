@@ -55,6 +55,9 @@ export class StatsComponent extends Component {
     // 兵种属性
     this.unitType = stats.unitType || 0; // 默认刀盾步兵
     
+    // 金币
+    this.gold = stats.gold || 0;
+    
     // 属性效果缓存
     this.attributeEffects = null;
   }

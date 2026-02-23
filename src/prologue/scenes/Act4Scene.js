@@ -949,54 +949,174 @@ export class Act4Scene extends BaseGameScene {
   renderInstructor(ctx, instructor) {
     ctx.save();
 
+    const x = instructor.position.x;
+    const y = instructor.position.y;
     const isHovered = this.hoveredInstructor === instructor;
-    const radius = isHovered ? 45 : 40;
 
-    // 绘制悬停光晕
+    // 悬停光晕
     if (isHovered && !this.classSelected) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.beginPath();
-      ctx.arc(instructor.position.x, instructor.position.y, radius + 10, 0, Math.PI * 2);
+      ctx.arc(x, y, 55, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    // 绘制教官圆形
-    ctx.fillStyle = instructor.color;
-    ctx.beginPath();
-    ctx.arc(instructor.position.x, instructor.position.y, radius, 0, Math.PI * 2);
-    ctx.fill();
+    if (instructor.id === 'zhangliang') {
+      this._renderZhangliang(ctx, x, y, isHovered);
+    } else if (instructor.id === 'zhangbao') {
+      this._renderZhangbao(ctx, x, y, isHovered);
+    }
 
-    // 绘制边框
-    ctx.strokeStyle = isHovered ? '#FFFFFF' : '#000000';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    // 绘制教官名称
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 18px Arial';
+    // 名称和称号
     ctx.textAlign = 'center';
-    ctx.fillText(instructor.name, instructor.position.x, instructor.position.y - 55);
-
-    // 绘制教官称号
-    ctx.font = '14px Arial';
+    ctx.font = '12px Arial';
     ctx.fillStyle = '#FFD700';
-    ctx.fillText(instructor.title, instructor.position.x, instructor.position.y - 75);
-
-    // 绘制职业名称
-    const className = ClassNames[instructor.classType];
-    ctx.font = 'bold 16px Arial';
+    ctx.fillText(instructor.title, x, y - 90);
     ctx.fillStyle = '#FFFFFF';
-    ctx.fillText(className, instructor.position.x, instructor.position.y + 5);
+    ctx.font = 'bold 15px Arial';
+    ctx.fillText(instructor.name, x, y - 74);
 
-    // 如果悬停，显示"点击选择"提示
+    // 职业名称
+    const className = ClassNames[instructor.classType];
+    ctx.font = 'bold 14px Arial';
+    ctx.fillStyle = instructor.color;
+    ctx.fillText(className, x, y + 60);
+
     if (isHovered && !this.classSelected) {
       ctx.font = '12px Arial';
       ctx.fillStyle = '#FFFF00';
-      ctx.fillText('点击选择', instructor.position.x, instructor.position.y + 60);
+      ctx.fillText('点击选择', x, y + 76);
     }
 
     ctx.restore();
   }
+
+  /** 绘制张梁（战士，红色铠甲） */
+  _renderZhangliang(ctx, x, y, isHovered) {
+    const s = 26;
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + s*0.05, s*0.55, s*0.13, 0, 0, Math.PI*2); ctx.fill();
+    // 腿（铠甲裙摆）
+    ctx.fillStyle = '#8B0000';
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.35, y - s*0.5);
+    ctx.lineTo(x - s*0.38, y - s*0.05);
+    ctx.lineTo(x + s*0.38, y - s*0.05);
+    ctx.lineTo(x + s*0.35, y - s*0.5);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#4a0000';
+    ctx.beginPath(); ctx.ellipse(x - s*0.22, y - s*0.02, s*0.1, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s*0.22, y - s*0.02, s*0.1, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    // 身体（红色铠甲）
+    const bg = ctx.createLinearGradient(x, y - s*1.15, x, y - s*0.45);
+    bg.addColorStop(0, '#cc2200'); bg.addColorStop(0.5, '#aa1800'); bg.addColorStop(1, '#881000');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.45, y - s*1.1); ctx.lineTo(x - s*0.48, y - s*0.5);
+    ctx.lineTo(x + s*0.48, y - s*0.5); ctx.lineTo(x + s*0.45, y - s*1.1);
+    ctx.closePath(); ctx.fill();
+    // 铠甲纹路
+    ctx.strokeStyle = '#ff4422'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(x - s*0.3, y - s*1.05); ctx.lineTo(x - s*0.3, y - s*0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.3, y - s*1.05); ctx.lineTo(x + s*0.3, y - s*0.55); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x - s*0.45, y - s*0.8); ctx.lineTo(x + s*0.45, y - s*0.8); ctx.stroke();
+    // 护肩
+    ctx.fillStyle = '#cc2200';
+    ctx.beginPath(); ctx.ellipse(x - s*0.5, y - s*1.0, s*0.15, s*0.1, -0.3, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s*0.5, y - s*1.0, s*0.15, s*0.1, 0.3, 0, Math.PI*2); ctx.fill();
+    // 臂
+    ctx.strokeStyle = '#c47050'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s*0.48, y - s*0.98); ctx.quadraticCurveTo(x - s*0.58, y - s*0.78, x - s*0.52, y - s*0.58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.48, y - s*0.98); ctx.quadraticCurveTo(x + s*0.58, y - s*0.78, x + s*0.52, y - s*0.58); ctx.stroke();
+    // 右手持大刀
+    ctx.strokeStyle = '#888'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x + s*0.52, y - s*0.58); ctx.lineTo(x + s*0.6, y - s*1.5); ctx.stroke();
+    ctx.fillStyle = '#aaa';
+    ctx.beginPath(); ctx.moveTo(x + s*0.55, y - s*1.5); ctx.lineTo(x + s*0.72, y - s*1.35); ctx.lineTo(x + s*0.58, y - s*1.2); ctx.closePath(); ctx.fill();
+    // 头
+    const headY = y - s*1.38;
+    ctx.fillStyle = '#c47050'; ctx.beginPath(); ctx.arc(x, headY, s*0.3, 0, Math.PI*2); ctx.fill();
+    // 头盔
+    ctx.fillStyle = '#aa1800';
+    ctx.beginPath(); ctx.arc(x, headY - s*0.05, s*0.32, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#cc2200';
+    ctx.beginPath(); ctx.ellipse(x, headY - s*0.05, s*0.32, s*0.1, 0, 0, Math.PI*2); ctx.fill();
+    // 头盔顶饰
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath(); ctx.moveTo(x - s*0.05, headY - s*0.35); ctx.lineTo(x + s*0.05, headY - s*0.35); ctx.lineTo(x, headY - s*0.55); ctx.closePath(); ctx.fill();
+    // 眼
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(x - s*0.11, headY + s*0.02, s*0.03, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s*0.11, headY + s*0.02, s*0.03, 0, Math.PI*2); ctx.fill();
+    // 胡须
+    ctx.strokeStyle = '#333'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(x - s*0.08, headY + s*0.18); ctx.quadraticCurveTo(x - s*0.1, headY + s*0.38, x - s*0.06, headY + s*0.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.08, headY + s*0.18); ctx.quadraticCurveTo(x + s*0.1, headY + s*0.38, x + s*0.06, headY + s*0.5); ctx.stroke();
+  }
+
+  /** 绘制张宝（弓箭手，绿色猎装） */
+  _renderZhangbao(ctx, x, y, isHovered) {
+    const s = 24;
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(x, y + s*0.05, s*0.5, s*0.12, 0, 0, Math.PI*2); ctx.fill();
+    // 腿
+    ctx.strokeStyle = '#4a6a30'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s*0.15, y - s*0.5); ctx.lineTo(x - s*0.16, y - s*0.05); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.15, y - s*0.5); ctx.lineTo(x + s*0.16, y - s*0.05); ctx.stroke();
+    ctx.fillStyle = '#2a3a18';
+    ctx.beginPath(); ctx.ellipse(x - s*0.16, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + s*0.16, y - s*0.02, s*0.09, s*0.05, 0, 0, Math.PI*2); ctx.fill();
+    // 身体（绿色猎装）
+    const bg = ctx.createLinearGradient(x, y - s*1.1, x, y - s*0.45);
+    bg.addColorStop(0, '#4a7a30'); bg.addColorStop(1, '#2a5a18');
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.moveTo(x - s*0.4, y - s*1.05); ctx.quadraticCurveTo(x - s*0.46, y - s*0.8, x - s*0.36, y - s*0.45);
+    ctx.lineTo(x + s*0.36, y - s*0.45); ctx.quadraticCurveTo(x + s*0.46, y - s*0.8, x + s*0.4, y - s*1.05);
+    ctx.closePath(); ctx.fill();
+    // 腰带
+    ctx.fillStyle = '#3a2810'; ctx.fillRect(x - s*0.38, y - s*0.73, s*0.76, s*0.07);
+    // 箭袋（背后）
+    ctx.fillStyle = '#8B4513';
+    ctx.fillRect(x + s*0.3, y - s*1.05, s*0.12, s*0.45);
+    ctx.strokeStyle = '#5a2a08'; ctx.lineWidth = 0.8; ctx.strokeRect(x + s*0.3, y - s*1.05, s*0.12, s*0.45);
+    // 箭
+    ctx.strokeStyle = '#8B6914'; ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath(); ctx.moveTo(x + s*0.33 + i*3, y - s*1.05); ctx.lineTo(x + s*0.33 + i*3, y - s*1.25); ctx.stroke();
+    }
+    // 臂
+    ctx.strokeStyle = '#c4a070'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x - s*0.4, y - s*0.98); ctx.quadraticCurveTo(x - s*0.52, y - s*0.78, x - s*0.48, y - s*0.58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + s*0.4, y - s*0.98); ctx.quadraticCurveTo(x + s*0.52, y - s*0.78, x + s*0.48, y - s*0.58); ctx.stroke();
+    // 左手持弓
+    ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x - s*0.48, y - s*0.88, s*0.32, -0.8, 0.8); ctx.stroke();
+    ctx.strokeStyle = '#c8a870'; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(x - s*0.48 + s*0.32*Math.cos(-0.8), y - s*0.88 + s*0.32*Math.sin(-0.8));
+    ctx.lineTo(x - s*0.48 + s*0.32*Math.cos(0.8), y - s*0.88 + s*0.32*Math.sin(0.8)); ctx.stroke();
+    // 头
+    const headY = y - s*1.33;
+    ctx.fillStyle = '#c4a070'; ctx.beginPath(); ctx.arc(x, headY, s*0.28, 0, Math.PI*2); ctx.fill();
+    // 头巾（绿色）
+    ctx.fillStyle = '#2a5a18';
+    ctx.beginPath(); ctx.arc(x, headY - s*0.05, s*0.3, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#4a7a30';
+    ctx.beginPath(); ctx.ellipse(x, headY - s*0.05, s*0.3, s*0.1, 0, 0, Math.PI*2); ctx.fill();
+    // 头巾飘带
+    ctx.strokeStyle = '#2a5a18'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(x + s*0.28, headY - s*0.05); ctx.quadraticCurveTo(x + s*0.4, headY + s*0.1, x + s*0.35, headY + s*0.3); ctx.stroke();
+    // 眼
+    ctx.fillStyle = '#1a1a1a';
+    ctx.beginPath(); ctx.arc(x - s*0.1, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + s*0.1, headY + s*0.01, s*0.025, 0, Math.PI*2); ctx.fill();
+    // 嘴
+    ctx.strokeStyle = '#8B5030'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(x, headY + s*0.12, s*0.05, 0.2, Math.PI - 0.2); ctx.stroke();
+  }
+
 
   /**
    * 渲染职业选择UI

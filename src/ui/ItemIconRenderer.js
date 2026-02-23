@@ -29,6 +29,12 @@ export class ItemIconRenderer {
     if (id === 'wooden_stick') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenStick);
     }
+    if (id === 'wooden_sword') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenSword);
+    }
+    if (id === 'cloth_armor') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawClothArmor);
+    }
     if (id.includes('health_potion') || (item.type === 'consumable' && effectType === 'heal')) {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, (c) => ItemIconRenderer.drawPotion(c, '#ff3333', '#ff6666', '#cc0000'));
     }
@@ -275,5 +281,116 @@ export class ItemIconRenderer {
     // 瓶盖
     ctx.fillStyle = '#654321';
     ctx.fillRect(-4, -bh - 8, 8, 3);
+  }
+
+  /**
+   * 绘制木剑图标
+   */
+  static drawWoodenSword(ctx) {
+    // 剑身
+    ctx.strokeStyle = '#a08030';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 13);
+    ctx.lineTo(0, -11);
+    ctx.stroke();
+
+    // 剑尖
+    ctx.fillStyle = '#c0a040';
+    ctx.beginPath();
+    ctx.moveTo(-2, -10);
+    ctx.lineTo(2, -10);
+    ctx.lineTo(0, -15);
+    ctx.closePath();
+    ctx.fill();
+
+    // 护手（横档）
+    ctx.strokeStyle = '#6b5210';
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-8, 4);
+    ctx.lineTo(8, 4);
+    ctx.stroke();
+
+    // 剑柄
+    ctx.strokeStyle = '#5a3a0a';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 4);
+    ctx.lineTo(0, 13);
+    ctx.stroke();
+
+    // 剑柄缠绕纹
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.moveTo(-3, 6 + i * 2.5);
+      ctx.lineTo(3, 6 + i * 2.5);
+      ctx.stroke();
+    }
+
+    // 剑身高光
+    ctx.strokeStyle = '#d4b860';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-1, -8);
+    ctx.lineTo(-1, 3);
+    ctx.stroke();
+  }
+
+  /**
+   * 绘制布衣图标
+   */
+  static drawClothArmor(ctx) {
+    // 主体
+    ctx.fillStyle = '#6B8E6B';
+    ctx.beginPath();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(-7, -10);
+    ctx.lineTo(-13, -4);
+    ctx.lineTo(-11, -1);
+    ctx.lineTo(-8, -5);
+    ctx.lineTo(-9, 12);
+    ctx.lineTo(9, 12);
+    ctx.lineTo(8, -5);
+    ctx.lineTo(11, -1);
+    ctx.lineTo(13, -4);
+    ctx.lineTo(7, -10);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#4a6a4a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 领口
+    ctx.fillStyle = '#4a6a4a';
+    ctx.beginPath();
+    ctx.ellipse(0, -12, 4, 2, 0, 0, Math.PI);
+    ctx.fill();
+
+    // 腰带
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(-9, 3, 18, 3);
+    ctx.strokeStyle = '#5a4a0a';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(-9, 3, 18, 3);
+
+    // 腰带扣
+    ctx.fillStyle = '#FFD700';
+    ctx.fillRect(-2, 3, 4, 3);
+
+    // 布纹线条
+    ctx.strokeStyle = '#4a6a4a';
+    ctx.lineWidth = 0.6;
+    ctx.beginPath();
+    ctx.moveTo(-4, -8);
+    ctx.lineTo(-4, 2);
+    ctx.moveTo(4, -8);
+    ctx.lineTo(4, 2);
+    ctx.stroke();
   }
 }

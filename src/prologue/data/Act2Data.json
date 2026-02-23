@@ -155,7 +155,7 @@
         "subType": "weapon",
         "rarity": 0,
         "maxStack": 1,
-        "attackSpeed": 3,
+        "attackSpeed": 1.0,
         "stats": {
           "attack": 10
         },

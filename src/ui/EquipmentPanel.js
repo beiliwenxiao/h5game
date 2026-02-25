@@ -216,6 +216,16 @@ export class EquipmentPanel extends UIElement {
       ctx.fillStyle = equipment.durability > 50 ? '#00ff00' : equipment.durability > 20 ? '#ffff00' : '#ff0000';
       ctx.fillRect(x + 2, y + this.slotSize - 6, durabilityWidth, 2);
     }
+
+    // 数量显示（箭矢等可堆叠装备）
+    if (equipment.quantity != null && equipment.quantity > 0) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${equipment.quantity}`, x + this.slotSize - 3, y + this.slotSize - 3);
+      ctx.textBaseline = 'alphabetic';
+    }
   }
 
   /**
@@ -484,8 +494,9 @@ export class EquipmentPanel extends UIElement {
               const unequippedItem = equipmentComponent.unequip(slotType);
               
               if (unequippedItem) {
-                // 放回背包
-                const added = inventoryComponent.addItem(unequippedItem);
+                // 放回背包（箭矢等弹药类需要传入 quantity）
+                const addQuantity = unequippedItem.quantity || 1;
+                const added = inventoryComponent.addItem(unequippedItem, addQuantity);
                 
                 if (added > 0) {
                   console.log(`成功卸下装备: ${unequippedItem.name}，已放回背包`);

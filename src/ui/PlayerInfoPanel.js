@@ -316,6 +316,15 @@ export class PlayerInfoPanel extends UIElement {
           ctx.textBaseline = 'middle';
           ctx.fillText(equippedItem.name.charAt(0), slotX + slotWidth / 2, slotY + slotHeight / 2);
         }
+        
+        // 数量显示（箭矢等可堆叠装备）
+        if (equippedItem.quantity != null && equippedItem.quantity > 0) {
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px Arial';
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(`${equippedItem.quantity}`, slotX + slotWidth - 3, slotY + slotHeight - 3);
+        }
       } else {
         // 绘制空槽提示
         ctx.fillStyle = '#666666';

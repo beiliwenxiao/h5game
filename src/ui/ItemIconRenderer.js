@@ -26,14 +26,20 @@ export class ItemIconRenderer {
     if (id === 'ragged_clothes') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawRaggedClothes);
     }
-    if (id === 'wooden_stick') {
-      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenStick);
+    if (id === 'wooden_sword') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenSword);
     }
     if (id === 'wooden_sword') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenSword);
     }
     if (id === 'cloth_armor') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawClothArmor);
+    }
+    if (id === 'wooden_bow') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenBow);
+    }
+    if (id === 'wooden_arrow') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenArrow);
     }
     if (id.includes('health_potion') || (item.type === 'consumable' && effectType === 'heal')) {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, (c) => ItemIconRenderer.drawPotion(c, '#ff3333', '#ff6666', '#cc0000'));
@@ -187,50 +193,56 @@ export class ItemIconRenderer {
   }
 
   /**
-   * 绘制树棍图标
+   * 绘制木剑图标
    */
-  static drawWoodenStick(ctx) {
-    ctx.strokeStyle = '#8B6914';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
+  static drawWoodenSword(ctx) {
+    // 剑身（木质剑刃）
+    ctx.fillStyle = '#a08030';
     ctx.beginPath();
-    ctx.moveTo(-8, 12);
-    ctx.lineTo(8, -12);
-    ctx.stroke();
-
-    // 纹理
+    ctx.moveTo(0, -14);    // 剑尖
+    ctx.lineTo(3, -10);
+    ctx.lineTo(3, 2);
+    ctx.lineTo(-3, 2);
+    ctx.lineTo(-3, -10);
+    ctx.closePath();
+    ctx.fill();
     ctx.strokeStyle = '#6b5210';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(-5, 8);
-    ctx.lineTo(-3, 5);
-    ctx.moveTo(0, 2);
-    ctx.lineTo(2, -1);
-    ctx.moveTo(4, -5);
-    ctx.lineTo(6, -8);
+    ctx.lineWidth = 0.5;
     ctx.stroke();
 
-    // 高光
-    ctx.strokeStyle = '#a08030';
-    ctx.lineWidth = 1;
+    // 剑身高光
+    ctx.fillStyle = '#c0a050';
     ctx.beginPath();
-    ctx.moveTo(-6, 9);
-    ctx.lineTo(6, -9);
-    ctx.stroke();
+    ctx.moveTo(0, -13);
+    ctx.lineTo(1.5, -10);
+    ctx.lineTo(1.5, 1);
+    ctx.lineTo(0, 1);
+    ctx.closePath();
+    ctx.fill();
 
-    // 小分叉
-    ctx.strokeStyle = '#8B6914';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(6, -9);
-    ctx.lineTo(10, -13);
-    ctx.stroke();
+    // 护手（横条）
+    ctx.fillStyle = '#5a4a0a';
+    ctx.fillRect(-5, 2, 10, 2.5);
 
-    // 节疤
+    // 剑柄
+    ctx.fillStyle = '#8B6914';
+    ctx.fillRect(-1.5, 4.5, 3, 8);
+
+    // 剑柄缠绕纹理
+    ctx.strokeStyle = '#6b5210';
+    ctx.lineWidth = 0.6;
+    for (let i = 0; i < 3; i++) {
+      const yy = 5.5 + i * 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-1.5, yy);
+      ctx.lineTo(1.5, yy + 1);
+      ctx.stroke();
+    }
+
+    // 剑柄底部圆头
     ctx.fillStyle = '#5a4a0a';
     ctx.beginPath();
-    ctx.ellipse(-2, 3, 1.5, 1, 0.8, 0, Math.PI * 2);
+    ctx.arc(0, 13, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -340,6 +352,85 @@ export class ItemIconRenderer {
     ctx.moveTo(-1, -8);
     ctx.lineTo(-1, 3);
     ctx.stroke();
+  }
+
+  /**
+   * 绘制木弓图标
+   */
+  static drawWoodenBow(ctx) {
+    // 弓身（弧形）
+    ctx.strokeStyle = '#8B6914';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(4, 0, 14, Math.PI * 0.65, Math.PI * 1.35);
+    ctx.stroke();
+
+    // 弓身纹理
+    ctx.strokeStyle = '#6b5210';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(4, 0, 13, Math.PI * 0.75, Math.PI * 0.85);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(4, 0, 13, Math.PI * 1.1, Math.PI * 1.2);
+    ctx.stroke();
+
+    // 弓弦
+    ctx.strokeStyle = '#c8b88a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(4 + 14 * Math.cos(Math.PI * 0.65), 14 * Math.sin(Math.PI * 0.65));
+    ctx.lineTo(4 + 14 * Math.cos(Math.PI * 1.35), 14 * Math.sin(Math.PI * 1.35));
+    ctx.stroke();
+
+    // 弓把缠绕
+    ctx.strokeStyle = '#5a3a0a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(4, 0, 14, Math.PI * 0.95, Math.PI * 1.05);
+    ctx.stroke();
+  }
+
+  /**
+   * 绘制木箭图标
+   */
+  static drawWoodenArrow(ctx) {
+    // 箭杆
+    ctx.strokeStyle = '#8B6914';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 12);
+    ctx.lineTo(0, -10);
+    ctx.stroke();
+
+    // 箭头（三角形）
+    ctx.fillStyle = '#888888';
+    ctx.beginPath();
+    ctx.moveTo(-3, -9);
+    ctx.lineTo(3, -9);
+    ctx.lineTo(0, -15);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#666666';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // 箭羽（两片）
+    ctx.fillStyle = '#cc8844';
+    ctx.beginPath();
+    ctx.moveTo(-1, 10);
+    ctx.lineTo(-5, 13);
+    ctx.lineTo(-1, 7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(1, 10);
+    ctx.lineTo(5, 13);
+    ctx.lineTo(1, 7);
+    ctx.closePath();
+    ctx.fill();
   }
 
   /**

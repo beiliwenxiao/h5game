@@ -336,8 +336,8 @@ export class Act1SceneECS extends BaseGameScene {
           maxStack: 1
         },
         { 
-          id: 'wooden_stick', 
-          name: '树棍', 
+          id: 'wooden_sword', 
+          name: '木剑', 
           type: 'equipment',
           subType: 'mainhand',
           x: 300, 
@@ -393,8 +393,12 @@ export class Act1SceneECS extends BaseGameScene {
       if (item.heal) itemData.heal = item.heal;
       if (item.stats) itemData.stats = { ...itemData.stats, ...item.stats };
       if (item.attackSpeed != null) itemData.attackSpeed = item.attackSpeed;
+      if (item.ranged) itemData.ranged = true;
+      if (item.quantity != null) itemData.quantity = item.quantity;
+      if (item.attackRange != null) itemData.attackRange = item.attackRange;
+      if (item.attackDistance != null) itemData.attackDistance = item.attackDistance;
       
-      inventory.addItem(itemData);
+      inventory.addItem(itemData, item.quantity || 1);
       console.log('Act1SceneECS: 物品已添加到背包', itemData);
     }
   }

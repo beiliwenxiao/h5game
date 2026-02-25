@@ -155,7 +155,9 @@
         "subType": "weapon",
         "rarity": 0,
         "maxStack": 1,
-        "attackSpeed": 1.0,
+        "attackSpeed": 2.0,
+        "attackRange": 90,
+        "attackDistance": 100,
         "stats": {
           "attack": 10
         },

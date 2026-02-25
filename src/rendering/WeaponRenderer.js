@@ -7,7 +7,7 @@ export class WeaponRenderer {
   constructor() {
     // 武器配置
     this.weaponConfigs = {
-      'wooden_stick': {
+      'wooden_sword': {
         length: 64,  // 2个玩家大小（玩家32x32）
         width: 8,
         color: '#8B4513',

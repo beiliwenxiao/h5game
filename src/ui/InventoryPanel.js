@@ -891,19 +891,34 @@ export class InventoryPanel extends UIElement {
         speed: statsComponent.speed
       } : null;
       
-      // 从背包移除物品
-      const removed = inventoryComponent.removeItem(item.id, 1);
-      console.log(`从背包移除了 ${removed} 个物品`);
+      // 从背包移除物品（箭矢等有数量的装备移除整组）
+      const stackQuantity = slot.quantity; // ItemStack 的实际堆叠数量
+      const removeCount = (item.subType === 'ammo') ? stackQuantity : 1;
+      inventoryComponent.removeItem(item.id, removeCount);
+      
+      // 箭矢等弹药类装备，保持 item.quantity 不变（只有攻击消耗才减少）
       
       // 装备到对应槽位（兼容 subType 别名）
-      const slotMap = { weapon: 'mainhand', shield: 'offhand' };
+      const slotMap = { weapon: 'mainhand', shield: 'offhand', ammo: 'offhand' };
       const targetSlot = slotMap[subType] || subType;
       const oldItem = equipmentComponent.equip(targetSlot, item);
       
       // 如果有旧装备，放回背包
       if (oldItem) {
-        inventoryComponent.addItem(oldItem);
+        inventoryComponent.addItem(oldItem, oldItem.quantity || 1);
         console.log(`旧装备 ${oldItem.name} 已放回背包`);
+      }
+      
+      // 切换主手武器时，如果新武器不是远程武器，自动卸下副手的箭矢
+      if (targetSlot === 'mainhand' && !item.ranged) {
+        const offhandItem = equipmentComponent.getEquipment('offhand');
+        if (offhandItem && offhandItem.subType === 'ammo') {
+          const removedAmmo = equipmentComponent.unequip('offhand');
+          if (removedAmmo) {
+            inventoryComponent.addItem(removedAmmo, removedAmmo.quantity || 1);
+            console.log(`副手箭矢 ${removedAmmo.name} 已自动卸下到背包`);
+          }
+        }
       }
       
       // 更新玩家属性（应用装备加成）

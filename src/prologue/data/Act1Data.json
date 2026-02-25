@@ -58,18 +58,49 @@
       "maxStack": 1
     },
     {
-      "id": "wooden_stick",
-      "name": "树棍",
+      "id": "wooden_sword",
+      "name": "木剑",
       "type": "equipment",
       "subType": "mainhand",
       "position": { "x": 300, "y": 250 },
-      "attackSpeed": 1.0,
+      "attackSpeed": 2.0,
+      "attackRange": 90,
+      "attackDistance": 100,
       "stats": {
         "attack": 5
       },
-      "description": "简陋的木棍，可以用来防身",
+      "description": "简陋的木剑，可以用来防身",
       "rarity": 0,
       "maxStack": 1
+    },
+    {
+      "id": "wooden_bow",
+      "name": "木弓",
+      "type": "equipment",
+      "subType": "mainhand",
+      "ranged": true,
+      "position": { "x": 450, "y": 220 },
+      "attackSpeed": 1.0,
+      "attackRange": 15,
+      "attackDistance": 300,
+      "stats": {
+        "attack": 7
+      },
+      "description": "简陋的木弓，可以远程攻击",
+      "rarity": 0,
+      "maxStack": 1
+    },
+    {
+      "id": "wooden_arrow",
+      "name": "木箭",
+      "type": "equipment",
+      "subType": "ammo",
+      "position": { "x": 470, "y": 250 },
+      "stats": {},
+      "description": "粗糙的木箭，配合弓使用",
+      "rarity": 0,
+      "maxStack": 99,
+      "quantity": 30
     }
   ],
   "combatWaves": [

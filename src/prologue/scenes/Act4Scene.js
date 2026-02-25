@@ -863,6 +863,17 @@ export class Act4Scene extends BaseGameScene {
         this.lastUnitInfoToggleTime = now;
       }
     }
+
+    // N键 - 前往第五幕
+    const nPressed = this.inputManager.isKeyDown('n') || this.inputManager.isKeyDown('N');
+    if (nPressed) {
+      const now = Date.now();
+      if (!this._lastNextSceneTime || now - this._lastNextSceneTime > 1000) {
+        this._lastNextSceneTime = now;
+        console.log('Act4Scene: N键触发，切换到第五幕');
+        this.switchToNextScene();
+      }
+    }
   }
 
   /**
@@ -1203,7 +1214,7 @@ export class Act4Scene extends BaseGameScene {
     } else if (!this.classSelected && this.introDialogueCompleted) {
       hints.push('点击教官选择职业');
     } else if (this.classSelected) {
-      hints.push('按 T 键打开技能树 | 按 P 键分配属性 | 按 U 键查看兵种');
+      hints.push('按 T/P/U 键查看技能树/属性/兵种 | 按 N 键前往第五幕');
     }
 
     // 渲染提示

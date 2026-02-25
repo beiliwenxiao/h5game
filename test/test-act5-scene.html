@@ -59,6 +59,7 @@
     
     <script type="module">
         import { Act5Scene } from '../src/prologue/scenes/Act5Scene.js';
+        import { Act6Scene } from '../src/prologue/scenes/Act6Scene.js';
         import { SceneManager } from '../src/core/SceneManager.js';
         
         const canvas = document.getElementById('gameCanvas');
@@ -70,7 +71,19 @@
         let fps = 60, frameCount = 0, fpsTime = 0;
         
         sceneManager.registerScene('Act5Scene', scene);
+        let act6Scene = new Act6Scene();
+        sceneManager.registerScene('Act6Scene', act6Scene);
+        act6Scene.setSceneManager(sceneManager);
         scene.setSceneManager(sceneManager);
+        
+        // 覆盖 loadActData，修正 test 目录下的相对路径
+        scene.loadActData = function() {
+            const url = `../src/prologue/data/Act${this.actNumber}Data.json`;
+            fetch(url)
+              .then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`))
+              .then(data => { this.actData = data; console.log('Act5Data 加载成功'); })
+              .catch(e => { console.warn('Act5Data 加载失败', e); this.actData = null; });
+        };
         
         const mockPlayerData = {
             player: {

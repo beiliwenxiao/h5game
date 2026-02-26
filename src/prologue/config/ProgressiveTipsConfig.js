@@ -155,6 +155,19 @@ export const ProgressiveTipsConfig = {
     triggerConditionId: 'progressive_tip_10_trigger',
     prerequisites: ['progressive_tip_9'],
     nextTip: null
+  },
+
+  // 11. 按N键进入下一幕（野狗打完后）
+  progressive_tip_11: {
+    id: 'progressive_tip_11',
+    title: '提示',
+    description: '进入下一幕',
+    text: '你击退了野狗。按<span class="key">N</span>键进入下一幕',
+    position: 'center',
+    priority: 60,
+    triggerConditionId: 'progressive_tip_11_trigger',
+    prerequisites: ['progressive_tip_10'],
+    nextTip: null
   }
 };
 

@@ -41,6 +41,18 @@ export class ItemIconRenderer {
     if (id === 'wooden_arrow') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawWoodenArrow);
     }
+    if (id === 'talisman_water') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawTalismanWater);
+    }
+    if (id === 'cloth_belt') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawClothBelt);
+    }
+    if (id === 'straw_sandals') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawStrawSandals);
+    }
+    if (id === 'coin_sword') {
+      return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawCoinSword);
+    }
     if (id.includes('health_potion') || (item.type === 'consumable' && effectType === 'heal')) {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, (c) => ItemIconRenderer.drawPotion(c, '#ff3333', '#ff6666', '#cc0000'));
     }
@@ -484,4 +496,218 @@ export class ItemIconRenderer {
     ctx.lineTo(4, 2);
     ctx.stroke();
   }
+
+  /**
+   * 绘制符水图标（破碗+符纸）
+   */
+  static drawTalismanWater(ctx) {
+    // 破碗 - 半圆形碗身
+    ctx.fillStyle = '#8B7355';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 12, 8, 0, 0, Math.PI);
+    ctx.fill();
+    ctx.strokeStyle = '#5a4a3a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // 碗口
+    ctx.fillStyle = '#a08060';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 12, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#5a4a3a';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // 碗中液体（淡黄色粥水）
+    ctx.fillStyle = '#d4c090';
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 10, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 碗的裂纹（表示破碗）
+    ctx.strokeStyle = '#3a2a1a';
+    ctx.lineWidth = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(-4, 4);
+    ctx.lineTo(-6, 9);
+    ctx.lineTo(-3, 11);
+    ctx.stroke();
+
+    // 符纸 - 斜插在碗中
+    ctx.save();
+    ctx.translate(3, -4);
+    ctx.rotate(-0.3);
+
+    // 符纸底色
+    ctx.fillStyle = '#f5e6b8';
+    ctx.fillRect(-4, -10, 8, 14);
+    ctx.strokeStyle = '#c0a060';
+    ctx.lineWidth = 0.6;
+    ctx.strokeRect(-4, -10, 8, 14);
+
+    // 符纸上的符文（红色笔画）
+    ctx.strokeStyle = '#cc3333';
+    ctx.lineWidth = 0.8;
+    // 横
+    ctx.beginPath();
+    ctx.moveTo(-2, -7);
+    ctx.lineTo(2, -7);
+    ctx.stroke();
+    // 竖
+    ctx.beginPath();
+    ctx.moveTo(0, -8);
+    ctx.lineTo(0, -3);
+    ctx.stroke();
+    // 点
+    ctx.fillStyle = '#cc3333';
+    ctx.beginPath();
+    ctx.arc(-2, -3, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(2, -3, 0.8, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  /**
+   * 绘制布腰带图标
+   */
+  static drawClothBelt(ctx) {
+    // 腰带主体 - 弯曲的带状
+    ctx.fillStyle = '#8B7355';
+    ctx.beginPath();
+    ctx.moveTo(-12, -2);
+    ctx.quadraticCurveTo(0, 4, 12, -2);
+    ctx.lineTo(12, 3);
+    ctx.quadraticCurveTo(0, 9, -12, 3);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#5a4a3a';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // 腰带纹理线
+    ctx.strokeStyle = '#6a5a45';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(-10, 0);
+    ctx.quadraticCurveTo(0, 5, 10, 0);
+    ctx.stroke();
+
+    // 腰带扣 - 方形金属扣
+    ctx.fillStyle = '#c0a040';
+    ctx.fillRect(-3, -4, 6, 9);
+    ctx.strokeStyle = '#8a7030';
+    ctx.lineWidth = 0.8;
+    ctx.strokeRect(-3, -4, 6, 9);
+
+    // 扣针
+    ctx.fillStyle = '#d4b050';
+    ctx.beginPath();
+    ctx.arc(0, 0.5, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a7030';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
+    // 腰带末端的装饰
+    ctx.fillStyle = '#7a6345';
+    ctx.fillRect(-13, -1, 3, 4);
+    ctx.fillRect(10, -1, 3, 4);
+  }
+
+  /**
+   * 绘制草鞋图标
+   */
+  static drawStrawSandals(ctx) {
+    // 鞋底 - 椭圆形草编底
+    ctx.fillStyle = '#c4a050';
+    ctx.beginPath();
+    ctx.ellipse(-1, 2, 10, 6, -0.15, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a7030';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+
+    // 草编纹理 - 横线
+    ctx.strokeStyle = '#a08840';
+    ctx.lineWidth = 0.5;
+    for (let i = -3; i <= 6; i += 3) {
+      ctx.beginPath();
+      ctx.moveTo(-9, i);
+      ctx.lineTo(7, i);
+      ctx.stroke();
+    }
+
+    // 鞋面绑带 - 交叉绳
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 1.2;
+    // 左绑带
+    ctx.beginPath();
+    ctx.moveTo(-6, -2);
+    ctx.quadraticCurveTo(-2, -6, 2, -2);
+    ctx.stroke();
+    // 右绑带
+    ctx.beginPath();
+    ctx.moveTo(-3, 0);
+    ctx.quadraticCurveTo(1, -5, 5, 0);
+    ctx.stroke();
+
+    // 鞋头部分 - 稍微翘起
+    ctx.fillStyle = '#b89840';
+    ctx.beginPath();
+    ctx.ellipse(-9, 1, 3, 4, -0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#8a7030';
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
+
+  /**
+   * 绘制铜钱剑图标（多个铜钱组合成剑形）
+   */
+  static drawCoinSword(ctx) {
+    // 单个铜钱绘制函数（圆形+方孔）
+    const drawCoin = (cx, cy, r) => {
+      // 铜钱外圈
+      ctx.fillStyle = '#c8a030';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#8a7020';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+      // 方孔
+      const h = r * 0.4;
+      ctx.fillStyle = '#3a2a10';
+      ctx.fillRect(cx - h, cy - h, h * 2, h * 2);
+      // 铜钱高光
+      ctx.strokeStyle = '#e0c050';
+      ctx.lineWidth = 0.3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.75, -0.8, 0.3);
+      ctx.stroke();
+    };
+
+    // 剑尖 - 1枚铜钱
+    drawCoin(0, -14, 3);
+
+    // 剑身 - 竖排铜钱（稍微重叠）
+    drawCoin(0, -9, 3.2);
+    drawCoin(0, -4, 3.2);
+    drawCoin(0, 1, 3.2);
+
+    // 护手 - 横排3枚铜钱
+    drawCoin(-6, 5.5, 2.8);
+    drawCoin(0, 5.5, 2.8);
+    drawCoin(6, 5.5, 2.8);
+
+    // 剑柄 - 竖排铜钱
+    drawCoin(0, 9.5, 2.8);
+    drawCoin(0, 13.5, 2.8);
+  }
+
+
 }

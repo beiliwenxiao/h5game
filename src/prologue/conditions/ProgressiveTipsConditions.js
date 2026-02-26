@@ -144,6 +144,15 @@ export class ProgressiveTipsConditions {
   }
 
   /**
+   * 提示11 - 按N键进入下一幕（野狗打完后）
+   * @param {Object} scene - 场景实例
+   * @returns {boolean}
+   */
+  static progressive_tip_11_trigger(scene) {
+    return scene.combatComplete && !scene.tutorialsCompleted.progressive_tip_11;
+  }
+
+  /**
    * 根据条件ID获取条件函数
    * @param {string} conditionId - 条件ID
    * @returns {Function|null}

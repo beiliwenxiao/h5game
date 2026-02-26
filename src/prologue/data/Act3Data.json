@@ -119,23 +119,6 @@
     }
   },
   "rewards": {
-    "coin_sword": {
-      "id": "coin_sword",
-      "name": "铜钱剑",
-      "type": "equipment",
-      "subType": "weapon",
-      "rarity": 1,
-      "maxStack": 1,
-      "description": "用铜钱串成的剑，攻击力不错但耐久度较低",
-      "stats": {
-        "attack": 15
-      },
-      "negativeStats": {
-        "durability": -10
-      },
-      "durability": 80,
-      "enhancement": 0
-    },
     "currency": {
       "gold": 500
     }
@@ -164,28 +147,6 @@
         "effect": { "type": "mana", "value": 50 },
         "description": "恢复50点魔法值",
         "stock": 10
-      },
-      {
-        "id": "iron_sword",
-        "name": "铁剑",
-        "type": "equipment",
-        "subType": "weapon",
-        "price": 200,
-        "sellPrice": 100,
-        "stats": { "attack": 20 },
-        "description": "普通的铁制剑",
-        "stock": 3
-      },
-      {
-        "id": "leather_armor",
-        "name": "皮甲",
-        "type": "equipment",
-        "subType": "armor",
-        "price": 150,
-        "sellPrice": 75,
-        "stats": { "defense": 10, "maxHp": 30 },
-        "description": "简单的皮制护甲",
-        "stock": 3
       },
       {
         "id": "enhancement_stone",

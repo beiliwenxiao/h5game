@@ -128,40 +128,38 @@
       "usable": true,
       "maxStack": 10,
       "rarity": 1,
-      "description": "张角的符水，可以恢复50点生命值",
+      "description": "张角的符水，可以恢复300点生命值",
       "effect": {
         "type": "heal",
-        "value": 50
+        "value": 300
       }
     },
     "equipment": [
       {
-        "id": "cloth_armor",
-        "name": "布衣",
+        "id": "cloth_belt",
+        "name": "布腰带",
         "type": "equipment",
-        "subType": "armor",
+        "subType": "belt",
         "rarity": 0,
         "maxStack": 1,
         "stats": {
-          "defense": 5,
-          "maxHp": 20
+          "defense": 2,
+          "maxHp": 10
         },
-        "description": "简单的布制护甲"
+        "description": "简单的布制腰带，聊胜于无"
       },
       {
-        "id": "wooden_sword",
-        "name": "木剑",
+        "id": "straw_sandals",
+        "name": "草鞋",
         "type": "equipment",
-        "subType": "weapon",
+        "subType": "boots",
         "rarity": 0,
         "maxStack": 1,
-        "attackSpeed": 2.0,
-        "attackRange": 90,
-        "attackDistance": 100,
         "stats": {
-          "attack": 10
+          "defense": 1,
+          "speed": 3
         },
-        "description": "简单的木制剑"
+        "description": "用稻草编织的鞋子，轻便耐穿"
       }
     ]
   },

@@ -63,6 +63,31 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：战斗状态
     this.combatWave = 0;
+    this.combatComplete = false;
+    this.starvingWaveTriggered = false;
+    
+    // 第一幕特有：饥民逐渐生成器
+    this.starvingSpawner = {
+      active: false,
+      totalCount: 18,
+      spawnedCount: 0,
+      spawnInterval: 0.6,  // 每0.6秒生成一个
+      spawnTimer: 0
+    };
+    
+    // 第一幕特有：气泡对话
+    this.speechBubbles = [];  // [{entityId, text, x, y, age, maxAge}]
+    this.STARVING_PHRASES = [
+      '好饿...', '饿死了...', '有吃的吗...', '救命...', 
+      '三天没吃了...', '谁有粮食...', '活不下去了...',
+      '肚子好饿...', '求求你...', '给口吃的吧...',
+      '饿得头晕...', '快饿死了...', '好冷好饿...',
+      '有没有人...', '太饿了...'
+    ];
+    this.DOG_PHRASES = [
+      '汪汪！', '汪！', '呜...', '嗷呜~',
+      '汪汪汪！', '呜呜...', '嗷！', '汪~'
+    ];
     
     // 第一幕特有：死亡和过渡
     this.playerDied = false;
@@ -397,6 +422,8 @@ export class Act1SceneECS extends BaseGameScene {
       if (item.quantity != null) itemData.quantity = item.quantity;
       if (item.attackRange != null) itemData.attackRange = item.attackRange;
       if (item.attackDistance != null) itemData.attackDistance = item.attackDistance;
+      if (item.pierce != null) itemData.pierce = item.pierce;
+      if (item.multishot != null) itemData.multishot = item.multishot;
       
       inventory.addItem(itemData, item.quantity || 1);
       console.log('Act1SceneECS: 物品已添加到背包', itemData);
@@ -445,37 +472,18 @@ export class Act1SceneECS extends BaseGameScene {
         { name: '野狗', templateId: 'wild_dog', level: 1, stats: { maxHp: 30, attack: 5, defense: 2 }, x: 500, y: 300 },
         { name: '野狗', templateId: 'wild_dog', level: 1, stats: { maxHp: 30, attack: 5, defense: 2 }, x: 600, y: 300 }
       ],
-      // 第二波：官府士兵
-      [
-        { name: '官府士兵', templateId: 'soldier', level: 2, stats: { maxHp: 50, attack: 8, defense: 5 }, x: 450, y: 250 },
-        { name: '官府士兵', templateId: 'soldier', level: 2, stats: { maxHp: 50, attack: 8, defense: 5 }, x: 550, y: 300 },
-        { name: '官府士兵', templateId: 'soldier', level: 2, stats: { maxHp: 50, attack: 8, defense: 5 }, x: 650, y: 350 }
-      ],
-      // 第三波：土匪
-      [
-        { name: '土匪', templateId: 'bandit', level: 3, stats: { maxHp: 60, attack: 10, defense: 6 }, x: 500, y: 250 },
-        { name: '土匪', templateId: 'bandit', level: 3, stats: { maxHp: 60, attack: 10, defense: 6 }, x: 600, y: 250 },
-        { name: '土匪', templateId: 'bandit', level: 3, stats: { maxHp: 60, attack: 10, defense: 6 }, x: 500, y: 350 },
-        { name: '土匪', templateId: 'bandit', level: 3, stats: { maxHp: 60, attack: 10, defense: 6 }, x: 600, y: 350 }
-      ],
-      // 第四波：饥民围困
+      // 第二波：饥民围困
       []
     ];
     
-    // 第四波特殊处理（圆形包围）
-    if (waveIndex === 3) {
-      const radius = 150;
-      const count = 10;
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * Math.PI * 2;
-        const x = 400 + Math.cos(angle) * radius;
-        const y = 300 + Math.sin(angle) * radius;
-        waves[3].push({
-          name: '饥民', templateId: 'starving', level: 2,
-          stats: { maxHp: 40, attack: 6, defense: 3 },
-          x, y
-        });
-      }
+    // 第二波特殊处理（饥民逐渐从四面八方进入）
+    if (waveIndex === 1) {
+      // 启动逐渐生成模式，不在这里一次性生成
+      this.starvingSpawner.active = true;
+      this.starvingSpawner.spawnedCount = 0;
+      this.starvingSpawner.spawnTimer = 0;
+      console.log('Act1SceneECS: 启动饥民逐渐生成模式，总数:', this.starvingSpawner.totalCount);
+      return; // 不走下面的批量生成逻辑
     }
     
     const waveData = waves[waveIndex] || [];
@@ -498,6 +506,11 @@ export class Act1SceneECS extends BaseGameScene {
       
       // 注册AI控制器（让敌人主动攻击）
       this.aiSystem.registerAI(enemy, 'aggressive');
+      
+      // 野狗生成时给初始气泡
+      if (enemyData.templateId === 'wild_dog') {
+        this.addSpeechBubble(enemy);
+      }
       
       // 调试：确认敌人属性
       console.log(`敌人 ${enemy.name} 已创建:`, {
@@ -541,6 +554,18 @@ export class Act1SceneECS extends BaseGameScene {
     // 更新火焰帧动画（第一幕特有）
     this.updateCampfireAnimation(deltaTime);
     
+    // 第一幕特有：检查N键触发饥民围困（必须在super.update之前，因为super.update末尾会清除keysPressed）
+    if (this.combatComplete && !this.starvingWaveTriggered && this.inputManager && 
+        (this.inputManager.isKeyPressed('n') || this.inputManager.isKeyPressed('N'))) {
+      this.starvingWaveTriggered = true;
+      this.combatComplete = false;
+      // 隐藏提示
+      if (this.tutorialSystem) {
+        this.tutorialSystem.completeTutorial('progressive_tip_11');
+      }
+      this.spawnCombatWave(1);
+    }
+    
     // 调用父类的 update
     super.update(deltaTime);
     
@@ -552,6 +577,12 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：检查波次完成
     this.checkWaveCompletion();
+    
+    // 第一幕特有：逐渐生成饥民
+    this.updateStarvingSpawner(deltaTime);
+    
+    // 第一幕特有：更新气泡对话
+    this.updateSpeechBubbles(deltaTime);
     
     // 第一幕特有：检查玩家是否死亡
     this.checkPlayerDeath();
@@ -669,7 +700,17 @@ export class Act1SceneECS extends BaseGameScene {
             console.log('Act1SceneECS: 完成tip_3 - 点燃火堆');
           }
           
+          // 确保当前教程已隐藏，避免阻塞后续提示
+          if (this.tutorialSystem && this.tutorialSystem.currentTutorial) {
+            this.tutorialSystem.hideTutorial();
+          }
+          
           this.startPickupTutorial();
+          
+          // 主动显示 tip_4
+          if (this.tutorialSystem && !this.tutorialsCompleted.progressive_tip_4) {
+            this.tutorialSystem.showTutorial('progressive_tip_4');
+          }
         }
       },
       
@@ -1183,6 +1224,98 @@ export class Act1SceneECS extends BaseGameScene {
   }
 
   /**
+   * 逐渐生成饥民
+   */
+  updateStarvingSpawner(deltaTime) {
+    if (!this.starvingSpawner.active) return;
+    if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) return;
+    
+    this.starvingSpawner.spawnTimer += deltaTime;
+    if (this.starvingSpawner.spawnTimer >= this.starvingSpawner.spawnInterval) {
+      this.starvingSpawner.spawnTimer -= this.starvingSpawner.spawnInterval;
+      this.spawnSingleStarving();
+    }
+  }
+
+  /**
+   * 从画面边缘随机位置生成一个饥民
+   */
+  spawnSingleStarving() {
+    // 获取玩家位置作为中心参考
+    const playerTransform = this.playerEntity?.getComponent('transform');
+    const centerX = playerTransform ? playerTransform.position.x : 400;
+    const centerY = playerTransform ? playerTransform.position.y : 300;
+    
+    // 从画面四面八方生成（距离中心 150-250 像素，更靠近火堆）
+    const spawnDistance = 150 + Math.random() * 100;
+    const angle = Math.random() * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * spawnDistance;
+    const y = centerY + Math.sin(angle) * spawnDistance;
+    
+    const enemy = this.entityFactory.createEnemy({
+      name: '饥民',
+      templateId: 'starving',
+      level: 2,
+      position: { x, y },
+      stats: { maxHp: 40, attack: 6, defense: 3 },
+      aiType: 'aggressive'
+    });
+    
+    this.entities.push(enemy);
+    this.enemyEntities.push(enemy);
+    this.aiSystem.registerAI(enemy, 'aggressive');
+    
+    this.starvingSpawner.spawnedCount++;
+    
+    // 生成时立即给一个气泡
+    this.addSpeechBubble(enemy);
+  }
+
+  /**
+   * 给实体添加气泡对话
+   */
+  addSpeechBubble(entity) {
+    const phrases = entity.name === '野狗' ? this.DOG_PHRASES : this.STARVING_PHRASES;
+    const text = phrases[Math.floor(Math.random() * phrases.length)];
+    this.speechBubbles.push({
+      entityId: entity.id,
+      text,
+      age: 0,
+      maxAge: 2.5 + Math.random() * 1.5  // 2.5~4秒
+    });
+  }
+
+  /**
+   * 更新气泡对话
+   */
+  updateSpeechBubbles(deltaTime) {
+    // 更新现有气泡
+    for (let i = this.speechBubbles.length - 1; i >= 0; i--) {
+      this.speechBubbles[i].age += deltaTime;
+      if (this.speechBubbles[i].age >= this.speechBubbles[i].maxAge) {
+        this.speechBubbles.splice(i, 1);
+      }
+    }
+    
+    // 随机给活着的敌人添加新气泡（每帧约2%概率）
+    if (this.enemyEntities.length > 0) {
+      for (const enemy of this.enemyEntities) {
+        if (enemy.isDead || enemy.isDying) continue;
+        if (enemy.name !== '饥民' && enemy.name !== '野狗') continue;
+        
+        // 检查该实体是否已有气泡
+        const hasBubble = this.speechBubbles.some(b => b.entityId === enemy.id);
+        if (hasBubble) continue;
+        
+        // 2%概率产生新气泡
+        if (Math.random() < 0.02) {
+          this.addSpeechBubble(enemy);
+        }
+      }
+    }
+  }
+
+  /**
    * 检查波次完成
    */
   checkWaveCompletion() {
@@ -1197,15 +1330,20 @@ export class Act1SceneECS extends BaseGameScene {
       console.log(`Act1SceneECS: 第${this.combatWave + 1}波完成`);
       
       if (this.combatWave === 0) {
-        setTimeout(() => this.spawnCombatWave(1), 2000);
-      } else if (this.combatWave === 1) {
-        setTimeout(() => this.spawnCombatWave(2), 2000);
-      } else if (this.combatWave === 2) {
+        // 野狗打完，提示按N键（使用渐进式提示系统）
         this.tutorialsCompleted.combat = true;
-        setTimeout(() => this.spawnCombatWave(3), 2000);
-      } else if (this.combatWave === 3) {
-        // 饥民围困后触发死亡
-        setTimeout(() => this.triggerPlayerDeath(), 5000);
+        this.combatComplete = true;
+        
+        // 通过教程系统显示提示（带.key按键样式）
+        if (this.tutorialSystem) {
+          this.tutorialSystem.showTutorial('progressive_tip_11');
+        }
+      } else if (this.combatWave === 1) {
+        // 饥民波次：所有饥民都已生成且全部死亡后触发死亡
+        if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) {
+          this.starvingSpawner.active = false;
+          setTimeout(() => this.triggerPlayerDeath(), 5000);
+        }
       }
     }
   }
@@ -1402,6 +1540,84 @@ export class Act1SceneECS extends BaseGameScene {
         item.render();
       }
     }
+    
+    // 渲染气泡对话（在所有实体之上）
+    this.renderSpeechBubbles(ctx);
+  }
+
+  /**
+   * 渲染气泡对话（带尾巴的气泡）
+   */
+  renderSpeechBubbles(ctx) {
+    if (this.speechBubbles.length === 0) return;
+    
+    ctx.save();
+    
+    for (const bubble of this.speechBubbles) {
+      // 找到对应实体
+      const entity = this.entities.find(e => e.id === bubble.entityId);
+      if (!entity) continue;
+      
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      
+      const sprite = entity.getComponent('sprite');
+      const entityHeight = sprite?.height || 32;
+      
+      // 气泡位置（实体头顶上方）
+      const bx = transform.position.x;
+      const by = transform.position.y - entityHeight - 20;
+      
+      // 淡入淡出
+      const fadeIn = Math.min(bubble.age / 0.3, 1);
+      const fadeOut = Math.max(0, 1 - (bubble.age - (bubble.maxAge - 0.5)) / 0.5);
+      const alpha = Math.min(fadeIn, fadeOut);
+      
+      // 气泡上浮效果
+      const floatY = by - bubble.age * 8;
+      
+      ctx.globalAlpha = alpha;
+      ctx.font = '11px Arial';
+      const textWidth = ctx.measureText(bubble.text).width;
+      const padX = 6;
+      const padY = 4;
+      const bw = textWidth + padX * 2;
+      const bh = 18;
+      const radius = 8;
+      
+      // 气泡背景（圆角矩形）
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.beginPath();
+      ctx.moveTo(bx - bw / 2 + radius, floatY - bh);
+      ctx.lineTo(bx + bw / 2 - radius, floatY - bh);
+      ctx.quadraticCurveTo(bx + bw / 2, floatY - bh, bx + bw / 2, floatY - bh + radius);
+      ctx.lineTo(bx + bw / 2, floatY - radius);
+      ctx.quadraticCurveTo(bx + bw / 2, floatY, bx + bw / 2 - radius, floatY);
+      // 尾巴
+      ctx.lineTo(bx + 4, floatY);
+      ctx.lineTo(bx, floatY + 6);
+      ctx.lineTo(bx - 4, floatY);
+      ctx.lineTo(bx - bw / 2 + radius, floatY);
+      ctx.quadraticCurveTo(bx - bw / 2, floatY, bx - bw / 2, floatY - radius);
+      ctx.lineTo(bx - bw / 2, floatY - bh + radius);
+      ctx.quadraticCurveTo(bx - bw / 2, floatY - bh, bx - bw / 2 + radius, floatY - bh);
+      ctx.closePath();
+      ctx.fill();
+      
+      // 气泡边框
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      
+      // 文字
+      ctx.fillStyle = '#333';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(bubble.text, bx, floatY - bh / 2);
+    }
+    
+    ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   /**

@@ -232,6 +232,9 @@ export class Act5Scene extends BaseGameScene {
     
     // 检查N键
     this.checkNextKey();
+    
+    // 更新提示信息
+    this.updateHints();
   }
 
   /**
@@ -377,38 +380,31 @@ export class Act5Scene extends BaseGameScene {
   }
 
   /**
-   * 渲染提示信息
+   * 更新提示信息（使用教程提示面板）
    */
-  renderHints(ctx) {
-    ctx.save();
-    
-    let hint = '';
-    
+  updateHints() {
     if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
-      hint = '按 空格键 继续对话';
+      this.hideHint();
     } else if (this.battleState === 'battle') {
-      hint = '消灭所有敌人！';
+      this.showHint('消灭所有敌人！');
     } else if (this.battleState === 'cleared') {
       if (this.currentBattle < this.totalBattles - 1) {
-        hint = '战斗胜利！按 N 键进入下一场战斗';
+        this.showHint('战斗胜利！按<span class="key">N</span>键进入下一场战斗');
       } else {
-        hint = '全部战斗完成！按 N 键前往第六幕';
+        this.showHint('全部战斗完成！按<span class="key">N</span>键前往第六幕');
       }
     } else if (this.isSceneComplete) {
-      hint = '第五幕完成！';
+      this.showHint('第五幕完成！');
+    } else {
+      this.hideHint();
     }
-    
-    if (hint) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.font = '16px Arial';
-      const w = Math.max(400, ctx.measureText(hint).width + 40);
-      ctx.fillRect(this.logicalWidth / 2 - w / 2, this.logicalHeight - 60, w, 40);
-      ctx.fillStyle = this.battleState === 'cleared' ? '#FFD700' : '#FFFFFF';
-      ctx.textAlign = 'center';
-      ctx.fillText(hint, this.logicalWidth / 2, this.logicalHeight - 35);
-    }
-    
-    ctx.restore();
+  }
+
+  /**
+   * 渲染提示信息（已迁移到updateHints）
+   */
+  renderHints(ctx) {
+    // 提示信息已通过 updateHints() 使用教程提示面板显示
   }
 
   /**

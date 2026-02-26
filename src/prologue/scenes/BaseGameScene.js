@@ -1494,19 +1494,42 @@ export class BaseGameScene extends PrologueScene {
       const rangedRadius = sectorRadius; // 使用武器的攻击距离
       const playerStats = this.playerEntity.getComponent('stats');
       const baseDmg = playerStats ? (playerStats.attack || 15) : 15;
-      this.sectorSlashEffects.push({
-        x: playerCenter.x,
-        y: playerCenter.y,
-        dir: dir,
-        speed: speed,
-        targetDist: rangedRadius,
-        traveled: 0,
-        age: 0,
-        maxAge: rangedRadius / speed + 0.05,
-        type: 'arrow',
-        damage: baseDmg,
-        hitEntities: [] // 已命中的敌人列表，防止重复伤害
-      });
+      
+      // 读取武器穿刺属性和多重箭属性
+      const mainhandWeapon = equipComp ? equipComp.getEquipment('mainhand') : null;
+      const pierce = mainhandWeapon?.pierce || 0;
+      const multishot = mainhandWeapon?.multishot || 0;
+      
+      // 总箭矢数 = 1（主箭）+ multishot（额外箭）
+      const totalArrows = 1 + multishot;
+      // 多重箭的扩散角度（每支额外箭偏移一定角度）
+      const spreadAngle = 0.15; // 约8.6度
+      
+      for (let i = 0; i < totalArrows; i++) {
+        // 计算每支箭的方向偏移
+        let arrowDir = dir;
+        if (totalArrows > 1) {
+          // 均匀分布在扇形范围内
+          const offset = (i - (totalArrows - 1) / 2) * spreadAngle;
+          arrowDir = dir + offset;
+        }
+        
+        this.sectorSlashEffects.push({
+          x: playerCenter.x,
+          y: playerCenter.y,
+          dir: arrowDir,
+          speed: speed,
+          targetDist: rangedRadius,
+          traveled: 0,
+          age: 0,
+          maxAge: rangedRadius / speed + 0.05,
+          type: 'arrow',
+          damage: baseDmg,
+          pierce: pierce,
+          pierceCount: 0,
+          hitEntities: []
+        });
+      }
     }
   }
 
@@ -1583,7 +1606,13 @@ export class BaseGameScene extends PrologueScene {
                 this.combatSystem.createSliceEffect(targetTransform.position);
               }
               if (e.hitEntities) e.hitEntities.push(entity);
-              // 箭矢穿透：不break，继续飞行可命中其他敌人
+              
+              // 穿刺机制：已穿刺次数+1，超过穿刺值则箭矢消失
+              e.pierceCount = (e.pierceCount || 0) + 1;
+              if (e.pierceCount > (e.pierce || 0)) {
+                e.age = e.maxAge; // 标记为过期，下面会被移除
+                break;
+              }
             }
           }
         }
@@ -1729,31 +1758,32 @@ export class BaseGameScene extends PrologueScene {
     const flashAlpha = Math.max(0, this.sectorAttackFlash / 0.2);
     
     if (this.sectorIsRanged) {
-      // 远程扇形
-      
-      // 扇形填充
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
-      ctx.closePath();
-      if (flashAlpha > 0) {
-        ctx.fillStyle = `rgba(100, 200, 255, ${0.15 + flashAlpha * 0.4})`;
-      } else {
-        ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
+      // 远程：不显示扇形，在鼠标位置显示椭圆瞄准框
+      const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
+      if (mouseWorldPos) {
+        const dx = mouseWorldPos.x - cx;
+        const dy = mouseWorldPos.y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const inRange = dist <= r;
+        
+        // 椭圆瞄准框
+        const ovalRx = 20;
+        const ovalRy = 12;
+        ctx.beginPath();
+        ctx.ellipse(mouseWorldPos.x, mouseWorldPos.y, ovalRx, ovalRy, 0, 0, Math.PI * 2);
+        ctx.closePath();
+        
+        if (inRange) {
+          ctx.strokeStyle = flashAlpha > 0 ? `rgba(0, 255, 0, ${0.8 + flashAlpha * 0.2})` : 'rgba(0, 255, 0, 0.7)';
+          ctx.fillStyle = `rgba(0, 255, 0, ${0.08 + flashAlpha * 0.15})`;
+        } else {
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
+          ctx.fillStyle = 'rgba(255, 0, 0, 0.08)';
+        }
+        ctx.lineWidth = 1.5;
+        ctx.fill();
+        ctx.stroke();
       }
-      ctx.fill();
-      
-      // 扇形边框
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
-      ctx.closePath();
-      ctx.strokeStyle = flashAlpha > 0 ? `rgba(150, 230, 255, ${0.6 + flashAlpha * 0.4})` : 'rgba(100, 200, 255, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([6, 4]);
-      ctx.lineDashOffset = -dashOffset;
-      ctx.stroke();
-      ctx.setLineDash([]);
     } else {
       // 近战扇形
       
@@ -2386,7 +2416,11 @@ export class BaseGameScene extends PrologueScene {
     const now = Date.now();
     if (this.lastPickupTime && now - this.lastPickupTime < 300) return;
     
-    // 检查可拾取物品
+    // 批量拾取半径（半个身位约25px + 原有50px = 75px）
+    const batchRadius = 75;
+    let pickedAny = false;
+    
+    // 批量检查可拾取物品
     for (const item of this.pickupItems) {
       if (item.picked) continue;
       
@@ -2394,14 +2428,13 @@ export class BaseGameScene extends PrologueScene {
       const dy = item.y - playerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance <= 50) {
+      if (distance <= batchRadius) {
         this.pickupItem(item);
-        this.lastPickupTime = now;
-        return;
+        pickedAny = true;
       }
     }
     
-    // 检查装备物品
+    // 批量检查装备物品
     for (let i = this.equipmentItems.length - 1; i >= 0; i--) {
       const item = this.equipmentItems[i];
       if (item.picked) continue;
@@ -2414,7 +2447,7 @@ export class BaseGameScene extends PrologueScene {
       const dy = itemY - playerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
-      if (distance <= 50) {
+      if (distance <= batchRadius) {
         if (item.tags && item.tags.includes('loot')) {
           this.pickupLoot(item);
           this.equipmentItems.splice(i, 1);
@@ -2422,9 +2455,12 @@ export class BaseGameScene extends PrologueScene {
         } else {
           this.pickupItem(item);
         }
-        this.lastPickupTime = now;
-        return;
+        pickedAny = true;
       }
+    }
+    
+    if (pickedAny) {
+      this.lastPickupTime = now;
     }
   }
 
@@ -2457,6 +2493,8 @@ export class BaseGameScene extends PrologueScene {
       if (item.quantity != null) itemData.quantity = item.quantity;
       if (item.attackRange != null) itemData.attackRange = item.attackRange;
       if (item.attackDistance != null) itemData.attackDistance = item.attackDistance;
+      if (item.pierce != null) itemData.pierce = item.pierce;
+      if (item.multishot != null) itemData.multishot = item.multishot;
       
       inventory.addItem(itemData, item.quantity || 1);
       console.log('BaseGameScene: 拾取物品', itemData);
@@ -3454,6 +3492,43 @@ export class BaseGameScene extends PrologueScene {
     
     console.log(`BaseGameScene: 切换到下一幕，传递数据`, sceneData);
     this.goToNextScene(sceneData);
+  }
+
+  /**
+   * 设置场景提示回调
+   * @param {Function} showCallback - 显示提示回调 (text, title) => void
+   * @param {Function} hideCallback - 隐藏提示回调 () => void
+   */
+  setHintCallbacks(showCallback, hideCallback) {
+    this._onHintShow = showCallback;
+    this._onHintHide = hideCallback;
+  }
+
+  /**
+   * 显示场景提示（通过回调，支持HTML和.key样式）
+   * @param {string} text - 提示文本（支持HTML，如 <span class="key">N</span>）
+   * @param {string} title - 提示标题，默认'提示'
+   */
+  showHint(text, title = '提示') {
+    // 如果提示内容没变，不重复显示
+    if (this._currentHintText === text) return;
+    this._currentHintText = text;
+    
+    if (this._onHintShow) {
+      this._onHintShow(text, title);
+    }
+  }
+
+  /**
+   * 隐藏场景提示
+   */
+  hideHint() {
+    if (this._currentHintText === null) return;
+    this._currentHintText = null;
+    
+    if (this._onHintHide) {
+      this._onHintHide();
+    }
   }
 
   /**

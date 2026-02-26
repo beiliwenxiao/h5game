@@ -57,8 +57,8 @@ export class BottomControlBar extends UIElement {
         y: 50,
         size: slotSize,
         hotkey: `${i + 1}`,
-        skillIndex: i,
-        isPotion: i >= 5 // 6、7号槽是药水槽
+        skillIndex: i < 2 ? -1 : i - 2, // 前2个是药水，后5个是技能(0-4)
+        isPotion: i < 2 // 1、2号槽是药水槽
       });
     }
     
@@ -302,7 +302,7 @@ export class BottomControlBar extends UIElement {
       
       // 槽位边框（药水槽用不同颜色）
       if (slot.isPotion) {
-        const potionColor = i === 5 ? '#cc3333' : '#3366cc';
+        const potionColor = i === 0 ? '#cc3333' : '#3366cc';
         ctx.strokeStyle = isHovered ? '#ffffff' : potionColor;
       } else {
         ctx.strokeStyle = isHovered ? '#ffffff' : '#666';
@@ -332,7 +332,7 @@ export class BottomControlBar extends UIElement {
    * 渲染药水快捷槽
    */
   renderPotionSlot(ctx, x, y, size, slotIndex, inventory) {
-    const isHealth = slotIndex === 5;
+    const isHealth = slotIndex === 0;
     const effectType = isHealth ? 'heal' : 'restore_mana';
     
     // 查找背包中对应效果的消耗品（第一个匹配的物品 + 总数量）
@@ -519,7 +519,7 @@ export class BottomControlBar extends UIElement {
         // 药水槽
         if (slot.isPotion) {
           if (this.onPotionUse) {
-            const potionType = i === 5 ? 'health' : 'mana';
+            const potionType = i === 0 ? 'health' : 'mana';
             this.onPotionUse(potionType);
           }
           return true;

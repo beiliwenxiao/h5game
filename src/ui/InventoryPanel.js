@@ -571,6 +571,20 @@ export class InventoryPanel extends UIElement {
       }
     }
     
+    // 特殊属性（穿刺、多重箭等）
+    if (item.pierce) {
+      ctx.fillStyle = '#ff8800';
+      ctx.font = '10px Arial';
+      ctx.fillText(`穿刺: ${item.pierce}`, tooltipX + 15, tooltipY + yOffset);
+      yOffset += 12;
+    }
+    if (item.multishot) {
+      ctx.fillStyle = '#ff8800';
+      ctx.font = '10px Arial';
+      ctx.fillText(`多重箭: ${item.multishot}`, tooltipX + 15, tooltipY + yOffset);
+      yOffset += 12;
+    }
+    
     // 攻击间隔（武器特有属性）
     if (item.attackSpeed != null) {
       ctx.fillStyle = '#ffaa00';

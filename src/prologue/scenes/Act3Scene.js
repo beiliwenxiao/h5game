@@ -232,6 +232,9 @@ export class Act3Scene extends BaseGameScene {
     
     // 第三幕特有：检查对话流程
     this.updateDialogueFlow();
+    
+    // 更新提示信息
+    this.updateHints();
   }
 
   /**
@@ -414,32 +417,25 @@ export class Act3Scene extends BaseGameScene {
 
 
   /**
-   * 渲染提示信息
+   * 更新提示信息（使用教程提示面板）
+   */
+  updateHints() {
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
+      this.hideHint();
+    } else if (this.isSceneComplete) {
+      this.showHint('第三幕完成！即将进入第四幕...');
+    } else if (this.hasReceivedCoinSword) {
+      this.showHint('打开背包（<span class="key">B</span>键），使用铜钱剑前往第四幕');
+    } else {
+      this.hideHint();
+    }
+  }
+
+  /**
+   * 渲染提示信息（已迁移到updateHints）
    */
   renderHints(ctx) {
-    ctx.save();
-    
-    let hint = '';
-    
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
-      hint = '按 空格键 继续对话';
-    } else if (this.isSceneComplete) {
-      hint = '第三幕完成！即将进入第四幕...';
-    } else if (this.hasReceivedCoinSword) {
-      hint = '打开背包（I键），使用铜钱剑前往第四幕';
-    }
-    
-    if (hint) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      const w = Math.max(400, ctx.measureText(hint).width + 40);
-      ctx.fillRect(this.logicalWidth / 2 - w / 2, this.logicalHeight - 60, w, 40);
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(hint, this.logicalWidth / 2, this.logicalHeight - 35);
-    }
-    
-    ctx.restore();
+    // 提示信息已通过 updateHints() 使用教程提示面板显示
   }
 
   /**

@@ -586,6 +586,14 @@
                 });
             }
             
+            // 设置场景提示回调（复用提示面板）
+            if (sceneInstance.setHintCallbacks) {
+                sceneInstance.setHintCallbacks(
+                    (text, title) => showTips(title, text),
+                    () => hideTips()
+                );
+            }
+            
             // 设置玩家实体引用（用于背包系统）
             if (sceneInstance.setPlayerEntity && sceneInstance.playerEntity) {
                 sceneInstance.setPlayerEntity(sceneInstance.playerEntity);

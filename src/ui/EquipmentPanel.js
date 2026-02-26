@@ -356,6 +356,18 @@ export class EquipmentPanel extends UIElement {
         yOffset += 12;
       }
       
+      // 特殊属性（穿刺、多重箭等）
+      if (equipment.pierce) {
+        ctx.fillStyle = '#ff8800';
+        ctx.fillText(`穿刺: ${equipment.pierce}`, tooltipX + 15, tooltipY + yOffset);
+        yOffset += 12;
+      }
+      if (equipment.multishot) {
+        ctx.fillStyle = '#ff8800';
+        ctx.fillText(`多重箭: ${equipment.multishot}`, tooltipX + 15, tooltipY + yOffset);
+        yOffset += 12;
+      }
+      
       // 元素属性
       if (equipment.stats.elementAttack) {
         const elementNames = ['火', '爆', '水', '冰', '风', '电', '暴风', '雷电', '雷暴', '土', '滚石', '木', '落木'];

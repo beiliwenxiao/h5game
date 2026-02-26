@@ -423,18 +423,33 @@ export class Act4Scene extends BaseGameScene {
     if (!inventory) return;
 
     for (const equipData of startingEquipment) {
-      const equipment = {
-        id: equipData.id,
-        name: equipData.name,
-        type: 'equipment',
-        subType: equipData.type,
-        rarity: 1,
-        maxStack: 1,
-        stats: this.getEquipmentStats(classType, equipData.type)
-      };
+      // 弹药类型特殊处理
+      if (equipData.type === 'ammo') {
+        const ammoItem = {
+          id: equipData.id,
+          name: equipData.name,
+          type: 'equipment',
+          subType: 'ammo',
+          rarity: 0,
+          maxStack: 99,
+          stats: {}
+        };
+        inventory.addItem(ammoItem, equipData.quantity || 30);
+        this.notify(`得到 ${equipData.name}x${equipData.quantity || 30}`, 'success');
+      } else {
+        const equipment = {
+          id: equipData.id,
+          name: equipData.name,
+          type: 'equipment',
+          subType: equipData.type,
+          rarity: 1,
+          maxStack: 1,
+          stats: this.getEquipmentStats(classType, equipData.type)
+        };
 
-      inventory.addItem(equipment, 1);
-      this.notify(`得到 ${equipment.name}`, 'success');
+        inventory.addItem(equipment, 1);
+        this.notify(`得到 ${equipment.name}`, 'success');
+      }
     }
   }
 
@@ -551,6 +566,9 @@ export class Act4Scene extends BaseGameScene {
     
     // 第四幕特有：检查快捷键
     this.checkHotkeys();
+    
+    // 更新提示信息
+    this.updateHints();
   }
 
   /**
@@ -981,8 +999,14 @@ export class Act4Scene extends BaseGameScene {
       this._renderZhangbao(ctx, x, y, isHovered);
     }
 
-    // 名称和称号
+    // 职业名称（人物头顶最上方）
+    const className = ClassNames[instructor.classType];
     ctx.textAlign = 'center';
+    ctx.font = 'bold 18px Arial';
+    ctx.fillStyle = instructor.color;
+    ctx.fillText(className, x, y - 110);
+
+    // 名称和称号
     ctx.font = '12px Arial';
     ctx.fillStyle = '#FFD700';
     ctx.fillText(instructor.title, x, y - 90);
@@ -990,16 +1014,10 @@ export class Act4Scene extends BaseGameScene {
     ctx.font = 'bold 15px Arial';
     ctx.fillText(instructor.name, x, y - 74);
 
-    // 职业名称
-    const className = ClassNames[instructor.classType];
-    ctx.font = 'bold 14px Arial';
-    ctx.fillStyle = instructor.color;
-    ctx.fillText(className, x, y + 60);
-
     if (isHovered && !this.classSelected) {
       ctx.font = '12px Arial';
       ctx.fillStyle = '#FFFF00';
-      ctx.fillText('点击选择', x, y + 76);
+      ctx.fillText('点击选择', x, y + 60);
     }
 
     ctx.restore();
@@ -1136,99 +1154,29 @@ export class Act4Scene extends BaseGameScene {
    * 渲染职业选择UI
    */
   renderClassSelectionUI(ctx) {
-    ctx.save();
-
-    // 绘制职业介绍背景
-    const panelY = this.logicalHeight - 200;
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-    ctx.fillRect(0, panelY, this.logicalWidth, 200);
-
-    ctx.strokeStyle = '#FFD700';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(0, panelY, this.logicalWidth, 200);
-
-    // 绘制标题
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('选择你的职业', this.logicalWidth / 2, panelY + 35);
-
-    // 绘制职业介绍
-    const classDescriptions = {
-      [ClassType.WARRIOR]: {
-        name: '战士',
-        desc: '近战专家，拥有强大的生命值和防御力',
-        features: ['高生命值', '高防御力', '近战攻击']
-      },
-      [ClassType.ARCHER]: {
-        name: '弓箭手',
-        desc: '远程专家，拥有高攻击力和敏捷',
-        features: ['高攻击力', '高敏捷', '远程攻击']
-      },
-      [ClassType.MAGE]: {
-        name: '法师',
-        desc: '魔法专家，拥有强大的法术伤害和控制能力',
-        features: ['高魔法攻击', '高法力值', '范围控制']
-      }
-    };
-
-    let startX = 50;
-    const spacing = (this.logicalWidth - 100) / 3;
-
-    for (const [classType, data] of Object.entries(classDescriptions)) {
-      const x = startX + spacing / 2;
-      const y = panelY + 70;
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 18px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(data.name, x, y);
-
-      ctx.font = '12px Arial';
-      ctx.fillStyle = '#CCCCCC';
-      ctx.fillText(data.desc, x, y + 20);
-
-      // 绘制特性
-      ctx.font = '11px Arial';
-      ctx.fillStyle = '#4CAF50';
-      for (let i = 0; i < data.features.length; i++) {
-        ctx.fillText(`• ${data.features[i]}`, x, y + 40 + i * 15);
-      }
-
-      startX += spacing;
-    }
-
-    ctx.restore();
+    // 职业名称已在 renderInstructor 中显示在人物头上，这里不再渲染底部面板
   }
 
   /**
-   * 渲染提示信息
+   * 更新提示信息（使用教程提示面板）
+   */
+  updateHints() {
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
+      this.hideHint();
+    } else if (!this.classSelected && this.introDialogueCompleted) {
+      this.showHint('点击教官选择职业');
+    } else if (this.classSelected) {
+      this.showHint('按<span class="key">T</span>/<span class="key">P</span>/<span class="key">U</span>键查看技能树/属性/兵种 | 按<span class="key">N</span>键前往第五幕');
+    } else {
+      this.hideHint();
+    }
+  }
+
+  /**
+   * 渲染提示信息（已迁移到updateHints）
    */
   renderHints(ctx) {
-    ctx.save();
-
-    let hints = [];
-
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
-      hints.push('按 空格键 继续对话');
-    } else if (!this.classSelected && this.introDialogueCompleted) {
-      hints.push('点击教官选择职业');
-    } else if (this.classSelected) {
-      hints.push('按 T/P/U 键查看技能树/属性/兵种 | 按 N 键前往第五幕');
-    }
-
-    // 渲染提示
-    if (hints.length > 0) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.logicalWidth / 2 - 250, this.logicalHeight - 60, 500, 40);
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(hints[0], this.logicalWidth / 2, this.logicalHeight - 35);
-    }
-
-    ctx.restore();
+    // 提示信息已通过 updateHints() 使用教程提示面板显示
   }
 
   /**

@@ -266,7 +266,9 @@ export class ClassSystem {
       startingEquipment: [
         { id: 'short_bow', name: '短弓', type: 'weapon' },
         { id: 'leather_vest', name: '皮背心', type: 'armor' },
-        { id: 'quiver', name: '箭袋', type: 'accessory' }
+        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 },
+        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 },
+        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 }
       ]
     }));
     

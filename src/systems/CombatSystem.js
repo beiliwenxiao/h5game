@@ -54,19 +54,19 @@ export class CombatSystem {
     // 伤害数字列表
     this.damageNumbers = [];
     
-    // 技能快捷键映射（5个技能 + 2个药水）
+    // 技能快捷键映射（1-2药水，3-7技能）
     this.skillKeyMap = {
-      'skill1': 0,
-      'skill2': 1,
-      'skill3': 2,
-      'skill4': 3,
-      'skill5': 4
+      'skill3': 0,
+      'skill4': 1,
+      'skill5': 2,
+      'skill6': 3,
+      'skill7': 4
     };
     
     // 药水快捷键映射
     this.potionKeyMap = {
-      'skill6': 'health',
-      'skill7': 'mana'
+      'skill1': 'health',
+      'skill2': 'mana'
     };
     
     // 格挡状态：记录哪些敌人的攻击被格挡了

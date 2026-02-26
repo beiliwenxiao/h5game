@@ -302,6 +302,9 @@ export class Act2Scene extends BaseGameScene {
     
     // 第二幕特有：检查对话流程
     this.updateDialogueFlow();
+    
+    // 更新提示信息（使用教程提示面板）
+    this.updateHints();
   }
 
   /**
@@ -341,7 +344,7 @@ export class Act2Scene extends BaseGameScene {
   }
 
   /**
-   * 检查玩家是否已装备布衣和木剑
+   * 检查玩家是否已装备腰带和鞋子
    * @returns {boolean}
    */
   checkEquipmentDone() {
@@ -349,9 +352,9 @@ export class Act2Scene extends BaseGameScene {
     const equipment = this.playerEntity.getComponent('equipment');
     if (!equipment) return false;
     
-    const hasWeapon = equipment.getEquipment('mainhand') !== null;
-    const hasArmor = equipment.getEquipment('armor') !== null;
-    return hasWeapon && hasArmor;
+    const hasBelt = equipment.getEquipment('belt') !== null;
+    const hasBoots = equipment.getEquipment('boots') !== null;
+    return hasBelt && hasBoots;
   }
 
   /**
@@ -956,45 +959,27 @@ export class Act2Scene extends BaseGameScene {
   }
 
   /**
-   * 渲染提示信息
+   * 更新提示信息（使用教程提示面板）
+   */
+  updateHints() {
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
+      this.hideHint();
+    } else if (this.waitingForTalismanUse) {
+      this.showHint('按<span class="key">B</span>键打开背包，使用符水');
+    } else if (this.waitingForEquip && !this.isSceneComplete) {
+      this.showHint('按<span class="key">B</span>键打开背包，装备腰带和草鞋后继续');
+    } else if (this.isSceneComplete) {
+      this.showHint('第二幕完成！即将进入第三幕...');
+    } else {
+      this.hideHint();
+    }
+  }
+
+  /**
+   * 渲染提示信息（已迁移到updateHints，使用教程提示面板）
    */
   renderHints(ctx) {
-    ctx.save();
-    
-    let hints = [];
-    
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
-      hints.push('按 空格键 继续对话');
-    } else if (this.waitingForTalismanUse) {
-      hints.push('按 B 键打开背包，使用符水');
-    } else if (this.waitingForEquip && !this.isSceneComplete) {
-      hints.push('按 B 键打开背包，装备木剑和布衣后继续');
-      // 额外显示醒目提示
-      ctx.fillStyle = 'rgba(180, 120, 0, 0.85)';
-      ctx.fillRect(this.logicalWidth / 2 - 180, this.logicalHeight / 2 - 30, 360, 50);
-      ctx.strokeStyle = '#FFD700';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(this.logicalWidth / 2 - 180, this.logicalHeight / 2 - 30, 360, 50);
-      ctx.fillStyle = '#FFD700';
-      ctx.font = 'bold 18px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('⚔ 请装备木剑和布衣后继续 ⚔', this.logicalWidth / 2, this.logicalHeight / 2 + 5);
-    } else if (this.isSceneComplete) {
-      hints.push('第二幕完成！即将进入第三幕...');
-    }
-    
-    // 渲染底部提示
-    if (hints.length > 0) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.logicalWidth / 2 - 200, this.logicalHeight - 60, 400, 40);
-      
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(hints[0], this.logicalWidth / 2, this.logicalHeight - 35);
-    }
-    
-    ctx.restore();
+    // 提示信息已通过 updateHints() 使用教程提示面板显示
   }
 
   /**

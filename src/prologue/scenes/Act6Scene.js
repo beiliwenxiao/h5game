@@ -594,6 +594,9 @@ export class Act6Scene extends BaseGameScene {
     
     // 第六幕特有：检查对话流程
     this.updateDialogueFlow();
+    
+    // 更新提示信息
+    this.updateHints();
   }
 
   /**
@@ -889,37 +892,29 @@ export class Act6Scene extends BaseGameScene {
     // 提示
     ctx.fillStyle = '#4CAF50';
     ctx.font = '18px Arial';
-    ctx.fillText('正式游戏即将开始...', panelX + panelWidth / 2, panelY + 160);
+    ctx.fillText('正式游戏还没开始做...', panelX + panelWidth / 2, panelY + 160);
     
     ctx.restore();
   }
 
   /**
-   * 渲染提示信息
+   * 更新提示信息（使用教程提示面板）
+   */
+  updateHints() {
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
+      this.hideHint();
+    } else if (this.sceneState === 'complete') {
+      this.showHint('序章已完成');
+    } else {
+      this.hideHint();
+    }
+  }
+
+  /**
+   * 渲染提示信息（已迁移到updateHints）
    */
   renderHints(ctx) {
-    ctx.save();
-    
-    let hints = [];
-    
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
-      hints.push('按 空格键 继续对话');
-    } else if (this.sceneState === 'complete') {
-      hints.push('序章已完成');
-    }
-    
-    // 渲染提示
-    if (hints.length > 0) {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.fillRect(this.logicalWidth / 2 - 250, this.logicalHeight - 60, 500, 40);
-      
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = '16px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(hints[0], this.logicalWidth / 2, this.logicalHeight - 35);
-    }
-    
-    ctx.restore();
+    // 提示信息已通过 updateHints() 使用教程提示面板显示
   }
 
   /**

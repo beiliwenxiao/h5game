@@ -1,4 +1,4 @@
-/**
+﻿/**
  * BaseGameScene - 游戏场景基类
  * 
  * 包含所有场景通用的基础功能：
@@ -36,12 +36,18 @@ import { ParticleSystem } from '../../rendering/ParticleSystem.js';
 import { WeaponRenderer } from '../../rendering/WeaponRenderer.js';
 import { EnemyWeaponRenderer } from '../../rendering/EnemyWeaponRenderer.js';
 import { FlightSystem } from '../../systems/FlightSystem.js';
+import { CollisionSystem } from '../../systems/CollisionSystem.js';
+import { PickupSystem } from '../../systems/PickupSystem.js';
+import { MeditationSystem } from '../../systems/MeditationSystem.js';
+import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
+import { EntityLifecycleSystem } from '../../systems/EntityLifecycleSystem.js';
 import { Entity } from '../../ecs/Entity.js';
 import { TransformComponent } from '../../ecs/components/TransformComponent.js';
 import { SpriteComponent } from '../../ecs/components/SpriteComponent.js';
 import { NameComponent } from '../../ecs/components/NameComponent.js';
-import { PerformanceOptimizer } from '../systems/PerformanceOptimizer.js';
+import { PerformanceOptimizer } from '../../systems/PerformanceOptimizer.js';
 import { PerformanceMonitor } from '../../core/PerformanceMonitor.js';
+import { UISystem } from '../../ui/UISystem.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -68,31 +74,20 @@ export class BaseGameScene extends PrologueScene {
     this.weaponRenderer = null;
     this.enemyWeaponRenderer = null;
     this.flightSystem = null;
+    this.collisionSystem = null;
+    this.pickupSystem = null;
+    this.meditationSystem = null;
     
-    // 扇形攻击系统
-    this.sliceTrail = []; // 保留刀光轨迹（视觉效果）
-    this.sliceTrailMaxAge = 0.3;
-    this.isSlicing = false;
-    this.slicedEnemies = new Set();
-    this.sliceAttackRange = 100; // 近战扇形半径（更近距离）
-    this.sliceHitRadius = 40;
-    this.sliceCooldowns = new Map();
-    this.sliceCooldownTime = 0.5;
-    this.sliceMouseSpeed = 0;
-    this.sliceGlobalCooldown = 3.0; // 全局武器冷却（秒）
-    this.sliceLastAttackTime = 0;
-    this.sliceCooldownShown = false;
+    // 扇形攻击系统（由 MeleeAttackSystem 管理）
+    this.meleeAttackSystem = null;
     
-    // 扇形攻击参数
-    this.sectorAngle = Math.PI / 3; // 扇形张角（60度）
-    this.sectorDirection = 0; // 扇形朝向角度（弧度，0=右，跟随鼠标）
-    this.sectorIsRanged = false; // 是否远程攻击
-    this.sectorRangedOffset = 256; // 远程扇形起点偏移（约4个身位，64px/身位）
-    this.sectorRangedRadius = 120; // 远程扇形半径
-    this.sectorAttackFlash = 0; // 攻击闪光动画计时器（秒）
-    this.sectorSlashEffects = []; // 刀光/箭光特效列表 [{x, y, angle, age, maxAge, type}]
+    // 实体生命周期系统
+    this.entityLifecycleSystem = new EntityLifecycleSystem();
     
     this.uiClickHandler = new UIClickHandler();
+    
+    // UI 系统（面板生命周期管理）
+    this.uiSystem = new UISystem();
     
     // 性能优化系统
     this.performanceOptimizer = new PerformanceOptimizer({
@@ -147,21 +142,6 @@ export class BaseGameScene extends PrologueScene {
     
     // 教程状态
     this.tutorialPhase = 'init';
-    
-    // 战斗状态
-    this.combatState = {
-      inCombat: false,           // 是否在战斗中
-      lastCombatTime: 0,         // 上次战斗时间（秒）
-      combatExitDelay: 20,       // 脱离战斗延迟（秒）
-      combatExitTimer: 0         // 脱离战斗倒计时（秒）
-    };
-    
-    // 打坐状态
-    this.meditationState = {
-      active: false,             // 是否正在打坐
-      startTime: 0,              // 开始时间（秒）
-      lastTickTime: 0            // 上次恢复时间（秒）
-    };
     
     // 面板切换冷却时间
     this.lastPlayerInfoToggleTime = 0;
@@ -252,6 +232,16 @@ export class BaseGameScene extends PrologueScene {
       this.onSkillClicked(skill);
     };
     
+    // 设置进入战斗回调（中断打坐）
+    this.combatSystem.setOnEnterCombat(() => {
+      if (this.meditationSystem.isActive()) {
+        this.meditationSystem.stop();
+      }
+    });
+    
+    // 设置战斗脱离延迟为20秒（与原来一致）
+    this.combatSystem.combatState.combatExitDelay = 20;
+    
     // 设置药水快捷键回调
     this.combatSystem.onPotionUse = (potionType) => {
       this.usePotionFromHotbar(potionType);
@@ -259,7 +249,11 @@ export class BaseGameScene extends PrologueScene {
     
     // 设置掉落回调
     this.combatSystem.setLootDropCallback((position, lootItems) => {
-      this.spawnLootItems(position, lootItems);
+      const lootEntities = this.pickupSystem.spawnLootItems(position, lootItems);
+      for (const entity of lootEntities) {
+        this.entities.push(entity);
+        this.equipmentItems.push(entity);
+      }
     });
     
     this.movementSystem = new MovementSystem({
@@ -272,6 +266,34 @@ export class BaseGameScene extends PrologueScene {
     
     // 初始化AI系统
     this.aiSystem = new AISystem();
+    
+    // 初始化碰撞系统
+    this.collisionSystem = new CollisionSystem();
+    
+    // 初始化拾取系统
+    this.pickupSystem = new PickupSystem();
+    this.pickupSystem.init({
+      inputManager: this.inputManager,
+      floatingTextManager: this.floatingTextManager,
+      weaponRenderer: this.weaponRenderer
+    });
+    
+    // 初始化冥想系统
+    this.meditationSystem = new MeditationSystem();
+    this.meditationSystem.init({
+      inputManager: this.inputManager,
+      floatingTextManager: this.floatingTextManager,
+      skillEffects: this.skillEffects,
+      combatSystem: this.combatSystem
+    });
+    
+    // 初始化近战攻击系统
+    this.meleeAttackSystem = new MeleeAttackSystem();
+    this.meleeAttackSystem.init({
+      inputManager: this.inputManager,
+      combatSystem: this.combatSystem,
+      floatingTextManager: this.floatingTextManager
+    });
     
     // 初始化 UI 面板
     this.initializeUIPanels();
@@ -293,8 +315,45 @@ export class BaseGameScene extends PrologueScene {
     
     console.log(`BaseGameScene: 进入场景 ${this.name}`);
     
+    // 配置实体生命周期系统
+    this.entityLifecycleSystem.protect(this.playerEntity);
+    this.entityLifecycleSystem.trackList(this.enemyEntities);
+    this.entityLifecycleSystem.setOnBeforeRemove((entity) => {
+      // 处理武器钉住状态
+      if (entity.pinnedByWeapon && this.weaponRenderer) {
+        entity.pinnedByWeapon = false;
+        if (this.weaponRenderer.thrownWeapon.targetEntity === entity) {
+          this.weaponRenderer.thrownWeapon.targetEntity = null;
+        }
+      }
+    });
+    
     // 异步加载幕数据（从 ActXData.json）
     this.loadActData();
+    
+    // 注册快捷键
+    this.registerHotkeys();
+  }
+
+  /**
+   * 注册通用快捷键
+   */
+  registerHotkeys() {
+    // 人物信息面板切换 (C)
+    this.inputManager.registerHotkey('toggle_playerinfo', ['c', 'C'], () => {
+      this.playerInfoPanel.toggle();
+    }, { cooldown: 300 });
+    
+    // 背包面板切换 (B)
+    this.inputManager.registerHotkey('toggle_inventory', ['b', 'B'], () => {
+      this.inventoryPanel.toggle();
+    }, { cooldown: 300 });
+    
+    // 性能监控切换 (P)
+    this.inputManager.registerHotkey('toggle_performance', ['p', 'P'], () => {
+      this.performanceMonitor.toggle();
+      console.log('性能监控:', this.performanceMonitor.enabled ? '开启' : '关闭');
+    }, { cooldown: 300 });
   }
 
   /**
@@ -407,6 +466,12 @@ export class BaseGameScene extends PrologueScene {
     this.uiClickHandler.registerElement(this.playerInfoPanel);
     this.uiClickHandler.registerElement(this.bottomControlBar);
     this.uiClickHandler.registerElement(this.dialogueBox);
+    
+    // 注册面板到 UISystem（统一管理悬停等）
+    this.uiSystem.registerPanel('inventory', this.inventoryPanel);
+    this.uiSystem.registerPanel('playerInfo', this.playerInfoPanel);
+    this.uiSystem.registerPanel('bottomControl', this.bottomControlBar);
+    this.uiSystem.registerPanel('dialogue', this.dialogueBox);
   }
 
   /**
@@ -465,8 +530,7 @@ export class BaseGameScene extends PrologueScene {
     // 特殊处理：打坐技能
     if (skill.id === 'meditation') {
       // 检查是否在战斗中
-      if (this.combatState.inCombat) {
-        console.log('战斗中无法打坐');
+      if (this.combatSystem.isInCombat()) {
         if (this.floatingTextManager) {
           const transform = this.playerEntity.getComponent('transform');
           if (transform) {
@@ -482,10 +546,10 @@ export class BaseGameScene extends PrologueScene {
       }
       
       // 切换打坐状态
-      if (this.meditationState.active) {
-        this.stopMeditation();
+      if (this.meditationSystem.isActive()) {
+        this.meditationSystem.stop();
       } else {
-        this.startMeditation();
+        this.meditationSystem.start(this.playerEntity);
       }
       return;
     }
@@ -811,8 +875,10 @@ export class BaseGameScene extends PrologueScene {
         };
         this.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
         
-        // 水果忍者式滑动攻击检测
-        this.updateSliceAttack(mouseWorldPos, playerCenter, currentTime);
+        // 水果忍者式滑动攻击检测（通过 MeleeAttackSystem）
+        this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
+        this.meleeAttackSystem.setEntities(this.entities);
+        this.meleeAttackSystem.update(mouseWorldPos, playerCenter, currentTime);
       }
     }
     
@@ -836,20 +902,19 @@ export class BaseGameScene extends PrologueScene {
     }
     
     // 更新移动系统（打坐时禁止玩家移动）
-    if (this.meditationState.active && this.playerEntity) {
+    if (this.meditationSystem.isActive() && this.playerEntity) {
       // 打坐时只更新非玩家实体
       const nonPlayerEntities = this.entities.filter(e => e !== this.playerEntity);
       this.movementSystem.update(deltaTime, nonPlayerEntities);
       
-      // 检测玩家是否尝试移动，如果是则停止打坐
-      this.checkMeditationMovementInterrupt();
+      // 移动中断检测由 meditationSystem.update 处理
     } else {
       // 正常更新所有实体
       this.movementSystem.update(deltaTime, this.entities);
     }
     
     // 检查实体之间的碰撞
-    this.checkEntityCollisions();
+    this.collisionSystem.update(this.entities);
     
     // 处理敌人选中
     this.handleEnemySelection();
@@ -862,11 +927,11 @@ export class BaseGameScene extends PrologueScene {
     // 更新战斗系统
     this.combatSystem.update(deltaTime, this.entities);
     
-    // 更新战斗状态
-    this.updateCombatState(deltaTime);
+    // 更新战斗状态（通过 CombatSystem）
+    this.combatSystem.updateCombatState(deltaTime, this.entities);
     
-    // 更新打坐状态
-    this.updateMeditationState(deltaTime);
+    // 更新打坐状态（通过冥想系统）
+    this.meditationSystem.update(deltaTime, this.playerEntity);
     
     // 更新装备系统
     this.equipmentSystem.update(deltaTime, this.entities);
@@ -939,14 +1004,9 @@ export class BaseGameScene extends PrologueScene {
       
       // 检查武器拾取
       if (this.weaponRenderer.isWeaponThrown() && !this.weaponRenderer.thrownWeapon.flying) {
-        this.checkWeaponPickup();
+        this.pickupSystem.checkWeaponPickup(this.playerEntity);
       }
     }
-    
-    // 检查面板切换
-    this.checkPlayerInfoToggle();
-    this.checkInventoryToggle();
-    this.checkPerformanceMonitorToggle();
     
     // 检查空格键继续对话
     this.checkDialogueContinue();
@@ -972,8 +1032,14 @@ export class BaseGameScene extends PrologueScene {
     // 更新鼠标悬停状态
     this.updatePanelHover();
     
-    // 检查拾取
-    this.checkPickup();
+    // 检查拾取（使用拾取系统）
+    const pickupResult = this.pickupSystem.update(
+      this.playerEntity, this.pickupItems, this.equipmentItems, this.entities
+    );
+    // 移除已拾取的掉落物实体
+    for (const removed of pickupResult.removedEntities) {
+      this.entities = this.entities.filter(e => e !== removed);
+    }
     
     // 移除死亡实体
     this.removeDeadEntities();
@@ -993,65 +1059,6 @@ export class BaseGameScene extends PrologueScene {
       poolStats: this.performanceOptimizer.getPoolStats(),
       updateTime: updateTime
     });
-  }
-
-  /**
-   * 检查实体之间的碰撞（玩家与敌人）
-   */
-  checkEntityCollisions() {
-    const aliveEntities = this.entities.filter(e => !e.isDead && !e.isDying && (e.type === 'player' || e.type === 'enemy'));
-    const entityRadius = 20;
-    const collisionWidthRatio = 0.8;
-    const collisionHeightRatio = 0.75;
-    
-    for (let i = 0; i < aliveEntities.length; i++) {
-      const entityA = aliveEntities[i];
-      const transformA = entityA.getComponent('transform');
-      if (!transformA) continue;
-      
-      for (let j = i + 1; j < aliveEntities.length; j++) {
-        const entityB = aliveEntities[j];
-        const transformB = entityB.getComponent('transform');
-        if (!transformB) continue;
-        
-        const radiusA = entityRadius * collisionWidthRatio;
-        const radiusB = entityRadius * collisionWidthRatio;
-        const heightA = entityRadius * 2 * collisionHeightRatio;
-        const heightB = entityRadius * 2 * collisionHeightRatio;
-        
-        const aLeft = transformA.position.x - radiusA;
-        const aRight = transformA.position.x + radiusA;
-        const aTop = transformA.position.y - heightA / 2;
-        const aBottom = transformA.position.y + heightA / 2;
-        
-        const bLeft = transformB.position.x - radiusB;
-        const bRight = transformB.position.x + radiusB;
-        const bTop = transformB.position.y - heightB / 2;
-        const bBottom = transformB.position.y + heightB / 2;
-        
-        if (aRight > bLeft && aLeft < bRight && aBottom > bTop && aTop < bBottom) {
-          const dx = transformA.position.x - transformB.position.x;
-          const dy = transformA.position.y - transformB.position.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          
-          if (distance === 0) continue;
-          
-          const nx = dx / distance;
-          const ny = dy / distance;
-          const overlapX = (radiusA + radiusB) - Math.abs(dx);
-          const overlapY = (heightA / 2 + heightB / 2) - Math.abs(dy);
-          const pushDistance = Math.min(overlapX, overlapY) / 2;
-          
-          if (Math.abs(overlapX) < Math.abs(overlapY)) {
-            transformA.position.x += nx * pushDistance;
-            transformB.position.x -= nx * pushDistance;
-          } else {
-            transformA.position.y += ny * pushDistance;
-            transformB.position.y -= ny * pushDistance;
-          }
-        }
-      }
-    }
   }
 
   /**
@@ -1244,685 +1251,6 @@ export class BaseGameScene extends PrologueScene {
     }
   }
 
-  /**
-   * 处理敌人选中
-   */
-  /**
-   * 更新扇形攻击系统
-   * WASD移动 + 鼠标方向决定攻击朝向 + 左键点击攻击
-   */
-    updateSliceAttack(mouseWorldPos, playerCenter, currentTime) {
-      if (!this.inputManager || !this.combatSystem) return;
-
-      // 清理过期的轨迹点（保留刀光视觉）
-      this.sliceTrail = this.sliceTrail.filter(p => currentTime - p.time < this.sliceTrailMaxAge);
-
-      // 更新攻击闪光动画
-      if (this.sectorAttackFlash > 0) {
-        this.sectorAttackFlash -= 1 / 60; // 约每帧减少
-      }
-
-      // 更新刀光/箭光特效
-      this.updateSectorSlashEffects(1 / 60);
-
-      // 计算鼠标方向角度（从玩家中心到鼠标）
-      const dx = mouseWorldPos.x - playerCenter.x;
-      const dy = mouseWorldPos.y - playerCenter.y;
-      this.sectorDirection = Math.atan2(dy, dx);
-
-      // 判断近战/远程（根据装备的武器类型）
-      this.sectorIsRanged = this.checkIsRangedWeapon();
-
-      // 战斗状态下才能攻击
-      const inCombat = this.combatState && this.combatState.inCombat;
-      if (!inCombat) {
-        this.isSlicing = false;
-        return;
-      }
-
-      // 鼠标左键按住触发攻击（冷却由 performSectorAttack 控制）
-      // 确保 UI 没有处理这次点击
-      if (this.inputManager.isMouseDown() && !this.inputManager.isMouseClickHandled()) {
-        this.performSectorAttack(playerCenter, currentTime);
-      }
-    }
-
-
-  /**
-   * 检查是否装备了远程武器
-   * @returns {boolean}
-   */
-  checkIsRangedWeapon() {
-    if (!this.playerEntity) return false;
-    const equipComp = this.playerEntity.getComponent('equipment');
-    if (!equipComp) return false;
-    const mainhand = equipComp.getEquipment('mainhand');
-    if (mainhand && (mainhand.subType === 'bow' || mainhand.subType === 'crossbow' || mainhand.subType === 'staff' || mainhand.ranged === true)) {
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * 执行扇形攻击
-   * @param {Object} playerCenter - 玩家中心坐标
-   * @param {number} currentTime - 当前时间（秒）
-   */
-  performSectorAttack(playerCenter, currentTime) {
-    if (!this.playerEntity || !this.combatSystem) return;
-    
-    const playerStats = this.playerEntity.getComponent('stats');
-    if (!playerStats) return;
-    
-    // 获取武器冷却时间
-    let weaponCooldown = this.sliceGlobalCooldown;
-    const equipComp = this.playerEntity.getComponent('equipment');
-    if (equipComp) {
-      const mainhand = equipComp.getEquipment('mainhand');
-      const offhand = equipComp.getEquipment('offhand');
-      if (mainhand && mainhand.attackSpeed != null) {
-        weaponCooldown = mainhand.attackSpeed;
-      } else if (offhand && offhand.attackSpeed != null) {
-        weaponCooldown = offhand.attackSpeed;
-      }
-    }
-    
-    // 检查全局武器冷却
-    const timeSinceLastAttack = currentTime - this.sliceLastAttackTime;
-    if (timeSinceLastAttack < weaponCooldown) {
-      if (!this.sliceCooldownShown) {
-        this.sliceCooldownShown = true;
-        const remaining = (weaponCooldown - timeSinceLastAttack).toFixed(1);
-        if (this.floatingTextManager) {
-          const playerTransform = this.playerEntity.getComponent('transform');
-          if (playerTransform) {
-            this.floatingTextManager.addText(
-              playerTransform.position.x,
-              playerTransform.position.y - 70,
-              `冷却中 ${remaining}s`,
-              '#888888'
-            );
-          }
-        }
-      }
-      return;
-    }
-    
-    // 远程攻击需要消耗箭矢
-    if (this.sectorIsRanged) {
-      const equipComp2 = this.playerEntity.getComponent('equipment');
-      if (equipComp2) {
-        const offhand = equipComp2.getEquipment('offhand');
-        if (!offhand || offhand.subType !== 'ammo' || !offhand.quantity || offhand.quantity <= 0) {
-          // 没有箭矢，提示并阻止攻击
-          if (this.floatingTextManager) {
-            const playerTransform = this.playerEntity.getComponent('transform');
-            if (playerTransform) {
-              this.floatingTextManager.addText(
-                playerTransform.position.x,
-                playerTransform.position.y - 70,
-                '没有箭矢！',
-                '#ff6666'
-              );
-            }
-          }
-          return;
-        }
-        // 消耗一根箭
-        offhand.quantity -= 1;
-        if (offhand.quantity <= 0) {
-          // 箭用完了，卸下副手
-          equipComp2.unequip('offhand');
-        }
-      }
-    }
-    
-    // 计算扇形参数（从武器数据读取攻击范围和距离）
-    const dir = this.sectorDirection;
-    let weaponAttackRange = this.sectorAngle; // 默认扇形角度（弧度）
-    let weaponAttackDistance = this.sliceAttackRange; // 默认攻击距离
-    
-    if (equipComp) {
-      const mainhand = equipComp.getEquipment('mainhand');
-      if (mainhand) {
-        if (mainhand.attackRange != null) {
-          weaponAttackRange = mainhand.attackRange * Math.PI / 180; // 度数转弧度
-        }
-        if (mainhand.attackDistance != null) {
-          weaponAttackDistance = mainhand.attackDistance;
-        }
-      }
-    }
-    
-    const halfAngle = weaponAttackRange / 2;
-    let sectorCenterX, sectorCenterY, sectorRadius;
-    
-    // 扇形从玩家出发
-    sectorCenterX = playerCenter.x;
-    sectorCenterY = playerCenter.y;
-    sectorRadius = weaponAttackDistance;
-    
-    // 检测扇形内的敌人（近战和远程都由特效碰撞检测）
-    // 近战：剑光碰到敌人才伤害；远程：箭矢碰到敌人才伤害
-    
-    // 记录攻击时间
-    this.sliceLastAttackTime = currentTime;
-    this.sliceCooldownShown = false;
-    
-    // 触发攻击闪光
-    this.sectorAttackFlash = 0.2;
-    
-    // 生成刀光/箭光特效
-    this.spawnSectorSlashEffect(playerCenter, dir, sectorCenterX, sectorCenterY, sectorRadius);
-    
-    // 播放攻击动画
-    const sprite = this.playerEntity.getComponent('sprite');
-    if (sprite) {
-      sprite.playAnimation('attack');
-      setTimeout(() => {
-        if (sprite.currentAnimation === 'attack') sprite.playAnimation('idle');
-      }, 300);
-    }
-  }
-
-  /**
-   * 判断点是否在扇形内
-   * @param {number} px - 点x
-   * @param {number} py - 点y
-   * @param {number} cx - 扇形中心x
-   * @param {number} cy - 扇形中心y
-   * @param {number} radius - 扇形半径
-   * @param {number} dir - 扇形朝向（弧度）
-   * @param {number} halfAngle - 扇形半角（弧度）
-   * @returns {boolean}
-   */
-  isPointInSector(px, py, cx, cy, radius, dir, halfAngle) {
-    const dx = px - cx;
-    const dy = py - cy;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    
-    // 距离检查
-    if (dist > radius) return false;
-    
-    // 角度检查
-    const angle = Math.atan2(dy, dx);
-    let angleDiff = angle - dir;
-    // 归一化到 [-PI, PI]
-    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-    
-    return Math.abs(angleDiff) <= halfAngle;
-  }
-
-  /**
-   * 生成扇形攻击特效（刀光或箭光）
-   */
-  spawnSectorSlashEffect(playerCenter, dir, sectorCenterX, sectorCenterY, sectorRadius) {
-    const type = this.sectorIsRanged ? 'arrow' : 'slash';
-    
-    // 从武器数据获取攻击范围角度
-    let weaponAttackRange = this.sectorAngle;
-    const equipComp = this.playerEntity?.getComponent('equipment');
-    if (equipComp) {
-      const mainhand = equipComp.getEquipment('mainhand');
-      if (mainhand && mainhand.attackRange != null) {
-        weaponAttackRange = mainhand.attackRange * Math.PI / 180;
-      }
-    }
-    const halfAngle = weaponAttackRange / 2;
-    
-    if (type === 'slash') {
-      // 近战刀光：在扇形内生成一道弧形刀光
-      // 近战剑光：在扇形内生成一道弧形剑光
-      const playerStats = this.playerEntity.getComponent('stats');
-      const baseDmg = playerStats ? (playerStats.attack || 15) : 15;
-      this.sectorSlashEffects.push({
-        cx: sectorCenterX,
-        cy: sectorCenterY,
-        radius: sectorRadius * 0.8,
-        dir: dir,
-        halfAngle: halfAngle,
-        age: 0,
-        maxAge: 0.25,
-        type: 'slash',
-        damage: baseDmg,
-        hitEntities: []
-      });
-    } else {
-      // 远程箭光：从玩家射出单根箭矢，沿扇形中心方向飞行
-      const speed = 600;
-      const rangedRadius = sectorRadius; // 使用武器的攻击距离
-      const playerStats = this.playerEntity.getComponent('stats');
-      const baseDmg = playerStats ? (playerStats.attack || 15) : 15;
-      
-      // 读取武器穿刺属性和多重箭属性
-      const mainhandWeapon = equipComp ? equipComp.getEquipment('mainhand') : null;
-      const pierce = mainhandWeapon?.pierce || 0;
-      const multishot = mainhandWeapon?.multishot || 0;
-      
-      // 总箭矢数 = 1（主箭）+ multishot（额外箭）
-      const totalArrows = 1 + multishot;
-      // 多重箭的扩散角度（每支额外箭偏移一定角度）
-      const spreadAngle = 0.15; // 约8.6度
-      
-      for (let i = 0; i < totalArrows; i++) {
-        // 计算每支箭的方向偏移
-        let arrowDir = dir;
-        if (totalArrows > 1) {
-          // 均匀分布在扇形范围内
-          const offset = (i - (totalArrows - 1) / 2) * spreadAngle;
-          arrowDir = dir + offset;
-        }
-        
-        this.sectorSlashEffects.push({
-          x: playerCenter.x,
-          y: playerCenter.y,
-          dir: arrowDir,
-          speed: speed,
-          targetDist: rangedRadius,
-          traveled: 0,
-          age: 0,
-          maxAge: rangedRadius / speed + 0.05,
-          type: 'arrow',
-          damage: baseDmg,
-          pierce: pierce,
-          pierceCount: 0,
-          hitEntities: []
-        });
-      }
-    }
-  }
-
-  /**
-   * 更新扇形攻击特效
-   * @param {number} deltaTime
-   */
-  updateSectorSlashEffects(deltaTime) {
-    for (let i = this.sectorSlashEffects.length - 1; i >= 0; i--) {
-      const e = this.sectorSlashEffects[i];
-      e.age += deltaTime;
-      
-      // 剑光碰撞检测：检查弧形剑光是否碰到敌人
-      if (e.type === 'slash' && e.damage && this.combatSystem) {
-        const progress = e.age / e.maxAge;
-        const sweepRadius = e.radius * (0.3 + progress * 0.7);
-        for (const entity of this.entities) {
-          if (entity.type !== 'enemy') continue;
-          if (entity.isDead || entity.isDying) continue;
-          if (e.hitEntities && e.hitEntities.includes(entity)) continue;
-          
-          const targetTransform = entity.getComponent('transform');
-          const targetStats = entity.getComponent('stats');
-          if (!targetTransform || !targetStats || targetStats.hp <= 0) continue;
-          
-          const ex = targetTransform.position.x;
-          const ey = targetTransform.position.y - 32;
-          
-          // 检查敌人是否在剑光弧线附近（扇形内且距离接近当前扫过半径）
-          if (this.isPointInSector(ex, ey, e.cx, e.cy, sweepRadius + 25, e.dir, e.halfAngle)) {
-            const dx = ex - e.cx;
-            const dy = ey - e.cy;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            // 在剑光弧线附近（±25px）
-            if (dist >= sweepRadius - 25) {
-              const finalDamage = Math.max(1, Math.floor(e.damage * (0.8 + Math.random() * 0.4)));
-              this.combatSystem.applyDamage(entity, finalDamage, null, '斩击');
-              if (this.combatSystem.createSliceEffect) {
-                this.combatSystem.createSliceEffect(targetTransform.position);
-              }
-              if (e.hitEntities) e.hitEntities.push(entity);
-            }
-          }
-        }
-      }
-      
-      if (e.type === 'arrow') {
-        e.traveled += e.speed * deltaTime;
-        e.x += Math.cos(e.dir) * e.speed * deltaTime;
-        e.y += Math.sin(e.dir) * e.speed * deltaTime;
-        
-        // 箭矢碰撞检测：检查是否命中敌人
-        if (e.damage && this.combatSystem) {
-          const hitRadius = 20; // 碰撞半径
-          for (const entity of this.entities) {
-            if (entity.type !== 'enemy') continue;
-            if (entity.isDead || entity.isDying) continue;
-            if (e.hitEntities && e.hitEntities.includes(entity)) continue;
-            
-            const targetTransform = entity.getComponent('transform');
-            const targetStats = entity.getComponent('stats');
-            if (!targetTransform || !targetStats || targetStats.hp <= 0) continue;
-            
-            const ex = targetTransform.position.x;
-            const ey = targetTransform.position.y - 32;
-            const dx = e.x - ex;
-            const dy = e.y - ey;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist <= hitRadius) {
-              const finalDamage = Math.max(1, Math.floor(e.damage * (0.8 + Math.random() * 0.4)));
-              this.combatSystem.applyDamage(entity, finalDamage, null, '远程攻击');
-              if (this.combatSystem.createSliceEffect) {
-                this.combatSystem.createSliceEffect(targetTransform.position);
-              }
-              if (e.hitEntities) e.hitEntities.push(entity);
-              
-              // 穿刺机制：已穿刺次数+1，超过穿刺值则箭矢消失
-              e.pierceCount = (e.pierceCount || 0) + 1;
-              if (e.pierceCount > (e.pierce || 0)) {
-                e.age = e.maxAge; // 标记为过期，下面会被移除
-                break;
-              }
-            }
-          }
-        }
-      }
-      if (e.age >= e.maxAge) {
-        this.sectorSlashEffects.splice(i, 1);
-      }
-    }
-  }
-
-  /**
-   * 渲染扇形攻击特效（刀光/箭光）
-   * @param {CanvasRenderingContext2D} ctx
-   */
-  renderSectorSlashEffects(ctx) {
-    if (this.sectorSlashEffects.length === 0) return;
-    
-    ctx.save();
-    
-    for (const e of this.sectorSlashEffects) {
-      const alpha = Math.max(0, 1 - e.age / e.maxAge);
-      
-      if (e.type === 'slash') {
-        // 剑光：月牙形，两端尖锐收尖
-        const progress = e.age / e.maxAge;
-        const sweepR = e.radius * (0.3 + progress * 0.7);
-        const startAngle = e.dir - e.halfAngle;
-        const endAngle = e.dir + e.halfAngle;
-        // 月牙厚度（中间最厚，两端为0）
-        const maxThick = 12 * (1 - progress * 0.4);
-        
-        // 两端尖点坐标
-        const tipStartX = e.cx + Math.cos(startAngle) * sweepR;
-        const tipStartY = e.cy + Math.sin(startAngle) * sweepR;
-        const tipEndX = e.cx + Math.cos(endAngle) * sweepR;
-        const tipEndY = e.cy + Math.sin(endAngle) * sweepR;
-        // 中间弧线的控制点方向（月牙外侧凸出）
-        const midAngle = e.dir;
-        const outerMidX = e.cx + Math.cos(midAngle) * (sweepR + maxThick);
-        const outerMidY = e.cy + Math.sin(midAngle) * (sweepR + maxThick);
-        const innerMidX = e.cx + Math.cos(midAngle) * (sweepR - maxThick * 0.4);
-        const innerMidY = e.cy + Math.sin(midAngle) * (sweepR - maxThick * 0.4);
-        
-        // 外层光晕
-        ctx.beginPath();
-        ctx.moveTo(tipStartX, tipStartY);
-        ctx.quadraticCurveTo(e.cx + Math.cos(midAngle) * (sweepR + maxThick + 5), e.cy + Math.sin(midAngle) * (sweepR + maxThick + 5), tipEndX, tipEndY);
-        ctx.quadraticCurveTo(e.cx + Math.cos(midAngle) * (sweepR - maxThick * 0.4 - 3), e.cy + Math.sin(midAngle) * (sweepR - maxThick * 0.4 - 3), tipStartX, tipStartY);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(200, 230, 255, ${alpha * 0.2})`;
-        ctx.fill();
-        
-        // 中层光芒
-        ctx.beginPath();
-        ctx.moveTo(tipStartX, tipStartY);
-        ctx.quadraticCurveTo(e.cx + Math.cos(midAngle) * (sweepR + maxThick + 2), e.cy + Math.sin(midAngle) * (sweepR + maxThick + 2), tipEndX, tipEndY);
-        ctx.quadraticCurveTo(e.cx + Math.cos(midAngle) * (sweepR - maxThick * 0.3), e.cy + Math.sin(midAngle) * (sweepR - maxThick * 0.3), tipStartX, tipStartY);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(220, 240, 255, ${alpha * 0.5})`;
-        ctx.fill();
-        
-        // 内层白色核心
-        ctx.beginPath();
-        ctx.moveTo(tipStartX, tipStartY);
-        ctx.quadraticCurveTo(outerMidX, outerMidY, tipEndX, tipEndY);
-        ctx.quadraticCurveTo(innerMidX, innerMidY, tipStartX, tipStartY);
-        ctx.closePath();
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-        ctx.fill();
-        
-      } else if (e.type === 'arrow') {
-        // 箭光：飞行中的箭矢光线
-        const len = 20;
-        const tailX = e.x - Math.cos(e.dir) * len;
-        const tailY = e.y - Math.sin(e.dir) * len;
-        
-        // 箭尾光晕
-        ctx.beginPath();
-        ctx.moveTo(tailX, tailY);
-        ctx.lineTo(e.x, e.y);
-        ctx.strokeStyle = `rgba(255, 220, 150, ${alpha * 0.3})`;
-        ctx.lineWidth = 6;
-        ctx.lineCap = 'round';
-        ctx.stroke();
-        
-        // 箭身
-        ctx.beginPath();
-        ctx.moveTo(tailX, tailY);
-        ctx.lineTo(e.x, e.y);
-        ctx.strokeStyle = `rgba(255, 240, 200, ${alpha * 0.7})`;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // 箭头亮点
-        ctx.beginPath();
-        ctx.arc(e.x, e.y, 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.fill();
-      }
-    }
-    
-    ctx.restore();
-  }
-
-  /**
-   * 渲染战斗警示圆圈
-   * @param {CanvasRenderingContext2D} ctx
-   */
-  renderCombatAlertCircle(ctx) {
-    const transform = this.playerEntity.getComponent('transform');
-    if (!transform) return;
-    
-    const sprite = this.playerEntity.getComponent('sprite');
-    const spriteHeight = sprite?.height || 64;
-    const cx = transform.position.x;
-    const cy = transform.position.y - spriteHeight / 2;
-    
-    ctx.save();
-    
-    const dir = this.sectorDirection;
-    const time = performance.now() / 1000;
-    const dashOffset = (time * 20) % 20;
-    
-    // 从武器数据获取攻击范围和距离
-    let weaponAttackRange = this.sectorAngle;
-    let weaponAttackDistance = this.sliceAttackRange;
-    const equipComp = this.playerEntity.getComponent('equipment');
-    if (equipComp) {
-      const mainhand = equipComp.getEquipment('mainhand');
-      if (mainhand) {
-        if (mainhand.attackRange != null) {
-          weaponAttackRange = mainhand.attackRange * Math.PI / 180;
-        }
-        if (mainhand.attackDistance != null) {
-          weaponAttackDistance = mainhand.attackDistance;
-        }
-      }
-    }
-    const halfAngle = weaponAttackRange / 2;
-    const r = weaponAttackDistance;
-    
-    // 攻击闪光效果
-    const flashAlpha = Math.max(0, this.sectorAttackFlash / 0.2);
-    
-    if (this.sectorIsRanged) {
-      // 远程：不显示扇形，在鼠标位置显示椭圆瞄准框
-      const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
-      if (mouseWorldPos) {
-        const dx = mouseWorldPos.x - cx;
-        const dy = mouseWorldPos.y - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const inRange = dist <= r;
-        
-        // 椭圆瞄准框
-        const ovalRx = 20;
-        const ovalRy = 12;
-        ctx.beginPath();
-        ctx.ellipse(mouseWorldPos.x, mouseWorldPos.y, ovalRx, ovalRy, 0, 0, Math.PI * 2);
-        ctx.closePath();
-        
-        if (inRange) {
-          ctx.strokeStyle = flashAlpha > 0 ? `rgba(0, 255, 0, ${0.8 + flashAlpha * 0.2})` : 'rgba(0, 255, 0, 0.7)';
-          ctx.fillStyle = `rgba(0, 255, 0, ${0.08 + flashAlpha * 0.15})`;
-        } else {
-          ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.08)';
-        }
-        ctx.lineWidth = 1.5;
-        ctx.fill();
-        ctx.stroke();
-      }
-    } else {
-      // 近战扇形
-      
-      // 扇形填充
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
-      ctx.closePath();
-      if (flashAlpha > 0) {
-        ctx.fillStyle = `rgba(255, 100, 100, ${0.12 + flashAlpha * 0.4})`;
-      } else {
-        ctx.fillStyle = 'rgba(255, 100, 100, 0.12)';
-      }
-      ctx.fill();
-      
-      // 扇形边框
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
-      ctx.closePath();
-      ctx.strokeStyle = flashAlpha > 0 ? `rgba(255, 150, 150, ${0.6 + flashAlpha * 0.4})` : 'rgba(255, 100, 100, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([8, 5]);
-      ctx.lineDashOffset = -dashOffset;
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-    
-    // 武器冷却时间条（玩家头顶上方）
-    const currentTime = performance.now() / 1000;
-    const timeSinceLastAttack = currentTime - this.sliceLastAttackTime;
-    
-    let weaponCooldown = this.sliceGlobalCooldown;
-    if (equipComp) {
-      const mainhand2 = equipComp.getEquipment('mainhand');
-      const offhand2 = equipComp.getEquipment('offhand');
-      if (mainhand2 && mainhand2.attackSpeed != null) {
-        weaponCooldown = mainhand2.attackSpeed;
-      } else if (offhand2 && offhand2.attackSpeed != null) {
-        weaponCooldown = offhand2.attackSpeed;
-      }
-    }
-    
-    if (timeSinceLastAttack < weaponCooldown && this.sliceLastAttackTime > 0) {
-      const barWidth = 40;
-      const barHeight = 5;
-      const barX = cx - barWidth / 2;
-      const barY = transform.position.y - spriteHeight - 18;
-      const cooldownRatio = timeSinceLastAttack / weaponCooldown;
-      
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-      ctx.fillRect(barX, barY, barWidth, barHeight);
-      
-      const gradient = ctx.createLinearGradient(barX, barY, barX + barWidth, barY);
-      gradient.addColorStop(0, '#ff6600');
-      gradient.addColorStop(1, '#ffcc00');
-      ctx.fillStyle = gradient;
-      ctx.fillRect(barX, barY, barWidth * cooldownRatio, barHeight);
-      
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 0.5;
-      ctx.strokeRect(barX, barY, barWidth, barHeight);
-      
-      const remaining = (weaponCooldown - timeSinceLastAttack).toFixed(1);
-      ctx.font = '9px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillText(`${remaining}s`, cx, barY - 2);
-    }
-    
-    // 远程武器时显示剩余箭矢数量（头顶）
-    if (this.sectorIsRanged) {
-      const eqComp = this.playerEntity.getComponent('equipment');
-      if (eqComp) {
-        const offhand = eqComp.getEquipment('offhand');
-        const arrowCount = (offhand && offhand.subType === 'ammo') ? (offhand.quantity || 0) : 0;
-        ctx.font = 'bold 11px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = arrowCount > 10 ? '#88ccff' : arrowCount > 0 ? '#ffaa44' : '#ff4444';
-        ctx.fillText(`🏹 ${arrowCount}`, cx, transform.position.y - spriteHeight - 24);
-      }
-    }
-    
-    ctx.restore();
-  }
-
-  /**
-   * 渲染滑动刀光轨迹
-   * @param {CanvasRenderingContext2D} ctx
-   */
-  renderSliceTrail(ctx) {
-    if (this.sliceTrail.length < 2) return;
-    
-    const currentTime = performance.now() / 1000;
-    
-    ctx.save();
-    
-    // 绘制刀光轨迹（渐变消失效果）
-    for (let i = 1; i < this.sliceTrail.length; i++) {
-      const p0 = this.sliceTrail[i - 1];
-      const p1 = this.sliceTrail[i];
-      
-      // 根据时间计算透明度（越旧越透明）
-      const age = currentTime - p1.time;
-      const alpha = Math.max(0, 1 - age / this.sliceTrailMaxAge);
-      
-      if (alpha <= 0) continue;
-      
-      // 计算轨迹在整体中的位置（0=最旧, 1=最新）
-      const posRatio = i / this.sliceTrail.length;
-      // 宽度：从细到粗再消失（前段细，中段最粗，尾段渐消）
-      // 使用 sin 曲线：开头细 -> 中间粗 -> 结尾细
-      const widthCurve = Math.sin(posRatio * Math.PI);
-      const width = widthCurve * 5 * alpha + 0.5;
-      
-      // 绘制发光刀光
-      ctx.beginPath();
-      ctx.moveTo(p0.x, p0.y);
-      ctx.lineTo(p1.x, p1.y);
-      
-      // 外层光晕
-      ctx.strokeStyle = `rgba(200, 230, 255, ${alpha * 0.3})`;
-      ctx.lineWidth = width + 6;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-      
-      // 中层光芒
-      ctx.strokeStyle = `rgba(180, 220, 255, ${alpha * 0.6})`;
-      ctx.lineWidth = width + 2;
-      ctx.stroke();
-      
-      // 内层白色核心
-      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.9})`;
-      ctx.lineWidth = width;
-      ctx.stroke();
-    }
-    
-    ctx.restore();
-  }
 
   handleEnemySelection() {
     // 不再需要选中敌人，使用滑动攻击
@@ -2069,270 +1397,6 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
-   * 更新战斗状态
-   * @param {number} deltaTime - 帧间隔时间（秒）
-   */
-  updateCombatState(deltaTime) {
-    const currentTime = performance.now() / 1000; // 转换为秒
-    
-    // 检查是否有敌人在攻击范围内或正在攻击玩家
-    const hasNearbyEnemies = this.checkNearbyEnemies();
-    
-    if (hasNearbyEnemies) {
-      // 有敌人在附近，进入或保持战斗状态
-      if (!this.combatState.inCombat) {
-        this.enterCombat();
-      }
-      // 更新最后战斗时间
-      this.combatState.lastCombatTime = currentTime;
-      this.combatState.combatExitTimer = this.combatState.combatExitDelay;
-    } else if (this.combatState.inCombat) {
-      // 没有敌人，但在战斗中，开始倒计时
-      const timeSinceLastCombat = currentTime - this.combatState.lastCombatTime;
-      this.combatState.combatExitTimer = Math.max(0, this.combatState.combatExitDelay - timeSinceLastCombat);
-      
-      // 倒计时结束，脱离战斗
-      if (this.combatState.combatExitTimer <= 0) {
-        this.exitCombat();
-      }
-    }
-  }
-
-  /**
-   * 检查附近是否有敌人
-   * @returns {boolean}
-   */
-  checkNearbyEnemies() {
-    if (!this.playerEntity) return false;
-    
-    const playerTransform = this.playerEntity.getComponent('transform');
-    if (!playerTransform) return false;
-    
-    const combatRange = 300; // 战斗范围：300像素
-    
-    for (const entity of this.entities) {
-      if (entity.type !== 'enemy' || entity.isDead || entity.isDying) continue;
-      
-      const enemyTransform = entity.getComponent('transform');
-      const enemyStats = entity.getComponent('stats');
-      if (!enemyTransform || !enemyStats || enemyStats.hp <= 0) continue;
-      
-      // 计算距离
-      const dx = enemyTransform.position.x - playerTransform.position.x;
-      const dy = enemyTransform.position.y - playerTransform.position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance <= combatRange) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-
-  /**
-   * 进入战斗状态
-   */
-  enterCombat() {
-    this.combatState.inCombat = true;
-    this.combatState.lastCombatTime = performance.now() / 1000;
-    this.combatState.combatExitTimer = this.combatState.combatExitDelay;
-    
-    // 进入战斗时中断打坐
-    if (this.meditationState.active) {
-      this.stopMeditation();
-    }
-    
-    console.log('BaseGameScene: 进入战斗状态');
-  }
-
-  /**
-   * 脱离战斗状态
-   */
-  exitCombat() {
-    this.combatState.inCombat = false;
-    this.combatState.combatExitTimer = 0;
-    console.log('BaseGameScene: 脱离战斗状态');
-  }
-
-  /**
-   * 更新打坐状态
-   * @param {number} deltaTime - 帧间隔时间（秒）
-   */
-  updateMeditationState(deltaTime) {
-    if (!this.meditationState.active || !this.playerEntity) return;
-    
-    const currentTime = performance.now() / 1000;
-    const stats = this.playerEntity.getComponent('stats');
-    const transform = this.playerEntity.getComponent('transform');
-    
-    if (!stats || !transform) return;
-    
-    // 检查是否满血满蓝，自动停止打坐
-    if (stats.hp >= stats.maxHp && stats.mp >= stats.maxMp) {
-      console.log('BaseGameScene: 满血满蓝，自动停止打坐');
-      this.stopMeditation();
-      return;
-    }
-    
-    // 更新打坐特效位置（跟随玩家）
-    if (this.skillEffects) {
-      this.skillEffects.updateMeditationPosition(transform.position);
-    }
-    
-    // 每秒恢复一次
-    if (currentTime - this.meditationState.lastTickTime >= 1.0) {
-      // 恢复10%血量和魔法
-      const healAmount = Math.floor(stats.maxHp * 0.1);
-      const manaAmount = Math.floor(stats.maxMp * 0.1);
-      
-      const actualHeal = stats.heal(healAmount);
-      const actualMana = stats.restoreMana(manaAmount);
-      
-      // 显示恢复数值
-      if (actualHeal > 0) {
-        this.floatingTextManager.addHeal(transform.position.x - 20, transform.position.y - 40, actualHeal);
-      }
-      if (actualMana > 0) {
-        this.floatingTextManager.addManaRestore(transform.position.x + 20, transform.position.y - 40, actualMana);
-      }
-      
-      this.meditationState.lastTickTime = currentTime;
-    }
-  }
-
-  /**
-   * 开始打坐
-   */
-  startMeditation() {
-    if (this.combatState.inCombat) {
-      console.log('BaseGameScene: 战斗中无法打坐');
-      return false;
-    }
-    
-    const currentTime = performance.now() / 1000;
-    this.meditationState.active = true;
-    this.meditationState.startTime = currentTime;
-    this.meditationState.lastTickTime = currentTime;
-    
-    // 显示技能名称
-    if (this.playerEntity) {
-      const transform = this.playerEntity.getComponent('transform');
-      if (transform) {
-        this.floatingTextManager.addText(
-          transform.position.x,
-          transform.position.y - 60,
-          '打坐',
-          '#00ffff'
-        );
-        
-        // 创建打坐烟雾特效
-        if (this.skillEffects) {
-          this.skillEffects.createSkillEffect('meditation', transform.position);
-        }
-      }
-    }
-    
-    console.log('BaseGameScene: 开始打坐');
-    return true;
-  }
-
-  /**
-   * 停止打坐
-   */
-  stopMeditation() {
-    this.meditationState.active = false;
-    
-    // 停止打坐烟雾特效
-    if (this.skillEffects) {
-      this.skillEffects.stopMeditationEffect();
-    }
-    
-    console.log('BaseGameScene: 停止打坐');
-  }
-
-  /**
-   * 检测打坐时的移动中断
-   */
-  checkMeditationMovementInterrupt() {
-    if (!this.meditationState.active || !this.inputManager) return;
-    
-    // 检测移动按键（WASD 或方向键）
-    const isMoving = 
-      this.inputManager.isKeyDown('up') ||
-      this.inputManager.isKeyDown('down') ||
-      this.inputManager.isKeyDown('left') ||
-      this.inputManager.isKeyDown('right') ||
-      this.inputManager.isKeyDown('w') ||
-      this.inputManager.isKeyDown('W') ||
-      this.inputManager.isKeyDown('s') ||
-      this.inputManager.isKeyDown('S') ||
-      this.inputManager.isKeyDown('a') ||
-      this.inputManager.isKeyDown('A') ||
-      this.inputManager.isKeyDown('d') ||
-      this.inputManager.isKeyDown('D');
-    
-    // 如果检测到移动输入，停止打坐
-    if (isMoving) {
-      console.log('BaseGameScene: 移动中断打坐');
-      this.stopMeditation();
-      
-      // 显示提示
-      if (this.floatingTextManager && this.playerEntity) {
-        const transform = this.playerEntity.getComponent('transform');
-        if (transform) {
-          this.floatingTextManager.addText(
-            transform.position.x,
-            transform.position.y - 50,
-            '移动中断打坐',
-            '#ffaa00'
-          );
-        }
-      }
-    }
-  }
-
-  /**
-   * 检查人物信息面板切换
-   */
-  checkPlayerInfoToggle() {
-    if (this.inputManager.isKeyDown('c') || this.inputManager.isKeyDown('C')) {
-      const now = Date.now();
-      if (!this.lastPlayerInfoToggleTime || now - this.lastPlayerInfoToggleTime > 300) {
-        this.playerInfoPanel.toggle();
-        this.lastPlayerInfoToggleTime = now;
-      }
-    }
-  }
-
-  /**
-   * 检查背包切换
-   */
-  checkInventoryToggle() {
-    if (this.inputManager.isKeyDown('b') || this.inputManager.isKeyDown('B')) {
-      const now = Date.now();
-      if (!this.lastInventoryToggleTime || now - this.lastInventoryToggleTime > 300) {
-        this.inventoryPanel.toggle();
-        this.lastInventoryToggleTime = now;
-      }
-    }
-  }
-
-  /**
-   * 检查性能监控切换
-   */
-  checkPerformanceMonitorToggle() {
-    if (this.inputManager.isKeyDown('p') || this.inputManager.isKeyDown('P')) {
-      const now = Date.now();
-      if (!this.lastPerformanceToggleTime || now - this.lastPerformanceToggleTime > 300) {
-        this.performanceMonitor.toggle();
-        this.lastPerformanceToggleTime = now;
-        console.log('性能监控:', this.performanceMonitor.enabled ? '开启' : '关闭');
-      }
-    }
-  }
-
-  /**
    * 检查空格键继续对话
    */
   checkDialogueContinue() {
@@ -2381,289 +1445,21 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
-   * 更新面板悬停状态
+   * 更新面板悬停状态（委托给 UISystem）
    */
   updatePanelHover() {
     const mousePos = this.inputManager.getMousePosition();
-    
-    if (this.inventoryPanel.visible) {
-      this.inventoryPanel.handleMouseMove(mousePos.x, mousePos.y);
-    }
-    if (this.playerInfoPanel.visible) {
-      this.playerInfoPanel.handleMouseMove(mousePos.x, mousePos.y);
-    }
-    if (this.bottomControlBar.visible) {
-      this.bottomControlBar.handleMouseMove(mousePos.x, mousePos.y);
-    }
-    if (this.dialogueBox && this.dialogueBox.visible) {
-      this.dialogueBox.handleMouseMove(mousePos.x, mousePos.y);
-    }
+    this.uiSystem.updateHover(mousePos.x, mousePos.y);
   }
 
-  /**
-   * 检查拾取
-   */
-  checkPickup() {
-    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
-    if (!ePressed) return;
-    
-    const transform = this.playerEntity.getComponent('transform');
-    if (!transform) return;
-    
-    const playerX = transform.position.x;
-    const playerY = transform.position.y;
-    
-    const now = Date.now();
-    if (this.lastPickupTime && now - this.lastPickupTime < 300) return;
-    
-    // 批量拾取半径（半个身位约25px + 原有50px = 75px）
-    const batchRadius = 75;
-    let pickedAny = false;
-    
-    // 批量检查可拾取物品
-    for (const item of this.pickupItems) {
-      if (item.picked) continue;
-      
-      const dx = item.x - playerX;
-      const dy = item.y - playerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance <= batchRadius) {
-        this.pickupItem(item);
-        pickedAny = true;
-      }
-    }
-    
-    // 批量检查装备物品
-    for (let i = this.equipmentItems.length - 1; i >= 0; i--) {
-      const item = this.equipmentItems[i];
-      if (item.picked) continue;
-      
-      const itemTransform = item.getComponent ? item.getComponent('transform') : null;
-      const itemX = itemTransform ? itemTransform.position.x : item.x;
-      const itemY = itemTransform ? itemTransform.position.y : item.y;
-      
-      const dx = itemX - playerX;
-      const dy = itemY - playerY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance <= batchRadius) {
-        if (item.tags && item.tags.includes('loot')) {
-          this.pickupLoot(item);
-          this.equipmentItems.splice(i, 1);
-          this.entities = this.entities.filter(e => e !== item);
-        } else {
-          this.pickupItem(item);
-        }
-        pickedAny = true;
-      }
-    }
-    
-    if (pickedAny) {
-      this.lastPickupTime = now;
-    }
-  }
-
-  /**
-   * 拾取物品
-   */
-  pickupItem(item) {
-    if (item.picked) return;
-    
-    item.picked = true;
-    
-    const inventory = this.playerEntity.getComponent('inventory');
-    if (inventory) {
-      const itemData = {
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        subType: item.subType,
-        description: item.description || '',
-        rarity: item.rarity || 0,
-        maxStack: item.maxStack || 1,
-        usable: item.usable || false,
-        effect: item.effect || null,
-        stats: item.stats || {}
-      };
-      
-      if (item.heal) itemData.heal = item.heal;
-      if (item.attackSpeed != null) itemData.attackSpeed = item.attackSpeed;
-      if (item.ranged) itemData.ranged = true;
-      if (item.quantity != null) itemData.quantity = item.quantity;
-      if (item.attackRange != null) itemData.attackRange = item.attackRange;
-      if (item.attackDistance != null) itemData.attackDistance = item.attackDistance;
-      if (item.pierce != null) itemData.pierce = item.pierce;
-      if (item.multishot != null) itemData.multishot = item.multishot;
-      
-      inventory.addItem(itemData, item.quantity || 1);
-      console.log('BaseGameScene: 拾取物品', itemData);
-    }
-  }
-
-  /**
-   * 拾取掉落物
-   */
-  pickupLoot(lootEntity) {
-      const itemData = lootEntity.itemData;
-      if (!itemData) return;
-
-      // 将掉落物添加到背包，而不是直接使用
-      const inventory = this.playerEntity.getComponent('inventory');
-      if (inventory) {
-        const item = {
-          id: itemData.id || itemData.type,
-          name: itemData.name,
-          type: 'consumable',
-          subType: itemData.type,
-          description: itemData.description || '',
-          rarity: itemData.rarity || 'common',
-          maxStack: itemData.maxStack || 20,
-          usable: true,
-          effect: itemData.effect || null,
-          stats: {}
-        };
-
-        // 如果没有 effect 字段，根据类型自动生成
-        if (!item.effect) {
-          if (itemData.type === 'health_potion') {
-            item.effect = { type: 'heal', value: itemData.value || 50 };
-          } else if (itemData.type === 'mana_potion') {
-            item.effect = { type: 'restore_mana', value: itemData.value || 30 };
-          }
-        }
-
-        inventory.addItem(item);
-
-        const transform = this.playerEntity.getComponent('transform');
-        if (transform) {
-          this.floatingTextManager.addText(
-            transform.position.x,
-            transform.position.y - 30,
-            `获得: ${item.name}`,
-            '#00ff00'
-          );
-        }
-        console.log('BaseGameScene: 掉落物已添加到背包', item);
-      }
-    }
-
-
-  /**
-   * 生成掉落物
-   */
-  spawnLootItems(position, lootItems) {
-    if (!lootItems || lootItems.length === 0) return;
-    
-    lootItems.forEach((item, index) => {
-      const angle = (index / lootItems.length) * Math.PI * 2;
-      const radius = 30;
-      const dropX = position.x + Math.cos(angle) * radius;
-      const dropY = position.y + Math.sin(angle) * radius;
-      
-      const lootEntity = this.createLootEntity(item, dropX, dropY);
-      this.entities.push(lootEntity);
-      this.equipmentItems.push(lootEntity);
-    });
-  }
-
-  /**
-   * 创建掉落物实体 - 子类可覆盖
-   */
-  createLootEntity(item, x, y) {
-    const entity = new Entity(`loot_${Date.now()}_${Math.random()}`, 'loot');
-    
-    // 添加变换组件
-    entity.addComponent(new TransformComponent(x, y));
-    
-    // 添加精灵组件 - 小长方形瓶子
-    const color = item.type === 'health_potion' ? '#ff3333' : '#3333ff';
-    const sprite = new SpriteComponent('loot_sprite', {
-      width: 16,
-      height: 24,
-      color: color,
-      visible: true,
-      defaultAnimation: 'idle'
-    });
-    
-    sprite.addAnimation('idle', {
-      frames: [0],
-      frameRate: 1,
-      loop: true
-    });
-    sprite.playAnimation('idle');
-    
-    entity.addComponent(sprite);
-    
-    // 添加名字组件
-    const nameComp = new NameComponent(item.name, {
-      color: '#ffff00',
-      fontSize: 14,
-      offsetY: -20,
-      visible: true
-    });
-    entity.addComponent(nameComp);
-    
-    // 存储物品数据
-    entity.itemData = item;
-    entity.tags = ['loot'];
-    
-    return entity;
-  }
-
-  /**
-   * 检查武器拾取
-   */
-  checkWeaponPickup() {
-    if (!this.weaponRenderer || !this.playerEntity) return;
-    
-    const playerTransform = this.playerEntity.getComponent('transform');
-    if (!playerTransform) return;
-    
-    // 尝试拾取武器
-    const picked = this.weaponRenderer.retrieveWeapon(this.playerEntity);
-    
-    if (picked) {
-      // 显示拾取提示
-      this.floatingTextManager.addText(
-        playerTransform.position.x,
-        playerTransform.position.y - 30,
-        '拾取武器',
-        '#00ff00'
-      );
-      console.log('BaseGameScene: 拾取武器成功');
-    }
-  }
-  
   /**
    * 移除死亡实体
    */
+  /**
+   * 移除死亡实体（委托给 EntityLifecycleSystem）
+   */
   removeDeadEntities() {
-    // 找出所有已死亡的实体（isDead = true），但不包括玩家
-    const deadEntities = this.entities.filter(entity => 
-      entity.isDead && entity !== this.playerEntity
-    );
-    
-    for (const entity of deadEntities) {
-      // 如果死亡的敌人身上插着武器，解除钉住状态但不收回武器
-      if (entity.pinnedByWeapon && this.weaponRenderer) {
-        entity.pinnedByWeapon = false;
-        // 武器留在原地，玩家需要自己去拾取
-        if (this.weaponRenderer.thrownWeapon.targetEntity === entity) {
-          this.weaponRenderer.thrownWeapon.targetEntity = null;
-        }
-      }
-      
-      const index = this.entities.indexOf(entity);
-      if (index > -1) {
-        this.entities.splice(index, 1);
-      }
-      
-      const enemyIndex = this.enemyEntities.indexOf(entity);
-      if (enemyIndex > -1) {
-        this.enemyEntities.splice(enemyIndex, 1);
-      }
-    }
+    this.entityLifecycleSystem.removeDeadEntities(this.entities);
   }
 
   /**
@@ -2721,14 +1517,14 @@ export class BaseGameScene extends PrologueScene {
     }
     
     // 渲染战斗警示圆圈和滑动刀光轨迹
-    if (this.combatState && this.combatState.inCombat && this.playerEntity) {
-      this.renderCombatAlertCircle(ctx);
+    if (this.combatSystem && this.combatSystem.isInCombat() && this.playerEntity) {
+      this.meleeAttackSystem.renderCombatAlertCircle(ctx, this.camera);
     }
-    if (this.sliceTrail && this.sliceTrail.length > 1) {
-      this.renderSliceTrail(ctx);
+    if (this.meleeAttackSystem.sliceTrail && this.meleeAttackSystem.sliceTrail.length > 1) {
+      this.meleeAttackSystem.renderSliceTrail(ctx);
     }
     // 渲染刀光/箭光特效
-    this.renderSectorSlashEffects(ctx);
+    this.meleeAttackSystem.renderSectorSlashEffects(ctx);
     
     // 渲染敌人武器（已禁用）
     // 敌人武器渲染已禁用
@@ -2841,7 +1637,7 @@ export class BaseGameScene extends PrologueScene {
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   renderCombatStateUI(ctx) {
-    if (!this.combatState.inCombat) return;
+    if (!this.combatSystem.isInCombat()) return;
     
     // 战斗状态面板位置（屏幕右上角）
     const panelX = this.logicalWidth - 90;
@@ -2867,7 +1663,7 @@ export class BaseGameScene extends PrologueScene {
     ctx.fillText('战斗中', panelX + panelWidth / 2, panelY + 14);
     
     // 绘制脱离战斗倒计时
-    const timer = Math.ceil(this.combatState.combatExitTimer);
+    const timer = Math.ceil(this.combatSystem.getCombatExitTimer());
     if (timer > 0) {
       ctx.fillStyle = '#ffff00';
       ctx.font = '10px Arial';
@@ -3543,6 +2339,10 @@ export class BaseGameScene extends PrologueScene {
     
     if (this.flightSystem) {
       this.flightSystem.cleanup();
+    }
+    
+    if (this.meleeAttackSystem) {
+      this.meleeAttackSystem.cleanup();
     }
     
     if (this.enemyWeaponRenderer) {

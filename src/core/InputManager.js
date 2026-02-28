@@ -62,6 +62,10 @@ export class InputManager {
         this.cameraX = 0;
         this.cameraY = 0;
         
+        // 快捷键注册表
+        // Map<key, Array<{ id, callback, cooldown, lastTriggerTime }>>
+        this.hotkeys = new Map();
+        
         // 初始化事件监听
         this.initEventListeners();
     }
@@ -360,9 +364,80 @@ export class InputManager {
     }
 
     /**
+     * 注册快捷键
+     * @param {string} id - 快捷键唯一标识
+     * @param {string|string[]} keys - 键名或键名数组（任一触发）
+     * @param {Function} callback - 触发回调
+     * @param {Object} options - 配置选项
+     * @param {number} options.cooldown - 冷却时间（毫秒），默认300
+     * @param {boolean} options.onPress - 是否在按下瞬间触发（默认true），false则在持续按住时触发
+     */
+    registerHotkey(id, keys, callback, options = {}) {
+        const keyArray = Array.isArray(keys) ? keys : [keys];
+        const cooldown = options.cooldown ?? 300;
+        const onPress = options.onPress ?? true;
+        
+        const hotkeyData = { id, callback, cooldown, lastTriggerTime: 0, onPress };
+        
+        for (const key of keyArray) {
+            const mappedKey = this.keyMap[key] || key;
+            if (!this.hotkeys.has(mappedKey)) {
+                this.hotkeys.set(mappedKey, []);
+            }
+            this.hotkeys.get(mappedKey).push(hotkeyData);
+        }
+    }
+
+    /**
+     * 注销快捷键
+     * @param {string} id - 快捷键唯一标识
+     */
+    unregisterHotkey(id) {
+        for (const [key, handlers] of this.hotkeys) {
+            const filtered = handlers.filter(h => h.id !== id);
+            if (filtered.length === 0) {
+                this.hotkeys.delete(key);
+            } else {
+                this.hotkeys.set(key, filtered);
+            }
+        }
+    }
+
+    /**
+     * 清除所有快捷键
+     */
+    clearHotkeys() {
+        this.hotkeys.clear();
+    }
+
+    /**
+     * 处理快捷键（每帧调用）
+     * @private
+     */
+    processHotkeys() {
+        const now = Date.now();
+        
+        for (const [key, handlers] of this.hotkeys) {
+            for (const handler of handlers) {
+                const shouldTrigger = handler.onPress 
+                    ? this.isKeyPressed(key)
+                    : this.isKeyDown(key);
+                
+                if (shouldTrigger && (now - handler.lastTriggerTime >= handler.cooldown)) {
+                    handler.lastTriggerTime = now;
+                    handler.callback(key);
+                }
+            }
+        }
+    }
+
+    /**
      * 更新输入状态（每帧调用）
      */
     update() {
+        // 处理注册的快捷键
+        this.processHotkeys();
+        
         // 清除本帧的按键状态
         this.keysPressed.clear();
         this.keysReleased.clear();
@@ -398,6 +473,7 @@ export class InputManager {
         this.canvas.removeEventListener('touchmove', this.handleTouchMove);
         
         this.clear();
+        this.clearHotkeys();
         console.log('InputManager: Destroyed');
     }
 }

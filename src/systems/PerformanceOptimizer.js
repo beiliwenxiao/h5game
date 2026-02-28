@@ -11,7 +11,7 @@
  * 需求: 30 - 大规模战斗性能优化
  */
 
-import { ObjectPool } from '../../core/ObjectPool.js';
+import { ObjectPool } from '../core/ObjectPool.js';
 
 /**
  * 空间分区网格

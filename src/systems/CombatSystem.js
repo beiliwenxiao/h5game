@@ -92,6 +92,19 @@ export class CombatSystem {
       'flame_burst': '#ff3300'
     };
     
+    // 战斗状态管理
+    this.combatState = {
+      inCombat: false,
+      lastCombatTime: 0,
+      combatExitTimer: 0,
+      combatExitDelay: 5,  // 脱离战斗延迟（秒）
+      combatRange: 300     // 战斗检测范围（像素）
+    };
+    
+    // 战斗状态回调
+    this.onEnterCombatCallback = null;
+    this.onExitCombatCallback = null;
+    
     console.log('CombatSystem: Initialized');
   }
 
@@ -3072,6 +3085,123 @@ export class CombatSystem {
     ctx.textAlign = 'center';
     ctx.fillText(indicator.skillName, indicator.endX, indicator.endY - indicator.endRadius * 0.5 - 8);
     ctx.restore();
+  }
+
+  // ==================== 战斗状态管理 ====================
+
+  /**
+   * 更新战斗状态
+   * @param {number} deltaTime - 帧间隔时间（秒）
+   * @param {Array} entities - 实体列表
+   */
+  updateCombatState(deltaTime, entities) {
+    const currentTime = performance.now() / 1000;
+    const hasNearby = this.checkNearbyEnemies(entities);
+    
+    if (hasNearby) {
+      if (!this.combatState.inCombat) {
+        this.enterCombat();
+      }
+      this.combatState.lastCombatTime = currentTime;
+      this.combatState.combatExitTimer = this.combatState.combatExitDelay;
+    } else if (this.combatState.inCombat) {
+      const elapsed = currentTime - this.combatState.lastCombatTime;
+      this.combatState.combatExitTimer = Math.max(0, this.combatState.combatExitDelay - elapsed);
+      
+      if (this.combatState.combatExitTimer <= 0) {
+        this.exitCombat();
+      }
+    }
+  }
+
+  /**
+   * 检查附近是否有敌人
+   * @param {Array} entities - 实体列表
+   * @returns {boolean}
+   */
+  checkNearbyEnemies(entities) {
+    if (!this.playerEntity) return false;
+    
+    const pt = this.playerEntity.getComponent('transform');
+    if (!pt) return false;
+    
+    const range = this.combatState.combatRange;
+    
+    for (const entity of entities) {
+      if (entity.type !== 'enemy' || entity.isDead || entity.isDying) continue;
+      
+      const et = entity.getComponent('transform');
+      const es = entity.getComponent('stats');
+      if (!et || !es || es.hp <= 0) continue;
+      
+      const dx = et.position.x - pt.position.x;
+      const dy = et.position.y - pt.position.y;
+      if (dx * dx + dy * dy <= range * range) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 进入战斗状态
+   */
+  enterCombat() {
+    this.combatState.inCombat = true;
+    this.combatState.lastCombatTime = performance.now() / 1000;
+    this.combatState.combatExitTimer = this.combatState.combatExitDelay;
+    
+    if (this.onEnterCombatCallback) {
+      this.onEnterCombatCallback();
+    }
+    
+    console.log('CombatSystem: 进入战斗状态');
+  }
+
+  /**
+   * 脱离战斗状态
+   */
+  exitCombat() {
+    this.combatState.inCombat = false;
+    this.combatState.combatExitTimer = 0;
+    
+    if (this.onExitCombatCallback) {
+      this.onExitCombatCallback();
+    }
+    
+    console.log('CombatSystem: 脱离战斗状态');
+  }
+
+  /**
+   * 是否在战斗中
+   * @returns {boolean}
+   */
+  isInCombat() {
+    return this.combatState.inCombat;
+  }
+
+  /**
+   * 获取脱离战斗倒计时
+   * @returns {number}
+   */
+  getCombatExitTimer() {
+    return this.combatState.combatExitTimer;
+  }
+
+  /**
+   * 设置进入战斗回调
+   * @param {Function} callback
+   */
+  setOnEnterCombat(callback) {
+    this.onEnterCombatCallback = callback;
+  }
+
+  /**
+   * 设置脱离战斗回调
+   * @param {Function} callback
+   */
+  setOnExitCombat(callback) {
+    this.onExitCombatCallback = callback;
   }
 }
 

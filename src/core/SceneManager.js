@@ -13,7 +13,18 @@ export class SceneManager {
         this.isTransitioning = false;
         this.transitionDuration = 0.5; // 秒
         this.transitionProgress = 0;
-        this.transitionPhase = 'fadeOut'; // 'fadeOut' or 'fadeIn'
+        this.transitionPhase = 'fadeOut'; // 'fadeOut', 'showText', 'fadeIn'
+        
+        // 文字过渡配置
+        this.transitionText = { main: '', sub: '' };
+        this.textDisplayDuration = 3.0; // 文字显示时长（秒）
+        this.transitionTimer = 0;
+        this.transitionAlpha = 0;
+        this.transitionCallback = null; // 过渡完成后的回调
+        
+        // 渲染尺寸（需要外部设置）
+        this.renderWidth = 800;
+        this.renderHeight = 600;
     }
 
     /**
@@ -77,6 +88,39 @@ export class SceneManager {
     }
 
     /**
+     * 开始带文字的场景过渡（淡出 → 显示文字 → 切换场景）
+     * @param {Object} options - 过渡选项
+     * @param {string} [options.mainText='场景切换中...'] - 主文字
+     * @param {string} [options.subText=''] - 副文字
+     * @param {number} [options.fadeDuration=2.0] - 淡出时长（秒）
+     * @param {number} [options.textDuration=3.0] - 文字显示时长（秒）
+     * @param {Function} [options.onComplete] - 过渡完成回调
+     */
+    startTextTransition(options = {}) {
+        this.isTransitioning = true;
+        this.transitionPhase = 'fadeOut';
+        this.transitionTimer = 0;
+        this.transitionAlpha = 0;
+        this.transitionDuration = options.fadeDuration ?? 2.0;
+        this.textDisplayDuration = options.textDuration ?? 3.0;
+        this.transitionText = {
+            main: options.mainText ?? '场景切换中...',
+            sub: options.subText ?? ''
+        };
+        this.transitionCallback = options.onComplete || null;
+    }
+
+    /**
+     * 设置渲染尺寸（用于文字居中）
+     * @param {number} width
+     * @param {number} height
+     */
+    setRenderSize(width, height) {
+        this.renderWidth = width;
+        this.renderHeight = height;
+    }
+
+    /**
      * 更新场景管理器
      * @param {number} deltaTime - 时间增量（秒）
      */
@@ -100,31 +144,67 @@ export class SceneManager {
      * @param {number} deltaTime - 时间增量（秒）
      */
     updateTransition(deltaTime) {
+        this.transitionTimer += deltaTime;
         this.transitionProgress += deltaTime / this.transitionDuration;
 
-        if (this.transitionProgress >= 1) {
-            this.transitionProgress = 1;
-
-            if (this.transitionPhase === 'fadeOut') {
-                // 淡出完成，切换场景
-                if (this.currentScene) {
-                    this.currentScene.exit();
+        if (this.transitionPhase === 'fadeOut') {
+            this.transitionAlpha = Math.min(1, this.transitionProgress);
+            
+            if (this.transitionProgress >= 1) {
+                this.transitionProgress = 1;
+                
+                // 如果有文字要显示，进入文字阶段
+                if (this.transitionText.main) {
+                    this.transitionPhase = 'showText';
+                    this.transitionTimer = 0;
+                    this.transitionProgress = 0;
+                } else {
+                    // 没有文字，直接切换场景
+                    this._performSceneSwitch();
+                    this.transitionPhase = 'fadeIn';
+                    this.transitionProgress = 0;
                 }
-                
-                this.currentScene = this.nextScene;
-                console.log(`SceneManager: Entering scene "${this.currentScene.name}" with data:`, this.transitionData);
-                this.currentScene.enter(this.transitionData);
-                
-                // 开始淡入
-                this.transitionPhase = 'fadeIn';
-                this.transitionProgress = 0;
-            } else {
+            }
+        } else if (this.transitionPhase === 'showText') {
+            if (this.transitionTimer >= this.textDisplayDuration) {
+                // 文字显示完毕，执行回调或切换场景
+                if (this.transitionCallback) {
+                    this.transitionCallback();
+                    this.isTransitioning = false;
+                    this.transitionCallback = null;
+                    this.transitionText = { main: '', sub: '' };
+                } else {
+                    this._performSceneSwitch();
+                    this.transitionPhase = 'fadeIn';
+                    this.transitionProgress = 0;
+                }
+            }
+        } else if (this.transitionPhase === 'fadeIn') {
+            this.transitionAlpha = Math.max(0, 1 - this.transitionProgress);
+            
+            if (this.transitionProgress >= 1) {
                 // 淡入完成，结束转场
                 this.isTransitioning = false;
                 this.nextScene = null;
                 this.transitionData = null;
                 this.transitionProgress = 0;
+                this.transitionAlpha = 0;
+                this.transitionText = { main: '', sub: '' };
             }
+        }
+    }
+
+    /**
+     * 执行场景切换（内部方法）
+     * @private
+     */
+    _performSceneSwitch() {
+        if (this.nextScene) {
+            if (this.currentScene) {
+                this.currentScene.exit();
+            }
+            this.currentScene = this.nextScene;
+            this.currentScene.enter(this.transitionData);
         }
     }
 
@@ -145,23 +225,29 @@ export class SceneManager {
     }
 
     /**
-     * 渲染转场效果（淡入淡出）
+     * 渲染转场效果（淡入淡出 + 文字）
      * @param {CanvasRenderingContext2D} ctx - Canvas渲染上下文
      */
     renderTransition(ctx) {
-        const canvas = ctx.canvas;
-        let alpha;
-
-        if (this.transitionPhase === 'fadeOut') {
-            // 淡出：从透明到不透明
-            alpha = this.transitionProgress;
-        } else {
-            // 淡入：从不透明到透明
-            alpha = 1 - this.transitionProgress;
+        ctx.save();
+        
+        ctx.fillStyle = `rgba(0, 0, 0, ${this.transitionAlpha})`;
+        ctx.fillRect(0, 0, this.renderWidth, this.renderHeight);
+        
+        // 文字阶段渲染
+        if (this.transitionPhase === 'showText' && this.transitionText.main) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 48px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(this.transitionText.main, this.renderWidth / 2, this.renderHeight / 2 - 30);
+            
+            if (this.transitionText.sub) {
+                ctx.font = '24px Arial';
+                ctx.fillText(this.transitionText.sub, this.renderWidth / 2, this.renderHeight / 2 + 30);
+            }
         }
-
-        ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.restore();
     }
 
     /**

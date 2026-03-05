@@ -458,6 +458,7 @@
             
             // 通知当前场景更新尺寸
             if (sceneManager) {
+                sceneManager.setRenderSize(cw, ch);
                 const currentScene = sceneManager.getCurrentScene();
                 if (currentScene && currentScene.onResize) {
                     currentScene.onResize(cw, ch);
@@ -636,6 +637,7 @@
                 
                 updateLoading(50, '创建场景管理器...');
                 sceneManager = new SceneManager();
+                sceneManager.setRenderSize(canvas.width, canvas.height);
                 await sleep(300);
                 
                 updateLoading(60, '注册场景...');

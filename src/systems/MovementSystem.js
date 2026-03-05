@@ -264,6 +264,9 @@ export class MovementSystem {
     
     if (!transform || !movement) return;
     
+    // 远程玩家的移动由网络同步控制，不走本地 MovementSystem
+    if (entity.isRemote) return;
+    
     // 如果实体被武器钉住，不能移动
     if (entity.pinnedByWeapon) {
       movement.velocity.x = 0;

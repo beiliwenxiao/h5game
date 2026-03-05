@@ -25,30 +25,35 @@ export class BottomControlBar extends UIElement {
 
     this.entity = null;
     
-    // 血球配置
-    this.hpOrb = {
-      x: 60,
-      y: 50,
-      radius: 35,
-      color: '#ff0000',
-      glowColor: '#ff6666'
-    };
-    
-    // 蓝球配置
-    this.mpOrb = {
-      x: this.width - 60,
-      y: 50,
-      radius: 35,
-      color: '#0066ff',
-      glowColor: '#6699ff'
-    };
-    
     // 技能槽配置（5个技能 + 2个药水快捷槽）
     const slotSize = 40;
     const slotGap = 6;
     const totalSlots = 7;
     const totalWidth = totalSlots * slotSize + (totalSlots - 1) * slotGap;
     const startX = this.width / 2 - totalWidth / 2 + slotSize / 2;
+    
+    // 血球配置（紧贴技能槽左侧）
+    const orbRadius = 35;
+    const orbGap = 10; // 球与技能槽的间距
+    const slotsLeftEdge = this.width / 2 - totalWidth / 2;
+    const slotsRightEdge = this.width / 2 + totalWidth / 2;
+    
+    this.hpOrb = {
+      x: slotsLeftEdge - orbGap - orbRadius,
+      y: 50,
+      radius: orbRadius,
+      color: '#ff0000',
+      glowColor: '#ff6666'
+    };
+    
+    // 蓝球配置（紧贴技能槽右侧）
+    this.mpOrb = {
+      x: slotsRightEdge + orbGap + orbRadius,
+      y: 50,
+      radius: orbRadius,
+      color: '#0066ff',
+      glowColor: '#6699ff'
+    };
     
     this.skillSlots = [];
     for (let i = 0; i < totalSlots; i++) {
@@ -448,7 +453,25 @@ export class BottomControlBar extends UIElement {
     ctx.save();
     ctx.translate(x, y);
     
-    // 技能图标映射表（纯 emoji，简洁好看）
+    // 优先使用技能自带的 icon 属性
+    if (skill.icon) {
+      ctx.font = `${size * 0.55}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(skill.icon, 0, 0);
+      
+      // 技能名称（小字）
+      if (skill.name) {
+        ctx.font = `${Math.max(10, size * 0.18)}px Arial`;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(skill.name, 0, halfSize - 6);
+      }
+      
+      ctx.restore();
+      return;
+    }
+    
+    // 默认图标映射表
     const iconMap = {
       'flame_palm': '🔥',
       'fireball': '🔥',

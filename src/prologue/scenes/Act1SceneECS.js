@@ -126,6 +126,16 @@ export class Act1SceneECS extends BaseGameScene {
     // 初始化教程阶段配置
     this.initTutorialPhases();
     
+    // 第一幕特有：覆盖背包快捷键，添加教程逻辑（先注销父类注册的，再重新注册）
+    this.inputManager.unregisterHotkey('toggle_inventory');
+    this.inputManager.registerHotkey('toggle_inventory', ['b', 'B'], () => {
+      this.inventoryPanel.toggle();
+      // 第一幕特有：在 view_inventory 阶段打开背包时完成 tip_5
+      if (this.tutorialPhase === 'view_inventory' && !this.tutorialsCompleted.progressive_tip_5 && this.inventoryPanel.visible) {
+        this.completeTutorial('progressive_tip_5');
+      }
+    }, { cooldown: 300 });
+    
     // 第一幕特有：注册渐进式教程
     this.registerTutorials();
     
@@ -155,22 +165,6 @@ export class Act1SceneECS extends BaseGameScene {
     }
     
     console.log('Act1SceneECS: 创建玩家实体（初始血量30%）', this.playerEntity);
-  }
-
-  /**
-   * 加载火焰图片
-   */
-  loadFireImage() {
-    this.campfire.fireImage = new Image();
-    this.campfire.fireImage.onload = () => {
-      this.campfire.imageLoaded = true;
-      console.log('Act1SceneECS: 火焰图片加载成功');
-    };
-    this.campfire.fireImage.onerror = () => {
-      console.warn('Act1SceneECS: 火焰图片加载失败');
-      this.campfire.imageLoaded = false;
-    };
-    this.campfire.fireImage.src = 'images/fire.webp';
   }
 
   /**
@@ -1456,6 +1450,9 @@ export class Act1SceneECS extends BaseGameScene {
         // 创建一个临时 canvas 来绘制迷雾+光圈
         if (!this._fogCanvas) {
           this._fogCanvas = document.createElement('canvas');
+        }
+        // 每帧同步 fogCanvas 尺寸，确保全屏覆盖
+        if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
           this._fogCanvas.width = this.logicalWidth;
           this._fogCanvas.height = this.logicalHeight;
         }

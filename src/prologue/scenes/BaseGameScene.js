@@ -1,4 +1,4 @@
-﻿/**
+﻿﻿/**
  * BaseGameScene - 游戏场景基类
  * 
  * 包含所有场景通用的基础功能：
@@ -176,6 +176,12 @@ export class BaseGameScene extends PrologueScene {
     }
     
     const ctx = canvas.getContext('2d');
+    
+    // 用实际 canvas 尺寸覆盖默认逻辑尺寸
+    if (canvas.width > 0 && canvas.height > 0) {
+      this.logicalWidth = canvas.width;
+      this.logicalHeight = canvas.height;
+    }
     
     // 初始化统一渲染器（包含 Camera）
     this.isometricRenderer = new IsometricRenderer(ctx, {
@@ -380,13 +386,31 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 加载火焰图片
+   */
+  loadFireImage() {
+    if (!this.campfire) return;
+    this.campfire.fireImage = new Image();
+    this.campfire.fireImage.onload = () => {
+      this.campfire.imageLoaded = true;
+      console.log('BaseGameScene: 火焰图片加载成功');
+    };
+    this.campfire.fireImage.onerror = () => {
+      console.warn('BaseGameScene: 火焰图片加载失败');
+      this.campfire.imageLoaded = false;
+    };
+    this.campfire.fireImage.src = 'images/fire.webp';
+  }
+
+
+  /**
    * 初始化 UI 面板
    */
   initializeUIPanels() {
-    // 角色信息面板（包含装备）
+    // 角色信息面板（包含装备）- 左下角，底部控制栏上方
     this.playerInfoPanel = new PlayerInfoPanel({
       x: 10,
-      y: 10,
+      y: this.logicalHeight - 100 - 580,
       width: 320,
       height: 580,
       visible: false,
@@ -415,10 +439,10 @@ export class BaseGameScene extends PrologueScene {
       }
     });
     
-    // 背包面板
+    // 背包面板 - 右下角，底部控制栏上方
     this.inventoryPanel = new InventoryPanel({
-      x: 420,
-      y: 10,
+      x: this.logicalWidth - 370 - 10,
+      y: this.logicalHeight - 100 - 350,
       width: 370,
       height: 350,
       visible: false,
@@ -632,6 +656,62 @@ export class BaseGameScene extends PrologueScene {
   /**
    * 生成等距地图
    */
+  /**
+   * 窗口大小变化时更新逻辑尺寸和相关系统
+   * @param {number} width - 新宽度
+   * @param {number} height - 新高度
+   */
+  onResize(width, height) {
+    this.logicalWidth = width;
+    this.logicalHeight = height;
+    
+    if (this.isometricRenderer) {
+      this.isometricRenderer.canvasWidth = width;
+      this.isometricRenderer.canvasHeight = height;
+    }
+    if (this.camera) {
+      this.camera.width = width;
+      this.camera.height = height;
+    }
+    
+    // 更新底部控制栏位置
+    if (this.bottomControlBar) {
+      this.bottomControlBar.width = width;
+      this.bottomControlBar.x = 0;
+      this.bottomControlBar.y = height - this.bottomControlBar.height;
+      
+      // 重新计算槽位居中
+      const slotSize = this.bottomControlBar.skillSlots[0]?.size || 40;
+      const slotGap = 6;
+      const totalSlots = this.bottomControlBar.skillSlots.length;
+      const totalWidth = totalSlots * slotSize + (totalSlots - 1) * slotGap;
+      const startX = width / 2 - totalWidth / 2 + slotSize / 2;
+      for (let i = 0; i < totalSlots; i++) {
+        this.bottomControlBar.skillSlots[i].x = startX + i * (slotSize + slotGap);
+      }
+      
+      // 重新计算红蓝球位置（紧贴技能槽两侧）
+      const orbRadius = this.bottomControlBar.hpOrb.radius;
+      const orbGap = 10;
+      const slotsLeftEdge = width / 2 - totalWidth / 2;
+      const slotsRightEdge = width / 2 + totalWidth / 2;
+      this.bottomControlBar.hpOrb.x = slotsLeftEdge - orbGap - orbRadius;
+      this.bottomControlBar.mpOrb.x = slotsRightEdge + orbGap + orbRadius;
+    }
+    
+    // 更新角色信息面板位置（左下角，底部控制栏上方）
+    if (this.playerInfoPanel) {
+      this.playerInfoPanel.x = 10;
+      this.playerInfoPanel.y = height - 100 - this.playerInfoPanel.height;
+    }
+    
+    // 更新背包面板位置（右下角，底部控制栏上方）
+    if (this.inventoryPanel) {
+      this.inventoryPanel.x = width - this.inventoryPanel.width - 10;
+      this.inventoryPanel.y = height - 100 - this.inventoryPanel.height;
+    }
+  }
+
   generateIsometricMap() {
     // 创建地图数据（2D数组）
     // 图块类型：0=空, 1=草地, 2=泥土, 3=石头, 4=水, 5=沙地
@@ -2061,6 +2141,12 @@ export class BaseGameScene extends PrologueScene {
     // 渲染精灵（使用底部中心锚点）
     if (sprite && sprite.visible) {
       
+      // 应用精灵透明度
+      const prevAlpha = ctx.globalAlpha;
+      if (sprite.alpha !== undefined && sprite.alpha < 1.0) {
+        ctx.globalAlpha = sprite.alpha;
+      }
+      
       let rendered = false;
       
       // 4x9格式精灵渲染
@@ -2078,12 +2164,6 @@ export class BaseGameScene extends PrologueScene {
             const cellH = image.height / sprite.spriteRows;
             console.log(`【精灵调试】图片尺寸: ${image.width}x${image.height}, 列数: ${sprite.spriteColumns}, 行数: ${sprite.spriteRows}, 单元格: ${cellW}x${cellH}`);
             this._debugSpriteLogged = true;
-          }
-          // 每次方向变化时输出
-          if (this._lastDebugDir !== sprite.direction) {
-            const dbgFrame = sprite.getAnimatedFrame();
-            console.log(`【方向调试】方向: ${sprite.direction} → 行: ${dbgFrame.row}, 列: ${dbgFrame.col}`);
-            this._lastDebugDir = sprite.direction;
           }
           // 获取当前帧的行和列
           const frameInfo = sprite.getAnimatedFrame();
@@ -2159,6 +2239,9 @@ export class BaseGameScene extends PrologueScene {
           ctx.strokeRect(x - size/2, y - height, size, height);
         }
       }
+      
+      // 恢复透明度
+      ctx.globalAlpha = prevAlpha;
     }
     
     // 渲染名字（在实体上方）

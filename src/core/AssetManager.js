@@ -410,7 +410,10 @@ export class AssetManager {
      * @param {string} imagePath - 图片路径
      */
     loadAnimatedSpriteImage(key, imagePath) {
-        // 不设置占位符，让渲染走fallback路径直到真实图片加载完成
+        // 先设置4x8占位符canvas，避免加载期间 getImage 返回 null
+        const placeholder = this.placeholderAssets.createAnimatedEnemySprite('refugee', 64);
+        this.images.set(key, placeholder);
+        
         // 尝试加载真实图片
         const img = new Image();
         img.onload = () => {

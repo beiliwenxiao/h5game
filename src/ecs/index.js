@@ -14,3 +14,4 @@ export { StatsComponent } from './components/StatsComponent.js';
 export { SpriteComponent } from './components/SpriteComponent.js';
 export { CombatComponent } from './components/CombatComponent.js';
 export { MovementComponent } from './components/MovementComponent.js';
+export { LayerComponent, WORLD_LAYERS } from './components/LayerComponent.js';

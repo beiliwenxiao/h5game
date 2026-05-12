@@ -210,18 +210,63 @@ export class SceneManager {
 
     /**
      * 渲染场景
-     * @param {CanvasRenderingContext2D} ctx - Canvas渲染上下文
+     * 兼容两种入参：IRenderBackend（新）或 CanvasRenderingContext2D（旧）
      */
-    render(ctx) {
-        // 渲染当前场景
+    render(ctxOrBackend) {
+        // 渲染当前场景（兼容分派）
         if (this.currentScene) {
-            this.currentScene.render(ctx);
+            this._dispatchSceneRender(this.currentScene, ctxOrBackend);
         }
 
-        // 渲染转场效果
+        // 渲染转场效果（只在 HUD 2D 上叠加即可）
         if (this.isTransitioning) {
-            this.renderTransition(ctx);
+            const ctx = this._resolveCtx(ctxOrBackend);
+            if (ctx) this.renderTransition(ctx);
         }
+    }
+
+    /**
+     * 兼容分派：
+     *   - 入参是 Backend：若场景重写了 renderCommon，调之；否则取 HUD ctx 走老 render(ctx)
+     *   - 入参是 ctx：直接调 render(ctx)
+     * @private
+     */
+    _dispatchSceneRender(scene, ctxOrBackend) {
+        if (this._isBackend(ctxOrBackend)) {
+            const backend = ctxOrBackend;
+            // 约定：若场景实现了 renderCommon（区别于 Scene 基类默认）即走双后端路径
+            const hasCommon =
+                typeof scene.renderCommon === 'function' &&
+                scene.__dualBackendAware === true;
+            if (hasCommon) {
+                scene.renderCommon(backend);
+                return;
+            }
+            // 老场景：传 HUD 2D ctx，保持现有行为
+            const ctx = backend.getHUDContext?.();
+            if (ctx && typeof scene.render === 'function') {
+                scene.render(ctx);
+            }
+        } else {
+            // 老路径：直接 ctx
+            if (typeof scene.render === 'function') {
+                scene.render(ctxOrBackend);
+            }
+        }
+    }
+
+    _isBackend(x) {
+        return !!x && typeof x === 'object' &&
+               typeof x.mode === 'string' &&
+               typeof x.getHUDContext === 'function';
+    }
+
+    _resolveCtx(ctxOrBackend) {
+        if (!ctxOrBackend) return null;
+        if (typeof ctxOrBackend.getHUDContext === 'function') {
+            return ctxOrBackend.getHUDContext();
+        }
+        return ctxOrBackend;
     }
 
     /**

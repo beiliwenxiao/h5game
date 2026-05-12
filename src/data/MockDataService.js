@@ -405,6 +405,45 @@ export class MockDataService {
                     maxX: 2000,
                     maxY: 1500
                 }
+            },
+            // M3 示例：多楼层地图（ground + upper，一个 portal）
+            test_multifloor_map: {
+                id: 'test_multifloor_map',
+                name: '多层测试地图',
+                width: 2000,
+                height: 1500,
+                tileSize: 32,
+                backgroundColor: '#2d5016',
+                defaultFloor: 'ground',
+                floors: [
+                    {
+                        id: 'ground',
+                        elevation: 0,
+                        tileSize: 32,
+                        collision: this.generateTestCollisionMap(2000, 1500, 32),
+                        tiles: [],
+                        portals: [
+                            { x: 1000, z: 750, radius: 32, toFloor: 'upper', toX: 1000, toZ: 750, trigger: 'touch' }
+                        ]
+                    },
+                    {
+                        id: 'upper',
+                        elevation: 80,
+                        tileSize: 32,
+                        collision: this.generateTestCollisionMap(2000, 1500, 32),
+                        tiles: [],
+                        portals: [
+                            { x: 1000, z: 750, radius: 32, toFloor: 'ground', toX: 1000, toZ: 750, trigger: 'touch' }
+                        ]
+                    }
+                ],
+                spawnPoints: {
+                    player: { x: 400, y: 300 },
+                    enemies: [
+                        { templateId: 'slime', x: 800, y: 600, count: 2 }
+                    ]
+                },
+                boundaries: { minX: 0, minY: 0, maxX: 2000, maxY: 1500 }
             }
         };
     }
@@ -482,9 +521,35 @@ export class MockDataService {
 
     /**
      * 获取地图数据
+     * 若地图无 floors 定义，会自动用 layers.collision 包装为单层
      */
     getMapData(mapId) {
-        return this.mapData[mapId] || null;
+        const raw = this.mapData[mapId];
+        if (!raw) return null;
+        return this._normalizeMapData(raw);
+    }
+
+    /**
+     * 统一填充 floors[] 兜底，兼容单层旧地图
+     * @private
+     */
+    _normalizeMapData(map) {
+        if (!map) return map;
+        // 已有 floors 则直接返回（避免每次重建对象）
+        if (Array.isArray(map.floors) && map.floors.length > 0) return map;
+        const collision = map.layers?.collision ?? null;
+        map.defaultFloor = map.defaultFloor ?? 'ground';
+        map.floors = [
+            {
+                id: 'ground',
+                elevation: 0,
+                tileSize: map.tileSize ?? 32,
+                collision,
+                tiles: map.layers?.background ?? [],
+                portals: []
+            }
+        ];
+        return map;
     }
 
     /**

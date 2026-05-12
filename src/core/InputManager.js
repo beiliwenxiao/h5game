@@ -271,10 +271,26 @@ export class InputManager {
 
     /**
      * 获取鼠标世界坐标
+     * 优先使用 backend.picker.pickGround（3D 真实反投影），否则回退到 cameraX/Y 偏移
      * @returns {{x: number, y: number}}
      */
     getMouseWorldPosition() {
+        if (this._backend && this._backend.picker && typeof this._backend.picker.pickGround === 'function') {
+            const ground = this._backend.picker.pickGround(this.mouse.x, this.mouse.y);
+            if (ground) {
+                // 2D 兼容语义：返回 {x, y=groundDepth}
+                return { x: ground.x, y: ground.z };
+            }
+        }
         return { x: this.mouse.worldX, y: this.mouse.worldY };
+    }
+
+    /**
+     * 设置当前渲染后端（由 GameEngine 注入，用于 picker 坐标转换）
+     * @param {import('../rendering/backends/IRenderBackend.js').IRenderBackend} backend
+     */
+    setBackend(backend) {
+        this._backend = backend;
     }
 
     /**

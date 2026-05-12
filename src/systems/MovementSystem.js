@@ -31,6 +31,12 @@ export class MovementSystem {
     // 碰撞层数据（2D数组，true表示有障碍物）
     this.collisionMap = config.collisionMap || null;
     this.tileSize = config.tileSize || 32;
+
+    // 多楼层支持
+    /** @type {Map<string, any>} */
+    this.floors = new Map();
+    this.defaultFloorId = 'ground';
+    this.interactKey = config.interactKey || 'e';
     
     // 玩家实体引用（用于相机跟随）
     this.playerEntity = null;
@@ -65,6 +71,85 @@ export class MovementSystem {
   }
 
   /**
+   * 导入地图数据（包含楼层信息）
+   * @param {Object} mapData - 由 MockDataService 返回的地图，带 floors
+   */
+  setMapData(mapData) {
+    this.floors.clear();
+    if (!mapData || !Array.isArray(mapData.floors)) return;
+    for (const f of mapData.floors) {
+      this.floors.set(f.id, f);
+    }
+    this.defaultFloorId = mapData.defaultFloor || 'ground';
+    this.tileSize = mapData.tileSize ?? this.tileSize;
+    // 默认楼层的 collision 作为兜底
+    const ground = this.floors.get(this.defaultFloorId);
+    if (ground && ground.collision) {
+      this.collisionMap = ground.collision;
+      this.tileSize = ground.tileSize ?? this.tileSize;
+    }
+  }
+
+  /**
+   * 传送实体到指定楼层
+   * @param {Entity} entity
+   * @param {string} toFloor
+   * @param {number} toX
+   * @param {number} toZ
+   */
+  teleport(entity, toFloor, toX, toZ) {
+    const transform = entity?.getComponent?.('transform');
+    const floor = this.floors.get(toFloor);
+    if (!transform || !floor) return false;
+    transform.floorId = toFloor;
+    transform.setPosition(toX, toZ, floor.elevation ?? 0);
+    const layer = entity.getComponent?.('layer');
+    if (layer) layer.floorId = toFloor;
+    try {
+      if (typeof document !== 'undefined' && typeof CustomEvent === 'function') {
+        document.dispatchEvent(new CustomEvent('floorChanged', {
+          detail: { entityId: entity.id, floorId: toFloor }
+        }));
+      }
+    } catch (_) { /* noop */ }
+    return true;
+  }
+
+  /**
+   * portal 命中检查（仅对玩家运行）
+   * @private
+   */
+  _checkPortals(entity) {
+    if (!entity) return;
+    const transform = entity.getComponent?.('transform');
+    if (!transform) return;
+    const floor = this.floors.get(transform.floorId) || this.floors.get(this.defaultFloorId);
+    if (!floor || !Array.isArray(floor.portals) || floor.portals.length === 0) return;
+
+    const px = transform.position.x;
+    const pz = transform.position.z ?? transform.position.y;
+
+    for (const portal of floor.portals) {
+      const dx = (portal.x ?? 0) - px;
+      const dz = (portal.z ?? 0) - pz;
+      const r = portal.radius ?? 32;
+      if (dx * dx + dz * dz > r * r) continue;
+
+      if (portal.trigger === 'interact') {
+        if (this.inputManager && typeof this.inputManager.isKeyPressed === 'function' &&
+            this.inputManager.isKeyPressed(this.interactKey)) {
+          this.teleport(entity, portal.toFloor, portal.toX, portal.toZ);
+          return;
+        }
+      } else {
+        // 默认 touch
+        this.teleport(entity, portal.toFloor, portal.toX, portal.toZ);
+        return;
+      }
+    }
+  }
+
+  /**
    * 更新系统
    * @param {number} deltaTime - 帧间隔时间（秒）
    * @param {Array<Entity>} entities - 实体列表
@@ -91,6 +176,10 @@ export class MovementSystem {
     for (const entity of entities) {
       this.updateEntityMovement(entity, deltaTime);
     }
+
+    // 楼层 portal 检测（只对玩家生效）
+    const player = this.playerEntity || entities.find(e => e.type === 'player');
+    if (player) this._checkPortals(player);
   }
 
   /**
@@ -354,12 +443,35 @@ export class MovementSystem {
       return false;
     }
     
-    // 检查碰撞地图
+    // 楼层碰撞地图优先（若有）
+    const floorId = entity?.getComponent?.('transform')?.floorId;
+    const floor = this.floors.get(floorId);
+    if (floor && floor.collision) {
+      if (this._checkCollisionArray(floor.collision, floor.tileSize ?? this.tileSize, x, y)) {
+        return false;
+      }
+      return true;
+    }
+
+    // 兼容：旧的单层 collisionMap
     if (this.collisionMap && this.checkCollisionMap(x, y)) {
       return false;
     }
     
     return true;
+  }
+
+  /**
+   * 通用的 collision 数组查询
+   * @private
+   */
+  _checkCollisionArray(collision, tileSize, x, y) {
+    if (!collision) return false;
+    const tileX = Math.floor(x / tileSize);
+    const tileY = Math.floor(y / tileSize);
+    if (tileY < 0 || tileY >= collision.length) return true;
+    if (tileX < 0 || tileX >= collision[0].length) return true;
+    return collision[tileY][tileX] === true;
   }
 
   /**

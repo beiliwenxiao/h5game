@@ -12,6 +12,7 @@ import { MovementComponent } from './components/MovementComponent.js';
 import { EquipmentComponent } from './components/EquipmentComponent.js';
 import { InventoryComponent } from './components/InventoryComponent.js';
 import { NameComponent } from './components/NameComponent.js';
+import { LayerComponent } from './components/LayerComponent.js';
 
 /**
  * 实体工厂类
@@ -131,6 +132,9 @@ export class EntityFactory {
     entity.name = characterData.name;
     entity.class = characterData.class;
     
+    // 默认分层
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+
     return entity;
   }
 
@@ -231,6 +235,9 @@ export class EntityFactory {
     entity.tags = entity.tags || [];
     entity.tags.push('enemy');
     
+    // 默认分层
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+
     return entity;
   }
 
@@ -353,6 +360,9 @@ export class EntityFactory {
     entity.name = npcData.name;
     entity.dialogue = npcData.dialogue || [];
     
+    // 默认分层
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+
     return entity;
   }
 }

@@ -52,6 +52,9 @@ export class GameScene extends Scene {
     this.aiUpdateInterval = 0.1; // 每0.1秒更新一次AI
     
     console.log('GameScene: Created');
+
+    // 标识：本场景已适配双后端抽象，使用 renderCommon(backend)
+    this.__dualBackendAware = true;
   }
 
   /**
@@ -183,6 +186,24 @@ export class GameScene extends Scene {
       this.mapData.layers.collision,
       this.mapData.tileSize
     );
+    // 新：把 floors 一并交给 MovementSystem
+    this.movementSystem.setMapData(this.mapData);
+
+    // 监听 floorChanged，同步 RenderSystem 的 currentFloorId
+    if (!this._floorListener) {
+      this._floorListener = (ev) => {
+        const fid = ev?.detail?.floorId;
+        if (fid && this.renderSystem?.setCurrentFloor) {
+          this.renderSystem.setCurrentFloor(fid);
+        }
+      };
+      if (typeof document !== 'undefined') {
+        document.addEventListener('floorChanged', this._floorListener);
+      }
+    }
+    if (this.renderSystem?.setCurrentFloor) {
+      this.renderSystem.setCurrentFloor(this.mapData.defaultFloor || 'ground');
+    }
     
     console.log(`GameScene: Map ${mapId} loaded`);
   }
@@ -555,7 +576,55 @@ export class GameScene extends Scene {
   }
 
   /**
+   * 新接口：双后端渲染入口
+   * @param {import('../rendering/backends/IRenderBackend.js').IRenderBackend} backend
+   */
+  renderCommon(backend) {
+    if (!this.isActive) return;
+    if (!backend) return;
+    const hudCtx = backend.getHUDContext?.();
+
+    // 背景：若是 2D 后端，沿用 ctx 直绘；3D 后端留给 setMapData（M5 之后）
+    if (hudCtx) {
+      hudCtx.fillStyle = this.mapData?.backgroundColor || '#2d5016';
+      hudCtx.fillRect(0, 0, hudCtx.canvas.width, hudCtx.canvas.height);
+      this.renderMapBackground(hudCtx);
+    }
+
+    // 实体（2D 走 renderSystem；3D 走 backend.renderEntities）
+    if (this.entities.length > 0) {
+      if (backend.mode === '3d' && typeof backend.renderEntities === 'function') {
+        backend.renderEntities(this.entities, backend.camera);
+      } else {
+        // 2D：复用现有 renderSystem
+        this.renderSystem.render(this.entities);
+      }
+    }
+
+    // 粒子
+    if (this.particleSystem && typeof backend.renderParticles === 'function') {
+      backend.renderParticles(this.particleSystem, backend.camera);
+    } else if (hudCtx) {
+      this.particleSystem?.render(hudCtx, this.camera);
+    }
+
+    // 技能特效（抛射物）
+    if (this.skillEffects && typeof backend.renderEffects === 'function') {
+      backend.renderEffects(this.skillEffects, backend.camera);
+    } else if (hudCtx) {
+      this.skillEffects?.render(hudCtx, this.camera);
+    }
+
+    // 战斗 UI（目标高亮、伤害数字）
+    if (hudCtx) this.combatSystem?.render(hudCtx);
+
+    // UI
+    if (hudCtx) this.uiSystem?.render(hudCtx);
+  }
+
+  /**
    * 渲染场景
+   * 兼容旧接口：直接传 CanvasRenderingContext2D
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   render(ctx) {
@@ -696,6 +765,12 @@ export class GameScene extends Scene {
     
     if (this.skillEffects) {
       this.skillEffects.clear();
+    }
+
+    // 解绑 floorChanged
+    if (this._floorListener && typeof document !== 'undefined') {
+      document.removeEventListener('floorChanged', this._floorListener);
+      this._floorListener = null;
     }
     
     console.log('GameScene: Exited and cleaned up');

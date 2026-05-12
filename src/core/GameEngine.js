@@ -8,15 +8,19 @@ import { DebugTools } from './DebugTools.js';
 import { LoginScene } from '../scenes/LoginScene.js';
 import { CharacterScene } from '../scenes/CharacterScene.js';
 import { GameScene } from '../scenes/GameScene.js';
+import { parseBackendConfig } from '../rendering/backends/BackendConfig.js';
+import { pickBackend } from '../rendering/backends/pickBackend.js';
 
 /**
  * 游戏引擎核心类
  * 负责初始化、游戏循环和模块协调
  */
 export class GameEngine {
-    constructor(canvas) {
+    constructor(canvas, options = {}) {
         this.canvas = canvas;
         this.ctx = null;
+        this.backend = null;
+        this.backendConfig = parseBackendConfig(options.backendConfig);
         this.isRunning = false;
         this.lastFrameTime = 0;
         this.targetFPS = 60;
@@ -49,8 +53,8 @@ export class GameEngine {
                 this.logger.error('Game Error:', error);
             });
             
-            // 初始化Canvas
-            this.initCanvas();
+            // 初始化Canvas 与 后端
+            await this.initBackend();
             
             // 设置窗口大小调整监听
             window.addEventListener('resize', () => this.handleResize());
@@ -78,52 +82,45 @@ export class GameEngine {
     }
 
     /**
-     * 初始化Canvas和渲染上下文
+     * 初始化 Canvas 与渲染后端
+     */
+    async initBackend() {
+        if (!this.canvas) throw new Error('GameEngine: canvas missing');
+        this.backend = await pickBackend(this.backendConfig);
+        await this.backend.init(this.canvas, {
+            ...this.backendConfig,
+            gameWidth: this.gameWidth,
+            gameHeight: this.gameHeight
+        });
+        // 过渡期：保留 this.ctx 供旧代码使用
+        this.ctx = this.backend.getHUDContext?.() ?? null;
+        // 适应初始窗口尺寸
+        this.handleResize();
+        this.logger.info(`Backend: ${this.backend.mode === '3d' ? 'Three' : 'Canvas2D'} initialized`);
+    }
+
+    /**
+     * 初始化Canvas和渲染上下文（已被 initBackend 取代；保留以防旧引用）
+     * @deprecated
      */
     initCanvas() {
-        // 获取2D渲染上下文
-        this.ctx = this.canvas.getContext('2d');
-        if (!this.ctx) {
-            throw new Error('Failed to get 2D context');
-        }
-
-        // 设置Canvas尺寸（处理高DPI屏幕）
-        this.handleResize();
-
-        console.log('GameEngine: Canvas initialized');
+        // no-op; 由 initBackend 完成
+        this.logger.warn('GameEngine.initCanvas is deprecated, use initBackend');
     }
 
     /**
      * 处理窗口大小变化
      */
     handleResize() {
-        // 获取设备像素比
-        const dpr = window.devicePixelRatio || 1;
-        
-        // 获取窗口尺寸
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
-
-        // 计算缩放比例，保持宽高比
-        const scaleX = windowWidth / this.gameWidth;
-        const scaleY = windowHeight / this.gameHeight;
-        const scale = Math.min(scaleX, scaleY);
-
-        // 设置Canvas显示尺寸（CSS尺寸）
-        this.canvas.style.width = `${this.gameWidth * scale}px`;
-        this.canvas.style.height = `${this.gameHeight * scale}px`;
-
-        // 设置Canvas实际尺寸（考虑设备像素比，使字体清晰）
-        this.canvas.width = this.gameWidth * dpr;
-        this.canvas.height = this.gameHeight * dpr;
-
-        // 缩放上下文以匹配设备像素比
-        this.ctx.scale(dpr, dpr);
-        
-        // 设置字体渲染优化
-        this.ctx.textRendering = 'optimizeLegibility';
-
-        console.log(`GameEngine: Canvas resized to ${this.canvas.width}x${this.canvas.height} (DPR: ${dpr})`);
+        if (this.backend && typeof this.backend.resize === 'function') {
+            this.backend.resize(windowWidth, windowHeight);
+            // 过渡期同步 this.ctx 引用
+            this.ctx = this.backend.getHUDContext?.() ?? this.ctx;
+            return;
+        }
+        console.warn('GameEngine.handleResize: backend not ready');
     }
 
     /**
@@ -136,6 +133,9 @@ export class GameEngine {
         
         // 初始化输入管理器
         this.inputManager = new InputManager(this.canvas);
+        if (this.backend && typeof this.inputManager.setBackend === 'function') {
+            this.inputManager.setBackend(this.backend);
+        }
         console.log('GameEngine: InputManager initialized');
         
         // 初始化场景管理器
@@ -269,23 +269,25 @@ export class GameEngine {
      */
     render() {
         try {
-            // 清空Canvas
-            this.ctx.fillStyle = '#1a1a2e';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            if (!this.backend) return;
+            this.backend.beginFrame();
 
             // 渲染场景
             if (this.sceneManager) {
-                this.sceneManager.render(this.ctx);
+                // 首选新签名 render(backend)；老场景仍接收 ctx 的，Scene 基类会处理
+                this.sceneManager.render(this.backend);
             }
             
             // 渲染调试信息（在最上层）
             if (this.debugTools && this.debugTools.isEnabled()) {
-                // 获取当前场景的相机和实体（如果有）
+                const hudCtx = this.backend.getHUDContext?.() ?? this.ctx;
                 const currentScene = this.sceneManager?.currentScene;
-                if (currentScene && currentScene.camera && currentScene.entities) {
-                    this.debugTools.render(this.ctx, currentScene.camera, currentScene.entities);
+                if (currentScene && currentScene.camera && currentScene.entities && hudCtx) {
+                    this.debugTools.render(hudCtx, currentScene.camera, currentScene.entities);
                 }
             }
+
+            this.backend.endFrame();
         } catch (error) {
             this.logger.error('Render error', error);
             if (this.errorHandler) {

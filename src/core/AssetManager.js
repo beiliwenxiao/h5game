@@ -230,11 +230,56 @@ export class AssetManager {
 
     /**
      * 获取资源（getImage的别名，用于兼容）
+     * 阶段 A：保持现有行为；支持可选 mode 参数用于多后端资源选择
      * @param {string} key - 资源键名
+     * @param {'2d'|'3d'} [mode] - 期望的后端模式
      * @returns {HTMLImageElement|null}
      */
-    getAsset(key) {
+    getAsset(key, mode) {
+        // 多后端注册表优先
+        if (this._multiBackendAssets) {
+            const entry = this._multiBackendAssets.get(key);
+            if (entry) {
+                const matched = this._pickBackendVariant(entry, mode);
+                if (matched) return matched;
+            }
+        }
         return this.getImage(key);
+    }
+
+    /**
+     * 注册多后端资源
+     * @param {string} name
+     * @param {{ type: 'image'|'texture'|'gltf'|'audio', url: string, backends?: ('2d'|'3d')[] }} desc
+     */
+    registerAsset(name, desc) {
+        if (!desc) return;
+        if (!this._multiBackendAssets) this._multiBackendAssets = new Map();
+        const arr = this._multiBackendAssets.get(name) || [];
+        arr.push({ ...desc, backends: desc.backends || ['2d', '3d'] });
+        this._multiBackendAssets.set(name, arr);
+
+        // 约定：image/texture 类型会在 loadAll 时加载到 this.images
+        if (desc.type === 'image' || desc.type === 'texture') {
+            this.addImage(name, desc.url);
+        }
+    }
+
+    /**
+     * 从注册表中选择一份与 mode 匹配的条目对应的已加载资源
+     * @private
+     */
+    _pickBackendVariant(entries, mode) {
+        if (!mode) return null;
+        for (const entry of entries) {
+            if (entry.backends.includes(mode)) {
+                // 目前主要支持图像资源；后续 M6+ 可扩展 glTF/Texture
+                if (entry.type === 'image' || entry.type === 'texture') {
+                    return this.images.get(entry.url) || this.images.get(entry.name) || null;
+                }
+            }
+        }
+        return null;
     }
 
     /**

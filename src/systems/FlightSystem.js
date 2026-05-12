@@ -69,12 +69,22 @@ export class FlightSystem {
   
   /**
    * 开始飞行
-   * @param {Object} playerTransform - 玩家的TransformComponent
+   * @param {Object} playerEntity - 玩家 Entity（或传入 transform，兼容旧签名）
    * @param {number} targetX - 目标X坐标
    * @param {number} targetY - 目标Y坐标
    * @returns {boolean} 是否成功开始飞行
    */
-  startFlight(playerTransform, targetX, targetY) {
+  startFlight(playerEntityOrTransform, targetX, targetY) {
+    // 兼容：可能传入 transform
+    let playerTransform = null;
+    let playerEntity = null;
+    if (playerEntityOrTransform?.getComponent) {
+      playerEntity = playerEntityOrTransform;
+      playerTransform = playerEntity.getComponent('transform');
+    } else {
+      playerTransform = playerEntityOrTransform;
+    }
+
     if (!playerTransform) {
       console.error('FlightSystem: 玩家Transform组件不存在');
       return false;
@@ -112,12 +122,23 @@ export class FlightSystem {
       targetY: finalTargetY,
       progress: 0,
       phase: 'charge', // 阶段：charge(蓄力) -> fly(飞行) -> land(落地)
-      chargeTime: 0
+      chargeTime: 0,
+      baseElevation: playerTransform.position.elevation ?? 0,
+      playerEntity
     };
     
     // 设置相机为外部控制模式
     if (this.camera) {
       this.camera.externalControl = true;
+    }
+
+    // 临时切到 aerial 世界子层
+    if (playerEntity) {
+      const layer = playerEntity.getComponent?.('layer');
+      if (layer) {
+        layer.pushLayer('aerial');
+        this.flyingData._layerPushed = true;
+      }
     }
     
     // 创建起飞烟雾特效
@@ -135,10 +156,19 @@ export class FlightSystem {
   /**
    * 更新飞行状态
    * @param {number} deltaTime - 帧时间间隔（秒）
-   * @param {Object} playerTransform - 玩家的TransformComponent
+   * @param {Object} playerEntityOrTransform - 玩家实体或 Transform（兼容旧签名）
    */
-  update(deltaTime, playerTransform) {
-    if (!this.isFlying || !this.flyingData || !playerTransform) return;
+  update(deltaTime, playerEntityOrTransform) {
+    if (!this.isFlying || !this.flyingData) return;
+    let playerTransform = null;
+    let playerEntity = null;
+    if (playerEntityOrTransform?.getComponent) {
+      playerEntity = playerEntityOrTransform;
+      playerTransform = playerEntity.getComponent('transform');
+    } else {
+      playerTransform = playerEntityOrTransform;
+    }
+    if (!playerTransform) return;
     
     const data = this.flyingData;
     
@@ -147,31 +177,32 @@ export class FlightSystem {
     } else if (data.phase === 'fly') {
       this.updateFlyPhase(deltaTime, playerTransform);
     } else if (data.phase === 'land') {
-      this.updateLandPhase(deltaTime, playerTransform);
+      this.updateLandPhase(deltaTime, playerTransform, playerEntity);
     }
   }
   
   /**
-   * 更新蓄力阶段
+   * 更新蓄力阶段（下蹲：elevation 略降）
    */
   updateChargePhase(deltaTime, playerTransform) {
     const data = this.flyingData;
     data.chargeTime += deltaTime;
     const chargeProgress = Math.min(1, data.chargeTime / this.config.chargeDuration);
     
-    // 轻微下蹲效果（Y轴偏移）
+    // 轻微下蹲：elevation 略降
     const squatOffset = Math.sin(chargeProgress * Math.PI) * this.config.squatOffset;
-    playerTransform.position.y = data.startY + squatOffset;
+    playerTransform.position.elevation = (data.baseElevation ?? 0) - squatOffset;
     
     if (chargeProgress >= 1) {
       // 蓄力完成，进入飞行阶段
       data.phase = 'fly';
       data.progress = 0;
+      playerTransform.position.elevation = data.baseElevation ?? 0;
     }
   }
   
   /**
-   * 更新飞行阶段
+   * 更新飞行阶段（elevation 驱动弧线）
    */
   updateFlyPhase(deltaTime, playerTransform) {
     const data = this.flyingData;
@@ -183,6 +214,7 @@ export class FlightSystem {
       data.progress = 0;
       playerTransform.position.x = data.targetX;
       playerTransform.position.y = data.targetY;
+      playerTransform.position.elevation = data.baseElevation ?? 0;
       
       // 创建落地烟雾特效
       this.createLandingSmoke(data.targetX, data.targetY);
@@ -204,11 +236,12 @@ export class FlightSystem {
       const currentX = data.startX + (data.targetX - data.startX) * easeProgress;
       const currentY = data.startY + (data.targetY - data.startY) * easeProgress;
       
-      // 添加抛物线效果（向上的弧线）
+      // 抛物线由 elevation 驱动
       const arcOffset = Math.sin(easeProgress * Math.PI) * this.config.arcHeight;
       
       playerTransform.position.x = currentX;
-      playerTransform.position.y = currentY - arcOffset;
+      playerTransform.position.y = currentY;
+      playerTransform.position.elevation = (data.baseElevation ?? 0) + arcOffset;
       
       // 相机跟随玩家
       if (this.camera) {
@@ -219,14 +252,21 @@ export class FlightSystem {
   }
   
   /**
-   * 更新落地阶段
+   * 更新落地阶段（轻微 bounce：elevation 微幅起伏）
    */
-  updateLandPhase(deltaTime, playerTransform) {
+  updateLandPhase(deltaTime, playerTransform, playerEntity) {
     const data = this.flyingData;
     data.progress += deltaTime / this.config.landDuration;
     
     if (data.progress >= 1) {
       // 落地完成，结束飞行
+      playerTransform.position.elevation = data.baseElevation ?? 0;
+      const restoreEntity = playerEntity || data.playerEntity;
+      if (data._layerPushed && restoreEntity) {
+        const layer = restoreEntity.getComponent?.('layer');
+        if (layer) layer.popLayer();
+      }
+
       this.isFlying = false;
       this.flyingData = null;
       
@@ -239,7 +279,7 @@ export class FlightSystem {
     } else {
       // 落地缓冲效果（轻微下蹲再恢复）
       const bounceOffset = Math.sin(data.progress * Math.PI) * this.config.bounceOffset;
-      playerTransform.position.y = data.targetY + bounceOffset;
+      playerTransform.position.elevation = (data.baseElevation ?? 0) - bounceOffset;
       
       // 相机继续跟随
       if (this.camera) {
@@ -317,9 +357,19 @@ export class FlightSystem {
   }
   
   /**
-   * 取消飞行
+   * 取消飞行（紧急恢复 elevation / layer）
+   * @param {Object} [playerEntity]
    */
-  cancelFlight() {
+  cancelFlight(playerEntity) {
+    if (this.flyingData) {
+      const entity = playerEntity || this.flyingData.playerEntity;
+      const transform = entity?.getComponent?.('transform');
+      if (transform) transform.position.elevation = this.flyingData.baseElevation ?? 0;
+      if (this.flyingData._layerPushed && entity) {
+        const layer = entity.getComponent?.('layer');
+        if (layer) layer.popLayer();
+      }
+    }
     this.isFlying = false;
     this.flyingData = null;
     

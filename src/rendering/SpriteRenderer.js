@@ -14,6 +14,17 @@ export class SpriteRenderer {
   constructor(assetManager) {
     this.assetManager = assetManager;
     this.debugMode = false;
+    // elevation → 屏幕 Y 偏移的系数
+    // 为保持"elevation===0 时视觉与改造前逐像素一致"，默认 0（由外部开启）
+    this.elevationScale = 0;
+  }
+
+  /**
+   * 设置 elevation 视觉缩放系数（0 即禁用）
+   * @param {number} k
+   */
+  setElevationScale(k) {
+    this.elevationScale = k;
   }
 
   /**
@@ -37,8 +48,13 @@ export class SpriteRenderer {
     // 保存上下文状态
     ctx.save();
 
+    // 计算 elevation 视觉偏移（2D 后端把高度映射为屏幕上移）
+    const elevation = transform.position?.elevation ?? 0;
+    const kIso = this.elevationScale ?? 1;
+    const elevationOffset = elevation * kIso;
+
     // 应用变换
-    ctx.translate(transform.position.x, transform.position.y);
+    ctx.translate(transform.position.x, transform.position.y - elevationOffset);
     ctx.rotate(transform.rotation);
 
     // 应用翻转

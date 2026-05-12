@@ -28,6 +28,12 @@ export class RenderSystem {
       entities: [],
       ui: []
     };
+    // 世界子层顺序（按此顺序绘制）
+    this.layerOrder = ['ground', 'decal', 'entity', 'aerial', 'effect'];
+    // 当前楼层（用于楼层过滤）
+    this.currentFloorId = 'ground';
+    // 跨楼层半透明
+    this.crossFloorAlpha = 0.0;
     
     // 调试模式
     this.debugMode = false;
@@ -57,6 +63,30 @@ export class RenderSystem {
   setDebugMode(enabled) {
     this.debugMode = enabled;
     this.spriteRenderer.setDebugMode(enabled);
+  }
+
+  /**
+   * 设置 elevation 视觉缩放系数（影响 SpriteRenderer）
+   * @param {number} k
+   */
+  setElevationScale(k) {
+    this.spriteRenderer.setElevationScale(k);
+  }
+
+  /**
+   * 设置世界子层顺序
+   * @param {string[]} order
+   */
+  setLayerOrder(order) {
+    if (Array.isArray(order) && order.length > 0) this.layerOrder = order.slice();
+  }
+
+  /**
+   * 设置当前楼层 id（用于楼层过滤）
+   * @param {string} id
+   */
+  setCurrentFloor(id) {
+    this.currentFloorId = id;
   }
 
   /**
@@ -368,24 +398,54 @@ export class RenderSystem {
   }
 
   /**
-   * 渲染实体层
+   * 渲染实体层（按子层分桶）
    * @param {Entity[]} entities - 实体列表
    */
   renderEntityLayer(entities) {
-    // 视锥剔除 - 只渲染可见实体
+    // 视锥剔除
     const visibleEntities = this.cullEntities(entities);
-    
-    // 按Y坐标排序（实现深度效果）
-    const sortedEntities = this.sortEntitiesByDepth(visibleEntities);
-    
-    // 渲染每个实体
-    for (const entity of sortedEntities) {
-      this.renderEntity(entity);
+
+    // 按 worldLayer 分桶
+    const buckets = {
+      ground: [],
+      decal: [],
+      entity: [],
+      aerial: [],
+      effect: []
+    };
+    const order = this.layerOrder || ['ground', 'decal', 'entity', 'aerial', 'effect'];
+
+    for (const e of visibleEntities) {
+      const layer = e.getComponent?.('layer');
+      const key = (layer && layer.worldLayer) || 'entity';
+      (buckets[key] || buckets.entity).push(e);
+    }
+
+    // 依次渲染
+    for (const key of order) {
+      const list = buckets[key];
+      if (!list || list.length === 0) continue;
+      const needsYSort = (key === 'entity' || key === 'decal' || key === 'aerial');
+      const sorted = list.slice().sort((a, b) => {
+        const la = a.getComponent?.('layer');
+        const lb = b.getComponent?.('layer');
+        const ra = la?.renderOrder ?? 0;
+        const rb = lb?.renderOrder ?? 0;
+        if (ra !== rb) return ra - rb;
+        if (!needsYSort) return 0;
+        const ta = a.getComponent?.('transform');
+        const tb = b.getComponent?.('transform');
+        const az = ta ? (ta.position.z ?? ta.position.y ?? 0) : 0;
+        const bz = tb ? (tb.position.z ?? tb.position.y ?? 0) : 0;
+        return az - bz;
+      });
+      for (const entity of sorted) this.renderEntity(entity);
     }
   }
 
   /**
    * 视锥剔除 - 过滤出可见实体
+   * 同时按 currentFloorId 过滤楼层（未挂 LayerComponent / transform.floorId 默认 'ground'）
    * @param {Entity[]} entities - 实体列表
    * @returns {Entity[]} 可见实体列表
    */
@@ -399,6 +459,13 @@ export class RenderSystem {
       const sprite = entity.getComponent('sprite');
       
       if (!transform || !sprite || !sprite.visible) continue;
+
+      // 楼层过滤（跨楼层 alpha==0 时隐藏）
+      const entityFloor = transform.floorId ?? entity.getComponent('layer')?.floorId ?? 'ground';
+      if (entityFloor !== this.currentFloorId) {
+        if (this.crossFloorAlpha <= 0) continue;
+        // 否则保留并由 SpriteRenderer 根据 alpha 半透明绘制（这里暂不实现，留给 M6）
+      }
       
       // 检查实体是否在视野内
       const width = sprite.width || 32;
@@ -419,6 +486,7 @@ export class RenderSystem {
 
   /**
    * 按Y坐标排序实体（实现深度效果）
+   * 阶段 A：优先读取 position.z（与 position.y 等价），为后续 3D 迁移做准备
    * @param {Entity[]} entities - 实体列表
    * @returns {Entity[]} 排序后的实体列表
    */
@@ -429,8 +497,14 @@ export class RenderSystem {
       
       if (!transformA || !transformB) return 0;
       
-      // 按Y坐标排序，Y值越大越靠后渲染（在前面）
-      return transformA.position.y - transformB.position.y;
+      // 按地面深度排序（深度越大越靠前渲染）
+      const az = transformA.position.z !== undefined
+        ? transformA.position.z
+        : transformA.position.y;
+      const bz = transformB.position.z !== undefined
+        ? transformB.position.z
+        : transformB.position.y;
+      return az - bz;
     });
   }
 

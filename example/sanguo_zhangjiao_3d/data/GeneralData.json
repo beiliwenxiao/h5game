@@ -1,0 +1,1097 @@
+{
+  "generals": {
+    "cao_cao": {
+      "id": "cao_cao",
+      "name": "曹操",
+      "title": "孟德",
+      "biography": "魏武帝，三国时期著名的政治家、军事家、文学家。挟天子以令诸侯，奠定曹魏基业。",
+      "faction": "wei",
+      "level": 20,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1500,
+        "hp": 1500,
+        "maxMp": 200,
+        "mp": 200,
+        "attack": 80,
+        "defense": 60,
+        "speed": 120,
+        "strength": 25,
+        "agility": 20,
+        "intelligence": 30,
+        "constitution": 28,
+        "spirit": 25
+      },
+      "combat": {
+        "attackRange": 150,
+        "attackSpeed": 0.9,
+        "unitType": "heavy_cavalry"
+      },
+      "skills": [
+        {
+          "id": "cavalry_charge",
+          "name": "骑兵冲锋",
+          "description": "率领骑兵发起猛烈冲锋",
+          "damage": 150,
+          "range": 200,
+          "cooldown": 8000,
+          "mpCost": 30
+        },
+        {
+          "id": "tactical_genius",
+          "name": "战术天才",
+          "description": "提升周围友军的攻击力",
+          "buffDuration": 10000,
+          "buffAmount": 0.3,
+          "range": 300,
+          "cooldown": 15000,
+          "mpCost": 50
+        }
+      ],
+      "specialAbilities": [
+        "奸雄",
+        "治世之能臣，乱世之奸雄"
+      ],
+      "cinematicIntro": {
+        "text": "曹操，字孟德，挟天子以令诸侯",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#8b0000",
+        "sprite": "cao_cao"
+      },
+      "voiceLines": {
+        "intro": "黄巾贼寇，今日便是你们的末日！",
+        "attack": "受死吧！",
+        "skill": "看我的战术！",
+        "retreat": "留得青山在，不怕没柴烧！",
+        "victory": "胜负已分！"
+      }
+    },
+    "liu_bei": {
+      "id": "liu_bei",
+      "name": "刘备",
+      "title": "玄德",
+      "biography": "蜀汉昭烈帝，汉室宗亲，以仁德著称。桃园三结义，建立蜀汉政权。",
+      "faction": "shu",
+      "level": 18,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1400,
+        "hp": 1400,
+        "maxMp": 180,
+        "mp": 180,
+        "attack": 70,
+        "defense": 70,
+        "speed": 90,
+        "strength": 22,
+        "agility": 18,
+        "intelligence": 25,
+        "constitution": 26,
+        "spirit": 28
+      },
+      "combat": {
+        "attackRange": 120,
+        "attackSpeed": 1.0,
+        "unitType": "sword_shield"
+      },
+      "skills": [
+        {
+          "id": "benevolence",
+          "name": "仁德",
+          "description": "以仁德之心治疗友军",
+          "healAmount": 200,
+          "range": 150,
+          "cooldown": 12000,
+          "mpCost": 40
+        },
+        {
+          "id": "inspire_troops",
+          "name": "激励士气",
+          "description": "激励周围友军，提升士气",
+          "buffDuration": 15000,
+          "moraleBonus": 20,
+          "range": 250,
+          "cooldown": 20000,
+          "mpCost": 50
+        }
+      ],
+      "specialAbilities": [
+        "仁德",
+        "以德服人"
+      ],
+      "cinematicIntro": {
+        "text": "刘备，字玄德，汉室宗亲",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.25,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#006400",
+        "sprite": "liu_bei"
+      },
+      "voiceLines": {
+        "intro": "黄巾之乱，祸害百姓，今日必须平定！",
+        "attack": "为了百姓！",
+        "skill": "仁德之心！",
+        "retreat": "暂且撤退，从长计议。",
+        "victory": "仁义终将获胜！"
+      }
+    },
+    "guan_yu": {
+      "id": "guan_yu",
+      "name": "关羽",
+      "title": "云长",
+      "biography": "蜀汉五虎上将之首，武圣，忠义无双。手持青龙偃月刀，威震华夏。",
+      "faction": "shu",
+      "level": 22,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1600,
+        "hp": 1600,
+        "maxMp": 150,
+        "mp": 150,
+        "attack": 95,
+        "defense": 75,
+        "speed": 100,
+        "strength": 30,
+        "agility": 22,
+        "intelligence": 20,
+        "constitution": 30,
+        "spirit": 25
+      },
+      "combat": {
+        "attackRange": 130,
+        "attackSpeed": 0.85,
+        "unitType": "heavy_infantry"
+      },
+      "skills": [
+        {
+          "id": "dragon_strike",
+          "name": "青龙斩",
+          "description": "挥舞青龙偃月刀发出强力斩击",
+          "damage": 200,
+          "range": 150,
+          "cooldown": 10000,
+          "mpCost": 40
+        },
+        {
+          "id": "righteous_fury",
+          "name": "义薄云天",
+          "description": "爆发义气，大幅提升攻击力",
+          "buffDuration": 8000,
+          "attackBonus": 0.5,
+          "cooldown": 18000,
+          "mpCost": 60
+        }
+      ],
+      "specialAbilities": [
+        "武圣",
+        "义薄云天",
+        "过五关斩六将"
+      ],
+      "cinematicIntro": {
+        "text": "关羽，字云长，手持青龙偃月刀",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.2,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#8b0000",
+        "sprite": "guan_yu"
+      },
+      "voiceLines": {
+        "intro": "关某手中刀，不斩无名之辈！",
+        "attack": "看刀！",
+        "skill": "青龙出海！",
+        "retreat": "此战不利，暂且撤退。",
+        "victory": "义之所在，无往不胜！"
+      }
+    },
+    "zhang_fei": {
+      "id": "zhang_fei",
+      "name": "张飞",
+      "title": "翼德",
+      "biography": "蜀汉五虎上将，猛将，勇冠三军。手持丈八蛇矛，声如洪钟。",
+      "faction": "shu",
+      "level": 21,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1700,
+        "hp": 1700,
+        "maxMp": 140,
+        "mp": 140,
+        "attack": 90,
+        "defense": 70,
+        "speed": 95,
+        "strength": 32,
+        "agility": 20,
+        "intelligence": 15,
+        "constitution": 32,
+        "spirit": 20
+      },
+      "combat": {
+        "attackRange": 120,
+        "attackSpeed": 0.9,
+        "unitType": "heavy_infantry"
+      },
+      "skills": [
+        {
+          "id": "roar",
+          "name": "怒吼",
+          "description": "发出震天怒吼，震慑敌军",
+          "damage": 80,
+          "stunDuration": 2000,
+          "range": 200,
+          "cooldown": 12000,
+          "mpCost": 35
+        },
+        {
+          "id": "berserker_rage",
+          "name": "狂暴",
+          "description": "进入狂暴状态，攻击力和速度大幅提升",
+          "buffDuration": 10000,
+          "attackBonus": 0.6,
+          "speedBonus": 0.3,
+          "cooldown": 20000,
+          "mpCost": 50
+        }
+      ],
+      "specialAbilities": [
+        "猛将",
+        "当阳桥一声吼"
+      ],
+      "cinematicIntro": {
+        "text": "张飞，字翼德，手持丈八蛇矛",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.15,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#8b0000",
+        "sprite": "zhang_fei"
+      },
+      "voiceLines": {
+        "intro": "燕人张翼德在此！谁敢与我一战！",
+        "attack": "吃我一矛！",
+        "skill": "看我的怒吼！",
+        "retreat": "今日不战，改日再来！",
+        "victory": "哈哈哈！痛快！"
+      }
+    },
+    "zhao_yun": {
+      "id": "zhao_yun",
+      "name": "赵云",
+      "title": "子龙",
+      "biography": "蜀汉五虎上将，常胜将军，一身是胆。长坂坡七进七出，救阿斗。",
+      "faction": "shu",
+      "level": 20,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1500,
+        "hp": 1500,
+        "maxMp": 160,
+        "mp": 160,
+        "attack": 85,
+        "defense": 80,
+        "speed": 110,
+        "strength": 26,
+        "agility": 25,
+        "intelligence": 22,
+        "constitution": 28,
+        "spirit": 23
+      },
+      "combat": {
+        "attackRange": 140,
+        "attackSpeed": 0.95,
+        "unitType": "light_cavalry"
+      },
+      "skills": [
+        {
+          "id": "dragon_strike",
+          "name": "龙胆",
+          "description": "如龙般迅猛的连续攻击",
+          "damage": 120,
+          "hits": 3,
+          "range": 150,
+          "cooldown": 10000,
+          "mpCost": 45
+        },
+        {
+          "id": "perfect_defense",
+          "name": "完美防御",
+          "description": "短时间内大幅提升防御力",
+          "buffDuration": 6000,
+          "defenseBonus": 0.8,
+          "cooldown": 15000,
+          "mpCost": 40
+        }
+      ],
+      "specialAbilities": [
+        "常胜将军",
+        "一身是胆"
+      ],
+      "cinematicIntro": {
+        "text": "赵云，字子龙，常胜将军",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.25,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#ffffff",
+        "sprite": "zhao_yun"
+      },
+      "voiceLines": {
+        "intro": "赵云在此，谁敢一战！",
+        "attack": "看枪！",
+        "skill": "龙胆之威！",
+        "retreat": "战局不利，暂且撤退。",
+        "victory": "常胜之名，名不虚传！"
+      }
+    },
+    "huangfu_song": {
+      "id": "huangfu_song",
+      "name": "皇甫嵩",
+      "title": "义真",
+      "biography": "东汉末年名将，左中郎将，平定黄巾起义的主要将领之一。",
+      "faction": "han",
+      "level": 24,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1600,
+        "hp": 1600,
+        "maxMp": 190,
+        "mp": 190,
+        "attack": 75,
+        "defense": 75,
+        "speed": 95,
+        "strength": 24,
+        "agility": 19,
+        "intelligence": 26,
+        "constitution": 27,
+        "spirit": 24
+      },
+      "combat": {
+        "attackRange": 130,
+        "attackSpeed": 1.0,
+        "unitType": "commander"
+      },
+      "skills": [
+        {
+          "id": "tactical_genius",
+          "name": "战术大师",
+          "description": "制定精妙战术，提升全军战斗力",
+          "buffDuration": 12000,
+          "attackBonus": 0.25,
+          "defenseBonus": 0.15,
+          "range": 400,
+          "cooldown": 18000,
+          "mpCost": 60
+        },
+        {
+          "id": "suppress_rebellion",
+          "name": "平叛",
+          "description": "对起义军造成额外伤害",
+          "damageBonus": 0.5,
+          "passive": true
+        }
+      ],
+      "specialAbilities": [
+        "名将",
+        "平叛专家"
+      ],
+      "cinematicIntro": {
+        "text": "皇甫嵩，左中郎将，平定黄巾之名将",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#4169e1",
+        "sprite": "huangfu_song"
+      },
+      "voiceLines": {
+        "intro": "黄巾之乱，今日终结！",
+        "attack": "受死！",
+        "skill": "看我的战术！",
+        "retreat": "暂且撤退，重整旗鼓。",
+        "victory": "叛乱已平！"
+      }
+    },
+    "lu_zhi": {
+      "id": "lu_zhi",
+      "name": "卢植",
+      "title": "子干",
+      "biography": "东汉末年名将，北中郎将，刘备的老师，儒将典范。",
+      "faction": "han",
+      "level": 23,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1500,
+        "hp": 1500,
+        "maxMp": 200,
+        "mp": 200,
+        "attack": 70,
+        "defense": 75,
+        "speed": 90,
+        "strength": 22,
+        "agility": 18,
+        "intelligence": 28,
+        "constitution": 26,
+        "spirit": 26
+      },
+      "combat": {
+        "attackRange": 125,
+        "attackSpeed": 1.0,
+        "unitType": "commander"
+      },
+      "skills": [
+        {
+          "id": "scholar_general",
+          "name": "儒将",
+          "description": "以智慧指挥战斗，提升友军智力和防御",
+          "buffDuration": 15000,
+          "intelligenceBonus": 10,
+          "defenseBonus": 0.2,
+          "range": 350,
+          "cooldown": 20000,
+          "mpCost": 55
+        }
+      ],
+      "specialAbilities": [
+        "儒将",
+        "博学多才"
+      ],
+      "cinematicIntro": {
+        "text": "卢植，北中郎将，儒将典范",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#4682b4",
+        "sprite": "lu_zhi"
+      },
+      "voiceLines": {
+        "intro": "以礼服人，以德化之。",
+        "attack": "正义之剑！",
+        "skill": "智者之道！",
+        "retreat": "君子不立危墙之下。",
+        "victory": "正义终将获胜！"
+      }
+    },
+    "zhu_jun": {
+      "id": "zhu_jun",
+      "name": "朱儁",
+      "title": "公伟",
+      "biography": "东汉末年名将，右中郎将，平定黄巾起义的主要将领之一。",
+      "faction": "han",
+      "level": 23,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1550,
+        "hp": 1550,
+        "maxMp": 180,
+        "mp": 180,
+        "attack": 78,
+        "defense": 72,
+        "speed": 98,
+        "strength": 25,
+        "agility": 20,
+        "intelligence": 24,
+        "constitution": 27,
+        "spirit": 23
+      },
+      "combat": {
+        "attackRange": 135,
+        "attackSpeed": 0.95,
+        "unitType": "commander"
+      },
+      "skills": [
+        {
+          "id": "fierce_assault",
+          "name": "猛攻",
+          "description": "发动猛烈攻势",
+          "damage": 160,
+          "range": 150,
+          "cooldown": 10000,
+          "mpCost": 45
+        }
+      ],
+      "specialAbilities": [
+        "猛将",
+        "攻坚专家"
+      ],
+      "cinematicIntro": {
+        "text": "朱儁，右中郎将，攻坚名将",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.25,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#4169e1",
+        "sprite": "zhu_jun"
+      },
+      "voiceLines": {
+        "intro": "黄巾贼寇，受死！",
+        "attack": "杀！",
+        "skill": "猛攻！",
+        "retreat": "暂且撤退。",
+        "victory": "大获全胜！"
+      }
+    },
+    "zou_jing": {
+      "id": "zou_jing",
+      "name": "邹靖",
+      "title": "伯岐",
+      "biography": "东汉末年将领，护乌桓中郎将，参与平定黄巾起义。",
+      "faction": "han",
+      "level": 22,
+      "rarity": "rare",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1450,
+        "hp": 1450,
+        "maxMp": 170,
+        "mp": 170,
+        "attack": 72,
+        "defense": 68,
+        "speed": 100,
+        "strength": 23,
+        "agility": 21,
+        "intelligence": 22,
+        "constitution": 25,
+        "spirit": 22
+      },
+      "combat": {
+        "attackRange": 130,
+        "attackSpeed": 1.0,
+        "unitType": "cavalry"
+      },
+      "skills": [
+        {
+          "id": "cavalry_tactics",
+          "name": "骑兵战术",
+          "description": "提升骑兵部队的战斗力",
+          "buffDuration": 10000,
+          "cavalryBonus": 0.4,
+          "range": 300,
+          "cooldown": 15000,
+          "mpCost": 40
+        }
+      ],
+      "specialAbilities": [
+        "骑兵统帅"
+      ],
+      "cinematicIntro": {
+        "text": "邹靖，护乌桓中郎将",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#4682b4",
+        "sprite": "zou_jing"
+      },
+      "voiceLines": {
+        "intro": "骑兵出击！",
+        "attack": "冲锋！",
+        "skill": "骑兵战术！",
+        "retreat": "撤退！",
+        "victory": "胜利了！"
+      }
+    },
+    "cao_hong": {
+      "id": "cao_hong",
+      "name": "曹洪",
+      "title": "子廉",
+      "biography": "曹操的堂弟，曹魏名将，多次救曹操于危难之中。",
+      "faction": "wei",
+      "level": 20,
+      "rarity": "rare",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1400,
+        "hp": 1400,
+        "maxMp": 160,
+        "mp": 160,
+        "attack": 75,
+        "defense": 65,
+        "speed": 105,
+        "strength": 24,
+        "agility": 21,
+        "intelligence": 20,
+        "constitution": 26,
+        "spirit": 21
+      },
+      "combat": {
+        "attackRange": 125,
+        "attackSpeed": 0.95,
+        "unitType": "cavalry"
+      },
+      "skills": [
+        {
+          "id": "loyal_guard",
+          "name": "忠诚护卫",
+          "description": "保护主将，提升防御",
+          "buffDuration": 8000,
+          "defenseBonus": 0.4,
+          "range": 150,
+          "cooldown": 12000,
+          "mpCost": 35
+        }
+      ],
+      "specialAbilities": [
+        "忠诚",
+        "护主"
+      ],
+      "cinematicIntro": {
+        "text": "曹洪，字子廉，曹氏宗亲",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#8b0000",
+        "sprite": "cao_hong"
+      },
+      "voiceLines": {
+        "intro": "曹洪在此！",
+        "attack": "看我的！",
+        "skill": "护主！",
+        "retreat": "暂且撤退。",
+        "victory": "胜利了！"
+      }
+    },
+    "sun_jian": {
+      "id": "sun_jian",
+      "name": "孙坚",
+      "title": "文台",
+      "biography": "东吴奠基者，孙策、孙权之父，江东猛虎。",
+      "faction": "wu",
+      "level": 21,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "attributes": {
+        "maxHp": 1500,
+        "hp": 1500,
+        "maxMp": 170,
+        "mp": 170,
+        "attack": 82,
+        "defense": 68,
+        "speed": 108,
+        "strength": 26,
+        "agility": 23,
+        "intelligence": 21,
+        "constitution": 27,
+        "spirit": 22
+      },
+      "combat": {
+        "attackRange": 130,
+        "attackSpeed": 0.9,
+        "unitType": "assault"
+      },
+      "skills": [
+        {
+          "id": "tiger_assault",
+          "name": "猛虎突击",
+          "description": "如猛虎般发动突击",
+          "damage": 170,
+          "range": 160,
+          "cooldown": 9000,
+          "mpCost": 42
+        },
+        {
+          "id": "fearless",
+          "name": "无畏",
+          "description": "无畏精神，提升攻击和速度",
+          "buffDuration": 10000,
+          "attackBonus": 0.35,
+          "speedBonus": 0.25,
+          "cooldown": 16000,
+          "mpCost": 50
+        }
+      ],
+      "specialAbilities": [
+        "江东猛虎",
+        "勇猛无畏"
+      ],
+      "cinematicIntro": {
+        "text": "孙坚，字文台，江东猛虎",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.2,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#dc143c",
+        "sprite": "sun_jian"
+      },
+      "voiceLines": {
+        "intro": "江东猛虎在此！",
+        "attack": "杀！",
+        "skill": "猛虎之威！",
+        "retreat": "暂且撤退，改日再战！",
+        "victory": "江东之威！"
+      }
+    },
+    "zhang_jiao": {
+      "id": "zhang_jiao",
+      "name": "张角",
+      "title": "天公将军",
+      "biography": "太平道创始人，黄巾起义领袖，自称天公将军。",
+      "faction": "yellow_turban",
+      "level": 25,
+      "rarity": "legendary",
+      "isHistoricalGeneral": true,
+      "isAlly": true,
+      "attributes": {
+        "maxHp": 1200,
+        "hp": 1200,
+        "maxMp": 300,
+        "mp": 300,
+        "attack": 50,
+        "defense": 40,
+        "speed": 85,
+        "strength": 15,
+        "agility": 14,
+        "intelligence": 35,
+        "constitution": 20,
+        "spirit": 35
+      },
+      "combat": {
+        "attackRange": 250,
+        "attackSpeed": 1.2,
+        "unitType": "mage"
+      },
+      "skills": [
+        {
+          "id": "talisman_magic",
+          "name": "符咒之术",
+          "description": "使用符咒攻击敌人",
+          "damage": 180,
+          "range": 300,
+          "cooldown": 8000,
+          "mpCost": 50
+        },
+        {
+          "id": "healing_water",
+          "name": "符水治疗",
+          "description": "使用符水治疗友军",
+          "healAmount": 250,
+          "range": 200,
+          "cooldown": 10000,
+          "mpCost": 60
+        },
+        {
+          "id": "yellow_heaven",
+          "name": "黄天当立",
+          "description": "激励所有黄巾军，大幅提升士气和战斗力",
+          "buffDuration": 20000,
+          "moraleBonus": 30,
+          "attackBonus": 0.4,
+          "range": 500,
+          "cooldown": 30000,
+          "mpCost": 100
+        }
+      ],
+      "specialAbilities": [
+        "太平道主",
+        "符咒大师",
+        "黄天当立"
+      ],
+      "cinematicIntro": {
+        "text": "张角，天公将军，太平道主",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.4,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#ffd700",
+        "sprite": "zhang_jiao"
+      },
+      "voiceLines": {
+        "intro": "苍天已死，黄天当立！",
+        "attack": "符咒之力！",
+        "skill": "黄天降临！",
+        "retreat": "天意如此...",
+        "death": "苍天已死...黄天...当立..."
+      },
+      "condition": "sick"
+    },
+    "zhang_liang": {
+      "id": "zhang_liang",
+      "name": "张梁",
+      "title": "地公将军",
+      "biography": "张角的弟弟，黄巾起义的重要领袖，地公将军。",
+      "faction": "yellow_turban",
+      "level": 20,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "isAlly": true,
+      "attributes": {
+        "maxHp": 1400,
+        "hp": 1400,
+        "maxMp": 180,
+        "mp": 180,
+        "attack": 78,
+        "defense": 70,
+        "speed": 95,
+        "strength": 25,
+        "agility": 19,
+        "intelligence": 23,
+        "constitution": 26,
+        "spirit": 24
+      },
+      "combat": {
+        "attackRange": 120,
+        "attackSpeed": 1.0,
+        "unitType": "warrior"
+      },
+      "skills": [
+        {
+          "id": "earth_strike",
+          "name": "大地之击",
+          "description": "召唤大地之力攻击敌人",
+          "damage": 150,
+          "range": 150,
+          "cooldown": 10000,
+          "mpCost": 45
+        },
+        {
+          "id": "rally_troops",
+          "name": "集结",
+          "description": "集结友军，提升防御",
+          "buffDuration": 12000,
+          "defenseBonus": 0.3,
+          "range": 300,
+          "cooldown": 15000,
+          "mpCost": 50
+        }
+      ],
+      "specialAbilities": [
+        "地公之力",
+        "统帅"
+      ],
+      "cinematicIntro": {
+        "text": "张梁，地公将军",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#daa520",
+        "sprite": "zhang_liang"
+      },
+      "voiceLines": {
+        "intro": "地公将军在此！",
+        "attack": "大地之力！",
+        "skill": "集结！",
+        "retreat": "暂且撤退。",
+        "rescue": "多谢相救！"
+      }
+    },
+    "zhang_bao": {
+      "id": "zhang_bao",
+      "name": "张宝",
+      "title": "人公将军",
+      "biography": "张角的弟弟，黄巾起义的重要领袖，人公将军。",
+      "faction": "yellow_turban",
+      "level": 20,
+      "rarity": "epic",
+      "isHistoricalGeneral": true,
+      "isAlly": true,
+      "attributes": {
+        "maxHp": 1300,
+        "hp": 1300,
+        "maxMp": 220,
+        "mp": 220,
+        "attack": 65,
+        "defense": 60,
+        "speed": 100,
+        "strength": 20,
+        "agility": 20,
+        "intelligence": 28,
+        "constitution": 23,
+        "spirit": 28
+      },
+      "combat": {
+        "attackRange": 200,
+        "attackSpeed": 1.1,
+        "unitType": "mage"
+      },
+      "skills": [
+        {
+          "id": "wind_magic",
+          "name": "风之术",
+          "description": "召唤狂风攻击敌人",
+          "damage": 140,
+          "range": 250,
+          "cooldown": 9000,
+          "mpCost": 40
+        },
+        {
+          "id": "magic_barrier",
+          "name": "法术屏障",
+          "description": "创造魔法屏障保护友军",
+          "buffDuration": 10000,
+          "defenseBonus": 0.4,
+          "magicDefense": 0.5,
+          "range": 250,
+          "cooldown": 14000,
+          "mpCost": 55
+        }
+      ],
+      "specialAbilities": [
+        "人公之力",
+        "法术大师"
+      ],
+      "cinematicIntro": {
+        "text": "张宝，人公将军",
+        "duration": 3000,
+        "cameraEffect": "zoom_in"
+      },
+      "retreatThreshold": 0.3,
+      "appearance": {
+        "width": 64,
+        "height": 80,
+        "color": "#daa520",
+        "sprite": "zhang_bao"
+      },
+      "voiceLines": {
+        "intro": "人公将军在此！",
+        "attack": "风之力！",
+        "skill": "法术屏障！",
+        "retreat": "暂且撤退。",
+        "rescue": "多谢相救！"
+      }
+    }
+  },
+  "factions": {
+    "wei": {
+      "name": "魏",
+      "color": "#8b0000",
+      "description": "曹魏势力"
+    },
+    "shu": {
+      "name": "蜀",
+      "color": "#006400",
+      "description": "蜀汉势力"
+    },
+    "wu": {
+      "name": "吴",
+      "color": "#dc143c",
+      "description": "东吴势力"
+    },
+    "han": {
+      "name": "汉",
+      "color": "#4169e1",
+      "description": "东汉朝廷"
+    },
+    "yellow_turban": {
+      "name": "黄巾",
+      "color": "#ffd700",
+      "description": "黄巾起义军"
+    }
+  },
+  "unitTypes": {
+    "heavy_cavalry": {
+      "name": "重骑兵",
+      "bonuses": {
+        "charge": 0.5,
+        "speed": 0.3
+      }
+    },
+    "light_cavalry": {
+      "name": "轻骑兵",
+      "bonuses": {
+        "speed": 0.4,
+        "agility": 0.3
+      }
+    },
+    "heavy_infantry": {
+      "name": "重步兵",
+      "bonuses": {
+        "attack": 0.3,
+        "defense": 0.2
+      }
+    },
+    "sword_shield": {
+      "name": "剑盾兵",
+      "bonuses": {
+        "defense": 0.3,
+        "balance": 0.2
+      }
+    },
+    "mage": {
+      "name": "法师",
+      "bonuses": {
+        "magicPower": 0.5,
+        "range": 0.3
+      }
+    },
+    "archer": {
+      "name": "弓箭手",
+      "bonuses": {
+        "range": 0.4,
+        "attack": 0.2
+      }
+    },
+    "commander": {
+      "name": "统帅",
+      "bonuses": {
+        "leadership": 0.5,
+        "aura": 0.3
+      }
+    },
+    "assault": {
+      "name": "突击兵",
+      "bonuses": {
+        "attack": 0.4,
+        "speed": 0.3
+      }
+    },
+    "warrior": {
+      "name": "战士",
+      "bonuses": {
+        "attack": 0.25,
+        "defense": 0.25
+      }
+    }
+  }
+}

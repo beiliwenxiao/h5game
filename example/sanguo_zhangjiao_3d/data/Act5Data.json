@@ -1,0 +1,664 @@
+{
+  "act": 5,
+  "title": "第五幕：四场战斗",
+  "description": "参与黄巾起义的关键战役",
+  "initialState": {
+    "playerPosition": { "x": 400, "y": 400 }
+  },
+  "battles": [
+    {
+      "id": "uprising_battle",
+      "name": "起义之战",
+      "description": "占领县城，黄巾起义正式开始",
+      "objective": "击败县城守军指挥官",
+      "map": {
+        "width": 1200,
+        "height": 800,
+        "terrain": "city"
+      },
+      "playerForces": {
+        "allies": [
+          {
+            "name": "黄巾军士兵",
+            "templateId": "yellow_turban_soldier",
+            "count": 30,
+            "level": 5,
+            "stats": {
+              "maxHp": 80,
+              "attack": 12,
+              "defense": 8
+            },
+            "formation": "line"
+          },
+          {
+            "name": "黄巾军弓箭手",
+            "templateId": "yellow_turban_archer",
+            "count": 20,
+            "level": 5,
+            "stats": {
+              "maxHp": 60,
+              "attack": 15,
+              "defense": 5
+            },
+            "formation": "back_line"
+          }
+        ]
+      },
+      "enemyForces": {
+        "enemies": [
+          {
+            "name": "官府士兵",
+            "templateId": "government_soldier",
+            "count": 40,
+            "level": 5,
+            "stats": {
+              "maxHp": 70,
+              "attack": 10,
+              "defense": 10
+            },
+            "formation": "defensive"
+          },
+          {
+            "name": "县城守军",
+            "templateId": "city_guard",
+            "count": 20,
+            "level": 6,
+            "stats": {
+              "maxHp": 90,
+              "attack": 14,
+              "defense": 12
+            },
+            "formation": "defensive"
+          }
+        ],
+        "boss": {
+          "name": "县城守将",
+          "templateId": "city_commander",
+          "level": 10,
+          "stats": {
+            "maxHp": 500,
+            "attack": 25,
+            "defense": 20
+          },
+          "position": { "x": 1000, "y": 400 },
+          "skills": ["heavy_strike", "shield_bash"]
+        }
+      },
+      "victoryCondition": "defeat_boss",
+      "rewards": {
+        "experience": 1000,
+        "gold": 500,
+        "items": [
+          {
+            "id": "yellow_turban_banner",
+            "name": "黄巾军旗",
+            "type": "accessory",
+            "stats": { "morale": 10 }
+          }
+        ]
+      },
+      "dialogue": {
+        "pre_battle": {
+          "speaker": "张角",
+          "text": "苍天已死，黄天当立！岁在甲子，天下大吉！"
+        },
+        "post_battle": {
+          "speaker": "张角",
+          "text": "我们占领了县城！这只是开始，兄弟们，继续前进！"
+        }
+      }
+    },
+    {
+      "id": "guangzong_battle",
+      "name": "广宗之战",
+      "description": "救援张梁，对抗皇甫嵩和曹操",
+      "objective": "救援张梁或选择撤退",
+      "map": {
+        "width": 1500,
+        "height": 1000,
+        "terrain": "plains"
+      },
+      "playerForces": {
+        "allies": [
+          {
+            "name": "黄巾军精锐",
+            "templateId": "yellow_turban_elite",
+            "count": 40,
+            "level": 8,
+            "stats": {
+              "maxHp": 120,
+              "attack": 18,
+              "defense": 12
+            }
+          }
+        ],
+        "npc": {
+          "id": "zhangliang",
+          "name": "张梁",
+          "title": "地公将军",
+          "level": 15,
+          "stats": {
+            "maxHp": 800,
+            "attack": 35,
+            "defense": 25
+          },
+          "position": { "x": 750, "y": 500 },
+          "surrounded": true,
+          "rescueRadius": 100
+        }
+      },
+      "enemyForces": {
+        "enemies": [
+          {
+            "name": "官军精锐",
+            "templateId": "elite_soldier",
+            "count": 60,
+            "level": 8,
+            "stats": {
+              "maxHp": 100,
+              "attack": 16,
+              "defense": 14
+            }
+          },
+          {
+            "name": "皇甫嵩军",
+            "templateId": "huangfu_army",
+            "count": 30,
+            "level": 9,
+            "stats": {
+              "maxHp": 130,
+              "attack": 20,
+              "defense": 16
+            }
+          }
+        ],
+        "generals": [
+          {
+            "id": "caocao",
+            "name": "曹操",
+            "title": "孟德",
+            "biography": "魏武帝，三国时期著名政治家、军事家",
+            "level": 20,
+            "stats": {
+              "maxHp": 1200,
+              "attack": 45,
+              "defense": 30
+            },
+            "position": { "x": 1200, "y": 500 },
+            "unitType": "cavalry",
+            "skills": ["charge", "tactical_strike"],
+            "cinematicIntro": {
+              "text": "曹操，字孟德，挟天子以令诸侯",
+              "duration": 3
+            },
+            "retreatThreshold": 0.3
+          }
+        ]
+      },
+      "choices": [
+        {
+          "id": "rescue_zhangliang",
+          "text": "救援张梁",
+          "condition": "reach_zhangliang",
+          "consequence": "zhangliang_saved",
+          "difficulty": "hard"
+        },
+        {
+          "id": "retreat",
+          "text": "撤退保存实力",
+          "condition": "always",
+          "consequence": "zhangliang_dies",
+          "difficulty": "easy"
+        }
+      ],
+      "recruitableNPC": {
+        "id": "guanhai",
+        "name": "管骇",
+        "title": "黄巾猛将",
+        "condition": "rescue_zhangliang_success",
+        "level": 12,
+        "stats": {
+          "maxHp": 600,
+          "attack": 30,
+          "defense": 20
+        }
+      },
+      "rewards": {
+        "experience": 2000,
+        "gold": 1000
+      },
+      "dialogue": {
+        "pre_battle": {
+          "speaker": "信使",
+          "text": "不好了！张梁将军在广宗被皇甫嵩围困！"
+        },
+        "caocao_intro": {
+          "speaker": "曹操",
+          "text": "黄巾贼寇，今日便是你们的末日！"
+        },
+        "rescue_success": {
+          "speaker": "张梁",
+          "text": "多谢相救！管骇，你随他一起作战吧。"
+        },
+        "retreat": {
+          "speaker": "张角",
+          "text": "二弟...我们会为你报仇的！"
+        }
+      }
+    },
+    {
+      "id": "yangcheng_battle",
+      "name": "阳城之战",
+      "description": "救援张宝，对抗刘关张，周仓加入",
+      "objective": "救援张宝或选择撤退",
+      "map": {
+        "width": 1500,
+        "height": 1000,
+        "terrain": "hills"
+      },
+      "playerForces": {
+        "allies": [
+          {
+            "name": "黄巾军",
+            "templateId": "yellow_turban_soldier",
+            "count": 50,
+            "level": 10,
+            "stats": {
+              "maxHp": 150,
+              "attack": 22,
+              "defense": 15
+            }
+          }
+        ],
+        "npc": {
+          "id": "zhangbao",
+          "name": "张宝",
+          "title": "人公将军",
+          "level": 15,
+          "stats": {
+            "maxHp": 750,
+            "attack": 30,
+            "defense": 20,
+            "magicPower": 40
+          },
+          "position": { "x": 750, "y": 500 },
+          "surrounded": true,
+          "rescueRadius": 100
+        }
+      },
+      "enemyForces": {
+        "enemies": [
+          {
+            "name": "刘备军",
+            "templateId": "liu_army",
+            "count": 40,
+            "level": 10,
+            "stats": {
+              "maxHp": 140,
+              "attack": 20,
+              "defense": 18
+            }
+          }
+        ],
+        "generals": [
+          {
+            "id": "liubei",
+            "name": "刘备",
+            "title": "玄德",
+            "biography": "蜀汉昭烈帝，仁德之君",
+            "level": 18,
+            "stats": {
+              "maxHp": 1000,
+              "attack": 35,
+              "defense": 28
+            },
+            "position": { "x": 1100, "y": 400 },
+            "skills": ["benevolence", "inspire"],
+            "cinematicIntro": {
+              "text": "刘备，字玄德，汉室宗亲",
+              "duration": 3
+            },
+            "retreatThreshold": 0.3
+          },
+          {
+            "id": "guanyu",
+            "name": "关羽",
+            "title": "云长",
+            "biography": "武圣，忠义无双",
+            "level": 22,
+            "stats": {
+              "maxHp": 1400,
+              "attack": 50,
+              "defense": 32
+            },
+            "position": { "x": 1200, "y": 450 },
+            "skills": ["dragon_strike", "righteous_fury"],
+            "cinematicIntro": {
+              "text": "关羽，字云长，手持青龙偃月刀",
+              "duration": 3
+            },
+            "retreatThreshold": 0.2
+          },
+          {
+            "id": "zhangfei",
+            "name": "张飞",
+            "title": "翼德",
+            "biography": "猛将，勇冠三军",
+            "level": 21,
+            "stats": {
+              "maxHp": 1300,
+              "attack": 48,
+              "defense": 30
+            },
+            "position": { "x": 1200, "y": 550 },
+            "skills": ["roar", "berserker_rage"],
+            "cinematicIntro": {
+              "text": "张飞，字翼德，手持丈八蛇矛",
+              "duration": 3
+            },
+            "retreatThreshold": 0.2
+          }
+        ]
+      },
+      "specialEvents": [
+        {
+          "id": "zhoucang_holds_zhaoyun",
+          "trigger": "battle_start",
+          "description": "周仓拖住赵云",
+          "npc": {
+            "id": "zhoucang",
+            "name": "周仓",
+            "level": 15,
+            "stats": {
+              "maxHp": 700,
+              "attack": 32,
+              "defense": 25
+            },
+            "position": { "x": 900, "y": 500 },
+            "opponent": "zhaoyun"
+          }
+        }
+      ],
+      "choices": [
+        {
+          "id": "rescue_zhangbao",
+          "text": "救援张宝",
+          "condition": "reach_zhangbao",
+          "consequence": "zhangbao_saved",
+          "difficulty": "very_hard"
+        },
+        {
+          "id": "retreat",
+          "text": "撤退保存实力",
+          "condition": "always",
+          "consequence": "zhangbao_dies",
+          "difficulty": "easy"
+        }
+      ],
+      "recruitableNPC": {
+        "id": "zhoucang",
+        "name": "周仓",
+        "title": "黄巾勇士",
+        "condition": "rescue_zhangbao_success",
+        "level": 15,
+        "stats": {
+          "maxHp": 700,
+          "attack": 32,
+          "defense": 25
+        }
+      },
+      "rewards": {
+        "experience": 2500,
+        "gold": 1500
+      },
+      "dialogue": {
+        "pre_battle": {
+          "speaker": "信使",
+          "text": "张宝将军在阳城遭遇刘备军！"
+        },
+        "liubei_intro": {
+          "speaker": "刘备",
+          "text": "黄巾之乱，祸害百姓，今日必须平定！"
+        },
+        "guanyu_intro": {
+          "speaker": "关羽",
+          "text": "关某手中刀，不斩无名之辈！"
+        },
+        "zhangfei_intro": {
+          "speaker": "张飞",
+          "text": "燕人张翼德在此！谁敢与我一战！"
+        },
+        "rescue_success": {
+          "speaker": "张宝",
+          "text": "多谢相救！周仓，你跟着他吧。"
+        },
+        "zhoucang_join": {
+          "speaker": "周仓",
+          "text": "周仓愿追随将军！"
+        }
+      }
+    },
+    {
+      "id": "final_battle",
+      "name": "黄巾终战",
+      "description": "救援张角，众多武将登场，张角病逝",
+      "objective": "护送张角撤离战场",
+      "map": {
+        "width": 2000,
+        "height": 1200,
+        "terrain": "battlefield"
+      },
+      "playerForces": {
+        "allies": [
+          {
+            "name": "黄巾军残部",
+            "templateId": "yellow_turban_remnant",
+            "count": 30,
+            "level": 12,
+            "stats": {
+              "maxHp": 180,
+              "attack": 25,
+              "defense": 18
+            }
+          }
+        ],
+        "npc": {
+          "id": "zhangjiao",
+          "name": "张角",
+          "title": "天公将军",
+          "level": 25,
+          "stats": {
+            "maxHp": 500,
+            "attack": 40,
+            "defense": 25,
+            "magicPower": 60
+          },
+          "position": { "x": 1000, "y": 600 },
+          "condition": "sick",
+          "escapePoint": { "x": 100, "y": 600 }
+        }
+      },
+      "enemyForces": {
+        "enemies": [
+          {
+            "name": "朝廷大军",
+            "templateId": "imperial_army",
+            "count": 100,
+            "level": 12,
+            "stats": {
+              "maxHp": 160,
+              "attack": 23,
+              "defense": 20
+            }
+          }
+        ],
+        "generals": [
+          {
+            "id": "luzhi",
+            "name": "卢植",
+            "title": "北中郎将",
+            "level": 23,
+            "stats": {
+              "maxHp": 1500,
+              "attack": 42,
+              "defense": 35
+            },
+            "position": { "x": 1600, "y": 400 }
+          },
+          {
+            "id": "zhujun",
+            "name": "朱儁",
+            "title": "右中郎将",
+            "level": 23,
+            "stats": {
+              "maxHp": 1500,
+              "attack": 43,
+              "defense": 34
+            },
+            "position": { "x": 1600, "y": 600 }
+          },
+          {
+            "id": "huangfusong",
+            "name": "皇甫嵩",
+            "title": "左中郎将",
+            "level": 24,
+            "stats": {
+              "maxHp": 1600,
+              "attack": 45,
+              "defense": 36
+            },
+            "position": { "x": 1600, "y": 800 }
+          },
+          {
+            "id": "zoujing",
+            "name": "邹靖",
+            "title": "护乌桓中郎将",
+            "level": 22,
+            "stats": {
+              "maxHp": 1400,
+              "attack": 40,
+              "defense": 33
+            },
+            "position": { "x": 1700, "y": 500 }
+          },
+          {
+            "id": "caocao_return",
+            "name": "曹操",
+            "title": "孟德",
+            "level": 22,
+            "stats": {
+              "maxHp": 1400,
+              "attack": 47,
+              "defense": 32
+            },
+            "position": { "x": 1700, "y": 700 }
+          },
+          {
+            "id": "caohong",
+            "name": "曹洪",
+            "title": "子廉",
+            "level": 20,
+            "stats": {
+              "maxHp": 1200,
+              "attack": 38,
+              "defense": 30
+            },
+            "position": { "x": 1750, "y": 650 }
+          },
+          {
+            "id": "sunjian",
+            "name": "孙坚",
+            "title": "文台",
+            "level": 21,
+            "stats": {
+              "maxHp": 1300,
+              "attack": 44,
+              "defense": 31
+            },
+            "position": { "x": 1650, "y": 300 }
+          }
+        ]
+      },
+      "objective": "escort_zhangjiao",
+      "escortDistance": 900,
+      "timeLimit": 600,
+      "rewards": {
+        "experience": 5000,
+        "gold": 3000,
+        "items": [
+          {
+            "id": "zhangjiao_talisman",
+            "name": "张角的护身符",
+            "type": "accessory",
+            "rarity": 3,
+            "stats": {
+              "magicPower": 20,
+              "maxMp": 50
+            },
+            "description": "张角临终前赠予的护身符"
+          }
+        ]
+      },
+      "dialogue": {
+        "pre_battle": {
+          "speaker": "张角",
+          "text": "咳咳...朝廷大军压境，我已病入膏肓...你们快走！"
+        },
+        "player_refuse": {
+          "speaker": "玩家",
+          "text": "不！我们一起走！"
+        },
+        "escape_start": {
+          "speaker": "张角",
+          "text": "好...那就拜托你了..."
+        },
+        "generals_intro": {
+          "speaker": "旁白",
+          "text": "朝廷集结了所有名将，势要剿灭黄巾！"
+        },
+        "escape_success": {
+          "speaker": "张角",
+          "text": "我们...逃出来了..."
+        },
+        "zhangjiao_death": {
+          "speaker": "张角",
+          "text": "苍天已死...黄天...当立...咳咳...我的使命...完成了...你们...要活下去..."
+        },
+        "player_grief": {
+          "speaker": "玩家",
+          "text": "天公将军！！！"
+        }
+      }
+    }
+  ],
+  "morale_system": {
+    "enabled": true,
+    "effects": {
+      "high_morale": {
+        "threshold": 80,
+        "bonuses": {
+          "attack": 0.2,
+          "defense": 0.1
+        }
+      },
+      "low_morale": {
+        "threshold": 30,
+        "penalties": {
+          "attack": -0.2,
+          "defense": -0.1,
+          "retreat_chance": 0.3
+        }
+      }
+    },
+    "factors": {
+      "ally_death": -5,
+      "enemy_death": 2,
+      "general_nearby": 10,
+      "general_death": -20
+    }
+  },
+  "transition": {
+    "type": "all_battles_complete",
+    "nextAct": 6
+  }
+}

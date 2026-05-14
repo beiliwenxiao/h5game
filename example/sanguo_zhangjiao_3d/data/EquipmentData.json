@@ -1,0 +1,375 @@
+{
+  "comment": "序章装备数据 - 张角黄巾起义序章",
+  "version": "1.0",
+  
+  "equipments": {
+    "ragged_clothes": {
+      "id": "ragged_clothes",
+      "name": "破旧衣服",
+      "type": "armor",
+      "rarity": "common",
+      "level": 1,
+      "description": "破烂不堪的衣服，勉强能遮体",
+      "icon": "icon_ragged_clothes",
+      "attributes": {
+        "defense": 1,
+        "maxHealth": 5
+      },
+      "negativeAttributes": {
+        "durability": -20,
+        "description": "耐久度很低，容易损坏"
+      },
+      "requirements": {
+        "level": 1
+      },
+      "value": 1,
+      "canEnhance": false,
+      "canDismantle": false
+    },
+    
+    "wooden_sword": {
+      "id": "wooden_sword",
+      "name": "木剑",
+      "type": "weapon",
+      "rarity": "common",
+      "level": 1,
+      "description": "从地上捡到的木剑，勉强能当武器",
+      "icon": "icon_wooden_sword",
+      "attackSpeed": 2.0,
+      "attackRange": 90,
+      "attackDistance": 100,
+      "attributes": {
+        "attack": 3
+      },
+      "negativeAttributes": {
+        "durability": -30,
+        "description": "非常脆弱，容易折断"
+      },
+      "requirements": {
+        "level": 1
+      },
+      "value": 2,
+      "canEnhance": false,
+      "canDismantle": false
+    },
+    
+    "cloth_armor": {
+      "id": "cloth_armor",
+      "name": "布衣",
+      "type": "armor",
+      "rarity": "common",
+      "level": 2,
+      "description": "简单的布制衣服，比破旧衣服好一些",
+      "icon": "icon_cloth_armor",
+      "attributes": {
+        "defense": 3,
+        "maxHealth": 10
+      },
+      "requirements": {
+        "level": 2
+      },
+      "value": 10,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "wooden_sword": {
+      "id": "wooden_sword",
+      "name": "木剑",
+      "type": "weapon",
+      "rarity": "common",
+      "level": 2,
+      "description": "简单的木制剑，比树棍好用",
+      "icon": "icon_wooden_sword",
+      "attackSpeed": 2.0,
+      "attackRange": 90,
+      "attackDistance": 100,
+      "attributes": {
+        "attack": 8,
+        "speed": 2
+      },
+      "requirements": {
+        "level": 2
+      },
+      "value": 15,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "coin_sword": {
+      "id": "coin_sword",
+      "name": "铜钱剑",
+      "type": "weapon",
+      "rarity": "uncommon",
+      "level": 3,
+      "description": "用铜钱串成的剑，张角称之为法器。实际上是用来掩护发钱的工具",
+      "icon": "icon_coin_sword",
+      "attackSpeed": 3,
+      "attributes": {
+        "attack": 12,
+        "maxHealth": 5
+      },
+      "negativeAttributes": {
+        "durability": -15,
+        "weight": 5,
+        "description": "铜钱容易散落，增加负重"
+      },
+      "requirements": {
+        "level": 3
+      },
+      "value": 50,
+      "canEnhance": true,
+      "canDismantle": true,
+      "dismantleReward": {
+        "currency": 100,
+        "description": "拆解后获得铜钱"
+      }
+    },
+    
+    "iron_sword": {
+      "id": "iron_sword",
+      "name": "铁剑",
+      "type": "weapon",
+      "rarity": "uncommon",
+      "level": 5,
+      "description": "锋利的铁制长剑，战士的可靠伙伴",
+      "icon": "icon_iron_sword",
+      "attackSpeed": 3,
+      "attributes": {
+        "attack": 18,
+        "speed": 3
+      },
+      "requirements": {
+        "level": 5,
+        "class": ["warrior"]
+      },
+      "value": 80,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "leather_armor": {
+      "id": "leather_armor",
+      "name": "皮甲",
+      "type": "armor",
+      "rarity": "uncommon",
+      "level": 4,
+      "description": "简单的皮制护甲，提供基础防护",
+      "icon": "icon_leather_armor",
+      "attributes": {
+        "defense": 8,
+        "maxHealth": 20
+      },
+      "requirements": {
+        "level": 4
+      },
+      "value": 60,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "hunting_bow": {
+      "id": "hunting_bow",
+      "name": "猎弓",
+      "type": "weapon",
+      "rarity": "uncommon",
+      "level": 5,
+      "description": "轻便的猎弓，适合远程攻击",
+      "icon": "icon_hunting_bow",
+      "attackSpeed": 3,
+      "attributes": {
+        "attack": 15,
+        "speed": 8
+      },
+      "requirements": {
+        "level": 5,
+        "class": ["archer"]
+      },
+      "value": 75,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "magic_staff": {
+      "id": "magic_staff",
+      "name": "魔法法杖",
+      "type": "weapon",
+      "rarity": "uncommon",
+      "level": 5,
+      "description": "蕴含魔力的法杖，增强法术威力",
+      "icon": "icon_magic_staff",
+      "attackSpeed": 3,
+      "attributes": {
+        "attack": 10,
+        "maxMana": 30
+      },
+      "requirements": {
+        "level": 5,
+        "class": ["mage"]
+      },
+      "value": 85,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "chain_mail": {
+      "id": "chain_mail",
+      "name": "锁子甲",
+      "type": "armor",
+      "rarity": "rare",
+      "level": 8,
+      "description": "金属环扣编织的护甲，防护力不错",
+      "icon": "icon_chain_mail",
+      "attributes": {
+        "defense": 15,
+        "maxHealth": 40
+      },
+      "requirements": {
+        "level": 8,
+        "class": ["warrior"]
+      },
+      "value": 150,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "mage_robe": {
+      "id": "mage_robe",
+      "name": "法师长袍",
+      "type": "armor",
+      "rarity": "rare",
+      "level": 8,
+      "description": "蕴含魔力的长袍，增强魔法抗性",
+      "icon": "icon_mage_robe",
+      "attributes": {
+        "defense": 10,
+        "maxMana": 50
+      },
+      "requirements": {
+        "level": 8,
+        "class": ["mage"]
+      },
+      "value": 140,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "leather_boots": {
+      "id": "leather_boots",
+      "name": "皮靴",
+      "type": "boots",
+      "rarity": "common",
+      "level": 3,
+      "description": "舒适的皮制靴子，略微提升移动速度",
+      "icon": "icon_leather_boots",
+      "attributes": {
+        "defense": 2,
+        "speed": 5
+      },
+      "requirements": {
+        "level": 3
+      },
+      "value": 25,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "iron_helmet": {
+      "id": "iron_helmet",
+      "name": "铁盔",
+      "type": "helmet",
+      "rarity": "uncommon",
+      "level": 5,
+      "description": "简单的铁制头盔，保护头部",
+      "icon": "icon_iron_helmet",
+      "attributes": {
+        "defense": 5,
+        "maxHealth": 10
+      },
+      "requirements": {
+        "level": 5
+      },
+      "value": 40,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "health_ring": {
+      "id": "health_ring",
+      "name": "生命戒指",
+      "type": "accessory",
+      "rarity": "uncommon",
+      "level": 6,
+      "description": "增加生命值的魔法戒指",
+      "icon": "icon_health_ring",
+      "attributes": {
+        "maxHealth": 30
+      },
+      "requirements": {
+        "level": 6
+      },
+      "value": 70,
+      "canEnhance": true,
+      "canDismantle": true
+    },
+    
+    "yellow_turban": {
+      "id": "yellow_turban",
+      "name": "黄巾",
+      "type": "helmet",
+      "rarity": "rare",
+      "level": 10,
+      "description": "黄巾军的标志，头裹黄巾。象征着对太平世道的向往",
+      "icon": "icon_yellow_turban",
+      "attributes": {
+        "defense": 8,
+        "maxHealth": 20,
+        "attack": 5
+      },
+      "specialEffect": {
+        "name": "黄巾之志",
+        "description": "与黄巾军并肩作战时，攻击力+10%"
+      },
+      "requirements": {
+        "level": 10
+      },
+      "value": 200,
+      "canEnhance": true,
+      "canDismantle": false
+    }
+  },
+  
+  "enhancementRates": {
+    "0": 1.0,
+    "1": 0.9,
+    "2": 0.8,
+    "3": 0.7,
+    "4": 0.6,
+    "5": 0.5,
+    "6": 0.4,
+    "7": 0.3,
+    "8": 0.2,
+    "9": 0.1
+  },
+  
+  "enhancementCosts": {
+    "0": 50,
+    "1": 100,
+    "2": 200,
+    "3": 400,
+    "4": 800,
+    "5": 1600,
+    "6": 3200,
+    "7": 6400,
+    "8": 12800,
+    "9": 25600
+  },
+  
+  "dismantleRates": {
+    "common": 0.3,
+    "uncommon": 0.5,
+    "rare": 0.7,
+    "epic": 0.85,
+    "legendary": 1.0
+  }
+}

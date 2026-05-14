@@ -1,0 +1,255 @@
+{
+  "act": 1,
+  "title": "第一幕：绝望的开始",
+  "description": "在乱世中挣扎求生",
+  "initialState": {
+    "playerPosition": { "x": 200, "y": 300 },
+    "playerStats": {
+      "hp": 30,
+      "maxHp": 100,
+      "mp": 10,
+      "maxMp": 50,
+      "attack": 5,
+      "defense": 2
+    }
+  },
+  "campfire": {
+    "position": { "x": 350, "y": 250 },
+    "interactionRadius": 60,
+    "fireImagePath": "assets/images/fire.webp",
+    "frameConfig": {
+      "width": 658,
+      "height": 712,
+      "cols": 4,
+      "rows": 3,
+      "count": 12,
+      "duration": 0.16
+    }
+  },
+  "pickupItems": [
+    {
+      "id": "leftover_food",
+      "name": "残羹",
+      "type": "consumable",
+      "position": { "x": 250, "y": 300 },
+      "heal": 20,
+      "description": "剩余的食物，可以恢复少量生命值",
+      "rarity": 0,
+      "maxStack": 10,
+      "usable": true,
+      "effect": {
+        "type": "heal",
+        "value": 20
+      }
+    }
+  ],
+  "equipmentItems": [
+    {
+      "id": "ragged_clothes",
+      "name": "破旧衣服",
+      "type": "equipment",
+      "subType": "armor",
+      "position": { "x": 200, "y": 200 },
+      "stats": {
+        "defense": 2
+      },
+      "description": "破旧的衣服，聊胜于无",
+      "rarity": 0,
+      "maxStack": 1
+    },
+    {
+      "id": "wooden_sword",
+      "name": "木剑",
+      "type": "equipment",
+      "subType": "mainhand",
+      "position": { "x": 300, "y": 250 },
+      "attackSpeed": 2.0,
+      "attackRange": 90,
+      "attackDistance": 100,
+      "stats": {
+        "attack": 5
+      },
+      "description": "简陋的木剑，可以用来防身",
+      "rarity": 0,
+      "maxStack": 1
+    },
+    {
+      "id": "wooden_bow",
+      "name": "木弓",
+      "type": "equipment",
+      "subType": "mainhand",
+      "ranged": true,
+      "position": { "x": 230, "y": 230 },
+      "attackSpeed": 1.0,
+      "attackRange": 15,
+      "attackDistance": 300,
+      "pierce": 2,
+      "multishot": 2,
+      "stats": {
+        "attack": 7
+      },
+      "description": "简陋的木弓，可以远程攻击",
+      "rarity": 0,
+      "maxStack": 1
+    },
+    {
+      "id": "wooden_arrow",
+      "name": "木箭",
+      "type": "equipment",
+      "subType": "ammo",
+      "position": { "x": 250, "y": 240 },
+      "stats": {},
+      "description": "粗糙的木箭，配合弓使用",
+      "rarity": 0,
+      "maxStack": 99,
+      "quantity": 30
+    }
+  ],
+  "combatWaves": [
+    {
+      "wave": 0,
+      "name": "野狗袭击",
+      "enemies": [
+        {
+          "name": "野狗",
+          "templateId": "wild_dog",
+          "level": 1,
+          "stats": {
+            "maxHp": 30,
+            "attack": 5,
+            "defense": 2
+          },
+          "position": { "x": 500, "y": 300 }
+        },
+        {
+          "name": "野狗",
+          "templateId": "wild_dog",
+          "level": 1,
+          "stats": {
+            "maxHp": 30,
+            "attack": 5,
+            "defense": 2
+          },
+          "position": { "x": 600, "y": 300 }
+        }
+      ]
+    },
+    {
+      "wave": 1,
+      "name": "官府士兵",
+      "enemies": [
+        {
+          "name": "官府士兵",
+          "templateId": "soldier",
+          "level": 2,
+          "stats": {
+            "maxHp": 50,
+            "attack": 8,
+            "defense": 5
+          },
+          "position": { "x": 450, "y": 250 }
+        },
+        {
+          "name": "官府士兵",
+          "templateId": "soldier",
+          "level": 2,
+          "stats": {
+            "maxHp": 50,
+            "attack": 8,
+            "defense": 5
+          },
+          "position": { "x": 550, "y": 300 }
+        },
+        {
+          "name": "官府士兵",
+          "templateId": "soldier",
+          "level": 2,
+          "stats": {
+            "maxHp": 50,
+            "attack": 8,
+            "defense": 5
+          },
+          "position": { "x": 650, "y": 350 }
+        }
+      ]
+    },
+    {
+      "wave": 2,
+      "name": "土匪",
+      "enemies": [
+        {
+          "name": "土匪",
+          "templateId": "bandit",
+          "level": 3,
+          "stats": {
+            "maxHp": 60,
+            "attack": 10,
+            "defense": 6
+          },
+          "position": { "x": 500, "y": 250 }
+        },
+        {
+          "name": "土匪",
+          "templateId": "bandit",
+          "level": 3,
+          "stats": {
+            "maxHp": 60,
+            "attack": 10,
+            "defense": 6
+          },
+          "position": { "x": 600, "y": 250 }
+        },
+        {
+          "name": "土匪",
+          "templateId": "bandit",
+          "level": 3,
+          "stats": {
+            "maxHp": 60,
+            "attack": 10,
+            "defense": 6
+          },
+          "position": { "x": 500, "y": 350 }
+        },
+        {
+          "name": "土匪",
+          "templateId": "bandit",
+          "level": 3,
+          "stats": {
+            "maxHp": 60,
+            "attack": 10,
+            "defense": 6
+          },
+          "position": { "x": 600, "y": 350 }
+        }
+      ]
+    },
+    {
+      "wave": 3,
+      "name": "饥民围困",
+      "circularFormation": {
+        "center": { "x": 400, "y": 300 },
+        "radius": 150,
+        "count": 10
+      },
+      "enemies": [
+        {
+          "name": "饥民",
+          "templateId": "starving",
+          "level": 2,
+          "stats": {
+            "maxHp": 40,
+            "attack": 6,
+            "defense": 3
+          }
+        }
+      ]
+    }
+  ],
+  "transition": {
+    "type": "death",
+    "blackScreenDuration": 2.0,
+    "textDisplayDuration": 3.0,
+    "text": "你死了...但这不是结局",
+    "nextAct": 2
+  }
+}

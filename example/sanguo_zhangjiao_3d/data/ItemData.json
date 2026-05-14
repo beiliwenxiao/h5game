@@ -1,0 +1,464 @@
+{
+  "comment": "序章物品数据 - 张角黄巾起义序章",
+  "version": "1.0",
+  
+  "items": {
+    "leftover_food": {
+      "id": "leftover_food",
+      "name": "残羹",
+      "type": "consumable",
+      "rarity": "common",
+      "description": "别人吃剩的食物，虽然不好吃但能填饱肚子",
+      "icon": "icon_leftover_food",
+      "maxStack": 10,
+      "usable": true,
+      "effect": {
+        "type": "heal",
+        "value": 20,
+        "description": "恢复20点生命值"
+      },
+      "value": 2
+    },
+    
+    "talisman_water": {
+      "id": "talisman_water",
+      "name": "符水",
+      "type": "consumable",
+      "rarity": "uncommon",
+      "description": "张角的仙家符水，实际上是烧了黄纸的白粥。但确实能恢复体力",
+      "icon": "icon_talisman_water",
+      "maxStack": 20,
+      "usable": true,
+      "effect": {
+        "type": "heal",
+        "value": 50,
+        "description": "恢复50点生命值"
+      },
+      "specialEffect": {
+        "name": "太平之力",
+        "description": "使用后30秒内，生命恢复速度+50%"
+      },
+      "value": 10
+    },
+    
+    "health_potion": {
+      "id": "health_potion",
+      "name": "生命药水",
+      "type": "consumable",
+      "rarity": "common",
+      "description": "恢复生命值的药水",
+      "icon": "icon_health_potion",
+      "maxStack": 20,
+      "usable": true,
+      "effect": {
+        "type": "heal",
+        "value": 80,
+        "description": "恢复80点生命值"
+      },
+      "value": 15
+    },
+    
+    "mana_potion": {
+      "id": "mana_potion",
+      "name": "魔法药水",
+      "type": "consumable",
+      "rarity": "common",
+      "description": "恢复魔法值的药水",
+      "icon": "icon_mana_potion",
+      "maxStack": 20,
+      "usable": true,
+      "effect": {
+        "type": "restore_mana",
+        "value": 50,
+        "description": "恢复50点魔法值"
+      },
+      "value": 12
+    },
+    
+    "greater_health_potion": {
+      "id": "greater_health_potion",
+      "name": "强效生命药水",
+      "type": "consumable",
+      "rarity": "uncommon",
+      "description": "恢复大量生命值的药水",
+      "icon": "icon_greater_health_potion",
+      "maxStack": 10,
+      "usable": true,
+      "effect": {
+        "type": "heal",
+        "value": 200,
+        "description": "恢复200点生命值"
+      },
+      "value": 40
+    },
+    
+    "stamina_elixir": {
+      "id": "stamina_elixir",
+      "name": "耐力药剂",
+      "type": "consumable",
+      "rarity": "uncommon",
+      "description": "提升体力和防御的药剂",
+      "icon": "icon_stamina_elixir",
+      "maxStack": 5,
+      "usable": true,
+      "effect": {
+        "type": "buff",
+        "stat": "defense",
+        "value": 10,
+        "duration": 60,
+        "description": "防御力+10，持续60秒"
+      },
+      "value": 30
+    },
+    
+    "strength_elixir": {
+      "id": "strength_elixir",
+      "name": "力量药剂",
+      "type": "consumable",
+      "rarity": "uncommon",
+      "description": "提升攻击力的药剂",
+      "icon": "icon_strength_elixir",
+      "maxStack": 5,
+      "usable": true,
+      "effect": {
+        "type": "buff",
+        "stat": "attack",
+        "value": 15,
+        "duration": 60,
+        "description": "攻击力+15，持续60秒"
+      },
+      "value": 30
+    },
+    
+    "speed_elixir": {
+      "id": "speed_elixir",
+      "name": "迅捷药剂",
+      "type": "consumable",
+      "rarity": "rare",
+      "description": "大幅提升移动速度的药剂",
+      "icon": "icon_speed_elixir",
+      "maxStack": 5,
+      "usable": true,
+      "effect": {
+        "type": "buff",
+        "stat": "speed",
+        "value": 20,
+        "duration": 60,
+        "description": "移动速度+20，持续60秒"
+      },
+      "value": 50
+    },
+    
+    "basic_stone": {
+      "id": "basic_stone",
+      "name": "基础强化石",
+      "type": "material",
+      "rarity": "common",
+      "description": "用于强化+1到+3的装备",
+      "icon": "icon_basic_stone",
+      "maxStack": 99,
+      "usable": false,
+      "value": 20
+    },
+    
+    "intermediate_stone": {
+      "id": "intermediate_stone",
+      "name": "中级强化石",
+      "type": "material",
+      "rarity": "uncommon",
+      "description": "用于强化+4到+6的装备",
+      "icon": "icon_intermediate_stone",
+      "maxStack": 99,
+      "usable": false,
+      "value": 50
+    },
+    
+    "advanced_stone": {
+      "id": "advanced_stone",
+      "name": "高级强化石",
+      "type": "material",
+      "rarity": "rare",
+      "description": "用于强化+7到+9的装备",
+      "icon": "icon_advanced_stone",
+      "maxStack": 99,
+      "usable": false,
+      "value": 100
+    },
+    
+    "protection_scroll": {
+      "id": "protection_scroll",
+      "name": "保护符",
+      "type": "material",
+      "rarity": "rare",
+      "description": "防止装备在强化失败时损坏",
+      "icon": "icon_protection_scroll",
+      "maxStack": 20,
+      "usable": false,
+      "value": 200
+    },
+    
+    "blessing_scroll": {
+      "id": "blessing_scroll",
+      "name": "祝福符",
+      "type": "material",
+      "rarity": "rare",
+      "description": "提高强化成功率10%",
+      "icon": "icon_blessing_scroll",
+      "maxStack": 20,
+      "usable": false,
+      "value": 150
+    },
+    
+    "iron_ore": {
+      "id": "iron_ore",
+      "name": "铁矿石",
+      "type": "material",
+      "rarity": "common",
+      "description": "可以用来锻造武器和护甲",
+      "icon": "icon_iron_ore",
+      "maxStack": 50,
+      "usable": false,
+      "value": 8
+    },
+    
+    "leather": {
+      "id": "leather",
+      "name": "皮革",
+      "type": "material",
+      "rarity": "common",
+      "description": "制作皮甲的材料",
+      "icon": "icon_leather",
+      "maxStack": 50,
+      "usable": false,
+      "value": 5
+    },
+    
+    "cloth": {
+      "id": "cloth",
+      "name": "布料",
+      "type": "material",
+      "rarity": "common",
+      "description": "制作布衣的材料",
+      "icon": "icon_cloth",
+      "maxStack": 50,
+      "usable": false,
+      "value": 3
+    },
+    
+    "wood": {
+      "id": "wood",
+      "name": "木材",
+      "type": "material",
+      "rarity": "common",
+      "description": "制作木制武器的材料",
+      "icon": "icon_wood",
+      "maxStack": 50,
+      "usable": false,
+      "value": 2
+    },
+    
+    "copper_coin": {
+      "id": "copper_coin",
+      "name": "铜钱",
+      "type": "currency",
+      "rarity": "common",
+      "description": "东汉的货币，可以用来购买物品",
+      "icon": "icon_copper_coin",
+      "maxStack": 9999,
+      "usable": false,
+      "value": 1
+    },
+    
+    "yellow_turban_token": {
+      "id": "yellow_turban_token",
+      "name": "黄巾令牌",
+      "type": "quest",
+      "rarity": "rare",
+      "description": "黄巾军的身份令牌，证明你是黄巾军的一员",
+      "icon": "icon_yellow_turban_token",
+      "maxStack": 1,
+      "usable": false,
+      "value": 0,
+      "questItem": true
+    },
+    
+    "zhangjiao_letter": {
+      "id": "zhangjiao_letter",
+      "name": "张角的信件",
+      "type": "quest",
+      "rarity": "uncommon",
+      "description": "张角写给你的信件，记录了一些重要的事情",
+      "icon": "icon_letter",
+      "maxStack": 1,
+      "usable": false,
+      "value": 0,
+      "questItem": true
+    },
+    
+    "taiping_scripture": {
+      "id": "taiping_scripture",
+      "name": "太平要术残卷",
+      "type": "quest",
+      "rarity": "epic",
+      "description": "太平道的经典，记载了一些神秘的法术",
+      "icon": "icon_scripture",
+      "maxStack": 1,
+      "usable": false,
+      "value": 0,
+      "questItem": true,
+      "specialEffect": {
+        "name": "太平之道",
+        "description": "持有此物可以学习太平道法术"
+      }
+    },
+    
+    "battle_trophy": {
+      "id": "battle_trophy",
+      "name": "战斗战利品",
+      "type": "material",
+      "rarity": "common",
+      "description": "从敌人身上获得的战利品",
+      "icon": "icon_trophy",
+      "maxStack": 99,
+      "usable": false,
+      "value": 10
+    },
+    
+    "general_seal": {
+      "id": "general_seal",
+      "name": "将军印信",
+      "type": "quest",
+      "rarity": "rare",
+      "description": "击败敌方将领获得的印信，可以换取奖励",
+      "icon": "icon_seal",
+      "maxStack": 10,
+      "usable": false,
+      "value": 100,
+      "questItem": true
+    }
+  },
+  
+  "shopInventories": {
+    "act2_shop": {
+      "name": "张角粥棚补给",
+      "items": [
+        { "itemId": "talisman_water", "price": 10, "stock": 99 },
+        { "itemId": "health_potion", "price": 15, "stock": 50 },
+        { "itemId": "cloth_armor", "price": 10, "stock": 10 },
+        { "itemId": "wooden_sword", "price": 15, "stock": 10 }
+      ]
+    },
+    
+    "act3_shop": {
+      "name": "黄巾军商店",
+      "items": [
+        { "itemId": "health_potion", "price": 15, "stock": 99 },
+        { "itemId": "mana_potion", "price": 12, "stock": 99 },
+        { "itemId": "greater_health_potion", "price": 40, "stock": 50 },
+        { "itemId": "stamina_elixir", "price": 30, "stock": 20 },
+        { "itemId": "strength_elixir", "price": 30, "stock": 20 },
+        { "itemId": "basic_stone", "price": 20, "stock": 99 },
+        { "itemId": "intermediate_stone", "price": 50, "stock": 50 },
+        { "itemId": "protection_scroll", "price": 200, "stock": 10 },
+        { "itemId": "blessing_scroll", "price": 150, "stock": 10 },
+        { "itemId": "leather_armor", "price": 60, "stock": 5 },
+        { "itemId": "iron_helmet", "price": 40, "stock": 5 },
+        { "itemId": "leather_boots", "price": 25, "stock": 5 }
+      ]
+    },
+    
+    "act4_warrior_shop": {
+      "name": "张梁的武器库",
+      "items": [
+        { "itemId": "iron_sword", "price": 80, "stock": 5 },
+        { "itemId": "chain_mail", "price": 150, "stock": 3 },
+        { "itemId": "iron_helmet", "price": 40, "stock": 5 },
+        { "itemId": "strength_elixir", "price": 30, "stock": 20 }
+      ]
+    },
+    
+    "act4_archer_shop": {
+      "name": "张宝的弓箭铺",
+      "items": [
+        { "itemId": "hunting_bow", "price": 75, "stock": 5 },
+        { "itemId": "leather_armor", "price": 60, "stock": 5 },
+        { "itemId": "leather_boots", "price": 25, "stock": 10 },
+        { "itemId": "speed_elixir", "price": 50, "stock": 10 }
+      ]
+    },
+    
+    "act4_mage_shop": {
+      "name": "张角的法器阁",
+      "items": [
+        { "itemId": "magic_staff", "price": 85, "stock": 5 },
+        { "itemId": "mage_robe", "price": 140, "stock": 3 },
+        { "itemId": "mana_potion", "price": 12, "stock": 99 },
+        { "itemId": "greater_health_potion", "price": 40, "stock": 50 }
+      ]
+    },
+    
+    "act5_battle_shop": {
+      "name": "战场补给站",
+      "items": [
+        { "itemId": "health_potion", "price": 15, "stock": 999 },
+        { "itemId": "mana_potion", "price": 12, "stock": 999 },
+        { "itemId": "greater_health_potion", "price": 40, "stock": 99 },
+        { "itemId": "stamina_elixir", "price": 30, "stock": 50 },
+        { "itemId": "strength_elixir", "price": 30, "stock": 50 },
+        { "itemId": "speed_elixir", "price": 50, "stock": 30 },
+        { "itemId": "advanced_stone", "price": 100, "stock": 20 },
+        { "itemId": "protection_scroll", "price": 200, "stock": 20 },
+        { "itemId": "blessing_scroll", "price": 150, "stock": 20 }
+      ]
+    }
+  },
+  
+  "dropTables": {
+    "wild_dog": {
+      "currency": { "min": 1, "max": 3 },
+      "items": [
+        { "itemId": "leftover_food", "chance": 0.3 },
+        { "itemId": "leather", "chance": 0.2 }
+      ]
+    },
+    
+    "soldier": {
+      "currency": { "min": 5, "max": 10 },
+      "items": [
+        { "itemId": "health_potion", "chance": 0.2 },
+        { "itemId": "iron_ore", "chance": 0.15 },
+        { "itemId": "battle_trophy", "chance": 0.3 }
+      ]
+    },
+    
+    "bandit": {
+      "currency": { "min": 8, "max": 15 },
+      "items": [
+        { "itemId": "health_potion", "chance": 0.25 },
+        { "itemId": "copper_coin", "chance": 0.4 },
+        { "itemId": "battle_trophy", "chance": 0.2 }
+      ]
+    },
+    
+    "elite_soldier": {
+      "currency": { "min": 20, "max": 40 },
+      "items": [
+        { "itemId": "greater_health_potion", "chance": 0.3 },
+        { "itemId": "basic_stone", "chance": 0.2 },
+        { "itemId": "iron_ore", "chance": 0.25 },
+        { "itemId": "battle_trophy", "chance": 0.5 }
+      ]
+    },
+    
+    "general": {
+      "currency": { "min": 100, "max": 200 },
+      "items": [
+        { "itemId": "greater_health_potion", "chance": 0.8 },
+        { "itemId": "intermediate_stone", "chance": 0.4 },
+        { "itemId": "advanced_stone", "chance": 0.2 },
+        { "itemId": "general_seal", "chance": 1.0 },
+        { "itemId": "battle_trophy", "chance": 1.0 }
+      ]
+    }
+  }
+}

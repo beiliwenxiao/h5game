@@ -1,0 +1,193 @@
+{
+  "act": 3,
+  "title": "第三幕：铜钱法器",
+  "description": "张角传授铜钱法器，学习货币和交易系统",
+  "initialState": {
+    "playerPosition": { "x": 300, "y": 350 }
+  },
+  "npcs": [
+    {
+      "id": "zhangjiao",
+      "name": "张角",
+      "title": "太平道创始人",
+      "position": { "x": 400, "y": 300 },
+      "portrait": "zhangjiao",
+      "role": "instructor"
+    },
+    {
+      "id": "merchant",
+      "name": "商人",
+      "title": "杂货商",
+      "position": { "x": 600, "y": 300 },
+      "portrait": "merchant",
+      "role": "merchant"
+    }
+  ],
+  "dialogues": {
+    "coin_artifact": {
+      "id": "coin_artifact",
+      "title": "铜钱法器",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "来，我给你一把铜钱剑。",
+          "nextNode": "player_question"
+        },
+        "player_question": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "铜钱剑？",
+          "nextNode": "zhangjiao_explain"
+        },
+        "zhangjiao_explain": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "官府不允许私人发钱，但铜钱剑就是法器，就合法了。",
+          "nextNode": "player_understand"
+        },
+        "player_understand": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "原来如此...又是一个巧妙的方法。",
+          "nextNode": "zhangjiao_gift"
+        },
+        "zhangjiao_gift": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "这把铜钱剑给你。虽然攻击力不错，但耐久度较低，要小心使用。",
+          "nextNode": null
+        }
+      }
+    },
+    "shop_intro": {
+      "id": "shop_intro",
+      "title": "商店介绍",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "那边有个商人，你可以去买卖物品。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢指点。",
+          "nextNode": "zhangjiao_advice"
+        },
+        "zhangjiao_advice": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "记住，钱财乃身外之物，但在乱世中也是生存的必需品。",
+          "nextNode": null
+        }
+      }
+    },
+    "enhancement_intro": {
+      "id": "enhancement_intro",
+      "title": "装备强化",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "商人",
+          "portrait": "merchant",
+          "text": "我这里可以强化装备，让它们变得更强。",
+          "nextNode": "player_interest"
+        },
+        "player_interest": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "如何强化？",
+          "nextNode": "merchant_explain"
+        },
+        "merchant_explain": {
+          "speaker": "商人",
+          "portrait": "merchant",
+          "text": "需要消耗金币和强化石。强化等级越高，成功率越低，但属性提升也越大。",
+          "nextNode": "merchant_warning"
+        },
+        "merchant_warning": {
+          "speaker": "商人",
+          "portrait": "merchant",
+          "text": "不过要小心，高等级强化失败可能会损坏装备。",
+          "nextNode": null
+        }
+      }
+    }
+  },
+  "rewards": {
+    "currency": {
+      "gold": 500
+    }
+  },
+  "shop": {
+    "id": "general_store",
+    "name": "杂货铺",
+    "priceModifier": 1.0,
+    "items": [
+      {
+        "id": "health_potion",
+        "name": "生命药水",
+        "type": "consumable",
+        "price": 50,
+        "sellPrice": 25,
+        "effect": { "type": "heal", "value": 100 },
+        "description": "恢复100点生命值",
+        "stock": 10
+      },
+      {
+        "id": "mana_potion",
+        "name": "魔法药水",
+        "type": "consumable",
+        "price": 50,
+        "sellPrice": 25,
+        "effect": { "type": "mana", "value": 50 },
+        "description": "恢复50点魔法值",
+        "stock": 10
+      },
+      {
+        "id": "enhancement_stone",
+        "name": "强化石",
+        "type": "material",
+        "price": 100,
+        "sellPrice": 50,
+        "description": "用于强化装备的材料",
+        "stock": 5
+      }
+    ]
+  },
+  "enhancement": {
+    "successRates": {
+      "0": 1.0,
+      "1": 0.9,
+      "2": 0.8,
+      "3": 0.7,
+      "4": 0.6,
+      "5": 0.5,
+      "6": 0.4,
+      "7": 0.3,
+      "8": 0.2,
+      "9": 0.1
+    },
+    "costs": {
+      "0": 100,
+      "1": 200,
+      "2": 400,
+      "3": 800,
+      "4": 1600,
+      "5": 3200,
+      "6": 6400,
+      "7": 12800,
+      "8": 25600,
+      "9": 51200
+    },
+    "bonusPerLevel": 0.1
+  },
+  "transition": {
+    "type": "manual",
+    "nextAct": 4
+  }
+}

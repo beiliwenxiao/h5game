@@ -1,0 +1,402 @@
+{
+  "act": 6,
+  "title": "第六幕：结局",
+  "description": "黄巾起义的终章，你的选择决定了结局",
+  "initialState": {
+    "playerPosition": { "x": 400, "y": 400 }
+  },
+  "endings": {
+    "savior": {
+      "id": "savior",
+      "name": "拯救者",
+      "condition": {
+        "rescued_zhangliang": true,
+        "rescued_zhangbao": true,
+        "recruited_guanhai": true,
+        "recruited_zhoucang": true
+      },
+      "title": "黄巾拯救者",
+      "description": "你拯救了张梁和张宝，招募了管骇和周仓，尽最大努力延续了黄巾军的希望。",
+      "rating": "S",
+      "rewards": {
+        "title": "黄巾拯救者",
+        "gold": 5000,
+        "experience": 10000,
+        "items": [
+          {
+            "id": "savior_banner",
+            "name": "拯救者旗帜",
+            "type": "accessory",
+            "rarity": 4,
+            "stats": {
+              "allStats": 10,
+              "morale": 20
+            },
+            "description": "象征着你拯救黄巾军的功绩"
+          }
+        ],
+        "skills": [
+          {
+            "id": "heroic_inspiration",
+            "name": "英雄鼓舞",
+            "description": "提升所有友军的士气和战斗力"
+          }
+        ]
+      },
+      "epilogue": {
+        "text": "虽然张角最终病逝，但你的努力让黄巾军保留了火种。张梁和张宝继续领导残部，管骇和周仓成为你最忠诚的战友。历史会记住你的名字。",
+        "image": "epilogue_savior.jpg"
+      }
+    },
+    "witness": {
+      "id": "witness",
+      "name": "见证者",
+      "condition": {
+        "rescued_count": { "min": 1, "max": 1 }
+      },
+      "title": "黄巾见证者",
+      "description": "你见证了黄巾起义的兴衰，尽力而为但无法改变历史的洪流。",
+      "rating": "A",
+      "rewards": {
+        "title": "黄巾见证者",
+        "gold": 3000,
+        "experience": 7000,
+        "items": [
+          {
+            "id": "witness_medallion",
+            "name": "见证者徽章",
+            "type": "accessory",
+            "rarity": 3,
+            "stats": {
+              "allStats": 5,
+              "experience": 0.1
+            },
+            "description": "见证了历史的徽章"
+          }
+        ]
+      },
+      "epilogue": {
+        "text": "你尽力拯救了一些人，但黄巾起义最终还是失败了。你带着幸存者隐姓埋名，等待着下一个机会。历史的车轮滚滚向前，你只是其中的一个见证者。",
+        "image": "epilogue_witness.jpg"
+      }
+    },
+    "survivor": {
+      "id": "survivor",
+      "name": "幸存者",
+      "condition": {
+        "rescued_count": 0
+      },
+      "title": "黄巾幸存者",
+      "description": "你选择了保存实力，独自在乱世中生存下来。",
+      "rating": "B",
+      "rewards": {
+        "title": "黄巾幸存者",
+        "gold": 2000,
+        "experience": 5000,
+        "items": [
+          {
+            "id": "survivor_cloak",
+            "name": "幸存者斗篷",
+            "type": "accessory",
+            "rarity": 2,
+            "stats": {
+              "defense": 10,
+              "evasion": 0.15
+            },
+            "description": "帮助你在乱世中生存的斗篷"
+          }
+        ]
+      },
+      "epilogue": {
+        "text": "黄巾起义失败了，张角三兄弟都已离世。你选择了独自生存，在乱世中寻找自己的道路。也许有一天，你会找到新的目标。",
+        "image": "epilogue_survivor.jpg"
+      }
+    },
+    "leader": {
+      "id": "leader",
+      "name": "领袖",
+      "condition": {
+        "rescued_zhangliang": true,
+        "rescued_zhangbao": true,
+        "recruited_guanhai": true,
+        "recruited_zhoucang": true,
+        "battles_won": 4,
+        "player_level": { "min": 20 }
+      },
+      "title": "黄巾新领袖",
+      "description": "你不仅拯救了所有人，还展现出了卓越的领导才能，成为黄巾军的新希望。",
+      "rating": "SS",
+      "rewards": {
+        "title": "黄巾新领袖",
+        "gold": 10000,
+        "experience": 15000,
+        "items": [
+          {
+            "id": "leader_crown",
+            "name": "领袖之冠",
+            "type": "accessory",
+            "rarity": 5,
+            "stats": {
+              "allStats": 15,
+              "morale": 30,
+              "leadership": 20
+            },
+            "description": "象征着你作为黄巾新领袖的地位"
+          },
+          {
+            "id": "taiping_scripture",
+            "name": "太平要术",
+            "type": "book",
+            "rarity": 5,
+            "description": "张角传授的太平道秘籍",
+            "effect": "unlock_special_skills"
+          }
+        ],
+        "skills": [
+          {
+            "id": "taiping_blessing",
+            "name": "太平祝福",
+            "description": "大范围治疗和增益技能"
+          },
+          {
+            "id": "yellow_heaven_wrath",
+            "name": "黄天之怒",
+            "description": "强大的范围攻击技能"
+          }
+        ]
+      },
+      "epilogue": {
+        "text": "张角临终前将太平道的传承交给了你。你成为了黄巾军的新领袖，带领残部继续抗争。虽然这次起义失败了，但黄巾军的精神将永远流传。你的传奇，才刚刚开始。",
+        "image": "epilogue_leader.jpg"
+      }
+    }
+  },
+  "statistics": {
+    "tracked": [
+      "battles_won",
+      "battles_lost",
+      "enemies_defeated",
+      "allies_saved",
+      "npcs_recruited",
+      "total_damage_dealt",
+      "total_damage_taken",
+      "total_healing_done",
+      "skills_used",
+      "items_used",
+      "gold_earned",
+      "experience_gained",
+      "play_time"
+    ]
+  },
+  "inheritance": {
+    "enabled": true,
+    "data": {
+      "character": {
+        "name": true,
+        "level": true,
+        "experience": true,
+        "class": true,
+        "specialization": true
+      },
+      "attributes": {
+        "strength": true,
+        "agility": true,
+        "constitution": true,
+        "intelligence": true,
+        "spirit": true
+      },
+      "skills": {
+        "learned_skills": true,
+        "skill_levels": true
+      },
+      "equipment": {
+        "equipped_items": true,
+        "enhancement_levels": true
+      },
+      "inventory": {
+        "items": true,
+        "gold": true
+      },
+      "allies": {
+        "recruited_npcs": true,
+        "npc_levels": true,
+        "npc_loyalty": true
+      },
+      "achievements": {
+        "titles": true,
+        "completed_quests": true,
+        "battle_records": true
+      },
+      "choices": {
+        "player_decisions": true,
+        "ending_achieved": true
+      }
+    },
+    "bonuses": {
+      "savior": {
+        "starting_gold": 5000,
+        "starting_allies": ["guanhai", "zhoucang"],
+        "reputation": 100
+      },
+      "witness": {
+        "starting_gold": 3000,
+        "reputation": 50
+      },
+      "survivor": {
+        "starting_gold": 2000,
+        "reputation": 20
+      },
+      "leader": {
+        "starting_gold": 10000,
+        "starting_allies": ["guanhai", "zhoucang", "zhangliang", "zhangbao"],
+        "reputation": 200,
+        "special_quests": ["rebuild_yellow_turbans"]
+      }
+    }
+  },
+  "dialogues": {
+    "ending_intro": {
+      "id": "ending_intro",
+      "title": "终章",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "黄巾起义最终失败了。张角病逝，起义军四散。但你的故事，还在继续...",
+          "nextNode": null
+        }
+      }
+    },
+    "savior_ending": {
+      "id": "savior_ending",
+      "title": "拯救者结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "多亏了你，我们才能活下来。大哥的遗志，我们会继承下去。",
+          "nextNode": "zhangbao_speak"
+        },
+        "zhangbao_speak": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "你是我们的恩人，也是黄巾军的英雄。",
+          "nextNode": "player_response"
+        },
+        "player_response": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "我只是做了我该做的。黄巾军的精神，不会消亡。",
+          "nextNode": null
+        }
+      }
+    },
+    "witness_ending": {
+      "id": "witness_ending",
+      "title": "见证者结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "我见证了这一切...起义、战争、牺牲...但我无力改变历史。",
+          "nextNode": "reflection"
+        },
+        "reflection": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "也许，这就是乱世的宿命。但我会记住这一切，记住那些为理想而战的人们。",
+          "nextNode": null
+        }
+      }
+    },
+    "survivor_ending": {
+      "id": "survivor_ending",
+      "title": "幸存者结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "我活下来了...但代价是什么？",
+          "nextNode": "regret"
+        },
+        "regret": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "也许我应该做得更多...但现在说这些已经晚了。我只能继续前行。",
+          "nextNode": null
+        }
+      }
+    },
+    "leader_ending": {
+      "id": "leader_ending",
+      "title": "领袖结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "大哥说得对，你就是黄巾军的未来。",
+          "nextNode": "zhangbao_agree"
+        },
+        "zhangbao_agree": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "我们愿意追随你，重建黄巾军的荣光。",
+          "nextNode": "player_accept"
+        },
+        "player_accept": {
+          "speaker": "玩家",
+          "portrait": "player",
+          "text": "我接受这份责任。苍天已死，黄天当立！我们的战斗，还没有结束！",
+          "nextNode": "crowd_cheer"
+        },
+        "crowd_cheer": {
+          "speaker": "众人",
+          "portrait": null,
+          "text": "苍天已死，黄天当立！岁在甲子，天下大吉！",
+          "nextNode": null
+        }
+      }
+    }
+  },
+  "credits": {
+    "enabled": true,
+    "sections": [
+      {
+        "title": "序章制作组",
+        "entries": [
+          "游戏设计: Kiro AI",
+          "程序开发: Kiro AI",
+          "剧本编写: Kiro AI",
+          "数据配置: Kiro AI"
+        ]
+      },
+      {
+        "title": "特别鸣谢",
+        "entries": [
+          "《三国演义》- 罗贯中",
+          "《后汉书》- 范晔",
+          "所有为黄巾起义研究做出贡献的历史学家"
+        ]
+      },
+      {
+        "title": "历史背景",
+        "entries": [
+          "黄巾起义发生于东汉末年（公元184年）",
+          "由张角领导的太平道发起",
+          "是中国历史上规模最大的农民起义之一",
+          "虽然起义失败，但加速了东汉王朝的灭亡"
+        ]
+      }
+    ]
+  },
+  "transition": {
+    "type": "end_prologue",
+    "nextScene": "main_game",
+    "message": "序章完成！你的冒险将在正式游戏中继续..."
+  }
+}

@@ -1,0 +1,411 @@
+{
+  "act": 4,
+  "title": "第四幕：职业选择",
+  "description": "选择你的职业，定义你的战斗风格",
+  "initialState": {
+    "playerPosition": { "x": 400, "y": 400 }
+  },
+  "npcs": [
+    {
+      "id": "zhangliang",
+      "name": "张梁",
+      "title": "地公将军·战士教官",
+      "position": { "x": 200, "y": 300 },
+      "portrait": "zhangliang",
+      "role": "instructor",
+      "class": "warrior"
+    },
+    {
+      "id": "zhangbao",
+      "name": "张宝",
+      "title": "人公将军·弓箭手教官",
+      "position": { "x": 400, "y": 300 },
+      "portrait": "zhangbao",
+      "role": "instructor",
+      "class": "archer"
+    },
+    {
+      "id": "zhangjiao",
+      "name": "张角",
+      "title": "天公将军·法师教官",
+      "position": { "x": 600, "y": 300 },
+      "portrait": "zhangjiao",
+      "role": "instructor",
+      "class": "mage"
+    }
+  ],
+  "classes": {
+    "warrior": {
+      "id": "warrior",
+      "name": "战士",
+      "instructor": "张梁",
+      "description": "近战肉盾，高生命值和防御力",
+      "baseStats": {
+        "maxHp": 150,
+        "maxMp": 50,
+        "attack": 15,
+        "defense": 10,
+        "speed": 5
+      },
+      "startingEquipment": [
+        {
+          "id": "warrior_sword",
+          "name": "战士之剑",
+          "type": "equipment",
+          "subType": "weapon",
+          "stats": { "attack": 25 }
+        },
+        {
+          "id": "warrior_armor",
+          "name": "战士铠甲",
+          "type": "equipment",
+          "subType": "armor",
+          "stats": { "defense": 20, "maxHp": 50 }
+        }
+      ],
+      "skillTree": {
+        "basic": [
+          {
+            "id": "heavy_strike",
+            "name": "重击",
+            "description": "造成150%攻击力的伤害",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 5,
+            "manaCost": 10
+          },
+          {
+            "id": "shield_bash",
+            "name": "盾击",
+            "description": "造成伤害并眩晕敌人1秒",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 8,
+            "manaCost": 15
+          }
+        ],
+        "advanced": [
+          {
+            "id": "whirlwind",
+            "name": "旋风斩",
+            "description": "对周围所有敌人造成伤害",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 12,
+            "manaCost": 30,
+            "requires": ["heavy_strike"]
+          },
+          {
+            "id": "iron_skin",
+            "name": "铁壁",
+            "description": "提升50%防御力，持续10秒",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 20,
+            "manaCost": 25,
+            "requires": ["shield_bash"]
+          }
+        ]
+      },
+      "specializations": [
+        {
+          "id": "berserker",
+          "name": "狂战士",
+          "description": "牺牲防御换取更高攻击力",
+          "bonuses": {
+            "attack": 10,
+            "defense": -5,
+            "critChance": 0.15
+          }
+        },
+        {
+          "id": "guardian",
+          "name": "守护者",
+          "description": "极高的防御和生命值",
+          "bonuses": {
+            "defense": 15,
+            "maxHp": 100,
+            "damageReduction": 0.1
+          }
+        }
+      ]
+    },
+    "archer": {
+      "id": "archer",
+      "name": "弓箭手",
+      "instructor": "张宝",
+      "description": "远程输出，高攻击力和暴击率",
+      "baseStats": {
+        "maxHp": 100,
+        "maxMp": 80,
+        "attack": 20,
+        "defense": 5,
+        "speed": 8
+      },
+      "startingEquipment": [
+        {
+          "id": "archer_bow",
+          "name": "弓箭手之弓",
+          "type": "equipment",
+          "subType": "weapon",
+          "stats": { "attack": 30 }
+        },
+        {
+          "id": "archer_armor",
+          "name": "弓箭手皮甲",
+          "type": "equipment",
+          "subType": "armor",
+          "stats": { "defense": 10, "speed": 2 }
+        }
+      ],
+      "skillTree": {
+        "basic": [
+          {
+            "id": "power_shot",
+            "name": "强力射击",
+            "description": "造成200%攻击力的伤害",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 6,
+            "manaCost": 15
+          },
+          {
+            "id": "multi_shot",
+            "name": "多重射击",
+            "description": "同时射出3支箭",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 10,
+            "manaCost": 20
+          }
+        ],
+        "advanced": [
+          {
+            "id": "explosive_arrow",
+            "name": "爆裂箭",
+            "description": "造成范围伤害",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 15,
+            "manaCost": 35,
+            "requires": ["power_shot"]
+          },
+          {
+            "id": "rain_of_arrows",
+            "name": "箭雨",
+            "description": "对区域内所有敌人造成持续伤害",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 20,
+            "manaCost": 40,
+            "requires": ["multi_shot"]
+          }
+        ]
+      },
+      "specializations": [
+        {
+          "id": "sniper",
+          "name": "狙击手",
+          "description": "极高的暴击率和暴击伤害",
+          "bonuses": {
+            "attack": 5,
+            "critChance": 0.25,
+            "critDamage": 0.5
+          }
+        },
+        {
+          "id": "ranger",
+          "name": "游侠",
+          "description": "高移动速度和攻击速度",
+          "bonuses": {
+            "speed": 5,
+            "attackSpeed": 0.3,
+            "evasion": 0.15
+          }
+        }
+      ]
+    },
+    "mage": {
+      "id": "mage",
+      "name": "法师",
+      "instructor": "张角",
+      "description": "魔法输出，高魔法值和范围伤害",
+      "baseStats": {
+        "maxHp": 80,
+        "maxMp": 150,
+        "attack": 10,
+        "defense": 3,
+        "speed": 6,
+        "magicPower": 25
+      },
+      "startingEquipment": [
+        {
+          "id": "mage_staff",
+          "name": "法师法杖",
+          "type": "equipment",
+          "subType": "weapon",
+          "stats": { "magicPower": 35 }
+        },
+        {
+          "id": "mage_robe",
+          "name": "法师长袍",
+          "type": "equipment",
+          "subType": "armor",
+          "stats": { "defense": 5, "maxMp": 50 }
+        }
+      ],
+      "skillTree": {
+        "basic": [
+          {
+            "id": "fireball",
+            "name": "火球术",
+            "description": "发射火球造成魔法伤害",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 4,
+            "manaCost": 20,
+            "element": "fire"
+          },
+          {
+            "id": "ice_shard",
+            "name": "冰锥术",
+            "description": "发射冰锥造成伤害并减速",
+            "level": 1,
+            "cost": 1,
+            "cooldown": 5,
+            "manaCost": 18,
+            "element": "ice"
+          }
+        ],
+        "advanced": [
+          {
+            "id": "meteor",
+            "name": "陨石术",
+            "description": "召唤陨石造成大范围伤害",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 18,
+            "manaCost": 50,
+            "element": "fire",
+            "requires": ["fireball"]
+          },
+          {
+            "id": "blizzard",
+            "name": "暴风雪",
+            "description": "召唤暴风雪持续造成伤害",
+            "level": 5,
+            "cost": 2,
+            "cooldown": 20,
+            "manaCost": 45,
+            "element": "ice",
+            "requires": ["ice_shard"]
+          }
+        ]
+      },
+      "specializations": [
+        {
+          "id": "pyromancer",
+          "name": "火焰法师",
+          "description": "专精火系魔法，高爆发伤害",
+          "bonuses": {
+            "magicPower": 15,
+            "fireDamage": 0.3,
+            "critChance": 0.1
+          }
+        },
+        {
+          "id": "cryomancer",
+          "name": "冰霜法师",
+          "description": "专精冰系魔法，控制和持续伤害",
+          "bonuses": {
+            "magicPower": 10,
+            "iceDamage": 0.3,
+            "slowEffect": 0.2
+          }
+        }
+      ]
+    }
+  },
+  "dialogues": {
+    "class_selection_intro": {
+      "id": "class_selection_intro",
+      "title": "职业选择",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你已经掌握了基本的生存技能。现在，是时候选择你的道路了。",
+          "nextNode": "zhangjiao_explain"
+        },
+        "zhangjiao_explain": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "我的两位兄弟和我，分别代表三种不同的战斗方式。选择适合你的职业吧。",
+          "nextNode": null
+        }
+      }
+    },
+    "warrior_intro": {
+      "id": "warrior_intro",
+      "title": "战士之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "战士，是战场的中流砥柱。我们用血肉之躯保护同伴。",
+          "nextNode": "zhangliang_teach"
+        },
+        "zhangliang_teach": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "如果你选择战士之道，我会教你如何成为一名真正的勇士。",
+          "nextNode": null
+        }
+      }
+    },
+    "archer_intro": {
+      "id": "archer_intro",
+      "title": "弓箭手之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "弓箭手，是战场的幽灵。我们在敌人察觉之前就已取其性命。",
+          "nextNode": "zhangbao_teach"
+        },
+        "zhangbao_teach": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "如果你选择弓箭手之道，我会教你如何百步穿杨。",
+          "nextNode": null
+        }
+      }
+    },
+    "mage_intro": {
+      "id": "mage_intro",
+      "title": "法师之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "法师，是战场的主宰。我们掌控元素，呼风唤雨。",
+          "nextNode": "zhangjiao_teach"
+        },
+        "zhangjiao_teach": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "如果你选择法师之道，我会教你太平道的秘法。",
+          "nextNode": null
+        }
+      }
+    }
+  },
+  "transition": {
+    "type": "class_selected",
+    "nextAct": 5
+  }
+}

@@ -1,0 +1,240 @@
+{
+  "music": {
+    "prologue_theme": {
+      "file": "assets/audio/music/prologue_theme.mp3",
+      "volume": 0.5,
+      "loop": true,
+      "description": "序章主题音乐 - 悲壮而充满希望的旋律"
+    },
+    "battle_theme": {
+      "file": "assets/audio/music/battle_theme.mp3",
+      "volume": 0.6,
+      "loop": true,
+      "description": "战斗音乐 - 激昂的战斗旋律"
+    },
+    "peaceful_theme": {
+      "file": "assets/audio/music/peaceful_theme.mp3",
+      "volume": 0.4,
+      "loop": true,
+      "description": "和平场景音乐 - 用于张角粥棚等场景"
+    },
+    "epic_battle_theme": {
+      "file": "assets/audio/music/epic_battle_theme.mp3",
+      "volume": 0.7,
+      "loop": true,
+      "description": "史诗战斗音乐 - 用于大规模战役"
+    },
+    "ending_theme": {
+      "file": "assets/audio/music/ending_theme.mp3",
+      "volume": 0.5,
+      "loop": false,
+      "description": "结局音乐 - 感人的告别旋律"
+    }
+  },
+  "sfx": {
+    "attack_sword": {
+      "file": "assets/audio/sfx/attack_sword.mp3",
+      "volume": 0.7,
+      "description": "剑类武器攻击音效"
+    },
+    "attack_bow": {
+      "file": "assets/audio/sfx/attack_bow.mp3",
+      "volume": 0.6,
+      "description": "弓箭攻击音效"
+    },
+    "attack_magic": {
+      "file": "assets/audio/sfx/attack_magic.mp3",
+      "volume": 0.7,
+      "description": "法术攻击音效"
+    },
+    "hit_normal": {
+      "file": "assets/audio/sfx/hit_normal.mp3",
+      "volume": 0.6,
+      "description": "普通命中音效"
+    },
+    "hit_critical": {
+      "file": "assets/audio/sfx/hit_critical.mp3",
+      "volume": 0.8,
+      "description": "暴击命中音效"
+    },
+    "player_hurt": {
+      "file": "assets/audio/sfx/player_hurt.mp3",
+      "volume": 0.7,
+      "description": "玩家受伤音效"
+    },
+    "enemy_hurt": {
+      "file": "assets/audio/sfx/enemy_hurt.mp3",
+      "volume": 0.6,
+      "description": "敌人受伤音效"
+    },
+    "player_death": {
+      "file": "assets/audio/sfx/player_death.mp3",
+      "volume": 0.8,
+      "description": "玩家死亡音效"
+    },
+    "enemy_death": {
+      "file": "assets/audio/sfx/enemy_death.mp3",
+      "volume": 0.6,
+      "description": "敌人死亡音效"
+    },
+    "pickup_item": {
+      "file": "assets/audio/sfx/pickup_item.mp3",
+      "volume": 0.5,
+      "description": "拾取物品音效"
+    },
+    "pickup_coin": {
+      "file": "assets/audio/sfx/pickup_coin.mp3",
+      "volume": 0.6,
+      "description": "拾取货币音效"
+    },
+    "equip_item": {
+      "file": "assets/audio/sfx/equip_item.mp3",
+      "volume": 0.5,
+      "description": "装备物品音效"
+    },
+    "unequip_item": {
+      "file": "assets/audio/sfx/unequip_item.mp3",
+      "volume": 0.5,
+      "description": "卸下装备音效"
+    },
+    "enhance_success": {
+      "file": "assets/audio/sfx/enhance_success.mp3",
+      "volume": 0.7,
+      "description": "强化成功音效"
+    },
+    "enhance_fail": {
+      "file": "assets/audio/sfx/enhance_fail.mp3",
+      "volume": 0.6,
+      "description": "强化失败音效"
+    },
+    "shop_buy": {
+      "file": "assets/audio/sfx/shop_buy.mp3",
+      "volume": 0.5,
+      "description": "购买物品音效"
+    },
+    "shop_sell": {
+      "file": "assets/audio/sfx/shop_sell.mp3",
+      "volume": 0.5,
+      "description": "出售物品音效"
+    },
+    "dialogue_open": {
+      "file": "assets/audio/sfx/dialogue_open.mp3",
+      "volume": 0.4,
+      "description": "对话框打开音效"
+    },
+    "dialogue_close": {
+      "file": "assets/audio/sfx/dialogue_close.mp3",
+      "volume": 0.4,
+      "description": "对话框关闭音效"
+    },
+    "dialogue_text": {
+      "file": "assets/audio/sfx/dialogue_text.mp3",
+      "volume": 0.3,
+      "description": "对话文字显示音效（打字机效果）"
+    },
+    "ui_click": {
+      "file": "assets/audio/sfx/ui_click.mp3",
+      "volume": 0.4,
+      "description": "UI点击音效"
+    },
+    "ui_hover": {
+      "file": "assets/audio/sfx/ui_hover.mp3",
+      "volume": 0.3,
+      "description": "UI悬停音效"
+    },
+    "ui_open": {
+      "file": "assets/audio/sfx/ui_open.mp3",
+      "volume": 0.4,
+      "description": "UI面板打开音效"
+    },
+    "ui_close": {
+      "file": "assets/audio/sfx/ui_close.mp3",
+      "volume": 0.4,
+      "description": "UI面板关闭音效"
+    },
+    "skill_learn": {
+      "file": "assets/audio/sfx/skill_learn.mp3",
+      "volume": 0.6,
+      "description": "学习技能音效"
+    },
+    "level_up": {
+      "file": "assets/audio/sfx/level_up.mp3",
+      "volume": 0.7,
+      "description": "升级音效"
+    },
+    "quest_complete": {
+      "file": "assets/audio/sfx/quest_complete.mp3",
+      "volume": 0.6,
+      "description": "任务完成音效"
+    },
+    "battle_start": {
+      "file": "assets/audio/sfx/battle_start.mp3",
+      "volume": 0.7,
+      "description": "战斗开始音效"
+    },
+    "battle_victory": {
+      "file": "assets/audio/sfx/battle_victory.mp3",
+      "volume": 0.7,
+      "description": "战斗胜利音效"
+    },
+    "battle_defeat": {
+      "file": "assets/audio/sfx/battle_defeat.mp3",
+      "volume": 0.6,
+      "description": "战斗失败音效"
+    },
+    "general_appear": {
+      "file": "assets/audio/sfx/general_appear.mp3",
+      "volume": 0.8,
+      "description": "历史武将登场音效"
+    },
+    "npc_recruit": {
+      "file": "assets/audio/sfx/npc_recruit.mp3",
+      "volume": 0.6,
+      "description": "NPC招募音效"
+    },
+    "class_select": {
+      "file": "assets/audio/sfx/class_select.mp3",
+      "volume": 0.6,
+      "description": "职业选择音效"
+    },
+    "prologue_complete": {
+      "file": "assets/audio/sfx/prologue_complete.mp3",
+      "volume": 0.8,
+      "description": "序章完成音效"
+    },
+    "footstep": {
+      "file": "assets/audio/sfx/footstep.mp3",
+      "volume": 0.3,
+      "description": "脚步声音效"
+    },
+    "door_open": {
+      "file": "assets/audio/sfx/door_open.mp3",
+      "volume": 0.5,
+      "description": "门打开音效"
+    },
+    "ambient_wind": {
+      "file": "assets/audio/sfx/ambient_wind.mp3",
+      "volume": 0.2,
+      "description": "环境音效 - 风声"
+    },
+    "ambient_crowd": {
+      "file": "assets/audio/sfx/ambient_crowd.mp3",
+      "volume": 0.3,
+      "description": "环境音效 - 人群声"
+    }
+  },
+  "sceneMusic": {
+    "act1": "prologue_theme",
+    "act2": "peaceful_theme",
+    "act3": "peaceful_theme",
+    "act4": "peaceful_theme",
+    "act5": "epic_battle_theme",
+    "act6": "ending_theme"
+  },
+  "notes": {
+    "placeholder": "当前音频文件夹为空，这些配置作为占位符使用",
+    "implementation": "实际使用时需要将真实的音频文件放入 assets/audio 目录",
+    "fallback": "如果音频文件不存在，AudioManager 会优雅地处理错误，不影响游戏运行",
+    "volume_range": "音量范围 0.0-1.0，可以通过 AudioManager 的音量控制进行调节"
+  }
+}

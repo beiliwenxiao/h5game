@@ -1,0 +1,696 @@
+{
+  "enemies": {
+    "wild_dog": {
+      "id": "wild_dog",
+      "name": "野狗",
+      "type": "beast",
+      "description": "饥饿的野狗，攻击性强",
+      "level": 1,
+      "rarity": "common",
+      "attributes": {
+        "maxHp": 50,
+        "hp": 50,
+        "attack": 8,
+        "defense": 3,
+        "speed": 120,
+        "strength": 5,
+        "agility": 8,
+        "constitution": 4
+      },
+      "combat": {
+        "attackRange": 50,
+        "attackSpeed": 1.2,
+        "detectionRange": 200,
+        "aggroRange": 150
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "chase_and_attack",
+        "fleeThreshold": 0.2
+      },
+      "appearance": {
+        "width": 40,
+        "height": 30,
+        "color": "#8b4513",
+        "sprite": "wild_dog"
+      },
+      "drops": {
+        "currency": {
+          "min": 1,
+          "max": 5
+        },
+        "items": [],
+        "experience": 10
+      }
+    },
+    "government_soldier": {
+      "id": "government_soldier",
+      "name": "官府士兵",
+      "type": "humanoid",
+      "description": "朝廷派遣的士兵",
+      "level": 3,
+      "rarity": "common",
+      "attributes": {
+        "maxHp": 100,
+        "hp": 100,
+        "attack": 15,
+        "defense": 10,
+        "speed": 90,
+        "strength": 12,
+        "agility": 10,
+        "constitution": 10
+      },
+      "combat": {
+        "attackRange": 80,
+        "attackSpeed": 1.0,
+        "detectionRange": 250,
+        "aggroRange": 200
+      },
+      "ai": {
+        "type": "defensive",
+        "behavior": "guard_and_patrol",
+        "fleeThreshold": 0.15
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#4169e1",
+        "sprite": "government_soldier"
+      },
+      "drops": {
+        "currency": {
+          "min": 10,
+          "max": 20
+        },
+        "items": [
+          {
+            "id": "iron_sword",
+            "chance": 0.1
+          },
+          {
+            "id": "leather_armor",
+            "chance": 0.15
+          }
+        ],
+        "experience": 30
+      }
+    },
+    "bandit": {
+      "id": "bandit",
+      "name": "土匪",
+      "type": "humanoid",
+      "description": "趁乱打劫的土匪",
+      "level": 4,
+      "rarity": "common",
+      "attributes": {
+        "maxHp": 120,
+        "hp": 120,
+        "attack": 18,
+        "defense": 8,
+        "speed": 110,
+        "strength": 14,
+        "agility": 13,
+        "constitution": 11
+      },
+      "combat": {
+        "attackRange": 70,
+        "attackSpeed": 1.3,
+        "detectionRange": 300,
+        "aggroRange": 250
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "swarm_attack",
+        "fleeThreshold": 0.25
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#8b0000",
+        "sprite": "bandit"
+      },
+      "drops": {
+        "currency": {
+          "min": 15,
+          "max": 30
+        },
+        "items": [
+          {
+            "id": "rusty_dagger",
+            "chance": 0.2
+          },
+          {
+            "id": "stolen_goods",
+            "chance": 0.4
+          }
+        ],
+        "experience": 40
+      }
+    },
+    "refugee": {
+      "id": "refugee",
+      "name": "饥民",
+      "type": "humanoid",
+      "description": "绝望的饥民，为了食物不择手段",
+      "level": 2,
+      "rarity": "common",
+      "attributes": {
+        "maxHp": 60,
+        "hp": 60,
+        "attack": 10,
+        "defense": 5,
+        "speed": 85,
+        "strength": 8,
+        "agility": 7,
+        "constitution": 6
+      },
+      "combat": {
+        "attackRange": 60,
+        "attackSpeed": 1.5,
+        "detectionRange": 200,
+        "aggroRange": 180
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "mob_attack",
+        "fleeThreshold": 0.3
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#696969",
+        "sprite": "refugee"
+      },
+      "drops": {
+        "currency": {
+          "min": 0,
+          "max": 3
+        },
+        "items": [],
+        "experience": 15
+      }
+    },
+    "yellow_turban_soldier": {
+      "id": "yellow_turban_soldier",
+      "name": "黄巾军士兵",
+      "type": "humanoid",
+      "description": "黄巾起义军的普通士兵",
+      "level": 5,
+      "rarity": "common",
+      "faction": "ally",
+      "attributes": {
+        "maxHp": 130,
+        "hp": 130,
+        "attack": 20,
+        "defense": 12,
+        "speed": 95,
+        "strength": 15,
+        "agility": 11,
+        "constitution": 13
+      },
+      "combat": {
+        "attackRange": 85,
+        "attackSpeed": 1.0,
+        "detectionRange": 300,
+        "aggroRange": 250
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "formation_attack",
+        "fleeThreshold": 0.2
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#ffd700",
+        "sprite": "yellow_turban_soldier"
+      }
+    },
+    "yellow_turban_archer": {
+      "id": "yellow_turban_archer",
+      "name": "黄巾军弓箭手",
+      "type": "humanoid",
+      "description": "黄巾起义军的弓箭手",
+      "level": 5,
+      "rarity": "common",
+      "faction": "ally",
+      "attributes": {
+        "maxHp": 100,
+        "hp": 100,
+        "attack": 25,
+        "defense": 8,
+        "speed": 100,
+        "strength": 12,
+        "agility": 16,
+        "constitution": 10
+      },
+      "combat": {
+        "attackRange": 200,
+        "attackSpeed": 0.8,
+        "detectionRange": 350,
+        "aggroRange": 300
+      },
+      "ai": {
+        "type": "support",
+        "behavior": "ranged_attack",
+        "fleeThreshold": 0.25
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#ffd700",
+        "sprite": "yellow_turban_archer"
+      }
+    },
+    "yellow_turban_elite": {
+      "id": "yellow_turban_elite",
+      "name": "黄巾军精锐",
+      "type": "humanoid",
+      "description": "黄巾起义军的精锐战士",
+      "level": 8,
+      "rarity": "uncommon",
+      "faction": "ally",
+      "attributes": {
+        "maxHp": 180,
+        "hp": 180,
+        "attack": 28,
+        "defense": 18,
+        "speed": 105,
+        "strength": 20,
+        "agility": 14,
+        "constitution": 18
+      },
+      "combat": {
+        "attackRange": 90,
+        "attackSpeed": 1.1,
+        "detectionRange": 320,
+        "aggroRange": 280
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "tactical_attack",
+        "fleeThreshold": 0.15
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#ffaa00",
+        "sprite": "yellow_turban_elite"
+      }
+    },
+    "elite_soldier": {
+      "id": "elite_soldier",
+      "name": "官军精锐",
+      "type": "humanoid",
+      "description": "朝廷精锐部队",
+      "level": 8,
+      "rarity": "uncommon",
+      "attributes": {
+        "maxHp": 160,
+        "hp": 160,
+        "attack": 26,
+        "defense": 20,
+        "speed": 100,
+        "strength": 18,
+        "agility": 13,
+        "constitution": 16
+      },
+      "combat": {
+        "attackRange": 85,
+        "attackSpeed": 1.0,
+        "detectionRange": 300,
+        "aggroRange": 250
+      },
+      "ai": {
+        "type": "defensive",
+        "behavior": "formation_defense",
+        "fleeThreshold": 0.1
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#1e90ff",
+        "sprite": "elite_soldier"
+      },
+      "drops": {
+        "currency": {
+          "min": 30,
+          "max": 50
+        },
+        "items": [
+          {
+            "id": "steel_sword",
+            "chance": 0.15
+          },
+          {
+            "id": "chain_mail",
+            "chance": 0.1
+          }
+        ],
+        "experience": 80
+      }
+    },
+    "city_guard": {
+      "id": "city_guard",
+      "name": "县城守军",
+      "type": "humanoid",
+      "description": "县城的守卫部队",
+      "level": 6,
+      "rarity": "common",
+      "attributes": {
+        "maxHp": 140,
+        "hp": 140,
+        "attack": 22,
+        "defense": 16,
+        "speed": 90,
+        "strength": 16,
+        "agility": 11,
+        "constitution": 14
+      },
+      "combat": {
+        "attackRange": 80,
+        "attackSpeed": 1.0,
+        "detectionRange": 280,
+        "aggroRange": 230
+      },
+      "ai": {
+        "type": "defensive",
+        "behavior": "hold_position",
+        "fleeThreshold": 0.1
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#4682b4",
+        "sprite": "city_guard"
+      },
+      "drops": {
+        "currency": {
+          "min": 20,
+          "max": 35
+        },
+        "items": [
+          {
+            "id": "guard_spear",
+            "chance": 0.12
+          }
+        ],
+        "experience": 50
+      }
+    },
+    "city_commander": {
+      "id": "city_commander",
+      "name": "县城守将",
+      "type": "humanoid",
+      "description": "县城的最高军事指挥官",
+      "level": 10,
+      "rarity": "rare",
+      "isBoss": true,
+      "attributes": {
+        "maxHp": 500,
+        "hp": 500,
+        "attack": 35,
+        "defense": 25,
+        "speed": 95,
+        "strength": 25,
+        "agility": 15,
+        "constitution": 25
+      },
+      "combat": {
+        "attackRange": 100,
+        "attackSpeed": 0.9,
+        "detectionRange": 400,
+        "aggroRange": 350
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "boss_tactics",
+        "fleeThreshold": 0.0
+      },
+      "skills": [
+        {
+          "id": "heavy_strike",
+          "name": "重击",
+          "damage": 80,
+          "cooldown": 8000
+        },
+        {
+          "id": "shield_bash",
+          "name": "盾击",
+          "damage": 50,
+          "stun": 2000,
+          "cooldown": 12000
+        }
+      ],
+      "appearance": {
+        "width": 56,
+        "height": 72,
+        "color": "#b8860b",
+        "sprite": "city_commander"
+      },
+      "drops": {
+        "currency": {
+          "min": 200,
+          "max": 300
+        },
+        "items": [
+          {
+            "id": "commander_sword",
+            "chance": 0.5
+          },
+          {
+            "id": "commander_armor",
+            "chance": 0.3
+          }
+        ],
+        "experience": 500
+      }
+    },
+    "huangfu_army": {
+      "id": "huangfu_army",
+      "name": "皇甫嵩军",
+      "type": "humanoid",
+      "description": "皇甫嵩统领的精锐部队",
+      "level": 9,
+      "rarity": "uncommon",
+      "attributes": {
+        "maxHp": 190,
+        "hp": 190,
+        "attack": 30,
+        "defense": 22,
+        "speed": 105,
+        "strength": 21,
+        "agility": 14,
+        "constitution": 19
+      },
+      "combat": {
+        "attackRange": 90,
+        "attackSpeed": 1.0,
+        "detectionRange": 320,
+        "aggroRange": 280
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "coordinated_attack",
+        "fleeThreshold": 0.1
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#4169e1",
+        "sprite": "huangfu_army"
+      },
+      "drops": {
+        "currency": {
+          "min": 40,
+          "max": 60
+        },
+        "items": [
+          {
+            "id": "elite_weapon",
+            "chance": 0.2
+          }
+        ],
+        "experience": 90
+      }
+    },
+    "liu_army": {
+      "id": "liu_army",
+      "name": "刘备军",
+      "type": "humanoid",
+      "description": "刘备统领的义军",
+      "level": 10,
+      "rarity": "uncommon",
+      "attributes": {
+        "maxHp": 200,
+        "hp": 200,
+        "attack": 32,
+        "defense": 24,
+        "speed": 100,
+        "strength": 22,
+        "agility": 15,
+        "constitution": 20
+      },
+      "combat": {
+        "attackRange": 85,
+        "attackSpeed": 1.0,
+        "detectionRange": 300,
+        "aggroRange": 260
+      },
+      "ai": {
+        "type": "defensive",
+        "behavior": "protect_general",
+        "fleeThreshold": 0.15
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#228b22",
+        "sprite": "liu_army"
+      },
+      "drops": {
+        "currency": {
+          "min": 45,
+          "max": 65
+        },
+        "items": [
+          {
+            "id": "quality_weapon",
+            "chance": 0.18
+          }
+        ],
+        "experience": 100
+      }
+    },
+    "imperial_army": {
+      "id": "imperial_army",
+      "name": "朝廷大军",
+      "type": "humanoid",
+      "description": "朝廷集结的主力部队",
+      "level": 12,
+      "rarity": "uncommon",
+      "attributes": {
+        "maxHp": 220,
+        "hp": 220,
+        "attack": 35,
+        "defense": 26,
+        "speed": 95,
+        "strength": 24,
+        "agility": 13,
+        "constitution": 22
+      },
+      "combat": {
+        "attackRange": 90,
+        "attackSpeed": 1.0,
+        "detectionRange": 320,
+        "aggroRange": 280
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "overwhelming_force",
+        "fleeThreshold": 0.05
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#191970",
+        "sprite": "imperial_army"
+      },
+      "drops": {
+        "currency": {
+          "min": 50,
+          "max": 75
+        },
+        "items": [
+          {
+            "id": "imperial_weapon",
+            "chance": 0.15
+          }
+        ],
+        "experience": 120
+      }
+    },
+    "yellow_turban_remnant": {
+      "id": "yellow_turban_remnant",
+      "name": "黄巾军残部",
+      "type": "humanoid",
+      "description": "黄巾起义军的残余部队，士气低落但仍在战斗",
+      "level": 12,
+      "rarity": "uncommon",
+      "faction": "ally",
+      "attributes": {
+        "maxHp": 250,
+        "hp": 250,
+        "attack": 38,
+        "defense": 22,
+        "speed": 100,
+        "strength": 26,
+        "agility": 16,
+        "constitution": 25
+      },
+      "combat": {
+        "attackRange": 90,
+        "attackSpeed": 1.0,
+        "detectionRange": 300,
+        "aggroRange": 260
+      },
+      "ai": {
+        "type": "aggressive",
+        "behavior": "desperate_fight",
+        "fleeThreshold": 0.1
+      },
+      "appearance": {
+        "width": 48,
+        "height": 64,
+        "color": "#daa520",
+        "sprite": "yellow_turban_remnant"
+      }
+    }
+  },
+  "templates": {
+    "beast": {
+      "baseAttributes": {
+        "strength": 8,
+        "agility": 10,
+        "constitution": 6,
+        "intelligence": 2,
+        "spirit": 2
+      },
+      "aiPreferences": {
+        "type": "aggressive",
+        "behavior": "chase_and_attack"
+      }
+    },
+    "humanoid": {
+      "baseAttributes": {
+        "strength": 10,
+        "agility": 10,
+        "constitution": 10,
+        "intelligence": 10,
+        "spirit": 10
+      },
+      "aiPreferences": {
+        "type": "balanced",
+        "behavior": "tactical"
+      }
+    }
+  },
+  "formations": {
+    "line": {
+      "name": "横列阵型",
+      "spacing": 80,
+      "rows": 1
+    },
+    "back_line": {
+      "name": "后排阵型",
+      "spacing": 100,
+      "rows": 2,
+      "offset": 150
+    },
+    "defensive": {
+      "name": "防御阵型",
+      "spacing": 60,
+      "rows": 3
+    }
+  }
+}

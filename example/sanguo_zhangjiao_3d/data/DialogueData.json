@@ -1,0 +1,1139 @@
+{
+  "act1": {
+    "intro": {
+      "id": "intro",
+      "title": "序章开始",
+      "startNode": "node1",
+      "nodes": {
+        "node1": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "东汉末年，天下大乱，民不聊生...",
+          "nextNode": "node2"
+        },
+        "node2": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你是一名普通的流民，为了生存而挣扎...",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_movement": {
+      "id": "tutorial_movement",
+      "title": "移动教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你从黑暗中醒来，饥寒交迫。按 C 查看属性",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_after_attribute": {
+      "id": "tutorial_after_attribute",
+      "title": "移动提示",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你四处走了走，看了看。按WASD移动",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_pickup": {
+      "id": "tutorial_pickup",
+      "title": "拾取教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你发现一些物品。按E键拾取"
+,
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_inventory": {
+      "id": "tutorial_inventory",
+      "title": "背包教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "按B键查看背包",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_equip": {
+      "id": "tutorial_equip",
+      "title": "装备教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "点击物品装备",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_equipment_panel": {
+      "id": "tutorial_equipment_panel",
+      "title": "装备面板教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "按V键查看装备",
+          "nextNode": null
+        }
+      }
+    },
+    "tutorial_combat": {
+      "id": "tutorial_combat",
+      "title": "战斗教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你现在可以战斗了。按空格键攻击",
+          "nextNode": null
+        }
+      }
+    },
+    "starving_mob": {
+      "id": "starving_mob",
+      "title": "饥民围困",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "饥民",
+          "portrait": null,
+          "text": "把食物交出来！",
+          "nextNode": "player_response"
+        },
+        "player_response": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "我...我也没有食物...",
+          "nextNode": "mob_attack"
+        },
+        "mob_attack": {
+          "speaker": "饥民",
+          "portrait": null,
+          "text": "那就别怪我们不客气了！",
+          "nextNode": null
+        }
+      }
+    },
+    "death": {
+      "id": "death",
+      "title": "死亡",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你死了...但这不是结局",
+          "nextNode": null
+        }
+      }
+    }
+  },
+  "act2": {
+    "awakening": {
+      "id": "awakening",
+      "title": "觉醒",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你醒了。你在荒野中昏倒了，我们把你救了回来。",
+          "nextNode": "player_response"
+        },
+        "player_response": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "这里是...？",
+          "nextNode": "zhangjiao_explain"
+        },
+        "zhangjiao_explain": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "这里是我们的粥棚。乱世之中，百姓流离失所，我们在这里施粥救济灾民。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢救命之恩。",
+          "nextNode": "zhangjiao_invite"
+        },
+        "zhangjiao_invite": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "不必客气。如果你愿意，可以留下来帮忙。这乱世，需要更多有志之士。",
+          "nextNode": null
+        }
+      }
+    },
+    "talisman_water": {
+      "id": "talisman_water",
+      "title": "符水的真相",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "来，喝碗符水吧。",
+          "nextNode": "player_question"
+        },
+        "player_question": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "符水？",
+          "nextNode": "zhangjiao_explain"
+        },
+        "zhangjiao_explain": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "官府不允许私人施粥，但如果说这是仙家符水，就合法了。",
+          "nextNode": "player_understand"
+        },
+        "player_understand": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "原来如此...这是智慧啊。",
+          "nextNode": "zhangjiao_smile"
+        },
+        "zhangjiao_smile": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "乱世求生，需要智慧。来，喝吧，这符水能恢复你的体力。",
+          "nextNode": null
+        }
+      }
+    }
+,
+    "equipment_upgrade": {
+      "id": "equipment_upgrade",
+      "title": "装备升级",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你需要更好的装备来保护自己。这些给你。",
+          "nextNode": "player_receive"
+        },
+        "player_receive": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "这些装备...太好了！",
+          "nextNode": "zhangjiao_advice"
+        },
+        "zhangjiao_advice": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "装备只是外物，真正的力量来自于你自己。",
+          "nextNode": null
+        }
+      }
+    },
+    "skill_tutorial": {
+      "id": "skill_tutorial",
+      "title": "技能教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你可以学习技能了。技能能让你在战斗中更加强大。",
+          "nextNode": "player_interested"
+        },
+        "player_interested": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "请教我！",
+          "nextNode": "zhangjiao_teach"
+        },
+        "zhangjiao_teach": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "按Q使用技能。记住，技能需要消耗法力值。",
+          "nextNode": null
+        }
+      }
+    },
+    "attribute_tutorial": {
+      "id": "attribute_tutorial",
+      "title": "属性教程",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你可以提升属性了。力量增加攻击，敏捷增加速度，体质增加生命。",
+          "nextNode": "player_understand"
+        },
+        "player_understand": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "我明白了。",
+          "nextNode": "zhangjiao_encourage"
+        },
+        "zhangjiao_encourage": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "好好修炼，你会变得更强。",
+          "nextNode": null
+        }
+      }
+    }
+  },
+  "act3": {
+    "coin_artifact_intro": {
+      "id": "coin_artifact_intro",
+      "title": "铜钱法器",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "官府不允许私人发钱，但铜钱剑就是法器，就合法了。",
+          "nextNode": "player_amazed"
+        },
+        "player_amazed": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "又是一个巧妙的办法！",
+          "nextNode": "zhangjiao_gift"
+        },
+        "zhangjiao_gift": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "这把铜钱剑送给你。虽然耐久度不高，但能帮助你度过难关。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢大人！",
+          "nextNode": null
+        }
+      }
+    },
+    "shop_intro": {
+      "id": "shop_intro",
+      "title": "商店介绍",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你可以在商店购买物品。这些铜钱拿去用吧。",
+          "nextNode": "player_receive"
+        },
+        "player_receive": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "我会好好利用的。",
+          "nextNode": null
+        }
+      }
+    },
+    "enhancement_intro": {
+      "id": "enhancement_intro",
+      "title": "强化介绍",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "装备可以强化。强化能提升装备属性，但也有失败的风险。",
+          "nextNode": "player_understand"
+        },
+        "player_understand": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "我明白了，我会谨慎使用。",
+          "nextNode": "zhangjiao_advice"
+        },
+        "zhangjiao_advice": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "记住，装备虽好，但不要过度依赖。真正的力量在于你自己。",
+          "nextNode": null
+        }
+      }
+    },
+    "dismantle_intro": {
+      "id": "dismantle_intro",
+      "title": "拆解介绍",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "不需要的装备可以拆解，换取铜钱。",
+          "nextNode": "player_learn"
+        },
+        "player_learn": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "这样就不会浪费了。",
+          "nextNode": null
+        }
+      }
+    }
+  }
+,
+  "act4": {
+    "class_selection_intro": {
+      "id": "class_selection_intro",
+      "title": "职业选择",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "你已经掌握了基本的生存技能。现在，是时候选择你的道路了。",
+          "nextNode": "zhangjiao_explain"
+        },
+        "zhangjiao_explain": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "我的两位兄弟和我，分别代表三种不同的战斗方式。选择适合你的职业吧。",
+          "nextNode": null
+        }
+      }
+    },
+    "warrior_intro": {
+      "id": "warrior_intro",
+      "title": "战士之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "战士，是战场的中流砥柱。我们用血肉之躯保护同伴。",
+          "nextNode": "zhangliang_teach"
+        },
+        "zhangliang_teach": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "如果你选择战士之道，我会教你如何成为一名真正的勇士。",
+          "nextNode": "zhangliang_detail"
+        },
+        "zhangliang_detail": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "战士拥有高生命值和防御力，能在战场上坚持到最后。",
+          "nextNode": null
+        }
+      }
+    },
+    "archer_intro": {
+      "id": "archer_intro",
+      "title": "弓箭手之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "弓箭手，是战场的幽灵。我们在敌人察觉之前就已取其性命。",
+          "nextNode": "zhangbao_teach"
+        },
+        "zhangbao_teach": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "如果你选择弓箭手之道，我会教你如何百步穿杨。",
+          "nextNode": "zhangbao_detail"
+        },
+        "zhangbao_detail": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "弓箭手拥有高攻击力和暴击率，能在远处给予敌人致命一击。",
+          "nextNode": null
+        }
+      }
+    },
+    "mage_intro": {
+      "id": "mage_intro",
+      "title": "法师之道",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "法师，是战场的主宰。我们掌控元素，呼风唤雨。",
+          "nextNode": "zhangjiao_teach"
+        },
+        "zhangjiao_teach": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "如果你选择法师之道，我会教你太平道的秘法。",
+          "nextNode": "zhangjiao_detail"
+        },
+        "zhangjiao_detail": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "法师拥有强大的范围伤害和控制能力，能改变战场的局势。",
+          "nextNode": null
+        }
+      }
+    },
+    "class_selected_warrior": {
+      "id": "class_selected_warrior",
+      "title": "选择战士",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "很好！从今天起，你就是我的弟子了。",
+          "nextNode": "zhangliang_gift"
+        },
+        "zhangliang_gift": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "这把剑和这套铠甲，是我送给你的礼物。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢师父！我一定不会让您失望！",
+          "nextNode": null
+        }
+      }
+    },
+    "class_selected_archer": {
+      "id": "class_selected_archer",
+      "title": "选择弓箭手",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "很好！从今天起，你就是我的弟子了。",
+          "nextNode": "zhangbao_gift"
+        },
+        "zhangbao_gift": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "这把弓和这套皮甲，是我送给你的礼物。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢师父！我一定不会让您失望！",
+          "nextNode": null
+        }
+      }
+    },
+    "class_selected_mage": {
+      "id": "class_selected_mage",
+      "title": "选择法师",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "很好！从今天起，你就是我的弟子了。",
+          "nextNode": "zhangjiao_gift"
+        },
+        "zhangjiao_gift": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "这根法杖和这件长袍，是我送给你的礼物。",
+          "nextNode": "player_thanks"
+        },
+        "player_thanks": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "多谢师父！我一定不会让您失望！",
+          "nextNode": null
+        }
+      }
+    }
+  }
+,
+  "act5": {
+    "uprising_intro": {
+      "id": "uprising_intro",
+      "title": "起义动员",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "苍天已死，黄天当立！",
+          "nextNode": "crowd_response"
+        },
+        "crowd_response": {
+          "speaker": "众人",
+          "portrait": null,
+          "text": "岁在甲子，天下大吉！",
+          "nextNode": "zhangjiao_order"
+        },
+        "zhangjiao_order": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "兄弟们，今天我们要占领县城，让天下人知道，黄巾军的力量！",
+          "nextNode": "player_ready"
+        },
+        "player_ready": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "为了黄天！",
+          "nextNode": null
+        }
+      }
+    },
+    "uprising_victory": {
+      "id": "uprising_victory",
+      "title": "起义胜利",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "我们胜利了！这只是开始，更大的战斗还在后面。",
+          "nextNode": "player_celebrate"
+        },
+        "player_celebrate": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "黄天万岁！",
+          "nextNode": null
+        }
+      }
+    },
+    "guangzong_intro": {
+      "id": "guangzong_intro",
+      "title": "广宗之战",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "信使",
+          "portrait": null,
+          "text": "不好了！张梁将军在广宗被皇甫嵩围困！",
+          "nextNode": "zhangjiao_worry"
+        },
+        "zhangjiao_worry": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "二弟有危险！我们必须立刻前往救援！",
+          "nextNode": "player_volunteer"
+        },
+        "player_volunteer": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "师父，让我去！",
+          "nextNode": "zhangjiao_agree"
+        },
+        "zhangjiao_agree": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "好！小心曹操，他是顶级骑兵，非常危险。",
+          "nextNode": null
+        }
+      }
+    },
+    "caocao_appears": {
+      "id": "caocao_appears",
+      "title": "曹操登场",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "一骑绝尘而来，马上之人目光如炬。",
+          "nextNode": "caocao_intro"
+        },
+        "caocao_intro": {
+          "speaker": "曹操",
+          "portrait": "caocao",
+          "text": "吾乃曹操，字孟德。黄巾贼寇，纳命来！",
+          "nextNode": null
+        }
+      }
+    },
+    "guangzong_rescue_choice": {
+      "id": "guangzong_rescue_choice",
+      "title": "救援选择",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "快走！不要管我！",
+          "nextNode": "choice"
+        },
+        "choice": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你要救援张梁吗？",
+          "choices": [
+            {
+              "id": "rescue",
+              "text": "救援张梁",
+              "nextNode": "rescue_success"
+            },
+            {
+              "id": "retreat",
+              "text": "撤退",
+              "nextNode": "retreat"
+            }
+          ]
+        },
+        "rescue_success": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "多谢相救！我欠你一条命！",
+          "nextNode": null
+        },
+        "retreat": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "对不起...我无能为力...",
+          "nextNode": null
+        }
+      }
+    },
+    "guanhai_joins": {
+      "id": "guanhai_joins",
+      "title": "管亥加入",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "管亥",
+          "portrait": "guanhai",
+          "text": "你救了将军，我管亥愿意追随你！",
+          "nextNode": "player_accept"
+        },
+        "player_accept": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "欢迎加入！",
+          "nextNode": null
+        }
+      }
+    }
+,
+    "yangcheng_intro": {
+      "id": "yangcheng_intro",
+      "title": "阳城之战",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "信使",
+          "portrait": null,
+          "text": "张宝将军在阳城遭遇刘备军！",
+          "nextNode": "zhangjiao_concern"
+        },
+        "zhangjiao_concern": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "三弟也有危险！你再去一趟！",
+          "nextNode": "player_go"
+        },
+        "player_go": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "是！",
+          "nextNode": null
+        }
+      }
+    },
+    "liubei_appears": {
+      "id": "liubei_appears",
+      "title": "刘关张登场",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "刘备",
+          "portrait": "liubei",
+          "text": "吾乃中山靖王之后，刘备刘玄德是也！",
+          "nextNode": "guanyu_intro"
+        },
+        "guanyu_intro": {
+          "speaker": "关羽",
+          "portrait": "guanyu",
+          "text": "关羽关云长在此！",
+          "nextNode": "zhangfei_intro"
+        },
+        "zhangfei_intro": {
+          "speaker": "张飞",
+          "portrait": "zhangfei",
+          "text": "俺是张飞张翼德！黄巾贼，受死！",
+          "nextNode": null
+        }
+      }
+    },
+    "zhoucang_blocks_zhaoyun": {
+      "id": "zhoucang_blocks_zhaoyun",
+      "title": "周仓拖住赵云",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "周仓",
+          "portrait": "zhoucang",
+          "text": "赵云！你的对手是我！",
+          "nextNode": "zhaoyun_response"
+        },
+        "zhaoyun_response": {
+          "speaker": "赵云",
+          "portrait": "zhaoyun",
+          "text": "好胆！",
+          "nextNode": null
+        }
+      }
+    },
+    "yangcheng_rescue_choice": {
+      "id": "yangcheng_rescue_choice",
+      "title": "救援张宝",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "快走！刘备三兄弟太强了！",
+          "nextNode": "choice"
+        },
+        "choice": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你要救援张宝吗？",
+          "choices": [
+            {
+              "id": "rescue",
+              "text": "救援张宝",
+              "nextNode": "rescue_success"
+            },
+            {
+              "id": "retreat",
+              "text": "撤退",
+              "nextNode": "retreat"
+            }
+          ]
+        },
+        "rescue_success": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "多谢！你救了我一命！",
+          "nextNode": null
+        },
+        "retreat": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "敌人太强...我无法靠近...",
+          "nextNode": null
+        }
+      }
+    },
+    "zhoucang_joins": {
+      "id": "zhoucang_joins",
+      "title": "周仓加入",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "周仓",
+          "portrait": "zhoucang",
+          "text": "你救了将军，我周仓愿意追随你！",
+          "nextNode": "player_accept"
+        },
+        "player_accept": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "好兄弟！一起战斗！",
+          "nextNode": null
+        }
+      }
+    },
+    "final_battle_intro": {
+      "id": "final_battle_intro",
+      "title": "黄巾终战",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "信使",
+          "portrait": null,
+          "text": "大事不好！张角将军病重，朝廷大军压境！",
+          "nextNode": "player_shock"
+        },
+        "player_shock": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "什么！师父他...！",
+          "nextNode": "zhangliang_order"
+        },
+        "zhangliang_order": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "快！我们必须保护大哥！",
+          "nextNode": null
+        }
+      }
+    },
+    "generals_appear": {
+      "id": "generals_appear",
+      "title": "众将登场",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "朝廷大军如潮水般涌来，众多名将齐聚于此。",
+          "nextNode": "luzhi_intro"
+        },
+        "luzhi_intro": {
+          "speaker": "卢植",
+          "portrait": "luzhi",
+          "text": "黄巾之乱，今日终结！",
+          "nextNode": "zhujun_intro"
+        },
+        "zhujun_intro": {
+          "speaker": "朱儁",
+          "portrait": "zhujun",
+          "text": "诸位，随我杀敌！",
+          "nextNode": "huangfusong_intro"
+        },
+        "huangfusong_intro": {
+          "speaker": "皇甫嵩",
+          "portrait": "huangfusong",
+          "text": "黄巾贼寇，今日必灭！",
+          "nextNode": null
+        }
+      }
+    },
+    "final_rescue": {
+      "id": "final_rescue",
+      "title": "救援张角",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "咳咳...徒儿，快走...不要管我...",
+          "nextNode": "player_refuse"
+        },
+        "player_refuse": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "不！师父，我带你走！",
+          "nextNode": "zhangjiao_weak"
+        },
+        "zhangjiao_weak": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "好徒儿...为师没有看错你...",
+          "nextNode": null
+        }
+      }
+    },
+    "zhangjiao_death": {
+      "id": "zhangjiao_death",
+      "title": "张角病逝",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "苍天已死...黄天当立...可惜...我看不到那一天了...",
+          "nextNode": "player_cry"
+        },
+        "player_cry": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "师父！不要！",
+          "nextNode": "zhangjiao_last_words"
+        },
+        "zhangjiao_last_words": {
+          "speaker": "张角",
+          "portrait": "zhangjiao",
+          "text": "徒儿...记住...真正的太平...不是靠战争...而是靠...人心...",
+          "nextNode": "zhangjiao_dies"
+        },
+        "zhangjiao_dies": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "张角闭上了眼睛，永远地离开了这个世界。",
+          "nextNode": null
+        }
+      }
+    }
+  }
+,
+  "act6": {
+    "ending_intro": {
+      "id": "ending_intro",
+      "title": "结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "黄巾起义虽然失败了，但它的影响却深远地改变了历史的进程。",
+          "nextNode": "player_reflect"
+        },
+        "player_reflect": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "师父的理想...真的错了吗？",
+          "nextNode": null
+        }
+      }
+    },
+    "ending_savior": {
+      "id": "ending_savior",
+      "title": "拯救者结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你救下了张梁和张宝，保存了黄巾军的火种。",
+          "nextNode": "zhangliang_thanks"
+        },
+        "zhangliang_thanks": {
+          "speaker": "张梁",
+          "portrait": "zhangliang",
+          "text": "多亏了你，我们才能活下来。大哥的遗志，我们会继承下去。",
+          "nextNode": "zhangbao_agree"
+        },
+        "zhangbao_agree": {
+          "speaker": "张宝",
+          "portrait": "zhangbao",
+          "text": "是的，黄天的理想不会消亡。",
+          "nextNode": "player_vow"
+        },
+        "player_vow": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "我会继续战斗，为了师父的理想！",
+          "nextNode": null
+        }
+      }
+    },
+    "ending_witness": {
+      "id": "ending_witness",
+      "title": "见证者结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你见证了黄巾起义的兴衰，但未能改变历史的走向。",
+          "nextNode": "player_regret"
+        },
+        "player_regret": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "如果我能更强一些...也许结局会不同...",
+          "nextNode": "narrator_comfort"
+        },
+        "narrator_comfort": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "但你学到了很多，成长了很多。这段经历将成为你未来的力量。",
+          "nextNode": null
+        }
+      }
+    },
+    "ending_leader": {
+      "id": "ending_leader",
+      "title": "领袖结局",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你不仅救下了张梁和张宝，还招募了管亥和周仓。",
+          "nextNode": "guanhai_pledge"
+        },
+        "guanhai_pledge": {
+          "speaker": "管亥",
+          "portrait": "guanhai",
+          "text": "我们愿意追随你，继续为黄天而战！",
+          "nextNode": "zhoucang_pledge"
+        },
+        "zhoucang_pledge": {
+          "speaker": "周仓",
+          "portrait": "zhoucang",
+          "text": "是的！你就是我们的新领袖！",
+          "nextNode": "player_accept_leadership"
+        },
+        "player_accept_leadership": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "好！我们一起，继承师父的遗志，创造真正的太平世道！",
+          "nextNode": null
+        }
+      }
+    },
+    "epilogue": {
+      "id": "epilogue",
+      "title": "尾声",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "黄巾起义虽然失败，但它揭开了三国乱世的序幕。",
+          "nextNode": "narrator_continue"
+        },
+        "narrator_continue": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "曹操、刘备、孙坚等人在平定黄巾的过程中崭露头角，开始了他们的传奇。",
+          "nextNode": "narrator_player"
+        },
+        "narrator_player": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "而你，也将在这个乱世中，书写属于自己的故事。",
+          "nextNode": "narrator_end"
+        },
+        "narrator_end": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "序章完结。你的旅程，才刚刚开始...",
+          "nextNode": null
+        }
+      }
+    },
+    "progress_inherit": {
+      "id": "progress_inherit",
+      "title": "进度继承",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "系统",
+          "portrait": null,
+          "text": "序章已完成！你的角色、装备、技能将继承到正式游戏。",
+          "nextNode": "rewards"
+        },
+        "rewards": {
+          "speaker": "系统",
+          "portrait": null,
+          "text": "根据你的表现，你获得了特殊称号和奖励！",
+          "nextNode": null
+        }
+      }
+    }
+  }
+}

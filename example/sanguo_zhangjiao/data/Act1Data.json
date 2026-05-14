@@ -16,7 +16,7 @@
   "campfire": {
     "position": { "x": 350, "y": 250 },
     "interactionRadius": 60,
-    "fireImagePath": "images/fire.webp",
+    "fireImagePath": "assets/images/fire.webp",
     "frameConfig": {
       "width": 658,
       "height": 712,

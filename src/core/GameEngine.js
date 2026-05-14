@@ -18,6 +18,7 @@ import { pickBackend } from '../rendering/backends/pickBackend.js';
 export class GameEngine {
     constructor(canvas, options = {}) {
         this.canvas = canvas;
+        this.options = options;
         this.ctx = null;
         this.backend = null;
         this.backendConfig = parseBackendConfig(options.backendConfig);
@@ -128,7 +129,9 @@ export class GameEngine {
      */
     async initSystems() {
         // 初始化资源管理器
-        this.assetManager = new AssetManager();
+        this.assetManager = new AssetManager({
+            assetBasePath: this.options?.assetBasePath || ''
+        });
         console.log('GameEngine: AssetManager initialized');
         
         // 初始化输入管理器

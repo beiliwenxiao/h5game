@@ -48,6 +48,7 @@ import { NameComponent } from '../../../src/ecs/components/NameComponent.js';
 import { PerformanceOptimizer } from '../../../src/systems/PerformanceOptimizer.js';
 import { PerformanceMonitor } from '../../../src/core/PerformanceMonitor.js';
 import { UISystem } from '../../../src/ui/UISystem.js';
+import { PortraitsConfig } from '../data/PortraitsConfig.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -368,7 +369,7 @@ export class BaseGameScene extends PrologueScene {
    */
   loadActData() {
     const actNumber = this.actNumber;
-    const url = `src/prologue/data/Act${actNumber}Data.json`;
+    const url = `data/Act${actNumber}Data.json`;
     
     fetch(url)
       .then(response => {
@@ -399,7 +400,7 @@ export class BaseGameScene extends PrologueScene {
       console.warn('BaseGameScene: 火焰图片加载失败');
       this.campfire.imageLoaded = false;
     };
-    this.campfire.fireImage.src = 'images/fire.webp';
+    this.campfire.fireImage.src = 'assets/images/fire.webp';
   }
 
 
@@ -480,6 +481,7 @@ export class BaseGameScene extends PrologueScene {
       visible: false,
       zIndex: 200,
       dialogueSystem: this.dialogueSystem,
+      portraits: PortraitsConfig,
       onDialogueEnd: () => {
         console.log('BaseGameScene: 对话结束');
       }

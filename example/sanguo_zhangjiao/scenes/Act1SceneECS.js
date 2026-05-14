@@ -65,6 +65,7 @@ export class Act1SceneECS extends BaseGameScene {
     this.combatWave = 0;
     this.combatComplete = false;
     this.starvingWaveTriggered = false;
+    this.waveSpawned = false;
     
     // 第一幕特有：饥民逐渐生成器
     this.starvingSpawner = {
@@ -449,6 +450,7 @@ export class Act1SceneECS extends BaseGameScene {
   spawnCombatWave(waveIndex) {
     console.log(`Act1SceneECS: 生成第${waveIndex + 1}波敌人`);
     this.combatWave = waveIndex;
+    this.waveSpawned = true;
     
     // 清除旧敌人
     for (const enemy of this.enemyEntities) {
@@ -553,10 +555,13 @@ export class Act1SceneECS extends BaseGameScene {
         (this.inputManager.isKeyPressed('n') || this.inputManager.isKeyPressed('N'))) {
       this.starvingWaveTriggered = true;
       this.combatComplete = false;
-      // 隐藏提示
+      // 标记 tip_11 完成
+      this.tutorialsCompleted.progressive_tip_11 = true;
       if (this.tutorialSystem) {
         this.tutorialSystem.completeTutorial('progressive_tip_11');
       }
+      // 切回 combat 阶段，让 checkWaveCompletion 能检测第二波完成
+      this.tutorialPhase = 'combat';
       this.spawnCombatWave(1);
     }
     
@@ -868,7 +873,7 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 检查阶段完成条件
     if (handler.check && handler.check()) {
-      console.log('Act1SceneECS: 阶段完成条件满足，调用 onComplete');
+      console.log('Act1SceneECS: 阶段完成条件满足，当前阶段:', this.tutorialPhase);
       handler.onComplete();
     }
   }
@@ -1342,20 +1347,24 @@ export class Act1SceneECS extends BaseGameScene {
    */
   checkWaveCompletion() {
     if (this.tutorialPhase !== 'combat') return;
+    if (this.combatComplete) return; // 已完成则不再检查
     
-    const aliveEnemies = this.enemyEntities.filter(enemy => {
+    if (!this.waveSpawned) return; // 还没生成过敌人
+    
+    // 检查所有敌人是否都已死亡（hp <= 0）
+    const hasAliveEnemy = this.enemyEntities.some(enemy => {
       const stats = enemy.getComponent('stats');
       return stats && stats.hp > 0;
     });
     
-    if (aliveEnemies.length === 0 && this.enemyEntities.length > 0) {
-      console.log(`Act1SceneECS: 第${this.combatWave + 1}波完成`);
+    if (!hasAliveEnemy) {
+      console.log(`Act1SceneECS: 第${this.combatWave + 1}波完成, enemyEntities.length=${this.enemyEntities.length}`);
       
       if (this.combatWave === 0) {
         // 野狗打完，标记战斗完成
-        // tip_11 的显示由 combat 阶段的 onComplete 处理
         this.tutorialsCompleted.combat = true;
         this.combatComplete = true;
+        console.log('Act1SceneECS: combatComplete=true, 等待 updateTutorialPhase 触发 onComplete');
       } else if (this.combatWave === 1) {
         // 饥民波次：所有饥民都已生成且全部死亡后触发死亡
         if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) {

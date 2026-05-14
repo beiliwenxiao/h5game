@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>张角黄巾起义序章 - 第一幕</title>
+    <title>HTML5 MMORPG 游戏引擎</title>
     <style>
         * {
             margin: 0;
@@ -13,1205 +13,226 @@
         
         body {
             font-family: 'Microsoft YaHei', Arial, sans-serif;
-            background-color: #1a1a1a;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             color: #ffffff;
-            overflow: hidden;
-        }
-        
-        #game-container {
-            width: 100vw;
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            position: relative;
+            padding: 20px;
         }
         
-        #gameCanvas {
-            border: 2px solid #4CAF50;
-            background-color: #2a2a2a;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            width: 100%;
-            height: 100%;
-        }
-        
-        #ui-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        #tutorial-panel {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px 40px;
-            border-radius: 15px;
-            border: 3px solid #2196F3;
-            pointer-events: auto;
-            max-width: 600px;
+        .container {
+            max-width: 800px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
-            animation: fadeIn 0.3s ease-in;
         }
         
-        #tips-panel {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px 40px;
-            border-radius: 15px;
-            border: 3px solid #4CAF50;
-            pointer-events: none;
-            max-width: 600px;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
-            animation: fadeIn 0.3s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-        
-        #tutorial-panel h3 {
-            color: #2196F3;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-        
-        #tips-panel h3 {
-            color: #4CAF50;
-            margin-bottom: 15px;
-            font-size: 20px;
-        }
-        
-        #tutorial-panel p {
-            font-size: 18px;
-            line-height: 1.6;
-            color: #ffffff;
-            margin-bottom: 20px;
-        }
-        
-        #tips-panel p {
-            font-size: 18px;
-            line-height: 1.6;
-            color: #ffffff;
-        }
-        
-        #tutorial-panel .key {
-            display: inline-block;
-            background: #2196F3;
-            color: #000;
-            padding: 5px 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 18px;
-            margin: 0 3px;
-        }
-        
-        #tips-panel .key {
-            display: inline-block;
-            background: #4CAF50;
-            color: #000;
-            padding: 5px 12px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 18px;
-            margin: 0 3px;
-        }
-        
-        #tutorial-panel .tutorial-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 15px;
-        }
-        
-        #tutorial-panel button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        #tutorial-panel button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        
-        #tutorial-panel button:active {
-            transform: translateY(0);
-        }
-        
-        #tutorial-panel button:disabled {
-            background: #666;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-        
-        #tutorial-panel .step-indicator {
-            font-size: 14px;
-            color: #aaa;
-            margin-top: 10px;
-        }
-        
-        #debug-panel {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            pointer-events: none;
-        }
-        
-        #debug-panel div {
-            margin: 2px 0;
-        }
-        
-        #controls-hint {
-            position: absolute;
-            bottom: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-        
-        .hidden {
-            display: none !important;
-        }
-        
-        #loading-screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #1a1a1a;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            z-index: 1000;
-        }
-        
-        #loading-screen h1 {
-            color: #4CAF50;
-            margin-bottom: 20px;
-        }
-        
-        .progress-bar {
-            width: 300px;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .progress-fill {
-            height: 100%;
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
             background: linear-gradient(90deg, #4CAF50, #8BC34A);
-            width: 0%;
-            transition: width 0.3s;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
-        /* 技能栏样式 */
-        #skill-bar {
-            position: absolute;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 10px;
-            pointer-events: auto;
-        }
-        
-        .skill-slot {
-            width: 60px;
-            height: 60px;
-            background: rgba(0, 0, 0, 0.8);
-            border: 2px solid #4CAF50;
-            border-radius: 8px;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .skill-slot:hover {
-            border-color: #8BC34A;
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.5);
-        }
-        
-        .skill-slot.on-cooldown {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .skill-slot.on-cooldown:hover {
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .skill-icon {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-        
-        .skill-hotkey {
-            position: absolute;
-            bottom: 2px;
-            right: 4px;
-            font-size: 10px;
-            color: #4CAF50;
-            font-weight: bold;
-        }
-        
-        .skill-cooldown {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: bold;
-            color: #fff;
-            border-radius: 6px;
-        }
-        
-        .skill-name {
-            position: absolute;
-            bottom: -25px;
-            left: 50%;
-            transform: translateX(-50%);
-            font-size: 11px;
+        .subtitle {
+            font-size: 1.2rem;
             color: #aaa;
-            white-space: nowrap;
-            opacity: 0;
-            transition: opacity 0.2s;
+            margin-bottom: 2rem;
         }
         
-        .skill-slot:hover .skill-name {
-            opacity: 1;
+        .description {
+            font-size: 1rem;
+            line-height: 1.8;
+            color: #ccc;
+            margin-bottom: 2rem;
+            text-align: left;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
         }
         
-        .skill-mana-cost {
-            position: absolute;
-            top: 2px;
-            left: 4px;
-            font-size: 10px;
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 2rem;
+        }
+        
+        .feature {
+            padding: 15px;
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .feature:hover {
+            background: rgba(76, 175, 80, 0.2);
+            transform: translateY(-3px);
+        }
+        
+        .feature h3 {
+            color: #4CAF50;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        
+        .feature p {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        
+        .demo-section {
+            margin-top: 2rem;
+            padding: 30px;
+            background: rgba(33, 150, 243, 0.1);
+            border: 2px solid rgba(33, 150, 243, 0.3);
+            border-radius: 15px;
+        }
+        
+        .demo-section h2 {
             color: #2196F3;
+            margin-bottom: 15px;
+        }
+        
+        .demo-section p {
+            color: #ccc;
+            margin-bottom: 20px;
+        }
+        
+        .demo-btn {
+            display: inline-block;
+            padding: 15px 40px;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            color: #000;
+            text-decoration: none;
+            font-size: 1.2rem;
             font-weight: bold;
+            border-radius: 30px;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: none;
+        }
+        
+        .demo-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.4);
+        }
+        
+        .demo-modes {
+            margin-top: 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .mode-btn {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .mode-btn.active {
+            background: #2196F3;
+            border-color: #2196F3;
+        }
+        
+        .footer {
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .footer a {
+            color: #4CAF50;
+            text-decoration: none;
         }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <canvas id="gameCanvas"></canvas>
+    <div class="container">
+        <h1>HTML5 MMRPG 游戏引擎</h1>
+        <p class="subtitle">基于 ECS 架构的高性能游戏引擎框架</p>
         
-        <div id="ui-overlay">
-            <div id="tutorial-panel" class="hidden">
-                <h3 id="tutorial-title">教程</h3>
-                <p id="tutorial-text">教程内容</p>
-                <div class="tutorial-buttons">
-                    <button id="tutorial-prev-btn" style="display: none;">上一步</button>
-                    <button id="tutorial-next-btn">下一步</button>
-                </div>
-                <div class="step-indicator" id="tutorial-step-indicator"></div>
+        <div class="description">
+            本项目是一个通用的 HTML5 游戏引擎框架，采用 Entity-Component-System (ECS) 架构设计。
+            核心系统与游戏逻辑完全分离，支持 Canvas 2D 和 three.js 3D 双渲染后端，
+            可用于开发多人在线角色扮演游戏、动作游戏等多种类型的网页游戏。
+        </div>
+        
+        <div class="features">
+            <div class="feature">
+                <h3>ECS 架构</h3>
+                <p>高性能游戏架构，模块化设计</p>
             </div>
-            
-            <div id="tips-panel" class="hidden">
-                <h3 id="tips-title">提示</h3>
-                <p id="tips-text">提示内容</p>
+            <div class="feature">
+                <h3>双渲染后端</h3>
+                <p>支持 2D Canvas 和 3D WebGL</p>
             </div>
-            
-            <div id="debug-panel">
-                <div>FPS: <span id="fps">60</span></div>
-                <div>位置: <span id="position">0, 0</span></div>
-                <div>生命值: <span id="hp">100/100</span></div>
-                <div>阶段: <span id="phase">-</span></div>
-                <div>敌人: <span id="enemies">0</span></div>
+            <div class="feature">
+                <h3>30+ 游戏系统</h3>
+                <p>战斗、装备、技能、任务等</p>
             </div>
-            
-            <!-- <div id="controls-hint">
-                WASD/方向键: 移动 | 鼠标点击: 移动 | E: 拾取 | C: 属性/装备 | B: 背包 | 1-3: 技能
-            </div> -->
-            
-            <div id="skill-bar" style="display: none;">
-                <div class="skill-slot" data-skill-index="0">
-                    <div class="skill-icon">⚔️</div>
-                    <div class="skill-hotkey">1</div>
-                    <div class="skill-mana-cost">0</div>
-                    <div class="skill-name">普通攻击</div>
-                </div>
-                <div class="skill-slot" data-skill-index="1">
-                    <div class="skill-icon">💥</div>
-                    <div class="skill-hotkey">2</div>
-                    <div class="skill-mana-cost">10</div>
-                    <div class="skill-name">重击</div>
-                </div>
-                <div class="skill-slot" data-skill-index="2">
-                    <div class="skill-icon">🔥</div>
-                    <div class="skill-hotkey">3</div>
-                    <div class="skill-mana-cost">15</div>
-                    <div class="skill-name">火球术</div>
-                </div>
-                <div class="skill-slot" data-skill-index="3">
-                    <div class="skill-icon">💚</div>
-                    <div class="skill-hotkey">4</div>
-                    <div class="skill-mana-cost">20</div>
-                    <div class="skill-name">治疗术</div>
-                </div>
+            <div class="feature">
+                <h3>完整 UI 组件</h3>
+                <p>背包、技能树、商店等 25+ 组件</p>
             </div>
         </div>
         
-        <div id="loading-screen">
-            <h1>张角黄巾起义序章</h1>
-            <h2>第一幕：绝望的开始</h2>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill"></div>
+        <div class="demo-section">
+            <h2>三国张角序章 Demo</h2>
+            <p>体验基于本引擎开发的完整游戏示例，包含六幕剧情、战斗系统、装备系统等完整功能。</p>
+            
+            <button class="demo-btn" onclick="openDemo()">
+                启动 Demo
+            </button>
+            
+            <div class="demo-modes">
+                <button class="mode-btn active" onclick="setMode('auto', this)">自动模式</button>
+                <button class="mode-btn" onclick="setMode('2d', this)">2D 模式</button>
+                <button class="mode-btn" onclick="setMode('3d', this)">3D 模式</button>
             </div>
-            <p id="loading-text">加载中...</p>
+        </div>
+        
+        <div class="footer">
+            <p>
+                <a href="https://gitee.com/coderaaa/h5game" target="_blank">Gitee</a> | 
+                <a href="https://github.com/beiliwenxiao/h5game" target="_blank">GitHub</a>
+            </p>
+            <p style="margin-top: 10px;">当前版本: 1.0.0 | 许可证: MIT</p>
         </div>
     </div>
     
-    <script type="module">
-        import { Act1SceneECS } from './src/prologue/scenes/Act1SceneECS.js';
-        import { Act2Scene } from './src/prologue/scenes/Act2Scene.js';
-        import { Act3Scene } from './src/prologue/scenes/Act3Scene.js';
-        import { Act4Scene } from './src/prologue/scenes/Act4Scene.js';
-        import { Act5Scene } from './src/prologue/scenes/Act5Scene.js';
-        import { Act6Scene } from './src/prologue/scenes/Act6Scene.js';
-        import { SceneManager } from './src/core/SceneManager.js';
-        import { AssetManager } from './src/core/AssetManager.js';
-        import { DialogueBox } from './src/ui/DialogueBox.js';
-        import { SkillTreePanel } from './src/ui/SkillTreePanel.js';
-        import { NotificationSystem } from './src/ui/NotificationSystem.js';
-        import { InventoryPanel } from './src/ui/InventoryPanel.js';
-        import { AttributePanel } from './src/ui/AttributePanel.js';
-        import { PlayerInfoPanel } from './src/ui/PlayerInfoPanel.js';
+    <script>
+        let currentMode = 'auto';
         
-        // 场景管理器
-        let sceneManager = null;
-        let assetManager = null;
-        
-        // UI组件
-        let dialogueBox = null;
-        let skillTreePanel = null;
-        let notificationSystem = null;
-        let inventoryPanel = null;
-        let attributePanel = null;
-        let playerInfoPanel = null;
-        
-        // 游戏状态
-        let scene = null;
-        let lastTime = performance.now();
-        let fps = 60;
-        let frameCount = 0;
-        let fpsTime = 0;
-        
-        // 获取元素
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        
-        // Canvas 自适应容器大小
-        function resizeCanvas() {
-            const container = canvas.parentElement;
-            const cw = container ? container.clientWidth : window.innerWidth;
-            const ch = container ? container.clientHeight : window.innerHeight;
-            canvas.width = cw;
-            canvas.height = ch;
-            
-            // 通知当前场景更新尺寸
-            if (sceneManager) {
-                sceneManager.setRenderSize(cw, ch);
-                const currentScene = sceneManager.getCurrentScene();
-                if (currentScene && currentScene.onResize) {
-                    currentScene.onResize(cw, ch);
-                }
-            }
-        }
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
-        
-        const loadingScreen = document.getElementById('loading-screen');
-        const progressFill = document.getElementById('progress-fill');
-        const loadingText = document.getElementById('loading-text');
-        const tutorialPanel = document.getElementById('tutorial-panel');
-        const tutorialTitle = document.getElementById('tutorial-title');
-        const tutorialText = document.getElementById('tutorial-text');
-        const tutorialNextBtn = document.getElementById('tutorial-next-btn');
-        const tutorialPrevBtn = document.getElementById('tutorial-prev-btn');
-        const tutorialStepIndicator = document.getElementById('tutorial-step-indicator');
-        
-        const tipsPanel = document.getElementById('tips-panel');
-        const tipsTitle = document.getElementById('tips-title');
-        const tipsText = document.getElementById('tips-text');
-        
-        // 当前教程数据
-        let currentTutorialData = null;
-        
-        // 调试面板元素
-        const fpsElement = document.getElementById('fps');
-        const positionElement = document.getElementById('position');
-        const hpElement = document.getElementById('hp');
-        const phaseElement = document.getElementById('phase');
-        const enemiesElement = document.getElementById('enemies');
-        
-        // 教程按钮事件
-        tutorialNextBtn.addEventListener('click', () => {
-            if (scene && scene.tutorialSystem) {
-                const hasNext = scene.tutorialSystem.nextStep();
-                if (!hasNext) {
-                    // 没有下一步了，隐藏教程
-                    hideTutorial();
-                }
-            }
-        });
-        
-        tutorialPrevBtn.addEventListener('click', () => {
-            if (scene && scene.tutorialSystem) {
-                scene.tutorialSystem.previousStep();
-            }
-        });
-        
-        // 为场景设置回调
-        function setupSceneCallbacks(sceneInstance) {
-            if (!sceneInstance || !sceneInstance.tutorialSystem) {
-                console.warn('setupSceneCallbacks: 场景或教程系统不存在');
-                return;
-            }
-            
-            console.log('setupSceneCallbacks: 为场景设置回调');
-            
-            // 设置教程回调
-            sceneInstance.tutorialSystem.onShow((data) => {
-                console.log('index.html: onShow 回调被触发');
-                currentTutorialData = data;
-                
-                // 判断是渐进式提示还是基础教程
-                const isProgressiveTip = data.tutorialId && data.tutorialId.startsWith('progressive_tip_');
-                
-                // 处理两种回调格式：
-                // 1. showTutorial 调用时传入 tutorial 对象
-                // 2. showStep 调用时传入 stepData 对象
-                if (data.step && data.step.text) {
-                    // stepData 格式（多步教程）
-                    if (isProgressiveTip) {
-                        // 渐进式提示：使用提示面板（无按钮）
-                        showTips(data.tutorialTitle, data.step.text);
-                    } else {
-                        // 基础教程：使用教程面板（有按钮）
-                        showTutorial(
-                            data.tutorialTitle, 
-                            data.step.text,
-                            data.stepIndex,
-                            data.totalSteps,
-                            data.isLastStep
-                        );
-                    }
-                } else if (data.title) {
-                    // tutorial 对象格式（首次显示）
-                    if (isProgressiveTip) {
-                        // 渐进式提示：使用提示面板（无按钮）
-                        showTips(data.title, data.steps[0]?.text || '');
-                    } else {
-                        // 基础教程：使用教程面板（有按钮）
-                        showTutorial(
-                            data.title, 
-                            data.steps[0]?.text || '',
-                            0,
-                            data.steps.length,
-                            data.steps.length === 1
-                        );
-                    }
-                }
-            });
-            
-            sceneInstance.tutorialSystem.onHide(() => {
-                hideTutorial();
-                hideTips();
-            });
-            
-            // 设置对话系统回调（如果有）
-            if (sceneInstance.dialogueSystem) {
-                // 创建或更新 DialogueBox
-                if (!dialogueBox) {
-                    dialogueBox = new DialogueBox({
-                        x: 100,
-                        y: 370,
-                        width: 600,
-                        height: 200,
-                        visible: false,
-                        dialogueSystem: sceneInstance.dialogueSystem
-                    });
-                } else {
-                    dialogueBox.setDialogueSystem(sceneInstance.dialogueSystem);
-                }
-                
-                // 当对话开始时显示对话框
-                sceneInstance.dialogueSystem.onStart(() => {
-                    dialogueBox.show();
-                });
-                
-                // 当对话结束时隐藏对话框
-                sceneInstance.dialogueSystem.onEnd(() => {
-                    dialogueBox.hide();
-                });
-                
-                // 如果对话已经在进行中，立即显示对话框
-                if (sceneInstance.dialogueSystem.isDialogueActive()) {
-                    dialogueBox.show();
-                }
-            }
-            
-            // 设置通知系统回调（用于第二幕）
-            if (sceneInstance.setNotificationCallback) {
-                sceneInstance.setNotificationCallback((message, type) => {
-                    if (notificationSystem) {
-                        notificationSystem.addNotification(message, type);
-                    }
-                });
-            }
-            
-            // 设置场景提示回调（复用提示面板）
-            if (sceneInstance.setHintCallbacks) {
-                sceneInstance.setHintCallbacks(
-                    (text, title) => showTips(title, text),
-                    () => hideTips()
-                );
-            }
-            
-            // 设置玩家实体引用（用于背包系统）
-            if (sceneInstance.setPlayerEntity && sceneInstance.playerEntity) {
-                sceneInstance.setPlayerEntity(sceneInstance.playerEntity);
-            }
-        }
-        
-        // 初始化游戏
-        async function initGame() {
-            try {
-                // 模拟加载过程
-                updateLoading(0, '初始化 ECS 系统...');
-                await sleep(500);
-                
-                updateLoading(25, '加载核心系统...');
-                // 创建并初始化 AssetManager
-                assetManager = new AssetManager();
-                assetManager.loadPlaceholderAssets(); // 加载占位符资源
-                await sleep(500);
-                
-                updateLoading(50, '创建场景管理器...');
-                sceneManager = new SceneManager();
-                sceneManager.setRenderSize(canvas.width, canvas.height);
-                await sleep(300);
-                
-                updateLoading(60, '注册场景...');
-                // 创建并注册第一幕场景
-                const act1Scene = new Act1SceneECS();
-                act1Scene.assetManager = assetManager; // 传递 AssetManager
-                sceneManager.registerScene('Act1Scene', act1Scene);
-                sceneManager.registerScene('Act1SceneECS', act1Scene); // 兼容旧名称
-                
-                // 创建并注册第二幕场景
-                const act2Scene = new Act2Scene();
-                act2Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act2Scene', act2Scene);
-                
-                // 创建并注册第三幕场景
-                const act3Scene = new Act3Scene();
-                act3Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act3Scene', act3Scene);
-                
-                // 创建并注册第四幕场景
-                const act4Scene = new Act4Scene();
-                act4Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act4Scene', act4Scene);
-                
-                // 创建并注册第五幕场景
-                const act5Scene = new Act5Scene();
-                act5Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act5Scene', act5Scene);
-                
-                // 创建并注册第六幕场景
-                const act6Scene = new Act6Scene();
-                act6Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act6Scene', act6Scene);
-                
-                // 设置场景管理器引用
-                act1Scene.setSceneManager(sceneManager);
-                act2Scene.setSceneManager(sceneManager);
-                act3Scene.setSceneManager(sceneManager);
-                act4Scene.setSceneManager(sceneManager);
-                act5Scene.setSceneManager(sceneManager);
-                act6Scene.setSceneManager(sceneManager);
-                
-                // 初始化通知系统
-                notificationSystem = new NotificationSystem({
-                    x: 10,
-                    y: 100,
-                    maxNotifications: 5
-                });
-                
-                scene = act1Scene;
-                await sleep(500);
-                
-                updateLoading(75, '初始化玩家实体...');
-                
-                // 使用场景管理器切换到第一幕
-                updateLoading(90, '进入第一幕...');
-                sceneManager.switchTo('Act1Scene');
-                await sleep(500);
-                
-                // 场景进入后，设置教程回调（此时教程系统已初始化）
-                console.log('设置教程回调...');
-                setupSceneCallbacks(act1Scene);
-                setupSceneCallbacks(act2Scene);
-                setupSceneCallbacks(act3Scene);
-                
-                // 重新触发第一个教程显示（因为之前回调还没设置）
-                console.log('尝试显示第一个教程...');
-                console.log('tutorialSystem 存在:', !!act1Scene.tutorialSystem);
-                console.log('progressive_tip_1 已完成:', act1Scene.tutorialsCompleted.progressive_tip_1);
-                
-                if (act1Scene.tutorialSystem && !act1Scene.tutorialsCompleted.progressive_tip_1) {
-                    // 先清除之前的教程状态（因为回调还没设置时就显示了）
-                    act1Scene.tutorialSystem.currentTutorial = null;
-                    
-                    const result = act1Scene.tutorialSystem.showTutorial('progressive_tip_1');
-                    console.log('showTutorial 返回:', result);
-                }
-                
-                updateLoading(100, '完成！');
-                await sleep(500);
-                
-                // 隐藏加载屏幕
-                loadingScreen.style.display = 'none';
-                
-                console.log('准备启动游戏循环...');
-                
-                // 开始游戏循环
-                requestAnimationFrame(gameLoop);
-                
-                console.log('游戏初始化完成，游戏循环已启动');
-            } catch (error) {
-                console.error('游戏初始化失败:', error);
-                loadingText.textContent = '加载失败: ' + error.message;
-            }
-        }
-        
-        // 更新加载进度
-        function updateLoading(progress, text) {
-            progressFill.style.width = progress + '%';
-            loadingText.textContent = text;
-        }
-        
-        // 延迟函数
-        function sleep(ms) {
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-        
-        // 显示教程（基础教程，有按钮）
-        function showTutorial(title, text, stepIndex = 0, totalSteps = 1, isLastStep = true) {
-            tutorialTitle.textContent = title;
-            // 使用innerHTML支持HTML标签
-            tutorialText.innerHTML = text;
-            tutorialPanel.classList.remove('hidden');
-            
-            // 更新步骤指示器
-            if (totalSteps > 1) {
-                tutorialStepIndicator.textContent = `步骤 ${stepIndex + 1} / ${totalSteps}`;
-                tutorialStepIndicator.style.display = 'block';
-            } else {
-                tutorialStepIndicator.style.display = 'none';
-            }
+        function setMode(mode, btn) {
+            currentMode = mode;
             
             // 更新按钮状态
-            // 上一步按钮：只在不是第一步时显示
-            if (stepIndex > 0) {
-                tutorialPrevBtn.style.display = 'inline-block';
-            } else {
-                tutorialPrevBtn.style.display = 'none';
-            }
-            
-            // 下一步按钮：最后一步显示"完成"，其他显示"下一步"
-            if (isLastStep) {
-                tutorialNextBtn.textContent = '完成';
-            } else {
-                tutorialNextBtn.textContent = '下一步';
-            }
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
         }
         
-        // 隐藏教程
-        function hideTutorial() {
-            tutorialPanel.classList.add('hidden');
-            currentTutorialData = null;
+        function openDemo() {
+            const url = `./example/sanguo_zhangjiao/index.html?mode=${currentMode}`;
+            window.open(url, '_blank');
         }
-        
-        // 显示提示（渐进式提示，无按钮）
-        function showTips(title, text) {
-            tipsTitle.textContent = title;
-            // 使用innerHTML支持HTML标签
-            tipsText.innerHTML = text;
-            tipsPanel.classList.remove('hidden');
-        }
-        
-        // 隐藏提示
-        function hideTips() {
-            tipsPanel.classList.add('hidden');
-        }
-        
-        // 目标帧率限制
-        const TARGET_FPS = 60;
-        const FRAME_INTERVAL = 1000 / TARGET_FPS;
-        let lastFrameTime = 0;
-        
-        // 游戏循环
-        function gameLoop(currentTime) {
-            // 帧率限制：跳过过快的帧
-            const elapsed = currentTime - lastFrameTime;
-            if (elapsed < FRAME_INTERVAL) {
-                requestAnimationFrame(gameLoop);
-                return;
-            }
-            lastFrameTime = currentTime - (elapsed % FRAME_INTERVAL);
-            
-            const deltaTime = (currentTime - lastTime) / 1000;
-            lastTime = currentTime;
-            
-            // 计算 FPS
-            frameCount++;
-            fpsTime += deltaTime;
-            if (fpsTime >= 1.0) {
-                fps = frameCount;
-                frameCount = 0;
-                fpsTime = 0;
-            }
-            
-            // 清空画布
-            ctx.fillStyle = '#2a2a2a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // 更新和渲染场景
-            if (sceneManager) {
-                sceneManager.update(deltaTime);
-                sceneManager.render(ctx);
-                
-                // 对话框由场景自己渲染，这里不需要重复渲染
-                
-                // 更新和渲染技能树面板
-                if (skillTreePanel) {
-                    skillTreePanel.render(ctx);
-                }
-                
-                // 更新和渲染通知系统
-                if (notificationSystem) {
-                    notificationSystem.update(deltaTime * 1000); // 转换为毫秒
-                    notificationSystem.render(ctx);
-                }
-                
-                // 背包面板由场景自己渲染，这里不需要重复渲染
-                // 只有当场景没有背包面板时才渲染全局的
-                if (inventoryPanel && (!scene || !scene.inventoryPanel)) {
-                    inventoryPanel.update(deltaTime);
-                    inventoryPanel.render(ctx);
-                }
-                
-                // 角色信息面板由场景自己渲染，这里不需要重复渲染
-                // 只有当场景没有角色信息面板时才渲染全局的
-                if (playerInfoPanel && (!scene || !scene.playerInfoPanel)) {
-                    playerInfoPanel.update(deltaTime);
-                    playerInfoPanel.render(ctx);
-                }
-                
-                // 获取当前场景
-                const currentScene = sceneManager.getCurrentScene();
-                
-                // 如果场景切换了，设置新场景的回调
-                if (currentScene !== scene) {
-                    console.log('场景切换检测到，设置新场景回调');
-                    scene = currentScene;
-                    if (scene) {
-                        setupSceneCallbacks(scene);
-                        
-                        // 如果是第二幕场景，设置玩家实体和背包面板
-                        if (scene.setPlayerEntity && scene.playerEntity) {
-                            scene.setPlayerEntity(scene.playerEntity);
-                        }
-                        
-                        // 更新背包面板的实体引用
-                        if (inventoryPanel && scene.playerEntity) {
-                            inventoryPanel.setEntity(scene.playerEntity);
-                        }
-                        
-                        // 重置技能树面板和属性面板（因为不同场景可能有不同的系统实例）
-                        if (skillTreePanel) {
-                            skillTreePanel.hide();
-                            skillTreePanel = null;
-                        }
-                        if (attributePanel) {
-                            attributePanel.hide();
-                            attributePanel = null;
-                        }
-                        // 重置全局角色信息面板（因为不同场景可能有不同的玩家实体）
-                        if (playerInfoPanel) {
-                            playerInfoPanel.hide();
-                            playerInfoPanel = null;
-                        }
-                    }
-                }
-                
-                // 更新调试信息
-                if (scene) {
-                    updateDebugInfo();
-                }
-            }
-            
-            requestAnimationFrame(gameLoop);
-        }
-        
-        // 更新调试信息
-        function updateDebugInfo() {
-            if (!scene) return;
-            
-            fpsElement.textContent = fps;
-            
-            // 使用 playerEntity（两幕都有）
-            if (scene.playerEntity) {
-                const transform = scene.playerEntity.getComponent('transform');
-                if (transform) {
-                    positionElement.textContent = 
-                        `${Math.floor(transform.position.x)}, ${Math.floor(transform.position.y)}`;
-                } else {
-                    positionElement.textContent = '-';
-                }
-                
-                const stats = scene.playerEntity.getComponent('stats');
-                if (stats) {
-                    hpElement.textContent = `${Math.floor(stats.hp)}/${stats.maxHp}`;
-                }
-            } else {
-                positionElement.textContent = '-';
-                hpElement.textContent = '-';
-            }
-            
-            // tutorialPhase（两幕都有）
-            phaseElement.textContent = scene.tutorialPhase || '-';
-            
-            // enemyEntities（两幕都有，第二幕为空数组）
-            if (scene.enemyEntities && Array.isArray(scene.enemyEntities)) {
-                const aliveEnemies = scene.enemyEntities.filter(enemy => {
-                    const stats = enemy.getComponent('stats');
-                    return stats && stats.hp > 0;
-                });
-                enemiesElement.textContent = aliveEnemies.length;
-            } else {
-                enemiesElement.textContent = '0';
-            }
-            
-            // 更新技能栏
-            updateSkillBar();
-        }
-        
-        // 更新技能栏显示
-        function updateSkillBar() {
-            if (!scene || !scene.playerEntity) return;
-            
-            const skills = scene.playerEntity.getComponent('skills');
-            if (!skills) return;
-            
-            const skillSlots = document.querySelectorAll('.skill-slot');
-            skillSlots.forEach((slot, index) => {
-                const skill = skills.skills[index];
-                if (!skill) return;
-                
-                // 检查冷却
-                const cooldownRemaining = skills.getCooldownRemaining(skill.id);
-                const isOnCooldown = cooldownRemaining > 0;
-                
-                // 更新样式
-                if (isOnCooldown) {
-                    slot.classList.add('on-cooldown');
-                    // 显示冷却时间
-                    let cooldownDiv = slot.querySelector('.skill-cooldown');
-                    if (!cooldownDiv) {
-                        cooldownDiv = document.createElement('div');
-                        cooldownDiv.className = 'skill-cooldown';
-                        slot.appendChild(cooldownDiv);
-                    }
-                    cooldownDiv.textContent = Math.ceil(cooldownRemaining);
-                } else {
-                    slot.classList.remove('on-cooldown');
-                    const cooldownDiv = slot.querySelector('.skill-cooldown');
-                    if (cooldownDiv) {
-                        cooldownDiv.remove();
-                    }
-                }
-            });
-        }
-        
-        // 技能栏点击事件
-        document.querySelectorAll('.skill-slot').forEach((slot, index) => {
-            slot.addEventListener('click', () => {
-                if (!scene || !scene.playerEntity) return;
-                useSkill(index);
-            });
-        });
-        
-        // 使用技能
-        function useSkill(skillIndex) {
-            if (!scene || !scene.combatSystem) return;
-            
-            const skills = scene.playerEntity.getComponent('skills');
-            if (!skills) return;
-            
-            const skill = skills.skills[skillIndex];
-            if (!skill) return;
-            
-            // 尝试使用技能
-            scene.combatSystem.useSkill(scene.playerEntity, skill.id);
-        }
-        
-        // 键盘快捷键
-        document.addEventListener('keydown', (e) => {
-            // 空格键 - 继续对话
-            if (e.code === 'Space' && dialogueBox && dialogueBox.visible) {
-                e.preventDefault();
-                dialogueBox.continueDialogue();
-                return;
-            }
-            
-            // K键 - 打开技能树
-            if (e.code === 'KeyK') {
-                // 获取当前场景的技能树系统和玩家
-                const currentSkillTreeSystem = scene?.skillTreeSystem || scene?.getSkillTreeSystem?.();
-                const currentPlayer = scene?.player;
-                
-                if (skillTreePanel) {
-                    skillTreePanel.toggle();
-                } else if (currentSkillTreeSystem && currentPlayer) {
-                    // 创建技能树面板
-                    skillTreePanel = new SkillTreePanel({
-                        x: 100,
-                        y: 50,
-                        width: 600,
-                        height: 500,
-                        skillTreeSystem: currentSkillTreeSystem,
-                        character: currentPlayer
-                    });
-                    skillTreePanel.show();
-                } else {
-                    console.log('技能树系统或玩家数据不可用');
-                }
-                return;
-            }
-            
-            // B键 - 打开背包
-            if (e.code === 'KeyB') {
-                // 如果场景有自己的背包面板，让场景自己处理（通过 inputManager）
-                // 这里不做任何处理，避免重复切换
-                if (scene && scene.inventoryPanel) {
-                    // 场景会通过 checkInventoryToggle 处理
-                    // 更新全局引用以便其他地方使用
-                    inventoryPanel = scene.inventoryPanel;
-                    return;
-                }
-                
-                // 只有场景没有背包面板时才在这里处理
-                if (inventoryPanel) {
-                    inventoryPanel.toggle();
-                } else if (scene && scene.playerEntity) {
-                    // 创建新的背包面板
-                    inventoryPanel = new InventoryPanel({
-                        x: canvas.width - 370 - 10,
-                        y: canvas.height - 100 - 350,
-                        visible: true,
-                        onItemUse: (item, healAmount, manaAmount) => {
-                            console.log('物品使用:', item.name);
-                            // 通知场景物品已使用
-                            if (scene && scene.onTalismanWaterUsed) {
-                                scene.onTalismanWaterUsed(item, healAmount);
-                            }
-                            // 显示恢复通知
-                            if (notificationSystem && healAmount > 0) {
-                                notificationSystem.addNotification(`恢复了 ${healAmount} 点生命值`, 'success');
-                            }
-                        }
-                    });
-                    inventoryPanel.setEntity(scene.playerEntity);
-                }
-                return;
-            }
-            
-            // C键 - 打开角色信息面板（PlayerInfoPanel）
-            if (e.code === 'KeyC') {
-                // 如果场景有自己的角色信息面板，让场景自己处理（通过 inputManager）
-                if (scene && scene.playerInfoPanel) {
-                    // 场景会通过 checkPlayerInfoToggle 处理
-                    return;
-                }
-                
-                // 场景没有角色信息面板时，使用全局的
-                if (scene && scene.playerEntity) {
-                    if (playerInfoPanel) {
-                        playerInfoPanel.toggle();
-                    } else {
-                        // 创建全局角色信息面板
-                        playerInfoPanel = new PlayerInfoPanel({
-                            x: 10,
-                            y: canvas.height - 100 - 320,
-                            width: 280,
-                            height: 320,
-                            visible: true,
-                            onAttributeAllocate: (player) => {
-                                console.log('全局 PlayerInfoPanel: 属性加点按钮被点击');
-                                // 获取场景的属性系统
-                                const currentAttributeSystem = scene?.attributeSystem || scene?.getAttributeSystem?.();
-                                if (currentAttributeSystem && player) {
-                                    if (attributePanel) {
-                                        if (attributePanel.isOpen()) {
-                                            attributePanel.hide();
-                                        } else {
-                                            attributePanel.show(player.id);
-                                        }
-                                    } else {
-                                        // 创建属性面板
-                                        attributePanel = new AttributePanel(document.body, currentAttributeSystem);
-                                        attributePanel.show(player.id);
-                                    }
-                                } else {
-                                    console.log('属性系统不可用');
-                                }
-                            }
-                        });
-                        playerInfoPanel.setPlayer(scene.playerEntity);
-                    }
-                } else {
-                    console.log('当前场景没有玩家实体');
-                }
-                return;
-            }
-            
-            if (!scene || !scene.playerEntity) return;
-            
-            // 技能快捷键 1-4
-            if (e.key >= '1' && e.key <= '4') {
-                const skillIndex = parseInt(e.key) - 1;
-                useSkill(skillIndex);
-            }
-        });
-        
-        // 鼠标移动事件
-        canvas.addEventListener('mousemove', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            if (skillTreePanel && skillTreePanel.isVisible) {
-                skillTreePanel.handleMouseMove(mouseX, mouseY);
-            }
-            
-            if (dialogueBox && dialogueBox.visible) {
-                dialogueBox.handleMouseMove(mouseX, mouseY);
-            }
-            
-            // 背包面板的鼠标移动由场景处理
-            // 只有当场景没有背包面板时才处理全局的
-            if (inventoryPanel && inventoryPanel.visible && (!scene || !scene.inventoryPanel)) {
-                inventoryPanel.handleMouseMove(mouseX, mouseY);
-            }
-            
-            // 角色信息面板的鼠标移动由场景处理
-            // 只有当场景没有角色信息面板时才处理全局的
-            if (playerInfoPanel && playerInfoPanel.visible && (!scene || !scene.playerInfoPanel)) {
-                playerInfoPanel.handleMouseMove(mouseX, mouseY);
-            }
-        });
-        
-        // 鼠标点击事件
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            // 背包面板的点击由场景处理
-            // 只有当场景没有背包面板时才处理全局的
-            if (inventoryPanel && inventoryPanel.visible && (!scene || !scene.inventoryPanel)) {
-                if (inventoryPanel.handleMouseClick(mouseX, mouseY, 'left')) {
-                    return;
-                }
-            }
-            
-            // 角色信息面板的点击由场景处理
-            // 只有当场景没有角色信息面板时才处理全局的
-            if (playerInfoPanel && playerInfoPanel.visible && (!scene || !scene.playerInfoPanel)) {
-                if (playerInfoPanel.handleMouseClick(mouseX, mouseY, 'left')) {
-                    return;
-                }
-            }
-            
-            // 优先处理技能树面板点击
-            if (skillTreePanel && skillTreePanel.isVisible) {
-                if (skillTreePanel.handleClick(mouseX, mouseY)) {
-                    return;
-                }
-            }
-            
-            if (dialogueBox && dialogueBox.visible) {
-                dialogueBox.handleMouseClick(mouseX, mouseY);
-            }
-        });
-        
-        // 右键菜单事件（用于背包）
-        canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
-            
-            // 背包面板的右键由场景处理
-            // 只有当场景没有背包面板时才处理全局的
-            if (inventoryPanel && inventoryPanel.visible && (!scene || !scene.inventoryPanel)) {
-                inventoryPanel.handleMouseClick(mouseX, mouseY, 'right');
-            }
-        });
-        
-        // 启动游戏
-        initGame();
     </script>
 </body>
 </html>

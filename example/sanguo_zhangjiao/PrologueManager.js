@@ -257,7 +257,7 @@ export class PrologueManager {
      */
     async loadAudioConfig() {
         try {
-            const response = await fetch('src/prologue/data/AudioConfig.json');
+            const response = await fetch('data/AudioConfig.json');
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }

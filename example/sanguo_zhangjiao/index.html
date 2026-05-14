@@ -424,6 +424,7 @@
         import { InventoryPanel } from '../../src/ui/InventoryPanel.js';
         import { AttributePanel } from '../../src/ui/AttributePanel.js';
         import { PlayerInfoPanel } from '../../src/ui/PlayerInfoPanel.js';
+        import { PortraitsConfig } from './data/PortraitsConfig.js';
         
         // 场景管理器
         let sceneManager = null;
@@ -577,7 +578,8 @@
                         width: 600,
                         height: 200,
                         visible: false,
-                        dialogueSystem: sceneInstance.dialogueSystem
+                        dialogueSystem: sceneInstance.dialogueSystem,
+                        portraits: PortraitsConfig
                     });
                 } else {
                     dialogueBox.setDialogueSystem(sceneInstance.dialogueSystem);
@@ -632,6 +634,7 @@
                 updateLoading(25, '加载核心系统...');
                 // 创建并初始化 AssetManager
                 assetManager = new AssetManager();
+                assetManager.setAssetBasePath('assets/');
                 assetManager.loadPlaceholderAssets(); // 加载占位符资源
                 await sleep(500);
                 

@@ -28,6 +28,36 @@ export class AssetManager {
         
         // 音频管理器
         this.audioManager = new AudioManager();
+        
+        // 资源基础路径（默认空字符串，所有路径相对于 HTML 页面）
+        this.assetBasePath = '';
+    }
+    
+    /**
+     * 设置资源基础路径
+     * 用于 demo/示例项目隔离引擎代码中的硬编码路径
+     * @param {string} basePath - 基础路径，如 'assets/' 或 'assets/images/'
+     */
+    setAssetBasePath(basePath) {
+        // 保证以 / 结尾
+        if (basePath && !basePath.endsWith('/')) {
+            basePath += '/';
+        }
+        this.assetBasePath = basePath || '';
+    }
+    
+    /**
+     * 拼接资源完整路径
+     * @param {string} relativePath - 相对路径
+     * @returns {string} 完整路径
+     */
+    resolveAssetPath(relativePath) {
+        if (!relativePath) return relativePath;
+        // 绝对 URL 或以 / 开头的路径直接返回
+        if (/^(https?:|data:|\/)/.test(relativePath)) {
+            return relativePath;
+        }
+        return this.assetBasePath + relativePath;
     }
 
     /**
@@ -366,13 +396,13 @@ export class AssetManager {
         console.log('AssetManager: Loading placeholder assets...');
 
         // 加载4x8动画精灵（玩家角色）
-        this.loadAnimatedSpriteImage('player_animated', 'assets/girl.png');
+        this.loadAnimatedSpriteImage('player_animated', this.resolveAssetPath('images/girl.png'));
 
         // 九宫格方向精灵（用于玩家）
         const characterClasses = ['warrior', 'mage', 'archer', 'refugee'];
         characterClasses.forEach(className => {
             // 尝试加载真实图片，如果失败则使用占位符
-            const realImagePath = `assets/${className}.png`;
+            const realImagePath = this.resolveAssetPath(`images/${className}.png`);
             this.loadDirectionalSpriteImage(className, realImagePath);
             
             // 保留旧的单帧精灵作为备用

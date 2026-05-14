@@ -25,15 +25,38 @@
    npm run dev
    ```
 
-4. 打开浏览器访问 Vite 提示的地址（默认 `http://localhost:3000`）
+4. 打开浏览器访问示例项目
+   ```
+   http://localhost:3000/example/sanguo_zhangjiao/index.html
+   ```
 
-### 运行示例项目
+### 运行 Demo 项目
 
-三国张角序章示例位于 `example/sanguo_zhangjiao/` 目录：
+三国张角序章 Demo 位于 `example/sanguo_zhangjiao/` 目录。
+
+**方式一：Vite 开发服务器（推荐）**
 
 ```bash
-# 直接打开示例入口文件
-# 或通过 Vite 访问 http://localhost:3000/example/sanguo_zhangjiao/index.html
+npm run dev
+```
+
+然后访问：`http://localhost:3000/example/sanguo_zhangjiao/index.html`
+
+**方式二：直接打开文件**
+
+直接在浏览器中打开 `example/sanguo_zhangjiao/index.html`（部分功能可能受限于跨域策略）
+
+### 渲染模式切换
+
+Demo 支持双渲染后端，通过 URL 参数切换：
+
+- `?mode=2d` - Canvas 2D 渲染（默认）
+- `?mode=3d` - three.js 3D 渲染
+- `?mode=auto` - 自动选择（WebGL 可用时优先 3D）
+
+示例：
+```
+http://localhost:3000/example/sanguo_zhangjiao/index.html?mode=3d
 ```
 
 ## 📖 项目介绍

@@ -49,7 +49,6 @@ import { PerformanceOptimizer } from '../../../src/systems/PerformanceOptimizer.
 import { PerformanceMonitor } from '../../../src/core/PerformanceMonitor.js';
 import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
-import { PortraitsConfig } from '../data/PortraitsConfig.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -1580,6 +1579,15 @@ export class BaseGameScene extends PrologueScene {
 
     if (this._debugNextRender) {
       console.log('【渲染】render, is3D=', is3D);
+    }
+    
+    // 3D 模式：让相机跟随玩家
+    if (is3D && backend.camera && this.playerEntity) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform) {
+        backend.camera.setTarget(transform);
+        backend.camera.update();
+      }
     }
 
     if (!is3D) {

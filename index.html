@@ -199,13 +199,20 @@
             <p>体验基于本引擎开发的完整游戏示例，包含六幕剧情、战斗系统、装备系统等完整功能。</p>
             
             <button class="demo-btn" onclick="openDemo()">
-                启动 Demo
+                启动 2D Demo
             </button>
             
             <div class="demo-modes">
                 <button class="mode-btn active" onclick="setMode('auto', this)">自动模式</button>
                 <button class="mode-btn" onclick="setMode('2d', this)">2D 模式</button>
                 <button class="mode-btn" onclick="setMode('3d', this)">3D 模式</button>
+            </div>
+            
+            <div style="margin-top: 25px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <p style="margin-bottom: 15px;">3D 渲染版本（使用 three.js WebGL 后端）</p>
+                <button class="demo-btn" style="background: linear-gradient(90deg, #2196F3, #03A9F4);" onclick="openDemo3D()">
+                    启动 3D Demo
+                </button>
             </div>
         </div>
         
@@ -232,6 +239,10 @@
         function openDemo() {
             const url = `./example/sanguo_zhangjiao/index.html?mode=${currentMode}`;
             window.open(url, '_blank');
+        }
+        
+        function openDemo3D() {
+            window.open('./example/sanguo_zhangjiao_3d/index.html', '_blank');
         }
     </script>
 </body>

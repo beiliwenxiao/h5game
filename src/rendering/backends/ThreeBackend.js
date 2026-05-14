@@ -95,6 +95,26 @@ export class ThreeBackend extends IRenderBackend {
 
     // HUD overlay
     this._ensureHudOverlay();
+    
+    // 默认创建一个大尺寸地面（无 mapData 时也能看见地面）
+    this._ensureDefaultGround();
+  }
+  
+  /**
+   * 创建默认地面（绿色平面），方便没有提供 mapData 的场景也有视觉参考
+   */
+  _ensureDefaultGround() {
+    if (this._defaultGround) return;
+    const size = 4000;
+    const geom = new THREE.PlaneGeometry(size, size);
+    const mat = new THREE.MeshLambertMaterial({ color: 0x3a5f3a, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.rotation.x = -Math.PI / 2; // 平铺到 XZ 平面
+    mesh.position.y = -1; // 略低于实体平面，避免 z-fighting
+    mesh.receiveShadow = false;
+    const ground = this.floorGroups.get('ground');
+    if (ground) ground.add(mesh);
+    this._defaultGround = mesh;
   }
 
   /**

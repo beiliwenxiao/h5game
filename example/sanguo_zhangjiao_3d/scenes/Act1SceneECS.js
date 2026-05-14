@@ -1462,9 +1462,14 @@ export class Act1SceneECS extends BaseGameScene {
   /**
    * 渲染 - 覆盖父类，添加迷雾效果
    */
-  render(ctx) {
+  render(ctxOrBackend) {
     // 调用父类渲染
-    super.render(ctx);
+    super.render(ctxOrBackend);
+    
+    // 后续迷雾渲染只支持 2D ctx；3D 模式下取 HUD ctx
+    const is3D = ctxOrBackend && ctxOrBackend.mode === '3d';
+    const ctx = is3D ? ctxOrBackend.getHUDContext() : ctxOrBackend;
+    if (!ctx) return;
     
     // 渲染迷雾效果（在所有内容之上，UI之上）
     if (this.fog.active && this.fog.opacity > 0.01) {

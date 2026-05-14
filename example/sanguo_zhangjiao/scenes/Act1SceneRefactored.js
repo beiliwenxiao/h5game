@@ -11,7 +11,7 @@
  * 需求：1, 2, 3, 4, 5, 6, 7
  */
 
-import { Scene } from '../../core/Scene.js';
+import { Scene } from '../../../src/core/Scene.js';
 import Act1Config from '../config/Act1Config.js';
 import { TutorialConfig } from '../config/TutorialConfig.js';
 import { ProgressiveTipsConfig } from '../config/ProgressiveTipsConfig.js';

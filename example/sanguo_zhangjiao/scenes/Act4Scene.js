@@ -12,10 +12,10 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
-import { ClassSystem, ClassType, ClassNames } from '../../systems/ClassSystem.js';
-import { SkillTreePanel } from '../../ui/SkillTreePanel.js';
-import { UnitInfoPanel } from '../../ui/UnitInfoPanel.js';
-import { AttributePanel } from '../../ui/AttributePanel.js';
+import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
+import { SkillTreePanel } from '../../../src/ui/SkillTreePanel.js';
+import { UnitInfoPanel } from '../../../src/ui/UnitInfoPanel.js';
+import { AttributePanel } from '../../../src/ui/AttributePanel.js';
 
 export class Act4Scene extends BaseGameScene {
   constructor() {

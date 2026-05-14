@@ -9,12 +9,12 @@
  * - SkillTreeSystem: 武将特殊技能
  */
 
-import { Entity } from '../../ecs/Entity.js';
-import { TransformComponent } from '../../ecs/components/TransformComponent.js';
-import { SpriteComponent } from '../../ecs/components/SpriteComponent.js';
-import { CombatComponent } from '../../ecs/components/CombatComponent.js';
-import { StatsComponent } from '../../ecs/components/StatsComponent.js';
-import { MovementComponent } from '../../ecs/components/MovementComponent.js';
+import { Entity } from '../../../src/ecs/Entity.js';
+import { TransformComponent } from '../../../src/ecs/components/TransformComponent.js';
+import { SpriteComponent } from '../../../src/ecs/components/SpriteComponent.js';
+import { CombatComponent } from '../../../src/ecs/components/CombatComponent.js';
+import { StatsComponent } from '../../../src/ecs/components/StatsComponent.js';
+import { MovementComponent } from '../../../src/ecs/components/MovementComponent.js';
 
 /**
  * 历史武将类

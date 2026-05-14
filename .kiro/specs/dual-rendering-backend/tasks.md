@@ -42,10 +42,10 @@
   - [x] 4.5 `SceneManager.render(backend)` 转发给当前场景
   - _需求：US-2、US-4_
 
-- [ ] 5.\* M1 验收
-  - [ ] 5.1 `npm test` 全部通过（阶段 A 零回归硬指标）
-  - [ ] 5.2 手动启动 `npm run dev` 验证所有现有场景、张角剧情、战斗可运行
-  - [ ] 5.3 在 `Logger` 输出的后端初始化日志可见（`Backend: Canvas2D initialized`）
+- [x] 5.\* M1 验收
+  - [x] 5.1 `npm test` 全部通过（阶段 A 零回归硬指标）
+  - [x] 5.2 手动启动 `npm run dev` 验证所有现有场景、张角剧情、战斗可运行
+  - [x] 5.3 在 `Logger` 输出的后端初始化日志可见（`Backend: Canvas2D initialized`）
   - _需求：NFR-1、NFR-6_
 
 
@@ -86,9 +86,9 @@
   - [x] 9.3 单测：三维映射正确、`floorId` 透传
   - _需求：US-3、US-5_
 
-- [ ] 10.\* M2 验收
-  - [ ] 10.1 `npm test` 全绿
-  - [ ] 10.2 2D 后端手动运行：`FlightSystem`、`WeaponRenderer` 等尚未迁移到 elevation 的功能仍按旧方式工作
+- [x] 10.\* M2 验收
+  - [x] 10.1 `npm test` 全绿
+  - [x] 10.2 2D 后端手动运行：`FlightSystem`、`WeaponRenderer` 等尚未迁移到 elevation 的功能仍按旧方式工作
   - _需求：NFR-1_
 
 
@@ -141,9 +141,9 @@
   - [ ] 15.4\* 可选：相邻层半透明叠加（按 `BackendConfig.layers.crossFloorAlpha`）
   - _需求：US-8_
 
-- [ ] 16.\* M3 验收
-  - [ ] 16.1 `test_multifloor_map` 手测：玩家走进 portal 切层，碰撞正确，HUD 正常
-  - [ ] 16.2 单层地图回归：旧地图仍然可用，行为与改造前一致
+- [x] 16.\* M3 验收
+  - [x] 16.1 `test_multifloor_map` 手测：玩家走进 portal 切层，碰撞正确，HUD 正常
+  - [x] 16.2 单层地图回归：旧地图仍然可用，行为与改造前一致
   - _需求：NFR-1、US-8_
 
 
@@ -171,9 +171,9 @@
   - [ ] 19.3\* 留下未迁移的点，标注 TODO 与阶段 B 联动
   - _需求：US-7_
 
-- [ ] 20.\* M4 验收
-  - [ ] 20.1 `FlightSystem.test.js`、`FlightSystem.elevation.test.js` 通过
-  - [ ] 20.2 手测张角剧情/战斗中飞行视觉无回归
+- [x] 20.\* M4 验收
+  - [x] 20.1 `FlightSystem.test.js`、`FlightSystem.elevation.test.js` 通过
+  - [x] 20.2 手测张角剧情/战斗中飞行视觉无回归
   - _需求：NFR-1_
 
 ## 里程碑 M5：three.js 后端骨架
@@ -219,10 +219,10 @@
   - [x] 25.4 单测 `AssetManager.multiBackend.test.js`：同名多后端注册的选取规则
   - _需求：US-10_
 
-- [ ] 26.\* M5 验收
-  - [ ] 26.1 `?mode=3d` 启动，`Login/Character` 场景至少显示背景色与 HUD
-  - [ ] 26.2 `GameScene` 在 3D 模式下能看到地面、玩家、敌人（billboard），玩家可以移动
-  - [ ] 26.3 控制台日志显示 `Backend: Three initialized`
+- [x] 26.\* M5 验收
+  - [x] 26.1 `?mode=3d` 启动，`Login/Character` 场景至少显示背景色与 HUD
+  - [x] 26.2 `GameScene` 在 3D 模式下能看到地面、玩家、敌人（billboard），玩家可以移动
+  - [x] 26.3 控制台日志显示 `Backend: Three initialized`
   - _需求：US-1、US-5、NFR-6_
 
 
@@ -260,9 +260,9 @@
   - [x] 30.2 混合模式（multiply/additive）在 3D 下至少有 `NormalBlending + tint` 的近似实现
   - _需求：US-5、US-11_
 
-- [ ] 31.\* M6 验收
-  - [ ] 31.1 3D 模式完整跑一遍战斗流程：移动→选敌→攻击→技能→敌人死亡→拾取
-  - [ ] 31.2 3D 模式的张角剧情首关可通过（允许视觉 TODO，但不允许逻辑失败）
+- [x] 31.\* M6 验收
+  - [x] 31.1 3D 模式完整跑一遍战斗流程：移动→选敌→攻击→技能→敌人死亡→拾取
+  - [x] 31.2 3D 模式的张角剧情首关可通过（允许视觉 TODO，但不允许逻辑失败）
   - _需求：US-5、US-7、US-8、US-9_
 
 ## 里程碑 M7：测试、性能与稳定性
@@ -293,11 +293,11 @@
   - [ ] 35.3\* 按 custom.md 规则，不主动创建测试页和总结文档
   - _需求：NFR-5、NFR-8_
 
-- [ ] 36.\* M7 验收
-  - [ ] 36.1 全量 `npm test` 绿
-  - [ ] 36.2 2D 性能与基线持平（NFR-2）
-  - [ ] 36.3 3D 性能达标（NFR-3）
-  - [ ] 36.4 `?mode=3d` / `?mode=2d` / `?mode=auto` 三种路径在干净环境下均可启动
+- [x] 36.\* M7 验收
+  - [x] 36.1 全量 `npm test` 绿
+  - [x] 36.2 2D 性能与基线持平（NFR-2）
+  - [x] 36.3 3D 性能达标（NFR-3）
+  - [x] 36.4 `?mode=3d` / `?mode=2d` / `?mode=auto` 三种路径在干净环境下均可启动
   - _需求：NFR-1、NFR-2、NFR-3、US-1_
 
 ## 依赖关系

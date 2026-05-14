@@ -11,11 +11,11 @@
 
 1. 克隆项目
    ```bash
-   git clone https://gitee.com/coderaaa/html5-mmrgp-game.git 
+   git clone https://gitee.com/coderaaa/h5game.git 
    或 
-   git clone https://github.com/beiliwenxiao/html5-mmrgp-game.git
+   git clone https://github.com/beiliwenxiao/h5game.git
 
-   cd html5-mmrgp-game
+   cd h5game
    ```
 
 2. 安装依赖

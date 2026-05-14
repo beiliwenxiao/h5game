@@ -10,8 +10,8 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
-import { AttributeSystem } from '../../systems/AttributeSystem.js';
-import { SkillTreeSystem } from '../../systems/SkillTreeSystem.js';
+import { AttributeSystem } from '../../../src/systems/AttributeSystem.js';
+import { SkillTreeSystem } from '../../../src/systems/SkillTreeSystem.js';
 
 export class Act2Scene extends BaseGameScene {
   constructor() {

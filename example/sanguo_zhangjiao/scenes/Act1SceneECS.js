@@ -16,10 +16,10 @@ import { TutorialConfig } from '../config/TutorialConfig.js';
 import { TutorialConditions } from '../conditions/TutorialConditions.js';
 import { ProgressiveTipsConfig } from '../config/ProgressiveTipsConfig.js';
 import { ProgressiveTipsConditions } from '../conditions/ProgressiveTipsConditions.js';
-import { Entity } from '../../ecs/Entity.js';
-import { TransformComponent } from '../../ecs/components/TransformComponent.js';
-import { SpriteComponent } from '../../ecs/components/SpriteComponent.js';
-import { NameComponent } from '../../ecs/components/NameComponent.js';
+import { Entity } from '../../../src/ecs/Entity.js';
+import { TransformComponent } from '../../../src/ecs/components/TransformComponent.js';
+import { SpriteComponent } from '../../../src/ecs/components/SpriteComponent.js';
+import { NameComponent } from '../../../src/ecs/components/NameComponent.js';
 
 export class Act1SceneECS extends BaseGameScene {
   constructor() {
@@ -819,6 +819,34 @@ export class Act1SceneECS extends BaseGameScene {
           
           this.startCombatTutorial();
         }
+      },
+      
+      'combat': {
+        check: () => {
+          // 检查是否完成了战斗（第一波野狗）
+          return this.tutorialsCompleted.combat && !this.tutorialsCompleted.progressive_tip_11;
+        },
+        onComplete: () => {
+          // 战斗完成，显示 tip_11（按N键进入下一幕）
+          // 先隐藏当前教程，避免冲突
+          if (this.tutorialSystem && this.tutorialSystem.currentTutorial) {
+            this.tutorialSystem.hideTutorial();
+          }
+          
+          if (this.tutorialSystem) {
+            this.tutorialSystem.showTutorial('progressive_tip_11');
+          }
+          
+          this.tutorialPhase = 'combat_complete';
+          console.log('Act1SceneECS: 战斗完成，等待按N键进入下一幕');
+        }
+      },
+      
+      'combat_complete': {
+        // 等待用户按N键，由 update 方法中的 N 键检测处理
+        // 这个阶段不需要额外的处理逻辑
+        check: () => false,
+        onComplete: () => {}
       }
     };
   }
@@ -1324,14 +1352,10 @@ export class Act1SceneECS extends BaseGameScene {
       console.log(`Act1SceneECS: 第${this.combatWave + 1}波完成`);
       
       if (this.combatWave === 0) {
-        // 野狗打完，提示按N键（使用渐进式提示系统）
+        // 野狗打完，标记战斗完成
+        // tip_11 的显示由 combat 阶段的 onComplete 处理
         this.tutorialsCompleted.combat = true;
         this.combatComplete = true;
-        
-        // 通过教程系统显示提示（带.key按键样式）
-        if (this.tutorialSystem) {
-          this.tutorialSystem.showTutorial('progressive_tip_11');
-        }
       } else if (this.combatWave === 1) {
         // 饥民波次：所有饥民都已生成且全部死亡后触发死亡
         if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) {

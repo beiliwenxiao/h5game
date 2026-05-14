@@ -1,4 +1,4 @@
-import { Scene } from '../../core/Scene.js';
+import { Scene } from '../../../src/core/Scene.js';
 
 /**
  * 序章场景基类

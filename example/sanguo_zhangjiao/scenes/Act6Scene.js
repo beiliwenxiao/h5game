@@ -11,7 +11,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
-import { ProgressManager } from '../../systems/ProgressManager.js';
+import { ProgressManager } from '../../../src/systems/ProgressManager.js';
 
 export class Act6Scene extends BaseGameScene {
   constructor() {

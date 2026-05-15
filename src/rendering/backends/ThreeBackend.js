@@ -51,6 +51,19 @@ export class ThreeBackend extends IRenderBackend {
     this.gameHeight = config.gameHeight ?? this.gameHeight;
     this.assetManager = config.assetManager ?? null;
 
+    // WebGL 能力检测
+    const probe = ThreeBackend.probeWebGL();
+    if (!probe.supported) {
+      throw new Error(`ThreeBackend.init: WebGL not supported (${probe.reason})`);
+    }
+    if (probe.softwareOnly && config.allowSoftwareWebGL !== true) {
+      throw new Error(
+        'ThreeBackend.init: WebGL is software-only (no hardware acceleration). ' +
+        'Pass { allowSoftwareWebGL: true } to force, or fall back to 2D backend.'
+      );
+    }
+    this._webglProbe = probe;
+
     // renderer
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -271,6 +284,45 @@ export class ThreeBackend extends IRenderBackend {
       this.floorGroups.set(id, g);
     }
     return g;
+  }
+
+  /**
+   * 检测 WebGL 是否可用以及是否使用硬件加速
+   * @returns {{ supported: boolean, softwareOnly: boolean, reason: string, renderer?: string, vendor?: string }}
+   */
+  static probeWebGL() {
+    if (typeof document === 'undefined') {
+      return { supported: false, softwareOnly: false, reason: 'no-dom' };
+    }
+    try {
+      const probe = document.createElement('canvas');
+      const gl = probe.getContext('webgl2') || probe.getContext('webgl') || probe.getContext('experimental-webgl');
+      if (!gl) {
+        return { supported: false, softwareOnly: false, reason: 'webgl-unavailable' };
+      }
+      // 通过 WEBGL_debug_renderer_info 拿到底层 renderer 字符串
+      let rendererStr = '';
+      let vendorStr = '';
+      try {
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        if (ext) {
+          rendererStr = String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '');
+          vendorStr = String(gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) || '');
+        }
+      } catch (_) { /* noop */ }
+      // 软件渲染特征匹配
+      const softwarePatterns = /(SwiftShader|Software|llvmpipe|Microsoft Basic Render|ANGLE \(.+ Software)/i;
+      const softwareOnly = softwarePatterns.test(rendererStr) || softwarePatterns.test(vendorStr);
+      return {
+        supported: true,
+        softwareOnly,
+        reason: softwareOnly ? 'software-only' : 'hardware-accelerated',
+        renderer: rendererStr,
+        vendor: vendorStr
+      };
+    } catch (e) {
+      return { supported: false, softwareOnly: false, reason: 'probe-error: ' + e.message };
+    }
   }
 }
 

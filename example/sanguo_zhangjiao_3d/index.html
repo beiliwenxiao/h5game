@@ -416,6 +416,7 @@
         import { Act4Scene } from './scenes/Act4Scene.js';
         import { Act5Scene } from './scenes/Act5Scene.js';
         import { Act6Scene } from './scenes/Act6Scene.js';
+        import { HomeScene3D } from './scenes/HomeScene3D.js';
         import { SceneManager } from '../../src/core/SceneManager.js';
         import { AssetManager } from '../../src/core/AssetManager.js';
         import { DialogueBox } from '../../src/ui/DialogueBox.js';
@@ -632,17 +633,77 @@
             }
         }
         
+        // WebGL 不可用时的友好提示
+        function showWebGLError(message, allowForce = false) {
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.innerHTML = `
+                <div style="max-width:600px;text-align:center;padding:40px;">
+                    <h1 style="color:#ff5252;margin-bottom:20px;">⚠️ 3D 模式不可用</h1>
+                    <p style="color:#ccc;line-height:1.8;margin-bottom:20px;">${message}</p>
+                    <div style="display:flex;gap:15px;justify-content:center;flex-wrap:wrap;">
+                        <a href="../sanguo_zhangjiao/index.html" 
+                           style="padding:12px 30px;background:#4CAF50;color:#fff;text-decoration:none;border-radius:25px;font-weight:bold;">
+                            切换到 2D 模式
+                        </a>
+                        ${allowForce ? `<button onclick="forceInit()" 
+                           style="padding:12px 30px;background:#ff9800;color:#fff;border:none;border-radius:25px;font-weight:bold;cursor:pointer;">
+                            强制启动（可能很卡）
+                        </button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // 强制启动（软件渲染模式）
+        let forceAllowSoftware = false;
+        window.forceInit = async function() {
+            forceAllowSoftware = true;
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.innerHTML = `
+                <h1 style="color:#4CAF50;">张角黄巾起义序章</h1>
+                <h2>第一幕：绝望的开始</h2>
+                <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+                <p id="loading-text">加载中（软件渲染模式）...</p>
+            `;
+            initGame();
+        };
+        
         // 初始化游戏
         async function initGame() {
             try {
                 // 模拟加载过程
-                updateLoading(0, '初始化 3D 渲染后端...');
+                updateLoading(0, '检测 WebGL 环境...');
+                
+                // 预检 WebGL 硬件加速
+                const probe = ThreeBackend.probeWebGL();
+                console.log('WebGL 检测结果:', probe);
+                
+                if (!probe.supported) {
+                    showWebGLError('您的浏览器不支持 WebGL，无法运行 3D 模式。');
+                    return;
+                }
+                if (probe.softwareOnly && !forceAllowSoftware) {
+                    showWebGLError(
+                        '检测到 WebGL 仅使用软件渲染（无硬件加速），3D 性能会非常差。<br><br>' +
+                        '<b>解决方法：</b><br>' +
+                        '1. 打开 chrome://settings/system → 启用「使用硬件加速模式」<br>' +
+                        '2. 打开 chrome://flags/#ignore-gpu-blocklist → Enabled<br>' +
+                        '3. 更新显卡驱动<br>' +
+                        '4. 重启浏览器<br><br>' +
+                        '<small>渲染器: ' + (probe.renderer || 'unknown') + '</small>',
+                        true // 允许强制继续
+                    );
+                    return;
+                }
+                
+                updateLoading(10, '初始化 3D 渲染后端...');
                 
                 // 初始化 ThreeBackend
                 backend = new ThreeBackend();
                 await backend.init(canvas, {
                     gameWidth: canvas.width,
-                    gameHeight: canvas.height
+                    gameHeight: canvas.height,
+                    allowSoftwareWebGL: forceAllowSoftware
                 });
                 console.log('ThreeBackend 初始化完成');
                 await sleep(300);
@@ -707,34 +768,27 @@
                     maxNotifications: 5
                 });
                 
-                scene = act1Scene;
-                await sleep(500);
+                // 注册 3D 首页场景
+                const homeScene = new HomeScene3D();
+                homeScene.setSceneManager(sceneManager);
+                sceneManager.registerScene('HomeScene3D', homeScene);
                 
-                updateLoading(75, '初始化玩家实体...');
+                scene = homeScene;
+                await sleep(300);
                 
-                // 使用场景管理器切换到第一幕
-                updateLoading(90, '进入第一幕...');
-                sceneManager.switchTo('Act1Scene');
-                await sleep(500);
+                updateLoading(90, '进入 3D 首页...');
+                sceneManager.switchTo('HomeScene3D');
+                await sleep(300);
                 
-                // 场景进入后，设置教程回调（此时教程系统已初始化）
+                // 场景切换回调（点击按钮进入 Act1 时生效）
                 console.log('设置教程回调...');
                 setupSceneCallbacks(act1Scene);
                 setupSceneCallbacks(act2Scene);
                 setupSceneCallbacks(act3Scene);
                 
-                // 重新触发第一个教程显示（因为之前回调还没设置）
-                console.log('尝试显示第一个教程...');
-                console.log('tutorialSystem 存在:', !!act1Scene.tutorialSystem);
-                console.log('progressive_tip_1 已完成:', act1Scene.tutorialsCompleted.progressive_tip_1);
-                
-                if (act1Scene.tutorialSystem && !act1Scene.tutorialsCompleted.progressive_tip_1) {
-                    // 先清除之前的教程状态（因为回调还没设置时就显示了）
-                    act1Scene.tutorialSystem.currentTutorial = null;
-                    
-                    const result = act1Scene.tutorialSystem.showTutorial('progressive_tip_1');
-                    console.log('showTutorial 返回:', result);
-                }
+                // 注意：3D 模式下进入 HomeScene3D，第一个教程的触发延迟到用户点击"进入第一幕"
+                // 此处不主动调用 showTutorial('progressive_tip_1')
+                console.log('当前在 3D 首页，等待用户点击进入第一幕');
                 
                 updateLoading(100, '完成！');
                 await sleep(500);

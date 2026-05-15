@@ -1597,6 +1597,7 @@ export class BaseGameScene extends PrologueScene {
     
     if (is3D) {
       // 3D 世界渲染
+      this._ensure3DSceneObjects(backend);
       backend.renderEntities(this.entities, backend.camera);
       if (this.particleSystem) {
         backend.renderParticles(this.particleSystem.getActiveParticles?.() ?? []);
@@ -1651,8 +1652,45 @@ export class BaseGameScene extends PrologueScene {
       this.performanceMonitor.render(ctx);
     }
     if (is3D) {
-      this.skillEffects.render(ctx, this.camera);
-      this.floatingTextManager.render(ctx, this.camera);
+      // 3D 模式 HUD 特效：使用 2D camera 的 position 做偏移
+      // 因为所有 2D 特效（粒子、刀光等）的坐标都在 2D 世界空间
+      // 2D camera 已经跟随玩家，它的 viewBounds 就是正确的偏移
+      const proxyBounds = this.camera.getViewBounds();
+      
+      const cam3d = backend.camera;
+      const camera3DProxy = {
+        worldToScreen: (wx, wy) => {
+          // 直接用 2D camera 的 worldToScreen
+          return this.camera.worldToScreen(wx, wy);
+        },
+        getViewBounds: () => proxyBounds,
+        position: this.camera.position,
+        width: this.camera.width,
+        height: this.camera.height
+      };
+      
+      this.skillEffects.render(ctx, camera3DProxy);
+      this.floatingTextManager.render(ctx, camera3DProxy);
+      
+      // 战斗特效（世界坐标系内渲染）
+      ctx.save();
+      ctx.translate(-proxyBounds.left, -proxyBounds.top);
+      
+      if (this.meleeAttackSystem.sliceTrail && this.meleeAttackSystem.sliceTrail.length > 1) {
+        this.meleeAttackSystem.renderSliceTrail(ctx);
+      }
+      this.meleeAttackSystem.renderSectorSlashEffects(ctx);
+      if (this.combatSystem && this.combatSystem.isInCombat() && this.playerEntity) {
+        this.meleeAttackSystem.renderCombatAlertCircle(ctx, camera3DProxy);
+      }
+      this.particleSystem.render(ctx, camera3DProxy);
+      if (this.combatSystem) {
+        this.combatSystem.renderSkillRangeIndicators(ctx);
+      }
+      
+      ctx.restore();
+      
+      this.combatEffects.render();
     }
   }
 
@@ -2408,6 +2446,369 @@ export class BaseGameScene extends PrologueScene {
     this.entities = [];
     
     console.log(`BaseGameScene: 退出场景 ${this.name}`);
+  }
+
+  /**
+   * 3D 模式下确保场景中有火堆、拾取物等 3D 对象
+   */
+  _ensure3DSceneObjects(backend) {
+    if (!backend || !backend.scene) return;
+    if (!this._3dObjects) this._3dObjects = {};
+    
+    // 火堆 3D 对象
+    if (this.campfire && !this._3dObjects.campfire) {
+      const { THREE } = this._getThree(backend);
+      if (THREE) {
+        const group = new THREE.Group();
+        group.position.set(this.campfire.x, 0, this.campfire.y);
+        
+        // 几根交叉的木柴（加大尺寸）
+        const logMat = new THREE.MeshLambertMaterial({ color: 0x5C3317 });
+        const logConfigs = [
+          { rx: 0.3, rz: 0.8, ry: 0 },
+          { rx: -0.4, rz: -0.6, ry: 1.2 },
+          { rx: 0.1, rz: -0.3, ry: 2.4 },
+          { rx: -0.2, rz: 0.5, ry: 0.6 },
+          { rx: 0.5, rz: 0.2, ry: 1.8 },
+          { rx: -0.3, rz: 0.4, ry: 3.0 },
+        ];
+        for (const lp of logConfigs) {
+          const logGeom = new THREE.CylinderGeometry(3.5, 4.5, 45, 6);
+          const log = new THREE.Mesh(logGeom, logMat);
+          log.rotation.x = lp.rx;
+          log.rotation.z = lp.rz;
+          log.rotation.y = lp.ry;
+          log.position.y = 3;
+          group.add(log);
+        }
+        
+        // 底部石头圈（缩小匹配碰撞区域）
+        const stoneMat = new THREE.MeshLambertMaterial({ color: 0x555555 });
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          const stoneGeom = new THREE.SphereGeometry(4, 5, 4);
+          const stone = new THREE.Mesh(stoneGeom, stoneMat);
+          stone.position.set(Math.cos(angle) * 18, 3, Math.sin(angle) * 18);
+          stone.scale.set(1, 0.6, 1);
+          group.add(stone);
+        }
+        
+        // 火焰面片（用序列帧贴图，billboard）
+        let flamePlane = null;
+        const fireImg = this.campfire.fireImage;
+        if (fireImg && fireImg.complete && fireImg.naturalWidth > 0) {
+          const tex = new THREE.Texture(fireImg);
+          tex.magFilter = THREE.NearestFilter;
+          tex.minFilter = THREE.NearestFilter;
+          tex.needsUpdate = true;
+          tex.repeat.set(1 / 4, 1 / 3);
+          tex.offset.set(0, 1 - 1 / 3);
+          
+          const flameW = 60;
+          const flameH = 70;
+          const flameGeom = new THREE.PlaneGeometry(flameW, flameH);
+          const flameMat = new THREE.MeshBasicMaterial({
+            map: tex,
+            transparent: true,
+            alphaTest: 0.1,
+            side: THREE.DoubleSide,
+            depthWrite: false
+          });
+          flamePlane = new THREE.Mesh(flameGeom, flameMat);
+          flamePlane.position.y = 40;
+          flamePlane.userData.isBillboard = true;
+          group.add(flamePlane);
+        } else {
+          // 没有图片时用球体代替
+          const flameMat2 = new THREE.MeshBasicMaterial({ color: 0xff6600, transparent: true, opacity: 0.8 });
+          flamePlane = new THREE.Mesh(new THREE.SphereGeometry(15, 8, 6), flameMat2);
+          flamePlane.position.y = 25;
+          flamePlane.scale.set(1, 1.5, 1);
+          group.add(flamePlane);
+        }
+        
+        // 点光源
+        const light = new THREE.PointLight(0xff6600, 0, 300);
+        light.position.set(0, 30, 0);
+        group.add(light);
+        
+        // 3D 火焰粒子系统（用 THREE.Points）
+        const particleCount = 80;
+        const pGeom = new THREE.BufferGeometry();
+        const positions = new Float32Array(particleCount * 3);
+        const colors = new Float32Array(particleCount * 3);
+        const sizes = new Float32Array(particleCount);
+        const velocities = new Float32Array(particleCount * 3);
+        const lifetimes = new Float32Array(particleCount);
+        const ages = new Float32Array(particleCount);
+        
+        for (let i = 0; i < particleCount; i++) {
+          // 初始化在火堆中心附近
+          positions[i * 3] = (Math.random() - 0.5) * 20;
+          positions[i * 3 + 1] = Math.random() * 30 + 10;
+          positions[i * 3 + 2] = (Math.random() - 0.5) * 20;
+          // 速度：主要向上
+          velocities[i * 3] = (Math.random() - 0.5) * 15;
+          velocities[i * 3 + 1] = 30 + Math.random() * 50;
+          velocities[i * 3 + 2] = (Math.random() - 0.5) * 15;
+          // 颜色：橙黄红随机
+          const colorChoice = Math.random();
+          if (colorChoice < 0.3) { colors[i*3]=1; colors[i*3+1]=0.95; colors[i*3+2]=0.3; }
+          else if (colorChoice < 0.6) { colors[i*3]=1; colors[i*3+1]=0.6; colors[i*3+2]=0.1; }
+          else { colors[i*3]=1; colors[i*3+1]=0.3; colors[i*3+2]=0.1; }
+          sizes[i] = 3 + Math.random() * 5;
+          lifetimes[i] = 0.5 + Math.random() * 1.5;
+          ages[i] = Math.random() * lifetimes[i]; // 错开初始时间
+        }
+        pGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        pGeom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        pGeom.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+        
+        const pMat = new THREE.PointsMaterial({
+          size: 5,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0.7,
+          depthWrite: false,
+          sizeAttenuation: true
+        });
+        const points = new THREE.Points(pGeom, pMat);
+        group.add(points);
+        
+        backend.scene.add(group);
+        this._3dObjects.campfire = { group, flamePlane, light, points, velocities, lifetimes, ages, particleCount };
+      }
+    }
+    
+    // 更新火堆状态
+    if (this._3dObjects.campfire) {
+      const cf = this._3dObjects.campfire;
+      const { flamePlane, light, points, velocities, lifetimes, ages, particleCount } = cf;
+      
+      if (this.campfire.lit) {
+        // 火焰面片可见 + 序列帧动画
+        if (flamePlane) {
+          flamePlane.visible = true;
+          // billboard：面向相机
+          if (backend.camera?.native) {
+            const camPos = backend.camera.native.position;
+            const fp = flamePlane.parent.position; // group position
+            const dx = camPos.x - fp.x;
+            const dz = camPos.z - fp.z;
+            flamePlane.rotation.y = Math.atan2(dx, dz);
+          }
+          // 序列帧 UV 更新
+          if (flamePlane.material?.map) {
+            const frame = this.campfire.currentFrame;
+            const col = frame % 4;
+            const row = Math.floor(frame / 4);
+            flamePlane.material.map.offset.set(col / 4, 1 - (row + 1) / 3);
+            flamePlane.material.map.repeat.set(1 / 4, 1 / 3);
+            flamePlane.material.map.needsUpdate = true;
+          }
+        }
+        
+        // 点光源闪烁
+        const t = Date.now() * 0.004;
+        light.intensity = 1.8 + Math.sin(t * 3) * 0.4;
+        
+        // 更新 3D 粒子
+        if (points && points.geometry) {
+          const posAttr = points.geometry.attributes.position;
+          const dt = 0.016;
+          for (let i = 0; i < particleCount; i++) {
+            ages[i] += dt;
+            // 超出生命周期或飘太远则重生
+            const px = posAttr.array[i * 3];
+            const py = posAttr.array[i * 3 + 1];
+            const pz = posAttr.array[i * 3 + 2];
+            if (ages[i] >= lifetimes[i] || py > 80 || Math.abs(px) > 30 || Math.abs(pz) > 30) {
+              ages[i] = 0;
+              posAttr.array[i * 3] = (Math.random() - 0.5) * 15;
+              posAttr.array[i * 3 + 1] = Math.random() * 8 + 5;
+              posAttr.array[i * 3 + 2] = (Math.random() - 0.5) * 15;
+              velocities[i * 3] = (Math.random() - 0.5) * 10;
+              velocities[i * 3 + 1] = 30 + Math.random() * 40;
+              velocities[i * 3 + 2] = (Math.random() - 0.5) * 10;
+            } else {
+              posAttr.array[i * 3] += velocities[i * 3] * dt;
+              posAttr.array[i * 3 + 1] += velocities[i * 3 + 1] * dt;
+              posAttr.array[i * 3 + 2] += velocities[i * 3 + 2] * dt;
+              // 横向微弱摇摆
+              posAttr.array[i * 3] += Math.sin(t + i) * 0.15;
+              // 速度衰减
+              velocities[i * 3] *= 0.98;
+              velocities[i * 3 + 1] *= 0.97;
+              velocities[i * 3 + 2] *= 0.98;
+            }
+          }
+          posAttr.needsUpdate = true;
+          points.visible = true;
+        }
+      } else {
+        if (flamePlane) flamePlane.visible = false;
+        light.intensity = 0;
+        if (points) points.visible = false;
+      }
+    }
+    
+    // 拾取物品 3D 对象
+    this._update3DPickupItems(backend);
+  }
+  
+  _update3DPickupItems(backend) {
+    if (!backend.scene) return;
+    if (!this._3dObjects.pickups) this._3dObjects.pickups = new Map();
+    const { THREE } = this._getThree(backend);
+    if (!THREE) return;
+    
+    const allItems = [...(this.pickupItems || []), ...(this.equipmentItems || [])];
+    
+    for (const item of allItems) {
+      if (item.picked) {
+        const obj = this._3dObjects.pickups.get(item);
+        if (obj) {
+          backend.scene.remove(obj);
+          this._3dObjects.pickups.delete(item);
+        }
+        continue;
+      }
+      if (!this._3dObjects.pickups.has(item)) {
+        // 创建物品面片，贴 canvas 绘制的图标
+        const size = 35;
+        const geom = new THREE.PlaneGeometry(size, size);
+        
+        // 生成物品图标纹理
+        const iconTex = this._createItemIconTexture(item, THREE);
+        const mat = new THREE.MeshBasicMaterial({
+          map: iconTex,
+          transparent: true,
+          alphaTest: 0.1,
+          side: THREE.DoubleSide
+        });
+        
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.position.set(item.x, size / 2 + 2, item.y);
+        backend.scene.add(mesh);
+        this._3dObjects.pickups.set(item, mesh);
+      } else {
+        // 浮动 + 自转动画
+        const mesh = this._3dObjects.pickups.get(item);
+        mesh.position.y = 20 + Math.sin(Date.now() * 0.003 + item.x) * 5;
+        mesh.rotation.y += 0.1;
+      }
+    }
+  }
+  
+  /**
+   * 用离屏 canvas 绘制物品图标，生成 THREE.Texture
+   */
+  _createItemIconTexture(item, THREE) {
+    const size = 64;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    
+    // 背景透明
+    ctx.clearRect(0, 0, size, size);
+    
+    // 根据物品 id 绘制对应图标
+    ctx.save();
+    ctx.translate(size / 2, size / 2);
+    
+    if (item.id === 'leftover_food') {
+      // 碗 + 食物
+      ctx.fillStyle = '#8B7355';
+      ctx.beginPath();
+      ctx.ellipse(0, 5, 18, 10, 0, 0, Math.PI);
+      ctx.fill();
+      ctx.fillStyle = '#CD853F';
+      ctx.beginPath();
+      ctx.ellipse(0, 2, 14, 7, 0, Math.PI, 0);
+      ctx.fill();
+      // 热气
+      ctx.strokeStyle = '#ffffff88';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(-5, -8); ctx.quadraticCurveTo(-3, -14, -5, -20);
+      ctx.moveTo(3, -6); ctx.quadraticCurveTo(5, -12, 3, -18);
+      ctx.stroke();
+    } else if (item.id === 'ragged_clothes') {
+      // 衣服
+      ctx.fillStyle = '#6B5B4F';
+      ctx.fillRect(-12, -15, 24, 30);
+      ctx.fillStyle = '#5A4A3E';
+      ctx.fillRect(-16, -15, 6, 20);
+      ctx.fillRect(10, -15, 6, 20);
+      // 补丁
+      ctx.fillStyle = '#8B7355';
+      ctx.fillRect(-5, -5, 8, 8);
+    } else if (item.id === 'wooden_sword') {
+      // 木剑
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(-2, -22, 4, 30);
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(-6, 8, 12, 4);
+      ctx.fillStyle = '#A0522D';
+      ctx.fillRect(-3, 12, 6, 8);
+      // 剑尖
+      ctx.fillStyle = '#8B6914';
+      ctx.beginPath();
+      ctx.moveTo(-2, -22); ctx.lineTo(0, -28); ctx.lineTo(2, -22);
+      ctx.fill();
+    } else if (item.id === 'wooden_bow') {
+      // 弓
+      ctx.strokeStyle = '#8B4513';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 18, -Math.PI * 0.7, Math.PI * 0.7);
+      ctx.stroke();
+      // 弦
+      ctx.strokeStyle = '#DDD';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, -17); ctx.lineTo(0, 17);
+      ctx.stroke();
+    } else if (item.id === 'wooden_arrow') {
+      // 箭
+      ctx.fillStyle = '#8B6914';
+      ctx.fillRect(-1, -20, 2, 35);
+      // 箭头
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.moveTo(-4, -20); ctx.lineTo(0, -28); ctx.lineTo(4, -20);
+      ctx.fill();
+      // 箭羽
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(-3, 12); ctx.lineTo(0, 8); ctx.lineTo(3, 12);
+      ctx.fill();
+    } else {
+      // 默认：金色圆形
+      ctx.fillStyle = '#FFD700';
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#B8860B';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    
+    ctx.restore();
+    
+    const tex = new THREE.Texture(canvas);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.needsUpdate = true;
+    return tex;
+  }
+  
+  _getThree(backend) {
+    if (backend && backend.THREE) {
+      return { THREE: backend.THREE };
+    }
+    return { THREE: null };
   }
 }
 

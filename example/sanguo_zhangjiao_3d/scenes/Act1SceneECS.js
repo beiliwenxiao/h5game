@@ -937,8 +937,8 @@ export class Act1SceneECS extends BaseGameScene {
     const dy = campfireCenterY - playerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // 如果玩家靠近火堆（距离小于60），点燃火堆
-    if (distance <= 60) {
+    // 如果玩家靠近火堆（距离小于80），点燃火堆
+    if (distance <= 80) {
       this.lightCampfire();
       console.log('Act1SceneECS: 点燃火堆');
     }
@@ -960,13 +960,11 @@ export class Act1SceneECS extends BaseGameScene {
     const playerY = transform.position.y;
     const playerRadius = 20; // 玩家半径
     
-    // 火堆的碰撞区域
-    // 宽度：中间8/10（左右各1/10可以靠近）
-    // 高度：上部3/4（下部1/4可以靠近）
-    const fullWidth = 50;
-    const fullHeight = 30;
-    const collisionWidth = fullWidth * 0.8; // 中间8/10宽度 = 40
-    const collisionHeight = fullHeight * 0.75; // 上部3/4高度 = 22.5
+    // 火堆的碰撞区域（缩小，只阻止穿过火堆中心）
+    const fullWidth = 30;
+    const fullHeight = 20;
+    const collisionWidth = fullWidth * 0.6; // 18
+    const collisionHeight = fullHeight * 0.6; // 12
     
     const campfireLeft = this.campfire.x - collisionWidth / 2;
     const campfireRight = this.campfire.x + collisionWidth / 2;

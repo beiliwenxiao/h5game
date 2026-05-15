@@ -23,6 +23,8 @@ export class ThreeBackend extends IRenderBackend {
   constructor() {
     super();
     this.mode = '3d';
+    /** 暴露 THREE 引用，方便外部创建 3D 对象 */
+    this.THREE = THREE;
     /** @type {THREE.WebGLRenderer|null} */
     this.renderer = null;
     /** @type {THREE.Scene|null} */
@@ -118,16 +120,26 @@ export class ThreeBackend extends IRenderBackend {
    */
   _ensureDefaultGround() {
     if (this._defaultGround) return;
-    const size = 4000;
+    const size = 2000;
+    // 地面平面
     const geom = new THREE.PlaneGeometry(size, size);
-    const mat = new THREE.MeshLambertMaterial({ color: 0x3a5f3a, side: THREE.DoubleSide });
+    const mat = new THREE.MeshLambertMaterial({
+      color: 0x2a4a2a,
+      side: THREE.DoubleSide
+    });
     const mesh = new THREE.Mesh(geom, mat);
-    mesh.rotation.x = -Math.PI / 2; // 平铺到 XZ 平面
-    mesh.position.y = -1; // 略低于实体平面，避免 z-fighting
-    mesh.receiveShadow = false;
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.y = -1;
     const ground = this.floorGroups.get('ground');
     if (ground) ground.add(mesh);
     this._defaultGround = mesh;
+    
+    // 网格线（每 80 单位一条线）
+    const grid = new THREE.GridHelper(size, size / 80, 0x3a6a3a, 0x336633);
+    grid.position.y = 0;
+    grid.material.opacity = 0.4;
+    grid.material.transparent = true;
+    if (ground) ground.add(grid);
   }
 
   /**
@@ -226,13 +238,29 @@ export class ThreeBackend extends IRenderBackend {
       usedIds.add(e.id);
 
       let view = this.entityViews.get(e.id);
+      
+      // 如果 view 是占位（无贴图）但现在图片已加载，重建
+      if (view && !view.userData.hasTexture && this.assetManager) {
+        const sprite = e.getComponent?.('sprite');
+        if (sprite) {
+          const img = this.assetManager.getAsset?.(sprite.spriteSheet) 
+                   || this.assetManager.getImage?.(sprite.spriteSheet);
+          if (img && (img instanceof HTMLCanvasElement || (img.complete && img.naturalWidth > 0))) {
+            // 图片已就绪，重建 view
+            if (view.parent) view.parent.remove(view);
+            view = null;
+            this.entityViews.delete(e.id);
+          }
+        }
+      }
+      
       if (!view) {
         view = createEntityView(e, this.assetManager);
         this.entityViews.set(e.id, view);
         const floorId = e.getComponent?.('transform')?.floorId ?? 'ground';
         this._ensureFloorGroup(floorId).add(view);
       }
-      updateEntityView(view, e);
+      updateEntityView(view, e, this.camera?.native);
     }
 
     // 清理已消失的实体 view

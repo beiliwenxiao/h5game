@@ -28,9 +28,11 @@ export class Camera3DAdapter extends ICameraAdapter {
     this.pitchDeg = config.pitchDeg ?? 30;
     this.yawDeg = config.yawDeg ?? 45;
     this.distance = config.distance ?? 1500; // 相机到目标的距离
+    this.zoomLevel = config.zoomLevel ?? 1;  // 正交相机缩放级别
 
     this._target = null;
     this._focus = new THREE.Vector3(0, 0, 0);
+    this._panOffset = new THREE.Vector3(0, 0, 0); // 手动平移偏移
     this._raycaster = new THREE.Raycaster();
     this._groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0); // y=0
 
@@ -91,7 +93,12 @@ export class Camera3DAdapter extends ICameraAdapter {
     const x = pos.x ?? 0;
     const y = (pos.elevation ?? pos.y ?? 0);
     const z = (pos.z !== undefined ? pos.z : (pos.y ?? 0));
-    this._focus.set(x, y, z);
+    // 叠加手动平移偏移
+    this._focus.set(
+      x + this._panOffset.x,
+      y + this._panOffset.y,
+      z + this._panOffset.z
+    );
     this._applyPose();
   }
 
@@ -134,6 +141,46 @@ export class Camera3DAdapter extends ICameraAdapter {
     if (typeof pitchDeg === 'number') this.pitchDeg = pitchDeg;
     if (typeof yawDeg === 'number') this.yawDeg = yawDeg;
     this._applyPose();
+  }
+
+  /**
+   * 设置相机距离（推进/拉远）
+   * 对透视相机改变 distance；对正交相机改变 zoom 缩放
+   * @param {number} distance - 相机到焦点的距离
+   */
+  setDistance(distance) {
+    this.distance = Math.max(100, Math.min(5000, distance));
+    if (this.native.isOrthographicCamera) {
+      // 正交相机：通过 zoom 属性实现推拉效果
+      // distance 越小 → zoom 越大 → 物体显示越大
+      this.zoomLevel = 1500 / this.distance;
+      this.native.zoom = this.zoomLevel;
+      this.native.updateProjectionMatrix();
+    }
+    this._applyPose();
+  }
+
+  /**
+   * 平移相机焦点（相对于当前 yaw 方向）
+   * @param {number} dx - 左右平移量（正值=右移）
+   * @param {number} dz - 前后平移量（正值=前移）
+   */
+  pan(dx, dz) {
+    const yaw = this.yawDeg * DEG;
+    // 基于当前 yaw 朝向做平面旋转
+    const cosY = Math.cos(yaw);
+    const sinY = Math.sin(yaw);
+    // 右方向 = (cosY, 0, -sinY)，前方向 = (sinY, 0, cosY)
+    this._panOffset.x += cosY * dx + sinY * dz;
+    this._panOffset.z += -sinY * dx + cosY * dz;
+    this._applyPose();
+  }
+
+  /**
+   * 重置手动平移偏移（回归跟随目标）
+   */
+  resetPanOffset() {
+    this._panOffset.set(0, 0, 0);
   }
 
   /**

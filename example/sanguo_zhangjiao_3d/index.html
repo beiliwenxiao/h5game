@@ -190,6 +190,113 @@
         #debug-panel div {
             margin: 2px 0;
         }
+
+        /* 摄像头控制面板 */
+        #camera-control {
+            position: absolute;
+            top: 10px;
+            left: 180px;
+            width: 140px;
+            height: 140px;
+            pointer-events: auto;
+            user-select: none;
+        }
+        
+        #camera-control .ring-outer {
+            position: absolute;
+            top: 0; left: 0;
+            width: 140px; height: 140px;
+            border-radius: 50%;
+            border: 2px solid rgba(76, 175, 80, 0.4);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        #camera-control .cam-btn {
+            position: absolute;
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            border: 1px solid rgba(76, 175, 80, 0.7);
+            background: rgba(30, 30, 30, 0.85);
+            color: #4CAF50;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+            line-height: 1;
+        }
+        
+        #camera-control .cam-btn:hover {
+            background: rgba(76, 175, 80, 0.3);
+            transform: scale(1.15);
+        }
+        
+        #camera-control .cam-btn:active {
+            background: rgba(76, 175, 80, 0.5);
+            transform: scale(0.95);
+        }
+        
+        /* 方向按钮定位（内圈） */
+        #camera-control .btn-up    { top: 12px;  left: 56px; }
+        #camera-control .btn-down  { bottom: 12px; left: 56px; }
+        #camera-control .btn-left  { top: 56px;  left: 12px; }
+        #camera-control .btn-right { top: 56px;  right: 12px; }
+        
+        /* 旋转按钮定位（外圈） */
+        #camera-control .btn-rot-left  { top: 22px; left: 14px; }
+        #camera-control .btn-rot-right { top: 22px; right: 14px; }
+        
+        /* 重置按钮（底部中央） */
+        #camera-control .btn-reset {
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px; height: 18px;
+            border-radius: 9px;
+            font-size: 10px;
+        }
+        
+        /* 中间推拉按钮（半圆） */
+        #camera-control .zoom-group {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px; height: 48px;
+        }
+        
+        #camera-control .zoom-btn {
+            position: absolute;
+            width: 24px; height: 48px;
+            border: 1px solid rgba(76, 175, 80, 0.7);
+            background: rgba(30, 30, 30, 0.85);
+            color: #4CAF50;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.1s;
+        }
+        
+        #camera-control .zoom-btn:hover {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        #camera-control .zoom-btn:active {
+            background: rgba(76, 175, 80, 0.5);
+        }
+        
+        #camera-control .zoom-in {
+            left: 0;
+            border-radius: 24px 0 0 24px;
+        }
+        
+        #camera-control .zoom-out {
+            right: 0;
+            border-radius: 0 24px 24px 0;
+        }
         
         #controls-hint {
             position: absolute;
@@ -365,6 +472,26 @@
                 <div>生命值: <span id="hp">100/100</span></div>
                 <div>阶段: <span id="phase">-</span></div>
                 <div>敌人: <span id="enemies">0</span></div>
+            </div>
+            
+            <!-- 摄像头控制面板 -->
+            <div id="camera-control">
+                <div class="ring-outer"></div>
+                <!-- 方向按钮 -->
+                <div class="cam-btn btn-up" data-action="up" title="抬高仰角">▲</div>
+                <div class="cam-btn btn-down" data-action="down" title="降低仰角">▼</div>
+                <div class="cam-btn btn-left" data-action="left" title="左平移">◀</div>
+                <div class="cam-btn btn-right" data-action="right" title="右平移">▶</div>
+                <!-- 旋转按钮（外圈） -->
+                <div class="cam-btn btn-rot-left" data-action="rot-left" title="左旋">↺</div>
+                <div class="cam-btn btn-rot-right" data-action="rot-right" title="右旋">↻</div>
+                <!-- 重置按钮 -->
+                <div class="cam-btn btn-reset" data-action="reset" title="重置镜头">R</div>
+                <!-- 中间推拉（半圆） -->
+                <div class="zoom-group">
+                    <div class="zoom-btn zoom-in" data-action="zoom-in" title="推进">+</div>
+                    <div class="zoom-btn zoom-out" data-action="zoom-out" title="拉远">−</div>
+                </div>
             </div>
             
             <!-- <div id="controls-hint">
@@ -1287,6 +1414,85 @@
         
         // 启动游戏
         initGame();
+        
+        // ===== 摄像头控制面板逻辑 =====
+        (function setupCameraControl() {
+            const panel = document.getElementById('camera-control');
+            if (!panel) return;
+            
+            const PITCH_STEP = 5;    // 仰角步进（度）
+            const YAW_STEP = 10;     // 旋转步进（度）
+            const PAN_STEP = 50;     // 平移步进（世界单位）
+            const ZOOM_STEP = 100;   // 推拉步进
+            
+            let holdInterval = null;
+            
+            function getCamera3D() {
+                return backend?.camera ?? null;
+            }
+            
+            function doAction(action) {
+                const cam = getCamera3D();
+                if (!cam) return;
+                
+                switch (action) {
+                    case 'up':
+                        cam.setAngle(Math.min(cam.pitchDeg + PITCH_STEP, 85), cam.yawDeg);
+                        break;
+                    case 'down':
+                        cam.setAngle(Math.max(cam.pitchDeg - PITCH_STEP, 5), cam.yawDeg);
+                        break;
+                    case 'left':
+                        cam.pan(-PAN_STEP, 0);
+                        break;
+                    case 'right':
+                        cam.pan(PAN_STEP, 0);
+                        break;
+                    case 'rot-left':
+                        cam.setAngle(cam.pitchDeg, cam.yawDeg - YAW_STEP);
+                        break;
+                    case 'rot-right':
+                        cam.setAngle(cam.pitchDeg, cam.yawDeg + YAW_STEP);
+                        break;
+                    case 'zoom-in':
+                        cam.setDistance(cam.distance - ZOOM_STEP);
+                        break;
+                    case 'zoom-out':
+                        cam.setDistance(cam.distance + ZOOM_STEP);
+                        break;
+                    case 'reset':
+                        cam.pitchDeg = 30;
+                        cam.yawDeg = 45;
+                        cam.setDistance(1500);
+                        cam.resetPanOffset();
+                        break;
+                }
+            }
+            
+            // 按下即触发，长按重复
+            function startHold(action) {
+                doAction(action);
+                holdInterval = setInterval(() => doAction(action), 120);
+            }
+            
+            function stopHold() {
+                if (holdInterval) {
+                    clearInterval(holdInterval);
+                    holdInterval = null;
+                }
+            }
+            
+            panel.addEventListener('pointerdown', (e) => {
+                const btn = e.target.closest('[data-action]');
+                if (!btn) return;
+                e.preventDefault();
+                startHold(btn.dataset.action);
+            });
+            
+            panel.addEventListener('pointerup', stopHold);
+            panel.addEventListener('pointerleave', stopHold);
+            panel.addEventListener('pointercancel', stopHold);
+        })();
     </script>
 </body>
 </html>

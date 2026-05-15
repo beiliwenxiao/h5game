@@ -66,9 +66,14 @@ export class ParticleRenderer3D extends IParticleRenderer {
     for (const p of list) {
       if (!p || p.active === false) continue;
       if (n >= max) break;
+      // 坐标映射：2D 粒子系统使用 {x, y} 其中 y 向下为正
+      // 3D 世界：x=水平, y=高度(向上为正), z=深度
       const x = p.position?.x ?? 0;
-      const z = p.position?.y ?? 0; // 2D 粒子的 y 语义为地面深度
-      const y = p.elevation ?? 0;
+      // 初始 y 作为地面深度（z），当前 y 与初始 y 的差值取反作为高度（y）
+      const initY = p.initialPosition?.y ?? p.position?.y ?? 0;
+      const z = initY; // 粒子生成点在地面上的深度位置
+      const yOffset = initY - (p.position?.y ?? 0); // 2D 中 y 减小 = 向上 → 正高度
+      const y = yOffset;
       posAttr.array[n * 3 + 0] = x;
       posAttr.array[n * 3 + 1] = y;
       posAttr.array[n * 3 + 2] = z;

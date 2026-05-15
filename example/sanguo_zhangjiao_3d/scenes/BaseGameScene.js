@@ -1600,7 +1600,7 @@ export class BaseGameScene extends PrologueScene {
       this._ensure3DSceneObjects(backend);
       backend.renderEntities(this.entities, backend.camera);
       if (this.particleSystem) {
-        backend.renderParticles(this.particleSystem.getActiveParticles?.() ?? []);
+        backend.renderParticles(this.particleSystem);
       }
     } else {
       // 2D 世界渲染
@@ -1683,7 +1683,7 @@ export class BaseGameScene extends PrologueScene {
       if (this.combatSystem && this.combatSystem.isInCombat() && this.playerEntity) {
         this.meleeAttackSystem.renderCombatAlertCircle(ctx, camera3DProxy);
       }
-      this.particleSystem.render(ctx, camera3DProxy);
+      // 粒子已在 3D 场景中渲染，不再重复绘制到 HUD
       if (this.combatSystem) {
         this.combatSystem.renderSkillRangeIndicators(ctx);
       }

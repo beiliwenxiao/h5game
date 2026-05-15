@@ -26,6 +26,8 @@ export class Particle {
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
     this.active = true;
+    // 记录初始位置，供 3D 渲染器做坐标映射
+    this.initialPosition = { ...config.position };
   }
 
   /**
@@ -146,5 +148,7 @@ export class Particle {
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
     this.active = true;
+    // 记录初始位置，供 3D 渲染器做坐标映射
+    this.initialPosition = { ...config.position };
   }
 }

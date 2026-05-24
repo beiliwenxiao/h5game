@@ -1049,18 +1049,18 @@ export class Act1SceneECS extends BaseGameScene {
       let dx = p.x - cx;
       let dy = p.y - cy;
       const ed = Math.hypot(dx / irx, dy / iry);
-      if (ed > 1) {
+
+      // 已离开标志：一旦从入口扇形走出椭圆，就标记为已离开
+      // 玩家走回椭圆深处（ed<0.85）后才重置标志
+      if (ed < 0.85) entity._leftBasin = false;
+
+      if (!entity._leftBasin && ed > 1) {
         const ang = Math.atan2(dy, dx);
         const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
         const inEntranceFan = angDist < halfAng;
         if (inEntranceFan) {
-          // 入口廊道：允许向外延伸到 1.18 椭圆，但不能更远
-          const edOuter = Math.hypot(dx / orx, dy / ory);
-          if (edOuter > 1) {
-            const k = 1 / edOuter;
-            p.x = cx + dx * k;
-            p.y = cy + dy * k;
-          }
+          // 在入口扇形内走出椭圆 → 标记为已离开，之后不再 clamp
+          entity._leftBasin = true;
         } else {
           // 推回到内椭圆边
           if (ed > 0.001) {
@@ -1674,6 +1674,11 @@ export class Act1SceneECS extends BaseGameScene {
         y: this.campfire.y - 1,
         render: () => this.renderCampfireTop(ctx)
       });
+    }
+
+    // 第一幕特有：先画地表层装饰物（入口草丛，永远在所有实体下层）
+    if (this.terrain) {
+      this.terrain.renderBelowDecorations(ctx);
     }
 
     // 第一幕特有：把盆地装饰物（树/灌木/石头）加入 Y-sort 队列

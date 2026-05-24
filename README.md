@@ -2,6 +2,8 @@
 
 一个基于完整 ECS 架构的 HTML5 多人在线角色扮演游戏引擎。
 
+![游戏预览](example/sanguo_zhangjiao/assets/images/002.png)
+
 感谢以下图片来源：
 图片来源：https://opengameart.org
 

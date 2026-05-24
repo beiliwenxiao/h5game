@@ -48,8 +48,8 @@ export class Scene1Terrain {
     this.basinAspectY = config.aspectY ?? 0.65;       // Y 压缩比
     this.basinRadiusX = this.basinRadius;
     this.basinRadiusY = this.basinRadius * this.basinAspectY;
-    // 入口角度区间：南向（+Y 方向）±18° 留缺口
-    this.entranceAngleHalfWidth = Math.PI * 18 / 180;
+    // 入口角度区间：南向（+Y 方向）±9° 留缺口（窄入口）
+    this.entranceAngleHalfWidth = Math.PI * 9 / 180;
     // 内圈（玩家可走范围比树圈略小）
     this.basinInnerScale = 0.94;
     this.basinInnerRadiusX = this.basinRadiusX * this.basinInnerScale;
@@ -246,6 +246,32 @@ export class Scene1Terrain {
         y: Math.round(pt.y),
         key: pickOuterTree(),
         scale: 1.0
+      });
+    }
+
+    // ---- 1c. 入口处草丛和灌木遮挡（视觉遮挡，不参与碰撞）----
+    // 在南向入口扇形内放草丛/灌木，覆盖入口缺口的草地下边缘弧线
+    // 这些都是 collide:false，不会挡住玩家进出
+    // belowEntities=true: 渲染在所有实体下层，不会遮挡玩家
+    const entranceDecoCount = 18;
+    for (let i = 0; i < entranceDecoCount; i++) {
+      const t01 = i / entranceDecoCount;
+      const angle = Math.PI / 2 + (t01 - 0.5) * 2 * this.entranceAngleHalfWidth
+                  + (rand() - 0.5) * Math.PI * 2 / 180;
+      const factor = 1.0 + rand() * 0.18;
+      const pt = ellipsePoint(angle, factor, 8);
+      const r = rand();
+      let key;
+      if (r < 0.5)       key = 'grass1';
+      else if (r < 0.75) key = 'bush2';
+      else if (r < 0.9)  key = 'bush3';
+      else               key = 'bush4';
+      this.decorations.push({
+        x: Math.round(pt.x),
+        y: Math.round(pt.y),
+        key,
+        scale: 1.0,
+        belowEntities: true
       });
     }
 
@@ -460,16 +486,29 @@ export class Scene1Terrain {
 
   /**
    * 收集装饰物到渲染队列（参与 Y-sort）
+   * 标记 belowEntities 的装饰物不参与排序，由 renderBelowDecorations 单独绘制
    * @param {Array} renderQueue - 渲染队列，每项 { type, y, render }
    * @param {CanvasRenderingContext2D} ctx
    */
   collectDecorations(renderQueue, ctx) {
     for (const deco of this.decorations) {
+      if (deco.belowEntities) continue; // 由 renderBelowDecorations 单独画
       renderQueue.push({
         type: 'scene1_deco',
         y: deco.y,
         render: () => this._renderDecoration(ctx, deco)
       });
+    }
+  }
+
+  /**
+   * 渲染所有标记为 belowEntities 的装饰物（在所有实体之下）
+   * @param {CanvasRenderingContext2D} ctx 已应用相机变换
+   */
+  renderBelowDecorations(ctx) {
+    for (const deco of this.decorations) {
+      if (!deco.belowEntities) continue;
+      this._renderDecoration(ctx, deco);
     }
   }
 

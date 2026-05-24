@@ -2,6 +2,13 @@
 
 一个基于完整 ECS 架构的 HTML5 多人在线角色扮演游戏引擎。
 
+感谢以下图片来源：
+图片来源：https://opengameart.org
+
+https://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x32-with-additions
+图标来源：ravenmore.itch.io
+
+
 ## 🎮 立即开始
 
 ### 快速启动

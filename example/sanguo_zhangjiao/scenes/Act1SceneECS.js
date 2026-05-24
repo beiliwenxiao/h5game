@@ -20,6 +20,7 @@ import { Entity } from '../../../src/ecs/Entity.js';
 import { TransformComponent } from '../../../src/ecs/components/TransformComponent.js';
 import { SpriteComponent } from '../../../src/ecs/components/SpriteComponent.js';
 import { NameComponent } from '../../../src/ecs/components/NameComponent.js';
+import { Scene1Terrain } from './Scene1Terrain.js';
 
 export class Act1SceneECS extends BaseGameScene {
   constructor() {
@@ -113,6 +114,9 @@ export class Act1SceneECS extends BaseGameScene {
       color: 'rgba(30, 30, 40,',  // 灰黑色
       active: true           // 迷雾是否激活
     };
+
+    // 第一幕特有：盆地地形
+    this.terrain = null;
   }
 
   /**
@@ -123,6 +127,14 @@ export class Act1SceneECS extends BaseGameScene {
     super.enter(data);
     
     console.log('Act1SceneECS: enter() 完成，isActive =', this.isActive);
+
+    // 第一幕特有：创建盆地地形（盆地中心 = 火堆位置）
+    this.terrain = new Scene1Terrain({
+      centerX: this.campfire.x,
+      centerY: this.campfire.y,
+      width: 1280,
+      height: 720
+    });
     
     // 初始化教程阶段配置
     this.initTutorialPhases();
@@ -588,6 +600,9 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：更新迷雾效果
     this.updateFog(deltaTime);
+
+    // 第一幕特有：检查盆地地形碰撞（悬崖、水池）
+    this.checkTerrainCollision();
   }
 
   /**
@@ -1004,6 +1019,92 @@ export class Act1SceneECS extends BaseGameScene {
       } else {
         // 垂直推开
         transform.position.y += overlapY;
+      }
+    }
+  }
+
+  /**
+   * 检查盆地地形碰撞（椭圆树圈、水池、树）
+   * 椭圆盆地：实体被 clamp 到椭圆内，南向入口扇形允许通过
+   */
+  checkTerrainCollision() {
+    if (!this.terrain) return;
+
+    const t = this.terrain;
+    const cx = t.centerX;
+    const cy = t.centerY;
+    const irx = t.basinInnerRadiusX;
+    const iry = t.basinInnerRadiusY;
+    const orx = t.basinRadiusX * 1.18;        // 入口外延伸椭圆
+    const ory = t.basinRadiusY * 1.18;
+    const halfAng = t.entranceAngleHalfWidth;
+
+    for (const entity of this.entities) {
+      if (entity.isDead || entity.isDying) continue;
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      const p = transform.position;
+
+      // ---- 1. 椭圆盆地边界（南向留入口扇形）----
+      let dx = p.x - cx;
+      let dy = p.y - cy;
+      const ed = Math.hypot(dx / irx, dy / iry);
+      if (ed > 1) {
+        const ang = Math.atan2(dy, dx);
+        const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        const inEntranceFan = angDist < halfAng;
+        if (inEntranceFan) {
+          // 入口廊道：允许向外延伸到 1.18 椭圆，但不能更远
+          const edOuter = Math.hypot(dx / orx, dy / ory);
+          if (edOuter > 1) {
+            const k = 1 / edOuter;
+            p.x = cx + dx * k;
+            p.y = cy + dy * k;
+          }
+        } else {
+          // 推回到内椭圆边
+          if (ed > 0.001) {
+            const k = 0.99 / ed;
+            p.x = cx + dx * k;
+            p.y = cy + dy * k;
+          }
+        }
+      }
+
+      // ---- 2. 水池碰撞（推开） ----
+      for (const pond of t.waterPatches) {
+        const pdx = (p.x - pond.x);
+        const pdy = (p.y - pond.y);
+        const nx = pdx / pond.rx;
+        const ny = pdy / pond.ry;
+        const d2 = nx * nx + ny * ny;
+        if (d2 < 1 && d2 > 0) {
+          const k = 1 / Math.sqrt(d2);
+          p.x = pond.x + pdx * k * 1.02;
+          p.y = pond.y + pdy * k * 1.02;
+        } else if (d2 === 0) {
+          p.y = pond.y - pond.ry - 1;
+        }
+      }
+
+      // ---- 3. 树木碰撞（圆形障碍，推开） ----
+      const entityRadius = 12;
+      const trees = t.getTreeColliders();
+      for (const tree of trees) {
+        const tdx = p.x - tree.x;
+        const tdy = p.y - tree.y;
+        const minDist = tree.r + entityRadius;
+        const d2 = tdx * tdx + tdy * tdy;
+        if (d2 < minDist * minDist) {
+          const td = Math.sqrt(d2);
+          if (td > 0.001) {
+            const k = minDist / td;
+            p.x = tree.x + tdx * k;
+            p.y = tree.y + tdy * k;
+          } else {
+            p.y = tree.y + minDist;
+          }
+        }
       }
     }
   }
@@ -1524,6 +1625,22 @@ export class Act1SceneECS extends BaseGameScene {
   }
 
   /**
+   * 渲染背景 - 覆盖父类：用盆地草地+水池替换等距地图
+   */
+  renderBackground(ctx) {
+    if (this.terrain) {
+      // 盆地外整体淡黑色（盆地外都是高地遮挡区域）
+      ctx.fillStyle = '#1f1a14';
+      const vb = this.camera.getViewBounds();
+      ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
+      // 盆地草地+水池
+      this.terrain.renderGround(ctx);
+    } else {
+      super.renderBackground(ctx);
+    }
+  }
+
+  /**
    * 渲染世界对象 - 覆盖父类，添加火堆渲染
    */
   renderWorldObjects(ctx) {
@@ -1558,7 +1675,12 @@ export class Act1SceneECS extends BaseGameScene {
         render: () => this.renderCampfireTop(ctx)
       });
     }
-    
+
+    // 第一幕特有：把盆地装饰物（树/灌木/石头）加入 Y-sort 队列
+    if (this.terrain) {
+      this.terrain.collectDecorations(renderQueue, ctx);
+    }
+
     // 按 Y 坐标排序
     renderQueue.sort((a, b) => a.y - b.y);
     
@@ -1569,6 +1691,11 @@ export class Act1SceneECS extends BaseGameScene {
       } else if (item.render) {
         item.render();
       }
+    }
+
+    // 第一幕特有：悬崖渲染在所有装饰/实体之上（盆地外圈始终遮挡）
+    if (this.terrain) {
+      this.terrain.renderCliffs(ctx);
     }
     
     // 渲染气泡对话（在所有实体之上）

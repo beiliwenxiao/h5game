@@ -207,11 +207,11 @@ export class Scene1Terrain {
       };
     };
 
-    // ---- 1. 主树圈：3 排适度分布的树围满椭圆边缘（南向留入口）----
+    // ---- 1. 主树圈：3 排密集分布的树围满椭圆边缘（南向留入口）----
     const ringConfigs = [
-      { count: 30, factor: 1.00, jitter: 22 },  // 中圈：椭圆主轮廓
-      { count: 26, factor: 0.92, jitter: 16 },  // 内圈：往里一点
-      { count: 26, factor: 1.08, jitter: 18 },  // 外圈：往外一点
+      { count: 64, factor: 1.02, jitter: 18 },  // 中圈：紧贴椭圆轮廓
+      { count: 56, factor: 0.94, jitter: 14 },  // 内圈：往里一点
+      { count: 56, factor: 1.10, jitter: 16 },  // 外圈：往外一点
     ];
     for (const cfg of ringConfigs) {
       for (let i = 0; i < cfg.count; i++) {
@@ -227,6 +227,26 @@ export class Scene1Terrain {
           scale: 1.0
         });
       }
+    }
+
+    // ---- 1b. 草地下方空地补充树（椭圆下半圆外侧）----
+    // 草地视觉上移 32 后，下边缘外露出空地，铺一排树盖住
+    const bottomFillCount = 36;
+    for (let i = 0; i < bottomFillCount; i++) {
+      // 角度集中在下半圆（0..π），即东 → 南 → 西
+      const baseAngle = (i / bottomFillCount) * Math.PI;
+      const angDistFromSouth = Math.abs(this._normalizeAngle(baseAngle - Math.PI / 2));
+      if (angDistFromSouth < this.entranceAngleHalfWidth) continue;
+      const angle = baseAngle + (rand() - 0.5) * Math.PI * 4 / 180;
+      // factor 1.14~1.24：在树圈外侧再延伸一段
+      const factor = 1.14 + rand() * 0.10;
+      const pt = ellipsePoint(angle, factor, 12);
+      this.decorations.push({
+        x: Math.round(pt.x),
+        y: Math.round(pt.y),
+        key: pickOuterTree(),
+        scale: 1.0
+      });
     }
 
     // ---- 4. 树圈附近少量草地（grass1）----
@@ -266,18 +286,17 @@ export class Scene1Terrain {
       });
     }
 
-    // ---- 4c. 椭圆下半圆边缘遮挡带 ----
-    // 沿椭圆下半圆（角度 0..π，即东 → 南 → 西）紧密放 grass1 大草丛
-    // 让 96×96 的草丛底部贴着椭圆边缘，覆盖弧线
-    // 底部锚点放在 factor=1.06（椭圆外侧一点），96px 高的草丛会向上延伸到椭圆内部
-    const edgeShieldCount = 28;
+    // ---- 4c. 椭圆上下边缘遮挡带：完整一整圈密集 grass1 ----
+    // 底部锚点在椭圆外侧 1.04~1.10，96px 高的草丛向上延伸正好覆盖椭圆边缘
+    // 上半圆和下半圆都覆盖，形成完整的森林底部带
+    const edgeShieldCount = 56;
     for (let i = 0; i < edgeShieldCount; i++) {
-      const baseAngle = (i / edgeShieldCount) * Math.PI; // 0..π，下半圆
+      const baseAngle = (i / edgeShieldCount) * Math.PI * 2 - Math.PI / 2;
       const angDistFromSouth = Math.abs(this._normalizeAngle(baseAngle - Math.PI / 2));
       if (angDistFromSouth < this.entranceAngleHalfWidth + Math.PI * 2 / 180) continue;
       const angle = baseAngle + (rand() - 0.5) * Math.PI * 4 / 180;
-      const factor = 1.04 + rand() * 0.06;
-      const pt = ellipsePoint(angle, factor, 6);
+      const factor = 1.02 + rand() * 0.08;
+      const pt = ellipsePoint(angle, factor, 5);
       this.decorations.push({
         x: Math.round(pt.x),
         y: Math.round(pt.y),
@@ -476,26 +495,57 @@ export class Scene1Terrain {
   }
 
   /**
-   * 渲染地形底层（椭圆草地）
+   * 渲染地形底层（椭圆草地 + 外圈森林深绿环带）
+   * 注：草地视觉中心 Y 上移 32 像素（视觉调整，不影响碰撞和实体位置）
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderGround(ctx) {
+    const groundCenterX = this.centerX;
+    const groundCenterY = this.centerY - 32;
+
+    // 1. 先画一圈森林深绿环带（椭圆外扩），避免边缘露黑
+    this._renderForestRing(ctx, groundCenterX, groundCenterY);
+    // 2. 再画椭圆盆地草地
     if (!this.loaded.mountain) {
       ctx.fillStyle = '#5a8a3a';
       ctx.beginPath();
-      ctx.ellipse(this.centerX, this.centerY, this.basinRadiusX, this.basinRadiusY, 0, 0, Math.PI * 2);
+      ctx.ellipse(groundCenterX, groundCenterY, this.basinRadiusX, this.basinRadiusY, 0, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      this._renderGrassFill(ctx);
+      this._renderGrassFill(ctx, groundCenterX, groundCenterY);
     }
     this._renderWaterPatches(ctx);
   }
 
   /**
-   * 椭圆草地铺面（使用离屏缓存）
+   * 椭圆外的森林深绿环带（带羽化边缘）
    * @private
    */
-  _renderGrassFill(ctx) {
+  _renderForestRing(ctx, centerX, centerY) {
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(1, this.basinAspectY);
+    const grad = ctx.createRadialGradient(
+      0, 0, this.basinRadiusX - 10,
+      0, 0, this.basinRadiusX + 110
+    );
+    grad.addColorStop(0,    'rgba(35, 58, 25, 1)');
+    grad.addColorStop(0.55, 'rgba(28, 46, 20, 0.92)');
+    grad.addColorStop(1,    'rgba(20, 30, 15, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, this.basinRadiusX + 110, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * 椭圆草地铺面（使用离屏缓存）
+   * @param {number} centerX 草地椭圆中心 X（视觉位置）
+   * @param {number} centerY 草地椭圆中心 Y（视觉位置）
+   * @private
+   */
+  _renderGrassFill(ctx, centerX, centerY) {
     if (!this._grassCanvas) {
       const rx = this.basinRadiusX + 20;
       const ry = this.basinRadiusY + 20;
@@ -535,8 +585,8 @@ export class Scene1Terrain {
     const ry = this.basinRadiusY + 20;
     ctx.drawImage(
       this._grassCanvas,
-      this.centerX - rx,
-      this.centerY - ry
+      centerX - rx,
+      centerY - ry
     );
   }
 

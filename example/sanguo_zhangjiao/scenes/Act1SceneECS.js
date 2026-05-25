@@ -1622,6 +1622,99 @@ export class Act1SceneECS extends BaseGameScene {
       
       ctx.restore();
     }
+
+    // 第一幕特有：右上角小地图（在迷雾之上）
+    this.renderMinimap(ctx);
+  }
+
+  /**
+   * 渲染右上角小地图
+   * - 玩家红点固定在面板中央
+   * - 椭圆地图相对玩家位置反向偏移（玩家移动时，地图反向滚动）
+   * - 屏幕等比缩小：方形面板 = canvas 宽 / 5（最大 200px）
+   */
+  renderMinimap(ctx) {
+    if (!this.terrain || !this.playerEntity) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+
+    // 面板尺寸：屏幕宽度的 1/5，限制 120 ~ 200
+    const panelSize = Math.max(120, Math.min(200, Math.floor(this.logicalWidth / 5)));
+    const padding = 12;
+    const panelX = this.logicalWidth - panelSize - padding;
+    const panelY = padding;
+
+    ctx.save();
+
+    // 1. 黑色背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillRect(panelX, panelY, panelSize, panelSize);
+    ctx.strokeStyle = 'rgba(120, 200, 120, 0.7)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panelX, panelY, panelSize, panelSize);
+
+    // 2. 缩放比例
+    const t = this.terrain;
+    const innerPadding = 8;
+    const usable = panelSize - innerPadding * 2;
+    const scale = usable / (t.basinRadiusX * 2);
+
+    // 3. 玩家红点固定在面板中央
+    const dotX = panelX + panelSize / 2;
+    const dotY = panelY + panelSize / 2;
+
+    // 4. 椭圆中心相对玩家的反向偏移（玩家走右上时，椭圆向左下滚动）
+    const px = transform.position.x;
+    const py = transform.position.y;
+    const mapCx = dotX + (t.centerX - px) * scale;
+    const mapCy = dotY + (t.centerY - py) * scale;
+
+    // 椭圆映射后的半径
+    const eRx = t.basinRadiusX * scale;
+    const eRy = t.basinRadiusY * scale;
+
+    // 5. 用面板矩形做 clip，避免椭圆超出面板
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(panelX + 1, panelY + 1, panelSize - 2, panelSize - 2);
+    ctx.clip();
+
+    // 6. 椭圆内部填绿色地面
+    ctx.fillStyle = 'rgba(60, 120, 50, 0.95)';
+    ctx.beginPath();
+    ctx.ellipse(mapCx, mapCy, eRx, eRy, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 7. 椭圆绿色线条
+    ctx.strokeStyle = '#7fff7f';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(mapCx, mapCy, eRx, eRy, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 8. 入口缺口（南向 ±halfAng）：用一段更亮的弧表示
+    const halfAng = t.entranceAngleHalfWidth;
+    ctx.strokeStyle = '#ffd84d';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(
+      mapCx, mapCy, eRx, eRy, 0,
+      Math.PI / 2 - halfAng, Math.PI / 2 + halfAng
+    );
+    ctx.stroke();
+
+    ctx.restore(); // 释放 clip
+
+    // 9. 玩家红点（固定在面板正中央，永远画在最上层）
+    ctx.fillStyle = '#ff3030';
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.restore();
   }
 
   /**

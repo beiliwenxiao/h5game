@@ -216,6 +216,14 @@
             </div>
         </div>
         
+        <div class="demo-section" style="background: rgba(156, 39, 176, 0.1); border-color: rgba(156, 39, 176, 0.3);">
+            <h2 style="color: #9C27B0;">🎮 游戏编辑器</h2>
+            <p>可视化编辑游戏场景、背景贴图、精灵图分割等功能</p>
+            <button class="demo-btn" style="background: linear-gradient(90deg, #9C27B0, #E91E63);" onclick="openEditor()">
+                打开编辑器
+            </button>
+        </div>
+        
         <div class="footer">
             <p>
                 <a href="https://gitee.com/coderaaa/h5game" target="_blank">Gitee</a> | 
@@ -243,6 +251,10 @@
         
         function openDemo3D() {
             window.open('./example/sanguo_zhangjiao_3d/index.html', '_blank');
+        }
+        
+        function openEditor() {
+            window.open('./editor/index.html', '_blank');
         }
     </script>
 </body>

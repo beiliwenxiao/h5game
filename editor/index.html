@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏编辑器 - H5Game Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: #0a0a1e;
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        /* 编辑器主容器 */
+        .editor-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* 顶部导航 */
+        .editor-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #16213e;
+            border-bottom: 1px solid #2a3a5e;
+        }
+        
+        .editor-header h1 {
+            font-size: 18px;
+            color: #4CAF50;
+        }
+        
+        .editor-header nav {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .editor-header nav button {
+            padding: 8px 16px;
+            background: #3a4a7e;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .editor-header nav button:hover {
+            background: #4a5a9e;
+        }
+        
+        .editor-header nav button.active {
+            background: #4CAF50;
+            color: #000;
+        }
+        
+        /* 主内容区 */
+        .editor-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+        
+        /* 游戏列表页 */
+        .game-list-page {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            margin: 20px 0 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a3a5e;
+        }
+        
+        /* 游戏卡片 */
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .game-card {
+            background: #16213e;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(76, 175, 80, 0.3);
+        }
+        
+        .game-card-thumbnail {
+            width: 100%;
+            height: 160px;
+            background: #2a3a5e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        .game-card-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .game-card-thumbnail .placeholder {
+            font-size: 48px;
+            color: #4a5a8e;
+        }
+        
+        .game-card-info {
+            padding: 15px;
+        }
+        
+        .game-card-info h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+        }
+        
+        .game-card-info p {
+            font-size: 13px;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        
+        .game-card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        
+        .game-card-actions button {
+            flex: 1;
+            padding: 8px;
+            background: #3a4a7e;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .game-card-actions button:hover {
+            background: #4a5a9e;
+        }
+        
+        .game-card-actions button.primary {
+            background: #4CAF50;
+            color: #000;
+        }
+        
+        /* 新建游戏卡片 */
+        .new-game-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            background: #16213e;
+            border: 2px dashed #3a4a7e;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .new-game-card:hover {
+            border-color: #4CAF50;
+            background: #1a2a4e;
+        }
+        
+        .new-game-card .icon {
+            font-size: 48px;
+            color: #4a5a8e;
+            margin-bottom: 10px;
+        }
+        
+        .new-game-card span {
+            font-size: 14px;
+            color: #aaa;
+        }
+        
+        /* 模态框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s;
+        }
+        
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .modal {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 25px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal h2 {
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+        }
+        
+        .modal-form .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .modal-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #aaa;
+        }
+        
+        .modal-form input,
+        .modal-form textarea {
+            width: 100%;
+            padding: 10px;
+            background: #2a3a5e;
+            border: 1px solid #3a4a7e;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .modal-form textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-actions button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .modal-actions button.cancel {
+            background: #3a4a7e;
+            color: #fff;
+        }
+        
+        .modal-actions button.confirm {
+            background: #4CAF50;
+            color: #000;
+        }
+        
+        /* 场景编辑器页 */
+        .scene-editor-page {
+            flex: 1;
+            display: none;
+        }
+        
+        .scene-editor-page.active {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* 场景列表侧边栏 */
+        .scene-sidebar {
+            width: 250px;
+            background: #16213e;
+            border-right: 1px solid #2a3a5e;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .scene-sidebar-header {
+            padding: 15px;
+            border-bottom: 1px solid #2a3a5e;
+        }
+        
+        .scene-sidebar-header h3 {
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        
+        .scene-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+        
+        .scene-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 5px;
+            background: #2a3a5e;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .scene-item:hover {
+            background: #3a4a7e;
+        }
+        
+        .scene-item.active {
+            background: #4CAF50;
+            color: #000;
+        }
+        
+        .scene-item .scene-name {
+            flex: 1;
+        }
+        
+        .scene-item .scene-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .scene-item .scene-actions button {
+            padding: 3px 8px;
+            background: rgba(0,0,0,0.2);
+            border: none;
+            border-radius: 3px;
+            color: inherit;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .scene-sidebar-footer {
+            padding: 10px;
+            border-top: 1px solid #2a3a5e;
+        }
+        
+        .scene-sidebar-footer button {
+            width: 100%;
+            padding: 10px;
+            background: #3a4a7e;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            cursor: pointer;
+        }
+        
+        /* 图片分割工具模态框 */
+        .slicer-modal {
+            max-width: 1200px;
+            width: 95%;
+            height: 85vh;
+        }
+        
+        .slicer-modal .modal-content {
+            height: 100%;
+        }
+        
+        /* 响应式 */
+        @media (max-width: 768px) {
+            .game-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .editor-header {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .scene-sidebar {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-app">
+        <!-- 顶部导航 -->
+        <header class="editor-header">
+            <h1>🎮 游戏编辑器</h1>
+            <nav>
+                <button id="nav-game-list" class="active">游戏列表</button>
+                <button id="nav-scene-editor">场景编辑器</button>
+                <button id="nav-home">返回首页</button>
+            </nav>
+        </header>
+        
+        <!-- 主内容区 -->
+        <main class="editor-content">
+            <!-- 游戏列表页 -->
+            <div class="game-list-page" id="game-list-page">
+                <h2 class="page-title">游戏项目管理</h2>
+                
+                <h3 class="section-title">内置示例游戏</h3>
+                <div class="game-grid" id="builtin-games-grid"></div>
+                
+                <h3 class="section-title">我的游戏</h3>
+                <div class="game-grid" id="custom-games-grid">
+                    <!-- 新建游戏卡片 -->
+                    <div class="new-game-card" id="new-game-btn">
+                        <div class="icon">+</div>
+                        <span>创建新游戏</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 场景编辑器页 -->
+            <div class="scene-editor-page" id="scene-editor-page">
+                <div class="scene-sidebar">
+                    <div class="scene-sidebar-header">
+                        <h3>场景列表</h3>
+                        <div id="current-game-name">未选择游戏</div>
+                    </div>
+                    <div class="scene-list" id="scene-list"></div>
+                    <div class="scene-sidebar-footer">
+                        <button id="new-scene-btn">+ 新建场景</button>
+                    </div>
+                </div>
+                <div id="scene-editor-container" style="flex:1;overflow:hidden;"></div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- 新建游戏模态框 -->
+    <div class="modal-overlay" id="new-game-modal">
+        <div class="modal">
+            <h2>创建新游戏</h2>
+            <form class="modal-form" id="new-game-form">
+                <div class="form-group">
+                    <label>游戏名称 *</label>
+                    <input type="text" id="game-name" required placeholder="输入游戏名称">
+                </div>
+                <div class="form-group">
+                    <label>游戏描述</label>
+                    <textarea id="game-description" placeholder="简要描述你的游戏"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>缩略图</label>
+                    <input type="file" id="game-thumbnail" accept="image/*">
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button class="cancel" id="cancel-new-game">取消</button>
+                <button class="confirm" id="confirm-new-game">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 新建场景模态框 -->
+    <div class="modal-overlay" id="new-scene-modal">
+        <div class="modal">
+            <h2>创建新场景</h2>
+            <form class="modal-form" id="new-scene-form">
+                <div class="form-group">
+                    <label>场景名称 *</label>
+                    <input type="text" id="scene-name" required placeholder="输入场景名称">
+                </div>
+                <div class="form-group">
+                    <label>场景宽度</label>
+                    <input type="number" id="scene-width" value="1280" min="100">
+                </div>
+                <div class="form-group">
+                    <label>场景高度</label>
+                    <input type="number" id="scene-height" value="720" min="100">
+                </div>
+                <div class="form-group">
+                    <label>背景颜色</label>
+                    <input type="color" id="scene-bg-color" value="#2a3a1a">
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button class="cancel" id="cancel-new-scene">取消</button>
+                <button class="confirm" id="confirm-new-scene">创建</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 图片分割工具模态框 -->
+    <div class="modal-overlay" id="slicer-modal">
+        <div class="modal slicer-modal">
+            <div class="modal-content" id="slicer-container"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { EditorDataManager } from './EditorDataManager.js';
+        import { SceneEditor } from './SceneEditor.js';
+        import { ImageSlicer } from './ImageSlicer.js';
+        import { SceneDataLoader } from './SceneDataLoader.js';
+        
+        class GameEditor {
+            constructor() {
+                this.dataManager = new EditorDataManager();
+                this.sceneLoader = new SceneDataLoader();
+                this.sceneEditor = null;
+                this.imageSlicer = null;
+                this.currentGameId = null;
+                this.currentSceneId = null;
+                
+                this.init();
+            }
+            
+            init() {
+                this.renderBuiltinGames();
+                this.renderCustomGames();
+                this.bindEvents();
+            }
+            
+            // 渲染内置游戏
+            renderBuiltinGames() {
+                const grid = document.getElementById('builtin-games-grid');
+                const games = this.dataManager.getBuiltinGames();
+                
+                grid.innerHTML = games.map(game => `
+                    <div class="game-card" data-id="${game.id}">
+                        <div class="game-card-thumbnail">
+                            <img src="${game.thumbnail}" alt="${game.name}" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'placeholder\\'>🎮</div>'">
+                        </div>
+                        <div class="game-card-info">
+                            <h3>${game.name}</h3>
+                            <p>${game.description}</p>
+                            <div class="game-card-actions">
+                                <button class="primary" data-action="edit">编辑游戏</button>
+                                <button data-action="play">运行游戏</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            // 渲染用户游戏
+            renderCustomGames() {
+                const grid = document.getElementById('custom-games-grid');
+                const games = this.dataManager.getCustomGames();
+                
+                let html = games.map(game => `
+                    <div class="game-card" data-id="${game.id}" data-custom="true">
+                        <div class="game-card-thumbnail">
+                            ${game.thumbnail 
+                                ? `<img src="${game.thumbnail}" alt="${game.name}" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'placeholder\\'>🎮</div>'">`
+                                : '<div class="placeholder">🎮</div>'
+                            }
+                        </div>
+                        <div class="game-card-info">
+                            <h3>${game.name}</h3>
+                            <p>${game.description || '暂无描述'}</p>
+                            <div class="game-card-actions">
+                                <button class="primary" data-action="edit">编辑</button>
+                                <button data-action="delete">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // 添加新建游戏卡片
+                html += `
+                    <div class="new-game-card" id="new-game-btn">
+                        <div class="icon">+</div>
+                        <span>创建新游戏</span>
+                    </div>
+                `;
+                
+                grid.innerHTML = html;
+            }
+            
+            // 绑定事件
+            bindEvents() {
+                // 导航按钮
+                document.getElementById('nav-game-list').addEventListener('click', () => this.showPage('game-list'));
+                document.getElementById('nav-scene-editor').addEventListener('click', () => this.showPage('scene-editor'));
+                document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
+                
+                // 游戏卡片点击
+                document.getElementById('builtin-games-grid').addEventListener('click', (e) => this.handleGameCardClick(e));
+                document.getElementById('custom-games-grid').addEventListener('click', (e) => this.handleGameCardClick(e));
+                
+                // 新建游戏
+                document.getElementById('new-game-btn').addEventListener('click', () => this.showModal('new-game-modal'));
+                document.getElementById('cancel-new-game').addEventListener('click', () => this.hideModal('new-game-modal'));
+                document.getElementById('confirm-new-game').addEventListener('click', () => this.createGame());
+                
+                // 新建场景
+                document.getElementById('new-scene-btn').addEventListener('click', () => this.showModal('new-scene-modal'));
+                document.getElementById('cancel-new-scene').addEventListener('click', () => this.hideModal('new-scene-modal'));
+                document.getElementById('confirm-new-scene').addEventListener('click', () => this.createScene());
+                
+                // 图片分割工具关闭
+                document.getElementById('slicer-modal').addEventListener('click', (e) => {
+                    if (e.target.id === 'slicer-modal') this.hideModal('slicer-modal');
+                });
+            }
+            
+            // 处理游戏卡片点击
+            handleGameCardClick(e) {
+                const card = e.target.closest('.game-card');
+                if (!card) return;
+                
+                const gameId = card.dataset.id;
+                const action = e.target.dataset.action;
+                
+                if (action === 'edit') {
+                    this.editGame(gameId);
+                } else if (action === 'play') {
+                    this.playGame(gameId);
+                } else if (action === 'delete') {
+                    this.deleteGame(gameId);
+                }
+            }
+            
+            // 编辑游戏
+            editGame(gameId) {
+                this.currentGameId = gameId;
+                this.currentSceneId = null;
+                const game = this.dataManager.setCurrentGame(gameId);
+                
+                if (!game) return;
+                
+                document.getElementById('current-game-name').textContent = game.name;
+                this.renderSceneList(gameId);
+                this.showPage('scene-editor');
+                
+                // 初始化场景编辑器
+                if (!this.sceneEditor) {
+                    this.sceneEditor = new SceneEditor(document.getElementById('scene-editor-container'));
+                    this.sceneEditor.onOpenSlicer = () => this.openSlicer();
+                    this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
+                }
+                
+                // 触发resize以正确显示编辑器
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 100);
+            }
+            
+            // 运行游戏
+            playGame(gameId) {
+                const game = this.dataManager.getAllGames().find(g => g.id === gameId);
+                if (game && game.path) {
+                    window.open(game.path + 'index.html', '_blank');
+                }
+            }
+            
+            // 删除游戏
+            deleteGame(gameId) {
+                if (confirm('确定要删除这个游戏吗？此操作不可撤销。')) {
+                    this.dataManager.deleteGame(gameId);
+                    this.renderCustomGames();
+                }
+            }
+            
+            // 创建游戏
+            createGame() {
+                const name = document.getElementById('game-name').value.trim();
+                if (!name) {
+                    alert('请输入游戏名称');
+                    return;
+                }
+                
+                const description = document.getElementById('game-description').value.trim();
+                const thumbnailFile = document.getElementById('game-thumbnail').files[0];
+                
+                const game = this.dataManager.createGame({ name, description });
+                
+                if (thumbnailFile) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        game.thumbnail = e.target.result;
+                        this.dataManager.updateGame(game.id, { thumbnail: game.thumbnail });
+                        this.renderCustomGames();
+                    };
+                    reader.readAsDataURL(thumbnailFile);
+                } else {
+                    this.renderCustomGames();
+                }
+                
+                this.hideModal('new-game-modal');
+                document.getElementById('new-game-form').reset();
+            }
+            
+            // 渲染场景列表
+            renderSceneList(gameId) {
+                const scenes = this.dataManager.getGameScenes(gameId);
+                const list = document.getElementById('scene-list');
+                
+                if (scenes.length === 0) {
+                    list.innerHTML = '<div style="padding:15px;color:#666;text-align:center;">暂无场景，请创建新场景</div>';
+                    return;
+                }
+                
+                list.innerHTML = scenes.map(scene => `
+                    <div class="scene-item ${scene.id === this.currentSceneId ? 'active' : ''}" data-id="${scene.id}">
+                        <span class="scene-name">${scene.name}</span>
+                        <div class="scene-actions">
+                            <button data-action="edit">编辑</button>
+                            <button data-action="delete">×</button>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // 绑定场景点击事件
+                list.querySelectorAll('.scene-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const action = e.target.dataset.action;
+                        const sceneId = item.dataset.id;
+                        
+                        if (action === 'edit') {
+                            this.editScene(sceneId);
+                        } else if (action === 'delete') {
+                            this.deleteScene(sceneId);
+                        } else {
+                            this.editScene(sceneId);
+                        }
+                    });
+                });
+            }
+            
+            // 编辑场景
+            async editScene(sceneId) {
+                this.currentSceneId = sceneId;
+                
+                // 确保场景编辑器已初始化
+                if (!this.sceneEditor) {
+                    this.sceneEditor = new SceneEditor(document.getElementById('scene-editor-container'));
+                    this.sceneEditor.onOpenSlicer = () => this.openSlicer();
+                    this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
+                }
+                
+                // 尝试从本地存储加载场景
+                const scene = this.dataManager.setCurrentScene(sceneId);
+                
+                if (scene) {
+                    // 已有保存的场景数据
+                    this.sceneEditor.loadScene(scene);
+                } else {
+                    // 尝试从预设场景加载
+                    const presetScene = await this.sceneLoader.loadScene(sceneId);
+                    if (presetScene) {
+                        this.sceneEditor.loadScene(presetScene);
+                        
+                        // 加载地形图集
+                        if (presetScene.terrain && presetScene.terrain.image) {
+                            this.loadTerrainAtlas(presetScene.terrain.image);
+                        }
+                    } else {
+                        // 创建空场景
+                        this.sceneEditor.loadScene({
+                            id: sceneId,
+                            name: sceneId.replace('scene_', '').replace('_', ' '),
+                            width: 1280,
+                            height: 720,
+                            backgroundColor: '#2a3a1a'
+                        });
+                    }
+                }
+                
+                this.renderSceneList(this.currentGameId);
+                
+                // 触发resize以正确显示编辑器
+                setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                }, 50);
+            }
+            
+            // 加载地形图集
+            loadTerrainAtlas(imageUrl) {
+                if (!this.sceneEditor) return;
+                
+                const img = new Image();
+                img.onload = () => {
+                    this.sceneEditor.loadedImages.set('terrain_atlas', img);
+                    this.sceneEditor.render();
+                };
+                img.src = imageUrl;
+            }
+            
+            // 创建场景
+            createScene() {
+                const name = document.getElementById('scene-name').value.trim();
+                if (!name) {
+                    alert('请输入场景名称');
+                    return;
+                }
+                
+                const scene = this.dataManager.createScene(this.currentGameId, {
+                    name,
+                    width: parseInt(document.getElementById('scene-width').value) || 1280,
+                    height: parseInt(document.getElementById('scene-height').value) || 720,
+                    backgroundColor: document.getElementById('scene-bg-color').value
+                });
+                
+                this.hideModal('new-scene-modal');
+                document.getElementById('new-scene-form').reset();
+                this.renderSceneList(this.currentGameId);
+                this.editScene(scene.id);
+            }
+            
+            // 删除场景
+            deleteScene(sceneId) {
+                if (confirm('确定要删除这个场景吗？')) {
+                    this.dataManager.deleteScene(this.currentGameId, sceneId);
+                    if (this.currentSceneId === sceneId) {
+                        this.currentSceneId = null;
+                    }
+                    this.renderSceneList(this.currentGameId);
+                }
+            }
+            
+            // 保存场景
+            saveScene(sceneData) {
+                if (!this.currentGameId || !this.currentSceneId) return;
+                this.dataManager.updateScene(this.currentGameId, this.currentSceneId, sceneData);
+            }
+            
+            // 打开图片分割工具
+            openSlicer() {
+                this.showModal('slicer-modal');
+                
+                if (!this.imageSlicer) {
+                    this.imageSlicer = new ImageSlicer(document.getElementById('slicer-container'));
+                }
+            }
+            
+            // 显示页面
+            showPage(page) {
+                document.querySelectorAll('.editor-header nav button').forEach(btn => btn.classList.remove('active'));
+                document.getElementById(`nav-${page}`).classList.add('active');
+                
+                if (page === 'game-list') {
+                    document.getElementById('game-list-page').style.display = 'block';
+                    document.getElementById('scene-editor-page').classList.remove('active');
+                } else if (page === 'scene-editor') {
+                    document.getElementById('game-list-page').style.display = 'none';
+                    document.getElementById('scene-editor-page').classList.add('active');
+                    
+                    // 触发resize以正确显示编辑器
+                    setTimeout(() => {
+                        window.dispatchEvent(new Event('resize'));
+                    }, 100);
+                }
+            }
+            
+            // 显示模态框
+            showModal(id) {
+                document.getElementById(id).classList.add('active');
+            }
+            
+            // 隐藏模态框
+            hideModal(id) {
+                document.getElementById(id).classList.remove('active');
+            }
+        }
+        
+        // 启动编辑器
+        new GameEditor();
+    </script>
+</body>
+</html>

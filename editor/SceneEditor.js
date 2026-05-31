@@ -219,8 +219,8 @@ export class SceneEditor {
     const style = document.createElement('style');
     style.id = 'scene-editor-styles';
     style.textContent = `
-      .scene-editor { display: flex; flex-direction: column; height: 100%; background: #1a1a2e; color: #fff; font-family: 'Microsoft YaHei', sans-serif; }
-      .editor-toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #2a3a5e; }
+      .scene-editor { display: flex; flex-direction: column; height: 100%; width: 100%; background: #1a1a2e; color: #fff; font-family: 'Microsoft YaHei', sans-serif; box-sizing: border-box; }
+      .editor-toolbar { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 12px; background: #16213e; border-bottom: 1px solid #2a3a5e; flex-shrink: 0; }
       .toolbar-group { display: flex; align-items: center; gap: 5px; }
       .toolbar-group button { padding: 6px 12px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px; }
       .toolbar-group button:hover { background: #4a5a9e; }
@@ -228,8 +228,8 @@ export class SceneEditor {
       .toolbar-group label { font-size: 12px; color: #aaa; }
       .toolbar-group input[type="text"] { width: 120px; padding: 4px 8px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 4px; color: #fff; font-size: 12px; }
       .toolbar-group input[type="color"] { width: 40px; height: 24px; padding: 0; border: none; border-radius: 4px; cursor: pointer; }
-      .editor-main { display: flex; flex: 1; overflow: hidden; }
-      .editor-sidebar { width: 240px; background: #16213e; padding: 10px; overflow-y: auto; }
+      .editor-main { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+      .editor-sidebar { width: 200px; min-width: 200px; background: #16213e; padding: 10px; overflow-y: auto; }
       .editor-sidebar.left { border-right: 1px solid #2a3a5e; }
       .editor-sidebar.right { border-left: 1px solid #2a3a5e; }
       .sidebar-section { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #2a3a5e; }
@@ -245,8 +245,8 @@ export class SceneEditor {
       .asset-preview img { width: 100%; height: 100%; object-fit: contain; }
       .asset-preview.rect { border-radius: 0; }
       .asset-preview.circle { border-radius: 50%; }
-      .editor-canvas-area { flex: 1; display: flex; flex-direction: column; position: relative; }
-      .canvas-container { flex: 1; position: relative; overflow: hidden; background: #0a0a1e; }
+      .editor-canvas-area { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; min-height: 0; }
+      .canvas-container { flex: 1; position: relative; overflow: hidden; background: #0a0a1e; min-height: 0; }
       .canvas-container canvas { position: absolute; top: 0; left: 0; }
       #editor-canvas { z-index: 1; }
       #editor-overlay { z-index: 2; pointer-events: none; }
@@ -282,6 +282,11 @@ export class SceneEditor {
     const canvas = document.getElementById('editor-canvas');
     const overlay = document.getElementById('editor-overlay');
     const container = document.getElementById('editor-canvas-container');
+    
+    if (!canvas || !overlay || !container) {
+      setTimeout(() => this._initCanvas(), 100);
+      return;
+    }
     
     // 检查容器是否可见
     if (container.clientWidth === 0 || container.clientHeight === 0) {

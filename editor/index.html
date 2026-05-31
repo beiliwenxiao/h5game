@@ -301,7 +301,12 @@
         
         .scene-editor-page.active {
             display: flex;
-            flex-direction: column;
+        }
+        
+        #scene-editor-container {
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
         }
         
         /* 场景列表侧边栏 */
@@ -454,7 +459,7 @@
                         <button id="new-scene-btn">+ 新建场景</button>
                     </div>
                 </div>
-                <div id="scene-editor-container" style="flex:1;overflow:hidden;"></div>
+                <div id="scene-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>

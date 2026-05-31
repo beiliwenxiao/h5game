@@ -4,213 +4,19 @@
  * 负责从现有场景文件中提取数据，转换为编辑器可用的格式
  */
 
+import { SceneDataExporter } from './SceneDataExporter.js';
+
 export class SceneDataLoader {
   constructor() {
     this.assetBase = '../example/sanguo_zhangjiao/assets/images/scene1/';
+    this.exporter = new SceneDataExporter();
   }
   
   /**
-   * 获取场景1的地形数据
+   * 获取场景1的地形数据（使用导出器生成完整数据）
    */
   async loadScene1Terrain() {
-    const config = {
-      id: 'scene_Prologue',
-      name: '序章 - 盆地营地',
-      width: 1280,
-      height: 720,
-      backgroundColor: '#1a2a1a',
-      
-      // 场景中心点
-      centerX: 350,
-      centerY: 250,
-      
-      // 椭圆盆地参数
-      basinRadius: 640,
-      basinAspectY: 0.65,
-      
-      // 资源路径
-      assetBase: this.assetBase,
-      
-      // 图层
-      layers: [
-        {
-          id: 'layer_bg',
-          name: '背景层',
-          visible: true,
-          locked: false,
-          objects: []
-        },
-        {
-          id: 'layer_deco',
-          name: '装饰层',
-          visible: true,
-          locked: false,
-          objects: []
-        },
-        {
-          id: 'layer_entity',
-          name: '实体层',
-          visible: true,
-          locked: false,
-          objects: []
-        }
-      ],
-      
-      // 地形配置
-      terrain: {
-        type: 'basin',
-        grassTile: { sx: 448, sy: 128, sw: 64, sh: 64 },
-        tileSize: 64,
-        image: this.assetBase + 'mountain_landscape.png'
-      },
-      
-      // 装饰物精灵配置
-      decoSprites: {
-        tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true },
-        tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true },
-        tree3: { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true },
-        grass1: { sx: 128, sy: 288, sw: 96, sh: 96, scale: 1.0, collide: false },
-        bush2: { sx: 224, sy: 288, sw: 32, sh: 32, scale: 1.0, collide: false },
-        bush3: { sx: 224, sy: 320, sw: 32, sh: 32, scale: 1.0, collide: false },
-        bush4: { sx: 256, sy: 320, sw: 32, sh: 32, scale: 1.0, collide: false }
-      },
-      
-      // 装饰物列表（从Scene1Terrain提取）
-      decorations: [],
-      
-      // 碰撞区域
-      colliders: []
-    };
-    
-    // 生成装饰物列表
-    config.decorations = this._generateDecorations(config);
-    
-    return config;
-  }
-  
-  /**
-   * 生成装饰物列表（模拟Scene1Terrain的逻辑）
-   * @private
-   */
-  _generateDecorations(config) {
-    const decorations = [];
-    const cx = config.centerX;
-    const cy = config.centerY;
-    const basinRadiusX = config.basinRadius;
-    const basinRadiusY = config.basinRadius * config.basinAspectY;
-    
-    // 简单确定性伪随机
-    let seed = 12345;
-    const rand = () => {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      return seed / 0x7fffffff;
-    };
-    const pick = (arr) => arr[Math.floor(rand() * arr.length)];
-    
-    const outerTreeKeys = ['tree1', 'tree2', 'tree3'];
-    const innerTreeKeys = ['tree2', 'tree3'];
-    const bushKeys = ['bush2', 'bush3', 'bush4'];
-    
-    // 入口角度
-    const entranceAngleHalfWidth = Math.PI * 9 / 180;
-    
-    // 归一化角度
-    const normalizeAngle = (a) => {
-      while (a > Math.PI) a -= Math.PI * 2;
-      while (a < -Math.PI) a += Math.PI * 2;
-      return a;
-    };
-    
-    // 椭圆点
-    const ellipsePoint = (angle, factor, radiusJitter) => {
-      const jitter = (rand() - 0.5) * radiusJitter * 2;
-      const rx = basinRadiusX * factor + jitter;
-      const ry = basinRadiusY * factor + jitter;
-      return {
-        x: cx + Math.cos(angle) * rx,
-        y: cy + Math.sin(angle) * ry
-      };
-    };
-    
-    // 外围树木选择
-    const pickOuterTree = () => {
-      const r = rand();
-      if (r < 0.25) return 'tree1';
-      return r < 0.625 ? 'tree2' : 'tree3';
-    };
-    
-    // 生成主树圈
-    const ringConfigs = [
-      { count: 64, factor: 1.02, jitter: 18 },
-      { count: 56, factor: 0.94, jitter: 14 },
-      { count: 56, factor: 1.10, jitter: 16 }
-    ];
-    
-    for (const cfg of ringConfigs) {
-      for (let i = 0; i < cfg.count; i++) {
-        const baseAngle = (i / cfg.count) * Math.PI * 2 - Math.PI / 2 + (rand() - 0.5) * Math.PI * 6 / 180;
-        const angDistFromSouth = Math.abs(normalizeAngle(baseAngle - Math.PI / 2));
-        if (angDistFromSouth < entranceAngleHalfWidth) continue;
-        
-        const pt = ellipsePoint(baseAngle, cfg.factor, cfg.jitter);
-        decorations.push({
-          x: Math.round(pt.x),
-          y: Math.round(pt.y),
-          key: pickOuterTree(),
-          scale: 1.0
-        });
-      }
-    }
-    
-    // 底部补充树
-    for (let i = 0; i < 36; i++) {
-      const baseAngle = (i / 36) * Math.PI;
-      const angDistFromSouth = Math.abs(normalizeAngle(baseAngle - Math.PI / 2));
-      if (angDistFromSouth < entranceAngleHalfWidth) continue;
-      
-      const angle = baseAngle + (rand() - 0.5) * Math.PI * 4 / 180;
-      const factor = 1.14 + rand() * 0.10;
-      const pt = ellipsePoint(angle, factor, 12);
-      decorations.push({
-        x: Math.round(pt.x),
-        y: Math.round(pt.y),
-        key: pickOuterTree(),
-        scale: 1.0
-      });
-    }
-    
-    // 盆地内部树木（3-5棵）
-    const innerTreeCount = 3 + Math.floor(rand() * 3);
-    for (let i = 0; i < innerTreeCount; i++) {
-      const ang = rand() * Math.PI * 2;
-      const u = Math.sqrt(rand());
-      const x = cx + Math.cos(ang) * u * (basinRadiusX * 0.94 - 60);
-      const y = cy + Math.sin(ang) * u * (basinRadiusY * 0.94 - 40);
-      
-      decorations.push({
-        x: Math.round(x),
-        y: Math.round(y),
-        key: pick(innerTreeKeys),
-        scale: 1.0
-      });
-    }
-    
-    // 盆地内部灌木（26个）
-    for (let i = 0; i < 26; i++) {
-      const ang = rand() * Math.PI * 2;
-      const u = Math.sqrt(rand());
-      const x = cx + Math.cos(ang) * u * (basinRadiusX * 0.94 - 30);
-      const y = cy + Math.sin(ang) * u * (basinRadiusY * 0.94 - 20);
-      
-      decorations.push({
-        x: Math.round(x),
-        y: Math.round(y),
-        key: pick(bushKeys),
-        scale: 1.0
-      });
-    }
-    
-    return decorations;
+    return this.exporter.exportPrologueScene();
   }
   
   /**
@@ -218,13 +24,13 @@ export class SceneDataLoader {
    */
   getPresetScenes() {
     return [
-      { id: 'scene_prologue', name: '序章 - 盆地营地', type: 'terrain' },
-      { id: 'scene_act1', name: '第一幕 - 起义军营', type: 'terrain' },
-      { id: 'scene_act2', name: '第二幕 - 战场', type: 'terrain' },
-      { id: 'scene_act3', name: '第三幕 - 城池', type: 'terrain' },
-      { id: 'scene_act4', name: '第四幕 - 山寨', type: 'terrain' },
-      { id: 'scene_act5', name: '第五幕 - 决战', type: 'terrain' },
-      { id: 'scene_act6', name: '第六幕 - 结局', type: 'terrain' }
+      { id: 'scene_Prologue', name: '序章 - 盆地营地', type: 'terrain' },
+      { id: 'scene_Act1', name: '第一幕 - 起义军营', type: 'terrain' },
+      { id: 'scene_Act2', name: '第二幕 - 符水救灾', type: 'indoor' },
+      { id: 'scene_Act3', name: '第三幕 - 铜钱法器', type: 'indoor' },
+      { id: 'scene_Act4', name: '第四幕 - 山寨', type: 'terrain' },
+      { id: 'scene_Act5', name: '第五幕 - 决战', type: 'terrain' },
+      { id: 'scene_Act6', name: '第六幕 - 结局', type: 'indoor' }
     ];
   }
   
@@ -236,44 +42,324 @@ export class SceneDataLoader {
       case 'scene_Prologue':
         return await this.loadScene1Terrain();
       case 'scene_Act1':
-        return await this.loadScene1Terrain(); // 暂时使用相同地形
+        return await this.loadAct1Scene();
       case 'scene_Act2':
+        return await this.loadAct2Scene();
       case 'scene_Act3':
+        return await this.loadAct3Scene();
       case 'scene_Act4':
+        return await this.loadAct4Scene();
       case 'scene_Act5':
+        return await this.loadAct5Scene();
       case 'scene_Act6':
-        // 其他场景暂时返回空场景
-        return {
-          id: sceneId,
-          name: sceneId.replace('scene_', '').replace('_', ' '),
-          width: 1280,
-          height: 720,
-          backgroundColor: '#2a3a1a',
-          layers: [
-            { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
-            { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
-            { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
-          ],
-          decorations: [],
-          colliders: []
-        };
+        return await this.loadAct6Scene();
       default:
-        // 返回默认空场景
-        return {
-          id: sceneId,
-          name: sceneId.replace('scene_', '').replace('_', ' '),
-          width: 1280,
-          height: 720,
-          backgroundColor: '#2a3a1a',
-          layers: [
-            { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
-            { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
-            { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
-          ],
-          decorations: [],
-          colliders: []
-        };
+        return this.createEmptyScene(sceneId);
     }
+  }
+  
+  /**
+   * 创建空场景
+   */
+  createEmptyScene(sceneId, name, bgColor = '#2a3a1a') {
+    return {
+      id: sceneId,
+      name: name || sceneId.replace('scene_', ''),
+      width: 1280,
+      height: 720,
+      backgroundColor: bgColor,
+      layers: [
+        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
+      ],
+      decorations: [],
+      colliders: []
+    };
+  }
+  
+  /**
+   * 第一幕 - 起义军营
+   */
+  async loadAct1Scene() {
+    const config = this.createEmptyScene('scene_Act1', '第一幕 - 起义军营', '#1a2a2a');
+    
+    config.terrain = {
+      type: 'camp',
+      tileSize: 64,
+      image: this.assetBase + 'mountain_landscape.png'
+    };
+    
+    // 军营场景 - 更开阔的区域
+    config.centerX = 640;
+    config.centerY = 360;
+    config.basinRadius = 500;
+    config.basinAspectY = 0.7;
+    
+    // 生成军营装饰物
+    config.decorations = this._generateCampDecorations(config);
+    config.decoSprites = this._getDefaultDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 第二幕 - 符水救灾（室内粥棚）
+   */
+  async loadAct2Scene() {
+    const config = this.createEmptyScene('scene_Act2', '第二幕 - 符水救灾', '#2a2020');
+    
+    // 室内场景 - 粥棚
+    config.terrain = {
+      type: 'indoor',
+      tileSize: 48
+    };
+    
+    // 室内装饰物
+    config.decorations = this._generateIndoorDecorations(config, 'porridge');
+    config.decoSprites = this._getIndoorDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 第三幕 - 铜钱法器（室内道场）
+   */
+  async loadAct3Scene() {
+    const config = this.createEmptyScene('scene_Act3', '第三幕 - 铜钱法器', '#202030');
+    
+    config.terrain = {
+      type: 'indoor',
+      tileSize: 48
+    };
+    
+    config.decorations = this._generateIndoorDecorations(config, 'dojo');
+    config.decoSprites = this._getIndoorDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 第四幕 - 山寨
+   */
+  async loadAct4Scene() {
+    const config = this.createEmptyScene('scene_Act4', '第四幕 - 山寨', '#252520');
+    
+    config.terrain = {
+      type: 'mountain',
+      tileSize: 64,
+      image: this.assetBase + 'mountain_landscape.png'
+    };
+    
+    config.centerX = 640;
+    config.centerY = 350;
+    config.basinRadius = 550;
+    config.basinAspectY = 0.6;
+    
+    config.decorations = this._generateMountainDecorations(config);
+    config.decoSprites = this._getDefaultDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 第五幕 - 决战
+   */
+  async loadAct5Scene() {
+    const config = this.createEmptyScene('scene_Act5', '第五幕 - 决战', '#301515');
+    
+    config.terrain = {
+      type: 'battlefield',
+      tileSize: 64,
+      image: this.assetBase + 'mountain_landscape.png'
+    };
+    
+    config.centerX = 640;
+    config.centerY = 360;
+    config.basinRadius = 600;
+    config.basinAspectY = 0.65;
+    
+    config.decorations = this._generateBattlefieldDecorations(config);
+    config.decoSprites = this._getDefaultDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 第六幕 - 结局
+   */
+  async loadAct6Scene() {
+    const config = this.createEmptyScene('scene_Act6', '第六幕 - 结局', '#1a1a2a');
+    
+    config.terrain = {
+      type: 'indoor',
+      tileSize: 48
+    };
+    
+    config.decorations = this._generateIndoorDecorations(config, 'palace');
+    config.decoSprites = this._getIndoorDecoSprites();
+    
+    return config;
+  }
+  
+  /**
+   * 生成军营装饰物
+   */
+  _generateCampDecorations(config) {
+    const decorations = [];
+    let seed = 54321;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    
+    // 军营帐篷
+    for (let i = 0; i < 8; i++) {
+      decorations.push({
+        x: 200 + rand() * 800,
+        y: 150 + rand() * 400,
+        key: 'tent',
+        scale: 1.0
+      });
+    }
+    
+    // 旗帜
+    for (let i = 0; i < 5; i++) {
+      decorations.push({
+        x: 100 + rand() * 1000,
+        y: 100 + rand() * 500,
+        key: 'flag',
+        scale: 1.0
+      });
+    }
+    
+    return decorations;
+  }
+  
+  /**
+   * 生成室内装饰物
+   */
+  _generateIndoorDecorations(config, type) {
+    const decorations = [];
+    
+    if (type === 'porridge') {
+      // 粥棚 - 锅、桌子、草席
+      decorations.push({ x: 400, y: 300, key: 'cauldron', scale: 1.0 });
+      decorations.push({ x: 600, y: 400, key: 'table', scale: 1.0 });
+      decorations.push({ x: 800, y: 350, key: 'mat', scale: 1.0 });
+    } else if (type === 'dojo') {
+      // 道场 - 香炉、蒲团、符咒
+      decorations.push({ x: 500, y: 200, key: 'incense', scale: 1.0 });
+      decorations.push({ x: 640, y: 400, key: 'cushion', scale: 1.0 });
+      decorations.push({ x: 300, y: 300, key: 'talisman', scale: 1.0 });
+    } else if (type === 'palace') {
+      // 宫殿 - 宝座、屏风、蜡烛
+      decorations.push({ x: 640, y: 200, key: 'throne', scale: 1.2 });
+      decorations.push({ x: 400, y: 350, key: 'screen', scale: 1.0 });
+      decorations.push({ x: 850, y: 250, key: 'candle', scale: 1.0 });
+    }
+    
+    return decorations;
+  }
+  
+  /**
+   * 生成山寨装饰物
+   */
+  _generateMountainDecorations(config) {
+    const decorations = [];
+    let seed = 98765;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    
+    // 山寨木栅栏
+    for (let i = 0; i < 12; i++) {
+      decorations.push({
+        x: 150 + i * 90,
+        y: 500 + rand() * 50,
+        key: 'fence',
+        scale: 1.0
+      });
+    }
+    
+    // 山石
+    for (let i = 0; i < 6; i++) {
+      decorations.push({
+        x: 100 + rand() * 1000,
+        y: 200 + rand() * 300,
+        key: 'rock',
+        scale: 0.8 + rand() * 0.4
+      });
+    }
+    
+    return decorations;
+  }
+  
+  /**
+   * 生成战场装饰物
+   */
+  _generateBattlefieldDecorations(config) {
+    const decorations = [];
+    let seed = 11111;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+    
+    // 破损旗帜
+    for (let i = 0; i < 8; i++) {
+      decorations.push({
+        x: 100 + rand() * 1000,
+        y: 150 + rand() * 400,
+        key: 'broken_flag',
+        scale: 0.8 + rand() * 0.4
+      });
+    }
+    
+    // 废墟
+    for (let i = 0; i < 10; i++) {
+      decorations.push({
+        x: rand() * 1200,
+        y: 200 + rand() * 400,
+        key: 'ruins',
+        scale: 0.6 + rand() * 0.8
+      });
+    }
+    
+    return decorations;
+  }
+  
+  /**
+   * 获取默认装饰物精灵配置
+   */
+  _getDefaultDecoSprites() {
+    return {
+      tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true },
+      tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true },
+      tree3: { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true },
+      grass1: { sx: 128, sy: 288, sw: 96, sh: 96, scale: 1.0, collide: false },
+      bush2: { sx: 224, sy: 288, sw: 32, sh: 32, scale: 1.0, collide: false },
+      tent: { sx: 0, sy: 0, sw: 64, sh: 64, scale: 1.0, collide: true },
+      flag: { sx: 0, sy: 0, sw: 32, sh: 64, scale: 1.0, collide: false }
+    };
+  }
+  
+  /**
+   * 获取室内装饰物精灵配置
+   */
+  _getIndoorDecoSprites() {
+    return {
+      cauldron: { sx: 0, sy: 0, sw: 64, sh: 64, scale: 1.0, collide: true },
+      table: { sx: 0, sy: 0, sw: 80, sh: 48, scale: 1.0, collide: true },
+      mat: { sx: 0, sy: 0, sw: 64, sh: 32, scale: 1.0, collide: false },
+      incense: { sx: 0, sy: 0, sw: 32, sh: 48, scale: 1.0, collide: false },
+      cushion: { sx: 0, sy: 0, sw: 48, sh: 24, scale: 1.0, collide: false },
+      talisman: { sx: 0, sy: 0, sw: 32, sh: 32, scale: 1.0, collide: false },
+      throne: { sx: 0, sy: 0, sw: 96, sh: 96, scale: 1.0, collide: true },
+      screen: { sx: 0, sy: 0, sw: 64, sh: 96, scale: 1.0, collide: true },
+      candle: { sx: 0, sy: 0, sw: 24, sh: 32, scale: 1.0, collide: false }
+    };
   }
 }
 

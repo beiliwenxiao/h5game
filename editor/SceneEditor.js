@@ -583,6 +583,7 @@ export class SceneEditor {
     const layer = this.sceneData.layers[this.activeLayerIndex];
     if (!layer || layer.locked) return null;
     
+    // 首先检查图层中的对象
     for (let i = layer.objects.length - 1; i >= 0; i--) {
       const obj = layer.objects[i];
       
@@ -592,6 +593,34 @@ export class SceneEditor {
         if (Math.hypot(x - obj.x, y - obj.y) <= obj.radius) return obj;
       }
     }
+    
+    // 检查装饰物（如果是装饰层）
+    if (layer.name === '装饰层' && this.sceneData.decorations) {
+      // 按Y从大到小排序（后面的先检测）
+      const sortedDecos = [...this.sceneData.decorations].sort((a, b) => b.y - a.y);
+      
+      for (const deco of sortedDecos) {
+        const sprite = this.sceneData.decoSprites?.[deco.key];
+        if (sprite) {
+          const w = sprite.sw * (deco.scale || 1) * (sprite.scale || 1);
+          const h = sprite.sh * (deco.scale || 1) * (sprite.scale || 1);
+          const decoX = deco.x - w / 2;
+          const decoY = deco.y - h;
+          
+          if (x >= decoX && x <= decoX + w && y >= decoY && y <= decoY + h) {
+            // 返回一个包含原始引用的对象
+            return { 
+              ...deco, 
+              type: 'decoration', 
+              width: w, 
+              height: h,
+              _decoRef: deco  // 保存原始引用
+            };
+          }
+        }
+      }
+    }
+    
     return null;
   }
   
@@ -738,8 +767,19 @@ export class SceneEditor {
     if (!layer) return;
     
     for (const obj of this.selectedObjects) {
-      const index = layer.objects.indexOf(obj);
-      if (index !== -1) layer.objects.splice(index, 1);
+      if (obj.type === 'decoration' && obj._decoRef) {
+        // 删除装饰物
+        const index = this.sceneData.decorations.indexOf(obj._decoRef);
+        if (index !== -1) {
+          this.sceneData.decorations.splice(index, 1);
+        }
+      } else {
+        // 删除图层对象
+        const index = layer.objects.indexOf(obj);
+        if (index !== -1) {
+          layer.objects.splice(index, 1);
+        }
+      }
     }
     
     this.selectedObjects = [];
@@ -755,7 +795,13 @@ export class SceneEditor {
    */
   _updateObjectCount() {
     let count = 0;
-    for (const layer of this.sceneData.layers) count += layer.objects.length;
+    for (const layer of this.sceneData.layers) {
+      count += layer.objects.length;
+    }
+    // 加上装饰物数量
+    if (this.sceneData.decorations) {
+      count += this.sceneData.decorations.length;
+    }
     document.getElementById('editor-object-count').textContent = count;
   }
   
@@ -777,23 +823,35 @@ export class SceneEditor {
     }
     
     const obj = this.selectedObjects[0];
-    let html = `<div class="property-row"><label>ID:</label><input value="${obj.id}" disabled></div>`;
-    html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
-    html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
+    let html = '';
     
-    if (obj.type === 'rect' || obj.type === 'image') {
-      html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
-      html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
-    } else if (obj.type === 'circle') {
-      html += `<div class="property-row"><label>半径:</label><input type="number" value="${Math.round(obj.radius)}" data-prop="radius"></div>`;
-    }
-    
-    if (obj.type === 'image' && obj.rotation !== undefined) {
-      html += `<div class="property-row"><label>旋转:</label><input type="number" value="${Math.round(obj.rotation)}" data-prop="rotation"></div>`;
-    }
-    
-    if (obj.fill) {
-      html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
+    // 装饰物类型
+    if (obj.type === 'decoration') {
+      html = `<div class="property-row"><label>类型:</label><input value="装饰物" disabled></div>`;
+      html += `<div class="property-row"><label>名称:</label><input value="${obj.key || '未知'}" disabled></div>`;
+      html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
+      html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
+      html += `<div class="property-row"><label>缩放:</label><input type="number" value="${obj.scale || 1}" step="0.1" data-prop="scale"></div>`;
+    } else {
+      // 其他类型对象
+      html = `<div class="property-row"><label>ID:</label><input value="${obj.id || '未知'}" disabled></div>`;
+      html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
+      html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
+      
+      if (obj.type === 'rect' || obj.type === 'image') {
+        html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
+        html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
+      } else if (obj.type === 'circle') {
+        html += `<div class="property-row"><label>半径:</label><input type="number" value="${Math.round(obj.radius)}" data-prop="radius"></div>`;
+      }
+      
+      if (obj.type === 'image' && obj.rotation !== undefined) {
+        html += `<div class="property-row"><label>旋转:</label><input type="number" value="${Math.round(obj.rotation)}" data-prop="rotation"></div>`;
+      }
+      
+      if (obj.fill) {
+        html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
+      }
     }
     
     html += `<div class="property-row"><button id="editor-delete-obj">删除对象</button></div>`;
@@ -801,7 +859,17 @@ export class SceneEditor {
     
     panel.querySelectorAll('input[data-prop]').forEach(input => {
       input.addEventListener('change', (e) => {
-        obj[e.target.dataset.prop] = parseFloat(e.target.value);
+        const prop = e.target.dataset.prop;
+        const value = parseFloat(e.target.value);
+        
+        // 更新对象属性
+        obj[prop] = value;
+        
+        // 如果是装饰物，还需要更新原始数据
+        if (obj.type === 'decoration' && obj._decoRef) {
+          obj._decoRef[prop] = value;
+        }
+        
         this.render();
       });
     });
@@ -936,7 +1004,7 @@ export class SceneEditor {
    */
   _renderTerrainScene(ctx) {
     const data = this.sceneData;
-    if (!data.terrain || !data.decorations) return;
+    if (!data.terrain) return;
     
     // 获取图层可见性
     const getLayerVisible = (layerName) => {
@@ -944,59 +1012,129 @@ export class SceneEditor {
       return layer ? layer.visible : true;
     };
     
-    const centerX = data.centerX || data.width / 2;
-    const centerY = (data.centerY || data.height / 2) - 32; // 视觉上移
-    const radiusX = data.basinRadius || 640;
-    const radiusY = radiusX * (data.basinAspectY || 0.65);
+    const terrainType = data.terrain.type || 'basin';
     
-    // 1. 绘制背景层（森林深绿环带和草地）
-    if (getLayerVisible('背景层')) {
-      // 绘制森林深绿环带
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.scale(1, data.basinAspectY || 0.65);
-      const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
-      grad.addColorStop(0, 'rgba(35, 58, 25, 1)');
-      grad.addColorStop(0.55, 'rgba(28, 46, 20, 0.92)');
-      grad.addColorStop(1, 'rgba(20, 30, 15, 0)');
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-      
-      // 绘制椭圆草地
-      ctx.fillStyle = '#3a5a2a';
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
-      ctx.fill();
-      
-      // 绘制草地纹理（简化版）
-      const tileSize = data.terrain?.tileSize || 64;
-      ctx.fillStyle = '#4a6a3a';
-      for (let y = 0; y < data.height; y += tileSize) {
-        for (let x = 0; x < data.width; x += tileSize) {
-          // 检查是否在椭圆内
-          const dx = (x + tileSize/2 - centerX) / (radiusX + 20);
-          const dy = (y + tileSize/2 - centerY) / (radiusY + 20);
-          if (dx * dx + dy * dy < 1) {
-            ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
-          }
-        }
-      }
+    // 根据场景类型渲染不同背景
+    if (terrainType === 'indoor') {
+      // 室内场景
+      this._renderIndoorScene(ctx, getLayerVisible);
+    } else {
+      // 室外场景（盆地、军营、战场等）
+      this._renderOutdoorScene(ctx, getLayerVisible);
     }
     
-    // 2. 绘制装饰层（树木、灌木等）
-    if (getLayerVisible('装饰层')) {
-      // 按Y排序绘制装饰物
+    // 绘制装饰层
+    if (getLayerVisible('装饰层') && data.decorations) {
       const sortedDecos = [...data.decorations].sort((a, b) => a.y - b.y);
-      
       for (const deco of sortedDecos) {
         this._renderDecoration(ctx, deco, data.decoSprites);
       }
     }
+  }
+  
+  /**
+   * 渲染室内场景
+   */
+  _renderIndoorScene(ctx, getLayerVisible) {
+    const data = this.sceneData;
     
-    // 3. 实体层（玩家、NPC等）- 由图层objects处理
+    if (!getLayerVisible('背景层')) return;
+    
+    // 室内地面
+    ctx.fillStyle = data.backgroundColor || '#2a2020';
+    ctx.fillRect(0, 0, data.width, data.height);
+    
+    // 地板纹理
+    const tileSize = data.terrain?.tileSize || 48;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    
+    for (let x = 0; x < data.width; x += tileSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, data.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < data.height; y += tileSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(data.width, y);
+      ctx.stroke();
+    }
+    
+    // 墙壁
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.fillRect(0, 0, data.width, 60);
+    ctx.fillRect(0, 0, 40, data.height);
+    ctx.fillRect(data.width - 40, 0, 40, data.height);
+    ctx.fillRect(0, data.height - 40, data.width, 40);
+  }
+  
+  /**
+   * 渲染室外场景
+   */
+  _renderOutdoorScene(ctx, getLayerVisible) {
+    const data = this.sceneData;
+    
+    if (!getLayerVisible('背景层')) return;
+    
+    const centerX = data.centerX || data.width / 2;
+    const centerY = (data.centerY || data.height / 2) - 32;
+    const radiusX = data.basinRadius || 640;
+    const radiusY = radiusX * (data.basinAspectY || 0.65);
+    const terrainType = data.terrain?.type || 'basin';
+    
+    // 根据场景类型选择颜色
+    let grassColor = '#3a5a2a';
+    let grassColorDark = '#4a6a3a';
+    let forestColor = 'rgba(35, 58, 25, 1)';
+    
+    if (terrainType === 'battlefield') {
+      grassColor = '#4a3030';
+      grassColorDark = '#5a4040';
+      forestColor = 'rgba(50, 30, 25, 1)';
+    } else if (terrainType === 'mountain') {
+      grassColor = '#404a30';
+      grassColorDark = '#505a40';
+      forestColor = 'rgba(40, 45, 30, 1)';
+    } else if (terrainType === 'camp') {
+      grassColor = '#3a4a3a';
+      grassColorDark = '#4a5a4a';
+      forestColor = 'rgba(30, 50, 35, 1)';
+    }
+    
+    // 森林环带
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(1, data.basinAspectY || 0.65);
+    const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
+    grad.addColorStop(0, forestColor);
+    grad.addColorStop(0.55, forestColor.replace('1)', '0.92)'));
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    
+    // 草地
+    ctx.fillStyle = grassColor;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // 草地纹理
+    const tileSize = data.terrain?.tileSize || 64;
+    ctx.fillStyle = grassColorDark;
+    for (let y = 0; y < data.height; y += tileSize) {
+      for (let x = 0; x < data.width; x += tileSize) {
+        const dx = (x + tileSize/2 - centerX) / (radiusX + 20);
+        const dy = (y + tileSize/2 - centerY) / (radiusY + 20);
+        if (dx * dx + dy * dy < 1) {
+          ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
+        }
+      }
+    }
   }
   
   /**

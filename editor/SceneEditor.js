@@ -295,8 +295,11 @@ export class SceneEditor {
       return;
     }
     
+    // 设置canvas尺寸为场景尺寸
     canvas.width = this.sceneData.width;
     canvas.height = this.sceneData.height;
+    
+    // overlay尺寸也设置为场景尺寸，便于绘制选中框
     overlay.width = this.sceneData.width;
     overlay.height = this.sceneData.height;
     
@@ -527,6 +530,12 @@ export class SceneEditor {
       for (const obj of this.selectedObjects) {
         obj.x = this.interaction.objectStart.x + dx;
         obj.y = this.interaction.objectStart.y + dy;
+        
+        // 如果是装饰物，同步更新原始引用
+        if (obj.type === 'decoration' && obj._decoRef) {
+          obj._decoRef.x = obj.x;
+          obj._decoRef.y = obj.y;
+        }
       }
       
       this._updateObjectProperties();
@@ -1187,6 +1196,8 @@ export class SceneEditor {
    */
   _renderSelection() {
     const overlay = document.getElementById('editor-overlay');
+    if (!overlay) return;
+    
     const ctx = overlay.getContext('2d');
     
     ctx.clearRect(0, 0, overlay.width, overlay.height);
@@ -1196,12 +1207,20 @@ export class SceneEditor {
     ctx.translate(this.viewport.offsetX, this.viewport.offsetY);
     ctx.scale(this.viewport.scale, this.viewport.scale);
     
-    ctx.strokeStyle = '#4CAF50';
+    // 白色虚线框
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2 / this.viewport.scale;
-    ctx.setLineDash([4 / this.viewport.scale, 4 / this.viewport.scale]);
+    ctx.setLineDash([6 / this.viewport.scale, 4 / this.viewport.scale]);
     
     for (const obj of this.selectedObjects) {
-      if (obj.type === 'rect' || obj.type === 'image') {
+      if (obj.type === 'decoration') {
+        // 装饰物选中框
+        const w = obj.width || 64;
+        const h = obj.height || 64;
+        const x = obj.x - w / 2;
+        const y = obj.y - h;
+        ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+      } else if (obj.type === 'rect' || obj.type === 'image') {
         ctx.strokeRect(obj.x - 2, obj.y - 2, obj.width + 4, obj.height + 4);
       } else if (obj.type === 'circle') {
         ctx.beginPath();

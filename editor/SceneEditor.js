@@ -654,23 +654,32 @@ export class SceneEditor {
    */
   _updateLayerList() {
     const list = document.getElementById('editor-layer-list');
+    if (!list) return;
+    
     list.innerHTML = '';
     
-    for (let i = this.sceneData.layers.length - 1; i >= 0; i--) {
-      const layer = this.sceneData.layers[i];
+    // 从后往前显示（最上面的图层在列表顶部）
+    for (let displayIndex = this.sceneData.layers.length - 1; displayIndex >= 0; displayIndex--) {
+      const actualIndex = displayIndex; // 实际索引
+      const layer = this.sceneData.layers[actualIndex];
       const item = document.createElement('div');
-      item.className = 'layer-item' + (i === this.activeLayerIndex ? ' active' : '');
+      item.className = 'layer-item' + (actualIndex === this.activeLayerIndex ? ' active' : '');
+      item.dataset.index = actualIndex;
       item.innerHTML = `
-        <span class="layer-visibility">${layer.visible ? '👁' : '👁‍🗨'}</span>
+        <span class="layer-visibility" data-action="visibility">${layer.visible ? '👁' : '👁‍🗨'}</span>
         <span class="layer-name">${layer.name}</span>
       `;
       
       item.addEventListener('click', (e) => {
-        if (e.target.classList.contains('layer-visibility')) {
-          layer.visible = !layer.visible;
+        const idx = parseInt(item.dataset.index);
+        
+        if (e.target.dataset.action === 'visibility') {
+          // 切换可见性
+          this.sceneData.layers[idx].visible = !this.sceneData.layers[idx].visible;
           this.render();
         } else {
-          this.activeLayerIndex = i;
+          // 切换活动图层
+          this.activeLayerIndex = idx;
         }
         this._updateLayerList();
       });
@@ -929,51 +938,65 @@ export class SceneEditor {
     const data = this.sceneData;
     if (!data.terrain || !data.decorations) return;
     
+    // 获取图层可见性
+    const getLayerVisible = (layerName) => {
+      const layer = this.sceneData.layers.find(l => l.name === layerName);
+      return layer ? layer.visible : true;
+    };
+    
     const centerX = data.centerX || data.width / 2;
     const centerY = (data.centerY || data.height / 2) - 32; // 视觉上移
     const radiusX = data.basinRadius || 640;
     const radiusY = radiusX * (data.basinAspectY || 0.65);
     
-    // 1. 绘制森林深绿环带
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(1, data.basinAspectY || 0.65);
-    const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
-    grad.addColorStop(0, 'rgba(35, 58, 25, 1)');
-    grad.addColorStop(0.55, 'rgba(28, 46, 20, 0.92)');
-    grad.addColorStop(1, 'rgba(20, 30, 15, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-    
-    // 2. 绘制椭圆草地
-    ctx.fillStyle = '#3a5a2a';
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // 绘制草地纹理（简化版）
-    const tileSize = data.terrain?.tileSize || 64;
-    ctx.fillStyle = '#4a6a3a';
-    for (let y = 0; y < data.height; y += tileSize) {
-      for (let x = 0; x < data.width; x += tileSize) {
-        // 检查是否在椭圆内
-        const dx = (x + tileSize/2 - centerX) / (radiusX + 20);
-        const dy = (y + tileSize/2 - centerY) / (radiusY + 20);
-        if (dx * dx + dy * dy < 1) {
-          ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
+    // 1. 绘制背景层（森林深绿环带和草地）
+    if (getLayerVisible('背景层')) {
+      // 绘制森林深绿环带
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.scale(1, data.basinAspectY || 0.65);
+      const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
+      grad.addColorStop(0, 'rgba(35, 58, 25, 1)');
+      grad.addColorStop(0.55, 'rgba(28, 46, 20, 0.92)');
+      grad.addColorStop(1, 'rgba(20, 30, 15, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      
+      // 绘制椭圆草地
+      ctx.fillStyle = '#3a5a2a';
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 绘制草地纹理（简化版）
+      const tileSize = data.terrain?.tileSize || 64;
+      ctx.fillStyle = '#4a6a3a';
+      for (let y = 0; y < data.height; y += tileSize) {
+        for (let x = 0; x < data.width; x += tileSize) {
+          // 检查是否在椭圆内
+          const dx = (x + tileSize/2 - centerX) / (radiusX + 20);
+          const dy = (y + tileSize/2 - centerY) / (radiusY + 20);
+          if (dx * dx + dy * dy < 1) {
+            ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
+          }
         }
       }
     }
     
-    // 3. 绘制装饰物（按Y排序）
-    const sortedDecos = [...data.decorations].sort((a, b) => a.y - b.y);
-    
-    for (const deco of sortedDecos) {
-      this._renderDecoration(ctx, deco, data.decoSprites);
+    // 2. 绘制装饰层（树木、灌木等）
+    if (getLayerVisible('装饰层')) {
+      // 按Y排序绘制装饰物
+      const sortedDecos = [...data.decorations].sort((a, b) => a.y - b.y);
+      
+      for (const deco of sortedDecos) {
+        this._renderDecoration(ctx, deco, data.decoSprites);
+      }
     }
+    
+    // 3. 实体层（玩家、NPC等）- 由图层objects处理
   }
   
   /**

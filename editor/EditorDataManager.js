@@ -276,13 +276,22 @@ export class EditorDataManager {
     const index = scenes.findIndex(s => s.id === sceneId);
     
     if (index === -1) {
-      // 创建新场景
-      return this.createScene(gameId, { ...sceneData, id: sceneId });
+      // 首次保存预设场景：保留完整数据和原始ID
+      const newScene = {
+        ...sceneData,
+        id: sceneId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      scenes.push(newScene);
+      this.saveScenesData(gameId, scenes);
+      return newScene;
     }
     
     scenes[index] = {
       ...scenes[index],
       ...sceneData,
+      id: sceneId,
       updatedAt: new Date().toISOString()
     };
     

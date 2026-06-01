@@ -65,6 +65,9 @@ export class SceneEditor {
       objectStart: { x: 0, y: 0 }
     };
     
+    // 当前拖拽的切片数据
+    this.draggingSlice = null;
+    
     // 撤销/重做栈
     this.history = {
       undoStack: [],
@@ -134,20 +137,26 @@ export class SceneEditor {
             <div class="sidebar-section">
               <h3>资源库</h3>
               <div class="asset-library">
+                <div class="asset-tabs">
+                  <button class="asset-tab active" data-tab="sprites">精灵</button>
+                  <button class="asset-tab" data-tab="atlases">图集</button>
+                </div>
                 <div class="asset-actions">
                   <button id="editor-add-image">添加图片</button>
-                  <button id="editor-use-slicer">图片分割</button>
+                  <button id="editor-use-slicer">编辑切片</button>
                 </div>
-                <div class="asset-list" id="editor-asset-list">
-                  <div class="asset-item placeholder" data-type="rect">
-                    <div class="asset-preview rect"></div>
-                    <span>矩形</span>
-                  </div>
-                  <div class="asset-item placeholder" data-type="circle">
-                    <div class="asset-preview circle"></div>
-                    <span>圆形</span>
-                  </div>
+                <div id="asset-sprites" class="asset-panel">
+                  <div class="asset-list" id="editor-asset-list"></div>
                 </div>
+                <div id="asset-atlases" class="asset-panel" style="display:none;">
+                  <div class="atlas-list" id="editor-atlas-list"></div>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-section">
+              <h3>选中切片</h3>
+              <div id="slice-properties">
+                <div class="no-selection">未选中切片</div>
               </div>
             </div>
           </div>
@@ -207,6 +216,25 @@ export class SceneEditor {
     this._addStyles();
     this._initCanvas();
     this._updateLayerList();
+    this._initAssetTabs();
+  }
+  
+  /**
+   * 初始化资源标签页
+   * @private
+   */
+  _initAssetTabs() {
+    const tabs = this.container.querySelectorAll('.asset-tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        const tabName = tab.dataset.tab;
+        this.container.querySelector('#asset-sprites').style.display = tabName === 'sprites' ? 'block' : 'none';
+        this.container.querySelector('#asset-atlases').style.display = tabName === 'atlases' ? 'block' : 'none';
+      });
+    });
   }
   
   /**
@@ -235,6 +263,11 @@ export class SceneEditor {
       .sidebar-section { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px solid #2a3a5e; }
       .sidebar-section h3 { font-size: 14px; margin: 0 0 10px 0; color: #4CAF50; }
       .asset-library { display: flex; flex-direction: column; gap: 10px; }
+      .asset-tabs { display: flex; gap: 2px; margin-bottom: 5px; }
+      .asset-tab { flex: 1; padding: 6px; background: #2a3a5e; border: none; border-radius: 4px 4px 0 0; color: #aaa; cursor: pointer; font-size: 11px; }
+      .asset-tab:hover { background: #3a4a7e; }
+      .asset-tab.active { background: #4a5a8e; color: #fff; }
+      .asset-panel { background: #1a2a3e; border-radius: 4px; padding: 5px; max-height: 250px; overflow-y: auto; }
       .asset-actions { display: flex; gap: 5px; }
       .asset-actions button { flex: 1; padding: 6px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 11px; }
       .asset-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; max-height: 200px; overflow-y: auto; }
@@ -269,6 +302,23 @@ export class SceneEditor {
       .scene-info .info-row { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; font-size: 12px; }
       .scene-info .info-row label { width: 50px; color: #aaa; }
       .scene-info .info-row input { width: 60px; padding: 4px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 4px; color: #fff; font-size: 11px; }
+      .atlas-list { display: flex; flex-direction: column; gap: 5px; }
+      .atlas-item { background: #2a3a5e; border-radius: 4px; overflow: hidden; }
+      .atlas-header { display: flex; align-items: center; justify-content: space-between; padding: 8px; cursor: pointer; font-size: 12px; }
+      .atlas-header:hover { background: #3a4a7e; }
+      .atlas-preview { width: 100%; max-height: 100px; background: #1a1a2e; overflow: hidden; display: none; }
+      .atlas-preview img { width: 100%; height: auto; }
+      .slice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px; background: #1a1a2e; }
+      .slice-item { display: flex; flex-direction: column; align-items: center; padding: 5px; background: #2a3a5e; border-radius: 4px; cursor: grab; font-size: 10px; border: 2px solid transparent; user-select: none; }
+      .slice-item:hover { background: #3a4a7e; }
+      .slice-item.selected { border-color: #4CAF50; background: #3a4a6e; }
+      .slice-item.dragging { opacity: 0.5; }
+      .slice-preview { width: 40px; height: 40px; background: #4a5a8e; margin-bottom: 4px; border-radius: 2px; overflow: hidden; pointer-events: none; }
+      .slice-preview img { width: 100%; height: 100%; object-fit: contain; }
+      #slice-properties { font-size: 11px; }
+      .slice-prop-row { display: flex; align-items: center; margin-bottom: 5px; gap: 5px; }
+      .slice-prop-row label { width: 60px; color: #aaa; }
+      .slice-prop-row input { flex: 1; padding: 3px 6px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 3px; color: #fff; font-size: 11px; }
     `;
     
     document.head.appendChild(style);
@@ -432,25 +482,55 @@ export class SceneEditor {
     const assetList = document.getElementById('editor-asset-list');
     const container = document.getElementById('editor-canvas-container');
     
-    assetList.addEventListener('dragstart', (e) => {
-      const item = e.target.closest('.asset-item');
-      if (item) {
-        e.dataTransfer.setData('text/plain', item.dataset.id || item.dataset.type);
-        item.classList.add('dragging');
-      }
-    });
+    // 精灵列表拖拽
+    if (assetList) {
+      assetList.addEventListener('dragstart', (e) => {
+        const item = e.target.closest('.asset-item');
+        if (item) {
+          e.dataTransfer.setData('text/plain', item.dataset.id || item.dataset.type);
+          item.classList.add('dragging');
+        }
+      });
+      
+      assetList.addEventListener('dragend', (e) => {
+        const item = e.target.closest('.asset-item');
+        if (item) item.classList.remove('dragging');
+      });
+    }
     
-    assetList.addEventListener('dragend', (e) => {
-      const item = e.target.closest('.asset-item');
-      if (item) item.classList.remove('dragging');
-    });
+    if (!container) return;
     
-    container.addEventListener('dragover', (e) => e.preventDefault());
+    // 允许拖放
+    container.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
     
     container.addEventListener('drop', (e) => {
       e.preventDefault();
       const id = e.dataTransfer.getData('text/plain');
+      console.log('Drop event, id:', id, 'draggingSlice:', this.draggingSlice);
       const pos = this._screenToScene(e.offsetX, e.offsetY);
+      console.log('Drop position:', pos);
+      
+      // 处理切片拖拽 - 优先使用临时变量
+      if (this.draggingSlice) {
+        const { atlasId, sliceKey } = this.draggingSlice;
+        console.log('Adding slice from draggingSlice:', atlasId, sliceKey);
+        this._addSliceToScene(atlasId, sliceKey, pos.x, pos.y);
+        this.draggingSlice = null;
+        return;
+      }
+      
+      // 备用方案：从 dataTransfer 获取
+      if (id && id.startsWith('slice:')) {
+        const parts = id.split(':');
+        const atlasId = parts[1];
+        const sliceKey = parts[2];
+        console.log('Adding slice from dataTransfer:', atlasId, sliceKey);
+        this._addSliceToScene(atlasId, sliceKey, pos.x, pos.y);
+        return;
+      }
       
       if (id === 'rect') {
         this.addObject({ type: 'rect', x: pos.x - 32, y: pos.y - 32, width: 64, height: 64, fill: '#4a5a8e' });
@@ -469,6 +549,45 @@ export class SceneEditor {
         });
       }
     });
+  }
+  
+  /**
+   * 将切片添加到场景
+   * @private
+   */
+  _addSliceToScene(atlasId, sliceKey, x, y) {
+    const atlas = this.sceneData.atlases?.find(a => a.id === atlasId);
+    if (!atlas) return;
+    
+    const slice = atlas.slices?.[sliceKey];
+    if (!slice) return;
+    
+    // 添加到装饰层
+    const decoLayer = this.sceneData.layers.find(l => l.id === 'layer_deco');
+    if (!decoLayer) return;
+    
+    const obj = {
+      id: 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      type: 'slice',
+      atlasId,
+      sliceKey,
+      x: Math.round(x - slice.sw / 2),
+      y: Math.round(y - slice.sh / 2),
+      width: slice.sw,
+      height: slice.sh,
+      name: slice.name || sliceKey
+    };
+    
+    decoLayer.objects.push(obj);
+    // 切换激活图层到装饰层，便于后续选中/拖动
+    this.activeLayerIndex = this.sceneData.layers.indexOf(decoLayer);
+    this._saveHistory();
+    this._updateObjectCount();
+    this.render();
+    
+    // 选中新添加的对象
+    this.selectedObjects = [obj];
+    this._updateObjectProperties();
   }
   
   /**
@@ -589,22 +708,32 @@ export class SceneEditor {
    * @private
    */
   _getObjectAt(x, y) {
-    const layer = this.sceneData.layers[this.activeLayerIndex];
-    if (!layer || layer.locked) return null;
-    
-    // 首先检查图层中的对象
-    for (let i = layer.objects.length - 1; i >= 0; i--) {
-      const obj = layer.objects[i];
+    // 从上到下遍历所有图层（后面的图层在上层，优先检测）
+    for (let li = this.sceneData.layers.length - 1; li >= 0; li--) {
+      const layer = this.sceneData.layers[li];
+      if (!layer || layer.locked || !layer.visible) continue;
       
-      if (obj.type === 'rect' || obj.type === 'image') {
-        if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) return obj;
-      } else if (obj.type === 'circle') {
-        if (Math.hypot(x - obj.x, y - obj.y) <= obj.radius) return obj;
+      for (let i = layer.objects.length - 1; i >= 0; i--) {
+        const obj = layer.objects[i];
+        
+        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
+          if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
+            // 命中后切换激活图层，便于拖动/删除
+            this.activeLayerIndex = li;
+            return obj;
+          }
+        } else if (obj.type === 'circle') {
+          if (Math.hypot(x - obj.x, y - obj.y) <= obj.radius) {
+            this.activeLayerIndex = li;
+            return obj;
+          }
+        }
       }
     }
     
-    // 检查装饰物（如果是装饰层）
-    if (layer.name === '装饰层' && this.sceneData.decorations) {
+    // 检查装饰物（原始地形装饰，存在 decorations 数组中）
+    const decoLayer = this.sceneData.layers.find(l => l.name === '装饰层');
+    if (decoLayer && decoLayer.visible && !decoLayer.locked && this.sceneData.decorations) {
       // 按Y从大到小排序（后面的先检测）
       const sortedDecos = [...this.sceneData.decorations].sort((a, b) => b.y - a.y);
       
@@ -772,9 +901,6 @@ export class SceneEditor {
    * 删除选中对象
    */
   deleteSelectedObjects() {
-    const layer = this.sceneData.layers[this.activeLayerIndex];
-    if (!layer) return;
-    
     for (const obj of this.selectedObjects) {
       if (obj.type === 'decoration' && obj._decoRef) {
         // 删除装饰物
@@ -783,10 +909,13 @@ export class SceneEditor {
           this.sceneData.decorations.splice(index, 1);
         }
       } else {
-        // 删除图层对象
-        const index = layer.objects.indexOf(obj);
-        if (index !== -1) {
-          layer.objects.splice(index, 1);
+        // 在所有图层中查找并删除对象
+        for (const layer of this.sceneData.layers) {
+          const index = layer.objects.indexOf(obj);
+          if (index !== -1) {
+            layer.objects.splice(index, 1);
+            break;
+          }
         }
       }
     }
@@ -820,6 +949,7 @@ export class SceneEditor {
    */
   _updateObjectProperties() {
     const panel = document.getElementById('editor-object-properties');
+    if (!panel) return;
     
     if (this.selectedObjects.length === 0) {
       panel.innerHTML = '<div class="no-selection">未选中任何对象</div>';
@@ -847,7 +977,7 @@ export class SceneEditor {
       html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
       html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
       
-      if (obj.type === 'rect' || obj.type === 'image') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
         html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
         html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
       } else if (obj.type === 'circle') {
@@ -884,6 +1014,207 @@ export class SceneEditor {
     });
     
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
+  }
+  
+  /**
+   * 更新资源库显示
+   */
+  updateAssetLibrary() {
+    this._updateSpriteList();
+    this._updateAtlasList();
+  }
+  
+  /**
+   * 更新精灵列表（只显示基础形状）
+   * @private
+   */
+  _updateSpriteList() {
+    const list = document.getElementById('editor-asset-list');
+    if (!list) return;
+    
+    // 只添加基础形状占位符
+    list.innerHTML = `
+      <div class="asset-item placeholder" draggable="true" data-type="rect">
+        <div class="asset-preview rect"></div>
+        <span>矩形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="circle">
+        <div class="asset-preview circle"></div>
+        <span>圆形</span>
+      </div>
+    `;
+    
+    // 图片资源请使用"图集"标签页
+  }
+  
+  /**
+   * 更新图集列表
+   * @private
+   */
+  _updateAtlasList() {
+    const list = document.getElementById('editor-atlas-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    if (!this.sceneData.atlases || this.sceneData.atlases.length === 0) {
+      list.innerHTML = '<div style="padding:10px;color:#666;text-align:center;font-size:11px;">暂无图集</div>';
+      return;
+    }
+    
+    for (const atlas of this.sceneData.atlases) {
+      const item = document.createElement('div');
+      item.className = 'atlas-item';
+      
+      let slicesHtml = '';
+      if (atlas.slices) {
+        for (const [sliceKey, slice] of Object.entries(atlas.slices)) {
+          slicesHtml += `
+            <div class="slice-item" draggable="true" data-atlas="${atlas.id}" data-slice="${sliceKey}">
+              <div class="slice-preview" style="background:${sliceKey.includes('tree') ? '#2a5a2a' : '#4a6a3a'}">
+              </div>
+              <span>${slice.name || sliceKey}</span>
+            </div>
+          `;
+        }
+      }
+      
+      item.innerHTML = `
+        <div class="atlas-header">
+          <span>${atlas.name}</span>
+          <span style="font-size:10px;color:#666;">${atlas.width}×${atlas.height}</span>
+        </div>
+        <div class="slice-grid">
+          ${slicesHtml}
+        </div>
+      `;
+      
+      list.appendChild(item);
+    }
+    
+    // 直接为每个切片项绑定事件
+    list.querySelectorAll('.slice-item').forEach(sliceItem => {
+      // 点击选中
+      sliceItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const atlasId = sliceItem.dataset.atlas;
+        const sliceKey = sliceItem.dataset.slice;
+        this._selectSlice(atlasId, sliceKey);
+      });
+      
+      // 拖拽事件
+      sliceItem.addEventListener('dragstart', (e) => {
+        e.stopPropagation();
+        const atlasId = sliceItem.dataset.atlas;
+        const sliceKey = sliceItem.dataset.slice;
+        console.log('Drag start:', atlasId, sliceKey);
+        
+        // 设置拖拽数据
+        this.draggingSlice = { atlasId, sliceKey };
+        
+        // 设置 dataTransfer
+        e.dataTransfer.setData('text/plain', `slice:${atlasId}:${sliceKey}`);
+        e.dataTransfer.effectAllowed = 'copy';
+        sliceItem.classList.add('dragging');
+      });
+      
+      sliceItem.addEventListener('dragend', (e) => {
+        sliceItem.classList.remove('dragging');
+      });
+    });
+  }
+  
+  /**
+   * 选中切片
+   */
+  _selectSlice(atlasId, sliceKey) {
+    console.log('_selectSlice called:', atlasId, sliceKey);
+    
+    const atlas = this.sceneData.atlases?.find(a => a.id === atlasId);
+    if (!atlas) {
+      console.log('Atlas not found:', atlasId);
+      return;
+    }
+    
+    const slice = atlas.slices?.[sliceKey];
+    if (!slice) {
+      console.log('Slice not found:', sliceKey);
+      return;
+    }
+    
+    // 更新选中状态
+    this.container.querySelectorAll('.slice-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    
+    const selectedEl = this.container.querySelector(`.slice-item[data-atlas="${atlasId}"][data-slice="${sliceKey}"]`);
+    if (selectedEl) {
+      selectedEl.classList.add('selected');
+    }
+    
+    // 显示切片属性
+    const propsPanel = document.getElementById('slice-properties');
+    if (propsPanel) {
+      propsPanel.innerHTML = `
+        <div class="slice-prop-row">
+          <label>名称:</label>
+          <input type="text" id="slice-name" value="${slice.name || sliceKey}">
+        </div>
+        <div class="slice-prop-row">
+          <label>X:</label>
+          <input type="number" id="slice-sx" value="${slice.sx}">
+        </div>
+        <div class="slice-prop-row">
+          <label>Y:</label>
+          <input type="number" id="slice-sy" value="${slice.sy}">
+        </div>
+        <div class="slice-prop-row">
+          <label>宽度:</label>
+          <input type="number" id="slice-sw" value="${slice.sw}">
+        </div>
+        <div class="slice-prop-row">
+          <label>高度:</label>
+          <input type="number" id="slice-sh" value="${slice.sh}">
+        </div>
+        <div class="slice-prop-row">
+          <label>碰撞:</label>
+          <input type="checkbox" id="slice-collide" ${slice.collide ? 'checked' : ''}>
+        </div>
+        <div class="slice-prop-row">
+          <label>碰撞半径:</label>
+          <input type="number" id="slice-radius" value="${slice.colliderRadius || 16}">
+        </div>
+      `;
+      
+      // 绑定属性修改事件
+      ['name', 'sx', 'sy', 'sw', 'sh', 'collide', 'radius'].forEach(prop => {
+        const el = document.getElementById(`slice-${prop}`);
+        if (el) {
+          el.addEventListener('change', () => {
+            let value;
+            if (el.type === 'checkbox') {
+              value = el.checked;
+            } else if (el.type === 'number') {
+              value = parseFloat(el.value);
+            } else {
+              value = el.value;
+            }
+            
+            const actualProp = prop === 'radius' ? 'colliderRadius' : prop;
+            slice[actualProp] = value;
+            
+            // 同步更新decoSprites
+            if (this.sceneData.decoSprites && this.sceneData.decoSprites[sliceKey]) {
+              this.sceneData.decoSprites[sliceKey][actualProp] = value;
+            }
+            
+            this.render();
+          });
+        }
+      });
+    }
+    
+    this.selectedSlice = { atlasId, sliceKey, slice };
   }
   
   /**
@@ -1003,6 +1334,25 @@ export class SceneEditor {
         if (obj.rotation) ctx.rotate(obj.rotation * Math.PI / 180);
         ctx.drawImage(img, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
         ctx.restore();
+      }
+    } else if (obj.type === 'slice') {
+      // 渲染切片
+      const atlas = this.sceneData.atlases?.find(a => a.id === obj.atlasId);
+      const slice = atlas?.slices?.[obj.sliceKey];
+      const img = this.loadedImages.get(obj.atlasId);
+      
+      if (img && slice) {
+        ctx.drawImage(
+          img,
+          slice.sx, slice.sy, slice.sw, slice.sh,
+          obj.x, obj.y, obj.width, obj.height
+        );
+      } else {
+        // 如果图片未加载，显示占位符
+        ctx.fillStyle = '#3a5a3a';
+        ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+        ctx.strokeStyle = '#5a8a5a';
+        ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       }
     }
   }
@@ -1220,7 +1570,7 @@ export class SceneEditor {
         const x = obj.x - w / 2;
         const y = obj.y - h;
         ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
-      } else if (obj.type === 'rect' || obj.type === 'image') {
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
         ctx.strokeRect(obj.x - 2, obj.y - 2, obj.width + 4, obj.height + 4);
       } else if (obj.type === 'circle') {
         ctx.beginPath();
@@ -1238,6 +1588,7 @@ export class SceneEditor {
   loadScene(sceneData) {
     this.sceneData = { ...this.sceneData, ...sceneData };
     this.selectedObjects = [];
+    this.selectedSlice = null;
     
     // 更新UI
     const nameInput = document.getElementById('editor-scene-name');
@@ -1261,10 +1612,82 @@ export class SceneEditor {
       overlay.height = this.sceneData.height;
     }
     
+    // 加载图集图片
+    this._loadAtlasImages();
+    
     this._fitToContainer();
     this._updateLayerList();
     this._updateObjectCount();
+    this.updateAssetLibrary();
     this.render();
+  }
+  
+  /**
+   * 加载图集图片
+   * @private
+   */
+  _loadAtlasImages() {
+    if (!this.sceneData.atlases) {
+      console.log('No atlases in scene data');
+      return;
+    }
+    
+    console.log('Loading atlas images, count:', this.sceneData.atlases.length);
+    
+    for (const atlas of this.sceneData.atlases) {
+      console.log('Loading atlas:', atlas.id, 'path:', atlas.path);
+      const img = new Image();
+      img.onload = () => {
+        console.log('Atlas loaded:', atlas.id);
+        this.loadedImages.set(atlas.id, img);
+        this.render();
+        this._updateSlicePreviews();
+      };
+      img.onerror = () => {
+        console.error('Failed to load atlas:', atlas.id, 'path:', atlas.path);
+      };
+      img.src = atlas.path;
+    }
+  }
+  
+  /**
+   * 更新切片预览图
+   * @private
+   */
+  _updateSlicePreviews() {
+    if (!this.sceneData.atlases) return;
+    
+    console.log('Updating slice previews, atlases:', this.sceneData.atlases.length);
+    
+    for (const atlas of this.sceneData.atlases) {
+      const img = this.loadedImages.get(atlas.id);
+      if (!img) {
+        console.log('Image not loaded for atlas:', atlas.id);
+        continue;
+      }
+      
+      console.log('Processing slices for atlas:', atlas.id);
+      
+      for (const [sliceKey, slice] of Object.entries(atlas.slices || {})) {
+        const previewEl = this.container.querySelector(
+          `.slice-item[data-atlas="${atlas.id}"][data-slice="${sliceKey}"] .slice-preview`
+        );
+        
+        if (previewEl) {
+          // 创建临时canvas来裁剪图片
+          const canvas = document.createElement('canvas');
+          canvas.width = slice.sw;
+          canvas.height = slice.sh;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, slice.sx, slice.sy, slice.sw, slice.sh, 0, 0, slice.sw, slice.sh);
+          
+          previewEl.innerHTML = `<img src="${canvas.toDataURL()}" alt="${slice.name || sliceKey}">`;
+          console.log('Updated preview for slice:', sliceKey);
+        } else {
+          console.log('Preview element not found for slice:', sliceKey);
+        }
+      }
+    }
   }
   
   /**
@@ -1272,7 +1695,30 @@ export class SceneEditor {
    */
   save() {
     if (this.onSceneChange) this.onSceneChange(this.sceneData);
+    this._showToast('场景已保存');
     return this.sceneData;
+  }
+  
+  /**
+   * 显示提示消息
+   * @private
+   */
+  _showToast(message, type = 'success') {
+    let toast = document.getElementById('editor-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'editor-toast';
+      toast.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:6px;color:#fff;font-size:14px;z-index:99999;transition:opacity 0.3s;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);';
+      document.body.appendChild(toast);
+    }
+    toast.style.background = type === 'success' ? '#4CAF50' : '#e53935';
+    toast.textContent = message;
+    toast.style.opacity = '1';
+    
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      toast.style.opacity = '0';
+    }, 1800);
   }
   
   /**

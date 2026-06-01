@@ -16,7 +16,37 @@ export class SceneDataLoader {
    * 获取场景1的地形数据（使用导出器生成完整数据）
    */
   async loadScene1Terrain() {
-    return this.exporter.exportPrologueScene();
+    const config = this.exporter.exportPrologueScene();
+    
+    // 添加图片资源列表
+    config.atlases = this._getScene1Atlases();
+    
+    return config;
+  }
+  
+  /**
+   * 获取场景1使用的图集资源
+   */
+  _getScene1Atlases() {
+    return [
+      {
+        id: 'mountain_landscape',
+        name: '山地景观图集',
+        path: this.assetBase + 'mountain_landscape.png',
+        width: 512,
+        height: 512,
+        slices: {
+          grassTile: { name: '草地', sx: 448, sy: 128, sw: 64, sh: 64 },
+          tree1: { name: '大树', sx: 128, sy: 384, sw: 96, sh: 128, collide: true, colliderRadius: 22 },
+          tree2: { name: '中树', sx: 224, sy: 416, sw: 64, sh: 96, collide: true, colliderRadius: 14 },
+          tree3: { name: '小树', sx: 288, sy: 384, sw: 64, sh: 128, collide: true, colliderRadius: 16 },
+          grass1: { name: '草地装饰', sx: 128, sy: 288, sw: 96, sh: 96, collide: false },
+          bush2: { name: '灌木1', sx: 224, sy: 288, sw: 32, sh: 32, collide: false },
+          bush3: { name: '草莓', sx: 224, sy: 320, sw: 32, sh: 32, collide: false },
+          bush4: { name: '灌木2', sx: 256, sy: 320, sw: 32, sh: 32, collide: false }
+        }
+      }
+    ];
   }
   
   /**

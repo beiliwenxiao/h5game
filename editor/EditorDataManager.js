@@ -184,12 +184,6 @@ export class EditorDataManager {
     const game = this.getAllGames().find(g => g.id === gameId);
     if (!game) return [];
     
-    // 尝试从存储加载场景数据
-    const scenesData = this.loadScenesData(gameId);
-    if (scenesData && scenesData.length > 0) {
-      return scenesData;
-    }
-    
     // 场景名称映射
     const sceneNames = {
       'PrologueScene': '序章 - 盆地营地',
@@ -202,12 +196,33 @@ export class EditorDataManager {
       'BaseGameScene': '游戏主场景'
     };
     
-    // 返回默认场景列表
-    return (game.scenes || []).map(name => ({
+    // 预设场景列表（始终展示）
+    const presets = (game.scenes || []).map(name => ({
       id: 'scene_' + name.replace('Scene', ''),
       name: sceneNames[name] || name.replace('Scene', ''),
       type: 'terrain'
     }));
+    
+    // 已保存的场景数据（来自 localStorage）
+    const saved = this.loadScenesData(gameId) || [];
+    const savedById = new Map(saved.map(s => [s.id, s]));
+    
+    // 用保存的数据覆盖对应的预设场景（保留预设名称作为后备）
+    const result = presets.map(p => {
+      const s = savedById.get(p.id);
+      if (s) {
+        savedById.delete(p.id);
+        return { id: p.id, name: s.name || p.name, type: s.type || p.type };
+      }
+      return p;
+    });
+    
+    // 追加不在预设列表中的自定义场景
+    for (const s of savedById.values()) {
+      result.push({ id: s.id, name: s.name || s.id, type: s.type || 'terrain' });
+    }
+    
+    return result;
   }
   
   /**

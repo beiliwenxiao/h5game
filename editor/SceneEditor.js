@@ -1517,8 +1517,14 @@ export class SceneEditor {
     const h = sprite.sh * scale;
     
     // 检查是否已加载图集
-    const atlasId = 'terrain_atlas';
-    const img = this.loadedImages.get(atlasId);
+    // 优先用地形底图 terrain_atlas，找不到时回退到场景图集（如 mountain_landscape）
+    let img = this.loadedImages.get('terrain_atlas');
+    if (!img && this.sceneData.atlases) {
+      for (const atlas of this.sceneData.atlases) {
+        const a = this.loadedImages.get(atlas.id);
+        if (a) { img = a; break; }
+      }
+    }
     
     if (img) {
       // 从图集绘制
@@ -1586,9 +1592,32 @@ export class SceneEditor {
    * 加载场景数据
    */
   loadScene(sceneData) {
-    this.sceneData = { ...this.sceneData, ...sceneData };
+    // 使用全新的基础结构，避免上一个场景的字段（atlases/terrain/decorations 等）残留串台
+    const base = {
+      id: null,
+      name: '新场景',
+      width: this.options.width,
+      height: this.options.height,
+      backgroundColor: '#2a3a1a',
+      layers: [
+        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
+      ],
+      decorations: [],
+      colliders: []
+    };
+    
+    // 深拷贝传入数据，避免直接引用 localStorage/预设对象导致互相污染
+    const incoming = sceneData ? JSON.parse(JSON.stringify(sceneData)) : {};
+    this.sceneData = { ...base, ...incoming };
+    
+    // 清空已加载的图集图片缓存（新场景可能有不同图集）
+    this.loadedImages = new Map();
     this.selectedObjects = [];
     this.selectedSlice = null;
+    this.activeLayerIndex = 0;
+    this.history = { undoStack: [], redoStack: [], maxSize: 50 };
     
     // 更新UI
     const nameInput = document.getElementById('editor-scene-name');
@@ -1627,18 +1656,29 @@ export class SceneEditor {
    * @private
    */
   _loadAtlasImages() {
+    // 1. 加载地形底图（用于渲染原有装饰物 decorations）
+    //    地形装饰物切片坐标基于该底图，统一以 'terrain_atlas' 为 id 缓存
+    const terrainImage = this.sceneData.terrain?.image;
+    if (terrainImage && !this.loadedImages.has('terrain_atlas')) {
+      const timg = new Image();
+      timg.onload = () => {
+        this.loadedImages.set('terrain_atlas', timg);
+        this.render();
+      };
+      timg.onerror = () => {
+        console.error('Failed to load terrain image:', terrainImage);
+      };
+      timg.src = terrainImage;
+    }
+    
+    // 2. 加载图集（用于切片预览和拖入的 slice 对象）
     if (!this.sceneData.atlases) {
-      console.log('No atlases in scene data');
       return;
     }
     
-    console.log('Loading atlas images, count:', this.sceneData.atlases.length);
-    
     for (const atlas of this.sceneData.atlases) {
-      console.log('Loading atlas:', atlas.id, 'path:', atlas.path);
       const img = new Image();
       img.onload = () => {
-        console.log('Atlas loaded:', atlas.id);
         this.loadedImages.set(atlas.id, img);
         this.render();
         this._updateSlicePreviews();

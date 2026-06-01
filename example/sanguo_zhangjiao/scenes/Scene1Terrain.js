@@ -138,6 +138,93 @@ export class Scene1Terrain {
     this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
+    // 尝试应用游戏编辑器保存的场景数据（localStorage），实现编辑器与游戏联动
+    this._applyEditorOverrides(config);
+  }
+
+  /**
+   * 应用游戏编辑器保存的场景覆盖数据
+   *
+   * 编辑器把场景数据存到 localStorage：
+   *   key  = 'h5game_editor_data_scenes_<gameId>'
+   *   value= JSON 数组，每个元素是一个场景对象
+   * 序章场景的 id 为 'scene_Prologue'。
+   *
+   * 当检测到已保存的序章数据时：
+   *   - 用保存的 decoSprites 覆盖切片配置
+   *   - 用保存的 decorations + 装饰层中的 slice 对象重建装饰物列表
+   * @param {Object} config 构造参数（可指定 editorGameId / editorSceneId）
+   * @private
+   */
+  _applyEditorOverrides(config = {}) {
+    if (typeof localStorage === 'undefined') return;
+
+    const gameId = config.editorGameId || 'sanguo_zhangjiao';
+    const sceneId = config.editorSceneId || 'scene_Prologue';
+
+    let scene = null;
+    try {
+      const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+      if (!raw) return;
+      const scenes = JSON.parse(raw);
+      scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+    } catch (e) {
+      console.warn('Scene1Terrain: 读取编辑器场景数据失败', e);
+      return;
+    }
+    if (!scene) return;
+
+    // 1. 覆盖切片配置（用户可能在编辑器里调整过切片位置/尺寸/碰撞）
+    if (scene.decoSprites && typeof scene.decoSprites === 'object') {
+      for (const [key, sp] of Object.entries(scene.decoSprites)) {
+        this.decoSprites[key] = { ...this.decoSprites[key], ...sp };
+      }
+    }
+
+    // 2. 收集编辑器中的装饰物
+    const decorations = [];
+
+    // 2a. decorations 数组（{x, y, key, scale}，底部中心锚点，与游戏一致）
+    if (Array.isArray(scene.decorations)) {
+      for (const d of scene.decorations) {
+        if (d && d.key && this.decoSprites[d.key]) {
+          decorations.push({
+            x: d.x,
+            y: d.y,
+            key: d.key,
+            scale: d.scale ?? 1.0,
+            belowEntities: d.belowEntities
+          });
+        }
+      }
+    }
+
+    // 2b. 装饰层中拖入的 slice 对象（{type:'slice', sliceKey, x, y, width, height}，左上角锚点）
+    if (Array.isArray(scene.layers)) {
+      for (const layer of scene.layers) {
+        if (!layer || !Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (obj && obj.type === 'slice' && obj.sliceKey && this.decoSprites[obj.sliceKey]) {
+            const sprite = this.decoSprites[obj.sliceKey];
+            const w = obj.width || sprite.sw;
+            // 左上角 -> 底部中心锚点
+            decorations.push({
+              x: Math.round(obj.x + w / 2),
+              y: Math.round(obj.y + (obj.height || sprite.sh)),
+              key: obj.sliceKey,
+              scale: w / sprite.sw
+            });
+          }
+        }
+      }
+    }
+
+    // 只有当编辑器确实保存了装饰物时才覆盖，避免空数据清空整个场景
+    if (decorations.length > 0) {
+      this.decorations = decorations;
+      this._treeColliders = null; // 重置碰撞缓存，下次按新装饰物重建
+      console.log('Scene1Terrain: 已应用编辑器场景数据，装饰物数量 =', decorations.length);
+    }
   }
 
   /**

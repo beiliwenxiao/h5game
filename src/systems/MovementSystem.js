@@ -266,18 +266,11 @@ export class MovementSystem {
   handleClickMovement(entities) {
     if (!this.inputManager) return;
     
-    // 检测鼠标点击（左键）
+    // 检测鼠标点击（右键移动）
     // 只有当点击未被 UI 处理时才响应移动
     if (this.inputManager.isMouseClicked() && 
-        this.inputManager.getMouseButton() === 0 &&
+        this.inputManager.getMouseButton() === 2 &&
         !this.inputManager.isMouseClickHandled()) {
-      
-      // 如果按住了Shift键或Ctrl键，不处理点击移动（这些是特殊操作）
-      const shiftPressed = this.inputManager.isKeyDown('shift');
-      const ctrlPressed = this.inputManager.isKeyDown('ctrl');
-      if (shiftPressed || ctrlPressed) {
-        return;
-      }
       
       // 只处理玩家实体的点击移动
       const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');

@@ -1232,7 +1232,7 @@ export class BaseGameScene extends PrologueScene {
         if (shiftPressed) {
           this.handleWeaponThrow();
         }
-        // 否则，点击移动由 MovementSystem 处理（不需要在这里处理）
+        // 否则，左键为攻击（由 MeleeAttackSystem 处理），右键移动由 MovementSystem 处理
       }
     }
   }

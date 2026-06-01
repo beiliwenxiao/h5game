@@ -20,6 +20,7 @@ export class SceneEditor {
       height: options.height || 720,
       gridSize: options.gridSize || 32,
       showGrid: options.showGrid !== false,
+      showBackground: options.showBackground !== false,
       ...options
     };
     
@@ -124,6 +125,10 @@ export class SceneEditor {
           <div class="toolbar-group">
             <label>网格:</label>
             <input type="checkbox" id="editor-show-grid" ${this.options.showGrid ? 'checked' : ''}>
+          </div>
+          <div class="toolbar-group">
+            <label>辅助方框:</label>
+            <input type="checkbox" id="editor-show-background" ${this.options.showBackground ? 'checked' : ''}>
           </div>
           <div class="toolbar-group">
             <button id="editor-save">保存场景</button>
@@ -405,6 +410,11 @@ export class SceneEditor {
     
     document.getElementById('editor-show-grid').addEventListener('change', (e) => {
       this.options.showGrid = e.target.checked;
+      this.render();
+    });
+    
+    document.getElementById('editor-show-background').addEventListener('change', (e) => {
+      this.options.showBackground = e.target.checked;
       this.render();
     });
     
@@ -1267,11 +1277,13 @@ export class SceneEditor {
     ctx.translate(this.viewport.offsetX, this.viewport.offsetY);
     ctx.scale(this.viewport.scale, this.viewport.scale);
     
-    // 绘制背景
-    ctx.fillStyle = this.sceneData.backgroundColor || '#1a2a1a';
-    ctx.fillRect(0, 0, this.sceneData.width, this.sceneData.height);
+    // 绘制背景（辅助用的长方形纯色背景）
+    if (this.options.showBackground) {
+      ctx.fillStyle = this.sceneData.backgroundColor || '#1a2a1a';
+      ctx.fillRect(0, 0, this.sceneData.width, this.sceneData.height);
+    }
     
-    // 检查是否是地形场景
+    // 检查是否是地形场景（舞台）
     if (this.sceneData.terrain) {
       this._renderTerrainScene(ctx);
     }
@@ -1445,20 +1457,16 @@ export class SceneEditor {
     
     // 根据场景类型选择颜色
     let grassColor = '#3a5a2a';
-    let grassColorDark = '#4a6a3a';
     let forestColor = 'rgba(35, 58, 25, 1)';
     
     if (terrainType === 'battlefield') {
       grassColor = '#4a3030';
-      grassColorDark = '#5a4040';
       forestColor = 'rgba(50, 30, 25, 1)';
     } else if (terrainType === 'mountain') {
       grassColor = '#404a30';
-      grassColorDark = '#505a40';
       forestColor = 'rgba(40, 45, 30, 1)';
     } else if (terrainType === 'camp') {
       grassColor = '#3a4a3a';
-      grassColorDark = '#4a5a4a';
       forestColor = 'rgba(30, 50, 35, 1)';
     }
     
@@ -1481,19 +1489,6 @@ export class SceneEditor {
     ctx.beginPath();
     ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
     ctx.fill();
-    
-    // 草地纹理
-    const tileSize = data.terrain?.tileSize || 64;
-    ctx.fillStyle = grassColorDark;
-    for (let y = 0; y < data.height; y += tileSize) {
-      for (let x = 0; x < data.width; x += tileSize) {
-        const dx = (x + tileSize/2 - centerX) / (radiusX + 20);
-        const dy = (y + tileSize/2 - centerY) / (radiusY + 20);
-        if (dx * dx + dy * dy < 1) {
-          ctx.fillRect(x, y, tileSize - 1, tileSize - 1);
-        }
-      }
-    }
   }
   
   /**

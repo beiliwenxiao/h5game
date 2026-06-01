@@ -19,6 +19,7 @@ export class InputManager {
             worldY: 0,
             isDown: false,
             button: -1,
+            buttons: new Set(),  // 当前按住的所有按键（支持同时按住左右键）
             clicked: false,
             handled: false  // 标记点击事件是否已被处理（用于 UI 点击阻止）
         };
@@ -132,6 +133,7 @@ export class InputManager {
         this.updateMousePosition(event);
         this.mouse.isDown = true;
         this.mouse.button = event.button;
+        this.mouse.buttons.add(event.button);  // 记录按下的按键（支持同时按住）
         this.mouse.clicked = true;
         this.mouse.ctrlKey = event.ctrlKey; // 记录Ctrl键状态
     }
@@ -141,8 +143,12 @@ export class InputManager {
      */
     handleMouseUp(event) {
         this.updateMousePosition(event);
-        this.mouse.isDown = false;
-        this.mouse.button = -1;
+        this.mouse.buttons.delete(event.button);
+        this.mouse.isDown = this.mouse.buttons.size > 0;
+        // button 仍指向剩余按住的按键（若有），否则置为 -1
+        this.mouse.button = this.mouse.buttons.size > 0
+            ? Array.from(this.mouse.buttons)[this.mouse.buttons.size - 1]
+            : -1;
     }
 
     /**
@@ -318,6 +324,15 @@ export class InputManager {
     }
 
     /**
+     * 检查指定鼠标按键是否按住
+     * @param {number} button - 0=左键, 1=中键, 2=右键
+     * @returns {boolean}
+     */
+    isMouseButtonDown(button) {
+        return this.mouse.buttons.has(button);
+    }
+
+    /**
      * 获取鼠标按钮
      * @returns {number} 0=左键, 1=中键, 2=右键
      */
@@ -472,6 +487,8 @@ export class InputManager {
         this.keysReleased.clear();
         this.mouse.clicked = false;
         this.mouse.isDown = false;
+        this.mouse.button = -1;
+        this.mouse.buttons.clear();
     }
 
     /**

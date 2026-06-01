@@ -33,6 +33,19 @@ class MockInputManager {
     return this.mouseButton;
   }
 
+  isMouseClickHandled() {
+    return this.mouseHandled === true;
+  }
+
+  markMouseClickHandled() {
+    this.mouseHandled = true;
+    this.mouseClicked = false;
+  }
+
+  isMouseButtonDown(button) {
+    return this.mouseButton === button;
+  }
+
   getMouseWorldPosition() {
     return { x: this.mouseWorldX, y: this.mouseWorldY };
   }
@@ -42,9 +55,10 @@ class MockInputManager {
     this.keys.set(key, value);
   }
 
-  simulateClick(x, y, button = 0) {
+  simulateClick(x, y, button = 2) {
     this.mouseClicked = true;
     this.mouseButton = button;
+    this.mouseHandled = false;
     this.mouseWorldX = x;
     this.mouseWorldY = y;
   }
@@ -53,6 +67,7 @@ class MockInputManager {
     this.keys.clear();
     this.mouseClicked = false;
     this.mouseButton = -1;
+    this.mouseHandled = false;
   }
 }
 
@@ -192,8 +207,8 @@ try {
   const system = new MovementSystem({ inputManager });
   const entity = createTestEntity(100, 100, 100);
   
-  // 模拟点击
-  inputManager.simulateClick(200, 200, 0);
+  // 模拟点击（右键移动）
+  inputManager.simulateClick(200, 200, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
@@ -326,7 +341,7 @@ try {
   const entity = createTestEntity(100, 100, 200);
   
   // 点击附近的位置（距离约10像素）
-  inputManager.simulateClick(110, 100, 0);
+  inputManager.simulateClick(110, 100, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
@@ -365,7 +380,7 @@ try {
   const entity = createTestEntity(0, 0, 100);
   
   // 点击远处的位置
-  inputManager.simulateClick(300, 400, 0);
+  inputManager.simulateClick(300, 400, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
@@ -398,7 +413,7 @@ try {
   const entity = createTestEntity(100, 100, 100);
   
   // 开始点击移动
-  inputManager.simulateClick(300, 300, 0);
+  inputManager.simulateClick(300, 300, 2);
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
   
@@ -428,7 +443,7 @@ try {
   const entity = createTestEntity(0, 0, 100);
   
   // 点击位置
-  inputManager.simulateClick(100, 0, 0);
+  inputManager.simulateClick(100, 0, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
@@ -453,7 +468,7 @@ try {
   const entity = createTestEntity(0, 0, speed);
   
   // 点击位置
-  inputManager.simulateClick(100, 100, 0);
+  inputManager.simulateClick(100, 100, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);
@@ -565,7 +580,7 @@ try {
   const entity = createTestEntity(16, 48, 100);
   
   // 点击障碍物右侧
-  inputManager.simulateClick(112, 48, 0);
+  inputManager.simulateClick(112, 48, 2);
   
   system.setPlayerEntity(entity);
   system.update(0.016, [entity]);

@@ -33,6 +33,7 @@ export class SceneEditor {
       backgroundColor: '#2a3a1a',
       layers: [
         { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_mask', name: '遮罩层', visible: true, locked: false, objects: [] },
         { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
         { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
       ],
@@ -475,7 +476,7 @@ export class SceneEditor {
     container.addEventListener('mousedown', (e) => this._handleMouseDown(e));
     container.addEventListener('mousemove', (e) => this._handleMouseMove(e));
     container.addEventListener('mouseup', (e) => this._handleMouseUp(e));
-    container.addEventListener('contextmenu', (e) => e.preventDefault());
+    container.addEventListener('contextmenu', (e) => this._handleContextMenu(e));
     
     // 键盘快捷键
     document.addEventListener('keydown', (e) => this._handleKeyDown(e));
@@ -681,6 +682,223 @@ export class SceneEditor {
       this._saveHistory();
     }
     this.interaction.isDragging = false;
+  }
+  
+  /**
+   * 处理右键菜单
+   * @private
+   */
+  _handleContextMenu(e) {
+    e.preventDefault();
+    
+    const pos = this._screenToScene(e.offsetX, e.offsetY);
+    const clicked = this._getObjectAt(pos.x, pos.y);
+    
+    // 移除已有菜单
+    this._removeContextMenu();
+    
+    if (!clicked) return;
+    
+    // 选中右键点击的对象
+    this.selectedObjects = [clicked];
+    this._updateObjectProperties();
+    this.render();
+    
+    const isDecoration = clicked.type === 'decoration';
+    
+    // 找到图层对象所在图层索引（装饰物没有所属图层）
+    let layerIndex = -1;
+    if (!isDecoration) {
+      for (let i = 0; i < this.sceneData.layers.length; i++) {
+        if (this.sceneData.layers[i].objects.includes(clicked)) {
+          layerIndex = i;
+          break;
+        }
+      }
+    }
+    
+    const menu = document.createElement('div');
+    menu.id = 'editor-context-menu';
+    menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:#16213e;border:1px solid #3a4a7e;border-radius:4px;padding:4px 0;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:13px;min-width:140px;`;
+    
+    const items = [];
+    
+    if (isDecoration) {
+      // 装饰物按 Y 坐标排序渲染（Y 越大越靠前/上层）
+      // 调整层次 = 调整与相邻装饰物的 Y 关系
+      items.push({
+        label: '上移一层',
+        action: () => this._moveDecorationOrder(clicked, 'up')
+      });
+      items.push({
+        label: '下移一层',
+        action: () => this._moveDecorationOrder(clicked, 'down')
+      });
+      items.push({ separator: true });
+      items.push({
+        label: '置于顶层',
+        action: () => this._moveDecorationOrder(clicked, 'top')
+      });
+      items.push({
+        label: '置于底层',
+        action: () => this._moveDecorationOrder(clicked, 'bottom')
+      });
+      items.push({ separator: true });
+    } else if (layerIndex !== -1) {
+      // 图层对象按数组顺序渲染，调整数组位置即可改变同层内的上下关系
+      const curLayer = this.sceneData.layers[layerIndex];
+      items.push({
+        label: '上移一层',
+        action: () => this._moveObjectInLayer(clicked, curLayer, 'up')
+      });
+      items.push({
+        label: '下移一层',
+        action: () => this._moveObjectInLayer(clicked, curLayer, 'down')
+      });
+      items.push({ separator: true });
+      items.push({
+        label: '置于顶层',
+        action: () => this._moveObjectInLayer(clicked, curLayer, 'top')
+      });
+      items.push({
+        label: '置于底层',
+        action: () => this._moveObjectInLayer(clicked, curLayer, 'bottom')
+      });
+      items.push({ separator: true });
+    }
+    
+    items.push({
+      label: '删除对象',
+      action: () => this.deleteSelectedObjects()
+    });
+    
+    for (const item of items) {
+      if (item.separator) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'height:1px;background:#3a4a7e;margin:4px 0;';
+        menu.appendChild(sep);
+        continue;
+      }
+      const el = document.createElement('div');
+      el.textContent = item.label;
+      const disabled = item.disabled;
+      el.style.cssText = `padding:6px 16px;cursor:${disabled ? 'default' : 'pointer'};color:${disabled ? '#666' : '#fff'};white-space:nowrap;`;
+      if (!disabled) {
+        el.addEventListener('mouseenter', () => el.style.background = '#3a4a7e');
+        el.addEventListener('mouseleave', () => el.style.background = 'transparent');
+        el.addEventListener('click', () => {
+          item.action();
+          this._removeContextMenu();
+        });
+      }
+      menu.appendChild(el);
+    }
+    
+    document.body.appendChild(menu);
+    
+    // 点击别处关闭菜单
+    this._contextMenuCloser = (ev) => {
+      if (!menu.contains(ev.target)) this._removeContextMenu();
+    };
+    setTimeout(() => {
+      document.addEventListener('mousedown', this._contextMenuCloser);
+    }, 0);
+  }
+  
+  /**
+   * 移除右键菜单
+   * @private
+   */
+  _removeContextMenu() {
+    const existing = document.getElementById('editor-context-menu');
+    if (existing) existing.remove();
+    if (this._contextMenuCloser) {
+      document.removeEventListener('mousedown', this._contextMenuCloser);
+      this._contextMenuCloser = null;
+    }
+  }
+  
+  /**
+   * 调整装饰物（decorations 数组项）的层次
+   *
+   * 装饰物按 Y 坐标排序渲染（Y 越大越靠前/上层）。
+   * 通过微调 Y 坐标与相邻装饰物交换前后关系：
+   *   - up   ：移到比当前更靠前的下一个装饰物之上
+   *   - down ：移到比当前更靠后的上一个装饰物之下
+   *   - top  ：Y 设为最大（最靠前）
+   *   - bottom：Y 设为最小（最靠后）
+   * @param {Object} deco 由 _getObjectAt 返回的装饰物（含 _decoRef）
+   * @param {string} position up | down | top | bottom
+   * @private
+   */
+  _moveDecorationOrder(deco, position) {
+    const ref = deco._decoRef;
+    if (!ref || !Array.isArray(this.sceneData.decorations)) return;
+    
+    // 按 Y 升序排列（Y 小在底层，Y 大在上层）
+    const sorted = [...this.sceneData.decorations].sort((a, b) => a.y - b.y);
+    const idx = sorted.indexOf(ref);
+    if (idx === -1) return;
+    
+    if (position === 'up') {
+      // 与上层相邻装饰物交换 Y
+      if (idx < sorted.length - 1) {
+        const next = sorted[idx + 1];
+        const t = ref.y; ref.y = next.y; next.y = t;
+        // 保证严格大小，避免相等导致顺序不稳定
+        if (ref.y === next.y) ref.y += 1;
+      }
+    } else if (position === 'down') {
+      if (idx > 0) {
+        const prev = sorted[idx - 1];
+        const t = ref.y; ref.y = prev.y; prev.y = t;
+        if (ref.y === prev.y) ref.y -= 1;
+      }
+    } else if (position === 'top') {
+      const maxY = Math.max(...this.sceneData.decorations.map(d => d.y));
+      ref.y = maxY + 1;
+    } else if (position === 'bottom') {
+      const minY = Math.min(...this.sceneData.decorations.map(d => d.y));
+      ref.y = minY - 1;
+    }
+    
+    // 同步更新选中对象的显示坐标
+    if (deco.y !== undefined) deco.y = ref.y;
+    
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 在图层内调整对象的绘制顺序
+   * 图层 objects 按数组顺序渲染：数组靠后 = 绘制在上层
+   * @param {Object} obj 对象
+   * @param {Object} layer 所在图层
+   * @param {string} position up | down | top | bottom
+   * @private
+   */
+  _moveObjectInLayer(obj, layer, position) {
+    const idx = layer.objects.indexOf(obj);
+    if (idx === -1) return;
+    
+    layer.objects.splice(idx, 1);
+    
+    if (position === 'up') {
+      // 上移一层：在数组中后移一位
+      const insertAt = Math.min(idx + 1, layer.objects.length);
+      layer.objects.splice(insertAt, 0, obj);
+    } else if (position === 'down') {
+      // 下移一层：在数组中前移一位
+      const insertAt = Math.max(idx - 1, 0);
+      layer.objects.splice(insertAt, 0, obj);
+    } else if (position === 'top') {
+      layer.objects.push(obj);
+    } else if (position === 'bottom') {
+      layer.objects.unshift(obj);
+    }
+    
+    this._saveHistory();
+    this.render();
   }
   
   /**
@@ -1349,14 +1567,31 @@ export class SceneEditor {
       }
     } else if (obj.type === 'slice') {
       // 渲染切片
-      const atlas = this.sceneData.atlases?.find(a => a.id === obj.atlasId);
-      const slice = atlas?.slices?.[obj.sliceKey];
-      const img = this.loadedImages.get(obj.atlasId);
+      let img, sx, sy, sw, sh;
       
-      if (img && slice) {
+      if (obj.decoKey) {
+        // 来自装饰物（decoSprites）的切片，使用地形底图
+        const sprite = this.sceneData.decoSprites?.[obj.decoKey];
+        img = this.loadedImages.get('terrain_atlas');
+        if (!img && this.sceneData.atlases) {
+          for (const atlas of this.sceneData.atlases) {
+            const a = this.loadedImages.get(atlas.id);
+            if (a) { img = a; break; }
+          }
+        }
+        if (sprite) { sx = sprite.sx; sy = sprite.sy; sw = sprite.sw; sh = sprite.sh; }
+      } else {
+        // 来自图集（atlases）的切片
+        const atlas = this.sceneData.atlases?.find(a => a.id === obj.atlasId);
+        const slice = atlas?.slices?.[obj.sliceKey];
+        img = this.loadedImages.get(obj.atlasId);
+        if (slice) { sx = slice.sx; sy = slice.sy; sw = slice.sw; sh = slice.sh; }
+      }
+      
+      if (img && sw != null) {
         ctx.drawImage(
           img,
-          slice.sx, slice.sy, slice.sw, slice.sh,
+          sx, sy, sw, sh,
           obj.x, obj.y, obj.width, obj.height
         );
       } else {
@@ -1443,11 +1678,11 @@ export class SceneEditor {
   
   /**
    * 渲染室外场景
+   * 背景层：草地椭圆填充
+   * 遮罩层：森林环带椭圆（大椭圆渐变）
    */
   _renderOutdoorScene(ctx, getLayerVisible) {
     const data = this.sceneData;
-    
-    if (!getLayerVisible('背景层')) return;
     
     const centerX = data.centerX || data.width / 2;
     const centerY = (data.centerY || data.height / 2) - 32;
@@ -1470,25 +1705,29 @@ export class SceneEditor {
       forestColor = 'rgba(30, 50, 35, 1)';
     }
     
-    // 森林环带
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(1, data.basinAspectY || 0.65);
-    const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
-    grad.addColorStop(0, forestColor);
-    grad.addColorStop(0.55, forestColor.replace('1)', '0.92)'));
-    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    // 遮罩层：森林环带（大椭圆渐变）
+    if (getLayerVisible('遮罩层')) {
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.scale(1, data.basinAspectY || 0.65);
+      const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
+      grad.addColorStop(0, forestColor);
+      grad.addColorStop(0.55, forestColor.replace('1)', '0.92)'));
+      grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     
-    // 草地
-    ctx.fillStyle = grassColor;
-    ctx.beginPath();
-    ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // 背景层：草地椭圆
+    if (getLayerVisible('背景层')) {
+      ctx.fillStyle = grassColor;
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
   
   /**
@@ -1584,6 +1823,61 @@ export class SceneEditor {
   }
   
   /**
+   * 规范化图层结构
+   * - 确保标准四层齐全（背景层/遮罩层/装饰层/实体层）
+   * - 确保每个图层都有 objects 数组、visible/locked 字段
+   * - 保留已存在图层的对象，并保持标准图层的顺序
+   * @param {Array} layers 传入的图层数组（可能不完整或为旧结构）
+   * @returns {Array} 规范化后的图层数组
+   * @private
+   */
+  _normalizeLayers(layers) {
+    const standard = [
+      { id: 'layer_bg', name: '背景层' },
+      { id: 'layer_mask', name: '遮罩层' },
+      { id: 'layer_deco', name: '装饰层' },
+      { id: 'layer_entity', name: '实体层' }
+    ];
+    
+    const input = Array.isArray(layers) ? layers : [];
+    const byId = new Map();
+    for (const l of input) {
+      if (l && l.id) byId.set(l.id, l);
+    }
+    
+    const result = [];
+    
+    // 1. 按标准顺序生成四个标准图层（复用已存在的对象）
+    for (const std of standard) {
+      const existing = byId.get(std.id);
+      result.push({
+        id: std.id,
+        name: existing?.name || std.name,
+        visible: existing?.visible !== false,
+        locked: existing?.locked === true,
+        objects: Array.isArray(existing?.objects) ? existing.objects : []
+      });
+      byId.delete(std.id);
+    }
+    
+    // 2. 追加非标准的自定义图层（保持其原有数据）
+    for (const l of input) {
+      if (l && l.id && byId.has(l.id)) {
+        result.push({
+          id: l.id,
+          name: l.name || l.id,
+          visible: l.visible !== false,
+          locked: l.locked === true,
+          objects: Array.isArray(l.objects) ? l.objects : []
+        });
+        byId.delete(l.id);
+      }
+    }
+    
+    return result;
+  }
+  
+  /**
    * 加载场景数据
    */
   loadScene(sceneData) {
@@ -1596,6 +1890,7 @@ export class SceneEditor {
       backgroundColor: '#2a3a1a',
       layers: [
         { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_mask', name: '遮罩层', visible: true, locked: false, objects: [] },
         { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
         { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
       ],
@@ -1606,6 +1901,9 @@ export class SceneEditor {
     // 深拷贝传入数据，避免直接引用 localStorage/预设对象导致互相污染
     const incoming = sceneData ? JSON.parse(JSON.stringify(sceneData)) : {};
     this.sceneData = { ...base, ...incoming };
+    
+    // 规范化图层：确保标准图层齐全、每个图层都有 objects 数组
+    this.sceneData.layers = this._normalizeLayers(this.sceneData.layers);
     
     // 清空已加载的图集图片缓存（新场景可能有不同图集）
     this.loadedImages = new Map();

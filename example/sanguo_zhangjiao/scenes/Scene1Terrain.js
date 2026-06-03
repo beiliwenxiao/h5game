@@ -199,22 +199,25 @@ export class Scene1Terrain {
       }
     }
 
-    // 2b. 装饰层中拖入的 slice 对象（{type:'slice', sliceKey, x, y, width, height}，左上角锚点）
+    // 2b. 图层中拖入/转换的 slice 对象
+    //   - 图集切片：{type:'slice', sliceKey, x, y, width, height}（左上角锚点）
+    //   - 装饰物转换：{type:'slice', decoKey, x, y, width, height}（左上角锚点）
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
         for (const obj of layer.objects) {
-          if (obj && obj.type === 'slice' && obj.sliceKey && this.decoSprites[obj.sliceKey]) {
-            const sprite = this.decoSprites[obj.sliceKey];
-            const w = obj.width || sprite.sw;
-            // 左上角 -> 底部中心锚点
-            decorations.push({
-              x: Math.round(obj.x + w / 2),
-              y: Math.round(obj.y + (obj.height || sprite.sh)),
-              key: obj.sliceKey,
-              scale: w / sprite.sw
-            });
-          }
+          if (!obj || obj.type !== 'slice') continue;
+          const key = obj.decoKey || obj.sliceKey;
+          if (!key || !this.decoSprites[key]) continue;
+          const sprite = this.decoSprites[key];
+          const w = obj.width || sprite.sw;
+          // 左上角 -> 底部中心锚点
+          decorations.push({
+            x: Math.round(obj.x + w / 2),
+            y: Math.round(obj.y + (obj.height || sprite.sh)),
+            key,
+            scale: w / sprite.sw
+          });
         }
       }
     }

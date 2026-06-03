@@ -769,32 +769,53 @@
                     this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
                 }
                 
-                // 尝试从本地存储加载场景
-                const scene = this.dataManager.setCurrentScene(sceneId);
+                // 先尝试加载预设场景作为基底（提供 terrain / atlases / decoSprites 等完整字段）
+                let presetScene = null;
+                try {
+                    presetScene = await this.sceneLoader.loadScene(sceneId);
+                } catch (e) {
+                    console.warn('加载预设场景失败:', e);
+                }
                 
-                if (scene) {
-                    // 已有保存的场景数据
-                    this.sceneEditor.loadScene(scene);
+                // 再读取本地存储中已保存的场景数据
+                const saved = this.dataManager.setCurrentScene(sceneId);
+                
+                let sceneToLoad;
+                if (presetScene && saved) {
+                    // 合并：预设提供完整字段，保存数据覆盖用户编辑过的内容
+                    sceneToLoad = {
+                        ...presetScene,
+                        ...saved,
+                        // 关键地形字段缺失时回退到预设，避免空白
+                        terrain: saved.terrain || presetScene.terrain,
+                        atlases: (saved.atlases && saved.atlases.length) ? saved.atlases : presetScene.atlases,
+                        decoSprites: saved.decoSprites || presetScene.decoSprites,
+                        // decorations 为空时回退到预设的程序化装饰物
+                        decorations: (saved.decorations && saved.decorations.length) ? saved.decorations : presetScene.decorations,
+                        centerX: saved.centerX ?? presetScene.centerX,
+                        centerY: saved.centerY ?? presetScene.centerY,
+                        basinRadius: saved.basinRadius ?? presetScene.basinRadius,
+                        basinAspectY: saved.basinAspectY ?? presetScene.basinAspectY
+                    };
+                } else if (saved) {
+                    sceneToLoad = saved;
+                } else if (presetScene) {
+                    sceneToLoad = presetScene;
                 } else {
-                    // 尝试从预设场景加载
-                    const presetScene = await this.sceneLoader.loadScene(sceneId);
-                    if (presetScene) {
-                        this.sceneEditor.loadScene(presetScene);
-                        
-                        // 加载地形图集
-                        if (presetScene.terrain && presetScene.terrain.image) {
-                            this.loadTerrainAtlas(presetScene.terrain.image);
-                        }
-                    } else {
-                        // 创建空场景
-                        this.sceneEditor.loadScene({
-                            id: sceneId,
-                            name: sceneId.replace('scene_', '').replace('_', ' '),
-                            width: 1280,
-                            height: 720,
-                            backgroundColor: '#2a3a1a'
-                        });
-                    }
+                    sceneToLoad = {
+                        id: sceneId,
+                        name: sceneId.replace('scene_', '').replace('_', ' '),
+                        width: 1280,
+                        height: 720,
+                        backgroundColor: '#2a3a1a'
+                    };
+                }
+                
+                this.sceneEditor.loadScene(sceneToLoad);
+                
+                // 加载地形图集
+                if (sceneToLoad.terrain && sceneToLoad.terrain.image) {
+                    this.loadTerrainAtlas(sceneToLoad.terrain.image);
                 }
                 
                 this.renderSceneList(this.currentGameId);

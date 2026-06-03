@@ -207,6 +207,9 @@ export class EditorDataManager {
     const saved = this.loadScenesData(gameId) || [];
     const savedById = new Map(saved.map(s => [s.id, s]));
     
+    // 预设场景的名称集合（用于识别历史脏数据：id 非规范但与预设同名）
+    const presetNames = new Set(presets.map(p => p.name));
+    
     // 用保存的数据覆盖对应的预设场景（保留预设名称作为后备）
     const result = presets.map(p => {
       const s = savedById.get(p.id);
@@ -218,7 +221,9 @@ export class EditorDataManager {
     });
     
     // 追加不在预设列表中的自定义场景
+    // 跳过与预设场景重名的记录（历史 bug 产生的重复脏数据）
     for (const s of savedById.values()) {
+      if (presetNames.has(s.name)) continue;
       result.push({ id: s.id, name: s.name || s.id, type: s.type || 'terrain' });
     }
     
@@ -254,6 +259,84 @@ export class EditorDataManager {
       console.error('保存场景数据失败:', e);
       return false;
     }
+  }
+  
+  /**
+   * 清理重复的场景脏数据
+   *
+   * 历史 bug 曾用 `scene_<timestamp>` 这种 id 重复保存了同名场景。
+   * 此方法把同名记录合并到规范 id（如 scene_Prologue）上：
+   *   - 同名记录里，优先保留 id 规范的；若规范 id 不存在，则把最新的脏数据改用规范 id
+   *   - 内容以"装饰物/对象更多"的为准，避免丢失已编辑内容
+   * @param {string} gameId - 游戏ID
+   * @returns {boolean} 是否发生了清理
+   */
+  cleanupDuplicateScenes(gameId) {
+    const scenes = this.loadScenesData(gameId);
+    if (!scenes || scenes.length === 0) return false;
+    
+    const game = this.getAllGames().find(g => g.id === gameId);
+    const presetIdByName = {};
+    if (game && game.scenes) {
+      const sceneNames = {
+        'PrologueScene': '序章 - 盆地营地',
+        'Act1Scene': '第一幕 - 起义军营',
+        'Act2Scene': '第二幕 - 战场',
+        'Act3Scene': '第三幕 - 城池',
+        'Act4Scene': '第四幕 - 山寨',
+        'Act5Scene': '第五幕 - 决战',
+        'Act6Scene': '第六幕 - 结局',
+        'BaseGameScene': '游戏主场景'
+      };
+      for (const name of game.scenes) {
+        const id = 'scene_' + name.replace('Scene', '');
+        presetIdByName[sceneNames[name] || name.replace('Scene', '')] = id;
+      }
+    }
+    
+    // 衡量场景"内容丰富度"：装饰物 + 各图层对象总数
+    const richness = (s) => {
+      let n = Array.isArray(s.decorations) ? s.decorations.length : 0;
+      if (Array.isArray(s.layers)) {
+        for (const l of s.layers) n += (l.objects?.length || 0);
+      }
+      return n;
+    };
+    
+    // 按 name 分组
+    const byName = new Map();
+    for (const s of scenes) {
+      const list = byName.get(s.name) || [];
+      list.push(s);
+      byName.set(s.name, list);
+    }
+    
+    const cleaned = [];
+    let changed = false;
+    
+    for (const [name, list] of byName.entries()) {
+      if (list.length === 1) {
+        cleaned.push(list[0]);
+        continue;
+      }
+      changed = true;
+      // 多条同名：选内容最丰富的（并列时选最后更新的）
+      list.sort((a, b) => {
+        const r = richness(b) - richness(a);
+        if (r !== 0) return r;
+        return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+      });
+      const best = list[0];
+      // 若该名称对应一个预设规范 id，强制使用规范 id
+      const presetId = presetIdByName[name];
+      if (presetId) best.id = presetId;
+      cleaned.push(best);
+    }
+    
+    if (changed) {
+      this.saveScenesData(gameId, cleaned);
+    }
+    return changed;
   }
   
   /**
@@ -339,8 +422,55 @@ export class EditorDataManager {
     if (!this.currentGame) return null;
     
     const scenes = this.loadScenesData(this.currentGame.id) || [];
-    this.currentScene = scenes.find(s => s.id === sceneId) || null;
+    
+    // 1. 优先按 id 精确匹配
+    let scene = scenes.find(s => s.id === sceneId) || null;
+    
+    // 2. 找不到时，按预设名称回退查找同名记录（兼容历史 timestamp id 的脏数据）
+    if (!scene) {
+      const presetName = this._getPresetSceneName(this.currentGame.id, sceneId);
+      if (presetName) {
+        const matches = scenes.filter(s => s.name === presetName);
+        if (matches.length > 0) {
+          // 选内容最丰富的一条（装饰物 + 图层对象最多）
+          const richness = (s) => {
+            let n = Array.isArray(s.decorations) ? s.decorations.length : 0;
+            if (Array.isArray(s.layers)) for (const l of s.layers) n += (l.objects?.length || 0);
+            return n;
+          };
+          matches.sort((a, b) => richness(b) - richness(a));
+          scene = matches[0];
+        }
+      }
+    }
+    
+    this.currentScene = scene;
     return this.currentScene;
+  }
+  
+  /**
+   * 根据规范场景 id 获取预设场景名称
+   * @private
+   */
+  _getPresetSceneName(gameId, sceneId) {
+    const game = this.getAllGames().find(g => g.id === gameId);
+    if (!game || !game.scenes) return null;
+    const sceneNames = {
+      'PrologueScene': '序章 - 盆地营地',
+      'Act1Scene': '第一幕 - 起义军营',
+      'Act2Scene': '第二幕 - 战场',
+      'Act3Scene': '第三幕 - 城池',
+      'Act4Scene': '第四幕 - 山寨',
+      'Act5Scene': '第五幕 - 决战',
+      'Act6Scene': '第六幕 - 结局',
+      'BaseGameScene': '游戏主场景'
+    };
+    for (const name of game.scenes) {
+      if ('scene_' + name.replace('Scene', '') === sceneId) {
+        return sceneNames[name] || name.replace('Scene', '');
+      }
+    }
+    return null;
   }
   
   /**

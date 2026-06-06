@@ -253,10 +253,10 @@ export class Act2Scene extends BaseGameScene {
     if (this.actData && this.actData.rewards && this.actData.rewards.equipment) {
       equipmentList = this.actData.rewards.equipment.map(e => ({ ...e }));
     } else {
-      // fallback
+      // fallback：与 Act2Data.json 的 rewards.equipment 保持一致
       equipmentList = [
-        { id: 'cloth_armor', name: '布衣', type: 'equipment', subType: 'armor', rarity: 0, maxStack: 1, stats: { defense: 5, maxHp: 20 } },
-        { id: 'wooden_sword', name: '木剑', type: 'equipment', subType: 'weapon', rarity: 0, maxStack: 1, attackSpeed: 3, stats: { attack: 10 } }
+        { id: 'cloth_belt', name: '布腰带', type: 'equipment', subType: 'belt', rarity: 0, maxStack: 1, stats: { defense: 2, maxHp: 10 }, description: '简单的布制腰带，聊胜于无' },
+        { id: 'straw_sandals', name: '草鞋', type: 'equipment', subType: 'boots', rarity: 0, maxStack: 1, stats: { defense: 1, speed: 3 }, description: '用稻草编织的鞋子，轻便耐穿' }
       ];
     }
 

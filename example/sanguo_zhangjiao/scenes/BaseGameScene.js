@@ -49,6 +49,7 @@ import { PerformanceOptimizer } from '../../../src/systems/PerformanceOptimizer.
 import { PerformanceMonitor } from '../../../src/core/PerformanceMonitor.js';
 import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
+import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -758,9 +759,28 @@ export class BaseGameScene extends PrologueScene {
     const startX = 420;  // 火堆x + 70
     const startY = 330;  // 火堆y + 80
     
+    // 读取登录时选中的主角配置
+    const selected = SelectedCharacterStore.get();
+    
+    // 如果选中角色需要一张静态图片资源，确保它已被加载
+    if (selected && selected.assetImage && this.assetManager) {
+      const { key, path } = selected.assetImage;
+      if (this.assetManager.getImage && !this.assetManager.images.has(key)) {
+        const fullPath = this.assetManager.resolveAssetPath
+          ? this.assetManager.resolveAssetPath(path.replace(/^assets\//, ''))
+          : path;
+        // 复用框架的图片加载入口
+        this.assetManager.loadImage(key, fullPath).catch(() => {
+          console.warn(`createPlayerEntity: 无法加载主角图片 ${path}`);
+        });
+      }
+    }
+    
     this.playerEntity = this.entityFactory.createPlayer({
-      name: '玩家',
-      class: 'refugee',
+      name: selected?.name || '玩家',
+      class: selected?.class || 'refugee',
+      spriteSheet: selected?.spriteSheet,
+      spriteConfig: selected?.spriteConfig || undefined,
       level: 1,
       position: { x: startX, y: startY },
       stats: {
@@ -2150,6 +2170,24 @@ export class BaseGameScene extends PrologueScene {
       }
       
       let rendered = false;
+      
+      // 静态单图精灵渲染（整图作为角色立绘，底部中心锚点）
+      if (!rendered && sprite.isStatic && this.assetManager) {
+        const image = this.assetManager.getAsset(sprite.spriteSheet);
+        const isImageReady = image && (
+          (image instanceof HTMLCanvasElement) ||
+          (image.complete && image.naturalWidth > 0)
+        );
+        if (isImageReady) {
+          const destWidth = size;
+          const destHeight = height;
+          ctx.drawImage(
+            image,
+            x - destWidth / 2, y - destHeight, destWidth, destHeight
+          );
+          rendered = true;
+        }
+      }
       
       // 4x9格式精灵渲染
       if (sprite.useAnimatedSprite && this.assetManager) {

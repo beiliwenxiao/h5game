@@ -82,3 +82,4 @@ inclusion: always
 - 如果框架有功能，则优先使用框架功能，如果框架没有功能，则自己实现，并且将功能添加到框架中。
 - 在zhangjiao的demo中，装备栏 就是指 PlayerInfoPanel
 - fsWrite 单次传大文本时会失败，要用分段写入。
+- 修改功能时，不要管 desktop 内的文件，因为那是打包为 exe 用的。

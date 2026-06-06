@@ -41,6 +41,9 @@ export class SpriteComponent extends Component {
     this.spriteColumns = config.spriteColumns || 4;  // 列数（动画帧数）
     this.spriteRows = config.spriteRows || 8;        // 行数（方向数）
     
+    // 静态单图精灵：整张图作为一个角色立绘渲染（不分帧/不分方向）
+    this.isStatic = config.isStatic || false;
+    
     this.direction = config.direction || 'down'; // up, down, left, right, up-left, up-right, down-left, down-right
     
     // 旧格式方向映射（3x3）

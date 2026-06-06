@@ -70,9 +70,11 @@ export class EntityFactory {
       unitType: stats.unitType || 0
     }));
     
-    // 添加精灵组件（使用4x8动画精灵）
-    const spriteSheet = 'player_animated'; // 使用新的精灵图
-    const sprite = new SpriteComponent(spriteSheet, {
+    // 添加精灵组件（默认使用4x8动画精灵，可由 characterData 覆盖）
+    // characterData.spriteSheet  - 覆盖精灵图集名称
+    // characterData.spriteConfig - 覆盖/合并精灵配置（如静态单图主角）
+    const spriteSheet = characterData.spriteSheet || 'player_animated';
+    const defaultSpriteConfig = {
       width: 64,   // 放大两倍：32 -> 64
       height: 64,  // 放大两倍：32 -> 64
       defaultAnimation: 'idle',
@@ -92,6 +94,10 @@ export class EntityFactory {
         'down': 7,
         'idle': 7       // idle用down行
       }
+    };
+    const sprite = new SpriteComponent(spriteSheet, {
+      ...defaultSpriteConfig,
+      ...(characterData.spriteConfig || {})
     });
     
     // 添加基础动画

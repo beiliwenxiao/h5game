@@ -165,12 +165,12 @@ export class Act1SceneECS extends BaseGameScene {
    * 创建玩家实体 - 调用父类方法，然后设置第一幕特有的初始状态
    */
   createPlayerEntity() {
-    // 调用父类方法创建玩家（使用统一的技能配置）
+    // 调用父类方法创建玩家（使用统一的技能配置和选中的主角精灵）
     super.createPlayerEntity();
     
-    // 第一幕特有：设置角色名称和初始血量（30%，受伤状态）
-    this.characterName = '灾民';
-    this.playerEntity.name = this.characterName;
+    // 第一幕特有：设置初始血量（30%，受伤状态）
+    // 角色名称沿用所选主角（父类已根据 SelectedCharacterStore 设置）
+    this.characterName = this.playerEntity.name || '灾民';
     
     const stats = this.playerEntity.getComponent('stats');
     if (stats) {
@@ -352,7 +352,7 @@ export class Act1SceneECS extends BaseGameScene {
         y: item.position ? item.position.y : item.y
       }));
     } else {
-      // fallback：数据未加载时使用默认值
+      // fallback：与 Act1Data.json 的 equipmentItems 保持一致
       console.warn('Act1SceneECS: actData未加载，使用默认装备数据');
       items = [
         { 
@@ -374,11 +374,44 @@ export class Act1SceneECS extends BaseGameScene {
           subType: 'mainhand',
           x: 300, 
           y: 250,
-          attackSpeed: 1.0,
+          attackSpeed: 2.0,
+          attackRange: 90,
+          attackDistance: 100,
           stats: { attack: 5 },
-          description: '简陋的木棍，可以用来防身',
+          description: '简陋的木剑，可以用来防身',
           rarity: 0,
           maxStack: 1
+        },
+        {
+          id: 'wooden_bow',
+          name: '木弓',
+          type: 'equipment',
+          subType: 'mainhand',
+          ranged: true,
+          x: 230,
+          y: 230,
+          attackSpeed: 1.0,
+          attackRange: 15,
+          attackDistance: 300,
+          pierce: 2,
+          multishot: 2,
+          stats: { attack: 7 },
+          description: '简陋的木弓，可以远程攻击',
+          rarity: 0,
+          maxStack: 1
+        },
+        {
+          id: 'wooden_arrow',
+          name: '木箭',
+          type: 'equipment',
+          subType: 'ammo',
+          x: 250,
+          y: 240,
+          stats: {},
+          description: '粗糙的木箭，配合弓使用',
+          rarity: 0,
+          maxStack: 99,
+          quantity: 30
         }
       ];
     }

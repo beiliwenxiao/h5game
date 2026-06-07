@@ -24,6 +24,10 @@ export class BottomControlBar extends UIElement {
     });
 
     this.entity = null;
+
+    // 显示配置（移动端可隐藏血球/蓝球和数字快捷键）
+    this.showOrbs = options.showOrbs !== false;
+    this.showHotkeyNumbers = options.showHotkeyNumbers !== false;
     
     // 技能槽配置（5个技能 + 2个药水快捷槽）
     const slotSize = 40;
@@ -108,10 +112,12 @@ export class BottomControlBar extends UIElement {
     this.renderBackground(ctx);
     
     // 渲染血球
-    this.renderHpOrb(ctx);
-    
-    // 渲染蓝球
-    this.renderMpOrb(ctx);
+    if (this.showOrbs) {
+      this.renderHpOrb(ctx);
+      
+      // 渲染蓝球
+      this.renderMpOrb(ctx);
+    }
     
     // 渲染技能槽
     this.renderSkillSlots(ctx);
@@ -326,10 +332,12 @@ export class BottomControlBar extends UIElement {
       }
       
       // 快捷键提示
-      ctx.fillStyle = '#aaaaaa';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 12);
+      if (this.showHotkeyNumbers) {
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 12);
+      }
     }
   }
 

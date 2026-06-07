@@ -30,6 +30,7 @@ import { SkillEffects } from '../../../src/rendering/SkillEffects.js';
 import { InventoryPanel } from '../../../src/ui/InventoryPanel.js';
 import { PlayerInfoPanel } from '../../../src/ui/PlayerInfoPanel.js';
 import { BottomControlBar } from '../../../src/ui/BottomControlBar.js';
+import { PlayerStatusHUD } from '../../../src/ui/PlayerStatusHUD.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -113,7 +114,12 @@ export class BaseGameScene extends PrologueScene {
     this.inventoryPanel = null;
     this.playerInfoPanel = null;
     this.bottomControlBar = null;
+    this.playerStatusHUD = null;
     this.dialogueBox = null;
+    
+    // 是否移动端（触屏）布局
+    this.isMobileLayout = (typeof window !== 'undefined') &&
+      (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
     
     // 飘动文字管理器
     this.floatingTextManager = new FloatingTextManager();
@@ -463,12 +469,36 @@ export class BaseGameScene extends PrologueScene {
       width: this.logicalWidth,
       height: 100,
       visible: true,
+      // 移动端：隐藏血球/蓝球和数字快捷键（改用左上角 HUD）
+      showOrbs: !this.isMobileLayout,
+      showHotkeyNumbers: !this.isMobileLayout,
       onSkillClick: (skill) => {
         this.onSkillClicked(skill);
       },
       onPotionUse: (potionType) => {
         this.usePotionFromHotbar(potionType);
       }
+    });
+    
+    // 玩家状态 HUD（左上角：头像 + 昵称 + 血条 + 蓝条）—— 仅移动端显示
+    const selectedChar = SelectedCharacterStore.get();
+    let avatarSrc = null;
+    if (selectedChar && (selectedChar.previewImage || selectedChar.assetImage)) {
+      const rel = selectedChar.previewImage ||
+        (selectedChar.assetImage && selectedChar.assetImage.path);
+      if (rel) {
+        avatarSrc = this.assetManager && this.assetManager.resolveAssetPath
+          ? this.assetManager.resolveAssetPath(rel.replace(/^assets\//, ''))
+          : rel;
+      }
+    }
+    this.playerStatusHUD = new PlayerStatusHUD({
+      x: 10,
+      y: 10,
+      width: 230,
+      height: 78,
+      visible: this.isMobileLayout,
+      avatarSrc: avatarSrc
     });
     
     // 对话框 - 居中显示
@@ -606,6 +636,55 @@ export class BaseGameScene extends PrologueScene {
       this.playerEntity,
       skill,
       mouseWorldPos,
+      currentTime,
+      this.entities
+    );
+  }
+
+  /**
+   * 按技能索引释放技能（用于触屏/虚拟按钮，无鼠标指向时按角色朝向放）
+   * @param {number} index - 技能槽索引（对应 combat.skills）
+   */
+  useSkillByIndex(index) {
+    if (!this.playerEntity || !this.combatSystem) return;
+    const combat = this.playerEntity.getComponent('combat');
+    if (!combat || !combat.skills) return;
+    const skill = combat.skills[index];
+    if (!skill) return;
+
+    // 自身类技能（治疗/打坐）直接复用通用逻辑
+    if (skill.id === 'heal' || skill.id === 'meditation') {
+      this.onSkillClicked(skill);
+      return;
+    }
+
+    // 其他技能：以角色当前朝向的前方作为目标点
+    const transform = this.playerEntity.getComponent('transform');
+    const sprite = this.playerEntity.getComponent('sprite');
+    if (!transform) return;
+
+    const dirMap = {
+      'up': { x: 0, y: -1 },
+      'down': { x: 0, y: 1 },
+      'left': { x: -1, y: 0 },
+      'right': { x: 1, y: 0 },
+      'up-left': { x: -0.707, y: -0.707 },
+      'up-right': { x: 0.707, y: -0.707 },
+      'down-left': { x: -0.707, y: 0.707 },
+      'down-right': { x: 0.707, y: 0.707 },
+    };
+    const d = dirMap[sprite?.direction] || { x: 1, y: 0 };
+    const range = skill.range || 300;
+    const target = {
+      x: transform.position.x + d.x * range,
+      y: transform.position.y + d.y * range
+    };
+
+    const currentTime = performance.now();
+    this.combatSystem.tryUseSkillAtPosition(
+      this.playerEntity,
+      skill,
+      target,
       currentTime,
       this.entities
     );
@@ -891,6 +970,9 @@ export class BaseGameScene extends PrologueScene {
     this.inventoryPanel.setEntity(this.playerEntity);
     this.playerInfoPanel.setPlayer(this.playerEntity);
     this.bottomControlBar.setEntity(this.playerEntity);
+    if (this.playerStatusHUD) {
+      this.playerStatusHUD.setPlayer(this.playerEntity);
+    }
     
     console.log('BaseGameScene: 创建玩家实体', this.playerEntity);
   }
@@ -924,6 +1006,9 @@ export class BaseGameScene extends PrologueScene {
     }
     if (this.bottomControlBar) {
       this.bottomControlBar.setEntity(this.playerEntity);
+    }
+    if (this.playerStatusHUD) {
+      this.playerStatusHUD.setPlayer(this.playerEntity);
     }
     
     console.log('BaseGameScene: UI面板已绑定到玩家实体');
@@ -1118,6 +1203,9 @@ export class BaseGameScene extends PrologueScene {
       this.inventoryPanel.update(deltaTime);
       this.playerInfoPanel.update(deltaTime);
       this.bottomControlBar.update(deltaTime);
+      if (this.playerStatusHUD) {
+        this.playerStatusHUD.update(deltaTime);
+      }
     }
     
     // 更新对话框 - 根据对话系统状态显示/隐藏
@@ -1694,6 +1782,11 @@ export class BaseGameScene extends PrologueScene {
     // 渲染底部控制栏
     if (this.bottomControlBar) {
       this.bottomControlBar.render(ctx);
+    }
+    
+    // 渲染玩家状态 HUD（左上角，移动端）
+    if (this.playerStatusHUD) {
+      this.playerStatusHUD.render(ctx);
     }
     
     // 渲染战斗状态UI

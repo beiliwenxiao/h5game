@@ -23,6 +23,9 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/cli": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
     "three": "^0.184.0"
   }
 }

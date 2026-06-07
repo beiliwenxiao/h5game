@@ -91,24 +91,24 @@
         #tutorial-panel h3 {
             color: #2196F3;
             margin-bottom: 15px;
-            font-size: 20px;
+            font-size: 16px;
         }
         
         #tips-panel h3 {
             color: #4CAF50;
             margin-bottom: 15px;
-            font-size: 20px;
+            font-size: 16px;
         }
         
         #tutorial-panel p {
-            font-size: 18px;
+            font-size: 14px;
             line-height: 1.6;
             color: #ffffff;
             margin-bottom: 20px;
         }
         
         #tips-panel p {
-            font-size: 18px;
+            font-size: 14px;
             line-height: 1.6;
             color: #ffffff;
         }
@@ -117,10 +117,10 @@
             display: inline-block;
             background: #2196F3;
             color: #000;
-            padding: 5px 12px;
+            padding: 3px 9px;
             border-radius: 6px;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
             margin: 0 3px;
         }
         
@@ -128,10 +128,10 @@
             display: inline-block;
             background: #4CAF50;
             color: #000;
-            padding: 5px 12px;
+            padding: 3px 9px;
             border-radius: 6px;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
             margin: 0 3px;
         }
         
@@ -185,6 +185,7 @@
             font-family: 'Courier New', monospace;
             font-size: 12px;
             pointer-events: none;
+            display: none; /* 隐藏 FPS 调试框 */
         }
         
         #debug-panel div {
@@ -337,6 +338,144 @@
             color: #2196F3;
             font-weight: bold;
         }
+        
+        /* ============ 屏幕触控按钮（移动端 / 触屏） ============ */
+        #touch-controls {
+            position: absolute;
+            inset: 0;
+            pointer-events: none; /* 容器不拦截，子按钮各自开启 */
+            z-index: 500;
+            display: none; /* 默认隐藏，触屏设备显示 */
+        }
+        
+        #touch-controls.active {
+            display: block;
+        }
+        
+        /* 左下角虚拟摇杆区域（透明圆形热区） */
+        #joystick-zone {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            width: 40%;
+            max-width: 360px;
+            height: 55%;
+            pointer-events: auto;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            z-index: 1;
+        }
+        
+        #joystick-canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        
+        /* 摇杆绘制层：覆盖整个游戏容器（与主 canvas 同尺寸），避免旋转坐标换算 */
+        #joystick-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 600;
+        }
+        
+        /* 右侧功能按钮 */
+        #action-buttons {
+            position: absolute;
+            right: 24px;
+            bottom: 90px;
+            width: 200px;
+            height: 200px;
+            pointer-events: none;
+        }
+        
+        .action-btn {
+            position: absolute;
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.45);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            color: #fff;
+            font-size: 22px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            transition: background 0.1s;
+        }
+        
+        .action-btn .label {
+            font-size: 10px;
+            margin-top: 2px;
+            color: #ddd;
+        }
+        
+        .action-btn.pressed {
+            background: rgba(33, 150, 243, 0.7);
+            border-color: #64b5f6;
+        }
+        
+        /* 圆形分布：5个技能在外圈，背包/装备在内 */
+        #act-skill1 { right: 120px; bottom: 8px; }
+        #act-skill2 { right: 40px;  bottom: 40px; }
+        #act-skill3 { right: 8px;   bottom: 116px; }
+        #act-skill4 { right: 64px;  bottom: 132px; }
+        #act-skill5 { right: 132px; bottom: 96px; }
+        
+        .action-btn.util {
+            width: 52px;
+            height: 52px;
+            font-size: 18px;
+            background: rgba(40, 40, 40, 0.6);
+        }
+        
+        #act-bag  { right: 150px; bottom: 168px; }
+        #act-char { right: 90px;  bottom: 184px; }
+        
+        /* 交互 / 前进（主线流程必备） */
+        .action-btn.primary {
+            width: 60px;
+            height: 60px;
+            font-size: 16px;
+            background: rgba(76, 175, 80, 0.55);
+            border-color: rgba(139, 195, 74, 0.8);
+        }
+        
+        .action-btn.primary.pressed {
+            background: rgba(76, 175, 80, 0.85);
+        }
+        
+        #act-interact { right: 196px; bottom: 70px; }
+        #act-next     { right: 196px; bottom: 142px; }
+        
+        /* ============ 竖屏时强制以横屏方式显示页面（不锁定方向，仅 CSS 旋转） ============ */
+        #game-container {
+            transform-origin: center center;
+        }
+        
+        /* 触屏 + 竖屏：把容器旋转 90°，并将宽高对调以填满屏幕 */
+        body.force-landscape #game-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 100vh;
+            height: 100vw;
+            transform: translate(-50%, -50%) rotate(90deg);
+        }
     </style>
 </head>
 <body>
@@ -396,6 +535,23 @@
                     <div class="skill-mana-cost">20</div>
                     <div class="skill-name">治疗术</div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- 屏幕触控按钮：左侧方向键 + 右侧功能键 -->
+        <div id="touch-controls">
+            <canvas id="joystick-overlay"></canvas>
+            <div id="joystick-zone"></div>
+            <div id="action-buttons">
+                <div class="action-btn util" id="act-bag" data-action="bag">🎒<span class="label">背包</span></div>
+                <div class="action-btn util" id="act-char" data-action="char">👤<span class="label">装备</span></div>
+                <div class="action-btn primary" id="act-interact" data-key="e">✋<span class="label">交互</span></div>
+                <div class="action-btn primary" id="act-next" data-key="n">➡<span class="label">前进</span></div>
+                <div class="action-btn" id="act-skill1" data-skill="0">🔥<span class="label">1</span></div>
+                <div class="action-btn" id="act-skill2" data-skill="1">❄<span class="label">2</span></div>
+                <div class="action-btn" id="act-skill3" data-skill="2">💥<span class="label">3</span></div>
+                <div class="action-btn" id="act-skill4" data-skill="3">💚<span class="label">4</span></div>
+                <div class="action-btn" id="act-skill5" data-skill="4">🧘<span class="label">5</span></div>
             </div>
         </div>
         
@@ -748,11 +904,39 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
         
+        // 是否触屏设备（用于把提示中的键盘按键替换为屏幕按钮名称）
+        const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+        
+        // 键盘按键 -> 手机屏幕按钮名称映射
+        const TOUCH_KEY_LABELS = {
+            'W': '方向键', 'A': '方向键', 'S': '方向键', 'D': '方向键',
+            '↑': '方向键', '↓': '方向键', '←': '方向键', '→': '方向键',
+            'E': '【交互】', 'N': '【前进】',
+            'B': '【背包】',
+            'C': '【装备】', 'V': '【装备】',
+            '1': '【技能1】', '2': '【技能2】', '3': '【技能3】', '4': '【技能4】', '5': '【技能5】',
+            'T': '【技能树】', 'P': '【属性】', 'U': '【兵种】'
+        };
+        
+        // 将提示文本中的 <span class="key">X</span> 在触屏设备上替换为屏幕按钮名称
+        function localizeHintKeys(html) {
+            if (!IS_TOUCH || !html) return html;
+            // 替换 .key 标签内容
+            let out = html.replace(/<span class="key">\s*([^<]+?)\s*<\/span>/g, (m, k) => {
+                const label = TOUCH_KEY_LABELS[k.toUpperCase()] || TOUCH_KEY_LABELS[k];
+                return label ? `<span class="key">${label}</span>` : m;
+            });
+            // 处理纯文字“WASD/方向键移动”等无标签写法
+            out = out.replace(/WASD(或方向键)?/g, '方向键')
+                     .replace(/使用 ?WASD ?键?或方向键/g, '使用方向键');
+            return out;
+        }
+        
         // 显示教程（基础教程，有按钮）
         function showTutorial(title, text, stepIndex = 0, totalSteps = 1, isLastStep = true) {
             tutorialTitle.textContent = title;
-            // 使用innerHTML支持HTML标签
-            tutorialText.innerHTML = text;
+            // 使用innerHTML支持HTML标签（触屏时把按键替换为屏幕按钮名）
+            tutorialText.innerHTML = localizeHintKeys(text);
             tutorialPanel.classList.remove('hidden');
             
             // 更新步骤指示器
@@ -788,8 +972,8 @@
         // 显示提示（渐进式提示，无按钮）
         function showTips(title, text) {
             tipsTitle.textContent = title;
-            // 使用innerHTML支持HTML标签
-            tipsText.innerHTML = text;
+            // 使用innerHTML支持HTML标签（触屏时把按键替换为屏幕按钮名）
+            tipsText.innerHTML = localizeHintKeys(text);
             tipsPanel.classList.remove('hidden');
         }
         
@@ -1212,6 +1396,308 @@
                 inventoryPanel.handleMouseClick(mouseX, mouseY, 'right');
             }
         });
+        
+        // ============ 屏幕触控按钮接线 ============
+        /**
+         * 左下角虚拟摇杆
+         * - 透明圆形热区，手指按下处作为摇杆中心
+         * - 显示手指方向的 90° 扇形圆周，并在圆周上绘制方向小箭头
+         * - 将方向换算为 上/下/左/右 组合键，派发键盘事件复用移动系统
+         */
+        function setupVirtualJoystick(pressKey, releaseKey, dirKey) {
+            const zone = document.getElementById('joystick-zone');
+            const cvs = document.getElementById('joystick-overlay');
+            const gameCanvas = document.getElementById('gameCanvas');
+            if (!zone || !cvs || !gameCanvas) return;
+            const jctx = cvs.getContext('2d');
+            
+            const RADIUS = 70;          // 摇杆圆周半径（canvas 像素）
+            const DEAD_ZONE = 18;       // 死区
+            
+            let active = false;
+            let centerX = 0, centerY = 0;   // 摇杆中心（canvas 像素坐标）
+            let curX = 0, curY = 0;
+            let activeDirs = { up: false, down: false, left: false, right: false };
+            
+            function resize() {
+                // 覆盖层与主 canvas 同像素尺寸，绘制坐标 = canvas 像素坐标
+                cvs.width = gameCanvas.width;
+                cvs.height = gameCanvas.height;
+            }
+            resize();
+            window.addEventListener('resize', () => setTimeout(resize, 50));
+            window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+            
+            // 复用全局指针变换（已处理旋转/缩放），回退到简单 rect 映射
+            function clientToCanvas(clientX, clientY) {
+                if (typeof window.__pointerTransform === 'function') {
+                    return window.__pointerTransform(clientX, clientY);
+                }
+                const rect = gameCanvas.getBoundingClientRect();
+                const sx = gameCanvas.width / rect.width;
+                const sy = gameCanvas.height / rect.height;
+                return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
+            }
+            
+            // 根据角度计算 8 向（换算为方向键组合）
+            function updateDirection(dx, dy) {
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                const next = { up: false, down: false, left: false, right: false };
+                if (dist >= DEAD_ZONE) {
+                    let ang = Math.atan2(dy, dx) * 180 / Math.PI; // y 向下为正
+                    if (ang < 0) ang += 360;
+                    if (ang >= 22.5 && ang < 67.5)      { next.down = true; next.right = true; }
+                    else if (ang >= 67.5 && ang < 112.5)  { next.down = true; }
+                    else if (ang >= 112.5 && ang < 157.5) { next.down = true; next.left = true; }
+                    else if (ang >= 157.5 && ang < 202.5) { next.left = true; }
+                    else if (ang >= 202.5 && ang < 247.5) { next.up = true; next.left = true; }
+                    else if (ang >= 247.5 && ang < 292.5) { next.up = true; }
+                    else if (ang >= 292.5 && ang < 337.5) { next.up = true; next.right = true; }
+                    else                                   { next.right = true; }
+                }
+                for (const d of ['up', 'down', 'left', 'right']) {
+                    if (next[d] && !activeDirs[d]) pressKey(dirKey[d]);
+                    else if (!next[d] && activeDirs[d]) releaseKey(dirKey[d]);
+                }
+                activeDirs = next;
+            }
+            
+            function releaseAll() {
+                for (const d of ['up', 'down', 'left', 'right']) {
+                    if (activeDirs[d]) releaseKey(dirKey[d]);
+                }
+                activeDirs = { up: false, down: false, left: false, right: false };
+            }
+            
+            function render() {
+                jctx.clearRect(0, 0, cvs.width, cvs.height);
+                if (!active) return;
+                
+                const dx = curX - centerX;
+                const dy = curY - centerY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                // 基础圆（淡）
+                jctx.beginPath();
+                jctx.arc(centerX, centerY, RADIUS, 0, Math.PI * 2);
+                jctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                jctx.lineWidth = 2;
+                jctx.stroke();
+                
+                if (dist >= DEAD_ZONE) {
+                    const ang = Math.atan2(dy, dx);
+                    const half = Math.PI / 4; // 90° 扇形 => 半角 45°
+                    
+                    // 高亮 90° 扇形圆周弧
+                    jctx.beginPath();
+                    jctx.arc(centerX, centerY, RADIUS, ang - half, ang + half);
+                    jctx.strokeStyle = 'rgba(139,195,74,0.95)';
+                    jctx.lineWidth = 5;
+                    jctx.lineCap = 'round';
+                    jctx.stroke();
+                    
+                    // 圆周上的方向小箭头（位于弧中点 = 手指方向）
+                    const ax = centerX + Math.cos(ang) * RADIUS;
+                    const ay = centerY + Math.sin(ang) * RADIUS;
+                    const size = 12;
+                    jctx.save();
+                    jctx.translate(ax, ay);
+                    jctx.rotate(ang);
+                    jctx.beginPath();
+                    jctx.moveTo(size, 0);
+                    jctx.lineTo(-size * 0.6, -size * 0.7);
+                    jctx.lineTo(-size * 0.6, size * 0.7);
+                    jctx.closePath();
+                    jctx.fillStyle = '#8BC34A';
+                    jctx.fill();
+                    jctx.restore();
+                }
+                
+                // 摇杆中心点
+                jctx.beginPath();
+                jctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+                jctx.fillStyle = 'rgba(255,255,255,0.6)';
+                jctx.fill();
+            }
+            
+            function loop() {
+                render();
+                requestAnimationFrame(loop);
+            }
+            loop();
+            
+            function start(clientX, clientY) {
+                const p = clientToCanvas(clientX, clientY);
+                centerX = p.x; centerY = p.y;
+                curX = p.x; curY = p.y;
+                active = true;
+            }
+            function move(clientX, clientY) {
+                if (!active) return;
+                const p = clientToCanvas(clientX, clientY);
+                curX = p.x; curY = p.y;
+                updateDirection(curX - centerX, curY - centerY);
+            }
+            function end() {
+                active = false;
+                releaseAll();
+            }
+            
+            // 触摸事件
+            zone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                const t = e.changedTouches[0];
+                start(t.clientX, t.clientY);
+            }, { passive: false });
+            zone.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                const t = e.changedTouches[0];
+                move(t.clientX, t.clientY);
+            }, { passive: false });
+            zone.addEventListener('touchend', (e) => { e.preventDefault(); end(); }, { passive: false });
+            zone.addEventListener('touchcancel', (e) => { e.preventDefault(); end(); }, { passive: false });
+            
+            // 鼠标兼容（桌面测试）
+            zone.addEventListener('mousedown', (e) => { start(e.clientX, e.clientY); });
+            window.addEventListener('mousemove', (e) => { if (active) move(e.clientX, e.clientY); });
+            window.addEventListener('mouseup', () => { if (active) end(); });
+        }
+        
+        function setupTouchControls() {
+            const touchControls = document.getElementById('touch-controls');
+            if (!touchControls) return;
+            
+            // 触屏设备才显示（也可在桌面用鼠标按下测试）
+            const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+            if (isTouch) {
+                touchControls.classList.add('active');
+            }
+            
+            // ===== 左下角虚拟摇杆 =====
+            // 手指按住时显示一个 90° 扇形圆周 + 圆周上的方向小箭头，
+            // 通过派发方向键事件复用 InputManager / MovementSystem。
+            const dirKey = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+            
+            function pressKey(key) {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+            }
+            function releaseKey(key) {
+                window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+            }
+            
+            setupVirtualJoystick(pressKey, releaseKey, dirKey);
+            
+            // 功能按钮（技能 / 背包 / 装备 / 交互 / 前进）
+            function triggerAction(btn) {
+                const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                if (btn.dataset.skill !== undefined) {
+                    const idx = parseInt(btn.dataset.skill, 10);
+                    // 复用框架场景的按索引释放技能（按角色朝向）
+                    if (currentScene && currentScene.useSkillByIndex) {
+                        currentScene.useSkillByIndex(idx);
+                    }
+                } else if (btn.dataset.action === 'bag') {
+                    if (currentScene && currentScene.inventoryPanel) {
+                        currentScene.inventoryPanel.toggle();
+                    }
+                } else if (btn.dataset.action === 'char') {
+                    // 装备栏 = PlayerInfoPanel
+                    if (currentScene && currentScene.playerInfoPanel) {
+                        currentScene.playerInfoPanel.toggle();
+                    }
+                }
+            }
+            
+            // 点按型按键（交互 E / 前进 N）：派发一次完整的 keydown+keyup
+            const keyMap = { e: 'e', n: 'n' };
+            function tapKey(key) {
+                window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+                // 稍后释放，确保 isKeyDown 在至少一帧内为 true
+                setTimeout(() => {
+                    window.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+                }, 160);
+            }
+            
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                const press = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    btn.classList.add('pressed');
+                    if (btn.dataset.key !== undefined) {
+                        tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
+                    } else {
+                        triggerAction(btn);
+                    }
+                };
+                const release = (e) => {
+                    e.preventDefault();
+                    btn.classList.remove('pressed');
+                };
+                btn.addEventListener('touchstart', press, { passive: false });
+                btn.addEventListener('touchend', release, { passive: false });
+                btn.addEventListener('touchcancel', release, { passive: false });
+                btn.addEventListener('mousedown', press);
+                btn.addEventListener('mouseup', release);
+            });
+        }
+        setupTouchControls();
+        
+        // ===== 竖屏时直接以横屏方式显示（不锁定方向，仅 CSS 旋转页面） =====
+        // 当处于竖屏时给 body 加 .force-landscape，#game-container 被旋转 90° 填满屏幕。
+        // 同时为 InputManager 安装坐标变换钩子，修正旋转后的触摸/点击坐标。
+        function applyForceLandscape() {
+            const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+            const portrait = window.innerHeight > window.innerWidth;
+            const rotate = isTouch && portrait;
+            document.body.classList.toggle('force-landscape', rotate);
+            // 旋转后容器尺寸变化，重算 canvas 尺寸
+            resizeCanvas();
+            return rotate;
+        }
+        
+        // 坐标变换：把页面坐标映射回 canvas 像素坐标（考虑旋转 + 缩放）
+        function makePointerTransform() {
+            return (clientX, clientY) => {
+                const rotate = document.body.classList.contains('force-landscape');
+                const rect = canvas.getBoundingClientRect();
+                if (!rotate) {
+                    // 未旋转：标准映射
+                    const sx = canvas.width / rect.width;
+                    const sy = canvas.height / rect.height;
+                    return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
+                }
+                // 旋转 90°（顺时针）：rect 是旋转后的外接矩形（屏幕坐标）
+                // 屏幕内相对位置
+                const px = clientX - rect.left;
+                const py = clientY - rect.top;
+                // 容器逻辑宽 = canvas.width，逻辑高 = canvas.height
+                // 顺时针 90°：canvasX 沿屏幕竖直方向，canvasY 沿屏幕水平反方向
+                const cx = py / rect.height * canvas.width;
+                const cy = (rect.width - px) / rect.width * canvas.height;
+                return { x: cx, y: cy };
+            };
+        }
+        
+        function setupOrientation() {
+            const rotate = applyForceLandscape();
+            // 安装坐标变换钩子到当前场景的 InputManager
+            const transform = makePointerTransform();
+            const installer = () => {
+                const cs = sceneManager ? sceneManager.getCurrentScene() : null;
+                if (cs && cs.inputManager && cs.inputManager.setPointerTransform) {
+                    cs.inputManager.setPointerTransform(transform);
+                }
+            };
+            installer();
+            // 场景可能稍后才创建 InputManager，做几次补装
+            setTimeout(installer, 500);
+            setTimeout(installer, 1500);
+            // 暴露给摇杆使用
+            window.__pointerTransform = transform;
+        }
+        setupOrientation();
+        window.addEventListener('resize', () => { applyForceLandscape(); });
+        window.addEventListener('orientationchange', () => { setTimeout(setupOrientation, 100); });
         
         // 启动游戏
         initGame();

@@ -67,8 +67,20 @@ export class InputManager {
         // Map<key, Array<{ id, callback, cooldown, lastTriggerTime }>>
         this.hotkeys = new Map();
         
+        // 指针坐标变换钩子（用于页面被 CSS 旋转/缩放时修正触摸与鼠标坐标）
+        // 形如 (clientX, clientY) => ({ x, y })，返回 Canvas 像素坐标；返回 null 则走默认 rect 计算
+        this.pointerTransform = null;
+        
         // 初始化事件监听
         this.initEventListeners();
+    }
+
+    /**
+     * 设置指针坐标变换钩子
+     * @param {Function|null} fn - (clientX, clientY) => ({x, y}) | null
+     */
+    setPointerTransform(fn) {
+        this.pointerTransform = (typeof fn === 'function') ? fn : null;
     }
 
     /**
@@ -162,6 +174,16 @@ export class InputManager {
      * 更新鼠标位置
      */
     updateMousePosition(event) {
+        if (this.pointerTransform) {
+            const p = this.pointerTransform(event.clientX, event.clientY);
+            if (p) {
+                this.mouse.x = p.x;
+                this.mouse.y = p.y;
+                this.mouse.worldX = this.mouse.x + this.cameraX;
+                this.mouse.worldY = this.mouse.y + this.cameraY;
+                return;
+            }
+        }
         const rect = this.canvas.getBoundingClientRect();
         
         // 计算Canvas坐标（考虑缩放）
@@ -212,6 +234,16 @@ export class InputManager {
      * 更新触摸位置
      */
     updateTouchPosition(touch) {
+        if (this.pointerTransform) {
+            const p = this.pointerTransform(touch.clientX, touch.clientY);
+            if (p) {
+                this.mouse.x = p.x;
+                this.mouse.y = p.y;
+                this.mouse.worldX = this.mouse.x + this.cameraX;
+                this.mouse.worldY = this.mouse.y + this.cameraY;
+                return;
+            }
+        }
         const rect = this.canvas.getBoundingClientRect();
         
         const scaleX = this.canvas.width / rect.width;

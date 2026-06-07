@@ -200,3 +200,59 @@ npx vite build --config example/sanguo_zhangjiao/vite.config.js
 - `setPointerTransform` 是通用框架能力：任何"页面被 CSS 旋转/缩放"的场景都可复用，不止本 demo。
 - 若以后改为原生锁定横屏（AndroidManifest 加 `android:screenOrientation="landscape"`），
   则不需要 CSS 旋转，此时应让 `applyForceLandscape()` 不加 `force-landscape` 类（横屏即原样）。
+
+## 九、网页版 / 安卓版 UI 与文案分离架构（方案 B + 文案 B2）
+
+网页版与安卓版是同一套游戏功能，但操作方式不同（键鼠 vs 触屏）。
+为方便分别维护，UI 装配与提示文案按平台拆成两套，平台差异收敛到统一判定中心。
+
+### 1. 平台判定中心（框架级）
+`src/core/PlatformProfile.js`
+- 统一判定平台：`PlatformProfile.platform`（'desktop' | 'mobile'）、`.isMobile` / `.isDesktop`。
+- 判定依据：`ontouchstart` / `navigator.maxTouchPoints`。
+- 支持 URL 覆盖调试：`index.html?platform=mobile` 或 `?platform=desktop`。
+- `set(p)` / `redetect()` 供测试或环境变化时使用。
+- **所有"按平台分两套"的逻辑都以此为唯一依据**，不要再各处写 ontouchstart 判断。
+
+### 2. UI 装配策略（框架级，方案 B）
+`src/ui/strategies/`
+- `UIStrategy.js`：基类，定义平台差异接口：
+  - `getBottomControlBarOptions()` → `{ showOrbs, showHotkeyNumbers }`
+  - `isPlayerStatusHUDVisible()`、`isBottomControlBarVisible()`
+  - `layoutPlayerStatusHUD(hud, w, h)`
+- `DesktopUIStrategy.js`：显示底部血球/蓝球 + 数字快捷键，不显示左上 HUD。
+- `MobileUIStrategy.js`：隐藏底部血球/数字键，显示左上角玩家 HUD。
+- `index.js`：`createUIStrategy(platform?)` 工厂（不传按 PlatformProfile 自动判定）。
+
+接入点：`example/sanguo_zhangjiao/scenes/BaseGameScene.js`
+- 构造函数：`this.uiStrategy = createUIStrategy()`；`this.isMobileLayout` 保留为兼容字段。
+- `initializeUIPanels()`：BottomControlBar 的 showOrbs/showHotkeyNumbers、
+  PlayerStatusHUD 的 visible 都改由 `this.uiStrategy.*` 决定，**不再写 if (isMobileLayout)**。
+- `onResize()`：调用 `this.uiStrategy.layoutPlayerStatusHUD(...)` 处理 HUD 布局。
+
+新增平台（如平板）：加一个策略类 + 在 createUIStrategy 里分支即可，场景代码不动。
+
+### 3. 提示/教程文案双文件（方案 B2）
+每个配置拆成 `.desktop.js`（键盘措辞）和 `.mobile.js`（屏幕按钮措辞）两份，
+原文件名作为**平台选择器**按 PlatformProfile re-export，下游 import 不变。
+
+- 渐进式提示：
+  - `config/ProgressiveTipsConfig.desktop.js`（W/A/S/D、E、B、V、N…）
+  - `config/ProgressiveTipsConfig.mobile.js`（摇杆、【交互】、【背包】、【装备】、【前进】…）
+  - `config/ProgressiveTipsConfig.js`（选择器，保留 getPrerequisites 等辅助函数）
+- 基础教程：
+  - `config/TutorialConfig.desktop.js` / `.mobile.js` / `TutorialConfig.js`（选择器）
+
+**约束**：两套文案的 id / priority / triggerConditionId / prerequisites / nextTip
+必须完全一致，**仅 text（必要时 description）按操作方式改写**。
+
+### 4. 移除运行时文案替换
+`example/sanguo_zhangjiao/index.html`
+- 原 `localizeHintKeys` + `TOUCH_KEY_LABELS` 的"显示时正则把键盘键改写成屏幕按钮"逻辑已删除。
+- `localizeHintKeys` 现为透传函数（保留作兼容入口）。文案正确性改由配置层（双文件）保证。
+
+### 维护要点（重要）
+- 改某平台**文案**：只编辑对应 `.desktop.js` 或 `.mobile.js`，互不影响。
+- 改某平台**UI 行为**：编辑对应策略类（Desktop/MobileUIStrategy），场景代码不动。
+- 改了 demo 后**纯 H5 改动不需重新打 APK**（见第七节），用 Vite Dev Server + `?platform=mobile` 调试移动端表现最快。
+- 新增提示/教程条目时，记得**两套文案文件都要加**，且 id 等结构字段保持一致。

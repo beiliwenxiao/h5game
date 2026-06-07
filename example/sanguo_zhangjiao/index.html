@@ -388,20 +388,20 @@
             z-index: 600;
         }
         
-        /* 右侧功能按钮 */
+        /* ===== 右侧动作按钮组：外圈3技能 + 中心攻击 + 轻功 + 投掷 ===== */
         #action-buttons {
             position: absolute;
             right: 24px;
-            bottom: 90px;
-            width: 200px;
-            height: 200px;
+            bottom: 12px;
+            width: 220px;
+            height: 220px;
             pointer-events: none;
         }
         
         .action-btn {
             position: absolute;
-            width: 64px;
-            height: 64px;
+            width: 62px;
+            height: 62px;
             border-radius: 50%;
             background: rgba(0, 0, 0, 0.45);
             border: 2px solid rgba(255, 255, 255, 0.4);
@@ -429,38 +429,90 @@
             border-color: #64b5f6;
         }
         
-        /* 圆形分布：5个技能在外圈，背包/装备在内 */
-        #act-skill1 { right: 120px; bottom: 8px; }
-        #act-skill2 { right: 40px;  bottom: 40px; }
-        #act-skill3 { right: 8px;   bottom: 116px; }
-        #act-skill4 { right: 64px;  bottom: 132px; }
-        #act-skill5 { right: 132px; bottom: 96px; }
-        
-        .action-btn.util {
-            width: 52px;
-            height: 52px;
-            font-size: 18px;
-            background: rgba(40, 40, 40, 0.6);
+        /* 中心：攻击（最大） */
+        .action-btn.attack {
+            width: 78px;
+            height: 78px;
+            font-size: 26px;
+            background: rgba(200, 60, 40, 0.6);
+            border-color: rgba(255, 120, 90, 0.85);
         }
+        .action-btn.attack.pressed { background: rgba(200, 60, 40, 0.9); }
         
-        #act-bag  { right: 150px; bottom: 168px; }
-        #act-char { right: 90px;  bottom: 184px; }
+        /* 攻击放在按钮组中心 */
+        #act-attack  { right: 66px; bottom: 70px; }
+        /* 外侧3个技能：水平翻转后的位置 */
+        #act-skill3  { right: 154px; bottom: 84px; }
+        #act-skill4  { right: 114px; bottom: 150px; }
+        #act-skill5  { right: 38px;  bottom: 156px; }
+        /* 中心左下：轻功 */
+        .action-btn.move {
+            width: 56px;
+            height: 56px;
+            font-size: 18px;
+            background: rgba(60, 120, 200, 0.55);
+            border-color: rgba(120, 170, 240, 0.8);
+        }
+        .action-btn.move.pressed { background: rgba(60, 120, 200, 0.9); }
+        /* 轻功与投掷底部对齐 */
+        #act-flight { right: 150px; bottom: 0px; }
+        /* 中心右侧：投掷 */
+        #act-throw  { right: 0px;   bottom: 0px; }
         
-        /* 交互 / 前进（主线流程必备） */
+        /* 交互 / 前进：右侧按钮组的左边，竖排 */
+        #primary-buttons {
+            position: absolute;
+            right: 256px;
+            bottom: 90px;
+            width: 64px;
+            height: 150px;
+            pointer-events: none;
+        }
         .action-btn.primary {
-            width: 60px;
-            height: 60px;
-            font-size: 16px;
+            width: 58px;
+            height: 58px;
+            font-size: 15px;
             background: rgba(76, 175, 80, 0.55);
             border-color: rgba(139, 195, 74, 0.8);
         }
+        .action-btn.primary.pressed { background: rgba(76, 175, 80, 0.85); }
+        #act-interact { right: 0; bottom: 0; }
+        #act-next     { right: 0; bottom: 72px; }
         
-        .action-btn.primary.pressed {
-            background: rgba(76, 175, 80, 0.85);
+        /* ===== 底部快捷栏：背包 / 装备 / 技能6 / 技能7（无边框，按钮+文字） ===== */
+        #bottom-hotbar {
+            position: absolute;
+            left: 50%;
+            bottom: 8px;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 28px;
+            pointer-events: none;
         }
-        
-        #act-interact { right: 196px; bottom: 70px; }
-        #act-next     { right: 196px; bottom: 142px; }
+        .hotbar-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            pointer-events: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+            /* 无边框、无背景 */
+        }
+        .hotbar-btn .hb-icon {
+            font-size: 30px;
+            line-height: 1;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.9));
+        }
+        .hotbar-btn .hb-label {
+            font-size: 12px;
+            margin-top: 3px;
+            color: #eee;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+        }
+        .hotbar-btn.pressed { opacity: 0.6; }
         
         /* ============ 竖屏时强制以横屏方式显示页面（不锁定方向，仅 CSS 旋转） ============ */
         #game-container {
@@ -538,20 +590,37 @@
             </div>
         </div>
         
-        <!-- 屏幕触控按钮：左侧方向键 + 右侧功能键 -->
+        <!-- 屏幕触控按钮：左侧摇杆 + 右侧功能键 + 底部快捷栏 -->
         <div id="touch-controls">
             <canvas id="joystick-overlay"></canvas>
             <div id="joystick-zone"></div>
+
+            <!-- 右侧动作按钮组：外圈3技能 + 中心攻击 + 轻功 + 投掷 -->
             <div id="action-buttons">
-                <div class="action-btn util" id="act-bag" data-action="bag">🎒<span class="label">背包</span></div>
-                <div class="action-btn util" id="act-char" data-action="char">👤<span class="label">装备</span></div>
+                <!-- 外侧3个：技能3/4/5（火焰掌/寒冰指/烈焰掌 = index 0/1/2） -->
+                <div class="action-btn skill" id="act-skill3" data-skill="0">🔥<span class="label">技能3</span></div>
+                <div class="action-btn skill" id="act-skill4" data-skill="1">❄<span class="label">技能4</span></div>
+                <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">技能5</span></div>
+                <!-- 中心：攻击 -->
+                <div class="action-btn attack" id="act-attack" data-act="attack">⚔️<span class="label">攻击</span></div>
+                <!-- 中心左下：轻功 -->
+                <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span></div>
+                <!-- 中心右侧：投掷 -->
+                <div class="action-btn move" id="act-throw" data-act="throw">🎯<span class="label">投掷</span></div>
+            </div>
+
+            <!-- 交互 / 前进（右侧按钮组左边） -->
+            <div id="primary-buttons">
                 <div class="action-btn primary" id="act-interact" data-key="e">✋<span class="label">交互</span></div>
                 <div class="action-btn primary" id="act-next" data-key="n">➡<span class="label">前进</span></div>
-                <div class="action-btn" id="act-skill1" data-skill="0">🔥<span class="label">1</span></div>
-                <div class="action-btn" id="act-skill2" data-skill="1">❄<span class="label">2</span></div>
-                <div class="action-btn" id="act-skill3" data-skill="2">💥<span class="label">3</span></div>
-                <div class="action-btn" id="act-skill4" data-skill="3">💚<span class="label">4</span></div>
-                <div class="action-btn" id="act-skill5" data-skill="4">🧘<span class="label">5</span></div>
+            </div>
+
+            <!-- 底部快捷栏：背包 / 装备 / 技能6 / 技能7（无边框，按钮+文字） -->
+            <div id="bottom-hotbar">
+                <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
+                <div class="hotbar-btn" id="hb-char" data-action="char"><span class="hb-icon">👤</span><span class="hb-label">装备</span></div>
+                <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💚</span><span class="hb-label">技能6</span></div>
+                <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🧘</span><span class="hb-label">技能7</span></div>
             </div>
         </div>
         
@@ -904,32 +973,14 @@
             return new Promise(resolve => setTimeout(resolve, ms));
         }
         
-        // 是否触屏设备（用于把提示中的键盘按键替换为屏幕按钮名称）
+        // 是否触屏设备
         const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
         
-        // 键盘按键 -> 手机屏幕按钮名称映射
-        const TOUCH_KEY_LABELS = {
-            'W': '方向键', 'A': '方向键', 'S': '方向键', 'D': '方向键',
-            '↑': '方向键', '↓': '方向键', '←': '方向键', '→': '方向键',
-            'E': '【交互】', 'N': '【前进】',
-            'B': '【背包】',
-            'C': '【装备】', 'V': '【装备】',
-            '1': '【技能1】', '2': '【技能2】', '3': '【技能3】', '4': '【技能4】', '5': '【技能5】',
-            'T': '【技能树】', 'P': '【属性】', 'U': '【兵种】'
-        };
-        
-        // 将提示文本中的 <span class="key">X</span> 在触屏设备上替换为屏幕按钮名称
+        // 注意：平台文案已由配置层（ProgressiveTipsConfig / TutorialConfig 的
+        // .desktop / .mobile 两套）直接提供，不再在显示时做按键->按钮的运行时替换。
+        // 此函数保留为透传，仅作兼容入口；如需对非配置来源文本做兜底处理可在此扩展。
         function localizeHintKeys(html) {
-            if (!IS_TOUCH || !html) return html;
-            // 替换 .key 标签内容
-            let out = html.replace(/<span class="key">\s*([^<]+?)\s*<\/span>/g, (m, k) => {
-                const label = TOUCH_KEY_LABELS[k.toUpperCase()] || TOUCH_KEY_LABELS[k];
-                return label ? `<span class="key">${label}</span>` : m;
-            });
-            // 处理纯文字“WASD/方向键移动”等无标签写法
-            out = out.replace(/WASD(或方向键)?/g, '方向键')
-                     .replace(/使用 ?WASD ?键?或方向键/g, '使用方向键');
-            return out;
+            return html;
         }
         
         // 显示教程（基础教程，有按钮）
@@ -1587,24 +1638,28 @@
             
             setupVirtualJoystick(pressKey, releaseKey, dirKey);
             
-            // 功能按钮（技能 / 背包 / 装备 / 交互 / 前进）
+            // 功能按钮（技能 / 攻击 / 轻功 / 投掷 / 药品 / 背包 / 装备）
             function triggerAction(btn) {
                 const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                if (!currentScene) return;
                 if (btn.dataset.skill !== undefined) {
                     const idx = parseInt(btn.dataset.skill, 10);
                     // 复用框架场景的按索引释放技能（按角色朝向）
-                    if (currentScene && currentScene.useSkillByIndex) {
-                        currentScene.useSkillByIndex(idx);
-                    }
+                    if (currentScene.useSkillByIndex) currentScene.useSkillByIndex(idx);
+                } else if (btn.dataset.potion !== undefined) {
+                    // 可使用物品：生命/魔法药水
+                    if (currentScene.usePotionFromHotbar) currentScene.usePotionFromHotbar(btn.dataset.potion);
+                } else if (btn.dataset.act === 'attack') {
+                    if (currentScene.attackByFacing) currentScene.attackByFacing();
+                } else if (btn.dataset.act === 'flight') {
+                    if (currentScene.flightByFacing) currentScene.flightByFacing();
+                } else if (btn.dataset.act === 'throw') {
+                    if (currentScene.throwByFacing) currentScene.throwByFacing();
                 } else if (btn.dataset.action === 'bag') {
-                    if (currentScene && currentScene.inventoryPanel) {
-                        currentScene.inventoryPanel.toggle();
-                    }
+                    if (currentScene.inventoryPanel) currentScene.inventoryPanel.toggle();
                 } else if (btn.dataset.action === 'char') {
                     // 装备栏 = PlayerInfoPanel
-                    if (currentScene && currentScene.playerInfoPanel) {
-                        currentScene.playerInfoPanel.toggle();
-                    }
+                    if (currentScene.playerInfoPanel) currentScene.playerInfoPanel.toggle();
                 }
             }
             
@@ -1618,7 +1673,8 @@
                 }, 160);
             }
             
-            document.querySelectorAll('.action-btn').forEach(btn => {
+            // 圆形动作按钮 + 底部快捷栏按钮，统一绑定
+            document.querySelectorAll('.action-btn, .hotbar-btn').forEach(btn => {
                 const press = (e) => {
                     e.preventDefault();
                     e.stopPropagation();

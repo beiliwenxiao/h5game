@@ -31,6 +31,7 @@ import { InventoryPanel } from '../../../src/ui/InventoryPanel.js';
 import { PlayerInfoPanel } from '../../../src/ui/PlayerInfoPanel.js';
 import { BottomControlBar } from '../../../src/ui/BottomControlBar.js';
 import { PlayerStatusHUD } from '../../../src/ui/PlayerStatusHUD.js';
+import { createUIStrategy } from '../../../src/ui/strategies/index.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -117,9 +118,10 @@ export class BaseGameScene extends PrologueScene {
     this.playerStatusHUD = null;
     this.dialogueBox = null;
     
-    // 是否移动端（触屏）布局
-    this.isMobileLayout = (typeof window !== 'undefined') &&
-      (('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+    // UI 装配策略（按平台分桌面/移动两套），收敛平台差异
+    this.uiStrategy = createUIStrategy();
+    // 兼容字段：是否移动端布局（部分旧逻辑仍引用）
+    this.isMobileLayout = this.uiStrategy.platform === 'mobile';
     
     // 飘动文字管理器
     this.floatingTextManager = new FloatingTextManager();
@@ -463,15 +465,16 @@ export class BaseGameScene extends PrologueScene {
     });
     
     // 底部控制栏
+    const barOptions = this.uiStrategy.getBottomControlBarOptions();
     this.bottomControlBar = new BottomControlBar({
       x: 0,
       y: this.logicalHeight - 100,
       width: this.logicalWidth,
       height: 100,
-      visible: true,
-      // 移动端：隐藏血球/蓝球和数字快捷键（改用左上角 HUD）
-      showOrbs: !this.isMobileLayout,
-      showHotkeyNumbers: !this.isMobileLayout,
+      visible: this.uiStrategy.isBottomControlBarVisible(),
+      // 平台差异由 UI 策略决定（移动端隐藏血球/蓝球和数字快捷键）
+      showOrbs: barOptions.showOrbs,
+      showHotkeyNumbers: barOptions.showHotkeyNumbers,
       onSkillClick: (skill) => {
         this.onSkillClicked(skill);
       },
@@ -480,7 +483,7 @@ export class BaseGameScene extends PrologueScene {
       }
     });
     
-    // 玩家状态 HUD（左上角：头像 + 昵称 + 血条 + 蓝条）—— 仅移动端显示
+    // 玩家状态 HUD（左上角：头像 + 昵称 + 血条 + 蓝条）—— 由 UI 策略决定是否显示
     const selectedChar = SelectedCharacterStore.get();
     let avatarSrc = null;
     if (selectedChar && (selectedChar.previewImage || selectedChar.assetImage)) {
@@ -497,7 +500,7 @@ export class BaseGameScene extends PrologueScene {
       y: 10,
       width: 230,
       height: 78,
-      visible: this.isMobileLayout,
+      visible: this.uiStrategy.isPlayerStatusHUDVisible(),
       avatarSrc: avatarSrc
     });
     
@@ -691,6 +694,97 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 获取玩家当前朝向单位向量（用于触屏按钮无指向时的目标方向）
+   * @returns {{x:number, y:number}}
+   */
+  getPlayerFacingVector() {
+    const sprite = this.playerEntity?.getComponent('sprite');
+    const dirMap = {
+      'up': { x: 0, y: -1 },
+      'down': { x: 0, y: 1 },
+      'left': { x: -1, y: 0 },
+      'right': { x: 1, y: 0 },
+      'up-left': { x: -0.707, y: -0.707 },
+      'up-right': { x: 0.707, y: -0.707 },
+      'down-left': { x: -0.707, y: 0.707 },
+      'down-right': { x: 0.707, y: 0.707 },
+    };
+    return dirMap[sprite?.direction] || { x: 1, y: 0 };
+  }
+
+  /**
+   * 触屏：按角色朝向发起一次扇形攻击（复用 MeleeAttackSystem）
+   */
+  attackByFacing() {
+    if (!this.playerEntity || !this.meleeAttackSystem) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const sprite = this.playerEntity.getComponent('sprite');
+    const spriteHeight = sprite?.height || 64;
+    const playerCenter = {
+      x: transform.position.x,
+      y: transform.position.y - spriteHeight / 2
+    };
+    const d = this.getPlayerFacingVector();
+    // 设定攻击方向并执行（复用系统内部的扇形攻击）
+    this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
+    this.meleeAttackSystem.setEntities(this.entities);
+    this.meleeAttackSystem.sectorDirection = Math.atan2(d.y, d.x);
+    this.meleeAttackSystem.sectorIsRanged = this.meleeAttackSystem.checkIsRangedWeapon();
+    this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000);
+  }
+
+  /**
+   * 触屏：按角色朝向施展轻功（复用 FlightSystem）
+   */
+  flightByFacing() {
+    if (!this.flightSystem || !this.playerEntity) return;
+    if (this.flightSystem.isPlayerFlying && this.flightSystem.isPlayerFlying()) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const d = this.getPlayerFacingVector();
+    const distance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 600;
+    const targetX = transform.position.x + d.x * distance;
+    const targetY = transform.position.y + d.y * distance;
+    this.flightSystem.startFlight(transform, targetX, targetY);
+  }
+
+  /**
+   * 触屏：按角色朝向投掷武器（复用 WeaponRenderer.throwWeapon）
+   */
+  throwByFacing() {
+    if (!this.weaponRenderer || !this.playerEntity) return;
+    if (this.weaponRenderer.isWeaponThrown && this.weaponRenderer.isWeaponThrown()) return;
+    const equipment = this.playerEntity.getComponent('equipment');
+    if (!equipment || !equipment.slots.mainhand) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform && this.floatingTextManager) {
+        this.floatingTextManager.addText(
+          transform.position.x, transform.position.y - 50, '没有可投掷的武器', '#ff6666'
+        );
+      }
+      return;
+    }
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const d = this.getPlayerFacingVector();
+    const range = this.weaponRenderer.getThrowRange
+      ? this.weaponRenderer.getThrowRange(this.playerEntity)
+      : 480;
+    const targetPos = {
+      x: transform.position.x + d.x * range,
+      y: transform.position.y + d.y * range
+    };
+    this.weaponRenderer.throwWeapon(
+      this.playerEntity,
+      null,
+      transform.position,
+      targetPos,
+      performance.now() / 1000
+    );
+  }
+
+  /**
    * 从快捷栏使用药水
    * @param {string} potionType - 'health' 或 'mana'
    */
@@ -791,6 +885,11 @@ export class BaseGameScene extends PrologueScene {
     if (this.inventoryPanel) {
       this.inventoryPanel.x = width - this.inventoryPanel.width - 10;
       this.inventoryPanel.y = height - 100 - this.inventoryPanel.height;
+    }
+    
+    // 玩家状态 HUD 由 UI 策略负责布局（移动端左上角）
+    if (this.playerStatusHUD && this.uiStrategy) {
+      this.uiStrategy.layoutPlayerStatusHUD(this.playerStatusHUD, width, height);
     }
   }
 

@@ -22,3 +22,13 @@ Thumbs.db
 
 # docs
 docs/
+
+# 资源不要上传,桌面打包与手机打包不上传
+example/sanguo_zhangjiao/assets/images/*
+example/sanguo_zhangjiao/desktop/*
+example/sanguo_zhangjiao/mobile/
+
+# 安卓打包
+android/*
+
+

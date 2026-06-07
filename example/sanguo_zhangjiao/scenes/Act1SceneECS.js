@@ -1671,8 +1671,11 @@ export class Act1SceneECS extends BaseGameScene {
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
 
-    // 面板尺寸：屏幕宽度的 1/5，限制 120 ~ 200
-    const panelSize = Math.max(120, Math.min(200, Math.floor(this.logicalWidth / 5)));
+    // 面板尺寸：屏幕宽度的 1/5，限制 120 ~ 200；移动端缩小一半
+    let panelSize = Math.max(120, Math.min(200, Math.floor(this.logicalWidth / 5)));
+    if (this.uiStrategy && this.uiStrategy.platform === 'mobile') {
+      panelSize = Math.floor(panelSize / 2);
+    }
     const padding = 12;
     const panelX = this.logicalWidth - panelSize - padding;
     const panelY = padding;

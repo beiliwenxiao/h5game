@@ -1694,15 +1694,17 @@ export class BaseGameScene extends PrologueScene {
       return;
     }
     
-    // 检查空格键是否按下
+    // 继续信号：空格键 或（移动端）点击/触摸屏幕
     const spacePressed = this.inputManager.isKeyDown('space');
-    if (!spacePressed) {
-      // 重置标志，允许下次按键
+    const clicked = this.inputManager.isMouseClicked && this.inputManager.isMouseClicked();
+    const continueSignal = spacePressed || clicked;
+    if (!continueSignal) {
+      // 重置标志，允许下次触发
       this.lastSpacePressed = false;
       return;
     }
     
-    // 防止连续触发（按住空格键时只触发一次）
+    // 防止连续触发（按住时只触发一次）
     if (this.lastSpacePressed) {
       return;
     }

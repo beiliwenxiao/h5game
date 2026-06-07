@@ -695,15 +695,16 @@ export class Act1SceneECS extends BaseGameScene {
     this.tutorialPhaseHandlers = {
       'character_creation': {
         check: () => {
-          // 检查是否按下任意键
+          // 检查是否按下任意键，或（移动端）点击/触摸屏幕
           const anyPressed = this.inputManager.isAnyKeyPressed();
+          const clicked = this.inputManager.isMouseClicked && this.inputManager.isMouseClicked();
           
           if (anyPressed) {
             const pressedKeys = this.inputManager.getKeysPressed();
             console.log('Act1SceneECS: 检测到按键！', pressedKeys);
           }
           
-          return anyPressed;
+          return anyPressed || clicked;
         },
         onComplete: () => {
           this.completeTutorial('progressive_tip_1');
@@ -908,6 +909,9 @@ export class Act1SceneECS extends BaseGameScene {
    * 更新教程阶段 - 使用配置驱动
    */
   updateTutorialPhase(deltaTime) {
+    // 通用：基于面板"可见状态"完成教程判定（兼容键盘快捷键与手机点击两种打开方式）
+    this.checkPanelOpenTutorials();
+    
     const handler = this.tutorialPhaseHandlers[this.tutorialPhase];
     if (!handler) {
       console.log('Act1SceneECS: 没有找到阶段处理器:', this.tutorialPhase);
@@ -923,6 +927,29 @@ export class Act1SceneECS extends BaseGameScene {
     if (handler.check && handler.check()) {
       console.log('Act1SceneECS: 阶段完成条件满足，当前阶段:', this.tutorialPhase);
       handler.onComplete();
+    }
+  }
+
+  /**
+   * 基于面板可见状态完成教程（与触发方式无关）
+   *
+   * 背包/角色面板既可用键盘快捷键打开，也可用手机屏幕按钮点击打开。
+   * 把"打开面板即完成对应教程"的判定放在每帧检测，
+   * 避免把判定耦合在键盘回调里导致手机点击时任务卡住。
+   */
+  checkPanelOpenTutorials() {
+    // tip_5：查看背包（view_inventory 阶段，背包打开即完成）
+    if (this.tutorialPhase === 'view_inventory' &&
+        !this.tutorialsCompleted.progressive_tip_5 &&
+        this.inventoryPanel && this.inventoryPanel.visible) {
+      this.completeTutorial('progressive_tip_5');
+    }
+    
+    // tip_6：查看属性（view_stats 阶段，角色信息面板打开即完成）
+    if (this.tutorialPhase === 'view_stats' &&
+        !this.tutorialsCompleted.progressive_tip_6 &&
+        this.playerInfoPanel && this.playerInfoPanel.visible) {
+      this.completeTutorial('progressive_tip_6');
     }
   }
 

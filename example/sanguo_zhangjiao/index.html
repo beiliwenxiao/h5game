@@ -67,14 +67,19 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.9);
-            padding: 20px 40px;
-            border-radius: 15px;
-            border: 3px solid #4CAF50;
+            padding: 8px 16px;
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
             pointer-events: none;
             max-width: 600px;
             text-align: center;
             box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
             animation: fadeIn 0.3s ease-in;
+        }
+        
+        /* 隐藏提示标题（“提示”字样） */
+        #tips-title {
+            display: none;
         }
         
         @keyframes fadeIn {
@@ -109,8 +114,9 @@
         
         #tips-panel p {
             font-size: 14px;
-            line-height: 1.6;
+            line-height: 1.3;
             color: #ffffff;
+            margin: 0;
         }
         
         #tutorial-panel .key {
@@ -615,10 +621,10 @@
                 <div class="action-btn primary" id="act-next" data-key="n">➡<span class="label">前进</span></div>
             </div>
 
-            <!-- 底部快捷栏：背包 / 装备 / 技能6 / 技能7（无边框，按钮+文字） -->
+            <!-- 底部快捷栏：装备 / 背包 / 技能6 / 技能7（无边框，按钮+文字） -->
             <div id="bottom-hotbar">
-                <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
                 <div class="hotbar-btn" id="hb-char" data-action="char"><span class="hb-icon">👤</span><span class="hb-label">装备</span></div>
+                <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
                 <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💚</span><span class="hb-label">技能6</span></div>
                 <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🧘</span><span class="hb-label">技能7</span></div>
             </div>

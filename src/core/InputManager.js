@@ -208,6 +208,9 @@ export class InputManager {
             this.updateTouchPosition(touch);
             this.mouse.isDown = true;
             this.mouse.clicked = true;
+            // 触摸等价于左键按下，记入 buttons，保证 isMouseButtonDown(0) 生效
+            this.mouse.button = 0;
+            this.mouse.buttons.add(0);
         }
     }
 
@@ -217,6 +220,9 @@ export class InputManager {
     handleTouchEnd(event) {
         event.preventDefault();
         this.mouse.isDown = false;
+        // 释放左键
+        this.mouse.buttons.delete(0);
+        this.mouse.button = -1;
     }
 
     /**

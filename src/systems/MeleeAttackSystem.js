@@ -115,7 +115,7 @@ export class MeleeAttackSystem {
       return;
     }
 
-    // 鼠标左键按住触发攻击（即使同时按住右键移动也能攻击）
+    // 鼠标左键按住 / 手指触摸屏幕即触发攻击（无需点到敌人）
     if (this.inputManager.isMouseButtonDown(0) &&
         !this.inputManager.isMouseClickHandled()) {
       this.performSectorAttack(playerCenter, currentTime);

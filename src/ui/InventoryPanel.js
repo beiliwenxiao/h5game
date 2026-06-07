@@ -26,14 +26,21 @@ export class InventoryPanel extends UIElement {
 
     this.title = '背包';
     this.entity = null;
-    this.slotSize = 50;
-    this.slotPadding = 5;
-    this.slotsPerRow = 6;  // 改为6列
-    this.maxVisibleRows = 4;  // 改为4行
+    this.slotSize = options.slotSize || 50;
+    this.slotPadding = options.slotPadding || 5;
+    this.slotsPerRow = options.slotsPerRow || 6;  // 每行格子数
+    this.maxVisibleRows = options.maxVisibleRows || 4;  // 可见行数
     
     // 计算槽位布局
     this.slotStartX = 20;
     this.slotStartY = 80;
+    
+    // 滚动状态（按行偏移）
+    this.scrollRow = 0;            // 当前滚动到的起始行
+    this.scrollbarWidth = 8;       // 滚动条宽度
+    this.scrollbarDragging = false;
+    this.scrollbarDragStartY = 0;
+    this.scrollbarDragStartRow = 0;
     
     // 过滤器按钮
     this.filterButtons = [
@@ -75,6 +82,49 @@ export class InventoryPanel extends UIElement {
    */
   setEntity(entity) {
     this.entity = entity;
+  }
+
+  /**
+   * 获取当前过滤条件下的总行数（用于滚动）
+   * @returns {number}
+   */
+  getTotalRows() {
+    if (!this.entity) return 0;
+    const inv = this.entity.getComponent('inventory');
+    if (!inv) return 0;
+    let count;
+    if (inv.currentFilter === 'all') {
+      count = inv.maxSlots;
+    } else {
+      count = this.getFilteredItems(inv).length;
+    }
+    return Math.ceil(count / this.slotsPerRow);
+  }
+
+  /**
+   * 最大可滚动起始行
+   * @returns {number}
+   */
+  getMaxScrollRow() {
+    return Math.max(0, this.getTotalRows() - this.maxVisibleRows);
+  }
+
+  /**
+   * 限制滚动行在有效范围内
+   */
+  clampScroll() {
+    const max = this.getMaxScrollRow();
+    if (this.scrollRow < 0) this.scrollRow = 0;
+    if (this.scrollRow > max) this.scrollRow = max;
+  }
+
+  /**
+   * 滚动若干行（正数向下）
+   * @param {number} deltaRows
+   */
+  scrollBy(deltaRows) {
+    this.scrollRow += deltaRows;
+    this.clampScroll();
   }
 
   /**
@@ -230,10 +280,13 @@ export class InventoryPanel extends UIElement {
         const row = Math.floor(i / this.slotsPerRow);
         const col = i % this.slotsPerRow;
         
-        if (row >= this.maxVisibleRows) break;
+        // 仅渲染滚动可见区间内的行
+        const visibleRow = row - this.scrollRow;
+        if (visibleRow < 0) continue;
+        if (visibleRow >= this.maxVisibleRows) break;
         
         const slotX = this.x + this.slotStartX + col * (this.slotSize + this.slotPadding);
-        const slotY = this.y + this.slotStartY + row * (this.slotSize + this.slotPadding);
+        const slotY = this.y + this.slotStartY + visibleRow * (this.slotSize + this.slotPadding);
         
         const slot = inventoryComponent.getSlot(i);
         
@@ -253,15 +306,65 @@ export class InventoryPanel extends UIElement {
         const row = Math.floor(i / this.slotsPerRow);
         const col = i % this.slotsPerRow;
         
-        if (row >= this.maxVisibleRows) break;
+        const visibleRow = row - this.scrollRow;
+        if (visibleRow < 0) continue;
+        if (visibleRow >= this.maxVisibleRows) break;
         
         const slotX = this.x + this.slotStartX + col * (this.slotSize + this.slotPadding);
-        const slotY = this.y + this.slotStartY + row * (this.slotSize + this.slotPadding);
+        const slotY = this.y + this.slotStartY + visibleRow * (this.slotSize + this.slotPadding);
         
         const filteredItem = filteredItems[i];
         this.renderFilteredSlot(ctx, filteredItem, slotX, slotY, i);
       }
     }
+    
+    // 绘制滚动条
+    this.renderScrollbar(ctx);
+  }
+
+  /**
+   * 渲染右侧滚动条
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderScrollbar(ctx) {
+    const totalRows = this.getTotalRows();
+    if (totalRows <= this.maxVisibleRows) return; // 无需滚动
+    
+    const track = this.getScrollbarTrackRect();
+    
+    // 轨道
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillRect(track.x, track.y, track.width, track.height);
+    
+    // 滑块
+    const thumb = this.getScrollbarThumbRect();
+    ctx.fillStyle = this.scrollbarDragging ? 'rgba(180,200,255,0.95)' : 'rgba(180,180,180,0.8)';
+    ctx.fillRect(thumb.x, thumb.y, thumb.width, thumb.height);
+  }
+
+  /**
+   * 滚动条轨道矩形
+   */
+  getScrollbarTrackRect() {
+    const x = this.x + this.slotStartX + this.slotsPerRow * (this.slotSize + this.slotPadding) + 4;
+    const y = this.y + this.slotStartY;
+    const height = this.maxVisibleRows * (this.slotSize + this.slotPadding) - this.slotPadding;
+    return { x, y, width: this.scrollbarWidth, height };
+  }
+
+  /**
+   * 滚动条滑块矩形
+   */
+  getScrollbarThumbRect() {
+    const track = this.getScrollbarTrackRect();
+    const totalRows = this.getTotalRows();
+    const visible = this.maxVisibleRows;
+    const ratio = Math.min(1, visible / totalRows);
+    const thumbHeight = Math.max(24, track.height * ratio);
+    const maxScroll = this.getMaxScrollRow();
+    const t = maxScroll > 0 ? this.scrollRow / maxScroll : 0;
+    const thumbY = track.y + (track.height - thumbHeight) * t;
+    return { x: track.x, y: thumbY, width: track.width, height: thumbHeight };
   }
 
   /**
@@ -690,6 +793,21 @@ export class InventoryPanel extends UIElement {
     this.mouseX = x;
     this.mouseY = y;
 
+    // 滚动条拖动中：根据 Y 位移换算滚动行
+    if (this.scrollbarDragging) {
+      const track = this.getScrollbarTrackRect();
+      const thumb = this.getScrollbarThumbRect();
+      const usable = track.height - thumb.height;
+      const maxScroll = this.getMaxScrollRow();
+      if (usable > 0 && maxScroll > 0) {
+        const dy = y - this.scrollbarDragStartY;
+        const deltaRow = Math.round((dy / usable) * maxScroll);
+        this.scrollRow = this.scrollbarDragStartRow + deltaRow;
+        this.clampScroll();
+      }
+      return;
+    }
+
     this.hoveredSlot = -1;
 
     // 检查是否悬停在物品槽上
@@ -702,6 +820,13 @@ export class InventoryPanel extends UIElement {
         }
       }
     }
+  }
+
+  /**
+   * 结束滚动条拖动（鼠标/触摸抬起时调用）
+   */
+  endScrollbarDrag() {
+    this.scrollbarDragging = false;
   }
 
   /**
@@ -721,6 +846,25 @@ export class InventoryPanel extends UIElement {
       }
       // 点击菜单外部，隐藏菜单
       this.contextMenu.visible = false;
+    }
+
+    // 滚动条交互（仅当需要滚动时）
+    if (button === 'left' && this.getTotalRows() > this.maxVisibleRows) {
+      const track = this.getScrollbarTrackRect();
+      const onTrackX = x >= track.x - 4 && x <= track.x + track.width + 4;
+      if (onTrackX && y >= track.y && y <= track.y + track.height) {
+        const thumb = this.getScrollbarThumbRect();
+        if (y >= thumb.y && y <= thumb.y + thumb.height) {
+          // 按住滑块开始拖动
+          this.scrollbarDragging = true;
+          this.scrollbarDragStartY = y;
+          this.scrollbarDragStartRow = this.scrollRow;
+        } else {
+          // 点击轨道：按页翻动
+          this.scrollBy(y < thumb.y ? -this.maxVisibleRows : this.maxVisibleRows);
+        }
+        return true;
+      }
     }
 
     // 检查过滤器按钮点击
@@ -834,18 +978,20 @@ export class InventoryPanel extends UIElement {
     if (relativeX < 0 || relativeY < 0) return -1;
     
     const col = Math.floor(relativeX / (this.slotSize + this.slotPadding));
-    const row = Math.floor(relativeY / (this.slotSize + this.slotPadding));
+    const visibleRow = Math.floor(relativeY / (this.slotSize + this.slotPadding));
     
-    if (col >= this.slotsPerRow || row >= this.maxVisibleRows) return -1;
+    if (col >= this.slotsPerRow || visibleRow >= this.maxVisibleRows) return -1;
     
     const slotX = col * (this.slotSize + this.slotPadding);
-    const slotY = row * (this.slotSize + this.slotPadding);
+    const slotY = visibleRow * (this.slotSize + this.slotPadding);
     
     // 检查是否在槽位内部
     if (relativeX >= slotX && relativeX <= slotX + this.slotSize &&
         relativeY >= slotY && relativeY <= slotY + this.slotSize) {
       
-      const displayIndex = row * this.slotsPerRow + col;
+      // 加上滚动偏移得到真实行号
+      const actualRow = visibleRow + this.scrollRow;
+      const displayIndex = actualRow * this.slotsPerRow + col;
       
       if (this.entity) {
         const inventoryComponent = this.entity.getComponent('inventory');

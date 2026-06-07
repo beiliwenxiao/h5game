@@ -450,11 +450,16 @@ export class BaseGameScene extends PrologueScene {
     });
     
     // 背包面板 - 右下角，底部控制栏上方
+    const invOpts = this.uiStrategy.getInventoryOptions ? this.uiStrategy.getInventoryOptions() : null;
     this.inventoryPanel = new InventoryPanel({
-      x: this.logicalWidth - 370 - 10,
-      y: this.logicalHeight - 100 - 350,
-      width: 370,
-      height: 350,
+      x: this.logicalWidth - (invOpts?.width || 370) - 10,
+      y: this.logicalHeight - 100 - (invOpts?.height || 350),
+      width: invOpts?.width || 370,
+      height: invOpts?.height || 350,
+      slotSize: invOpts?.slotSize,
+      slotPadding: invOpts?.slotPadding,
+      slotsPerRow: invOpts?.slotsPerRow,
+      maxVisibleRows: invOpts?.maxVisibleRows,
       visible: false,
       onItemUse: (item, healAmount, manaAmount) => {
         this.onItemUsed(item, healAmount, manaAmount);
@@ -463,6 +468,10 @@ export class BaseGameScene extends PrologueScene {
         this.onEquipmentChanged(messages);
       }
     });
+    // 平台相关布局（移动端居中、底部对齐）
+    if (this.uiStrategy.layoutInventoryPanel) {
+      this.uiStrategy.layoutInventoryPanel(this.inventoryPanel, this.logicalWidth, this.logicalHeight);
+    }
     
     // 底部控制栏
     const barOptions = this.uiStrategy.getBottomControlBarOptions();
@@ -881,10 +890,17 @@ export class BaseGameScene extends PrologueScene {
       this.playerInfoPanel.y = height - 100 - this.playerInfoPanel.height;
     }
     
-    // 更新背包面板位置（右下角，底部控制栏上方）
+    // 更新背包面板位置
     if (this.inventoryPanel) {
-      this.inventoryPanel.x = width - this.inventoryPanel.width - 10;
-      this.inventoryPanel.y = height - 100 - this.inventoryPanel.height;
+      if (this.uiStrategy && this.uiStrategy.layoutInventoryPanel &&
+          this.uiStrategy.platform === 'mobile') {
+        // 移动端：居中、底部对齐
+        this.uiStrategy.layoutInventoryPanel(this.inventoryPanel, width, height);
+      } else {
+        // 桌面：右下角，底部控制栏上方
+        this.inventoryPanel.x = width - this.inventoryPanel.width - 10;
+        this.inventoryPanel.y = height - 100 - this.inventoryPanel.height;
+      }
     }
     
     // 玩家状态 HUD 由 UI 策略负责布局（移动端左上角）
@@ -1741,6 +1757,14 @@ export class BaseGameScene extends PrologueScene {
   updatePanelHover() {
     const mousePos = this.inputManager.getMousePosition();
     this.uiSystem.updateHover(mousePos.x, mousePos.y);
+    
+    // 鼠标/手指抬起时，结束背包滚动条拖动
+    const pressed = this.inputManager.isMouseButtonDown
+      ? this.inputManager.isMouseButtonDown(0)
+      : this.inputManager.mouse?.isDown;
+    if (!pressed && this.inventoryPanel && this.inventoryPanel.scrollbarDragging) {
+      this.inventoryPanel.endScrollbarDrag();
+    }
   }
 
   /**

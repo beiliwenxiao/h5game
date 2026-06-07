@@ -52,6 +52,26 @@ export class UIStrategy {
   layoutPlayerStatusHUD(hud, width, height) {
     // 默认固定在左上角，无需重排
   }
+
+  /**
+   * 背包面板的平台相关选项（列数 / 行数等）。
+   * 返回 null 表示使用面板默认值。
+   * @returns {Object|null}
+   */
+  getInventoryOptions() {
+    return null;
+  }
+
+  /**
+   * 布局背包面板（窗口尺寸变化 / 打开时调用）。
+   * 默认无操作，子类可覆盖以实现居中、底部对齐等。
+   * @param {Object} panel - InventoryPanel 实例
+   * @param {number} width
+   * @param {number} height
+   */
+  layoutInventoryPanel(panel, width, height) {
+    // 默认不改变位置
+  }
 }
 
 export default UIStrategy;

@@ -162,6 +162,13 @@ export class BaseGameScene extends PrologueScene {
     // 对话控制标志
     this.lastSpacePressed = false;
     
+    // 技能瞄准预览（手机拖拽技能时显示落点虚线框）
+    this.skillAimPreview = null; // { skill, targetX, targetY, startX, startY, inRange, color } 或 null
+    // 平滑过渡用的显示位置（lerp）
+    this._aimDisplayX = 0;
+    this._aimDisplayY = 0;
+    this._aimLerpSpeed = 0.15; // 每帧趋近比例（0~1，越大越快）
+    
     // 场景过渡状态
     this.isTransitioning = false;
     this.transitionAlpha = 0;
@@ -707,6 +714,159 @@ export class BaseGameScene extends PrologueScene {
       currentTime,
       this.entities
     );
+  }
+
+  /**
+   * 按指定方向和距离比例释放技能（触屏摇杆瞄准后释放）
+   * @param {number} index - 技能索引
+   * @param {number} dirX - 方向 X（归一化前）
+   * @param {number} dirY - 方向 Y（归一化前）
+   * @param {number} [distRatio=1] - 距离比例(0~1)，1=最大射程
+   */
+  useSkillByDirection(index, dirX, dirY, distRatio) {
+    if (!this.playerEntity || !this.combatSystem) return;
+    const combat = this.playerEntity.getComponent('combat');
+    if (!combat || !combat.skills) return;
+    const skill = combat.skills[index];
+    if (!skill) return;
+
+    // 自身类技能（治疗/打坐）不需要方向
+    if (skill.id === 'heal' || skill.id === 'meditation') {
+      this.onSkillClicked(skill);
+      return;
+    }
+
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+
+    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+    const dx = mag > 0 ? dirX / mag : 1;
+    const dy = mag > 0 ? dirY / mag : 0;
+    const range = skill.range || 300;
+    // 距离比例与预览一致（distRatio 0~1 映射到 0~range）
+    const ratio = (distRatio !== undefined) ? Math.min(distRatio, 1.0) : 1.0;
+    const actualDist = ratio * range;
+    const target = {
+      x: transform.position.x + dx * actualDist,
+      y: transform.position.y + dy * actualDist
+    };
+
+    const currentTime = performance.now();
+    this.combatSystem.tryUseSkillAtPosition(
+      this.playerEntity,
+      skill,
+      target,
+      currentTime,
+      this.entities
+    );
+  }
+
+  /**
+   * 设置技能瞄准预览（拖动期间每帧调用,更新落点位置）
+   * @param {number} index - 技能索引
+   * @param {number} dirX - 方向 X
+   * @param {number} dirY - 方向 Y
+   * @param {number} distRatio - 拖拽距离占瞄准圈的比例(0~1+),1=最大射程
+   */
+  setSkillAimPreview(index, dirX, dirY, distRatio) {
+    if (!this.playerEntity) { this.skillAimPreview = null; return; }
+    const combat = this.playerEntity.getComponent('combat');
+    if (!combat || !combat.skills || !combat.skills[index]) { this.skillAimPreview = null; return; }
+    const skill = combat.skills[index];
+    if (skill.id === 'heal' || skill.id === 'meditation') { this.skillAimPreview = null; return; }
+    
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) { this.skillAimPreview = null; return; }
+    
+    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+    const dx = mag > 0 ? dirX / mag : 0;
+    const dy = mag > 0 ? dirY / mag : 0;
+    const range = skill.range || 300;
+    // 拖拽距离映射到实际射程(ratio 0~1 映射到 0~range)
+    const actualDist = Math.min(distRatio, 1.5) * range; // 允许超出1.0以显示红色
+    const inRange = distRatio <= 1.0;
+    
+    this.skillAimPreview = {
+      skill,
+      targetX: transform.position.x + dx * actualDist,
+      targetY: transform.position.y + dy * actualDist,
+      startX: transform.position.x,
+      startY: transform.position.y,
+      inRange: inRange,
+      color: inRange ? '#00ff00' : '#ff4444'
+    };
+    
+    // 首次设置时初始化显示位置为当前目标（避免从0,0开始lerp）
+    if (this._aimDisplayX === 0 && this._aimDisplayY === 0) {
+      this._aimDisplayX = this.skillAimPreview.targetX;
+      this._aimDisplayY = this.skillAimPreview.targetY;
+    }
+  }
+
+  /**
+   * 清除技能瞄准预览
+   */
+  clearSkillAimPreview() {
+    this.skillAimPreview = null;
+    this._aimDisplayX = 0;
+    this._aimDisplayY = 0;
+  }
+
+  /**
+   * 渲染技能瞄准预览虚线框（在世界坐标系中,由 render 调用）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderSkillAimPreview(ctx) {
+    if (!this.skillAimPreview) return;
+    const { skill, targetX, targetY, startX, startY, color } = this.skillAimPreview;
+    
+    const dispX = targetX;
+    const dispY = targetY;
+    
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = color || '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    
+    if (skill.id === 'ice_finger') {
+      // 寒冰指：路径 + 终点圆
+      const dx = dispX - startX;
+      const dy = dispY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 1) {
+        const nx = -dy / dist * 15;
+        const ny = dx / dist * 15;
+        ctx.beginPath();
+        ctx.moveTo(startX + nx, startY + ny * 0.5);
+        ctx.lineTo(dispX + nx, dispY + ny * 0.5);
+        ctx.lineTo(dispX - nx, dispY - ny * 0.5);
+        ctx.lineTo(startX - nx, startY - ny * 0.5);
+        ctx.closePath();
+        ctx.stroke();
+      }
+      // 终点圆
+      ctx.beginPath();
+      ctx.ellipse(dispX, dispY, 50, 25, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      // 圆形 AOE（火焰掌/烈焰掌等）
+      const radius = skill.aoeRadius || 150;
+      ctx.beginPath();
+      ctx.ellipse(dispX, dispY, radius, radius * 0.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    // 十字准心
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(dispX - 8, dispY);
+    ctx.lineTo(dispX + 8, dispY);
+    ctx.moveTo(dispX, dispY - 4);
+    ctx.lineTo(dispX, dispY + 4);
+    ctx.stroke();
+    
+    ctx.restore();
   }
 
   /**
@@ -1884,6 +2044,9 @@ export class BaseGameScene extends PrologueScene {
     if (this.combatSystem) {
       this.combatSystem.renderSkillRangeIndicators(ctx);
     }
+    
+    // 渲染技能瞄准预览虚线框（手机拖拽技能时显示落点）
+    this.renderSkillAimPreview(ctx);
     
     // 恢复上下文状态
     ctx.restore();

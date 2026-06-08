@@ -72,6 +72,18 @@ export class InventoryPanel extends UIElement {
     this.mouseX = 0;
     this.mouseY = 0;
     
+    // 悬停提示延迟（秒）
+    this.tooltipDelay = options.tooltipDelay !== undefined ? options.tooltipDelay : 0.5;
+    this.hoverTime = 0;         // 当前悬停在同一槽位的累计时间
+    this.lastHoveredSlot = -1;  // 上一帧的悬停槽位
+    
+    // 长按提示（移动端：按住1秒显示道具tooltip，释放关闭，期间不使用道具）
+    this.longPressSlot = -1;       // 当前长按的槽位（-1=无）
+    this.longPressStart = 0;       // 长按开始时间（performance.now ms）
+    this.longPressActive = false;  // 是否已触发长按 tooltip
+    this.longPressDuration = 1000; // 长按阈值（毫秒）
+    this.longPressShowTooltip = false; // 是否正在展示长按 tooltip
+    
     // 右键菜单
     this.contextMenu = {
       visible: false,
@@ -102,6 +114,14 @@ export class InventoryPanel extends UIElement {
    */
   setEntity(entity) {
     this.entity = entity;
+  }
+
+  /**
+   * 设置 InputManager 引用（用于长按检测中判断手指释放）
+   * @param {InputManager} inputManager
+   */
+  setInputManager(inputManager) {
+    this._inputManager = inputManager;
   }
 
   /**
@@ -153,6 +173,41 @@ export class InventoryPanel extends UIElement {
    */
   update(deltaTime) {
     if (!this.visible || !this.entity) return;
+    
+    // 悬停计时：检测是否一直停在同一个槽位上
+    if (this.hoveredSlot >= 0 && this.hoveredSlot === this.lastHoveredSlot) {
+      this.hoverTime += deltaTime;
+    } else {
+      this.hoverTime = 0;
+    }
+    this.lastHoveredSlot = this.hoveredSlot;
+    
+    // 长按逻辑：按住道具 1 秒 → 显示 tooltip；释放 → 关闭 tooltip，不使用道具
+    if (this.longPressSlot >= 0) {
+      const elapsed = performance.now() - this.longPressStart;
+      if (!this.longPressActive && elapsed >= this.longPressDuration) {
+        // 达到长按阈值 → 进入 tooltip 展示模式
+        this.longPressActive = true;
+        this.longPressShowTooltip = true;
+        this.hoveredSlot = this.longPressSlot; // 让 tooltip 瞄准该槽位
+      }
+    }
+    
+    // 检测手指/鼠标释放（isDown 变 false）→ 结束长按
+    if (this.longPressSlot >= 0 && this._inputManager) {
+      const stillDown = this._inputManager.mouse && this._inputManager.mouse.isDown;
+      if (!stillDown) {
+        if (this.longPressActive) {
+          // 长按释放：关闭 tooltip，不使用道具
+          this.longPressShowTooltip = false;
+        } else {
+          // 短按释放：执行正常的使用/装备
+          this.handleSlotLeftClick(this.longPressSlot);
+        }
+        this.longPressSlot = -1;
+        this.longPressActive = false;
+      }
+    }
   }
 
   /**
@@ -541,8 +596,10 @@ export class InventoryPanel extends UIElement {
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   renderItemTooltip(ctx) {
-    if (!this.showTooltip) return;
+    if (!this.showTooltip && !this.longPressShowTooltip) return;
     if (this.hoveredSlot === -1 || !this.entity) return;
+    // 悬停延迟：桌面鼠标悬停需 tooltipDelay 秒；长按模式直接显示
+    if (!this.longPressShowTooltip && this.hoverTime < this.tooltipDelay) return;
     
     const inventoryComponent = this.entity.getComponent('inventory');
     if (!inventoryComponent) return;
@@ -930,9 +987,15 @@ export class InventoryPanel extends UIElement {
     if (slotIndex >= 0) {
       if (button === 'left') {
         if (!this.showTooltip) {
-          // 移动端：打开详情面板而不是直接装备/使用
-          this.openItemDetail(slotIndex);
+          // 移动端：不立即使用/装备，进入长按检测模式
+          // 短按释放 → update() 中执行 handleSlotLeftClick
+          // 长按 1 秒 → 显示 tooltip，释放关闭
+          this.longPressSlot = slotIndex;
+          this.longPressStart = performance.now();
+          this.longPressActive = false;
+          this.longPressShowTooltip = false;
         } else {
+          // 桌面端：直接使用/装备
           this.handleSlotLeftClick(slotIndex);
         }
       } else if (button === 'right') {

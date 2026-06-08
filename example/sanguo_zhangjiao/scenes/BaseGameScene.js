@@ -1101,6 +1101,7 @@ export class BaseGameScene extends PrologueScene {
     this.combatSystem.setPlayerEntity(this.playerEntity);
     this.movementSystem.setPlayerEntity(this.playerEntity);
     this.inventoryPanel.setEntity(this.playerEntity);
+    this.inventoryPanel.setInputManager(this.inputManager);
     this.playerInfoPanel.setPlayer(this.playerEntity);
     this.bottomControlBar.setEntity(this.playerEntity);
     if (this.playerStatusHUD) {
@@ -1977,8 +1978,8 @@ export class BaseGameScene extends PrologueScene {
   renderCombatStateUI(ctx) {
     if (!this.combatSystem.isInCombat()) return;
     
-    // 战斗状态面板位置（屏幕右上角，移动端左移50px避让小地图）
-    const combatPanelOffset = (this.uiStrategy && this.uiStrategy.platform === 'mobile') ? 50 : 0;
+    // 战斗状态面板位置（屏幕右上角，移动端左移避让小地图和右侧按钮）
+    const combatPanelOffset = (this.uiStrategy && this.uiStrategy.platform === 'mobile') ? 100 : 0;
     const panelX = this.logicalWidth - 90 - combatPanelOffset;
     const panelY = 10;
     const panelWidth = 80;

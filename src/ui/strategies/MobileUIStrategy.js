@@ -44,7 +44,15 @@ export class MobileUIStrategy extends UIStrategy {
     const width = 20 + slotsPerRow * (slotSize + slotPadding) - slotPadding + 12 + 16;
     // 高度：顶部80 + 行高 - 末尾padding + 底部留白(金币行)40
     const height = 80 + maxVisibleRows * (slotSize + slotPadding) - slotPadding + 40;
-    return { slotSize, slotPadding, slotsPerRow, maxVisibleRows, width, height };
+    // 筛选按钮：缩短并缩进面板内（5个按钮均匀排布）
+    const filterButtonWidth = 46;
+    const filterButtonGap = 6;
+    const filterButtonStartX = 20;
+    return {
+      slotSize, slotPadding, slotsPerRow, maxVisibleRows, width, height,
+      filterButtonWidth, filterButtonGap, filterButtonStartX,
+      showTooltip: false
+    };
   }
 
   /**
@@ -53,7 +61,17 @@ export class MobileUIStrategy extends UIStrategy {
   layoutInventoryPanel(panel, width, height) {
     if (!panel) return;
     panel.x = Math.round((width - panel.width) / 2);
-    // 底部对齐：底部快捷栏在屏幕底部约 8~70px，这里让背包底部留出约 78px
+    // 底部对齐：背包下移 10px（bottomGap 78 → 68）
+    const bottomGap = 58;
+    panel.y = Math.max(10, height - bottomGap - panel.height);
+  }
+
+  /**
+   * 移动端装备/角色面板：底部与底部快捷栏对齐（左侧）
+   */
+  layoutPlayerInfoPanel(panel, width, height) {
+    if (!panel) return;
+    panel.x = 10;
     const bottomGap = 78;
     panel.y = Math.max(10, height - bottomGap - panel.height);
   }

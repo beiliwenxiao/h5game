@@ -996,10 +996,6 @@ export class Act1SceneECS extends BaseGameScene {
     // 如果火堆已点燃，不再检查
     if (this.campfire.lit) return;
     
-    // 使用 isKeyDown 检测 E 键
-    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
-    if (!ePressed) return;
-    
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
     
@@ -1011,6 +1007,24 @@ export class Act1SceneECS extends BaseGameScene {
     const dx = this.campfire.x - playerX;
     const dy = campfireCenterY - playerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // 触发方式1：按 E 键（含攻击按钮派发的 e）
+    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
+    
+    // 触发方式2：鼠标/手指点击火堆附近（事件物品附近的位置）
+    let clickedNearCampfire = false;
+    if (this.inputManager.isMouseClicked && this.inputManager.isMouseClicked() &&
+        !this.inputManager.isMouseClickHandled()) {
+      const m = this.inputManager.mouse;
+      const cdx = this.campfire.x - m.worldX;
+      const cdy = campfireCenterY - m.worldY;
+      // 点击点离火堆中心 80px 内视为交互
+      if (Math.sqrt(cdx * cdx + cdy * cdy) <= 80) {
+        clickedNearCampfire = true;
+      }
+    }
+    
+    if (!ePressed && !clickedNearCampfire) return;
     
     // 如果玩家靠近火堆（距离小于60），点燃火堆
     if (distance <= 60) {
@@ -2098,7 +2112,10 @@ export class Act1SceneECS extends BaseGameScene {
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 4;
       ctx.fillText('熄灭的火堆', x, y - 55);
-      ctx.fillText('按 E 点燃', x, y - 40);
+      // 移动端去掉"按 E 点燃"说明（无键盘，靠近自动/触屏交互）
+      if (!(this.uiStrategy && this.uiStrategy.platform === 'mobile')) {
+        ctx.fillText('按 E 点燃', x, y - 40);
+      }
       ctx.shadowBlur = 0;
       
       return;

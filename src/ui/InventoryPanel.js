@@ -42,14 +42,27 @@ export class InventoryPanel extends UIElement {
     this.scrollbarDragStartY = 0;
     this.scrollbarDragStartRow = 0;
     
-    // 过滤器按钮
-    this.filterButtons = [
-      { name: 'all', label: '全部', x: 20, y: 45, width: 60, height: 25 },
-      { name: 'equipment', label: '装备', x: 90, y: 45, width: 60, height: 25 },
-      { name: 'consumable', label: '消耗品', x: 160, y: 45, width: 60, height: 25 },
-      { name: 'material', label: '材料', x: 230, y: 45, width: 60, height: 25 },
-      { name: 'quest', label: '任务', x: 300, y: 45, width: 60, height: 25 }
+    // 过滤器按钮（尺寸/间距可配置，移动端可缩短并缩进面板内）
+    const fbWidth = options.filterButtonWidth || 60;
+    const fbGap = options.filterButtonGap !== undefined ? options.filterButtonGap : 10;
+    const fbStartX = options.filterButtonStartX !== undefined ? options.filterButtonStartX : 20;
+    const fbHeight = options.filterButtonHeight || 25;
+    const fbY = options.filterButtonY || 45;
+    const fbDefs = [
+      { name: 'all', label: '全部' },
+      { name: 'equipment', label: '装备' },
+      { name: 'consumable', label: '消耗品' },
+      { name: 'material', label: '材料' },
+      { name: 'quest', label: '任务' }
     ];
+    this.filterButtons = fbDefs.map((d, i) => ({
+      name: d.name,
+      label: d.label,
+      x: fbStartX + i * (fbWidth + fbGap),
+      y: fbY,
+      width: fbWidth,
+      height: fbHeight
+    }));
     
     // 交互状态
     this.hoveredSlot = -1;
@@ -74,6 +87,13 @@ export class InventoryPanel extends UIElement {
     this.onFilterChange = options.onFilterChange || null;
     this.onEquipmentChange = options.onEquipmentChange || null; // 装备变化回调
     this.canUseItem = options.canUseItem || null; // 检查物品是否可以使用的回调
+    
+    // 是否显示悬停提示框（移动端可关闭）
+    this.showTooltip = options.showTooltip !== false;
+    
+    // 选中物品详情面板（移动端：点击道具后显示属性 + 装备/丢弃按钮）
+    this.itemDetailSlot = -1; // 当前显示详情的槽位，-1=不显示
+    this.itemDetailButtons = []; // [{label, action, x, y, width, height}]
   }
 
   /**
@@ -164,6 +184,9 @@ export class InventoryPanel extends UIElement {
     
     // 绘制物品提示框
     this.renderItemTooltip(ctx);
+    
+    // 绘制物品详情面板（移动端点击后弹出）
+    this.renderItemDetailPanel(ctx);
     
     // 绘制拖拽物品
     this.renderDraggedItem(ctx);
@@ -518,6 +541,7 @@ export class InventoryPanel extends UIElement {
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   renderItemTooltip(ctx) {
+    if (!this.showTooltip) return;
     if (this.hoveredSlot === -1 || !this.entity) return;
     
     const inventoryComponent = this.entity.getComponent('inventory');
@@ -879,11 +903,38 @@ export class InventoryPanel extends UIElement {
       }
     }
 
+    // 检查物品详情按钮点击（移动端）
+    if (this.itemDetailSlot >= 0 && this.itemDetailButtons.length > 0) {
+      for (const btn of this.itemDetailButtons) {
+        if (x >= btn.x && x <= btn.x + btn.width && y >= btn.y && y <= btn.y + btn.height) {
+          if (btn.action === 'equip') {
+            this.handleSlotLeftClick(this.itemDetailSlot, true);
+          } else if (btn.action === 'use') {
+            this.useItem(this.itemDetailSlot);
+          } else if (btn.action === 'drop') {
+            this.dropItem(this.itemDetailSlot);
+          }
+          this.itemDetailSlot = -1;
+          this.itemDetailButtons = [];
+          return true;
+        }
+      }
+      // 点击了详情面板外区域，关闭详情
+      this.itemDetailSlot = -1;
+      this.itemDetailButtons = [];
+      return true;
+    }
+
     // 检查物品槽点击
     const slotIndex = this.getSlotAtPosition(x, y);
     if (slotIndex >= 0) {
       if (button === 'left') {
-        this.handleSlotLeftClick(slotIndex);
+        if (!this.showTooltip) {
+          // 移动端：打开详情面板而不是直接装备/使用
+          this.openItemDetail(slotIndex);
+        } else {
+          this.handleSlotLeftClick(slotIndex);
+        }
       } else if (button === 'right') {
         this.handleSlotRightClick(slotIndex, x, y);
       }
@@ -1013,6 +1064,116 @@ export class InventoryPanel extends UIElement {
     }
     
     return -1;
+  }
+
+  /**
+   * 打开物品详情面板（移动端点击道具后显示属性 + 装备/丢弃按钮）
+   * @param {number} slotIndex
+   */
+  openItemDetail(slotIndex) {
+    if (!this.entity) return;
+    const inv = this.entity.getComponent('inventory');
+    if (!inv) return;
+    const slot = inv.getSlot(slotIndex);
+    if (!slot || !slot.item) {
+      this.itemDetailSlot = -1;
+      this.itemDetailButtons = [];
+      return;
+    }
+    this.itemDetailSlot = slotIndex;
+    this.selectedSlot = slotIndex;
+    // 按钮坐标在 renderItemDetailPanel 时计算
+    this.itemDetailButtons = [];
+  }
+
+  /**
+   * 渲染物品详情面板（移动端）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderItemDetailPanel(ctx) {
+    if (this.itemDetailSlot < 0 || !this.entity) return;
+    const inv = this.entity.getComponent('inventory');
+    if (!inv) return;
+    const slot = inv.getSlot(this.itemDetailSlot);
+    if (!slot || !slot.item) { this.itemDetailSlot = -1; return; }
+    const item = slot.item;
+
+    // 面板位置：背包面板顶部居中
+    const pw = 220;
+    const ph = 140;
+    const px = this.x + Math.round((this.width - pw) / 2);
+    const py = this.y - ph - 6;
+
+    ctx.save();
+    // 背景
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
+    ctx.fillRect(px, py, pw, ph);
+    const rarityColors = ['#ffffff', '#1eff00', '#0070dd', '#a335ee', '#ff8000'];
+    ctx.strokeStyle = rarityColors[item.rarity] || '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(px, py, pw, ph);
+
+    let yOff = 18;
+    // 名称
+    ctx.fillStyle = rarityColors[item.rarity] || '#ffffff';
+    ctx.font = 'bold 13px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(item.name, px + 10, py + yOff);
+    yOff += 18;
+
+    // 属性
+    ctx.fillStyle = '#cccccc';
+    ctx.font = '11px Arial';
+    if (item.stats) {
+      const statLabels = { attack: '攻击', defense: '防御', maxHp: '生命', maxMp: '魔法', speed: '速度' };
+      for (const k of Object.keys(statLabels)) {
+        if (item.stats[k]) {
+          ctx.fillText(`${statLabels[k]}: +${item.stats[k]}`, px + 10, py + yOff);
+          yOff += 14;
+        }
+      }
+    }
+    if (item.effect) {
+      const effectText = item.effect.type === 'heal' ? `回复 ${item.effect.value} 生命`
+        : item.effect.type === 'restore_mana' ? `回复 ${item.effect.value} 魔法`
+        : '特殊效果';
+      ctx.fillStyle = '#00ff00';
+      ctx.fillText(effectText, px + 10, py + yOff);
+      yOff += 14;
+    }
+
+    // 按钮：装备/使用 + 丢弃
+    const btnY = py + ph - 32;
+    const btnH = 24;
+    this.itemDetailButtons = [];
+
+    if (item.type === 'equipment') {
+      const b1 = { label: '装备', action: 'equip', x: px + 20, y: btnY, width: 70, height: btnH };
+      const b2 = { label: '丢弃', action: 'drop', x: px + 120, y: btnY, width: 70, height: btnH };
+      this.itemDetailButtons.push(b1, b2);
+    } else if (item.type === 'consumable' && item.usable) {
+      const b1 = { label: '使用', action: 'use', x: px + 20, y: btnY, width: 70, height: btnH };
+      const b2 = { label: '丢弃', action: 'drop', x: px + 120, y: btnY, width: 70, height: btnH };
+      this.itemDetailButtons.push(b1, b2);
+    } else {
+      const b1 = { label: '丢弃', action: 'drop', x: px + 70, y: btnY, width: 70, height: btnH };
+      this.itemDetailButtons.push(b1);
+    }
+
+    // 绘制按钮
+    for (const btn of this.itemDetailButtons) {
+      ctx.fillStyle = 'rgba(80, 130, 200, 0.8)';
+      ctx.fillRect(btn.x, btn.y, btn.width, btn.height);
+      ctx.strokeStyle = '#aaccff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(btn.x, btn.y, btn.width, btn.height);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(btn.label, btn.x + btn.width / 2, btn.y + btn.height / 2 + 4);
+    }
+
+    ctx.restore();
   }
 
   /**

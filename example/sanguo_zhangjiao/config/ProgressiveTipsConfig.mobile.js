@@ -132,7 +132,7 @@ export const ProgressiveTipsConfigMobile = {
     id: 'progressive_tip_11',
     title: '提示',
     description: '进入下一幕',
-    text: '你击退了野狗。点击<span class="key">前进</span>进入下一幕',
+    text: '你击退了野狗。点击<span class="key">交互</span>进入下一幕',
     position: 'center',
     priority: 60,
     triggerConditionId: 'progressive_tip_11_trigger',

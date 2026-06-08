@@ -72,6 +72,17 @@ export class UIStrategy {
   layoutInventoryPanel(panel, width, height) {
     // 默认不改变位置
   }
+
+  /**
+   * 布局角色信息/装备面板（PlayerInfoPanel）。
+   * 默认无操作，子类可覆盖。
+   * @param {Object} panel
+   * @param {number} width
+   * @param {number} height
+   */
+  layoutPlayerInfoPanel(panel, width, height) {
+    // 默认不改变位置
+  }
 }
 
 export default UIStrategy;

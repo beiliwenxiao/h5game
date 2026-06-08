@@ -448,6 +448,10 @@ export class BaseGameScene extends PrologueScene {
         }
       }
     });
+    // 平台相关布局（移动端装备框底部对齐）
+    if (this.uiStrategy.layoutPlayerInfoPanel) {
+      this.uiStrategy.layoutPlayerInfoPanel(this.playerInfoPanel, this.logicalWidth, this.logicalHeight);
+    }
     
     // 背包面板 - 右下角，底部控制栏上方
     const invOpts = this.uiStrategy.getInventoryOptions ? this.uiStrategy.getInventoryOptions() : null;
@@ -460,6 +464,10 @@ export class BaseGameScene extends PrologueScene {
       slotPadding: invOpts?.slotPadding,
       slotsPerRow: invOpts?.slotsPerRow,
       maxVisibleRows: invOpts?.maxVisibleRows,
+      filterButtonWidth: invOpts?.filterButtonWidth,
+      filterButtonGap: invOpts?.filterButtonGap,
+      filterButtonStartX: invOpts?.filterButtonStartX,
+      showTooltip: invOpts?.showTooltip,
       visible: false,
       onItemUse: (item, healAmount, manaAmount) => {
         this.onItemUsed(item, healAmount, manaAmount);
@@ -723,9 +731,14 @@ export class BaseGameScene extends PrologueScene {
 
   /**
    * 触屏：按角色朝向发起一次扇形攻击（复用 MeleeAttackSystem）
+   * 仅在战斗状态下挥砍，非战斗时不产生刀光（交互由按钮另行派发 e/n）
    */
   attackByFacing() {
     if (!this.playerEntity || !this.meleeAttackSystem) return;
+    // 非战斗状态不挥砍，避免无意义的刀光特效
+    if (!this.combatSystem || !this.combatSystem.isInCombat || !this.combatSystem.isInCombat()) {
+      return;
+    }
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
     const sprite = this.playerEntity.getComponent('sprite');
@@ -886,8 +899,13 @@ export class BaseGameScene extends PrologueScene {
     
     // 更新角色信息面板位置（左下角，底部控制栏上方）
     if (this.playerInfoPanel) {
-      this.playerInfoPanel.x = 10;
-      this.playerInfoPanel.y = height - 100 - this.playerInfoPanel.height;
+      if (this.uiStrategy && this.uiStrategy.layoutPlayerInfoPanel &&
+          this.uiStrategy.platform === 'mobile') {
+        this.uiStrategy.layoutPlayerInfoPanel(this.playerInfoPanel, width, height);
+      } else {
+        this.playerInfoPanel.x = 10;
+        this.playerInfoPanel.y = height - 100 - this.playerInfoPanel.height;
+      }
     }
     
     // 更新背包面板位置
@@ -1959,8 +1977,9 @@ export class BaseGameScene extends PrologueScene {
   renderCombatStateUI(ctx) {
     if (!this.combatSystem.isInCombat()) return;
     
-    // 战斗状态面板位置（屏幕右上角）
-    const panelX = this.logicalWidth - 90;
+    // 战斗状态面板位置（屏幕右上角，移动端左移50px避让小地图）
+    const combatPanelOffset = (this.uiStrategy && this.uiStrategy.platform === 'mobile') ? 50 : 0;
+    const panelX = this.logicalWidth - 90 - combatPanelOffset;
     const panelY = 10;
     const panelWidth = 80;
     const panelHeight = 30;

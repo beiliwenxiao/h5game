@@ -63,7 +63,7 @@
         
         #tips-panel {
             position: absolute;
-            top: 20px;
+            top: 15px;
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.9);
@@ -397,7 +397,7 @@
         /* ===== 右侧动作按钮组：外圈3技能 + 中心攻击 + 轻功 + 投掷 ===== */
         #action-buttons {
             position: absolute;
-            right: 24px;
+            right: -16px;
             bottom: 12px;
             width: 220px;
             height: 220px;
@@ -444,6 +444,12 @@
             border-color: rgba(255, 120, 90, 0.85);
         }
         .action-btn.attack.pressed { background: rgba(200, 60, 40, 0.9); }
+        /* 交互模式（非战斗）：绿色手掌 */
+        .action-btn.attack.interact-mode {
+            background: rgba(76, 175, 80, 0.6);
+            border-color: rgba(139, 195, 74, 0.85);
+        }
+        .action-btn.attack.interact-mode.pressed { background: rgba(76, 175, 80, 0.9); }
         
         /* 攻击放在按钮组中心 */
         #act-attack  { right: 66px; bottom: 70px; }
@@ -462,28 +468,8 @@
         .action-btn.move.pressed { background: rgba(60, 120, 200, 0.9); }
         /* 轻功与投掷底部对齐 */
         #act-flight { right: 150px; bottom: 0px; }
-        /* 中心右侧：投掷 */
-        #act-throw  { right: 0px;   bottom: 0px; }
-        
-        /* 交互 / 前进：右侧按钮组的左边，竖排 */
-        #primary-buttons {
-            position: absolute;
-            right: 256px;
-            bottom: 90px;
-            width: 64px;
-            height: 150px;
-            pointer-events: none;
-        }
-        .action-btn.primary {
-            width: 58px;
-            height: 58px;
-            font-size: 15px;
-            background: rgba(76, 175, 80, 0.55);
-            border-color: rgba(139, 195, 74, 0.8);
-        }
-        .action-btn.primary.pressed { background: rgba(76, 175, 80, 0.85); }
-        #act-interact { right: 0; bottom: 0; }
-        #act-next     { right: 0; bottom: 72px; }
+        /* 中心右侧：投掷（向左移动 20px → right 增大 20） */
+        #act-throw  { right: 20px;   bottom: 0px; }
         
         /* ===== 底部快捷栏：背包 / 装备 / 技能6 / 技能7（无边框，按钮+文字） ===== */
         #bottom-hotbar {
@@ -519,6 +505,27 @@
             text-shadow: 0 1px 2px rgba(0,0,0,0.9);
         }
         .hotbar-btn.pressed { opacity: 0.6; }
+        
+        /* 药瓶按钮：PC 风格图标 + 右下角剩余数量 */
+        .hotbar-btn.potion-btn {
+            position: relative;
+        }
+        .hotbar-btn .hb-canvas {
+            width: 44px;
+            height: 44px;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.9));
+            pointer-events: none;
+        }
+        .hotbar-btn .hb-count {
+            position: absolute;
+            right: -2px;
+            bottom: -2px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 3px #000, 0 0 3px #000;
+            pointer-events: none;
+        }
         
         /* ============ 竖屏时强制以横屏方式显示页面（不锁定方向，仅 CSS 旋转） ============ */
         #game-container {
@@ -607,26 +614,22 @@
                 <div class="action-btn skill" id="act-skill3" data-skill="0">🔥<span class="label">技能3</span></div>
                 <div class="action-btn skill" id="act-skill4" data-skill="1">❄<span class="label">技能4</span></div>
                 <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">技能5</span></div>
-                <!-- 中心：攻击 -->
-                <div class="action-btn attack" id="act-attack" data-act="attack">⚔️<span class="label">攻击</span></div>
+                <!-- 中心：交互/攻击（平时交互，战斗中变攻击） -->
+                <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">✋</span><span class="label atk-label">交互</span></div>
                 <!-- 中心左下：轻功 -->
                 <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span></div>
                 <!-- 中心右侧：投掷 -->
                 <div class="action-btn move" id="act-throw" data-act="throw">🎯<span class="label">投掷</span></div>
             </div>
 
-            <!-- 交互 / 前进（右侧按钮组左边） -->
-            <div id="primary-buttons">
-                <div class="action-btn primary" id="act-interact" data-key="e">✋<span class="label">交互</span></div>
-                <div class="action-btn primary" id="act-next" data-key="n">➡<span class="label">前进</span></div>
-            </div>
-
-            <!-- 底部快捷栏：装备 / 背包 / 技能6 / 技能7（无边框，按钮+文字） -->
+            <!-- 底部快捷栏：红瓶 / 蓝瓶 / 装备 / 背包 / 技能6 / 技能7（无边框，按钮+文字） -->
             <div id="bottom-hotbar">
+                <div class="hotbar-btn potion-btn" id="hb-hp" data-potion="health"><canvas class="hb-canvas" width="32" height="32"></canvas><span class="hb-count">0</span></div>
+                <div class="hotbar-btn potion-btn" id="hb-mp" data-potion="mana"><canvas class="hb-canvas" width="32" height="32"></canvas><span class="hb-count">0</span></div>
                 <div class="hotbar-btn" id="hb-char" data-action="char"><span class="hb-icon">👤</span><span class="hb-label">装备</span></div>
                 <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
-                <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💚</span><span class="hb-label">技能6</span></div>
-                <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🧘</span><span class="hb-label">技能7</span></div>
+                <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💓</span><span class="hb-label">回血</span></div>
+                <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🛀</span><span class="hb-label">打坐</span></div>
             </div>
         </div>
         
@@ -655,6 +658,7 @@
         import { InventoryPanel } from '../../src/ui/InventoryPanel.js';
         import { AttributePanel } from '../../src/ui/AttributePanel.js';
         import { PlayerInfoPanel } from '../../src/ui/PlayerInfoPanel.js';
+        import { ItemIconRenderer } from '../../src/ui/ItemIconRenderer.js';
         import { PortraitsConfig } from './data/PortraitsConfig.js';
         
         // 场景管理器
@@ -1044,6 +1048,81 @@
         const FRAME_INTERVAL = 1000 / TARGET_FPS;
         let lastFrameTime = 0;
         
+        // 根据战斗状态切换攻击按钮：平时显示"交互/手掌"，战斗中显示"攻击/⚔️"
+        let _lastAttackMode = null;
+        function updateAttackButtonMode() {
+            const btn = document.getElementById('act-attack');
+            if (!btn) return;
+            const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
+            const inCombat = !!(cs && cs.combatSystem && cs.combatSystem.isInCombat && cs.combatSystem.isInCombat());
+            if (inCombat === _lastAttackMode) return; // 状态未变，避免每帧改 DOM
+            _lastAttackMode = inCombat;
+            
+            const iconEl = btn.querySelector('.atk-icon');
+            const labelEl = btn.querySelector('.atk-label');
+            if (inCombat) {
+                if (iconEl) iconEl.textContent = '⚔️';
+                if (labelEl) labelEl.textContent = '攻击';
+                btn.classList.remove('interact-mode');
+            } else {
+                if (iconEl) iconEl.textContent = '✋';
+                if (labelEl) labelEl.textContent = '交互';
+                btn.classList.add('interact-mode');
+            }
+        }
+        
+        // 更新红瓶/蓝瓶按钮：PC 风格图标 + 剩余数量
+        const _potionIconState = { health: null, mana: null };
+        function updatePotionButtons() {
+            const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
+            const player = cs && cs.playerEntity;
+            const inv = player && player.getComponent && player.getComponent('inventory');
+            
+            const defs = [
+                { id: 'hb-hp', effect: 'heal', placeholderId: 'health_potion', key: 'health' },
+                { id: 'hb-mp', effect: 'restore_mana', placeholderId: 'mana_potion', key: 'mana' }
+            ];
+            for (const def of defs) {
+                const btn = document.getElementById(def.id);
+                if (!btn) continue;
+                const cvs = btn.querySelector('.hb-canvas');
+                const countEl = btn.querySelector('.hb-count');
+                if (!cvs) continue;
+                
+                // 统计背包中对应药水的总数与第一个物品
+                let count = 0;
+                let item = null;
+                if (inv && inv.getAllItems) {
+                    for (const { slot } of inv.getAllItems()) {
+                        if (slot.item && slot.item.type === 'consumable' && slot.item.usable &&
+                            slot.item.effect && slot.item.effect.type === def.effect) {
+                            if (!item) item = slot.item;
+                            count += slot.quantity;
+                        }
+                    }
+                }
+                
+                // 数量文本
+                if (countEl) countEl.textContent = `${count}`;
+                
+                // 图标：仅在 (物品身份 + 是否为空) 变化时重绘，避免每帧清画
+                const signature = (item ? item.id : def.placeholderId) + '|' + (count > 0 ? '1' : '0');
+                if (_potionIconState[def.key] !== signature) {
+                    _potionIconState[def.key] = signature;
+                    const ictx = cvs.getContext('2d');
+                    ictx.clearRect(0, 0, cvs.width, cvs.height);
+                    const drawItem = item || {
+                        id: def.placeholderId, type: 'consumable', effect: { type: def.effect }
+                    };
+                    ictx.save();
+                    if (count <= 0) ictx.globalAlpha = 0.35;
+                    // 居中绘制，尺寸略小于画布
+                    ItemIconRenderer.drawIcon(ictx, drawItem, cvs.width / 2, cvs.height / 2, cvs.width * 0.9);
+                    ictx.restore();
+                }
+            }
+        }
+        
         // 游戏循环
         function gameLoop(currentTime) {
             // 帧率限制：跳过过快的帧
@@ -1074,6 +1153,11 @@
             if (sceneManager) {
                 sceneManager.update(deltaTime);
                 sceneManager.render(ctx);
+                
+                // 根据战斗状态切换攻击/交互按钮外观
+                updateAttackButtonMode();
+                // 更新红瓶/蓝瓶图标与数量
+                updatePotionButtons();
                 
                 // 对话框由场景自己渲染，这里不需要重复渲染
                 
@@ -1656,7 +1740,11 @@
                     // 可使用物品：生命/魔法药水
                     if (currentScene.usePotionFromHotbar) currentScene.usePotionFromHotbar(btn.dataset.potion);
                 } else if (btn.dataset.act === 'attack') {
+                    // 攻击按钮兼做"交互(e)"和"前进(n)"：
+                    // 同时派发 e/n 键（仅在对应场景状态下才会真正生效），并发起一次攻击
                     if (currentScene.attackByFacing) currentScene.attackByFacing();
+                    tapKey('e');
+                    tapKey('n');
                 } else if (btn.dataset.act === 'flight') {
                     if (currentScene.flightByFacing) currentScene.flightByFacing();
                 } else if (btn.dataset.act === 'throw') {
@@ -1680,10 +1768,12 @@
             }
             
             // 圆形动作按钮 + 底部快捷栏按钮，统一绑定
+            // 圆形动作按钮 + 底部快捷栏按钮，统一绑定
+            // 用 lastTouchTime 防止触摸后浏览器合成的 mouse 事件造成"双触发"
+            // （toggle 类按钮双触发会相互抵消，导致看起来打不开/关不掉）
+            let lastTouchTime = 0;
             document.querySelectorAll('.action-btn, .hotbar-btn').forEach(btn => {
-                const press = (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
+                const doPress = () => {
                     btn.classList.add('pressed');
                     if (btn.dataset.key !== undefined) {
                         tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
@@ -1691,14 +1781,27 @@
                         triggerAction(btn);
                     }
                 };
+                const onTouch = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    lastTouchTime = Date.now();
+                    doPress();
+                };
+                const onMouse = (e) => {
+                    // 触摸后 600ms 内忽略合成的鼠标事件
+                    if (Date.now() - lastTouchTime < 600) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    doPress();
+                };
                 const release = (e) => {
                     e.preventDefault();
                     btn.classList.remove('pressed');
                 };
-                btn.addEventListener('touchstart', press, { passive: false });
+                btn.addEventListener('touchstart', onTouch, { passive: false });
                 btn.addEventListener('touchend', release, { passive: false });
                 btn.addEventListener('touchcancel', release, { passive: false });
-                btn.addEventListener('mousedown', press);
+                btn.addEventListener('mousedown', onMouse);
                 btn.addEventListener('mouseup', release);
             });
         }

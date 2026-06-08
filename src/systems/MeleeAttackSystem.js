@@ -652,7 +652,7 @@ export class MeleeAttackSystem {
         ctx.font = 'bold 11px Arial';
         ctx.textAlign = 'center';
         ctx.fillStyle = arrowCount > 10 ? '#88ccff' : arrowCount > 0 ? '#ffaa44' : '#ff4444';
-        ctx.fillText(`🏹 ${arrowCount}`, cx, transform.position.y - spriteHeight - 24);
+        ctx.fillText(`${arrowCount}`, cx, transform.position.y - spriteHeight - 24);
       }
     }
     

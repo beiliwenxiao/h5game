@@ -255,8 +255,7 @@ export class BaseGameScene extends PrologueScene {
       }
     });
     
-    // 设置战斗脱离延迟为20秒（与原来一致）
-    this.combatSystem.combatState.combatExitDelay = 20;
+    // 战斗脱离延迟由 CombatSystem 默认配置决定（combatState.combatExitDelay）
     
     // 设置药水快捷键回调
     this.combatSystem.onPotionUse = (potionType) => {

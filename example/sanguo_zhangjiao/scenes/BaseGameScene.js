@@ -770,20 +770,29 @@ export class BaseGameScene extends PrologueScene {
    */
   setSkillAimPreview(index, dirX, dirY, distRatio) {
     if (!this.playerEntity) { this.skillAimPreview = null; return; }
-    const combat = this.playerEntity.getComponent('combat');
-    if (!combat || !combat.skills || !combat.skills[index]) { this.skillAimPreview = null; return; }
-    const skill = combat.skills[index];
-    if (skill.id === 'heal' || skill.id === 'meditation') { this.skillAimPreview = null; return; }
     
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) { this.skillAimPreview = null; return; }
     
+    let skill, range;
+    if (index === -1) {
+      // 攻击按钮：使用武器攻击距离作为"射程"
+      const attackRange = this.meleeAttackSystem ? this.meleeAttackSystem.sliceAttackRange : 100;
+      skill = { id: 'melee_attack', name: '攻击', range: attackRange, aoeRadius: 60 };
+      range = attackRange;
+    } else {
+      const combat = this.playerEntity.getComponent('combat');
+      if (!combat || !combat.skills || !combat.skills[index]) { this.skillAimPreview = null; return; }
+      skill = combat.skills[index];
+      if (skill.id === 'heal' || skill.id === 'meditation') { this.skillAimPreview = null; return; }
+      range = skill.range || 300;
+    }
+    
     const mag = Math.sqrt(dirX * dirX + dirY * dirY);
     const dx = mag > 0 ? dirX / mag : 0;
     const dy = mag > 0 ? dirY / mag : 0;
-    const range = skill.range || 300;
     // 拖拽距离映射到实际射程(ratio 0~1 映射到 0~range)
-    const actualDist = Math.min(distRatio, 1.5) * range; // 允许超出1.0以显示红色
+    const actualDist = Math.min(distRatio, 1.5) * range;
     const inRange = distRatio <= 1.0;
     
     this.skillAimPreview = {
@@ -796,7 +805,7 @@ export class BaseGameScene extends PrologueScene {
       color: inRange ? '#00ff00' : '#ff4444'
     };
     
-    // 首次设置时初始化显示位置为当前目标（避免从0,0开始lerp）
+    // 首次设置时初始化显示位置
     if (this._aimDisplayX === 0 && this._aimDisplayY === 0) {
       this._aimDisplayX = this.skillAimPreview.targetX;
       this._aimDisplayY = this.skillAimPreview.targetY;
@@ -848,6 +857,12 @@ export class BaseGameScene extends PrologueScene {
       // 终点圆
       ctx.beginPath();
       ctx.ellipse(dispX, dispY, 50, 25, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (skill.id === 'melee_attack') {
+      // 近战攻击：扇形/小圆范围
+      const radius = skill.aoeRadius || 60;
+      ctx.beginPath();
+      ctx.ellipse(dispX, dispY, radius, radius * 0.5, 0, 0, Math.PI * 2);
       ctx.stroke();
     } else {
       // 圆形 AOE（火焰掌/烈焰掌等）
@@ -911,6 +926,34 @@ export class BaseGameScene extends PrologueScene {
     this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
     this.meleeAttackSystem.setEntities(this.entities);
     this.meleeAttackSystem.sectorDirection = Math.atan2(d.y, d.x);
+    this.meleeAttackSystem.sectorIsRanged = this.meleeAttackSystem.checkIsRangedWeapon();
+    this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000);
+  }
+
+  /**
+   * 触屏：按指定方向发起扇形攻击（瞄准后释放）
+   * @param {number} dirX - 方向 X
+   * @param {number} dirY - 方向 Y
+   * @param {number} [distRatio=1] - 距离比例(未用于攻击距离,但保持接口一致)
+   */
+  attackByDirection(dirX, dirY, distRatio) {
+    if (!this.playerEntity || !this.meleeAttackSystem) return;
+    if (!this.combatSystem || !this.combatSystem.isInCombat || !this.combatSystem.isInCombat()) {
+      return;
+    }
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const sprite = this.playerEntity.getComponent('sprite');
+    const spriteHeight = sprite?.height || 64;
+    const playerCenter = {
+      x: transform.position.x,
+      y: transform.position.y - spriteHeight / 2
+    };
+    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+    const angle = mag > 0 ? Math.atan2(dirY, dirX) : Math.atan2(0, 1);
+    this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
+    this.meleeAttackSystem.setEntities(this.entities);
+    this.meleeAttackSystem.sectorDirection = angle;
     this.meleeAttackSystem.sectorIsRanged = this.meleeAttackSystem.checkIsRangedWeapon();
     this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000);
   }

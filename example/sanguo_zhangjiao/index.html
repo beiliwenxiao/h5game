@@ -687,9 +687,17 @@
         
         // Canvas 自适应容器大小
         function resizeCanvas() {
-            const container = canvas.parentElement;
-            const cw = container ? container.clientWidth : window.innerWidth;
-            const ch = container ? container.clientHeight : window.innerHeight;
+            const rotate = document.body.classList.contains('force-landscape');
+            let cw, ch;
+            if (rotate) {
+                // 旋转模式：容器 CSS 宽=100vh，高=100vw，即逻辑宽为屏幕高，逻辑高为屏幕宽
+                cw = window.innerHeight;
+                ch = window.innerWidth;
+            } else {
+                const container = canvas.parentElement;
+                cw = container ? container.clientWidth : window.innerWidth;
+                ch = container ? container.clientHeight : window.innerHeight;
+            }
             canvas.width = cw;
             canvas.height = ch;
             
@@ -702,6 +710,14 @@
                 }
             }
         }
+        // 首次加载时检测是否需要竖屏旋转，确保第一帧尺寸正确
+        (function initForceLandscape() {
+            const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+            const portrait = window.innerHeight > window.innerWidth;
+            if (isTouch && portrait) {
+                document.body.classList.add('force-landscape');
+            }
+        })();
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
         
@@ -1741,11 +1757,7 @@
                     // 可使用物品：生命/魔法药水
                     if (currentScene.usePotionFromHotbar) currentScene.usePotionFromHotbar(btn.dataset.potion);
                 } else if (btn.dataset.act === 'attack') {
-                    // 攻击按钮兼做"交互(e)"和"前进(n)"：
-                    // 同时派发 e/n 键（仅在对应场景状态下才会真正生效），并发起一次攻击
-                    if (currentScene.attackByFacing) currentScene.attackByFacing();
-                    tapKey('e');
-                    tapKey('n');
+                    // 攻击按钮现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.act === 'flight') {
                     if (currentScene.flightByFacing) currentScene.flightByFacing();
                 } else if (btn.dataset.act === 'throw') {
@@ -1914,16 +1926,30 @@
                 
                 const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
                 if (currentScene) {
-                    if (dist > 10 && distRatio <= 1.0 && currentScene.useSkillByDirection) {
-                        // 在射程内且有方向拖拽 → 按指定方向和距离释放
-                        currentScene.useSkillByDirection(skillAim.skillIndex, dx, dy, distRatio);
+                    if (dist > 10 && distRatio <= 1.0) {
+                        // 在范围内且有方向拖拽 → 释放
+                        if (skillAim.skillIndex === ATTACK_AIM_INDEX) {
+                            // 攻击按钮
+                            if (currentScene.attackByDirection) {
+                                currentScene.attackByDirection(dx, dy, distRatio);
+                            }
+                        } else {
+                            // 技能按钮
+                            if (currentScene.useSkillByDirection) {
+                                currentScene.useSkillByDirection(skillAim.skillIndex, dx, dy, distRatio);
+                            }
+                        }
                     } else if (dist <= 10) {
                         // 没拖或拖动极小 → 按默认朝向释放
-                        if (currentScene.useSkillByIndex) {
-                            currentScene.useSkillByIndex(skillAim.skillIndex);
+                        if (skillAim.skillIndex === ATTACK_AIM_INDEX) {
+                            if (currentScene.attackByFacing) currentScene.attackByFacing();
+                        } else {
+                            if (currentScene.useSkillByIndex) {
+                                currentScene.useSkillByIndex(skillAim.skillIndex);
+                            }
                         }
                     }
-                    // 超出射程(distRatio > 1.0 && dist > 10) → 不释放技能
+                    // 超出范围(distRatio > 1.0 && dist > 10) → 不释放(取消)
                     
                     // 清除游戏世界中的落点预览
                     if (currentScene.clearSkillAimPreview) {
@@ -1958,15 +1984,24 @@
             
             // 需要瞄准的技能索引集合（技能3/4/5 = 索引 0/1/2）
             const AIM_SKILLS = new Set([0, 1, 2]);
+            // 攻击按钮也走瞄准流程,用 -1 标识
+            const ATTACK_AIM_INDEX = -1;
             
             document.querySelectorAll('.action-btn, .hotbar-btn').forEach(btn => {
                 const isAimSkill = btn.dataset.skill !== undefined && AIM_SKILLS.has(parseInt(btn.dataset.skill, 10));
+                const isAttackBtn = btn.dataset.act === 'attack';
                 
                 const doPress = (clientX, clientY) => {
                     btn.classList.add('pressed');
                     if (isAimSkill) {
-                        // 进入瞄准模式，不立即释放技能
+                        // 进入技能瞄准模式
                         startSkillAim(btn, parseInt(btn.dataset.skill, 10), clientX, clientY);
+                    } else if (isAttackBtn) {
+                        // 攻击按钮也进入瞄准模式
+                        startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY);
+                        // 同时派发 e/n (交互/前进),不受瞄准影响
+                        tapKey('e');
+                        tapKey('n');
                     } else if (btn.dataset.key !== undefined) {
                         tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
                     } else {
@@ -1988,8 +2023,8 @@
                 };
                 const release = (e) => {
                     e.preventDefault();
-                    if (isAimSkill && skillAim.active) {
-                        // 瞄准技能释放由全局 touchend/mouseup 处理
+                    if ((isAimSkill || isAttackBtn) && skillAim.active) {
+                        // 瞄准按钮释放由全局 touchend/mouseup 处理
                         return;
                     }
                     btn.classList.remove('pressed');
@@ -2010,9 +2045,15 @@
             const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
             const portrait = window.innerHeight > window.innerWidth;
             const rotate = isTouch && portrait;
+            const wasRotate = document.body.classList.contains('force-landscape');
             document.body.classList.toggle('force-landscape', rotate);
-            // 旋转后容器尺寸变化，重算 canvas 尺寸
-            resizeCanvas();
+            // 旋转后容器尺寸变化，需等 CSS 生效后再重算 canvas 尺寸
+            if (rotate !== wasRotate) {
+                // 类名切换后延迟一帧让布局生效
+                requestAnimationFrame(() => { resizeCanvas(); });
+            } else {
+                resizeCanvas();
+            }
             return rotate;
         }
         

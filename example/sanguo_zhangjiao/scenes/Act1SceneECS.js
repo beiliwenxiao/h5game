@@ -1540,6 +1540,10 @@ export class Act1SceneECS extends BaseGameScene {
         this.tutorialsCompleted.combat = true;
         this.combatComplete = true;
         console.log('Act1SceneECS: combatComplete=true, 等待 updateTutorialPhase 触发 onComplete');
+        // 强制退出战斗状态（停止倒计时），让玩家可以立即前进
+        if (this.combatSystem && this.combatSystem.isInCombat()) {
+          this.combatSystem.exitCombat();
+        }
       } else if (this.combatWave === 1) {
         // 饥民波次：所有饥民都已生成且全部死亡后触发死亡
         if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) {

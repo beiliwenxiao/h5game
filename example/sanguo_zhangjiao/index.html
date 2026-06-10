@@ -363,14 +363,14 @@
             position: absolute;
             left: 0;
             bottom: 0;
-            width: 40%;
-            max-width: 360px;
+            width: 30%;
+            max-width: 280px;
             height: 55%;
             pointer-events: auto;
             touch-action: none;
             -webkit-user-select: none;
             user-select: none;
-            z-index: 1;
+            z-index: 0;
         }
         
         #joystick-canvas {
@@ -1789,11 +1789,13 @@
                 active: false,      // 是否正在瞄准
                 skillIndex: -1,     // 技能索引
                 btn: null,          // 按下的按钮元素
+                touchId: -1,        // 触摸点 identifier（区分多指）
                 startX: 0,          // 按下时手指屏幕坐标
                 startY: 0,
                 curX: 0,            // 当前手指屏幕坐标
                 curY: 0,
-                radius: 50,         // 瞄准圆半径（像素，屏幕坐标）
+                radius: 100,        // 瞄准圆半径（像素，屏幕坐标）—— 拖拽此距离 = 最大射程
+                anchorWorldPos: null, // 按下瞄准时的玩家世界坐标（锚点）
             };
             // 瞄准圆渲染(画在 joystick overlay canvas 上)
             const aimCvs = document.getElementById('joystick-overlay');
@@ -1834,7 +1836,7 @@
             const aimStyle = document.createElement('style');
             aimStyle.textContent = `
                 #skill-aim-indicator {
-                    width: 120px; height: 120px;
+                    width: 200px; height: 200px;
                     transform: translate(-50%, -50%);
                 }
                 #skill-aim-indicator .aim-ring {
@@ -1850,20 +1852,28 @@
                     background: #8BC34A;
                     clip-path: polygon(100% 50%, 0 0, 0 100%);
                     transform-origin: center center;
-                    transform: rotate(0deg) translateX(40px);
+                    transform: rotate(0deg) translateX(80px);
                     display: none;
                 }
             `;
             document.head.appendChild(aimStyle);
             
-            function startSkillAim(btn, skillIdx, clientX, clientY) {
+            function startSkillAim(btn, skillIdx, clientX, clientY, touchId) {
                 skillAim.active = true;
                 skillAim.skillIndex = skillIdx;
                 skillAim.btn = btn;
+                skillAim.touchId = touchId !== undefined ? touchId : -1;
                 skillAim.startX = clientX;
                 skillAim.startY = clientY;
                 skillAim.curX = clientX;
                 skillAim.curY = clientY;
+                // 记录瞄准开始时玩家世界坐标作为锚点
+                const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                skillAim.anchorWorldPos = null;
+                if (currentScene && currentScene.playerEntity) {
+                    const t = currentScene.playerEntity.getComponent('transform');
+                    if (t) skillAim.anchorWorldPos = { x: t.position.x, y: t.position.y };
+                }
                 // 显示瞄准圈在按钮中心
                 aimIndicator.style.display = 'block';
                 aimIndicator.style.left = clientX + 'px';
@@ -1875,9 +1885,8 @@
                 // 让被按的按钮自身半透明,不遮挡瞄准圈
                 btn.style.opacity = '0.25';
                 // 初始时落点在玩家自身(distRatio=0)
-                const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
                 if (currentScene && currentScene.setSkillAimPreview) {
-                    currentScene.setSkillAimPreview(skillIdx, 1, 0, 0);
+                    currentScene.setSkillAimPreview(skillIdx, 1, 0, 0, skillAim.anchorWorldPos);
                 }
             }
             
@@ -1898,7 +1907,7 @@
                 if (dist > 2) {
                     const ang = Math.atan2(dy, dx) * 180 / Math.PI;
                     arrow.style.display = 'block';
-                    arrow.style.transform = `rotate(${ang}deg) translateX(40px)`;
+                    arrow.style.transform = `rotate(${ang}deg) translateX(80px)`;
                     // 范围内绿色,范围外红色
                     const inRange = distRatio <= 1.0;
                     arrow.style.background = inRange ? '#8BC34A' : '#ff4444';
@@ -1906,13 +1915,19 @@
                         inRange ? 'rgba(139,195,74,0.85)' : 'rgba(255,68,68,0.85)';
                     // 更新游戏世界中的技能落点预览
                     if (currentScene && currentScene.setSkillAimPreview) {
-                        currentScene.setSkillAimPreview(skillAim.skillIndex, dx, dy, distRatio);
+                        currentScene.setSkillAimPreview(skillAim.skillIndex, dx, dy, distRatio, skillAim.anchorWorldPos);
+                    }
+                    // 攻击按钮：拖动时让扇形方向跟随手指（不攻击，仅更新方向指示）
+                    if (skillAim.skillIndex === ATTACK_AIM_INDEX && currentScene && currentScene.meleeAttackSystem) {
+                        const ang = Math.atan2(dy, dx);
+                        currentScene.meleeAttackSystem.sectorDirection = ang;
+                        currentScene.meleeAttackSystem.sectorDirectionLocked = true;
                     }
                 } else {
                     arrow.style.display = 'none';
                     // 距离极小:保持在玩家正前方极近处（使用上次方向或默认朝向）
                     if (currentScene && currentScene.setSkillAimPreview) {
-                        currentScene.setSkillAimPreview(skillAim.skillIndex, dx || 1, dy || 0, distRatio);
+                        currentScene.setSkillAimPreview(skillAim.skillIndex, dx || 1, dy || 0, distRatio, skillAim.anchorWorldPos);
                     }
                 }
             }
@@ -1929,14 +1944,33 @@
                     if (dist > 10 && distRatio <= 1.0) {
                         // 在范围内且有方向拖拽 → 释放
                         if (skillAim.skillIndex === ATTACK_AIM_INDEX) {
-                            // 攻击按钮
+                            // 攻击按钮：从当前玩家位置到预览圈位置计算实际发射方向
                             if (currentScene.attackByDirection) {
-                                currentScene.attackByDirection(dx, dy, distRatio);
+                                // 如果有预览圈（远程），用预览圈世界坐标计算方向
+                                if (currentScene.skillAimPreview && currentScene.playerEntity) {
+                                    const t = currentScene.playerEntity.getComponent('transform');
+                                    if (t) {
+                                        const realDx = currentScene.skillAimPreview.targetX - t.position.x;
+                                        const realDy = currentScene.skillAimPreview.targetY - t.position.y;
+                                        currentScene.attackByDirection(realDx, realDy, distRatio);
+                                    } else {
+                                        currentScene.attackByDirection(dx, dy, distRatio);
+                                    }
+                                } else {
+                                    currentScene.attackByDirection(dx, dy, distRatio);
+                                }
                             }
                         } else {
-                            // 技能按钮
+                            // 技能按钮：使用预览圈世界坐标作为技能目标
                             if (currentScene.useSkillByDirection) {
-                                currentScene.useSkillByDirection(skillAim.skillIndex, dx, dy, distRatio);
+                                let targetWorldPos = null;
+                                if (currentScene.skillAimPreview) {
+                                    targetWorldPos = {
+                                        x: currentScene.skillAimPreview.targetX,
+                                        y: currentScene.skillAimPreview.targetY
+                                    };
+                                }
+                                currentScene.useSkillByDirection(skillAim.skillIndex, dx, dy, distRatio, targetWorldPos);
                             }
                         }
                     } else if (dist <= 10) {
@@ -1971,15 +2005,37 @@
             
             // 全局 touch/mouse move 用于技能瞄准拖拽
             window.addEventListener('touchmove', (e) => {
-                if (skillAim.active && e.touches.length > 0) {
-                    moveSkillAim(e.touches[0].clientX, e.touches[0].clientY);
+                if (!skillAim.active) return;
+                // 用 touch identifier 找到瞄准手指
+                for (let i = 0; i < e.touches.length; i++) {
+                    if (e.touches[i].identifier === skillAim.touchId) {
+                        moveSkillAim(e.touches[i].clientX, e.touches[i].clientY);
+                        return;
+                    }
                 }
             }, { passive: true });
             window.addEventListener('mousemove', (e) => {
                 if (skillAim.active) moveSkillAim(e.clientX, e.clientY);
             });
-            window.addEventListener('touchend', (e) => { if (skillAim.active) endSkillAim(); });
-            window.addEventListener('touchcancel', (e) => { if (skillAim.active) endSkillAim(); });
+            window.addEventListener('touchend', (e) => {
+                if (!skillAim.active) return;
+                // 只有瞄准手指抬起才结束
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === skillAim.touchId) {
+                        endSkillAim();
+                        return;
+                    }
+                }
+            });
+            window.addEventListener('touchcancel', (e) => {
+                if (!skillAim.active) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    if (e.changedTouches[i].identifier === skillAim.touchId) {
+                        endSkillAim();
+                        return;
+                    }
+                }
+            });
             window.addEventListener('mouseup', (e) => { if (skillAim.active) endSkillAim(); });
             
             // 需要瞄准的技能索引集合（技能3/4/5 = 索引 0/1/2）
@@ -1991,17 +2047,20 @@
                 const isAimSkill = btn.dataset.skill !== undefined && AIM_SKILLS.has(parseInt(btn.dataset.skill, 10));
                 const isAttackBtn = btn.dataset.act === 'attack';
                 
-                const doPress = (clientX, clientY) => {
+                const doPress = (clientX, clientY, touchId) => {
                     btn.classList.add('pressed');
                     if (isAimSkill) {
                         // 进入技能瞄准模式
-                        startSkillAim(btn, parseInt(btn.dataset.skill, 10), clientX, clientY);
+                        startSkillAim(btn, parseInt(btn.dataset.skill, 10), clientX, clientY, touchId);
                     } else if (isAttackBtn) {
-                        // 攻击按钮也进入瞄准模式
-                        startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY);
-                        // 同时派发 e/n (交互/前进),不受瞄准影响
-                        tapKey('e');
-                        tapKey('n');
+                        // 交互模式（非战斗）不进入瞄准，直接派发交互键
+                        if (btn.classList.contains('interact-mode')) {
+                            tapKey('e');
+                            tapKey('n');
+                        } else {
+                            // 攻击按钮进入瞄准模式
+                            startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY, touchId);
+                        }
                     } else if (btn.dataset.key !== undefined) {
                         tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
                     } else {
@@ -2013,13 +2072,13 @@
                     e.stopPropagation();
                     lastTouchTime = Date.now();
                     const t = e.changedTouches[0];
-                    doPress(t.clientX, t.clientY);
+                    doPress(t.clientX, t.clientY, t.identifier);
                 };
                 const onMouse = (e) => {
                     if (Date.now() - lastTouchTime < 600) return;
                     e.preventDefault();
                     e.stopPropagation();
-                    doPress(e.clientX, e.clientY);
+                    doPress(e.clientX, e.clientY, -1);
                 };
                 const release = (e) => {
                     e.preventDefault();

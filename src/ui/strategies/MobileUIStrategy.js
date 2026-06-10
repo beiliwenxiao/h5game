@@ -71,9 +71,20 @@ export class MobileUIStrategy extends UIStrategy {
    */
   layoutPlayerInfoPanel(panel, width, height) {
     if (!panel) return;
-    panel.x = 10;
-    const bottomGap = 78;
+    panel.x = Math.round((width - panel.width) / 2);
+    const bottomGap = 68;
     panel.y = Math.max(10, height - bottomGap - panel.height);
+  }
+
+  /**
+   * 移动端角色面板选项：横排、更宽更矮
+   */
+  getPlayerInfoOptions() {
+    return {
+      width: 420,
+      height: 280,
+      horizontalLayout: true
+    };
   }
 }
 

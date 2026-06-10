@@ -35,6 +35,9 @@ export class PlayerInfoPanel extends UIElement {
     this.padding = 15;
     this.lineHeight = 20;
     
+    // 横排布局（移动端：属性左侧,装备右侧,面板更矮更宽）
+    this.horizontalLayout = options.horizontalLayout || false;
+    
     // 装备槽尺寸
     this.equipSlotSize = 50;
     this.equipSlotPadding = 8;
@@ -111,6 +114,111 @@ export class PlayerInfoPanel extends UIElement {
   }
 
   /**
+   * 横排布局渲染（移动端：左侧属性 + 右侧装备，面板更矮更宽）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  renderHorizontal(ctx) {
+    const stats = this.player.getComponent('stats');
+    const equipment = this.player.getComponent('equipment');
+    if (!stats) return;
+
+    // 背景 + 边框
+    ctx.fillStyle = this.backgroundColor;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.strokeStyle = this.borderColor;
+    ctx.lineWidth = this.borderWidth;
+    ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+    const pad = 12;
+    const leftW = Math.floor(this.width * 0.4); // 左侧属性占 40%
+    const rightX = this.x + leftW;
+
+    // ===== 左侧：角色名 + 属性 =====
+    let ly = this.y + pad;
+    const className = this.classNames[this.player.class] || this.player.class;
+    ctx.fillStyle = this.textColor;
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'left';
+    ctx.fillText(className, this.x + pad, ly);
+    ly += 20;
+
+    ctx.fillStyle = this.labelColor;
+    ctx.font = '12px Arial';
+    ctx.fillText(`Lv.${stats.level}`, this.x + pad, ly);
+    ly += 20;
+
+    // 属性列表
+    const attributes = [
+      { label: 'HP', value: `${Math.round(stats.hp)}/${stats.maxHp}`, color: '#ff4444' },
+      { label: 'MP', value: `${Math.round(stats.mp)}/${stats.maxMp}`, color: '#4444ff' },
+      { label: '攻击', value: stats.attack, color: '#ffaa00' },
+      { label: '防御', value: stats.defense, color: '#00aaff' },
+      { label: '速度', value: stats.speed, color: '#00ff00' }
+    ];
+    ctx.font = '12px Arial';
+    for (const attr of attributes) {
+      ctx.fillStyle = this.labelColor;
+      ctx.fillText(`${attr.label}:`, this.x + pad, ly);
+      ctx.fillStyle = attr.color;
+      ctx.fillText(attr.value.toString(), this.x + pad + 45, ly);
+      ly += 18;
+    }
+
+    // ===== 右侧：装备槽 3×4 =====
+    const slotSize = 50;
+    const slotGap = 5;
+    const cols = 3;
+    const totalSlotsWidth = cols * slotSize + (cols - 1) * slotGap;
+    const eqStartX = rightX + (this.width - leftW - totalSlotsWidth) / 2;
+    let eqStartY = this.y + pad;
+
+    ctx.fillStyle = this.borderColor;
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('装备', rightX + (this.width - leftW) / 2, eqStartY);
+    eqStartY += 20;
+
+    this.equipSlots = {};
+    for (const [slotType, pos] of Object.entries(this.equipSlotPositions)) {
+      const sx = eqStartX + pos.col * (slotSize + slotGap);
+      const sy = eqStartY + pos.row * (slotSize + slotGap);
+
+      // 保存槽位位置(用于点击检测)
+      this.equipSlots[slotType] = { x: sx, y: sy, width: slotSize, height: slotSize };
+
+      // 背景
+      const isHov = this.hoveredEquipSlot === slotType;
+      ctx.fillStyle = isHov ? 'rgba(100,150,255,0.3)' : 'rgba(60,60,60,0.5)';
+      ctx.fillRect(sx, sy, slotSize, slotSize);
+      ctx.strokeStyle = isHov ? '#4a9eff' : '#555';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx, sy, slotSize, slotSize);
+
+      // 装备图标
+      const equippedItem = equipment && equipment.slots ? equipment.slots[slotType] : null;
+      if (equippedItem) {
+        ItemIconRenderer.drawIcon(ctx, equippedItem, sx + slotSize / 2, sy + slotSize / 2, slotSize * 0.8);
+        if (equippedItem.quantity > 1) {
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px Arial';
+          ctx.textAlign = 'right';
+          ctx.fillText(`${equippedItem.quantity}`, sx + slotSize - 2, sy + slotSize - 2);
+        }
+      } else {
+        // 空槽标签
+        ctx.fillStyle = '#555';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(pos.label.substring(0, 2), sx + slotSize / 2, sy + slotSize / 2 + 3);
+      }
+    }
+    ctx.textAlign = 'left';
+
+    // tooltip(复用现有)
+    this.renderEquipmentTooltip(ctx, equipment);
+  }
+
+  /**
    * 更新面板
    * @param {number} deltaTime - 帧间隔时间（毫秒）
    */
@@ -124,6 +232,11 @@ export class PlayerInfoPanel extends UIElement {
    */
   render(ctx) {
     if (!this.visible || !this.player) return;
+
+    if (this.horizontalLayout) {
+      this.renderHorizontal(ctx);
+      return;
+    }
 
     // 绘制背景
     ctx.fillStyle = this.backgroundColor;

@@ -310,7 +310,10 @@ export class BaseGameScene extends PrologueScene {
     });
     
     // 初始化近战攻击系统
-    this.meleeAttackSystem = new MeleeAttackSystem();
+    this.meleeAttackSystem = new MeleeAttackSystem({
+      disableAutoAttack: this.isMobileLayout,
+      hideSectorWhenIdle: this.isMobileLayout
+    });
     this.meleeAttackSystem.init({
       inputManager: this.inputManager,
       combatSystem: this.combatSystem,
@@ -423,12 +426,15 @@ export class BaseGameScene extends PrologueScene {
    * 初始化 UI 面板
    */
   initializeUIPanels() {
-    // 角色信息面板（包含装备）- 左下角，底部控制栏上方
+    // 角色信息面板（包含装备）
+    const piOpts = (this.uiStrategy && this.uiStrategy.getPlayerInfoOptions)
+      ? this.uiStrategy.getPlayerInfoOptions() : null;
     this.playerInfoPanel = new PlayerInfoPanel({
       x: 10,
-      y: this.logicalHeight - 100 - 580,
-      width: 320,
-      height: 580,
+      y: this.logicalHeight - 100 - (piOpts?.height || 580),
+      width: piOpts?.width || 320,
+      height: piOpts?.height || 580,
+      horizontalLayout: piOpts?.horizontalLayout || false,
       visible: false,
       onAttributeAllocate: (player) => {
         console.log('BaseGameScene: 属性加点按钮被点击');
@@ -723,7 +729,7 @@ export class BaseGameScene extends PrologueScene {
    * @param {number} dirY - 方向 Y（归一化前）
    * @param {number} [distRatio=1] - 距离比例(0~1)，1=最大射程
    */
-  useSkillByDirection(index, dirX, dirY, distRatio) {
+  useSkillByDirection(index, dirX, dirY, distRatio, targetWorldPos) {
     if (!this.playerEntity || !this.combatSystem) return;
     const combat = this.playerEntity.getComponent('combat');
     if (!combat || !combat.skills) return;
@@ -739,17 +745,23 @@ export class BaseGameScene extends PrologueScene {
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
 
-    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
-    const dx = mag > 0 ? dirX / mag : 1;
-    const dy = mag > 0 ? dirY / mag : 0;
-    const range = skill.range || 300;
-    // 距离比例与预览一致（distRatio 0~1 映射到 0~range）
-    const ratio = (distRatio !== undefined) ? Math.min(distRatio, 1.0) : 1.0;
-    const actualDist = ratio * range;
-    const target = {
-      x: transform.position.x + dx * actualDist,
-      y: transform.position.y + dy * actualDist
-    };
+    let target;
+    if (targetWorldPos) {
+      // 使用传入的世界坐标（预览圈位置，不受玩家移动影响）
+      target = { x: targetWorldPos.x, y: targetWorldPos.y };
+    } else {
+      const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+      const dx = mag > 0 ? dirX / mag : 1;
+      const dy = mag > 0 ? dirY / mag : 0;
+      const range = skill.range || 300;
+      // 距离比例与预览一致（distRatio 0~1 映射到 0~range）
+      const ratio = (distRatio !== undefined) ? Math.min(distRatio, 1.0) : 1.0;
+      const actualDist = ratio * range;
+      target = {
+        x: transform.position.x + dx * actualDist,
+        y: transform.position.y + dy * actualDist
+      };
+    }
 
     const currentTime = performance.now();
     this.combatSystem.tryUseSkillAtPosition(
@@ -767,8 +779,9 @@ export class BaseGameScene extends PrologueScene {
    * @param {number} dirX - 方向 X
    * @param {number} dirY - 方向 Y
    * @param {number} distRatio - 拖拽距离占瞄准圈的比例(0~1+),1=最大射程
+   * @param {Object} [anchorPos] - 锚点位置(世界坐标),用于固定预览圈到世界中（玩家移动时预览圈不动）
    */
-  setSkillAimPreview(index, dirX, dirY, distRatio) {
+  setSkillAimPreview(index, dirX, dirY, distRatio, anchorPos) {
     if (!this.playerEntity) { this.skillAimPreview = null; return; }
     
     const transform = this.playerEntity.getComponent('transform');
@@ -776,10 +789,25 @@ export class BaseGameScene extends PrologueScene {
     
     let skill, range;
     if (index === -1) {
-      // 攻击按钮：使用武器攻击距离作为"射程"
+      // 攻击按钮：区分近战/远程
+      const isRanged = this.meleeAttackSystem ? this.meleeAttackSystem.checkIsRangedWeapon() : false;
+      if (!isRanged) {
+        // 近战攻击不显示瞄准预览
+        this.skillAimPreview = null;
+        return;
+      }
+      // 远程攻击：使用武器攻击距离作为射程
       const attackRange = this.meleeAttackSystem ? this.meleeAttackSystem.sliceAttackRange : 100;
-      skill = { id: 'melee_attack', name: '攻击', range: attackRange, aoeRadius: 60 };
-      range = attackRange;
+      const equipComp = this.playerEntity.getComponent('equipment');
+      let weaponAttackDistance = attackRange;
+      if (equipComp) {
+        const mainhand = equipComp.getEquipment('mainhand');
+        if (mainhand && mainhand.attackDistance != null) {
+          weaponAttackDistance = mainhand.attackDistance;
+        }
+      }
+      skill = { id: 'ranged_attack', name: '远程攻击', range: weaponAttackDistance, aoeRadius: 20 };
+      range = weaponAttackDistance;
     } else {
       const combat = this.playerEntity.getComponent('combat');
       if (!combat || !combat.skills || !combat.skills[index]) { this.skillAimPreview = null; return; }
@@ -795,10 +823,14 @@ export class BaseGameScene extends PrologueScene {
     const actualDist = Math.min(distRatio, 1.5) * range;
     const inRange = distRatio <= 1.0;
     
+    // 预览圈位置基于锚点（如有）或当前玩家位置
+    const baseX = anchorPos ? anchorPos.x : transform.position.x;
+    const baseY = anchorPos ? anchorPos.y : transform.position.y;
+    
     this.skillAimPreview = {
       skill,
-      targetX: transform.position.x + dx * actualDist,
-      targetY: transform.position.y + dy * actualDist,
+      targetX: baseX + dx * actualDist,
+      targetY: baseY + dy * actualDist,
       startX: transform.position.x,
       startY: transform.position.y,
       inRange: inRange,
@@ -819,6 +851,14 @@ export class BaseGameScene extends PrologueScene {
     this.skillAimPreview = null;
     this._aimDisplayX = 0;
     this._aimDisplayY = 0;
+    // 延迟解锁攻击方向,确保当前帧 performSectorAttack 的方向不被覆盖
+    if (this.meleeAttackSystem) {
+      setTimeout(() => {
+        if (this.meleeAttackSystem) {
+          this.meleeAttackSystem.sectorDirectionLocked = false;
+        }
+      }, 50);
+    }
   }
 
   /**
@@ -827,7 +867,18 @@ export class BaseGameScene extends PrologueScene {
    */
   renderSkillAimPreview(ctx) {
     if (!this.skillAimPreview) return;
-    const { skill, targetX, targetY, startX, startY, color } = this.skillAimPreview;
+    const { skill, targetX, targetY, color } = this.skillAimPreview;
+    
+    // 起点始终用玩家当前位置（玩家移动时路径角度实时更新）
+    let startX = this.skillAimPreview.startX;
+    let startY = this.skillAimPreview.startY;
+    if (this.playerEntity) {
+      const t = this.playerEntity.getComponent('transform');
+      if (t) {
+        startX = t.position.x;
+        startY = t.position.y;
+      }
+    }
     
     const dispX = targetX;
     const dispY = targetY;
@@ -858,9 +909,9 @@ export class BaseGameScene extends PrologueScene {
       ctx.beginPath();
       ctx.ellipse(dispX, dispY, 50, 25, 0, 0, Math.PI * 2);
       ctx.stroke();
-    } else if (skill.id === 'melee_attack') {
-      // 近战攻击：扇形/小圆范围
-      const radius = skill.aoeRadius || 60;
+    } else if (skill.id === 'ranged_attack') {
+      // 远程攻击：在中心箭矢落点处画小圆（指示目标位置）
+      const radius = skill.aoeRadius || 20;
       ctx.beginPath();
       ctx.ellipse(dispX, dispY, radius, radius * 0.5, 0, 0, Math.PI * 2);
       ctx.stroke();
@@ -953,7 +1004,9 @@ export class BaseGameScene extends PrologueScene {
     const angle = mag > 0 ? Math.atan2(dirY, dirX) : Math.atan2(0, 1);
     this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
     this.meleeAttackSystem.setEntities(this.entities);
+    // 锁定攻击方向为手指指定方向(防止被 update 里 mouseWorldPos 覆盖)
     this.meleeAttackSystem.sectorDirection = angle;
+    this.meleeAttackSystem.sectorDirectionLocked = true;
     this.meleeAttackSystem.sectorIsRanged = this.meleeAttackSystem.checkIsRangedWeapon();
     this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000);
   }
@@ -1670,7 +1723,21 @@ export class BaseGameScene extends PrologueScene {
       if (uiHandled) {
         this.inputManager.markMouseClickHandled();
       } else if (button === 'left') {
-        // UI 没有处理点击
+        // UI 没有处理点击（点在面板外部）
+        // 如果有面板打开,点击外部则关闭
+        let closedPanel = false;
+        if (this.inventoryPanel && this.inventoryPanel.visible) {
+          this.inventoryPanel.hide();
+          closedPanel = true;
+        }
+        if (this.playerInfoPanel && this.playerInfoPanel.visible) {
+          this.playerInfoPanel.hide();
+          closedPanel = true;
+        }
+        if (closedPanel) {
+          this.inputManager.markMouseClickHandled();
+          return;
+        }
         // 检查是否按住Shift键 - 如果是，则投掷武器
         const shiftPressed = this.inputManager.isKeyDown('shift');
         if (shiftPressed) {

@@ -37,11 +37,18 @@ export class MeleeAttackSystem {
     // 扇形参数
     this.sectorAngle = config.sectorAngle ?? (Math.PI / 3);
     this.sectorDirection = 0;
+    this.sectorDirectionLocked = false; // 外部锁定方向时不被 mouseWorldPos 覆盖
     this.sectorIsRanged = false;
     this.sectorRangedOffset = config.sectorRangedOffset ?? 256;
     this.sectorRangedRadius = config.sectorRangedRadius ?? 120;
     this.sectorAttackFlash = 0;
     this.sectorSlashEffects = [];
+    
+    // 移动端禁止通过鼠标按钮自动触发攻击（攻击由按钮瞄准释放处理）
+    this.disableAutoAttack = config.disableAutoAttack ?? false;
+    
+    // 移动端近战扇形指示器默认隐藏，仅瞄准时显示
+    this.hideSectorWhenIdle = config.hideSectorWhenIdle ?? false;
     
     // 依赖（通过 init 注入）
     this.inputManager = null;
@@ -100,10 +107,12 @@ export class MeleeAttackSystem {
     // 更新刀光/箭光特效
     this.updateSectorSlashEffects(1 / 60);
 
-    // 计算鼠标方向角度
-    const dx = mouseWorldPos.x - playerCenter.x;
-    const dy = mouseWorldPos.y - playerCenter.y;
-    this.sectorDirection = Math.atan2(dy, dx);
+    // 计算鼠标方向角度（当方向未被外部锁定时）
+    if (!this.sectorDirectionLocked) {
+      const dx = mouseWorldPos.x - playerCenter.x;
+      const dy = mouseWorldPos.y - playerCenter.y;
+      this.sectorDirection = Math.atan2(dy, dx);
+    }
 
     // 判断近战/远程
     this.sectorIsRanged = this.checkIsRangedWeapon();
@@ -116,7 +125,9 @@ export class MeleeAttackSystem {
     }
 
     // 鼠标左键按住 / 手指触摸屏幕即触发攻击（无需点到敌人）
-    if (this.inputManager.isMouseButtonDown(0) &&
+    // 移动端攻击由触屏按钮瞄准释放处理，不通过此处自动触发
+    if (!this.disableAutoAttack &&
+        this.inputManager.isMouseButtonDown(0) &&
         !this.inputManager.isMouseClickHandled()) {
       this.performSectorAttack(playerCenter, currentTime);
     }
@@ -551,31 +562,9 @@ export class MeleeAttackSystem {
     const flashAlpha = Math.max(0, this.sectorAttackFlash / 0.2);
     
     if (this.sectorIsRanged) {
-      // 远程：椭圆瞄准框
-      const mouseWorldPos = this.inputManager.getMouseWorldPosition(camera);
-      if (mouseWorldPos) {
-        const dx = mouseWorldPos.x - cx;
-        const dy = mouseWorldPos.y - cy;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const inRange = dist <= r;
-        
-        const ovalRx = 20;
-        const ovalRy = 12;
-        ctx.beginPath();
-        ctx.ellipse(mouseWorldPos.x, mouseWorldPos.y, ovalRx, ovalRy, 0, 0, Math.PI * 2);
-        ctx.closePath();
-        
-        if (inRange) {
-          ctx.strokeStyle = flashAlpha > 0 ? `rgba(0, 255, 0, ${0.8 + flashAlpha * 0.2})` : 'rgba(0, 255, 0, 0.7)';
-          ctx.fillStyle = `rgba(0, 255, 0, ${0.08 + flashAlpha * 0.15})`;
-        } else {
-          ctx.strokeStyle = 'rgba(255, 0, 0, 0.7)';
-          ctx.fillStyle = 'rgba(255, 0, 0, 0.08)';
-        }
-        ctx.lineWidth = 1.5;
-        ctx.fill();
-        ctx.stroke();
-      }
+      // 远程：不再显示椭圆瞄准框（由攻击按钮的技能预览虚线框替代）
+    } else if (this.hideSectorWhenIdle && !this.sectorDirectionLocked) {
+      // 移动端近战：仅瞄准按住时显示扇形（sectorDirectionLocked 表示正在瞄准）
     } else {
       // 近战扇形
       ctx.beginPath();
@@ -583,9 +572,9 @@ export class MeleeAttackSystem {
       ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
       ctx.closePath();
       if (flashAlpha > 0) {
-        ctx.fillStyle = `rgba(255, 100, 100, ${0.12 + flashAlpha * 0.4})`;
+        ctx.fillStyle = `rgba(100, 255, 100, ${0.12 + flashAlpha * 0.4})`;
       } else {
-        ctx.fillStyle = 'rgba(255, 100, 100, 0.12)';
+        ctx.fillStyle = 'rgba(100, 255, 100, 0.12)';
       }
       ctx.fill();
       
@@ -593,7 +582,7 @@ export class MeleeAttackSystem {
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, r, dir - halfAngle, dir + halfAngle);
       ctx.closePath();
-      ctx.strokeStyle = flashAlpha > 0 ? `rgba(255, 150, 150, ${0.6 + flashAlpha * 0.4})` : 'rgba(255, 100, 100, 0.6)';
+      ctx.strokeStyle = flashAlpha > 0 ? `rgba(150, 255, 150, ${0.6 + flashAlpha * 0.4})` : 'rgba(100, 255, 100, 0.6)';
       ctx.lineWidth = 1.5;
       ctx.setLineDash([8, 5]);
       ctx.lineDashOffset = -dashOffset;

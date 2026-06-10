@@ -83,6 +83,15 @@ export class UIStrategy {
   layoutPlayerInfoPanel(panel, width, height) {
     // 默认不改变位置
   }
+
+  /**
+   * 角色信息面板的平台相关选项（宽高/布局方向等）。
+   * 返回 null 表示使用默认。
+   * @returns {Object|null}
+   */
+  getPlayerInfoOptions() {
+    return null;
+  }
 }
 
 export default UIStrategy;

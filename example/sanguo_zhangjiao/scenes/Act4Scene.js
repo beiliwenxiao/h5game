@@ -487,7 +487,7 @@ export class Act4Scene extends BaseGameScene {
           stats.maxMp = 50;
           break;
       }
-    } else if (equipType === 'accessory') {
+    } else if (equipType === 'accessory' || equipType === 'shield') {
       switch (classType) {
         case ClassType.WARRIOR:
           stats.defense = 10;
@@ -675,8 +675,25 @@ export class Act4Scene extends BaseGameScene {
       return;
     }
     
+    // 直接用点击位置检测（移动端触摸时 hover 可能不准）
+    const mousePos = this.inputManager.getMousePosition();
+    const panelWidth = 400;
+    const panelHeight = 200;
+    const panelX = (this.logicalWidth - panelWidth) / 2;
+    const panelY = (this.logicalHeight - panelHeight) / 2;
+    const buttonWidth = 120;
+    const buttonHeight = 40;
+    const buttonY = panelY + panelHeight - 60;
+    const confirmButtonX = panelX + panelWidth / 2 - buttonWidth - 10;
+    const cancelButtonX = panelX + panelWidth / 2 + 10;
+    
+    const inConfirm = mousePos.x >= confirmButtonX && mousePos.x <= confirmButtonX + buttonWidth &&
+                      mousePos.y >= buttonY && mousePos.y <= buttonY + buttonHeight;
+    const inCancel = mousePos.x >= cancelButtonX && mousePos.x <= cancelButtonX + buttonWidth &&
+                     mousePos.y >= buttonY && mousePos.y <= buttonY + buttonHeight;
+    
     // 点击确定按钮
-    if (this.confirmButtonHovered) {
+    if (inConfirm) {
       console.log('Act4Scene: 确认选择职业', this.pendingClassType);
       
       // 如果选择的是战士，显示兵种选择窗口
@@ -694,7 +711,7 @@ export class Act4Scene extends BaseGameScene {
       this.inputManager.markMouseClickHandled();
     }
     // 点击取消按钮
-    else if (this.cancelButtonHovered) {
+    else if (inCancel) {
       console.log('Act4Scene: 取消选择职业');
       this.showClassConfirmation = false;
       this.pendingClassType = null;
@@ -758,8 +775,25 @@ export class Act4Scene extends BaseGameScene {
       return;
     }
     
+    // 直接用点击位置检测（移动端触摸时 hover 可能不准）
+    const mousePos = this.inputManager.getMousePosition();
+    const panelWidth = 500;
+    const panelHeight = 300;
+    const panelX = (this.logicalWidth - panelWidth) / 2;
+    const panelY = (this.logicalHeight - panelHeight) / 2;
+    const buttonWidth = 200;
+    const buttonHeight = 80;
+    const buttonY = panelY + 140;
+    const shieldButtonX = panelX + 50;
+    const spearButtonX = panelX + panelWidth - buttonWidth - 50;
+    
+    const inShield = mousePos.x >= shieldButtonX && mousePos.x <= shieldButtonX + buttonWidth &&
+                     mousePos.y >= buttonY && mousePos.y <= buttonY + buttonHeight;
+    const inSpear = mousePos.x >= spearButtonX && mousePos.x <= spearButtonX + buttonWidth &&
+                    mousePos.y >= buttonY && mousePos.y <= buttonY + buttonHeight;
+    
     // 点击刀盾兵按钮
-    if (this.shieldSoldierButtonHovered) {
+    if (inShield) {
       console.log('Act4Scene: 选择刀盾兵');
       this.selectedUnitType = 'shield_soldier';
       this.selectClass(ClassType.WARRIOR);
@@ -768,7 +802,7 @@ export class Act4Scene extends BaseGameScene {
       this.inputManager.markMouseClickHandled();
     }
     // 点击长枪兵按钮
-    else if (this.spearmanButtonHovered) {
+    else if (inSpear) {
       console.log('Act4Scene: 选择长枪兵');
       this.selectedUnitType = 'spearman';
       this.selectClass(ClassType.WARRIOR);
@@ -949,6 +983,11 @@ export class Act4Scene extends BaseGameScene {
     // 渲染兵种选择窗口（最上层）
     if (this.showUnitSelection) {
       this.renderUnitSelection(ctx);
+    }
+    
+    // 对话框在所有场景元素之上重新渲染（避免被NPC遮挡）
+    if (this.dialogueBox && this.dialogueBox.visible) {
+      this.dialogueBox.render(ctx);
     }
   }
 

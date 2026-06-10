@@ -689,8 +689,8 @@ export class Act6Scene extends BaseGameScene {
     ctx.save();
     
     // 统计面板
-    const panelWidth = 600;
-    const panelHeight = 400;
+    const panelWidth = this.isMobileLayout ? 420 : 600;
+    const panelHeight = this.isMobileLayout ? 300 : 400;
     const panelX = (this.logicalWidth - panelWidth) / 2;
     const panelY = (this.logicalHeight - panelHeight) / 2;
     
@@ -747,8 +747,8 @@ export class Act6Scene extends BaseGameScene {
     ctx.save();
     
     // 奖励面板
-    const panelWidth = 600;
-    const panelHeight = 500;
+    const panelWidth = this.isMobileLayout ? 420 : 600;
+    const panelHeight = this.isMobileLayout ? 350 : 500;
     const panelX = (this.logicalWidth - panelWidth) / 2;
     const panelY = (this.logicalHeight - panelHeight) / 2;
     
@@ -823,8 +823,8 @@ export class Act6Scene extends BaseGameScene {
     ctx.save();
     
     // 继承面板
-    const panelWidth = 500;
-    const panelHeight = 300;
+    const panelWidth = this.isMobileLayout ? 380 : 500;
+    const panelHeight = this.isMobileLayout ? 220 : 300;
     const panelX = (this.logicalWidth - panelWidth) / 2;
     const panelY = (this.logicalHeight - panelHeight) / 2;
     
@@ -864,8 +864,8 @@ export class Act6Scene extends BaseGameScene {
     ctx.save();
     
     // 完成面板
-    const panelWidth = 600;
-    const panelHeight = 200;
+    const panelWidth = this.isMobileLayout ? 420 : 600;
+    const panelHeight = this.isMobileLayout ? 160 : 200;
     const panelX = (this.logicalWidth - panelWidth) / 2;
     const panelY = (this.logicalHeight - panelHeight) / 2;
     
@@ -880,19 +880,19 @@ export class Act6Scene extends BaseGameScene {
     
     // 标题
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 36px Arial';
+    ctx.font = this.isMobileLayout ? 'bold 26px Arial' : 'bold 36px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('序章完成！', panelX + panelWidth / 2, panelY + 70);
+    ctx.fillText('序章完成！', panelX + panelWidth / 2, panelY + (this.isMobileLayout ? 55 : 70));
     
     // 感谢文字
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = '20px Arial';
-    ctx.fillText('感谢游玩张角黄巾起义序章', panelX + panelWidth / 2, panelY + 120);
+    ctx.font = this.isMobileLayout ? '16px Arial' : '20px Arial';
+    ctx.fillText('感谢游玩张角黄巾起义序章', panelX + panelWidth / 2, panelY + (this.isMobileLayout ? 95 : 120));
     
     // 提示
     ctx.fillStyle = '#4CAF50';
-    ctx.font = '18px Arial';
-    ctx.fillText('正式游戏还没开始做...', panelX + panelWidth / 2, panelY + 160);
+    ctx.font = this.isMobileLayout ? '14px Arial' : '18px Arial';
+    ctx.fillText('正式游戏还没开始做...', panelX + panelWidth / 2, panelY + (this.isMobileLayout ? 130 : 160));
     
     ctx.restore();
   }

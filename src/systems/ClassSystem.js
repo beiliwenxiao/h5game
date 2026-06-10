@@ -204,7 +204,7 @@ export class ClassSystem {
       startingEquipment: [
         { id: 'iron_sword', name: '铁剑', type: 'weapon' },
         { id: 'leather_armor', name: '皮甲', type: 'armor' },
-        { id: 'wooden_shield', name: '木盾', type: 'accessory' }
+        { id: 'wooden_shield', name: '木盾', type: 'shield' }
       ]
     }));
     

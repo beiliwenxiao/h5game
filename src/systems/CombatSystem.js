@@ -1556,11 +1556,13 @@ export class CombatSystem {
     
     // 创建技能特效（抛射物飞向目标位置）
     if (this.skillEffects && casterTransform) {
+      // 拷贝施法者位置，避免飞行期间玩家移动导致方向变化
+      const castPos = { x: casterTransform.position.x, y: casterTransform.position.y };
       // 如果有抛射物速度，创建飞行特效
       if (skill.projectileSpeed && skill.projectileSpeed > 0) {
         this.skillEffects.createSkillEffect(
           skill.id,
-          casterTransform.position,
+          castPos,
           targetPos,
           () => {
             // 命中回调：对范围内所有敌人造成伤害
@@ -1569,7 +1571,7 @@ export class CombatSystem {
         );
       } else {
         // 立即生效的AOE技能
-        this.skillEffects.createSkillEffect(skill.id, casterTransform.position, targetPos);
+        this.skillEffects.createSkillEffect(skill.id, castPos, targetPos);
         this.applyAOEDamage(caster, targetPos, skill, entities);
       }
     } else {
@@ -1660,11 +1662,14 @@ export class CombatSystem {
     const casterTransform = caster.getComponent('transform');
     if (!casterTransform) return;
     
+    // 拷贝施法者位置，避免飞行期间玩家移动导致方向变化
+    const castPos = { x: casterTransform.position.x, y: casterTransform.position.y };
+    
     // 创建特效
     if (this.skillEffects) {
       this.skillEffects.createSkillEffect(
         skill.id,
-        casterTransform.position,
+        castPos,
         targetPos,
         () => {
           // 主火焰伤害

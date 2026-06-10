@@ -965,9 +965,17 @@ export class Act2Scene extends BaseGameScene {
     if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
       this.hideHint();
     } else if (this.waitingForTalismanUse) {
-      this.showHint('按<span class="key">B</span>键打开背包，使用符水');
+      if (this.isMobileLayout) {
+        this.showHint('点击<span class="key">背包</span>打开背包，点击符水使用');
+      } else {
+        this.showHint('按<span class="key">B</span>键打开背包，使用符水');
+      }
     } else if (this.waitingForEquip && !this.isSceneComplete) {
-      this.showHint('按<span class="key">B</span>键打开背包，装备腰带和草鞋后继续');
+      if (this.isMobileLayout) {
+        this.showHint('点击<span class="key">背包</span>打开背包，点击装备穿戴腰带和草鞋');
+      } else {
+        this.showHint('按<span class="key">B</span>键打开背包，装备腰带和草鞋后继续');
+      }
     } else if (this.isSceneComplete) {
       this.showHint('第二幕完成！即将进入第三幕...');
     } else {

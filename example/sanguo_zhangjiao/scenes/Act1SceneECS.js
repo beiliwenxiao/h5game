@@ -68,6 +68,10 @@ export class Act1SceneECS extends BaseGameScene {
     this.starvingWaveTriggered = false;
     this.waveSpawned = false;
     
+    // 第一幕特有：第2波结束后倒计时进入下一幕
+    this.transitionCountdown = 0;
+    this.transitionCountdownActive = false;
+    
     // 第一幕特有：饥民逐渐生成器
     this.starvingSpawner = {
       active: false,
@@ -621,6 +625,18 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：检查波次完成
     this.checkWaveCompletion();
+    
+    // 第一幕特有：第2波结束倒计时
+    if (this.transitionCountdownActive) {
+      this.transitionCountdown -= deltaTime;
+      const seconds = Math.ceil(this.transitionCountdown);
+      this.showHint(`战斗结束！可以拾取物品。<span class="key">${seconds}</span>秒后进入下一幕`);
+      if (this.transitionCountdown <= 0) {
+        this.transitionCountdownActive = false;
+        this.hideHint();
+        this.triggerPlayerDeath();
+      }
+    }
     
     // 第一幕特有：逐渐生成饥民
     this.updateStarvingSpawner(deltaTime);
@@ -1545,10 +1561,17 @@ export class Act1SceneECS extends BaseGameScene {
           this.combatSystem.exitCombat();
         }
       } else if (this.combatWave === 1) {
-        // 饥民波次：所有饥民都已生成且全部死亡后触发死亡
-        if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount) {
+        // 饥民波次：所有饥民都已生成且全部死亡后触发倒计时
+        if (this.starvingSpawner.spawnedCount >= this.starvingSpawner.totalCount && !this.transitionCountdownActive) {
           this.starvingSpawner.active = false;
-          setTimeout(() => this.triggerPlayerDeath(), 5000);
+          // 退出战斗状态，方便玩家拾取物品
+          if (this.combatSystem && this.combatSystem.isInCombat()) {
+            this.combatSystem.exitCombat();
+          }
+          // 20秒倒计时进入下一幕
+          this.transitionCountdown = 20;
+          this.transitionCountdownActive = true;
+          this.combatComplete = true;
         }
       }
     }

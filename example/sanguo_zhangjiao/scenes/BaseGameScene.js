@@ -441,10 +441,11 @@ export class BaseGameScene extends PrologueScene {
       },
       onEquipmentClick: (slotType, button) => {
         console.log('BaseGameScene: 装备槽被点击', slotType, button);
-        // 右键点击卸下装备
-        if (button === 'right' && this.playerEntity) {
+        // 右键点击或移动端左键点击卸下装备
+        if ((button === 'right' || this.isMobileLayout) && this.playerEntity) {
           const equipment = this.playerEntity.getComponent('equipment');
           if (equipment && equipment.slots[slotType]) {
+            const itemName = equipment.slots[slotType].name;
             this.equipmentSystem.unequip(this.playerEntity, slotType);
             // 显示卸下装备的提示
             const transform = this.playerEntity.getComponent('transform');
@@ -452,7 +453,7 @@ export class BaseGameScene extends PrologueScene {
               this.floatingTextManager.addText(
                 transform.position.x,
                 transform.position.y - 30,
-                `卸下 ${equipment.slots[slotType].name}`,
+                `卸下 ${itemName}`,
                 '#ffff00'
               );
             }
@@ -1389,6 +1390,7 @@ export class BaseGameScene extends PrologueScene {
     }
     if (this.inventoryPanel) {
       this.inventoryPanel.setEntity(this.playerEntity);
+      this.inventoryPanel.setInputManager(this.inputManager);
     }
     if (this.playerInfoPanel) {
       this.playerInfoPanel.setPlayer(this.playerEntity);

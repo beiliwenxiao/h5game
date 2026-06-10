@@ -457,6 +457,44 @@
         #act-skill3  { right: 154px; bottom: 84px; }
         #act-skill4  { right: 114px; bottom: 150px; }
         #act-skill5  { right: 38px;  bottom: 156px; }
+        
+        /* 技能按钮冷却遮罩（扇形逐渐消退，模仿 PC 技能栏） */
+        .action-btn.skill {
+            overflow: hidden;
+        }
+        .skill-cd-overlay {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            display: none;
+            z-index: 2;
+        }
+        .action-btn.skill.on-cd .skill-cd-overlay {
+            display: block;
+        }
+        .action-btn.skill.on-cd {
+            opacity: 0.65;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .skill-cd-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 0 4px #000, 0 0 4px #000;
+            pointer-events: none;
+            display: none;
+            z-index: 3;
+        }
+        .action-btn.skill.on-cd .skill-cd-text {
+            display: block;
+        }
+        
         /* 中心左下：轻功 */
         .action-btn.move {
             width: 56px;
@@ -612,9 +650,9 @@
             <!-- 右侧动作按钮组：外圈3技能 + 中心攻击 + 轻功 + 投掷 -->
             <div id="action-buttons">
                 <!-- 外侧3个：技能3/4/5（火焰掌/寒冰指/烈焰掌 = index 0/1/2） -->
-                <div class="action-btn skill" id="act-skill3" data-skill="0">🔥<span class="label">技能3</span></div>
-                <div class="action-btn skill" id="act-skill4" data-skill="1">❄<span class="label">技能4</span></div>
-                <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">技能5</span></div>
+                <div class="action-btn skill" id="act-skill3" data-skill="0">🔥<span class="label">火焰掌</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
+                <div class="action-btn skill" id="act-skill4" data-skill="1">❄<span class="label">寒冰指</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
+                <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">烈焰掌</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 中心：交互/攻击（平时交互，战斗中变攻击） -->
                 <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">✋</span><span class="label atk-label">交互</span></div>
                 <!-- 中心左下：轻功 -->
@@ -1088,6 +1126,46 @@
             }
         }
         
+        // 更新技能按钮冷却状态（技能3/4/5 = data-skill 0/1/2）
+        function updateSkillButtonCooldowns() {
+            const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
+            if (!cs || !cs.playerEntity) return;
+            const combat = cs.playerEntity.getComponent('combat');
+            if (!combat || !combat.skills) return;
+            
+            const currentTime = performance.now();
+            const skillBtns = document.querySelectorAll('.action-btn.skill[data-skill]');
+            skillBtns.forEach(btn => {
+                const idx = parseInt(btn.dataset.skill, 10);
+                const skill = combat.skills[idx];
+                if (!skill) return;
+                
+                const cdRemainingMs = combat.getSkillCooldownRemaining(skill.id, currentTime);
+                const cdRemaining = cdRemainingMs / 1000; // 转为秒
+                const overlay = btn.querySelector('.skill-cd-overlay');
+                const cdText = btn.querySelector('.skill-cd-text');
+                
+                if (cdRemaining > 0) {
+                    btn.classList.add('on-cd');
+                    // 计算冷却进度（剩余比例），用 conic-gradient 做扇形遮罩
+                    const total = skill.cooldown || 1;
+                    const ratio = Math.min(1, cdRemaining / total); // 1=刚开始冷却, 0=冷却结束
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
+                    }
+                    if (cdText) {
+                        cdText.style.display = 'block';
+                        cdText.textContent = cdRemaining >= 1 ? Math.ceil(cdRemaining) : cdRemaining.toFixed(1);
+                    }
+                } else {
+                    btn.classList.remove('on-cd');
+                    if (overlay) overlay.style.display = 'none';
+                    if (cdText) cdText.style.display = 'none';
+                }
+            });
+        }
+        
         // 更新红瓶/蓝瓶按钮：PC 风格图标 + 剩余数量
         const _potionIconState = { health: null, mana: null };
         function updatePotionButtons() {
@@ -1173,6 +1251,8 @@
                 
                 // 根据战斗状态切换攻击/交互按钮外观
                 updateAttackButtonMode();
+                // 更新技能按钮冷却状态
+                updateSkillButtonCooldowns();
                 // 更新红瓶/蓝瓶图标与数量
                 updatePotionButtons();
                 

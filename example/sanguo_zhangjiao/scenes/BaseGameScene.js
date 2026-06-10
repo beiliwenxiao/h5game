@@ -534,12 +534,14 @@ export class BaseGameScene extends PrologueScene {
       avatarSrc: avatarSrc
     });
     
-    // 对话框 - 居中显示
-    const dialogueBoxWidth = 700;
-    const dialogueBoxHeight = 230;
+    // 对话框 - 居中显示（移动端缩小宽度）
+    const dialogueBoxWidth = this.isMobileLayout ? 500 : 700;
+    const dialogueBoxHeight = this.isMobileLayout ? 170 : 230;
     this.dialogueBox = new DialogueBox({
       x: (this.logicalWidth - dialogueBoxWidth) / 2,
-      y: (this.logicalHeight - dialogueBoxHeight) / 2,
+      y: this.isMobileLayout 
+        ? (this.logicalHeight - dialogueBoxHeight - 60)
+        : (this.logicalHeight - dialogueBoxHeight) / 2,
       width: dialogueBoxWidth,
       height: dialogueBoxHeight,
       visible: false,

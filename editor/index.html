@@ -309,6 +309,20 @@
             min-height: 0;
         }
         
+        /* UI 编辑器页 */
+        .ui-editor-page {
+            flex: 1;
+            display: none;
+        }
+        .ui-editor-page.active {
+            display: flex;
+        }
+        #ui-editor-container {
+            flex: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+        
         /* 场景列表侧边栏 */
         .scene-sidebar {
             width: 250px;
@@ -424,6 +438,7 @@
             <nav>
                 <button id="nav-game-list" class="active">游戏列表</button>
                 <button id="nav-scene-editor">场景编辑器</button>
+                <button id="nav-ui-editor">UI编辑器</button>
                 <button id="nav-home">返回首页</button>
             </nav>
         </header>
@@ -460,6 +475,11 @@
                     </div>
                 </div>
                 <div id="scene-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
+            </div>
+            
+            <!-- UI 编辑器页 -->
+            <div class="ui-editor-page" id="ui-editor-page">
+                <div id="ui-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>
@@ -530,12 +550,14 @@
         import { SceneEditor } from './SceneEditor.js';
         import { ImageSlicer } from './ImageSlicer.js';
         import { SceneDataLoader } from './SceneDataLoader.js';
+        import { UIEditor } from './UIEditor.js';
         
         class GameEditor {
             constructor() {
                 this.dataManager = new EditorDataManager();
                 this.sceneLoader = new SceneDataLoader();
                 this.sceneEditor = null;
+                this.uiEditor = null;
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
@@ -611,6 +633,7 @@
                 // 导航按钮
                 document.getElementById('nav-game-list').addEventListener('click', () => this.showPage('game-list'));
                 document.getElementById('nav-scene-editor').addEventListener('click', () => this.showPage('scene-editor'));
+                document.getElementById('nav-ui-editor').addEventListener('click', () => this.showPage('ui-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
                 // 游戏卡片点击
@@ -888,19 +911,31 @@
             // 显示页面
             showPage(page) {
                 document.querySelectorAll('.editor-header nav button').forEach(btn => btn.classList.remove('active'));
-                document.getElementById(`nav-${page}`).classList.add('active');
+                const navBtn = document.getElementById(`nav-${page}`);
+                if (navBtn) navBtn.classList.add('active');
+                
+                // 先全部隐藏
+                document.getElementById('game-list-page').style.display = 'none';
+                document.getElementById('scene-editor-page').classList.remove('active');
+                document.getElementById('ui-editor-page').classList.remove('active');
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
-                    document.getElementById('scene-editor-page').classList.remove('active');
                 } else if (page === 'scene-editor') {
-                    document.getElementById('game-list-page').style.display = 'none';
                     document.getElementById('scene-editor-page').classList.add('active');
-                    
-                    // 触发resize以正确显示编辑器
                     setTimeout(() => {
                         window.dispatchEvent(new Event('resize'));
                     }, 100);
+                } else if (page === 'ui-editor') {
+                    document.getElementById('ui-editor-page').classList.add('active');
+                    // 懒初始化 UI 编辑器
+                    if (!this.uiEditor) {
+                        this.uiEditor = new UIEditor(
+                            document.getElementById('ui-editor-container'),
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                        );
+                    }
+                    this.uiEditor.init();
                 }
             }
             

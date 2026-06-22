@@ -32,6 +32,7 @@ import { PlayerInfoPanel } from '../../../src/ui/PlayerInfoPanel.js';
 import { BottomControlBar } from '../../../src/ui/BottomControlBar.js';
 import { PlayerStatusHUD } from '../../../src/ui/PlayerStatusHUD.js';
 import { createUIStrategy } from '../../../src/ui/strategies/index.js';
+import { UILayoutLoader } from '../../../src/ui/UILayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -569,6 +570,41 @@ export class BaseGameScene extends PrologueScene {
     this.uiSystem.registerPanel('playerInfo', this.playerInfoPanel);
     this.uiSystem.registerPanel('bottomControl', this.bottomControlBar);
     this.uiSystem.registerPanel('dialogue', this.dialogueBox);
+    
+    // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小
+    this._applyUILayout();
+  }
+
+  /**
+   * 加载并应用 UI 编辑器布局（Canvas 面板部分）
+   * 异步加载 config/UILayout.{platform}.json，按百分比换算为逻辑坐标。
+   * 失败则保持默认布局。
+   */
+  async _applyUILayout() {
+    try {
+      this.uiLayoutLoader = new UILayoutLoader({ basePath: 'config/' });
+      const ok = await this.uiLayoutLoader.load();
+      if (!ok) return;
+      const lw = this.logicalWidth;
+      const lh = this.logicalHeight;
+      const loader = this.uiLayoutLoader;
+      // 面板 id 与 UILayout 组件 id 对应
+      const map = {
+        bottomControlBar: this.bottomControlBar,
+        playerInfoPanel: this.playerInfoPanel,
+        inventoryPanel: this.inventoryPanel,
+        playerStatusHUD: this.playerStatusHUD
+      };
+      for (const [id, panel] of Object.entries(map)) {
+        if (panel) loader.applyToCanvasPanel(id, panel, lw, lh);
+      }
+      // 背包面板尺寸变化后需重算筛选按钮/滚动条等内部布局
+      if (this.inventoryPanel && this.inventoryPanel.layout) {
+        this.inventoryPanel.layout();
+      }
+    } catch (e) {
+      console.warn('BaseGameScene: 应用 UI 布局失败', e);
+    }
   }
 
   /**

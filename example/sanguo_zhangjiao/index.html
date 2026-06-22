@@ -2187,6 +2187,56 @@
         }
         setupTouchControls();
         
+        // ===== 应用 UI 编辑器保存的布局到触屏 DOM 按钮（百分比 → 相对 touch-controls 定位）=====
+        // 编辑器用统一的"满画布坐标系"，而按钮原本嵌套在 #action-buttons / #bottom-hotbar 内，
+        // 为让百分比直接生效，把可编辑按钮重挂到 #touch-controls 并用百分比定位。
+        async function applyUILayoutToDom() {
+            const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+            if (!isTouch) return; // 仅移动端应用
+            let layout;
+            try {
+                const res = await fetch('config/UILayout.mobile.json');
+                if (!res.ok) return;
+                layout = await res.json();
+            } catch (e) { return; }
+            if (!layout || !Array.isArray(layout.components)) return;
+            
+            const touchControls = document.getElementById('touch-controls');
+            if (!touchControls) return;
+            
+            // 可编辑的 DOM 按钮 id（与编辑器组件 id 对应）
+            const domIds = {
+                'joystick': 'joystick-zone',
+                'act-attack': 'act-attack',
+                'act-skill3': 'act-skill3',
+                'act-skill4': 'act-skill4',
+                'act-skill5': 'act-skill5',
+                'act-flight': 'act-flight',
+                'act-throw': 'act-throw',
+                'bottom-hotbar': 'bottom-hotbar'
+            };
+            
+            for (const comp of layout.components) {
+                const elId = domIds[comp.id];
+                if (!elId || comp.xPct === undefined) continue;
+                const el = document.getElementById(elId);
+                if (!el) continue;
+                // 重挂到 touch-controls，使百分比相对全屏容器
+                if (el.parentElement !== touchControls) {
+                    touchControls.appendChild(el);
+                }
+                el.style.position = 'absolute';
+                el.style.left = (comp.xPct * 100).toFixed(3) + '%';
+                el.style.top = (comp.yPct * 100).toFixed(3) + '%';
+                el.style.width = (comp.wPct * 100).toFixed(3) + '%';
+                el.style.height = (comp.hPct * 100).toFixed(3) + '%';
+                el.style.right = 'auto';
+                el.style.bottom = 'auto';
+                el.style.maxWidth = 'none';
+            }
+        }
+        applyUILayoutToDom();
+        
         // ===== 竖屏时直接以横屏方式显示（不锁定方向，仅 CSS 旋转页面） =====
         // 当处于竖屏时给 body 加 .force-landscape，#game-container 被旋转 90° 填满屏幕。
         // 同时为 InputManager 安装坐标变换钩子，修正旋转后的触摸/点击坐标。

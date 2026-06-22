@@ -84,3 +84,4 @@ inclusion: always
 - fsWrite 单次传大文本时会失败，要用分段写入。
 - 修改功能时，不要管 desktop 内的文件，因为那是打包为 exe 用的。
 - 修改代码后，不要每次都自动构建（npm run build / vite build）或运行测试，我自己会测试。除非我明确要求构建或测试。
+- 不要用 PowerShell 命令（如 Select-String、Get-ChildItem）做搜索，老是报错。搜索代码用 grep_search / file_search / read_file 等工具。

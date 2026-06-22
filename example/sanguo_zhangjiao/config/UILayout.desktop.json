@@ -1,0 +1,50 @@
+{
+  "canvas": {
+    "width": 1280,
+    "height": 720
+  },
+  "components": [
+    {
+      "id": "bottomControlBar",
+      "label": "底部控制栏",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 0,
+      "y": 620,
+      "width": 1280,
+      "height": 100,
+      "xPct": 0,
+      "yPct": 0.86111,
+      "wPct": 1,
+      "hPct": 0.13889
+    },
+    {
+      "id": "playerInfoPanel",
+      "label": "角色/装备面板",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 309,
+      "y": 32,
+      "width": 320,
+      "height": 580,
+      "xPct": 0.24141,
+      "yPct": 0.04444,
+      "wPct": 0.25,
+      "hPct": 0.80556
+    },
+    {
+      "id": "inventoryPanel",
+      "label": "背包面板",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 676,
+      "y": 254,
+      "width": 370,
+      "height": 350,
+      "xPct": 0.52812,
+      "yPct": 0.35278,
+      "wPct": 0.28906,
+      "hPct": 0.48611
+    }
+  ]
+}

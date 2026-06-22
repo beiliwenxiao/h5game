@@ -1131,6 +1131,7 @@
             const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
             if (!cs || !cs.playerEntity) return;
             const combat = cs.playerEntity.getComponent('combat');
+            const stats = cs.playerEntity.getComponent('stats');
             if (!combat || !combat.skills) return;
             
             const currentTime = performance.now();
@@ -1145,8 +1146,17 @@
                 const overlay = btn.querySelector('.skill-cd-overlay');
                 const cdText = btn.querySelector('.skill-cd-text');
                 
+                // 蓝量不足：按钮灰色
+                const noMana = stats && skill.manaCost && stats.mp < skill.manaCost;
+                if (noMana && cdRemaining <= 0) {
+                    btn.style.filter = 'grayscale(1) opacity(0.5)';
+                } else if (cdRemaining <= 0) {
+                    btn.style.filter = '';
+                }
+                
                 if (cdRemaining > 0) {
                     btn.classList.add('on-cd');
+                    btn.style.filter = 'grayscale(0.7) opacity(0.6)';
                     // 计算冷却进度（剩余比例），用 conic-gradient 做扇形遮罩
                     const total = skill.cooldown || 1;
                     const ratio = Math.min(1, cdRemaining / total); // 1=刚开始冷却, 0=冷却结束
@@ -2046,8 +2056,8 @@
                                 let targetWorldPos = null;
                                 if (currentScene.skillAimPreview) {
                                     targetWorldPos = {
-                                        x: currentScene.skillAimPreview.targetX,
-                                        y: currentScene.skillAimPreview.targetY
+                                        x: currentScene._lastAimWorldX || currentScene.skillAimPreview.targetX,
+                                        y: currentScene._lastAimWorldY || currentScene.skillAimPreview.targetY
                                     };
                                 }
                                 currentScene.useSkillByDirection(skillAim.skillIndex, dx, dy, distRatio, targetWorldPos);

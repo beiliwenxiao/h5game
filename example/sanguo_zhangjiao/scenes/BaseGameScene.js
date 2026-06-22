@@ -682,6 +682,46 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 检查技能是否可用（蓝量/冷却），不足则飘字提示
+   * @param {Object} skill - 技能对象
+   * @returns {boolean} true=可用
+   */
+  checkSkillUsable(skill) {
+    if (!this.playerEntity) return false;
+    const stats = this.playerEntity.getComponent('stats');
+    const combat = this.playerEntity.getComponent('combat');
+    if (!stats || !combat) return false;
+    
+    const currentTime = performance.now();
+    
+    // 冷却检查
+    if (!combat.canUseSkill(skill.id, currentTime)) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform && this.floatingTextManager) {
+        this.floatingTextManager.addText(
+          transform.position.x, transform.position.y - 50,
+          '技能冷却中', '#888888'
+        );
+      }
+      return false;
+    }
+    
+    // 蓝量检查
+    if (skill.manaCost && stats.mp < skill.manaCost) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform && this.floatingTextManager) {
+        this.floatingTextManager.addText(
+          transform.position.x, transform.position.y - 50,
+          `蓝量不足(需${skill.manaCost})`, '#6666ff'
+        );
+      }
+      return false;
+    }
+    
+    return true;
+  }
+
+  /**
    * 按技能索引释放技能（用于触屏/虚拟按钮，无鼠标指向时按角色朝向放）
    * @param {number} index - 技能槽索引（对应 combat.skills）
    */
@@ -691,6 +731,9 @@ export class BaseGameScene extends PrologueScene {
     if (!combat || !combat.skills) return;
     const skill = combat.skills[index];
     if (!skill) return;
+
+    // 前置检查：蓝量和冷却
+    if (!this.checkSkillUsable(skill)) return;
 
     // 自身类技能（治疗/打坐）直接复用通用逻辑
     if (skill.id === 'heal' || skill.id === 'meditation') {
@@ -743,6 +786,9 @@ export class BaseGameScene extends PrologueScene {
     if (!combat || !combat.skills) return;
     const skill = combat.skills[index];
     if (!skill) return;
+
+    // 前置检查：蓝量和冷却
+    if (!this.checkSkillUsable(skill)) return;
 
     // 自身类技能（治疗/打坐）不需要方向
     if (skill.id === 'heal' || skill.id === 'meditation') {
@@ -864,6 +910,8 @@ export class BaseGameScene extends PrologueScene {
     this.skillAimPreview = null;
     this._aimDisplayX = 0;
     this._aimDisplayY = 0;
+    this._lastAimWorldX = 0;
+    this._lastAimWorldY = 0;
     // 延迟解锁攻击方向,确保当前帧 performSectorAttack 的方向不被覆盖
     if (this.meleeAttackSystem) {
       setTimeout(() => {
@@ -894,6 +942,9 @@ export class BaseGameScene extends PrologueScene {
         const actualDist = this._aimDistRatio * range;
         dispX = startX + this._aimDirX * actualDist;
         dispY = startY + this._aimDirY * actualDist;
+        // 缓存最新世界坐标（释放时用这个作为技能落点）
+        this._lastAimWorldX = dispX;
+        this._lastAimWorldY = dispY;
       } else {
         return;
       }

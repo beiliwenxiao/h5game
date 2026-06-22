@@ -152,8 +152,9 @@ export class MeleeAttackSystem {
    * 执行扇形攻击
    * @param {Object} playerCenter - 玩家中心坐标
    * @param {number} currentTime - 当前时间（秒）
+   * @param {number} [overrideDistance] - 可选,覆盖攻击距离(用于触屏按distRatio缩放)
    */
-  performSectorAttack(playerCenter, currentTime) {
+  performSectorAttack(playerCenter, currentTime, overrideDistance) {
     if (!this.playerEntity || !this.combatSystem) return;
     
     const playerStats = this.playerEntity.getComponent('stats');
@@ -238,7 +239,7 @@ export class MeleeAttackSystem {
     
     const sectorCenterX = playerCenter.x;
     const sectorCenterY = playerCenter.y;
-    const sectorRadius = weaponAttackDistance;
+    const sectorRadius = overrideDistance || weaponAttackDistance;
     
     // 记录攻击时间
     this.sliceLastAttackTime = currentTime;

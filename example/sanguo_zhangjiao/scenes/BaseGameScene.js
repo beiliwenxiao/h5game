@@ -168,6 +168,11 @@ export class BaseGameScene extends PrologueScene {
     this._aimDisplayX = 0;
     this._aimDisplayY = 0;
     this._aimLerpSpeed = 0.15; // 每帧趋近比例（0~1，越大越快）
+    // 瞄准参数缓存（每帧刷新用）
+    this._aimDirX = 0;
+    this._aimDirY = 0;
+    this._aimDistRatio = 0;
+    this._aimSkillIndex = -1;
     
     // 场景过渡状态
     this.isTransitioning = false;
@@ -826,6 +831,11 @@ export class BaseGameScene extends PrologueScene {
     const actualDist = Math.min(distRatio, 1.5) * range;
     const inRange = distRatio <= 1.0;
     
+    // 缓存方向和距离比例，renderSkillAimPreview 每帧用这些值重算位置
+    this._aimDirX = dx;
+    this._aimDirY = dy;
+    this._aimDistRatio = Math.min(distRatio, 1.5);
+    
     // 预览圈位置基于锚点（如有）或当前玩家位置
     const baseX = anchorPos ? anchorPos.x : transform.position.x;
     const baseY = anchorPos ? anchorPos.y : transform.position.y;
@@ -870,21 +880,26 @@ export class BaseGameScene extends PrologueScene {
    */
   renderSkillAimPreview(ctx) {
     if (!this.skillAimPreview) return;
-    const { skill, targetX, targetY, color } = this.skillAimPreview;
+    const { skill, color } = this.skillAimPreview;
     
-    // 起点始终用玩家当前位置（玩家移动时路径角度实时更新）
-    let startX = this.skillAimPreview.startX;
-    let startY = this.skillAimPreview.startY;
+    // 每帧用当前玩家位置 + 缓存的方向/距离重算目标位置
+    // 这样玩家移动时预览框跟着走（相对方向不变）
+    let startX, startY, dispX, dispY;
     if (this.playerEntity) {
       const t = this.playerEntity.getComponent('transform');
       if (t) {
         startX = t.position.x;
         startY = t.position.y;
+        const range = skill.range || 300;
+        const actualDist = this._aimDistRatio * range;
+        dispX = startX + this._aimDirX * actualDist;
+        dispY = startY + this._aimDirY * actualDist;
+      } else {
+        return;
       }
+    } else {
+      return;
     }
-    
-    const dispX = targetX;
-    const dispY = targetY;
     
     ctx.save();
     ctx.globalAlpha = 0.7;
@@ -1007,11 +1022,25 @@ export class BaseGameScene extends PrologueScene {
     const angle = mag > 0 ? Math.atan2(dirY, dirX) : Math.atan2(0, 1);
     this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
     this.meleeAttackSystem.setEntities(this.entities);
-    // 锁定攻击方向为手指指定方向(防止被 update 里 mouseWorldPos 覆盖)
+    // 锁定攻击方向为手指指定方向
     this.meleeAttackSystem.sectorDirection = angle;
     this.meleeAttackSystem.sectorDirectionLocked = true;
     this.meleeAttackSystem.sectorIsRanged = this.meleeAttackSystem.checkIsRangedWeapon();
-    this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000);
+    
+    // 按 distRatio 缩放攻击距离(选定多远就打多远,而非总是满射程)
+    const ratio = (distRatio !== undefined && distRatio > 0) ? Math.min(distRatio, 1.0) : 1.0;
+    // 获取武器实际攻击距离
+    let weaponDist = this.meleeAttackSystem.sliceAttackRange;
+    const equipComp = this.playerEntity.getComponent('equipment');
+    if (equipComp) {
+      const mainhand = equipComp.getEquipment('mainhand');
+      if (mainhand && mainhand.attackDistance != null) {
+        weaponDist = mainhand.attackDistance;
+      }
+    }
+    const overrideDist = Math.round(weaponDist * ratio);
+    
+    this.meleeAttackSystem.performSectorAttack(playerCenter, performance.now() / 1000, overrideDist);
   }
 
   /**

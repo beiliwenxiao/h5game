@@ -157,21 +157,54 @@ export class Scene1Terrain {
    * @private
    */
   _applyEditorOverrides(config = {}) {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof localStorage === 'undefined' && typeof fetch === 'undefined') return;
 
     const gameId = config.editorGameId || 'sanguo_zhangjiao';
     const sceneId = config.editorSceneId || 'scene_Prologue';
 
+    // 优先从 localStorage 读取（浏览器编辑器联动）
     let scene = null;
     try {
-      const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
-      if (!raw) return;
-      const scenes = JSON.parse(raw);
-      scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        if (raw) {
+          const scenes = JSON.parse(raw);
+          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+        }
+      }
     } catch (e) {
-      console.warn('Scene1Terrain: 读取编辑器场景数据失败', e);
+      console.warn('Scene1Terrain: 读取 localStorage 场景数据失败', e);
+    }
+    
+    // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
+    if (!scene) {
+      const jsonFile = '序章 - 盆地营地_1780211984127.json';
+      const jsonPath = this.assetBase + encodeURIComponent(jsonFile).replace(/%2F/g, '/');
+      fetch(jsonPath)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          const scenes = Array.isArray(data) ? data : [data];
+          const s = scenes.find(s => s && s.id === sceneId);
+          if (s) {
+            this._applySceneData(s);
+            // 重建缓存
+            this._grassCanvas = null;
+          }
+        })
+        .catch(e => console.warn('Scene1Terrain: 加载编辑器 JSON fallback 失败', e));
       return;
     }
+    
+    this._applySceneData(scene);
+  }
+
+  /**
+   * 应用场景数据（从 localStorage 或文件加载后调用）
+   * @param {Object} scene - 场景对象
+   * @private
+   */
+  _applySceneData(scene) {
     if (!scene) return;
 
     // 1. 覆盖切片配置（用户可能在编辑器里调整过切片位置/尺寸/碰撞）

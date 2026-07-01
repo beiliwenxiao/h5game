@@ -233,7 +233,15 @@ export class SceneEditor {
               <h3>图层</h3>
               <div class="layer-list" id="editor-layer-list"></div>
               <div class="layer-actions">
-                <button id="editor-add-layer">+ 添加图层</button>
+                <button id="editor-add-layer" title="新增图层">+ 新增</button>
+                <button id="editor-delete-layer" title="删除选中图层">🗑 删除</button>
+                <button id="editor-layer-up" title="图层上移（提高遮挡优先级）">⬆</button>
+                <button id="editor-layer-down" title="图层下移（降低遮挡优先级）">⬇</button>
+              </div>
+              <div class="layer-actions" style="margin-top:4px;">
+                <button id="editor-move-obj-layer" title="将选中对象移动到当前激活图层">📦 移入当前层</button>
+                <button id="editor-batch-depth" title="按名称筛选对象并批量设置深度">🔧 批量设深度</button>
+                <button id="editor-dedup-objects" title="去掉同一位置的重复对象">🧹 去重</button>
               </div>
             </div>
             
@@ -340,14 +348,17 @@ export class SceneEditor {
       .zoom-controls { position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center; gap: 5px; background: rgba(22, 33, 62, 0.9); padding: 5px 10px; border-radius: 4px; }
       .zoom-controls button { width: 24px; height: 24px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; }
       .zoom-controls span { font-size: 12px; min-width: 50px; text-align: center; }
-      .layer-list { max-height: 150px; overflow-y: auto; }
-      .layer-item { display: flex; align-items: center; padding: 6px 8px; margin-bottom: 3px; background: #2a3a5e; border-radius: 4px; cursor: pointer; font-size: 12px; }
+      .layer-list { max-height: 200px; overflow-y: auto; }
+      .layer-item { display: flex; align-items: center; padding: 5px 6px; margin-bottom: 2px; background: #2a3a5e; border-radius: 4px; cursor: pointer; font-size: 11px; gap: 2px; }
       .layer-item:hover { background: #3a4a7e; }
       .layer-item.active { background: #4CAF50; color: #000; }
-      .layer-item .layer-visibility { margin-right: 8px; cursor: pointer; }
-      .layer-item .layer-name { flex: 1; }
-      .layer-actions { margin-top: 5px; }
-      .layer-actions button { width: 100%; padding: 6px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 11px; }
+      .layer-item.has-selected { border: 1px solid #FFD700; }
+      .layer-item .layer-btn { cursor: pointer; font-size: 12px; flex-shrink: 0; }
+      .layer-item .layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+      .layer-item .layer-count { font-size: 10px; opacity: 0.6; margin-left: 4px; }
+      .layer-item .layer-obj-marker { color: #FFD700; font-size: 10px; margin-left: 2px; }
+      .layer-actions { margin-top: 5px; display: flex; gap: 4px; flex-wrap: wrap; }
+      .layer-actions button { flex: 1; min-width: 0; padding: 5px 4px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 11px; }
       #editor-object-properties { font-size: 12px; }
       .no-selection { color: #666; font-style: italic; }
       .property-row { display: flex; align-items: center; margin-bottom: 5px; }
@@ -523,6 +534,12 @@ export class SceneEditor {
     
     // 图层
     document.getElementById('editor-add-layer').addEventListener('click', () => this.addLayer());
+    document.getElementById('editor-delete-layer').addEventListener('click', () => this.deleteLayer());
+    document.getElementById('editor-layer-up').addEventListener('click', () => this.moveLayerUp());
+    document.getElementById('editor-layer-down').addEventListener('click', () => this.moveLayerDown());
+    document.getElementById('editor-move-obj-layer').addEventListener('click', () => this.moveSelectedObjectToActiveLayer());
+    document.getElementById('editor-batch-depth').addEventListener('click', () => this.batchSetDepth());
+    document.getElementById('editor-dedup-objects').addEventListener('click', () => this.deduplicateObjects());
     
     // 缩放
     document.getElementById('editor-zoom-in').addEventListener('click', () => this.zoom(1.2));
@@ -1088,9 +1105,8 @@ export class SceneEditor {
       for (let i = layer.objects.length - 1; i >= 0; i--) {
         const obj = layer.objects[i];
         
-        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
           if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
-            // 命中后切换激活图层，便于拖动/删除
             this.activeLayerIndex = li;
             return obj;
           }
@@ -1098,34 +1114,6 @@ export class SceneEditor {
           if (Math.hypot(x - obj.x, y - obj.y) <= obj.radius) {
             this.activeLayerIndex = li;
             return obj;
-          }
-        }
-      }
-    }
-    
-    // 检查装饰物（原始地形装饰，存在 decorations 数组中）
-    const decoLayer = this.sceneData.layers.find(l => l.name === '装饰层');
-    if (decoLayer && decoLayer.visible && !decoLayer.locked && this.sceneData.decorations) {
-      // 按Y从大到小排序（后面的先检测）
-      const sortedDecos = [...this.sceneData.decorations].sort((a, b) => b.y - a.y);
-      
-      for (const deco of sortedDecos) {
-        const sprite = this.sceneData.decoSprites?.[deco.key];
-        if (sprite) {
-          const w = sprite.sw * (deco.scale || 1) * (sprite.scale || 1);
-          const h = sprite.sh * (deco.scale || 1) * (sprite.scale || 1);
-          const decoX = deco.x - w / 2;
-          const decoY = deco.y - h;
-          
-          if (x >= decoX && x <= decoX + w && y >= decoY && y <= decoY + h) {
-            // 返回一个包含原始引用的对象
-            return { 
-              ...deco, 
-              type: 'decoration', 
-              width: w, 
-              height: h,
-              _decoRef: deco  // 保存原始引用
-            };
           }
         }
       }
@@ -1147,12 +1135,7 @@ export class SceneEditor {
     for (const obj of this.selectedObjects) {
       let hx, hy;
       
-      if (obj.type === 'decoration') {
-        const w = obj.width || 64;
-        const h = obj.height || 64;
-        hx = obj.x + w / 2 + 2;
-        hy = obj.y + 2;
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
         hx = obj.x + obj.width + 2;
         hy = obj.y + obj.height + 2;
       } else {
@@ -1221,6 +1204,221 @@ export class SceneEditor {
   }
   
   /**
+   * 删除当前激活图层
+   * 图层中的对象会一并删除
+   */
+  deleteLayer() {
+    if (this.sceneData.layers.length <= 1) {
+      this._showToast('至少保留一个图层', 'error');
+      return;
+    }
+    
+    const layer = this.sceneData.layers[this.activeLayerIndex];
+    const objCount = layer.objects.length;
+    
+    if (objCount > 0) {
+      if (!confirm(`图层"${layer.name}"中有 ${objCount} 个对象，删除后不可恢复。确认删除？`)) {
+        return;
+      }
+    }
+    
+    this.sceneData.layers.splice(this.activeLayerIndex, 1);
+    // 调整激活索引
+    if (this.activeLayerIndex >= this.sceneData.layers.length) {
+      this.activeLayerIndex = this.sceneData.layers.length - 1;
+    }
+    
+    this.selectedObjects = [];
+    this._updateLayerList();
+    this._updateObjectCount();
+    this._updateObjectProperties();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 将当前激活图层上移一层（提高遮挡优先级）
+   * 数组中靠后 = 渲染在上层 = 遮挡优先级更高
+   */
+  moveLayerUp() {
+    const idx = this.activeLayerIndex;
+    if (idx >= this.sceneData.layers.length - 1) return; // 已经是最顶层
+    
+    // 和上一层交换
+    const layers = this.sceneData.layers;
+    [layers[idx], layers[idx + 1]] = [layers[idx + 1], layers[idx]];
+    this.activeLayerIndex = idx + 1;
+    
+    this._updateLayerList();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 将当前激活图层下移一层（降低遮挡优先级）
+   */
+  moveLayerDown() {
+    const idx = this.activeLayerIndex;
+    if (idx <= 0) return; // 已经是最底层
+    
+    const layers = this.sceneData.layers;
+    [layers[idx], layers[idx - 1]] = [layers[idx - 1], layers[idx]];
+    this.activeLayerIndex = idx - 1;
+    
+    this._updateLayerList();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 将当前选中对象移动到当前激活图层
+   */
+  moveSelectedObjectToActiveLayer() {
+    if (this.selectedObjects.length === 0) {
+      this._showToast('请先选中一个对象', 'error');
+      return;
+    }
+    
+    const targetLayer = this.sceneData.layers[this.activeLayerIndex];
+    if (!targetLayer) return;
+    
+    let movedCount = 0;
+    
+    for (const obj of this.selectedObjects) {
+      if (obj.type === 'decoration') {
+        // 装饰物需要从 decorations 数组转为 layer 对象
+        // 暂不支持，提示用户
+        this._showToast('装饰物暂不支持跨层移动', 'error');
+        continue;
+      }
+      
+      // 在所有图层中查找并移除
+      let removed = false;
+      for (const layer of this.sceneData.layers) {
+        const index = layer.objects.indexOf(obj);
+        if (index !== -1) {
+          if (layer === targetLayer) {
+            // 已在目标层，跳过
+            break;
+          }
+          layer.objects.splice(index, 1);
+          removed = true;
+          break;
+        }
+      }
+      
+      if (removed) {
+        targetLayer.objects.push(obj);
+        movedCount++;
+      }
+    }
+    
+    if (movedCount > 0) {
+      this._showToast(`已将 ${movedCount} 个对象移入"${targetLayer.name}"`);
+      this._updateLayerList();
+      this._updateObjectCount();
+      this._saveHistory();
+      this.render();
+    }
+  }
+  
+  /**
+   * 批量设置深度：按名称/类型筛选当前激活图层中的对象，统一插入到指定深度位置
+   */
+  batchSetDepth() {
+    const layer = this.sceneData.layers[this.activeLayerIndex];
+    if (!layer) return;
+    
+    // 收集当前图层中所有不同的 decoKey/name
+    const keys = new Set();
+    for (const obj of layer.objects) {
+      const key = obj.decoKey || obj.name || obj.sliceKey || obj.type;
+      keys.add(key);
+    }
+    
+    const keyList = [...keys].sort().join(', ');
+    const filter = prompt(`当前图层"${layer.name}"中的对象类型:\n${keyList}\n\n输入要筛选的名称（如 grass1）：`);
+    if (!filter || !filter.trim()) return;
+    
+    const depthStr = prompt(`将所有"${filter}"对象设置到深度（索引位置，0=最底）：`, '20');
+    if (depthStr === null) return;
+    const targetDepth = parseInt(depthStr);
+    if (isNaN(targetDepth) || targetDepth < 0) {
+      this._showToast('深度必须是非负整数', 'error');
+      return;
+    }
+    
+    const filterKey = filter.trim();
+    
+    // 从数组中提取匹配对象
+    const matched = [];
+    const remaining = [];
+    for (const obj of layer.objects) {
+      const key = obj.decoKey || obj.name || obj.sliceKey || '';
+      if (key === filterKey) {
+        matched.push(obj);
+      } else {
+        remaining.push(obj);
+      }
+    }
+    
+    if (matched.length === 0) {
+      this._showToast(`未找到名称为"${filterKey}"的对象`, 'error');
+      return;
+    }
+    
+    // 将匹配对象插入到指定深度位置
+    const insertAt = Math.min(targetDepth, remaining.length);
+    remaining.splice(insertAt, 0, ...matched);
+    layer.objects = remaining;
+    
+    this._showToast(`已将 ${matched.length} 个"${filterKey}"对象设置到深度 ${insertAt}`);
+    this._updateLayerList();
+    this._updateObjectProperties();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 去重：去掉同一位置的同一类型重复对象
+   * 对当前激活图层执行，同坐标+同名称的对象只保留一个
+   */
+  deduplicateObjects() {
+    const layer = this.sceneData.layers[this.activeLayerIndex];
+    if (!layer) return;
+    
+    const seen = new Set();
+    const unique = [];
+    let removed = 0;
+    
+    for (const obj of layer.objects) {
+      const key = obj.decoKey || obj.name || obj.sliceKey || obj.type;
+      const posKey = `${key}_${Math.round(obj.x)}_${Math.round(obj.y)}`;
+      
+      if (seen.has(posKey)) {
+        removed++;
+      } else {
+        seen.add(posKey);
+        unique.push(obj);
+      }
+    }
+    
+    if (removed === 0) {
+      this._showToast(`图层"${layer.name}"中无重复对象`);
+      return;
+    }
+    
+    layer.objects = unique;
+    this.selectedObjects = [];
+    this._showToast(`已去除 ${removed} 个重复对象`);
+    this._updateLayerList();
+    this._updateObjectCount();
+    this._updateObjectProperties();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
    * 更新图层列表
    * @private
    */
@@ -1230,25 +1428,59 @@ export class SceneEditor {
     
     list.innerHTML = '';
     
-    // 从后往前显示（最上面的图层在列表顶部）
+    // 找出当前选中对象所在图层索引
+    let selectedObjLayerIndex = -1;
+    if (this.selectedObjects.length === 1 && this.selectedObjects[0].type !== 'decoration') {
+      const obj = this.selectedObjects[0];
+      for (let i = 0; i < this.sceneData.layers.length; i++) {
+        if (this.sceneData.layers[i].objects.includes(obj)) {
+          selectedObjLayerIndex = i;
+          break;
+        }
+      }
+    }
+    
+    // 从后往前显示（最上面的图层在列表顶部，对应高遮挡优先级）
     for (let displayIndex = this.sceneData.layers.length - 1; displayIndex >= 0; displayIndex--) {
-      const actualIndex = displayIndex; // 实际索引
+      const actualIndex = displayIndex;
       const layer = this.sceneData.layers[actualIndex];
       const item = document.createElement('div');
-      item.className = 'layer-item' + (actualIndex === this.activeLayerIndex ? ' active' : '');
+      const isActive = actualIndex === this.activeLayerIndex;
+      const hasSelectedObj = actualIndex === selectedObjLayerIndex;
+      item.className = 'layer-item' + (isActive ? ' active' : '') + (hasSelectedObj ? ' has-selected' : '');
       item.dataset.index = actualIndex;
+      
+      const objCount = layer.objects.length;
       item.innerHTML = `
-        <span class="layer-visibility" data-action="visibility">${layer.visible ? '👁' : '👁‍🗨'}</span>
-        <span class="layer-name">${layer.name}</span>
+        <span class="layer-btn layer-visibility" data-action="visibility" title="${layer.visible ? '隐藏' : '显示'}">${layer.visible ? '👁' : '👁‍🗨'}</span>
+        <span class="layer-btn layer-lock" data-action="lock" title="${layer.locked ? '解锁' : '锁定'}">${layer.locked ? '🔒' : '🔓'}</span>
+        <span class="layer-name" data-action="select">${layer.name}</span>
+        <span class="layer-count">${objCount}</span>
+        ${hasSelectedObj ? '<span class="layer-obj-marker" title="选中对象在此层">◆</span>' : ''}
       `;
+      
+      // 双击可重命名
+      const nameEl = item.querySelector('.layer-name');
+      nameEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(item.dataset.index);
+        const newName = prompt('图层名称:', this.sceneData.layers[idx].name);
+        if (newName && newName.trim()) {
+          this.sceneData.layers[idx].name = newName.trim();
+          this._updateLayerList();
+          this._saveHistory();
+        }
+      });
       
       item.addEventListener('click', (e) => {
         const idx = parseInt(item.dataset.index);
+        const action = e.target.dataset.action;
         
-        if (e.target.dataset.action === 'visibility') {
-          // 切换可见性
+        if (action === 'visibility') {
           this.sceneData.layers[idx].visible = !this.sceneData.layers[idx].visible;
           this.render();
+        } else if (action === 'lock') {
+          this.sceneData.layers[idx].locked = !this.sceneData.layers[idx].locked;
         } else {
           // 切换活动图层
           this.activeLayerIndex = idx;
@@ -1262,28 +1494,39 @@ export class SceneEditor {
   
   /**
    * 添加图片资源
+   * 将图片转为 dataURL 持久化，保存在场景数据中
    */
   addImageAsset(file) {
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const id = 'img_' + Date.now();
-        this.loadedImages.set(id, img);
-        
-        const assetList = document.getElementById('editor-asset-list');
-        const item = document.createElement('div');
-        item.className = 'asset-item';
-        item.draggable = true;
-        item.dataset.id = id;
-        item.innerHTML = `
-          <div class="asset-preview"><img src="${img.src}" alt="${file.name}"></div>
-          <span>${file.name.substring(0, 8)}</span>
-        `;
-        assetList.appendChild(item);
-        resolve(id);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataURL = e.target.result;
+        const img = new Image();
+        img.onload = () => {
+          const id = 'img_' + Date.now();
+          this.loadedImages.set(id, img);
+          
+          // 保存图片数据到场景中（持久化）
+          if (!this.sceneData.imageAssets) this.sceneData.imageAssets = {};
+          this.sceneData.imageAssets[id] = { src: dataURL, name: file.name };
+          
+          const assetList = document.getElementById('editor-asset-list');
+          const item = document.createElement('div');
+          item.className = 'asset-item';
+          item.draggable = true;
+          item.dataset.id = id;
+          item.innerHTML = `
+            <div class="asset-preview"><img src="${dataURL}" alt="${file.name}"></div>
+            <span>${file.name.substring(0, 8)}</span>
+          `;
+          assetList.appendChild(item);
+          resolve(id);
+        };
+        img.onerror = reject;
+        img.src = dataURL;
       };
-      img.onerror = reject;
-      img.src = URL.createObjectURL(file);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
     });
   }
   
@@ -1341,10 +1584,6 @@ export class SceneEditor {
     for (const layer of this.sceneData.layers) {
       count += layer.objects.length;
     }
-    // 加上装饰物数量
-    if (this.sceneData.decorations) {
-      count += this.sceneData.decorations.length;
-    }
     document.getElementById('editor-object-count').textContent = count;
   }
   
@@ -1378,11 +1617,27 @@ export class SceneEditor {
       html += `<div class="property-row"><label>缩放:</label><input type="number" value="${obj.scale || 1}" step="0.1" data-prop="scale"></div>`;
     } else {
       // 其他类型对象
+      // 找出对象所在图层
+      let objLayerName = '未知';
+      for (const layer of this.sceneData.layers) {
+        if (layer.objects.includes(obj)) {
+          objLayerName = layer.name;
+          break;
+        }
+      }
       html = `<div class="property-row"><label>ID:</label><input value="${obj.id || '未知'}" disabled></div>`;
+      html += `<div class="property-row"><label>所在图层:</label><input value="${objLayerName}" disabled style="color:#FFD700;"></div>`;
+      // 计算深度（对象在所在图层中的索引，越大越靠前/上）
+      let depth = -1;
+      for (const layer of this.sceneData.layers) {
+        const idx = layer.objects.indexOf(obj);
+        if (idx !== -1) { depth = idx; break; }
+      }
+      html += `<div class="property-row"><label>深度:</label><input value="${depth}" disabled style="color:#88ccff;"></div>`;
       html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
       html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
       
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
         html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
         html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
       } else if (obj.type === 'circle') {
@@ -1774,19 +2029,30 @@ export class SceneEditor {
     ctx.lineWidth = 1 / this.viewport.scale;
     ctx.strokeRect(sceneX, sceneY, sceneW, sceneH);
     
-    // 检查是否是地形场景（舞台）
-    if (this.sceneData.terrain) {
-      this._renderTerrainScene(ctx);
+    // === 按图层顺序渲染，地形效果穿插在对应图层位置 ===
+    const data = this.sceneData;
+    const hasTerrain = !!data.terrain;
+    
+    for (let i = 0; i < data.layers.length; i++) {
+      const layer = data.layers[i];
+      if (!layer.visible) continue;
+      
+      // 背景填充层：渲染地形背景椭圆（草地）
+      if (layer.id === 'layer_fill' && hasTerrain) {
+        this._renderTerrainBackground(ctx);
+      }
+      
+      // 遮罩层：渲染地形遮罩效果（森林环带）
+      if (layer.id === 'layer_mask' && hasTerrain) {
+        this._renderTerrainMask(ctx);
+      }
+      
+      // 渲染该图层的所有对象
+      for (const obj of layer.objects) this._renderObject(ctx, obj);
     }
     
     // 绘制网格（以地形中心为基准对齐）
     if (this.options.showGrid) this._renderGrid(ctx, sceneX, sceneY, sceneW, sceneH);
-    
-    // 绘制图层
-    for (const layer of this.sceneData.layers) {
-      if (!layer.visible) continue;
-      for (const obj of layer.objects) this._renderObject(ctx, obj);
-    }
     
     ctx.restore();
     this._renderSelection();
@@ -1839,6 +2105,9 @@ export class SceneEditor {
     if (obj.type === 'fill') {
       // 背景填充对象 — 支持纯色、图片、渐变、图案材质
       this._renderFillObject(ctx, obj);
+    } else if (obj.type === 'deco') {
+      // 装饰物对象（从 decorations 转换来的）
+      this._renderDecoObject(ctx, obj);
     } else if (obj.type === 'rect') {
       ctx.fillStyle = obj.fill || '#4a5a8e';
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
@@ -1892,6 +2161,58 @@ export class SceneEditor {
         ctx.strokeStyle = '#5a8a5a';
         ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       }
+    }
+  }
+  
+  /**
+   * 渲染装饰物对象（从 decorations 转换来的 type:'deco'）
+   * 使用 decoSprites 配置从图集绘制
+   * @private
+   */
+  _renderDecoObject(ctx, obj) {
+    const decoSprites = this.sceneData.decoSprites;
+    const key = obj.decoKey || obj.name;
+    
+    if (!decoSprites || !decoSprites[key]) {
+      // 没有精灵配置时绘制占位符
+      ctx.fillStyle = key && key.includes('tree') ? '#2a5a2a' : '#5a8a4a';
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(key ? key.substring(0, 4) : '?', obj.x + obj.width / 2, obj.y + obj.height / 2);
+      ctx.textAlign = 'left';
+      return;
+    }
+    
+    const sprite = decoSprites[key];
+    
+    // 从图集绘制
+    let img = this.loadedImages.get('terrain_atlas');
+    if (!img && this.sceneData.atlases) {
+      for (const atlas of this.sceneData.atlases) {
+        const a = this.loadedImages.get(atlas.id);
+        if (a) { img = a; break; }
+      }
+    }
+    
+    if (img) {
+      ctx.drawImage(
+        img,
+        sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+        obj.x, obj.y, obj.width, obj.height
+      );
+    } else {
+      // 图集未加载，绘制占位符
+      ctx.fillStyle = key.includes('tree') ? '#2a5a2a' : '#5a8a4a';
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.strokeStyle = '#4a8a4a';
+      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(key.substring(0, 4), obj.x + obj.width / 2, obj.y + obj.height / 2);
+      ctx.textAlign = 'left';
     }
   }
   
@@ -2067,7 +2388,92 @@ export class SceneEditor {
   }
   
   /**
+   * 渲染地形背景效果（草地椭圆/室内地面）
+   * 在 layer_bg 图层位置调用
+   * @private
+   */
+  _renderTerrainBackground(ctx) {
+    const data = this.sceneData;
+    if (!data.terrain) return;
+    
+    const terrainType = data.terrain.type || 'basin';
+    
+    if (terrainType === 'indoor') {
+      // 室内地面
+      ctx.fillStyle = data.backgroundColor || '#2a2020';
+      ctx.fillRect(0, 0, data.width, data.height);
+      const tileSize = data.terrain?.tileSize || 48;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < data.width; x += tileSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, data.height); ctx.stroke();
+      }
+      for (let y = 0; y < data.height; y += tileSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(data.width, y); ctx.stroke();
+      }
+      // 墙壁
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(0, 0, data.width, 60);
+      ctx.fillRect(0, 0, 40, data.height);
+      ctx.fillRect(data.width - 40, 0, 40, data.height);
+      ctx.fillRect(0, data.height - 40, data.width, 40);
+    } else {
+      // 室外：草地椭圆
+      const centerX = data.centerX || data.width / 2;
+      const centerY = (data.centerY || data.height / 2) - 32;
+      const radiusX = data.basinRadius || 640;
+      const radiusY = radiusX * (data.basinAspectY || 0.65);
+      
+      let grassColor = '#3a5a2a';
+      if (terrainType === 'battlefield') grassColor = '#4a3030';
+      else if (terrainType === 'mountain') grassColor = '#404a30';
+      else if (terrainType === 'camp') grassColor = '#3a4a3a';
+      
+      ctx.fillStyle = grassColor;
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  
+  /**
+   * 渲染地形遮罩效果（森林环带渐变）
+   * 在 layer_mask 图层位置调用
+   * @private
+   */
+  _renderTerrainMask(ctx) {
+    const data = this.sceneData;
+    if (!data.terrain) return;
+    
+    const terrainType = data.terrain.type || 'basin';
+    if (terrainType === 'indoor') return; // 室内无遮罩
+    
+    const centerX = data.centerX || data.width / 2;
+    const centerY = (data.centerY || data.height / 2) - 32;
+    const radiusX = data.basinRadius || 640;
+    
+    let forestColor = 'rgba(35, 58, 25, 1)';
+    if (terrainType === 'battlefield') forestColor = 'rgba(50, 30, 25, 1)';
+    else if (terrainType === 'mountain') forestColor = 'rgba(40, 45, 30, 1)';
+    else if (terrainType === 'camp') forestColor = 'rgba(30, 50, 35, 1)';
+    
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.scale(1, data.basinAspectY || 0.65);
+    const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
+    grad.addColorStop(0, forestColor);
+    grad.addColorStop(0.55, forestColor.replace('1)', '0.92)'));
+    grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  
+  /**
    * 渲染地形场景（椭圆盆地 + 装饰物）
+   * @deprecated 已拆分为 _renderTerrainBackground + _renderTerrainMask，保留用于兼容
    * @private
    */
   _renderTerrainScene(ctx) {
@@ -2084,10 +2490,8 @@ export class SceneEditor {
     
     // 根据场景类型渲染不同背景
     if (terrainType === 'indoor') {
-      // 室内场景
       this._renderIndoorScene(ctx, getLayerVisible);
     } else {
-      // 室外场景（盆地、军营、战场等）
       this._renderOutdoorScene(ctx, getLayerVisible);
     }
     
@@ -2270,7 +2674,7 @@ export class SceneEditor {
       let x, y, w, h;
       
       if (obj.type === 'decoration') {
-        // 装饰物选中框
+        // 装饰物选中框（旧格式，保留兼容）
         w = obj.width || 64;
         h = obj.height || 64;
         x = obj.x - w / 2 - 2;
@@ -2278,7 +2682,7 @@ export class SceneEditor {
         w += 4;
         h += 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
         x = obj.x - 2;
         y = obj.y - 2;
         w = obj.width + 4;
@@ -2369,6 +2773,57 @@ export class SceneEditor {
   }
   
   /**
+   * 将 decorations 数组中的装饰物转换合并到装饰层(layer_deco)的 objects 数组中
+   * 转换后清空 decorations 数组，统一由图层系统管理
+   * @private
+   */
+  _mergeDecorationsToLayer() {
+    const decorations = this.sceneData.decorations;
+    if (!decorations || decorations.length === 0) return;
+    
+    const decoLayer = this.sceneData.layers.find(l => l.id === 'layer_deco');
+    if (!decoLayer) return;
+    
+    // 如果装饰层已有 deco 对象，说明之前已经转换并保存过，跳过避免重复
+    if (decoLayer.objects.some(o => o.type === 'deco')) return;
+    
+    const decoSprites = this.sceneData.decoSprites || {};
+    
+    for (const deco of decorations) {
+      const sprite = decoSprites[deco.key];
+      const scale = (deco.scale || 1) * (sprite ? (sprite.scale || 1) : 1);
+      const sw = sprite ? sprite.sw : 64;
+      const sh = sprite ? sprite.sh : 64;
+      const w = sw * scale;
+      const h = sh * scale;
+      
+      // 锚点转换：底部中心 → 左上角
+      const objX = deco.x - w / 2;
+      const objY = deco.y - h;
+      
+      const obj = {
+        id: 'deco_' + Math.floor(Math.random() * 100000000),
+        type: 'deco',
+        decoKey: deco.key,
+        x: Math.round(objX),
+        y: Math.round(objY),
+        width: Math.round(w),
+        height: Math.round(h),
+        scale: deco.scale || 1,
+        name: deco.key
+      };
+      
+      // 保留额外属性
+      if (deco.belowEntities) obj.belowEntities = true;
+      
+      decoLayer.objects.push(obj);
+    }
+    
+    // 清空 decorations，统一由图层管理
+    this.sceneData.decorations = [];
+  }
+  
+  /**
    * 加载场景数据
    */
   loadScene(sceneData) {
@@ -2401,6 +2856,9 @@ export class SceneEditor {
     
     // 规范化图层：确保标准图层齐全、每个图层都有 objects 数组
     this.sceneData.layers = this._normalizeLayers(this.sceneData.layers);
+    
+    // 将 decorations 数组转换合并到装饰层 objects 中（统一管理）
+    this._mergeDecorationsToLayer();
     
     // 清空已加载的图集图片缓存（新场景可能有不同图集）
     this.loadedImages = new Map();
@@ -2437,11 +2895,33 @@ export class SceneEditor {
     // 加载图集图片
     this._loadAtlasImages();
     
+    // 恢复保存的图片资源
+    this._loadImageAssets();
+    
     this._fitToContainer();
     this._updateLayerList();
     this._updateObjectCount();
     this.updateAssetLibrary();
     this.render();
+  }
+  
+  /**
+   * 恢复保存的图片资源（从场景数据中的 imageAssets 加载）
+   * @private
+   */
+  _loadImageAssets() {
+    const assets = this.sceneData.imageAssets;
+    if (!assets) return;
+    
+    for (const [id, data] of Object.entries(assets)) {
+      if (this.loadedImages.has(id)) continue;
+      const img = new Image();
+      img.onload = () => {
+        this.loadedImages.set(id, img);
+        this.render();
+      };
+      img.src = data.src;
+    }
   }
   
   /**

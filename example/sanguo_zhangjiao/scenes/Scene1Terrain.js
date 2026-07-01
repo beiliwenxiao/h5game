@@ -214,40 +214,35 @@ export class Scene1Terrain {
       }
     }
 
-    // 2. 收集编辑器中的装饰物
+    // 2. 从图层中收集装饰物
     const decorations = [];
 
-    // 2a. decorations 数组（{x, y, key, scale}，底部中心锚点，与游戏一致）
-    if (Array.isArray(scene.decorations)) {
-      for (const d of scene.decorations) {
-        if (d && d.key && this.decoSprites[d.key]) {
-          decorations.push({
-            x: d.x,
-            y: d.y,
-            key: d.key,
-            scale: d.scale ?? 1.0,
-            belowEntities: d.belowEntities
-          });
-        }
-      }
-    }
-
-    // 2b. 图层中拖入/转换的 slice 对象
-    //   - 图集切片：{type:'slice', sliceKey, x, y, width, height}（左上角锚点）
-    //   - 装饰物转换：{type:'slice', decoKey, x, y, width, height}（左上角锚点）
+    // layer_deco 中的对象：
+    //   - type:'deco'：新版统一装饰物 {decoKey, x, y, width, height}（左上角锚点）
+    //   - type:'slice' + decoKey：切片型装饰物 {decoKey, x, y, width, height}（左上角锚点）
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
         for (const obj of layer.objects) {
-          if (!obj || obj.type !== 'slice') continue;
-          const key = obj.decoKey || obj.sliceKey;
+          if (!obj) continue;
+          
+          let key = null;
+          if (obj.type === 'deco') {
+            key = obj.decoKey || obj.name;
+          } else if (obj.type === 'slice') {
+            key = obj.decoKey || obj.sliceKey;
+          } else {
+            continue;
+          }
+          
           if (!key || !this.decoSprites[key]) continue;
           const sprite = this.decoSprites[key];
           const w = obj.width || sprite.sw;
+          const h = obj.height || sprite.sh;
           // 左上角 -> 底部中心锚点
           decorations.push({
             x: Math.round(obj.x + w / 2),
-            y: Math.round(obj.y + (obj.height || sprite.sh)),
+            y: Math.round(obj.y + h),
             key,
             scale: w / sprite.sw
           });
@@ -259,7 +254,55 @@ export class Scene1Terrain {
     if (decorations.length > 0) {
       this.decorations = decorations;
       this._treeColliders = null; // 重置碰撞缓存，下次按新装饰物重建
+      // 标记：使用编辑器保存的顺序（深度），不再 Y-sort
+      this._useEditorOrder = true;
       console.log('Scene1Terrain: 已应用编辑器场景数据，装饰物数量 =', decorations.length);
+    }
+    
+    // 3. 读取图层中的背景图片对象（type:'image' / type:'fill'）
+    this._editorBackgroundImages = [];
+    if (Array.isArray(scene.layers)) {
+      for (const layer of scene.layers) {
+        if (!layer || !Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (!obj) continue;
+          if (obj.type === 'image' && obj.imageId) {
+            // 从 imageAssets 获取图片 src
+            const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
+            if (asset && asset.src) {
+              this._editorBackgroundImages.push({
+                src: asset.src,
+                x: obj.x,
+                y: obj.y,
+                width: obj.width,
+                height: obj.height,
+                layerId: layer.id,
+                _img: null,
+                _loaded: false
+              });
+            }
+          } else if (obj.type === 'fill' && obj.fillMode === 'image' && obj.imageSrc) {
+            this._editorBackgroundImages.push({
+              src: obj.imageSrc,
+              x: obj.x || 0,
+              y: obj.y || 0,
+              width: obj.width || this.basinWidth,
+              height: obj.height || this.basinHeight,
+              imageMode: obj.imageMode || 'stretch',
+              opacity: obj.opacity,
+              layerId: layer.id,
+              _img: null,
+              _loaded: false
+            });
+          }
+        }
+      }
+      // 加载背景图片
+      for (const bgImg of this._editorBackgroundImages) {
+        const img = new Image();
+        img.onload = () => { bgImg._img = img; bgImg._loaded = true; };
+        img.src = bgImg.src;
+      }
     }
   }
 
@@ -614,14 +657,99 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx
    */
   collectDecorations(renderQueue, ctx) {
+    // 混合策略：
+    // - 非碰撞装饰物（草、灌木）预渲染到离屏缓存，作为整体一次性绘制
+    // - 碰撞装饰物（树）参与 Y-sort，互相之间和实体之间正确遮挡
+    
+    // 渲染草地装饰缓存（一次性绘制所有非碰撞装饰物）
+    if (this._groundDecoCache) {
+      renderQueue.push({
+        type: 'scene1_deco',
+        y: -10000,
+        render: () => {
+          ctx.drawImage(this._groundDecoCache, this._groundDecoCacheX, this._groundDecoCacheY);
+        }
+      });
+    }
+    
+    // 树类：用 Y 坐标排序，参与实体间遮挡
     for (const deco of this.decorations) {
-      if (deco.belowEntities) continue; // 由 renderBelowDecorations 单独画
+      if (deco.belowEntities) continue;
+      const sprite = this.decoSprites[deco.key];
+      if (!sprite || !sprite.collide) continue;
+      
       renderQueue.push({
         type: 'scene1_deco',
         y: deco.y,
         render: () => this._renderDecoration(ctx, deco)
       });
     }
+  }
+  
+  /**
+   * 构建草地装饰物离屏缓存（非碰撞装饰物：草、灌木）
+   * 只在图片加载完成且缓存不存在时构建一次
+   * @private
+   */
+  _buildGroundDecoCache() {
+    if (this._groundDecoCache || !this.loaded.mountain) return;
+    
+    // 收集所有非碰撞装饰物
+    const groundDecos = this.decorations.filter(d => {
+      if (d.belowEntities) return false;
+      const sprite = this.decoSprites[d.key];
+      return sprite && !sprite.collide;
+    });
+    
+    if (groundDecos.length === 0) return;
+    
+    // 计算包围盒
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const deco of groundDecos) {
+      const sprite = this.decoSprites[deco.key];
+      const scale = deco.scale * (sprite.scale ?? 1);
+      const w = sprite.sw * scale;
+      const h = sprite.sh * scale;
+      const dx = deco.x - w / 2;
+      const dy = deco.y - h;
+      minX = Math.min(minX, dx);
+      minY = Math.min(minY, dy);
+      maxX = Math.max(maxX, dx + w);
+      maxY = Math.max(maxY, dy + h);
+    }
+    
+    const cacheW = Math.ceil(maxX - minX) + 4;
+    const cacheH = Math.ceil(maxY - minY) + 4;
+    
+    // 限制缓存大小避免内存爆炸
+    if (cacheW > 4096 || cacheH > 4096) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = cacheW;
+    canvas.height = cacheH;
+    const gctx = canvas.getContext('2d');
+    
+    // 偏移到缓存坐标系
+    const offsetX = minX - 2;
+    const offsetY = minY - 2;
+    
+    for (const deco of groundDecos) {
+      const sprite = this.decoSprites[deco.key];
+      const scale = deco.scale * (sprite.scale ?? 1);
+      const w = sprite.sw * scale;
+      const h = sprite.sh * scale;
+      const dx = deco.x - w / 2 - offsetX;
+      const dy = deco.y - h - offsetY;
+      gctx.drawImage(
+        this.images.mountain,
+        sprite.sx, sprite.sy, sprite.sw, sprite.sh,
+        dx, dy, w, h
+      );
+    }
+    
+    this._groundDecoCache = canvas;
+    this._groundDecoCacheX = offsetX;
+    this._groundDecoCacheY = offsetY;
   }
 
   /**
@@ -675,8 +803,74 @@ export class Scene1Terrain {
       ctx.fill();
     } else {
       this._renderGrassFill(ctx, groundCenterX, groundCenterY);
+      // 素材加载完成后尝试构建草地装饰缓存
+      this._buildGroundDecoCache();
     }
     this._renderWaterPatches(ctx);
+    
+    // 3. 渲染编辑器中保存的背景图片（使用离屏缓存）
+    this._renderEditorBackgroundImages(ctx);
+  }
+  
+  /**
+   * 渲染编辑器中的背景图片（带离屏缓存）
+   * @private
+   */
+  _renderEditorBackgroundImages(ctx) {
+    if (!this._editorBackgroundImages || this._editorBackgroundImages.length === 0) return;
+    
+    // 检查所有图片是否加载完成
+    const allLoaded = this._editorBackgroundImages.every(bg => bg._loaded);
+    if (!allLoaded) {
+      // 还有图片没加载完，逐个画已加载的
+      for (const bgImg of this._editorBackgroundImages) {
+        if (!bgImg._loaded || !bgImg._img) continue;
+        ctx.save();
+        if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
+        ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
+        ctx.restore();
+      }
+      return;
+    }
+    
+    // 全部加载完成后，构建离屏缓存
+    if (!this._bgImageCache) {
+      // 计算包围盒
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const bg of this._editorBackgroundImages) {
+        minX = Math.min(minX, bg.x);
+        minY = Math.min(minY, bg.y);
+        maxX = Math.max(maxX, bg.x + bg.width);
+        maxY = Math.max(maxY, bg.y + bg.height);
+      }
+      const cacheW = Math.ceil(maxX - minX) + 2;
+      const cacheH = Math.ceil(maxY - minY) + 2;
+      
+      if (cacheW <= 4096 && cacheH <= 4096) {
+        const canvas = document.createElement('canvas');
+        canvas.width = cacheW;
+        canvas.height = cacheH;
+        const gctx = canvas.getContext('2d');
+        const offsetX = minX - 1;
+        const offsetY = minY - 1;
+        
+        for (const bgImg of this._editorBackgroundImages) {
+          gctx.save();
+          if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
+          gctx.drawImage(bgImg._img, bgImg.x - offsetX, bgImg.y - offsetY, bgImg.width, bgImg.height);
+          gctx.restore();
+        }
+        
+        this._bgImageCache = canvas;
+        this._bgImageCacheX = offsetX;
+        this._bgImageCacheY = offsetY;
+      }
+    }
+    
+    // 使用缓存绘制
+    if (this._bgImageCache) {
+      ctx.drawImage(this._bgImageCache, this._bgImageCacheX, this._bgImageCacheY);
+    }
   }
 
   /**

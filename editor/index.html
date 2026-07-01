@@ -909,7 +909,36 @@
             // 保存场景
             saveScene(sceneData) {
                 if (!this.currentGameId || !this.currentSceneId) return;
+                // 保存到 localStorage
                 this.dataManager.updateScene(this.currentGameId, this.currentSceneId, sceneData);
+                
+                // 同时通过 API 写入 JSON 文件
+                this._saveSceneToFile(sceneData);
+            }
+            
+            // 将场景数据通过 dev server API 写入 JSON 文件
+            _saveSceneToFile(sceneData) {
+                const name = (sceneData.name || 'scene').replace(/[\\/:*?"<>|]/g, '_');
+                const game = this.dataManager.getCurrentGame();
+                const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                // 保存到游戏的 assets/scenes/ 目录下
+                const filePath = `${gamePath}assets/scenes/${name}.json`.replace(/^\.\.\//, '');
+                
+                const json = JSON.stringify(sceneData, null, 2);
+                fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: filePath, content: json })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        console.log('场景已保存到文件:', data.path);
+                    } else {
+                        console.warn('保存文件失败:', data.error);
+                    }
+                })
+                .catch(err => console.warn('保存文件请求失败:', err));
             }
             
             // 打开图片分割工具

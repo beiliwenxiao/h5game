@@ -242,6 +242,7 @@ export class SceneEditor {
                 <button id="editor-move-obj-layer" title="将选中对象移动到当前激活图层">📦 移入当前层</button>
                 <button id="editor-batch-depth" title="按名称筛选对象并批量设置深度">🔧 批量设深度</button>
                 <button id="editor-dedup-objects" title="去掉同一位置的重复对象">🧹 去重</button>
+                <button id="editor-batch-offset" title="批量偏移当前图层所有对象">↕ 批量偏移</button>
               </div>
             </div>
             
@@ -540,6 +541,7 @@ export class SceneEditor {
     document.getElementById('editor-move-obj-layer').addEventListener('click', () => this.moveSelectedObjectToActiveLayer());
     document.getElementById('editor-batch-depth').addEventListener('click', () => this.batchSetDepth());
     document.getElementById('editor-dedup-objects').addEventListener('click', () => this.deduplicateObjects());
+    document.getElementById('editor-batch-offset').addEventListener('click', () => this.batchOffset());
     
     // 缩放
     document.getElementById('editor-zoom-in').addEventListener('click', () => this.zoom(1.2));
@@ -661,10 +663,10 @@ export class SceneEditor {
         this.addObject({
           type: 'image',
           imageId: id,
-          x: pos.x - img.width / 4,
-          y: pos.y - img.height / 4,
-          width: img.width / 2,
-          height: img.height / 2,
+          x: pos.x - img.width / 2,
+          y: pos.y - img.height / 2,
+          width: img.width,
+          height: img.height,
           rotation: 0
         });
       }
@@ -1329,15 +1331,17 @@ export class SceneEditor {
     const layer = this.sceneData.layers[this.activeLayerIndex];
     if (!layer) return;
     
-    // 收集当前图层中所有不同的 decoKey/name
+    // 收集当前图层中所有不同的标识（decoKey / sliceKey / name 都列出）
     const keys = new Set();
     for (const obj of layer.objects) {
-      const key = obj.decoKey || obj.name || obj.sliceKey || obj.type;
-      keys.add(key);
+      if (obj.decoKey) keys.add(obj.decoKey);
+      if (obj.sliceKey) keys.add(obj.sliceKey);
+      if (obj.name) keys.add(obj.name);
+      if (!obj.decoKey && !obj.sliceKey && !obj.name) keys.add(obj.type);
     }
     
     const keyList = [...keys].sort().join(', ');
-    const filter = prompt(`当前图层"${layer.name}"中的对象类型:\n${keyList}\n\n输入要筛选的名称（如 grass1）：`);
+    const filter = prompt(`当前图层"${layer.name}"中的对象标识:\n${keyList}\n\n输入要筛选的名称（如 grass1）：`);
     if (!filter || !filter.trim()) return;
     
     const depthStr = prompt(`将所有"${filter}"对象设置到深度（索引位置，0=最底）：`, '20');
@@ -1350,12 +1354,14 @@ export class SceneEditor {
     
     const filterKey = filter.trim();
     
+    // 匹配：decoKey / sliceKey / name 任意一个等于筛选值即命中
+    const matchObj = (obj) => obj.decoKey === filterKey || obj.sliceKey === filterKey || obj.name === filterKey;
+    
     // 从数组中提取匹配对象
     const matched = [];
     const remaining = [];
     for (const obj of layer.objects) {
-      const key = obj.decoKey || obj.name || obj.sliceKey || '';
-      if (key === filterKey) {
+      if (matchObj(obj)) {
         matched.push(obj);
       } else {
         remaining.push(obj);
@@ -1392,7 +1398,7 @@ export class SceneEditor {
     let removed = 0;
     
     for (const obj of layer.objects) {
-      const key = obj.decoKey || obj.name || obj.sliceKey || obj.type;
+      const key = obj.decoKey || obj.sliceKey || obj.name || obj.type;
       const posKey = `${key}_${Math.round(obj.x)}_${Math.round(obj.y)}`;
       
       if (seen.has(posKey)) {
@@ -1413,6 +1419,38 @@ export class SceneEditor {
     this._showToast(`已去除 ${removed} 个重复对象`);
     this._updateLayerList();
     this._updateObjectCount();
+    this._updateObjectProperties();
+    this._saveHistory();
+    this.render();
+  }
+  
+  /**
+   * 批量偏移：将当前激活图层的所有对象按指定像素偏移
+   */
+  batchOffset() {
+    const layer = this.sceneData.layers[this.activeLayerIndex];
+    if (!layer) return;
+    
+    if (layer.objects.length === 0) {
+      this._showToast(`图层"${layer.name}"中没有对象`, 'error');
+      return;
+    }
+    
+    const dx = parseInt(prompt('X 方向偏移（正=右，负=左）：', '0'));
+    const dy = parseInt(prompt('Y 方向偏移（正=下，负=上）：', '50'));
+    
+    if (isNaN(dx) && isNaN(dy)) return;
+    const offsetX = isNaN(dx) ? 0 : dx;
+    const offsetY = isNaN(dy) ? 0 : dy;
+    
+    if (offsetX === 0 && offsetY === 0) return;
+    
+    for (const obj of layer.objects) {
+      obj.x = Math.round(obj.x + offsetX);
+      obj.y = Math.round(obj.y + offsetY);
+    }
+    
+    this._showToast(`已偏移"${layer.name}"中 ${layer.objects.length} 个对象 (${offsetX}, ${offsetY})`);
     this._updateObjectProperties();
     this._saveHistory();
     this.render();
@@ -1453,7 +1491,6 @@ export class SceneEditor {
       const objCount = layer.objects.length;
       item.innerHTML = `
         <span class="layer-btn layer-visibility" data-action="visibility" title="${layer.visible ? '隐藏' : '显示'}">${layer.visible ? '👁' : '👁‍🗨'}</span>
-        <span class="layer-btn layer-lock" data-action="lock" title="${layer.locked ? '解锁' : '锁定'}">${layer.locked ? '🔒' : '🔓'}</span>
         <span class="layer-name" data-action="select">${layer.name}</span>
         <span class="layer-count">${objCount}</span>
         ${hasSelectedObj ? '<span class="layer-obj-marker" title="选中对象在此层">◆</span>' : ''}
@@ -1479,8 +1516,6 @@ export class SceneEditor {
         if (action === 'visibility') {
           this.sceneData.layers[idx].visible = !this.sceneData.layers[idx].visible;
           this.render();
-        } else if (action === 'lock') {
-          this.sceneData.layers[idx].locked = !this.sceneData.layers[idx].locked;
         } else {
           // 切换活动图层
           this.activeLayerIndex = idx;

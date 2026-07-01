@@ -6,15 +6,52 @@
  * - 管理场景数据（保存/加载场景配置）
  * - 导入/导出背景数据
  * - 使用 localStorage 保存编辑器状态
+ * - 所有默认值从 config/ 目录下的 JSON 文件加载
  */
+
+// 运行时配置缓存
+let _builtinGamesConfig = null;
+let _scenePresetsConfig = null;
+
+/**
+ * 加载内置游戏配置
+ */
+async function loadBuiltinGamesConfig() {
+  if (_builtinGamesConfig) return _builtinGamesConfig;
+  try {
+    const resp = await fetch('./config/builtin-games.json');
+    _builtinGamesConfig = await resp.json();
+  } catch (e) {
+    console.warn('加载内置游戏配置失败，使用内置默认值:', e);
+    _builtinGamesConfig = { games: [] };
+  }
+  return _builtinGamesConfig;
+}
+
+/**
+ * 加载场景预设配置
+ */
+async function loadScenePresetsConfig() {
+  if (_scenePresetsConfig) return _scenePresetsConfig;
+  try {
+    const resp = await fetch('./config/scene-presets.json');
+    _scenePresetsConfig = await resp.json();
+  } catch (e) {
+    console.warn('加载场景预设配置失败，使用内置默认值:', e);
+    _scenePresetsConfig = { sceneNames: {}, scenes: {} };
+  }
+  return _scenePresetsConfig;
+}
+
+export { loadBuiltinGamesConfig, loadScenePresetsConfig };
 
 export class EditorDataManager {
   constructor() {
     this.storageKey = 'h5game_editor_data';
     this.gamesListKey = 'h5game_editor_games';
     
-    // 内置游戏列表（example目录下的游戏）
-    this.builtinGames = [
+    // 内置游戏列表（从 JSON 配置加载，初始使用硬编码后备）
+    this.builtinGames = (_builtinGamesConfig && _builtinGamesConfig.games) || [
       {
         id: 'sanguo_zhangjiao',
         name: '三国张角传',
@@ -41,6 +78,38 @@ export class EditorDataManager {
     
     // 当前编辑的场景
     this.currentScene = null;
+    
+    // 场景名称映射（从 JSON 配置加载）
+    this._sceneNames = (_scenePresetsConfig && _scenePresetsConfig.sceneNames) || {
+      'PrologueScene': '序章 - 盆地营地',
+      'Act1Scene': '第一幕 - 起义军营',
+      'Act2Scene': '第二幕 - 战场',
+      'Act3Scene': '第三幕 - 城池',
+      'Act4Scene': '第四幕 - 山寨',
+      'Act5Scene': '第五幕 - 决战',
+      'Act6Scene': '第六幕 - 结局',
+      'BaseGameScene': '游戏主场景'
+    };
+  }
+  
+  /**
+   * 异步初始化 - 从 JSON 配置文件加载默认值
+   * 应在使用编辑器前调用
+   */
+  async init() {
+    const [gamesConfig, presetsConfig] = await Promise.all([
+      loadBuiltinGamesConfig(),
+      loadScenePresetsConfig()
+    ]);
+    
+    if (gamesConfig && gamesConfig.games && gamesConfig.games.length > 0) {
+      this.builtinGames = gamesConfig.games;
+    }
+    if (presetsConfig && presetsConfig.sceneNames) {
+      this._sceneNames = presetsConfig.sceneNames;
+    }
+    
+    return this;
   }
   
   /**
@@ -184,17 +253,8 @@ export class EditorDataManager {
     const game = this.getAllGames().find(g => g.id === gameId);
     if (!game) return [];
     
-    // 场景名称映射
-    const sceneNames = {
-      'PrologueScene': '序章 - 盆地营地',
-      'Act1Scene': '第一幕 - 起义军营',
-      'Act2Scene': '第二幕 - 战场',
-      'Act3Scene': '第三幕 - 城池',
-      'Act4Scene': '第四幕 - 山寨',
-      'Act5Scene': '第五幕 - 决战',
-      'Act6Scene': '第六幕 - 结局',
-      'BaseGameScene': '游戏主场景'
-    };
+    // 场景名称映射（从 JSON 配置加载）
+    const sceneNames = this._sceneNames;
     
     // 预设场景列表（始终展示）
     const presets = (game.scenes || []).map(name => ({
@@ -278,16 +338,7 @@ export class EditorDataManager {
     const game = this.getAllGames().find(g => g.id === gameId);
     const presetIdByName = {};
     if (game && game.scenes) {
-      const sceneNames = {
-        'PrologueScene': '序章 - 盆地营地',
-        'Act1Scene': '第一幕 - 起义军营',
-        'Act2Scene': '第二幕 - 战场',
-        'Act3Scene': '第三幕 - 城池',
-        'Act4Scene': '第四幕 - 山寨',
-        'Act5Scene': '第五幕 - 决战',
-        'Act6Scene': '第六幕 - 结局',
-        'BaseGameScene': '游戏主场景'
-      };
+      const sceneNames = this._sceneNames;
       for (const name of game.scenes) {
         const id = 'scene_' + name.replace('Scene', '');
         presetIdByName[sceneNames[name] || name.replace('Scene', '')] = id;
@@ -346,12 +397,17 @@ export class EditorDataManager {
    */
   createScene(gameId, sceneData) {
     const scenes = this.loadScenesData(gameId) || [];
+    
+    // 从 JSON 配置获取默认值
+    const defaults = _scenePresetsConfig || {};
+    const editorDefaults = { width: 1280, height: 720, backgroundColor: '#2a3a1a' };
+    
     const scene = {
       id: 'scene_' + Date.now(),
       name: sceneData.name || '新场景',
-      width: sceneData.width || 1280,
-      height: sceneData.height || 720,
-      backgroundColor: sceneData.backgroundColor || '#2a3a1a',
+      width: sceneData.width || editorDefaults.width,
+      height: sceneData.height || editorDefaults.height,
+      backgroundColor: sceneData.backgroundColor || editorDefaults.backgroundColor,
       layers: [],
       decorations: [],
       colliders: [],
@@ -455,16 +511,7 @@ export class EditorDataManager {
   _getPresetSceneName(gameId, sceneId) {
     const game = this.getAllGames().find(g => g.id === gameId);
     if (!game || !game.scenes) return null;
-    const sceneNames = {
-      'PrologueScene': '序章 - 盆地营地',
-      'Act1Scene': '第一幕 - 起义军营',
-      'Act2Scene': '第二幕 - 战场',
-      'Act3Scene': '第三幕 - 城池',
-      'Act4Scene': '第四幕 - 山寨',
-      'Act5Scene': '第五幕 - 决战',
-      'Act6Scene': '第六幕 - 结局',
-      'BaseGameScene': '游戏主场景'
-    };
+    const sceneNames = this._sceneNames;
     for (const name of game.scenes) {
       if ('scene_' + name.replace('Scene', '') === sceneId) {
         return sceneNames[name] || name.replace('Scene', '');
@@ -527,15 +574,18 @@ export class EditorDataManager {
     
     if (!scene) return null;
     
+    // 从 JSON 配置获取默认导出参数
+    const terrainDefaults = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes[sceneId]) || {};
+    
     // 转换为Scene1Terrain兼容格式
     const config = {
-      centerX: scene.centerX || 640,
-      centerY: scene.centerY || 360,
-      width: scene.width || 1280,
-      height: scene.height || 720,
-      basinRadius: scene.basinRadius || 640,
-      basinAspectY: scene.basinAspectY || 0.65,
-      grassTile: scene.grassTile || { sx: 448, sy: 128, sw: 64, sh: 64 },
+      centerX: scene.centerX || terrainDefaults.centerX || 640,
+      centerY: scene.centerY || terrainDefaults.centerY || 360,
+      width: scene.width || terrainDefaults.width || 1280,
+      height: scene.height || terrainDefaults.height || 720,
+      basinRadius: scene.basinRadius || terrainDefaults.basinRadius || 640,
+      basinAspectY: scene.basinAspectY || terrainDefaults.basinAspectY || 0.65,
+      grassTile: scene.grassTile || (terrainDefaults.terrain && terrainDefaults.terrain.grassTile) || { sx: 448, sy: 128, sw: 64, sh: 64 },
       decoSprites: scene.decoSprites || {},
       decorations: scene.decorations || [],
       waterPatches: scene.waterPatches || []

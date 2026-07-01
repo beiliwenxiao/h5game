@@ -1,0 +1,39 @@
+{
+  "editor": {
+    "width": 1280,
+    "height": 720,
+    "gridSize": 32,
+    "showGrid": true,
+    "showBackground": true
+  },
+  "scene": {
+    "defaultName": "新场景",
+    "width": 1280,
+    "height": 720,
+    "backgroundColor": "#2a3a1a",
+    "layers": [
+      { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false },
+      { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false },
+      { "id": "layer_mask", "name": "遮罩层", "visible": true, "locked": false },
+      { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false },
+      { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false }
+    ]
+  },
+  "viewport": {
+    "scale": 1,
+    "offsetX": 0,
+    "offsetY": 0
+  },
+  "history": {
+    "maxSize": 50
+  },
+  "terrain": {
+    "exportConfig": {
+      "centerX": 640,
+      "centerY": 360,
+      "basinRadius": 640,
+      "basinAspectY": 0.65,
+      "grassTile": { "sx": 448, "sy": 128, "sw": 64, "sh": 64 }
+    }
+  }
+}

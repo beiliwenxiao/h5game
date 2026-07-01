@@ -1,0 +1,125 @@
+{
+  "assetBase": "../example/sanguo_zhangjiao/assets/images/scene1/",
+  "scenes": {
+    "scene_Prologue": {
+      "id": "scene_Prologue",
+      "name": "序章 - 盆地营地",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#1a2a1a",
+      "metadata": {
+        "description": "东汉末年，太平道首领张角的起义军营地",
+        "act": 0,
+        "type": "outdoor"
+      },
+      "centerX": 350,
+      "centerY": 250,
+      "basinRadius": 640,
+      "basinAspectY": 0.65,
+      "basinInnerScale": 0.94,
+      "entranceAngleHalfWidth": 0.15707963267948966,
+      "terrain": {
+        "type": "basin",
+        "grassTile": { "sx": 448, "sy": 128, "sw": 64, "sh": 64 },
+        "tileSize": 64
+      }
+    },
+    "scene_Act1": {
+      "id": "scene_Act1",
+      "name": "第一幕 - 起义军营",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#1a2a2a",
+      "centerX": 640,
+      "centerY": 360,
+      "basinRadius": 500,
+      "basinAspectY": 0.7,
+      "terrain": {
+        "type": "camp",
+        "tileSize": 64
+      }
+    },
+    "scene_Act2": {
+      "id": "scene_Act2",
+      "name": "第二幕 - 符水救灾",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#2a2020",
+      "terrain": {
+        "type": "indoor",
+        "tileSize": 48
+      }
+    },
+    "scene_Act3": {
+      "id": "scene_Act3",
+      "name": "第三幕 - 铜钱法器",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#202030",
+      "terrain": {
+        "type": "indoor",
+        "tileSize": 48
+      }
+    },
+    "scene_Act4": {
+      "id": "scene_Act4",
+      "name": "第四幕 - 山寨",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#252520",
+      "centerX": 640,
+      "centerY": 350,
+      "basinRadius": 550,
+      "basinAspectY": 0.6,
+      "terrain": {
+        "type": "mountain",
+        "tileSize": 64
+      }
+    },
+    "scene_Act5": {
+      "id": "scene_Act5",
+      "name": "第五幕 - 决战",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#301515",
+      "centerX": 640,
+      "centerY": 360,
+      "basinRadius": 600,
+      "basinAspectY": 0.65,
+      "terrain": {
+        "type": "battlefield",
+        "tileSize": 64
+      }
+    },
+    "scene_Act6": {
+      "id": "scene_Act6",
+      "name": "第六幕 - 结局",
+      "width": 1280,
+      "height": 720,
+      "backgroundColor": "#1a1a2a",
+      "terrain": {
+        "type": "indoor",
+        "tileSize": 48
+      }
+    }
+  },
+  "sceneNames": {
+    "PrologueScene": "序章 - 盆地营地",
+    "Act1Scene": "第一幕 - 起义军营",
+    "Act2Scene": "第二幕 - 战场",
+    "Act3Scene": "第三幕 - 城池",
+    "Act4Scene": "第四幕 - 山寨",
+    "Act5Scene": "第五幕 - 决战",
+    "Act6Scene": "第六幕 - 结局",
+    "BaseGameScene": "游戏主场景"
+  },
+  "presetScenesList": [
+    { "id": "scene_Prologue", "name": "序章 - 盆地营地", "type": "terrain" },
+    { "id": "scene_Act1", "name": "第一幕 - 起义军营", "type": "terrain" },
+    { "id": "scene_Act2", "name": "第二幕 - 符水救灾", "type": "indoor" },
+    { "id": "scene_Act3", "name": "第三幕 - 铜钱法器", "type": "indoor" },
+    { "id": "scene_Act4", "name": "第四幕 - 山寨", "type": "terrain" },
+    { "id": "scene_Act5", "name": "第五幕 - 决战", "type": "terrain" },
+    { "id": "scene_Act6", "name": "第六幕 - 结局", "type": "indoor" }
+  ]
+}

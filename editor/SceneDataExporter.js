@@ -2,41 +2,73 @@
  * SceneDataExporter - 场景数据导出工具
  * 
  * 将代码定义的场景转换为编辑器可编辑的JSON数据格式
+ * 默认值从 config/ 目录下 JSON 文件加载
  */
+
+// 运行时配置缓存
+let _exporterConfig = null;
+
+/**
+ * 加载导出器配置
+ */
+async function loadExporterConfig() {
+  if (_exporterConfig) return _exporterConfig;
+  try {
+    const [presetsResp, decoResp] = await Promise.all([
+      fetch('./config/scene-presets.json'),
+      fetch('./config/deco-sprites.json')
+    ]);
+    const presets = await presetsResp.json();
+    const decoSprites = await decoResp.json();
+    _exporterConfig = { presets, decoSprites };
+  } catch (e) {
+    console.warn('加载导出器配置失败，使用内置默认值:', e);
+    _exporterConfig = { presets: null, decoSprites: null };
+  }
+  return _exporterConfig;
+}
+
+export { loadExporterConfig };
 
 export class SceneDataExporter {
   constructor() {
-    this.assetBase = '../example/sanguo_zhangjiao/assets/images/scene1/';
+    const presets = _exporterConfig && _exporterConfig.presets;
+    this.assetBase = (presets && presets.assetBase) || '../example/sanguo_zhangjiao/assets/images/scene1/';
   }
   
   /**
    * 从Scene1Terrain代码中提取完整数据
    */
   exportPrologueScene() {
-    // 完整复制Scene1Terrain的配置
+    // 从 JSON 配置获取序章场景预设
+    const presets = _exporterConfig && _exporterConfig.presets;
+    const prologuePreset = (presets && presets.scenes && presets.scenes['scene_Prologue']) || {};
+    const decoSpritesConfig = _exporterConfig && _exporterConfig.decoSprites;
+    
+    // 完整复制Scene1Terrain的配置，优先使用 JSON 配置值
     const config = {
-      id: 'scene_Prologue',
-      name: '序章 - 盆地营地',
-      width: 1280,
-      height: 720,
-      backgroundColor: '#1a2a1a',
+      id: prologuePreset.id || 'scene_Prologue',
+      name: prologuePreset.name || '序章 - 盆地营地',
+      width: prologuePreset.width || 1280,
+      height: prologuePreset.height || 720,
+      backgroundColor: prologuePreset.backgroundColor || '#1a2a1a',
       
       // 场景元数据
-      metadata: {
+      metadata: prologuePreset.metadata || {
         description: '东汉末年，太平道首领张角的起义军营地',
         act: 0,
         type: 'outdoor'
       },
       
       // 场景中心点
-      centerX: 350,
-      centerY: 250,
+      centerX: prologuePreset.centerX || 350,
+      centerY: prologuePreset.centerY || 250,
       
       // 椭圆盆地参数
-      basinRadius: 640,
-      basinAspectY: 0.65,
-      basinInnerScale: 0.94,
-      entranceAngleHalfWidth: Math.PI * 9 / 180,
+      basinRadius: prologuePreset.basinRadius || 640,
+      basinAspectY: prologuePreset.basinAspectY || 0.65,
+      basinInnerScale: prologuePreset.basinInnerScale || 0.94,
+      entranceAngleHalfWidth: prologuePreset.entranceAngleHalfWidth || (Math.PI * 9 / 180),
       
       // 资源路径
       assetBase: this.assetBase,
@@ -67,15 +99,27 @@ export class SceneDataExporter {
       ],
       
       // 地形配置
-      terrain: {
+      terrain: prologuePreset.terrain ? {
+        ...prologuePreset.terrain,
+        image: (prologuePreset.terrain.image || this.assetBase + 'mountain_landscape.png')
+      } : {
         type: 'basin',
         grassTile: { sx: 448, sy: 128, sw: 64, sh: 64 },
         tileSize: 64,
         image: this.assetBase + 'mountain_landscape.png'
       },
       
-      // 装饰物精灵配置（完整复制）
-      decoSprites: {
+      // 装饰物精灵配置（优先使用 JSON 配置）
+      decoSprites: (decoSpritesConfig && decoSpritesConfig.outdoor) ? (() => {
+        // 只取序章需要的 sprites
+        const outdoor = decoSpritesConfig.outdoor;
+        const needed = {};
+        const keys = ['tree1', 'tree2', 'tree3', 'grass1', 'bush2', 'bush3', 'bush4'];
+        for (const k of keys) {
+          if (outdoor[k]) needed[k] = outdoor[k];
+        }
+        return needed;
+      })() : {
         tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true, colliderRadius: 22 },
         tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true, colliderRadius: 14 },
         tree3: { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true, colliderRadius: 16 },

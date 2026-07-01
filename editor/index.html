@@ -546,8 +546,8 @@
     </div>
 
     <script type="module">
-        import { EditorDataManager } from './EditorDataManager.js';
-        import { SceneEditor } from './SceneEditor.js';
+        import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig } from './EditorDataManager.js';
+        import { SceneEditor, loadEditorDefaults } from './SceneEditor.js';
         import { ImageSlicer } from './ImageSlicer.js';
         import { SceneDataLoader } from './SceneDataLoader.js';
         import { UIEditor } from './UIEditor.js';
@@ -561,6 +561,19 @@
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
+                
+                this._initAsync();
+            }
+            
+            async _initAsync() {
+                // 先加载所有 JSON 配置
+                await Promise.all([
+                    loadEditorDefaults(),
+                    loadBuiltinGamesConfig(),
+                    loadScenePresetsConfig()
+                ]);
+                // 用加载的配置初始化数据管理器
+                await this.dataManager.init();
                 
                 this.init();
             }

@@ -2,23 +2,61 @@
  * SceneDataLoader - 场景数据加载器
  * 
  * 负责从现有场景文件中提取数据，转换为编辑器可用的格式
+ * 所有默认值从 config/ 目录下的 JSON 文件加载
  */
 
 import { SceneDataExporter } from './SceneDataExporter.js';
 
+// 运行时配置缓存
+let _scenePresetsConfig = null;
+let _decoSpritesConfig = null;
+let _atlasesConfig = null;
+
+/**
+ * 加载场景配置
+ */
+async function _loadConfigs() {
+  try {
+    const [presetsResp, decoResp, atlasResp] = await Promise.all([
+      fetch('./config/scene-presets.json'),
+      fetch('./config/deco-sprites.json'),
+      fetch('./config/atlases.json')
+    ]);
+    _scenePresetsConfig = await presetsResp.json();
+    _decoSpritesConfig = await decoResp.json();
+    _atlasesConfig = await atlasResp.json();
+  } catch (e) {
+    console.warn('加载场景配置失败，使用内置默认值:', e);
+  }
+}
+
 export class SceneDataLoader {
   constructor() {
-    this.assetBase = '../example/sanguo_zhangjiao/assets/images/scene1/';
+    this.assetBase = (_scenePresetsConfig && _scenePresetsConfig.assetBase) || '../example/sanguo_zhangjiao/assets/images/scene1/';
     this.exporter = new SceneDataExporter();
+    this._configsLoaded = false;
+  }
+  
+  /**
+   * 确保配置已加载
+   */
+  async _ensureConfigs() {
+    if (this._configsLoaded) return;
+    await _loadConfigs();
+    if (_scenePresetsConfig && _scenePresetsConfig.assetBase) {
+      this.assetBase = _scenePresetsConfig.assetBase;
+    }
+    this._configsLoaded = true;
   }
   
   /**
    * 获取场景1的地形数据（使用导出器生成完整数据）
    */
   async loadScene1Terrain() {
+    await this._ensureConfigs();
     const config = this.exporter.exportPrologueScene();
     
-    // 添加图片资源列表
+    // 添加图片资源列表（从 JSON 配置加载）
     config.atlases = this._getScene1Atlases();
     
     return config;
@@ -28,6 +66,10 @@ export class SceneDataLoader {
    * 获取场景1使用的图集资源
    */
   _getScene1Atlases() {
+    // 优先使用 JSON 配置
+    if (_atlasesConfig && _atlasesConfig.atlases && _atlasesConfig.atlases.length > 0) {
+      return _atlasesConfig.atlases;
+    }
     return [
       {
         id: 'mountain_landscape',
@@ -53,6 +95,10 @@ export class SceneDataLoader {
    * 获取所有预设场景
    */
   getPresetScenes() {
+    // 优先使用 JSON 配置
+    if (_scenePresetsConfig && _scenePresetsConfig.presetScenesList) {
+      return _scenePresetsConfig.presetScenesList;
+    }
     return [
       { id: 'scene_Prologue', name: '序章 - 盆地营地', type: 'terrain' },
       { id: 'scene_Act1', name: '第一幕 - 起义军营', type: 'terrain' },
@@ -68,6 +114,7 @@ export class SceneDataLoader {
    * 加载指定场景
    */
   async loadScene(sceneId) {
+    await this._ensureConfigs();
     switch (sceneId) {
       case 'scene_Prologue':
         return await this.loadScene1Terrain();
@@ -91,13 +138,15 @@ export class SceneDataLoader {
   /**
    * 创建空场景
    */
-  createEmptyScene(sceneId, name, bgColor = '#2a3a1a') {
+  createEmptyScene(sceneId, name, bgColor) {
+    // 从 JSON 配置获取默认背景色
+    const defaultBg = bgColor || '#2a3a1a';
     return {
       id: sceneId,
       name: name || sceneId.replace('scene_', ''),
       width: 1280,
       height: 720,
-      backgroundColor: bgColor,
+      backgroundColor: defaultBg,
       layers: [
         { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
         { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
@@ -112,21 +161,24 @@ export class SceneDataLoader {
    * 第一幕 - 起义军营
    */
   async loadAct1Scene() {
-    const config = this.createEmptyScene('scene_Act1', '第一幕 - 起义军营', '#1a2a2a');
+    // 从 JSON 配置获取场景预设
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act1']) || {};
+    const config = this.createEmptyScene('scene_Act1', preset.name || '第一幕 - 起义军营', preset.backgroundColor || '#1a2a2a');
     
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'camp',
       tileSize: 64,
       image: this.assetBase + 'mountain_landscape.png'
     };
+    if (!config.terrain.image) {
+      config.terrain.image = this.assetBase + 'mountain_landscape.png';
+    }
     
-    // 军营场景 - 更开阔的区域
-    config.centerX = 640;
-    config.centerY = 360;
-    config.basinRadius = 500;
-    config.basinAspectY = 0.7;
+    config.centerX = preset.centerX || 640;
+    config.centerY = preset.centerY || 360;
+    config.basinRadius = preset.basinRadius || 500;
+    config.basinAspectY = preset.basinAspectY || 0.7;
     
-    // 生成军营装饰物
     config.decorations = this._generateCampDecorations(config);
     config.decoSprites = this._getDefaultDecoSprites();
     
@@ -137,15 +189,14 @@ export class SceneDataLoader {
    * 第二幕 - 符水救灾（室内粥棚）
    */
   async loadAct2Scene() {
-    const config = this.createEmptyScene('scene_Act2', '第二幕 - 符水救灾', '#2a2020');
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act2']) || {};
+    const config = this.createEmptyScene('scene_Act2', preset.name || '第二幕 - 符水救灾', preset.backgroundColor || '#2a2020');
     
-    // 室内场景 - 粥棚
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'indoor',
       tileSize: 48
     };
     
-    // 室内装饰物
     config.decorations = this._generateIndoorDecorations(config, 'porridge');
     config.decoSprites = this._getIndoorDecoSprites();
     
@@ -156,9 +207,10 @@ export class SceneDataLoader {
    * 第三幕 - 铜钱法器（室内道场）
    */
   async loadAct3Scene() {
-    const config = this.createEmptyScene('scene_Act3', '第三幕 - 铜钱法器', '#202030');
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act3']) || {};
+    const config = this.createEmptyScene('scene_Act3', preset.name || '第三幕 - 铜钱法器', preset.backgroundColor || '#202030');
     
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'indoor',
       tileSize: 48
     };
@@ -173,18 +225,22 @@ export class SceneDataLoader {
    * 第四幕 - 山寨
    */
   async loadAct4Scene() {
-    const config = this.createEmptyScene('scene_Act4', '第四幕 - 山寨', '#252520');
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act4']) || {};
+    const config = this.createEmptyScene('scene_Act4', preset.name || '第四幕 - 山寨', preset.backgroundColor || '#252520');
     
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'mountain',
       tileSize: 64,
       image: this.assetBase + 'mountain_landscape.png'
     };
+    if (!config.terrain.image) {
+      config.terrain.image = this.assetBase + 'mountain_landscape.png';
+    }
     
-    config.centerX = 640;
-    config.centerY = 350;
-    config.basinRadius = 550;
-    config.basinAspectY = 0.6;
+    config.centerX = preset.centerX || 640;
+    config.centerY = preset.centerY || 350;
+    config.basinRadius = preset.basinRadius || 550;
+    config.basinAspectY = preset.basinAspectY || 0.6;
     
     config.decorations = this._generateMountainDecorations(config);
     config.decoSprites = this._getDefaultDecoSprites();
@@ -196,18 +252,22 @@ export class SceneDataLoader {
    * 第五幕 - 决战
    */
   async loadAct5Scene() {
-    const config = this.createEmptyScene('scene_Act5', '第五幕 - 决战', '#301515');
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act5']) || {};
+    const config = this.createEmptyScene('scene_Act5', preset.name || '第五幕 - 决战', preset.backgroundColor || '#301515');
     
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'battlefield',
       tileSize: 64,
       image: this.assetBase + 'mountain_landscape.png'
     };
+    if (!config.terrain.image) {
+      config.terrain.image = this.assetBase + 'mountain_landscape.png';
+    }
     
-    config.centerX = 640;
-    config.centerY = 360;
-    config.basinRadius = 600;
-    config.basinAspectY = 0.65;
+    config.centerX = preset.centerX || 640;
+    config.centerY = preset.centerY || 360;
+    config.basinRadius = preset.basinRadius || 600;
+    config.basinAspectY = preset.basinAspectY || 0.65;
     
     config.decorations = this._generateBattlefieldDecorations(config);
     config.decoSprites = this._getDefaultDecoSprites();
@@ -219,9 +279,10 @@ export class SceneDataLoader {
    * 第六幕 - 结局
    */
   async loadAct6Scene() {
-    const config = this.createEmptyScene('scene_Act6', '第六幕 - 结局', '#1a1a2a');
+    const preset = (_scenePresetsConfig && _scenePresetsConfig.scenes && _scenePresetsConfig.scenes['scene_Act6']) || {};
+    const config = this.createEmptyScene('scene_Act6', preset.name || '第六幕 - 结局', preset.backgroundColor || '#1a1a2a');
     
-    config.terrain = {
+    config.terrain = preset.terrain || {
       type: 'indoor',
       tileSize: 48
     };
@@ -364,6 +425,10 @@ export class SceneDataLoader {
    * 获取默认装饰物精灵配置
    */
   _getDefaultDecoSprites() {
+    // 优先使用 JSON 配置
+    if (_decoSpritesConfig && _decoSpritesConfig.outdoor) {
+      return _decoSpritesConfig.outdoor;
+    }
     return {
       tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true },
       tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true },
@@ -379,6 +444,10 @@ export class SceneDataLoader {
    * 获取室内装饰物精灵配置
    */
   _getIndoorDecoSprites() {
+    // 优先使用 JSON 配置
+    if (_decoSpritesConfig && _decoSpritesConfig.indoor) {
+      return _decoSpritesConfig.indoor;
+    }
     return {
       cauldron: { sx: 0, sy: 0, sw: 64, sh: 64, scale: 1.0, collide: true },
       table: { sx: 0, sy: 0, sw: 80, sh: 48, scale: 1.0, collide: true },

@@ -7,7 +7,45 @@
  * - 多图层管理
  * - 保存和导出场景配置
  * - 支持导入背景贴图
+ * - 所有默认值从 config/editor-defaults.json 加载
  */
+
+// 编辑器默认配置（运行时从 JSON 加载覆盖）
+let _editorDefaults = null;
+
+/**
+ * 加载编辑器默认配置
+ * @returns {Promise<Object>}
+ */
+async function loadEditorDefaults() {
+  if (_editorDefaults) return _editorDefaults;
+  try {
+    const resp = await fetch('./config/editor-defaults.json');
+    _editorDefaults = await resp.json();
+  } catch (e) {
+    console.warn('加载编辑器默认配置失败，使用内置默认值:', e);
+    _editorDefaults = {
+      editor: { width: 1280, height: 720, gridSize: 32, showGrid: true, showBackground: true },
+      scene: {
+        defaultName: '新场景',
+        width: 1280,
+        height: 720,
+        backgroundColor: '#2a3a1a',
+        layers: [
+          { id: 'layer_bg', name: '背景层', visible: true, locked: false },
+          { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
+          { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
+          { id: 'layer_entity', name: '实体层', visible: true, locked: false }
+        ]
+      },
+      viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+      history: { maxSize: 50 }
+    };
+  }
+  return _editorDefaults;
+}
+
+export { loadEditorDefaults };
 
 export class SceneEditor {
   constructor(container, options = {}) {
@@ -15,28 +53,38 @@ export class SceneEditor {
       ? document.querySelector(container)
       : container;
     
+    // 默认配置从 JSON 加载（同步回退）
+    const defaults = _editorDefaults || {};
+    const editorCfg = defaults.editor || {};
+    const sceneCfg = defaults.scene || {};
+    const viewportCfg = defaults.viewport || {};
+    const historyCfg = defaults.history || {};
+    
     this.options = {
-      width: options.width || 1280,
-      height: options.height || 720,
-      gridSize: options.gridSize || 32,
-      showGrid: options.showGrid !== false,
-      showBackground: options.showBackground !== false,
+      width: options.width || editorCfg.width || 1280,
+      height: options.height || editorCfg.height || 720,
+      gridSize: options.gridSize || editorCfg.gridSize || 32,
+      showGrid: options.showGrid !== undefined ? options.showGrid : (editorCfg.showGrid !== false),
+      showBackground: options.showBackground !== undefined ? options.showBackground : (editorCfg.showBackground !== false),
       ...options
     };
     
-    // 场景数据
+    // 场景数据 - 默认层从 JSON 配置构建
+    const defaultLayers = (sceneCfg.layers || [
+      { id: 'layer_bg', name: '背景层', visible: true, locked: false },
+      { id: 'layer_fill', name: '背景填充层', visible: true, locked: false },
+      { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
+      { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
+      { id: 'layer_entity', name: '实体层', visible: true, locked: false }
+    ]).map(l => ({ ...l, objects: [] }));
+    
     this.sceneData = {
       id: null,
-      name: '新场景',
+      name: sceneCfg.defaultName || '新场景',
       width: this.options.width,
       height: this.options.height,
-      backgroundColor: '#2a3a1a',
-      layers: [
-        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
-        { id: 'layer_mask', name: '遮罩层', visible: true, locked: false, objects: [] },
-        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
-        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
-      ],
+      backgroundColor: sceneCfg.backgroundColor || '#2a3a1a',
+      layers: defaultLayers,
       decorations: [],
       colliders: []
     };
@@ -52,9 +100,9 @@ export class SceneEditor {
     
     // 视口控制
     this.viewport = {
-      scale: 1,
-      offsetX: 0,
-      offsetY: 0
+      scale: viewportCfg.scale || 1,
+      offsetX: viewportCfg.offsetX || 0,
+      offsetY: viewportCfg.offsetY || 0
     };
     
     // 交互状态
@@ -74,7 +122,7 @@ export class SceneEditor {
     this.history = {
       undoStack: [],
       redoStack: [],
-      maxSize: 50
+      maxSize: historyCfg.maxSize || 50
     };
     
     // 回调
@@ -351,13 +399,11 @@ export class SceneEditor {
       return;
     }
     
-    // 设置canvas尺寸为场景尺寸
-    canvas.width = this.sceneData.width;
-    canvas.height = this.sceneData.height;
-    
-    // overlay尺寸也设置为场景尺寸，便于绘制选中框
-    overlay.width = this.sceneData.width;
-    overlay.height = this.sceneData.height;
+    // canvas 尺寸设置为容器尺寸，场景通过 viewport 变换居中绘制
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    overlay.width = container.clientWidth;
+    overlay.height = container.clientHeight;
     
     this._fitToContainer();
     this.render();
@@ -370,17 +416,37 @@ export class SceneEditor {
    */
   _fitToContainer() {
     const container = document.getElementById('editor-canvas-container');
+    const canvas = document.getElementById('editor-canvas');
+    const overlay = document.getElementById('editor-overlay');
     
     // 检查容器尺寸
     const containerWidth = container.clientWidth || 800;
     const containerHeight = container.clientHeight || 600;
     
+    // canvas 尺寸跟随容器
+    if (canvas) {
+      canvas.width = containerWidth;
+      canvas.height = containerHeight;
+    }
+    if (overlay) {
+      overlay.width = containerWidth;
+      overlay.height = containerHeight;
+    }
+    
     const scaleX = containerWidth / this.sceneData.width;
     const scaleY = containerHeight / this.sceneData.height;
     this.viewport.scale = Math.min(scaleX, scaleY, 2) * 0.9;
     
-    this.viewport.offsetX = (containerWidth - this.sceneData.width * this.viewport.scale) / 2;
-    this.viewport.offsetY = (containerHeight - this.sceneData.height * this.viewport.scale) / 2;
+    // 将场景居中于画布（以地形中心为基准）
+    const centerX = this.sceneData.centerX || this.sceneData.width / 2;
+    const centerY = this.sceneData.centerY || this.sceneData.height / 2;
+    // 场景矩形左上角在场景坐标系中的位置
+    const sceneX = centerX - this.sceneData.width / 2;
+    const sceneY = centerY - this.sceneData.height / 2;
+    
+    // 让场景矩形中心（即地形中心）对准画布中心
+    this.viewport.offsetX = containerWidth / 2 - centerX * this.viewport.scale;
+    this.viewport.offsetY = containerHeight / 2 - centerY * this.viewport.scale;
     
     this._updateZoomDisplay();
   }
@@ -547,6 +613,32 @@ export class SceneEditor {
         this.addObject({ type: 'rect', x: pos.x - 32, y: pos.y - 32, width: 64, height: 64, fill: '#4a5a8e' });
       } else if (id === 'circle') {
         this.addObject({ type: 'circle', x: pos.x, y: pos.y, radius: 32, fill: '#4a8e5a' });
+      } else if (id === 'fill') {
+        // 添加背景填充对象到背景填充层
+        const fillLayer = this.sceneData.layers.find(l => l.id === 'layer_fill');
+        const fillObj = {
+          id: 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          type: 'fill',
+          x: 0,
+          y: 0,
+          width: this.sceneData.width,
+          height: this.sceneData.height,
+          fillMode: 'color',
+          fillColor: '#333333',
+          opacity: 1,
+          name: '背景填充'
+        };
+        if (fillLayer) {
+          fillLayer.objects.push(fillObj);
+          this.activeLayerIndex = this.sceneData.layers.indexOf(fillLayer);
+        } else {
+          this.addObject(fillObj);
+        }
+        this.selectedObjects = [fillObj];
+        this._saveHistory();
+        this._updateObjectCount();
+        this._updateObjectProperties();
+        this.render();
       } else if (this.loadedImages.has(id)) {
         const img = this.loadedImages.get(id);
         this.addObject({
@@ -618,6 +710,22 @@ export class SceneEditor {
     }
     
     if (this.interaction.mode === 'select') {
+      // 检查是否点击了选中对象的右下角缩放手柄
+      if (this.selectedObjects.length > 0) {
+        const resizeTarget = this._getResizeHandleAt(pos.x, pos.y);
+        if (resizeTarget) {
+          this.interaction.isResizing = true;
+          this.interaction.isDragging = true;
+          this.interaction.dragStart = { x: pos.x, y: pos.y };
+          this.interaction.resizeTarget = resizeTarget;
+          this.interaction.resizeStart = {
+            width: resizeTarget.width || 64,
+            height: resizeTarget.height || 64
+          };
+          return;
+        }
+      }
+      
       const clicked = this._getObjectAt(pos.x, pos.y);
       
       if (clicked) {
@@ -646,11 +754,44 @@ export class SceneEditor {
    * @private
    */
   _handleMouseMove(e) {
+    // 更新光标样式（根据是否悬停在缩放手柄上）
+    if (!this.interaction.isDragging && this.interaction.mode === 'select' && this.selectedObjects.length > 0) {
+      const pos = this._screenToScene(e.offsetX, e.offsetY);
+      const onHandle = this._getResizeHandleAt(pos.x, pos.y);
+      const canvas = document.getElementById('editor-overlay') || document.getElementById('editor-canvas');
+      if (canvas) {
+        canvas.style.cursor = onHandle ? 'nwse-resize' : '';
+      }
+    }
+    
     if (!this.interaction.isDragging) return;
     
     if (this.interaction.mode === 'pan') {
       this.viewport.offsetX = e.offsetX - this.interaction.dragStart.x;
       this.viewport.offsetY = e.offsetY - this.interaction.dragStart.y;
+      this.render();
+    } else if (this.interaction.isResizing) {
+      // 缩放模式
+      const pos = this._screenToScene(e.offsetX, e.offsetY);
+      const dx = pos.x - this.interaction.dragStart.x;
+      const dy = pos.y - this.interaction.dragStart.y;
+      const obj = this.interaction.resizeTarget;
+      
+      // 计算新尺寸（最小 8px）
+      const newWidth = Math.max(8, this.interaction.resizeStart.width + dx);
+      const newHeight = Math.max(8, this.interaction.resizeStart.height + dy);
+      
+      obj.width = Math.round(newWidth);
+      obj.height = Math.round(newHeight);
+      
+      // 如果是装饰物，同步更新 scale
+      if (obj.type === 'decoration' && obj._decoRef) {
+        const origWidth = obj._origWidth || this.interaction.resizeStart.width;
+        obj._decoRef.scale = obj.width / origWidth;
+        obj.scale = obj._decoRef.scale;
+      }
+      
+      this._updateObjectProperties();
       this.render();
     } else if (this.interaction.mode === 'select' && this.selectedObjects.length > 0) {
       const pos = this._screenToScene(e.offsetX, e.offsetY);
@@ -678,10 +819,13 @@ export class SceneEditor {
    * @private
    */
   _handleMouseUp(e) {
-    if (this.interaction.isDragging && this.selectedObjects.length > 0) {
+    if (this.interaction.isDragging && (this.selectedObjects.length > 0 || this.interaction.isResizing)) {
       this._saveHistory();
     }
     this.interaction.isDragging = false;
+    this.interaction.isResizing = false;
+    this.interaction.resizeTarget = null;
+    this.interaction.resizeStart = null;
   }
   
   /**
@@ -944,7 +1088,7 @@ export class SceneEditor {
       for (let i = layer.objects.length - 1; i >= 0; i--) {
         const obj = layer.objects[i];
         
-        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
+        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
           if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
             // 命中后切换激活图层，便于拖动/删除
             this.activeLayerIndex = li;
@@ -984,6 +1128,39 @@ export class SceneEditor {
             };
           }
         }
+      }
+    }
+    
+    return null;
+  }
+  
+  /**
+   * 检查指定位置是否在选中对象的右下角缩放手柄上
+   * @private
+   * @param {number} x - 场景坐标X
+   * @param {number} y - 场景坐标Y
+   * @returns {Object|null} 命中的对象，或 null
+   */
+  _getResizeHandleAt(x, y) {
+    const handleSize = 12 / this.viewport.scale; // 手柄点击区域稍大于绘制区域
+    
+    for (const obj of this.selectedObjects) {
+      let hx, hy;
+      
+      if (obj.type === 'decoration') {
+        const w = obj.width || 64;
+        const h = obj.height || 64;
+        hx = obj.x + w / 2 + 2;
+        hy = obj.y + 2;
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+        hx = obj.x + obj.width + 2;
+        hy = obj.y + obj.height + 2;
+      } else {
+        continue;
+      }
+      
+      if (Math.abs(x - hx) <= handleSize && Math.abs(y - hy) <= handleSize) {
+        return obj;
       }
     }
     
@@ -1205,7 +1382,7 @@ export class SceneEditor {
       html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
       html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
       
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
         html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
         html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
       } else if (obj.type === 'circle') {
@@ -1216,7 +1393,47 @@ export class SceneEditor {
         html += `<div class="property-row"><label>旋转:</label><input type="number" value="${Math.round(obj.rotation)}" data-prop="rotation"></div>`;
       }
       
-      if (obj.fill) {
+      if (obj.type === 'fill') {
+        // 背景填充对象专属属性
+        html += `<div class="property-row"><label>透明度:</label><input type="number" value="${obj.opacity !== undefined ? obj.opacity : 1}" step="0.1" min="0" max="1" data-prop="opacity"></div>`;
+        html += `<div class="property-row"><label>填充模式:</label><select id="fill-mode-select" data-prop="fillMode">
+          <option value="color" ${obj.fillMode === 'color' || !obj.fillMode ? 'selected' : ''}>纯色</option>
+          <option value="gradient" ${obj.fillMode === 'gradient' ? 'selected' : ''}>渐变</option>
+          <option value="image" ${obj.fillMode === 'image' ? 'selected' : ''}>图片</option>
+          <option value="pattern" ${obj.fillMode === 'pattern' ? 'selected' : ''}>图案材质</option>
+        </select></div>`;
+        
+        if (obj.fillMode === 'color' || !obj.fillMode) {
+          html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fillColor || '#333333'}" data-prop="fillColor"></div>`;
+        } else if (obj.fillMode === 'gradient') {
+          html += `<div class="property-row"><label>渐变类型:</label><select data-prop="gradientType">
+            <option value="linear" ${obj.gradientType !== 'radial' ? 'selected' : ''}>线性</option>
+            <option value="radial" ${obj.gradientType === 'radial' ? 'selected' : ''}>径向</option>
+          </select></div>`;
+          html += `<div class="property-row"><label>角度:</label><input type="number" value="${obj.gradientAngle || 0}" data-prop="gradientAngle"></div>`;
+          html += `<div class="property-row"><label>起始色:</label><input type="color" value="${(obj.gradientStops && obj.gradientStops[0]?.color) || '#000000'}" data-prop="gradientColor0"></div>`;
+          html += `<div class="property-row"><label>结束色:</label><input type="color" value="${(obj.gradientStops && obj.gradientStops[1]?.color) || '#333333'}" data-prop="gradientColor1"></div>`;
+        } else if (obj.fillMode === 'image') {
+          html += `<div class="property-row"><label>图片路径:</label><input type="text" value="${obj.imageSrc || ''}" data-prop="imageSrc" placeholder="输入图片URL"></div>`;
+          html += `<div class="property-row"><label>显示模式:</label><select data-prop="imageMode">
+            <option value="stretch" ${obj.imageMode === 'stretch' || !obj.imageMode ? 'selected' : ''}>拉伸</option>
+            <option value="cover" ${obj.imageMode === 'cover' ? 'selected' : ''}>覆盖</option>
+            <option value="contain" ${obj.imageMode === 'contain' ? 'selected' : ''}>包含</option>
+            <option value="tile" ${obj.imageMode === 'tile' ? 'selected' : ''}>平铺</option>
+          </select></div>`;
+          html += `<div class="property-row"><button id="editor-load-fill-image">加载图片</button></div>`;
+        } else if (obj.fillMode === 'pattern') {
+          html += `<div class="property-row"><label>图案类型:</label><select data-prop="patternType">
+            <option value="grid" ${obj.patternType === 'grid' || !obj.patternType ? 'selected' : ''}>网格</option>
+            <option value="dots" ${obj.patternType === 'dots' ? 'selected' : ''}>圆点</option>
+            <option value="diagonal" ${obj.patternType === 'diagonal' ? 'selected' : ''}>斜线</option>
+            <option value="crosshatch" ${obj.patternType === 'crosshatch' ? 'selected' : ''}>交叉线</option>
+          </select></div>`;
+          html += `<div class="property-row"><label>图案颜色:</label><input type="color" value="${obj.patternColor || '#444444'}" data-prop="patternColor"></div>`;
+          html += `<div class="property-row"><label>底色:</label><input type="color" value="${obj.patternBg || '#222222'}" data-prop="patternBg"></div>`;
+          html += `<div class="property-row"><label>图案大小:</label><input type="number" value="${obj.patternSize || 32}" data-prop="patternSize"></div>`;
+        }
+      } else if (obj.fill) {
         html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
       }
     }
@@ -1224,13 +1441,33 @@ export class SceneEditor {
     html += `<div class="property-row"><button id="editor-delete-obj">删除对象</button></div>`;
     panel.innerHTML = html;
     
-    panel.querySelectorAll('input[data-prop]').forEach(input => {
+    panel.querySelectorAll('input[data-prop], select[data-prop]').forEach(input => {
       input.addEventListener('change', (e) => {
         const prop = e.target.dataset.prop;
-        const value = parseFloat(e.target.value);
+        let value;
         
-        // 更新对象属性
-        obj[prop] = value;
+        if (e.target.type === 'number') {
+          value = parseFloat(e.target.value);
+        } else if (e.target.type === 'color' || e.target.tagName === 'SELECT' || e.target.type === 'text') {
+          value = e.target.value;
+        } else {
+          value = e.target.value;
+        }
+        
+        // 处理渐变颜色的特殊属性
+        if (prop === 'gradientColor0' || prop === 'gradientColor1') {
+          if (!obj.gradientStops) {
+            obj.gradientStops = [{ offset: 0, color: '#000000' }, { offset: 1, color: '#333333' }];
+          }
+          const idx = prop === 'gradientColor0' ? 0 : 1;
+          obj.gradientStops[idx].color = value;
+        } else if (prop === 'fillMode') {
+          obj.fillMode = value;
+          // 切换模式后刷新属性面板
+          this._updateObjectProperties();
+        } else {
+          obj[prop] = value;
+        }
         
         // 如果是装饰物，还需要更新原始数据
         if (obj.type === 'decoration' && obj._decoRef) {
@@ -1240,6 +1477,24 @@ export class SceneEditor {
         this.render();
       });
     });
+    
+    // 加载图片按钮
+    const loadImgBtn = document.getElementById('editor-load-fill-image');
+    if (loadImgBtn) {
+      loadImgBtn.addEventListener('click', () => {
+        const src = obj.imageSrc;
+        if (!src) return;
+        const img = new Image();
+        img.onload = () => {
+          this.loadedImages.set(src, img);
+          this.render();
+        };
+        img.onerror = () => {
+          this._showToast('图片加载失败: ' + src, 'error');
+        };
+        img.src = src;
+      });
+    }
     
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
   }
@@ -1269,6 +1524,10 @@ export class SceneEditor {
       <div class="asset-item placeholder" draggable="true" data-type="circle">
         <div class="asset-preview circle"></div>
         <span>圆形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="fill">
+        <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>
+        <span>背景填充</span>
       </div>
     `;
     
@@ -1495,19 +1754,33 @@ export class SceneEditor {
     ctx.translate(this.viewport.offsetX, this.viewport.offsetY);
     ctx.scale(this.viewport.scale, this.viewport.scale);
     
-    // 绘制背景（辅助用的长方形纯色背景）
+    // 计算场景可见区域（以地形中心为基准居中）
+    const centerX = this.sceneData.centerX || this.sceneData.width / 2;
+    const centerY = this.sceneData.centerY || this.sceneData.height / 2;
+    const sceneW = this.sceneData.width;
+    const sceneH = this.sceneData.height;
+    // 场景矩形以地形中心为中心
+    const sceneX = centerX - sceneW / 2;
+    const sceneY = centerY - sceneH / 2;
+    
+    // 绘制背景（辅助用的长方形纯色背景，以地形中心为中心）
     if (this.options.showBackground) {
       ctx.fillStyle = this.sceneData.backgroundColor || '#1a2a1a';
-      ctx.fillRect(0, 0, this.sceneData.width, this.sceneData.height);
+      ctx.fillRect(sceneX, sceneY, sceneW, sceneH);
     }
+    
+    // 绘制场景边框（辅助线）
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1 / this.viewport.scale;
+    ctx.strokeRect(sceneX, sceneY, sceneW, sceneH);
     
     // 检查是否是地形场景（舞台）
     if (this.sceneData.terrain) {
       this._renderTerrainScene(ctx);
     }
     
-    // 绘制网格
-    if (this.options.showGrid) this._renderGrid(ctx);
+    // 绘制网格（以地形中心为基准对齐）
+    if (this.options.showGrid) this._renderGrid(ctx, sceneX, sceneY, sceneW, sceneH);
     
     // 绘制图层
     for (const layer of this.sceneData.layers) {
@@ -1522,23 +1795,38 @@ export class SceneEditor {
   /**
    * 渲染网格
    * @private
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} startX - 网格起始X
+   * @param {number} startY - 网格起始Y
+   * @param {number} width - 网格区域宽度
+   * @param {number} height - 网格区域高度
    */
-  _renderGrid(ctx) {
+  _renderGrid(ctx, startX, startY, width, height) {
     const gridSize = this.options.gridSize;
+    // 使用传入区域，没有则回退到旧逻辑
+    const sx = startX !== undefined ? startX : 0;
+    const sy = startY !== undefined ? startY : 0;
+    const w = width !== undefined ? width : this.sceneData.width;
+    const h = height !== undefined ? height : this.sceneData.height;
+    
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1 / this.viewport.scale;
     
-    for (let x = 0; x <= this.sceneData.width; x += gridSize) {
+    // 从起始位置开始按 gridSize 步进绘制网格
+    const gridStartX = Math.ceil(sx / gridSize) * gridSize;
+    const gridStartY = Math.ceil(sy / gridSize) * gridSize;
+    
+    for (let x = gridStartX; x <= sx + w; x += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, this.sceneData.height);
+      ctx.moveTo(x, sy);
+      ctx.lineTo(x, sy + h);
       ctx.stroke();
     }
     
-    for (let y = 0; y <= this.sceneData.height; y += gridSize) {
+    for (let y = gridStartY; y <= sy + h; y += gridSize) {
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(this.sceneData.width, y);
+      ctx.moveTo(sx, y);
+      ctx.lineTo(sx + w, y);
       ctx.stroke();
     }
   }
@@ -1548,7 +1836,10 @@ export class SceneEditor {
    * @private
    */
   _renderObject(ctx, obj) {
-    if (obj.type === 'rect') {
+    if (obj.type === 'fill') {
+      // 背景填充对象 — 支持纯色、图片、渐变、图案材质
+      this._renderFillObject(ctx, obj);
+    } else if (obj.type === 'rect') {
       ctx.fillStyle = obj.fill || '#4a5a8e';
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
     } else if (obj.type === 'circle') {
@@ -1602,6 +1893,177 @@ export class SceneEditor {
         ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       }
     }
+  }
+  
+  /**
+   * 渲染背景填充对象
+   * 支持: color(纯色), image(图片), gradient(渐变), pattern(图案平铺)
+   * @private
+   */
+  _renderFillObject(ctx, obj) {
+    const x = obj.x || 0;
+    const y = obj.y || 0;
+    const w = obj.width || this.sceneData.width;
+    const h = obj.height || this.sceneData.height;
+    
+    ctx.save();
+    
+    // 透明度
+    if (obj.opacity !== undefined) {
+      ctx.globalAlpha = obj.opacity;
+    }
+    
+    const fillMode = obj.fillMode || 'color';
+    
+    if (fillMode === 'color') {
+      // 纯色填充
+      ctx.fillStyle = obj.fillColor || '#333333';
+      ctx.fillRect(x, y, w, h);
+      
+    } else if (fillMode === 'gradient') {
+      // 渐变填充
+      let grad;
+      if (obj.gradientType === 'radial') {
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const r = Math.max(w, h) / 2;
+        grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+      } else {
+        // 默认线性渐变
+        const angle = (obj.gradientAngle || 0) * Math.PI / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        grad = ctx.createLinearGradient(
+          x + w / 2 - cos * w / 2, y + h / 2 - sin * h / 2,
+          x + w / 2 + cos * w / 2, y + h / 2 + sin * h / 2
+        );
+      }
+      const stops = obj.gradientStops || [
+        { offset: 0, color: '#000000' },
+        { offset: 1, color: '#333333' }
+      ];
+      for (const stop of stops) {
+        grad.addColorStop(stop.offset, stop.color);
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, y, w, h);
+      
+    } else if (fillMode === 'image') {
+      // 图片填充
+      const img = this.loadedImages.get(obj.imageId || obj.imageSrc);
+      if (img) {
+        const drawMode = obj.imageMode || 'stretch';
+        if (drawMode === 'stretch') {
+          ctx.drawImage(img, x, y, w, h);
+        } else if (drawMode === 'cover') {
+          // 等比缩放覆盖
+          const imgRatio = img.width / img.height;
+          const boxRatio = w / h;
+          let sw, sh, sx, sy;
+          if (imgRatio > boxRatio) {
+            sh = img.height;
+            sw = sh * boxRatio;
+            sx = (img.width - sw) / 2;
+            sy = 0;
+          } else {
+            sw = img.width;
+            sh = sw / boxRatio;
+            sx = 0;
+            sy = (img.height - sh) / 2;
+          }
+          ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+        } else if (drawMode === 'contain') {
+          // 等比缩放包含
+          const imgRatio = img.width / img.height;
+          const boxRatio = w / h;
+          let dw, dh, dx, dy;
+          if (imgRatio > boxRatio) {
+            dw = w;
+            dh = w / imgRatio;
+            dx = x;
+            dy = y + (h - dh) / 2;
+          } else {
+            dh = h;
+            dw = h * imgRatio;
+            dx = x + (w - dw) / 2;
+            dy = y;
+          }
+          ctx.drawImage(img, dx, dy, dw, dh);
+        } else if (drawMode === 'tile') {
+          // 平铺
+          const tileW = obj.tileWidth || img.width;
+          const tileH = obj.tileHeight || img.height;
+          const pattern = ctx.createPattern(img, 'repeat');
+          ctx.fillStyle = pattern;
+          ctx.translate(x, y);
+          ctx.fillRect(0, 0, w, h);
+          ctx.translate(-x, -y);
+        }
+      } else {
+        // 图片未加载 - 显示占位符
+        ctx.fillStyle = '#2a2a2a';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#5a5a5a';
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#888';
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🖼️ ' + (obj.imageSrc || '未设置图片'), x + w / 2, y + h / 2);
+      }
+      
+    } else if (fillMode === 'pattern') {
+      // 图案材质填充（纯几何图案，不需要外部图片）
+      const patternType = obj.patternType || 'grid';
+      const patternColor = obj.patternColor || '#444444';
+      const patternBg = obj.patternBg || '#222222';
+      const patternSize = obj.patternSize || 32;
+      
+      // 先画底色
+      ctx.fillStyle = patternBg;
+      ctx.fillRect(x, y, w, h);
+      
+      ctx.strokeStyle = patternColor;
+      ctx.fillStyle = patternColor;
+      ctx.lineWidth = 1;
+      
+      if (patternType === 'grid') {
+        for (let px = x; px < x + w; px += patternSize) {
+          ctx.beginPath(); ctx.moveTo(px, y); ctx.lineTo(px, y + h); ctx.stroke();
+        }
+        for (let py = y; py < y + h; py += patternSize) {
+          ctx.beginPath(); ctx.moveTo(x, py); ctx.lineTo(x + w, py); ctx.stroke();
+        }
+      } else if (patternType === 'dots') {
+        for (let px = x + patternSize / 2; px < x + w; px += patternSize) {
+          for (let py = y + patternSize / 2; py < y + h; py += patternSize) {
+            ctx.beginPath();
+            ctx.arc(px, py, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      } else if (patternType === 'diagonal') {
+        ctx.beginPath();
+        for (let d = -h; d < w + h; d += patternSize) {
+          ctx.moveTo(x + d, y);
+          ctx.lineTo(x + d + h, y + h);
+        }
+        ctx.stroke();
+      } else if (patternType === 'crosshatch') {
+        ctx.beginPath();
+        for (let d = -h; d < w + h; d += patternSize) {
+          ctx.moveTo(x + d, y);
+          ctx.lineTo(x + d + h, y + h);
+          ctx.moveTo(x + d + h, y);
+          ctx.lineTo(x + d, y + h);
+        }
+        ctx.stroke();
+      }
+    }
+    
+    ctx.restore();
   }
   
   /**
@@ -1678,8 +2140,8 @@ export class SceneEditor {
   
   /**
    * 渲染室外场景
-   * 背景层：草地椭圆填充
-   * 遮罩层：森林环带椭圆（大椭圆渐变）
+   * 背景层：草地椭圆填充（最底层）
+   * 遮罩层：森林环带椭圆（大椭圆渐变，覆盖在背景层之上）
    */
   _renderOutdoorScene(ctx, getLayerVisible) {
     const data = this.sceneData;
@@ -1705,7 +2167,15 @@ export class SceneEditor {
       forestColor = 'rgba(30, 50, 35, 1)';
     }
     
-    // 遮罩层：森林环带（大椭圆渐变）
+    // 背景层：草地椭圆（最底层，先画）
+    if (getLayerVisible('背景层')) {
+      ctx.fillStyle = grassColor;
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // 遮罩层：森林环带（大椭圆渐变，画在背景层之上）
     if (getLayerVisible('遮罩层')) {
       ctx.save();
       ctx.translate(centerX, centerY);
@@ -1719,14 +2189,6 @@ export class SceneEditor {
       ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    }
-    
-    // 背景层：草地椭圆
-    if (getLayerVisible('背景层')) {
-      ctx.fillStyle = grassColor;
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
-      ctx.fill();
     }
   }
   
@@ -1802,21 +2264,49 @@ export class SceneEditor {
     ctx.lineWidth = 2 / this.viewport.scale;
     ctx.setLineDash([6 / this.viewport.scale, 4 / this.viewport.scale]);
     
+    const handleSize = 8 / this.viewport.scale;
+    
     for (const obj of this.selectedObjects) {
+      let x, y, w, h;
+      
       if (obj.type === 'decoration') {
         // 装饰物选中框
-        const w = obj.width || 64;
-        const h = obj.height || 64;
-        const x = obj.x - w / 2;
-        const y = obj.y - h;
-        ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice') {
-        ctx.strokeRect(obj.x - 2, obj.y - 2, obj.width + 4, obj.height + 4);
+        w = obj.width || 64;
+        h = obj.height || 64;
+        x = obj.x - w / 2 - 2;
+        y = obj.y - h - 2;
+        w += 4;
+        h += 4;
+        ctx.strokeRect(x, y, w, h);
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill') {
+        x = obj.x - 2;
+        y = obj.y - 2;
+        w = obj.width + 4;
+        h = obj.height + 4;
+        ctx.strokeRect(x, y, w, h);
       } else if (obj.type === 'circle') {
         ctx.beginPath();
         ctx.arc(obj.x, obj.y, obj.radius + 2, 0, Math.PI * 2);
         ctx.stroke();
+        continue; // 圆形不画缩放手柄
+      } else {
+        continue;
       }
+      
+      // 绘制右下角缩放手柄
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#4a90d9';
+      ctx.lineWidth = 1.5 / this.viewport.scale;
+      const hx = x + w - handleSize / 2;
+      const hy = y + h - handleSize / 2;
+      ctx.fillRect(hx, hy, handleSize, handleSize);
+      ctx.strokeRect(hx, hy, handleSize, handleSize);
+      
+      // 恢复虚线样式供下一个对象
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2 / this.viewport.scale;
+      ctx.setLineDash([6 / this.viewport.scale, 4 / this.viewport.scale]);
     }
     
     ctx.restore();
@@ -1834,6 +2324,7 @@ export class SceneEditor {
   _normalizeLayers(layers) {
     const standard = [
       { id: 'layer_bg', name: '背景层' },
+      { id: 'layer_fill', name: '背景填充层' },
       { id: 'layer_mask', name: '遮罩层' },
       { id: 'layer_deco', name: '装饰层' },
       { id: 'layer_entity', name: '实体层' }
@@ -1882,18 +2373,24 @@ export class SceneEditor {
    */
   loadScene(sceneData) {
     // 使用全新的基础结构，避免上一个场景的字段（atlases/terrain/decorations 等）残留串台
+    // 从 JSON 配置获取默认层
+    const defaults = _editorDefaults || {};
+    const sceneCfg = defaults.scene || {};
+    const defaultLayers = (sceneCfg.layers || [
+      { id: 'layer_bg', name: '背景层', visible: true, locked: false },
+      { id: 'layer_fill', name: '背景填充层', visible: true, locked: false },
+      { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
+      { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
+      { id: 'layer_entity', name: '实体层', visible: true, locked: false }
+    ]).map(l => ({ ...l, objects: [] }));
+    
     const base = {
       id: null,
-      name: '新场景',
+      name: sceneCfg.defaultName || '新场景',
       width: this.options.width,
       height: this.options.height,
-      backgroundColor: '#2a3a1a',
-      layers: [
-        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
-        { id: 'layer_mask', name: '遮罩层', visible: true, locked: false, objects: [] },
-        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
-        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
-      ],
+      backgroundColor: sceneCfg.backgroundColor || '#2a3a1a',
+      layers: defaultLayers,
       decorations: [],
       colliders: []
     };
@@ -1923,15 +2420,18 @@ export class SceneEditor {
     if (widthInput) widthInput.value = this.sceneData.width;
     if (heightInput) heightInput.value = this.sceneData.height;
     
-    // 更新画布尺寸
+    // 更新画布尺寸（跟随容器，场景通过 viewport 居中）
     const canvas = document.getElementById('editor-canvas');
     const overlay = document.getElementById('editor-overlay');
+    const container = document.getElementById('editor-canvas-container');
     
-    if (canvas && overlay) {
-      canvas.width = this.sceneData.width;
-      canvas.height = this.sceneData.height;
-      overlay.width = this.sceneData.width;
-      overlay.height = this.sceneData.height;
+    if (canvas && overlay && container) {
+      const cw = container.clientWidth || 800;
+      const ch = container.clientHeight || 600;
+      canvas.width = cw;
+      canvas.height = ch;
+      overlay.width = cw;
+      overlay.height = ch;
     }
     
     // 加载图集图片

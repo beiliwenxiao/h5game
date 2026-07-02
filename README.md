@@ -1,15 +1,17 @@
 # 张角黄巾起义序章 - HTML5 MMRPG 引擎
 
 一个基于完整 ECS 架构的 HTML5 多人在线角色扮演游戏引擎。
+交流QQ群:58607027
 
 ![游戏预览](example/sanguo_zhangjiao/assets/images/002.png)
+
+![地图编辑器](editor/map_editor.png)
 
 感谢以下图片来源：
 图片来源：https://opengameart.org
 
 https://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x32-with-additions
 图标来源：ravenmore.itch.io
-
 
 ## 🎮 立即开始
 
@@ -303,4 +305,4 @@ npm test             # 运行单元测试（Vitest）
 ---
 
 项目状态: 活跃开发中
-当前版本: 1.0.0
+当前版本: 0.0.1

@@ -444,12 +444,6 @@
             border-color: rgba(255, 120, 90, 0.85);
         }
         .action-btn.attack.pressed { background: rgba(200, 60, 40, 0.9); }
-        /* 交互模式（非战斗）：绿色手掌 */
-        .action-btn.attack.interact-mode {
-            background: rgba(76, 175, 80, 0.6);
-            border-color: rgba(139, 195, 74, 0.85);
-        }
-        .action-btn.attack.interact-mode.pressed { background: rgba(76, 175, 80, 0.9); }
         
         /* 攻击放在按钮组中心 */
         #act-attack  { right: 66px; bottom: 70px; }
@@ -506,8 +500,12 @@
         .action-btn.move.pressed { background: rgba(60, 120, 200, 0.9); }
         /* 轻功与投掷底部对齐 */
         #act-flight { right: 150px; bottom: 0px; }
+        /* 交互按钮：投掷左边 */
+        #act-interact { right: 88px; bottom: 0px; }
         /* 中心右侧：投掷（向左移动 20px → right 增大 20） */
         #act-throw  { right: 20px;   bottom: 0px; }
+        /* 斧头按钮：投掷右边 */
+        #act-axe    { right: -48px;  bottom: 0px; }
         
         /* ===== 底部快捷栏：背包 / 装备 / 技能6 / 技能7（无边框，按钮+文字） ===== */
         #bottom-hotbar {
@@ -653,12 +651,16 @@
                 <div class="action-btn skill" id="act-skill3" data-skill="0">🔥<span class="label">火焰掌</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <div class="action-btn skill" id="act-skill4" data-skill="1">❄<span class="label">寒冰指</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">烈焰掌</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
-                <!-- 中心：交互/攻击（平时交互，战斗中变攻击） -->
-                <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">✋</span><span class="label atk-label">交互</span></div>
+                <!-- 中心：攻击 -->
+                <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">⚔️</span><span class="label atk-label">攻击</span></div>
                 <!-- 中心左下：轻功 -->
                 <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span></div>
+                <!-- 交互按钮 -->
+                <div class="action-btn move" id="act-interact" data-act="interact">✋<span class="label">交互</span></div>
                 <!-- 中心右侧：投掷 -->
                 <div class="action-btn move" id="act-throw" data-act="throw">🎯<span class="label">投掷</span></div>
+                <!-- 斧头按钮 -->
+                <div class="action-btn move" id="act-axe" data-act="axe">🪓<span class="label">采集</span></div>
             </div>
 
             <!-- 底部快捷栏：红瓶 / 蓝瓶 / 装备 / 背包 / 技能6 / 技能7（无边框，按钮+文字） -->
@@ -1103,29 +1105,6 @@
         const FRAME_INTERVAL = 1000 / TARGET_FPS;
         let lastFrameTime = 0;
         
-        // 根据战斗状态切换攻击按钮：平时显示"交互/手掌"，战斗中显示"攻击/⚔️"
-        let _lastAttackMode = null;
-        function updateAttackButtonMode() {
-            const btn = document.getElementById('act-attack');
-            if (!btn) return;
-            const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
-            const inCombat = !!(cs && cs.combatSystem && cs.combatSystem.isInCombat && cs.combatSystem.isInCombat());
-            if (inCombat === _lastAttackMode) return; // 状态未变，避免每帧改 DOM
-            _lastAttackMode = inCombat;
-            
-            const iconEl = btn.querySelector('.atk-icon');
-            const labelEl = btn.querySelector('.atk-label');
-            if (inCombat) {
-                if (iconEl) iconEl.textContent = '⚔️';
-                if (labelEl) labelEl.textContent = '攻击';
-                btn.classList.remove('interact-mode');
-            } else {
-                if (iconEl) iconEl.textContent = '✋';
-                if (labelEl) labelEl.textContent = '交互';
-                btn.classList.add('interact-mode');
-            }
-        }
-        
         // 更新技能按钮冷却状态（技能3/4/5 = data-skill 0/1/2）
         function updateSkillButtonCooldowns() {
             const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
@@ -1259,8 +1238,6 @@
                 sceneManager.update(deltaTime);
                 sceneManager.render(ctx);
                 
-                // 根据战斗状态切换攻击/交互按钮外观
-                updateAttackButtonMode();
                 // 更新技能按钮冷却状态
                 updateSkillButtonCooldowns();
                 // 更新红瓶/蓝瓶图标与数量
@@ -1848,6 +1825,13 @@
                     if (currentScene.usePotionFromHotbar) currentScene.usePotionFromHotbar(btn.dataset.potion);
                 } else if (btn.dataset.act === 'attack') {
                     // 攻击按钮现在走瞄准流程,此处不再触发
+                } else if (btn.dataset.act === 'interact') {
+                    // 交互按钮：派发交互键
+                    tapKey('e');
+                    tapKey('n');
+                } else if (btn.dataset.act === 'axe') {
+                    // 斧头/采集按钮
+                    if (currentScene.harvestByFacing) currentScene.harvestByFacing();
                 } else if (btn.dataset.act === 'flight') {
                     if (currentScene.flightByFacing) currentScene.flightByFacing();
                 } else if (btn.dataset.act === 'throw') {
@@ -2143,14 +2127,16 @@
                         // 进入技能瞄准模式
                         startSkillAim(btn, parseInt(btn.dataset.skill, 10), clientX, clientY, touchId);
                     } else if (isAttackBtn) {
-                        // 交互模式（非战斗）不进入瞄准，直接派发交互键
-                        if (btn.classList.contains('interact-mode')) {
-                            tapKey('e');
-                            tapKey('n');
-                        } else {
-                            // 攻击按钮进入瞄准模式
-                            startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY, touchId);
-                        }
+                        // 攻击按钮始终进入瞄准模式
+                        startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY, touchId);
+                    } else if (btn.dataset.act === 'interact') {
+                        // 交互按钮：派发交互键
+                        tapKey('e');
+                        tapKey('n');
+                    } else if (btn.dataset.act === 'axe') {
+                        // 斧头/采集按钮
+                        const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                        if (currentScene && currentScene.harvestByFacing) currentScene.harvestByFacing();
                     } else if (btn.dataset.key !== undefined) {
                         tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
                     } else {
@@ -2212,7 +2198,9 @@
                 'act-skill4': 'act-skill4',
                 'act-skill5': 'act-skill5',
                 'act-flight': 'act-flight',
+                'act-interact': 'act-interact',
                 'act-throw': 'act-throw',
+                'act-axe': 'act-axe',
                 'hb-hp': 'hb-hp',
                 'hb-mp': 'hb-mp',
                 'hb-char': 'hb-char',

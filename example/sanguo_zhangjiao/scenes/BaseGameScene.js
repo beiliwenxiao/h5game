@@ -916,7 +916,7 @@ export class BaseGameScene extends PrologueScene {
       range = throwRange;
     } else if (index === -3) {
       // 轻功按钮
-      const flightDist = (this.flightSystem && this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
+      const flightDist = (this.flightSystem && this.flightSystem.config && this.flightSystem.config.maxDistance) || 400;
       skill = { id: 'flight', name: '轻功', range: flightDist, aoeRadius: 24 };
       range = flightDist;
     } else {
@@ -1160,7 +1160,7 @@ export class BaseGameScene extends PrologueScene {
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
     const d = this.getPlayerFacingVector();
-    const distance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
+    const distance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 400;
     const targetX = transform.position.x + d.x * distance;
     const targetY = transform.position.y + d.y * distance;
     this.flightSystem.startFlight(transform, targetX, targetY);
@@ -1181,7 +1181,7 @@ export class BaseGameScene extends PrologueScene {
     if (mag < 1) { this.flightByFacing(); return; }
     const nx = dirX / mag;
     const ny = dirY / mag;
-    const maxDistance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
+    const maxDistance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 400;
     const ratio = Math.min(distRatio, 1.0);
     const distance = maxDistance * ratio;
     const targetX = transform.position.x + nx * distance;
@@ -2357,6 +2357,9 @@ export class BaseGameScene extends PrologueScene {
     }
     */
     
+    // 渲染玩家轻功飞行阴影（地面阴影）
+    this._renderFlightShadow(ctx);
+    
     // 渲染玩家格挡防护罩
     this._renderBlockShield(ctx);
     
@@ -2460,6 +2463,37 @@ export class BaseGameScene extends PrologueScene {
     for (const entity of sortedEntities) {
       this.renderEntity(ctx, entity);
     }
+  }
+
+  /**
+   * 渲染轻功飞行时的地面阴影（玩家腾空时脚下保留一个阴影）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  _renderFlightShadow(ctx) {
+    if (!this.flightSystem || !this.flightSystem.isFlying) return;
+    if (!this.playerEntity) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const elevation = transform.position.elevation || 0;
+    if (elevation <= 2) return; // 太低不画阴影
+    
+    const groundX = transform.position.x;
+    const groundY = transform.position.y; // 原始地面位置（不减elevation）
+    
+    // 阴影大小随高度变小（越高阴影越小越淡）
+    const maxElevation = 120;
+    const ratio = Math.min(1, elevation / maxElevation);
+    const shadowScale = 1 - ratio * 0.4; // 0.6~1
+    const shadowAlpha = 0.3 * (1 - ratio * 0.5); // 0.15~0.3
+    const radiusX = 20 * shadowScale;
+    const radiusY = 8 * shadowScale;
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(groundX, groundY, radiusX, radiusY, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
+    ctx.fill();
+    ctx.restore();
   }
 
   /**
@@ -2954,7 +2988,9 @@ export class BaseGameScene extends PrologueScene {
     if (!transform) return;
     
     const x = transform.position.x;
-    const y = transform.position.y;
+    // elevation 向上偏移渲染位置（腾空效果）
+    const elevation = transform.position.elevation || 0;
+    const y = transform.position.y - elevation;
     const size = sprite?.width || 32;
     const height = sprite?.height || 32;
     

@@ -24,11 +24,12 @@ export class FlightSystem {
     
     // 飞行参数配置
     this.config = {
-      maxDistance: 300, // 最大飞行距离（像素）
-      chargeDuration: 0.3, // 蓄力时长（秒）
-      flyDuration: 0.5, // 飞行时长（秒）
-      landDuration: 0.2, // 落地时长（秒）
-      arcHeight: 50, // 飞行弧线高度（像素）
+      maxDistance: 400, // 最大飞行距离（像素）
+      chargeDuration: 0.15, // 蓄力时长（秒）
+      flyDuration: 0.45, // 飞行时长（秒）—— 一条完整抛物线
+      landDuration: 0.1, // 落地缓冲时长（秒）
+      peakHeight: 40, // 抛物线顶点高度（像素）
+      peakPosition: 0.35, // 抛物线顶点在水平进度的位置（0~1），前倾=起跳快落地慢
       squatOffset: 5, // 蓄力下蹲偏移（像素）
       bounceOffset: 3, // 落地缓冲偏移（像素）
       smokeParticleCount: 12, // 烟雾粒子数量
@@ -212,14 +213,14 @@ export class FlightSystem {
   }
   
   /**
-   * 更新飞行阶段（elevation 驱动弧线）
+   * 更新飞行阶段（非对称抛物线：起跳快、落地自然）
    */
   updateFlyPhase(deltaTime, playerTransform) {
     const data = this.flyingData;
     data.progress += deltaTime / this.config.flyDuration;
     
     if (data.progress >= 1) {
-      // 飞行完成，进入落地阶段
+      // 飞行完成，进入落地缓冲
       data.phase = 'land';
       data.progress = 0;
       playerTransform.position.x = data.targetX;
@@ -232,28 +233,32 @@ export class FlightSystem {
       // 显示轻功飘字
       if (this.floatingTextManager) {
         this.floatingTextManager.addText(
-          data.targetX,
-          data.targetY - 40,
-          '轻功',
-          '#cccccc'
+          data.targetX, data.targetY - 40, '轻功', '#cccccc'
         );
       }
     } else {
-      // 使用缓动函数实现平滑飞行
-      const easeProgress = this.easeInOutQuad(data.progress);
+      const t = data.progress;
+      // 水平移动用 easeInOutQuad（起步加速，收尾减速）
+      const hProgress = this.easeInOutQuad(t);
       
-      // 计算当前位置
-      const currentX = data.startX + (data.targetX - data.startX) * easeProgress;
-      const currentY = data.startY + (data.targetY - data.startY) * easeProgress;
+      // 非对称抛物线高度：顶点偏前(peakPosition)，起跳陡峭，下落平缓
+      // 用分段二次曲线：升段 [0, peak] 和降段 [peak, 1]
+      const peak = this.config.peakPosition;
+      let heightRatio;
+      if (t <= peak) {
+        // 上升段：快速起跳
+        const rt = t / peak; // 0→1
+        heightRatio = rt * (2 - rt); // easeOut 效果，快速到顶
+      } else {
+        // 下降段：自然下落
+        const rt = (t - peak) / (1 - peak); // 0→1
+        heightRatio = 1 - rt * rt; // easeIn 效果，加速下落
+      }
       
-      // 抛物线由 elevation 驱动
-      const arcOffset = Math.sin(easeProgress * Math.PI) * this.config.arcHeight;
+      playerTransform.position.x = data.startX + (data.targetX - data.startX) * hProgress;
+      playerTransform.position.y = data.startY + (data.targetY - data.startY) * hProgress;
+      playerTransform.position.elevation = (data.baseElevation ?? 0) + this.config.peakHeight * heightRatio;
       
-      playerTransform.position.x = currentX;
-      playerTransform.position.y = currentY;
-      playerTransform.position.elevation = (data.baseElevation ?? 0) + arcOffset;
-      
-      // 相机跟随玩家
       if (this.camera) {
         this.camera.position.x = playerTransform.position.x;
         this.camera.position.y = playerTransform.position.y;
@@ -305,6 +310,20 @@ export class FlightSystem {
    */
   easeInOutQuad(t) {
     return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+  }
+
+  /**
+   * 缓动函数：ease-out-quad（减速）
+   */
+  easeOutQuad(t) {
+    return 1 - (1 - t) * (1 - t);
+  }
+
+  /**
+   * 缓动函数：ease-in-quad（加速）
+   */
+  easeInQuad(t) {
+    return t * t;
   }
   
   /**

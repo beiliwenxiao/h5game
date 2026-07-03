@@ -59,7 +59,9 @@ export class Act1SceneECS extends BaseGameScene {
       frameCount: 12,
       currentFrame: 0,
       frameTime: 0,
-      frameDuration: 0.16
+      frameDuration: 0.16,
+      autoIgniteTimer: 0,       // 自燃计时器
+      autoIgniteDelay: 10     // 10秒后自燃
     };
     
     // 第一幕特有：战斗状态
@@ -617,11 +619,23 @@ export class Act1SceneECS extends BaseGameScene {
     // 调用父类的 update
     super.update(deltaTime);
     
+    // 第一幕特有：玩家接近边缘时相机停止移屏
+    this.clampCameraToBasin();
+    
     // 第一幕特有：检查火堆碰撞
     this.checkCampfireCollision();
     
     // 第一幕特有：检查点燃火堆
     this.checkCampfire();
+    
+    // 第一幕特有：火堆自燃计时（10秒未点燃则自动点燃）
+    if (!this.campfire.lit) {
+      this.campfire.autoIgniteTimer += deltaTime;
+      if (this.campfire.autoIgniteTimer >= this.campfire.autoIgniteDelay) {
+        this.lightCampfire();
+        console.log('Act1SceneECS: 火堆自燃（超时10秒）');
+      }
+    }
     
     // 第一幕特有：检查波次完成
     this.checkWaveCompletion();
@@ -1047,6 +1061,26 @@ export class Act1SceneECS extends BaseGameScene {
       this.lightCampfire();
       console.log('Act1SceneECS: 点燃火堆');
     }
+  }
+
+  /**
+   * 限制相机在盆地范围内（玩家接近边缘时相机停止移动）
+   */
+  clampCameraToBasin() {
+    if (!this.terrain || !this.camera) return;
+    const t = this.terrain;
+    // 相机可移动的最大范围 = 盆地半径 - 半屏尺寸（留出边缘）
+    const halfW = this.camera.width / 2;
+    const halfH = this.camera.height / 2;
+    const maxCamX = t.basinRadiusX - halfW;
+    const maxCamY = t.basinRadiusY - halfH;
+    
+    // 如果盆地比屏幕还小，相机固定在中心
+    const clampX = maxCamX > 0 ? Math.max(-maxCamX, Math.min(maxCamX, this.camera.position.x - t.centerX)) : 0;
+    const clampY = maxCamY > 0 ? Math.max(-maxCamY, Math.min(maxCamY, this.camera.position.y - t.centerY)) : 0;
+    
+    this.camera.position.x = t.centerX + clampX;
+    this.camera.position.y = t.centerY + clampY;
   }
 
   /**
@@ -1698,19 +1732,21 @@ export class Act1SceneECS extends BaseGameScene {
         fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
         fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         
-        // 用 destination-out 在玩家位置挖出光圈
+        // 用 destination-out 在玩家位置挖出光圈（椭圆形，压缩Y轴适配2.5D视角）
         fogCtx.globalCompositeOperation = 'destination-out';
-        const gradient = fogCtx.createRadialGradient(
-          playerScreenX, playerScreenY, 0,
-          playerScreenX, playerScreenY, lightRadius
-        );
+        const yScale = 0.6; // Y轴压缩比例，符合2.5D俯视视角
+        fogCtx.save();
+        fogCtx.translate(playerScreenX, playerScreenY);
+        fogCtx.scale(1, yScale);
+        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
         gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
         gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
         fogCtx.fillStyle = gradient;
         fogCtx.beginPath();
-        fogCtx.arc(playerScreenX, playerScreenY, lightRadius, 0, Math.PI * 2);
+        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
         fogCtx.fill();
+        fogCtx.restore();
         fogCtx.globalCompositeOperation = 'source-over';
         
         // 将迷雾 canvas 绘制到主 canvas
@@ -1809,7 +1845,32 @@ export class Act1SceneECS extends BaseGameScene {
 
     ctx.restore(); // 释放 clip
 
-    // 9. 玩家红点（固定在面板正中央，永远画在最上层）
+    // 9. 火堆图标（在小地图上显示火焰图片）
+    const cfMapX = dotX + (this.campfire.x - px) * scale;
+    const cfMapY = dotY + (this.campfire.y - py) * scale;
+    // 检查火堆是否在面板范围内
+    if (cfMapX >= panelX && cfMapX <= panelX + panelSize &&
+        cfMapY >= panelY && cfMapY <= panelY + panelSize) {
+      if (this.campfire.imageLoaded && this.campfire.fireImage) {
+        // 从精灵图中取第一帧绘制为小图标
+        const iconSize = Math.max(10, Math.floor(panelSize / 8));
+        const fw = this.campfire.frameWidth;
+        const fh = this.campfire.frameHeight;
+        ctx.drawImage(
+          this.campfire.fireImage,
+          0, 0, fw, fh, // 精灵图第一帧
+          cfMapX - iconSize / 2, cfMapY - iconSize, iconSize, iconSize
+        );
+      } else {
+        // 图片未加载时用橙色小圆点代替
+        ctx.fillStyle = '#ff8800';
+        ctx.beginPath();
+        ctx.arc(cfMapX, cfMapY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 10. 玩家红点（固定在面板正中央，永远画在最上层）
     ctx.fillStyle = '#ff3030';
     ctx.beginPath();
     ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
@@ -1856,22 +1917,18 @@ export class Act1SceneECS extends BaseGameScene {
       }
     }
     
-    // 添加火堆到渲染队列（在移动阶段及之后显示）
-    // 火堆在完成第一个提示后就应该显示，让玩家可以去点燃
-    const showCampfire = this.tutorialPhase !== 'character_creation';
-    if (showCampfire) {
-      renderQueue.push({
-        type: 'campfire_bottom',
-        y: this.campfire.y,
-        render: () => this.renderCampfireBottom(ctx)
-      });
-      
-      renderQueue.push({
-        type: 'campfire_top',
-        y: this.campfire.y - 1,
-        render: () => this.renderCampfireTop(ctx)
-      });
-    }
+    // 添加火堆到渲染队列（始终显示）
+    renderQueue.push({
+      type: 'campfire_bottom',
+      y: this.campfire.y,
+      render: () => this.renderCampfireBottom(ctx)
+    });
+    
+    renderQueue.push({
+      type: 'campfire_top',
+      y: this.campfire.y - 1,
+      render: () => this.renderCampfireTop(ctx)
+    });
 
     // 第一幕特有：先画地表层装饰物（入口草丛，永远在所有实体下层）
     if (this.terrain) {
@@ -2031,6 +2088,32 @@ export class Act1SceneECS extends BaseGameScene {
       ctx.lineTo(x + 5, y - 27);
       ctx.stroke();
       
+      ctx.restore();
+      
+      // 闪烁的小红点提示（未点燃时显示）
+      const time = performance.now() / 1000;
+      const blinkAlpha = 0.7 + 0.3 * Math.abs(Math.sin(time * 2.5)); // 闪烁频率
+      const dotRadius = 4 + 1 * Math.sin(time * 3); // 大小脉动
+      ctx.save();
+      ctx.globalAlpha = blinkAlpha;
+      // 外层光晕（更大更亮）
+      const outerGlow = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius + 6);
+      outerGlow.addColorStop(0, 'rgba(255, 100, 50, 0.8)');
+      outerGlow.addColorStop(0.5, 'rgba(255, 50, 20, 0.4)');
+      outerGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = outerGlow;
+      ctx.beginPath();
+      ctx.arc(x, y - 15, dotRadius + 6, 0, Math.PI * 2);
+      ctx.fill();
+      // 内核亮点
+      const dotGradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius);
+      dotGradient.addColorStop(0, 'rgba(255, 255, 200, 1)');
+      dotGradient.addColorStop(0.4, 'rgba(255, 120, 60, 1)');
+      dotGradient.addColorStop(1, 'rgba(255, 50, 20, 0)');
+      ctx.fillStyle = dotGradient;
+      ctx.beginPath();
+      ctx.arc(x, y - 15, dotRadius, 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     } else {
       // 渲染点燃的火堆 - 下半部分

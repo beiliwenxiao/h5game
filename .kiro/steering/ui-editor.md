@@ -73,6 +73,7 @@ HUD 已拆分为4个独立子组件：
 | hud-hp | HUD血条 | panel | 生命值条 |
 | hud-mp | HUD蓝条 | panel | 魔法值条 |
 | act-attack | 攻击 | button | 普攻（瞄准模式） |
+| act-block | 格挡 | button | 主动格挡（1秒，CD8秒） |
 | act-skill3 | 技能3 | button | 火焰掌 |
 | act-skill4 | 技能4 | button | 寒冰指 |
 | act-skill5 | 技能5 | button | 烈焰掌 |

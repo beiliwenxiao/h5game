@@ -447,6 +447,8 @@
         
         /* 攻击放在按钮组中心 */
         #act-attack  { right: 66px; bottom: 70px; }
+        /* 格挡按钮：攻击按钮下方 */
+        #act-block   { right: 66px; bottom: 0px; }
         /* 外侧3个技能：水平翻转后的位置 */
         #act-skill3  { right: 154px; bottom: 84px; }
         #act-skill4  { right: 114px; bottom: 150px; }
@@ -659,6 +661,8 @@
                 <div class="action-btn skill" id="act-skill5" data-skill="2">💥<span class="label">烈焰掌</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 中心：攻击 -->
                 <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">⚔️</span><span class="label atk-label">攻击</span></div>
+                <!-- 格挡按钮 -->
+                <div class="action-btn move" id="act-block" data-act="block">🛡️<span class="label">格挡</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 中心左下：轻功 -->
                 <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 交互按钮 -->
@@ -1213,6 +1217,32 @@
                     }
                 } else {
                     throwBtn.classList.remove('on-cd');
+                    if (overlay) overlay.style.display = 'none';
+                    if (cdText) cdText.style.display = 'none';
+                }
+            }
+            
+            // 格挡冷却
+            const blockBtn = document.getElementById('act-block');
+            if (blockBtn && cs.combatSystem) {
+                const cdMs = cs.combatSystem.getBlockCooldownRemaining();
+                const totalMs = cs.combatSystem.getBlockCooldownTotal();
+                const overlay = blockBtn.querySelector('.skill-cd-overlay');
+                const cdText = blockBtn.querySelector('.skill-cd-text');
+                if (cdMs > 0) {
+                    blockBtn.classList.add('on-cd');
+                    const ratio = cdMs / totalMs;
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
+                    }
+                    if (cdText) {
+                        cdText.style.display = 'block';
+                        const sec = cdMs / 1000;
+                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
+                    }
+                } else {
+                    blockBtn.classList.remove('on-cd');
                     if (overlay) overlay.style.display = 'none';
                     if (cdText) cdText.style.display = 'none';
                 }
@@ -1891,6 +1921,9 @@
                     if (currentScene.usePotionFromHotbar) currentScene.usePotionFromHotbar(btn.dataset.potion);
                 } else if (btn.dataset.act === 'attack') {
                     // 攻击按钮现在走瞄准流程,此处不再触发
+                } else if (btn.dataset.act === 'block') {
+                    // 格挡按钮
+                    if (currentScene.activateBlock) currentScene.activateBlock();
                 } else if (btn.dataset.act === 'interact') {
                     // 交互按钮：派发交互键
                     tapKey('e');
@@ -2233,6 +2266,10 @@
                         // 斧头/采集按钮
                         const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
                         if (currentScene && currentScene.harvestByFacing) currentScene.harvestByFacing();
+                    } else if (btn.dataset.act === 'block') {
+                        // 格挡按钮：直接激活
+                        const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                        if (currentScene && currentScene.activateBlock) currentScene.activateBlock();
                     } else if (btn.dataset.key !== undefined) {
                         tapKey(keyMap[btn.dataset.key] || btn.dataset.key);
                     } else {
@@ -2290,6 +2327,7 @@
             const domIds = {
                 'joystick': 'joystick-zone',
                 'act-attack': 'act-attack',
+                'act-block': 'act-block',
                 'act-skill3': 'act-skill3',
                 'act-skill4': 'act-skill4',
                 'act-skill5': 'act-skill5',

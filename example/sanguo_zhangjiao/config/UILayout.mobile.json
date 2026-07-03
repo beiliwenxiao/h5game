@@ -89,6 +89,20 @@
       "hPct": 0.135
     },
     {
+      "id": "act-block",
+      "label": "格挡",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 1193,
+      "y": 479,
+      "width": 64,
+      "height": 64,
+      "xPct": 0.93203,
+      "yPct": 0.79833,
+      "wPct": 0.05,
+      "hPct": 0.10667
+    },
+    {
       "id": "act-skill3",
       "label": "技能3",
       "kind": "button",

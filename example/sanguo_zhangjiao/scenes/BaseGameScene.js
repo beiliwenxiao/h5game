@@ -1268,6 +1268,15 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 触屏：激活主动格挡（挡住攻击1秒，冷却8秒）
+   * @returns {boolean} 是否成功激活
+   */
+  activateBlock() {
+    if (!this.combatSystem || !this.playerEntity) return false;
+    return this.combatSystem.activateBlock();
+  }
+
+  /**
    * 从快捷栏使用药水
    * @param {string} potionType - 'health' 或 'mana'
    */
@@ -2348,6 +2357,9 @@ export class BaseGameScene extends PrologueScene {
     }
     */
     
+    // 渲染玩家格挡防护罩
+    this._renderBlockShield(ctx);
+    
     // 渲染粒子系统（在世界坐标系中，相机变换生效时）
     this.particleSystem.render(ctx, this.camera);
     
@@ -2448,6 +2460,78 @@ export class BaseGameScene extends PrologueScene {
     for (const entity of sortedEntities) {
       this.renderEntity(ctx, entity);
     }
+  }
+
+  /**
+   * 渲染玩家格挡防护罩（半透明蓝色圆形盾牌，带脉冲动画）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  _renderBlockShield(ctx) {
+    if (!this.combatSystem || !this.combatSystem.isBlocking()) return;
+    if (!this.playerEntity) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const sprite = this.playerEntity.getComponent('sprite');
+    const spriteHeight = sprite?.height || 64;
+    
+    const cx = transform.position.x;
+    const cy = transform.position.y - spriteHeight / 2;
+    const now = performance.now();
+    const elapsed = now - this.combatSystem._activeBlock.startTime;
+    const duration = this.combatSystem._activeBlock.duration;
+    const progress = Math.min(1, elapsed / duration); // 0→1 格挡进度
+    
+    // 渐隐：最后 0.3 秒开始淡出
+    const fadeStart = 0.7;
+    const alpha = progress > fadeStart ? (1 - (progress - fadeStart) / (1 - fadeStart)) * 0.6 : 0.6;
+    
+    // 呼吸脉冲
+    const pulse = 1 + Math.sin(now / 120) * 0.05;
+    const radius = 36 * pulse;
+    
+    ctx.save();
+    
+    // 外圈光环
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.8})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    // 主盾牌圆（半透明蓝色）
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    gradient.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.15})`);
+    gradient.addColorStop(0.6, `rgba(60, 160, 240, ${alpha * 0.3})`);
+    gradient.addColorStop(1, `rgba(30, 120, 220, ${alpha * 0.5})`);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    
+    // 盾牌边缘高光
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(180, 230, 255, ${alpha})`;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    
+    // 六边形花纹（增加科技感/魔法感）
+    ctx.beginPath();
+    const sides = 6;
+    const innerR = radius * 0.55;
+    for (let i = 0; i < sides; i++) {
+      const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
+      const x = cx + Math.cos(angle) * innerR;
+      const y = cy + Math.sin(angle) * innerR;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `rgba(150, 220, 255, ${alpha * 0.6})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    
+    ctx.restore();
   }
 
   /**

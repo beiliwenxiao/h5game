@@ -73,6 +73,15 @@ export class CombatSystem {
     // Map<enemyId, { blocked: boolean, time: number }>
     this.blockedAttacks = new Map();
     
+    // 主动格挡状态
+    this._activeBlock = {
+      active: false,       // 是否正在格挡
+      startTime: 0,        // 格挡开始时间（ms）
+      duration: 1000,      // 格挡持续时间（ms）
+      cooldownMs: 8000,    // 冷却时间（ms）
+      lastUseTime: 0       // 上次使用时间（ms）
+    };
+    
     // 武器碰撞冷却：防止同一次攻击重复触发碰撞
     // Map<enemyId, number> - 记录上次碰撞时间
     this.weaponCollisionCooldowns = new Map();
@@ -185,6 +194,61 @@ export class CombatSystem {
         this.weaponCollisionCooldowns.delete(enemyId);
       }
     }
+    
+    // 主动格挡超时自动结束
+    if (this._activeBlock.active && (currentTime - this._activeBlock.startTime >= this._activeBlock.duration)) {
+      this._activeBlock.active = false;
+    }
+  }
+
+  /**
+   * 激活主动格挡（持续1秒挡住所有攻击）
+   * @returns {boolean} 是否成功激活
+   */
+  activateBlock() {
+    const now = performance.now();
+    // 冷却检查
+    if (now - this._activeBlock.lastUseTime < this._activeBlock.cooldownMs) {
+      return false;
+    }
+    // 已在格挡中
+    if (this._activeBlock.active) {
+      return false;
+    }
+    this._activeBlock.active = true;
+    this._activeBlock.startTime = now;
+    this._activeBlock.lastUseTime = now;
+    return true;
+  }
+
+  /**
+   * 获取主动格挡冷却剩余时间（毫秒）
+   * @returns {number}
+   */
+  getBlockCooldownRemaining() {
+    const elapsed = performance.now() - this._activeBlock.lastUseTime;
+    return Math.max(0, this._activeBlock.cooldownMs - elapsed);
+  }
+
+  /**
+   * 获取主动格挡冷却总时间（毫秒）
+   * @returns {number}
+   */
+  getBlockCooldownTotal() {
+    return this._activeBlock.cooldownMs;
+  }
+
+  /**
+   * 是否正在主动格挡中
+   * @returns {boolean}
+   */
+  isBlocking() {
+    if (!this._activeBlock.active) return false;
+    if (performance.now() - this._activeBlock.startTime >= this._activeBlock.duration) {
+      this._activeBlock.active = false;
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -619,6 +683,26 @@ export class CombatSystem {
     
     // 检查敌人攻击是否被格挡
     if (attacker.type === 'enemy' && target.type === 'player') {
+      // 主动格挡检查（优先级最高）
+      const now = performance.now();
+      if (this._activeBlock.active && (now - this._activeBlock.startTime < this._activeBlock.duration)) {
+        // 主动格挡生效
+        if (targetTransform && this.floatingTextManager) {
+          this.floatingTextManager.addText(
+            targetTransform.position.x,
+            targetTransform.position.y - 60,
+            '格挡！',
+            '#00ffff'
+          );
+        }
+        combat.attack(currentTime);
+        return;
+      }
+      // 主动格挡超时自动结束
+      if (this._activeBlock.active && (now - this._activeBlock.startTime >= this._activeBlock.duration)) {
+        this._activeBlock.active = false;
+      }
+      
       // 检查玩家武器是否眩晕（无法格挡）
       if (this.weaponRenderer && this.weaponRenderer.stunned.active) {
         console.log(`${attacker.name || attacker.id} 的攻击命中！玩家武器眩晕中，无法格挡`);

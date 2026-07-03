@@ -32,6 +32,9 @@ export class PlayerStatusHUD extends UIElement {
     this.player = options.player || null;
     this.padding = 8;
     this.avatarSize = 56;
+    this._hasSubLayout = false;
+    this._avatarRect = null;
+    this._nameRect = null;
 
     // 头像图片（自加载，加载完成前画占位圆）
     this.avatarImage = null;
@@ -103,6 +106,7 @@ export class PlayerStatusHUD extends UIElement {
    * 重新计算子元素位置（窗口尺寸变化时调用）
    */
   layout() {
+    if (this._hasSubLayout) return; // 使用独立子布局时跳过默认计算
     const barX = this.x + this.padding + this.avatarSize + 8;
     const barWidth = this.width - this.padding * 2 - this.avatarSize - 8;
     this.healthBar.x = barX;
@@ -111,6 +115,46 @@ export class PlayerStatusHUD extends UIElement {
     this.manaBar.x = barX;
     this.manaBar.y = this.y + 30 + this.healthBar.height + 6;
     this.manaBar.width = barWidth;
+  }
+
+  /**
+   * 应用 UI 编辑器的子组件独立布局
+   * @param {Object} rects - { avatarRect, nameRect, hpRect, mpRect }
+   *   每项格式: { x, y, width, height } | null
+   */
+  applySubLayout(rects) {
+    this._hasSubLayout = true;
+    if (rects.avatarRect) {
+      this._avatarRect = rects.avatarRect;
+      this.avatarSize = Math.min(rects.avatarRect.width, rects.avatarRect.height);
+    }
+    if (rects.nameRect) {
+      this._nameRect = rects.nameRect;
+    }
+    if (rects.hpRect) {
+      this.healthBar.x = rects.hpRect.x;
+      this.healthBar.y = rects.hpRect.y;
+      this.healthBar.width = rects.hpRect.width;
+      this.healthBar.height = rects.hpRect.height;
+    }
+    if (rects.mpRect) {
+      this.manaBar.x = rects.mpRect.x;
+      this.manaBar.y = rects.mpRect.y;
+      this.manaBar.width = rects.mpRect.width;
+      this.manaBar.height = rects.mpRect.height;
+    }
+    // 更新整体包围盒（用于可见性判断等）
+    const allRects = [rects.avatarRect, rects.nameRect, rects.hpRect, rects.mpRect].filter(Boolean);
+    if (allRects.length) {
+      const minX = Math.min(...allRects.map(r => r.x));
+      const minY = Math.min(...allRects.map(r => r.y));
+      const maxX = Math.max(...allRects.map(r => r.x + r.width));
+      const maxY = Math.max(...allRects.map(r => r.y + r.height));
+      this.x = minX;
+      this.y = minY;
+      this.width = maxX - minX;
+      this.height = maxY - minY;
+    }
   }
 
   /**
@@ -139,17 +183,43 @@ export class PlayerStatusHUD extends UIElement {
 
     ctx.save();
 
-    // 背景面板（半透明圆角）
-    this._roundRect(ctx, this.x, this.y, this.width, this.height, 8);
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    if (this._hasSubLayout) {
+      // 独立子布局模式：不画背景面板，各子元素自由定位
+      this._renderAvatar(ctx);
+      this._renderName(ctx);
+      this.healthBar.render(ctx);
+      this.manaBar.render(ctx);
+    } else {
+      // 经典模式：整体面板
+      // 背景面板（半透明圆角）
+      this._roundRect(ctx, this.x, this.y, this.width, this.height, 8);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
-    // 头像
-    const ax = this.x + this.padding;
-    const ay = this.y + (this.height - this.avatarSize) / 2;
+      this._renderAvatar(ctx);
+      this._renderName(ctx);
+      this.healthBar.render(ctx);
+      this.manaBar.render(ctx);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 渲染头像
+   */
+  _renderAvatar(ctx) {
+    let ax, ay;
+    if (this._hasSubLayout && this._avatarRect) {
+      ax = this._avatarRect.x;
+      ay = this._avatarRect.y;
+    } else {
+      ax = this.x + this.padding;
+      ay = this.y + (this.height - this.avatarSize) / 2;
+    }
     const r = this.avatarSize / 2;
     const cx = ax + r;
     const cy = ay + r;
@@ -173,23 +243,29 @@ export class PlayerStatusHUD extends UIElement {
     ctx.strokeStyle = '#d4af37';
     ctx.lineWidth = 2;
     ctx.stroke();
+  }
 
-    // 昵称
+  /**
+   * 渲染昵称
+   */
+  _renderName(ctx) {
     const name = this.player.name || '玩家';
+    let nx, ny;
+    if (this._hasSubLayout && this._nameRect) {
+      nx = this._nameRect.x;
+      ny = this._nameRect.y + this._nameRect.height / 2;
+    } else {
+      nx = this.x + this.padding + this.avatarSize + 8;
+      ny = this.y + 16;
+    }
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
     ctx.shadowBlur = 3;
-    ctx.fillText(name, this.x + this.padding + this.avatarSize + 8, this.y + 16);
+    ctx.fillText(name, nx, ny);
     ctx.shadowBlur = 0;
-
-    // 血条 / 蓝条（复用组件）
-    this.healthBar.render(ctx);
-    this.manaBar.render(ctx);
-
-    ctx.restore();
   }
 
   /**

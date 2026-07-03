@@ -592,11 +592,20 @@ export class BaseGameScene extends PrologueScene {
       const map = {
         bottomControlBar: this.bottomControlBar,
         playerInfoPanel: this.playerInfoPanel,
-        inventoryPanel: this.inventoryPanel,
-        playerStatusHUD: this.playerStatusHUD
+        inventoryPanel: this.inventoryPanel
       };
       for (const [id, panel] of Object.entries(map)) {
         if (panel) loader.applyToCanvasPanel(id, panel, lw, lh);
+      }
+      // PlayerStatusHUD 子组件独立布局
+      if (this.playerStatusHUD) {
+        const avatarRect = loader.getRect('hud-avatar', lw, lh);
+        const nameRect = loader.getRect('hud-name', lw, lh);
+        const hpRect = loader.getRect('hud-hp', lw, lh);
+        const mpRect = loader.getRect('hud-mp', lw, lh);
+        if (avatarRect || nameRect || hpRect || mpRect) {
+          this.playerStatusHUD.applySubLayout({ avatarRect, nameRect, hpRect, mpRect });
+        }
       }
       // 背包面板尺寸变化后需重算筛选按钮/滚动条等内部布局
       if (this.inventoryPanel && this.inventoryPanel.layout) {

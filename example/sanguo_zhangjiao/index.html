@@ -456,6 +456,9 @@
         .action-btn.skill {
             overflow: hidden;
         }
+        .action-btn.move {
+            overflow: hidden;
+        }
         .skill-cd-overlay {
             position: absolute;
             inset: 0;
@@ -465,10 +468,12 @@
             display: none;
             z-index: 2;
         }
-        .action-btn.skill.on-cd .skill-cd-overlay {
+        .action-btn.skill.on-cd .skill-cd-overlay,
+        .action-btn.move.on-cd .skill-cd-overlay {
             display: block;
         }
-        .action-btn.skill.on-cd {
+        .action-btn.skill.on-cd,
+        .action-btn.move.on-cd {
             opacity: 0.65;
             border-color: rgba(255, 255, 255, 0.2);
         }
@@ -485,7 +490,8 @@
             display: none;
             z-index: 3;
         }
-        .action-btn.skill.on-cd .skill-cd-text {
+        .action-btn.skill.on-cd .skill-cd-text,
+        .action-btn.move.on-cd .skill-cd-text {
             display: block;
         }
         
@@ -654,11 +660,11 @@
                 <!-- 中心：攻击 -->
                 <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">⚔️</span><span class="label atk-label">攻击</span></div>
                 <!-- 中心左下：轻功 -->
-                <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span></div>
+                <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 交互按钮 -->
                 <div class="action-btn move" id="act-interact" data-act="interact">✋<span class="label">交互</span></div>
                 <!-- 中心右侧：投掷 -->
-                <div class="action-btn move" id="act-throw" data-act="throw">🎯<span class="label">投掷</span></div>
+                <div class="action-btn move" id="act-throw" data-act="throw">🎯<span class="label">投掷</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
                 <!-- 斧头按钮 -->
                 <div class="action-btn move" id="act-axe" data-act="axe">🪓<span class="label">采集</span></div>
             </div>
@@ -1155,6 +1161,64 @@
             });
         }
         
+        // 更新轻功和投掷按钮的冷却动画
+        function updateMoveCooldowns() {
+            const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
+            if (!cs) return;
+            
+            // 轻功冷却
+            const flightBtn = document.getElementById('act-flight');
+            if (flightBtn && cs.flightSystem) {
+                const cdMs = cs.flightSystem.getCooldownRemaining();
+                const totalMs = cs.flightSystem.getCooldownTotal();
+                const overlay = flightBtn.querySelector('.skill-cd-overlay');
+                const cdText = flightBtn.querySelector('.skill-cd-text');
+                if (cdMs > 0) {
+                    flightBtn.classList.add('on-cd');
+                    const ratio = cdMs / totalMs;
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
+                    }
+                    if (cdText) {
+                        cdText.style.display = 'block';
+                        const sec = cdMs / 1000;
+                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
+                    }
+                } else {
+                    flightBtn.classList.remove('on-cd');
+                    if (overlay) overlay.style.display = 'none';
+                    if (cdText) cdText.style.display = 'none';
+                }
+            }
+            
+            // 投掷冷却
+            const throwBtn = document.getElementById('act-throw');
+            if (throwBtn && cs.weaponRenderer) {
+                const cdMs = cs.weaponRenderer.getThrowCooldownRemaining();
+                const totalMs = cs.weaponRenderer.getThrowCooldownTotal();
+                const overlay = throwBtn.querySelector('.skill-cd-overlay');
+                const cdText = throwBtn.querySelector('.skill-cd-text');
+                if (cdMs > 0) {
+                    throwBtn.classList.add('on-cd');
+                    const ratio = cdMs / totalMs;
+                    if (overlay) {
+                        overlay.style.display = 'block';
+                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
+                    }
+                    if (cdText) {
+                        cdText.style.display = 'block';
+                        const sec = cdMs / 1000;
+                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
+                    }
+                } else {
+                    throwBtn.classList.remove('on-cd');
+                    if (overlay) overlay.style.display = 'none';
+                    if (cdText) cdText.style.display = 'none';
+                }
+            }
+        }
+        
         // 更新红瓶/蓝瓶按钮：PC 风格图标 + 剩余数量
         const _potionIconState = { health: null, mana: null };
         function updatePotionButtons() {
@@ -1240,6 +1304,8 @@
                 
                 // 更新技能按钮冷却状态
                 updateSkillButtonCooldowns();
+                // 更新轻功/投掷按钮冷却状态
+                updateMoveCooldowns();
                 // 更新红瓶/蓝瓶图标与数量
                 updatePotionButtons();
                 
@@ -1833,9 +1899,9 @@
                     // 斧头/采集按钮
                     if (currentScene.harvestByFacing) currentScene.harvestByFacing();
                 } else if (btn.dataset.act === 'flight') {
-                    if (currentScene.flightByFacing) currentScene.flightByFacing();
+                    // 轻功现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.act === 'throw') {
-                    if (currentScene.throwByFacing) currentScene.throwByFacing();
+                    // 投掷现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.action === 'bag') {
                     if (currentScene.inventoryPanel) currentScene.inventoryPanel.toggle();
                 } else if (btn.dataset.action === 'char') {
@@ -2034,6 +2100,20 @@
                                     currentScene.attackByDirection(dx, dy, distRatio);
                                 }
                             }
+                        } else if (skillAim.skillIndex === THROW_AIM_INDEX) {
+                            // 投掷按钮：按方向投掷
+                            if (currentScene.throwByDirection) {
+                                currentScene.throwByDirection(dx, dy, distRatio);
+                            } else if (currentScene.throwByFacing) {
+                                currentScene.throwByFacing();
+                            }
+                        } else if (skillAim.skillIndex === FLIGHT_AIM_INDEX) {
+                            // 轻功按钮：按方向轻功
+                            if (currentScene.flightByDirection) {
+                                currentScene.flightByDirection(dx, dy, distRatio);
+                            } else if (currentScene.flightByFacing) {
+                                currentScene.flightByFacing();
+                            }
                         } else {
                             // 技能按钮：使用预览圈世界坐标作为技能目标
                             if (currentScene.useSkillByDirection) {
@@ -2051,6 +2131,10 @@
                         // 没拖或拖动极小 → 按默认朝向释放
                         if (skillAim.skillIndex === ATTACK_AIM_INDEX) {
                             if (currentScene.attackByFacing) currentScene.attackByFacing();
+                        } else if (skillAim.skillIndex === THROW_AIM_INDEX) {
+                            if (currentScene.throwByFacing) currentScene.throwByFacing();
+                        } else if (skillAim.skillIndex === FLIGHT_AIM_INDEX) {
+                            if (currentScene.flightByFacing) currentScene.flightByFacing();
                         } else {
                             if (currentScene.useSkillByIndex) {
                                 currentScene.useSkillByIndex(skillAim.skillIndex);
@@ -2116,10 +2200,16 @@
             const AIM_SKILLS = new Set([0, 1, 2]);
             // 攻击按钮也走瞄准流程,用 -1 标识
             const ATTACK_AIM_INDEX = -1;
+            // 投掷和轻功也走瞄准流程
+            const THROW_AIM_INDEX = -2;
+            const FLIGHT_AIM_INDEX = -3;
             
             document.querySelectorAll('.action-btn, .hotbar-btn').forEach(btn => {
                 const isAimSkill = btn.dataset.skill !== undefined && AIM_SKILLS.has(parseInt(btn.dataset.skill, 10));
                 const isAttackBtn = btn.dataset.act === 'attack';
+                const isThrowBtn = btn.dataset.act === 'throw';
+                const isFlightBtn = btn.dataset.act === 'flight';
+                const isAimBtn = isAimSkill || isAttackBtn || isThrowBtn || isFlightBtn;
                 
                 const doPress = (clientX, clientY, touchId) => {
                     btn.classList.add('pressed');
@@ -2129,6 +2219,12 @@
                     } else if (isAttackBtn) {
                         // 攻击按钮始终进入瞄准模式
                         startSkillAim(btn, ATTACK_AIM_INDEX, clientX, clientY, touchId);
+                    } else if (isThrowBtn) {
+                        // 投掷按钮进入瞄准模式
+                        startSkillAim(btn, THROW_AIM_INDEX, clientX, clientY, touchId);
+                    } else if (isFlightBtn) {
+                        // 轻功按钮进入瞄准模式
+                        startSkillAim(btn, FLIGHT_AIM_INDEX, clientX, clientY, touchId);
                     } else if (btn.dataset.act === 'interact') {
                         // 交互按钮：派发交互键
                         tapKey('e');
@@ -2158,7 +2254,7 @@
                 };
                 const release = (e) => {
                     e.preventDefault();
-                    if ((isAimSkill || isAttackBtn) && skillAim.active) {
+                    if (isAimBtn && skillAim.active) {
                         // 瞄准按钮释放由全局 touchend/mouseup 处理
                         return;
                     }

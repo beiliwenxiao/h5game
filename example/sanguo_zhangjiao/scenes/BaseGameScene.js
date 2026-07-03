@@ -907,6 +907,18 @@ export class BaseGameScene extends PrologueScene {
       }
       skill = { id: 'ranged_attack', name: '远程攻击', range: weaponAttackDistance, aoeRadius: 20 };
       range = weaponAttackDistance;
+    } else if (index === -2) {
+      // 投掷按钮
+      const throwRange = (this.weaponRenderer && this.weaponRenderer.getThrowRange)
+        ? this.weaponRenderer.getThrowRange(this.playerEntity)
+        : 480;
+      skill = { id: 'throw', name: '投掷', range: throwRange, aoeRadius: 16 };
+      range = throwRange;
+    } else if (index === -3) {
+      // 轻功按钮
+      const flightDist = (this.flightSystem && this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
+      skill = { id: 'flight', name: '轻功', range: flightDist, aoeRadius: 24 };
+      range = flightDist;
     } else {
       const combat = this.playerEntity.getComponent('combat');
       if (!combat || !combat.skills || !combat.skills[index]) { this.skillAimPreview = null; return; }
@@ -1148,9 +1160,32 @@ export class BaseGameScene extends PrologueScene {
     const transform = this.playerEntity.getComponent('transform');
     if (!transform) return;
     const d = this.getPlayerFacingVector();
-    const distance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 600;
+    const distance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
     const targetX = transform.position.x + d.x * distance;
     const targetY = transform.position.y + d.y * distance;
+    this.flightSystem.startFlight(transform, targetX, targetY);
+  }
+
+  /**
+   * 触屏：按指定方向施展轻功（瞄准模式）
+   * @param {number} dirX - 拖拽方向 X
+   * @param {number} dirY - 拖拽方向 Y
+   * @param {number} distRatio - 距离比例 0~1（拖拽距离/瞄准圈半径）
+   */
+  flightByDirection(dirX, dirY, distRatio) {
+    if (!this.flightSystem || !this.playerEntity) return;
+    if (this.flightSystem.isPlayerFlying && this.flightSystem.isPlayerFlying()) return;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+    if (mag < 1) { this.flightByFacing(); return; }
+    const nx = dirX / mag;
+    const ny = dirY / mag;
+    const maxDistance = (this.flightSystem.config && this.flightSystem.config.maxDistance) || 300;
+    const ratio = Math.min(distRatio, 1.0);
+    const distance = maxDistance * ratio;
+    const targetX = transform.position.x + nx * distance;
+    const targetY = transform.position.y + ny * distance;
     this.flightSystem.startFlight(transform, targetX, targetY);
   }
 
@@ -1179,6 +1214,49 @@ export class BaseGameScene extends PrologueScene {
     const targetPos = {
       x: transform.position.x + d.x * range,
       y: transform.position.y + d.y * range
+    };
+    this.weaponRenderer.throwWeapon(
+      this.playerEntity,
+      null,
+      transform.position,
+      targetPos,
+      performance.now() / 1000
+    );
+  }
+
+  /**
+   * 触屏：按指定方向投掷武器（瞄准模式）
+   * @param {number} dirX - 拖拽方向 X
+   * @param {number} dirY - 拖拽方向 Y
+   * @param {number} distRatio - 距离比例 0~1（拖拽距离/瞄准圈半径）
+   */
+  throwByDirection(dirX, dirY, distRatio) {
+    if (!this.weaponRenderer || !this.playerEntity) return;
+    if (this.weaponRenderer.isWeaponThrown && this.weaponRenderer.isWeaponThrown()) return;
+    const equipment = this.playerEntity.getComponent('equipment');
+    if (!equipment || !equipment.slots.mainhand) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform && this.floatingTextManager) {
+        this.floatingTextManager.addText(
+          transform.position.x, transform.position.y - 50, '没有可投掷的武器', '#ff6666'
+        );
+      }
+      return;
+    }
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return;
+    const mag = Math.sqrt(dirX * dirX + dirY * dirY);
+    if (mag < 1) { this.throwByFacing(); return; }
+    const nx = dirX / mag;
+    const ny = dirY / mag;
+    const maxRange = this.weaponRenderer.getThrowRange
+      ? this.weaponRenderer.getThrowRange(this.playerEntity)
+      : 480;
+    const ratio = Math.min(distRatio, 1.0);
+    const range = maxRange * ratio;
+    const targetPos = {
+      x: transform.position.x + nx * range,
+      y: transform.position.y + ny * range
     };
     this.weaponRenderer.throwWeapon(
       this.playerEntity,

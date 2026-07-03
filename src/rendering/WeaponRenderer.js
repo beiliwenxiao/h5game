@@ -82,6 +82,10 @@ export class WeaponRenderer {
       ownerEntity: null     // 武器所有者
     };
     
+    // 投掷冷却
+    this._throwCooldownMs = 8000; // 投掷冷却时间（毫秒），默认8秒
+    this._lastThrowTime = 0;      // 上次投掷时间（ms）
+    
     // 武器眩晕状态（被击退后无法格挡）
     this.stunned = {
       active: false,        // 是否眩晕
@@ -783,6 +787,12 @@ export class WeaponRenderer {
       return false;
     }
     
+    // 冷却检查
+    const nowMs = performance.now();
+    if (nowMs - this._lastThrowTime < this._throwCooldownMs) {
+      return false;
+    }
+    
     // 检查是否有主手武器
     const equipment = playerEntity.getComponent('equipment');
     if (!equipment || !equipment.slots.mainhand) {
@@ -828,6 +838,7 @@ export class WeaponRenderer {
     this.thrownWeapon.hitEnemies = []; // 记录已命中的敌人
     this.thrownWeapon.throwTime = currentTime || 0; // 记录投掷时间
     this.thrownWeapon.ownerEntity = playerEntity; // 记录所有者
+    this._lastThrowTime = performance.now(); // 记录冷却开始时间
     
     // 如果有目标实体，标记为最终目标
     if (targetEntity) {
@@ -914,6 +925,23 @@ export class WeaponRenderer {
     return this.thrownWeapon.active;
   }
   
+  /**
+   * 获取投掷冷却剩余时间（毫秒）
+   * @returns {number} 剩余冷却时间，0 表示已就绪
+   */
+  getThrowCooldownRemaining() {
+    const elapsed = performance.now() - this._lastThrowTime;
+    return Math.max(0, this._throwCooldownMs - elapsed);
+  }
+
+  /**
+   * 获取投掷冷却总时间（毫秒）
+   * @returns {number}
+   */
+  getThrowCooldownTotal() {
+    return this._throwCooldownMs;
+  }
+
   /**
    * 获取投掷的武器信息
    * @returns {Object|null}

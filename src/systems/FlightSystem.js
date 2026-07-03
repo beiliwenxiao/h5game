@@ -18,9 +18,13 @@ export class FlightSystem {
     this.isFlying = false;
     this.flyingData = null;
     
+    // 冷却状态
+    this._lastFlightTime = 0;   // 上次飞行完成时间（ms）
+    this._cooldownMs = options.cooldown !== undefined ? options.cooldown : 5000; // 冷却时间（毫秒），默认5秒
+    
     // 飞行参数配置
     this.config = {
-      maxDistance: 640, // 最大飞行距离：20个身位 = 20 × 32像素
+      maxDistance: 300, // 最大飞行距离（像素）
       chargeDuration: 0.3, // 蓄力时长（秒）
       flyDuration: 0.5, // 飞行时长（秒）
       landDuration: 0.2, // 落地时长（秒）
@@ -92,6 +96,12 @@ export class FlightSystem {
     
     if (this.isFlying) {
       console.warn('FlightSystem: 已经在飞行中，无法再次触发');
+      return false;
+    }
+    
+    // 冷却检查
+    const now = performance.now();
+    if (now - this._lastFlightTime < this._cooldownMs) {
       return false;
     }
     
@@ -269,6 +279,7 @@ export class FlightSystem {
 
       this.isFlying = false;
       this.flyingData = null;
+      this._lastFlightTime = performance.now(); // 记录冷却开始时间
       
       // 恢复相机自动跟随
       if (this.camera) {
@@ -387,6 +398,32 @@ export class FlightSystem {
     this.particleSystem = null;
     this.floatingTextManager = null;
     this.camera = null;
+  }
+
+  /**
+   * 获取冷却剩余时间（毫秒）
+   * @returns {number} 剩余冷却时间，0 表示已就绪
+   */
+  getCooldownRemaining() {
+    if (this.isFlying) return this._cooldownMs; // 飞行中视为满冷却
+    const elapsed = performance.now() - this._lastFlightTime;
+    return Math.max(0, this._cooldownMs - elapsed);
+  }
+
+  /**
+   * 获取冷却总时间（毫秒）
+   * @returns {number}
+   */
+  getCooldownTotal() {
+    return this._cooldownMs;
+  }
+
+  /**
+   * 是否正在冷却中
+   * @returns {boolean}
+   */
+  isOnCooldown() {
+    return this.getCooldownRemaining() > 0;
   }
 }
 

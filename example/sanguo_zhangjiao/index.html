@@ -406,8 +406,8 @@
         
         .action-btn {
             position: absolute;
-            width: 62px;
-            height: 62px;
+            width: 56px;
+            height: 56px;
             border-radius: 50%;
             background: rgba(0, 0, 0, 0.45);
             border: 2px solid rgba(255, 255, 255, 0.4);
@@ -437,8 +437,6 @@
         
         /* 中心：攻击（最大） */
         .action-btn.attack {
-            width: 78px;
-            height: 78px;
             font-size: 26px;
             background: rgba(200, 60, 40, 0.6);
             border-color: rgba(255, 120, 90, 0.85);
@@ -499,8 +497,6 @@
         
         /* 中心左下：轻功 */
         .action-btn.move {
-            width: 56px;
-            height: 56px;
             font-size: 18px;
             background: rgba(60, 120, 200, 0.55);
             border-color: rgba(120, 170, 240, 0.8);
@@ -2352,11 +2348,21 @@
                 if (el.parentElement !== touchControls) {
                     touchControls.appendChild(el);
                 }
+                // 获取容器实际尺寸，计算像素值（确保按钮尺寸与UI编辑器一致）
+                const containerW = touchControls.clientWidth || window.innerWidth;
+                const containerH = touchControls.clientHeight || window.innerHeight;
+                const px = Math.round(comp.xPct * containerW);
+                const py = Math.round(comp.yPct * containerH);
+                const pw = Math.round(comp.wPct * containerW);
+                const ph = Math.round(comp.hPct * containerH);
+                // 对于圆形按钮，取宽高中较小值保持正方形
+                const isCircle = (comp.kind === 'button');
+                const size = isCircle ? Math.min(pw, ph) : 0;
                 el.style.position = 'absolute';
-                el.style.left = (comp.xPct * 100).toFixed(3) + '%';
-                el.style.top = (comp.yPct * 100).toFixed(3) + '%';
-                el.style.width = (comp.wPct * 100).toFixed(3) + '%';
-                el.style.height = (comp.hPct * 100).toFixed(3) + '%';
+                el.style.left = px + 'px';
+                el.style.top = py + 'px';
+                el.style.width = (isCircle ? size : pw) + 'px';
+                el.style.height = (isCircle ? size : ph) + 'px';
                 el.style.right = 'auto';
                 el.style.bottom = 'auto';
                 el.style.maxWidth = 'none';
@@ -2424,7 +2430,7 @@
             window.__pointerTransform = transform;
         }
         setupOrientation();
-        window.addEventListener('resize', () => { applyForceLandscape(); });
+        window.addEventListener('resize', () => { applyForceLandscape(); applyUILayoutToDom(); });
         window.addEventListener('orientationchange', () => { setTimeout(setupOrientation, 100); });
         
         // 启动游戏

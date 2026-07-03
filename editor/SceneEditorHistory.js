@@ -72,9 +72,42 @@ export class SceneEditorHistory {
    */
   save() {
     const editor = this.editor;
+    
+    // 保存前清理 imageAssets：只保留场景中实际使用的图片
+    this._cleanupImageAssets();
+    
     if (editor.onSceneChange) editor.onSceneChange(editor.sceneData);
     editor.ui.showToast('场景已保存');
     return editor.sceneData;
+  }
+  
+  /**
+   * 清理 imageAssets，只保留图层对象中实际引用的图片
+   * @private
+   */
+  _cleanupImageAssets() {
+    const editor = this.editor;
+    if (!editor.sceneData.imageAssets) return;
+    
+    // 收集所有图层对象中引用的 imageId
+    const usedIds = new Set();
+    for (const layer of editor.sceneData.layers) {
+      for (const obj of layer.objects) {
+        if (obj.imageId) usedIds.add(obj.imageId);
+      }
+    }
+    
+    // 删除未引用的条目
+    for (const id of Object.keys(editor.sceneData.imageAssets)) {
+      if (!usedIds.has(id)) {
+        delete editor.sceneData.imageAssets[id];
+      }
+    }
+    
+    // 如果清空了就删除整个字段
+    if (Object.keys(editor.sceneData.imageAssets).length === 0) {
+      delete editor.sceneData.imageAssets;
+    }
   }
 
   /**

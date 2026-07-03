@@ -141,34 +141,44 @@ export class SceneEditorAssets {
   addImageAsset(file) {
     const editor = this.editor;
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataURL = e.target.result;
-        const img = new Image();
-        img.onload = () => {
-          const id = 'img_' + Date.now();
-          editor.loadedImages.set(id, img);
+      // 用户需先将图片放到项目 assets/images/ 目录下（含子文件夹）
+      // 让用户输入图片在 assets/images/ 下的相对路径
+      const defaultPath = file.webkitRelativePath || file.name;
+      const subPath = prompt(
+        `请输入图片在 assets/images/ 下的路径：\n（如 scene1/bg.png 或直接 bg.png）`,
+        defaultPath
+      );
+      if (!subPath || !subPath.trim()) { reject(new Error('取消')); return; }
+      
+      const game = window._editorCurrentGame;
+      const gamePath = (game && game.path) ? game.path : '../example/sanguo_zhangjiao/';
+      const relativeSrc = gamePath + 'assets/images/' + subPath.trim();
+      
+      const img = new Image();
+      img.onload = () => {
+        const id = 'img_' + Date.now();
+        editor.loadedImages.set(id, img);
+        
+        if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
+        editor.sceneData.imageAssets[id] = { src: relativeSrc, name: file.name };
 
-          if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
-          editor.sceneData.imageAssets[id] = { src: dataURL, name: file.name };
-
-          const assetList = document.getElementById('editor-asset-list');
-          const item = document.createElement('div');
-          item.className = 'asset-item';
-          item.draggable = true;
-          item.dataset.id = id;
-          item.innerHTML = `
-            <div class="asset-preview"><img src="${dataURL}" alt="${file.name}"></div>
-            <span>${file.name.substring(0, 8)}</span>
-          `;
-          assetList.appendChild(item);
-          resolve(id);
-        };
-        img.onerror = reject;
-        img.src = dataURL;
+        const assetList = document.getElementById('editor-asset-list');
+        const item = document.createElement('div');
+        item.className = 'asset-item';
+        item.draggable = true;
+        item.dataset.id = id;
+        item.innerHTML = `
+          <div class="asset-preview"><img src="${relativeSrc}" alt="${file.name}"></div>
+          <span>${file.name.substring(0, 8)}</span>
+        `;
+        assetList.appendChild(item);
+        resolve(id);
       };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      img.onerror = () => {
+        alert(`图片加载失败！请确保文件已放入：\n${relativeSrc}\n\n支持子文件夹，如 assets/images/scene1/bg.png`);
+        reject(new Error('图片不在项目目录中'));
+      };
+      img.src = relativeSrc;
     });
   }
 
@@ -365,6 +375,7 @@ export class SceneEditorAssets {
         editor.loadedImages.set(id, img);
         editor.render();
       };
+      // src 可能是相对路径或旧的 dataURL，都能直接作为 img.src
       img.src = data.src;
     }
   }

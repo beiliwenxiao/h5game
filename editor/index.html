@@ -692,6 +692,9 @@
                 this.currentSceneId = null;
                 const game = this.dataManager.setCurrentGame(gameId);
                 
+                // 暴露当前游戏信息给资源模块使用
+                window._editorCurrentGame = game;
+                
                 if (!game) return;
                 
                 document.getElementById('current-game-name').textContent = game.name;

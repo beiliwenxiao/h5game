@@ -270,8 +270,16 @@ export class Scene1Terrain {
             // 从 imageAssets 获取图片 src
             const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
             if (asset && asset.src) {
+              // 修正路径：编辑器保存的路径是相对于编辑器页面的
+              // 游戏运行时需要转为相对于游戏页面的路径
+              let src = asset.src;
+              // 去掉编辑器相对前缀（如 "../example/sanguo_zhangjiao/"）
+              const assetsIdx = src.indexOf('assets/');
+              if (assetsIdx !== -1) {
+                src = src.substring(assetsIdx);
+              }
               this._editorBackgroundImages.push({
-                src: asset.src,
+                src: src,
                 x: obj.x,
                 y: obj.y,
                 width: obj.width,
@@ -793,6 +801,12 @@ export class Scene1Terrain {
     const groundCenterX = this.centerX;
     const groundCenterY = this.centerY - 32;
 
+    // 使用合并的地面缓存（草地 + 背景图 + 森林环带，一张图搞定）
+    if (this._combinedGroundCache) {
+      ctx.drawImage(this._combinedGroundCache, this._combinedGroundCacheX, this._combinedGroundCacheY);
+      return;
+    }
+    
     // 1. 先画一圈森林深绿环带（椭圆外扩），避免边缘露黑
     this._renderForestRing(ctx, groundCenterX, groundCenterY);
     // 2. 再画椭圆盆地草地
@@ -805,11 +819,69 @@ export class Scene1Terrain {
       this._renderGrassFill(ctx, groundCenterX, groundCenterY);
       // 素材加载完成后尝试构建草地装饰缓存
       this._buildGroundDecoCache();
+      // 尝试构建合并地面缓存
+      this._buildCombinedGroundCache();
     }
     this._renderWaterPatches(ctx);
     
     // 3. 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
+  }
+  
+  /**
+   * 构建合并地面缓存：草地铺面 + 森林环带 + 背景图片 + 水池
+   * 所有不会变化的底层内容合并到一张离屏 Canvas，每帧只需一次 drawImage
+   * @private
+   */
+  _buildCombinedGroundCache() {
+    if (this._combinedGroundCache) return;
+    if (!this.loaded.mountain) return;
+    // 等背景图片加载完再合并
+    if (this._editorBackgroundImages && this._editorBackgroundImages.length > 0) {
+      if (!this._editorBackgroundImages.every(bg => bg._loaded)) return;
+    }
+    
+    const rx = this.basinRadiusX + 120;
+    const ry = this.basinRadiusY / this.basinAspectY + 120; // 反压缩得到实际像素高度
+    const cx = this.centerX;
+    const cy = this.centerY - 32;
+    
+    const cacheW = Math.ceil(rx * 2 + 40);
+    const cacheH = Math.ceil(ry * 2 + 40);
+    if (cacheW > 4096 || cacheH > 4096) return;
+    
+    const offsetX = cx - cacheW / 2;
+    const offsetY = cy - cacheH / 2;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = cacheW;
+    canvas.height = cacheH;
+    const gctx = canvas.getContext('2d');
+    
+    // 偏移到缓存坐标系
+    gctx.translate(-offsetX, -offsetY);
+    
+    // 画森林环带
+    this._renderForestRing(gctx, cx, cy);
+    // 画草地
+    this._renderGrassFill(gctx, cx, cy);
+    // 画水池
+    this._renderWaterPatches(gctx);
+    // 画背景图片
+    if (this._editorBackgroundImages) {
+      for (const bgImg of this._editorBackgroundImages) {
+        if (!bgImg._loaded || !bgImg._img) continue;
+        gctx.save();
+        if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
+        gctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
+        gctx.restore();
+      }
+    }
+    
+    this._combinedGroundCache = canvas;
+    this._combinedGroundCacheX = offsetX;
+    this._combinedGroundCacheY = offsetY;
+    console.log(`Scene1Terrain: 合并地面缓存已构建 (${cacheW}x${cacheH})`);
   }
   
   /**

@@ -33,7 +33,12 @@ const DEFAULT_COMPONENTS = {
       { id: 'act-skill5', label: '技能5', x: 986, y: 380, width: 62, height: 62, anchor: 'topleft', kind: 'button' },
       { id: 'act-flight', label: '轻功', x: 956, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'act-throw', label: '投掷', x: 1244, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
-      { id: 'bottom-hotbar', label: '底部快捷栏', x: 440, y: 540, width: 400, height: 60, anchor: 'topleft', kind: 'bar' }
+      { id: 'hb-hp', label: '红瓶', x: 440, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-mp', label: '蓝瓶', x: 510, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-char', label: '装备', x: 580, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-bag', label: '背包', x: 650, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-skill6', label: '回血', x: 720, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-skill7', label: '打坐', x: 790, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' }
     ]
   }
 };

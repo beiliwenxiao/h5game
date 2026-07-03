@@ -4,7 +4,7 @@
       "id": "sanguo_zhangjiao",
       "name": "三国张角传",
       "description": "东汉末年，太平道首领张角的传奇故事",
-      "thumbnail": "../example/sanguo_zhangjiao/assets/images/002.png",
+      "thumbnail": "../example/sanguo_zhangjiao/assets/images/003.png",
       "path": "../example/sanguo_zhangjiao/",
       "scenes": ["PrologueScene", "Act1Scene", "Act2Scene", "Act3Scene", "Act4Scene", "Act5Scene", "Act6Scene"]
     },

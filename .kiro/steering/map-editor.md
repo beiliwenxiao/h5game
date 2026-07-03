@@ -1,5 +1,6 @@
 ---
-inclusion: manual
+inclusion: fileMatch
+fileMatchPattern: 'editor/**'
 ---
 
 # 地图编辑器开发指南
@@ -171,3 +172,72 @@ const sceneEditor = new SceneEditor(containerElement);
 4. **新增资源类型**：在 `SceneEditorAssets.js` 中扩展拖放和列表
 5. **新增 UI 面板**：在 `SceneEditorUI.js` 中添加 HTML 和初始化逻辑
 6. **如果需要全新的独立功能域**：创建新的 `SceneEditorXxx.js` 模块，在 `SceneEditor.js` 中实例化并挂载到 `this.xxx`
+
+## 装饰物统一管理（type:'deco'）
+
+### 数据统一
+- 旧格式 `sceneData.decorations[]`（`{x, y, key, scale}`，底部中心锚点）已废弃
+- 所有装饰物统一为 `type:'deco'` 对象存储在 `layer_deco.objects` 中
+- 格式：`{type:'deco', decoKey, x, y, width, height, scale, name}`，锚点是**左上角**
+- 场景加载时 `SceneEditorLayers.mergeDecorationsToLayer()` 会将旧 `decorations` 转换合并（仅在 layer_deco 中无 deco 对象时执行，避免重复）
+
+### 锚点转换（编辑器 → 游戏）
+- 编辑器存储：左上角锚点 `(x, y, width, height)`
+- 游戏使用：底部中心锚点 `(x + width/2, y + height)`
+- `Scene1Terrain._applySceneData()` 中自动转换
+
+### 类型匹配
+- 凡是涉及 `obj.type` 判断的位置（点击检测、缩放手柄、选中框、属性面板宽高显示），都需要包含 `|| obj.type === 'deco'`
+- 批量操作（深度/去重）筛选时同时检查 `obj.decoKey`、`obj.sliceKey`、`obj.name` 三个字段，任一匹配即命中
+
+### 游戏侧渲染策略（混合策略）
+- **非碰撞装饰物**（`sprite.collide === false`，如 grass1、bush2/3/4）：预渲染到离屏缓存 `_groundDecoCache`，作为整体一次绘制，始终在最底层
+- **碰撞装饰物**（`sprite.collide === true`，如 tree1/2/3）：参与 Y-sort，互相之间和与实体之间正确遮挡
+
+## 图片资源管理
+
+### 添加图片流程
+1. 用户先将图片文件放到项目 `example/sanguo_zhangjiao/assets/images/` 目录下（支持子文件夹）
+2. 在编辑器点"添加图片"，弹出输入框让用户填写 `assets/images/` 下的相对路径（如 `scene1/bg.png`）
+3. 编辑器用相对路径直接加载图片，场景数据 `imageAssets[id]` 中只存路径字符串
+4. **不使用 base64/dataURL** — 避免 JSON 膨胀和 localStorage 配额溢出
+
+### imageAssets 清理
+- `SceneEditorHistory.save()` 保存前自动调用 `_cleanupImageAssets()`
+- 遍历所有图层对象，收集实际引用的 `imageId`，删除未引用的 `imageAssets` 条目
+- 如果 imageAssets 清空则删除整个字段
+
+### 游戏侧加载图片
+- `Scene1Terrain._applySceneData()` 第3步读取 `type:'image'` 对象
+- 从 `scene.imageAssets[obj.imageId].src` 获取路径
+- **路径修正**：编辑器路径（如 `../example/sanguo_zhangjiao/assets/images/x.png`）→ 游戏路径（`assets/images/x.png`），通过截取 `assets/` 之后的部分实现
+
+## 场景保存机制
+
+### 双重保存
+- **localStorage**：`EditorDataManager.updateScene()` 写入，游戏联动实时生效
+- **JSON 文件**：通过 Vite dev server `/api/save-file` 接口写入 `example/sanguo_zhangjiao/assets/scenes/{场景名}.json`，用于安卓打包 fallback
+
+### Vite dev server API 端点
+- `GET /api/read-file?path=xxx` — 读取文件内容
+- `POST /api/save-file` — 写入文本文件（JSON）
+- `GET /api/list-files?path=xxx` — 列出目录内容
+
+## 性能优化（游戏侧 Scene1Terrain）
+
+### 离屏缓存策略
+| 缓存 | 内容 | 构建时机 |
+|------|------|---------|
+| `_grassCanvas` | 椭圆草地铺面纹理 | 首次渲染且图集加载完成后 |
+| `_groundDecoCache` | 所有非碰撞装饰物（草/灌木） | 图集加载完成后 |
+| `_bgImageCache` | 编辑器背景图片合并 | 所有背景图加载完成后 |
+| `_combinedGroundCache` | 上述全部合并（森林环带+草地+水池+背景图） | 所有资源就绪后 |
+
+### 合并地面缓存（`_buildCombinedGroundCache`）
+- 将森林环带、草地铺面、水池、背景图片全部渲染到一张离屏 Canvas
+- 构建成功后 `renderGround()` 每帧只需 1 次 `drawImage`（之前需要 4-5 次大面积绘制）
+- 限制缓存 Canvas 尺寸不超过 4096×4096
+
+### collectDecorations 优化
+- 非碰撞装饰物：从缓存图一次性绘制（1 次 draw call 替代 200+ 次）
+- 碰撞装饰物（树）：逐个参与 Y-sort renderQueue（数量少，通常几十棵）

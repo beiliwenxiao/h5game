@@ -1,3 +1,15 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ ************************************************************/
+
 /**
  * PerformanceMonitor - 性能监控器
  * 监控和显示游戏性能指标，包括FPS、实体数量、绘制调用数等

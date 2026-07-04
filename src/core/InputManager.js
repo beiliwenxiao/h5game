@@ -186,12 +186,10 @@ export class InputManager {
         }
         const rect = this.canvas.getBoundingClientRect();
         
-        // 计算Canvas坐标（考虑缩放）
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
-        
-        this.mouse.x = (event.clientX - rect.left) * scaleX;
-        this.mouse.y = (event.clientY - rect.top) * scaleY;
+        // 归一化映射：将 CSS 像素位置映射到 canvas 逻辑坐标
+        // 使用比例映射而非 canvas.width/rect.width（避免 CSS 拉伸导致的不一致）
+        this.mouse.x = (event.clientX - rect.left) / rect.width * this.canvas.width;
+        this.mouse.y = (event.clientY - rect.top) / rect.height * this.canvas.height;
         
         // 转换为游戏世界坐标
         this.mouse.worldX = this.mouse.x + this.cameraX;
@@ -319,10 +317,12 @@ export class InputManager {
      * @returns {{x: number, y: number}}
      */
     getMouseWorldPosition() {
-        if (this._backend && this._backend.picker && typeof this._backend.picker.pickGround === 'function') {
+        // 只在 3D 模式下使用 picker（3D 需要光线投射做屏幕→地面的反投影）
+        // 2D 模式下直接使用 InputManager 通过 setCameraPosition 维护的 worldX/worldY，
+        // 避免 backend 内部相机与游戏实际相机不同步导致坐标错误
+        if (this._backend && this._backend.mode === '3d' && this._backend.picker && typeof this._backend.picker.pickGround === 'function') {
             const ground = this._backend.picker.pickGround(this.mouse.x, this.mouse.y);
             if (ground) {
-                // 2D 兼容语义：返回 {x, y=groundDepth}
                 return { x: ground.x, y: ground.z };
             }
         }

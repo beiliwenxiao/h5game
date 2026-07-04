@@ -66,6 +66,9 @@ export class BaseGameScene extends PrologueScene {
     this.logicalWidth = 800;
     this.logicalHeight = 600;
     
+    // 调试模式（开启后显示坐标标记和日志）
+    this.debugMode = false;
+    
     // 核心系统
     this.inputManager = null;
     this.camera = null;
@@ -1325,6 +1328,13 @@ export class BaseGameScene extends PrologueScene {
    * 生成等距地图
    */
   /**
+   * 相机更新后的后处理钩子（子类可覆盖，如限制相机范围）
+   */
+  postCameraUpdate() {
+    // 默认空实现，子类覆盖
+  }
+
+  /**
    * 窗口大小变化时更新逻辑尺寸和相关系统
    * @param {number} width - 新宽度
    * @param {number} height - 新高度
@@ -1653,6 +1663,9 @@ export class BaseGameScene extends PrologueScene {
     // 更新相机
     this.camera.update(deltaTime);
     
+    // 相机后处理钩子（子类可覆盖，如限制相机在盆地范围内）
+    this.postCameraUpdate();
+    
     // 更新武器渲染器的鼠标角度（保留用于攻击范围计算）
     if (this.weaponRenderer && this.playerEntity && this.inputManager) {
       const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
@@ -1681,6 +1694,13 @@ export class BaseGameScene extends PrologueScene {
     
     // UI 点击处理
     this.handleUIClick();
+    
+    // 右键点击调试：显示光圈 + 输出坐标日志
+    if (this.inputManager.isMouseClicked() && 
+        this.inputManager.getMouseButton() === 2 &&
+        !this.inputManager.isMouseClickHandled()) {
+      this._debugRightClick();
+    }
     
     // 处理Ctrl+鼠标左键瞬移
     this.handleTeleport();
@@ -2009,6 +2029,160 @@ export class BaseGameScene extends PrologueScene {
     }
   }
   
+  /**
+   * 右键点击处理：记录光圈动画，debug 模式下输出坐标日志
+   */
+  _debugRightClick() {
+    const mouseScreen = this.inputManager.getMousePosition();
+    const mouseWorld = this.inputManager.getMouseWorldPosition();
+    const cameraWorldPos = this.camera ? this.camera.screenToWorld(mouseScreen.x, mouseScreen.y) : null;
+    const playerTransform = this.playerEntity ? this.playerEntity.getComponent('transform') : null;
+    const playerPos = playerTransform ? playerTransform.position : null;
+
+    // debug 模式下输出详细坐标日志
+    if (this.debugMode) {
+      const viewBounds = this.camera ? this.camera.getViewBounds() : null;
+      const rawMouse = this.inputManager.mouse;
+      console.log('=== 右键点击调试 ===');
+      console.log('屏幕坐标 (mouse.x/y):', mouseScreen.x.toFixed(1), mouseScreen.y.toFixed(1));
+      console.log('InputManager worldX/Y:', mouseWorld.x.toFixed(1), mouseWorld.y.toFixed(1));
+      console.log('Camera.screenToWorld:', cameraWorldPos ? `${cameraWorldPos.x.toFixed(1)}, ${cameraWorldPos.y.toFixed(1)}` : 'N/A');
+      console.log('相机位置:', this.camera ? `${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}` : 'N/A');
+      console.log('相机尺寸:', this.camera ? `${this.camera.width} x ${this.camera.height}` : 'N/A');
+      console.log('视野边界:', viewBounds ? `L=${viewBounds.left} T=${viewBounds.top} R=${viewBounds.right} B=${viewBounds.bottom}` : 'N/A');
+      console.log('InputManager cameraX/Y:', this.inputManager.cameraX?.toFixed(1), this.inputManager.cameraY?.toFixed(1));
+      console.log('玩家位置:', playerPos ? `${playerPos.x.toFixed(1)}, ${playerPos.y.toFixed(1)}` : 'N/A');
+      const _canvas = document.getElementById('gameCanvas');
+      const _rect = _canvas?.getBoundingClientRect();
+      console.log('Canvas尺寸:', this.logicalWidth, 'x', this.logicalHeight, '| canvas.width:', _canvas?.width, '| rect:', _rect ? `left=${_rect.left.toFixed(1)} top=${_rect.top.toFixed(1)} w=${_rect.width.toFixed(1)} h=${_rect.height.toFixed(1)}` : 'N/A');
+      console.log('原始 clientX/Y:', rawMouse._rawClientX, rawMouse._rawClientY);
+      console.log('==================');
+    }
+
+    // 记录光圈动画（始终记录，绿色光圈作为正式功能）
+    const targetPos = cameraWorldPos || mouseWorld;
+    if (!this._clickRings) this._clickRings = [];
+    this._clickRings.push({
+      x: targetPos.x,
+      y: targetPos.y,
+      screenX: mouseScreen.x,
+      screenY: mouseScreen.y,
+      playerX: playerPos ? playerPos.x : 0,
+      playerY: playerPos ? playerPos.y : 0,
+      startTime: performance.now(),
+      duration: 800
+    });
+  }
+
+  /**
+   * 渲染右键点击光圈（在世界坐标系中调用）
+   */
+  _renderClickRings(ctx) {
+    if (!this._clickRings || this._clickRings.length === 0) return;
+    const now = performance.now();
+    
+    this._clickRings = this._clickRings.filter(ring => now - ring.startTime < ring.duration);
+    
+    for (const ring of this._clickRings) {
+      const elapsed = now - ring.startTime;
+      const progress = elapsed / ring.duration;
+      
+      // === 绿色光圈：2.5D 椭圆形，先放大后缩小 ===
+      const alpha = progress < 0.5 ? 1 : 1 - (progress - 0.5) * 2; // 后半段淡出
+      
+      // 尺寸：前半段放大，后半段缩小
+      let sizeFactor;
+      if (progress < 0.3) {
+        // 快速放大（easeOut）
+        const t = progress / 0.3;
+        sizeFactor = 1 - Math.pow(1 - t, 3);
+      } else {
+        // 缓慢缩小
+        const t = (progress - 0.3) / 0.7;
+        sizeFactor = 1 - t * 0.7;
+      }
+      
+      const radiusX = 25 * sizeFactor;
+      const radiusY = radiusX * 0.5; // 2.5D 压扁
+      
+      if (radiusX < 2) continue;
+      
+      ctx.save();
+      // 外圈
+      ctx.strokeStyle = `rgba(0, 255, 128, ${alpha * 0.9})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(ring.x, ring.y, radiusX, radiusY, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // 内圈（跟随缩小但更小）
+      const innerRX = radiusX * 0.5;
+      const innerRY = innerRX * 0.5;
+      if (innerRX > 2) {
+        ctx.strokeStyle = `rgba(200, 255, 200, ${alpha * 0.5})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(ring.x, ring.y, innerRX, innerRY, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+      
+      // === debug 模式：附加标签和玩家位置标记 ===
+      if (this.debugMode) {
+        ctx.save();
+        ctx.fillStyle = `rgba(0, 255, 128, ${alpha})`;
+        ctx.font = '12px Arial';
+        ctx.fillText(`目标(${ring.x.toFixed(0)},${ring.y.toFixed(0)})`, ring.x + 15, ring.y - 5);
+        ctx.restore();
+        
+        // 蓝色方块：玩家位置
+        ctx.save();
+        ctx.strokeStyle = `rgba(50, 150, 255, ${alpha})`;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ring.playerX - 8, ring.playerY - 8, 16, 16);
+        ctx.fillStyle = `rgba(50, 150, 255, ${alpha})`;
+        ctx.font = '12px Arial';
+        ctx.fillText(`玩家(${ring.playerX.toFixed(0)},${ring.playerY.toFixed(0)})`, ring.playerX + 15, ring.playerY - 10);
+        ctx.restore();
+      }
+    }
+  }
+
+  /**
+   * 渲染鼠标点击屏幕标记（debug 模式，在屏幕坐标系中调用）
+   */
+  _renderClickScreenMarkers(ctx) {
+    if (!this.debugMode) return;
+    if (!this._clickRings || this._clickRings.length === 0) return;
+    const now = performance.now();
+    
+    for (const ring of this._clickRings) {
+      const elapsed = now - ring.startTime;
+      const progress = elapsed / ring.duration;
+      const alpha = 1 - progress;
+      
+      // 红色十字：鼠标实际点击的屏幕位置
+      const sx = ring.screenX;
+      const sy = ring.screenY;
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 50, 50, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sx - 15, sy);
+      ctx.lineTo(sx + 15, sy);
+      ctx.moveTo(sx, sy - 15);
+      ctx.lineTo(sx, sy + 15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(sx, sy, 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255, 50, 50, ${alpha})`;
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(`鼠标(${sx.toFixed(0)},${sy.toFixed(0)})`, sx + 15, sy - 10);
+      ctx.restore();
+    }
+  }
+
   /**
    * 处理武器投掷
    */
@@ -2377,11 +2551,17 @@ export class BaseGameScene extends PrologueScene {
       this.combatSystem.renderSkillRangeIndicators(ctx);
     }
     
+    // 渲染右键点击调试光圈（在世界坐标系中）
+    this._renderClickRings(ctx);
+    
     // 渲染技能瞄准预览虚线框（手机拖拽技能时显示落点）
     this.renderSkillAimPreview(ctx);
     
     // 恢复上下文状态
     ctx.restore();
+    
+    // 渲染鼠标点击的屏幕坐标红色标记（在屏幕坐标系中，不受相机变换影响）
+    this._renderClickScreenMarkers(ctx);
     
     // 渲染技能特效
     this.skillEffects.render(ctx, this.camera);

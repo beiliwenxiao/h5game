@@ -2394,20 +2394,22 @@
             return (clientX, clientY) => {
                 const rotate = document.body.classList.contains('force-landscape');
                 const rect = canvas.getBoundingClientRect();
+                // 获取当前场景的逻辑尺寸（camera 尺寸），确保与渲染坐标系一致
+                const cs = sceneManager ? sceneManager.getCurrentScene() : null;
+                const logicW = (cs && cs.logicalWidth) || canvas.width;
+                const logicH = (cs && cs.logicalHeight) || canvas.height;
                 if (!rotate) {
-                    // 未旋转：标准映射
-                    const sx = canvas.width / rect.width;
-                    const sy = canvas.height / rect.height;
-                    return { x: (clientX - rect.left) * sx, y: (clientY - rect.top) * sy };
+                    // 未旋转：归一化到逻辑坐标
+                    const x = (clientX - rect.left) / rect.width * logicW;
+                    const y = (clientY - rect.top) / rect.height * logicH;
+                    return { x, y };
                 }
                 // 旋转 90°（顺时针）：rect 是旋转后的外接矩形（屏幕坐标）
-                // 屏幕内相对位置
                 const px = clientX - rect.left;
                 const py = clientY - rect.top;
-                // 容器逻辑宽 = canvas.width，逻辑高 = canvas.height
                 // 顺时针 90°：canvasX 沿屏幕竖直方向，canvasY 沿屏幕水平反方向
-                const cx = py / rect.height * canvas.width;
-                const cy = (rect.width - px) / rect.width * canvas.height;
+                const cx = py / rect.height * logicW;
+                const cy = (rect.width - px) / rect.width * logicH;
                 return { x: cx, y: cy };
             };
         }

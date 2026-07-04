@@ -67,6 +67,13 @@ inclusion: always
 - 注意内存泄漏问题
 - 保持代码简洁可读
 
+## 调试模式
+- BaseGameScene 有 `this.debugMode` 属性（默认 false）
+- 开启方式：控制台执行 `sceneManager.getCurrentScene().debugMode = true`
+- debugMode=false：右键点击只显示绿色光圈动画（正式功能）
+- debugMode=true：额外显示红色十字（鼠标屏幕位置）、蓝色方块（玩家位置）、坐标标签，控制台输出详细坐标日志
+- 新增调试功能时，遵循同样模式：正式功能始终显示，调试信息用 `if (this.debugMode)` 包裹
+
 ## Kiro新版本函数有变化，使用以下方法
 - fsWrite: parameters required: ["path", "text"]
 - fsAppend: parameters required: ["path", "text"]

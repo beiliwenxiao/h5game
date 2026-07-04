@@ -155,15 +155,12 @@ export class MovementSystem {
    * @param {Array<Entity>} entities - 实体列表
    */
   update(deltaTime, entities) {
-    // 更新相机跟随
-    if (this.camera) {
-      this.camera.update(deltaTime);
-      
-      // 更新输入管理器的相机位置（用于坐标转换）
-      if (this.inputManager) {
-        const viewBounds = this.camera.getViewBounds();
-        this.inputManager.setCameraPosition(viewBounds.left, viewBounds.top);
-      }
+    // 更新输入管理器的相机位置（用于坐标转换）
+    // 注意：camera.update() 由外部（BaseGameScene）调用并做后处理（如 clamp），
+    // 这里只负责同步相机位置到 InputManager
+    if (this.camera && this.inputManager) {
+      const viewBounds = this.camera.getViewBounds();
+      this.inputManager.setCameraPosition(viewBounds.left, viewBounds.top);
     }
     
     // 处理键盘移动输入
@@ -286,7 +283,14 @@ export class MovementSystem {
       }
       
       // 获取点击的世界坐标
-      const clickPos = this.inputManager.getMouseWorldPosition();
+      // 使用当前帧相机位置实时转换，确保坐标准确
+      const mouseScreen = this.inputManager.getMousePosition();
+      let clickPos;
+      if (this.camera) {
+        clickPos = this.camera.screenToWorld(mouseScreen.x, mouseScreen.y);
+      } else {
+        clickPos = this.inputManager.getMouseWorldPosition();
+      }
       
       // 检查是否点击了敌人（如果点击了敌人，不移动）
       const clickedEnemy = this.findEnemyAtPosition(clickPos, entities);

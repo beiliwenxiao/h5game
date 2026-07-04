@@ -619,9 +619,6 @@ export class Act1SceneECS extends BaseGameScene {
     // 调用父类的 update
     super.update(deltaTime);
     
-    // 第一幕特有：玩家接近边缘时相机停止移屏
-    this.clampCameraToBasin();
-    
     // 第一幕特有：检查火堆碰撞
     this.checkCampfireCollision();
     
@@ -1065,6 +1062,14 @@ export class Act1SceneECS extends BaseGameScene {
 
   /**
    * 限制相机在盆地范围内（玩家接近边缘时相机停止移动）
+   * 通过覆盖 postCameraUpdate 钩子，在相机更新后、输入处理前执行
+   */
+  postCameraUpdate() {
+    this.clampCameraToBasin();
+  }
+
+  /**
+   * 限制相机在盆地范围内
    */
   clampCameraToBasin() {
     if (!this.terrain || !this.camera) return;

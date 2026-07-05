@@ -1,4 +1,16 @@
 /**
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ */
+
+/**
  * SceneEditorUI - 场景编辑器 UI 模块
  * 负责 UI 面板初始化、属性面板更新、基础工具操作
  */

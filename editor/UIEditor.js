@@ -1,4 +1,16 @@
 /**
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ */
+
+/**
  * UIEditor - 界面 UI 编辑器
  *
  * 可视化编辑游戏 UI 组件（按钮、面板、摇杆等）的位置和大小，

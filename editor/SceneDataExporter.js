@@ -1,4 +1,16 @@
 /**
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ */
+
+/**
  * SceneDataExporter - 场景数据导出工具
  * 
  * 将代码定义的场景转换为编辑器可编辑的JSON数据格式

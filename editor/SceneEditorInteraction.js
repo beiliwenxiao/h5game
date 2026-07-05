@@ -1,4 +1,16 @@
 /**
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ */
+
+/**
  * SceneEditorInteraction - 场景编辑器交互模块
  * 负责鼠标/键盘事件处理、右键菜单、对象拾取
  */

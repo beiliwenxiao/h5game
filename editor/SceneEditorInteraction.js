@@ -370,11 +370,15 @@ export class SceneEditorInteraction {
       items.push({ separator: true });
     } else if (layerIndex !== -1) {
       const curLayer = editor.sceneData.layers[layerIndex];
-      items.push({ label: '上移一层', action: () => this._moveObjectInLayer(clicked, curLayer, 'up') });
-      items.push({ label: '下移一层', action: () => this._moveObjectInLayer(clicked, curLayer, 'down') });
+      // 跨图层移动
+      items.push({ label: '⬆ 移到上一图层', action: () => this._moveObjectToAdjacentLayer(clicked, 1) });
+      items.push({ label: '⬇ 移到下一图层', action: () => this._moveObjectToAdjacentLayer(clicked, -1) });
       items.push({ separator: true });
-      items.push({ label: '置于顶层', action: () => this._moveObjectInLayer(clicked, curLayer, 'top') });
-      items.push({ label: '置于底层', action: () => this._moveObjectInLayer(clicked, curLayer, 'bottom') });
+      // 层内深度调整
+      items.push({ label: '层内上移', action: () => this._moveObjectInLayer(clicked, curLayer, 'up') });
+      items.push({ label: '层内下移', action: () => this._moveObjectInLayer(clicked, curLayer, 'down') });
+      items.push({ label: '层内置顶', action: () => this._moveObjectInLayer(clicked, curLayer, 'top') });
+      items.push({ label: '层内置底', action: () => this._moveObjectInLayer(clicked, curLayer, 'bottom') });
       items.push({ separator: true });
     }
 
@@ -457,6 +461,45 @@ export class SceneEditorInteraction {
     if (deco.y !== undefined) deco.y = ref.y;
     editor.history.saveHistory();
     editor.render();
+  }
+
+  /**
+   * 把对象移到相邻图层（跨图层移动）
+   * @param {Object} obj - 要移动的对象
+   * @param {number} delta - +1 上一图层（更上层），-1 下一图层（更底层）
+   * @private
+   */
+  _moveObjectToAdjacentLayer(obj, delta) {
+    const editor = this.editor;
+    const layers = editor.sceneData.layers;
+    let curLi = -1;
+    for (let i = 0; i < layers.length; i++) {
+      if (layers[i].objects && layers[i].objects.includes(obj)) { curLi = i; break; }
+    }
+    if (curLi === -1) return;
+
+    const targetLi = curLi + delta;
+    if (targetLi < 0 || targetLi >= layers.length) {
+      editor.ui.showToast(delta > 0 ? '已在最上图层' : '已在最下图层', 'error');
+      return;
+    }
+    if (layers[targetLi].locked) {
+      editor.ui.showToast(`目标图层「${layers[targetLi].name}」已锁定`, 'error');
+      return;
+    }
+
+    // 从当前层移除，加入目标层
+    const idx = layers[curLi].objects.indexOf(obj);
+    layers[curLi].objects.splice(idx, 1);
+    layers[targetLi].objects.push(obj);
+    editor.activeLayerIndex = targetLi;
+
+    editor.history.saveHistory();
+    editor.layers.updateLayerList();
+    editor.ui.updateObjectCount();
+    editor.ui.updateObjectProperties();
+    editor.render();
+    editor.ui.showToast(`已移到图层：${layers[targetLi].name}`);
   }
 
   /**

@@ -1247,7 +1247,93 @@ export class Act1SceneECS extends BaseGameScene {
           }
         }
       }
+
+      // ---- 4. 编辑器 collide shape 碰撞（多边形/矩形/椭圆障碍，推开） ----
+      if (t._collisionShapes && t._collisionShapes.length) {
+        for (const s of t._collisionShapes) {
+          this._resolveShapeCollision(p, s, entityRadius);
+        }
+      }
     }
+  }
+
+  /**
+   * 将实体推出 collide shape（若其中心落在 shape 内）
+   * @private
+   */
+  _resolveShapeCollision(p, s, radius) {
+    const t = this.terrain;
+    if (!t || !t._pointInCollisionShape(s, p.x, p.y)) return; // 不在内则无需推开
+
+    // 多边形是精确边界碰撞：玩家紧贴边界，不留实体半径缩进（与树/石头脚下碰撞圈不同）
+    const EPS = 0.5; // 极小外推，防止边界浮点抖动
+    const st = s.shapeType;
+    if (st === 'circle' || st === 'ellipse') {
+      const cx = (s.x || 0) + (s.width || 0) / 2;
+      const cy = (s.y || 0) + (s.height || 0) / 2;
+      const dirx = p.x - cx, diry = p.y - cy;
+      const dl = Math.hypot(dirx, diry) || 1;
+      const rx = (st === 'circle' ? Math.min(s.width, s.height) : s.width) / 2 || 1;
+      const ry = (st === 'circle' ? Math.min(s.width, s.height) : s.height) / 2 || 1;
+      const ux = dirx / rx, uy = diry / ry;
+      const d = Math.hypot(ux, uy) || 1;
+      // 推到椭圆边界上（仅留极小防抖边距）
+      p.x = cx + dirx / d + dirx / dl * EPS;
+      p.y = cy + diry / d + diry / dl * EPS;
+      return;
+    }
+
+    // 多边形/路径/矩形：推到最近边（不加实体半径）
+    let pts = s.points;
+    if (st === 'rect' || !Array.isArray(pts)) {
+      const x = s.x || 0, y = s.y || 0, w = s.width || 0, h = s.height || 0;
+      pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    }
+    this._pushOutOfPolygon(p, pts, EPS);
+  }
+
+  /**
+   * 把点推出多边形（沿最近边外法向），点须已在多边形内
+   * @private
+   */
+  _pushOutOfPolygon(p, pts, radius) {
+    if (!pts || pts.length < 3) return;
+    // 质心（用于判断外法向朝向）
+    let ccx = 0, ccy = 0;
+    for (const q of pts) { ccx += q[0]; ccy += q[1]; }
+    ccx /= pts.length; ccy /= pts.length;
+
+    let best = null, bestD = Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[j], b = pts[i];
+      const np = this._closestOnSegment(p.x, p.y, a[0], a[1], b[0], b[1]);
+      const d = Math.hypot(p.x - np.x, p.y - np.y);
+      if (d < bestD) {
+        bestD = d;
+        // 边外法向（指向远离质心的一侧）
+        let nx = -(b[1] - a[1]), ny = (b[0] - a[0]);
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        if (nx * (mx - ccx) + ny * (my - ccy) < 0) { nx = -nx; ny = -ny; }
+        best = { x: np.x, y: np.y, nx, ny };
+      }
+    }
+    if (best) {
+      p.x = best.x + best.nx * radius;
+      p.y = best.y + best.ny * radius;
+    }
+  }
+
+  /**
+   * 点到线段的最近点
+   * @private
+   */
+  _closestOnSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    let tt = ((px - ax) * dx + (py - ay) * dy) / l2;
+    tt = Math.max(0, Math.min(1, tt));
+    return { x: ax + dx * tt, y: ay + dy * tt };
   }
 
   /**

@@ -9,7 +9,7 @@
       "id": "layer_bg",
       "name": "背景层",
       "visible": true,
-      "locked": true,
+      "locked": false,
       "objects": []
     },
     {
@@ -19,23 +19,21 @@
       "locked": false,
       "objects": [
         {
-          "id": "ellipse_terrain_1783238267571",
+          "id": "ellipse_terrain_1783280474652",
           "type": "shape",
+          "shapeType": "ellipse",
           "name": "地形椭圆",
-          "x": -287.95778662001646,
-          "y": -119.80261028926594,
-          "width": 1296,
-          "height": 777,
+          "x": -315.62587904360055,
+          "y": -180.62025316455697,
+          "width": 1320,
+          "height": 858,
+          "fillMode": "color",
           "fill": "#3a5a2a",
           "opacity": 1,
-          "stroke": "#000000",
+          "edgeFade": 0,
+          "stroke": "",
           "strokeWidth": 0,
-          "fillMode": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "grassTile",
-          "decoKey": null,
-          "edgeFade": 0.1,
-          "shapeType": "ellipse"
+          "collide": false
         }
       ]
     },
@@ -54,6 +52,53 @@
           "width": 1280,
           "height": 720,
           "rotation": 0
+        },
+        {
+          "id": "obj_1783279500096",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              828,
+              288
+            ],
+            [
+              952,
+              189
+            ],
+            [
+              946,
+              307
+            ],
+            [
+              806,
+              366
+            ],
+            [
+              792,
+              305
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ebf4e6",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 2,
+          "collide": true,
+          "patternType": "crosshatch",
+          "gradientType": "radial",
+          "gradientStops": [
+            {
+              "offset": 0,
+              "color": "#000000"
+            },
+            {
+              "offset": 1,
+              "color": "#df2020"
+            }
+          ]
         }
       ]
     },
@@ -6700,7 +6745,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-05T18:47:36.246Z",
+  "updatedAt": "2026-07-05T19:43:24.026Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

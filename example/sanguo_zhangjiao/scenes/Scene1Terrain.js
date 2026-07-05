@@ -156,6 +156,11 @@ export class Scene1Terrain {
     // 编辑器中标记 collide 的 shape（多边形/矩形/椭圆碰撞区）
     this._collisionShapes = [];
 
+    // 编辑器中的可渲染 shape（多边形/矩形/圆等，非地形椭圆），用 ShapeRenderer 绘制
+    this._editorShapes = [];
+    this._shapeImages = new Map();  // shape 图片填充的图片缓存（key=imageSrc）
+    this._sceneAtlases = null;      // 场景图集定义（切片填充解析用）
+
     this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
@@ -292,6 +297,8 @@ export class Scene1Terrain {
     // 同时读取 type:'ellipse' 对象更新盆地椭圆参数
     this._editorBackgroundImages = [];
     this._collisionShapes = [];
+    this._editorShapes = [];
+    this._sceneAtlases = scene.atlases || null;
     let foundEllipse = false;
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
@@ -306,7 +313,8 @@ export class Scene1Terrain {
           }
           const _isEllipse = obj.type === 'ellipse' ||
                              (obj.type === 'shape' && obj.shapeType === 'ellipse');
-          if (_isEllipse) {
+          // 第一个椭圆作为地形椭圆；其余 shape（多边形/矩形/圆/额外椭圆）作为可渲染 shape
+          if (_isEllipse && !foundEllipse) {
             // 从椭圆对象更新盆地参数
             foundEllipse = true;
             const cx = obj.x + obj.width / 2;
@@ -327,6 +335,9 @@ export class Scene1Terrain {
             this._grassCanvas = null;          // 重建草地缓存
             this._combinedGroundCache = null;  // 重建合并缓存
             console.log('Scene1Terrain: 应用编辑器椭圆', { cx, cy, rx, ry, fillMode: this._terrainEllipse.fillMode });
+          } else if (obj.type === 'shape') {
+            // 其它 shape（多边形/矩形/圆/额外椭圆）作为可渲染对象
+            this._editorShapes.push(obj);
           } else if (obj.type === 'image' && obj.imageId) {
             // 从 imageAssets 获取图片 src
             const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
@@ -371,6 +382,19 @@ export class Scene1Terrain {
         const img = new Image();
         img.onload = () => { bgImg._img = img; bgImg._loaded = true; };
         img.src = bgImg.src;
+      }
+
+      // 预加载 shape 的图片填充
+      for (const sh of this._editorShapes) {
+        if (sh.fillMode === 'image' && sh.imageSrc && !this._shapeImages.has(sh.imageSrc)) {
+          let src = sh.imageSrc;
+          const idx = src.indexOf('assets/');
+          if (idx !== -1) src = src.substring(idx);
+          const img = new Image();
+          img.onload = () => { this._combinedGroundCache = null; };
+          img.src = src;
+          this._shapeImages.set(sh.imageSrc, img);
+        }
       }
 
       // 编辑器数据中若不存在地形椭圆，则不渲染草地/森林环带
@@ -981,16 +1005,19 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderGround(ctx) {
-    // 编辑器中删除了地形椭圆：不渲染草地，只保留水池和背景图片
+    // 编辑器中删除了地形椭圆：不渲染草地，只保留 shape、水池和背景图片
     if (this._hasTerrainEllipse === false) {
+      this._renderEditorShapes(ctx);
       this._renderWaterPatches(ctx);
       this._renderEditorBackgroundImages(ctx);
       return;
     }
 
     // 使用合并的地面缓存（椭圆草地 + 背景图，一张图搞定）
+    // shape（多边形等）每帧单独画在缓存之上，避免被缓存范围裁剪
     if (this._combinedGroundCache) {
       ctx.drawImage(this._combinedGroundCache, this._combinedGroundCacheX, this._combinedGroundCacheY);
+      this._renderEditorShapes(ctx);
       return;
     }
 
@@ -999,12 +1026,60 @@ export class Scene1Terrain {
 
     // 数据驱动渲染地形椭圆（纯色 / 图片 / 切片 + 边缘淡化）
     this._renderTerrainEllipse(ctx);
+    // 渲染编辑器中的其它 shape（多边形/矩形/圆等）
+    this._renderEditorShapes(ctx);
     // 素材加载完成后尝试构建草地装饰缓存与合并地面缓存
     this._buildGroundDecoCache();
     this._buildCombinedGroundCache();
     this._renderWaterPatches(ctx);
     // 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
+  }
+
+  /**
+   * 渲染编辑器中的可渲染 shape（多边形/矩形/圆等），用统一 ShapeRenderer
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  _renderEditorShapes(ctx) {
+    if (!this._editorShapes || this._editorShapes.length === 0) return;
+    const resolver = this._editorShapeResolver();
+    for (const shape of this._editorShapes) {
+      ShapeRenderer.render(ctx, shape, resolver);
+    }
+  }
+
+  /**
+   * 为 shape 渲染提供资源解析（图片=预加载缓存；切片=图集 + 坐标）
+   * @private
+   */
+  _editorShapeResolver() {
+    if (!this._editorShapeResolverObj) {
+      this._editorShapeResolverObj = {
+        getImage: (key) => this._shapeImages.get(key) || null,
+        getSliceSource: (shape) => this._resolveShapeSlice(shape)
+      };
+    }
+    return this._editorShapeResolverObj;
+  }
+
+  /**
+   * 解析 shape 的切片图源（decoKey → decoSprites；atlasId+sliceKey → 场景图集）
+   * 图集图统一用已加载的 mountain 主图集
+   * @private
+   */
+  _resolveShapeSlice(shape) {
+    if (!this.loaded.mountain) return null;
+    let rect = null;
+    if (shape.decoKey && this.decoSprites[shape.decoKey]) {
+      const s = this.decoSprites[shape.decoKey];
+      rect = { sx: s.sx, sy: s.sy, sw: s.sw, sh: s.sh };
+    } else if (shape.atlasId && shape.sliceKey && Array.isArray(this._sceneAtlases)) {
+      const atlas = this._sceneAtlases.find(a => a.id === shape.atlasId);
+      const sl = atlas && atlas.slices && atlas.slices[shape.sliceKey];
+      if (sl) rect = { sx: sl.sx, sy: sl.sy, sw: sl.sw, sh: sl.sh };
+    }
+    if (!rect) return null;
+    return { img: this.images.mountain, sx: rect.sx, sy: rect.sy, sw: rect.sw, sh: rect.sh };
   }
 
   /**

@@ -119,6 +119,18 @@ export class SceneEditorCanvas {
   }
 
   /**
+   * 编辑器中渲染 shape：透明度为 0 时用 0.5 显示，方便选中编辑
+   * （不改动数据，仅渲染时替换；游戏侧仍按真实透明度 0 渲染=不可见）
+   * @private
+   */
+  _renderShapeEditor(ctx, shape, showLabel) {
+    const s = (shape.opacity !== undefined && shape.opacity <= 0)
+      ? { ...shape, opacity: 0.5 }
+      : shape;
+    ShapeRenderer.render(ctx, s, this._shapeResolver(), { showLabel });
+  }
+
+  /**
    * 为 ShapeRenderer 提供资源解析器（图片/切片）
    * @private
    */
@@ -139,13 +151,13 @@ export class SceneEditorCanvas {
    */
   _renderObject(ctx, obj) {
     if (obj.type === 'shape') {
-      ShapeRenderer.render(ctx, obj, this._shapeResolver(), { showLabel: true });
+      this._renderShapeEditor(ctx, obj, true);
     } else if (obj.type === 'fill') {
       // 旧 fill = 矩形填充，交给统一 ShapeRenderer
-      ShapeRenderer.render(ctx, { ...obj, shapeType: 'rect' }, this._shapeResolver());
+      this._renderShapeEditor(ctx, { ...obj, shapeType: 'rect' }, false);
     } else if (obj.type === 'ellipse') {
       // 旧 ellipse = 椭圆 shape
-      ShapeRenderer.render(ctx, { ...obj, shapeType: 'ellipse' }, this._shapeResolver(), { showLabel: true });
+      this._renderShapeEditor(ctx, { ...obj, shapeType: 'ellipse' }, true);
     } else if (obj.type === 'deco') {
       this._renderDecoObject(ctx, obj);
     } else if (obj.type === 'rect') {

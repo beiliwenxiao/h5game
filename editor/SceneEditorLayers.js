@@ -311,9 +311,17 @@ export class SceneEditorLayers {
       item.dataset.index = actualIndex;
 
       const objCount = layer.objects.length;
+      const btnBase = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:3px;cursor:pointer;margin-right:3px;font-size:13px;border:1px solid;';
+      const visStyle = layer.visible
+        ? `${btnBase}background:#2a4a2a;border-color:#4a8a4a;`
+        : `${btnBase}background:#3a3a3a;border-color:#666;opacity:0.7;`;
+      const lockStyle = layer.locked
+        ? `${btnBase}background:#5a2a2a;border-color:#c0504a;`
+        : `${btnBase}background:#2a3a5e;border-color:#4a8a4a;`;
       item.innerHTML = `
-        <span class="layer-btn layer-visibility" data-action="visibility" title="${layer.visible ? '隐藏' : '显示'}">${layer.visible ? '👁' : '👁‍🗨'}</span>
-        <span class="layer-name" data-action="select">${layer.name}</span>
+        <span class="layer-btn layer-visibility" data-action="visibility" title="${layer.visible ? '点击隐藏' : '点击显示'}" style="${visStyle}">${layer.visible ? '👁' : '🚫'}</span>
+        <span class="layer-btn layer-lock" data-action="lock" title="${layer.locked ? '已锁定，点击解锁' : '未锁定，点击锁定'}" style="${lockStyle}">${layer.locked ? '🔒' : '🔓'}</span>
+        <span class="layer-name" data-action="select" style="flex:1;">${layer.name}</span>
         <span class="layer-count">${objCount}</span>
         ${hasSelectedObj ? '<span class="layer-obj-marker" title="选中对象在此层">◆</span>' : ''}
       `;
@@ -337,6 +345,9 @@ export class SceneEditorLayers {
         if (action === 'visibility') {
           editor.sceneData.layers[idx].visible = !editor.sceneData.layers[idx].visible;
           editor.render();
+        } else if (action === 'lock') {
+          editor.sceneData.layers[idx].locked = !editor.sceneData.layers[idx].locked;
+          editor.history.saveHistory();
         } else {
           editor.activeLayerIndex = idx;
         }

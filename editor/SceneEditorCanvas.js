@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/h5game
  */
 
+import { ShapeRenderer } from '../src/rendering/ShapeRenderer.js';
+
 /**
  * SceneEditorCanvas - 场景编辑器渲染模块
  * 负责所有 Canvas 绘制逻辑
@@ -117,14 +119,33 @@ export class SceneEditorCanvas {
   }
 
   /**
+   * 为 ShapeRenderer 提供资源解析器（图片/切片）
+   * @private
+   */
+  _shapeResolver() {
+    if (!this._shapeResolverObj) {
+      const editor = this.editor;
+      this._shapeResolverObj = {
+        getImage: (key) => editor.loadedImages.get(key) || null,
+        getSliceSource: (shape) => this._getEllipseSliceSource(shape)
+      };
+    }
+    return this._shapeResolverObj;
+  }
+
+  /**
    * 渲染对象
    * @private
    */
   _renderObject(ctx, obj) {
-    if (obj.type === 'fill') {
-      this._renderFillObject(ctx, obj);
+    if (obj.type === 'shape') {
+      ShapeRenderer.render(ctx, obj, this._shapeResolver(), { showLabel: true });
+    } else if (obj.type === 'fill') {
+      // 旧 fill = 矩形填充，交给统一 ShapeRenderer
+      ShapeRenderer.render(ctx, { ...obj, shapeType: 'rect' }, this._shapeResolver());
     } else if (obj.type === 'ellipse') {
-      this._renderEllipseObject(ctx, obj);
+      // 旧 ellipse = 椭圆 shape
+      ShapeRenderer.render(ctx, { ...obj, shapeType: 'ellipse' }, this._shapeResolver(), { showLabel: true });
     } else if (obj.type === 'deco') {
       this._renderDecoObject(ctx, obj);
     } else if (obj.type === 'rect') {
@@ -410,7 +431,8 @@ export class SceneEditorCanvas {
     // 优先从 layer_fill 中的 ellipse 对象读取参数
     let centerX, centerY, radiusX, aspectY;
     const fillLayer = data.layers.find(l => l.id === 'layer_fill');
-    const ellipseObj = fillLayer && fillLayer.objects.find(o => o.type === 'ellipse');
+    const ellipseObj = fillLayer && fillLayer.objects.find(o =>
+      o.type === 'ellipse' || (o.type === 'shape' && o.shapeType === 'ellipse'));
     if (ellipseObj) {
       centerX = ellipseObj.x + ellipseObj.width / 2;
       centerY = ellipseObj.y + ellipseObj.height / 2;
@@ -658,6 +680,27 @@ export class SceneEditorCanvas {
         ctx.arc(obj.x, obj.y, obj.radius + 2, 0, Math.PI * 2);
         ctx.stroke();
         continue;
+      } else if (obj.type === 'shape') {
+        const bb = ShapeRenderer.getBBox(obj);
+        x = bb.x - 2; y = bb.y - 2; w = bb.w + 4; h = bb.h + 4;
+        ctx.strokeRect(x, y, w, h);
+        // 多边形/路径：显示可拖拽的顶点手柄，不显示缩放手柄
+        if ((obj.shapeType === 'polygon' || obj.shapeType === 'path') && Array.isArray(obj.points)) {
+          ctx.setLineDash([]);
+          ctx.fillStyle = '#ffdd44';
+          ctx.strokeStyle = '#4a90d9';
+          ctx.lineWidth = 1.5 / editor.viewport.scale;
+          const vs = handleSize;
+          for (const p of obj.points) {
+            ctx.fillRect(p[0] - vs / 2, p[1] - vs / 2, vs, vs);
+            ctx.strokeRect(p[0] - vs / 2, p[1] - vs / 2, vs, vs);
+          }
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2 / editor.viewport.scale;
+          ctx.setLineDash([6 / editor.viewport.scale, 4 / editor.viewport.scale]);
+          continue;
+        }
+        // rect/ellipse/circle 形状：继续走下方缩放手柄
       } else {
         continue;
       }

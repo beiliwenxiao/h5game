@@ -194,16 +194,20 @@ export class SceneEditor {
       const rx = 200;
       const ry = 130;
       const obj = this.ui.addObject({
-        type: 'ellipse',
+        type: 'shape',
+        shapeType: 'ellipse',
         name: '椭圆_' + Date.now().toString(36),
         x: cx - rx,
         y: cy - ry,
         width: rx * 2,
         height: ry * 2,
+        fillMode: 'color',
         fill: '#3a5a2a',
         opacity: 1,
+        edgeFade: 0,
         stroke: '',
-        strokeWidth: 0
+        strokeWidth: 0,
+        collide: false
       });
       if (obj) {
         this.selectedObjects = [obj];
@@ -327,6 +331,9 @@ export class SceneEditor {
     // 规范化图层
     this.sceneData.layers = this.layers.normalizeLayers(this.sceneData.layers);
 
+    // 旧对象迁移为统一 shape（rect/circle/fill/ellipse → type:'shape'）
+    this._migrateShapes();
+
     // 将 decorations 转换合并到装饰层
     this.layers.mergeDecorationsToLayer();
 
@@ -377,6 +384,40 @@ export class SceneEditor {
   }
 
   /**
+   * 把旧对象类型迁移为统一 shape：
+   *   rect   → shape(rect)
+   *   circle → shape(circle)（x,y 中心 → 包围盒）
+   *   fill   → shape(rect)（fillColor 归一到 fill）
+   *   ellipse→ shape(ellipse)
+   * 已是 shape 的保持不变。
+   * @private
+   */
+  _migrateShapes() {
+    for (const layer of this.sceneData.layers) {
+      if (!Array.isArray(layer.objects)) continue;
+      for (const obj of layer.objects) {
+        if (!obj || obj.type === 'shape') continue;
+        if (obj.type === 'rect') {
+          obj.type = 'shape'; obj.shapeType = 'rect';
+        } else if (obj.type === 'ellipse') {
+          obj.type = 'shape'; obj.shapeType = 'ellipse';
+        } else if (obj.type === 'fill') {
+          obj.type = 'shape'; obj.shapeType = 'rect';
+          if (obj.fillColor && !obj.fill) obj.fill = obj.fillColor;
+          // fill 默认铺满场景
+          if (obj.width === undefined) obj.width = this.sceneData.width;
+          if (obj.height === undefined) obj.height = this.sceneData.height;
+        } else if (obj.type === 'circle') {
+          obj.type = 'shape'; obj.shapeType = 'circle';
+          const r = obj.radius || 32;
+          obj.x = (obj.x || 0) - r; obj.y = (obj.y || 0) - r;
+          obj.width = r * 2; obj.height = r * 2;
+        }
+      }
+    }
+  }
+
+  /**
    * 确保 terrain 配置中的椭圆已转换为 layer_fill 中的 ellipse 对象
    * 仅在 layer_fill 中没有 ellipse 对象时执行（避免重复）
    * @private
@@ -391,8 +432,9 @@ export class SceneEditor {
     const fillLayer = data.layers.find(l => l.id === 'layer_fill');
     if (!fillLayer) return;
 
-    // 检查是否已有 ellipse 对象
-    const hasEllipse = fillLayer.objects.some(o => o.type === 'ellipse');
+    // 检查是否已有椭圆（含迁移后的 shape 椭圆）
+    const hasEllipse = fillLayer.objects.some(o =>
+      o.type === 'ellipse' || (o.type === 'shape' && o.shapeType === 'ellipse'));
     if (hasEllipse) return;
 
     // 从 terrain 配置生成椭圆对象
@@ -408,16 +450,20 @@ export class SceneEditor {
 
     fillLayer.objects.push({
       id: 'ellipse_terrain_' + Date.now(),
-      type: 'ellipse',
+      type: 'shape',
+      shapeType: 'ellipse',
       name: '地形椭圆',
       x: centerX - radiusX,
       y: centerY - radiusY,
       width: radiusX * 2,
       height: radiusY * 2,
+      fillMode: 'color',
       fill: grassColor,
       opacity: 1,
+      edgeFade: 0,
       stroke: '',
-      strokeWidth: 0
+      strokeWidth: 0,
+      collide: false
     });
 
     // 椭圆现在是可编辑对象，解锁背景填充层以便选中编辑

@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/h5game
  */
 
+import { ShapeRenderer } from '../../../src/rendering/ShapeRenderer.js';
+
 /**
  * Scene1Terrain - 第一幕盆地地形系统
  * 
@@ -151,6 +153,9 @@ export class Scene1Terrain {
     // { cx, cy, rx, ry, fillMode, fill, opacity, edgeFade, imageMode, sliceMode, imageSrc, _img, _slice }
     this._terrainEllipse = null;
 
+    // 编辑器中标记 collide 的 shape（多边形/矩形/椭圆碰撞区）
+    this._collisionShapes = [];
+
     this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
@@ -286,6 +291,7 @@ export class Scene1Terrain {
     // 3. 读取图层中的背景图片对象（type:'image' / type:'fill'）
     // 同时读取 type:'ellipse' 对象更新盆地椭圆参数
     this._editorBackgroundImages = [];
+    this._collisionShapes = [];
     let foundEllipse = false;
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
@@ -294,7 +300,13 @@ export class Scene1Terrain {
         if (layer.visible === false) continue;
         for (const obj of layer.objects) {
           if (!obj) continue;
-          if (obj.type === 'ellipse') {
+          // 收集 collide 的 shape 作为碰撞区
+          if (obj.type === 'shape' && obj.collide) {
+            this._collisionShapes.push(obj);
+          }
+          const _isEllipse = obj.type === 'ellipse' ||
+                             (obj.type === 'shape' && obj.shapeType === 'ellipse');
+          if (_isEllipse) {
             // 从椭圆对象更新盆地参数
             foundEllipse = true;
             const cx = obj.x + obj.width / 2;
@@ -747,6 +759,13 @@ export class Scene1Terrain {
    * @returns {boolean} true 表示阻塞，不能走
    */
   isBlocked(x, y) {
+    // 编辑器 collide shape（多边形/矩形/椭圆碰撞区）：命中即阻塞
+    if (this._collisionShapes && this._collisionShapes.length) {
+      for (const s of this._collisionShapes) {
+        if (this._pointInCollisionShape(s, x, y)) return true;
+      }
+    }
+
     const dx = x - this.centerX;
     const dy = y - this.centerY;
     // 椭圆归一化距离：< 1 在椭圆内
@@ -761,6 +780,40 @@ export class Scene1Terrain {
       return edOuter > 1.18;
     }
     return true;
+  }
+
+  /**
+   * 判断点是否落在 collide shape 内（按 shapeType）
+   * @private
+   */
+  _pointInCollisionShape(s, x, y) {
+    if ((s.shapeType === 'polygon' || s.shapeType === 'path') && Array.isArray(s.points)) {
+      return this._pointInPolygon(s.points, x, y);
+    }
+    const bx = s.x || 0, by = s.y || 0, bw = s.width || 0, bh = s.height || 0;
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    if (s.shapeType === 'circle') {
+      return Math.hypot(x - cx, y - cy) <= Math.min(bw, bh) / 2;
+    }
+    if (s.shapeType === 'ellipse') {
+      const nx = (x - cx) / (bw / 2 || 1), ny = (y - cy) / (bh / 2 || 1);
+      return nx * nx + ny * ny <= 1;
+    }
+    // rect（默认）
+    return x >= bx && x <= bx + bw && y >= by && y <= by + bh;
+  }
+
+  /**
+   * 射线法判断点在多边形内
+   * @private
+   */
+  _pointInPolygon(pts, x, y) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
   }
 
   /**
@@ -962,100 +1015,32 @@ export class Scene1Terrain {
   _renderTerrainEllipse(ctx) {
     const e = this._terrainEllipse;
     if (!e) return;
-    const { cx, cy, rx, ry } = e;
-    const bx = cx - rx, by = cy - ry, bw = rx * 2, bh = ry * 2;
-
-    ctx.save();
-    ctx.globalAlpha = e.opacity !== undefined ? e.opacity : 1;
-
-    // 椭圆裁剪
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.clip();
-
-    if (e.fillMode === 'image' && e._img && e._img.complete && e._img.naturalWidth) {
-      this._drawImageInBox(ctx, e._img, bx, by, bw, bh, e.imageMode || 'cover');
-    } else if (e.fillMode === 'slice' && e._slice && this.loaded.mountain) {
-      this._drawSliceTiled(ctx, this.images.mountain, e._slice, bx, by, bw, bh, e.sliceMode || 'tile');
-    } else {
-      ctx.fillStyle = e.fill || '#3a5a2a';
-      ctx.fillRect(bx, by, bw, bh);
-    }
-
-    // 边缘淡化（destination-out 椭圆径向渐变）
-    const edgeFade = Math.max(0, Math.min(1, e.edgeFade || 0));
-    if (edgeFade > 0) {
-      const fadeStart = 1 - edgeFade;
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.scale(1, ry / rx);
-      const grad = ctx.createRadialGradient(0, 0, rx * fadeStart, 0, 0, rx);
-      grad.addColorStop(0, 'rgba(0,0,0,0)');
-      grad.addColorStop(1, 'rgba(0,0,0,1)');
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(0, 0, rx, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    ctx.restore(); // 退出裁剪
-    ctx.restore();
+    // 转成统一 shape，交给 ShapeRenderer（与编辑器同一套渲染逻辑）
+    const shape = {
+      shapeType: 'ellipse',
+      x: e.cx - e.rx, y: e.cy - e.ry, width: e.rx * 2, height: e.ry * 2,
+      fillMode: e.fillMode,
+      fill: e.fill,
+      opacity: e.opacity,
+      edgeFade: e.edgeFade,
+      imageMode: e.imageMode,
+      sliceMode: e.sliceMode,
+      imageSrc: e.imageSrc
+    };
+    ShapeRenderer.render(ctx, shape, this._terrainShapeResolver(e));
   }
 
   /**
-   * 将图片按模式绘制到矩形框（stretch/cover/contain/tile）
+   * 为地形椭圆提供 ShapeRenderer 资源解析（图片=已加载的 _img；切片=mountain 图集 + _slice）
    * @private
    */
-  _drawImageInBox(ctx, img, x, y, w, h, mode) {
-    if (mode === 'stretch') {
-      ctx.drawImage(img, x, y, w, h);
-    } else if (mode === 'contain') {
-      const ir = img.width / img.height, br = w / h;
-      let dw, dh, dx, dy;
-      if (ir > br) { dw = w; dh = w / ir; dx = x; dy = y + (h - dh) / 2; }
-      else { dh = h; dw = h * ir; dx = x + (w - dw) / 2; dy = y; }
-      ctx.drawImage(img, dx, dy, dw, dh);
-    } else if (mode === 'tile') {
-      const pattern = ctx.createPattern(img, 'repeat');
-      ctx.fillStyle = pattern;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.fillRect(0, 0, w, h);
-      ctx.restore();
-    } else {
-      // cover
-      const ir = img.width / img.height, br = w / h;
-      let sw, sh, sx, sy;
-      if (ir > br) { sh = img.height; sw = sh * br; sx = (img.width - sw) / 2; sy = 0; }
-      else { sw = img.width; sh = sw / br; sx = 0; sy = (img.height - sh) / 2; }
-      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
-    }
-  }
-
-  /**
-   * 将图集切片平铺/拉伸绘制到矩形框
-   * @private
-   */
-  _drawSliceTiled(ctx, atlasImg, slice, x, y, w, h, mode) {
-    const { sx, sy, sw, sh } = slice;
-    if (mode === 'stretch') {
-      ctx.drawImage(atlasImg, sx, sy, sw, sh, x, y, w, h);
-      return;
-    }
-    // tile：单切片画到离屏 canvas 再平铺
-    const tile = document.createElement('canvas');
-    tile.width = sw;
-    tile.height = sh;
-    tile.getContext('2d').drawImage(atlasImg, sx, sy, sw, sh, 0, 0, sw, sh);
-    const pattern = ctx.createPattern(tile, 'repeat');
-    ctx.fillStyle = pattern;
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.fillRect(0, 0, w, h);
-    ctx.restore();
+  _terrainShapeResolver(e) {
+    return {
+      getImage: () => (e._img && e._img.complete && e._img.naturalWidth) ? e._img : null,
+      getSliceSource: () => (e._slice && this.loaded.mountain)
+        ? { img: this.images.mountain, sx: e._slice.sx, sy: e._slice.sy, sw: e._slice.sw, sh: e._slice.sh }
+        : null
+    };
   }
   
   /**

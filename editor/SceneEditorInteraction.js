@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/h5game
  */
 
+import { ShapeRenderer } from '../src/rendering/ShapeRenderer.js';
+
 /**
  * SceneEditorInteraction - 场景编辑器交互模块
  * 负责鼠标/键盘事件处理、右键菜单、对象拾取
@@ -67,10 +69,68 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
+        } else if (obj.type === 'shape') {
+          if (this._pointInShape(obj, x, y)) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
         }
       }
     }
     return null;
+  }
+
+  /**
+   * 判断点是否落在 shape 内（按 shapeType）
+   * @private
+   */
+  _pointInShape(shape, x, y) {
+    const bb = ShapeRenderer.getBBox(shape);
+    switch (shape.shapeType) {
+      case 'rect':
+        return x >= bb.x && x <= bb.x + bb.w && y >= bb.y && y <= bb.y + bb.h;
+      case 'circle': {
+        const r = Math.min(bb.w, bb.h) / 2;
+        return Math.hypot(x - bb.cx, y - bb.cy) <= r;
+      }
+      case 'polygon':
+        return this._pointInPolygon(shape.points || [], x, y);
+      case 'path':
+        return x >= bb.x && x <= bb.x + bb.w && y >= bb.y && y <= bb.y + bb.h;
+      case 'ellipse':
+      default: {
+        const dx = (x - bb.cx) / (bb.w / 2 || 1);
+        const dy = (y - bb.cy) / (bb.h / 2 || 1);
+        return dx * dx + dy * dy <= 1;
+      }
+    }
+  }
+
+  /**
+   * 射线法判断点在多边形内
+   * @private
+   */
+  _pointInPolygon(pts, x, y) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  /**
+   * 检测点是否命中 polygon/path 的某个顶点，返回顶点索引或 -1
+   * @private
+   */
+  getVertexAt(shape, x, y) {
+    if (!shape.points) return -1;
+    const r = 8 / this.editor.viewport.scale;
+    for (let i = 0; i < shape.points.length; i++) {
+      const p = shape.points[i];
+      if (Math.hypot(x - p[0], y - p[1]) <= r) return i;
+    }
+    return -1;
   }
 
   /**
@@ -112,6 +172,20 @@ export class SceneEditorInteraction {
     }
 
     if (editor.interaction.mode === 'select') {
+      // 选中单个多边形/路径时，优先检测顶点拖拽
+      if (editor.selectedObjects.length === 1) {
+        const sel = editor.selectedObjects[0];
+        if (sel.type === 'shape' && (sel.shapeType === 'polygon' || sel.shapeType === 'path')) {
+          const vi = this.getVertexAt(sel, pos.x, pos.y);
+          if (vi !== -1) {
+            editor.interaction.isDragging = true;
+            editor.interaction.draggingVertex = { obj: sel, index: vi };
+            editor.interaction.dragStart = { x: pos.x, y: pos.y };
+            return;
+          }
+        }
+      }
+
       // 检查是否点击了缩放手柄
       if (editor.selectedObjects.length > 0) {
         const resizeTarget = this.getResizeHandleAt(pos.x, pos.y);
@@ -141,7 +215,13 @@ export class SceneEditorInteraction {
 
         editor.interaction.isDragging = true;
         editor.interaction.dragStart = { x: pos.x, y: pos.y };
-        editor.interaction.objectStart = { x: clicked.x, y: clicked.y };
+        editor.interaction.objectStart = { x: clicked.x || 0, y: clicked.y || 0 };
+        // 多边形/路径移动：记录顶点起始快照
+        if (clicked.type === 'shape' && Array.isArray(clicked.points)) {
+          editor.interaction.pointsStart = clicked.points.map(p => [p[0], p[1]]);
+        } else {
+          editor.interaction.pointsStart = null;
+        }
       } else {
         editor.selectedObjects = [];
       }
@@ -168,6 +248,18 @@ export class SceneEditorInteraction {
     }
 
     if (!editor.interaction.isDragging) return;
+
+    // 顶点拖拽（多边形/路径）
+    if (editor.interaction.draggingVertex) {
+      const pos = this.screenToScene(e.offsetX, e.offsetY);
+      const { obj, index } = editor.interaction.draggingVertex;
+      if (obj.points && obj.points[index]) {
+        obj.points[index] = [Math.round(pos.x), Math.round(pos.y)];
+        editor.ui.updateObjectProperties();
+        editor.render();
+      }
+      return;
+    }
 
     if (editor.interaction.mode === 'pan') {
       editor.viewport.offsetX = e.offsetX - editor.interaction.dragStart.x;
@@ -199,6 +291,11 @@ export class SceneEditorInteraction {
       const dy = pos.y - editor.interaction.dragStart.y;
 
       for (const obj of editor.selectedObjects) {
+        // 多边形/路径：整体偏移所有顶点
+        if (obj.type === 'shape' && Array.isArray(obj.points) && editor.interaction.pointsStart) {
+          obj.points = editor.interaction.pointsStart.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
+          continue;
+        }
         obj.x = editor.interaction.objectStart.x + dx;
         obj.y = editor.interaction.objectStart.y + dy;
 
@@ -218,13 +315,16 @@ export class SceneEditorInteraction {
    */
   handleMouseUp(e) {
     const editor = this.editor;
-    if (editor.interaction.isDragging && (editor.selectedObjects.length > 0 || editor.interaction.isResizing)) {
+    if (editor.interaction.isDragging &&
+        (editor.selectedObjects.length > 0 || editor.interaction.isResizing || editor.interaction.draggingVertex)) {
       editor.history.saveHistory();
     }
     editor.interaction.isDragging = false;
     editor.interaction.isResizing = false;
     editor.interaction.resizeTarget = null;
     editor.interaction.resizeStart = null;
+    editor.interaction.draggingVertex = null;
+    editor.interaction.pointsStart = null;
   }
 
   /**

@@ -453,14 +453,21 @@ export class SceneEditorUI {
         if (idx !== -1) { depth = idx; break; }
       }
       html += `<div class="property-row"><label>深度:</label><input value="${depth}" disabled style="color:#88ccff;"></div>`;
-      html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
-      html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
 
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
-        html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
-        html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
-      } else if (obj.type === 'circle') {
-        html += `<div class="property-row"><label>半径:</label><input type="number" value="${Math.round(obj.radius)}" data-prop="radius"></div>`;
+      // 顶点型 shape（多边形/路径）无 X/Y/宽高，用顶点拖拽编辑
+      const isVertexShape = obj.type === 'shape' && (obj.shapeType === 'polygon' || obj.shapeType === 'path');
+      if (isVertexShape) {
+        html += `<div class="property-row"><label>形状:</label><input value="${obj.shapeType}" disabled></div>`;
+        html += `<div class="property-row"><label>顶点数:</label><input value="${(obj.points || []).length}" disabled></div>`;
+      } else {
+        html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
+        html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
+        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'shape') {
+          html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
+          html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
+        } else if (obj.type === 'circle') {
+          html += `<div class="property-row"><label>半径:</label><input type="number" value="${Math.round(obj.radius)}" data-prop="radius"></div>`;
+        }
       }
 
       if (obj.type === 'image' && obj.rotation !== undefined) {
@@ -471,6 +478,8 @@ export class SceneEditorUI {
         html += this._buildFillProperties(obj);
       } else if (obj.type === 'ellipse') {
         html += this._buildEllipseProperties(obj);
+      } else if (obj.type === 'shape') {
+        html += this._buildShapeProperties(obj);
       } else if (obj.fill) {
         html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
       }
@@ -484,7 +493,8 @@ export class SceneEditorUI {
       input.addEventListener('change', (e) => {
         const prop = e.target.dataset.prop;
         let value;
-        if (e.target.type === 'number') value = parseFloat(e.target.value);
+        if (e.target.type === 'checkbox') value = e.target.checked;
+        else if (e.target.type === 'number') value = parseFloat(e.target.value);
         else value = e.target.value;
 
         if (prop === 'gradientColor0' || prop === 'gradientColor1') {
@@ -582,6 +592,69 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label>边框宽:</label><input type="number" value="${obj.strokeWidth || 0}" min="0" step="1" data-prop="strokeWidth"></div>`;
     html += `<div class="property-row"><label>半径X:</label><input value="${Math.round(obj.width / 2)}" disabled title="宽度/2"></div>`;
     html += `<div class="property-row"><label>半径Y:</label><input value="${Math.round(obj.height / 2)}" disabled title="高度/2"></div>`;
+    return html;
+  }
+
+  /**
+   * 构建统一 shape 对象的属性 HTML（含填充模式/边缘淡化/碰撞）
+   * @private
+   */
+  _buildShapeProperties(obj) {
+    const mode = obj.fillMode || 'color';
+    let html = '';
+    html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name" placeholder="形状名称"></div>`;
+    html += `<div class="property-row"><label>填充模式:</label><select data-prop="fillMode">
+      <option value="color" ${mode === 'color' ? 'selected' : ''}>纯色</option>
+      <option value="gradient" ${mode === 'gradient' ? 'selected' : ''}>渐变</option>
+      <option value="image" ${mode === 'image' ? 'selected' : ''}>图片</option>
+      <option value="slice" ${mode === 'slice' ? 'selected' : ''}>切片</option>
+      <option value="pattern" ${mode === 'pattern' ? 'selected' : ''}>图案</option>
+    </select></div>`;
+
+    if (mode === 'color') {
+      html += `<div class="property-row"><label>填充色:</label><input type="color" value="${obj.fill || '#3a5a2a'}" data-prop="fill"></div>`;
+    } else if (mode === 'gradient') {
+      html += `<div class="property-row"><label>渐变类型:</label><select data-prop="gradientType">
+        <option value="linear" ${obj.gradientType !== 'radial' ? 'selected' : ''}>线性</option>
+        <option value="radial" ${obj.gradientType === 'radial' ? 'selected' : ''}>径向</option>
+      </select></div>`;
+      html += `<div class="property-row"><label>角度:</label><input type="number" value="${obj.gradientAngle || 0}" data-prop="gradientAngle"></div>`;
+      html += `<div class="property-row"><label>起始色:</label><input type="color" value="${(obj.gradientStops && obj.gradientStops[0]?.color) || '#000000'}" data-prop="gradientColor0"></div>`;
+      html += `<div class="property-row"><label>结束色:</label><input type="color" value="${(obj.gradientStops && obj.gradientStops[1]?.color) || '#333333'}" data-prop="gradientColor1"></div>`;
+    } else if (mode === 'image') {
+      html += `<div class="property-row"><label>图片路径:</label><input type="text" value="${obj.imageSrc || ''}" data-prop="imageSrc" placeholder="输入图片URL"></div>`;
+      html += `<div class="property-row"><label>显示模式:</label><select data-prop="imageMode">
+        <option value="cover" ${obj.imageMode === 'cover' || !obj.imageMode ? 'selected' : ''}>覆盖</option>
+        <option value="stretch" ${obj.imageMode === 'stretch' ? 'selected' : ''}>拉伸</option>
+        <option value="contain" ${obj.imageMode === 'contain' ? 'selected' : ''}>包含</option>
+        <option value="tile" ${obj.imageMode === 'tile' ? 'selected' : ''}>平铺</option>
+      </select></div>`;
+      html += `<div class="property-row"><button id="editor-load-fill-image">加载图片</button></div>`;
+    } else if (mode === 'slice') {
+      const label = obj.decoKey ? obj.decoKey : (obj.sliceKey ? `${obj.atlasId || ''} / ${obj.sliceKey}` : '未设置');
+      html += `<div class="property-row"><label>当前切片:</label><input value="${label}" disabled style="color:#FFD700;"></div>`;
+      html += `<div class="property-row"><label>平铺模式:</label><select data-prop="sliceMode">
+        <option value="tile" ${obj.sliceMode === 'tile' || !obj.sliceMode ? 'selected' : ''}>平铺</option>
+        <option value="stretch" ${obj.sliceMode === 'stretch' ? 'selected' : ''}>拉伸</option>
+      </select></div>`;
+      html += `<div class="property-row"><button id="editor-ellipse-apply-slice" title="先在左侧资源库选中切片，再点此填充">用选中切片填充</button></div>`;
+    } else if (mode === 'pattern') {
+      html += `<div class="property-row"><label>图案类型:</label><select data-prop="patternType">
+        <option value="grid" ${obj.patternType === 'grid' || !obj.patternType ? 'selected' : ''}>网格</option>
+        <option value="dots" ${obj.patternType === 'dots' ? 'selected' : ''}>圆点</option>
+        <option value="diagonal" ${obj.patternType === 'diagonal' ? 'selected' : ''}>斜线</option>
+        <option value="crosshatch" ${obj.patternType === 'crosshatch' ? 'selected' : ''}>交叉线</option>
+      </select></div>`;
+      html += `<div class="property-row"><label>图案色:</label><input type="color" value="${obj.patternColor || '#444444'}" data-prop="patternColor"></div>`;
+      html += `<div class="property-row"><label>底色:</label><input type="color" value="${obj.patternBg || '#222222'}" data-prop="patternBg"></div>`;
+      html += `<div class="property-row"><label>图案大小:</label><input type="number" value="${obj.patternSize || 32}" data-prop="patternSize"></div>`;
+    }
+
+    html += `<div class="property-row"><label>透明度:</label><input type="number" value="${obj.opacity !== undefined ? obj.opacity : 1}" step="0.1" min="0" max="1" data-prop="opacity"></div>`;
+    html += `<div class="property-row"><label>边缘淡化:</label><input type="number" value="${obj.edgeFade || 0}" step="0.05" min="0" max="1" data-prop="edgeFade"></div>`;
+    html += `<div class="property-row"><label>边框色:</label><input type="color" value="${obj.stroke || '#5a8a4a'}" data-prop="stroke"></div>`;
+    html += `<div class="property-row"><label>边框宽:</label><input type="number" value="${obj.strokeWidth || 0}" min="0" step="1" data-prop="strokeWidth"></div>`;
+    html += `<div class="property-row"><label>可碰撞:</label><input type="checkbox" ${obj.collide ? 'checked' : ''} data-prop="collide" title="作为不可通行区域"></div>`;
     return html;
   }
 

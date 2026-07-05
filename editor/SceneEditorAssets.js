@@ -107,6 +107,32 @@ export class SceneEditorAssets {
         editor.ui.updateObjectCount();
         editor.ui.updateObjectProperties();
         editor.render();
+      } else if (id === 'polygon') {
+        // 拖入多边形 shape（默认正五边形，以落点为中心；顶点可拖拽编辑）
+        const r = 120;
+        const cx = pos.x, cy = pos.y;
+        const pts = [];
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+          pts.push([Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r)]);
+        }
+        const obj = editor.ui.addObject({
+          type: 'shape',
+          shapeType: 'polygon',
+          name: '多边形',
+          points: pts,
+          fillMode: 'color',
+          fill: '#3a5a2a',
+          opacity: 1,
+          edgeFade: 0,
+          stroke: '#5a8a4a',
+          strokeWidth: 2,
+          collide: false
+        });
+        if (obj) {
+          editor.selectedObjects = [obj];
+          editor.ui.updateObjectProperties();
+        }
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
         const fillObj = {
@@ -253,6 +279,10 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="ellipse">
         <div class="asset-preview" style="width:40px;height:26px;border-radius:50%;background:#3a5a2a;border:1px solid #5a8a4a;"></div>
         <span>地形椭圆</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="polygon">
+        <div class="asset-preview" style="width:34px;height:30px;background:#3a5a2a;border:1px solid #5a8a4a;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);"></div>
+        <span>多边形</span>
       </div>
       <div class="asset-item placeholder" draggable="true" data-type="fill">
         <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>

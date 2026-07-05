@@ -20,10 +20,10 @@
       "objects": [
         {
           "id": "ellipse_terrain_1783238267571",
-          "type": "ellipse",
+          "type": "shape",
           "name": "地形椭圆",
-          "x": -300.3347205159376,
-          "y": -128.80401675902684,
+          "x": -287.95778662001646,
+          "y": -119.80261028926594,
           "width": 1296,
           "height": 777,
           "fill": "#3a5a2a",
@@ -34,7 +34,8 @@
           "atlasId": "mountain_landscape",
           "sliceKey": "grassTile",
           "decoKey": null,
-          "edgeFade": 0.1
+          "edgeFade": 0.1,
+          "shapeType": "ellipse"
         }
       ]
     },
@@ -6699,7 +6700,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-05T08:36:00.012Z",
+  "updatedAt": "2026-07-05T18:47:36.246Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

@@ -91,6 +91,61 @@ export class BottomControlBar extends UIElement {
     // 事件回调
     this.onSkillClick = options.onSkillClick || null;
     this.onPotionUse = options.onPotionUse || null;
+
+    // 是否使用 UI 编辑器的子控件独立布局（true 时不画整体背景条）
+    this._hasSubLayout = false;
+  }
+
+  /**
+   * 应用 UI 编辑器的子控件独立布局
+   * 各控件坐标改为绝对坐标（面板自身 x/y 归零），支持独立拖放/缩放
+   * @param {Object} rects - 各子控件矩形 { hpOrb, mpOrb, potion1, potion2, skill1..skill5 }
+   *   每项格式 { x, y, width, height }（左上角锚点）| null
+   */
+  applySubLayout(rects) {
+    this._hasSubLayout = true;
+
+    // 计算所有子控件的整体包围盒（用于 containsPoint 命中判断）
+    const all = [
+      rects.hpOrb, rects.mpOrb,
+      rects.potion1, rects.potion2,
+      rects.skill1, rects.skill2, rects.skill3, rects.skill4, rects.skill5
+    ].filter(Boolean);
+    if (all.length === 0) return;
+
+    const minX = Math.min(...all.map(r => r.x));
+    const minY = Math.min(...all.map(r => r.y));
+    const maxX = Math.max(...all.map(r => r.x + r.width));
+    const maxY = Math.max(...all.map(r => r.y + r.height));
+    // 面板包围盒设为覆盖所有子控件；子控件坐标相对包围盒左上角
+    this.x = minX;
+    this.y = minY;
+    this.width = maxX - minX;
+    this.height = maxY - minY;
+
+    const setOrb = (orb, r) => {
+      if (!orb || !r) return;
+      orb.x = (r.x + r.width / 2) - minX;   // 相对包围盒（渲染时 this.x+orb.x 还原为绝对）
+      orb.y = (r.y + r.height / 2) - minY;
+      orb.radius = Math.min(r.width, r.height) / 2;
+    };
+    setOrb(this.hpOrb, rects.hpOrb);
+    setOrb(this.mpOrb, rects.mpOrb);
+
+    const setSlot = (slot, r) => {
+      if (!slot || !r) return;
+      slot.x = (r.x + r.width / 2) - minX;
+      slot.y = (r.y + r.height / 2) - minY;
+      slot.size = Math.min(r.width, r.height);
+    };
+    // skillSlots: [0,1]=药水，[2..6]=技能1..5
+    setSlot(this.skillSlots[0], rects.potion1);
+    setSlot(this.skillSlots[1], rects.potion2);
+    setSlot(this.skillSlots[2], rects.skill1);
+    setSlot(this.skillSlots[3], rects.skill2);
+    setSlot(this.skillSlots[4], rects.skill3);
+    setSlot(this.skillSlots[5], rects.skill4);
+    setSlot(this.skillSlots[6], rects.skill5);
   }
 
   /**
@@ -120,8 +175,10 @@ export class BottomControlBar extends UIElement {
 
     ctx.save();
 
-    // 渲染背景
-    this.renderBackground(ctx);
+    // 渲染背景（使用子控件独立布局时不画整体背景条）
+    if (!this._hasSubLayout) {
+      this.renderBackground(ctx);
+    }
     
     // 渲染血球
     if (this.showOrbs) {
@@ -343,12 +400,29 @@ export class BottomControlBar extends UIElement {
         }
       }
       
-      // 快捷键提示
+      // 快捷键提示（槽下方）
       if (this.showHotkeyNumbers) {
-        ctx.fillStyle = '#aaaaaa';
+        ctx.fillStyle = '#ffd479';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 13);
+      }
+
+      // 名称显示（槽上方）
+      let slotName = '';
+      if (slot.isPotion) {
+        slotName = i === 0 ? '红瓶' : '蓝瓶';
+      } else if (combat && combat.skills) {
+        const skill = combat.skills[slot.skillIndex];
+        if (skill) slotName = skill.name || '';
+      }
+      if (slotName) {
+        ctx.fillStyle = '#ffffff';
         ctx.font = '10px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 12);
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(slotName, slotX, slotY - halfSize - 3);
       }
     }
   }

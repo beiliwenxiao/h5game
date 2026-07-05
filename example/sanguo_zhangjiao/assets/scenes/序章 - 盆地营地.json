@@ -22,10 +22,10 @@
           "id": "ellipse_terrain_1783238267571",
           "type": "ellipse",
           "name": "地形椭圆",
-          "x": -156.64647341768762,
-          "y": 10.836674082934366,
-          "width": 1039,
-          "height": 544,
+          "x": -300.3347205159376,
+          "y": -128.80401675902684,
+          "width": 1296,
+          "height": 777,
           "fill": "#3a5a2a",
           "opacity": 1,
           "stroke": "#000000",
@@ -41,7 +41,7 @@
     {
       "id": "layer_mask",
       "name": "遮罩层",
-      "visible": false,
+      "visible": true,
       "locked": false,
       "objects": [
         {

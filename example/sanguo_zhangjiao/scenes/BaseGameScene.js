@@ -43,6 +43,7 @@ import { InventoryPanel } from '../../../src/ui/InventoryPanel.js';
 import { PlayerInfoPanel } from '../../../src/ui/PlayerInfoPanel.js';
 import { BottomControlBar } from '../../../src/ui/BottomControlBar.js';
 import { PlayerStatusHUD } from '../../../src/ui/PlayerStatusHUD.js';
+import { IconButton } from '../../../src/ui/IconButton.js';
 import { createUIStrategy } from '../../../src/ui/strategies/index.js';
 import { UILayoutLoader } from '../../../src/ui/UILayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
@@ -394,6 +395,11 @@ export class BaseGameScene extends PrologueScene {
     this.inputManager.registerHotkey('toggle_inventory', ['b', 'B'], () => {
       this.inventoryPanel.toggle();
     }, { cooldown: 300 });
+
+    // 装备面板切换 (V) —— PC 端属性/装备分离后的独立装备面板
+    this.inputManager.registerHotkey('toggle_equipment', ['v', 'V'], () => {
+      if (this.equipmentPanel) this.equipmentPanel.toggle();
+    }, { cooldown: 300 });
     
     // 性能监控切换 (P)
     this.inputManager.registerHotkey('toggle_performance', ['p', 'P'], () => {
@@ -446,6 +452,31 @@ export class BaseGameScene extends PrologueScene {
   /**
    * 初始化 UI 面板
    */
+  /**
+   * 处理装备槽点击（卸下装备）——属性面板/装备面板共用
+   * @param {string} slotType - 装备槽类型
+   * @param {string} button - 鼠标按钮
+   */
+  _handleEquipmentSlotClick(slotType, button) {
+    // 右键点击或移动端左键点击卸下装备
+    if ((button === 'right' || this.isMobileLayout) && this.playerEntity) {
+      const equipment = this.playerEntity.getComponent('equipment');
+      if (equipment && equipment.slots[slotType]) {
+        const itemName = equipment.slots[slotType].name;
+        this.equipmentSystem.unequip(this.playerEntity, slotType);
+        const transform = this.playerEntity.getComponent('transform');
+        if (transform) {
+          this.floatingTextManager.addText(
+            transform.position.x,
+            transform.position.y - 30,
+            `卸下 ${itemName}`,
+            '#ffff00'
+          );
+        }
+      }
+    }
+  }
+
   initializeUIPanels() {
     // 角色信息面板（包含装备）
     const piOpts = (this.uiStrategy && this.uiStrategy.getPlayerInfoOptions)
@@ -456,31 +487,14 @@ export class BaseGameScene extends PrologueScene {
       width: piOpts?.width || 320,
       height: piOpts?.height || 580,
       horizontalLayout: piOpts?.horizontalLayout || false,
+      // PC 端属性/装备分离：属性面板不显示装备区（装备用独立 EquipmentPanel）
+      // 移动端保持属性+装备一体（装备栏 = PlayerInfoPanel）
+      showEquipmentSection: this.isMobileLayout,
       visible: false,
       onAttributeAllocate: (player) => {
         console.log('BaseGameScene: 属性加点按钮被点击');
       },
-      onEquipmentClick: (slotType, button) => {
-        console.log('BaseGameScene: 装备槽被点击', slotType, button);
-        // 右键点击或移动端左键点击卸下装备
-        if ((button === 'right' || this.isMobileLayout) && this.playerEntity) {
-          const equipment = this.playerEntity.getComponent('equipment');
-          if (equipment && equipment.slots[slotType]) {
-            const itemName = equipment.slots[slotType].name;
-            this.equipmentSystem.unequip(this.playerEntity, slotType);
-            // 显示卸下装备的提示
-            const transform = this.playerEntity.getComponent('transform');
-            if (transform) {
-              this.floatingTextManager.addText(
-                transform.position.x,
-                transform.position.y - 30,
-                `卸下 ${itemName}`,
-                '#ffff00'
-              );
-            }
-          }
-        }
-      }
+      onEquipmentClick: (slotType, button) => this._handleEquipmentSlotClick(slotType, button)
     });
     // 平台相关布局（移动端装备框底部对齐）
     if (this.uiStrategy.layoutPlayerInfoPanel) {
@@ -574,11 +588,49 @@ export class BaseGameScene extends PrologueScene {
       }
     });
     
+    // PC 端独立装备面板（属性/装备分离；复用 PlayerInfoPanel 只显示装备区，
+    // 保证装备槽命名与属性面板一致；移动端装备仍在 PlayerInfoPanel 内）
+    if (!this.isMobileLayout) {
+      this.equipmentPanel = new PlayerInfoPanel({
+        x: 340,
+        y: this.logicalHeight - 100 - 460,
+        width: 320,
+        height: 460,
+        showAttributeSection: false,
+        showEquipmentSection: true,
+        visible: false,
+        onEquipmentClick: (slotType, button) => this._handleEquipmentSlotClick(slotType, button)
+      });
+    }
+
+    // PC 端功能按钮：属性、装备、背包（移动端用 DOM 按钮，故仅桌面创建）
+    if (!this.isMobileLayout) {
+      this.charButton = new IconButton({
+        x: 834, y: 640, width: 50, height: 50,
+        icon: '👤', label: '属性', hotkey: 'C',
+        onClick: () => { if (this.playerInfoPanel) this.playerInfoPanel.toggle(); }
+      });
+      this.equipButton = new IconButton({
+        x: 890, y: 640, width: 50, height: 50,
+        icon: '🛡️', label: '装备', hotkey: 'V',
+        onClick: () => { if (this.equipmentPanel) this.equipmentPanel.toggle(); }
+      });
+      this.bagButton = new IconButton({
+        x: 946, y: 640, width: 50, height: 50,
+        icon: '🎒', label: '背包', hotkey: 'B',
+        onClick: () => { if (this.inventoryPanel) this.inventoryPanel.toggle(); }
+      });
+    }
+
     // 注册 UI 元素到 UIClickHandler
     this.uiClickHandler.registerElement(this.inventoryPanel);
     this.uiClickHandler.registerElement(this.playerInfoPanel);
     this.uiClickHandler.registerElement(this.bottomControlBar);
     this.uiClickHandler.registerElement(this.dialogueBox);
+    if (this.equipmentPanel) this.uiClickHandler.registerElement(this.equipmentPanel);
+    if (this.charButton) this.uiClickHandler.registerElement(this.charButton);
+    if (this.equipButton) this.uiClickHandler.registerElement(this.equipButton);
+    if (this.bagButton) this.uiClickHandler.registerElement(this.bagButton);
     
     // 注册面板到 UISystem（统一管理悬停等）
     this.uiSystem.registerPanel('inventory', this.inventoryPanel);
@@ -605,12 +657,38 @@ export class BaseGameScene extends PrologueScene {
       const loader = this.uiLayoutLoader;
       // 面板 id 与 UILayout 组件 id 对应
       const map = {
-        bottomControlBar: this.bottomControlBar,
         playerInfoPanel: this.playerInfoPanel,
-        inventoryPanel: this.inventoryPanel
+        inventoryPanel: this.inventoryPanel,
+        equipmentPanel: this.equipmentPanel
       };
       for (const [id, panel] of Object.entries(map)) {
         if (panel) loader.applyToCanvasPanel(id, panel, lw, lh);
+      }
+
+      // PC 功能按钮布局
+      if (this.charButton) loader.applyToCanvasPanel('pc-char', this.charButton, lw, lh);
+      if (this.equipButton) loader.applyToCanvasPanel('pc-equip', this.equipButton, lw, lh);
+      if (this.bagButton) loader.applyToCanvasPanel('pc-bag', this.bagButton, lw, lh);
+
+      // 底部控制栏：优先使用拆分后的独立子控件布局，否则回退整体面板布局
+      if (this.bottomControlBar) {
+        const barSub = {
+          hpOrb: loader.getRect('pc-hp-orb', lw, lh),
+          mpOrb: loader.getRect('pc-mp-orb', lw, lh),
+          potion1: loader.getRect('pc-potion1', lw, lh),
+          potion2: loader.getRect('pc-potion2', lw, lh),
+          skill1: loader.getRect('pc-skill1', lw, lh),
+          skill2: loader.getRect('pc-skill2', lw, lh),
+          skill3: loader.getRect('pc-skill3', lw, lh),
+          skill4: loader.getRect('pc-skill4', lw, lh),
+          skill5: loader.getRect('pc-skill5', lw, lh)
+        };
+        const hasBarSub = Object.values(barSub).some(Boolean);
+        if (hasBarSub) {
+          this.bottomControlBar.applySubLayout(barSub);
+        } else {
+          loader.applyToCanvasPanel('bottomControlBar', this.bottomControlBar, lw, lh);
+        }
       }
       // PlayerStatusHUD 子组件独立布局
       if (this.playerStatusHUD) {
@@ -1595,6 +1673,7 @@ export class BaseGameScene extends PrologueScene {
     this.inventoryPanel.setEntity(this.playerEntity);
     this.inventoryPanel.setInputManager(this.inputManager);
     this.playerInfoPanel.setPlayer(this.playerEntity);
+    if (this.equipmentPanel) this.equipmentPanel.setPlayer(this.playerEntity);
     this.bottomControlBar.setEntity(this.playerEntity);
     if (this.playerStatusHUD) {
       this.playerStatusHUD.setPlayer(this.playerEntity);
@@ -1630,6 +1709,9 @@ export class BaseGameScene extends PrologueScene {
     }
     if (this.playerInfoPanel) {
       this.playerInfoPanel.setPlayer(this.playerEntity);
+    }
+    if (this.equipmentPanel) {
+      this.equipmentPanel.setPlayer(this.playerEntity);
     }
     if (this.bottomControlBar) {
       this.bottomControlBar.setEntity(this.playerEntity);
@@ -1691,9 +1773,6 @@ export class BaseGameScene extends PrologueScene {
           y: transform.position.y - spriteHeight / 2
         };
         this.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
-        
-        // PC 左键点击玩家自身：同步开关属性框+背包框（须在攻击判定之前）
-        this.handleSelfPanelClick();
         
         // PC 左键点击地上物品：优先拾取（须在攻击判定之前，避免误触发攻击）
         this.handlePickupClick();
@@ -1845,6 +1924,7 @@ export class BaseGameScene extends PrologueScene {
     if (this.performanceOptimizer.shouldUpdate('ui')) {
       this.inventoryPanel.update(deltaTime);
       this.playerInfoPanel.update(deltaTime);
+      if (this.equipmentPanel) this.equipmentPanel.update(deltaTime);
       this.bottomControlBar.update(deltaTime);
       if (this.playerStatusHUD) {
         this.playerStatusHUD.update(deltaTime);
@@ -2453,6 +2533,15 @@ export class BaseGameScene extends PrologueScene {
   updatePanelHover() {
     const mousePos = this.inputManager.getMousePosition();
     this.uiSystem.updateHover(mousePos.x, mousePos.y);
+
+    // PC 功能按钮悬停
+    if (this.charButton) this.charButton.handleMouseMove(mousePos.x, mousePos.y);
+    if (this.equipButton) this.equipButton.handleMouseMove(mousePos.x, mousePos.y);
+    if (this.bagButton) this.bagButton.handleMouseMove(mousePos.x, mousePos.y);
+    // PC 装备面板悬停（装备槽 tooltip）
+    if (this.equipmentPanel && this.equipmentPanel.visible) {
+      this.equipmentPanel.handleMouseMove(mousePos.x, mousePos.y);
+    }
     
     // 鼠标/手指抬起时，结束背包滚动条拖动
     const pressed = this.inputManager.isMouseButtonDown
@@ -2619,6 +2708,14 @@ export class BaseGameScene extends PrologueScene {
     if (this.bottomControlBar) {
       this.bottomControlBar.render(ctx);
     }
+
+    // 渲染 PC 独立装备面板
+    if (this.equipmentPanel) this.equipmentPanel.render(ctx);
+
+    // 渲染 PC 功能按钮（属性/装备/背包）
+    if (this.charButton) this.charButton.render(ctx);
+    if (this.equipButton) this.equipButton.render(ctx);
+    if (this.bagButton) this.bagButton.render(ctx);
     
     // 渲染玩家状态 HUD（左上角，移动端）
     if (this.playerStatusHUD) {
@@ -2831,65 +2928,6 @@ export class BaseGameScene extends PrologueScene {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
     }
-  }
-
-  /**
-   * 处理 PC 左键点击玩家自身：同步开关属性框(C)和背包框(B)
-   * 都打开 → 都关闭；否则 → 都打开。命中时消费点击，阻止攻击。
-   * 需在攻击判定之前调用。
-   */
-  handleSelfPanelClick() {
-    if (!this.inputManager || !this.playerEntity) return;
-    if (!this.inputManager.isMouseClicked() || this.inputManager.isMouseClickHandled()) return;
-    if (this.inputManager.getMouseButton() === 2) return; // 右键（移动）不处理
-    // 对话激活时不处理
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) return;
-
-    const mouseScreen = this.inputManager.getMousePosition();
-
-    // 点击落在可见面板/控制栏上时交给 UI 处理，不做自身检测
-    const inPanel = (p) => p && p.visible && p.width &&
-      mouseScreen.x >= p.x && mouseScreen.x <= p.x + p.width &&
-      mouseScreen.y >= p.y && mouseScreen.y <= p.y + p.height;
-    if (inPanel(this.playerInfoPanel) || inPanel(this.inventoryPanel) || inPanel(this.bottomControlBar)) return;
-
-    const mouseWorld = this.camera
-      ? this.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
-      : this.inputManager.getMouseWorldPosition();
-
-    if (!this.isPointOnPlayer(mouseWorld.x, mouseWorld.y)) return;
-
-    // 命中玩家自身：同步开关两个面板
-    const bothVisible = this.playerInfoPanel?.visible && this.inventoryPanel?.visible;
-    if (bothVisible) {
-      this.playerInfoPanel.hide();
-      this.inventoryPanel.hide();
-    } else {
-      if (this.playerInfoPanel && !this.playerInfoPanel.visible) this.playerInfoPanel.toggle();
-      if (this.inventoryPanel && !this.inventoryPanel.visible) this.inventoryPanel.toggle();
-    }
-
-    // 消费本次点击，阻止攻击/投掷
-    this.inputManager.markMouseClickHandled();
-  }
-
-  /**
-   * 判断世界坐标点是否落在玩家精灵包围盒内
-   * @param {number} worldX
-   * @param {number} worldY
-   * @returns {boolean}
-   */
-  isPointOnPlayer(worldX, worldY) {
-    if (!this.playerEntity) return false;
-    const transform = this.playerEntity.getComponent('transform');
-    if (!transform) return false;
-    const sprite = this.playerEntity.getComponent('sprite');
-    const w = sprite?.width || 48;
-    const h = sprite?.height || 64;
-    const px = transform.position.x;
-    const py = transform.position.y; // 底部锚点
-    return worldX >= px - w / 2 && worldX <= px + w / 2 &&
-           worldY >= py - h && worldY <= py;
   }
 
   /**

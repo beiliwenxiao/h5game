@@ -30,6 +30,61 @@ UI 编辑器（`editor/UIEditor.js`）用于可视化编辑移动端/PC端的 UI
 如 `PlayerStatusHUD` 这类纯 Canvas 渲染的面板，不在 `domIds` 映射中，
 而是通过 `BaseGameScene._applyUILayout()` 使用 `UILayoutLoader.applyToCanvasPanel()` 应用布局。
 
+### 平台差异：mobile=DOM 按钮，desktop=Canvas 面板
+
+- **移动端(mobile)** UI 是 index.html 里的 **DOM 按钮**，改动需同步上面的三处。
+- **PC 端(desktop)** UI 是 **Canvas 渲染的面板/控件**（PlayerInfoPanel、InventoryPanel、BottomControlBar 等），
+  不涉及 index.html DOM 和 domIds。改动只需同步：
+  1. `editor/UIEditor.js` — `DEFAULT_COMPONENTS.desktop.components[]`
+  2. `config/UILayout.desktop.json`
+  3. 对应 Canvas 面板组件代码 + `BaseGameScene._applyUILayout()` 的应用逻辑
+
+## PC UI 组件列表（desktop，已拆分为独立小控件）
+
+底部控制栏(BottomControlBar)已按“组件原子化”原则拆成 9 个独立可编辑控件，
+不再是一个整体大面板。
+
+| id | label | kind | 说明 |
+|----|-------|------|------|
+| playerInfoPanel | 角色/装备面板 | panel | 大面板，独立 |
+| inventoryPanel | 背包面板 | panel | 大面板，独立 |
+| pc-hp-orb | 血球 | button | 仅显示，不可点击 |
+| pc-mp-orb | 蓝球 | button | 仅显示，不可点击 |
+| pc-potion1 | 红瓶 | button | 药水快捷槽 |
+| pc-potion2 | 蓝瓶 | button | 药水快捷槽 |
+| pc-skill1 ~ pc-skill5 | 技能1~5 | button | 5 个技能槽 |
+| equipmentPanel | 装备面板 | panel | PC 独立装备面板（属性/装备分离） |
+| pc-char | 属性 | button | IconButton，快捷键 C，开关属性面板 |
+| pc-equip | 装备 | button | IconButton，快捷键 V，开关装备面板 |
+| pc-bag | 背包 | button | IconButton，快捷键 B，开关背包面板 |
+
+> `pc-char`/`pc-equip`/`pc-bag` 是独立的 `IconButton`（`src/ui/IconButton.js`，支持 icon/label/hotkey），
+> 不属于 BottomControlBar。仅桌面创建（移动端用 DOM 按钮），在 `BaseGameScene` 注册到 uiClickHandler，
+> `_applyUILayout()` 用 `applyToCanvasPanel('pc-char'/'pc-equip'/'pc-bag', ...)` 定位，点击回调 `panel.toggle()`。
+
+### 属性/装备分离（PC）
+
+- **PlayerInfoPanel** 增加两个开关：`showEquipmentSection`（装备区）、`showAttributeSection`（属性区），
+  竖版 `render` 按开关显示对应区块，标题随之变为“属性”/“装备”/“角色信息”。
+- **PC 端**：属性面板 = `playerInfoPanel`（`showEquipmentSection=false`，只属性）；
+  装备面板 = 第二个 `PlayerInfoPanel` 实例 `equipmentPanel`（`showAttributeSection=false`，只装备）。
+  复用同一 PlayerInfoPanel 保证装备槽命名一致（不用 EquipmentPanel，其槽命名与装备组件不一致）。
+- **移动端**：`playerInfoPanel` 保持 `showEquipmentSection=true`（属性+装备一体，即“装备栏”），不创建独立装备面板。
+- 快捷键：C=属性、V=装备、B=背包（`registerHotkeys` 注册；E 已被拾取占用故装备用 V）。
+- 卸装逻辑抽为 `BaseGameScene._handleEquipmentSlotClick()`，属性面板/装备面板共用。
+
+### BottomControlBar 子布局机制
+
+- `BottomControlBar.applySubLayout(rects)`：接收各子控件矩形，
+  计算整体包围盒设为 `this.x/y/width/height`，子控件坐标存为**相对包围盒左上角**
+  （渲染/点击用 `this.x + slot.x` 还原为绝对坐标）。
+- 有子布局(`_hasSubLayout=true`)时 `render` 不画整体背景条。
+- `BaseGameScene._applyUILayout()`：底部控制栏优先读 `pc-*` 子控件布局并 `applySubLayout`；
+  若 json 无子控件（旧数据），回退整体 `bottomControlBar` 布局（向后兼容）。
+- **坑**：`applySubLayout` 必须更新面板包围盒 `width/height`，否则 `handleMouseClick`
+  的 `containsPoint` 用默认 800×100 判断会导致超出范围的子控件点不中。
+- skillSlots 数组映射：`[0,1]`=药水(pc-potion1/2)，`[2..6]`=技能(pc-skill1~5)。
+
 ## 组件类型
 
 | kind | 说明 | 示例 |
@@ -99,6 +154,7 @@ HUD 已拆分为4个独立子组件：
 
 ## 已废弃的模式
 
-- ~~`bottom-hotbar` 整体栏~~ → 拆分为 hb-hp/hb-mp/hb-char/hb-bag/hb-skill6/hb-skill7
-- ~~`playerStatusHUD` 整体面板~~ → 拆分为 hud-avatar/hud-name/hud-hp/hud-mp
+- ~~`bottom-hotbar` 整体栏~~ → 拆分为 hb-hp/hb-mp/hb-char/hb-bag/hb-skill6/hb-skill7（mobile）
+- ~~`playerStatusHUD` 整体面板~~ → 拆分为 hud-avatar/hud-name/hud-hp/hud-mp（mobile）
 - ~~`updateAttackButtonMode()` 攻击/交互切换~~ → 攻击和交互独立按钮
+- ~~PC 端 `bottomControlBar` 整体面板~~ → 拆分为 pc-hp-orb/pc-mp-orb/pc-potion1/pc-potion2/pc-skill1~5（desktop，Canvas 面板）

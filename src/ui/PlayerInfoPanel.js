@@ -49,6 +49,12 @@ export class PlayerInfoPanel extends UIElement {
     
     // 横排布局（移动端：属性左侧,装备右侧,面板更矮更宽）
     this.horizontalLayout = options.horizontalLayout || false;
+
+    // 分离显示开关（PC 端属性/装备分成两个面板）
+    // showEquipmentSection: 是否显示装备槽区
+    // showAttributeSection: 是否显示职业/等级/属性列表/加点
+    this.showEquipmentSection = options.showEquipmentSection !== false;
+    this.showAttributeSection = options.showAttributeSection !== false;
     
     // 装备槽尺寸
     this.equipSlotSize = 50;
@@ -271,7 +277,9 @@ export class PlayerInfoPanel extends UIElement {
     ctx.fillStyle = this.borderColor;
     ctx.font = 'bold 18px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText('角色信息', this.x + this.padding, currentY);
+    const _title = (this.showEquipmentSection && !this.showAttributeSection) ? '装备'
+      : (!this.showEquipmentSection && this.showAttributeSection) ? '属性' : '角色信息';
+    ctx.fillText(_title, this.x + this.padding, currentY);
     currentY += this.lineHeight + 5;
 
     // 绘制分隔线
@@ -291,94 +299,106 @@ export class PlayerInfoPanel extends UIElement {
     
     currentY += this.lineHeight + 5;
 
-    // 绘制职业和等级
-    const classColor = this.classColors[this.player.class] || '#ffffff';
-    
-    ctx.fillStyle = this.labelColor;
-    ctx.font = '14px Arial';
-    ctx.fillText('职业:', this.x + this.padding, currentY);
-    
-    ctx.fillStyle = classColor;
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText(className, this.x + this.padding + 50, currentY);
-    
-    ctx.fillStyle = this.labelColor;
-    ctx.fillText('等级:', this.x + this.padding + 150, currentY);
-    
-    ctx.fillStyle = this.textColor;
-    ctx.fillText(`${stats.level}`, this.x + this.padding + 190, currentY);
-    currentY += this.lineHeight + 10;
+    // 绘制职业和等级（属性区）
+    if (this.showAttributeSection) {
+      const classColor = this.classColors[this.player.class] || '#ffffff';
 
-    // 绘制装备区域标题
-    ctx.fillStyle = this.borderColor;
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText('装备', this.x + this.padding, currentY);
-    currentY += this.lineHeight + 5;
-
-    // 绘制装备槽
-    this.renderEquipmentSlots(ctx, currentY, equipment);
-    currentY += (this.equipSlotSize + this.equipSlotPadding) * 4 + 10;
-
-    // 绘制属性标题和加点按钮
-    ctx.fillStyle = this.borderColor;
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText('属性', this.x + this.padding, currentY);
-    
-    // 绘制属性加点按钮 [+]
-    const buttonX = this.x + this.padding + 50;
-    const buttonY = currentY - 12;
-    const buttonWidth = 24;
-    const buttonHeight = 16;
-    
-    // 保存按钮位置用于点击检测
-    this.attributeButtonRect = {
-      x: buttonX,
-      y: buttonY,
-      width: buttonWidth,
-      height: buttonHeight
-    };
-    
-    // 按钮背景
-    ctx.fillStyle = this.attributeButtonHovered ? '#4a9eff' : '#2a5a8f';
-    ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
-    
-    // 按钮边框
-    ctx.strokeStyle = this.borderColor;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
-    
-    // 按钮文字
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('+', buttonX + buttonWidth / 2, buttonY + 12);
-    ctx.textAlign = 'left';
-    
-    currentY += this.lineHeight;
-
-    // 绘制属性列表
-    const attributes = [
-      { label: 'HP', value: `${Math.round(stats.hp)}/${stats.maxHp}`, color: '#ff4444' },
-      { label: 'MP', value: `${Math.round(stats.mp)}/${stats.maxMp}`, color: '#4444ff' },
-      { label: '攻击', value: stats.attack, color: '#ffaa00' },
-      { label: '防御', value: stats.defense, color: '#00aaff' },
-      { label: '速度', value: stats.speed, color: '#00ff00' }
-    ];
-
-    ctx.font = '13px Arial';
-    for (const attr of attributes) {
-      // 标签
       ctx.fillStyle = this.labelColor;
-      ctx.fillText(`${attr.label}:`, this.x + this.padding, currentY);
-      
-      // 值
-      ctx.fillStyle = attr.color;
-      ctx.fillText(attr.value.toString(), this.x + this.padding + 60, currentY);
-      currentY += this.lineHeight;
+      ctx.font = '14px Arial';
+      ctx.fillText('职业:', this.x + this.padding, currentY);
+
+      ctx.fillStyle = classColor;
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText(className, this.x + this.padding + 50, currentY);
+
+      ctx.fillStyle = this.labelColor;
+      ctx.fillText('等级:', this.x + this.padding + 150, currentY);
+
+      ctx.fillStyle = this.textColor;
+      ctx.fillText(`${stats.level}`, this.x + this.padding + 190, currentY);
+      currentY += this.lineHeight + 10;
     }
-    
+
+    // 绘制装备区域（属性/装备分离时可关闭）
+    if (this.showEquipmentSection) {
+      ctx.fillStyle = this.borderColor;
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText('装备', this.x + this.padding, currentY);
+      currentY += this.lineHeight + 5;
+
+      // 绘制装备槽
+      this.renderEquipmentSlots(ctx, currentY, equipment);
+      currentY += (this.equipSlotSize + this.equipSlotPadding) * 4 + 10;
+    } else {
+      this.equipSlots = {}; // 不显示装备时清空槽位，避免误点击
+    }
+
+    // 绘制属性标题、加点按钮和属性列表（属性区）
+    if (this.showAttributeSection) {
+      ctx.fillStyle = this.borderColor;
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText('属性', this.x + this.padding, currentY);
+
+      // 绘制属性加点按钮 [+]
+      const buttonX = this.x + this.padding + 50;
+      const buttonY = currentY - 12;
+      const buttonWidth = 24;
+      const buttonHeight = 16;
+
+      // 保存按钮位置用于点击检测
+      this.attributeButtonRect = {
+        x: buttonX,
+        y: buttonY,
+        width: buttonWidth,
+        height: buttonHeight
+      };
+
+      // 按钮背景
+      ctx.fillStyle = this.attributeButtonHovered ? '#4a9eff' : '#2a5a8f';
+      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+      // 按钮边框
+      ctx.strokeStyle = this.borderColor;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
+
+      // 按钮文字
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('+', buttonX + buttonWidth / 2, buttonY + 12);
+      ctx.textAlign = 'left';
+
+      currentY += this.lineHeight;
+
+      // 绘制属性列表
+      const attributes = [
+        { label: 'HP', value: `${Math.round(stats.hp)}/${stats.maxHp}`, color: '#ff4444' },
+        { label: 'MP', value: `${Math.round(stats.mp)}/${stats.maxMp}`, color: '#4444ff' },
+        { label: '攻击', value: stats.attack, color: '#ffaa00' },
+        { label: '防御', value: stats.defense, color: '#00aaff' },
+        { label: '速度', value: stats.speed, color: '#00ff00' }
+      ];
+
+      ctx.font = '13px Arial';
+      for (const attr of attributes) {
+        // 标签
+        ctx.fillStyle = this.labelColor;
+        ctx.fillText(`${attr.label}:`, this.x + this.padding, currentY);
+
+        // 值
+        ctx.fillStyle = attr.color;
+        ctx.fillText(attr.value.toString(), this.x + this.padding + 60, currentY);
+        currentY += this.lineHeight;
+      }
+    } else {
+      this.attributeButtonRect = null; // 不显示属性时清空加点按钮
+    }
+
     // 绘制装备tooltip
-    this.renderEquipmentTooltip(ctx, equipment);
+    if (this.showEquipmentSection) {
+      this.renderEquipmentTooltip(ctx, equipment);
+    }
   }
 
   /**

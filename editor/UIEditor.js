@@ -29,9 +29,24 @@ const DEFAULT_COMPONENTS = {
     // 画布逻辑尺寸（仅用于编辑器预览参考）
     canvas: { width: 1280, height: 720 },
     components: [
-      { id: 'bottomControlBar', label: '底部控制栏', x: 0, y: 620, width: 1280, height: 100, anchor: 'topleft', kind: 'panel' },
-      { id: 'playerInfoPanel', label: '角色/装备面板', x: 10, y: 40, width: 320, height: 580, anchor: 'topleft', kind: 'panel' },
-      { id: 'inventoryPanel', label: '背包面板', x: 900, y: 270, width: 370, height: 350, anchor: 'topleft', kind: 'panel' }
+      // 大面板
+      { id: 'playerInfoPanel', label: '属性面板', x: 10, y: 40, width: 320, height: 580, anchor: 'topleft', kind: 'panel' },
+      { id: 'equipmentPanel', label: '装备面板', x: 340, y: 220, width: 300, height: 400, anchor: 'topleft', kind: 'panel' },
+      { id: 'inventoryPanel', label: '背包面板', x: 900, y: 270, width: 370, height: 350, anchor: 'topleft', kind: 'panel' },
+      // 底部控制栏拆分为独立小控件（血球/蓝球/2药水/5技能）
+      { id: 'pc-hp-orb', label: '血球', x: 397, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-potion1', label: '红瓶', x: 482, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-potion2', label: '蓝瓶', x: 528, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-skill1', label: '技能1', x: 574, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-skill2', label: '技能2', x: 620, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-skill3', label: '技能3', x: 666, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-skill4', label: '技能4', x: 712, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-skill5', label: '技能5', x: 758, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-mp-orb', label: '蓝球', x: 813, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
+      // 功能按钮：属性 / 装备 / 背包
+      { id: 'pc-char', label: '属性', x: 834, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-equip', label: '装备', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-bag', label: '背包', x: 946, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
     ]
   },
   mobile: {

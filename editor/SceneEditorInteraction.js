@@ -50,6 +50,18 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
+        } else if (obj.type === 'ellipse') {
+          // 椭圆点击检测：判断点是否在椭圆内
+          const cx = obj.x + obj.width / 2;
+          const cy = obj.y + obj.height / 2;
+          const rx = obj.width / 2;
+          const ry = obj.height / 2;
+          const dx = (x - cx) / rx;
+          const dy = (y - cy) / ry;
+          if (dx * dx + dy * dy <= 1) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
         } else if (obj.type === 'circle') {
           if (Math.hypot(x - obj.x, y - obj.y) <= obj.radius) {
             editor.activeLayerIndex = li;
@@ -70,7 +82,7 @@ export class SceneEditorInteraction {
 
     for (const obj of editor.selectedObjects) {
       let hx, hy;
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
         hx = obj.x + obj.width + 2;
         hy = obj.y + obj.height + 2;
       } else {

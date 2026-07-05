@@ -241,3 +241,58 @@ const sceneEditor = new SceneEditor(containerElement);
 ### collectDecorations 优化
 - 非碰撞装饰物：从缓存图一次性绘制（1 次 draw call 替代 200+ 次）
 - 碰撞装饰物（树）：逐个参与 Y-sort renderQueue（数量少，通常几十棵）
+
+## 地形椭圆（可编辑对象 type:'ellipse'）
+
+### 概述
+序章等户外场景的“盆地草地椭圆”以前是编辑器里由 `_renderTerrainBackground()` 自动画的固定背景，不可交互。现已改为**可编辑对象** `type:'ellipse'`，存放在 `layer_fill`（背景填充层）中，可添加、删除、移动、缩放、改颜色。
+
+### 编辑器侧改动位置
+- **SceneEditorUI.js**：工具栏新增“⬭”按钮；`updateObjectProperties()` 支持 ellipse 宽高；新增 `_buildEllipseProperties()`（名称/填充色/透明度/边框色/边框宽）
+- **SceneEditor.js**：`editor-add-ellipse` 按钮事件；`_ensureTerrainEllipse()` 在 `loadScene()` 时把旧 terrain 椭圆转换为 ellipse 对象（仅当 layer_fill 无 ellipse 时执行，避免重复）
+- **SceneEditorCanvas.js**：`_renderEllipseObject()` 渲染椭圆；`_renderTerrainBackground()` 对非 indoor 场景不再自动画椭圆（交给对象渲染）；`_renderTerrainMask()` 优先从 layer_fill 的 ellipse 对象读参数；选中框/`_renderObject` 支持 ellipse
+- **SceneEditorInteraction.js**：`getObjectAt()` 用椭圆方程 `(dx/rx)²+(dy/ry)²<=1` 做命中检测；`getResizeHandleAt()` 支持 ellipse
+
+### 关键坑：图层锁定导致选不中
+`getObjectAt()` 会跳过 `locked` 或不可见图层：`if (!layer || layer.locked || !layer.visible) continue;`。
+旧场景数据里 `layer_fill` 常是 `locked:true`（以前椭圆是纯背景不需交互）。椭圆变可编辑后必须解锁——`_ensureTerrainEllipse()` 添加椭圆时会自动 `fillLayer.locked = false`。
+
+### 坐标换算（编辑器 ↔ 游戏）
+- 编辑器椭圆用**左上角锚点** `(x, y, width, height)`；中心 = `(x+width/2, y+height/2)`，半径 = `width/2, height/2`
+- 游戏侧 `Scene1Terrain` 的 `centerY` 比编辑器椭圆中心**多 32 像素**（编辑器里草地视觉中心上移了 32：`centerY = data.centerY - 32`）。互转时注意 ±32。
+- 椭圆半径转盆地半径时有 20px 余量：编辑器 `radiusX = basinRadius + 20`，游戏侧反推 `basinRadiusX = rx - 20`。
+
+## 图层可见性/锁定对游戏的影响
+
+游戏侧 `Scene1Terrain._applySceneData()` 遍历图层时**必须检查 `layer.visible === false` 跳过隐藏图层**，使编辑器隐藏的图层在游戏中也不渲染（装饰物、椭圆、背景图片三类收集都要判断）。
+
+### 装饰物空数据的坑
+不能用 `if (decorations.length > 0)` 判断是否覆盖装饰物（隐藏装饰层会导致回退到程序化默认树木）。应统计**编辑器中定义的装饰物总数** `totalDecoDefined`（含隐藏图层），只要 `>0` 就以编辑器数据为准，这样隐藏装饰层后能真正清空，而“无编辑器数据”时仍保留程序化默认。
+
+### 椭圆删除后游戏跟随变化
+游戏侧用 `this._hasTerrainEllipse` 标记场景数据中是否存在椭圆：
+- `_applySceneData()` 遍历时用 `foundEllipse` 记录，并清除 `_combinedGroundCache`/`_grassCanvas` 强制重建
+- `renderGround()` 中 `_hasTerrainEllipse === false` 时跳过草地和森林环带，只保留水池和背景图片
+- 注意用 `=== false` 判断：未定义（无编辑器 layers 数据）时视为正常渲染，不影响未编辑过的场景
+
+## 地形椭圆的填充与特效（编辑器 + 游戏侧数据驱动）
+
+### 编辑器侧
+- 椭圆可从左侧资源库「地形椭圆」项拖入（`SceneEditorAssets.js` 的 drop 处理 `id==='ellipse'`，放入 layer_fill 并解锁）
+- 椭圆填充模式 `fillMode`：`color`（纯色 fill）/ `image`（imageSrc + imageMode）/ `slice`（atlasId+sliceKey 或 decoKey + sliceMode）
+- 切片填充：在左侧资源库选中切片（`editor.selectedSlice`）后点属性面板「用选中切片填充」按钮
+- 边缘淡化 `edgeFade`（0~1）：`SceneEditorCanvas._renderEllipseObject()` 用 `destination-out` 椭圆径向渐变从内向外擦除
+- 渲染辅助：`_drawImageInBox`（stretch/cover/contain/tile）、`_drawSliceInBox`（tile/stretch）、`_getEllipseSliceSource`
+
+### 游戏侧（Scene1Terrain）——已删除写死的 mountain 草地/森林环带渲染
+- **已删除**：`_renderForestRing()`（写死森林环带）、`_renderGrassFill()`（写死 mountain 贴图草地）及 `_grassCanvas`
+- **改为数据驱动**：`_terrainEllipse` 保存椭圆填充数据，`_renderTerrainEllipse(ctx)` 按 fillMode + edgeFade 渲染（移植自编辑器逻辑，带 `_drawImageInBox`/`_drawSliceTiled`）
+- `_buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry)`：从编辑器椭圆对象解析填充数据；image 模式加载图片（路径截取 `assets/` 之后），slice 模式从 `scene.atlases` 或 `decoSprites` 解析切片坐标，图集图用 `this.images.mountain`
+- `_ensureTerrainEllipseData()`：**无编辑器椭圆时的兜底**，用 terrain 配置（basinRadius + grassTile 切片）生成默认椭圆（slice 平铺 + edgeFade=0.28 模拟原森林环带过渡）。这不是写死渲染，而是数据驱动的默认值
+- `renderGround()`：`_hasTerrainEllipse===false` 不画草地；否则用合并缓存或 `_renderTerrainEllipse` + 水池 + 背景图
+- `_buildCombinedGroundCache()`：合并 `_renderTerrainEllipse` + 水池 + 背景图（切片模式等 mountain 就绪，图片模式等图片 complete）
+
+### 关键点
+- 椭圆中心 `cy` = 编辑器椭圆中心 = 游戏 `centerY - 32`；渲染半径直接用椭圆 `width/2, height/2`（不减 20 余量，20 余量只用于碰撞/装饰的 basinRadiusX/Y）
+- 森林环带的边缘过渡效果现由椭圆 `edgeFade` 替代
+- 改椭圆填充/特效后清 `_combinedGroundCache = null` 强制重建

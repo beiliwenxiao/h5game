@@ -16,20 +16,39 @@
       "id": "layer_fill",
       "name": "背景填充层",
       "visible": true,
-      "locked": true,
-      "objects": []
+      "locked": false,
+      "objects": [
+        {
+          "id": "ellipse_terrain_1783238267571",
+          "type": "ellipse",
+          "name": "地形椭圆",
+          "x": -156.64647341768762,
+          "y": 10.836674082934366,
+          "width": 1039,
+          "height": 544,
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "stroke": "#000000",
+          "strokeWidth": 0,
+          "fillMode": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grassTile",
+          "decoKey": null,
+          "edgeFade": 0.1
+        }
+      ]
     },
     {
       "id": "layer_mask",
       "name": "遮罩层",
-      "visible": true,
+      "visible": false,
       "locked": false,
       "objects": [
         {
           "id": "obj_1783095865778",
           "type": "image",
           "imageId": "img_1783095863410",
-          "x": -286,
+          "x": -287.1251758087201,
           "y": -102,
           "width": 1280,
           "height": 720,
@@ -6680,7 +6699,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-03T16:31:45.798Z",
+  "updatedAt": "2026-07-05T08:36:00.012Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

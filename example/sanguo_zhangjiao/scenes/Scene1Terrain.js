@@ -147,6 +147,10 @@ export class Scene1Terrain {
     // 离屏 canvas（悬崖+装饰组成的高地遮罩，仅缓存悬崖底纹本身）
     this._cliffCanvas = null;
 
+    // 地形椭圆数据（数据驱动草地渲染，来自编辑器椭圆对象或 terrain 默认）
+    // { cx, cy, rx, ry, fillMode, fill, opacity, edgeFade, imageMode, sliceMode, imageSrc, _img, _slice }
+    this._terrainEllipse = null;
+
     this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
@@ -232,9 +236,13 @@ export class Scene1Terrain {
     // layer_deco 中的对象：
     //   - type:'deco'：新版统一装饰物 {decoKey, x, y, width, height}（左上角锚点）
     //   - type:'slice' + decoKey：切片型装饰物 {decoKey, x, y, width, height}（左上角锚点）
+    // 统计编辑器中定义的装饰物总数（含隐藏图层），用于区分
+    // “编辑器有装饰数据但被隐藏” 与 “根本没有编辑器装饰数据”
+    let totalDecoDefined = 0;
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
+        const layerHidden = layer.visible === false;
         for (const obj of layer.objects) {
           if (!obj) continue;
           
@@ -248,6 +256,9 @@ export class Scene1Terrain {
           }
           
           if (!key || !this.decoSprites[key]) continue;
+          totalDecoDefined++;
+          // 图层隐藏时（编辑器中设为不可见）不加入渲染列表
+          if (layerHidden) continue;
           const sprite = this.decoSprites[key];
           const w = obj.width || sprite.sw;
           const h = obj.height || sprite.sh;
@@ -262,23 +273,49 @@ export class Scene1Terrain {
       }
     }
 
-    // 只有当编辑器确实保存了装饰物时才覆盖，避免空数据清空整个场景
-    if (decorations.length > 0) {
+    // 只要编辑器中定义了装饰物（即便全部隐藏导致 decorations 为空），
+    // 就以编辑器数据为准；否则保留程序化生成的默认装饰物，避免误清空。
+    if (totalDecoDefined > 0) {
       this.decorations = decorations;
       this._treeColliders = null; // 重置碰撞缓存，下次按新装饰物重建
       // 标记：使用编辑器保存的顺序（深度），不再 Y-sort
       this._useEditorOrder = true;
-      console.log('Scene1Terrain: 已应用编辑器场景数据，装饰物数量 =', decorations.length);
+      console.log('Scene1Terrain: 已应用编辑器场景数据，装饰物数量 =', decorations.length, '（定义总数 =', totalDecoDefined, '）');
     }
     
     // 3. 读取图层中的背景图片对象（type:'image' / type:'fill'）
+    // 同时读取 type:'ellipse' 对象更新盆地椭圆参数
     this._editorBackgroundImages = [];
+    let foundEllipse = false;
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
+        // 图层隐藏时（编辑器中设为不可见）跳过其所有对象
+        if (layer.visible === false) continue;
         for (const obj of layer.objects) {
           if (!obj) continue;
-          if (obj.type === 'image' && obj.imageId) {
+          if (obj.type === 'ellipse') {
+            // 从椭圆对象更新盆地参数
+            foundEllipse = true;
+            const cx = obj.x + obj.width / 2;
+            const cy = obj.y + obj.height / 2;
+            const rx = obj.width / 2;
+            const ry = obj.height / 2;
+            this.centerX = cx;
+            this.centerY = cy + 32; // 编辑器中 centerY 偏移了 -32
+            this.basinRadiusX = rx - 20;
+            this.basinRadiusY = ry - 20;
+            this.basinRadius = this.basinRadiusX;
+            this.basinAspectY = this.basinRadiusY / this.basinRadiusX;
+            this.basinInnerRadiusX = this.basinRadiusX * this.basinInnerScale;
+            this.basinInnerRadiusY = this.basinRadiusY * this.basinInnerScale;
+            this.basinInnerRadius = this.basinInnerRadiusX;
+            // 构建数据驱动的地形椭圆（填充图片/切片/纯色 + 边缘淡化）
+            this._terrainEllipse = this._buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry);
+            this._grassCanvas = null;          // 重建草地缓存
+            this._combinedGroundCache = null;  // 重建合并缓存
+            console.log('Scene1Terrain: 应用编辑器椭圆', { cx, cy, rx, ry, fillMode: this._terrainEllipse.fillMode });
+          } else if (obj.type === 'image' && obj.imageId) {
             // 从 imageAssets 获取图片 src
             const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
             if (asset && asset.src) {
@@ -323,7 +360,87 @@ export class Scene1Terrain {
         img.onload = () => { bgImg._img = img; bgImg._loaded = true; };
         img.src = bgImg.src;
       }
+
+      // 编辑器数据中若不存在地形椭圆，则不渲染草地/森林环带
+      // （用户在场景编辑器里删除了椭圆）
+      this._hasTerrainEllipse = foundEllipse;
+      if (!foundEllipse) this._terrainEllipse = null;
+      // 椭圆增删会改变地面外观，清除合并缓存强制重建
+      this._combinedGroundCache = null;
+      this._grassCanvas = null;
     }
+  }
+
+  /**
+   * 从编辑器椭圆对象构建地形椭圆渲染数据
+   * @private
+   */
+  _buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry) {
+    const fillMode = obj.fillMode || 'color';
+
+    // 解析切片坐标（slice 模式）
+    let sliceRect = null;
+    if (fillMode === 'slice') {
+      if (obj.decoKey && this.decoSprites[obj.decoKey]) {
+        const s = this.decoSprites[obj.decoKey];
+        sliceRect = { sx: s.sx, sy: s.sy, sw: s.sw, sh: s.sh };
+      } else if (obj.atlasId && obj.sliceKey && Array.isArray(scene.atlases)) {
+        const atlas = scene.atlases.find(a => a.id === obj.atlasId);
+        const sl = atlas && atlas.slices && atlas.slices[obj.sliceKey];
+        if (sl) sliceRect = { sx: sl.sx, sy: sl.sy, sw: sl.sw, sh: sl.sh };
+      }
+    }
+
+    // 加载图片（image 模式）
+    let imgEl = null;
+    let imgSrc = null;
+    if (fillMode === 'image' && obj.imageSrc) {
+      imgSrc = obj.imageSrc;
+      const idx = imgSrc.indexOf('assets/');
+      if (idx !== -1) imgSrc = imgSrc.substring(idx);
+      imgEl = new Image();
+      imgEl.src = imgSrc;
+    }
+
+    return {
+      cx, cy, rx, ry,
+      fillMode,
+      fill: obj.fill || obj.fillColor || '#3a5a2a',
+      opacity: obj.opacity !== undefined ? obj.opacity : 1,
+      edgeFade: Math.max(0, Math.min(1, obj.edgeFade || 0)),
+      imageMode: obj.imageMode || 'cover',
+      sliceMode: obj.sliceMode || 'tile',
+      imageSrc: imgSrc,
+      _img: imgEl,
+      _slice: sliceRect
+    };
+  }
+
+  /**
+   * 确保存在地形椭圆渲染数据。
+   * 若场景未提供椭圆对象（旧数据/未编辑），用 terrain 配置生成默认椭圆
+   * （草地切片平铺 + 边缘淡化，替代旧的写死森林环带）。
+   * @private
+   */
+  _ensureTerrainEllipseData() {
+    if (this._terrainEllipse) return;
+    if (this._hasTerrainEllipse === false) return; // 用户删除了椭圆
+    // 用当前盆地参数 + 草地切片构建默认椭圆
+    this._terrainEllipse = {
+      cx: this.centerX,
+      cy: this.centerY - 32,
+      rx: this.basinRadiusX + 20,
+      ry: this.basinRadiusY + 20,
+      fillMode: 'slice',
+      fill: '#3a5a2a',
+      opacity: 1,
+      edgeFade: 0.28,           // 边缘淡化，模拟原森林环带过渡
+      imageMode: 'cover',
+      sliceMode: 'tile',
+      imageSrc: null,
+      _img: null,
+      _slice: { sx: this.grassTile.sx, sy: this.grassTile.sy, sw: this.grassTile.sw, sh: this.grassTile.sh }
+    };
   }
 
   /**
@@ -341,7 +458,8 @@ export class Scene1Terrain {
       const img = new Image();
       img.onload = () => {
         this.loaded[key] = true;
-        if (key === 'mountain') this._grassCanvas = null;
+        // mountain 是切片草地图集，加载完成后重建合并地面缓存
+        if (key === 'mountain') this._combinedGroundCache = null;
       };
       img.onerror = () => console.warn('Scene1Terrain: 图片加载失败', file);
       img.src = this.assetBase + file;
@@ -810,34 +928,134 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderGround(ctx) {
-    const groundCenterX = this.centerX;
-    const groundCenterY = this.centerY - 32;
+    // 编辑器中删除了地形椭圆：不渲染草地，只保留水池和背景图片
+    if (this._hasTerrainEllipse === false) {
+      this._renderWaterPatches(ctx);
+      this._renderEditorBackgroundImages(ctx);
+      return;
+    }
 
-    // 使用合并的地面缓存（草地 + 背景图 + 森林环带，一张图搞定）
+    // 使用合并的地面缓存（椭圆草地 + 背景图，一张图搞定）
     if (this._combinedGroundCache) {
       ctx.drawImage(this._combinedGroundCache, this._combinedGroundCacheX, this._combinedGroundCacheY);
       return;
     }
-    
-    // 1. 先画一圈森林深绿环带（椭圆外扩），避免边缘露黑
-    this._renderForestRing(ctx, groundCenterX, groundCenterY);
-    // 2. 再画椭圆盆地草地
-    if (!this.loaded.mountain) {
-      ctx.fillStyle = '#5a8a3a';
-      ctx.beginPath();
-      ctx.ellipse(groundCenterX, groundCenterY, this.basinRadiusX, this.basinRadiusY, 0, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      this._renderGrassFill(ctx, groundCenterX, groundCenterY);
-      // 素材加载完成后尝试构建草地装饰缓存
-      this._buildGroundDecoCache();
-      // 尝试构建合并地面缓存
-      this._buildCombinedGroundCache();
-    }
+
+    // 确保有地形椭圆数据（无编辑器椭圆时用 terrain 默认生成）
+    this._ensureTerrainEllipseData();
+
+    // 数据驱动渲染地形椭圆（纯色 / 图片 / 切片 + 边缘淡化）
+    this._renderTerrainEllipse(ctx);
+    // 素材加载完成后尝试构建草地装饰缓存与合并地面缓存
+    this._buildGroundDecoCache();
+    this._buildCombinedGroundCache();
     this._renderWaterPatches(ctx);
-    
-    // 3. 渲染编辑器中保存的背景图片（使用离屏缓存）
+    // 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
+  }
+
+  /**
+   * 数据驱动渲染地形椭圆
+   * 按 _terrainEllipse.fillMode（color/image/slice）填充，并应用 edgeFade 边缘淡化
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  _renderTerrainEllipse(ctx) {
+    const e = this._terrainEllipse;
+    if (!e) return;
+    const { cx, cy, rx, ry } = e;
+    const bx = cx - rx, by = cy - ry, bw = rx * 2, bh = ry * 2;
+
+    ctx.save();
+    ctx.globalAlpha = e.opacity !== undefined ? e.opacity : 1;
+
+    // 椭圆裁剪
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    if (e.fillMode === 'image' && e._img && e._img.complete && e._img.naturalWidth) {
+      this._drawImageInBox(ctx, e._img, bx, by, bw, bh, e.imageMode || 'cover');
+    } else if (e.fillMode === 'slice' && e._slice && this.loaded.mountain) {
+      this._drawSliceTiled(ctx, this.images.mountain, e._slice, bx, by, bw, bh, e.sliceMode || 'tile');
+    } else {
+      ctx.fillStyle = e.fill || '#3a5a2a';
+      ctx.fillRect(bx, by, bw, bh);
+    }
+
+    // 边缘淡化（destination-out 椭圆径向渐变）
+    const edgeFade = Math.max(0, Math.min(1, e.edgeFade || 0));
+    if (edgeFade > 0) {
+      const fadeStart = 1 - edgeFade;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(1, ry / rx);
+      const grad = ctx.createRadialGradient(0, 0, rx * fadeStart, 0, 0, rx);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,1)');
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, rx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore(); // 退出裁剪
+    ctx.restore();
+  }
+
+  /**
+   * 将图片按模式绘制到矩形框（stretch/cover/contain/tile）
+   * @private
+   */
+  _drawImageInBox(ctx, img, x, y, w, h, mode) {
+    if (mode === 'stretch') {
+      ctx.drawImage(img, x, y, w, h);
+    } else if (mode === 'contain') {
+      const ir = img.width / img.height, br = w / h;
+      let dw, dh, dx, dy;
+      if (ir > br) { dw = w; dh = w / ir; dx = x; dy = y + (h - dh) / 2; }
+      else { dh = h; dw = h * ir; dx = x + (w - dw) / 2; dy = y; }
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } else if (mode === 'tile') {
+      const pattern = ctx.createPattern(img, 'repeat');
+      ctx.fillStyle = pattern;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    } else {
+      // cover
+      const ir = img.width / img.height, br = w / h;
+      let sw, sh, sx, sy;
+      if (ir > br) { sh = img.height; sw = sh * br; sx = (img.width - sw) / 2; sy = 0; }
+      else { sw = img.width; sh = sw / br; sx = 0; sy = (img.height - sh) / 2; }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+  }
+
+  /**
+   * 将图集切片平铺/拉伸绘制到矩形框
+   * @private
+   */
+  _drawSliceTiled(ctx, atlasImg, slice, x, y, w, h, mode) {
+    const { sx, sy, sw, sh } = slice;
+    if (mode === 'stretch') {
+      ctx.drawImage(atlasImg, sx, sy, sw, sh, x, y, w, h);
+      return;
+    }
+    // tile：单切片画到离屏 canvas 再平铺
+    const tile = document.createElement('canvas');
+    tile.width = sw;
+    tile.height = sh;
+    tile.getContext('2d').drawImage(atlasImg, sx, sy, sw, sh, 0, 0, sw, sh);
+    const pattern = ctx.createPattern(tile, 'repeat');
+    ctx.fillStyle = pattern;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
   }
   
   /**
@@ -847,36 +1065,40 @@ export class Scene1Terrain {
    */
   _buildCombinedGroundCache() {
     if (this._combinedGroundCache) return;
-    if (!this.loaded.mountain) return;
+    this._ensureTerrainEllipseData();
+    const e = this._terrainEllipse;
+    if (!e) return;
+    // 切片模式需图集就绪；图片模式需图片就绪
+    if (e.fillMode === 'slice' && !this.loaded.mountain) return;
+    if (e.fillMode === 'image' && (!e._img || !e._img.complete || !e._img.naturalWidth)) return;
     // 等背景图片加载完再合并
     if (this._editorBackgroundImages && this._editorBackgroundImages.length > 0) {
       if (!this._editorBackgroundImages.every(bg => bg._loaded)) return;
     }
-    
-    const rx = this.basinRadiusX + 120;
-    const ry = this.basinRadiusY / this.basinAspectY + 120; // 反压缩得到实际像素高度
-    const cx = this.centerX;
-    const cy = this.centerY - 32;
-    
+
+    // 缓存范围基于椭圆包围盒外扩
+    const rx = e.rx + 120;
+    const ry = e.ry + 120;
+    const cx = e.cx;
+    const cy = e.cy;
+
     const cacheW = Math.ceil(rx * 2 + 40);
     const cacheH = Math.ceil(ry * 2 + 40);
     if (cacheW > 4096 || cacheH > 4096) return;
-    
+
     const offsetX = cx - cacheW / 2;
     const offsetY = cy - cacheH / 2;
-    
+
     const canvas = document.createElement('canvas');
     canvas.width = cacheW;
     canvas.height = cacheH;
     const gctx = canvas.getContext('2d');
-    
+
     // 偏移到缓存坐标系
     gctx.translate(-offsetX, -offsetY);
-    
-    // 画森林环带
-    this._renderForestRing(gctx, cx, cy);
-    // 画草地
-    this._renderGrassFill(gctx, cx, cy);
+
+    // 画地形椭圆（数据驱动）
+    this._renderTerrainEllipse(gctx);
     // 画水池
     this._renderWaterPatches(gctx);
     // 画背景图片
@@ -889,7 +1111,7 @@ export class Scene1Terrain {
         gctx.restore();
       }
     }
-    
+
     this._combinedGroundCache = canvas;
     this._combinedGroundCacheX = offsetX;
     this._combinedGroundCacheY = offsetY;
@@ -955,79 +1177,6 @@ export class Scene1Terrain {
     if (this._bgImageCache) {
       ctx.drawImage(this._bgImageCache, this._bgImageCacheX, this._bgImageCacheY);
     }
-  }
-
-  /**
-   * 椭圆外的森林深绿环带（带羽化边缘）
-   * @private
-   */
-  _renderForestRing(ctx, centerX, centerY) {
-    ctx.save();
-    ctx.translate(centerX, centerY);
-    ctx.scale(1, this.basinAspectY);
-    const grad = ctx.createRadialGradient(
-      0, 0, this.basinRadiusX - 10,
-      0, 0, this.basinRadiusX + 110
-    );
-    grad.addColorStop(0,    'rgba(35, 58, 25, 1)');
-    grad.addColorStop(0.55, 'rgba(28, 46, 20, 0.92)');
-    grad.addColorStop(1,    'rgba(20, 30, 15, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(0, 0, this.basinRadiusX + 110, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /**
-   * 椭圆草地铺面（使用离屏缓存）
-   * @param {number} centerX 草地椭圆中心 X（视觉位置）
-   * @param {number} centerY 草地椭圆中心 Y（视觉位置）
-   * @private
-   */
-  _renderGrassFill(ctx, centerX, centerY) {
-    if (!this._grassCanvas) {
-      const rx = this.basinRadiusX + 20;
-      const ry = this.basinRadiusY + 20;
-      const w = rx * 2, h = ry * 2;
-      this._grassCanvas = document.createElement('canvas');
-      this._grassCanvas.width = w;
-      this._grassCanvas.height = h;
-      const gctx = this._grassCanvas.getContext('2d');
-      // 椭圆 clip
-      gctx.save();
-      gctx.beginPath();
-      gctx.ellipse(rx, ry, rx, ry, 0, 0, Math.PI * 2);
-      gctx.clip();
-      const tile = this.terrainTile;
-      const slice = this.grassTile;
-      for (let y = 0; y < h; y += tile) {
-        for (let x = 0; x < w; x += tile) {
-          gctx.drawImage(
-            this.images.mountain,
-            slice.sx, slice.sy, slice.sw, slice.sh,
-            x, y, tile, tile
-          );
-        }
-      }
-      // 椭圆 vignette（外圈渐暗）
-      const vignette = gctx.createRadialGradient(
-        rx, ry, Math.min(rx, ry) * 0.55,
-        rx, ry, Math.max(rx, ry)
-      );
-      vignette.addColorStop(0, 'rgba(0,0,0,0)');
-      vignette.addColorStop(1, 'rgba(0,0,0,0.5)');
-      gctx.fillStyle = vignette;
-      gctx.fillRect(0, 0, w, h);
-      gctx.restore();
-    }
-    const rx = this.basinRadiusX + 20;
-    const ry = this.basinRadiusY + 20;
-    ctx.drawImage(
-      this._grassCanvas,
-      centerX - rx,
-      centerY - ry
-    );
   }
 
   /**

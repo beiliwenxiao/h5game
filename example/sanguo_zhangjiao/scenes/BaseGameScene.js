@@ -1692,6 +1692,12 @@ export class BaseGameScene extends PrologueScene {
         };
         this.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
         
+        // PC 左键点击玩家自身：同步开关属性框+背包框（须在攻击判定之前）
+        this.handleSelfPanelClick();
+        
+        // PC 左键点击地上物品：优先拾取（须在攻击判定之前，避免误触发攻击）
+        this.handlePickupClick();
+        
         // 水果忍者式滑动攻击检测（通过 MeleeAttackSystem）
         this.meleeAttackSystem.setPlayerEntity(this.playerEntity);
         this.meleeAttackSystem.setEntities(this.entities);
@@ -2825,6 +2831,135 @@ export class BaseGameScene extends PrologueScene {
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
     }
+  }
+
+  /**
+   * 处理 PC 左键点击玩家自身：同步开关属性框(C)和背包框(B)
+   * 都打开 → 都关闭；否则 → 都打开。命中时消费点击，阻止攻击。
+   * 需在攻击判定之前调用。
+   */
+  handleSelfPanelClick() {
+    if (!this.inputManager || !this.playerEntity) return;
+    if (!this.inputManager.isMouseClicked() || this.inputManager.isMouseClickHandled()) return;
+    if (this.inputManager.getMouseButton() === 2) return; // 右键（移动）不处理
+    // 对话激活时不处理
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) return;
+
+    const mouseScreen = this.inputManager.getMousePosition();
+
+    // 点击落在可见面板/控制栏上时交给 UI 处理，不做自身检测
+    const inPanel = (p) => p && p.visible && p.width &&
+      mouseScreen.x >= p.x && mouseScreen.x <= p.x + p.width &&
+      mouseScreen.y >= p.y && mouseScreen.y <= p.y + p.height;
+    if (inPanel(this.playerInfoPanel) || inPanel(this.inventoryPanel) || inPanel(this.bottomControlBar)) return;
+
+    const mouseWorld = this.camera
+      ? this.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
+      : this.inputManager.getMouseWorldPosition();
+
+    if (!this.isPointOnPlayer(mouseWorld.x, mouseWorld.y)) return;
+
+    // 命中玩家自身：同步开关两个面板
+    const bothVisible = this.playerInfoPanel?.visible && this.inventoryPanel?.visible;
+    if (bothVisible) {
+      this.playerInfoPanel.hide();
+      this.inventoryPanel.hide();
+    } else {
+      if (this.playerInfoPanel && !this.playerInfoPanel.visible) this.playerInfoPanel.toggle();
+      if (this.inventoryPanel && !this.inventoryPanel.visible) this.inventoryPanel.toggle();
+    }
+
+    // 消费本次点击，阻止攻击/投掷
+    this.inputManager.markMouseClickHandled();
+  }
+
+  /**
+   * 判断世界坐标点是否落在玩家精灵包围盒内
+   * @param {number} worldX
+   * @param {number} worldY
+   * @returns {boolean}
+   */
+  isPointOnPlayer(worldX, worldY) {
+    if (!this.playerEntity) return false;
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) return false;
+    const sprite = this.playerEntity.getComponent('sprite');
+    const w = sprite?.width || 48;
+    const h = sprite?.height || 64;
+    const px = transform.position.x;
+    const py = transform.position.y; // 底部锚点
+    return worldX >= px - w / 2 && worldX <= px + w / 2 &&
+           worldY >= py - h && worldY <= py;
+  }
+
+  /**
+   * 处理 PC 左键点击地上物品的拾取
+   * 需在攻击判定之前调用：命中物品时标记点击已处理，从而阻止本次左键攻击。
+   */
+  handlePickupClick() {
+    if (!this.inputManager) return;
+    // 仅处理左键点击、且本帧尚未被其它逻辑消费
+    if (!this.inputManager.isMouseClicked() || this.inputManager.isMouseClickHandled()) return;
+    if (this.inputManager.getMouseButton() === 2) return; // 右键（移动）不拾取
+
+    // 对话激活时不拾取
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) return;
+    // 面板打开时不拾取（点击交给 UI 处理，如关闭面板）
+    if ((this.inventoryPanel && this.inventoryPanel.visible) ||
+        (this.playerInfoPanel && this.playerInfoPanel.visible)) return;
+
+    const mouseScreen = this.inputManager.getMousePosition();
+    const mouseWorld = this.camera
+      ? this.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
+      : this.inputManager.getMouseWorldPosition();
+
+    if (this.tryClickPickup(mouseWorld.x, mouseWorld.y)) {
+      // 命中物品：消费本次点击，阻止攻击/投掷
+      this.inputManager.markMouseClickHandled();
+    }
+  }
+
+  /**
+   * 左键点击地上物品的拾取检测
+   * 点击命中可拾取物品图标范围时，触发一次范围拾取（等价 E 键 / 交互按钮 / 触屏）
+   * @param {number} worldX - 点击的世界坐标 X
+   * @param {number} worldY - 点击的世界坐标 Y
+   * @returns {boolean} 是否命中了可拾取物品（命中则消费本次点击，避免触发攻击）
+   */
+  tryClickPickup(worldX, worldY) {
+    if (!this.playerEntity || !this.pickupSystem) return false;
+
+    const hitRadius = 30; // 物品图标点击命中半径
+
+    // 检测是否点中了某个可拾取物品
+    let hit = false;
+    for (const item of this.pickupItems) {
+      if (item.picked) continue;
+      if (Math.hypot(item.x - worldX, item.y - worldY) <= hitRadius) { hit = true; break; }
+    }
+    if (!hit) {
+      for (const item of this.equipmentItems) {
+        if (item.picked) continue;
+        const t = item.getComponent ? item.getComponent('transform') : null;
+        const ix = t ? t.position.x : item.x;
+        const iy = t ? t.position.y : item.y;
+        if (Math.hypot(ix - worldX, iy - worldY) <= hitRadius) { hit = true; break; }
+      }
+    }
+
+    if (!hit) return false;
+
+    // 命中物品：触发一次范围拾取（等价 E 键，需玩家在拾取范围内）
+    const result = this.pickupSystem.triggerPickup(
+      this.playerEntity, this.pickupItems, this.equipmentItems
+    );
+    // 移除已拾取的掉落物实体
+    for (const removed of result.removedEntities) {
+      this.entities = this.entities.filter(e => e !== removed);
+    }
+
+    // 只要点中了物品图标就消费本次点击（避免误触发攻击）
+    return true;
   }
 
   /**

@@ -38,6 +38,7 @@ export class SceneEditorUI {
             <button id="editor-select" class="active" title="选择工具 (V)">◇</button>
             <button id="editor-pan" title="平移工具 (H)">✥</button>
             <button id="editor-place" title="放置工具 (P)">+</button>
+            <button id="editor-add-ellipse" title="添加椭圆">⬭</button>
           </div>
           <div class="toolbar-group">
             <label>场景名称:</label>
@@ -455,7 +456,7 @@ export class SceneEditorUI {
       html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
       html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
 
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
         html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
         html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
       } else if (obj.type === 'circle') {
@@ -468,6 +469,8 @@ export class SceneEditorUI {
 
       if (obj.type === 'fill') {
         html += this._buildFillProperties(obj);
+      } else if (obj.type === 'ellipse') {
+        html += this._buildEllipseProperties(obj);
       } else if (obj.fill) {
         html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
       }
@@ -517,7 +520,69 @@ export class SceneEditorUI {
       });
     }
 
+    // 椭圆：用选中切片填充
+    const applySliceBtn = document.getElementById('editor-ellipse-apply-slice');
+    if (applySliceBtn) {
+      applySliceBtn.addEventListener('click', () => {
+        if (!editor.selectedSlice) {
+          this.showToast('请先在左侧资源库选中一个切片', 'error');
+          return;
+        }
+        obj.atlasId = editor.selectedSlice.atlasId;
+        obj.sliceKey = editor.selectedSlice.sliceKey;
+        obj.decoKey = null;
+        editor.render();
+        this.updateObjectProperties();
+        this.showToast('已应用切片: ' + obj.sliceKey);
+      });
+    }
+
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
+  }
+
+  /**
+   * 构建椭圆对象的属性 HTML
+   * @private
+   */
+  _buildEllipseProperties(obj) {
+    const mode = obj.fillMode || 'color';
+    let html = '';
+    html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name" placeholder="椭圆名称"></div>`;
+    html += `<div class="property-row"><label>填充模式:</label><select data-prop="fillMode">
+      <option value="color" ${mode === 'color' ? 'selected' : ''}>纯色</option>
+      <option value="image" ${mode === 'image' ? 'selected' : ''}>图片</option>
+      <option value="slice" ${mode === 'slice' ? 'selected' : ''}>切片</option>
+    </select></div>`;
+
+    if (mode === 'color') {
+      html += `<div class="property-row"><label>填充色:</label><input type="color" value="${obj.fill || '#3a5a2a'}" data-prop="fill"></div>`;
+    } else if (mode === 'image') {
+      html += `<div class="property-row"><label>图片路径:</label><input type="text" value="${obj.imageSrc || ''}" data-prop="imageSrc" placeholder="输入图片URL"></div>`;
+      html += `<div class="property-row"><label>显示模式:</label><select data-prop="imageMode">
+        <option value="cover" ${obj.imageMode === 'cover' || !obj.imageMode ? 'selected' : ''}>覆盖</option>
+        <option value="stretch" ${obj.imageMode === 'stretch' ? 'selected' : ''}>拉伸</option>
+        <option value="contain" ${obj.imageMode === 'contain' ? 'selected' : ''}>包含</option>
+        <option value="tile" ${obj.imageMode === 'tile' ? 'selected' : ''}>平铺</option>
+      </select></div>`;
+      html += `<div class="property-row"><button id="editor-load-fill-image">加载图片</button></div>`;
+    } else if (mode === 'slice') {
+      const label = obj.decoKey ? obj.decoKey : (obj.sliceKey ? `${obj.atlasId || ''} / ${obj.sliceKey}` : '未设置');
+      html += `<div class="property-row"><label>当前切片:</label><input value="${label}" disabled style="color:#FFD700;"></div>`;
+      html += `<div class="property-row"><label>平铺模式:</label><select data-prop="sliceMode">
+        <option value="tile" ${obj.sliceMode === 'tile' || !obj.sliceMode ? 'selected' : ''}>平铺</option>
+        <option value="stretch" ${obj.sliceMode === 'stretch' ? 'selected' : ''}>拉伸</option>
+      </select></div>`;
+      html += `<div class="property-row"><button id="editor-ellipse-apply-slice" title="先在左侧资源库选中一个切片，再点此填充">用选中切片填充</button></div>`;
+    }
+
+    html += `<div class="property-row"><label>透明度:</label><input type="number" value="${obj.opacity !== undefined ? obj.opacity : 1}" step="0.1" min="0" max="1" data-prop="opacity"></div>`;
+    // 边缘淡化特效
+    html += `<div class="property-row"><label>边缘淡化:</label><input type="number" value="${obj.edgeFade || 0}" step="0.05" min="0" max="1" data-prop="edgeFade" title="0=无，1=从中心开始淡化"></div>`;
+    html += `<div class="property-row"><label>边框色:</label><input type="color" value="${obj.stroke || '#5a8a4a'}" data-prop="stroke"></div>`;
+    html += `<div class="property-row"><label>边框宽:</label><input type="number" value="${obj.strokeWidth || 0}" min="0" step="1" data-prop="strokeWidth"></div>`;
+    html += `<div class="property-row"><label>半径X:</label><input value="${Math.round(obj.width / 2)}" disabled title="宽度/2"></div>`;
+    html += `<div class="property-row"><label>半径Y:</label><input value="${Math.round(obj.height / 2)}" disabled title="高度/2"></div>`;
+    return html;
   }
 
   /**

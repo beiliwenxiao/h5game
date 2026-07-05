@@ -82,6 +82,27 @@ export class PickupSystem {
                      this.inputManager.isKeyDown(this.pickupKey.toUpperCase());
     if (!ePressed) return { pickedItems: [], removedEntities: [] };
     
+    return this._tryPickup(playerEntity, pickupItems, equipmentItems);
+  }
+
+  /**
+   * 外部触发一次范围拾取（供 PC 左键点击物品、交互按钮等复用）
+   * 效果等价于按 E 键：拾取玩家拾取半径内的物品。
+   * @param {Object} playerEntity - 玩家实体
+   * @param {Array} pickupItems - 可拾取物品列表
+   * @param {Array} equipmentItems - 装备/掉落物品列表
+   * @returns {Object} { pickedItems, removedEntities }
+   */
+  triggerPickup(playerEntity, pickupItems, equipmentItems) {
+    if (!playerEntity) return { pickedItems: [], removedEntities: [] };
+    return this._tryPickup(playerEntity, pickupItems, equipmentItems);
+  }
+
+  /**
+   * 拾取核心逻辑：检测冷却并批量拾取范围内物品
+   * @private
+   */
+  _tryPickup(playerEntity, pickupItems, equipmentItems) {
     const transform = playerEntity.getComponent('transform');
     if (!transform) return { pickedItems: [], removedEntities: [] };
     

@@ -76,6 +76,37 @@ export class SceneEditorAssets {
         editor.ui.addObject({ type: 'rect', x: pos.x - 32, y: pos.y - 32, width: 64, height: 64, fill: '#4a5a8e' });
       } else if (id === 'circle') {
         editor.ui.addObject({ type: 'circle', x: pos.x, y: pos.y, radius: 32, fill: '#4a8e5a' });
+      } else if (id === 'ellipse') {
+        // 拖入地形椭圆：放入背景填充层并解锁
+        const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
+        const rx = 200, ry = 130;
+        const ellipseObj = {
+          id: 'ellipse_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          type: 'ellipse',
+          name: '地形椭圆',
+          x: Math.round(pos.x - rx),
+          y: Math.round(pos.y - ry),
+          width: rx * 2,
+          height: ry * 2,
+          fillMode: 'color',
+          fill: '#3a5a2a',
+          opacity: 1,
+          stroke: '',
+          strokeWidth: 0,
+          edgeFade: 0
+        };
+        if (fillLayer) {
+          fillLayer.locked = false;
+          fillLayer.objects.push(ellipseObj);
+          editor.activeLayerIndex = editor.sceneData.layers.indexOf(fillLayer);
+        } else {
+          editor.ui.addObject(ellipseObj);
+        }
+        editor.selectedObjects = [ellipseObj];
+        editor.history.saveHistory();
+        editor.ui.updateObjectCount();
+        editor.ui.updateObjectProperties();
+        editor.render();
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
         const fillObj = {
@@ -218,6 +249,10 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="circle">
         <div class="asset-preview circle"></div>
         <span>圆形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="ellipse">
+        <div class="asset-preview" style="width:40px;height:26px;border-radius:50%;background:#3a5a2a;border:1px solid #5a8a4a;"></div>
+        <span>地形椭圆</span>
       </div>
       <div class="asset-item placeholder" draggable="true" data-type="fill">
         <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>

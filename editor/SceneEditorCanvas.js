@@ -123,6 +123,8 @@ export class SceneEditorCanvas {
   _renderObject(ctx, obj) {
     if (obj.type === 'fill') {
       this._renderFillObject(ctx, obj);
+    } else if (obj.type === 'ellipse') {
+      this._renderEllipseObject(ctx, obj);
     } else if (obj.type === 'deco') {
       this._renderDecoObject(ctx, obj);
     } else if (obj.type === 'rect') {
@@ -364,6 +366,7 @@ export class SceneEditorCanvas {
 
   /**
    * 渲染地形背景效果（草地椭圆）
+   * 注意：椭圆对象已独立为 type:'ellipse'，此处只渲染非椭圆的辅助效果
    * @private
    */
   _renderTerrainBackground(ctx) {
@@ -389,22 +392,8 @@ export class SceneEditorCanvas {
       ctx.fillRect(0, 0, 40, data.height);
       ctx.fillRect(data.width - 40, 0, 40, data.height);
       ctx.fillRect(0, data.height - 40, data.width, 40);
-    } else {
-      const centerX = data.centerX || data.width / 2;
-      const centerY = (data.centerY || data.height / 2) - 32;
-      const radiusX = data.basinRadius || 640;
-      const radiusY = radiusX * (data.basinAspectY || 0.65);
-
-      let grassColor = '#3a5a2a';
-      if (terrainType === 'battlefield') grassColor = '#4a3030';
-      else if (terrainType === 'mountain') grassColor = '#404a30';
-      else if (terrainType === 'camp') grassColor = '#3a4a3a';
-
-      ctx.fillStyle = grassColor;
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, radiusX + 20, radiusY + 20, 0, 0, Math.PI * 2);
-      ctx.fill();
     }
+    // 非 indoor 场景：椭圆由 type:'ellipse' 对象渲染，此处不再自动画
   }
 
   /**
@@ -418,9 +407,21 @@ export class SceneEditorCanvas {
     const terrainType = data.terrain.type || 'basin';
     if (terrainType === 'indoor') return;
 
-    const centerX = data.centerX || data.width / 2;
-    const centerY = (data.centerY || data.height / 2) - 32;
-    const radiusX = data.basinRadius || 640;
+    // 优先从 layer_fill 中的 ellipse 对象读取参数
+    let centerX, centerY, radiusX, aspectY;
+    const fillLayer = data.layers.find(l => l.id === 'layer_fill');
+    const ellipseObj = fillLayer && fillLayer.objects.find(o => o.type === 'ellipse');
+    if (ellipseObj) {
+      centerX = ellipseObj.x + ellipseObj.width / 2;
+      centerY = ellipseObj.y + ellipseObj.height / 2;
+      radiusX = ellipseObj.width / 2;
+      aspectY = ellipseObj.height / ellipseObj.width;
+    } else {
+      centerX = data.centerX || data.width / 2;
+      centerY = (data.centerY || data.height / 2) - 32;
+      radiusX = data.basinRadius || 640;
+      aspectY = data.basinAspectY || 0.65;
+    }
 
     let forestColor = 'rgba(35, 58, 25, 1)';
     if (terrainType === 'battlefield') forestColor = 'rgba(50, 30, 25, 1)';
@@ -429,7 +430,7 @@ export class SceneEditorCanvas {
 
     ctx.save();
     ctx.translate(centerX, centerY);
-    ctx.scale(1, data.basinAspectY || 0.65);
+    ctx.scale(1, aspectY);
     const grad = ctx.createRadialGradient(0, 0, radiusX - 10, 0, 0, radiusX + 110);
     grad.addColorStop(0, forestColor);
     grad.addColorStop(0.55, forestColor.replace('1)', '0.92)'));
@@ -439,6 +440,177 @@ export class SceneEditorCanvas {
     ctx.arc(0, 0, radiusX + 110, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  /**
+   * 渲染椭圆对象
+   * 支持填充模式：color（纯色）/ image（图片）/ slice（图集切片）
+   * 支持边缘淡化特效 edgeFade（0~1）
+   * @private
+   */
+  _renderEllipseObject(ctx, obj) {
+    const cx = obj.x + obj.width / 2;
+    const cy = obj.y + obj.height / 2;
+    const rx = obj.width / 2;
+    const ry = obj.height / 2;
+    const fillMode = obj.fillMode || 'color';
+    const bx = obj.x, by = obj.y, bw = obj.width, bh = obj.height;
+
+    ctx.save();
+    if (obj.opacity !== undefined) ctx.globalAlpha = obj.opacity;
+
+    // 椭圆裁剪区
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+
+    // 按填充模式绘制
+    if (fillMode === 'image') {
+      const img = this.editor.loadedImages.get(obj.imageId) ||
+                  this.editor.loadedImages.get(obj.imageSrc);
+      if (img) {
+        this._drawImageInBox(ctx, img, bx, by, bw, bh, obj.imageMode || 'cover');
+      } else {
+        ctx.fillStyle = obj.fill || '#3a5a2a';
+        ctx.fillRect(bx, by, bw, bh);
+      }
+    } else if (fillMode === 'slice') {
+      const drawn = this._drawSliceInBox(ctx, obj, bx, by, bw, bh, obj.sliceMode || 'tile');
+      if (!drawn) { ctx.fillStyle = obj.fill || '#3a5a2a'; ctx.fillRect(bx, by, bw, bh); }
+    } else {
+      ctx.fillStyle = obj.fillColor || obj.fill || '#3a5a2a';
+      ctx.fillRect(bx, by, bw, bh);
+    }
+
+    // 边缘淡化：在裁剪区内用 destination-out 径向渐变擦除边缘
+    const edgeFade = Math.max(0, Math.min(1, obj.edgeFade || 0));
+    if (edgeFade > 0) {
+      const fadeStart = 1 - edgeFade; // 从此比例处开始向边缘淡出
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(1, ry / rx); // 让径向渐变呈椭圆形
+      const grad = ctx.createRadialGradient(0, 0, rx * fadeStart, 0, 0, rx);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,1)');
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, rx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore(); // 退出裁剪
+
+    // 边框（不裁剪）
+    if (obj.stroke && (obj.strokeWidth || 0) > 0) {
+      ctx.strokeStyle = obj.stroke;
+      ctx.lineWidth = obj.strokeWidth;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // 名称标签
+    if (obj.name) {
+      ctx.globalAlpha = 0.6;
+      ctx.fillStyle = '#fff';
+      ctx.font = '12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(obj.name, cx, cy);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 将图片按指定模式绘制到矩形框内（stretch/cover/contain/tile）
+   * @private
+   */
+  _drawImageInBox(ctx, img, x, y, w, h, mode) {
+    if (mode === 'stretch') {
+      ctx.drawImage(img, x, y, w, h);
+    } else if (mode === 'contain') {
+      const imgRatio = img.width / img.height;
+      const boxRatio = w / h;
+      let dw, dh, dx, dy;
+      if (imgRatio > boxRatio) { dw = w; dh = w / imgRatio; dx = x; dy = y + (h - dh) / 2; }
+      else { dh = h; dw = h * imgRatio; dx = x + (w - dw) / 2; dy = y; }
+      ctx.drawImage(img, dx, dy, dw, dh);
+    } else if (mode === 'tile') {
+      const pattern = ctx.createPattern(img, 'repeat');
+      ctx.fillStyle = pattern;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    } else {
+      // cover（默认）
+      const imgRatio = img.width / img.height;
+      const boxRatio = w / h;
+      let sw, sh, sx, sy;
+      if (imgRatio > boxRatio) { sh = img.height; sw = sh * boxRatio; sx = (img.width - sw) / 2; sy = 0; }
+      else { sw = img.width; sh = sw / boxRatio; sx = 0; sy = (img.height - sh) / 2; }
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+    }
+  }
+
+  /**
+   * 获取椭圆填充切片的图源信息
+   * @private
+   * @returns {{img, sx, sy, sw, sh}|null}
+   */
+  _getEllipseSliceSource(obj) {
+    const editor = this.editor;
+    let img, sx, sy, sw, sh;
+    if (obj.decoKey) {
+      const sprite = editor.sceneData.decoSprites?.[obj.decoKey];
+      img = editor.loadedImages.get('terrain_atlas');
+      if (!img && editor.sceneData.atlases) {
+        for (const atlas of editor.sceneData.atlases) {
+          const a = editor.loadedImages.get(atlas.id);
+          if (a) { img = a; break; }
+        }
+      }
+      if (sprite) { sx = sprite.sx; sy = sprite.sy; sw = sprite.sw; sh = sprite.sh; }
+    } else if (obj.atlasId && obj.sliceKey) {
+      const atlas = editor.sceneData.atlases?.find(a => a.id === obj.atlasId);
+      const slice = atlas?.slices?.[obj.sliceKey];
+      img = editor.loadedImages.get(obj.atlasId);
+      if (slice) { sx = slice.sx; sy = slice.sy; sw = slice.sw; sh = slice.sh; }
+    }
+    if (img && sw != null) return { img, sx, sy, sw, sh };
+    return null;
+  }
+
+  /**
+   * 将图集切片平铺/拉伸绘制到矩形框内
+   * @private
+   * @returns {boolean} 是否成功绘制
+   */
+  _drawSliceInBox(ctx, obj, x, y, w, h, mode) {
+    const src = this._getEllipseSliceSource(obj);
+    if (!src) return false;
+    const { img, sx, sy, sw, sh } = src;
+
+    if (mode === 'stretch') {
+      ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+      return true;
+    }
+    // tile（默认）：先把单个切片画到离屏 canvas，再平铺
+    const tile = document.createElement('canvas');
+    tile.width = sw;
+    tile.height = sh;
+    tile.getContext('2d').drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    const pattern = ctx.createPattern(tile, 'repeat');
+    ctx.fillStyle = pattern;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+    return true;
   }
 
   /**
@@ -475,7 +647,7 @@ export class SceneEditorCanvas {
         w += 4;
         h += 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
         x = obj.x - 2;
         y = obj.y - 2;
         w = obj.width + 4;

@@ -10,45 +10,13 @@
       "name": "背景层",
       "visible": true,
       "locked": false,
-      "objects": []
-    },
-    {
-      "id": "layer_fill",
-      "name": "背景填充层",
-      "visible": true,
-      "locked": false,
-      "objects": [
-        {
-          "id": "ellipse_terrain_1783280474652",
-          "type": "shape",
-          "shapeType": "ellipse",
-          "name": "地形椭圆",
-          "x": -315.62587904360055,
-          "y": -180.62025316455697,
-          "width": 1320,
-          "height": 858,
-          "fillMode": "color",
-          "fill": "#3a5a2a",
-          "opacity": 1,
-          "edgeFade": 0,
-          "stroke": "",
-          "strokeWidth": 0,
-          "collide": false
-        }
-      ]
-    },
-    {
-      "id": "layer_mask",
-      "name": "遮罩层",
-      "visible": true,
-      "locked": false,
       "objects": [
         {
           "id": "obj_1783095865778",
           "type": "image",
           "imageId": "img_1783095863410",
-          "x": -287.1251758087201,
-          "y": -102,
+          "x": -285.99999999999983,
+          "y": -104.25035161744023,
           "width": 1280,
           "height": 720,
           "rotation": 0
@@ -101,6 +69,38 @@
           ]
         }
       ]
+    },
+    {
+      "id": "layer_fill",
+      "name": "背景填充层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ellipse_terrain_1783280474652",
+          "type": "shape",
+          "shapeType": "ellipse",
+          "name": "地形椭圆",
+          "x": -315.62587904360055,
+          "y": -180.62025316455697,
+          "width": 1320,
+          "height": 858,
+          "fillMode": "color",
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "edgeFade": 0,
+          "stroke": "",
+          "strokeWidth": 0,
+          "collide": false
+        }
+      ]
+    },
+    {
+      "id": "layer_mask",
+      "name": "遮罩层",
+      "visible": true,
+      "locked": false,
+      "objects": []
     },
     {
       "id": "layer_deco",
@@ -3265,8 +3265,8 @@
           "id": "deco_91310151",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 886,
-          "y": 272,
+          "x": 873.6230661040787,
+          "y": 295.62869198312234,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -6745,7 +6745,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-05T19:43:24.026Z",
+  "updatedAt": "2026-07-05T20:05:14.050Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

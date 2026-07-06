@@ -27,3 +27,10 @@ export { SpriteComponent } from './components/SpriteComponent.js';
 export { CombatComponent } from './components/CombatComponent.js';
 export { MovementComponent } from './components/MovementComponent.js';
 export { LayerComponent, WORLD_LAYERS } from './components/LayerComponent.js';
+
+// 战场组件（P2 / §14）
+export { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
+export { BuildingComponent, BuildingType } from './components/BuildingComponent.js';
+export { ObjectiveComponent, ObjectiveKind } from './components/ObjectiveComponent.js';
+export { VehicleComponent, SeatRole } from './components/VehicleComponent.js';
+export { RiderComponent } from './components/RiderComponent.js';

@@ -133,6 +133,9 @@ export class SceneEditorAssets {
           editor.selectedObjects = [obj];
           editor.ui.updateObjectProperties();
         }
+      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc') {
+        // 逻辑对象（P2-1）：region/spawn/portal/npc，放入逻辑层
+        this._addLogicObject(id, pos.x, pos.y);
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
         const fillObj = {
@@ -166,6 +169,67 @@ export class SceneEditorAssets {
         });
       }
     });
+  }
+
+  /**
+   * 添加逻辑对象（region/spawn/portal/npc）到逻辑层（P2-1）
+   * 数据结构对应 §1 scenes[].objects.{regions,npcs,spawns,portals}，
+   * 编辑器中统一以 type 存于图层对象，导出时可归类。
+   * @param {string} kind - region|spawn|portal|npc
+   * @param {number} x
+   * @param {number} y
+   * @private
+   */
+  _addLogicObject(kind, x, y) {
+    const editor = this.editor;
+    const rnd = Date.now() + '_' + Math.floor(Math.random() * 1000);
+    let obj;
+    if (kind === 'region') {
+      const w = 200, h = 140;
+      obj = {
+        id: 'region_' + rnd, type: 'region', name: '区域',
+        regionId: 'region_' + Math.floor(Math.random() * 10000),
+        x: Math.round(x - w / 2), y: Math.round(y - h / 2), width: w, height: h
+      };
+    } else if (kind === 'spawn') {
+      obj = {
+        id: 'spawn_' + rnd, type: 'spawn', name: '刷怪点',
+        spawnId: 'spawn_' + Math.floor(Math.random() * 10000),
+        x: Math.round(x), y: Math.round(y),
+        enemyRef: '', count: 1, wave: 0, radius: 0
+      };
+    } else if (kind === 'portal') {
+      obj = {
+        id: 'portal_' + rnd, type: 'portal', name: '传送门',
+        portalId: 'portal_' + Math.floor(Math.random() * 10000),
+        x: Math.round(x), y: Math.round(y),
+        targetScene: '', targetSpawn: ''
+      };
+    } else if (kind === 'npc') {
+      obj = {
+        id: 'npc_' + rnd, type: 'npc', name: 'NPC',
+        npcRef: '', x: Math.round(x), y: Math.round(y)
+      };
+    }
+    if (!obj) return;
+
+    // 确保存在逻辑层
+    let logicLayer = editor.sceneData.layers.find(l => l.id === 'layer_logic');
+    if (!logicLayer) {
+      logicLayer = { id: 'layer_logic', name: '逻辑对象', visible: true, locked: false, objects: [] };
+      editor.sceneData.layers.push(logicLayer);
+    }
+    logicLayer.visible = true;
+    logicLayer.locked = false;
+    if (!Array.isArray(logicLayer.objects)) logicLayer.objects = [];
+    logicLayer.objects.push(obj);
+    editor.activeLayerIndex = editor.sceneData.layers.indexOf(logicLayer);
+
+    editor.selectedObjects = [obj];
+    editor.history.saveHistory();
+    editor.ui.updateObjectCount();
+    editor.ui.updateObjectProperties();
+    editor.render();
   }
 
   /**
@@ -287,6 +351,23 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="fill">
         <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>
         <span>背景填充</span>
+      </div>
+      <div class="asset-section-label" style="width:100%;padding:6px 4px 2px;color:#89a;font-size:11px;">逻辑对象</div>
+      <div class="asset-item placeholder" draggable="true" data-type="region">
+        <div class="asset-preview" style="width:38px;height:26px;background:rgba(80,140,255,0.18);border:1px dashed #5a8adf;"></div>
+        <span>区域</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="spawn">
+        <div class="asset-preview" style="width:30px;height:30px;border-radius:50%;background:rgba(220,80,80,0.25);border:2px dashed #d05050;"></div>
+        <span>刷怪点</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="portal">
+        <div class="asset-preview" style="width:28px;height:30px;border-radius:50%;background:rgba(180,80,220,0.25);border:2px solid #b450dc;"></div>
+        <span>传送门</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="npc">
+        <div class="asset-preview" style="width:26px;height:30px;background:rgba(80,200,140,0.25);border:2px solid #50c88c;border-radius:4px;"></div>
+        <span>NPC</span>
       </div>
     `;
   }

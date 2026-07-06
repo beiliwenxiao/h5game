@@ -482,14 +482,15 @@ VehicleSystem:
 - [x] [验收] 已通过：编辑器配 sceneEnter→setVar 触发器，游戏中 Act1SceneECS 加载后 fire('sceneEnter') 执行，控制台确认 `act: 0 → 1`
 - 注：可视化 if 条件树 / do 动作拖拽表单仍是 JSON 文本编辑（够用）；画布框选生成 region 待 P2
 
-### P2 — 逻辑对象 + 内容库 + 战场组件
-- [ ] P2-1 场景逻辑对象类型：region/npc/spawn/portal（编辑器放置 + 数据结构）
-- [ ] P2-2 内容库 Tab：NPC/敌人/物品/装备/商店 列表编辑，数据进 library
-- [ ] P2-3 各系统 registry：GameLoader 雏形把 library 注册到 NPCSystem/敌人/ShopSystem
-- [ ] P2-4 战场组件：BuildingComponent/ObjectiveComponent/VehicleComponent/SeatComponent
-- [ ] P2-5 `controller` 抽象（ai/localPlayer/remotePlayer + 席位级）+ intent 路由
-- [ ] P2-6 `VehicleSystem`：mount/dismount/席位控制转移/附着渲染/摧毁 eject
-- [ ] [验收] 编辑器放 NPC/刷怪点/城门/载具；游戏中可上下载具、多席位、建筑可摧毁
+### P2 — 逻辑对象 + 内容库 + 战场组件 ✅ 已完成（框架 + 编辑器部分）
+- [x] P2-1 场景逻辑对象类型：region/npc/spawn/portal（编辑器资源库拖入 + 数据结构 + 画布可视化标记 + 命中检测 + 属性面板；存于 `layer_logic` 图层）
+- [x] P2-2 内容库 Tab（`editor/LibraryEditor.js`）：NPC/敌人/物品/装备/商店/职业/技能/载具/建筑 分类列表编辑，JSON 校验 + 保存 toast，数据进 `library`；已接入 `editor/index.html` 导航
+- [x] P2-3 各系统 registry：`src/core/Registry.js`（通用定义注册表 + createStandardRegistries）；`GameLoader` 把 `library` 全类注册进 `this.registries`，并桥接外部 deps.registries
+- [x] P2-4 战场组件：`BuildingComponent`/`ObjectiveComponent`/`VehicleComponent`/`RiderComponent`（席位在 VehicleComponent.seats 内，含 SeatRole）；EntityFactory 新增 createBuilding/createVehicle/attachObjective
+- [x] P2-5 `ControllerComponent`（ai/localPlayer/remotePlayer + team + intent 队列，席位级控制）+ intent 路由（`VehicleSystem.routeIntent` 按 seat.role 分发）
+- [x] P2-6 `VehicleSystem`（`src/systems/VehicleSystem.js`）：mount/dismount/席位控制转移/每帧附着同步/摧毁 eject 受伤/routeIntent
+- [ ] [验收] 编辑器放 NPC/刷怪点/城门/载具 = ✅（可拖入可编辑可保存）；游戏中可上下载具/多席位/建筑可摧毁的**运行时场景接入**待 P4-3 DataDrivenScene 就绪后按 objects 实例化验证
+- 注：所有战场组件/系统均带 `authority` 注释 + serialize/deserialize，遵守 §13 网络约定（纯状态 + 事件 + 可序列化 + 可注入）
 
 ### P3 — 对话 + 引导
 - [ ] P3-1 对话图编辑器 Tab：节点卡片 + choice 连线 + 条件/动作编辑
@@ -539,8 +540,18 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 | P1 | `src/systems/TriggerSystem.js` | 触发器内核（fire/update/条件/动作/once/cooldown/序列化） |
 | P1 | `src/systems/TriggerActions.js` | 默认动作注册表 |
 | P1 | `editor/TriggerEditor.js` + `editor/index.html` | 事件编辑器（JSON 校验 + 保存 toast），已接入导航 |
-| P4 | `src/core/GameLoader.js` | 工程装配器（$ref/序列化） |
+| P4 | `src/core/GameLoader.js` | 工程装配器（$ref/序列化）+ library 注册进 registries |
 | P4 | `example/sanguo_zhangjiao/game.project.json` | 工程数据源骨架 + 示例触发器 |
+| P2 | `src/core/Registry.js` | 通用定义注册表 + createStandardRegistries |
+| P2 | `src/ecs/components/ControllerComponent.js` | 控制权抽象（ai/localPlayer/remotePlayer + 席位级 + intent 队列） |
+| P2 | `src/ecs/components/BuildingComponent.js` | 建筑（城墙/城门/箭塔/兵营，可摧毁/占地/可控） |
+| P2 | `src/ecs/components/ObjectiveComponent.js` | 战场目标物（building/reachZone/survive/eliminate） |
+| P2 | `src/ecs/components/VehicleComponent.js` | 载具 + 席位（driver/gunner/passenger） |
+| P2 | `src/ecs/components/RiderComponent.js` | 乘员驾乘关系 |
+| P2 | `src/systems/VehicleSystem.js` | 驾乘系统（mount/dismount/附着/eject/routeIntent） |
+| P2 | `src/ecs/EntityFactory.js` | 新增 createBuilding/createVehicle/attachObjective |
+| P2 | `editor/LibraryEditor.js` + `editor/index.html` | 内容库编辑器（9 类库），已接入导航 |
+| P2 | `editor/SceneEditor*.js` | 逻辑对象 region/npc/spawn/portal：拖入/渲染/命中/属性面板 |
 
 ### 17.2 试点接入现状
 
@@ -555,11 +566,19 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 
 ### 17.4 未做 / 待续
 
+- **P2 运行时场景接入**：逻辑对象（spawn/npc/portal/region）与战场组件（building/vehicle/objective）的**游戏内实例化**待 P4-3 DataDrivenScene 就绪后，由 chunk/scene 按 `objects` + `library` 引用实例化（框架/编辑器已就位，运行时装配未接）。
 - **P4-3 DataDrivenScene**：未做（合并 Act1~6Scene 读 chunk 渲染）。
 - **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收，等 DataDrivenScene 就绪）。
-- **P2 逻辑对象 + 内容库 + 战场组件**：未开始。
 - **P3 对话图编辑器 / 引导迁移**：未开始（对话仍走现有 DialogueSystem）。
 - **P5 大地图流式 / P6 存档性能**：未开始。
+
+### 17.6 P2 交付说明（截至当前）
+
+- **战场组件（§14）全部落地**为独立 ECS 组件，均带 `authority` 注释 + serialize/deserialize，遵守 §13 六约定（纯状态改动 + 事件回调 + 可序列化 + 依赖注入）。
+- **VehicleSystem** 只管驾乘与 intent 路由，不重写移动/战斗：移动仍走 MovementSystem（用载具 speed），攻击仍走 CombatSystem（用席位 weapon）。多人协作靠席位级 ControllerComponent。
+- **内容库 LibraryEditor** 与 **事件 TriggerEditor** 同构（读写 game.project.json、JSON 实时校验、保存 toast）。
+- **逻辑对象** 复用现有场景编辑器的图层对象机制（type 分发），存于自动创建的 `layer_logic` 图层。
+- **下一步**：P4-3 DataDrivenScene 做运行时装配，把 spawn/npc/building/vehicle 从数据实例化进场景，届时验证"上下载具/多席位/建筑摧毁/刷怪"。
 
 ### 17.5 下一步建议（优先级）
 

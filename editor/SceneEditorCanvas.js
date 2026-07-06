@@ -175,7 +175,75 @@ export class SceneEditorCanvas {
       }
     } else if (obj.type === 'slice') {
       this._renderSliceObject(ctx, obj);
+    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+      this._renderLogicObject(ctx, obj);
     }
+  }
+
+  /**
+   * 渲染逻辑对象标记（region/spawn/portal/npc，P2-1）
+   * 这些是编辑期可视化标记，游戏中不直接绘制（由系统实例化）。
+   * @private
+   */
+  _renderLogicObject(ctx, obj) {
+    ctx.save();
+    if (obj.type === 'region') {
+      ctx.fillStyle = 'rgba(80,140,255,0.12)';
+      ctx.strokeStyle = '#5a8adf';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([6, 4]);
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.setLineDash([]);
+      this._drawLogicLabel(ctx, obj.name || '区域', obj.x + 4, obj.y + 14, '#9cc0ff');
+    } else {
+      // 点状标记：spawn/portal/npc
+      const colors = {
+        spawn: { fill: 'rgba(220,80,80,0.25)', stroke: '#d05050', icon: '⚔' },
+        portal: { fill: 'rgba(180,80,220,0.25)', stroke: '#b450dc', icon: '🌀' },
+        npc: { fill: 'rgba(80,200,140,0.25)', stroke: '#50c88c', icon: '☺' }
+      };
+      const c = colors[obj.type] || colors.spawn;
+      const r = 16;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, r, 0, Math.PI * 2);
+      ctx.fillStyle = c.fill;
+      ctx.fill();
+      ctx.strokeStyle = c.stroke;
+      ctx.lineWidth = 2;
+      if (obj.type === 'spawn') ctx.setLineDash([4, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // 半径可视化（spawn 有 radius 时）
+      if (obj.type === 'spawn' && obj.radius > 0) {
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(220,80,80,0.4)';
+        ctx.setLineDash([3, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.fillStyle = c.stroke;
+      ctx.font = '13px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(c.icon, obj.x, obj.y);
+      const label = obj.name || obj.type;
+      this._drawLogicLabel(ctx, label, obj.x + r + 3, obj.y + 4, c.stroke);
+    }
+    ctx.restore();
+  }
+
+  /** 逻辑对象文字标签 */
+  _drawLogicLabel(ctx, text, x, y, color) {
+    ctx.font = '11px Arial';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    const w = ctx.measureText(text).width;
+    ctx.fillRect(x - 2, y - 10, w + 4, 13);
+    ctx.fillStyle = color || '#fff';
+    ctx.fillText(text, x, y);
   }
 
   /**
@@ -677,12 +745,18 @@ export class SceneEditorCanvas {
         w += 4;
         h += 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'region') {
         x = obj.x - 2;
         y = obj.y - 2;
-        w = obj.width + 4;
-        h = obj.height + 4;
+        w = (obj.width || 0) + 4;
+        h = (obj.height || 0) + 4;
         ctx.strokeRect(x, y, w, h);
+      } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+        // 点状逻辑对象：圆形选中框，无缩放手柄
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
+        ctx.stroke();
+        continue;
       } else if (obj.type === 'circle') {
         ctx.beginPath();
         ctx.arc(obj.x, obj.y, obj.radius + 2, 0, Math.PI * 2);

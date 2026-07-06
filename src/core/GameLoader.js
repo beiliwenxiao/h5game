@@ -13,6 +13,7 @@
 import { Blackboard } from './Blackboard.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
+import { createStandardRegistries } from './Registry.js';
 
 /**
  * GameLoader - 数据驱动游戏装配器（P4）
@@ -33,7 +34,14 @@ export class GameLoader {
     this.project = null;
     this.blackboard = new Blackboard();
     this.triggerSystem = new TriggerSystem();
+    // 内容库注册表（P2）：库与实例分离，运行时实例化引用库 id
+    this.registries = createStandardRegistries();
     this._baseDir = '';
+  }
+
+  /** 取某类内容库注册表（npcs/enemies/items/equipment/shops/classes/skills/vehicles/buildings） */
+  getRegistry(name) {
+    return this.registries[name] || null;
   }
 
   /**
@@ -92,14 +100,20 @@ export class GameLoader {
       for (const q of proj.quests) deps.questSystem.registerQuest?.(q);
     }
 
-    // 5. 内容库 → 各系统 registry（P2 接入；registries 可选）
-    if (deps.registries && proj.library) {
+    // 5. 内容库 → 注册表（P2）：全部库类统一进 this.registries
+    if (proj.library) {
       const lib = proj.library;
-      const reg = deps.registries;
-      if (reg.enemies && Array.isArray(lib.enemies)) lib.enemies.forEach(e => reg.enemies.register?.(e));
-      if (reg.npcs && Array.isArray(lib.npcs)) lib.npcs.forEach(n => reg.npcs.register?.(n));
-      if (reg.items && Array.isArray(lib.items)) lib.items.forEach(i => reg.items.register?.(i));
-      if (reg.shops && Array.isArray(lib.shops)) lib.shops.forEach(s => reg.shops.register?.(s));
+      for (const key of Object.keys(this.registries)) {
+        if (Array.isArray(lib[key])) this.registries[key].registerAll(lib[key]);
+      }
+      // 若外部系统提供了自己的 registry（deps.registries），一并同步注册（桥接现有系统）
+      if (deps.registries) {
+        for (const [key, reg] of Object.entries(deps.registries)) {
+          if (reg && typeof reg.register === 'function' && Array.isArray(lib[key])) {
+            lib[key].forEach(def => reg.register(def));
+          }
+        }
+      }
     }
 
     // 6. worldMap → WorldStreamingManager（P5，若提供）

@@ -25,6 +25,10 @@ import { EquipmentComponent } from './components/EquipmentComponent.js';
 import { InventoryComponent } from './components/InventoryComponent.js';
 import { NameComponent } from './components/NameComponent.js';
 import { LayerComponent } from './components/LayerComponent.js';
+import { BuildingComponent } from './components/BuildingComponent.js';
+import { VehicleComponent } from './components/VehicleComponent.js';
+import { ObjectiveComponent } from './components/ObjectiveComponent.js';
+import { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
 
 /**
  * 实体工厂类
@@ -381,6 +385,106 @@ export class EntityFactory {
     // 默认分层
     entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
 
+    return entity;
+  }
+
+  /**
+   * 创建建筑实体（城墙/城门/箭塔/兵营，§14.3）
+   * @param {Object} data - { id, buildingType, position, maxHp, team, footprint, colliderRadius, controllable, onDestroyed, spriteSheet, name }
+   * @returns {Entity}
+   */
+  createBuilding(data = {}) {
+    const entity = new Entity(data.id || this.generateId(), 'building');
+    entity.faction = data.team || 'neutral';
+
+    const position = data.position || { x: 0, y: 0 };
+    entity.addComponent(new TransformComponent(position.x, position.y));
+
+    entity.addComponent(new BuildingComponent({
+      buildingType: data.buildingType,
+      maxHp: data.maxHp,
+      hp: data.hp,
+      team: data.team,
+      footprint: data.footprint,
+      colliderRadius: data.colliderRadius,
+      controllable: data.controllable,
+      onDestroyed: data.onDestroyed
+    }));
+
+    // 精灵（可选）
+    if (data.spriteSheet) {
+      const sprite = new SpriteComponent(data.spriteSheet, {
+        width: data.width || 64,
+        height: data.height || 64,
+        defaultAnimation: 'idle'
+      });
+      sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
+      entity.addComponent(sprite);
+    }
+
+    // 可控建筑（如箭塔）挂控制者，默认 AI
+    if (data.controllable) {
+      entity.addComponent(new ControllerComponent({ kind: ControllerKind.AI, team: data.team }));
+    }
+
+    if (data.name) entity.addComponent(new NameComponent(data.name, { color: '#ddd', fontSize: 13, offsetY: -20 }));
+    entity.name = data.name || data.buildingType;
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+    return entity;
+  }
+
+  /**
+   * 创建载具实体（战马/战车/八床弩，§14.3）
+   * @param {Object} data - { id, vehicleType, position, speed, turnRate, maxHp, seats, onDestroyed, spriteSheet, team, name }
+   * @returns {Entity}
+   */
+  createVehicle(data = {}) {
+    const entity = new Entity(data.id || this.generateId(), 'vehicle');
+    entity.faction = data.team || 'neutral';
+
+    const position = data.position || { x: 0, y: 0 };
+    entity.addComponent(new TransformComponent(position.x, position.y));
+
+    entity.addComponent(new VehicleComponent({
+      vehicleType: data.vehicleType,
+      speed: data.speed,
+      turnRate: data.turnRate,
+      maxHp: data.maxHp,
+      hp: data.hp,
+      seats: data.seats,
+      onDestroyed: data.onDestroyed
+    }));
+
+    // 载具移动能力（复用 MovementSystem）
+    entity.addComponent(new MovementComponent({ speed: data.speed || 120 }));
+
+    // 载具本体控制者（driver 席位有人时被接管）
+    entity.addComponent(new ControllerComponent({ kind: ControllerKind.AI, team: data.team }));
+
+    if (data.spriteSheet) {
+      const sprite = new SpriteComponent(data.spriteSheet, {
+        width: data.width || 64,
+        height: data.height || 64,
+        defaultAnimation: 'idle'
+      });
+      sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
+      entity.addComponent(sprite);
+    }
+
+    entity.name = data.name || data.vehicleType;
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+    return entity;
+  }
+
+  /**
+   * 为已有实体附加战场目标物标记（§14.3）
+   * @param {Entity} entity
+   * @param {Object} data - ObjectiveComponent 配置
+   * @returns {Entity}
+   */
+  attachObjective(entity, data = {}) {
+    if (!entity) return entity;
+    entity.addComponent(new ObjectiveComponent(data));
     return entity;
   }
 }

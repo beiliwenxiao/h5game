@@ -466,7 +466,7 @@ export class SceneEditorUI {
       } else {
         html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
         html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
-        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'shape') {
+        if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'shape' || obj.type === 'region') {
           html += `<div class="property-row"><label>宽度:</label><input type="number" value="${Math.round(obj.width)}" data-prop="width"></div>`;
           html += `<div class="property-row"><label>高度:</label><input type="number" value="${Math.round(obj.height)}" data-prop="height"></div>`;
         } else if (obj.type === 'circle') {
@@ -484,6 +484,8 @@ export class SceneEditorUI {
         html += this._buildEllipseProperties(obj);
       } else if (obj.type === 'shape') {
         html += this._buildShapeProperties(obj);
+      } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+        html += this._buildLogicProperties(obj);
       } else if (obj.fill) {
         html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
       }
@@ -575,6 +577,32 @@ export class SceneEditorUI {
     }
 
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
+  }
+
+  /**
+   * 构建逻辑对象（region/spawn/portal/npc）的属性 HTML（P2-1）
+   * 这些字段直接作为 obj 的属性，走通用 data-prop 绑定（obj[prop]=value）。
+   * @private
+   */
+  _buildLogicProperties(obj) {
+    let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
+    html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
+    if (obj.type === 'region') {
+      html += `<div class="property-row"><label>区域ID:</label><input type="text" value="${obj.regionId || ''}" data-prop="regionId" placeholder="供触发器 enterRegion 引用"></div>`;
+    } else if (obj.type === 'spawn') {
+      html += `<div class="property-row"><label>刷怪ID:</label><input type="text" value="${obj.spawnId || ''}" data-prop="spawnId"></div>`;
+      html += `<div class="property-row"><label>敌人库ID:</label><input type="text" value="${obj.enemyRef || ''}" data-prop="enemyRef" placeholder="library.enemies 的 id"></div>`;
+      html += `<div class="property-row"><label>数量:</label><input type="number" value="${obj.count != null ? obj.count : 1}" min="1" data-prop="count"></div>`;
+      html += `<div class="property-row"><label>波次:</label><input type="number" value="${obj.wave != null ? obj.wave : 0}" min="0" data-prop="wave"></div>`;
+      html += `<div class="property-row"><label>半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 0}" min="0" data-prop="radius" title="0=单点，>0 在半径内随机散布"></div>`;
+    } else if (obj.type === 'portal') {
+      html += `<div class="property-row"><label>传送门ID:</label><input type="text" value="${obj.portalId || ''}" data-prop="portalId"></div>`;
+      html += `<div class="property-row"><label>目标场景:</label><input type="text" value="${obj.targetScene || ''}" data-prop="targetScene" placeholder="目标 scene id"></div>`;
+      html += `<div class="property-row"><label>目标出生点:</label><input type="text" value="${obj.targetSpawn || ''}" data-prop="targetSpawn" placeholder="目标 spawn id"></div>`;
+    } else if (obj.type === 'npc') {
+      html += `<div class="property-row"><label>NPC库ID:</label><input type="text" value="${obj.npcRef || ''}" data-prop="npcRef" placeholder="library.npcs 的 id"></div>`;
+    }
+    return html;
   }
 
   /**

@@ -74,6 +74,18 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
+        } else if (obj.type === 'region') {
+          // 区域：矩形命中
+          if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
+        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+          // 点状逻辑对象：18px 半径命中
+          if (Math.hypot(x - obj.x, y - obj.y) <= 18) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
         }
       }
     }

@@ -339,9 +339,6 @@ export class SceneEditor {
     // 将 decorations 转换合并到装饰层
     this.layers.mergeDecorationsToLayer();
 
-    // 将 terrain 椭圆转换为 type:'ellipse' 对象（兼容旧数据）
-    this._ensureTerrainEllipse();
-
     // 清空缓存
     this.loadedImages = new Map();
     this.selectedObjects = [];
@@ -417,59 +414,6 @@ export class SceneEditor {
         }
       }
     }
-  }
-
-  /**
-   * 确保 terrain 配置中的椭圆已转换为 layer_fill 中的 ellipse 对象
-   * 仅在 layer_fill 中没有 ellipse 对象时执行（避免重复）
-   * @private
-   */
-  _ensureTerrainEllipse() {
-    const data = this.sceneData;
-    if (!data.terrain) return;
-    const terrainType = data.terrain.type || 'basin';
-    if (terrainType === 'indoor') return; // 室内场景无椭圆
-
-    // 找到 layer_fill
-    const fillLayer = data.layers.find(l => l.id === 'layer_fill');
-    if (!fillLayer) return;
-
-    // 检查是否已有椭圆（含迁移后的 shape 椭圆）
-    const hasEllipse = fillLayer.objects.some(o =>
-      o.type === 'ellipse' || (o.type === 'shape' && o.shapeType === 'ellipse'));
-    if (hasEllipse) return;
-
-    // 从 terrain 配置生成椭圆对象
-    const centerX = data.centerX || data.width / 2;
-    const centerY = (data.centerY || data.height / 2) - 32;
-    const radiusX = (data.basinRadius || 640) + 20;
-    const radiusY = radiusX * (data.basinAspectY || 0.65);
-
-    let grassColor = '#3a5a2a';
-    if (terrainType === 'battlefield') grassColor = '#4a3030';
-    else if (terrainType === 'mountain') grassColor = '#404a30';
-    else if (terrainType === 'camp') grassColor = '#3a4a3a';
-
-    fillLayer.objects.push({
-      id: 'ellipse_terrain_' + Date.now(),
-      type: 'shape',
-      shapeType: 'ellipse',
-      name: '地形椭圆',
-      x: centerX - radiusX,
-      y: centerY - radiusY,
-      width: radiusX * 2,
-      height: radiusY * 2,
-      fillMode: 'color',
-      fill: grassColor,
-      opacity: 1,
-      edgeFade: 0.28,   // 自带边缘淡化，替代原遮罩层森林环带
-      stroke: '',
-      strokeWidth: 0,
-      collide: false
-    });
-
-    // 椭圆现在是可编辑对象，解锁背景填充层以便选中编辑
-    fillLayer.locked = false;
   }
 
   /**

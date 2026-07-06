@@ -458,7 +458,7 @@ export class SceneEditorUI {
       const isVertexShape = obj.type === 'shape' && (obj.shapeType === 'polygon' || obj.shapeType === 'path');
       if (isVertexShape) {
         html += `<div class="property-row"><label>形状:</label><input value="${obj.shapeType}" disabled></div>`;
-        html += `<div class="property-row"><label>顶点数:</label><input value="${(obj.points || []).length}" disabled></div>`;
+        html += `<div class="property-row"><label>顶点数:</label><input type="number" value="${(obj.points || []).length}" min="3" max="100" data-prop="_vertexCount" title="3~100，修改后按正多边形重新生成顶点"></div>`;
       } else {
         html += `<div class="property-row"><label>X:</label><input type="number" value="${Math.round(obj.x)}" data-prop="x"></div>`;
         html += `<div class="property-row"><label>Y:</label><input type="number" value="${Math.round(obj.y)}" data-prop="y"></div>`;
@@ -504,6 +504,29 @@ export class SceneEditorUI {
           obj.gradientStops[prop === 'gradientColor0' ? 0 : 1].color = value;
         } else if (prop === 'fillMode') {
           obj.fillMode = value;
+          this.updateObjectProperties();
+        } else if (prop === '_vertexCount') {
+          // 修改顶点数：加点=在随机边中点插入；减点=随机删除一个顶点（保持形状不变形）
+          const n = Math.max(3, Math.min(100, Math.round(value)));
+          if (!Array.isArray(obj.points) || obj.points.length < 3) return;
+          const cur = obj.points.length;
+          if (n === cur) { /* 不变 */ }
+          else if (n > cur) {
+            // 加点：每次在随机边的中点处插入新顶点
+            while (obj.points.length < n) {
+              const idx = Math.floor(Math.random() * obj.points.length);
+              const next = (idx + 1) % obj.points.length;
+              const mx = Math.round((obj.points[idx][0] + obj.points[next][0]) / 2);
+              const my = Math.round((obj.points[idx][1] + obj.points[next][1]) / 2);
+              obj.points.splice(next, 0, [mx, my]);
+            }
+          } else {
+            // 减点：随机删除顶点直到目标数（最少保留3个）
+            while (obj.points.length > n && obj.points.length > 3) {
+              const idx = Math.floor(Math.random() * obj.points.length);
+              obj.points.splice(idx, 1);
+            }
+          }
           this.updateObjectProperties();
         } else {
           obj[prop] = value;

@@ -47,24 +47,68 @@
           "name": "多边形",
           "points": [
             [
-              828,
-              288
+              874,
+              249
             ],
             [
-              952,
-              189
+              891,
+              248
             ],
             [
-              946,
-              307
+              907,
+              213
             ],
             [
-              806,
-              366
+              961,
+              206
             ],
             [
-              792,
-              305
+              956,
+              281
+            ],
+            [
+              926,
+              320
+            ],
+            [
+              885,
+              325
+            ],
+            [
+              872,
+              329
+            ],
+            [
+              864,
+              353
+            ],
+            [
+              829,
+              361
+            ],
+            [
+              803,
+              343
+            ],
+            [
+              802,
+              316
+            ],
+            [
+              821,
+              301
+            ],
+            [
+              855,
+              310
+            ],
+            [
+              842,
+              287
+            ],
+            [
+              850,
+              267
             ]
           ],
           "fillMode": "color",
@@ -86,6 +130,257 @@
               "color": "#df2020"
             }
           ]
+        },
+        {
+          "id": "obj_1783351833424",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              436,
+              11
+            ],
+            [
+              482,
+              26
+            ],
+            [
+              501,
+              53
+            ],
+            [
+              474,
+              90
+            ],
+            [
+              413,
+              86
+            ],
+            [
+              395,
+              51
+            ],
+            [
+              407,
+              28
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353152063",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -64,
+              363
+            ],
+            [
+              -43,
+              326
+            ],
+            [
+              -7,
+              325
+            ],
+            [
+              33,
+              386
+            ],
+            [
+              30,
+              434
+            ],
+            [
+              -1,
+              456
+            ],
+            [
+              -43,
+              457
+            ],
+            [
+              -145,
+              496
+            ],
+            [
+              -174,
+              503
+            ],
+            [
+              -189,
+              481
+            ],
+            [
+              -181,
+              450
+            ],
+            [
+              -69,
+              408
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353257569",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              771,
+              446
+            ],
+            [
+              798,
+              424
+            ],
+            [
+              837,
+              457
+            ],
+            [
+              794,
+              479
+            ],
+            [
+              720,
+              528
+            ],
+            [
+              681,
+              559
+            ],
+            [
+              667,
+              543
+            ],
+            [
+              693,
+              522
+            ],
+            [
+              688,
+              514
+            ],
+            [
+              659,
+              531
+            ],
+            [
+              647,
+              509
+            ],
+            [
+              666,
+              500
+            ],
+            [
+              698,
+              487
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353361337",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -7,
+              473
+            ],
+            [
+              28,
+              478
+            ],
+            [
+              51,
+              511
+            ],
+            [
+              49,
+              538
+            ],
+            [
+              -19,
+              559
+            ],
+            [
+              -42,
+              536
+            ],
+            [
+              -37,
+              496
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353433306",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              101,
+              495
+            ],
+            [
+              169,
+              509
+            ],
+            [
+              194,
+              604
+            ],
+            [
+              50,
+              601
+            ],
+            [
+              70,
+              545
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
         }
       ]
     },
@@ -909,8 +1204,8 @@
           "id": "deco_77107822",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -151,
-          "y": 423,
+          "x": -164.08255192973965,
+          "y": 491.3199934108626,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -931,8 +1226,8 @@
           "id": "deco_73247594",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 551,
-          "y": 525,
+          "x": 548.0927662378356,
+          "y": 532.268084405411,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -975,8 +1270,8 @@
           "id": "deco_19356082",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 746,
-          "y": 421,
+          "x": 609.3600131782746,
+          "y": 562.0008374649719,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -2226,21 +2521,10 @@
           "name": "tree3"
         },
         {
-          "id": "deco_47316547",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": 614,
-          "y": 512,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
-        },
-        {
           "id": "deco_19844572",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 564,
+          "x": 562.5463831189178,
           "y": 538,
           "width": 64,
           "height": 128,
@@ -2251,8 +2535,8 @@
           "id": "deco_35592175",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 513,
-          "y": 528,
+          "x": 489.74212990268506,
+          "y": 533.8144675243287,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2325,22 +2609,11 @@
           "name": "tree2"
         },
         {
-          "id": "deco_61906628",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": -177,
-          "y": 406,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
-        },
-        {
           "id": "deco_74748613",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -214,
-          "y": 367,
+          "x": 315.116544713915,
+          "y": 628.6510385947932,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2350,8 +2623,8 @@
           "id": "deco_9903159",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -209,
-          "y": 347,
+          "x": 256.15740194629893,
+          "y": 627.5480580488615,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2847,28 +3120,6 @@
           "decoKey": "tree2",
           "x": 759,
           "y": 640,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_23082729",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": 603,
-          "y": 625,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
-        },
-        {
-          "id": "deco_21841616",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": 699,
-          "y": 608,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3496,17 +3747,6 @@
           "height": 128,
           "scale": 1,
           "name": "tree1"
-        },
-        {
-          "id": "deco_95739984",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": 593,
-          "y": 674,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
         },
         {
           "id": "deco_8901280",
@@ -4257,17 +4497,6 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934580746_800",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree3",
-          "x": 704,
-          "y": 660,
-          "width": 64,
-          "height": 128,
-          "name": "小树"
-        },
-        {
           "id": "obj_1782934583431_319",
           "type": "slice",
           "atlasId": "mountain_landscape",
@@ -4514,8 +4743,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 89.8296916594175,
-          "y": 96.46651693308743,
+          "x": 123.26287992430773,
+          "y": 80.47673124118339,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4569,8 +4798,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 435.08078416159225,
-          "y": -24.587339174640753,
+          "x": 518.3437940068807,
+          "y": 21.544868982883862,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4591,8 +4820,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 195.08059920657988,
-          "y": 318.86504239757585,
+          "x": 193.6269823254977,
+          "y": 330.4939774462333,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4618,13 +4847,115 @@
           "width": 64,
           "height": 128,
           "name": "小树"
+        },
+        {
+          "id": "obj_1783353571091",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              805,
+              180
+            ],
+            [
+              828,
+              161
+            ],
+            [
+              852,
+              140
+            ],
+            [
+              869,
+              170
+            ],
+            [
+              755,
+              241
+            ],
+            [
+              742,
+              242
+            ],
+            [
+              730,
+              223
+            ],
+            [
+              757,
+              214
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#ffffff",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "deco_47316547",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 640.1651038594794,
+          "y": 605.0314803892596,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_21841616",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 699,
+          "y": 608,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934580746_800",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 709.8144675243287,
+          "y": 657.0927662378356,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "deco_23082729",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 592.8246818324247,
+          "y": 616.2782987135068,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_95739984",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 594.4536168810822,
+          "y": 681.268084405411,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
         }
       ]
     },
     {
       "id": "layer_entity",
       "name": "实体层",
-      "visible": true,
+      "visible": false,
       "locked": false,
       "objects": []
     }
@@ -6739,7 +7070,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-06T14:59:34.240Z",
+  "updatedAt": "2026-07-06T16:15:36.729Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

@@ -575,7 +575,7 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 
 - **P2 运行时场景接入**：逻辑对象（spawn/npc/portal/region）与战场组件（building/vehicle/objective）的**游戏内实例化**待 P4-3 DataDrivenScene 就绪后，由 chunk/scene 按 `objects` + `library` 引用实例化（框架/编辑器已就位，运行时装配未接）。
 - **P4-3 DataDrivenScene**：✅ 已交付（叠加式新类，未替换 Act 场景）。渲染用简版占位方块画实体，接入现有 RenderSystem/相机做正式表现属后续增强。
-- **P4-4 Resolver**：✅ 已交付（RNG + Combat/Loot/Quest Resolver，纯函数叠加，现有系统未改）。让现有 CombatSystem 委托 CombatResolver（去重）属可选增强，留待与 P4-5 一起做。
+- **P4-4 Resolver**：✅ 已交付（RNG + Combat/Loot/Quest Resolver）。**增强1已做**：CombatSystem.calculateDamage/calculateSkillDamage 已收敛为委托 `CombatResolver.resolveAttack/resolveSkillAttack`（行为等价：兵种/元素相克经闭包注入真实 stats，单机 rng=null→Math.random 与旧行为统计等价，联网注入种子 RNG）。CombatResolver 现为普攻+技能伤害的唯一权威入口。LootSystem/QuestSystem 的委托可后续按需做。
 - **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收）。【待用户确认后逐幕推进】
 - **P3 运行时引导切换**：序章现有提示的实际迁入 tutorials[] + 替换旧 TutorialSystem 待 P4-5（编辑器 + 数据格式已就绪）。
 - **P5 大地图流式 / P6 存档性能**：未开始。

@@ -17,6 +17,7 @@
 
 import { ElementSystem } from './ElementSystem.js';
 import { UnitSystem } from './UnitSystem.js';
+import { CombatResolver } from './resolvers/CombatResolver.js';
 
 /**
  * 战斗系统
@@ -49,6 +50,10 @@ export class CombatSystem {
     
     // 初始化兵种系统
     this.unitSystem = new UnitSystem();
+
+    // 战斗随机源（§13 约定6）：单机为 null → Resolver 内部用 Math.random（与旧行为等价）；
+    // 联网/回放时注入种子 RNG（RNG 实例）实现确定性结算。
+    this.combatRng = config.combatRng || null;
     
     // 玩家实体引用
     this.playerEntity = null;
@@ -837,44 +842,31 @@ export class CombatSystem {
       defense = modifiedTargetStats.defense;
     }
     
-    // 应用士气加成（大规模战斗）
-    if (attackerStats.moraleMultiplier) {
-      attack *= attackerStats.moraleMultiplier;
-    }
-    if (targetStats.moraleMultiplier) {
-      defense *= targetStats.moraleMultiplier;
-    }
-    
-    // 基础伤害公式：攻击力 - 防御力
-    let baseDamage = attack - defense;
-    baseDamage = Math.max(1, baseDamage);
-    
-    // 计算兵种相克加成
-    const unitDamage = this.unitSystem.calculateUnitDamage(
-      attackerStats,
-      targetStats,
-      baseDamage
-    );
-    
-    // 如果没有指定技能元素类型，使用攻击者的主元素
-    const elementType = skillElementType !== null ? skillElementType : attackerStats.getMainElement();
-    
-    // 计算元素伤害
-    const finalDamage = this.elementSystem.calculateElementDamage(
-      attackerStats,
-      targetStats,
-      elementType,
-      unitDamage
-    );
-    
-    // 添加随机波动（±10%）
-    const variance = 0.1;
-    const randomFactor = 1 + (Math.random() * 2 - 1) * variance;
-    const damage = Math.floor(finalDamage * randomFactor);
-    
-    // 确保最小伤害为 1-5 点随机值
-    const minDamage = Math.floor(Math.random() * 5) + 1; // 1-5
-    return Math.max(minDamage, damage);
+    // 委托 CombatResolver 做权威结算（§13 约定5：伤害逻辑集中于 Resolver）
+    // 兵种/元素相克通过闭包注入真实 stats（保持与旧逻辑等价）；
+    // 单机 rng=null → Resolver 内部用 Math.random（与旧行为统计等价）；联网时注入种子 RNG。
+    const result = CombatResolver.resolveAttack({
+      attacker: {
+        attack,
+        element: skillElementType !== null ? skillElementType : attackerStats.getMainElement(),
+        moraleMultiplier: attackerStats.moraleMultiplier || 1
+      },
+      target: {
+        defense,
+        hp: targetStats.hp,
+        moraleMultiplier: targetStats.moraleMultiplier || 1
+      },
+      skill: skillElementType !== null ? { element: skillElementType } : null
+    }, {
+      rng: this.combatRng || null,
+      unitCalc: this.unitSystem
+        ? (a, t, dmg) => this.unitSystem.calculateUnitDamage(attackerStats, targetStats, dmg)
+        : null,
+      elementCalc: this.elementSystem
+        ? (a, t, el, dmg) => this.elementSystem.calculateElementDamage(attackerStats, targetStats, el, dmg)
+        : null
+    });
+    return result.damage;
   }
 
   /**
@@ -1849,13 +1841,6 @@ export class CombatSystem {
     
     if (!casterStats || !targetStats) return 0;
     
-    // 如果技能有随机伤害范围（damageMin/damageMax），直接使用
-    if (skill.damageMin !== undefined && skill.damageMax !== undefined) {
-      const randomDamage = Math.floor(Math.random() * (skill.damageMax - skill.damageMin + 1)) + skill.damageMin;
-      return randomDamage;
-    }
-    
-    // 否则使用原有的伤害计算逻辑
     // 获取修改后的属性（考虑状态效果）
     let attack = casterStats.attack;
     let defense = targetStats.defense;
@@ -1867,49 +1852,30 @@ export class CombatSystem {
       defense = modifiedTargetStats.defense;
     }
     
-    // 应用士气加成（大规模战斗）
-    if (casterStats.moraleMultiplier) {
-      attack *= casterStats.moraleMultiplier;
-    }
-    if (targetStats.moraleMultiplier) {
-      defense *= targetStats.moraleMultiplier;
-    }
-    
-    // 基础伤害 = 攻击力 * 技能倍率
-    let baseDamage = attack * skill.damage;
-    
-    // 减去防御力
-    if (skill.type === 'physical') {
-      baseDamage -= defense;
-    }
-    
-    // 最小伤害为1
-    baseDamage = Math.max(1, baseDamage);
-    
-    // 计算兵种相克加成
-    const unitDamage = this.unitSystem.calculateUnitDamage(
-      casterStats,
-      targetStats,
-      baseDamage
-    );
-    
-    // 获取技能元素类型（如果技能有元素属性）
-    const skillElementType = skill.elementType !== undefined ? skill.elementType : casterStats.getMainElement();
-    
-    // 计算元素伤害
-    const finalDamage = this.elementSystem.calculateElementDamage(
-      casterStats,
-      targetStats,
-      skillElementType,
-      unitDamage
-    );
-    
-    // 添加随机波动（±10%）
-    const variance = 0.1;
-    const randomFactor = 1 + (Math.random() * 2 - 1) * variance;
-    const damage = Math.floor(finalDamage * randomFactor);
-    
-    return Math.max(1, damage);
+    // 委托 CombatResolver.resolveSkillAttack 做权威结算（§13 约定5）
+    // damageMin/damageMax 定值随机、attack×倍率、physical 减防、min 1 等逻辑均在 Resolver 内镜像。
+    const result = CombatResolver.resolveSkillAttack({
+      caster: {
+        attack,
+        element: casterStats.getMainElement(),
+        moraleMultiplier: casterStats.moraleMultiplier || 1
+      },
+      target: {
+        defense,
+        hp: targetStats.hp,
+        moraleMultiplier: targetStats.moraleMultiplier || 1
+      },
+      skill
+    }, {
+      rng: this.combatRng || null,
+      unitCalc: this.unitSystem
+        ? (a, t, dmg) => this.unitSystem.calculateUnitDamage(casterStats, targetStats, dmg)
+        : null,
+      elementCalc: this.elementSystem
+        ? (a, t, el, dmg) => this.elementSystem.calculateElementDamage(casterStats, targetStats, el, dmg)
+        : null
+    });
+    return result.damage;
   }
 
   /**

@@ -95,6 +95,61 @@ export const CombatResolver = {
   },
 
   /**
+   * 结算一次技能攻击（镜像 CombatSystem.calculateSkillDamage 公式）
+   * 与 resolveAttack 的区别：基础伤害 = 攻击 × 技能倍率(skill.damage)，
+   * 仅 physical 技能减防，最小伤害 1（无 1~5 随机），支持 damageMin/damageMax 定值随机。
+   * @param {Object} args
+   * @param {Object} args.caster - { attack, element, moraleMultiplier }
+   * @param {Object} args.target - { defense, hp, moraleMultiplier }
+   * @param {Object} args.skill  - { damage, damageMin?, damageMax?, type?, elementType? }
+   * @param {Object} ctx - { rng, elementCalc?, unitCalc? }
+   * @returns {{ damage:number, dead:boolean, targetHp:number, events:Array }}
+   */
+  resolveSkillAttack({ caster, target, skill = {} }, ctx = {}) {
+    const events = [];
+    if (!caster || !target) return { damage: 0, dead: false, targetHp: target ? target.hp : 0, events };
+    const rng = ctx.rng;
+    const rand = rng ? () => rng.next() : Math.random;
+
+    // 定值随机伤害（damageMin/damageMax）优先
+    if (skill.damageMin !== undefined && skill.damageMax !== undefined) {
+      const dmg = Math.floor(rand() * (skill.damageMax - skill.damageMin + 1)) + skill.damageMin;
+      const targetHp = Math.max(0, (target.hp || 0) - dmg);
+      const dead = targetHp <= 0;
+      events.push({ type: 'damage', amount: dmg, dead });
+      if (dead) events.push({ type: 'death' });
+      return { damage: dmg, dead, targetHp, events };
+    }
+
+    let attack = caster.attack || 0;
+    let defense = target.defense || 0;
+    if (caster.moraleMultiplier) attack *= caster.moraleMultiplier;
+    if (target.moraleMultiplier) defense *= target.moraleMultiplier;
+
+    // 基础伤害 = 攻击 × 技能倍率
+    let dmg = attack * (skill.damage != null ? skill.damage : 1);
+    if (skill.type === 'physical') dmg -= defense;
+    dmg = Math.max(1, dmg);
+
+    if (typeof ctx.unitCalc === 'function') dmg = ctx.unitCalc(caster, target, dmg);
+
+    const elementType = (skill.elementType !== undefined) ? skill.elementType
+      : (caster.element != null ? caster.element : 0);
+    if (typeof ctx.elementCalc === 'function') dmg = ctx.elementCalc(caster, target, elementType, dmg);
+
+    const variance = 0.1;
+    const randomFactor = 1 + (rand() * 2 - 1) * variance;
+    dmg = Math.max(1, Math.floor(dmg * randomFactor));
+
+    const targetHp = Math.max(0, (target.hp || 0) - dmg);
+    const dead = targetHp <= 0;
+    events.push({ type: 'damage', amount: dmg, element: elementType, dead });
+    if (dead) events.push({ type: 'death' });
+
+    return { damage: dmg, dead, targetHp, events };
+  },
+
+  /**
    * 从实体提取战斗快照（便于调用方；仍是纯读取）
    * @param {Entity} entity
    * @returns {Object|null}

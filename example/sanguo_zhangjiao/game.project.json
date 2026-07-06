@@ -1227,25 +1227,6 @@
         }
       ],
       "once": true
-    },
-    {
-      "id": "trg_mr9jkg1o",
-      "when": {
-        "type": "timer",
-        "params": {
-          "seconds": 5
-        }
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "又过了5秒~"
-          }
-        }
-      ],
-      "once": false,
-      "cooldown": 5
     }
   ],
   "tutorials": [],

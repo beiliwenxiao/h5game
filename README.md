@@ -1,7 +1,8 @@
 # H5Game - 基于HTML5的游戏引擎
 
 一个基于完整 ECS 架构的 HTML5 游戏引擎
-交流QQ群:58607027
+
+官方QQ群:58607027
 
 ![游戏预览](example/sanguo_zhangjiao/assets/images/003.png)
 

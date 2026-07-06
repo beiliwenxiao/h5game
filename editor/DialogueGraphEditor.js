@@ -1,0 +1,501 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ ************************************************************/
+
+/**
+ * DialogueGraphEditor - 对话图编辑器（P3-1）
+ *
+ * 读写 GameProject（example/<game>/game.project.json）的 dialogues[]。
+ * 对话格式与 DialogueSystem.registerDialogue 兼容（§5.1）：
+ *   { id, title, startNode, nodes:{ <nodeId>:{ speaker, portrait, text,
+ *       nextNode:<id|null>,                       // 单跳
+ *       choices:[{ id, text, nextNode, if?, do? }] // 多选分支（DSL 条件/动作）
+ *   }}}
+ * choice.if = ExpressionEngine 条件（JSON，可空）；choice.do = 动作序列（JSON，可空）。
+ *
+ * 提供「导入 DialogueData.json」把现有对话数据迁移进 dialogues[]（P3-2）。
+ * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写。
+ */
+
+export class DialogueGraphEditor {
+  /**
+   * @param {HTMLElement} container
+   * @param {Object} options - { gameId }
+   */
+  constructor(container, options = {}) {
+    this.container = container;
+    this.gameId = options.gameId || 'sanguo_zhangjiao';
+    this.projectPath = `example/${this.gameId}/game.project.json`;
+    this.legacyDialoguePath = `example/${this.gameId}/data/DialogueData.json`;
+    this.project = null;
+    this.dialogues = [];
+    this.selectedIndex = -1;
+    this._initialized = false;
+  }
+
+  async init() {
+    if (!this._initialized) {
+      this._initialized = true;
+      this._buildUI();
+      this._injectStyles();
+    }
+    await this._load();
+    this._renderList();
+    this._renderDetail();
+  }
+
+  // ---- 加载 / 保存 ----
+
+  async _load() {
+    try {
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok && data.content) this.project = JSON.parse(data.content);
+      }
+    } catch (e) {
+      console.warn('DialogueGraphEditor: 加载工程失败', e);
+    }
+    if (!this.project) this.project = { meta: { id: this.gameId }, variables: {}, dialogues: [] };
+    if (!Array.isArray(this.project.dialogues)) this.project.dialogues = [];
+    this.dialogues = this.project.dialogues;
+  }
+
+  async save() {
+    if (this._validateAllJson()) {
+      this._toast('JSON 格式错误，请修正后再保存（红框处）', false);
+      this._status('❌ JSON 格式错误，未保存', 'err');
+      return;
+    }
+    this._commitDetail();
+    this.project.dialogues = this.dialogues;
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        this._status('✅ 已保存到 ' + this.projectPath + '（对话 ' + this.dialogues.length + ' 条）', 'ok');
+        this._toast('保存成功（对话 ' + this.dialogues.length + ' 条）', true);
+      } else {
+        this._status('❌ 保存失败: ' + (data.error || '未知'), 'err');
+        this._toast('保存失败: ' + (data.error || '未知'), false);
+      }
+    } catch (e) {
+      this._status('❌ 保存失败: ' + e.message, 'err');
+      this._toast('保存失败: ' + e.message, false);
+    }
+  }
+
+  /**
+   * 导入现有 DialogueData.json（按幕嵌套）→ 扁平化合并进 dialogues[]（P3-2）
+   * 非破坏：只往工程 dialogues[] 追加/覆盖同 id，不改动 DialogueData.json。
+   */
+  async importLegacy() {
+    let raw;
+    try {
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.legacyDialoguePath));
+      const data = await res.json();
+      if (!data || !data.ok) { this._toast('读取 DialogueData.json 失败', false); return; }
+      raw = JSON.parse(data.content);
+    } catch (e) {
+      this._toast('导入失败: ' + e.message, false);
+      return;
+    }
+    this._commitDetail();
+    const existingIds = new Set(this.dialogues.map(d => d.id));
+    let added = 0, updated = 0;
+    // DialogueData 结构：{ act1:{ dlgId:{...} }, act2:{...} }
+    for (const [act, group] of Object.entries(raw)) {
+      if (!group || typeof group !== 'object') continue;
+      for (const [dlgId, dlg] of Object.entries(group)) {
+        const entry = {
+          id: dlg.id || dlgId,
+          title: dlg.title || '',
+          act,
+          startNode: dlg.startNode || 'start',
+          nodes: dlg.nodes || {}
+        };
+        const idx = this.dialogues.findIndex(d => d.id === entry.id);
+        if (idx >= 0) { this.dialogues[idx] = entry; updated++; }
+        else { this.dialogues.push(entry); added++; }
+        existingIds.add(entry.id);
+      }
+    }
+    this.project.dialogues = this.dialogues;
+    this._renderList();
+    this._renderDetail();
+    this._toast(`已导入：新增 ${added} 条，覆盖 ${updated} 条（记得点保存）`, true);
+    this._status(`导入完成：新增 ${added}，覆盖 ${updated}。点击「保存到工程」写入。`, 'ok');
+  }
+
+  // ---- 数据辅助 ----
+  _dlg() { return this.dialogues[this.selectedIndex]; }
+  _nodeIds() {
+    const d = this._dlg();
+    return d && d.nodes ? Object.keys(d.nodes) : [];
+  }
+
+  // ---- UI 构建 ----
+  _buildUI() {
+    this.container.innerHTML = `
+      <div class="dlg-root">
+        <div class="dlg-toolbar">
+          <button id="dlg-add">+ 新增对话</button>
+          <button id="dlg-del">🗑 删除对话</button>
+          <button id="dlg-import">⬇ 导入 DialogueData</button>
+          <button id="dlg-save" class="primary">💾 保存到工程</button>
+          <span class="dlg-hint">数据 → ${this.projectPath} · dialogues</span>
+        </div>
+        <div class="dlg-main">
+          <div class="dlg-list" id="dlg-list"></div>
+          <div class="dlg-detail" id="dlg-detail"></div>
+        </div>
+        <div class="dlg-status" id="dlg-status"></div>
+      </div>`;
+    this.container.querySelector('#dlg-add').addEventListener('click', () => this._addDialogue());
+    this.container.querySelector('#dlg-del').addEventListener('click', () => this._deleteDialogue());
+    this.container.querySelector('#dlg-import').addEventListener('click', () => this.importLegacy());
+    this.container.querySelector('#dlg-save').addEventListener('click', () => this.save());
+  }
+
+  _injectStyles() {
+    if (document.getElementById('dlg-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'dlg-styles';
+    s.textContent = `
+      .dlg-root{display:flex;flex-direction:column;height:100%;background:#0d1326;color:#fff;}
+      .dlg-toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#16213e;border-bottom:1px solid #2a3a5e;}
+      .dlg-toolbar button{padding:7px 12px;background:#3a4a7e;border:none;border-radius:4px;color:#fff;cursor:pointer;}
+      .dlg-toolbar button.primary{background:#4CAF50;color:#000;font-weight:bold;}
+      .dlg-hint{margin-left:auto;color:#8aa;font-size:12px;}
+      .dlg-main{flex:1;display:flex;overflow:hidden;}
+      .dlg-list{width:220px;background:#111a30;border-right:1px solid #2a3a5e;overflow-y:auto;}
+      .dlg-item{padding:9px 14px;border-bottom:1px solid #1e2b47;cursor:pointer;}
+      .dlg-item:hover{background:#1a2540;}
+      .dlg-item.active{background:#2a3a6e;}
+      .dlg-item .di-title{font-weight:bold;font-size:13px;}
+      .dlg-item .di-id{font-size:11px;color:#9ab;}
+      .dlg-detail{flex:1;padding:16px;overflow-y:auto;}
+      .dlg-detail .row{margin-bottom:10px;}
+      .dlg-detail label{display:block;font-size:12px;color:#9ab;margin-bottom:3px;}
+      .dlg-detail input[type=text],.dlg-detail select,.dlg-detail textarea{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:6px;border-radius:3px;font-size:12px;}
+      .dlg-detail textarea{font-family:monospace;resize:vertical;}
+      .dlg-node{border:1px solid #2a3a5e;border-radius:6px;padding:10px;margin-bottom:10px;background:#0f1830;}
+      .dlg-node.start{border-color:#4CAF50;}
+      .dlg-node .node-head{display:flex;gap:6px;align-items:center;margin-bottom:8px;}
+      .dlg-node .node-head .nid{font-weight:bold;color:#7cf;font-size:13px;}
+      .dlg-node .node-head .start-badge{background:#4CAF50;color:#000;font-size:10px;padding:1px 6px;border-radius:8px;}
+      .dlg-2col{display:flex;gap:8px;}
+      .dlg-2col > div{flex:1;}
+      .dlg-choice{border:1px dashed #3a5a8e;border-radius:4px;padding:7px;margin-top:6px;background:#0c1428;}
+      .dlg-choice .ch-head{display:flex;gap:6px;align-items:center;margin-bottom:5px;}
+      .dlg-empty{color:#778;padding:40px;text-align:center;}
+      .dlg-status{padding:6px 16px;font-size:12px;min-height:22px;background:#0a1020;}
+      .dlg-status.ok{color:#6c6;} .dlg-status.err{color:#e66;}
+      .dlg-mini{padding:3px 8px;background:#3a4a7e;border:none;border-radius:3px;color:#fff;cursor:pointer;font-size:12px;}
+      .dlg-mini.danger{background:#7e3a3a;}
+    `;
+    document.head.appendChild(s);
+  }
+
+  _status(msg, kind) {
+    const el = this.container.querySelector('#dlg-status');
+    if (el) { el.textContent = msg; el.className = 'dlg-status ' + (kind || ''); }
+  }
+
+  _toast(msg, ok) {
+    let t = document.getElementById('dlg-toast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'dlg-toast';
+      t.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);' +
+        'padding:12px 28px;border-radius:8px;color:#fff;font-size:15px;font-weight:bold;' +
+        'z-index:100000;pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
+      document.body.appendChild(t);
+    }
+    t.textContent = (ok ? '✅ ' : '❌ ') + msg;
+    t.style.background = ok ? '#2e7d32' : '#c62828';
+    t.style.opacity = '1';
+    clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2400);
+  }
+
+  // ---- 列表 ----
+  _renderList() {
+    const list = this.container.querySelector('#dlg-list');
+    if (!list) return;
+    if (this.dialogues.length === 0) {
+      list.innerHTML = '<div class="dlg-empty">暂无对话<br>点「+ 新增」或「导入」</div>';
+      return;
+    }
+    list.innerHTML = '';
+    this.dialogues.forEach((d, i) => {
+      const item = document.createElement('div');
+      item.className = 'dlg-item' + (i === this.selectedIndex ? ' active' : '');
+      const cnt = d.nodes ? Object.keys(d.nodes).length : 0;
+      item.innerHTML = `<div class="di-title">${d.title || d.id || '(未命名)'}</div>
+        <div class="di-id">${d.id || ''} · ${cnt} 节点${d.act ? ' · ' + d.act : ''}</div>`;
+      item.addEventListener('click', () => {
+        this._commitDetail();
+        this.selectedIndex = i;
+        this._renderList();
+        this._renderDetail();
+      });
+      list.appendChild(item);
+    });
+  }
+
+  // ---- 详情（节点卡片）----
+  _renderDetail() {
+    const panel = this.container.querySelector('#dlg-detail');
+    if (!panel) return;
+    const d = this._dlg();
+    if (!d) {
+      panel.innerHTML = '<div class="dlg-empty">选择或新增一个对话</div>';
+      return;
+    }
+    if (!d.nodes) d.nodes = {};
+    const nodeIds = Object.keys(d.nodes);
+    const startOpts = nodeIds.map(id =>
+      `<option value="${id}" ${d.startNode === id ? 'selected' : ''}>${id}</option>`).join('');
+
+    let html = `
+      <div class="dlg-2col">
+        <div class="row"><label>对话 ID</label><input type="text" id="d-id" value="${this._esc(d.id || '')}"></div>
+        <div class="row"><label>标题 title</label><input type="text" id="d-title" value="${this._esc(d.title || '')}"></div>
+      </div>
+      <div class="row"><label>起始节点 startNode</label><select id="d-start">${startOpts || '<option value="">(无节点)</option>'}</select></div>
+      <div class="row" style="display:flex;gap:8px;">
+        <button class="dlg-mini" id="d-add-node">+ 添加节点</button>
+      </div>
+    `;
+
+    // 节点卡片
+    nodeIds.forEach(nid => {
+      const n = d.nodes[nid] || {};
+      const isStart = d.startNode === nid;
+      const nextOpts = this._nodeSelectOptions(nodeIds, n.nextNode);
+      const hasChoices = Array.isArray(n.choices) && n.choices.length > 0;
+
+      let choicesHtml = '';
+      if (hasChoices) {
+        n.choices.forEach((ch, ci) => {
+          const chNext = this._nodeSelectOptions(nodeIds, ch.nextNode);
+          choicesHtml += `
+            <div class="dlg-choice" data-nid="${nid}" data-ci="${ci}">
+              <div class="ch-head">
+                <input type="text" class="ch-text" placeholder="选项文本" value="${this._esc(ch.text || '')}" style="flex:2;">
+                <select class="ch-next" style="flex:1;">${chNext}</select>
+                <button class="dlg-mini danger ch-del">删</button>
+              </div>
+              <div class="dlg-2col">
+                <div><label style="font-size:11px;color:#9ab;">if 条件(JSON,可空)</label><textarea class="ch-if" rows="2" placeholder='{"op":"==","left":{"var":"act"},"right":1}'>${ch.if ? this._json(ch.if) : ''}</textarea></div>
+                <div><label style="font-size:11px;color:#9ab;">do 动作(JSON数组,可空)</label><textarea class="ch-do" rows="2" placeholder='[{"action":"setFlag","params":{"key":"agreed"}}]'>${ch.do ? this._json(ch.do) : ''}</textarea></div>
+              </div>
+            </div>`;
+        });
+      }
+
+      html += `
+        <div class="dlg-node ${isStart ? 'start' : ''}" data-nid="${nid}">
+          <div class="node-head">
+            <span class="nid">${nid}</span>
+            ${isStart ? '<span class="start-badge">START</span>' : ''}
+            <span style="flex:1;"></span>
+            <button class="dlg-mini node-del">删除节点</button>
+          </div>
+          <div class="dlg-2col">
+            <div class="row"><label>说话者 speaker</label><input type="text" class="n-speaker" value="${this._esc(n.speaker || '')}"></div>
+            <div class="row"><label>立绘 portrait</label><input type="text" class="n-portrait" value="${this._esc(n.portrait || '')}" placeholder="如 zhangjiao / player"></div>
+          </div>
+          <div class="row"><label>文本 text</label><textarea class="n-text" rows="2">${this._esc(n.text || '')}</textarea></div>
+          <div class="row">
+            <label>分支：无选项时走 nextNode；有选项时用 choices</label>
+            <div class="dlg-2col">
+              <div><label style="font-size:11px;">nextNode（单跳）</label><select class="n-next" ${hasChoices ? 'disabled' : ''}>${nextOpts}</select></div>
+              <div style="display:flex;align-items:flex-end;"><button class="dlg-mini n-add-choice">+ 添加选项</button></div>
+            </div>
+          </div>
+          ${choicesHtml}
+        </div>`;
+    });
+
+    panel.innerHTML = html;
+    this._bindDetailEvents(panel, d);
+  }
+
+  /** 生成一个 node 下拉（含“结束(null)”） */
+  _nodeSelectOptions(nodeIds, current) {
+    let opts = `<option value="" ${!current ? 'selected' : ''}>— 结束(null) —</option>`;
+    opts += nodeIds.map(id =>
+      `<option value="${id}" ${current === id ? 'selected' : ''}>${id}</option>`).join('');
+    return opts;
+  }
+
+  _bindDetailEvents(panel, d) {
+    panel.querySelector('#d-add-node').addEventListener('click', () => {
+      this._commitDetail();
+      const nid = this._newNodeId(d);
+      d.nodes[nid] = { speaker: '', portrait: '', text: '', nextNode: null };
+      if (!d.startNode || Object.keys(d.nodes).length === 1) d.startNode = nid;
+      this._renderDetail();
+    });
+
+    panel.querySelectorAll('.node-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const nid = e.target.closest('.dlg-node').dataset.nid;
+        this._commitDetail();
+        delete d.nodes[nid];
+        if (d.startNode === nid) d.startNode = Object.keys(d.nodes)[0] || 'start';
+        this._renderDetail();
+      });
+    });
+
+    panel.querySelectorAll('.n-add-choice').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const nid = e.target.closest('.dlg-node').dataset.nid;
+        this._commitDetail();
+        const n = d.nodes[nid];
+        if (!Array.isArray(n.choices)) n.choices = [];
+        n.choices.push({ id: 'ch_' + (n.choices.length + 1), text: '新选项', nextNode: null });
+        this._renderDetail();
+      });
+    });
+
+    panel.querySelectorAll('.ch-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const wrap = e.target.closest('.dlg-choice');
+        const nid = wrap.dataset.nid;
+        const ci = parseInt(wrap.dataset.ci);
+        this._commitDetail();
+        const n = d.nodes[nid];
+        if (n && Array.isArray(n.choices)) {
+          n.choices.splice(ci, 1);
+          if (n.choices.length === 0) delete n.choices;
+        }
+        this._renderDetail();
+      });
+    });
+
+    // if/do 实时校验
+    panel.querySelectorAll('.ch-if, .ch-do').forEach(el => this._bindJsonValidation(el));
+  }
+
+  _newNodeId(d) {
+    let i = 1;
+    while (d.nodes['node' + i]) i++;
+    return 'node' + i;
+  }
+
+  /** 把详情表单写回当前对话数据 */
+  _commitDetail() {
+    const d = this._dlg();
+    const panel = this.container.querySelector('#dlg-detail');
+    if (!d || !panel || !panel.querySelector('#d-id')) return;
+
+    d.id = panel.querySelector('#d-id').value.trim() || d.id;
+    d.title = panel.querySelector('#d-title').value.trim();
+    const startSel = panel.querySelector('#d-start');
+    if (startSel && startSel.value) d.startNode = startSel.value;
+
+    panel.querySelectorAll('.dlg-node').forEach(card => {
+      const nid = card.dataset.nid;
+      const n = d.nodes[nid];
+      if (!n) return;
+      n.speaker = card.querySelector('.n-speaker').value;
+      const portrait = card.querySelector('.n-portrait').value.trim();
+      n.portrait = portrait || null;
+      n.text = card.querySelector('.n-text').value;
+
+      const choiceEls = card.querySelectorAll('.dlg-choice');
+      if (choiceEls.length > 0) {
+        n.choices = [];
+        delete n.nextNode;
+        choiceEls.forEach((ce, idx) => {
+          const ch = {
+            id: 'ch_' + (idx + 1),
+            text: ce.querySelector('.ch-text').value,
+            nextNode: ce.querySelector('.ch-next').value || null
+          };
+          const ifv = ce.querySelector('.ch-if').value.trim();
+          const dov = ce.querySelector('.ch-do').value.trim();
+          if (ifv) ch.if = this._parseJson(ifv, undefined);
+          if (dov) ch.do = this._parseJson(dov, undefined);
+          n.choices.push(ch);
+        });
+      } else {
+        delete n.choices;
+        const nextSel = card.querySelector('.n-next');
+        n.nextNode = nextSel && nextSel.value ? nextSel.value : null;
+      }
+    });
+  }
+
+  _addDialogue() {
+    this._commitDetail();
+    const id = 'dlg_' + Date.now().toString(36);
+    this.dialogues.push({
+      id, title: '新对话', startNode: 'start',
+      nodes: { start: { speaker: '', portrait: null, text: '', nextNode: null } }
+    });
+    this.selectedIndex = this.dialogues.length - 1;
+    this._renderList();
+    this._renderDetail();
+  }
+
+  _deleteDialogue() {
+    if (this.selectedIndex < 0) return;
+    this.dialogues.splice(this.selectedIndex, 1);
+    this.selectedIndex = Math.min(this.selectedIndex, this.dialogues.length - 1);
+    this._renderList();
+    this._renderDetail();
+  }
+
+  // ---- JSON 校验 ----
+  _validateAllJson() {
+    const panel = this.container.querySelector('#dlg-detail');
+    if (!panel) return false;
+    let hasError = false;
+    panel.querySelectorAll('.ch-if, .ch-do').forEach(el => {
+      const v = el.value.trim();
+      if (!v) return;
+      try { JSON.parse(v); } catch (e) { el.style.borderColor = '#e05252'; hasError = true; }
+    });
+    return hasError;
+  }
+
+  _bindJsonValidation(el) {
+    if (!el) return;
+    const check = () => {
+      const v = el.value.trim();
+      if (!v) { el.style.borderColor = '#2a3a5e'; el.title = ''; return true; }
+      try { JSON.parse(v); el.style.borderColor = '#4a8a4a'; el.title = 'JSON 正确'; return true; }
+      catch (e) { el.style.borderColor = '#e05252'; el.title = 'JSON 错误: ' + e.message; return false; }
+    };
+    el.addEventListener('input', check);
+    check();
+  }
+
+  _json(v) { try { return JSON.stringify(v); } catch (e) { return ''; } }
+  _parseJson(str, fallback) {
+    if (!str || !str.trim()) return fallback;
+    try { return JSON.parse(str); } catch (e) { return fallback; }
+  }
+  _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+}
+
+export default DialogueGraphEditor;

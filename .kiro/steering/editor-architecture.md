@@ -492,18 +492,18 @@ VehicleSystem:
 - [ ] [验收] 编辑器放 NPC/刷怪点/城门/载具 = ✅（可拖入可编辑可保存）；游戏中可上下载具/多席位/建筑可摧毁的**运行时场景接入**待 P4-3 DataDrivenScene 就绪后按 objects 实例化验证
 - 注：所有战场组件/系统均带 `authority` 注释 + serialize/deserialize，遵守 §13 网络约定（纯状态 + 事件 + 可序列化 + 可注入）
 
-### P3 — 对话 + 引导
-- [ ] P3-1 对话图编辑器 Tab：节点卡片 + choice 连线 + 条件/动作编辑
-- [ ] P3-2 现有 DialogueData 迁移为 dialogues[]（补条件/动作字段）
-- [ ] P3-3 引导迁移：TutorialConfig/ProgressiveTipsConfig → tutorials[] 触发器(showTip)
-- [ ] [验收] 序章对话/引导全部由数据驱动，编辑器可改
+### P3 — 对话 + 引导 ✅ 已完成（编辑器 + 数据格式部分）
+- [x] P3-1 对话图编辑器 Tab（`editor/DialogueGraphEditor.js`）：对话列表 + 节点卡片（speaker/portrait/text）+ nextNode 单跳（下拉引用节点）+ choices 多选分支（每个选项 text/goto/if/do，if/do 为 DSL JSON 且实时校验）；已接入 `editor/index.html` 导航「对话编辑器」
+- [x] P3-2 DialogueData 迁移：DialogueGraphEditor「⬇ 导入 DialogueData」按钮把 `data/DialogueData.json`（按幕嵌套）扁平化合并进工程 `dialogues[]`（非破坏，不改原文件；同 id 覆盖）；格式与 DialogueSystem.registerDialogue 兼容，choices 可补 if/do
+- [x] P3-3 引导数据化：`tutorials[]` 复用触发器结构（GameLoader 已把 tutorials 注册进 TriggerSystem）；TriggerEditor 增「事件触发器 / 引导(showTip)」目标切换，可新增/编辑引导（默认 sceneEnter → showTip）。**序章现有提示的实际灌入 + 运行时替换 TutorialSystem 属高风险**，按 §11/§12 约定留到 P4-5 逐幕验收时做（避免与仍在运行的旧 TutorialSystem 重复弹提示）
+- [x] [验收] 对话可在编辑器创建/编辑/导入并保存到工程；引导可在编辑器以 showTip 触发器形式编辑；序章运行时全量数据驱动待 P4-5
 
 ### P4 — 数据化装配（重构核心，风险较高）
 - [x] P4-1 GameProject 数据模型 + $ref 解析（`example/sanguo_zhangjiao/game.project.json` 工程骨架 + 示例触发器）
 - [x] P4-2 GameLoader（`src/core/GameLoader.js`）：读工程→装配 Blackboard/TriggerSystem/dialogues/quests/library，支持 $ref、序列化；已试点叠加到 Act1SceneECS（不拆现有逻辑），验证通过
-- [ ] P4-3 DataDrivenScene：合并 Act1~6Scene，读 chunk 数据渲染
-- [ ] P4-4 Resolver 化：CombatResolver/LootResolver/QuestResolver 纯函数(§13 约定5)
-- [ ] P4-5 序章数据化：用 GameProject 重建六幕，逐幕对照旧版验收，再删 PrologueManager
+- [x] P4-3 DataDrivenScene（`example/sanguo_zhangjiao/scenes/DataDrivenScene.js`）：叠加式新类，读 GameProject.scenes[id] 图层用 ShapeRenderer 渲染 + 逻辑对象(spawn/npc/building/vehicle)经 EntityFactory+registries 实例化 + GameLoader 装配触发器/黑板/库 + VehicleSystem 驾乘；loadFromProject/loadFromUrl/enter/update/render2D。**未替换现有 Act 场景**（P4-5 再逐幕迁移）
+- [x] P4-4 Resolver 化：`src/core/RNG.js`（可注入种子 RNG，§13约定6）+ `src/systems/resolvers/CombatResolver.js`（伤害纯函数，镜像现有公式）+ `LootResolver.js`（掉落纯函数）+ `QuestResolver.js`（任务进度/完成纯函数）；均纯函数 + events + 注入 RNG（§13约定1/5/6），**叠加式，现有 CombatSystem/LootSystem/QuestSystem 未改动**
+- [ ] P4-5 序章数据化：用 GameProject 重建六幕，逐幕对照旧版验收，再删 PrologueManager 【高风险，待用户确认后逐幕推进】
 - [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
 
 ### P5 — 无缝大地图流式（最大工程）
@@ -552,6 +552,13 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 | P2 | `src/ecs/EntityFactory.js` | 新增 createBuilding/createVehicle/attachObjective |
 | P2 | `editor/LibraryEditor.js` + `editor/index.html` | 内容库编辑器（9 类库），已接入导航 |
 | P2 | `editor/SceneEditor*.js` | 逻辑对象 region/npc/spawn/portal：拖入/渲染/命中/属性面板 |
+| P3 | `editor/DialogueGraphEditor.js` + `editor/index.html` | 对话图编辑器（节点卡片 + choices + if/do DSL + 导入 DialogueData），已接入导航 |
+| P3 | `editor/TriggerEditor.js` | 增 triggers/tutorials 目标切换，引导以 showTip 触发器编辑 |
+| P4 | `src/core/RNG.js` | 可注入种子 RNG（mulberry32，serialize，§13约定6） |
+| P4 | `src/systems/resolvers/CombatResolver.js` | 战斗伤害纯函数（镜像现有公式，注入 RNG，events） |
+| P4 | `src/systems/resolvers/LootResolver.js` | 掉落滚动纯函数（数据化掉落表，注入 RNG） |
+| P4 | `src/systems/resolvers/QuestResolver.js` | 任务进度/完成纯函数 |
+| P4 | `example/sanguo_zhangjiao/scenes/DataDrivenScene.js` | 数据驱动场景（读工程渲染 + 实例化逻辑对象，叠加式） |
 
 ### 17.2 试点接入现状
 
@@ -567,9 +574,10 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 ### 17.4 未做 / 待续
 
 - **P2 运行时场景接入**：逻辑对象（spawn/npc/portal/region）与战场组件（building/vehicle/objective）的**游戏内实例化**待 P4-3 DataDrivenScene 就绪后，由 chunk/scene 按 `objects` + `library` 引用实例化（框架/编辑器已就位，运行时装配未接）。
-- **P4-3 DataDrivenScene**：未做（合并 Act1~6Scene 读 chunk 渲染）。
-- **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收，等 DataDrivenScene 就绪）。
-- **P3 对话图编辑器 / 引导迁移**：未开始（对话仍走现有 DialogueSystem）。
+- **P4-3 DataDrivenScene**：✅ 已交付（叠加式新类，未替换 Act 场景）。渲染用简版占位方块画实体，接入现有 RenderSystem/相机做正式表现属后续增强。
+- **P4-4 Resolver**：✅ 已交付（RNG + Combat/Loot/Quest Resolver，纯函数叠加，现有系统未改）。让现有 CombatSystem 委托 CombatResolver（去重）属可选增强，留待与 P4-5 一起做。
+- **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收）。【待用户确认后逐幕推进】
+- **P3 运行时引导切换**：序章现有提示的实际迁入 tutorials[] + 替换旧 TutorialSystem 待 P4-5（编辑器 + 数据格式已就绪）。
 - **P5 大地图流式 / P6 存档性能**：未开始。
 
 ### 17.6 P2 交付说明（截至当前）
@@ -579,6 +587,20 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 - **内容库 LibraryEditor** 与 **事件 TriggerEditor** 同构（读写 game.project.json、JSON 实时校验、保存 toast）。
 - **逻辑对象** 复用现有场景编辑器的图层对象机制（type 分发），存于自动创建的 `layer_logic` 图层。
 - **下一步**：P4-3 DataDrivenScene 做运行时装配，把 spawn/npc/building/vehicle 从数据实例化进场景，届时验证"上下载具/多席位/建筑摧毁/刷怪"。
+
+### 17.7 P3 交付说明（截至当前）
+
+- **对话图编辑器**（DialogueGraphEditor）与 事件/内容库编辑器同构：读写 game.project.json `dialogues[]`、JSON 实时校验、保存 toast。节点卡片支持 speaker/portrait/text；分支两种：无选项走 nextNode（下拉引用节点），有选项用 choices（每项 text/goto/if/do，if/do 为 DSL）。
+- **导入迁移**：一键把 `data/DialogueData.json`（act 嵌套）扁平化并进 `dialogues[]`，非破坏、同 id 覆盖，格式直接兼容 DialogueSystem。
+- **引导**：tutorials[] 即 showTip 触发器；TriggerEditor 目标切换即可编辑。GameLoader 已 `registerAll(proj.tutorials)`。
+- **安全边界**：不动正在运行的 PrologueManager/TutorialSystem/DialogueSystem 注册逻辑；对话与引导的运行时全量数据驱动（读 dialogues[]/tutorials[] 替代硬编码）随 P4-5 序章数据化一起逐幕验收。
+
+### 17.8 P4-3/P4-4 交付说明（截至当前）
+
+- **Resolver（P4-4）全部纯函数**：`(输入快照/意图) → { ...结果, events }`，不改渲染/全局；随机走注入的 `RNG`（禁止 Math.random）。CombatResolver 镜像现有 CombatSystem 伤害公式（攻-防→兵种→元素→±10%波动→最小1~5），元素/兵种相克通过 `ctx.elementCalc/unitCalc` 注入保持解耦。**现有系统未改动**，Resolver 为将来服务器权威/goja 复用打底（§13.3）。
+- **DataDrivenScene（P4-3）叠加式**：继承核心 `Scene`，`loadFromProject/loadFromUrl` 装配，`enter` fire('sceneEnter')，`update` 驱动触发器+VehicleSystem+实体，`render2D` 用 ShapeRenderer 画图层 + 简版占位方块画实体。逻辑对象兼容两种存法（scene.objects 与 layer_logic 图层）。**未替换任何 Act 场景**。
+- **下一步（可选增强，非拆除）**：① 让 CombatSystem 内部调用 CombatResolver 去重；② DataDrivenScene 实体渲染接入现有 RenderSystem/精灵。
+- **P4-5（高风险，待确认）**：用 DataDrivenScene 逐幕重建序章，与旧 Act 场景对照验收通过后再删 PrologueManager；期间新旧并存。
 
 ### 17.5 下一步建议（优先级）
 

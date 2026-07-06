@@ -440,6 +440,7 @@
                 <button id="nav-scene-editor">场景编辑器</button>
                 <button id="nav-ui-editor">UI编辑器</button>
                 <button id="nav-trigger-editor">事件编辑器</button>
+                <button id="nav-dialogue-editor">对话编辑器</button>
                 <button id="nav-library-editor">内容库</button>
                 <button id="nav-home">返回首页</button>
             </nav>
@@ -492,6 +493,11 @@
             <!-- 内容库编辑器页 -->
             <div class="ui-editor-page" id="library-editor-page">
                 <div id="library-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
+            </div>
+
+            <!-- 对话编辑器页 -->
+            <div class="ui-editor-page" id="dialogue-editor-page">
+                <div id="dialogue-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>
@@ -565,6 +571,7 @@
         import { UIEditor } from './UIEditor.js';
         import { TriggerEditor } from './TriggerEditor.js';
         import { LibraryEditor } from './LibraryEditor.js';
+        import { DialogueGraphEditor } from './DialogueGraphEditor.js';
         
         class GameEditor {
             constructor() {
@@ -574,6 +581,7 @@
                 this.uiEditor = null;
                 this.triggerEditor = null;
                 this.libraryEditor = null;
+                this.dialogueEditor = null;
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
@@ -665,6 +673,7 @@
                 document.getElementById('nav-ui-editor').addEventListener('click', () => this.showPage('ui-editor'));
                 document.getElementById('nav-trigger-editor').addEventListener('click', () => this.showPage('trigger-editor'));
                 document.getElementById('nav-library-editor').addEventListener('click', () => this.showPage('library-editor'));
+                document.getElementById('nav-dialogue-editor').addEventListener('click', () => this.showPage('dialogue-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
                 // 游戏卡片点击
@@ -983,6 +992,7 @@
                 document.getElementById('ui-editor-page').classList.remove('active');
                 document.getElementById('trigger-editor-page').classList.remove('active');
                 document.getElementById('library-editor-page').classList.remove('active');
+                document.getElementById('dialogue-editor-page').classList.remove('active');
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
@@ -1019,6 +1029,15 @@
                         );
                     }
                     this.libraryEditor.init();
+                } else if (page === 'dialogue-editor') {
+                    document.getElementById('dialogue-editor-page').classList.add('active');
+                    if (!this.dialogueEditor) {
+                        this.dialogueEditor = new DialogueGraphEditor(
+                            document.getElementById('dialogue-editor-container'),
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                        );
+                    }
+                    this.dialogueEditor.init();
                 }
             }
             

@@ -67,6 +67,8 @@ export class TriggerEditor {
     this.project = null;
     this.triggers = [];
     this.selectedIndex = -1;
+    // 编辑目标：'triggers'（事件触发器）或 'tutorials'（引导，同为触发器结构，do 用 showTip）
+    this.target = options.target === 'tutorials' ? 'tutorials' : 'triggers';
     this._initialized = false;
   }
 
@@ -95,10 +97,34 @@ export class TriggerEditor {
       console.warn('TriggerEditor: 加载工程失败', e);
     }
     if (!this.project) {
-      this.project = { meta: { id: this.gameId }, variables: {}, triggers: [] };
+      this.project = { meta: { id: this.gameId }, variables: {}, triggers: [], tutorials: [] };
     }
-    this.triggers = Array.isArray(this.project.triggers) ? this.project.triggers : [];
-    this.project.triggers = this.triggers;
+    // 确保两个数组都存在
+    if (!Array.isArray(this.project.triggers)) this.project.triggers = [];
+    if (!Array.isArray(this.project.tutorials)) this.project.tutorials = [];
+    // 当前编辑目标数组
+    this.triggers = this.project[this.target];
+  }
+
+  /** 切换编辑目标（triggers ↔ tutorials 引导） */
+  _switchTarget(target) {
+    if (target === this.target) return;
+    this._commitDetail();
+    this.project[this.target] = this.triggers; // 回写当前
+    this.target = target;
+    this.triggers = this.project[this.target];
+    this.selectedIndex = -1;
+    this._renderTargetTabs();
+    this._renderList();
+    this._renderDetail();
+  }
+
+  _renderTargetTabs() {
+    const wrap = this.container.querySelector('#trg-target-tabs');
+    if (!wrap) return;
+    wrap.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('active', b.dataset.target === this.target);
+    });
   }
 
   /** 保存回工程文件（保留其它字段） */
@@ -111,8 +137,8 @@ export class TriggerEditor {
       return;
     }
     this._commitDetail(); // 先把当前编辑写回数据
-    this.project.triggers = this.triggers;
-    console.log('[TriggerEditor] 准备保存:', this.projectPath, '触发器数:', this.triggers.length, JSON.parse(JSON.stringify(this.triggers)));
+    this.project[this.target] = this.triggers;
+    console.log('[TriggerEditor] 准备保存:', this.projectPath, this.target, '数量:', this.triggers.length, JSON.parse(JSON.stringify(this.triggers)));
     try {
       const res = await fetch('/api/save-file', {
         method: 'POST',
@@ -184,8 +210,12 @@ export class TriggerEditor {
   _buildUI() {
     this.container.innerHTML = `
       <div class="trg-root">
+        <div class="trg-target-tabs" id="trg-target-tabs">
+          <button data-target="triggers">事件触发器</button>
+          <button data-target="tutorials">引导 (showTip)</button>
+        </div>
         <div class="trg-toolbar">
-          <button id="trg-add">+ 新增触发器</button>
+          <button id="trg-add">+ 新增</button>
           <button id="trg-del">🗑 删除</button>
           <button id="trg-save" class="primary">💾 保存到工程</button>
           <span class="trg-hint">数据 → ${this.projectPath}</span>
@@ -200,6 +230,10 @@ export class TriggerEditor {
     this.container.querySelector('#trg-add').addEventListener('click', () => this._addTrigger());
     this.container.querySelector('#trg-del').addEventListener('click', () => this._deleteTrigger());
     this.container.querySelector('#trg-save').addEventListener('click', () => this.save());
+    this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
+      btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
+    });
+    this._renderTargetTabs();
   }
 
   _injectStyles() {
@@ -208,6 +242,9 @@ export class TriggerEditor {
     s.id = 'trg-styles';
     s.textContent = `
       .trg-root{display:flex;flex-direction:column;height:100%;background:#0d1326;color:#fff;}
+      .trg-target-tabs{display:flex;gap:4px;padding:8px 16px 0;background:#101a30;}
+      .trg-target-tabs button{padding:6px 16px;background:#26304e;border:none;border-radius:14px;color:#bcd;cursor:pointer;font-size:12px;}
+      .trg-target-tabs button.active{background:#4a6ad0;color:#fff;font-weight:bold;}
       .trg-toolbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#16213e;border-bottom:1px solid #2a3a5e;}
       .trg-toolbar button{padding:7px 12px;background:#3a4a7e;border:none;border-radius:4px;color:#fff;cursor:pointer;}
       .trg-toolbar button.primary{background:#4CAF50;color:#000;font-weight:bold;}
@@ -432,8 +469,19 @@ export class TriggerEditor {
 
   _addTrigger() {
     this._commitDetail();
-    const id = 'trg_' + Date.now().toString(36);
-    this.triggers.push({ id, when: { type: 'sceneEnter', params: {} }, do: [], once: true });
+    if (this.target === 'tutorials') {
+      // 引导默认：进入场景时显示一句提示（showTip）
+      const id = 'tut_' + Date.now().toString(36);
+      this.triggers.push({
+        id,
+        when: { type: 'sceneEnter', params: {} },
+        do: [{ action: 'showTip', params: { text: '提示文本' } }],
+        once: true
+      });
+    } else {
+      const id = 'trg_' + Date.now().toString(36);
+      this.triggers.push({ id, when: { type: 'sceneEnter', params: {} }, do: [], once: true });
+    }
     this.selectedIndex = this.triggers.length - 1;
     this._renderList();
     this._renderDetail();

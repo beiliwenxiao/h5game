@@ -138,6 +138,10 @@ export class SceneEditorUI {
               <h3>场景信息</h3>
               <div class="scene-info">
                 <div class="info-row">
+                  <label title="场景唯一标识。触发器里的 sceneId 要填这个值，不是场景名称">场景ID:</label>
+                  <input type="text" id="editor-scene-id" value="${editor.sceneData.id || ''}" placeholder="如 scene_Prologue" style="flex:1;">
+                </div>
+                <div class="info-row">
                   <label>尺寸:</label>
                   <input type="number" id="editor-scene-width" value="${editor.sceneData.width}" min="100">
                   <span>×</span>

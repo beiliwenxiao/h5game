@@ -278,6 +278,17 @@ export class TriggerEditor {
     const whenOpts = WHEN_TYPES.map(w =>
       `<option value="${w.v}" ${t.when?.type === w.v ? 'selected' : ''}>${w.label} (${w.v})</option>`).join('');
 
+    // timer 专用间隔输入框（每隔多少秒触发一次）
+    const isTimer = t.when?.type === 'timer';
+    const timerSec = (t.when?.params && t.when.params.seconds != null) ? t.when.params.seconds : '';
+    const timerRow = isTimer
+      ? `<div class="row" style="background:#132038;padding:8px;border-radius:4px;border:1px solid #2a4a7e;">
+           <label style="color:#7cf;">⏱ 间隔（秒）— 每隔多少秒触发一次</label>
+           <input type="text" id="d-timer-seconds" value="${timerSec}" placeholder="如 5 表示每 5 秒触发">
+           <div style="color:#89a;font-size:11px;margin-top:4px;">注意：这是循环间隔，不是冷却(cooldown)。会写入 when.params.seconds。</div>
+         </div>`
+      : '';
+
     let doHtml = '';
     (t.do || []).forEach((act, di) => {
       const actOpts = ACTION_TYPES.map(a =>
@@ -298,6 +309,7 @@ export class TriggerEditor {
     panel.innerHTML = `
       <div class="row"><label>ID</label><input type="text" id="d-id" value="${t.id || ''}"></div>
       <div class="row"><label>触发时机 when.type</label><select id="d-when-type">${whenOpts}</select></div>
+      ${timerRow}
       <div class="row"><label>when.params (JSON)</label><textarea id="d-when-params" placeholder='如 {"sceneId":"scene_a"}'>${this._json(t.when?.params)}</textarea></div>
       <div class="row"><label>条件 if (JSON，可空)</label><textarea id="d-if" placeholder='如 {"op":"==","left":{"var":"act"},"right":0}'>${t.if ? this._json(t.if) : ''}</textarea></div>
       <div class="row"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="d-once" ${t.once ? 'checked' : ''}> 只触发一次(once)</label></div>
@@ -323,11 +335,36 @@ export class TriggerEditor {
         this._renderDetail();
       });
     });
-    // when 类型变化即时刷新列表标签
-    panel.querySelector('#d-when-type').addEventListener('change', () => {
+    // when 类型变化即时刷新列表标签 + 重渲染详情（显示/隐藏 timer 专用字段）
+    panel.querySelector('#d-when-type').addEventListener('change', (e) => {
       this._commitDetail();
+      // timer 类型时给个默认 seconds，避免用户忘填导致不触发
+      if (e.target.value === 'timer') {
+        const tt = this.triggers[this.selectedIndex];
+        if (tt) {
+          tt.when = tt.when || {};
+          tt.when.params = tt.when.params || {};
+          if (tt.when.params.seconds == null) tt.when.params.seconds = 5;
+        }
+      }
       this._renderList();
+      this._renderDetail();
     });
+
+    // timer 专用「间隔(秒)」输入框（若存在），双向同步 when.params.seconds
+    const secInput = panel.querySelector('#d-timer-seconds');
+    if (secInput) {
+      secInput.addEventListener('input', () => {
+        const wp = panel.querySelector('#d-when-params');
+        let obj = {};
+        try { obj = JSON.parse(wp.value || '{}'); } catch (err) { obj = {}; }
+        const sec = parseFloat(secInput.value);
+        if (!isNaN(sec) && sec > 0) obj.seconds = sec; else delete obj.seconds;
+        wp.value = JSON.stringify(obj);
+        // 触发 when.params 的校验高亮
+        wp.dispatchEvent(new Event('input'));
+      });
+    }
 
     // JSON 输入框实时校验（合法绿框 / 非法红框 + 悬停提示）
     this._bindJsonValidation(panel.querySelector('#d-when-params'), true);

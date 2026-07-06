@@ -218,6 +218,12 @@ export class SceneEditor {
     document.getElementById('editor-scene-name').addEventListener('input', (e) => {
       this.sceneData.name = e.target.value;
     });
+    const sceneIdInput = document.getElementById('editor-scene-id');
+    if (sceneIdInput) {
+      sceneIdInput.addEventListener('input', (e) => {
+        this.sceneData.id = e.target.value.trim();
+      });
+    }
     document.getElementById('editor-bg-color').addEventListener('input', (e) => {
       this.sceneData.backgroundColor = e.target.value;
       this.render();
@@ -348,11 +354,13 @@ export class SceneEditor {
 
     // 更新 UI
     const nameInput = document.getElementById('editor-scene-name');
+    const idInput = document.getElementById('editor-scene-id');
     const bgInput = document.getElementById('editor-bg-color');
     const widthInput = document.getElementById('editor-scene-width');
     const heightInput = document.getElementById('editor-scene-height');
 
     if (nameInput) nameInput.value = this.sceneData.name;
+    if (idInput) idInput.value = this.sceneData.id || '';
     if (bgInput) bgInput.value = this.sceneData.backgroundColor;
     if (widthInput) widthInput.value = this.sceneData.width;
     if (heightInput) heightInput.value = this.sceneData.height;

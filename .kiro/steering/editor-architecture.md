@@ -503,7 +503,10 @@ VehicleSystem:
 - [x] P4-2 GameLoader（`src/core/GameLoader.js`）：读工程→装配 Blackboard/TriggerSystem/dialogues/quests/library，支持 $ref、序列化；已试点叠加到 Act1SceneECS（不拆现有逻辑），验证通过
 - [x] P4-3 DataDrivenScene（`example/sanguo_zhangjiao/scenes/DataDrivenScene.js`）：叠加式新类，读 GameProject.scenes[id] 图层用 ShapeRenderer 渲染 + 逻辑对象(spawn/npc/building/vehicle)经 EntityFactory+registries 实例化 + GameLoader 装配触发器/黑板/库 + VehicleSystem 驾乘；loadFromProject/loadFromUrl/enter/update/render2D。**未替换现有 Act 场景**（P4-5 再逐幕迁移）
 - [x] P4-4 Resolver 化：`src/core/RNG.js`（可注入种子 RNG，§13约定6）+ `src/systems/resolvers/CombatResolver.js`（伤害纯函数，镜像现有公式）+ `LootResolver.js`（掉落纯函数）+ `QuestResolver.js`（任务进度/完成纯函数）；均纯函数 + events + 注入 RNG（§13约定1/5/6），**叠加式，现有 CombatSystem/LootSystem/QuestSystem 未改动**
-- [ ] P4-5 序章数据化：用 GameProject 重建六幕，逐幕对照旧版验收，再删 PrologueManager 【高风险，待用户确认后逐幕推进】
+- [~] P4-5 序章数据化（进行中，逐幕对照）：
+  - **关键发现**：PrologueManager 在运行中的 2D demo 里**未被引用**（仅其自身测试引用），六幕硬编码实际在各 Act 场景类 + index.html 直接注册/switchTo。序章**视觉/地形已数据驱动**（编辑器场景 `scene_Prologue`，localStorage 或 `assets/scenes/*.json`，Scene1Terrain 读取）。真正待数据化的是各 Act 的**脚本化流程**（醒来/移动/点火/拾取/战斗/对话/切幕）。
+  - **P4-5 Stage 0 已交付（并存试点，默认不改旧流程）**：index.html 加 `?ddscene=1`（或 `?ddscene=<sceneId>`）守卫分支 → 用 `DataDrivenScene` 加载同一份 `scene_Prologue` 数据渲染（shape/ellipse/fill/image/slice + 无相机自适应铺满 + 角标），并 `loadProjectUrl('game.project.json')` 装配触发器。用于与旧 Act1 并列对照背景/图层/逻辑对象渲染。deco 装饰物预览暂未渲染（下一增量）。
+  - **后续 Stage**：逐幕把脚本流程迁到 triggers/dialogues + 逻辑对象；每幕与旧场景对照验收通过后再切换；六幕全绿后删除 PrologueManager（低风险，已是死代码）。
 - [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
 
 ### P5 — 无缝大地图流式（最大工程）
@@ -558,7 +561,8 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 | P4 | `src/systems/resolvers/CombatResolver.js` | 战斗伤害纯函数（镜像现有公式，注入 RNG，events） |
 | P4 | `src/systems/resolvers/LootResolver.js` | 掉落滚动纯函数（数据化掉落表，注入 RNG） |
 | P4 | `src/systems/resolvers/QuestResolver.js` | 任务进度/完成纯函数 |
-| P4 | `example/sanguo_zhangjiao/scenes/DataDrivenScene.js` | 数据驱动场景（读工程渲染 + 实例化逻辑对象，叠加式） |
+| P4 | `example/sanguo_zhangjiao/scenes/DataDrivenScene.js` | 数据驱动场景（读工程/编辑器场景渲染 + 实例化逻辑对象 + loadEditorScene/loadProjectUrl + 无相机自适应） |
+| P4-5 | `example/sanguo_zhangjiao/index.html` | `?ddscene=1` 并存试点分支（守卫，默认走旧流程不变） |
 
 ### 17.2 试点接入现状
 

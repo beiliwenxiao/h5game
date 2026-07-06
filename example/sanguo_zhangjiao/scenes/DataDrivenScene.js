@@ -97,6 +97,67 @@ export class DataDrivenScene extends Scene {
   }
 
   /**
+   * 只加载并装配工程的触发器/黑板/库（不设场景视觉）——供“编辑器场景视觉 + 工程逻辑”组合用
+   * @param {string} url - game.project.json 路径
+   */
+  async loadProjectUrl(url) {
+    const project = await this.gameLoader.load(url, {
+      dialogueSystem: this.deps.dialogueSystem,
+      questSystem: this.deps.questSystem,
+      sceneManager: this.deps.sceneManager,
+      audioManager: this.deps.audioManager,
+      floatingText: this.deps.floatingText,
+      tutorial: this.deps.tutorial
+    });
+    this.project = project;
+    return project;
+  }
+
+  /**
+   * 加载编辑器保存的场景数据作为视觉（与旧 Scene1Terrain 同一份数据源）：
+   *   优先 localStorage 'h5game_editor_data_scenes_<gameId>'，回退 assets/scenes/*.json
+   * @param {string} gameId
+   * @param {string} sceneId - 如 'scene_Prologue'
+   * @param {string} assetBase - 如 'assets/scenes/'
+   * @param {string} [exportFile] - 回退文件名
+   */
+  async loadEditorScene(gameId = 'sanguo_zhangjiao', sceneId = 'scene_Prologue', assetBase = 'assets/scenes/', exportFile = '序章 - 盆地营地.json') {
+    let scene = null;
+    // 1) localStorage
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        if (raw) {
+          const scenes = JSON.parse(raw);
+          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+        }
+      }
+    } catch (e) { console.warn('DataDrivenScene: 读取 localStorage 场景失败', e); }
+
+    // 2) 回退到导出 JSON 文件
+    if (!scene && typeof fetch !== 'undefined') {
+      try {
+        const path = assetBase + encodeURIComponent(exportFile).replace(/%2F/g, '/');
+        const res = await fetch(path);
+        if (res.ok) {
+          const scenes = await res.json();
+          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : (scenes && scenes.id === sceneId ? scenes : null);
+        }
+      } catch (e) { console.warn('DataDrivenScene: 读取场景文件失败', e); }
+    }
+
+    if (scene) {
+      this.sceneId = sceneId;
+      this.sceneData = scene;
+      this._collectLogicObjects();
+      this._preloadImages();
+    } else {
+      console.warn('DataDrivenScene: 未找到编辑器场景', sceneId);
+    }
+    return scene;
+  }
+
+  /**
    * 从工程 URL 加载并装配
    * @param {string} url
    * @param {string} sceneId
@@ -147,13 +208,41 @@ export class DataDrivenScene extends Scene {
 
   render2D(ctx) {
     if (!this.sceneData) return;
+    // 背景色
+    if (this.sceneData.backgroundColor && ctx.canvas) {
+      ctx.save();
+      ctx.fillStyle = this.sceneData.backgroundColor;
+      ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      ctx.restore();
+    }
     ctx.save();
     if (this.camera && typeof this.camera.applyTransform === 'function') {
       this.camera.applyTransform(ctx);
+    } else if (ctx.canvas) {
+      // 无相机：把整个场景自适应铺进画布（用于并存对照预览）
+      const sw = this.sceneData.width || 1280;
+      const sh = this.sceneData.height || 720;
+      const scale = Math.min(ctx.canvas.width / sw, ctx.canvas.height / sh);
+      const tx = (ctx.canvas.width - sw * scale) / 2;
+      const ty = (ctx.canvas.height - sh * scale) / 2;
+      ctx.translate(tx, ty);
+      ctx.scale(scale, scale);
     }
     this._renderLayers(ctx);
     this._renderEntities(ctx);
     ctx.restore();
+
+    // 角标（提示当前为数据驱动预览）
+    if (ctx.canvas) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(8, 8, 232, 24);
+      ctx.fillStyle = '#7cf';
+      ctx.font = '13px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('DataDrivenScene 预览: ' + (this.sceneId || ''), 14, 25);
+      ctx.restore();
+    }
   }
 
   // ---- 逻辑对象收集 / 实例化 ----
@@ -272,8 +361,13 @@ export class DataDrivenScene extends Scene {
         } else if (o.type === 'image') {
           const img = this._getImage(o.imageId || o.imageSrc);
           if (img) ctx.drawImage(img, o.x, o.y, o.width, o.height);
+        } else if (o.type === 'slice') {
+          const src = this._getSliceSource(o);
+          if (src && src.img) {
+            ctx.drawImage(src.img, src.sx, src.sy, src.sw, src.sh, o.x, o.y, o.width, o.height);
+          }
         }
-        // deco/slice 交给专门渲染（此处从简，逻辑对象不画）
+        // deco（装饰物）暂不在预览渲染，属下一增量（需 decoSprites 图集）
       }
     }
   }

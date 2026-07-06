@@ -692,6 +692,7 @@
     
     <script type="module">
         import { Act1SceneECS } from './scenes/Act1SceneECS.js';
+        import { DataDrivenScene } from './scenes/DataDrivenScene.js';
         import { Act2Scene } from './scenes/Act2Scene.js';
         import { Act3Scene } from './scenes/Act3Scene.js';
         import { Act4Scene } from './scenes/Act4Scene.js';
@@ -995,7 +996,27 @@
                 
                 // 使用场景管理器切换到第一幕
                 updateLoading(90, '进入第一幕...');
-                sceneManager.switchTo('Act1Scene');
+                // 【P4-5 并存试点】带 ?ddscene=1 时改用数据驱动场景做并列对照（默认走旧流程，行为不变）
+                const _ddSceneId = new URLSearchParams(location.search).get('ddscene');
+                if (_ddSceneId) {
+                    const ddSceneKey = (_ddSceneId === '1' || _ddSceneId === 'true') ? 'scene_Prologue' : _ddSceneId;
+                    const dd = new DataDrivenScene('DataDrivenScene', {
+                        sceneManager
+                        // 对话/任务/教程/相机等按需注入；此阶段先验证渲染 + 触发器
+                    });
+                    try {
+                        await dd.loadProjectUrl('game.project.json');
+                        await dd.loadEditorScene('sanguo_zhangjiao', ddSceneKey, 'assets/scenes/');
+                    } catch (e) {
+                        console.warn('[P4-5] DataDrivenScene 加载失败，回退旧流程', e);
+                    }
+                    sceneManager.registerScene('DataDrivenScene', dd);
+                    scene = dd;
+                    sceneManager.switchTo('DataDrivenScene');
+                    console.log('[P4-5] 已进入数据驱动场景并存预览:', ddSceneKey);
+                } else {
+                    sceneManager.switchTo('Act1Scene');
+                }
                 await sleep(500);
                 
                 // 场景进入后，设置教程回调（此时教程系统已初始化）

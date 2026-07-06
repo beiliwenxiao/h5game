@@ -463,22 +463,24 @@ VehicleSystem:
 > 每个阶段拆成独立可验证的小步。建议顺序执行，但每步都能单独交付。
 > 标注 [验收] 为该步完成的判定标准。
 
-### P0 — 统一 Shape 背景层（起点，风险最低，复用现有椭圆逻辑）
-- [ ] P0-1 新建 `src/rendering/ShapeRenderer.js`：`render(ctx, shape, resolver)`，支持 rect/ellipse/circle 三种 shapeType + color/image/slice/gradient/pattern 填充 + edgeFade + stroke。把现椭圆的 `_drawImageInBox/_drawSliceTiled/edgeFade` 迁入。
-- [ ] P0-2 编辑器 `SceneEditorCanvas` 改调 ShapeRenderer 渲染 shape（删除重复逻辑）
-- [ ] P0-3 游戏侧 `Scene1Terrain`（或新 DataDrivenScene 前身）改调 ShapeRenderer 渲染地形 shape
-- [ ] P0-4 加 polygon/path shapeType：编辑器多边形绘制工具（点击落点、双击闭合、顶点拖拽）
-- [ ] P0-5 collide 多边形碰撞：`isBlocked(x,y)` 用点在多边形内判定，取代写死盆地椭圆
-- [ ] P0-6 旧数据兼容：加载旧 `fill`/`ellipse` 对象自动转 `shape`
-- [ ] [验收] 编辑器能画矩形/椭圆/圆/多边形并设填充+淡化+碰撞；游戏渲染一致；旧场景正常打开
+### P0 — 统一 Shape 背景层 ✅ 已完成
+- [x] P0-1 `src/rendering/ShapeRenderer.js`：render(ctx, shape, resolver)，5 形状 + 5 填充 + edgeFade + stroke，编辑器/游戏共用
+- [x] P0-2 编辑器 `SceneEditorCanvas` 改调 ShapeRenderer（fill/ellipse/shape 统一 + `_shapeResolver` + 透明度0编辑显示0.5）
+- [x] P0-3 游戏侧 `Scene1Terrain._renderTerrainEllipse` 改调 ShapeRenderer；`_editorShapes` 收集渲染普通 shape
+- [x] P0-4 polygon/path：资源库拖入 + 命中(射线法) + 整体移动 + 顶点拖拽 + 选中框顶点手柄 + 属性面板 + 顶点数(3~100,随机增删)
+- [x] P0-5 collide 碰撞：`isBlocked` 点在多边形内 + `checkTerrainCollision` 推开式(多边形精确边界,无 entityRadius 缩进)
+- [x] P0-6 旧数据迁移：`_migrateShapes` 加载时 rect/circle/fill/ellipse → shape
+- [x] [验收] 已通过：多边形可画/可编辑/可碰撞/游戏显示；遮罩层已删；不再自动生成椭圆
+- 注：编辑器 `SceneEditorCanvas` 旧 `_renderFillObject/_renderEllipseObject` 等死代码保留待清理（不影响功能）
 
-### P1 — 触发器内核 + 事件编辑器（最高性价比，一次覆盖 事件/幕切换/引导）
-- [ ] P1-1 `Blackboard`：变量存取 + serialize/deserialize + 变更事件
-- [ ] P1-2 `ExpressionEngine`：JSON 条件求值（比较/逻辑/var/flag/questState/hasItem/distanceTo/inRegion）
-- [ ] P1-3 `TriggerSystem`：register/update；when 事件源接入(sceneEnter/enterRegion/kill/dialogueEnd/itemPickup/timer/questComplete)
-- [ ] P1-4 动作注册表：startDialogue/giveReward/setVar/loadRegion/spawnEnemy/showTip/playSound/wait/parallel + 战场动作(battleWin/spawnWave/mount)；动作=纯函数+events(§13)
-- [ ] P1-5 编辑器事件 Tab：触发器列表 + when 动态表单 + if 条件树 + do 动作列表(拖拽)；画布框选生成 region
-- [ ] [验收] 能在编辑器配"进入区域→播放对话→给奖励→切场景"并在游戏中运行
+### P1 — 触发器内核 + 事件编辑器 ✅ 已完成（内核部分）
+- [x] P1-1 `Blackboard`（`src/core/Blackboard.js`）：变量存取 + serialize/deserialize + 变更事件
+- [x] P1-2 `ExpressionEngine`（`src/systems/ExpressionEngine.js`）：JSON 条件求值（比较/逻辑/var/flag/questState/hasItem/distanceTo/inRegion）
+- [x] P1-3 `TriggerSystem`（`src/systems/TriggerSystem.js`）：register/update/fire/条件判定/once/cooldown/序列化；事件源目前接入 sceneEnter、dialogueEnd（kill/enterRegion/itemPickup/timer/questComplete 待按需接）
+- [x] P1-4 动作注册表（`src/systems/TriggerActions.js`）：setVar/addVar/setFlag/startDialogue/showTip/giveReward/playSound/wait 等默认动作；战场动作(battleWin/spawnWave/mount)待 P2 组件到位后补
+- [x] P1-5 编辑器事件 Tab（`editor/TriggerEditor.js`）：读写 game.project.json 的 triggers，JSON 实时校验(合法绿框/非法红框)、保存前拦截非法 JSON、保存成功/失败 toast 提示；集成到 `editor/index.html` 导航
+- [x] [验收] 已通过：编辑器配 sceneEnter→setVar 触发器，游戏中 Act1SceneECS 加载后 fire('sceneEnter') 执行，控制台确认 `act: 0 → 1`
+- 注：可视化 if 条件树 / do 动作拖拽表单仍是 JSON 文本编辑（够用）；画布框选生成 region 待 P2
 
 ### P2 — 逻辑对象 + 内容库 + 战场组件
 - [ ] P2-1 场景逻辑对象类型：region/npc/spawn/portal（编辑器放置 + 数据结构）
@@ -496,8 +498,8 @@ VehicleSystem:
 - [ ] [验收] 序章对话/引导全部由数据驱动，编辑器可改
 
 ### P4 — 数据化装配（重构核心，风险较高）
-- [ ] P4-1 GameProject 数据模型 + $ref 解析 + 校验
-- [ ] P4-2 GameLoader：装配 dialogues/quests/triggers/library/worldMap
+- [x] P4-1 GameProject 数据模型 + $ref 解析（`example/sanguo_zhangjiao/game.project.json` 工程骨架 + 示例触发器）
+- [x] P4-2 GameLoader（`src/core/GameLoader.js`）：读工程→装配 Blackboard/TriggerSystem/dialogues/quests/library，支持 $ref、序列化；已试点叠加到 Act1SceneECS（不拆现有逻辑），验证通过
 - [ ] P4-3 DataDrivenScene：合并 Act1~6Scene，读 chunk 数据渲染
 - [ ] P4-4 Resolver 化：CombatResolver/LootResolver/QuestResolver 纯函数(§13 约定5)
 - [ ] P4-5 序章数据化：用 GameProject 重建六幕，逐幕对照旧版验收，再删 PrologueManager
@@ -520,3 +522,48 @@ VehicleSystem:
 ### 建议起步
 从 **P0** 开始（低风险、复用你已完成的椭圆/填充/淡化逻辑、为后续所有视觉编辑打底）。
 P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依赖它）。
+
+## 17. 进度快照（截至当前）
+
+> 记录实际交付情况，便于下次续接。勾选状态以 §16 为准，本节侧重"落地文件清单 + 接入现状 + 下一步"。
+
+### 17.1 已交付文件清单
+
+| 阶段 | 交付文件 | 说明 |
+|------|----------|------|
+| P0 | `src/rendering/ShapeRenderer.js` | 5 形状 + 5 填充 + edgeFade + stroke，编辑器/游戏共用 |
+| P0 | `editor/SceneEditorCanvas.js` 等编辑器模块 | 统一走 ShapeRenderer，多边形绘制/编辑/顶点数配置 |
+| P0 | `example/sanguo_zhangjiao/scenes/Scene1Terrain.js` | 游戏侧用 ShapeRenderer，`_editorShapes` 数据驱动渲染 + 多边形碰撞 |
+| P1 | `src/core/Blackboard.js` | 全局变量黑板 |
+| P1 | `src/systems/ExpressionEngine.js` | 数据化条件求值 |
+| P1 | `src/systems/TriggerSystem.js` | 触发器内核（fire/update/条件/动作/once/cooldown/序列化） |
+| P1 | `src/systems/TriggerActions.js` | 默认动作注册表 |
+| P1 | `editor/TriggerEditor.js` + `editor/index.html` | 事件编辑器（JSON 校验 + 保存 toast），已接入导航 |
+| P4 | `src/core/GameLoader.js` | 工程装配器（$ref/序列化） |
+| P4 | `example/sanguo_zhangjiao/game.project.json` | 工程数据源骨架 + 示例触发器 |
+
+### 17.2 试点接入现状
+
+- **Act1SceneECS 已挂 GameLoader**（叠加式，不拆现有六幕逻辑）：`_initGameLoader()` 在 enter 早期调用，加载后 fire('sceneEnter')，update 驱动 TriggerSystem，`_showScreenTip` 做屏幕提示。
+- 已验证：控制台输出 `[Trigger] 执行: trg_demo_enter_scene1` + `act: 0 → 1 ✅`，示例触发器生效。
+- Act1SceneECS 中仍保留大量诊断 `console.log`（`[GameLoader]`/`[Trigger]` 前缀），删除前需先征得用户同意。
+
+### 17.3 事件源接入现状
+
+- 已接：`sceneEnter`（场景进入时手动 fire）、`dialogueEnd`（对话结束）。
+- 未接：`kill`、`enterRegion`、`itemPickup`、`timer`、`questComplete`、`interact`、`flagChange` —— 按后续需求逐个接。
+
+### 17.4 未做 / 待续
+
+- **P4-3 DataDrivenScene**：未做（合并 Act1~6Scene 读 chunk 渲染）。
+- **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收，等 DataDrivenScene 就绪）。
+- **P2 逻辑对象 + 内容库 + 战场组件**：未开始。
+- **P3 对话图编辑器 / 引导迁移**：未开始（对话仍走现有 DialogueSystem）。
+- **P5 大地图流式 / P6 存档性能**：未开始。
+
+### 17.5 下一步建议（优先级）
+
+1. **收尾 P1 事件源**：按序章实际需求接 `kill` / `questComplete`，让触发器覆盖更多剧情节点。
+2. **推进 P2**：先做场景逻辑对象（region/spawn/portal）+ 内容库 Tab，为战场组件和数据化装配打基础。
+3. **P4-3 DataDrivenScene 试点**：先用一个最简单的幕（非序章第一幕）试数据驱动渲染，成功后再逐幕迁移。
+4. 决战/攻城/逃亡战场组件（P2-4~P2-6）在逻辑对象就绪后落地。

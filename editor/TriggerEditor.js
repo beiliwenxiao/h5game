@@ -33,12 +33,26 @@ const WHEN_TYPES = [
 ];
 
 const ACTION_TYPES = [
-  'setVar', 'addVar', 'setFlag', 'toggleFlag',
-  'startDialogue', 'switchScene', 'loadRegion',
-  'giveReward', 'startQuest', 'completeQuest',
-  'showTip', 'playSound', 'playBgm', 'spawnEnemy',
-  'wait', 'parallel',
-  'battleWin', 'battleLose', 'spawnWave', 'mount'
+  { v: 'setVar', label: '设置变量' },
+  { v: 'addVar', label: '变量累加' },
+  { v: 'setFlag', label: '设置标记' },
+  { v: 'toggleFlag', label: '切换标记' },
+  { v: 'startDialogue', label: '开始对话' },
+  { v: 'switchScene', label: '切换场景' },
+  { v: 'loadRegion', label: '加载区域' },
+  { v: 'giveReward', label: '给予奖励' },
+  { v: 'startQuest', label: '开始任务' },
+  { v: 'completeQuest', label: '完成任务' },
+  { v: 'showTip', label: '显示提示' },
+  { v: 'playSound', label: '播放音效' },
+  { v: 'playBgm', label: '播放背景音乐' },
+  { v: 'spawnEnemy', label: '生成敌人' },
+  { v: 'wait', label: '等待' },
+  { v: 'parallel', label: '并行执行' },
+  { v: 'battleWin', label: '战斗胜利' },
+  { v: 'battleLose', label: '战斗失败' },
+  { v: 'spawnWave', label: '生成波次' },
+  { v: 'mount', label: '上载具/骑乘' }
 ];
 
 export class TriggerEditor {
@@ -267,7 +281,7 @@ export class TriggerEditor {
     let doHtml = '';
     (t.do || []).forEach((act, di) => {
       const actOpts = ACTION_TYPES.map(a =>
-        `<option value="${a}" ${act.action === a ? 'selected' : ''}>${a}</option>`).join('');
+        `<option value="${a.v}" ${act.action === a.v ? 'selected' : ''}>${a.label} (${a.v})</option>`).join('');
       doHtml += `
         <div class="trg-do-item" data-di="${di}">
           <div class="do-head">

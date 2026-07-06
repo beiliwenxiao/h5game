@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "id": "sanguo_zhangjiao",
+    "name": "三国张角序章",
+    "version": 1,
+    "schema": 2
+  },
+  "variables": {
+    "act": 0,
+    "killCount": 0,
+    "hasSword": false,
+    "gold": 0
+  },
+  "worldMap": null,
+  "worldTerrains": {},
+  "scenes": [],
+  "dialogues": [],
+  "quests": [],
+  "triggers": [
+    {
+      "id": "trg_demo_enter_scene1",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "scene_Prologue"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act"
+        },
+        "right": 0
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 1
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "my_first_trigger",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "scene_Prologue"
+        }
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "你好，这是我的第一个触发器!"
+          }
+        }
+      ],
+      "once": true
+    }
+  ],
+  "tutorials": [],
+  "library": {
+    "npcs": [],
+    "enemies": [],
+    "items": [],
+    "equipment": [],
+    "shops": [],
+    "classes": [],
+    "skills": []
+  }
+}

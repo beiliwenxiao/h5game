@@ -439,6 +439,7 @@
                 <button id="nav-game-list" class="active">游戏列表</button>
                 <button id="nav-scene-editor">场景编辑器</button>
                 <button id="nav-ui-editor">UI编辑器</button>
+                <button id="nav-trigger-editor">事件编辑器</button>
                 <button id="nav-home">返回首页</button>
             </nav>
         </header>
@@ -480,6 +481,11 @@
             <!-- UI 编辑器页 -->
             <div class="ui-editor-page" id="ui-editor-page">
                 <div id="ui-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
+            </div>
+
+            <!-- 事件编辑器页 -->
+            <div class="ui-editor-page" id="trigger-editor-page">
+                <div id="trigger-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>
@@ -551,6 +557,7 @@
         import { ImageSlicer } from './ImageSlicer.js';
         import { SceneDataLoader } from './SceneDataLoader.js';
         import { UIEditor } from './UIEditor.js';
+        import { TriggerEditor } from './TriggerEditor.js';
         
         class GameEditor {
             constructor() {
@@ -558,6 +565,7 @@
                 this.sceneLoader = new SceneDataLoader();
                 this.sceneEditor = null;
                 this.uiEditor = null;
+                this.triggerEditor = null;
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
@@ -647,6 +655,7 @@
                 document.getElementById('nav-game-list').addEventListener('click', () => this.showPage('game-list'));
                 document.getElementById('nav-scene-editor').addEventListener('click', () => this.showPage('scene-editor'));
                 document.getElementById('nav-ui-editor').addEventListener('click', () => this.showPage('ui-editor'));
+                document.getElementById('nav-trigger-editor').addEventListener('click', () => this.showPage('trigger-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
                 // 游戏卡片点击
@@ -963,6 +972,7 @@
                 document.getElementById('game-list-page').style.display = 'none';
                 document.getElementById('scene-editor-page').classList.remove('active');
                 document.getElementById('ui-editor-page').classList.remove('active');
+                document.getElementById('trigger-editor-page').classList.remove('active');
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
@@ -981,6 +991,15 @@
                         );
                     }
                     this.uiEditor.init();
+                } else if (page === 'trigger-editor') {
+                    document.getElementById('trigger-editor-page').classList.add('active');
+                    if (!this.triggerEditor) {
+                        this.triggerEditor = new TriggerEditor(
+                            document.getElementById('trigger-editor-container'),
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                        );
+                    }
+                    this.triggerEditor.init();
                 }
             }
             

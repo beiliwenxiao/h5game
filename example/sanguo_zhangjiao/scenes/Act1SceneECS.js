@@ -33,6 +33,7 @@ import { TransformComponent } from '../../../src/ecs/components/TransformCompone
 import { SpriteComponent } from '../../../src/ecs/components/SpriteComponent.js';
 import { NameComponent } from '../../../src/ecs/components/NameComponent.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
+import { GameLoader } from '../../../src/core/GameLoader.js';
 
 export class Act1SceneECS extends BaseGameScene {
   constructor() {
@@ -173,10 +174,79 @@ export class Act1SceneECS extends BaseGameScene {
     // 第一幕特有：加载火焰图片
     this.loadFireImage();
     
+    // 试点：数据驱动触发器（GameLoader 叠加，不影响现有逻辑）
+    // 必须在 showCharacterCreation（可能同步创建玩家）之前，确保 _gameLoaderReady 已就绪
+    this._initGameLoader();
+
     // 第一幕特有：显示角色创建
     this.showCharacterCreation();
     
     console.log('Act1SceneECS: 进入第一幕 - 绝望的开始');
+  }
+
+  /**
+   * 试点接入数据驱动触发器系统（GameLoader + TriggerSystem）
+   * 叠加在现有逻辑之上：加载 game.project.json，装配触发器/黑板/对话，
+   * 在关键时机 fire 事件源。加载失败不影响游戏。
+   * @private
+   */
+  _initGameLoader() {
+    try {
+      this.gameLoader = new GameLoader();
+      const eng = window.gameEngine;
+      console.log('%c[GameLoader] 开始加载 game.project.json ...', 'color:#2196f3');
+      // 相对游戏入口 index.html 的路径
+      this._gameLoaderReady = this.gameLoader.load('game.project.json', {
+        dialogueSystem: this.dialogueSystem,
+        questSystem: this.questSystem,
+        sceneManager: eng ? eng.sceneManager : null,
+        audioManager: this.audioManager || (eng && eng.audioManager) || null,
+        floatingText: this.floatingTextManager,
+        tutorial: { showTip: (p) => this._showScreenTip(p.text || '') },
+        player: null
+      }).then(() => {
+        const trig = this.gameLoader.triggerSystem;
+        // 触发器执行日志（验证用）
+        trig.on((evt, t) => {
+          if (evt === 'triggerStart') console.log('[Trigger] 执行:', t.id, t.do);
+        });
+        // 事件源：对话结束
+        if (this.dialogueSystem && this.dialogueSystem.onEnd) {
+          this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
+        }
+        console.log('%c[GameLoader] 已加载 game.project.json，触发器数量:', 'color:#4CAF50', trig.triggers.length);
+        console.log('[GameLoader] 触发器内容:', JSON.stringify(trig.triggers));
+        // 加载完成后立即触发进入场景事件（不依赖玩家创建时机，once 保证只执行一次）
+        if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
+        const _before = this.gameLoader.blackboard.get('act');
+        trig.fire('sceneEnter', { sceneId: 'scene_Prologue' });
+        const _after = this.gameLoader.blackboard.get('act');
+        console.log('%c[GameLoader] fire(sceneEnter) 后 act:', 'color:#ff9800', _before, '→', _after,
+          _after !== _before ? '✅ 触发器已执行' : '❌ 未触发(检查 when/if 是否匹配)');
+      }).catch(e => console.error('%c[GameLoader] 加载失败:', 'color:#f44', e));
+    } catch (e) {
+      console.warn('[GameLoader] 初始化失败:', e);
+    }
+  }
+
+  /**
+   * 屏幕居中提示（供触发器 showTip 动作使用，2.5 秒后淡出）
+   * @private
+   */
+  _showScreenTip(text) {
+    let el = document.getElementById('trigger-tip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'trigger-tip';
+      el.style.cssText = 'position:fixed;top:22%;left:50%;transform:translateX(-50%);' +
+        'background:rgba(0,0,0,0.82);color:#fff;padding:14px 28px;border-radius:8px;' +
+        'font-size:18px;z-index:99999;pointer-events:none;transition:opacity 0.3s;';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(this._tipTimer);
+    this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
   }
 
   /**
@@ -196,6 +266,14 @@ export class Act1SceneECS extends BaseGameScene {
     }
     
     console.log('Act1SceneECS: 创建玩家实体（初始血量30%）', this.playerEntity);
+
+    // 试点：玩家就绪后更新触发器上下文，并 fire 进入场景事件
+    if (this._gameLoaderReady) {
+      this._gameLoaderReady.then(() => {
+        this.gameLoader.updateContext({ player: this.playerEntity });
+        this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId: 'scene_Prologue' });
+      });
+    }
   }
 
   /**
@@ -630,6 +708,9 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 调用父类的 update
     super.update(deltaTime);
+
+    // 试点：驱动数据驱动触发器（timer 类）
+    if (this.gameLoader) this.gameLoader.update(deltaTime);
     
     // 第一幕特有：检查火堆碰撞
     this.checkCampfireCollision();

@@ -1005,16 +1005,16 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderGround(ctx) {
-    // 编辑器中删除了地形椭圆：不渲染草地，只保留 shape、水池和背景图片
+    // 编辑器中删除了地形椭圆：不渲染草地，只保留水池、背景图片和 shape
     if (this._hasTerrainEllipse === false) {
-      this._renderEditorShapes(ctx);
       this._renderWaterPatches(ctx);
       this._renderEditorBackgroundImages(ctx);
+      this._renderEditorShapes(ctx);   // shape 在背景图片之上，可遮挡底层图片
       return;
     }
 
     // 使用合并的地面缓存（椭圆草地 + 背景图，一张图搞定）
-    // shape（多边形等）每帧单独画在缓存之上，避免被缓存范围裁剪
+    // shape（多边形/椭圆等）每帧单独画在缓存之上，可遮挡底层图片
     if (this._combinedGroundCache) {
       ctx.drawImage(this._combinedGroundCache, this._combinedGroundCacheX, this._combinedGroundCacheY);
       this._renderEditorShapes(ctx);
@@ -1026,14 +1026,14 @@ export class Scene1Terrain {
 
     // 数据驱动渲染地形椭圆（纯色 / 图片 / 切片 + 边缘淡化）
     this._renderTerrainEllipse(ctx);
-    // 渲染编辑器中的其它 shape（多边形/矩形/圆等）
-    this._renderEditorShapes(ctx);
     // 素材加载完成后尝试构建草地装饰缓存与合并地面缓存
     this._buildGroundDecoCache();
     this._buildCombinedGroundCache();
     this._renderWaterPatches(ctx);
     // 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
+    // shape 在背景图片之上渲染，可遮挡底层图片
+    this._renderEditorShapes(ctx);
   }
 
   /**

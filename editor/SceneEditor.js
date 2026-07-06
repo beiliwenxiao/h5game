@@ -55,7 +55,6 @@ async function loadEditorDefaults() {
         layers: [
           { id: 'layer_bg', name: '背景层', visible: true, locked: false },
           { id: 'layer_fill', name: '背景填充层', visible: true, locked: false },
-          { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
           { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
           { id: 'layer_entity', name: '实体层', visible: true, locked: false }
         ]
@@ -95,7 +94,6 @@ export class SceneEditor {
     const defaultLayers = (sceneCfg.layers || [
       { id: 'layer_bg', name: '背景层', visible: true, locked: false },
       { id: 'layer_fill', name: '背景填充层', visible: true, locked: false },
-      { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
       { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
       { id: 'layer_entity', name: '实体层', visible: true, locked: false }
     ]).map(l => ({ ...l, objects: [] }));
@@ -309,7 +307,6 @@ export class SceneEditor {
     const defaultLayers = (sceneCfg.layers || [
       { id: 'layer_bg', name: '背景层', visible: true, locked: false },
       { id: 'layer_fill', name: '背景填充层', visible: true, locked: false },
-      { id: 'layer_mask', name: '遮罩层', visible: true, locked: false },
       { id: 'layer_deco', name: '装饰层', visible: true, locked: false },
       { id: 'layer_entity', name: '实体层', visible: true, locked: false }
     ]).map(l => ({ ...l, objects: [] }));
@@ -330,6 +327,11 @@ export class SceneEditor {
 
     // 规范化图层
     this.sceneData.layers = this.layers.normalizeLayers(this.sceneData.layers);
+
+    // 遮罩层已废弃：清理空的遗留遮罩层（非空的保留，避免丢对象，用户可手动处理）
+    this.sceneData.layers = this.sceneData.layers.filter(
+      l => !(l.id === 'layer_mask' && (!l.objects || l.objects.length === 0))
+    );
 
     // 旧对象迁移为统一 shape（rect/circle/fill/ellipse → type:'shape'）
     this._migrateShapes();
@@ -460,7 +462,7 @@ export class SceneEditor {
       fillMode: 'color',
       fill: grassColor,
       opacity: 1,
-      edgeFade: 0,
+      edgeFade: 0.28,   // 自带边缘淡化，替代原遮罩层森林环带
       stroke: '',
       strokeWidth: 0,
       collide: false

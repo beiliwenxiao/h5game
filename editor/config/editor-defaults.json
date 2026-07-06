@@ -14,7 +14,6 @@
     "layers": [
       { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false },
       { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false },
-      { "id": "layer_mask", "name": "遮罩层", "visible": true, "locked": false },
       { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false },
       { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false }
     ]

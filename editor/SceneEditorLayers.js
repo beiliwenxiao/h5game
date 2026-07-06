@@ -365,7 +365,6 @@ export class SceneEditorLayers {
     const standard = [
       { id: 'layer_bg', name: '背景层' },
       { id: 'layer_fill', name: '背景填充层' },
-      { id: 'layer_mask', name: '遮罩层' },
       { id: 'layer_deco', name: '装饰层' },
       { id: 'layer_entity', name: '实体层' }
     ];

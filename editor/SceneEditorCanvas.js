@@ -64,15 +64,11 @@ export class SceneEditorCanvas {
       const layer = data.layers[i];
       if (!layer.visible) continue;
 
-      // 背景填充层：渲染地形背景椭圆（草地）
+      // 背景填充层：仅室内场景画网格辅助（户外椭圆由 shape 对象自身渲染）
       if (layer.id === 'layer_fill' && hasTerrain) {
         this._renderTerrainBackground(ctx);
       }
-
-      // 遮罩层：渲染地形遮罩效果（森林环带）
-      if (layer.id === 'layer_mask' && hasTerrain) {
-        this._renderTerrainMask(ctx);
-      }
+      // 遮罩层不再自动画森林环带椭圆：边缘透明由地形椭圆 shape 的 edgeFade 提供
 
       // 渲染该图层的所有对象
       for (const obj of layer.objects) this._renderObject(ctx, obj);

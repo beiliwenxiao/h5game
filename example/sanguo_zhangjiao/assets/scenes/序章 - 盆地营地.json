@@ -12,11 +12,30 @@
       "locked": false,
       "objects": [
         {
+          "id": "ellipse_1783349807083_124",
+          "type": "shape",
+          "name": "地形椭圆",
+          "x": -281.9488144183449,
+          "y": -106.32243785729963,
+          "width": 1308,
+          "height": 763,
+          "fillMode": "slice",
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "stroke": "",
+          "strokeWidth": 0,
+          "edgeFade": 0.15,
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grassTile",
+          "decoKey": null,
+          "shapeType": "ellipse"
+        },
+        {
           "id": "obj_1783095865778",
           "type": "image",
           "imageId": "img_1783095863410",
           "x": -285.99999999999983,
-          "y": -104.25035161744023,
+          "y": -103.12517580872012,
           "width": 1280,
           "height": 720,
           "rotation": 0
@@ -73,31 +92,6 @@
     {
       "id": "layer_fill",
       "name": "背景填充层",
-      "visible": true,
-      "locked": false,
-      "objects": [
-        {
-          "id": "ellipse_terrain_1783280474652",
-          "type": "shape",
-          "shapeType": "ellipse",
-          "name": "地形椭圆",
-          "x": -315.62587904360055,
-          "y": -180.62025316455697,
-          "width": 1320,
-          "height": 858,
-          "fillMode": "color",
-          "fill": "#3a5a2a",
-          "opacity": 1,
-          "edgeFade": 0,
-          "stroke": "",
-          "strokeWidth": 0,
-          "collide": false
-        }
-      ]
-    },
-    {
-      "id": "layer_mask",
-      "name": "遮罩层",
       "visible": true,
       "locked": false,
       "objects": []
@@ -3673,7 +3667,7 @@
           "type": "deco",
           "decoKey": "tree3",
           "x": 51.94872163211254,
-          "y": -94.78971526435532,
+          "y": -95.91489107307544,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -6745,7 +6739,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-05T20:05:14.050Z",
+  "updatedAt": "2026-07-06T14:59:34.240Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

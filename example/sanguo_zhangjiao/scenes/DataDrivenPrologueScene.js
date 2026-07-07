@@ -1,0 +1,582 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   H5Game - 基于HTML5的游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-01-14
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/h5game
+ *            https://gitee.com/coderaaa/h5game
+ ************************************************************/
+
+/**
+ * DataDrivenPrologueScene - 数据驱动序章场景（P4-5 逐幕迁移落点）
+ *
+ * 继承 BaseGameScene（通用可玩管线），并【迁移】Act1 中的通用地形/火堆代码
+ * （相机限制、盆地/水池/树/多边形碰撞、火堆渲染+火焰粒子），
+ * 不继承 Act1 的脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）——这些改由
+ * GameProject（game.project.json）的 triggers + 逻辑对象逐步重建。
+ *
+ * 与旧 Act1 并存：?ddscene=1 进本场景，默认仍进旧 Act1（逐幕对照验收）。
+ * 待迁移：渐进提示 / 点火交互 / 拾取物 / 刷怪波次 / 倒计时切幕。
+ */
+
+import { BaseGameScene } from './BaseGameScene.js';
+import { Scene1Terrain } from './Scene1Terrain.js';
+import { GameLoader } from '../../../src/core/GameLoader.js';
+
+export class DataDrivenPrologueScene extends BaseGameScene {
+  constructor() {
+    super(1, {
+      title: '数据驱动序章',
+      description: '第一幕（数据驱动重建，与旧 Act1 并存对照）'
+    });
+
+    // 盆地火堆（含火焰帧动画字段，迁移自 Act1）
+    this.campfire = {
+      x: 350,
+      y: 250,
+      lit: false,
+      emitters: [],
+      emitterSmoke: null,
+      fireImage: null,
+      imageLoaded: false,
+      frameWidth: 658 / 4,
+      frameHeight: 712 / 3,
+      frameCols: 4,
+      frameRows: 3,
+      frameCount: 12,
+      currentFrame: 0,
+      frameTime: 0,
+      frameDuration: 0.16,
+      autoIgniteTimer: 0,
+      autoIgniteDelay: 10
+    };
+
+    this.terrain = null;
+    this.gameLoader = null;
+  }
+
+  enter(data = null) {
+    // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
+    super.enter(data);
+
+    // 盆地地形（与旧场景同一份编辑器数据，视觉+碰撞一致）
+    this.terrain = new Scene1Terrain({
+      centerX: this.campfire.x,
+      centerY: this.campfire.y,
+      width: 1280,
+      height: 720
+    });
+
+    // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
+    this.loadFireImage();
+    // 先点亮火堆（含火焰粒子）；后续改由触发器/交互控制
+    this.lightCampfire();
+
+    // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
+    this._initGameLoader();
+
+    console.log('DataDrivenPrologueScene: 进入（数据驱动序章）');
+  }
+
+  update(deltaTime) {
+    if (!this.isActive) return;
+
+    if (this.isTransitioning) {
+      this.updateTransition(deltaTime);
+      if (this.transitionPhase === 'show_text' || this.transitionPhase === 'switch_scene') {
+        this.inputManager.update();
+        return;
+      }
+    }
+
+    // 火焰动画 + 粒子发射器更新
+    this.updateCampfireAnimation(deltaTime);
+
+    // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
+    super.update(deltaTime);
+
+    // 数据驱动触发器（timer 等）
+    if (this.gameLoader) this.gameLoader.update(deltaTime);
+
+    // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
+    this.checkCampfireCollision();
+    this.checkTerrainCollision();
+  }
+
+  /** 相机后处理：限制在盆地内（被 BaseGameScene.update 调用） */
+  postCameraUpdate() {
+    this.clampCameraToBasin();
+  }
+
+  /**
+   * 装配 GameProject（触发器/黑板/对话/任务），fire(sceneEnter)。showTip 走屏幕居中提示。
+   * @private
+   */
+  _initGameLoader() {
+    try {
+      this.gameLoader = new GameLoader();
+      const eng = window.gameEngine;
+      this._gameLoaderReady = this.gameLoader.load('game.project.json', {
+        dialogueSystem: this.dialogueSystem,
+        questSystem: this.questSystem,
+        sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
+        audioManager: this.audioManager || (eng && eng.audioManager) || null,
+        floatingText: this.floatingTextManager,
+        tutorial: { showTip: (p) => this._showScreenTip(p.text || '') },
+        player: this.playerEntity || null
+      }).then(() => {
+        const trig = this.gameLoader.triggerSystem;
+        trig.on((evt, t) => {
+          if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
+        });
+        if (this.dialogueSystem && this.dialogueSystem.onEnd) {
+          this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
+        }
+        if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
+        trig.fire('sceneEnter', { sceneId: 'scene_Prologue' });
+        console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', trig.triggers.length);
+      }).catch(e => console.error('[DDScene][GameLoader] 加载失败:', e));
+    } catch (e) {
+      console.warn('[DDScene][GameLoader] 初始化失败:', e);
+    }
+  }
+
+  /** 屏幕居中提示（showTip 动作用，2.5 秒淡出） */
+  _showScreenTip(text) {
+    let el = document.getElementById('dd-trigger-tip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dd-trigger-tip';
+      el.style.cssText = 'position:fixed;top:22%;left:50%;transform:translateX(-50%);' +
+        'background:rgba(0,0,0,0.82);color:#fff;padding:14px 28px;border-radius:8px;' +
+        'font-size:18px;z-index:99999;pointer-events:none;transition:opacity 0.3s;';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(this._tipTimer);
+    this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  }
+
+  // ==================== 火堆（迁移自 Act1） ====================
+
+  /** 点燃火堆并创建火焰粒子（7 组发射器） */
+  lightCampfire() {
+    if (this.campfire.lit) return;
+    this.campfire.lit = true;
+    this.campfire.emitters = [];
+
+    const fireBaseY = this.campfire.y - 15;
+    const firePoint = { x: this.campfire.x, y: fireBaseY };
+    const mk = (rate, vy, life, size, color, alpha) => this.campfire.emitters.push(
+      this.particleSystem.createEmitter({
+        position: { x: firePoint.x, y: firePoint.y },
+        rate,
+        duration: Infinity,
+        particleConfig: {
+          position: { x: firePoint.x, y: firePoint.y },
+          velocity: { x: 0, y: vy },
+          life, size, color, alpha, gravity: 0, friction: 0.95
+        }
+      })
+    );
+
+    mk(6, -50, 250, 8.5, '#ffaa22', 0.85);  // 大火焰
+    mk(8, -35, 200, 6, '#ff8833', 0.8);     // 中火焰
+    mk(4, -120, 400, 4.5, '#ffffee', 1.0);  // 白色亮点
+    mk(10, -100, 350, 3.5, '#ffee44', 0.9); // 亮黄火星
+    mk(8, -80, 300, 2.5, '#ff9933', 0.85);  // 橙色火星
+    mk(6, -60, 250, 2, '#ff5522', 0.8);     // 红色火星
+    mk(12, -40, 200, 2, '#ff6633', 0.7);    // 小火星
+
+    console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
+  }
+
+  /** 更新火焰帧动画与粒子发射器位置 */
+  updateCampfireAnimation(deltaTime) {
+    if (this.campfire.lit && this.campfire.imageLoaded) {
+      this.campfire.frameTime += deltaTime;
+      if (this.campfire.frameTime >= this.campfire.frameDuration) {
+        this.campfire.frameTime = 0;
+        this.campfire.currentFrame = (this.campfire.currentFrame + 1) % this.campfire.frameCount;
+      }
+    }
+
+    if (this.campfire.lit) {
+      const time = performance.now() / 1000;
+      this.campfire.emitters.forEach((emitter, index) => {
+        if (!emitter) return;
+        let swayAmount;
+        if (index < 2) {
+          swayAmount = (Math.random() - 0.5) * 10;
+        } else {
+          swayAmount = Math.sin(time * 2 + index * 0.5) * 4 + (Math.random() - 0.5) * 2;
+        }
+        const baseX = this.campfire.x;
+        const baseY = this.campfire.y + 2;
+        emitter.position.x = baseX + swayAmount;
+        emitter.position.y = baseY - 15;
+        emitter.particleConfig.velocity.x = (Math.random() - 0.5) * 10;
+        this.particleSystem.updateEmitter(emitter, deltaTime);
+      });
+    }
+  }
+
+  // ==================== 渲染（迁移自 Act1） ====================
+
+  /** 背景：盆地草地+水池（Scene1Terrain） */
+  renderBackground(ctx) {
+    if (this.terrain) {
+      ctx.fillStyle = '#1f1a14';
+      const vb = this.camera.getViewBounds();
+      ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
+      this.terrain.renderGround(ctx);
+    } else {
+      super.renderBackground(ctx);
+    }
+  }
+
+  /** 世界对象：实体 + 火堆 + 盆地装饰 Y-sort + 悬崖 */
+  renderWorldObjects(ctx) {
+    const renderQueue = [];
+    for (const entity of this.entities) {
+      const transform = entity.getComponent('transform');
+      if (transform) {
+        renderQueue.push({ type: 'entity', y: transform.position.y, entity });
+      }
+    }
+    renderQueue.push({ type: 'campfire_bottom', y: this.campfire.y, render: () => this.renderCampfireBottom(ctx) });
+    renderQueue.push({ type: 'campfire_top', y: this.campfire.y - 1, render: () => this.renderCampfireTop(ctx) });
+
+    if (this.terrain) this.terrain.renderBelowDecorations(ctx);
+    if (this.terrain) this.terrain.collectDecorations(renderQueue, ctx);
+
+    renderQueue.sort((a, b) => a.y - b.y);
+    for (const item of renderQueue) {
+      if (item.type === 'entity') this.renderEntity(ctx, item.entity);
+      else if (item.render) item.render();
+    }
+
+    if (this.terrain) this.terrain.renderCliffs(ctx);
+  }
+
+  /** 火堆下半部分 */
+  renderCampfireBottom(ctx) {
+    const x = this.campfire.x;
+    const y = this.campfire.y;
+
+    if (!this.campfire.lit) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 30, y - 15, 60, 15);
+      ctx.clip();
+      ctx.strokeStyle = '#5a4a3a';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 18, y - 15); ctx.lineTo(x + 18, y - 15); ctx.stroke();
+      ctx.strokeStyle = '#4a3a2a';
+      ctx.beginPath(); ctx.moveTo(x - 15, y - 7); ctx.lineTo(x - 5, y - 27); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
+      ctx.restore();
+
+      const time = performance.now() / 1000;
+      const blinkAlpha = 0.7 + 0.3 * Math.abs(Math.sin(time * 2.5));
+      const dotRadius = 4 + 1 * Math.sin(time * 3);
+      ctx.save();
+      ctx.globalAlpha = blinkAlpha;
+      const outerGlow = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius + 6);
+      outerGlow.addColorStop(0, 'rgba(255, 100, 50, 0.8)');
+      outerGlow.addColorStop(0.5, 'rgba(255, 50, 20, 0.4)');
+      outerGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      ctx.fillStyle = outerGlow;
+      ctx.beginPath(); ctx.arc(x, y - 15, dotRadius + 6, 0, Math.PI * 2); ctx.fill();
+      const dotGradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius);
+      dotGradient.addColorStop(0, 'rgba(255, 255, 200, 1)');
+      dotGradient.addColorStop(0.4, 'rgba(255, 120, 60, 1)');
+      dotGradient.addColorStop(1, 'rgba(255, 50, 20, 0)');
+      ctx.fillStyle = dotGradient;
+      ctx.beginPath(); ctx.arc(x, y - 15, dotRadius, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 30, y - 15, 60, 15);
+      ctx.clip();
+      ctx.strokeStyle = '#3a2a1a';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
+      ctx.restore();
+
+      const gradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, 60);
+      gradient.addColorStop(0, 'rgba(255, 200, 0, 0.4)');
+      gradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.2)');
+      gradient.addColorStop(1, 'rgba(255, 50, 0, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath(); ctx.arc(x, y - 15, 60, 0, Math.PI * 2); ctx.fill();
+
+      const centerGlow = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, 20);
+      centerGlow.addColorStop(0, 'rgba(255, 255, 200, 0.6)');
+      centerGlow.addColorStop(0.5, 'rgba(255, 150, 0, 0.3)');
+      centerGlow.addColorStop(1, 'rgba(255, 100, 0, 0)');
+      ctx.fillStyle = centerGlow;
+      ctx.beginPath(); ctx.arc(x, y - 15, 20, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  /** 火堆上半部分（木材 + 火焰帧动画） */
+  renderCampfireTop(ctx) {
+    const x = this.campfire.x;
+    const y = this.campfire.y;
+
+    if (!this.campfire.lit) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x - 30, y - 45, 60, 30);
+      ctx.clip();
+      ctx.strokeStyle = '#5a4a3a';
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 18, y - 15); ctx.lineTo(x + 18, y - 15); ctx.stroke();
+      ctx.strokeStyle = '#4a3a2a';
+      ctx.beginPath(); ctx.moveTo(x - 15, y - 7); ctx.lineTo(x - 5, y - 27); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 4;
+      ctx.fillText('熄灭的火堆', x, y - 55);
+      if (!(this.uiStrategy && this.uiStrategy.platform === 'mobile')) {
+        ctx.fillText('按 E 点燃', x, y - 40);
+      }
+      ctx.shadowBlur = 0;
+      return;
+    }
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x - 30, y - 45, 60, 30);
+    ctx.clip();
+    ctx.strokeStyle = '#3a2a1a';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
+    ctx.restore();
+
+    if (this.campfire.imageLoaded && this.campfire.fireImage) {
+      const col = this.campfire.currentFrame % this.campfire.frameCols;
+      const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
+      const frameX = col * this.campfire.frameWidth;
+      const frameY = row * this.campfire.frameHeight;
+      const fireWidth = 40;
+      const fireHeight = 60;
+      const fireX = x - fireWidth / 2;
+      const fireY = y - fireHeight - 5;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(
+        this.campfire.fireImage,
+        frameX, frameY, this.campfire.frameWidth, this.campfire.frameHeight,
+        fireX, fireY, fireWidth, fireHeight
+      );
+      ctx.globalAlpha = 1.0;
+    }
+  }
+
+  // ==================== 相机 / 碰撞（迁移自 Act1） ====================
+
+  /** 限制相机在盆地范围内 */
+  clampCameraToBasin() {
+    if (!this.terrain || !this.camera) return;
+    const t = this.terrain;
+    const halfW = this.camera.width / 2;
+    const halfH = this.camera.height / 2;
+    const maxCamX = t.basinRadiusX - halfW;
+    const maxCamY = t.basinRadiusY - halfH;
+    const clampX = maxCamX > 0 ? Math.max(-maxCamX, Math.min(maxCamX, this.camera.position.x - t.centerX)) : 0;
+    const clampY = maxCamY > 0 ? Math.max(-maxCamY, Math.min(maxCamY, this.camera.position.y - t.centerY)) : 0;
+    this.camera.position.x = t.centerX + clampX;
+    this.camera.position.y = t.centerY + clampY;
+  }
+
+  /** 火堆碰撞（阻止玩家穿过火堆） */
+  checkCampfireCollision() {
+    if (this.flightSystem && this.flightSystem.isPlayerFlying()) return;
+    const transform = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (!transform) return;
+
+    const playerX = transform.position.x;
+    const playerY = transform.position.y;
+    const playerRadius = 20;
+    const fullWidth = 50, fullHeight = 30;
+    const collisionWidth = fullWidth * 0.8;
+    const collisionHeight = fullHeight * 0.75;
+    const campfireLeft = this.campfire.x - collisionWidth / 2;
+    const campfireRight = this.campfire.x + collisionWidth / 2;
+    const campfireTop = this.campfire.y - 15;
+    const campfireBottom = this.campfire.y - 15 + collisionHeight;
+
+    const playerLeft = playerX - playerRadius;
+    const playerRight = playerX + playerRadius;
+    const playerTop = playerY - playerRadius;
+    const playerBottom = playerY + playerRadius;
+
+    if (playerRight > campfireLeft && playerLeft < campfireRight &&
+        playerBottom > campfireTop && playerTop < campfireBottom) {
+      const dx = playerX - this.campfire.x;
+      const dy = playerY - this.campfire.y;
+      const overlapX = dx > 0 ? (campfireRight - playerLeft) : (campfireLeft - playerRight);
+      const overlapY = dy > 0 ? (campfireBottom - playerTop) : (campfireTop - playerBottom);
+      if (Math.abs(overlapX) < Math.abs(overlapY)) transform.position.x += overlapX;
+      else transform.position.y += overlapY;
+    }
+  }
+
+  /** 盆地地形碰撞（椭圆盆地边界 + 水池 + 树 + 编辑器多边形） */
+  checkTerrainCollision() {
+    if (!this.terrain) return;
+    const t = this.terrain;
+    const cx = t.centerX, cy = t.centerY;
+    const irx = t.basinInnerRadiusX, iry = t.basinInnerRadiusY;
+    const halfAng = t.entranceAngleHalfWidth;
+
+    for (const entity of this.entities) {
+      if (entity.isDead || entity.isDying) continue;
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      const p = transform.position;
+
+      // 1) 椭圆盆地边界（南向入口扇形可通过）
+      const dx = p.x - cx, dy = p.y - cy;
+      const ed = Math.hypot(dx / irx, dy / iry);
+      if (ed < 0.85) entity._leftBasin = false;
+      if (!entity._leftBasin && ed > 1) {
+        const ang = Math.atan2(dy, dx);
+        const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        if (angDist < halfAng) {
+          entity._leftBasin = true;
+        } else if (ed > 0.001) {
+          const k = 0.99 / ed;
+          p.x = cx + dx * k;
+          p.y = cy + dy * k;
+        }
+      }
+
+      // 2) 水池（推开）
+      for (const pond of t.waterPatches) {
+        const pdx = (p.x - pond.x), pdy = (p.y - pond.y);
+        const nx = pdx / pond.rx, ny = pdy / pond.ry;
+        const d2 = nx * nx + ny * ny;
+        if (d2 < 1 && d2 > 0) {
+          const k = 1 / Math.sqrt(d2);
+          p.x = pond.x + pdx * k * 1.02;
+          p.y = pond.y + pdy * k * 1.02;
+        } else if (d2 === 0) {
+          p.y = pond.y - pond.ry - 1;
+        }
+      }
+
+      // 3) 树木（圆形障碍，推开）
+      const entityRadius = 12;
+      const trees = t.getTreeColliders();
+      for (const tree of trees) {
+        const tdx = p.x - tree.x, tdy = p.y - tree.y;
+        const minDist = tree.r + entityRadius;
+        const d2 = tdx * tdx + tdy * tdy;
+        if (d2 < minDist * minDist) {
+          const td = Math.sqrt(d2);
+          if (td > 0.001) {
+            const k = minDist / td;
+            p.x = tree.x + tdx * k;
+            p.y = tree.y + tdy * k;
+          } else {
+            p.y = tree.y + minDist;
+          }
+        }
+      }
+
+      // 4) 编辑器 collide shape（多边形/矩形/椭圆，精确边界推开）
+      if (t._collisionShapes && t._collisionShapes.length) {
+        for (const s of t._collisionShapes) {
+          this._resolveShapeCollision(p, s, entityRadius);
+        }
+      }
+    }
+  }
+
+  /** 把点推出一个 collide shape（多边形/矩形精确边界，椭圆/圆边界） */
+  _resolveShapeCollision(p, s, radius) {
+    const t = this.terrain;
+    if (!t || !t._pointInCollisionShape(s, p.x, p.y)) return;
+    const EPS = 0.5;
+    const st = s.shapeType;
+    if (st === 'circle' || st === 'ellipse') {
+      const cx = (s.x || 0) + (s.width || 0) / 2;
+      const cy = (s.y || 0) + (s.height || 0) / 2;
+      const dirx = p.x - cx, diry = p.y - cy;
+      const dl = Math.hypot(dirx, diry) || 1;
+      const rx = (st === 'circle' ? Math.min(s.width, s.height) : s.width) / 2 || 1;
+      const ry = (st === 'circle' ? Math.min(s.width, s.height) : s.height) / 2 || 1;
+      const ux = dirx / rx, uy = diry / ry;
+      const d = Math.hypot(ux, uy) || 1;
+      p.x = cx + dirx / d + dirx / dl * EPS;
+      p.y = cy + diry / d + diry / dl * EPS;
+      return;
+    }
+    let pts = s.points;
+    if (st === 'rect' || !Array.isArray(pts)) {
+      const x = s.x || 0, y = s.y || 0, w = s.width || 0, h = s.height || 0;
+      pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+    }
+    this._pushOutOfPolygon(p, pts, EPS);
+  }
+
+  /** 把点沿最近边外法向推出多边形（点须已在内） */
+  _pushOutOfPolygon(p, pts, radius) {
+    if (!pts || pts.length < 3) return;
+    let ccx = 0, ccy = 0;
+    for (const q of pts) { ccx += q[0]; ccy += q[1]; }
+    ccx /= pts.length; ccy /= pts.length;
+
+    let best = null, bestD = Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[j], b = pts[i];
+      const np = this._closestOnSegment(p.x, p.y, a[0], a[1], b[0], b[1]);
+      const d = Math.hypot(p.x - np.x, p.y - np.y);
+      if (d < bestD) {
+        bestD = d;
+        let nx = -(b[1] - a[1]), ny = (b[0] - a[0]);
+        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        if (nx * (mx - ccx) + ny * (my - ccy) < 0) { nx = -nx; ny = -ny; }
+        best = { x: np.x, y: np.y, nx, ny };
+      }
+    }
+    if (best) {
+      p.x = best.x + best.nx * radius;
+      p.y = best.y + best.ny * radius;
+    }
+  }
+
+  /** 点到线段最近点 */
+  _closestOnSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const l2 = dx * dx + dy * dy || 1;
+    let tt = ((px - ax) * dx + (py - ay) * dy) / l2;
+    tt = Math.max(0, Math.min(1, tt));
+    return { x: ax + dx * tt, y: ay + dy * tt };
+  }
+}
+
+export default DataDrivenPrologueScene;

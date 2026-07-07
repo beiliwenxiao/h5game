@@ -505,8 +505,10 @@ VehicleSystem:
 - [x] P4-4 Resolver 化：`src/core/RNG.js`（可注入种子 RNG，§13约定6）+ `src/systems/resolvers/CombatResolver.js`（伤害纯函数，镜像现有公式）+ `LootResolver.js`（掉落纯函数）+ `QuestResolver.js`（任务进度/完成纯函数）；均纯函数 + events + 注入 RNG（§13约定1/5/6），**叠加式，现有 CombatSystem/LootSystem/QuestSystem 未改动**
 - [~] P4-5 序章数据化（进行中，逐幕对照）：
   - **关键发现**：PrologueManager 在运行中的 2D demo 里**未被引用**（仅其自身测试引用），六幕硬编码实际在各 Act 场景类 + index.html 直接注册/switchTo。序章**视觉/地形已数据驱动**（编辑器场景 `scene_Prologue`，localStorage 或 `assets/scenes/*.json`，Scene1Terrain 读取）。真正待数据化的是各 Act 的**脚本化流程**（醒来/移动/点火/拾取/战斗/对话/切幕）。
-  - **P4-5 Stage 0 已交付（并存试点，默认不改旧流程）**：index.html 加 `?ddscene=1`（或 `?ddscene=<sceneId>`）守卫分支 → 用 `DataDrivenScene` 加载同一份 `scene_Prologue` 数据渲染（shape/ellipse/fill/image/slice + 无相机自适应铺满 + 角标），并 `loadProjectUrl('game.project.json')` 装配触发器。用于与旧 Act1 并列对照背景/图层/逻辑对象渲染。deco 装饰物预览暂未渲染（下一增量）。
-  - **后续 Stage**：逐幕把脚本流程迁到 triggers/dialogues + 逻辑对象；每幕与旧场景对照验收通过后再切换；六幕全绿后删除 PrologueManager（低风险，已是死代码）。
+  - **Stage 0 静态预览对照（已验收）**：`?ddscene=preview` → 轻量 `DataDrivenScene`(ShapeRenderer) 渲染 `scene_Prologue`（shape/ellipse/fill/image/slice/deco + 按 collide 分层 Y-sort + 内容包围盒居中）。已与旧场景视觉对齐（草丛在树下、居中）。该类保留作编辑器/无头预览。
+  - **Stage 1 可玩数据驱动场景（已交付）**：`scenes/DataDrivenPrologueScene.js` = **extends BaseGameScene + 迁移(复制) Act1 通用代码**（不继承 Act1，避免带入脚本）。迁移内容：相机限制 clampCameraToBasin、地形碰撞 checkTerrainCollision/checkCampfireCollision/_resolveShapeCollision/_pushOutOfPolygon/_closestOnSegment、火堆渲染 renderCampfireBottom/Top、火焰粒子 lightCampfire、火焰动画 updateCampfireAnimation、地形+装饰 Y-sort 渲染。**不含** Act1 脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）。`?ddscene=1` 进本场景（默认仍进旧 Act1）。当前：真实地形可自由走动（相机限盆地）+ 多边形/树/水池碰撞 + 火堆+火焰粒子 + sceneEnter 触发器（showTip）。
+  - **关键架构决策**：数据驱动场景**继承 BaseGameScene 复用可玩管线**，只把脚本流程数据化，绝不重写玩家/相机/战斗/渲染。
+  - **待迁移（逐个对照验收）**：① 渐进提示（tutorials showTip + 条件事件源）② 点火（campfire 逻辑对象 + interact 触发）③ 拾取物（spawn 逻辑对象）④ 刷怪波次（spawn + kill 事件源）⑤ 倒计时→切幕（timer + switchScene）。全部迁完对照通过后，本场景取代 Act1 并删旧脚本 + 删 PrologueManager。
 - [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
 
 ### P5 — 无缝大地图流式（最大工程）

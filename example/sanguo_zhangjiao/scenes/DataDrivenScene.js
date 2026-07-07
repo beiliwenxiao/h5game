@@ -149,6 +149,7 @@ export class DataDrivenScene extends Scene {
     if (scene) {
       this.sceneId = sceneId;
       this.sceneData = scene;
+      this._contentBounds = null;
       this._collectLogicObjects();
       this._preloadImages();
     } else {
@@ -219,12 +220,11 @@ export class DataDrivenScene extends Scene {
     if (this.camera && typeof this.camera.applyTransform === 'function') {
       this.camera.applyTransform(ctx);
     } else if (ctx.canvas) {
-      // 无相机：把整个场景自适应铺进画布（用于并存对照预览）
-      const sw = this.sceneData.width || 1280;
-      const sh = this.sceneData.height || 720;
-      const scale = Math.min(ctx.canvas.width / sw, ctx.canvas.height / sh);
-      const tx = (ctx.canvas.width - sw * scale) / 2;
-      const ty = (ctx.canvas.height - sh * scale) / 2;
+      // 无相机：按【实际内容包围盒】自适应居中铺进画布（内容常延伸到负坐标/超出声明尺寸）
+      const b = this._getContentBounds();
+      const scale = Math.min(ctx.canvas.width / b.w, ctx.canvas.height / b.h);
+      const tx = (ctx.canvas.width - b.w * scale) / 2 - b.x * scale;
+      const ty = (ctx.canvas.height - b.h * scale) / 2 - b.y * scale;
       ctx.translate(tx, ty);
       ctx.scale(scale, scale);
     }
@@ -243,6 +243,39 @@ export class DataDrivenScene extends Scene {
       ctx.fillText('DataDrivenScene 预览: ' + (this.sceneId || ''), 14, 25);
       ctx.restore();
     }
+  }
+
+  /**
+   * 计算所有可见对象的实际包围盒（含负坐标/超出声明尺寸的内容），用于无相机预览居中。
+   * 结果缓存到 this._contentBounds。
+   * @returns {{x:number,y:number,w:number,h:number}}
+   */
+  _getContentBounds() {
+    if (this._contentBounds) return this._contentBounds;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const acc = (x, y, w, h) => {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + w > maxX) maxX = x + w;
+      if (y + h > maxY) maxY = y + h;
+    };
+    for (const layer of this.sceneData.layers || []) {
+      if (!layer || layer.visible === false || !Array.isArray(layer.objects)) continue;
+      for (const o of layer.objects) {
+        if (o.type === 'shape') {
+          const bb = ShapeRenderer.getBBox(o);
+          acc(bb.x, bb.y, bb.w, bb.h);
+        } else if (o.width != null && o.height != null) {
+          acc(o.x, o.y, o.width, o.height);
+        }
+      }
+    }
+    if (!isFinite(minX)) {
+      // 兜底：用声明尺寸
+      minX = 0; minY = 0; maxX = this.sceneData.width || 1280; maxY = this.sceneData.height || 720;
+    }
+    this._contentBounds = { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+    return this._contentBounds;
   }
 
   // ---- 逻辑对象收集 / 实例化 ----
@@ -347,10 +380,18 @@ export class DataDrivenScene extends Scene {
 
   // ---- 渲染 ----
 
-  /** @private 渲染场景图层（shape/ellipse/fill/image/slice 走 ShapeRenderer） */
+  /**
+   * @private 渲染场景图层
+   * - shape/ellipse/fill：ShapeRenderer（背景、地形椭圆、碰撞多边形等）
+   * - image：drawImage
+   * - slice/deco：图集切片贴图（同一图层内按 Y（底边）排序，保证树木前后遮挡正确）
+   */
   _renderLayers(ctx) {
     for (const layer of this.sceneData.layers || []) {
       if (!layer || layer.visible === false || !Array.isArray(layer.objects)) continue;
+
+      // 先画非精灵对象（shape/ellipse/fill/image），保持原有顺序
+      const sprites = [];
       for (const o of layer.objects) {
         if (o.type === 'shape') {
           ShapeRenderer.render(ctx, o, this._shapeResolver);
@@ -361,15 +402,44 @@ export class DataDrivenScene extends Scene {
         } else if (o.type === 'image') {
           const img = this._getImage(o.imageId || o.imageSrc);
           if (img) ctx.drawImage(img, o.x, o.y, o.width, o.height);
-        } else if (o.type === 'slice') {
-          const src = this._getSliceSource(o);
-          if (src && src.img) {
-            ctx.drawImage(src.img, src.sx, src.sy, src.sw, src.sh, o.x, o.y, o.width, o.height);
-          }
+        } else if (o.type === 'slice' || o.type === 'deco') {
+          sprites.push(o);
         }
-        // deco（装饰物）暂不在预览渲染，属下一增量（需 decoSprites 图集）
       }
+
+      // 混合策略（同 map-editor.md）：非碰撞装饰（草/灌木）始终在底层，
+      // 碰撞装饰（树）才参与 Y-sort，保证草丛在树下面。
+      const ground = [];   // collide === false
+      const ysort = [];    // collide === true
+      for (const o of sprites) (this._isDecoCollide(o) ? ysort : ground).push(o);
+      const byBottom = (a, b) => (a.y + (a.height || 0)) - (b.y + (b.height || 0));
+      ground.sort(byBottom);
+      ysort.sort(byBottom);
+
+      for (const o of ground) this._drawSprite(ctx, o);
+      for (const o of ysort) this._drawSprite(ctx, o);
     }
+  }
+
+  /** 绘制一个 slice/deco 精灵 */
+  _drawSprite(ctx, o) {
+    const src = o.type === 'slice' ? this._getSliceSource(o) : this._getDecoSource(o);
+    if (src && src.img) {
+      ctx.drawImage(src.img, src.sx, src.sy, src.sw, src.sh, o.x, o.y, o.width, o.height);
+    }
+  }
+
+  /** 判断 slice/deco 是否为碰撞装饰（树等）：查 decoSprites / atlas.slices 的 collide 字段 */
+  _isDecoCollide(o) {
+    const key = o.decoKey || o.sliceKey || o.name;
+    if (!key) return false;
+    const sp = this.sceneData.decoSprites && this.sceneData.decoSprites[key];
+    if (sp && typeof sp.collide === 'boolean') return sp.collide;
+    for (const atlas of (this.sceneData.atlases || [])) {
+      const sl = atlas.slices && atlas.slices[o.sliceKey || key];
+      if (sl && typeof sl.collide === 'boolean') return sl.collide;
+    }
+    return false;
   }
 
   /** @private 渲染实体（简版：有 transform 就画一个占位方块 + 名称；接入现有 RenderSystem 后可替换） */
@@ -403,6 +473,7 @@ export class DataDrivenScene extends Scene {
   _preloadImages() {
     if (!this.sceneData) return;
     const srcs = new Set();
+    // 图层里的图片
     for (const layer of this.sceneData.layers || []) {
       for (const o of (layer.objects || [])) {
         if (o.type === 'image') {
@@ -413,7 +484,39 @@ export class DataDrivenScene extends Scene {
         }
       }
     }
+    // 图集图片（切片 / deco / 椭圆切片填充都依赖它）
+    for (const atlas of (this.sceneData.atlases || [])) {
+      const src = this._resolveImagePath(atlas.path || atlas.id);
+      if (src) srcs.add(src);
+    }
+    // terrain 图（decoSprites 常与它同图）
+    if (this.sceneData.terrain && this.sceneData.terrain.image) {
+      srcs.add(this._resolveImagePath(this.sceneData.terrain.image));
+    }
     for (const src of srcs) this._loadImage(src);
+  }
+
+  /** 取图集主图（decoSprites 与切片共用第一个图集图，如 mountain_landscape） */
+  _getAtlasImage() {
+    const atlas = (this.sceneData.atlases || [])[0];
+    if (atlas) {
+      const img = this._getImage(atlas.path || atlas.id);
+      if (img) return img;
+    }
+    if (this.sceneData.terrain && this.sceneData.terrain.image) {
+      return this._getImage(this.sceneData.terrain.image);
+    }
+    return null;
+  }
+
+  /** deco 对象的贴图源：从 decoSprites[decoKey] 取 sx/sy/sw/sh + 图集图 */
+  _getDecoSource(deco) {
+    const key = deco.decoKey || deco.name;
+    const sprites = this.sceneData.decoSprites;
+    const sp = sprites && key ? sprites[key] : null;
+    const img = this._getAtlasImage();
+    if (!sp || !img) return null;
+    return { img, sx: sp.sx, sy: sp.sy, sw: sp.sw, sh: sp.sh };
   }
 
   /** 把编辑器路径（可能含 ../example/.../assets/）修正为游戏运行路径 */

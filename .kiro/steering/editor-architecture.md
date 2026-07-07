@@ -508,7 +508,14 @@ VehicleSystem:
   - **Stage 0 静态预览对照（已验收）**：`?ddscene=preview` → 轻量 `DataDrivenScene`(ShapeRenderer) 渲染 `scene_Prologue`（shape/ellipse/fill/image/slice/deco + 按 collide 分层 Y-sort + 内容包围盒居中）。已与旧场景视觉对齐（草丛在树下、居中）。该类保留作编辑器/无头预览。
   - **Stage 1 可玩数据驱动场景（已交付）**：`scenes/DataDrivenPrologueScene.js` = **extends BaseGameScene + 迁移(复制) Act1 通用代码**（不继承 Act1，避免带入脚本）。迁移内容：相机限制 clampCameraToBasin、地形碰撞 checkTerrainCollision/checkCampfireCollision/_resolveShapeCollision/_pushOutOfPolygon/_closestOnSegment、火堆渲染 renderCampfireBottom/Top、火焰粒子 lightCampfire、火焰动画 updateCampfireAnimation、地形+装饰 Y-sort 渲染。**不含** Act1 脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）。`?ddscene=1` 进本场景（默认仍进旧 Act1）。当前：真实地形可自由走动（相机限盆地）+ 多边形/树/水池碰撞 + 火堆+火焰粒子 + sceneEnter 触发器（showTip）。
   - **关键架构决策**：数据驱动场景**继承 BaseGameScene 复用可玩管线**，只把脚本流程数据化，绝不重写玩家/相机/战斗/渲染。
-  - **待迁移（逐个对照验收）**：① 渐进提示（tutorials showTip + 条件事件源）② 点火（campfire 逻辑对象 + interact 触发）③ 拾取物（spawn 逻辑对象）④ 刷怪波次（spawn + kill 事件源）⑤ 倒计时→切幕（timer + switchScene）。全部迁完对照通过后，本场景取代 Act1 并删旧脚本 + 删 PrologueManager。
+  - **迁移进度**：
+    - [x] ② 点火交互：`DataDrivenPrologueScene._checkCampfireInteract()` 靠近火堆按 E/点击 → `fire('interact',{target:'campfire'})`；GameProject 触发器 `trg_campfire_interact`(interact→lightCampfire) + `trg_campfire_autolight`(timer 10s→lightCampfire，`if ddScene==true` 仅本场景生效)；场景注册 `lightCampfire` 动作调 `this.lightCampfire()`（含火焰粒子）。火堆初始熄灭，交互/超时点燃。
+    - [ ] ① 渐进提示（tutorials showTip + 条件事件源：playerMoved/panelOpen 等）
+    - [ ] ③ 拾取物（spawn 逻辑对象 + itemPickup 事件源）
+    - [ ] ④ 刷怪波次（spawn 逻辑对象 + kill 事件源）
+    - [ ] ⑤ 倒计时→切幕（timer + switchScene 动作）
+  - 全部迁完对照通过后，本场景取代 Act1 并删旧脚本 + 删 PrologueManager。
+  - **新增事件源接入**：`interact`（DataDrivenPrologueScene 火堆交互）。
 - [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
 
 ### P5 — 无缝大地图流式（最大工程）

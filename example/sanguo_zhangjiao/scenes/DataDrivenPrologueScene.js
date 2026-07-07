@@ -72,8 +72,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
     this.loadFireImage();
-    // 先点亮火堆（含火焰粒子）；后续改由触发器/交互控制
-    this.lightCampfire();
+    // 火堆初始熄灭：由数据驱动的 interact 触发器点燃（靠近按 E），或 timer 自燃兜底
 
     // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
     this._initGameLoader();
@@ -101,9 +100,38 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 数据驱动触发器（timer 等）
     if (this.gameLoader) this.gameLoader.update(deltaTime);
 
+    // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})
+    this._checkCampfireInteract();
+
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
     this.checkTerrainCollision();
+  }
+
+  /**
+   * 火堆交互事件源（数据驱动）：靠近火堆（≤60px）按 E 或点击火堆附近，
+   * 触发 interact 事件；由 GameProject 触发器 do:lightCampfire 点燃。
+   * @private
+   */
+  _checkCampfireInteract() {
+    if (this.campfire.lit || !this.gameLoader) return;
+    const transform = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (!transform) return;
+
+    const campfireCenterY = this.campfire.y - 15;
+    const dist = Math.hypot(this.campfire.x - transform.position.x, campfireCenterY - transform.position.y);
+
+    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
+    let clickedNear = false;
+    if (this.inputManager.isMouseClicked && this.inputManager.isMouseClicked() &&
+        !this.inputManager.isMouseClickHandled()) {
+      const m = this.inputManager.mouse;
+      if (Math.hypot(this.campfire.x - m.worldX, campfireCenterY - m.worldY) <= 80) clickedNear = true;
+    }
+
+    if ((ePressed || clickedNear) && dist <= 60) {
+      this.gameLoader.triggerSystem.fire('interact', { target: 'campfire' });
+    }
   }
 
   /** 相机后处理：限制在盆地内（被 BaseGameScene.update 调用） */
@@ -132,6 +160,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.on((evt, t) => {
           if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
         });
+        // 标记本场景为数据驱动（供仅本场景生效的触发器用 if 判定，避免污染旧 Act1）
+        this.gameLoader.blackboard.set('ddScene', true);
+        // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
+        trig.registerAction('lightCampfire', () => this.lightCampfire());
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
         }

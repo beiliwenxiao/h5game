@@ -1227,6 +1227,45 @@
         }
       ],
       "once": true
+    },
+    {
+      "id": "trg_campfire_interact",
+      "when": {
+        "type": "interact",
+        "params": {
+          "target": "campfire"
+        }
+      },
+      "do": [
+        {
+          "action": "lightCampfire",
+          "params": {}
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_campfire_autolight",
+      "when": {
+        "type": "timer",
+        "params": {
+          "seconds": 10
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "lightCampfire",
+          "params": {}
+        }
+      ],
+      "once": true
     }
   ],
   "tutorials": [],

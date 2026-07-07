@@ -54,6 +54,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       autoIgniteDelay: 10
     };
 
+    // 开场迷雾（模糊黑雾 + 玩家周围 2.5D 椭圆透光；点燃火堆后淡出，迁移自 Act1）
+    this.fog = {
+      opacity: 0.85,
+      targetOpacity: 0.85,
+      fadeSpeed: 0.4,
+      color: 'rgba(30, 30, 40,',
+      active: true
+    };
+
     this.terrain = null;
     this.gameLoader = null;
   }
@@ -93,6 +102,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 火焰动画 + 粒子发射器更新
     this.updateCampfireAnimation(deltaTime);
+
+    // 开场迷雾淡出
+    this.updateFog(deltaTime);
 
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
     super.update(deltaTime);
@@ -225,6 +237,72 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     mk(12, -40, 200, 2, '#ff6633', 0.7);    // 小火星
 
     console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
+
+    // 点燃火堆后迷雾消散
+    this.fog.targetOpacity = 0;
+  }
+
+  /** 迷雾淡出（平滑过渡到目标浓度） */
+  updateFog(deltaTime) {
+    if (!this.fog.active) return;
+    if (Math.abs(this.fog.opacity - this.fog.targetOpacity) > 0.01) {
+      if (this.fog.opacity > this.fog.targetOpacity) {
+        this.fog.opacity -= this.fog.fadeSpeed * deltaTime;
+        if (this.fog.opacity < this.fog.targetOpacity) this.fog.opacity = this.fog.targetOpacity;
+      }
+    } else if (this.fog.targetOpacity === 0) {
+      this.fog.opacity = 0;
+      this.fog.active = false;
+    }
+  }
+
+  /** 渲染：父类管线之上叠加开场迷雾（玩家周围 2.5D 椭圆透光区） */
+  render(ctx) {
+    super.render(ctx);
+    if (!(this.fog.active && this.fog.opacity > 0.01)) return;
+
+    ctx.save();
+    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+    const viewBounds = this.camera.getViewBounds();
+    if (playerTransform) {
+      const playerScreenX = playerTransform.position.x - viewBounds.left;
+      const playerScreenY = playerTransform.position.y - viewBounds.top;
+      const lightRadius = 120;
+
+      if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+      if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
+        this._fogCanvas.width = this.logicalWidth;
+        this._fogCanvas.height = this.logicalHeight;
+      }
+      const fogCtx = this._fogCanvas.getContext('2d');
+
+      fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+      fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+      fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+
+      // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
+      fogCtx.globalCompositeOperation = 'destination-out';
+      const yScale = 0.6;
+      fogCtx.save();
+      fogCtx.translate(playerScreenX, playerScreenY);
+      fogCtx.scale(1, yScale);
+      const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      fogCtx.fillStyle = gradient;
+      fogCtx.beginPath();
+      fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
+      fogCtx.fill();
+      fogCtx.restore();
+      fogCtx.globalCompositeOperation = 'source-over';
+
+      ctx.drawImage(this._fogCanvas, 0, 0);
+    } else {
+      ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+      ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    }
+    ctx.restore();
   }
 
   /** 更新火焰帧动画与粒子发射器位置 */

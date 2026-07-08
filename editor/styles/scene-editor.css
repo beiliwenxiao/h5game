@@ -4,6 +4,8 @@
 .toolbar-group button { padding: 6px 12px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px; }
 .toolbar-group button:hover { background: #4a5a9e; }
 .toolbar-group button.active { background: #4CAF50; }
+.toolbar-group button.primary { background: #4CAF50; color: #000; font-weight: bold; }
+.toolbar-group button.primary:hover { background: #5fd463; }
 .toolbar-group label { font-size: 12px; color: #aaa; }
 .toolbar-group input[type="text"] { width: 120px; padding: 4px 8px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 4px; color: #fff; font-size: 12px; }
 .toolbar-group input[type="color"] { width: 40px; height: 24px; padding: 0; border: none; border-radius: 4px; cursor: pointer; }

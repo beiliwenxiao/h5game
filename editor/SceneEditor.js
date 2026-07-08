@@ -247,6 +247,8 @@ export class SceneEditor {
 
     // 保存和导入导出
     document.getElementById('editor-save').addEventListener('click', () => this.history.save());
+    const clearCacheBtn = document.getElementById('editor-clear-cache');
+    if (clearCacheBtn) clearCacheBtn.addEventListener('click', () => { if (this.onClearCache) this.onClearCache(); });
     document.getElementById('editor-export').addEventListener('click', () => this.history.exportJSON());
     document.getElementById('editor-import').addEventListener('click', () => {
       document.getElementById('editor-json-input').click();

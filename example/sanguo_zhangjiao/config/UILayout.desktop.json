@@ -37,14 +37,14 @@
       "label": "背包面板",
       "kind": "panel",
       "anchor": "topleft",
-      "x": 660,
-      "y": 136,
-      "width": 306,
-      "height": 394,
-      "xPct": 0.51563,
-      "yPct": 0.18889,
-      "wPct": 0.23906,
-      "hPct": 0.54722
+      "x": 662,
+      "y": 182,
+      "width": 360,
+      "height": 314,
+      "xPct": 0.51719,
+      "yPct": 0.25278,
+      "wPct": 0.28125,
+      "hPct": 0.43611
     },
     {
       "id": "pc-hp-orb",

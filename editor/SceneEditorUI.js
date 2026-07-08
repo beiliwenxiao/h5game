@@ -31,6 +31,10 @@ export class SceneEditorUI {
       <div class="scene-editor">
         <div class="editor-toolbar">
           <div class="toolbar-group">
+            <button id="editor-save" class="primary" title="保存场景到工程（localStorage + assets/scenes JSON 文件）">💾 保存到工程</button>
+            <button id="editor-clear-cache" title="清理本地 localStorage 缓存（下次从工程 JSON 文件重新加载）">🧹 清理缓存</button>
+          </div>
+          <div class="toolbar-group">
             <button id="editor-undo" title="撤销 (Ctrl+Z)">↶</button>
             <button id="editor-redo" title="重做 (Ctrl+Y)">↷</button>
           </div>
@@ -57,7 +61,6 @@ export class SceneEditorUI {
             <input type="checkbox" id="editor-show-background" ${editor.options.showBackground ? 'checked' : ''}>
           </div>
           <div class="toolbar-group">
-            <button id="editor-save">保存场景</button>
             <button id="editor-export">导出JSON</button>
             <button id="editor-import">导入JSON</button>
           </div>

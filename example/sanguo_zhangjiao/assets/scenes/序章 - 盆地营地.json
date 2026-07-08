@@ -8,8 +8,8 @@
     {
       "id": "layer_bg",
       "name": "背景层",
-      "visible": false,
-      "locked": true,
+      "visible": true,
+      "locked": false,
       "objects": [
         {
           "id": "ellipse_1783349807083_124",
@@ -4993,6 +4993,26 @@
           "name": "木剑",
           "x": 315.1344992149708,
           "y": 266.1448882197112,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_bow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_bow",
+          "name": "木弓",
+          "x": -64.73026080743125,
+          "y": 514.9339049660593,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_arrow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_arrow",
+          "name": "木箭",
+          "x": 837.856377277599,
+          "y": 445.1947123972847,
           "group": "act1_equipment"
         }
       ]

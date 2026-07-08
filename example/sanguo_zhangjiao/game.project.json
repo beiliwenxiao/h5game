@@ -1028,7 +1028,7 @@
         "start": {
           "speaker": "旁白",
           "portrait": null,
-          "text": "黄巾起义虽�����失败了，但它的影响却深远地改变了历史的进程。",
+          "text": "黄巾起义虽���������失败了，但它的影响却深远地改变了历史的进程。",
           "nextNode": "player_reflect"
         },
         "player_reflect": {
@@ -1229,7 +1229,7 @@
       "once": true
     },
     {
-      "id": "trg_campfire_interact",
+      "id": "出现火堆",
       "when": {
         "type": "interact",
         "params": {
@@ -1245,11 +1245,11 @@
       "once": true
     },
     {
-      "id": "trg_campfire_autolight",
+      "id": "五秒后自动点燃火堆",
       "when": {
         "type": "timer",
         "params": {
-          "seconds": 10
+          "seconds": 5
         }
       },
       "if": {
@@ -1263,6 +1263,40 @@
         {
           "action": "lightCampfire",
           "params": {}
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_spawn_pickup",
+      "when": {
+        "type": "campfireLit",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act1_pickups"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_pickup_food_drop_equip",
+      "when": {
+        "type": "itemPickup",
+        "params": {
+          "item": "leftover_food"
+        }
+      },
+      "do": [
+        {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act1_equipment"
+          }
         }
       ],
       "once": true
@@ -1305,6 +1339,20 @@
         "stackable": true,
         "maxStack": 99,
         "effect": {}
+      },
+      {
+        "id": "leftover_food",
+        "name": "残羹",
+        "type": "consumable",
+        "heal": 20,
+        "description": "剩余的食物，可以恢复少量生命值",
+        "rarity": 0,
+        "maxStack": 10,
+        "usable": true,
+        "effect": {
+          "type": "heal",
+          "value": 20
+        }
       }
     ],
     "equipment": [
@@ -1318,6 +1366,60 @@
           "defense": 0
         },
         "element": 0
+      },
+      {
+        "id": "ragged_clothes",
+        "name": "破旧衣服",
+        "type": "equipment",
+        "subType": "armor",
+        "stats": {
+          "defense": 2
+        },
+        "description": "破旧的衣服，聊胜于无",
+        "rarity": 0,
+        "maxStack": 1
+      },
+      {
+        "id": "wooden_sword",
+        "name": "木剑",
+        "type": "equipment",
+        "subType": "mainhand",
+        "attackSpeed": 2,
+        "attackRange": 90,
+        "attackDistance": 100,
+        "stats": {
+          "attack": 5
+        },
+        "description": "简陋的木剑，可以用来防身",
+        "rarity": 0,
+        "maxStack": 1
+      },
+      {
+        "id": "wooden_bow",
+        "name": "木弓",
+        "type": "equipment",
+        "subType": "mainhand",
+        "ranged": true,
+        "attackSpeed": 1.0,
+        "attackRange": 15,
+        "attackDistance": 300,
+        "pierce": 2,
+        "multishot": 2,
+        "stats": { "attack": 7 },
+        "description": "简陋的木弓，可以远程攻击",
+        "rarity": 0,
+        "maxStack": 1
+      },
+      {
+        "id": "wooden_arrow",
+        "name": "木箭",
+        "type": "equipment",
+        "subType": "ammo",
+        "stats": {},
+        "description": "粗糙的木箭，配合弓使用",
+        "rarity": 0,
+        "maxStack": 99,
+        "quantity": 30
       }
     ],
     "shops": [

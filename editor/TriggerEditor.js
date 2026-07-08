@@ -29,7 +29,8 @@ const WHEN_TYPES = [
   { v: 'questComplete', label: '任务完成' },
   { v: 'flagChange', label: '变量变化' },
   { v: 'timer', label: '定时器' },
-  { v: 'chunkEnter', label: '进入区块' }
+  { v: 'chunkEnter', label: '进入区块' },
+  { v: 'campfireLit', label: '火堆点燃(序章场景)' }
 ];
 
 const ACTION_TYPES = [
@@ -52,7 +53,9 @@ const ACTION_TYPES = [
   { v: 'battleWin', label: '战斗胜利' },
   { v: 'battleLose', label: '战斗失败' },
   { v: 'spawnWave', label: '生成波次' },
-  { v: 'mount', label: '上载具/骑乘' }
+  { v: 'mount', label: '上载具/骑乘' },
+  { v: 'spawnGroup', label: '激活放置组(场景)' },
+  { v: 'lightCampfire', label: '点燃火堆(序章场景)' }
 ];
 
 export class TriggerEditor {
@@ -312,8 +315,12 @@ export class TriggerEditor {
       panel.innerHTML = '<div class="trg-empty">选择或新增一个触发器</div>';
       return;
     }
-    const whenOpts = WHEN_TYPES.map(w =>
+    let whenOpts = WHEN_TYPES.map(w =>
       `<option value="${w.v}" ${t.when?.type === w.v ? 'selected' : ''}>${w.label} (${w.v})</option>`).join('');
+    // 保留下拉里没有的自定义 when.type（避免编辑保存时被重置丢失）
+    if (t.when?.type && !WHEN_TYPES.some(w => w.v === t.when.type)) {
+      whenOpts = `<option value="${t.when.type}" selected>自定义: ${t.when.type}</option>` + whenOpts;
+    }
 
     // timer 专用间隔输入框（每隔多少秒触发一次）
     const isTimer = t.when?.type === 'timer';
@@ -328,8 +335,12 @@ export class TriggerEditor {
 
     let doHtml = '';
     (t.do || []).forEach((act, di) => {
-      const actOpts = ACTION_TYPES.map(a =>
+      let actOpts = ACTION_TYPES.map(a =>
         `<option value="${a.v}" ${act.action === a.v ? 'selected' : ''}>${a.label} (${a.v})</option>`).join('');
+      // 保留下拉里没有的自定义 action（避免编辑保存时被重置丢失）
+      if (act.action && !ACTION_TYPES.some(a => a.v === act.action)) {
+        actOpts = `<option value="${act.action}" selected>自定义: ${act.action}</option>` + actOpts;
+      }
       doHtml += `
         <div class="trg-do-item" data-di="${di}">
           <div class="do-head">

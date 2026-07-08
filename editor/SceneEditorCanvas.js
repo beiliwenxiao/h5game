@@ -177,7 +177,41 @@ export class SceneEditorCanvas {
       this._renderSliceObject(ctx, obj);
     } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
       this._renderLogicObject(ctx, obj);
+    } else if (obj.type === 'ref') {
+      this._renderRefObject(ctx, obj);
     }
+  }
+
+  /**
+   * 渲染内容库放置引用（type:'ref'，P4-5/资源库联动）
+   * 编辑期标记：图标底色按 kind 区分 + 名称 + 组名（group）。
+   * @private
+   */
+  _renderRefObject(ctx, obj) {
+    const colors = {
+      item: '#e0c040', equipment: '#c0a0e0', npc: '#50c88c',
+      enemy: '#d05050', shop: '#e08040', vehicle: '#5a78c0', building: '#a0885a'
+    };
+    const icons = { item: '道', equipment: '装', npc: '☺', enemy: '⚔', shop: '$', vehicle: '车', building: '城' };
+    const c = colors[obj.kind] || '#8888aa';
+    const r = 15;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(obj.x, obj.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = c + '44';
+    ctx.fill();
+    ctx.strokeStyle = c;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = c;
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(icons[obj.kind] || '?', obj.x, obj.y);
+    // 名称 + 组名
+    const label = (obj.name || obj.ref) + (obj.group ? ` [${obj.group}]` : '');
+    this._drawLogicLabel(ctx, label, obj.x + r + 3, obj.y + 4, c);
+    ctx.restore();
   }
 
   /**
@@ -751,8 +785,8 @@ export class SceneEditorCanvas {
         w = (obj.width || 0) + 4;
         h = (obj.height || 0) + 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
-        // 点状逻辑对象：圆形选中框，无缩放手柄
+      } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
+        // 点状逻辑对象/放置引用：圆形选中框，无缩放手柄
         ctx.beginPath();
         ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
         ctx.stroke();

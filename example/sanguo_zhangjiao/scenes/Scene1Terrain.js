@@ -204,8 +204,9 @@ export class Scene1Terrain {
     
     // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
     if (!scene) {
-      const jsonFile = '序章 - 盆地营地_1780211984127.json';
-      const jsonPath = this.assetBase + encodeURIComponent(jsonFile).replace(/%2F/g, '/');
+      // 场景 JSON 存在 assets/scenes/ 下（不是图片目录 assetBase）
+      const jsonFile = '序章 - 盆地营地.json';
+      const jsonPath = 'assets/scenes/' + encodeURIComponent(jsonFile).replace(/%2F/g, '/');
       fetch(jsonPath)
         .then(res => res.ok ? res.json() : null)
         .then(data => {

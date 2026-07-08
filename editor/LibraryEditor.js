@@ -21,17 +21,14 @@
  * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写（保留其它字段）。
  */
 
-// 库分类定义：key 对应 library 下的数组名；fields 是该类的字段模板/占位提示
+// 库分类定义（内容库仅保留角色养成类全局定义；可放置内容 NPC/敌人/物品/装备/商店/载具/建筑
+// 已移到场景编辑器「资源库·内容」Tab 就地定义+放置）。
 const CATEGORIES = [
-  { key: 'npcs', label: 'NPC', tpl: { name: '新NPC', dialogueId: '', shopId: '', questId: '', spriteSheet: 'npc_sprite' } },
-  { key: 'enemies', label: '敌人', tpl: { name: '新敌人', templateId: 'bandit', level: 1, stats: { maxHp: 50, attack: 5, defense: 2, speed: 80 }, aiType: 'aggressive', lootTable: [] } },
-  { key: 'items', label: '物品', tpl: { name: '新物品', type: 'consumable', icon: '', stackable: true, maxStack: 99, effect: {} } },
-  { key: 'equipment', label: '装备', tpl: { name: '新装备', slot: 'weapon', icon: '', stats: { attack: 0, defense: 0 }, element: 0 } },
-  { key: 'shops', label: '商店', tpl: { name: '新商店', goods: [{ itemId: '', price: 10 }] } },
-  { key: 'classes', label: '职业', tpl: { name: '新职业', baseStats: {}, skills: [] } },
-  { key: 'skills', label: '技能', tpl: { name: '新技能', cooldown: 3, castTime: 0, damage: 0, element: 0, range: 100 } },
-  { key: 'vehicles', label: '载具', tpl: { name: '战车', vehicleType: 'chariot', speed: 140, turnRate: 3, maxHp: 500, seats: [{ id: 'drv', role: 'driver', offset: [0, 0] }, { id: 'gun', role: 'gunner', weapon: 'ballista_bolt', offset: [0, 6] }], onDestroyed: 'eject' } },
-  { key: 'buildings', label: '建筑', tpl: { name: '城门', buildingType: 'gate', maxHp: 5000, colliderRadius: 60, controllable: false, onDestroyed: [] } }
+  { key: 'classes', label: '职业', tpl: { name: '新职业', baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 100 }, startSkills: [] } },
+  { key: 'combatSkills', label: '战斗技能', tpl: { name: '新战斗技能', skillType: 'combat', cooldown: 3, castTime: 0, manaCost: 10, damage: 0, element: 0, range: 100 } },
+  { key: 'gatherSkills', label: '采集技能', tpl: { name: '新采集技能', skillType: 'gather', resource: '', gatherTime: 2, level: 1, yield: 1 } },
+  { key: 'craftSkills', label: '生产技能', tpl: { name: '新生产技能', skillType: 'craft', product: '', materials: [], craftTime: 3, level: 1 } },
+  { key: 'talents', label: '天赋', tpl: { name: '新天赋', tier: 1, maxRank: 3, effects: [] } }
 ];
 
 // 通用主键字段（不进 JSON 专属区，单独用输入框编辑）

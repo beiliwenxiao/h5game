@@ -72,6 +72,13 @@ export class SceneEditorAssets {
         return;
       }
 
+      // 内容库定义拖入 → 放置引用实例
+      if (id && id.startsWith('content:')) {
+        const parts = id.split(':');
+        this._addContentPlacement(parts[1], parts[2], pos.x, pos.y);
+        return;
+      }
+
       if (id === 'rect') {
         editor.ui.addObject({ type: 'rect', x: pos.x - 32, y: pos.y - 32, width: 64, height: 64, fill: '#4a5a8e' });
       } else if (id === 'circle') {
@@ -233,6 +240,49 @@ export class SceneEditorAssets {
   }
 
   /**
+   * 放置一个内容库引用实例（type:'ref'）到放置层。
+   * 只存 { kind, ref:库id, x, y, group }，明细在内容库定义里（库与实例分离）。
+   * @param {string} kind - item|equipment|npc|enemy|shop|vehicle|building
+   * @param {string} ref - 内容库定义 id
+   */
+  _addContentPlacement(kind, ref, x, y) {
+    const editor = this.editor;
+    // 查定义名字（用于显示）
+    let name = ref;
+    if (this._contentLib) {
+      for (const c of this._contentCategories()) {
+        const def = (this._contentLib[c.key] || []).find(d => d.id === ref);
+        if (def) { name = def.name || ref; break; }
+      }
+    }
+    const obj = {
+      id: 'ref_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      type: 'ref',
+      kind,
+      ref,
+      name,
+      x: Math.round(x),
+      y: Math.round(y),
+      group: ''
+    };
+    let layer = editor.sceneData.layers.find(l => l.id === 'layer_placement');
+    if (!layer) {
+      layer = { id: 'layer_placement', name: '放置层', visible: true, locked: false, objects: [] };
+      editor.sceneData.layers.push(layer);
+    }
+    layer.visible = true;
+    layer.locked = false;
+    if (!Array.isArray(layer.objects)) layer.objects = [];
+    layer.objects.push(obj);
+    editor.activeLayerIndex = editor.sceneData.layers.indexOf(layer);
+    editor.selectedObjects = [obj];
+    editor.history.saveHistory();
+    editor.ui.updateObjectCount();
+    editor.ui.updateObjectProperties();
+    editor.render();
+  }
+
+  /**
    * 将切片添加到场景
    * @private
    */
@@ -352,7 +402,16 @@ export class SceneEditorAssets {
         <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>
         <span>背景填充</span>
       </div>
-      <div class="asset-section-label" style="width:100%;padding:6px 4px 2px;color:#89a;font-size:11px;">逻辑对象</div>
+    `;
+  }
+
+  /**
+   * 更新「逻辑」列表（区域/刷怪点/传送门），从「图形」拆出单列
+   */
+  updateLogicList() {
+    const list = document.getElementById('editor-logic-list');
+    if (!list) return;
+    list.innerHTML = `
       <div class="asset-item placeholder" draggable="true" data-type="region">
         <div class="asset-preview" style="width:38px;height:26px;background:rgba(80,140,255,0.18);border:1px dashed #5a8adf;"></div>
         <span>区域</span>
@@ -365,11 +424,135 @@ export class SceneEditorAssets {
         <div class="asset-preview" style="width:28px;height:30px;border-radius:50%;background:rgba(180,80,220,0.25);border:2px solid #b450dc;"></div>
         <span>传送门</span>
       </div>
-      <div class="asset-item placeholder" draggable="true" data-type="npc">
-        <div class="asset-preview" style="width:26px;height:30px;background:rgba(80,200,140,0.25);border:2px solid #50c88c;border-radius:4px;"></div>
-        <span>NPC</span>
-      </div>
     `;
+    this._bindAssetDrag(list);
+  }
+
+  /** 给一个资源列表绑定拖拽（dragstart 写入 data-id，供 drop 解析） */
+  _bindAssetDrag(list) {
+    if (!list || list._dragBound) return;
+    list._dragBound = true;
+    list.addEventListener('dragstart', (e) => {
+      const item = e.target.closest('.asset-item');
+      if (item) {
+        e.dataTransfer.setData('text/plain', item.dataset.id || item.dataset.type);
+        item.classList.add('dragging');
+      }
+    });
+    list.addEventListener('dragend', (e) => {
+      const item = e.target.closest('.asset-item');
+      if (item) item.classList.remove('dragging');
+    });
+  }
+
+  // ==================== 内容库（资源库·定义 + 放置） ====================
+
+  /** 当前游戏 id */
+  _contentGameId() {
+    const e = this.editor;
+    return e.currentGameId || e.gameId || (e.options && e.options.gameId) || 'sanguo_zhangjiao';
+  }
+
+  /** 可放置内容分类（对应 GameProject.library 键；职业/技能/天赋等在内容库导航里，不在此） */
+  _contentCategories() {
+    return [
+      { key: 'items', label: '物品', kind: 'item' },
+      { key: 'equipment', label: '装备', kind: 'equipment' },
+      { key: 'npcs', label: 'NPC', kind: 'npc' },
+      { key: 'enemies', label: '敌人', kind: 'enemy' },
+      { key: 'shops', label: '商店', kind: 'shop' },
+      { key: 'vehicles', label: '载具', kind: 'vehicle' },
+      { key: 'buildings', label: '建筑', kind: 'building' }
+    ];
+  }
+
+  /** 加载内容库定义（从 game.project.json 的 library），填充分类下拉并渲染列表 */
+  async updateContentLibrary() {
+    if (!this._contentLib) {
+      const path = `example/${this._contentGameId()}/game.project.json`;
+      this._contentProjectPath = path;
+      try {
+        const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
+        const data = await res.json();
+        this._contentProject = (data && data.ok && data.content) ? JSON.parse(data.content) : { library: {} };
+      } catch (e) {
+        console.warn('内容库加载失败', e);
+        this._contentProject = { library: {} };
+      }
+      if (!this._contentProject.library) this._contentProject.library = {};
+      for (const c of this._contentCategories()) {
+        if (!Array.isArray(this._contentProject.library[c.key])) this._contentProject.library[c.key] = [];
+      }
+      this._contentLib = this._contentProject.library;
+      // 填充分类下拉
+      const filter = document.getElementById('editor-content-filter');
+      if (filter && !filter.dataset.filled) {
+        filter.innerHTML = this._contentCategories()
+          .map(c => `<option value="${c.key}">${c.label}</option>`).join('');
+        filter.dataset.filled = '1';
+      }
+    }
+    this.updateContentList();
+  }
+
+  /** 渲染当前分类的内容列表（可拖入场景放置） */
+  updateContentList() {
+    const list = document.getElementById('editor-content-list');
+    if (!list || !this._contentLib) return;
+    const filter = document.getElementById('editor-content-filter');
+    const catKey = (filter && filter.value) || 'items';
+    const cat = this._contentCategories().find(c => c.key === catKey);
+    const entries = this._contentLib[catKey] || [];
+    if (entries.length === 0) {
+      list.innerHTML = '<div style="padding:10px;color:#666;text-align:center;font-size:11px;">该分类暂无定义<br>点「+ 新增定义」</div>';
+      return;
+    }
+    list.innerHTML = entries.map(def => `
+      <div class="asset-item content-item" draggable="true"
+           data-id="content:${cat.kind}:${def.id}" data-cat="${catKey}" data-ref="${def.id}"
+           title="拖入场景放置；点击编辑定义">
+        <div class="asset-preview" style="width:30px;height:30px;background:rgba(80,200,140,0.2);border:1px solid #50c88c;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8fe;">${cat.label.slice(0,1)}</div>
+        <span>${def.name || def.id}</span>
+      </div>
+    `).join('');
+    this._bindAssetDrag(list);
+    // 点击条目 → 在右侧属性面板编辑该定义
+    list.querySelectorAll('.content-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const ref = el.dataset.ref;
+        const def = (this._contentLib[catKey] || []).find(d => d.id === ref);
+        if (def) this.editor.ui.showContentDefinitionEditor?.(catKey, def);
+      });
+    });
+  }
+
+  /** 在当前分类新增一条定义（默认模板） */
+  addContentDefinition() {
+    if (!this._contentLib) return;
+    const filter = document.getElementById('editor-content-filter');
+    const catKey = (filter && filter.value) || 'items';
+    const id = catKey.replace(/s$/, '') + '_' + Date.now().toString(36);
+    const tpl = { id, name: '新' + (this._contentCategories().find(c => c.key === catKey) || {}).label };
+    this._contentLib[catKey].push(tpl);
+    this.updateContentList();
+    this.editor.ui.showContentDefinitionEditor?.(catKey, tpl);
+  }
+
+  /** 保存内容库定义回 game.project.json（保留其它字段） */
+  async saveContentLibrary() {
+    if (!this._contentProject) return;
+    this._contentProject.library = this._contentLib;
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this._contentProjectPath, content: JSON.stringify(this._contentProject, null, 2) })
+      });
+      const data = await res.json();
+      this.editor.ui.showToast?.(data && data.ok ? '内容库已保存' : ('保存失败: ' + (data.error || '未知')), data && data.ok ? 'success' : 'error');
+    } catch (e) {
+      this.editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+    }
   }
 
   /**

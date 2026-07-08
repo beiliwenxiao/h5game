@@ -844,7 +844,17 @@
                 }
                 
                 // 再读取本地存储中已保存的场景数据
-                const saved = this.dataManager.setCurrentScene(sceneId);
+                let saved = this.dataManager.setCurrentScene(sceneId);
+
+                // localStorage 无数据时，从导出的场景 JSON 文件兜底加载（避免清缓存后丢失编辑）
+                if (!saved) {
+                    saved = await this._loadSceneFromFile(sceneId, presetScene);
+                    if (saved) {
+                        // 回写 localStorage，恢复编辑态
+                        this.dataManager.updateScene(this.currentGameId, sceneId, saved);
+                        this.dataManager.setCurrentScene(sceneId);
+                    }
+                }
                 
                 let sceneToLoad;
                 if (presetScene && saved) {
@@ -892,6 +902,29 @@
                 }, 50);
             }
             
+            // localStorage 无数据时，从导出的场景 JSON 文件加载（选项2：清缓存不丢数据）
+            async _loadSceneFromFile(sceneId, presetScene) {
+                const gameId = this.currentGameId || 'sanguo_zhangjiao';
+                const name = (presetScene && presetScene.name) || sceneId;
+                const path = `example/${gameId}/assets/scenes/${name}.json`;
+                try {
+                    const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
+                    const data = await res.json();
+                    if (data && data.ok && data.content) {
+                        const parsed = JSON.parse(data.content);
+                        const scenes = Array.isArray(parsed) ? parsed : [parsed];
+                        const s = scenes.find(x => x && x.id === sceneId) || scenes[0];
+                        if (s) {
+                            console.log('[Editor] localStorage 无数据，从文件恢复场景:', path);
+                            return s;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Editor] 场景文件兜底加载失败:', e);
+                }
+                return null;
+            }
+
             // 加载地形图集
             loadTerrainAtlas(imageUrl) {
                 if (!this.sceneEditor) return;

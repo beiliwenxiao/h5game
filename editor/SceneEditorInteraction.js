@@ -80,8 +80,8 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
-        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
-          // 点状逻辑对象：18px 半径命中
+        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
+          // 点状逻辑对象/放置引用：18px 半径命中
           if (Math.hypot(x - obj.x, y - obj.y) <= 18) {
             editor.activeLayerIndex = li;
             return obj;

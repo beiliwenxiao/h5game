@@ -510,12 +510,30 @@ VehicleSystem:
   - **关键架构决策**：数据驱动场景**继承 BaseGameScene 复用可玩管线**，只把脚本流程数据化，绝不重写玩家/相机/战斗/渲染。
   - **迁移进度**：
     - [x] ② 点火交互：`DataDrivenPrologueScene._checkCampfireInteract()` 靠近火堆按 E/点击 → `fire('interact',{target:'campfire'})`；GameProject 触发器 `trg_campfire_interact`(interact→lightCampfire) + `trg_campfire_autolight`(timer 10s→lightCampfire，`if ddScene==true` 仅本场景生效)；场景注册 `lightCampfire` 动作调 `this.lightCampfire()`（含火焰粒子）。火堆初始熄灭，交互/超时点燃。
+    - [x] 开场迷雾：迁移 fog（模糊黑雾 + 玩家周围 2.5D 椭圆透光，点火后淡出）——updateFog + render 叠加 + lightCampfire 触发 targetOpacity=0。
+    - [x] ③ 拾取物（方案A：库定义 + 场景放置 + 组激活）：物品/装备**明细**移入内容库 `library.items/equipment`（残羹/破旧衣服/木剑，无坐标）；**位置**由场景编辑器「资源库·内容」拖入生成 `type:'ref'` 放置点（存 kind/ref/x/y/group）；触发器 `trg_spawn_pickup`(campfireLit→`spawnGroup{group:'act1_pickups'}`) 只给组名；运行时 `DataDrivenPrologueScene._spawnGroup` 按组找放置点 + 从 registries 取库定义 + 放置点坐标 → push 到 pickupItems/equipmentItems（继承 PickupSystem 拾取）。事件源 `campfireLit`。**三者解耦**：明细在库、位置在场景、触发器只引用组名。
     - [ ] ① 渐进提示（tutorials showTip + 条件事件源：playerMoved/panelOpen 等）
-    - [ ] ③ 拾取物（spawn 逻辑对象 + itemPickup 事件源）
     - [ ] ④ 刷怪波次（spawn 逻辑对象 + kill 事件源）
     - [ ] ⑤ 倒计时→切幕（timer + switchScene 动作）
   - 全部迁完对照通过后，本场景取代 Act1 并删旧脚本 + 删 PrologueManager。
-  - **新增事件源接入**：`interact`（DataDrivenPrologueScene 火堆交互）。
+  - **新增事件源接入**：`interact`（火堆交互）、`campfireLit`（点火后触发拾取物生成）、`itemPickup`（物品被拾取，供"拾取X后掉落Y"链）。
+  - **编辑器健壮性修复**：TriggerEditor 的 when.type / action 下拉现在保留列表外的自定义值（显示"自定义: xxx"），避免编辑保存时把 campfireLit/lightCampfire/spawnGroup 等场景专属值重置丢失。
+  - **拾取物图标**：暂由 BaseGameScene 按 item.id 硬编码绘制（leftover_food/ragged_clothes/wooden_sword/wooden_bow/wooden_arrow 有专属画法，其它画默认圆点）；后续可数据化为库 icon 字段。
+
+### 18. 资源库 / 内容库 信息架构重构（已实施）
+
+> 统一"定义 vs 放置"心智：**内容库存图纸，资源库放实例**。
+
+- **资源库**（场景编辑器左侧，`SceneEditorUI`/`SceneEditorAssets`）分 4 Tab：
+  - **图形**：rect/circle/ellipse/polygon/fill（拖入=背景 shape）
+  - **图集**：图集切片
+  - **逻辑**：region/spawn/portal（从「图形」拆出单列）
+  - **内容**（= 资源库·定义 + 放置）：列表 + 顶部分类筛选（物品/装备/NPC/敌人/商店/载具/建筑），读写 `game.project.json` 的 `library`；点条目→右侧浮层编辑定义（`showContentDefinitionEditor`）；拖入画布→生成 `type:'ref'` 放置实例 `{kind,ref,x,y,group}`（存 `layer_placement`）。
+- **内容库**（导航 `LibraryEditor`）精简为角色养成全局定义：**职业 / 战斗技能 / 采集技能 / 生产技能 / 天赋**（不进场景坐标）。
+- **placement 引用对象 `type:'ref'`**：`SceneEditorCanvas._renderRefObject`（按 kind 图标+名称+组名）、`SceneEditorInteraction` 命中、`SceneEditorUI._buildRefProperties`（编辑 group）。
+- **运行时**：`GameLoader.registries` 存 library 定义；`DataDrivenPrologueScene._spawnGroup` 按组实例化（库定义 + 放置坐标）。
+- **命名统一**：全部用「资源库(定义+放置) / 内容库(养成)」两词，不再出现"精灵"混称。
+- **待续**：placement 中 npc/enemy/building/vehicle 的运行时实体化（并入 ④刷怪波次）；`map-editor.md` steering 文案同步更新。
 - [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
 
 ### P5 — 无缝大地图流式（最大工程）

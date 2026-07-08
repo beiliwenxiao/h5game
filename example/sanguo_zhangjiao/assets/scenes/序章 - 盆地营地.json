@@ -8,8 +8,8 @@
     {
       "id": "layer_bg",
       "name": "背景层",
-      "visible": true,
-      "locked": false,
+      "visible": false,
+      "locked": true,
       "objects": [
         {
           "id": "ellipse_1783349807083_124",
@@ -379,6 +379,53 @@
           "opacity": 0,
           "edgeFade": 0,
           "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353571091",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              805,
+              180
+            ],
+            [
+              828,
+              161
+            ],
+            [
+              852,
+              140
+            ],
+            [
+              869,
+              170
+            ],
+            [
+              755,
+              241
+            ],
+            [
+              742,
+              242
+            ],
+            [
+              730,
+              223
+            ],
+            [
+              757,
+              214
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#ffffff",
           "strokeWidth": 0,
           "collide": true
         }
@@ -4849,53 +4896,6 @@
           "name": "小树"
         },
         {
-          "id": "obj_1783353571091",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              805,
-              180
-            ],
-            [
-              828,
-              161
-            ],
-            [
-              852,
-              140
-            ],
-            [
-              869,
-              170
-            ],
-            [
-              755,
-              241
-            ],
-            [
-              742,
-              242
-            ],
-            [
-              730,
-              223
-            ],
-            [
-              757,
-              214
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#ffffff",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
           "id": "deco_47316547",
           "type": "deco",
           "decoKey": "tree1",
@@ -4955,9 +4955,47 @@
     {
       "id": "layer_entity",
       "name": "实体层",
-      "visible": false,
+      "visible": true,
       "locked": false,
       "objects": []
+    },
+    {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_1783537117627_395",
+          "type": "ref",
+          "kind": "item",
+          "ref": "leftover_food",
+          "name": "残羹",
+          "x": 338.7152464117234,
+          "y": 162.99327511793638,
+          "group": "act1_pickups"
+        },
+        {
+          "id": "ref_equip_clothes_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "ragged_clothes",
+          "name": "破旧衣服",
+          "x": 248.38381623040453,
+          "y": 222.2615273123507,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_sword_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_sword",
+          "name": "木剑",
+          "x": 315.1344992149708,
+          "y": 266.1448882197112,
+          "group": "act1_equipment"
+        }
+      ]
     }
   ],
   "decorations": [
@@ -7070,7 +7108,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-06T16:15:36.729Z",
+  "updatedAt": "2026-07-08T20:06:28.363Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

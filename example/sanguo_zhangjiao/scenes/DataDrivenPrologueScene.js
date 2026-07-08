@@ -83,6 +83,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.loadFireImage();
     // 火堆初始熄灭：由数据驱动的 interact 触发器点燃（靠近按 E），或 timer 自燃兜底
 
+    // 加载场景放置点（type:'ref'），供 spawnGroup 按组实例化（位置来自场景编辑器）
+    this._placements = [];
+    this._loadScenePlacements();
+
     // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
     this._initGameLoader();
 
@@ -112,12 +116,37 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 数据驱动触发器（timer 等）
     if (this.gameLoader) this.gameLoader.update(deltaTime);
 
+    // 事件源：物品被拾取 → fire('itemPickup', {item:id})（供"拾取X后掉落Y"类触发器）
+    this._checkItemPickupEvents();
+
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})
     this._checkCampfireInteract();
 
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
     this.checkTerrainCollision();
+  }
+
+  /**
+   * 拾取事件源：检测 pickupItems/equipmentItems 中新变为 picked 的物品，
+   * fire('itemPickup', {item:id})。供"拾取 X 后掉落/生成 Y"类触发器使用。
+   * @private
+   */
+  _checkItemPickupEvents() {
+    if (!this.gameLoader) return;
+    if (!this._firedPickups) this._firedPickups = new Set();
+    const scan = (list) => {
+      for (const it of (list || [])) {
+        if (it.picked && it.id && !this._firedPickups.has(it._pickUid || it.id)) {
+          const uid = it._pickUid || it.id;
+          this._firedPickups.add(uid);
+          this.gameLoader.triggerSystem.fire('itemPickup', { item: it.id, id: it.id });
+          console.log('[DDScene] itemPickup:', it.id);
+        }
+      }
+    };
+    scan(this.pickupItems);
+    scan(this.equipmentItems);
   }
 
   /**
@@ -176,6 +205,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this.gameLoader.blackboard.set('ddScene', true);
         // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
         trig.registerAction('lightCampfire', () => this.lightCampfire());
+        // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
+        trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
         }
@@ -240,6 +271,91 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 点燃火堆后迷雾消散
     this.fog.targetOpacity = 0;
+
+    // 事件源：火堆点燃 → 触发器 trg_spawn_pickup 生成拾取物
+    if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', {});
+  }
+
+  /**
+   * 按组激活场景放置点（方案A）：找出该 group 的 type:'ref' 放置点，
+   * 按 kind 从内容库(registries)取明细定义 + 放置点坐标 → 生成拾取物/装备/敌人等。
+   * 明细在内容库、位置在场景编辑器、触发器只给组名 —— 三者解耦。
+   * @param {Object} p - { group }
+   * @private
+   */
+  _spawnGroup(p = {}) {
+    const group = p.group;
+    if (!group || !this.gameLoader) return;
+    const reg = this.gameLoader.registries;
+    const placements = (this._placements || []).filter(pl => pl.group === group);
+    // 诊断：放置点坐标 vs 玩家/火堆坐标（用于排查位置偏差）
+    const _pt = this.playerEntity && this.playerEntity.getComponent('transform');
+    console.log('%c[DDScene] spawnGroup 诊断', 'color:#ff9800',
+      '\n  组:', group,
+      '\n  放置点:', placements.map(pl => `${pl.ref}@(${pl.x},${pl.y}) kind=${pl.kind}`).join(' | ') || '(无)',
+      '\n  玩家:', _pt ? `(${Math.round(_pt.position.x)},${Math.round(_pt.position.y)})` : '?',
+      '\n  火堆:', `(${this.campfire.x},${this.campfire.y})`);
+    let itemN = 0, eqN = 0, entN = 0;
+    for (const pl of placements) {
+      const def = reg[this._regKey(pl.kind)] ? reg[this._regKey(pl.kind)].get(pl.ref) : null;
+      if (!def) { console.warn('[DDScene] spawnGroup 未找到定义', pl.kind, pl.ref); continue; }
+      if (pl.kind === 'item') {
+        this.pickupItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
+        itemN++;
+      } else if (pl.kind === 'equipment') {
+        this.equipmentItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
+        eqN++;
+      } else {
+        // enemy/npc/building/vehicle 的实体实例化留待 ④刷怪波次（用 EntityFactory + registries）
+        entN++;
+      }
+    }
+    console.log(`[DDScene] spawnGroup(${group}): 物品${itemN} 装备${eqN} 其它${entN}`);
+  }
+
+  /** kind → registries 键名 */
+  _regKey(kind) {
+    return ({ item: 'items', equipment: 'equipment', npc: 'npcs', enemy: 'enemies', shop: 'shops', vehicle: 'vehicles', building: 'buildings' })[kind] || null;
+  }
+
+  /**
+   * 加载场景放置点（type:'ref'）：从 localStorage 或导出 JSON 读同一份 scene_Prologue，
+   * 收集所有图层里 type==='ref' 的对象（含 group/kind/ref/x/y）。
+   * @private
+   */
+  async _loadScenePlacements() {
+    const gameId = 'sanguo_zhangjiao';
+    const sceneId = 'scene_Prologue';
+    let scene = null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        if (raw) {
+          const scenes = JSON.parse(raw);
+          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    if (!scene && typeof fetch !== 'undefined') {
+      try {
+        const path = 'assets/scenes/' + encodeURIComponent('序章 - 盆地营地.json');
+        const res = await fetch(path);
+        if (res.ok) {
+          const scenes = await res.json();
+          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : (scenes && scenes.id === sceneId ? scenes : null);
+        }
+      } catch (e) { /* ignore */ }
+    }
+    const placements = [];
+    if (scene && Array.isArray(scene.layers)) {
+      for (const layer of scene.layers) {
+        for (const o of (layer.objects || [])) {
+          if (o.type === 'ref') placements.push(o);
+        }
+      }
+    }
+    this._placements = placements;
+    console.log('[DDScene] 场景放置点(type:ref):', placements.length);
   }
 
   /** 迷雾淡出（平滑过渡到目标浓度） */

@@ -69,18 +69,33 @@ export class SceneEditorUI {
               <h3>资源库</h3>
               <div class="asset-library">
                 <div class="asset-tabs">
-                  <button class="asset-tab active" data-tab="sprites">精灵</button>
+                  <button class="asset-tab active" data-tab="shapes">图形</button>
                   <button class="asset-tab" data-tab="atlases">图集</button>
+                  <button class="asset-tab" data-tab="logic">逻辑</button>
+                  <button class="asset-tab" data-tab="content">内容</button>
                 </div>
                 <div class="asset-actions">
                   <button id="editor-add-image">添加图片</button>
                   <button id="editor-use-slicer">编辑切片</button>
                 </div>
-                <div id="asset-sprites" class="asset-panel">
+                <div id="asset-shapes" class="asset-panel">
                   <div class="asset-list" id="editor-asset-list"></div>
                 </div>
                 <div id="asset-atlases" class="asset-panel" style="display:none;">
                   <div class="atlas-list" id="editor-atlas-list"></div>
+                </div>
+                <div id="asset-logic" class="asset-panel" style="display:none;">
+                  <div class="asset-list" id="editor-logic-list"></div>
+                </div>
+                <div id="asset-content" class="asset-panel" style="display:none;">
+                  <div class="content-filter" style="margin-bottom:6px;">
+                    <select id="editor-content-filter" style="width:100%;padding:4px;background:#0a1020;color:#fff;border:1px solid #2a3a5e;border-radius:3px;font-size:11px;"></select>
+                  </div>
+                  <div class="asset-actions" style="margin-bottom:6px;">
+                    <button id="editor-content-add" title="在内容库(定义)中新增一条">+ 新增定义</button>
+                    <button id="editor-content-save" title="保存内容库定义到工程">💾 保存库</button>
+                  </div>
+                  <div class="asset-list" id="editor-content-list"></div>
                 </div>
               </div>
             </div>
@@ -188,15 +203,33 @@ export class SceneEditorUI {
   _initAssetTabs() {
     const editor = this.editor;
     const tabs = editor.container.querySelectorAll('.asset-tab');
+    const panels = {
+      shapes: '#asset-shapes',
+      atlases: '#asset-atlases',
+      logic: '#asset-logic',
+      content: '#asset-content'
+    };
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         const tabName = tab.dataset.tab;
-        editor.container.querySelector('#asset-sprites').style.display = tabName === 'sprites' ? 'block' : 'none';
-        editor.container.querySelector('#asset-atlases').style.display = tabName === 'atlases' ? 'block' : 'none';
+        for (const [name, sel] of Object.entries(panels)) {
+          const el = editor.container.querySelector(sel);
+          if (el) el.style.display = (name === tabName) ? 'block' : 'none';
+        }
+        // 内容 Tab 首次打开时加载内容库定义
+        if (tabName === 'logic') editor.assets.updateLogicList?.();
+        if (tabName === 'content') editor.assets.updateContentLibrary?.();
       });
     });
+    // 内容 Tab 的按钮
+    const addBtn = editor.container.querySelector('#editor-content-add');
+    if (addBtn) addBtn.addEventListener('click', () => editor.assets.addContentDefinition?.());
+    const saveBtn = editor.container.querySelector('#editor-content-save');
+    if (saveBtn) saveBtn.addEventListener('click', () => editor.assets.saveContentLibrary?.());
+    const filter = editor.container.querySelector('#editor-content-filter');
+    if (filter) filter.addEventListener('change', () => editor.assets.updateContentList?.());
   }
 
   /**
@@ -486,6 +519,8 @@ export class SceneEditorUI {
         html += this._buildShapeProperties(obj);
       } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
         html += this._buildLogicProperties(obj);
+      } else if (obj.type === 'ref') {
+        html += this._buildRefProperties(obj);
       } else if (obj.fill) {
         html += `<div class="property-row"><label>颜色:</label><input type="color" value="${obj.fill}" data-prop="fill"></div>`;
       }
@@ -577,6 +612,63 @@ export class SceneEditorUI {
     }
 
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
+  }
+
+  /**
+   * 构建内容库放置引用（type:'ref'）的属性 HTML。
+   * 明细在内容库定义里；这里只编辑放置相关：组名 group（供 spawnGroup 触发器整批激活）。
+   * @private
+   */
+  _buildRefProperties(obj) {
+    let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
+    html += `<div class="property-row"><label>类型:</label><input value="${obj.kind || ''}" disabled></div>`;
+    html += `<div class="property-row"><label>引用定义ID:</label><input value="${obj.ref || ''}" disabled title="明细在内容库中编辑"></div>`;
+    html += `<div class="property-row"><label>名称:</label><input value="${obj.name || ''}" disabled></div>`;
+    html += `<div class="property-row"><label title="供触发器 spawnGroup 整批激活；同组的放置点一起生成">组名 group:</label><input type="text" value="${obj.group || ''}" data-prop="group" placeholder="如 act1_pickups"></div>`;
+    return html;
+  }
+
+  /**
+   * 内容库定义编辑器（浮层）：编辑某条 library 定义的 name + 专属属性 JSON。
+   * 应用后写回 assets._contentLib，用户再点「💾 保存库」持久化到 game.project.json。
+   */
+  showContentDefinitionEditor(catKey, def) {
+    let modal = document.getElementById('content-def-editor');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'content-def-editor';
+      modal.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);' +
+        'width:420px;max-height:70vh;overflow:auto;background:#0d1326;border:1px solid #2a3a5e;' +
+        'border-radius:8px;padding:16px;z-index:100001;box-shadow:0 8px 32px rgba(0,0,0,0.6);color:#fff;';
+      document.body.appendChild(modal);
+    }
+    const rest = {};
+    for (const k of Object.keys(def)) { if (k !== 'id' && k !== 'name') rest[k] = def[k]; }
+    modal.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:10px;color:#7cf;">编辑定义（${catKey}） · ${def.id}</div>
+      <div style="margin-bottom:8px;"><label style="font-size:12px;color:#9ab;">名称</label>
+        <input id="cde-name" type="text" value="${(def.name||'').replace(/"/g,'&quot;')}" style="width:100%;box-sizing:border-box;background:#0a1020;color:#fff;border:1px solid #2a3a5e;border-radius:3px;padding:6px;"></div>
+      <div style="margin-bottom:8px;"><label style="font-size:12px;color:#9ab;">专属属性(JSON)</label>
+        <textarea id="cde-props" style="width:100%;box-sizing:border-box;min-height:180px;background:#0a1020;color:#fff;border:1px solid #2a3a5e;border-radius:3px;padding:6px;font-family:monospace;font-size:12px;">${JSON.stringify(rest, null, 2)}</textarea></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="cde-cancel" style="padding:6px 14px;background:#3a4a7e;border:none;border-radius:4px;color:#fff;cursor:pointer;">取消</button>
+        <button id="cde-apply" style="padding:6px 14px;background:#4CAF50;border:none;border-radius:4px;color:#000;font-weight:bold;cursor:pointer;">应用</button>
+      </div>
+      <div style="margin-top:6px;color:#89a;font-size:11px;">应用后点资源库「💾 保存库」持久化到工程</div>
+    `;
+    modal.style.display = 'block';
+    modal.querySelector('#cde-cancel').onclick = () => { modal.style.display = 'none'; };
+    modal.querySelector('#cde-apply').onclick = () => {
+      def.name = modal.querySelector('#cde-name').value.trim() || def.name;
+      let parsed = {};
+      try { parsed = JSON.parse(modal.querySelector('#cde-props').value || '{}'); }
+      catch (e) { this.showToast('JSON 格式错误: ' + e.message, 'error'); return; }
+      for (const k of Object.keys(def)) { if (k !== 'id' && k !== 'name') delete def[k]; }
+      Object.assign(def, parsed);
+      modal.style.display = 'none';
+      this.editor.assets.updateContentList?.();
+      this.showToast('已应用（记得点"保存库"）', 'success');
+    };
   }
 
   /**

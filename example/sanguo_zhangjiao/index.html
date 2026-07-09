@@ -1034,16 +1034,19 @@
                 setupSceneCallbacks(act3Scene);
                 
                 // 重新触发第一个教程显示（因为之前回调还没设置）
-                console.log('尝试显示第一个教程...');
-                console.log('tutorialSystem 存在:', !!act1Scene.tutorialSystem);
-                console.log('progressive_tip_1 已完成:', act1Scene.tutorialsCompleted.progressive_tip_1);
-                
-                if (act1Scene.tutorialSystem && !act1Scene.tutorialsCompleted.progressive_tip_1) {
-                    // 先清除之前的教程状态（因为回调还没设置时就显示了）
-                    act1Scene.tutorialSystem.currentTutorial = null;
-                    
-                    const result = act1Scene.tutorialSystem.showTutorial('progressive_tip_1');
-                    console.log('showTutorial 返回:', result);
+                // 数据驱动场景(?ddscene)不走 Act1 硬编码教程，跳过
+                if (!new URLSearchParams(location.search).get('ddscene')) {
+                    console.log('尝试显示第一个教程...');
+                    console.log('tutorialSystem 存在:', !!act1Scene.tutorialSystem);
+                    console.log('progressive_tip_1 已完成:', act1Scene.tutorialsCompleted.progressive_tip_1);
+
+                    if (act1Scene.tutorialSystem && !act1Scene.tutorialsCompleted.progressive_tip_1) {
+                        // 先清除之前的教程状态（因为回调还没设置时就显示了）
+                        act1Scene.tutorialSystem.currentTutorial = null;
+
+                        const result = act1Scene.tutorialSystem.showTutorial('progressive_tip_1');
+                        console.log('showTutorial 返回:', result);
+                    }
                 }
                 
                 updateLoading(100, '完成！');

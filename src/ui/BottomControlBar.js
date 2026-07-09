@@ -507,10 +507,15 @@ export class BottomControlBar extends UIElement {
       ctx.globalAlpha = 0.7;
       ctx.fillStyle = '#000000';
       
-      // 绘制扇形遮罩
+      // 方形遮罩 + 旋转扫描：裁剪到方形槽位，再用大半径扇形扫过，填满方形四角
+      ctx.beginPath();
+      ctx.rect(x - halfSize, y - halfSize, size, size);
+      ctx.clip();
+      // 半径取 size（> 方形对角线一半 halfSize*√2），保证扫描覆盖四角
+      const sweepRadius = size;
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.arc(x, y, halfSize, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio);
+      ctx.arc(x, y, sweepRadius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cooldownRatio);
       ctx.closePath();
       ctx.fill();
       

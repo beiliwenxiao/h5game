@@ -452,29 +452,24 @@
         #act-skill4  { right: 114px; bottom: 150px; }
         #act-skill5  { right: 38px;  bottom: 156px; }
         
-        /* 技能按钮冷却遮罩（旋转扫描，方形遮罩） */
+        /* 技能按钮冷却遮罩（扇形逐渐消退，模仿 PC 技能栏） */
         .action-btn.skill {
-            position: relative;
+            overflow: hidden;
         }
         .action-btn.move {
-            position: relative;
+            overflow: hidden;
         }
         .skill-cd-overlay {
             position: absolute;
             inset: 0;
+            border-radius: 50%;
             background: rgba(0, 0, 0, 0.7);
             pointer-events: none;
             display: none;
             z-index: 2;
         }
-        /* 热键栏技能按钮（回血/打坐）也支持扇形冷却 */
-        .hotbar-btn[data-skill] {
-            position: relative;
-            overflow: hidden;
-        }
         .action-btn.skill.on-cd .skill-cd-overlay,
-        .action-btn.move.on-cd .skill-cd-overlay,
-        .hotbar-btn.on-cd .skill-cd-overlay {
+        .action-btn.move.on-cd .skill-cd-overlay {
             display: block;
         }
         .action-btn.skill.on-cd,
@@ -496,8 +491,7 @@
             z-index: 3;
         }
         .action-btn.skill.on-cd .skill-cd-text,
-        .action-btn.move.on-cd .skill-cd-text,
-        .hotbar-btn.on-cd .skill-cd-text {
+        .action-btn.move.on-cd .skill-cd-text {
             display: block;
         }
         
@@ -681,8 +675,8 @@
                 <div class="hotbar-btn potion-btn" id="hb-mp" data-potion="mana"><canvas class="hb-canvas" width="32" height="32"></canvas><span class="hb-count">0</span></div>
                 <div class="hotbar-btn" id="hb-char" data-action="char"><span class="hb-icon">👤</span><span class="hb-label">装备</span></div>
                 <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
-                <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💓</span><span class="hb-label">回血</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
-                <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🛀</span><span class="hb-label">打坐</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
+                <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💓</span><span class="hb-label">回血</span></div>
+                <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🛀</span><span class="hb-label">打坐</span></div>
             </div>
         </div>
         
@@ -1162,7 +1156,7 @@
             if (!combat || !combat.skills) return;
             
             const currentTime = performance.now();
-            const skillBtns = document.querySelectorAll('.action-btn.skill[data-skill], .hotbar-btn[data-skill]');
+            const skillBtns = document.querySelectorAll('.action-btn.skill[data-skill]');
             skillBtns.forEach(btn => {
                 const idx = parseInt(btn.dataset.skill, 10);
                 const skill = combat.skills[idx];

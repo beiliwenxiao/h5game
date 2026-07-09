@@ -31,7 +31,9 @@ const WHEN_TYPES = [
   { v: 'timer', label: '定时器' },
   { v: 'chunkEnter', label: '进入区块' },
   { v: 'campfireLit', label: '火堆点燃(序章场景)' },
-  { v: 'waveCleared', label: '波次清空(某组敌人全灭)' }
+  { v: 'waveCleared', label: '波次清空(某组敌人全灭)' },
+  { v: 'playerMoved', label: '玩家移动(离开出生点)' },
+  { v: 'panelOpen', label: '打开面板(背包/属性)' }
 ];
 
 const ACTION_TYPES = [
@@ -57,7 +59,8 @@ const ACTION_TYPES = [
   { v: 'mount', label: '上载具/骑乘' },
   { v: 'spawnGroup', label: '激活放置组(场景)' },
   { v: 'lightCampfire', label: '点燃火堆(序章场景)' },
-  { v: 'sceneCountdown', label: '倒计时切幕(场景)' }
+  { v: 'sceneCountdown', label: '倒计时切幕(场景)' },
+  { v: 'promptSwitch', label: '提示切幕(按N/交互键，场景)' }
 ];
 
 export class TriggerEditor {

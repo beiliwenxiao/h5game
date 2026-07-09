@@ -122,8 +122,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 事件源：敌人死亡 fire('kill')、某组敌人全灭 fire('waveCleared', {group})
     this._checkWaveEvents();
 
-    // ⑤ 倒计时→切幕
+    // 事件源：① 渐进提示条件 —— playerMoved（移动一段距离）/ panelOpen（背包/属性面板打开）
+    this._checkTutorialEventSources();
+
+    // ⑤ 切幕：倒计时 / 提示按键
     this._updateSceneCountdown(deltaTime);
+    this._updatePromptSwitch();
 
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})
     this._checkCampfireInteract();
@@ -157,6 +161,67 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this._clearedGroups.add(group);
         this.gameLoader.triggerSystem.fire('waveCleared', { group });
         console.log('[DDScene] waveCleared:', group);
+      }
+    }
+  }
+
+  /**
+   * ① 渐进提示事件源：
+   *   - playerMoved：玩家离开出生点一定距离 → fire('playerMoved')（一次）
+   *   - panelOpen：背包/属性面板打开 → fire('panelOpen', {panel:'inventory'|'stats'})
+   * @private
+   */
+  _checkTutorialEventSources() {
+    if (!this.gameLoader) return;
+    const trig = this.gameLoader.triggerSystem;
+    if (!this._tutFired) this._tutFired = new Set();
+
+    // playerMoved
+    const t = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (t) {
+      if (!this._startPos) this._startPos = { x: t.position.x, y: t.position.y };
+      if (!this._tutFired.has('moved')) {
+        const d = Math.hypot(t.position.x - this._startPos.x, t.position.y - this._startPos.y);
+        if (d > 60) { this._tutFired.add('moved'); trig.fire('playerMoved', {}); }
+      }
+    }
+
+    // panelOpen（上升沿：false→true 时触发）
+    const invVis = !!(this.inventoryPanel && this.inventoryPanel.visible);
+    if (invVis && !this._invWasOpen) trig.fire('panelOpen', { panel: 'inventory' });
+    this._invWasOpen = invVis;
+
+    const statsVis = !!(this.playerInfoPanel && this.playerInfoPanel.visible);
+    if (statsVis && !this._statsWasOpen) trig.fire('panelOpen', { panel: 'stats' });
+    this._statsWasOpen = statsVis;
+  }
+
+  /**
+   * 提示切幕（动作 promptSwitch）：显示提示，等待按 N 或交互键 E 再切场景。
+   * @param {Object} p - { scene:目标场景名, text:提示文案 }
+   * @private
+   */
+  _startPromptSwitch(p = {}) {
+    this._promptSwitch = {
+      scene: p.scene || 'Act2Scene',
+      text: p.text || '序章完成 — 按 N 或 交互键(E) 进入下一幕'
+    };
+  }
+
+  /** @private 提示切幕刷新 + 按键切场景 */
+  _updatePromptSwitch() {
+    if (!this._promptSwitch) return;
+    this._showScreenTip(this._promptSwitch.text);
+    const im = this.inputManager;
+    if (!im) return;
+    const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
+    if (pressed('n') || pressed('N') || pressed('e') || pressed('E')) {
+      const scene = this._promptSwitch.scene;
+      this._promptSwitch = null;
+      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
+      if (sm && sm.switchTo) {
+        console.log('[DDScene] 提示切幕：切换场景 →', scene);
+        sm.switchTo(scene);
       }
     }
   }
@@ -285,6 +350,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
         // 场景专属动作：倒计时后切换场景（⑤ 倒计时→切幕，演出层）
         trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
+        // 场景专属动作：提示切幕（等待按 N 或交互键 E 再切下一幕）
+        trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
         }

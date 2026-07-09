@@ -1245,11 +1245,11 @@
       "once": true
     },
     {
-      "id": "五秒后自动点燃火堆",
+      "id": "30秒后自动点燃火堆",
       "when": {
         "type": "timer",
         "params": {
-          "seconds": 5
+          "seconds": 30
         }
       },
       "if": {
@@ -1300,9 +1300,193 @@
         }
       ],
       "once": true
+    },
+    {
+      "id": "trg_spawn_wave",
+      "when": {
+        "type": "itemPickup",
+        "params": {
+          "item": "wooden_sword"
+        }
+      },
+      "do": [
+        {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act1_wave1"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_wave_cleared_switch",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act1_wave1"
+        }
+      },
+      "do": [
+        {
+          "action": "promptSwitch",
+          "params": {
+            "scene": "Act2Scene",
+            "text": "序章战斗结束 — 按 N 或 交互键(E) 进入第二幕"
+          }
+        }
+      ],
+      "once": true
     }
   ],
-  "tutorials": [],
+  "tutorials": [
+    {
+      "id": "tut_wake",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "scene_Prologue"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "你从黑暗中醒来，饥寒交迫。按 WASD 四处走走看看"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_move",
+      "when": {
+        "type": "playerMoved",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "你发现一个熄灭的火堆，靠近它按 E 点燃"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_fire",
+      "when": {
+        "type": "campfireLit",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "点燃了篝火！靠近地上的物品，按 E 拾取"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_bag",
+      "when": {
+        "type": "itemPickup",
+        "params": {
+          "item": "leftover_food"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "物品进了背包，按 B 查看背包"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_stats",
+      "when": {
+        "type": "panelOpen",
+        "params": {
+          "panel": "inventory"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "按 C 查看角色属性"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_done",
+      "when": {
+        "type": "panelOpen",
+        "params": {
+          "panel": "stats"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "很好，你已掌握基本操作！"
+          }
+        }
+      ],
+      "once": true
+    }
+  ],
   "library": {
     "npcs": [
       {
@@ -1325,6 +1509,20 @@
           "attack": 5,
           "defense": 2,
           "speed": 80
+        },
+        "aiType": "aggressive",
+        "lootTable": []
+      },
+      {
+        "id": "wild_dog",
+        "name": "野狗",
+        "templateId": "wild_dog",
+        "level": 1,
+        "stats": {
+          "maxHp": 40,
+          "attack": 6,
+          "defense": 1,
+          "speed": 90
         },
         "aiType": "aggressive",
         "lootTable": []

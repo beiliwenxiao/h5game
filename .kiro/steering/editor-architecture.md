@@ -514,10 +514,11 @@ VehicleSystem:
     - [x] ③ 拾取物（方案A：库定义 + 场景放置 + 组激活）：物品/装备**明细**移入内容库 `library.items/equipment`（残羹/破旧衣服/木剑，无坐标）；**位置**由场景编辑器「资源库·内容」拖入生成 `type:'ref'` 放置点（存 kind/ref/x/y/group）；触发器 `trg_spawn_pickup`(campfireLit→`spawnGroup{group:'act1_pickups'}`) 只给组名；运行时 `DataDrivenPrologueScene._spawnGroup` 按组找放置点 + 从 registries 取库定义 + 放置点坐标 → push 到 pickupItems/equipmentItems（继承 PickupSystem 拾取）。事件源 `campfireLit`。**三者解耦**：明细在库、位置在场景、触发器只引用组名。
     - [x] ④ 刷怪波次：`_spawnGroup` 支持 kind=enemy/npc/building/vehicle（经 EntityFactory + registries 实例化，敌人入 entities+enemyEntities，AI/战斗系统继承自 BaseGameScene）；事件源 `kill`（敌人死亡）+ `waveCleared`（某组敌人全灭，每组一次）。配置：把敌人放进组（如 act1_wave1）+ 触发器 `spawnGroup{group:act1_wave1}` 生成波次 + `waveCleared` 触发后续。
     - [x] ⑤ 倒计时→切幕：场景动作 `sceneCountdown{scene,seconds,text}`（实时倒计时提示 + 到点 sceneManager.switchTo，演出层）；配合 `waveCleared → sceneCountdown` 即可"打完→倒计时→切下一幕"。
-    - [ ] ① 渐进提示（tutorials showTip + 条件事件源：playerMoved/panelOpen 等）
-  - 全部迁完对照通过后，本场景取代 Act1 并删旧脚本 + 删 PrologueManager。
-  - **新增事件源接入**：`interact`（火堆交互）、`campfireLit`（点火后触发拾取物生成）、`itemPickup`（拾取X后掉落Y链）、`kill`（敌人死亡）、`waveCleared`（波次清空）。
-  - **新增场景动作**：`lightCampfire`、`spawnGroup`、`sceneCountdown`（均已加入 TriggerEditor 动作列表；when/action 下拉保留自定义值）。
+    - [x] ① 渐进提示：`tutorials[]` 6 条 showTip（醒来/移动→点火/点火→拾取/拾取→背包/背包→属性/完成），均 `if ddScene`；条件事件源 `playerMoved`（离出生点>60px）、`panelOpen{panel:inventory|stats}`（面板打开上升沿）由 DataDrivenPrologueScene fire。
+    - [x] ⑤ 切幕改为提示切幕：场景动作 `promptSwitch{scene,text}`（显示提示，等待按 N 或交互键 E 再 switchTo），保留 `sceneCountdown`；触发器 `trg_wave_cleared_switch`(waveCleared act1_wave1 → promptSwitch Act2Scene)。
+  - **P4-5 六幕流程链路已全部数据化**：醒来→移动→点火→拾取→(拾残羹掉装备)→(拾木剑刷怪)→打完波次→提示切幕。全程 事件源→触发器→动作+组激活，零硬编码。
+  - **新增事件源**：`interact`/`campfireLit`/`itemPickup`/`kill`/`waveCleared`/`playerMoved`/`panelOpen`。
+  - **新增场景动作**：`lightCampfire`/`spawnGroup`/`sceneCountdown`/`promptSwitch`（均入 TriggerEditor 列表；when/action 下拉保留自定义值）。
   - **编辑器健壮性修复**：TriggerEditor 的 when.type / action 下拉现在保留列表外的自定义值（显示"自定义: xxx"），避免编辑保存时把 campfireLit/lightCampfire/spawnGroup 等场景专属值重置丢失。
   - **拾取物图标**：暂由 BaseGameScene 按 item.id 硬编码绘制（leftover_food/ragged_clothes/wooden_sword/wooden_bow/wooden_arrow 有专属画法，其它画默认圆点）；后续可数据化为库 icon 字段。
 

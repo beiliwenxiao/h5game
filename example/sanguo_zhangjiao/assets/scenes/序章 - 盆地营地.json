@@ -5011,11 +5011,38 @@
           "kind": "equipment",
           "ref": "wooden_arrow",
           "name": "木箭",
-          "x": 620.6359414076454,
+          "x": 622.0798218362975,
           "y": 388.03143979992853,
           "group": "act1_equipment"
+        },
+        {
+          "id": "ref_enemy_dog_1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 257.1632725973562,
+          "y": 301.11468381564845,
+          "group": "act1_wave1"
+        },
+        {
+          "id": "ref_enemy_dog_2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 447.4097892104323,
+          "y": 331.9828510182208,
+          "group": "act1_wave1"
         }
       ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "逻辑对象",
+      "visible": true,
+      "locked": false,
+      "objects": []
     }
   ],
   "decorations": [

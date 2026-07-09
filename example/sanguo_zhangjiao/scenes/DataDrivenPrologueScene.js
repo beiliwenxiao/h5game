@@ -211,13 +211,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** @private 提示切幕刷新 + 按键切场景 */
   _updatePromptSwitch() {
     if (!this._promptSwitch) return;
-    this._showScreenTip(this._promptSwitch.text);
+    this._showScreenTip(this._promptSwitch.text, { persist: true });
     const im = this.inputManager;
     if (!im) return;
     const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
     if (pressed('n') || pressed('N') || pressed('e') || pressed('E')) {
       const scene = this._promptSwitch.scene;
       this._promptSwitch = null;
+      this._hideScreenTip();
       const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
       if (sm && sm.switchTo) {
         console.log('[DDScene] 提示切幕：切换场景 →', scene);
@@ -245,10 +246,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!this._countdown) return;
     this._countdown.remain -= deltaTime;
     const sec = Math.max(0, Math.ceil(this._countdown.remain));
-    this._showScreenTip(`${this._countdown.text}（${sec}）`);
+    this._showScreenTip(`${this._countdown.text}（${sec}）`, { persist: true });
     if (this._countdown.remain <= 0) {
       const scene = this._countdown.scene;
       this._countdown = null;
+      this._hideScreenTip();
       const eng = window.gameEngine;
       const sm = (eng && eng.sceneManager) || this.sceneManager;
       if (sm && sm.switchTo) {
@@ -364,8 +366,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 屏幕居中提示（showTip 动作用，2.5 秒淡出） */
-  _showScreenTip(text) {
+  /**
+   * 屏幕提示（showTip 动作用）：优先复用原版提示面板 window.__ddShowTips（与旧序章样式一致），
+   * 约 3.5 秒后自动隐藏；不可用时回退到简易黑框。
+   * @param {string} text
+   * @param {Object} [opts] - { persist:true 不自动隐藏（供 promptSwitch/countdown 每帧刷新用） }
+   */
+  _showScreenTip(text, opts = {}) {
+    if (typeof window !== 'undefined' && window.__ddShowTips) {
+      window.__ddShowTips('提示', text);
+      clearTimeout(this._tipTimer);
+      if (!opts.persist) {
+        this._tipTimer = setTimeout(() => { if (window.__ddHideTips) window.__ddHideTips(); }, 3500);
+      }
+      return;
+    }
+    // 回退：简易黑框
     let el = document.getElementById('dd-trigger-tip');
     if (!el) {
       el = document.createElement('div');
@@ -378,7 +394,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     el.textContent = text;
     el.style.opacity = '1';
     clearTimeout(this._tipTimer);
-    this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+    if (!opts.persist) this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  }
+
+  /** 隐藏提示面板 */
+  _hideScreenTip() {
+    if (typeof window !== 'undefined' && window.__ddHideTips) window.__ddHideTips();
+    const el = document.getElementById('dd-trigger-tip');
+    if (el) el.style.opacity = '0';
   }
 
   // ==================== 火堆（迁移自 Act1） ====================
@@ -463,6 +486,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         });
         this.entities.push(enemy);
         this.enemyEntities.push(enemy);
+        // 注册 AI 控制器，敌人才会主动追击/攻击玩家
+        if (this.aiSystem && this.aiSystem.registerAI) {
+          this.aiSystem.registerAI(enemy, def.aiType || 'aggressive');
+        }
         this._groupEnemies = this._groupEnemies || {};
         (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
         entN++;

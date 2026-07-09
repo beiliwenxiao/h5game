@@ -1137,6 +1137,10 @@
         function hideTips() {
             tipsPanel.classList.add('hidden');
         }
+
+        // 暴露给数据驱动场景(DataDrivenPrologueScene)复用原版提示样式
+        window.__ddShowTips = (title, text) => showTips(title, text);
+        window.__ddHideTips = () => hideTips();
         
         // 目标帧率限制
         const TARGET_FPS = 60;

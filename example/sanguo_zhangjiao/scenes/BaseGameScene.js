@@ -620,6 +620,18 @@ export class BaseGameScene extends PrologueScene {
         icon: '🎒', label: '背包', hotkey: 'B',
         onClick: () => { if (this.inventoryPanel) this.inventoryPanel.toggle(); }
       });
+      // 轻功（按朝向瞬移，等价 Ctrl+左键）
+      this.flightButton = new IconButton({
+        x: 722, y: 640, width: 50, height: 50,
+        icon: '💨', label: '轻功', hotkey: 'Ctrl',
+        onClick: () => { if (this.flightByFacing) this.flightByFacing(); }
+      });
+      // 投掷（按朝向投掷武器，等价 Shift+左键）
+      this.throwButton = new IconButton({
+        x: 778, y: 640, width: 50, height: 50,
+        icon: '🎯', label: '投掷', hotkey: 'Shift',
+        onClick: () => { if (this.throwByFacing) this.throwByFacing(); }
+      });
     }
 
     // 注册 UI 元素到 UIClickHandler
@@ -631,6 +643,8 @@ export class BaseGameScene extends PrologueScene {
     if (this.charButton) this.uiClickHandler.registerElement(this.charButton);
     if (this.equipButton) this.uiClickHandler.registerElement(this.equipButton);
     if (this.bagButton) this.uiClickHandler.registerElement(this.bagButton);
+    if (this.flightButton) this.uiClickHandler.registerElement(this.flightButton);
+    if (this.throwButton) this.uiClickHandler.registerElement(this.throwButton);
     
     // 注册面板到 UISystem（统一管理悬停等）
     this.uiSystem.registerPanel('inventory', this.inventoryPanel);
@@ -1801,6 +1815,14 @@ export class BaseGameScene extends PrologueScene {
     
     // 处理Ctrl+鼠标左键瞬移
     this.handleTeleport();
+
+    // 更新 PC 轻功/投掷按钮的冷却显示
+    if (this.flightButton && this.flightSystem && this.flightSystem.getCooldownRemaining) {
+      this.flightButton.setCooldown(this.flightSystem.getCooldownRemaining(), this.flightSystem.getCooldownTotal());
+    }
+    if (this.throwButton && this.weaponRenderer && this.weaponRenderer.getThrowCooldownRemaining) {
+      this.throwButton.setCooldown(this.weaponRenderer.getThrowCooldownRemaining(), this.weaponRenderer.getThrowCooldownTotal());
+    }
     
     // 更新轻功飞行系统
     if (this.flightSystem && this.playerEntity) {
@@ -2538,6 +2560,8 @@ export class BaseGameScene extends PrologueScene {
     if (this.charButton) this.charButton.handleMouseMove(mousePos.x, mousePos.y);
     if (this.equipButton) this.equipButton.handleMouseMove(mousePos.x, mousePos.y);
     if (this.bagButton) this.bagButton.handleMouseMove(mousePos.x, mousePos.y);
+    if (this.flightButton) this.flightButton.handleMouseMove(mousePos.x, mousePos.y);
+    if (this.throwButton) this.throwButton.handleMouseMove(mousePos.x, mousePos.y);
     // PC 装备面板悬停（装备槽 tooltip）
     if (this.equipmentPanel && this.equipmentPanel.visible) {
       this.equipmentPanel.handleMouseMove(mousePos.x, mousePos.y);
@@ -2712,7 +2736,9 @@ export class BaseGameScene extends PrologueScene {
     // 渲染 PC 独立装备面板
     if (this.equipmentPanel) this.equipmentPanel.render(ctx);
 
-    // 渲染 PC 功能按钮（属性/装备/背包）
+    // 渲染 PC 功能按钮（轻功/投掷/属性/装备/背包）
+    if (this.flightButton) this.flightButton.render(ctx);
+    if (this.throwButton) this.throwButton.render(ctx);
     if (this.charButton) this.charButton.render(ctx);
     if (this.equipButton) this.equipButton.render(ctx);
     if (this.bagButton) this.bagButton.render(ctx);

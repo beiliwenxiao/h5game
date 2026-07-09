@@ -43,6 +43,19 @@ export class IconButton extends UIElement {
     this.bgColor = options.bgColor || 'rgba(40, 40, 40, 0.85)';
     this.borderColor = options.borderColor || '#888';
     this.hovered = false;
+    // 冷却显示（毫秒）
+    this.cdRemaining = 0;
+    this.cdTotal = 0;
+  }
+
+  /**
+   * 设置冷却（用于在按钮上显示遮罩+倒计时）
+   * @param {number} remainingMs - 剩余冷却（毫秒）
+   * @param {number} totalMs - 总冷却（毫秒）
+   */
+  setCooldown(remainingMs, totalMs) {
+    this.cdRemaining = Math.max(0, remainingMs || 0);
+    this.cdTotal = totalMs || 0;
   }
 
   /**
@@ -88,6 +101,33 @@ export class IconButton extends UIElement {
       ctx.textBaseline = 'top';
       ctx.font = `bold ${Math.floor(h * 0.26)}px Arial`;
       ctx.fillText(this.hotkey, x + w - 3, y + 2);
+    }
+    // 冷却：扇形遮罩 + 倒计时文字（与技能栏 SkillBar 一致的样式）
+    if (this.cdRemaining > 0 && this.cdTotal > 0) {
+      const pct = Math.min(1, this.cdRemaining / this.cdTotal);
+      const radius = Math.max(w, h); // 足够大以覆盖整个方块
+      ctx.save();
+      // 裁剪到按钮矩形内，避免扇形溢出
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      ctx.clip();
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 倒计时秒数（带阴影）
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = `bold ${Math.floor(h * 0.36)}px Arial`;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(Math.ceil(this.cdRemaining / 1000).toString(), cx, cy);
+      ctx.shadowBlur = 0;
     }
     ctx.restore();
   }

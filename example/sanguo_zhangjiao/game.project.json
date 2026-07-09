@@ -577,7 +577,7 @@
     },
     {
       "id": "class_selected_mage",
-      "title": "选择法师",
+      "title": "选择军师",
       "act": "act4",
       "startNode": "start",
       "nodes": {
@@ -723,12 +723,12 @@
           "text": "你要救援张梁吗？",
           "choices": [
             {
-              "id": "rescue",
+              "id": "ch_1",
               "text": "救援张梁",
               "nextNode": "rescue_success"
             },
             {
-              "id": "retreat",
+              "id": "ch_2",
               "text": "撤退",
               "nextNode": "retreat"
             }
@@ -858,12 +858,12 @@
           "text": "你要救援张宝吗？",
           "choices": [
             {
-              "id": "rescue",
+              "id": "ch_1",
               "text": "救援张宝",
               "nextNode": "rescue_success"
             },
             {
-              "id": "retreat",
+              "id": "ch_2",
               "text": "撤退",
               "nextNode": "retreat"
             }
@@ -1400,12 +1400,14 @@
         "type": "equipment",
         "subType": "mainhand",
         "ranged": true,
-        "attackSpeed": 1.0,
+        "attackSpeed": 1,
         "attackRange": 15,
         "attackDistance": 300,
         "pierce": 2,
         "multishot": 2,
-        "stats": { "attack": 7 },
+        "stats": {
+          "attack": 7
+        },
         "description": "简陋的木弓，可以远程攻击",
         "rarity": 0,
         "maxStack": 1
@@ -1419,7 +1421,7 @@
         "description": "粗糙的木箭，配合弓使用",
         "rarity": 0,
         "maxStack": 99,
-        "quantity": 30
+        "quantity": 99
       }
     ],
     "shops": [

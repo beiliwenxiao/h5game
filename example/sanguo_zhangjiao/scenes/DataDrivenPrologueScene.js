@@ -119,12 +119,88 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 事件源：物品被拾取 → fire('itemPickup', {item:id})（供"拾取X后掉落Y"类触发器）
     this._checkItemPickupEvents();
 
+    // 事件源：敌人死亡 fire('kill')、某组敌人全灭 fire('waveCleared', {group})
+    this._checkWaveEvents();
+
+    // ⑤ 倒计时→切幕
+    this._updateSceneCountdown(deltaTime);
+
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})
     this._checkCampfireInteract();
 
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
     this.checkTerrainCollision();
+  }
+
+  /**
+   * 波次事件源：敌人死亡 fire('kill', {enemyType, group})；
+   * 某 spawnGroup 生成的敌人全灭 fire('waveCleared', {group})（每组一次）。
+   * @private
+   */
+  _checkWaveEvents() {
+    if (!this.gameLoader || !this._groupEnemies) return;
+    if (!this._clearedGroups) this._clearedGroups = new Set();
+    if (!this._deadFired) this._deadFired = new Set();
+    for (const [group, list] of Object.entries(this._groupEnemies)) {
+      if (this._clearedGroups.has(group)) continue;
+      let alive = 0;
+      for (const e of list) {
+        const dead = this._isEntityDead(e);
+        if (dead && !this._deadFired.has(e.id)) {
+          this._deadFired.add(e.id);
+          this.gameLoader.triggerSystem.fire('kill', { enemyType: e.templateId, group });
+        }
+        if (!dead) alive++;
+      }
+      if (list.length > 0 && alive === 0) {
+        this._clearedGroups.add(group);
+        this.gameLoader.triggerSystem.fire('waveCleared', { group });
+        console.log('[DDScene] waveCleared:', group);
+      }
+    }
+  }
+
+  /**
+   * ⑤ 启动倒计时切幕（动作 sceneCountdown）。
+   * @param {Object} p - { scene:目标场景名, seconds:倒计时秒数(默认5), text:提示文案 }
+   * @private
+   */
+  _startSceneCountdown(p = {}) {
+    if (this._countdown) return; // 已在倒计时
+    this._countdown = {
+      scene: p.scene || 'Act2Scene',
+      remain: p.seconds != null ? p.seconds : 5,
+      text: p.text || '序章完成，即将进入下一幕'
+    };
+  }
+
+  /** @private 倒计时刷新 + 到点切场景 */
+  _updateSceneCountdown(deltaTime) {
+    if (!this._countdown) return;
+    this._countdown.remain -= deltaTime;
+    const sec = Math.max(0, Math.ceil(this._countdown.remain));
+    this._showScreenTip(`${this._countdown.text}（${sec}）`);
+    if (this._countdown.remain <= 0) {
+      const scene = this._countdown.scene;
+      this._countdown = null;
+      const eng = window.gameEngine;
+      const sm = (eng && eng.sceneManager) || this.sceneManager;
+      if (sm && sm.switchTo) {
+        console.log('[DDScene] 倒计时结束，切换场景 →', scene);
+        sm.switchTo(scene);
+      }
+    }
+  }
+
+  /** 判断实体是否已死亡/移除 */
+  _isEntityDead(e) {
+    if (!e) return true;
+    if (e.isDead || e.isDying || e.active === false) return true;
+    const s = e.getComponent && e.getComponent('stats');
+    if (s && s.hp <= 0) return true;
+    if (this.entities.indexOf(e) === -1) return true;
+    return false;
   }
 
   /**
@@ -207,6 +283,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('lightCampfire', () => this.lightCampfire());
         // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
         trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
+        // 场景专属动作：倒计时后切换场景（⑤ 倒计时→切幕，演出层）
+        trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
         }
@@ -305,8 +383,33 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       } else if (pl.kind === 'equipment') {
         this.equipmentItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
         eqN++;
-      } else {
-        // enemy/npc/building/vehicle 的实体实例化留待 ④刷怪波次（用 EntityFactory + registries）
+      } else if (pl.kind === 'enemy') {
+        // 敌人：经 EntityFactory 实例化，加入实体列表 + 敌人列表（AI/战斗系统继承自 BaseGameScene）
+        const enemy = this.entityFactory.createEnemy({
+          templateId: def.templateId || pl.ref,
+          name: def.name || '敌人',
+          level: def.level || 1,
+          stats: def.stats || {},
+          aiType: def.aiType || 'aggressive',
+          lootTable: def.lootTable || [],
+          position: { x: pl.x, y: pl.y }
+        });
+        this.entities.push(enemy);
+        this.enemyEntities.push(enemy);
+        this._groupEnemies = this._groupEnemies || {};
+        (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
+        entN++;
+      } else if (pl.kind === 'npc') {
+        const npc = this.entityFactory.createNPC({ ...def, position: { x: pl.x, y: pl.y } });
+        this.entities.push(npc);
+        entN++;
+      } else if (pl.kind === 'building') {
+        const b = this.entityFactory.createBuilding({ ...def, position: { x: pl.x, y: pl.y } });
+        this.entities.push(b);
+        entN++;
+      } else if (pl.kind === 'vehicle') {
+        const v = this.entityFactory.createVehicle({ ...def, position: { x: pl.x, y: pl.y } });
+        this.entities.push(v);
         entN++;
       }
     }

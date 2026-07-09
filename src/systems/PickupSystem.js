@@ -201,6 +201,21 @@ export class PickupSystem {
       
       inventory.addItem(itemData, item.quantity || 1);
     }
+
+    // 拾取提示飘字：获得 xx物品 xxN
+    if (this.floatingTextManager) {
+      const transform = playerEntity.getComponent('transform');
+      if (transform) {
+        const qty = item.quantity || 1;
+        const text = qty > 1 ? `获得 ${item.name} ×${qty}` : `获得 ${item.name}`;
+        this.floatingTextManager.addText(
+          transform.position.x,
+          transform.position.y - 30,
+          text,
+          '#00ff00'
+        );
+      }
+    }
     
     if (this.onPickupCallback) {
       this.onPickupCallback(item, playerEntity);

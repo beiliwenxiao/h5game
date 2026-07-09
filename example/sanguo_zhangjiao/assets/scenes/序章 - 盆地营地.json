@@ -5001,8 +5001,8 @@
           "kind": "equipment",
           "ref": "wooden_bow",
           "name": "木弓",
-          "x": -64.73026080743125,
-          "y": 514.9339049660593,
+          "x": 557.2061450518041,
+          "y": 392.6045016077171,
           "group": "act1_equipment"
         },
         {
@@ -5011,8 +5011,8 @@
           "kind": "equipment",
           "ref": "wooden_arrow",
           "name": "木箭",
-          "x": 837.856377277599,
-          "y": 445.1947123972847,
+          "x": 620.6359414076454,
+          "y": 388.03143979992853,
           "group": "act1_equipment"
         }
       ]
@@ -7128,7 +7128,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-08T20:06:28.363Z",
+  "updatedAt": "2026-07-08T20:48:34.282Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

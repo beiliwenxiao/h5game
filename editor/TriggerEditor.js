@@ -30,7 +30,8 @@ const WHEN_TYPES = [
   { v: 'flagChange', label: '变量变化' },
   { v: 'timer', label: '定时器' },
   { v: 'chunkEnter', label: '进入区块' },
-  { v: 'campfireLit', label: '火堆点燃(序章场景)' }
+  { v: 'campfireLit', label: '火堆点燃(序章场景)' },
+  { v: 'waveCleared', label: '波次清空(某组敌人全灭)' }
 ];
 
 const ACTION_TYPES = [
@@ -55,7 +56,8 @@ const ACTION_TYPES = [
   { v: 'spawnWave', label: '生成波次' },
   { v: 'mount', label: '上载具/骑乘' },
   { v: 'spawnGroup', label: '激活放置组(场景)' },
-  { v: 'lightCampfire', label: '点燃火堆(序章场景)' }
+  { v: 'lightCampfire', label: '点燃火堆(序章场景)' },
+  { v: 'sceneCountdown', label: '倒计时切幕(场景)' }
 ];
 
 export class TriggerEditor {

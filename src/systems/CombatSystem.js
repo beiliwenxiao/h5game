@@ -1234,9 +1234,14 @@ export class CombatSystem {
             }
           }
           else {
-            // 其他技能：使用鼠标位置作为目标点
-            const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
-            this.tryUseSkillAtPosition(this.playerEntity, skill, mouseWorldPos, currentTime, entities);
+            // 其他技能：如果场景有瞄准模式支持（PC），则委托场景处理
+            // 否则直接使用鼠标位置释放
+            if (this.onSkillAimRequest) {
+              this.onSkillAimRequest(index);
+            } else {
+              const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
+              this.tryUseSkillAtPosition(this.playerEntity, skill, mouseWorldPos, currentTime, entities);
+            }
           }
         }
       }

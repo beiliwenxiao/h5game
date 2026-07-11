@@ -1534,16 +1534,19 @@
         
         // 使用技能
         function useSkill(skillIndex) {
-            if (!scene || !scene.combatSystem) return;
-            
-            const skills = scene.playerEntity.getComponent('skills');
-            if (!skills) return;
-            
-            const skill = skills.skills[skillIndex];
-            if (!skill) return;
-            
-            // 尝试使用技能
-            scene.combatSystem.useSkill(scene.playerEntity, skill.id);
+            const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+            if (!currentScene) return;
+            // 统一走场景的 useSkillByIndex：PC 上方向类技能进入瞄准模式（左键确认），
+            // 治疗/打坐等自身技能立即释放
+            if (currentScene.useSkillByIndex) {
+                currentScene.useSkillByIndex(skillIndex);
+                return;
+            }
+            // 回退：旧逻辑
+            if (!currentScene.combatSystem || !currentScene.playerEntity) return;
+            const combat = currentScene.playerEntity.getComponent('combat');
+            const skill = combat && combat.skills ? combat.skills[skillIndex] : null;
+            if (skill) currentScene.combatSystem.useSkill(currentScene.playerEntity, skill.id);
         }
         
         // 键盘快捷键

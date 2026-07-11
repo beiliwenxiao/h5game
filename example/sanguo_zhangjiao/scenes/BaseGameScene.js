@@ -190,6 +190,10 @@ export class BaseGameScene extends PrologueScene {
     this._aimDirY = 0;
     this._aimDistRatio = 0;
     this._aimSkillIndex = -1;
+
+    // PC 瞄准模式：技能3/4/5、轻功、投掷按下后先进入瞄准（鼠标变瞄准圈），
+    // 再次左键在射程内则触发，超出射程则取消。{ kind:'skill'|'flight'|'throw', index } 或 null
+    this._pcAimState = null;
     
     // 场景过渡状态
     this.isTransitioning = false;
@@ -275,6 +279,11 @@ export class BaseGameScene extends PrologueScene {
     // 设置打坐技能回调
     this.combatSystem.onMeditationSkill = (skill) => {
       this.onSkillClicked(skill);
+    };
+
+    // PC 瞄准模式：CombatSystem 按键触发方向类技能时，委托给场景进入瞄准
+    this.combatSystem.onSkillAimRequest = (index) => {
+      this.enterPCAimMode('skill', index);
     };
     
     // 设置进入战斗回调（中断打坐）
@@ -620,17 +629,17 @@ export class BaseGameScene extends PrologueScene {
         icon: '🎒', label: '背包', hotkey: 'B',
         onClick: () => { if (this.inventoryPanel) this.inventoryPanel.toggle(); }
       });
-      // 轻功（按朝向瞬移，等价 Ctrl+左键）
+      // 轻功（按下进入瞄准，左键在射程内确认瞬移）
       this.flightButton = new IconButton({
         x: 722, y: 640, width: 50, height: 50,
         icon: '💨', label: '轻功', hotkey: 'Ctrl',
-        onClick: () => { if (this.flightByFacing) this.flightByFacing(); }
+        onClick: () => { this.enterPCAimMode('flight'); }
       });
-      // 投掷（按朝向投掷武器，等价 Shift+左键）
+      // 投掷（按下进入瞄准，左键在射程内确认投掷）
       this.throwButton = new IconButton({
         x: 778, y: 640, width: 50, height: 50,
         icon: '🎯', label: '投掷', hotkey: 'Shift',
-        onClick: () => { if (this.throwByFacing) this.throwByFacing(); }
+        onClick: () => { this.enterPCAimMode('throw'); }
       });
     }
 
@@ -838,7 +847,20 @@ export class BaseGameScene extends PrologueScene {
       return;
     }
     
-    // 其他技能：使用鼠标位置作为目标
+    // 其他技能（有方向/落点）：PC 上按下先进入瞄准模式（鼠标变瞄准圈），左键确认或取消
+    if (!this.isMobileLayout) {
+      const combat = this.playerEntity.getComponent('combat');
+      if (combat && combat.skills) {
+        // 用 findIndex 按 id 匹配，避免引用不等导致 indexOf 失败
+        const idx = combat.skills.findIndex(s => s && s.id === skill.id);
+        if (idx >= 0) {
+          this.enterPCAimMode('skill', idx);
+          return;
+        }
+      }
+    }
+
+    // 其它情况（如移动端）：使用鼠标位置作为目标立即释放
     const mouseWorldPos = this.inputManager.getMouseWorldPosition(this.camera);
     const currentTime = performance.now();
     
@@ -908,6 +930,12 @@ export class BaseGameScene extends PrologueScene {
     // 自身类技能（治疗/打坐）直接复用通用逻辑
     if (skill.id === 'heal' || skill.id === 'meditation') {
       this.onSkillClicked(skill);
+      return;
+    }
+
+    // PC：方向类技能按下先进入瞄准模式（鼠标变瞄准圈），左键确认或取消
+    if (!this.isMobileLayout) {
+      this.enterPCAimMode('skill', index);
       return;
     }
 
@@ -1102,6 +1130,119 @@ export class BaseGameScene extends PrologueScene {
         }
       }, 50);
     }
+  }
+
+  /**
+   * 进入 PC 瞄准模式（技能3/4/5、轻功、投掷按下时调用，不直接触发）
+   * @param {'skill'|'flight'|'throw'} kind
+   * @param {number} [index] - 技能索引（kind==='skill' 时用）
+   */
+  enterPCAimMode(kind, index = -1) {
+    if (this.isMobileLayout) return; // 仅 PC
+    if (!this.playerEntity) return;
+    // 技能：进入瞄准前先校验冷却/蓝量，不可用则不进入
+    if (kind === 'skill') {
+      const combat = this.playerEntity.getComponent('combat');
+      const skill = combat && combat.skills ? combat.skills[index] : null;
+      if (!skill) { console.log('[PCAim] 技能不存在, index=', index); return; }
+      if (!this.checkSkillUsable(skill)) { console.log('[PCAim] 技能不可用(冷却/蓝量):', skill.id); return; }
+    } else if (kind === 'flight') {
+      if (this.flightSystem && this.flightSystem.isPlayerFlying && this.flightSystem.isPlayerFlying()) return;
+    } else if (kind === 'throw') {
+      if (this.weaponRenderer && this.weaponRenderer.isWeaponThrown && this.weaponRenderer.isWeaponThrown()) return;
+    }
+    this._pcAimState = { kind, index };
+    console.log(`[PCAim] 进入瞄准: kind=${kind}, index=${index}`);
+  }
+
+  /** 取消 PC 瞄准模式 */
+  cancelPCAimMode() {
+    this._pcAimState = null;
+    this.clearSkillAimPreview();
+  }
+
+  /**
+   * 每帧更新 PC 瞄准模式：瞄准圈跟随鼠标；左键在射程内触发、超出取消；右键取消。
+   * 必须在拾取/攻击判定之前调用，命中时消费本次点击。
+   */
+  updatePCAimMode() {
+    if (!this._pcAimState || this.isMobileLayout || !this.inputManager) return;
+    if (!this.playerEntity) { this.cancelPCAimMode(); return; }
+    const transform = this.playerEntity.getComponent('transform');
+    if (!transform) { this.cancelPCAimMode(); return; }
+
+    const { kind, index } = this._pcAimState;
+
+    // 计算该动作的最大射程
+    let range;
+    if (kind === 'flight') {
+      range = (this.flightSystem && this.flightSystem.config && this.flightSystem.config.maxDistance) || 400;
+    } else if (kind === 'throw') {
+      range = (this.weaponRenderer && this.weaponRenderer.getThrowRange)
+        ? this.weaponRenderer.getThrowRange(this.playerEntity) : 480;
+    } else {
+      const combat = this.playerEntity.getComponent('combat');
+      const skill = combat && combat.skills ? combat.skills[index] : null;
+      if (!skill) { this.cancelPCAimMode(); return; }
+      range = skill.range || 300;
+    }
+
+    // 鼠标世界坐标 → 相对玩家的方向与距离比例
+    const mouseWorld = this.inputManager.getMouseWorldPosition(this.camera);
+    const dx = mouseWorld.x - transform.position.x;
+    const dy = mouseWorld.y - transform.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const distRatio = range > 0 ? dist / range : 0;
+
+    // 瞄准圈跟随鼠标（绿色=射程内，红色=超出）
+    const previewIndex = (kind === 'flight') ? -3 : (kind === 'throw') ? -2 : index;
+    this.setSkillAimPreview(previewIndex, dx, dy, distRatio);
+
+    // 左键确认 / 右键取消
+    if (this.inputManager.isMouseClicked() && !this.inputManager.isMouseClickHandled()) {
+      const btn = this.inputManager.getMouseButton();
+      // 点击落在底部功能按钮区域时，不当作确认（交给 UI 处理，便于重新选择技能）
+      const mouseScreen = this.inputManager.getMousePosition();
+      if (btn === 0 && this._isMouseOverBottomUI(mouseScreen.x, mouseScreen.y)) {
+        return;
+      }
+      this.inputManager.markMouseClickHandled();
+      if (btn === 2) {
+        // 右键：取消瞄准
+        this.cancelPCAimMode();
+        return;
+      }
+      // 左键：射程内触发，超出射程取消
+      if (distRatio <= 1.0) {
+        if (kind === 'flight') {
+          this.flightByDirection(dx, dy, distRatio);
+        } else if (kind === 'throw') {
+          this.throwByDirection(dx, dy, distRatio);
+        } else {
+          this.useSkillByDirection(index, dx, dy, distRatio, { x: mouseWorld.x, y: mouseWorld.y });
+        }
+      }
+      this.cancelPCAimMode();
+    }
+  }
+
+  /**
+   * 判断鼠标屏幕坐标是否落在底部功能按钮/技能栏区域
+   * @param {number} sx
+   * @param {number} sy
+   * @returns {boolean}
+   */
+  _isMouseOverBottomUI(sx, sy) {
+    const btns = [this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton];
+    for (const b of btns) {
+      if (b && b.visible !== false && b.containsPoint && b.containsPoint(sx, sy)) return true;
+    }
+    // 底部控制栏（技能槽/血蓝球）所在的底部条带
+    if (this.bottomControlBar) {
+      const barY = this.bottomControlBar.y != null ? this.bottomControlBar.y : (this.logicalHeight - 100);
+      if (sy >= barY) return true;
+    }
+    return false;
   }
 
   /**
@@ -1844,7 +1985,20 @@ export class BaseGameScene extends PrologueScene {
           y: transform.position.y - spriteHeight / 2
         };
         this.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
-        
+
+        // PC：按下 Ctrl 进入轻功瞄准、Shift 进入投掷瞄准（随后左键确认）
+        if (!this.isMobileLayout) {
+          if (this.inputManager.isKeyPressed('ctrl')) {
+            this.enterPCAimMode('flight');
+          } else if (this.inputManager.isKeyPressed('shift')) {
+            this.enterPCAimMode('throw');
+          }
+        }
+
+        // PC 瞄准模式：技能3/4/5、轻功、投掷按下后进入瞄准，左键确认/取消
+        // （须在拾取/攻击判定之前，命中时消费本次点击，避免误触发攻击/拾取）
+        this.updatePCAimMode();
+
         // PC 左键点击地上物品：优先拾取（须在攻击判定之前，避免误触发攻击）
         this.handlePickupClick();
         
@@ -1870,8 +2024,8 @@ export class BaseGameScene extends PrologueScene {
       this._debugRightClick();
     }
     
-    // 处理Ctrl+鼠标左键瞬移
-    this.handleTeleport();
+    // 旧的 Ctrl+左键瞬移已改为：按 Ctrl 进入轻功瞄准、左键确认（见 updatePCAimMode）
+    // this.handleTeleport();
 
     // 更新 PC 轻功/投掷按钮的冷却显示
     if (this.flightButton && this.flightSystem && this.flightSystem.getCooldownRemaining) {
@@ -2151,12 +2305,8 @@ export class BaseGameScene extends PrologueScene {
           this.inputManager.markMouseClickHandled();
           return;
         }
-        // 检查是否按住Shift键 - 如果是，则投掷武器
-        const shiftPressed = this.inputManager.isKeyDown('shift');
-        if (shiftPressed) {
-          this.handleWeaponThrow();
-        }
-        // 否则，左键为攻击（由 MeleeAttackSystem 处理），右键移动由 MovementSystem 处理
+        // 旧的 Shift+左键投掷已改为：按 Shift 进入投掷瞄准、左键确认（见 updatePCAimMode）
+        // 左键为攻击（由 MeleeAttackSystem 处理），右键移动由 MovementSystem 处理
       }
     }
   }

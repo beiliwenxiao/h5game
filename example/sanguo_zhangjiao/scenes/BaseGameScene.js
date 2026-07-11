@@ -641,6 +641,12 @@ export class BaseGameScene extends PrologueScene {
         icon: '🎯', label: '投掷', hotkey: 'Shift',
         onClick: () => { this.enterPCAimMode('throw'); }
       });
+      // 格挡（按下激活格挡防护）
+      this.blockButton = new IconButton({
+        x: 666, y: 640, width: 50, height: 50,
+        icon: '🛡', label: '格挡', hotkey: 'Q',
+        onClick: () => { this.activateBlock(); }
+      });
     }
 
     // 注册 UI 元素到 UIClickHandler
@@ -654,6 +660,7 @@ export class BaseGameScene extends PrologueScene {
     if (this.bagButton) this.uiClickHandler.registerElement(this.bagButton);
     if (this.flightButton) this.uiClickHandler.registerElement(this.flightButton);
     if (this.throwButton) this.uiClickHandler.registerElement(this.throwButton);
+    if (this.blockButton) this.uiClickHandler.registerElement(this.blockButton);
     
     // 注册面板到 UISystem（统一管理悬停等）
     this.uiSystem.registerPanel('inventory', this.inventoryPanel);
@@ -693,6 +700,7 @@ export class BaseGameScene extends PrologueScene {
 
       // PC 功能按钮：优先用 UI 编辑器保存的布局；编辑器未配置时才自动居中
       const pcFnMap = {
+        'pc-block': this.blockButton,
         'pc-flight': this.flightButton,
         'pc-throw': this.throwButton,
         'pc-char': this.charButton,
@@ -1233,7 +1241,7 @@ export class BaseGameScene extends PrologueScene {
    * @returns {boolean}
    */
   _isMouseOverBottomUI(sx, sy) {
-    const btns = [this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton];
+    const btns = [this.blockButton, this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton];
     for (const b of btns) {
       if (b && b.visible !== false && b.containsPoint && b.containsPoint(sx, sy)) return true;
     }
@@ -1604,7 +1612,7 @@ export class BaseGameScene extends PrologueScene {
    * @param {number} height - 逻辑高度
    */
   layoutPCFunctionButtons(width, height) {
-    const btns = [this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton]
+    const btns = [this.blockButton, this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton]
       .filter(Boolean);
     if (btns.length === 0) return;
     const bw = btns[0].width || 50;
@@ -1666,6 +1674,7 @@ export class BaseGameScene extends PrologueScene {
     if (this._pcFnFromEditor && this.uiLayoutLoader) {
       const loader = this.uiLayoutLoader;
       const pcFnMap = {
+        'pc-block': this.blockButton,
         'pc-flight': this.flightButton,
         'pc-throw': this.throwButton,
         'pc-char': this.charButton,
@@ -2033,6 +2042,9 @@ export class BaseGameScene extends PrologueScene {
     }
     if (this.throwButton && this.weaponRenderer && this.weaponRenderer.getThrowCooldownRemaining) {
       this.throwButton.setCooldown(this.weaponRenderer.getThrowCooldownRemaining(), this.weaponRenderer.getThrowCooldownTotal());
+    }
+    if (this.blockButton && this.combatSystem && this.combatSystem.getBlockCooldownRemaining) {
+      this.blockButton.setCooldown(this.combatSystem.getBlockCooldownRemaining(), this.combatSystem.getBlockCooldownTotal());
     }
     
     // 更新轻功飞行系统
@@ -2769,6 +2781,7 @@ export class BaseGameScene extends PrologueScene {
     if (this.bagButton) this.bagButton.handleMouseMove(mousePos.x, mousePos.y);
     if (this.flightButton) this.flightButton.handleMouseMove(mousePos.x, mousePos.y);
     if (this.throwButton) this.throwButton.handleMouseMove(mousePos.x, mousePos.y);
+    if (this.blockButton) this.blockButton.handleMouseMove(mousePos.x, mousePos.y);
     // PC 装备面板悬停（装备槽 tooltip）
     if (this.equipmentPanel && this.equipmentPanel.visible) {
       this.equipmentPanel.handleMouseMove(mousePos.x, mousePos.y);
@@ -2943,7 +2956,8 @@ export class BaseGameScene extends PrologueScene {
     // 渲染 PC 独立装备面板
     if (this.equipmentPanel) this.equipmentPanel.render(ctx);
 
-    // 渲染 PC 功能按钮（轻功/投掷/属性/装备/背包）
+    // 渲染 PC 功能按钮（格挡/轻功/投掷/属性/装备/背包）
+    if (this.blockButton) this.blockButton.render(ctx);
     if (this.flightButton) this.flightButton.render(ctx);
     if (this.throwButton) this.throwButton.render(ctx);
     if (this.charButton) this.charButton.render(ctx);

@@ -1676,6 +1676,14 @@
                 const skillIndex = parseInt(e.key) - 1;
                 useSkill(skillIndex);
             }
+
+            // Q键 - 格挡
+            if (e.code === 'KeyQ') {
+                const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                if (currentScene && currentScene.activateBlock) {
+                    currentScene.activateBlock();
+                }
+            }
         });
         
         // 鼠标移动事件

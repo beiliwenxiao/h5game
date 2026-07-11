@@ -46,6 +46,19 @@ export class Camera {
     
     // 外部控制标志（用于飞行等特殊情况）
     this.externalControl = false;
+
+    // 平滑追赶跟随（如轻功落地后，带缓冲地移动到玩家）
+    this.smoothFollow = false;
+    this.smoothFollowSpeed = 0.12; // 每帧趋近比例（0~1，越大越快）
+  }
+
+  /**
+   * 开启一次平滑追赶跟随：相机带缓冲地移动到目标，接近后自动恢复即时跟随
+   * @param {number} [speed] - 可选的趋近速度（0~1）
+   */
+  beginSmoothFollow(speed) {
+    this.smoothFollow = true;
+    if (typeof speed === 'number') this.smoothFollowSpeed = speed;
   }
 
   /**
@@ -126,7 +139,22 @@ export class Camera {
     
     // 获取目标位置
     const targetPos = this.target.position || this.target;
-    
+
+    if (this.smoothFollow) {
+      // 平滑追赶：带缓冲地趋近目标（用于轻功落地后）
+      const dx = targetPos.x - this.position.x;
+      const dy = targetPos.y - this.position.y;
+      this.position.x += dx * this.smoothFollowSpeed;
+      this.position.y += dy * this.smoothFollowSpeed;
+      // 足够接近时结束平滑，恢复即时跟随
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
+        this.position.x = Math.round(targetPos.x);
+        this.position.y = Math.round(targetPos.y);
+        this.smoothFollow = false;
+      }
+      return;
+    }
+
     // 直接让相机跟随目标，不使用死区和平滑
     // 对坐标取整，避免浮点数导致的像素抖动
     this.position.x = Math.round(targetPos.x);

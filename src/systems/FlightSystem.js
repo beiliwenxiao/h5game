@@ -270,11 +270,8 @@ export class FlightSystem {
       playerTransform.position.x = data.startX + (data.targetX - data.startX) * hProgress;
       playerTransform.position.y = data.startY + (data.targetY - data.startY) * hProgress;
       playerTransform.position.elevation = (data.baseElevation ?? 0) + this.config.peakHeight * heightRatio;
-      
-      if (this.camera) {
-        this.camera.position.x = playerTransform.position.x;
-        this.camera.position.y = playerTransform.position.y;
-      }
+
+      // 飞行过程中相机保持不动（externalControl 已跳过自动跟随，此处不再同步相机）
     }
   }
   
@@ -298,9 +295,10 @@ export class FlightSystem {
       this.flyingData = null;
       this._lastFlightTime = performance.now(); // 记录冷却开始时间
       
-      // 恢复相机自动跟随
+      // 恢复相机自动跟随：落地后带缓冲地平滑移动到玩家新位置
       if (this.camera) {
         this.camera.externalControl = false;
+        this.camera.beginSmoothFollow();
       }
       
       console.log('FlightSystem: 轻功完成');
@@ -308,12 +306,8 @@ export class FlightSystem {
       // 落地缓冲效果（轻微下蹲再恢复）
       const bounceOffset = Math.sin(data.progress * Math.PI) * this.config.bounceOffset;
       playerTransform.position.elevation = (data.baseElevation ?? 0) - bounceOffset;
-      
-      // 相机继续跟随
-      if (this.camera) {
-        this.camera.position.x = playerTransform.position.x;
-        this.camera.position.y = playerTransform.position.y;
-      }
+
+      // 落地缓冲阶段相机仍保持不动，待飞行结束再平滑追赶
     }
   }
   

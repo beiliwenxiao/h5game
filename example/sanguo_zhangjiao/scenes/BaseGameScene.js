@@ -652,6 +652,9 @@ export class BaseGameScene extends PrologueScene {
     this.uiSystem.registerPanel('bottomControl', this.bottomControlBar);
     this.uiSystem.registerPanel('dialogue', this.dialogueBox);
     
+    // PC 功能按钮初始居中（随屏幕宽度自动对齐）
+    this.layoutPCFunctionButtons(this.logicalWidth, this.logicalHeight);
+
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小
     this._applyUILayout();
   }
@@ -679,12 +682,20 @@ export class BaseGameScene extends PrologueScene {
         if (panel) loader.applyToCanvasPanel(id, panel, lw, lh);
       }
 
-      // PC 功能按钮布局
-      if (this.charButton) loader.applyToCanvasPanel('pc-char', this.charButton, lw, lh);
-      if (this.equipButton) loader.applyToCanvasPanel('pc-equip', this.equipButton, lw, lh);
-      if (this.bagButton) loader.applyToCanvasPanel('pc-bag', this.bagButton, lw, lh);
-      if (this.flightButton) loader.applyToCanvasPanel('pc-flight', this.flightButton, lw, lh);
-      if (this.throwButton) loader.applyToCanvasPanel('pc-throw', this.throwButton, lw, lh);
+      // PC 功能按钮：优先用 UI 编辑器保存的布局；编辑器未配置时才自动居中
+      const pcFnMap = {
+        'pc-flight': this.flightButton,
+        'pc-throw': this.throwButton,
+        'pc-char': this.charButton,
+        'pc-equip': this.equipButton,
+        'pc-bag': this.bagButton
+      };
+      this._pcFnFromEditor = Object.keys(pcFnMap).some(id => loader.getPct(id));
+      if (this._pcFnFromEditor) {
+        for (const [id, btn] of Object.entries(pcFnMap)) {
+          if (btn) loader.applyToCanvasPanel(id, btn, lw, lh);
+        }
+      }
 
       // 底部控制栏：优先使用拆分后的独立子控件布局，否则回退整体面板布局
       if (this.bottomControlBar) {
@@ -719,6 +730,11 @@ export class BaseGameScene extends PrologueScene {
       // 背包面板尺寸变化后需重算筛选按钮/滚动条等内部布局
       if (this.inventoryPanel && this.inventoryPanel.layout) {
         this.inventoryPanel.layout();
+      }
+
+      // PC 功能按钮：编辑器未配置时自动居中（编辑器已配置则用上面应用的布局，保持与编辑器一致）
+      if (!this._pcFnFromEditor) {
+        this.layoutPCFunctionButtons(lw, lh);
       }
     } catch (e) {
       console.warn('BaseGameScene: 应用 UI 布局失败', e);
@@ -1441,6 +1457,28 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * PC 功能按钮（轻功/投掷/属性/装备/背包）作为一组水平居中
+   * 与底部技能栏一致：随屏幕宽度自动居中，保持相对顺序与间距
+   * @param {number} width - 逻辑宽度
+   * @param {number} height - 逻辑高度
+   */
+  layoutPCFunctionButtons(width, height) {
+    const btns = [this.flightButton, this.throwButton, this.charButton, this.equipButton, this.bagButton]
+      .filter(Boolean);
+    if (btns.length === 0) return;
+    const bw = btns[0].width || 50;
+    const gap = 6;
+    const totalWidth = btns.length * bw + (btns.length - 1) * gap;
+    let x = Math.round(width / 2 - totalWidth / 2);
+    const y = Math.round(height - 80); // 距底部固定偏移（1280×720 设计下即 y=640）
+    for (const b of btns) {
+      b.x = x;
+      b.y = y;
+      x += bw + gap;
+    }
+  }
+
+  /**
    * 窗口大小变化时更新逻辑尺寸和相关系统
    * @param {number} width - 新宽度
    * @param {number} height - 新高度
@@ -1481,6 +1519,23 @@ export class BaseGameScene extends PrologueScene {
       const slotsRightEdge = width / 2 + totalWidth / 2;
       this.bottomControlBar.hpOrb.x = slotsLeftEdge - orbGap - orbRadius;
       this.bottomControlBar.mpOrb.x = slotsRightEdge + orbGap + orbRadius;
+    }
+
+    // PC 功能按钮：编辑器已配置则按百分比重算（与编辑器一致），否则随屏幕宽度自动居中
+    if (this._pcFnFromEditor && this.uiLayoutLoader) {
+      const loader = this.uiLayoutLoader;
+      const pcFnMap = {
+        'pc-flight': this.flightButton,
+        'pc-throw': this.throwButton,
+        'pc-char': this.charButton,
+        'pc-equip': this.equipButton,
+        'pc-bag': this.bagButton
+      };
+      for (const [id, btn] of Object.entries(pcFnMap)) {
+        if (btn) loader.applyToCanvasPanel(id, btn, width, height);
+      }
+    } else {
+      this.layoutPCFunctionButtons(width, height);
     }
     
     // 更新角色信息面板位置（左下角，底部控制栏上方）

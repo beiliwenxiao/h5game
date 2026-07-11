@@ -43,6 +43,9 @@ const DEFAULT_COMPONENTS = {
       { id: 'pc-skill4', label: '技能4', x: 712, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
       { id: 'pc-skill5', label: '技能5', x: 758, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
       { id: 'pc-mp-orb', label: '蓝球', x: 813, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
+      // 轻功 / 投掷（等价 Ctrl+左键 / Shift+左键）
+      { id: 'pc-flight', label: '轻功', x: 722, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-throw', label: '投掷', x: 778, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       // 功能按钮：属性 / 装备 / 背包
       { id: 'pc-char', label: '属性', x: 834, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       { id: 'pc-equip', label: '装备', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },

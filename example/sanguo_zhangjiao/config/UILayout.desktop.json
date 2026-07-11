@@ -173,6 +173,34 @@
       "hPct": 0.09722
     },
     {
+      "id": "pc-flight",
+      "label": "轻功",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 656,
+      "y": 580,
+      "width": 40,
+      "height": 40,
+      "xPct": 0.5125,
+      "yPct": 0.80556,
+      "wPct": 0.03125,
+      "hPct": 0.05556
+    },
+    {
+      "id": "pc-throw",
+      "label": "投掷",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 713,
+      "y": 580,
+      "width": 40,
+      "height": 40,
+      "xPct": 0.55703,
+      "yPct": 0.80556,
+      "wPct": 0.03125,
+      "hPct": 0.05556
+    },
+    {
       "id": "pc-char",
       "label": "属性",
       "kind": "button",
@@ -205,11 +233,11 @@
       "label": "背包",
       "kind": "button",
       "anchor": "topleft",
-      "x": 596,
+      "x": 597,
       "y": 580,
       "width": 40,
       "height": 40,
-      "xPct": 0.46563,
+      "xPct": 0.46641,
       "yPct": 0.80556,
       "wPct": 0.03125,
       "hPct": 0.05556

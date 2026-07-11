@@ -683,6 +683,8 @@ export class BaseGameScene extends PrologueScene {
       if (this.charButton) loader.applyToCanvasPanel('pc-char', this.charButton, lw, lh);
       if (this.equipButton) loader.applyToCanvasPanel('pc-equip', this.equipButton, lw, lh);
       if (this.bagButton) loader.applyToCanvasPanel('pc-bag', this.bagButton, lw, lh);
+      if (this.flightButton) loader.applyToCanvasPanel('pc-flight', this.flightButton, lw, lh);
+      if (this.throwButton) loader.applyToCanvasPanel('pc-throw', this.throwButton, lw, lh);
 
       // 底部控制栏：优先使用拆分后的独立子控件布局，否则回退整体面板布局
       if (this.bottomControlBar) {

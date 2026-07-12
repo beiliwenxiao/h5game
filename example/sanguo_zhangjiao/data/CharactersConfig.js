@@ -27,7 +27,7 @@
 export const CharactersConfig = [
   {
     id: 'refugee',
-    name: '灾民',
+    name: '玩家昵称',
     class: 'refugee',
     // 角色选择界面预览图
     previewImage: 'assets/images/zhujiao.png',

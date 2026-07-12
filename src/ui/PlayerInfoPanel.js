@@ -87,7 +87,7 @@ export class PlayerInfoPanel extends UIElement {
       'warrior': '战士',
       'mage': '法师',
       'archer': '弓箭手',
-      'refugee': '灾民'
+      'refugee': '平民'
     };
     
     // 装备槽位置定义（3列4行布局）

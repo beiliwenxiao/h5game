@@ -258,7 +258,7 @@ export class Act1SceneECS extends BaseGameScene {
     
     // 第一幕特有：设置初始血量（30%，受伤状态）
     // 角色名称沿用所选主角（父类已根据 SelectedCharacterStore 设置）
-    this.characterName = this.playerEntity.name || '灾民';
+    this.characterName = this.playerEntity.name || '玩家';
     
     const stats = this.playerEntity.getComponent('stats');
     if (stats) {

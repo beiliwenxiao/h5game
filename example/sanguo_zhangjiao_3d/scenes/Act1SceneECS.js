@@ -157,7 +157,7 @@ export class Act1SceneECS extends BaseGameScene {
     super.createPlayerEntity();
     
     // 第一幕特有：设置角色名称和初始血量（30%，受伤状态）
-    this.characterName = '灾民';
+    this.characterName = '玩家1';
     this.playerEntity.name = this.characterName;
     
     const stats = this.playerEntity.getComponent('stats');

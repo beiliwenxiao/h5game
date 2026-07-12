@@ -63,6 +63,31 @@
             background: #4CAF50;
             color: #000;
         }
+
+        /* 游戏选择器指示器 */
+        .editor-game-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .game-indicator-label {
+            font-size: 13px;
+            color: #aaa;
+        }
+        .game-selector {
+            padding: 6px 12px;
+            background: #2a3a5e;
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            min-width: 160px;
+        }
+        .game-selector:focus {
+            outline: none;
+            border-color: #66bb6a;
+        }
         
         /* 主内容区 */
         .editor-content {
@@ -435,6 +460,10 @@
         <!-- 顶部导航 -->
         <header class="editor-header">
             <h1>🎮 游戏编辑器</h1>
+            <div class="editor-game-indicator" id="editor-game-indicator" style="display:none;">
+                <span class="game-indicator-label">当前游戏：</span>
+                <select id="game-selector" class="game-selector"></select>
+            </div>
             <nav>
                 <button id="nav-game-list" class="active">游戏列表</button>
                 <button id="nav-scene-editor">场景编辑器</button>
@@ -723,6 +752,9 @@
                 window._editorCurrentGame = game;
                 
                 if (!game) return;
+                
+                // 更新游戏选择器
+                this._updateGameIndicator(gameId);
                 
                 document.getElementById('current-game-name').textContent = game.name;
                 this.renderSceneList(gameId);
@@ -1036,6 +1068,67 @@
                 }
             }
             
+            // 更新顶部游戏指示器（显示当前游戏并提供切换下拉）
+            _updateGameIndicator(selectedGameId) {
+                const indicator = document.getElementById('editor-game-indicator');
+                const selector = document.getElementById('game-selector');
+                const allGames = this.dataManager.getAllGames();
+                
+                // 填充下拉列表
+                selector.innerHTML = allGames.map(g =>
+                    `<option value="${g.id}" ${g.id === selectedGameId ? 'selected' : ''}>${g.name}</option>`
+                ).join('');
+                
+                // 显示指示器
+                indicator.style.display = 'flex';
+                
+                // 绑定切换事件（只绑一次）
+                if (!this._gameSelectorBound) {
+                    this._gameSelectorBound = true;
+                    selector.addEventListener('change', (e) => {
+                        const newGameId = e.target.value;
+                        this._switchGame(newGameId);
+                    });
+                }
+            }
+
+            // 切换当前游戏（重新加载各子编辑器数据）
+            _switchGame(gameId) {
+                this.currentGameId = gameId;
+                this.currentSceneId = null;
+                const game = this.dataManager.setCurrentGame(gameId);
+                window._editorCurrentGame = game;
+                if (!game) return;
+
+                document.getElementById('current-game-name').textContent = game.name;
+                this.renderSceneList(gameId);
+
+                // 销毁已有的子编辑器实例，下次打开时用新 gameId 重建
+                if (this.uiEditor) { this.uiEditor = null; document.getElementById('ui-editor-container').innerHTML = ''; }
+                if (this.triggerEditor) { this.triggerEditor = null; document.getElementById('trigger-editor-container').innerHTML = ''; }
+                if (this.libraryEditor) { this.libraryEditor = null; document.getElementById('library-editor-container').innerHTML = ''; }
+                if (this.dialogueEditor) { this.dialogueEditor = null; document.getElementById('dialogue-editor-container').innerHTML = ''; }
+
+                // 重新触发当前活动页面的显示（用新 gameId 重新初始化对应编辑器）
+                const activePage = this._getCurrentPage();
+                if (activePage && activePage !== 'game-list') {
+                    this.showPage(activePage);
+                }
+
+                console.log('[Editor] 切换游戏:', game.name, gameId);
+            }
+
+            // 获取当前活动页面标识
+            _getCurrentPage() {
+                if (document.getElementById('scene-editor-page').classList.contains('active')) return 'scene-editor';
+                if (document.getElementById('ui-editor-page').classList.contains('active')) return 'ui-editor';
+                if (document.getElementById('trigger-editor-page').classList.contains('active')) return 'trigger-editor';
+                if (document.getElementById('library-editor-page').classList.contains('active')) return 'library-editor';
+                if (document.getElementById('dialogue-editor-page').classList.contains('active')) return 'dialogue-editor';
+                if (document.getElementById('game-list-page').style.display !== 'none') return 'game-list';
+                return null;
+            }
+
             // 显示页面
             showPage(page) {
                 document.querySelectorAll('.editor-header nav button').forEach(btn => btn.classList.remove('active'));
@@ -1052,13 +1145,18 @@
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
+                    // 游戏列表页隐藏指示器
+                    document.getElementById('editor-game-indicator').style.display = 'none';
                 } else if (page === 'scene-editor') {
                     document.getElementById('scene-editor-page').classList.add('active');
+                    // 确保游戏指示器可见
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
                     setTimeout(() => {
                         window.dispatchEvent(new Event('resize'));
                     }, 100);
                 } else if (page === 'ui-editor') {
                     document.getElementById('ui-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
                     // 懒初始化 UI 编辑器
                     if (!this.uiEditor) {
                         this.uiEditor = new UIEditor(
@@ -1069,6 +1167,7 @@
                     this.uiEditor.init();
                 } else if (page === 'trigger-editor') {
                     document.getElementById('trigger-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
                     if (!this.triggerEditor) {
                         this.triggerEditor = new TriggerEditor(
                             document.getElementById('trigger-editor-container'),
@@ -1078,6 +1177,7 @@
                     this.triggerEditor.init();
                 } else if (page === 'library-editor') {
                     document.getElementById('library-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
                     if (!this.libraryEditor) {
                         this.libraryEditor = new LibraryEditor(
                             document.getElementById('library-editor-container'),
@@ -1087,6 +1187,7 @@
                     this.libraryEditor.init();
                 } else if (page === 'dialogue-editor') {
                     document.getElementById('dialogue-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
                     if (!this.dialogueEditor) {
                         this.dialogueEditor = new DialogueGraphEditor(
                             document.getElementById('dialogue-editor-container'),

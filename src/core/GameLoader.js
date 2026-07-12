@@ -120,6 +120,54 @@ export class GameLoader {
     if (deps.world && deps.world.init && proj.worldMap) {
       deps.world.init(proj.worldMap.regions?.[0], proj);
     }
+
+    // 7. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem
+    this.bridgeEventSources(deps);
+  }
+
+  /**
+   * 事件源桥接（架构 §4.4）：把各系统发出的事件统一转成 TriggerSystem 的 fire。
+   * 集中在此处接入，避免散落到各场景；系统无侵入（只订阅已有 emit/回调）。
+   *
+   * 已接入：
+   *   - questSystem.on('questCompleted') → fire('questComplete', {quest})
+   *   - questSystem.on('questProgress')  → fire('questProgress', {quest, objectiveType, targetId})
+   *   - combatSystem.setOnKillCallback   → fire('kill', {enemyType, entityId, name})
+   *
+   * @param {Object} deps - { questSystem, combatSystem, ... }
+   */
+  bridgeEventSources(deps = {}) {
+    const trig = this.triggerSystem;
+
+    // 任务完成 / 进度（QuestSystem 已有 on/emit 机制）
+    if (deps.questSystem && typeof deps.questSystem.on === 'function') {
+      // 防重复订阅：同一 GameLoader 只桥接一次
+      if (!this._questBridged) {
+        this._questBridged = true;
+        deps.questSystem.on('questCompleted', (d) => {
+          const id = d && d.quest ? (d.quest.id || d.quest.questId) : undefined;
+          trig.fire('questComplete', { quest: id });
+        });
+        deps.questSystem.on('questProgress', (d) => {
+          trig.fire('questProgress', {
+            quest: d && d.quest ? (d.quest.id || d.quest.questId) : undefined,
+            objectiveType: d ? d.objectiveType : undefined,
+            targetId: d ? d.targetId : undefined
+          });
+        });
+      }
+    }
+
+    // 击杀（CombatSystem 击杀回调 → 通用 kill 事件源）
+    if (deps.combatSystem && typeof deps.combatSystem.setOnKillCallback === 'function') {
+      deps.combatSystem.setOnKillCallback((entity) => {
+        trig.fire('kill', {
+          enemyType: entity ? (entity.templateId || entity.type) : undefined,
+          entityId: entity ? entity.id : undefined,
+          name: entity ? entity.name : undefined
+        });
+      });
+    }
   }
 
   /** 更新触发器/表达式上下文（如玩家实体创建后） */

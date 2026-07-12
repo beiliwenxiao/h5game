@@ -63,6 +63,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       active: true
     };
 
+    // 饥民逐渐生成器（第二波，复用旧 Act1 starvingSpawner 逻辑）
+    this._starvingSpawner = {
+      active: false,
+      totalCount: 18,
+      spawnedCount: 0,
+      spawnInterval: 0.6,
+      spawnTimer: 0,
+      group: null       // 完成后 fire waveCleared 用的组名
+    };
+
+    // 提示"按 N 进入下一波"状态（promptNextWave 动作设置）
+    this._promptNextWave = null; // { text }
+
     this.terrain = null;
     this.gameLoader = null;
   }
@@ -110,11 +123,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 开场迷雾淡出
     this.updateFog(deltaTime);
 
+    // ⑤ 切幕：提示按键（必须在 super.update 之前，因为 super.update 末尾 inputManager.update() 会清除 keysPressed）
+    this._updatePromptSwitch();
+
+    // 提示按 N 进入下一波（同样在 super.update 前检测按键）
+    this._updatePromptNextWave();
+
+    // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})（同样需要在 inputManager.update 之前检测按键）
+    this._checkCampfireInteract();
+
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
+    // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
     super.update(deltaTime);
 
-    // 数据驱动触发器（timer 等）
-    if (this.gameLoader) this.gameLoader.update(deltaTime);
+    // 饥民逐渐生成器（第二波）
+    this._updateStarvingSpawner(deltaTime);
 
     // 事件源：物品被拾取 → fire('itemPickup', {item:id})（供"拾取X后掉落Y"类触发器）
     this._checkItemPickupEvents();
@@ -125,12 +148,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 事件源：① 渐进提示条件 —— playerMoved（移动一段距离）/ panelOpen（背包/属性面板打开）
     this._checkTutorialEventSources();
 
-    // ⑤ 切幕：倒计时 / 提示按键
+    // ⑤ 切幕：倒计时
     this._updateSceneCountdown(deltaTime);
-    this._updatePromptSwitch();
-
-    // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})
-    this._checkCampfireInteract();
 
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
@@ -145,17 +164,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _checkWaveEvents() {
     if (!this.gameLoader || !this._groupEnemies) return;
     if (!this._clearedGroups) this._clearedGroups = new Set();
-    if (!this._deadFired) this._deadFired = new Set();
+    // 注：通用 kill 事件源已由 CombatSystem.setOnKillCallback → GameLoader 桥接统一发出，
+    // 此处只负责按组统计存活数、fire('waveCleared')（波次全灭，每组一次）。
     for (const [group, list] of Object.entries(this._groupEnemies)) {
       if (this._clearedGroups.has(group)) continue;
+      // 对于逐渐生成的波次（starvingSpawner），必须等全部生成完毕才判定全灭
+      const sp = this._starvingSpawner;
+      if (sp.active && sp.group === group && sp.spawnedCount < sp.totalCount) continue;
       let alive = 0;
       for (const e of list) {
-        const dead = this._isEntityDead(e);
-        if (dead && !this._deadFired.has(e.id)) {
-          this._deadFired.add(e.id);
-          this.gameLoader.triggerSystem.fire('kill', { enemyType: e.templateId, group });
-        }
-        if (!dead) alive++;
+        if (!this._isEntityDead(e)) alive++;
       }
       if (list.length > 0 && alive === 0) {
         this._clearedGroups.add(group);
@@ -228,36 +246,160 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * 提示按 N 进入下一波（动作 promptNextWave）。
+   * 显示提示文案，等待按 N → fire('nextWave')，触发器可监听 nextWave 执行 spawnStarvingWave。
+   * @param {Object} p - { text:提示文案 }
+   * @private
+   */
+  _startPromptNextWave(p = {}) {
+    this._promptNextWave = {
+      text: p.text || '按 N 继续'
+    };
+  }
+
+  /** @private 每帧检测 N 键 → fire nextWave 事件 */
+  _updatePromptNextWave() {
+    if (!this._promptNextWave) return;
+    this._showScreenTip(this._promptNextWave.text, { persist: true });
+    const im = this.inputManager;
+    if (!im) return;
+    const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
+    if (pressed('n') || pressed('N')) {
+      this._promptNextWave = null;
+      this._hideScreenTip();
+      console.log('[DDScene] 按 N：fire nextWave');
+      if (this.gameLoader) this.gameLoader.triggerSystem.fire('nextWave', {});
+    }
+  }
+
+  /**
+   * 启动饥民逐渐生成（动作 spawnStarvingWave）。
+   * 从玩家四面八方逐渐涌出饥民，每 0.6 秒一个，总计 18 个。
+   * 全部生成后由 _updateStarvingSpawner 自动追踪死亡 → fire waveCleared。
+   * @param {Object} p - { group:组名(默认'act1_wave2'), count:总数(默认18), interval:间隔秒(默认0.6) }
+   * @private
+   */
+  _startStarvingWave(p = {}) {
+    const group = p.group || 'act1_wave2';
+    this._starvingSpawner.active = true;
+    this._starvingSpawner.totalCount = p.count || 18;
+    this._starvingSpawner.spawnedCount = 0;
+    this._starvingSpawner.spawnTimer = 0;
+    this._starvingSpawner.spawnInterval = p.interval || 0.6;
+    this._starvingSpawner.group = group;
+    // 初始化该组的追踪列表
+    this._groupEnemies = this._groupEnemies || {};
+    this._groupEnemies[group] = [];
+    console.log(`[DDScene] 启动饥民逐渐生成，组: ${group}，总数: ${this._starvingSpawner.totalCount}`);
+  }
+
+  /** @private 每帧更新饥民逐渐生成器 */
+  _updateStarvingSpawner(deltaTime) {
+    const sp = this._starvingSpawner;
+    if (!sp.active) return;
+    if (sp.spawnedCount >= sp.totalCount) return;
+
+    sp.spawnTimer += deltaTime;
+    if (sp.spawnTimer >= sp.spawnInterval) {
+      sp.spawnTimer -= sp.spawnInterval;
+      this._spawnSingleStarving(sp.group);
+    }
+  }
+
+  /**
+   * 从画面边缘随机位置生成一个饥民（复用旧 Act1 spawnSingleStarving 逻辑）
+   * @private
+   */
+  _spawnSingleStarving(group) {
+    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+    const centerX = playerTransform ? playerTransform.position.x : this.campfire.x;
+    const centerY = playerTransform ? playerTransform.position.y : this.campfire.y;
+
+    // 从玩家四面八方生成（距离 150~250 像素）
+    const spawnDistance = 150 + Math.random() * 100;
+    const angle = Math.random() * Math.PI * 2;
+    const x = centerX + Math.cos(angle) * spawnDistance;
+    const y = centerY + Math.sin(angle) * spawnDistance;
+
+    const enemy = this.entityFactory.createEnemy({
+      name: '饥民',
+      templateId: 'starving',
+      level: 2,
+      position: { x, y },
+      stats: { maxHp: 40, attack: 6, defense: 3 },
+      aiType: 'aggressive'
+    });
+
+    this.entities.push(enemy);
+    this.enemyEntities.push(enemy);
+    if (this.aiSystem && this.aiSystem.registerAI) {
+      this.aiSystem.registerAI(enemy, 'aggressive');
+    }
+
+    // 追踪到组（供 _checkWaveEvents 检测全灭）
+    this._groupEnemies = this._groupEnemies || {};
+    (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
+
+    this._starvingSpawner.spawnedCount++;
+  }
+
+  /**
    * ⑤ 启动倒计时切幕（动作 sceneCountdown）。
-   * @param {Object} p - { scene:目标场景名, seconds:倒计时秒数(默认5), text:提示文案 }
+   * 与旧 Act1 一致：倒计时结束 → triggerPlayerDeath → 黑屏过渡 → switchToNextScene。
+   * @param {Object} p - { scene:目标场景名, seconds:倒计时秒数(默认20), text:提示文案 }
    * @private
    */
   _startSceneCountdown(p = {}) {
     if (this._countdown) return; // 已在倒计时
     this._countdown = {
       scene: p.scene || 'Act2Scene',
-      remain: p.seconds != null ? p.seconds : 5,
-      text: p.text || '序章完成，即将进入下一幕'
+      remain: p.seconds != null ? p.seconds : 20,
+      text: p.text || '战斗结束！可以拾取物品'
     };
+    // 退出战斗状态，方便玩家拾取物品
+    if (this.combatSystem && this.combatSystem.isInCombat()) {
+      this.combatSystem.exitCombat();
+    }
   }
 
-  /** @private 倒计时刷新 + 到点切场景 */
+  /** @private 倒计时刷新 + 到点触发死亡过渡（与旧 Act1 一致） */
   _updateSceneCountdown(deltaTime) {
     if (!this._countdown) return;
     this._countdown.remain -= deltaTime;
     const sec = Math.max(0, Math.ceil(this._countdown.remain));
-    this._showScreenTip(`${this._countdown.text}（${sec}）`, { persist: true });
+    this._showScreenTip(`${this._countdown.text}。${sec}秒后进入下一幕`, { persist: true });
     if (this._countdown.remain <= 0) {
       const scene = this._countdown.scene;
       this._countdown = null;
       this._hideScreenTip();
-      const eng = window.gameEngine;
-      const sm = (eng && eng.sceneManager) || this.sceneManager;
-      if (sm && sm.switchTo) {
-        console.log('[DDScene] 倒计时结束，切换场景 →', scene);
-        sm.switchTo(scene);
-      }
+      // 与旧 Act1 一致：设 HP=0 + 黑屏过渡 + switchToNextScene
+      this._nextSceneTarget = scene;
+      this._triggerPlayerDeath();
     }
+  }
+
+  /**
+   * 模拟旧 Act1 的 triggerPlayerDeath：HP=0 → 1秒后 startTransition → switchToNextScene
+   * @private
+   */
+  _triggerPlayerDeath() {
+    if (this._playerDiedTriggered) return;
+    this._playerDiedTriggered = true;
+    console.log('[DDScene] triggerPlayerDeath: 触发死亡过渡');
+    const stats = this.playerEntity && this.playerEntity.getComponent('stats');
+    if (stats) stats.hp = 0;
+    setTimeout(() => this.startTransition('眼前一黑，你晕了过去...'), 1000);
+  }
+
+  /**
+   * 覆盖 BaseGameScene.switchToNextScene：切到数据指定的目标场景
+   */
+  switchToNextScene() {
+    const scene = this._nextSceneTarget || 'Act2Scene';
+    console.log('[DDScene] switchToNextScene →', scene);
+    const eng = window.gameEngine;
+    const sm = (eng && eng.sceneManager) || this.sceneManager;
+    if (sm && sm.switchTo) sm.switchTo(scene);
   }
 
   /** 判断实体是否已死亡/移除 */
@@ -318,6 +460,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
+  /**
+   * 覆盖父类：装备变更回调 → fire('equipItem') 事件源
+   * 触发器可监听 equipItem 来做"装备武器后刷怪"等逻辑。
+   */
+  onEquipmentChanged(messages) {
+    super.onEquipmentChanged(messages);
+    if (this.gameLoader) {
+      // 检查当前装备的武器槽
+      const eq = this.playerEntity && this.playerEntity.getComponent('equipment');
+      const weapon = eq && eq.slots && eq.slots.weapon;
+      this.gameLoader.triggerSystem.fire('equipItem', {
+        slot: 'weapon',
+        item: weapon ? (weapon.id || weapon.name || '') : ''
+      });
+    }
+  }
+
   /** 相机后处理：限制在盆地内（被 BaseGameScene.update 调用） */
   postCameraUpdate() {
     this.clampCameraToBasin();
@@ -334,6 +493,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._gameLoaderReady = this.gameLoader.load('game.project.json', {
         dialogueSystem: this.dialogueSystem,
         questSystem: this.questSystem,
+        combatSystem: this.combatSystem,
         sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
         audioManager: this.audioManager || (eng && eng.audioManager) || null,
         floatingText: this.floatingTextManager,
@@ -350,10 +510,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('lightCampfire', () => this.lightCampfire());
         // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
         trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
-        // 场景专属动作：倒计时后切换场景（⑤ 倒计时→切幕，演出层）
+        // 场景专属动作：倒计时后触发死亡过渡→切幕（与旧 Act1 一致）
         trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
         // 场景专属动作：提示切幕（等待按 N 或交互键 E 再切下一幕）
         trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
+        // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
+        trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
+        // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
+        trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
         }

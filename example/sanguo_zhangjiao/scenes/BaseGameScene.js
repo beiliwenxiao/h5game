@@ -66,6 +66,7 @@ import { PerformanceMonitor } from '../../../src/core/PerformanceMonitor.js';
 import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
+import { GameLoader } from '../../../src/core/GameLoader.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -2094,6 +2095,8 @@ export class BaseGameScene extends PrologueScene {
     this.tutorialSystem.update(deltaTime, this.getGameState());
     this.dialogueSystem.update(deltaTime);
     this.questSystem.update(deltaTime);
+    // 数据驱动触发器（timer 类）——仅当场景调用过 initGameLoader 才存在
+    if (this.gameLoader) this.gameLoader.update(deltaTime);
     
     // 更新特效（使用节流）
     if (this.performanceOptimizer.shouldUpdate('effects')) {
@@ -2804,6 +2807,95 @@ export class BaseGameScene extends PrologueScene {
    */
   removeDeadEntities() {
     this.entityLifecycleSystem.removeDeadEntities(this.entities);
+  }
+
+  /**
+   * 通用数据驱动装配（可选）：任意幕调用即可获得 GameProject 触发器/事件源能力。
+   *
+   * 装配 GameLoader 并桥接事件源（sceneEnter/kill/questComplete/dialogueEnd 等），
+   * 之后该场景可用编辑器配置的触发器驱动剧情，无需写代码。
+   * 叠加式：不调用则场景行为完全不变；基类 update 会自动驱动 timer 触发器。
+   *
+   * @param {string} projectUrl - GameProject.json 路径（相对场景 HTML）
+   * @param {Object} opts
+   *   - sceneId: 装配完成后 fire('sceneEnter',{sceneId}) 的场景 id
+   *   - sceneFlag: 在黑板设一个布尔标记（如 'ddScene'），供触发器 if 判定仅本场景生效
+   *   - deps: 额外依赖，合并进 GameLoader deps
+   *   - onReady(gameLoader, triggerSystem): 装配完成回调，供子类注册场景专属动作/监听
+   * @returns {Promise<GameLoader|null>}
+   */
+  async initGameLoader(projectUrl = 'game.project.json', opts = {}) {
+    try {
+      this.gameLoader = new GameLoader();
+      const eng = (typeof window !== 'undefined') ? window.gameEngine : null;
+      const deps = {
+        dialogueSystem: this.dialogueSystem,
+        questSystem: this.questSystem,
+        combatSystem: this.combatSystem,
+        sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
+        audioManager: this.audioManager || (eng && eng.audioManager) || null,
+        floatingText: this.floatingTextManager,
+        tutorial: { showTip: (p) => this._showScreenTip((p && p.text) || '') },
+        player: this.playerEntity || null,
+        ...(opts.deps || {})
+      };
+      await this.gameLoader.load(projectUrl, deps);
+      const trig = this.gameLoader.triggerSystem;
+      // 对话结束事件源（各系统事件源在 GameLoader.bridgeEventSources 已接；dialogueEnd 需订阅 DialogueSystem）
+      if (this.dialogueSystem && this.dialogueSystem.onEnd) {
+        this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
+      }
+      // 场景标记（供触发器 if 判定仅本场景生效）
+      if (opts.sceneFlag) this.gameLoader.blackboard.set(opts.sceneFlag, true);
+      // 子类补充场景专属动作 / 监听
+      if (typeof opts.onReady === 'function') opts.onReady(this.gameLoader, trig);
+      // 玩家上下文
+      if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
+      // 进入场景事件
+      if (opts.sceneId) trig.fire('sceneEnter', { sceneId: opts.sceneId });
+      return this.gameLoader;
+    } catch (e) {
+      console.warn('BaseGameScene.initGameLoader 失败:', e);
+      return null;
+    }
+  }
+
+  /**
+   * 屏幕居中提示（触发器 showTip 动作用）：优先复用原版提示面板 window.__ddShowTips，
+   * 约 3.5 秒后自动隐藏；不可用时回退简易黑框。
+   * @param {string} text
+   * @param {Object} [opts] - { persist:true 不自动隐藏（供倒计时/提示切幕每帧刷新用） }
+   */
+  _showScreenTip(text, opts = {}) {
+    if (typeof window !== 'undefined' && window.__ddShowTips) {
+      window.__ddShowTips('提示', text);
+      clearTimeout(this._tipTimer);
+      if (!opts.persist) {
+        this._tipTimer = setTimeout(() => { if (window.__ddHideTips) window.__ddHideTips(); }, 3500);
+      }
+      return;
+    }
+    // 回退：简易黑框
+    let el = document.getElementById('dd-trigger-tip');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'dd-trigger-tip';
+      el.style.cssText = 'position:fixed;top:22%;left:50%;transform:translateX(-50%);' +
+        'background:rgba(0,0,0,0.82);color:#fff;padding:14px 28px;border-radius:8px;' +
+        'font-size:18px;z-index:99999;pointer-events:none;transition:opacity 0.3s;';
+      document.body.appendChild(el);
+    }
+    el.textContent = text;
+    el.style.opacity = '1';
+    clearTimeout(this._tipTimer);
+    if (!opts.persist) this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
+  }
+
+  /** 隐藏提示面板 */
+  _hideScreenTip() {
+    if (typeof window !== 'undefined' && window.__ddHideTips) window.__ddHideTips();
+    const el = document.getElementById('dd-trigger-tip');
+    if (el) el.style.opacity = '0';
   }
 
   /**

@@ -707,10 +707,8 @@ export class Act1SceneECS extends BaseGameScene {
     }
     
     // 调用父类的 update
+    // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
     super.update(deltaTime);
-
-    // 试点：驱动数据驱动触发器（timer 类）
-    if (this.gameLoader) this.gameLoader.update(deltaTime);
     
     // 第一幕特有：检查火堆碰撞
     this.checkCampfireCollision();

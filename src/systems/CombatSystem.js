@@ -130,6 +130,8 @@ export class CombatSystem {
     // 战斗状态回调
     this.onEnterCombatCallback = null;
     this.onExitCombatCallback = null;
+    // 击杀回调（敌人死亡时触发，供数据驱动 kill 事件源 / 任务计数用）
+    this.onKillCallback = null;
     
     console.log('CombatSystem: Initialized');
   }
@@ -961,7 +963,10 @@ export class CombatSystem {
     
     // 立即标记为正在死亡，停止AI行为
     target.isDying = true;
-    
+
+    // 通知击杀（数据驱动 kill 事件源 / 任务计数）
+    this._notifyKill(target);
+
     // 随机选择死亡特效类型
     const effectType = Math.random() < 0.5 ? 'explode' : 'slice';
     
@@ -2020,6 +2025,9 @@ export class CombatSystem {
     if (entity.type === 'player') {
       this.handlePlayerDeath(entity);
     } else {
+      // 通知击杀（数据驱动 kill 事件源 / 任务计数）
+      this._notifyKill(entity);
+
       // 敌人死亡，生成掉落物
       this.spawnLoot(entity);
       
@@ -3274,6 +3282,33 @@ export class CombatSystem {
    */
   setOnExitCombat(callback) {
     this.onExitCombatCallback = callback;
+  }
+
+  /**
+   * 设置击杀回调（敌人死亡时触发一次）
+   * @param {Function} callback - (entity) => void
+   */
+  setOnKillCallback(callback) {
+    this.onKillCallback = callback;
+  }
+
+  /**
+   * 通知一次击杀（内部统一入口，用实体标记防重，仅非玩家）
+   * 供数据驱动 kill 事件源 / 任务击杀计数消费。
+   * @param {Entity} entity - 死亡实体
+   * @private
+   */
+  _notifyKill(entity) {
+    if (!entity || entity.type === 'player') return;
+    if (entity._killNotified) return;
+    entity._killNotified = true;
+    if (this.onKillCallback) {
+      try {
+        this.onKillCallback(entity);
+      } catch (e) {
+        console.warn('CombatSystem: onKillCallback 执行出错', e);
+      }
+    }
   }
 }
 

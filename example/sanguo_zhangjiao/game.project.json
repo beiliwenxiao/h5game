@@ -8,6 +8,7 @@
   "variables": {
     "act": 0,
     "killCount": 0,
+    "starvingKilled": 0,
     "hasSword": false,
     "gold": 0
   },
@@ -1028,7 +1029,7 @@
         "start": {
           "speaker": "旁白",
           "portrait": null,
-          "text": "黄巾起义虽���������失败了，但它的影响却深远地改变了历史的进程。",
+          "text": "黄巾起义虽����������失败了，但它的影响却深远地改变了历史的进程。",
           "nextNode": "player_reflect"
         },
         "player_reflect": {
@@ -1211,6 +1212,32 @@
       "once": true
     },
     {
+      "id": "trg_enter_act2",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "Act2Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act2Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 2
+          }
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "my_first_trigger",
       "when": {
         "type": "sceneEnter",
@@ -1222,7 +1249,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "你好，这是我的第一个触发器!"
+            "text": "您好，欢迎光临H5Game游戏编辑器的Demo!这是第一个触发器"
           }
         }
       ],
@@ -1304,9 +1331,9 @@
     {
       "id": "trg_spawn_wave",
       "when": {
-        "type": "itemPickup",
+        "type": "equipItem",
         "params": {
-          "item": "wooden_sword"
+          "slot": "weapon"
         }
       },
       "do": [
@@ -1329,10 +1356,132 @@
       },
       "do": [
         {
-          "action": "promptSwitch",
+          "action": "promptNextWave",
+          "params": {
+            "text": "野狗被击退了！按 N 继续探索"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_next_wave_starving",
+      "when": {
+        "type": "nextWave",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "spawnStarvingWave",
+          "params": {
+            "group": "act1_wave2",
+            "count": 18,
+            "interval": 0.6
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_wave2_cleared_countdown",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act1_wave2"
+        }
+      },
+      "do": [
+        {
+          "action": "sceneCountdown",
           "params": {
             "scene": "Act2Scene",
-            "text": "序章战斗结束 — 按 N 或 交互键(E) 进入第二幕"
+            "seconds": 20,
+            "text": "战斗结束！可以拾取物品"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_kill_count",
+      "when": {
+        "type": "kill",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "addVar",
+          "params": {
+            "key": "killCount",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "trg_starving_kill_count",
+      "when": {
+        "type": "kill",
+        "params": {
+          "enemyType": "starving"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "addVar",
+          "params": {
+            "key": "starvingKilled",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "trg_starving_encourage",
+      "when": {
+        "type": "kill",
+        "params": {
+          "enemyType": "starving"
+        }
+      },
+      "if": {
+        "op": "and",
+        "args": [
+          {
+            "op": "==",
+            "left": {
+              "var": "ddScene"
+            },
+            "right": true
+          },
+          {
+            "op": ">=",
+            "left": {
+              "var": "starvingKilled"
+            },
+            "right": 9
+          }
+        ]
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "饥民快被击退了，坚持住！"
           }
         }
       ],
@@ -1481,6 +1630,31 @@
           "action": "showTip",
           "params": {
             "text": "很好，你已掌握基本操作！"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "tut_equip_weapon",
+      "when": {
+        "type": "itemPickup",
+        "params": {
+          "item": "wooden_sword"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "捡到了木剑！按 B 打开背包，点击木剑装备武器"
           }
         }
       ],

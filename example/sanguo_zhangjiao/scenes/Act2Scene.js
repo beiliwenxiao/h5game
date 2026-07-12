@@ -110,6 +110,13 @@ export class Act2Scene extends BaseGameScene {
     
     // 开始觉醒对话
     this.startAwakeningDialogue();
+
+    // 数据驱动：装配 GameLoader 获得触发器/事件源能力（叠加式，一行接入，不改现有流程）
+    // 第二幕剧情节点可在编辑器用 sceneEnter/kill/questComplete/dialogueEnd 等事件源配置触发器
+    this.initGameLoader('game.project.json', {
+      sceneId: 'Act2Scene',
+      sceneFlag: 'act2Scene'
+    });
   }
 
   /**

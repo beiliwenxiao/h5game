@@ -27,6 +27,7 @@ const WHEN_TYPES = [
   { v: 'itemPickup', label: '拾取物品' },
   { v: 'interact', label: '交互' },
   { v: 'questComplete', label: '任务完成' },
+  { v: 'questProgress', label: '任务进度更新' },
   { v: 'flagChange', label: '变量变化' },
   { v: 'timer', label: '定时器' },
   { v: 'chunkEnter', label: '进入区块' },

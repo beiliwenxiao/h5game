@@ -2842,8 +2842,9 @@ export class BaseGameScene extends PrologueScene {
       await this.gameLoader.load(projectUrl, deps);
       const trig = this.gameLoader.triggerSystem;
       // 对话结束事件源（各系统事件源在 GameLoader.bridgeEventSources 已接；dialogueEnd 需订阅 DialogueSystem）
+      // 带对话 id → 触发器可用 when:dialogueEnd{id:'xxx'} 精确匹配某段对话结束
       if (this.dialogueSystem && this.dialogueSystem.onEnd) {
-        this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
+        this.dialogueSystem.onEnd((dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id }));
       }
       // 场景标记（供触发器 if 判定仅本场景生效）
       if (opts.sceneFlag) this.gameLoader.blackboard.set(opts.sceneFlag, true);

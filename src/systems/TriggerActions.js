@@ -61,6 +61,22 @@ export function registerDefaultActions(triggerSystem) {
       if (p.gold && ctx.blackboard) ctx.blackboard.add('gold', p.gold);
     },
 
+    // ---- 治疗 / 恢复 ----
+    // heal{ hp, mp, full }：恢复玩家生命/法力；full=true 时全满。作用于 ctx.player。
+    heal: (p, ctx) => {
+      const player = ctx.player;
+      if (!player) return;
+      const stats = player.getComponent && player.getComponent('stats');
+      if (!stats) return;
+      if (p.full) {
+        if (stats.maxHp != null) stats.hp = stats.maxHp;
+        if (stats.maxMp != null) stats.mp = stats.maxMp;
+        return;
+      }
+      if (p.hp != null && stats.maxHp != null) stats.hp = Math.min(stats.maxHp, (stats.hp || 0) + p.hp);
+      if (p.mp != null && stats.maxMp != null) stats.mp = Math.min(stats.maxMp, (stats.mp || 0) + p.mp);
+    },
+
     // ---- 任务 ----
     startQuest: (p, ctx) => { ctx.questSystem?.acceptQuest?.(p.quest); },
     completeQuest: (p, ctx) => { ctx.questSystem?.turnInQuest?.(p.quest); },

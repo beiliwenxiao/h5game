@@ -52,6 +52,10 @@ export class Act5Scene extends BaseGameScene {
     super.enter(data);
     
     console.log('Act5Scene: 进入第五幕场景', data);
+
+    // 数据驱动：一行接入触发器/事件源能力（叠加式，不改现有流程）
+    // 第五幕（战役）剧情节点可在编辑器用 sceneEnter/kill/questComplete/dialogueEnd 等事件源配置触发器
+    this.initGameLoader('game.project.json', { sceneId: 'Act5Scene', sceneFlag: 'act5Scene' });
     
     // 重置玩家位置
     if (this.playerEntity) {

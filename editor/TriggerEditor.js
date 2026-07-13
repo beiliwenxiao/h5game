@@ -34,7 +34,9 @@ const WHEN_TYPES = [
   { v: 'campfireLit', label: '火堆点燃(序章场景)' },
   { v: 'waveCleared', label: '波次清空(某组敌人全灭)' },
   { v: 'playerMoved', label: '玩家移动(离开出生点)' },
-  { v: 'panelOpen', label: '打开面板(背包/属性)' }
+  { v: 'panelOpen', label: '打开面板(背包/属性)' },
+  { v: 'equipItem', label: '装备物品(装备槽)' },
+  { v: 'classSelected', label: '选择职业(第四幕)' }
 ];
 
 const ACTION_TYPES = [
@@ -46,6 +48,7 @@ const ACTION_TYPES = [
   { v: 'switchScene', label: '切换场景' },
   { v: 'loadRegion', label: '加载区域' },
   { v: 'giveReward', label: '给予奖励' },
+  { v: 'heal', label: '治疗/恢复(hp/mp/full)' },
   { v: 'startQuest', label: '开始任务' },
   { v: 'completeQuest', label: '完成任务' },
   { v: 'showTip', label: '显示提示' },

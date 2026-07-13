@@ -9,6 +9,7 @@
     "act": 0,
     "killCount": 0,
     "starvingKilled": 0,
+    "act5Kills": 0,
     "hasSword": false,
     "gold": 0
   },
@@ -1238,6 +1239,110 @@
       "once": true
     },
     {
+      "id": "trg_enter_act3",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "Act3Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act3Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 3
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_enter_act4",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "Act4Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act4Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 4
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_enter_act5",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "Act5Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act5Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 5
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_enter_act6",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "Act6Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act6Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act",
+            "value": 6
+          }
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "my_first_trigger",
       "when": {
         "type": "sceneEnter",
@@ -1482,6 +1587,175 @@
           "action": "showTip",
           "params": {
             "text": "饥民快被击退了，坚持住！"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_slay_count",
+      "when": {
+        "type": "kill",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act5Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "addVar",
+          "params": {
+            "key": "act5Kills",
+            "delta": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "trg_act5_kill_caocao",
+      "when": {
+        "type": "kill",
+        "params": {
+          "name": "曹操·孟德"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act5Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "曹操中箭败退！广宗之围暂解，张梁将军得救了！"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_kill_guanyu",
+      "when": {
+        "type": "kill",
+        "params": {
+          "name": "关羽·云长"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act5Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "力克关云长！阳城的黄巾弟兄士气大振！"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_bloodbath",
+      "when": {
+        "type": "kill",
+        "params": {}
+      },
+      "if": {
+        "op": "and",
+        "args": [
+          {
+            "op": "==",
+            "left": {
+              "var": "act5Scene"
+            },
+            "right": true
+          },
+          {
+            "op": ">=",
+            "left": {
+              "var": "act5Kills"
+            },
+            "right": 100
+          }
+        ]
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "百人斩！黄天之威，震慑朝廷大军！"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_awakening_heal",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "awakening"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act2Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "heal",
+          "params": {
+            "full": true
+          }
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "张角的符水让你恢复了体力，你从濒死中活了过来。"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act4_class_selected",
+      "when": {
+        "type": "classSelected",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act4Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "giveReward",
+          "params": {
+            "exp": 200,
+            "gold": 100
+          }
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "拜师成功！获得经验 200、铜钱 100。按 T 打开技能树修炼。"
           }
         }
       ],

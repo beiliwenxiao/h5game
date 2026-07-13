@@ -69,6 +69,10 @@ export class Act6Scene extends BaseGameScene {
     super.enter(data);
     
     console.log('Act6Scene: 进入第六幕场景', data);
+
+    // 数据驱动：一行接入触发器/事件源能力（叠加式，不改现有流程）
+    // 第六幕（结局）剧情节点可在编辑器用 sceneEnter/kill/questComplete/dialogueEnd 等事件源配置触发器
+    this.initGameLoader('game.project.json', { sceneId: 'Act6Scene', sceneFlag: 'act6Scene' });
     
     // 重置玩家位置
     if (this.playerEntity) {

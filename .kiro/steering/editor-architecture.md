@@ -599,8 +599,8 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 | P4-5 | `example/sanguo_zhangjiao/scenes/BaseGameScene.js` | **通用 `initGameLoader` + `_showScreenTip/_hideScreenTip` + update 驱动 gameLoader**（任意幕一行接入事件源） |
 | P4-5 | `src/core/GameLoader.js` | 新增 `bridgeEventSources(deps)`：桥接 questComplete/questProgress/kill 系统级事件源 → TriggerSystem |
 | P4-5 | `src/systems/CombatSystem.js` | 新增 `setOnKillCallback` + `_notifyKill`（防重、仅非玩家，两条死亡路径触发通用 kill） |
-| P4-5 | `example/sanguo_zhangjiao/scenes/Act2Scene.js` | 示范一行接入 `initGameLoader`（后续幕零成本用事件源） |
-| P4-5 | `example/sanguo_zhangjiao/game.project.json` | 序章双波流程触发器 + 装备触发/N键推进/倒计时切幕 + kill 计数示范 + Act2 sceneEnter 触发器 + tut_equip_weapon |
+| P4-5 | `example/sanguo_zhangjiao/scenes/Act2Scene.js`~`Act6Scene.js` | 全六幕各一行接入 `initGameLoader`（后续幕零成本用事件源） |
+| P4-5 | `example/sanguo_zhangjiao/game.project.json` | 序章双波流程触发器 + 装备触发/N键推进/倒计时切幕 + kill 计数示范 + `trg_enter_act2`~`act6`(sceneEnter→setVar act=N) + tut_equip_weapon |
 | P4-5 | `example/sanguo_zhangjiao/index.html` | `?ddscene=1` 并存试点分支（守卫，默认走旧流程不变） |
 
 ### 17.2 试点接入现状 + GameLoader 通用化（已完成）
@@ -632,7 +632,7 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 - **P4-5 序章可玩流程**：✅ 已完全数据驱动（`?ddscene=1`），与旧 Act1 对齐（双波战斗 + 装备触发 + 死亡过渡切幕 + 7 条渐进提示）。
 - **P4-5 事件源通用化**：✅ 已完成——GameLoader 挂载下沉为 BaseGameScene 通用能力（一行 `initGameLoader`），系统级事件源 `kill`/`questComplete`/`questProgress`/`dialogueEnd` 由 `bridgeEventSources` 集中桥接，任意幕自动获得；Act2Scene 已示范接入。
 - **P4-5 拆 PrologueManager / 替换默认 Act1**：未做（高风险，需逐幕对照验收）。【待用户确认后推进】
-- **后续幕（Act3-6）剧情数据化**：能力已就位（一行 initGameLoader + 编辑器配触发器），按需逐幕补触发器/场景专属动作即可。
+- **全六幕已接入事件源**：✅ Act2-6 各 enter 一行 `initGameLoader({sceneId:'ActXScene', sceneFlag:'actXScene'})`；触发器 `trg_enter_act2`~`trg_enter_act6`(sceneEnter ActXScene + if actXScene → setVar act=N) 随幕推进剧情进度变量。后续各幕补具体剧情节点（对话/战斗/任务）直接编辑器配触发器即可，无需改代码。
 - **P5 大地图流式 / P6 存档性能**：未开始。
 
 ### 17.6 P2 交付说明（截至当前）
@@ -672,3 +672,32 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 - **BaseGameScene 通用化**：`initGameLoader(url, {sceneId,sceneFlag,deps,onReady})` 一行接入；`_showScreenTip/_hideScreenTip` 上提基类；update 统一驱动 gameLoader（子类重复调用已移除，防 timer double-tick）。
 - **关键 bug 修复**：数据驱动序章「打完不切幕/按 N 无反应」根因＝`isKeyPressed` 检测放在 `super.update()`（末尾清 keysPressed）之后；已把 `_updatePromptSwitch/_updatePromptNextWave` 提到 super.update 之前。
 - **网络约定符合性（§13）**：kill 事件 payload 为纯数据（enemyType/entityId/name），Resolver/结算不受影响；事件源桥接是「表现层订阅→数据事件」，联网时同套触发器数据复用。
+
+### 17.10 全六幕接入 + 第五幕剧情节点示范（本轮）
+
+- **全六幕已接入事件源**：Act2-6 各 enter 一行 `initGameLoader({sceneId, sceneFlag})`；`trg_enter_act2`~`trg_enter_act6`(sceneEnter + if actXScene → setVar act=N) 随幕推进 `act` 进度变量。每幕独立 `sceneFlag`（act2Scene~act6Scene）+ `if` 隔离，互不干扰。
+- **第五幕剧情节点（真实端到端示范，纯叠加不改战斗流程）**：
+  - 关键点：第五幕所有敌人 `templateId` 都是 `'soldier'`，但武将 `entity.name` 不同（"曹操·孟德"/"关羽·云长"…）；`kill` 事件 payload 带 `name`，`_matchParams` 精确匹配 → 可按 BOSS 名配节点。
+  - `trg_act5_slay_count`(kill + if act5Scene → addVar act5Kills)：击杀总数统计。
+  - `trg_act5_kill_caocao`(kill{name:'曹操·孟德'} → showTip 广宗解围)、`trg_act5_kill_guanyu`(kill{name:'关羽·云长'} → showTip)：击杀特定 BOSS 触发台词，once。
+  - `trg_act5_bloodbath`(kill + if `and`(act5Scene, act5Kills>=100) → showTip 百人斩)：里程碑，once。
+  - 注册顺序保证同帧先 `slay_count` 累加、后 `bloodbath` 判阈值。广宗"曹操·孟德"与终战"曹操"名字不同不误匹配。
+- **样板价值**：后续任意幕加剧情节点＝编辑器配触发器（`kill{name}`/`questComplete`/`dialogueEnd` → `showTip`/`startDialogue`/`giveReward`），零改代码。
+
+### 17.11 第二幕(dialogueEnd) + 第四幕(classSelected) 剧情节点 + heal 动作（本轮）
+
+- **dialogueEnd 带对话 id**：`endDialogue()` 的 `onEndCallback(dialogue)` 本就带 dialogue 对象；BaseGameScene.initGameLoader 订阅改为 `fire('dialogueEnd', {id: dialogue.id})` → 触发器可 `when:dialogueEnd{id:'awakening'}` 精确匹配某段对话结束。（`onEnd` 为单回调，但仅 GameLoader 桥接使用、各场景独立 dialogueSystem 实例，无覆盖冲突。）
+- **新动作 `heal`（框架增强）**：`heal{hp,mp,full}` 作用于 ctx.player.stats（full=全满）。已入 TriggerEditor ACTION 列表。
+- **第二幕节点**：`trg_act2_awakening_heal`(dialogueEnd{id:'awakening'} + if act2Scene → heal{full} + showTip)。第二幕开场玩家 hp/mp=1 濒死，觉醒对话结束→符水救活（全满）+ 台词，纯叠加不改第二幕流程。
+- **第四幕节点**：第四幕职业选择走 `classSystem.selectClass`（**不用 QuestSystem**），故加**场景级事件源 `classSelected`**（selectClass 成功处 fire{class,className}，同 equipItem 模式）；`trg_act4_class_selected`(classSelected + if act4Scene → giveReward{exp:200,gold:100} + showTip)。
+- **questComplete 说明**：能力已就位（GameLoader 桥接 QuestSystem.on(questCompleted) + 编辑器下拉），但当前 demo 各幕未用 QuestSystem 完成剧情，故未配 questComplete 触发器；将来接入真实任务（acceptQuest→updateObjective→completed）即自动可用。
+- **编辑器 WHEN 下拉**新增 `equipItem`/`classSelected`；ACTION 下拉新增 `heal`。
+
+### 17.12 第三幕 + 第六幕剧情节点（本轮，纯数据零改代码）
+
+- **第三幕**（`dialogueEnd{id:'coin_artifact'}`）：`trg_act3_coin_dialogue`(+if act3Scene → showTip「按 B 用铜钱剑前往第四幕」)。铜钱法器对话结束即提示，纯叠加。
+- **第六幕结局分支（关键设计）**：结局对话 id 是**动态的**（`ending_savior`/`ending_leader`/`ending_witness`/`ending_survivor`，各只在对应结局播放）→ `dialogueEnd{id:'ending_xxx'}` **天然就是结局分支**，无需读 endingType，零改 Act6 代码：
+  - `trg_act6_intro_end`(dialogueEnd{act6_intro} → showTip 追思张角)。
+  - `trg_act6_ending_savior/leader/witness/survivor`(dialogueEnd{ending_xxx} + if act6Scene → setVar ending + giveReward(exp/gold 按结局递减) + showTip 结局达成)。
+  - `ending` 变量写黑板，供将来正式游戏/存档读结局分支。
+- **至此全六幕剧情节点均已数据化接入**（序章完整流程 / 二觉醒救活 / 三铜钱剑 / 四拜师奖励 / 五 BOSS 台词+里程碑 / 六结局分支），全部事件源→触发器→动作，零改各幕核心逻辑。事件源模式覆盖：sceneEnter/interact/itemPickup/equipItem/classSelected/kill(含 name)/waveCleared/dialogueEnd(含 id)/playerMoved/panelOpen/计数阈值。

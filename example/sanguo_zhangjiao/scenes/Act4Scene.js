@@ -89,6 +89,10 @@ export class Act4Scene extends BaseGameScene {
     super.enter(data);
     
     console.log('Act4Scene: 进入第四幕场景', data);
+
+    // 数据驱动：一行接入触发器/事件源能力（叠加式，不改现有流程）
+    // 第四幕剧情节点可在编辑器用 sceneEnter/kill/questComplete/dialogueEnd 等事件源配置触发器
+    this.initGameLoader('game.project.json', { sceneId: 'Act4Scene', sceneFlag: 'act4Scene' });
     
     // 重置玩家位置
     if (this.playerEntity) {
@@ -421,6 +425,12 @@ export class Act4Scene extends BaseGameScene {
     this.notify(`你选择了 ${className} 职业！`, 'success');
 
     console.log(`Act4Scene: 选择职业 ${className}`);
+
+    // 数据驱动事件源：职业选择完成 → fire('classSelected', {class})
+    // 触发器可用 when:classSelected 配"选职业后给奖励/提示/推进剧情"，零改代码
+    if (this.gameLoader && this.gameLoader.triggerSystem) {
+      this.gameLoader.triggerSystem.fire('classSelected', { class: classType, className });
+    }
   }
 
   /**

@@ -471,6 +471,7 @@
                 <button id="nav-trigger-editor">事件编辑器</button>
                 <button id="nav-dialogue-editor">对话编辑器</button>
                 <button id="nav-library-editor">内容库</button>
+                <button id="nav-world-map-editor">世界地图</button>
                 <button id="nav-home">返回首页</button>
             </nav>
         </header>
@@ -527,6 +528,11 @@
             <!-- 对话编辑器页 -->
             <div class="ui-editor-page" id="dialogue-editor-page">
                 <div id="dialogue-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
+            </div>
+
+            <!-- 世界地图编辑器页 -->
+            <div class="ui-editor-page" id="world-map-editor-page">
+                <div id="world-map-editor-container" style="flex:1;overflow:auto;min-height:0;padding:16px;"></div>
             </div>
         </main>
     </div>
@@ -601,6 +607,7 @@
         import { TriggerEditor } from './TriggerEditor.js';
         import { LibraryEditor } from './LibraryEditor.js';
         import { DialogueGraphEditor } from './DialogueGraphEditor.js';
+        import { WorldMapEditor } from './WorldMapEditor.js';
         
         class GameEditor {
             constructor() {
@@ -702,6 +709,7 @@
                 document.getElementById('nav-ui-editor').addEventListener('click', () => this.showPage('ui-editor'));
                 document.getElementById('nav-trigger-editor').addEventListener('click', () => this.showPage('trigger-editor'));
                 document.getElementById('nav-library-editor').addEventListener('click', () => this.showPage('library-editor'));
+                document.getElementById('nav-world-map-editor').addEventListener('click', () => this.showPage('world-map-editor'));
                 document.getElementById('nav-dialogue-editor').addEventListener('click', () => this.showPage('dialogue-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
@@ -1195,6 +1203,18 @@
                         );
                     }
                     this.dialogueEditor.init();
+                } else if (page === 'world-map-editor') {
+                    document.getElementById('world-map-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
+                    if (!this.worldMapEditor) {
+                        this.worldMapEditor = new WorldMapEditor(
+                            document.getElementById('world-map-editor-container'),
+                            { dataManager: this.dataManager }
+                        );
+                        this.worldMapEditor.init();
+                    } else {
+                        this.worldMapEditor.loadFromProject();
+                    }
                 }
             }
             

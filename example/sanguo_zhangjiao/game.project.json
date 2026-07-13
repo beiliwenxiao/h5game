@@ -13,7 +13,21 @@
     "hasSword": false,
     "gold": 0
   },
-  "worldMap": null,
+  "worldMap": {
+    "regions": [
+      {
+        "id": "prologue_world",
+        "chunkWidth": 1280,
+        "chunkHeight": 720,
+        "cols": 2,
+        "rows": 2,
+        "grid": [
+          ["scene_Prologue", "scene_east"],
+          ["scene_south", null]
+        ]
+      }
+    ]
+  },
   "worldTerrains": {},
   "scenes": [],
   "dialogues": [

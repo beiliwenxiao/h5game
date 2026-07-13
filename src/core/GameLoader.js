@@ -118,7 +118,14 @@ export class GameLoader {
 
     // 6. worldMap → WorldStreamingManager（P5，若提供）
     if (deps.world && deps.world.init && proj.worldMap) {
-      deps.world.init(proj.worldMap.regions?.[0], proj);
+      const region = proj.worldMap.regions?.[0];
+      if (region) {
+        deps.world.init(region, proj, {
+          entityFactory: deps.entityFactory || null,
+          triggerSystem: this.triggerSystem,
+          registries: this.registries
+        });
+      }
     }
 
     // 7. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem

@@ -512,13 +512,16 @@ VehicleSystem:
     - [x] ② 点火交互：`DataDrivenPrologueScene._checkCampfireInteract()` 靠近火堆按 E/点击 → `fire('interact',{target:'campfire'})`；GameProject 触发器 `trg_campfire_interact`(interact→lightCampfire) + `trg_campfire_autolight`(timer 10s→lightCampfire，`if ddScene==true` 仅本场景生效)；场景注册 `lightCampfire` 动作调 `this.lightCampfire()`（含火焰粒子）。火堆初始熄灭，交互/超时点燃。
     - [x] 开场迷雾：迁移 fog（模糊黑雾 + 玩家周围 2.5D 椭圆透光，点火后淡出）——updateFog + render 叠加 + lightCampfire 触发 targetOpacity=0。
     - [x] ③ 拾取物（方案A：库定义 + 场景放置 + 组激活）：物品/装备**明细**移入内容库 `library.items/equipment`（残羹/破旧衣服/木剑，无坐标）；**位置**由场景编辑器「资源库·内容」拖入生成 `type:'ref'` 放置点（存 kind/ref/x/y/group）；触发器 `trg_spawn_pickup`(campfireLit→`spawnGroup{group:'act1_pickups'}`) 只给组名；运行时 `DataDrivenPrologueScene._spawnGroup` 按组找放置点 + 从 registries 取库定义 + 放置点坐标 → push 到 pickupItems/equipmentItems（继承 PickupSystem 拾取）。事件源 `campfireLit`。**三者解耦**：明细在库、位置在场景、触发器只引用组名。
-    - [x] ④ 刷怪波次：`_spawnGroup` 支持 kind=enemy/npc/building/vehicle（经 EntityFactory + registries 实例化，敌人入 entities+enemyEntities，AI/战斗系统继承自 BaseGameScene）；事件源 `kill`（敌人死亡）+ `waveCleared`（某组敌人全灭，每组一次）。配置：把敌人放进组（如 act1_wave1）+ 触发器 `spawnGroup{group:act1_wave1}` 生成波次 + `waveCleared` 触发后续。
-    - [x] ⑤ 倒计时→切幕：场景动作 `sceneCountdown{scene,seconds,text}`（实时倒计时提示 + 到点 sceneManager.switchTo，演出层）；配合 `waveCleared → sceneCountdown` 即可"打完→倒计时→切下一幕"。
-    - [x] ① 渐进提示：`tutorials[]` 6 条 showTip（醒来/移动→点火/点火→拾取/拾取→背包/背包→属性/完成），均 `if ddScene`；条件事件源 `playerMoved`（离出生点>60px）、`panelOpen{panel:inventory|stats}`（面板打开上升沿）由 DataDrivenPrologueScene fire。
-    - [x] ⑤ 切幕改为提示切幕：场景动作 `promptSwitch{scene,text}`（显示提示，等待按 N 或交互键 E 再 switchTo），保留 `sceneCountdown`；触发器 `trg_wave_cleared_switch`(waveCleared act1_wave1 → promptSwitch Act2Scene)。
-  - **P4-5 六幕流程链路已全部数据化**：醒来→移动→点火→拾取→(拾残羹掉装备)→(拾木剑刷怪)→打完波次→提示切幕。全程 事件源→触发器→动作+组激活，零硬编码。
-  - **新增事件源**：`interact`/`campfireLit`/`itemPickup`/`kill`/`waveCleared`/`playerMoved`/`panelOpen`。
-  - **新增场景动作**：`lightCampfire`/`spawnGroup`/`sceneCountdown`/`promptSwitch`（均入 TriggerEditor 列表；when/action 下拉保留自定义值）。
+    - [x] ④ 刷怪波次（对齐旧 Act1 双波流程）：`_spawnGroup` 支持 kind=enemy/npc/building/vehicle（经 EntityFactory + registries 实例化，敌人入 entities+enemyEntities，AI/战斗继承自 BaseGameScene）；`waveCleared`（某组敌人全灭，每组一次，逐渐生成波须全部生成完才判定）。**流程**：
+      - **装备武器才刷第一波**（不再"拾木剑即刷"）：`onEquipmentChanged` 覆盖 → fire `equipItem{slot,item}`；触发器 `trg_spawn_wave`(equipItem weapon → spawnGroup act1_wave1 野狗)。
+      - **第一波清 → 按 N → 第二波**：`trg_wave_cleared_switch`(waveCleared act1_wave1 → **promptNextWave**) 显示"按 N 继续"；按 N（`_updatePromptNextWave` 在 super.update 前检测键）→ fire `nextWave`；`trg_next_wave_starving`(nextWave → **spawnStarvingWave** act1_wave2) 逐渐生成 18 饥民（`_starvingSpawner` 复用旧 Act1 逻辑，四面涌入）。
+    - [x] ⑤ 倒计时→死亡过渡→切幕（对齐旧 Act1）：`trg_wave2_cleared_countdown`(waveCleared act1_wave2 → **sceneCountdown**{scene,seconds:20,text})；`_updateSceneCountdown` 到点 → `_triggerPlayerDeath`(HP=0 → startTransition 黑屏 → `switchToNextScene` 覆盖切目标场景)。另保留 `promptSwitch{scene,text}`（提示按 N/E 切幕）作可选演出。
+    - [x] ① 渐进提示：`tutorials[]` 7 条 showTip（醒来/移动→点火/点火→拾取/拾取→背包/背包→属性/完成 + **拾木剑→装备武器**`tut_equip_weapon`(itemPickup wooden_sword)衔接装备触发刷怪），均 `if ddScene`；条件事件源 `playerMoved`（离出生点>60px）、`panelOpen{panel:inventory|stats}`（面板打开上升沿）由 DataDrivenPrologueScene fire。
+    - [x] ⑤（历史）曾用 `promptSwitch{scene,text}` 单波直接切幕；现已改为双波流程（见上 ④⑤），最终切幕走 sceneCountdown 死亡过渡。`promptSwitch` 动作保留可用。
+    - [x] **关键 bug 修复**：`_updatePromptSwitch`/`_updatePromptNextWave` 用 `isKeyPressed`（单帧按下）检测 N/E，必须放在 `super.update()` **之前**——否则 super.update 末尾 `inputManager.update()` 已清空 keysPressed，永远检测不到（表现为"打完不切幕/按 N 无反应"）。
+  - **P4-5 序章流程链路已全部数据化**（对齐旧 Act1）：醒来→移动→点火→拾残羹(掉装备)→拾木剑→**装备武器**→刷野狗(第一波)→清波按 N→饥民围困(第二波逐渐涌入)→全灭→20s 倒计时→死亡黑屏→切第二幕。全程 事件源→触发器→动作+组激活，零硬编码。
+  - **新增事件源**：`interact`/`campfireLit`/`itemPickup`/`equipItem`/`nextWave`/`kill`/`waveCleared`/`playerMoved`/`panelOpen`；**系统级通用事件源**（GameLoader 桥接，见 §17.3）：`questComplete`/`questProgress`/`dialogueEnd`。
+  - **新增场景动作**：`lightCampfire`/`spawnGroup`/`spawnStarvingWave`/`promptNextWave`/`sceneCountdown`/`promptSwitch`（均入 TriggerEditor 列表；when/action 下拉保留自定义值）。
   - **编辑器健壮性修复**：TriggerEditor 的 when.type / action 下拉现在保留列表外的自定义值（显示"自定义: xxx"），避免编辑保存时把 campfireLit/lightCampfire/spawnGroup 等场景专属值重置丢失。
   - **拾取物图标**：暂由 BaseGameScene 按 item.id 硬编码绘制（leftover_food/ragged_clothes/wooden_sword/wooden_bow/wooden_arrow 有专属画法，其它画默认圆点）；后续可数据化为库 icon 字段。
 
@@ -535,8 +538,9 @@ VehicleSystem:
 - **placement 引用对象 `type:'ref'`**：`SceneEditorCanvas._renderRefObject`（按 kind 图标+名称+组名）、`SceneEditorInteraction` 命中、`SceneEditorUI._buildRefProperties`（编辑 group）。
 - **运行时**：`GameLoader.registries` 存 library 定义；`DataDrivenPrologueScene._spawnGroup` 按组实例化（库定义 + 放置坐标）。
 - **命名统一**：全部用「资源库(定义+放置) / 内容库(养成)」两词，不再出现"精灵"混称。
-- **待续**：placement 中 npc/enemy/building/vehicle 的运行时实体化（并入 ④刷怪波次）；`map-editor.md` steering 文案同步更新。
-- [ ] [验收] 序章完全由 GameProject 驱动，行为与旧版一致，PrologueManager 删除
+- **运行时实体化已接**：`DataDrivenPrologueScene._spawnGroup` 已支持 kind=item/equipment/enemy/npc/building/vehicle（库定义 + 放置坐标 → EntityFactory 实例化）。
+- [x] [验收] 序章**可玩流程**（`?ddscene=1`）已完全 GameProject 驱动，与旧 Act1 对齐：醒来→移动→点火→拾取→装备武器→双波战斗（野狗+饥民）→倒计时死亡过渡→切第二幕，全程零硬编码。
+- [ ] [验收] **删除 PrologueManager / 用 DataDrivenPrologueScene 替换默认 Act1**（高风险，待用户确认；当前新旧并存，默认走旧 Act1，`?ddscene=1` 走数据驱动）。
 
 ### P5 — 无缝大地图流式（最大工程）
 - [ ] P5-1 统一世界坐标（相机/碰撞/实体全改世界坐标，§11 铁律）
@@ -591,26 +595,44 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 | P4 | `src/systems/resolvers/LootResolver.js` | 掉落滚动纯函数（数据化掉落表，注入 RNG） |
 | P4 | `src/systems/resolvers/QuestResolver.js` | 任务进度/完成纯函数 |
 | P4 | `example/sanguo_zhangjiao/scenes/DataDrivenScene.js` | 数据驱动场景（读工程/编辑器场景渲染 + 实例化逻辑对象 + loadEditorScene/loadProjectUrl + 无相机自适应） |
+| P4-5 | `example/sanguo_zhangjiao/scenes/DataDrivenPrologueScene.js` | 完整可玩数据驱动序章（`?ddscene=1`）：双波战斗/装备触发刷怪/饥民逐渐生成/倒计时死亡过渡切幕/7 条渐进提示；场景专属动作 lightCampfire/spawnGroup/spawnStarvingWave/promptNextWave/sceneCountdown/promptSwitch |
+| P4-5 | `example/sanguo_zhangjiao/scenes/BaseGameScene.js` | **通用 `initGameLoader` + `_showScreenTip/_hideScreenTip` + update 驱动 gameLoader**（任意幕一行接入事件源） |
+| P4-5 | `src/core/GameLoader.js` | 新增 `bridgeEventSources(deps)`：桥接 questComplete/questProgress/kill 系统级事件源 → TriggerSystem |
+| P4-5 | `src/systems/CombatSystem.js` | 新增 `setOnKillCallback` + `_notifyKill`（防重、仅非玩家，两条死亡路径触发通用 kill） |
+| P4-5 | `example/sanguo_zhangjiao/scenes/Act2Scene.js` | 示范一行接入 `initGameLoader`（后续幕零成本用事件源） |
+| P4-5 | `example/sanguo_zhangjiao/game.project.json` | 序章双波流程触发器 + 装备触发/N键推进/倒计时切幕 + kill 计数示范 + Act2 sceneEnter 触发器 + tut_equip_weapon |
 | P4-5 | `example/sanguo_zhangjiao/index.html` | `?ddscene=1` 并存试点分支（守卫，默认走旧流程不变） |
 
-### 17.2 试点接入现状
+### 17.2 试点接入现状 + GameLoader 通用化（已完成）
 
-- **Act1SceneECS 已挂 GameLoader**（叠加式，不拆现有六幕逻辑）：`_initGameLoader()` 在 enter 早期调用，加载后 fire('sceneEnter')，update 驱动 TriggerSystem，`_showScreenTip` 做屏幕提示。
-- 已验证：控制台输出 `[Trigger] 执行: trg_demo_enter_scene1` + `act: 0 → 1 ✅`，示例触发器生效。
-- Act1SceneECS 中仍保留大量诊断 `console.log`（`[GameLoader]`/`[Trigger]` 前缀），删除前需先征得用户同意。
+- **GameLoader 挂载已下沉为 BaseGameScene 通用能力**（任意幕一行接入）：
+  - `BaseGameScene.initGameLoader(projectUrl, opts)`：组装标准 deps（dialogue/quest/**combat**/sceneManager/audio/floatingText/tutorial/player）+ `GameLoader.load` + 订阅 `dialogueEnd` + `opts.sceneFlag` 黑板标记 + `opts.onReady(gameLoader,trig)` 补场景专属动作 + `opts.sceneId` fire sceneEnter。**叠加式**：不调用则场景行为完全不变。
+  - `BaseGameScene._showScreenTip/_hideScreenTip`：通用屏幕提示（原版面板 `window.__ddShowTips` 优先，回退黑框），从序章场景上提到基类，所有幕共用。
+  - **基类 `update` 统一驱动 `this.gameLoader.update(dt)`**（timer 触发器）；已移除 DataDrivenPrologueScene / Act1SceneECS 里重复的 gameLoader.update 调用，避免 timer double-tick。
+- **DataDrivenPrologueScene**：完整数据驱动序章（`?ddscene=1`），自带 `_initGameLoader`（含 lightCampfire/spawnGroup/spawnStarvingWave/promptNextWave/sceneCountdown/promptSwitch 等场景专属动作）。
+- **Act1SceneECS**：早期试点仍挂 GameLoader（叠加，不拆六幕逻辑）；保留 `[GameLoader]`/`[Trigger]` 诊断 log，删除前需征得用户同意。
+- **Act2Scene 示范接入（已验证后续幕零成本用事件源）**：enter 末尾一行 `initGameLoader({sceneId:'Act2Scene', sceneFlag:'act2Scene'})`；触发器 `trg_enter_act2`(sceneEnter Act2Scene + if act2Scene → setVar act=2)，不打扰觉醒对话。
 
-### 17.3 事件源接入现状
+### 17.3 事件源接入现状（已扩展为系统级通用事件源）
 
-- 已接：`sceneEnter`（场景进入时手动 fire）、`dialogueEnd`（对话结束）。
-- 未接：`kill`、`enterRegion`、`itemPickup`、`timer`、`questComplete`、`interact`、`flagChange` —— 按后续需求逐个接。
+- **系统级通用事件源**（`GameLoader.bridgeEventSources(deps)` 集中桥接，符合 §4.4；任意挂 GameLoader 的场景自动获得）：
+  - `kill`：**CombatSystem 新增 `setOnKillCallback` + `_notifyKill`**（实体 `_killNotified` 标记防重、仅非玩家；在 `triggerDeathEffect` 普攻致死 / `handleDeath` 兜底两条路径触发）→ fire `kill{enemyType(=templateId), entityId, name}`。
+  - `questComplete` / `questProgress`：订阅 QuestSystem 已有 `on('questCompleted'/'questProgress')` → fire 对应事件（`_questBridged` 防重复订阅）。
+  - `dialogueEnd`：`initGameLoader` 订阅 DialogueSystem.onEnd。
+- **场景级事件源**（由场景 fire）：`sceneEnter`/`interact`/`campfireLit`/`itemPickup`/`equipItem`/`nextWave`/`waveCleared`/`playerMoved`/`panelOpen`。
+- **示范验证**：`trg_kill_count`(kill→addVar killCount) + 饥民专属 `trg_starving_kill_count`(kill{enemyType:starving}→addVar starvingKilled) + `trg_starving_encourage`(kill{starving} + if `and`(ddScene, starvingKilled>=9) → showTip，once) 端到端验证 kill 事件源 + enemyType 匹配 + 计数 + 复合条件。
+- **TriggerEditor when 下拉**已含 `kill`/`questComplete`/`questProgress` 等。
+- 未接（按需再接）：`enterRegion`、`flagChange`（`timer` 内核已支持，编辑器可配）。
 
 ### 17.4 未做 / 待续
 
 - **P2 运行时场景接入**：逻辑对象（spawn/npc/portal/region）与战场组件（building/vehicle/objective）的**游戏内实例化**待 P4-3 DataDrivenScene 就绪后，由 chunk/scene 按 `objects` + `library` 引用实例化（框架/编辑器已就位，运行时装配未接）。
 - **P4-3 DataDrivenScene**：✅ 已交付（叠加式新类，未替换 Act 场景）。渲染用简版占位方块画实体，接入现有 RenderSystem/相机做正式表现属后续增强。
 - **P4-4 Resolver**：✅ 已交付（RNG + Combat/Loot/Quest Resolver）。**增强1已做**：CombatSystem.calculateDamage/calculateSkillDamage 已收敛为委托 `CombatResolver.resolveAttack/resolveSkillAttack`（行为等价：兵种/元素相克经闭包注入真实 stats，单机 rng=null→Math.random 与旧行为统计等价，联网注入种子 RNG）。CombatResolver 现为普攻+技能伤害的唯一权威入口。LootSystem/QuestSystem 的委托可后续按需做。
-- **P4-5 拆 PrologueManager**：未做（高风险，需逐幕对照验收）。【待用户确认后逐幕推进】
-- **P3 运行时引导切换**：序章现有提示的实际迁入 tutorials[] + 替换旧 TutorialSystem 待 P4-5（编辑器 + 数据格式已就绪）。
+- **P4-5 序章可玩流程**：✅ 已完全数据驱动（`?ddscene=1`），与旧 Act1 对齐（双波战斗 + 装备触发 + 死亡过渡切幕 + 7 条渐进提示）。
+- **P4-5 事件源通用化**：✅ 已完成——GameLoader 挂载下沉为 BaseGameScene 通用能力（一行 `initGameLoader`），系统级事件源 `kill`/`questComplete`/`questProgress`/`dialogueEnd` 由 `bridgeEventSources` 集中桥接，任意幕自动获得；Act2Scene 已示范接入。
+- **P4-5 拆 PrologueManager / 替换默认 Act1**：未做（高风险，需逐幕对照验收）。【待用户确认后推进】
+- **后续幕（Act3-6）剧情数据化**：能力已就位（一行 initGameLoader + 编辑器配触发器），按需逐幕补触发器/场景专属动作即可。
 - **P5 大地图流式 / P6 存档性能**：未开始。
 
 ### 17.6 P2 交付说明（截至当前）
@@ -637,7 +659,16 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
 
 ### 17.5 下一步建议（优先级）
 
-1. **收尾 P1 事件源**：按序章实际需求接 `kill` / `questComplete`，让触发器覆盖更多剧情节点。
-2. **推进 P2**：先做场景逻辑对象（region/spawn/portal）+ 内容库 Tab，为战场组件和数据化装配打基础。
-3. **P4-3 DataDrivenScene 试点**：先用一个最简单的幕（非序章第一幕）试数据驱动渲染，成功后再逐幕迁移。
-4. 决战/攻城/逃亡战场组件（P2-4~P2-6）在逻辑对象就绪后落地。
+1. **完整验收数据驱动序章**：跑 `?ddscene=1` 全流程，与旧 Act1 逐环节对照（醒来→…→切第二幕），确认行为一致。
+2. **删 PrologueManager / 替换默认 Act1**（高风险，需用户确认）：验收通过后把默认入口切到 DataDrivenPrologueScene，删旧脚本。
+3. **后续幕剧情数据化**（低风险，能力已就位）：Act3-6 各 enter 加一行 `initGameLoader`，在编辑器用 kill/questComplete/sceneEnter 等事件源配剧情节点。
+4. **P5 大地图流式**（最大工程）：先统一世界坐标（§11 铁律），再 WorldStreamingManager。
+5. 决战/攻城/逃亡战场组件（P2-4~P2-6）运行时接入，用 BattleConfig 做示例关卡。
+
+### 17.9 P4-5 事件源通用化交付说明（本轮）
+
+- **CombatSystem**（框架增强）：`setOnKillCallback(cb)` + 内部 `_notifyKill(entity)`（`entity._killNotified` 防重、仅非玩家），在 `triggerDeathEffect`（普攻致死）与 `handleDeath`（update 兜底）两条死亡路径统一触发。遵循现有 `setXxxCallback` 风格，无侵入。
+- **GameLoader**：`bridgeEventSources(deps)`（assemble 末尾调用）集中把系统事件转 TriggerSystem.fire——questSystem.on(questCompleted/questProgress) + combatSystem 击杀回调；`_questBridged` 防重复订阅。符合 §4.4「监听各系统 emit」。
+- **BaseGameScene 通用化**：`initGameLoader(url, {sceneId,sceneFlag,deps,onReady})` 一行接入；`_showScreenTip/_hideScreenTip` 上提基类；update 统一驱动 gameLoader（子类重复调用已移除，防 timer double-tick）。
+- **关键 bug 修复**：数据驱动序章「打完不切幕/按 N 无反应」根因＝`isKeyPressed` 检测放在 `super.update()`（末尾清 keysPressed）之后；已把 `_updatePromptSwitch/_updatePromptNextWave` 提到 super.update 之前。
+- **网络约定符合性（§13）**：kill 事件 payload 为纯数据（enemyType/entityId/name），Resolver/结算不受影响；事件源桥接是「表现层订阅→数据事件」，联网时同套触发器数据复用。

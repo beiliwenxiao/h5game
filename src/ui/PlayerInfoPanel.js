@@ -112,7 +112,7 @@ export class PlayerInfoPanel extends UIElement {
    * @param {Object} panelDef - 面板定义 { width, height, backgroundColor, borderColor, borderWidth, parts[] }
    */
   applyPanelLayout(panelDef) {
-    if (!panelDef) { this._panelLayout = null; return; }
+    if (!panelDef) return;
     this._panelLayout = panelDef;
     // 用编辑器定义的面板尺寸覆盖
     this.width = panelDef.width || this.width;
@@ -421,17 +421,19 @@ export class PlayerInfoPanel extends UIElement {
   render(ctx) {
     if (!this.visible || !this.player) return;
 
-    // 如果有面板编辑器布局数据，用数据驱动渲染
+    // 数据驱动渲染（面板编辑器配置）
     if (this._panelLayout) {
       this._renderFromLayout(ctx);
       return;
     }
 
+    // 横排布局（移动端）
     if (this.horizontalLayout) {
       this.renderHorizontal(ctx);
       return;
     }
 
+    // 兜底：无面板编辑器数据时用旧逻辑
     // 绘制背景
     ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(this.x, this.y, this.width, this.height);

@@ -32,7 +32,7 @@ const DEFAULT_COMPONENTS = {
       // 大面板
       { id: 'playerInfoPanel', label: '属性面板', x: 10, y: 40, width: 320, height: 580, anchor: 'topleft', kind: 'panel' },
       { id: 'equipmentPanel', label: '装备面板', x: 340, y: 220, width: 300, height: 400, anchor: 'topleft', kind: 'panel' },
-      { id: 'inventoryPanel', label: '背包面板', x: 900, y: 270, width: 370, height: 350, anchor: 'topleft', kind: 'panel' },
+      { id: 'inventoryPanel', label: '背包面板', x: 900, y: 270, width: 360, height: 340, anchor: 'topleft', kind: 'panel' },
       // 底部控制栏拆分为独立小控件（血球/蓝球/2药水/5技能）
       { id: 'pc-hp-orb', label: '血球', x: 397, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
       { id: 'pc-potion1', label: '红瓶', x: 482, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
@@ -114,7 +114,29 @@ export class UIEditor {
     this._initialized = true;
     this._buildUI();
     await this._loadFromFiles();
+    await this._loadPanelLayout();
     this._render();
+  }
+
+  /** 加载面板编辑器的布局数据（用于真实面板预览） */
+  async _loadPanelLayout() {
+    this._panelLayouts = {};
+    try {
+      const file = this.configBase + 'PanelLayout.json';
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.ok && data.content) {
+        const parsed = JSON.parse(data.content);
+        if (parsed && Array.isArray(parsed.panels)) {
+          for (const p of parsed.panels) {
+            this._panelLayouts[p.id] = p;
+          }
+        }
+      }
+    } catch (e) {
+      // 没有面板布局文件，不影响
+    }
   }
 
   /** 从 JSON 文件加载已保存布局（覆盖默认值） */
@@ -267,8 +289,28 @@ export class UIEditor {
       el.style.top = (comp.y * this.scale) + 'px';
       el.style.width = (comp.width * this.scale) + 'px';
       el.style.height = (comp.height * this.scale) + 'px';
-      el.textContent = comp.label;
       el.dataset.id = comp.id;
+
+      // 面板类型：用 canvas 绘制真实预览
+      const panelDef = this._panelLayouts && this._panelLayouts[comp.id];
+      if (comp.kind === 'panel' && panelDef) {
+        el.textContent = '';
+        el.style.background = 'none';
+        el.style.border = comp.id === this.selectedId ? '2px solid #ff5' : '1px solid rgba(76,175,80,0.4)';
+        el.style.overflow = 'hidden';
+        const cvs = document.createElement('canvas');
+        const cw = Math.round(comp.width * this.scale);
+        const ch = Math.round(comp.height * this.scale);
+        cvs.width = cw;
+        cvs.height = ch;
+        cvs.style.width = '100%';
+        cvs.style.height = '100%';
+        cvs.style.pointerEvents = 'none';
+        this._drawPanelPreview(cvs, panelDef, cw, ch);
+        el.appendChild(cvs);
+      } else {
+        el.textContent = comp.label;
+      }
 
       // 拖拽
       el.addEventListener('mousedown', (e) => this._startDrag(e, comp, 'move'));
@@ -394,6 +436,133 @@ export class UIEditor {
     }
     this._setStatus(`✅ 已保存到 ${this.configBase}UILayout.desktop.json 和 UILayout.mobile.json`);
   }
-}
 
+  /**
+   * 在 canvas 上绘制面板真实预览
+   * 内部部件保持 1:1 原始坐标，不随外框拉伸缩放。
+   * 外框大小只决定可见区域（裁剪）。
+   * @param {HTMLCanvasElement} cvs
+   * @param {Object} panelDef - 面板定义（来自 PanelLayout.json）
+   * @param {number} cw - canvas 像素宽（= comp.width * editorScale）
+   * @param {number} ch - canvas 像素高（= comp.height * editorScale）
+   */
+  _drawPanelPreview(cvs, panelDef, cw, ch) {
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0, 0, cw, ch);
+
+    // editorScale = 外框像素 / 外框逻辑尺寸（即 UI 编辑器的整体缩放）
+    // 但面板内容按面板自身坐标 1:1 绘制，只需要同样的 editorScale
+    const editorScale = this.scale;
+    ctx.save();
+    ctx.scale(editorScale, editorScale);
+
+    // 面板背景填满外框（comp 当前大小），内部部件按原始坐标 1:1 绘制
+    const compW = cw / editorScale;
+    const compH = ch / editorScale;
+    ctx.fillStyle = panelDef.backgroundColor || 'rgba(0,0,0,0.85)';
+    ctx.fillRect(0, 0, compW, compH);
+    ctx.strokeStyle = panelDef.borderColor || '#4a9eff';
+    ctx.lineWidth = panelDef.borderWidth || 2;
+    ctx.strokeRect(0, 0, compW, compH);
+
+    // 渲染部件（按面板自身坐标，不随外框拉伸）
+    for (const part of panelDef.parts) {
+      const { x, y, width, height } = part;
+      switch (part.type) {
+        case 'text':
+          ctx.fillStyle = part.color || '#ffffff';
+          ctx.font = `${part.fontWeight || 'normal'} ${part.fontSize || 14}px Arial`;
+          ctx.textAlign = part.align || 'left';
+          ctx.textBaseline = 'top';
+          const tx = part.align === 'center' ? x + width / 2 : part.align === 'right' ? x + width : x;
+          ctx.fillText(part.text || '', tx, y);
+          ctx.textAlign = 'left';
+          break;
+        case 'line':
+          ctx.strokeStyle = part.color || '#4a9eff';
+          ctx.lineWidth = height || 1;
+          ctx.beginPath();
+          ctx.moveTo(x, y + height / 2);
+          ctx.lineTo(x + width, y + height / 2);
+          ctx.stroke();
+          break;
+        case 'button':
+          ctx.fillStyle = part.bgColor || '#3a4a7e';
+          ctx.fillRect(x, y, width, height);
+          ctx.strokeStyle = part.borderColor || '#666';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, width, height);
+          ctx.fillStyle = part.color || '#ffffff';
+          ctx.font = `${part.fontSize || 12}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(part.text || '', x + width / 2, y + height / 2);
+          ctx.textAlign = 'left';
+          break;
+        case 'equip-slot':
+          ctx.fillStyle = part.slotBgColor || 'rgba(30,30,30,0.9)';
+          ctx.fillRect(x, y, width, height);
+          ctx.strokeStyle = part.slotBorderColor || '#555';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x, y, width, height);
+          ctx.fillStyle = '#888';
+          ctx.font = '10px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(part.slotLabel || '', x + width / 2, y + height / 2);
+          ctx.textAlign = 'left';
+          break;
+        case 'slot-grid': {
+          const cols = part.cols || 6;
+          const rows = part.rows || 4;
+          const sz = part.slotSize || 50;
+          const pad = part.slotPadding || 5;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const gx = x + c * (sz + pad);
+              const gy = y + r * (sz + pad);
+              ctx.fillStyle = part.slotBgColor || 'rgba(50,50,50,0.8)';
+              ctx.fillRect(gx, gy, sz, sz);
+              ctx.strokeStyle = part.slotBorderColor || '#666';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(gx, gy, sz, sz);
+            }
+          }
+          break;
+        }
+        case 'attr-row':
+          ctx.fillStyle = part.labelColor || '#aaaaaa';
+          ctx.font = `${part.fontSize || 13}px Arial`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${part.attrLabel || ''}:`, x, y);
+          ctx.fillStyle = part.attrColor || '#ffffff';
+          ctx.fillText('999/999', x + 60, y);
+          break;
+        case 'scrollbar':
+          ctx.fillStyle = part.trackColor || 'rgba(255,255,255,0.1)';
+          ctx.fillRect(x, y, width, height);
+          ctx.fillStyle = part.thumbColor || 'rgba(255,255,255,0.4)';
+          ctx.fillRect(x, y, width, height * 0.4);
+          break;
+        case 'icon':
+          ctx.font = `${part.fontSize || 24}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(part.icon || '⚔️', x + width / 2, y + height / 2);
+          ctx.textAlign = 'left';
+          break;
+        case 'progress-bar':
+          ctx.fillStyle = part.bgColor || '#333';
+          ctx.fillRect(x, y, width, height);
+          ctx.fillStyle = part.fillColor || '#4CAF50';
+          ctx.fillRect(x, y, width * (part.value || 0.5), height);
+          ctx.strokeStyle = part.borderColor || '#666';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x, y, width, height);
+          break;
+      }
+    }
+    ctx.restore();
+  }
+}
 export default UIEditor;

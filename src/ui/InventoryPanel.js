@@ -129,6 +129,56 @@ export class InventoryPanel extends UIElement {
   }
 
   /**
+   * 应用面板编辑器的布局数据
+   * 从 PanelLayout.json 读取面板配置，覆盖默认参数
+   * @param {Object} panelDef - 面板定义
+   */
+  applyPanelLayout(panelDef) {
+    if (!panelDef) return;
+    this._panelLayout = panelDef;
+    // 覆盖面板整体属性
+    this.width = panelDef.width || this.width;
+    this.height = panelDef.height || this.height;
+    this.backgroundColor = panelDef.backgroundColor || 'rgba(0, 0, 0, 0.85)';
+    this.borderColor = panelDef.borderColor || '#666';
+    this.borderWidth = panelDef.borderWidth || 2;
+    // 从 parts 中提取格子配置
+    const grid = panelDef.parts.find(p => p.id === 'slotGrid' || p.type === 'slot-grid');
+    if (grid) {
+      this.slotsPerRow = grid.cols || this.slotsPerRow;
+      this.maxVisibleRows = grid.rows || this.maxVisibleRows;
+      this.slotSize = grid.slotSize || this.slotSize;
+      this.slotPadding = grid.slotPadding || this.slotPadding;
+      this.slotStartX = grid.x !== undefined ? grid.x : this.slotStartX;
+      this.slotStartY = grid.y !== undefined ? grid.y : this.slotStartY;
+    }
+    // 从 parts 中提取筛选按钮配置
+    const filters = panelDef.parts.filter(p => p.type === 'button' && p.id && p.id.startsWith('filter'));
+    if (filters.length > 0) {
+      const fbDefs = [
+        { name: 'all', label: '全部' },
+        { name: 'equipment', label: '装备' },
+        { name: 'consumable', label: '消耗品' },
+        { name: 'material', label: '材料' },
+        { name: 'quest', label: '任务' }
+      ];
+      this.filterButtons = filters.map((f, i) => ({
+        name: fbDefs[i] ? fbDefs[i].name : f.id,
+        label: f.text || (fbDefs[i] ? fbDefs[i].label : ''),
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height
+      }));
+    }
+    // 滚动条配置
+    const sb = panelDef.parts.find(p => p.type === 'scrollbar');
+    if (sb) {
+      this.scrollbarWidth = sb.width || this.scrollbarWidth;
+    }
+  }
+
+  /**
    * 设置 InputManager 引用（用于长按检测中判断手指释放）
    * @param {InputManager} inputManager
    */

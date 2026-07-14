@@ -770,19 +770,22 @@ export class BaseGameScene extends PrologueScene {
     try {
       const panelLoader = new PanelLayoutLoader({ basePath: 'config/' });
       const ok = await panelLoader.load();
-      if (!ok) return;
       // 应用到属性面板
       if (this.playerInfoPanel && this.playerInfoPanel.applyPanelLayout) {
-        const def = panelLoader.getPanel('playerInfoPanel');
+        const def = ok ? panelLoader.getPanel('playerInfoPanel') : null;
         if (def) this.playerInfoPanel.applyPanelLayout(def);
       }
       // 应用到装备面板
       if (this.equipmentPanel && this.equipmentPanel.applyPanelLayout) {
-        const def = panelLoader.getPanel('equipmentPanel');
+        const def = ok ? panelLoader.getPanel('equipmentPanel') : null;
         if (def) this.equipmentPanel.applyPanelLayout(def);
       }
+      // 应用到背包面板
+      if (this.inventoryPanel && this.inventoryPanel.applyPanelLayout) {
+        const def = ok ? panelLoader.getPanel('inventoryPanel') : null;
+        if (def) this.inventoryPanel.applyPanelLayout(def);
+      }
     } catch (e) {
-      // 加载失败静默，使用默认硬编码渲染
       console.warn('BaseGameScene: 面板布局加载失败，使用默认', e);
     }
   }

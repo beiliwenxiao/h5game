@@ -1150,6 +1150,7 @@
                 document.getElementById('trigger-editor-page').classList.remove('active');
                 document.getElementById('library-editor-page').classList.remove('active');
                 document.getElementById('dialogue-editor-page').classList.remove('active');
+                document.getElementById('world-map-editor-page').classList.remove('active');
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
@@ -1209,7 +1210,7 @@
                     if (!this.worldMapEditor) {
                         this.worldMapEditor = new WorldMapEditor(
                             document.getElementById('world-map-editor-container'),
-                            { dataManager: this.dataManager }
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
                         );
                         this.worldMapEditor.init();
                     } else {

@@ -22,8 +22,14 @@
         "cols": 2,
         "rows": 2,
         "grid": [
-          ["scene_Prologue", "scene_east"],
-          ["scene_south", null]
+          [
+            "scene_Prologue",
+            "scene_east"
+          ],
+          [
+            "scene_south",
+            null
+          ]
         ]
       }
     ]

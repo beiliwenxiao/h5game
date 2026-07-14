@@ -30,8 +30,9 @@ export class WorldMapEditor {
    */
   constructor(container, opts = {}) {
     this.container = container;
-    this.dataManager = opts.dataManager || null;
-    this.onSave = opts.onSave || null;
+    this.gameId = opts.gameId || 'sanguo_zhangjiao';
+    this.projectPath = `example/${this.gameId}/game.project.json`;
+    this.project = null;
 
     // 当前编辑的 region 数据
     this.region = {
@@ -55,31 +56,55 @@ export class WorldMapEditor {
   /**
    * 初始化 UI
    */
-  init() {
+  async init() {
     this._el = document.createElement('div');
     this._el.className = 'world-map-editor';
     this._el.innerHTML = this._buildHTML();
+    this.container.innerHTML = '';
     this.container.appendChild(this._el);
     this._bindEvents();
-    this.loadFromProject();
+    await this.loadFromProject();
   }
 
   /**
-   * 从 GameProject 加载 worldMap 数据
+   * 从 game.project.json 加载 worldMap 数据
    */
-  loadFromProject() {
-    if (!this.dataManager) return;
-    const project = this.dataManager.getGameProject ? this.dataManager.getGameProject() : null;
-    if (!project) return;
-
-    // 读可选场景列表
-    if (Array.isArray(project.scenes)) {
-      this.availableScenes = project.scenes.map(s => s.id).filter(Boolean);
+  async loadFromProject() {
+    try {
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
+      if (!res.ok) { console.warn('[WorldMapEditor] 加载失败', res.status); return; }
+      const data = await res.json();
+      this.project = typeof data.content === 'string' ? JSON.parse(data.content) : data;
+    } catch (e) {
+      console.warn('[WorldMapEditor] 加载异常', e);
+      return;
     }
 
+    // 读可选场景列表（从 localStorage 编辑器场景数据 + project.scenes）
+    this.availableScenes = [];
+    if (Array.isArray(this.project.scenes)) {
+      for (const s of this.project.scenes) {
+        if (s && s.id) this.availableScenes.push(s.id);
+      }
+    }
+    // 也从 localStorage 读编辑器已保存的场景 id
+    try {
+      const raw = localStorage.getItem('h5game_editor_data_scenes_' + this.gameId);
+      if (raw) {
+        const scenes = JSON.parse(raw);
+        if (Array.isArray(scenes)) {
+          for (const s of scenes) {
+            if (s && s.id && !this.availableScenes.includes(s.id)) {
+              this.availableScenes.push(s.id);
+            }
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+
     // 读 worldMap
-    if (project.worldMap && project.worldMap.regions && project.worldMap.regions[0]) {
-      const r = project.worldMap.regions[0];
+    if (this.project.worldMap && this.project.worldMap.regions && this.project.worldMap.regions[0]) {
+      const r = this.project.worldMap.regions[0];
       this.region = {
         id: r.id || 'default',
         chunkWidth: r.chunkWidth || 1280,
@@ -88,7 +113,6 @@ export class WorldMapEditor {
         rows: r.rows || 2,
         grid: r.grid || []
       };
-      // 确保 grid 尺寸与 cols/rows 一致
       this._normalizeGrid();
     }
 
@@ -96,21 +120,32 @@ export class WorldMapEditor {
   }
 
   /**
-   * 保存到 GameProject
+   * 保存到 game.project.json
    */
-  save() {
-    if (!this.dataManager) return;
-    const project = this.dataManager.getGameProject ? this.dataManager.getGameProject() : null;
-    if (!project) return;
+  async save() {
+    if (!this.project) {
+      this._showToast('无工程数据，请先加载', 'error');
+      return;
+    }
 
-    if (!project.worldMap) project.worldMap = { regions: [] };
-    if (!project.worldMap.regions) project.worldMap.regions = [];
+    if (!this.project.worldMap) this.project.worldMap = { regions: [] };
+    if (!this.project.worldMap.regions) this.project.worldMap.regions = [];
+    this.project.worldMap.regions[0] = { ...this.region };
 
-    project.worldMap.regions[0] = { ...this.region };
-
-    // 触发保存
-    if (this.onSave) this.onSave(project);
-    this._showToast('世界地图已保存');
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
+      });
+      if (res.ok) {
+        this._showToast('世界地图已保存 ✓');
+      } else {
+        this._showToast('保存失败: ' + res.status, 'error');
+      }
+    } catch (e) {
+      this._showToast('保存异常: ' + e.message, 'error');
+    }
   }
 
   /** 增加一列 */

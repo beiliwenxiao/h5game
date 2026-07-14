@@ -46,6 +46,7 @@ import { PlayerStatusHUD } from '../../../src/ui/PlayerStatusHUD.js';
 import { IconButton } from '../../../src/ui/IconButton.js';
 import { createUIStrategy } from '../../../src/ui/strategies/index.js';
 import { UILayoutLoader } from '../../../src/ui/UILayoutLoader.js';
+import { PanelLayoutLoader } from '../../../src/ui/PanelLayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -754,8 +755,35 @@ export class BaseGameScene extends PrologueScene {
       if (!this._pcFnFromEditor) {
         this.layoutPCFunctionButtons(lw, lh);
       }
+
+      // 加载面板编辑器布局（PanelLayout.json），用数据驱动渲染替代硬编码
+      this._applyPanelLayout();
     } catch (e) {
       console.warn('BaseGameScene: 应用 UI 布局失败', e);
+    }
+  }
+
+  /**
+   * 加载面板编辑器的布局配置并应用到各面板
+   */
+  async _applyPanelLayout() {
+    try {
+      const panelLoader = new PanelLayoutLoader({ basePath: 'config/' });
+      const ok = await panelLoader.load();
+      if (!ok) return;
+      // 应用到属性面板
+      if (this.playerInfoPanel && this.playerInfoPanel.applyPanelLayout) {
+        const def = panelLoader.getPanel('playerInfoPanel');
+        if (def) this.playerInfoPanel.applyPanelLayout(def);
+      }
+      // 应用到装备面板
+      if (this.equipmentPanel && this.equipmentPanel.applyPanelLayout) {
+        const def = panelLoader.getPanel('equipmentPanel');
+        if (def) this.equipmentPanel.applyPanelLayout(def);
+      }
+    } catch (e) {
+      // 加载失败静默，使用默认硬编码渲染
+      console.warn('BaseGameScene: 面板布局加载失败，使用默认', e);
     }
   }
 

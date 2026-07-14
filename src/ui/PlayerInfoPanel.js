@@ -108,6 +108,176 @@ export class PlayerInfoPanel extends UIElement {
   }
 
   /**
+   * 应用面板编辑器的布局数据（数据驱动渲染）
+   * @param {Object} panelDef - 面板定义 { width, height, backgroundColor, borderColor, borderWidth, parts[] }
+   */
+  applyPanelLayout(panelDef) {
+    if (!panelDef) { this._panelLayout = null; return; }
+    this._panelLayout = panelDef;
+    // 用编辑器定义的面板尺寸覆盖
+    this.width = panelDef.width || this.width;
+    this.height = panelDef.height || this.height;
+    this.backgroundColor = panelDef.backgroundColor || this.backgroundColor;
+    this.borderColor = panelDef.borderColor || this.borderColor;
+    this.borderWidth = panelDef.borderWidth || this.borderWidth;
+  }
+
+  /**
+   * 数据驱动渲染（按面板编辑器的 parts 数据绘制）
+   * @param {CanvasRenderingContext2D} ctx
+   */
+  _renderFromLayout(ctx) {
+    const layout = this._panelLayout;
+    const stats = this.player.getComponent('stats');
+    const equipment = this.player.getComponent('equipment');
+
+    // 面板背景
+    ctx.fillStyle = layout.backgroundColor || this.backgroundColor;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.strokeStyle = layout.borderColor || this.borderColor;
+    ctx.lineWidth = layout.borderWidth || this.borderWidth;
+    ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+    // 遍历 parts 绘制
+    for (const part of layout.parts) {
+      const px = this.x + part.x;
+      const py = this.y + part.y;
+      const pw = part.width;
+      const ph = part.height;
+
+      switch (part.type) {
+        case 'text': {
+          // 替换模板变量
+          let text = part.text || '';
+          if (stats) {
+            text = text.replace('{className}', this.classNames[this.player.class] || this.player.class || '');
+            text = text.replace('{class}', this.classNames[this.player.class] || this.player.class || '');
+            text = text.replace('{level}', stats.level || 1);
+          }
+          ctx.fillStyle = part.color || '#ffffff';
+          ctx.font = `${part.fontWeight || 'normal'} ${part.fontSize || 14}px Arial`;
+          ctx.textAlign = part.align || 'left';
+          ctx.textBaseline = 'top';
+          const tx = part.align === 'center' ? px + pw / 2 : part.align === 'right' ? px + pw : px;
+          ctx.fillText(text, tx, py);
+          ctx.textAlign = 'left';
+          break;
+        }
+        case 'line':
+          ctx.strokeStyle = part.color || this.borderColor;
+          ctx.lineWidth = ph || 1;
+          ctx.beginPath();
+          ctx.moveTo(px, py + ph / 2);
+          ctx.lineTo(px + pw, py + ph / 2);
+          ctx.stroke();
+          break;
+
+        case 'button': {
+          ctx.fillStyle = part.bgColor || '#2a5a8f';
+          ctx.fillRect(px, py, pw, ph);
+          ctx.strokeStyle = part.borderColor || this.borderColor;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(px, py, pw, ph);
+          ctx.fillStyle = part.color || '#ffffff';
+          ctx.font = `bold ${part.fontSize || 12}px Arial`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(part.text || '', px + pw / 2, py + ph / 2);
+          ctx.textAlign = 'left';
+          // 保存加点按钮位置
+          if (part.id === 'attrAllocBtn') {
+            this.attributeButtonRect = { x: px, y: py, width: pw, height: ph };
+          }
+          break;
+        }
+        case 'equip-slot': {
+          const slotType = part.slotType;
+          ctx.fillStyle = part.slotBgColor || 'rgba(30,30,30,0.9)';
+          ctx.fillRect(px, py, pw, ph);
+          ctx.strokeStyle = part.slotBorderColor || '#555';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(px, py, pw, ph);
+          // 保存槽位位置（点击用）
+          this.equipSlots[slotType] = { x: px, y: py, width: pw, height: ph, slotType, label: part.slotLabel };
+          // 渲染装备图标
+          if (equipment) {
+            const equip = equipment.getEquipment(slotType);
+            if (equip) {
+              this.drawEquipIcon(ctx, equip, px, py, pw, ph);
+            } else {
+              ctx.fillStyle = '#555';
+              ctx.font = '10px Arial';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(part.slotLabel || '', px + pw / 2, py + ph / 2);
+              ctx.textAlign = 'left';
+            }
+          } else {
+            ctx.fillStyle = '#555';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(part.slotLabel || '', px + pw / 2, py + ph / 2);
+            ctx.textAlign = 'left';
+          }
+          // 悬停高亮
+          if (this.hoveredEquipSlot === slotType) {
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(px, py, pw, ph);
+          }
+          break;
+        }
+        case 'attr-row': {
+          if (!stats) break;
+          const label = part.attrLabel || '';
+          let value = '';
+          switch (label) {
+            case 'HP': value = `${Math.round(stats.hp)}/${stats.maxHp}`; break;
+            case 'MP': value = `${Math.round(stats.mp)}/${stats.maxMp}`; break;
+            case '攻击': value = `${stats.attack}`; break;
+            case '防御': value = `${stats.defense}`; break;
+            case '速度': value = `${stats.speed}`; break;
+            default: value = '0';
+          }
+          ctx.fillStyle = part.labelColor || '#aaaaaa';
+          ctx.font = `${part.fontSize || 13}px Arial`;
+          ctx.textBaseline = 'top';
+          ctx.fillText(`${label}:`, px, py);
+          ctx.fillStyle = part.attrColor || '#ffffff';
+          ctx.fillText(value, px + 60, py);
+          break;
+        }
+        case 'slot-grid': {
+          // 背包格子渲染（此面板通常不含，留作扩展）
+          const cols = part.cols || 6;
+          const rows = part.rows || 4;
+          const sz = part.slotSize || 50;
+          const pad = part.slotPadding || 5;
+          for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+              const sx = px + c * (sz + pad);
+              const sy = py + r * (sz + pad);
+              ctx.fillStyle = part.slotBgColor || 'rgba(50,50,50,0.8)';
+              ctx.fillRect(sx, sy, sz, sz);
+              ctx.strokeStyle = part.slotBorderColor || '#666';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(sx, sy, sz, sz);
+            }
+          }
+          break;
+        }
+        // 其他类型不影响此面板，跳过
+      }
+    }
+
+    // 渲染装备tooltip（复用现有逻辑）
+    if (this.showEquipmentSection && equipment) {
+      this.renderEquipmentTooltip(ctx, equipment);
+    }
+  }
+
+  /**
    * 设置玩家实体
    * @param {Entity} player - 玩家实体
    */
@@ -250,6 +420,12 @@ export class PlayerInfoPanel extends UIElement {
    */
   render(ctx) {
     if (!this.visible || !this.player) return;
+
+    // 如果有面板编辑器布局数据，用数据驱动渲染
+    if (this._panelLayout) {
+      this._renderFromLayout(ctx);
+      return;
+    }
 
     if (this.horizontalLayout) {
       this.renderHorizontal(ctx);

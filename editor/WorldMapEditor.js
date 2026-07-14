@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/h5game
  ************************************************************/
 
+import { SceneEditorCanvas } from './SceneEditorCanvas.js';
+
 /**
  * WorldMapEditor - 世界地图编辑器 Tab（P5-5）
  *
@@ -225,37 +227,276 @@ export class WorldMapEditor {
     const gc = this._el.querySelector('.wme-grid-container');
     if (!gc) return;
 
+    // 缩略图宽度固定 256，高度按 chunk 宽高比
+    const thumbW = 256;
+    const thumbH = Math.round(thumbW * (this.region.chunkHeight / this.region.chunkWidth));
+
     const sceneOpts = ['<option value="">(空)</option>']
       .concat(this.availableScenes.map(id => `<option value="${id}">${id}</option>`))
       .join('');
 
-    let html = `<table class="wme-grid" style="border-collapse:collapse;">`;
+    let html = `<div class="wme-grid" style="display:grid;grid-template-columns:repeat(${this.region.cols},${thumbW}px);gap:4px;">`;
     for (let r = 0; r < this.region.rows; r++) {
-      html += '<tr>';
       for (let c = 0; c < this.region.cols; c++) {
         const val = (this.region.grid[r] && this.region.grid[r][c]) || '';
-        html += `<td style="border:1px solid #555;padding:4px;min-width:120px;">
-          <div style="font-size:10px;color:#888;">(${c},${r})</div>
-          <select data-r="${r}" data-c="${c}" class="wme-cell-select" style="width:100%;font-size:12px;">
-            ${sceneOpts.replace(`value="${val}"`, `value="${val}" selected`)}
-          </select>
-        </td>`;
+        html += `
+          <div class="wme-cell" data-r="${r}" data-c="${c}"
+               style="width:${thumbW}px;height:${thumbH}px;
+                      border:1px solid #444;border-radius:4px;position:relative;
+                      cursor:pointer;overflow:hidden;background:#111;">
+            <canvas class="wme-cell-canvas" width="${thumbW}" height="${thumbH}"
+                    style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            <span class="wme-cell-label" style="position:absolute;bottom:0;left:0;right:0;
+                  font-size:10px;color:#ccc;background:rgba(0,0,0,0.6);
+                  text-align:center;padding:2px 0;pointer-events:none;
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${val || '(空)'}
+            </span>
+            <div class="wme-cell-overlay" style="display:none;position:absolute;inset:0;
+                 background:rgba(0,0,0,0.7);flex-direction:column;align-items:center;
+                 justify-content:center;gap:6px;padding:8px;border-radius:4px;">
+              <div style="font-size:11px;color:#8cf;font-weight:bold;">(${c}, ${r})</div>
+              <select class="wme-cell-select" data-r="${r}" data-c="${c}"
+                      style="width:92%;font-size:11px;background:#222;color:#eee;border:1px solid #666;
+                             border-radius:3px;padding:3px;">
+                ${sceneOpts.replace(`value="${val}"`, `value="${val}" selected`)}
+              </select>
+            </div>
+          </div>`;
       }
-      html += '</tr>';
     }
-    html += '</table>';
+    html += '</div>';
     html += `<div style="margin-top:8px;color:#aaa;font-size:12px;">${this.region.cols}×${this.region.rows} 格，chunk ${this.region.chunkWidth}×${this.region.chunkHeight}px</div>`;
 
     gc.innerHTML = html;
+
+    // 绑定 hover
+    gc.querySelectorAll('.wme-cell').forEach(cell => {
+      const overlay = cell.querySelector('.wme-cell-overlay');
+      cell.addEventListener('mouseenter', () => { overlay.style.display = 'flex'; });
+      cell.addEventListener('mouseleave', () => { overlay.style.display = 'none'; });
+    });
 
     // 绑定 select 变化
     gc.querySelectorAll('.wme-cell-select').forEach(sel => {
       sel.onchange = (e) => {
         const r = parseInt(e.target.dataset.r);
         const c = parseInt(e.target.dataset.c);
-        this.region.grid[r][c] = e.target.value || null;
+        const val = e.target.value || null;
+        this.region.grid[r][c] = val;
+        const cell = e.target.closest('.wme-cell');
+        cell.querySelector('.wme-cell-label').textContent = val || '(空)';
+        this._renderCellThumbnail(cell, val, thumbW, thumbH);
       };
     });
+
+    // 绘制所有格子的缩略图
+    gc.querySelectorAll('.wme-cell').forEach(cell => {
+      const r = parseInt(cell.dataset.r);
+      const c = parseInt(cell.dataset.c);
+      const sceneId = (this.region.grid[r] && this.region.grid[r][c]) || null;
+      this._renderCellThumbnail(cell, sceneId, thumbW, thumbH);
+    });
+  }
+
+  /**
+   * 绘制单格缩略图：直接当真实游戏场景来画（缩小 20%），复用场景编辑器渲染
+   * @private
+   */
+  _renderCellThumbnail(cell, sceneId, thumbW, thumbH) {
+    const canvas = cell.querySelector('.wme-cell-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, thumbW, thumbH);
+
+    if (!sceneId) {
+      ctx.strokeStyle = '#333';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, 0); ctx.lineTo(thumbW, thumbH);
+      ctx.moveTo(thumbW, 0); ctx.lineTo(0, thumbH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      return;
+    }
+
+    const scene = this._getSceneData(sceneId);
+    if (!scene) {
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, thumbW, thumbH);
+      ctx.fillStyle = '#555';
+      ctx.font = '11px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('无场景数据', thumbW / 2, thumbH / 2);
+      return;
+    }
+
+    // 确保图片已加载（首次会触发异步加载，加载完后重绘）
+    this._ensureImagesLoaded(scene, () => {
+      this._drawSceneToCanvas(ctx, scene, thumbW, thumbH);
+    });
+
+    // 同步先画一次（图片可能已缓存）
+    this._drawSceneToCanvas(ctx, scene, thumbW, thumbH);
+  }
+
+  /**
+   * 把场景数据绘制到 canvas（与场景编辑器完全一致的渲染）
+   * @private
+   */
+  _drawSceneToCanvas(ctx, scene, thumbW, thumbH) {
+    const sceneW = scene.width || this.region.chunkWidth;
+    const sceneH = scene.height || this.region.chunkHeight;
+    const scale = thumbW / sceneW;
+
+    ctx.clearRect(0, 0, thumbW, thumbH);
+
+    // 背景色
+    ctx.fillStyle = scene.backgroundColor || '#1a2a1a';
+    ctx.fillRect(0, 0, thumbW, thumbH);
+
+    // 构造 fake editor
+    const fakeEditor = {
+      sceneData: {
+        ...scene,
+        // 补充 decoSprites（场景数据可能没存，用默认配置兜底）
+        decoSprites: scene.decoSprites || this._defaultDecoSprites || {}
+      },
+      viewport: { scale: 1, offsetX: 0, offsetY: 0 },
+      options: { showGrid: false, showBackground: true },
+      loadedImages: this._loadedImages,
+      selectedObjects: [],
+      activeLayerIndex: 0
+    };
+
+    if (!this._canvasRenderer) {
+      this._canvasRenderer = new SceneEditorCanvas(fakeEditor);
+    } else {
+      this._canvasRenderer.editor = fakeEditor;
+      // 清除缓存的 resolver，让它用新 editor 的 loadedImages
+      this._canvasRenderer._shapeResolverObj = null;
+    }
+    const renderer = this._canvasRenderer;
+
+    // 缩放到场景坐标系
+    ctx.save();
+    const centerX = scene.centerX || sceneW / 2;
+    const centerY = scene.centerY || sceneH / 2;
+    const sceneX = centerX - sceneW / 2;
+    const sceneY = centerY - sceneH / 2;
+    ctx.scale(scale, scale);
+    ctx.translate(-sceneX, -sceneY);
+
+    // 按图层顺序渲染
+    if (Array.isArray(scene.layers)) {
+      for (const layer of scene.layers) {
+        if (layer.visible === false) continue;
+        if (!Array.isArray(layer.objects)) continue;
+        const lid = (layer.id || '').toLowerCase();
+        if (/logic|placement/.test(lid)) continue;
+
+        for (const obj of layer.objects) {
+          if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') continue;
+          try {
+            renderer._renderObject(ctx, obj);
+          } catch (e) { /* 静默 */ }
+        }
+      }
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * 确保场景所需的图集/图片已加载到 _loadedImages 缓存
+   * @private
+   */
+  _ensureImagesLoaded(scene, onComplete) {
+    if (!this._loadedImages) this._loadedImages = new Map();
+    const toLoad = [];
+
+    // 地形图集（terrain_atlas）
+    const terrainImg = scene.terrain && scene.terrain.image;
+    if (terrainImg && !this._loadedImages.has('terrain_atlas')) {
+      toLoad.push({ id: 'terrain_atlas', src: terrainImg });
+    }
+
+    // 场景图集列表
+    if (Array.isArray(scene.atlases)) {
+      for (const atlas of scene.atlases) {
+        if (atlas.id && atlas.path && !this._loadedImages.has(atlas.id)) {
+          toLoad.push({ id: atlas.id, src: atlas.path });
+        }
+      }
+    }
+
+    // 场景没存 atlases 时，用默认图集配置（与场景编辑器一致）
+    if (!scene.atlases && !this._defaultAtlasLoaded) {
+      this._defaultAtlasLoaded = true;
+      // 从 config/atlases.json 异步加载
+      fetch('./config/atlases.json').then(r => r.json()).then(cfg => {
+        if (cfg && Array.isArray(cfg.atlases)) {
+          let loaded2 = 0;
+          for (const atlas of cfg.atlases) {
+            if (this._loadedImages.has(atlas.id)) { loaded2++; continue; }
+            const img = new Image();
+            img.onload = () => {
+              this._loadedImages.set(atlas.id, img);
+              // 也设为 terrain_atlas（场景编辑器惯例）
+              if (!this._loadedImages.has('terrain_atlas')) this._loadedImages.set('terrain_atlas', img);
+              loaded2++;
+              if (loaded2 >= cfg.atlases.length && onComplete) onComplete();
+            };
+            img.onerror = () => { loaded2++; if (loaded2 >= cfg.atlases.length && onComplete) onComplete(); };
+            img.src = atlas.path;
+          }
+        }
+      }).catch(() => {});
+    }
+
+    // 场景没存 decoSprites 时，从 config/deco-sprites.json 加载
+    if (!scene.decoSprites && !this._defaultDecoLoaded) {
+      this._defaultDecoLoaded = true;
+      fetch('./config/deco-sprites.json').then(r => r.json()).then(cfg => {
+        // 合并 outdoor + indoor 到场景 decoSprites
+        this._defaultDecoSprites = { ...(cfg.outdoor || {}), ...(cfg.indoor || {}) };
+      }).catch(() => {});
+    }
+
+    // 场景内嵌图片（imageAssets）
+    if (scene.imageAssets) {
+      for (const [id, asset] of Object.entries(scene.imageAssets)) {
+        if (!this._loadedImages.has(id)) {
+          const src = typeof asset === 'string' ? asset : (asset && asset.src);
+          if (src) toLoad.push({ id, src: this._resolveImagePath(src) });
+        }
+      }
+    }
+
+    if (toLoad.length === 0) return;
+
+    let loaded = 0;
+    for (const item of toLoad) {
+      const img = new Image();
+      img.onload = () => {
+        this._loadedImages.set(item.id, img);
+        loaded++;
+        if (loaded >= toLoad.length && onComplete) onComplete();
+      };
+      img.onerror = () => {
+        loaded++;
+        if (loaded >= toLoad.length && onComplete) onComplete();
+      };
+      img.src = this._resolveImagePath(item.src);
+    }
+  }
+
+  /**
+   * 解析图片路径（编辑器上下文中直接用原始路径，因为 WorldMapEditor 和场景编辑器在同一 HTML）
+   * @private
+   */
+  _resolveImagePath(src) {
+    return src || '';
   }
 
   _showToast(msg) {
@@ -266,6 +507,23 @@ export class WorldMapEditor {
     t.style.cssText = 'display:block;position:fixed;bottom:20px;right:20px;background:#4CAF50;color:#fff;padding:10px 20px;border-radius:6px;z-index:99999;';
     setTimeout(() => { t.style.display = 'none'; }, 2000);
   }
+
+  /**
+   * 从 localStorage 获取场景数据
+   * @private
+   */
+  _getSceneData(sceneId) {
+    try {
+      const raw = localStorage.getItem('h5game_editor_data_scenes_' + this.gameId);
+      if (!raw) return null;
+      const scenes = JSON.parse(raw);
+      if (!Array.isArray(scenes)) return null;
+      return scenes.find(s => s && s.id === sceneId) || null;
+    } catch (e) {
+      return null;
+    }
+  }
 }
+
 
 export default WorldMapEditor;

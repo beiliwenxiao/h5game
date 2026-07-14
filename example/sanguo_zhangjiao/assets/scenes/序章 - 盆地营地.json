@@ -39,6 +39,222 @@
           "width": 1280,
           "height": 720,
           "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "layer_fill",
+      "name": "遮挡层",
+      "visible": false,
+      "locked": false,
+      "objects": [
+        {
+          "id": "obj_1783353152063",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -64,
+              363
+            ],
+            [
+              -43,
+              326
+            ],
+            [
+              -7,
+              325
+            ],
+            [
+              33,
+              386
+            ],
+            [
+              30,
+              434
+            ],
+            [
+              -1,
+              456
+            ],
+            [
+              -43,
+              457
+            ],
+            [
+              -145,
+              496
+            ],
+            [
+              -174,
+              503
+            ],
+            [
+              -189,
+              481
+            ],
+            [
+              -181,
+              450
+            ],
+            [
+              -69,
+              408
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353361337",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -7,
+              473
+            ],
+            [
+              28,
+              478
+            ],
+            [
+              51,
+              511
+            ],
+            [
+              49,
+              538
+            ],
+            [
+              -19,
+              559
+            ],
+            [
+              -42,
+              536
+            ],
+            [
+              -37,
+              496
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353433306",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              101,
+              495
+            ],
+            [
+              169,
+              509
+            ],
+            [
+              194,
+              604
+            ],
+            [
+              50,
+              601
+            ],
+            [
+              70,
+              545
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353257569",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              771,
+              446
+            ],
+            [
+              798,
+              424
+            ],
+            [
+              837,
+              457
+            ],
+            [
+              794,
+              479
+            ],
+            [
+              720,
+              528
+            ],
+            [
+              681,
+              559
+            ],
+            [
+              667,
+              543
+            ],
+            [
+              693,
+              522
+            ],
+            [
+              688,
+              514
+            ],
+            [
+              659,
+              531
+            ],
+            [
+              647,
+              509
+            ],
+            [
+              666,
+              500
+            ],
+            [
+              698,
+              487
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
         },
         {
           "id": "obj_1783279500096",
@@ -132,257 +348,6 @@
           ]
         },
         {
-          "id": "obj_1783351833424",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              436,
-              11
-            ],
-            [
-              482,
-              26
-            ],
-            [
-              501,
-              53
-            ],
-            [
-              474,
-              90
-            ],
-            [
-              413,
-              86
-            ],
-            [
-              395,
-              51
-            ],
-            [
-              407,
-              28
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#5a8a4a",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
-          "id": "obj_1783353152063",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              -64,
-              363
-            ],
-            [
-              -43,
-              326
-            ],
-            [
-              -7,
-              325
-            ],
-            [
-              33,
-              386
-            ],
-            [
-              30,
-              434
-            ],
-            [
-              -1,
-              456
-            ],
-            [
-              -43,
-              457
-            ],
-            [
-              -145,
-              496
-            ],
-            [
-              -174,
-              503
-            ],
-            [
-              -189,
-              481
-            ],
-            [
-              -181,
-              450
-            ],
-            [
-              -69,
-              408
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#5a8a4a",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
-          "id": "obj_1783353257569",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              771,
-              446
-            ],
-            [
-              798,
-              424
-            ],
-            [
-              837,
-              457
-            ],
-            [
-              794,
-              479
-            ],
-            [
-              720,
-              528
-            ],
-            [
-              681,
-              559
-            ],
-            [
-              667,
-              543
-            ],
-            [
-              693,
-              522
-            ],
-            [
-              688,
-              514
-            ],
-            [
-              659,
-              531
-            ],
-            [
-              647,
-              509
-            ],
-            [
-              666,
-              500
-            ],
-            [
-              698,
-              487
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#5a8a4a",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
-          "id": "obj_1783353361337",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              -7,
-              473
-            ],
-            [
-              28,
-              478
-            ],
-            [
-              51,
-              511
-            ],
-            [
-              49,
-              538
-            ],
-            [
-              -19,
-              559
-            ],
-            [
-              -42,
-              536
-            ],
-            [
-              -37,
-              496
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#5a8a4a",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
-          "id": "obj_1783353433306",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "多边形",
-          "points": [
-            [
-              101,
-              495
-            ],
-            [
-              169,
-              509
-            ],
-            [
-              194,
-              604
-            ],
-            [
-              50,
-              601
-            ],
-            [
-              70,
-              545
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#ffffff",
-          "opacity": 0,
-          "edgeFade": 0,
-          "stroke": "#5a8a4a",
-          "strokeWidth": 0,
-          "collide": true
-        },
-        {
           "id": "obj_1783353571091",
           "type": "shape",
           "shapeType": "polygon",
@@ -428,15 +393,51 @@
           "stroke": "#ffffff",
           "strokeWidth": 0,
           "collide": true
+        },
+        {
+          "id": "obj_1783351833424",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              436,
+              11
+            ],
+            [
+              482,
+              26
+            ],
+            [
+              501,
+              53
+            ],
+            [
+              474,
+              90
+            ],
+            [
+              413,
+              86
+            ],
+            [
+              395,
+              51
+            ],
+            [
+              407,
+              28
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
         }
       ]
-    },
-    {
-      "id": "layer_fill",
-      "name": "背景填充层",
-      "visible": true,
-      "locked": false,
-      "objects": []
     },
     {
       "id": "layer_deco",
@@ -7155,7 +7156,7 @@
     }
   ],
   "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-08T20:48:34.282Z",
+  "updatedAt": "2026-07-09T22:29:20.624Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

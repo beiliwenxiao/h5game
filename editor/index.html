@@ -472,6 +472,7 @@
                 <button id="nav-dialogue-editor">对话编辑器</button>
                 <button id="nav-library-editor">内容库</button>
                 <button id="nav-world-map-editor">世界地图</button>
+                <button id="nav-panel-editor">面板编辑器</button>
                 <button id="nav-home">返回首页</button>
             </nav>
         </header>
@@ -533,6 +534,11 @@
             <!-- 世界地图编辑器页 -->
             <div class="ui-editor-page" id="world-map-editor-page">
                 <div id="world-map-editor-container" style="flex:1;overflow:auto;min-height:0;padding:16px;"></div>
+            </div>
+
+            <!-- 面板编辑器页 -->
+            <div class="ui-editor-page" id="panel-editor-page">
+                <div id="panel-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>
@@ -608,6 +614,7 @@
         import { LibraryEditor } from './LibraryEditor.js';
         import { DialogueGraphEditor } from './DialogueGraphEditor.js';
         import { WorldMapEditor } from './WorldMapEditor.js';
+        import { PanelEditor } from './PanelEditor.js';
         
         class GameEditor {
             constructor() {
@@ -711,6 +718,7 @@
                 document.getElementById('nav-library-editor').addEventListener('click', () => this.showPage('library-editor'));
                 document.getElementById('nav-world-map-editor').addEventListener('click', () => this.showPage('world-map-editor'));
                 document.getElementById('nav-dialogue-editor').addEventListener('click', () => this.showPage('dialogue-editor'));
+                document.getElementById('nav-panel-editor').addEventListener('click', () => this.showPage('panel-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
                 // 游戏卡片点击
@@ -1133,6 +1141,7 @@
                 if (document.getElementById('trigger-editor-page').classList.contains('active')) return 'trigger-editor';
                 if (document.getElementById('library-editor-page').classList.contains('active')) return 'library-editor';
                 if (document.getElementById('dialogue-editor-page').classList.contains('active')) return 'dialogue-editor';
+                if (document.getElementById('panel-editor-page').classList.contains('active')) return 'panel-editor';
                 if (document.getElementById('game-list-page').style.display !== 'none') return 'game-list';
                 return null;
             }
@@ -1151,6 +1160,7 @@
                 document.getElementById('library-editor-page').classList.remove('active');
                 document.getElementById('dialogue-editor-page').classList.remove('active');
                 document.getElementById('world-map-editor-page').classList.remove('active');
+                document.getElementById('panel-editor-page').classList.remove('active');
                 
                 if (page === 'game-list') {
                     document.getElementById('game-list-page').style.display = 'block';
@@ -1216,6 +1226,16 @@
                     } else {
                         this.worldMapEditor.loadFromProject();
                     }
+                } else if (page === 'panel-editor') {
+                    document.getElementById('panel-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
+                    if (!this.panelEditor) {
+                        this.panelEditor = new PanelEditor(
+                            document.getElementById('panel-editor-container'),
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                        );
+                    }
+                    this.panelEditor.init();
                 }
             }
             

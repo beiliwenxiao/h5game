@@ -30,6 +30,7 @@ import { SceneEditorInteraction } from './SceneEditorInteraction.js';
 import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
+import { sceneDataLoader } from './SceneDataLoader.js';
 
 // 编辑器默认配置（运行时从 JSON 加载覆盖）
 let _editorDefaults = null;
@@ -388,6 +389,9 @@ export class SceneEditor {
       overlay.height = ch;
     }
 
+    // 合并全局图集到场景数据（所有场景共享同一套图集资源）
+    this._mergeGlobalAtlases();
+
     // 加载图集和图片
     this.assets.loadAtlasImages();
     this.assets.loadImageAssets();
@@ -397,6 +401,24 @@ export class SceneEditor {
     this.ui.updateObjectCount();
     this.assets.updateAssetLibrary();
     this.render();
+  }
+
+  /**
+   * 合并全局图集配置到当前场景。
+   * 读取 editor/config/atlases.json 中定义的所有图集，确保每个场景都能使用全部图集资源。
+   * 已存在相同 id 的图集不重复添加。
+   * @private
+   */
+  _mergeGlobalAtlases() {
+    const globalAtlases = sceneDataLoader.getGlobalAtlases();
+    if (!globalAtlases || globalAtlases.length === 0) return;
+    if (!this.sceneData.atlases) this.sceneData.atlases = [];
+    const existingIds = new Set(this.sceneData.atlases.map(a => a.id));
+    for (const atlas of globalAtlases) {
+      if (!existingIds.has(atlas.id)) {
+        this.sceneData.atlases.push(JSON.parse(JSON.stringify(atlas)));
+      }
+    }
   }
 
   /**

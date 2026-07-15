@@ -60,6 +60,14 @@ export class SceneDataLoader {
     }
     this._configsLoaded = true;
   }
+
+  /**
+   * 获取全局图集配置（所有场景共享）
+   * @returns {Array} 图集数组
+   */
+  getGlobalAtlases() {
+    return this._getScene1Atlases();
+  }
   
   /**
    * 获取场景1的地形数据（使用导出器生成完整数据）

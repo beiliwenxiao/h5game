@@ -130,6 +130,7 @@ export class TriggerSystem {
 
     if (t.once) this._firedOnce.add(t.id);
     if (t.cooldown) this._cooldowns[t.id] = now + t.cooldown * 1000;
+    this._lastFiredId = t.id;
 
     this._runActions(t);
   }

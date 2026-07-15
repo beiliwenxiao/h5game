@@ -50,6 +50,7 @@ import { PanelLayoutLoader } from '../../../src/ui/PanelLayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
+import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
 import { WeaponRenderer } from '../../../src/rendering/WeaponRenderer.js';
 import { EnemyWeaponRenderer } from '../../../src/rendering/EnemyWeaponRenderer.js';
@@ -89,6 +90,9 @@ export class BaseGameScene extends PrologueScene {
     // actNumber → editorSceneId 映射，子类可覆盖 this.editorSceneId
     this.terrain = null;
     this.editorSceneId = sceneData.editorSceneId || this._getDefaultEditorSceneId(actNumber);
+
+    // 调试面板（触发器动作 toggleDebug 启用/停用）
+    this.debugPanel = null;
     
     // 核心系统
     this.inputManager = null;
@@ -1995,6 +1999,11 @@ export class BaseGameScene extends PrologueScene {
     // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
     this._updatePromptSwitch();
     
+    // 调试面板快捷键：按 ` (反引号) 切换
+    if (this.inputManager && (this.inputManager.isKeyPressed ? this.inputManager.isKeyPressed('`') : this.inputManager.isKeyDown('`'))) {
+      this._toggleDebugPanel();
+    }
+    
     // 性能监控：开始计时
     const updateStartTime = performance.now();
     
@@ -2898,6 +2907,8 @@ export class BaseGameScene extends PrologueScene {
       if (typeof opts.onReady === 'function') opts.onReady(this.gameLoader, trig);
       // 通用动作：按 N 切换到下一幕（所有幕可用）
       trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
+      // 通用动作：切换调试面板
+      trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
       // 玩家上下文
       if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
       // 进入场景事件
@@ -2910,6 +2921,22 @@ export class BaseGameScene extends PrologueScene {
   }
 
   // ─── 通用切幕：按 N 切换到下一幕 ────────────────────────
+
+  /**
+   * 切换调试面板显示/隐藏（触发器动作 toggleDebug）
+   */
+  _toggleDebugPanel() {
+    if (!this.debugPanel) {
+      this.debugPanel = new DebugPanel({
+        getScene: () => this,
+        getSceneManager: () => {
+          const eng = (typeof window !== 'undefined') ? window.gameEngine : null;
+          return (eng && eng.sceneManager) || this.sceneManager || null;
+        }
+      });
+    }
+    this.debugPanel.toggle();
+  }
 
   /**
    * 启动"按 N 切幕"提示（触发器动作 promptSwitch）

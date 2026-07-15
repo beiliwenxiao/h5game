@@ -1207,6 +1207,20 @@
   "quests": [],
   "triggers": [
     {
+      "id": "trg_debug_panel",
+      "when": {
+        "type": "sceneEnter",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "toggleDebug",
+          "params": {}
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "trg_demo_enter_scene1",
       "when": {
         "type": "sceneEnter",

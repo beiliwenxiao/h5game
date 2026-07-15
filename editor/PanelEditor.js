@@ -1,0 +1,929 @@
+/**
+ * PanelEditor.js - 面板编辑器
+ *
+ * 可视化编辑游戏 UI 面板（属性面板、装备面板、背包面板等）的内部组成部件。
+ * 每个面板是一个 tab，支持新增/修改/删除面板。
+ * 面板内的每个部件（标题、装备槽、属性行、物品格子等）都可以：
+ *   - 调整名称、位置、大小
+ *   - 修改属性（颜色、字体、边框等）
+ *   - 拖拽移动、缩放手柄调整大小
+ *
+ * 保存为 config/PanelLayout.json，游戏运行时由面板组件读取并应用。
+ */
+
+// 默认面板定义（与游戏实际面板对齐）
+const DEFAULT_PANELS = [
+  {
+    id: 'playerInfoPanel',
+    name: '属性面板',
+    width: 320,
+    height: 300,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderColor: '#4a9eff',
+    borderWidth: 2,
+    parts: [
+      { id: 'title', type: 'text', label: '标题', x: 15, y: 15, width: 290, height: 24, text: '属性', fontSize: 18, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'separator1', type: 'line', label: '分隔线', x: 15, y: 40, width: 290, height: 1, color: '#4a9eff' },
+      { id: 'className', type: 'text', label: '角色名', x: 15, y: 50, width: 290, height: 20, text: '{className}', fontSize: 16, fontWeight: 'bold', color: '#ffffff', align: 'left' },
+      { id: 'classLabel', type: 'text', label: '职业标签', x: 15, y: 75, width: 40, height: 18, text: '职业:', fontSize: 14, color: '#aaaaaa', align: 'left' },
+      { id: 'classValue', type: 'text', label: '职业值', x: 65, y: 75, width: 80, height: 18, text: '{class}', fontSize: 14, fontWeight: 'bold', color: '#ff6b6b', align: 'left' },
+      { id: 'levelLabel', type: 'text', label: '等级标签', x: 165, y: 75, width: 40, height: 18, text: '等级:', fontSize: 14, color: '#aaaaaa', align: 'left' },
+      { id: 'levelValue', type: 'text', label: '等级值', x: 205, y: 75, width: 40, height: 18, text: '{level}', fontSize: 14, color: '#ffffff', align: 'left' },
+      { id: 'attrTitle', type: 'text', label: '属性标题', x: 15, y: 105, width: 40, height: 18, text: '属性', fontSize: 14, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'attrAllocBtn', type: 'button', label: '加点按钮', x: 65, y: 96, width: 24, height: 16, text: '+', fontSize: 12, color: '#ffffff', bgColor: '#2a5a8f', borderColor: '#4a9eff' },
+      { id: 'attrHP', type: 'attr-row', label: 'HP', x: 15, y: 125, width: 270, height: 20, attrLabel: 'HP', attrColor: '#ff4444', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrMP', type: 'attr-row', label: 'MP', x: 15, y: 145, width: 270, height: 20, attrLabel: 'MP', attrColor: '#4444ff', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrAttack', type: 'attr-row', label: '攻击', x: 15, y: 165, width: 270, height: 20, attrLabel: '攻击', attrColor: '#ffaa00', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrDefense', type: 'attr-row', label: '防御', x: 15, y: 185, width: 270, height: 20, attrLabel: '防御', attrColor: '#00aaff', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrSpeed', type: 'attr-row', label: '速度', x: 15, y: 205, width: 270, height: 20, attrLabel: '速度', attrColor: '#00ff00', labelColor: '#aaaaaa', fontSize: 13 }
+    ]
+  },
+  {
+    id: 'equipmentPanel',
+    name: '装备面板',
+    width: 260,
+    height: 330,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderColor: '#4a9eff',
+    borderWidth: 2,
+    parts: [
+      { id: 'title', type: 'text', label: '标题', x: 15, y: 15, width: 230, height: 24, text: '装备', fontSize: 18, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'separator1', type: 'line', label: '分隔线', x: 15, y: 40, width: 230, height: 1, color: '#4a9eff' },
+      { id: 'slot_accessory', type: 'equip-slot', label: '饰品', x: 35, y: 55, width: 50, height: 50, slotType: 'accessory', slotLabel: '饰品', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_helmet', type: 'equip-slot', label: '头盔', x: 105, y: 55, width: 50, height: 50, slotType: 'helmet', slotLabel: '头盔', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_necklace', type: 'equip-slot', label: '项链', x: 175, y: 55, width: 50, height: 50, slotType: 'necklace', slotLabel: '项链', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_mainhand', type: 'equip-slot', label: '主手', x: 35, y: 115, width: 50, height: 50, slotType: 'mainhand', slotLabel: '主手武器', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_armor', type: 'equip-slot', label: '胸甲', x: 105, y: 115, width: 50, height: 50, slotType: 'armor', slotLabel: '胸甲', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_offhand', type: 'equip-slot', label: '副手', x: 175, y: 115, width: 50, height: 50, slotType: 'offhand', slotLabel: '副手武器', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_ring1', type: 'equip-slot', label: '戒指1', x: 35, y: 175, width: 50, height: 50, slotType: 'ring1', slotLabel: '戒指', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_belt', type: 'equip-slot', label: '腰带', x: 105, y: 175, width: 50, height: 50, slotType: 'belt', slotLabel: '腰带', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_ring2', type: 'equip-slot', label: '戒指2', x: 175, y: 175, width: 50, height: 50, slotType: 'ring2', slotLabel: '戒指', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_instrument', type: 'equip-slot', label: '器械', x: 35, y: 235, width: 50, height: 50, slotType: 'instrument', slotLabel: '器械', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_boots', type: 'equip-slot', label: '鞋子', x: 105, y: 235, width: 50, height: 50, slotType: 'boots', slotLabel: '鞋子', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'slot_mount', type: 'equip-slot', label: '坐骑', x: 175, y: 235, width: 50, height: 50, slotType: 'mount', slotLabel: '坐骑', slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' }
+    ]
+  },
+  {
+    id: 'inventoryPanel',
+    name: '背包面板',
+    width: 360,
+    height: 340,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderColor: '#666666',
+    borderWidth: 2,
+    parts: [
+      { id: 'title', type: 'text', label: '标题', x: 20, y: 12, width: 100, height: 20, text: '背包', fontSize: 16, fontWeight: 'bold', color: '#ffffff', align: 'left' },
+      { id: 'slotCount', type: 'text', label: '槽位数', x: 250, y: 14, width: 100, height: 16, text: '0/30', fontSize: 12, color: '#cccccc', align: 'right' },
+      { id: 'filterAll', type: 'button', label: '全部', x: 20, y: 45, width: 60, height: 25, text: '全部', fontSize: 11, color: '#ffffff', bgColor: 'rgba(100,150,255,0.8)', borderColor: '#6496ff' },
+      { id: 'filterEquip', type: 'button', label: '装备', x: 90, y: 45, width: 60, height: 25, text: '装备', fontSize: 11, color: '#ffffff', bgColor: 'rgba(100,100,100,0.5)', borderColor: '#888888' },
+      { id: 'filterConsume', type: 'button', label: '消耗品', x: 160, y: 45, width: 60, height: 25, text: '消耗品', fontSize: 11, color: '#ffffff', bgColor: 'rgba(100,100,100,0.5)', borderColor: '#888888' },
+      { id: 'filterMaterial', type: 'button', label: '材料', x: 230, y: 45, width: 60, height: 25, text: '材料', fontSize: 11, color: '#ffffff', bgColor: 'rgba(100,100,100,0.5)', borderColor: '#888888' },
+      { id: 'filterQuest', type: 'button', label: '任务', x: 300, y: 45, width: 60, height: 25, text: '任务', fontSize: 11, color: '#ffffff', bgColor: 'rgba(100,100,100,0.5)', borderColor: '#888888' },
+      { id: 'slotGrid', type: 'slot-grid', label: '物品格子', x: 20, y: 80, width: 330, height: 220, cols: 6, rows: 4, slotSize: 50, slotPadding: 5, slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666666' },
+      { id: 'scrollbar', type: 'scrollbar', label: '滚动条', x: 344, y: 80, width: 8, height: 220, trackColor: 'rgba(255,255,255,0.12)', thumbColor: 'rgba(180,180,180,0.8)' },
+      { id: 'goldRow', type: 'text', label: '金币', x: 16, y: 344, width: 120, height: 20, text: '💰 0 金币', fontSize: 13, fontWeight: 'bold', color: '#FFD700', align: 'left' }
+    ]
+  }
+];
+
+
+// 部件类型注册表（用于新增部件时的选项）
+const PART_TYPES = {
+  'text': { label: '文本', defaults: { text: '文本', fontSize: 14, color: '#ffffff', align: 'left', fontWeight: 'normal' } },
+  'line': { label: '分隔线', defaults: { color: '#4a9eff' } },
+  'button': { label: '按钮', defaults: { text: '按钮', fontSize: 12, color: '#ffffff', bgColor: '#3a4a7e', borderColor: '#666' } },
+  'equip-slot': { label: '装备槽', defaults: { slotType: 'accessory', slotLabel: '装备槽', slotBgColor: 'rgba(30,30,30,0.9)', slotBorderColor: '#555' } },
+  'slot-grid': { label: '物品格子', defaults: { cols: 6, rows: 4, slotSize: 50, slotPadding: 5, slotBgColor: 'rgba(50,50,50,0.8)', slotBorderColor: '#666' } },
+  'attr-row': { label: '属性行', defaults: { attrLabel: '属性', attrColor: '#ffffff', labelColor: '#aaaaaa', fontSize: 13 } },
+  'scrollbar': { label: '滚动条', defaults: { trackColor: 'rgba(255,255,255,0.1)', thumbColor: 'rgba(255,255,255,0.4)' } },
+  'icon': { label: '图标', defaults: { icon: '⚔️', fontSize: 24 } },
+  'progress-bar': { label: '进度条', defaults: { fillColor: '#4CAF50', bgColor: '#333', borderColor: '#666', value: 0.7 } },
+  'image': { label: '图片', defaults: { src: '', imageMode: 'contain' } }
+};
+
+export class PanelEditor {
+  /**
+   * @param {HTMLElement} container - 编辑器挂载容器
+   * @param {Object} options
+   * @param {string} [options.gameId='sanguo_zhangjiao']
+   */
+  constructor(container, options = {}) {
+    this.container = container;
+    this.gameId = options.gameId || 'sanguo_zhangjiao';
+    this.configPath = `example/${this.gameId}/config/PanelLayout.json`;
+
+    // 面板列表
+    this.panels = JSON.parse(JSON.stringify(DEFAULT_PANELS));
+    // 当前选中的面板 tab 索引
+    this.activePanelIndex = 0;
+    // 当前选中的部件
+    this.selectedPartId = null;
+    // 拖拽状态
+    this._dragState = null;
+    // 画布缩放
+    this.scale = 1;
+
+    this._initialized = false;
+  }
+
+  /** 获取当前激活的面板 */
+  get activePanel() {
+    return this.panels[this.activePanelIndex] || null;
+  }
+
+  /** 初始化 */
+  async init() {
+    if (this._initialized) return;
+    this._initialized = true;
+    await this._loadFromFile();
+    this._buildUI();
+    this._render();
+  }
+
+  /** 从文件加载 */
+  async _loadFromFile() {
+    try {
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.configPath));
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.ok && data.content) {
+        const parsed = JSON.parse(data.content);
+        if (Array.isArray(parsed.panels) && parsed.panels.length > 0) {
+          this.panels = parsed.panels;
+        }
+      }
+    } catch (e) {
+      console.warn('PanelEditor: 加载配置失败，使用默认值', e);
+    }
+  }
+
+  /** 保存到文件 */
+  async save() {
+    const content = JSON.stringify({ panels: this.panels }, null, 2);
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this.configPath, content })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '保存失败');
+      this._showToast('✅ 已保存到 ' + this.configPath);
+    } catch (e) {
+      this._showToast('❌ 保存失败: ' + e.message, true);
+    }
+  }
+
+  /** 构建 UI */
+  _buildUI() {
+    this.container.innerHTML = `
+      <div class="pe-root">
+        <div class="pe-toolbar">
+          <div class="pe-tab-actions">
+            <button id="pe-save" class="primary">💾 保存</button>
+            <button id="pe-add-panel" title="新增面板">＋面板</button>
+          </div>
+          <div class="pe-tabs" id="pe-tabs"></div>
+        </div>
+        <div class="pe-main">
+          <div class="pe-canvas-wrap">
+            <div class="pe-canvas-toolbar">
+              <button id="pe-add-part">＋部件</button>
+              <button id="pe-del-part">🗑️ 删除部件</button>
+              <button id="pe-dup-part">📋 复制部件</button>
+              <span class="pe-zoom-info" id="pe-zoom-info">100%</span>
+            </div>
+            <div class="pe-canvas-container" id="pe-canvas-container">
+              <canvas id="pe-canvas"></canvas>
+            </div>
+          </div>
+          <div class="pe-props" id="pe-props">
+            <h4>属性</h4>
+            <div class="pe-prop-empty">选择一个部件</div>
+          </div>
+        </div>
+        <div class="pe-status" id="pe-status"></div>
+      </div>
+    `;
+    this._injectStyles();
+    this._bindEvents();
+  }
+
+
+  /** 注入样式 */
+  _injectStyles() {
+    if (document.getElementById('pe-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'pe-styles';
+    style.textContent = `
+      .pe-root { display:flex; flex-direction:column; height:100%; background:#0d1326; color:#fff; }
+      .pe-toolbar { display:flex; align-items:center; padding:8px 16px; background:#16213e; border-bottom:1px solid #2a3a5e; flex-wrap:wrap; gap:8px; }
+      .pe-tabs { display:flex; gap:4px; flex-wrap:wrap; }
+      .pe-tabs .pe-tab { padding:6px 14px; background:#3a4a7e; border:none; border-radius:4px 4px 0 0; color:#fff; cursor:pointer; font-size:12px; position:relative; }
+      .pe-tabs .pe-tab.active { background:#4CAF50; color:#000; }
+      .pe-tabs .pe-tab .pe-tab-close { position:absolute; top:2px; right:4px; font-size:10px; color:#f88; cursor:pointer; display:none; }
+      .pe-tabs .pe-tab:hover .pe-tab-close { display:inline; }
+      .pe-tab-actions button { padding:6px 12px; background:#3a4a7e; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:12px; }
+      .pe-tab-actions button.primary { background:#4CAF50; color:#000; font-weight:bold; }
+      .pe-main { flex:1; display:flex; overflow:hidden; }
+      .pe-canvas-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; }
+      .pe-canvas-toolbar { display:flex; gap:8px; padding:6px 12px; background:#111a30; border-bottom:1px solid #2a3a5e; align-items:center; }
+      .pe-canvas-toolbar button { padding:4px 10px; background:#3a4a7e; border:none; border-radius:3px; color:#fff; cursor:pointer; font-size:12px; }
+      .pe-canvas-toolbar button:hover { background:#4a5a9e; }
+      .pe-zoom-info { font-size:11px; color:#8aa; margin-left:auto; }
+      .pe-canvas-container { flex:1; overflow:auto; background:#070b18; padding:20px; }
+      .pe-canvas-container canvas { border:1px solid #4CAF50; cursor:default; }
+      .pe-props { width:280px; background:#111a30; border-left:1px solid #2a3a5e; padding:14px; overflow-y:auto; }
+      .pe-props h4 { color:#4CAF50; margin-bottom:10px; }
+      .pe-prop-empty { color:#778; font-size:13px; }
+      .pe-prop-section { margin-bottom:12px; border-bottom:1px solid #2a3a5e; padding-bottom:8px; }
+      .pe-prop-section-title { font-size:11px; color:#6a8; margin-bottom:6px; text-transform:uppercase; }
+      .pe-prop-row { display:flex; align-items:center; margin-bottom:6px; gap:6px; }
+      .pe-prop-row label { width:60px; font-size:11px; color:#9ab; flex-shrink:0; }
+      .pe-prop-row input, .pe-prop-row select { flex:1; background:#0a1020; border:1px solid #2a3a5e; color:#fff; padding:4px 6px; border-radius:3px; font-size:12px; min-width:0; }
+      .pe-prop-row input[type="color"] { width:32px; height:24px; padding:0; border:none; }
+      .pe-status { padding:6px 16px; font-size:12px; color:#8aa; background:#0a1020; min-height:24px; }
+      .pe-toast { position:fixed; top:20px; right:20px; padding:10px 16px; background:#333; border:1px solid #4CAF50; border-radius:6px; color:#fff; font-size:13px; z-index:9999; transition:opacity 0.3s; }
+      .pe-toast.error { border-color:#f44; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /** 绑定事件 */
+  _bindEvents() {
+    // 保存
+    this.container.querySelector('#pe-save').addEventListener('click', () => this.save());
+    // 新增面板
+    this.container.querySelector('#pe-add-panel').addEventListener('click', () => this._addPanel());
+    // 新增部件
+    this.container.querySelector('#pe-add-part').addEventListener('click', () => this._addPart());
+    // 删除部件
+    this.container.querySelector('#pe-del-part').addEventListener('click', () => this._deletePart());
+    // 复制部件
+    this.container.querySelector('#pe-dup-part').addEventListener('click', () => this._duplicatePart());
+
+    // Canvas 交互
+    const canvas = this.container.querySelector('#pe-canvas');
+    canvas.addEventListener('mousedown', (e) => this._onMouseDown(e));
+    canvas.addEventListener('mousemove', (e) => this._onMouseMove(e));
+    // mouseup 和拖拽中的 mousemove 绑在 window（见 _onMouseDown）
+  }
+
+  /** 渲染整个编辑器 */
+  _render() {
+    this._renderTabs();
+    this._renderCanvas();
+    this._renderProps();
+  }
+
+  /** 渲染面板 tab 栏 */
+  _renderTabs() {
+    const tabsEl = this.container.querySelector('#pe-tabs');
+    tabsEl.innerHTML = this.panels.map((p, i) => `
+      <button class="pe-tab ${i === this.activePanelIndex ? 'active' : ''}" data-index="${i}">
+        ${p.name}
+        <span class="pe-tab-close" data-close="${i}">×</span>
+      </button>
+    `).join('');
+
+    // Tab 点击
+    tabsEl.querySelectorAll('.pe-tab').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        if (e.target.classList.contains('pe-tab-close')) return;
+        this.activePanelIndex = parseInt(btn.dataset.index);
+        this.selectedPartId = null;
+        this._render();
+      });
+    });
+    // Tab 关闭(删除面板)
+    tabsEl.querySelectorAll('.pe-tab-close').forEach(span => {
+      span.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(span.dataset.close);
+        this._deletePanel(idx);
+      });
+    });
+  }
+
+
+  /** 渲染 Canvas 预览 */
+  _renderCanvas() {
+    const panel = this.activePanel;
+    if (!panel) return;
+
+    const canvas = this.container.querySelector('#pe-canvas');
+
+    // 固定 100% 大小，不自动缩放，超出容器靠滚动
+    this.scale = 1;
+
+    const cw = panel.width;
+    const ch = panel.height;
+    canvas.width = cw;
+    canvas.height = ch;
+    canvas.style.width = cw + 'px';
+    canvas.style.height = ch + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.save();
+    ctx.scale(this.scale, this.scale);
+
+    // 面板背景
+    ctx.fillStyle = panel.backgroundColor || 'rgba(0,0,0,0.85)';
+    ctx.fillRect(0, 0, panel.width, panel.height);
+    ctx.strokeStyle = panel.borderColor || '#4a9eff';
+    ctx.lineWidth = panel.borderWidth || 2;
+    ctx.strokeRect(0, 0, panel.width, panel.height);
+
+    // 渲染所有部件
+    for (const part of panel.parts) {
+      this._renderPart(ctx, part);
+    }
+
+    // 面板边缘拖拽手柄（右边/下边/右下角）
+    const edgeSize = 6;
+    ctx.fillStyle = 'rgba(76,175,80,0.5)';
+    // 右边缘
+    ctx.fillRect(panel.width - edgeSize, 0, edgeSize, panel.height);
+    // 下边缘
+    ctx.fillRect(0, panel.height - edgeSize, panel.width, edgeSize);
+    // 右下角（更明显）
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(panel.width - 10, panel.height - 10, 10, 10);
+
+    // 选中框
+    if (this.selectedPartId) {
+      const sel = panel.parts.find(p => p.id === this.selectedPartId);
+      if (sel) {
+        ctx.strokeStyle = '#ff0';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(sel.x - 1, sel.y - 1, sel.width + 2, sel.height + 2);
+        ctx.setLineDash([]);
+        // 缩放手柄
+        ctx.fillStyle = '#ff0';
+        ctx.fillRect(sel.x + sel.width - 4, sel.y + sel.height - 4, 8, 8);
+      }
+    }
+
+    ctx.restore();
+    this.container.querySelector('#pe-zoom-info').textContent = '100%';
+  }
+
+  /** 渲染单个部件 */
+  _renderPart(ctx, part) {
+    const { x, y, width, height } = part;
+
+    switch (part.type) {
+      case 'text':
+        ctx.fillStyle = part.color || '#ffffff';
+        ctx.font = `${part.fontWeight || 'normal'} ${part.fontSize || 14}px Arial`;
+        ctx.textAlign = part.align || 'left';
+        ctx.textBaseline = 'top';
+        const tx = part.align === 'center' ? x + width / 2 : part.align === 'right' ? x + width : x;
+        ctx.fillText(part.text || '', tx, y);
+        ctx.textAlign = 'left';
+        break;
+
+      case 'line':
+        ctx.strokeStyle = part.color || '#4a9eff';
+        ctx.lineWidth = height || 1;
+        ctx.beginPath();
+        ctx.moveTo(x, y + height / 2);
+        ctx.lineTo(x + width, y + height / 2);
+        ctx.stroke();
+        break;
+
+      case 'button':
+        ctx.fillStyle = part.bgColor || '#3a4a7e';
+        ctx.fillRect(x, y, width, height);
+        ctx.strokeStyle = part.borderColor || '#666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        ctx.fillStyle = part.color || '#ffffff';
+        ctx.font = `${part.fontSize || 12}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(part.text || '', x + width / 2, y + height / 2);
+        ctx.textAlign = 'left';
+        break;
+
+      case 'equip-slot':
+        ctx.fillStyle = part.slotBgColor || 'rgba(30,30,30,0.9)';
+        ctx.fillRect(x, y, width, height);
+        ctx.strokeStyle = part.slotBorderColor || '#555';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x, y, width, height);
+        // 槽位名称
+        ctx.fillStyle = '#888';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(part.slotLabel || '', x + width / 2, y + height / 2);
+        ctx.textAlign = 'left';
+        break;
+
+      case 'slot-grid': {
+        const cols = part.cols || 6;
+        const rows = part.rows || 4;
+        const sz = part.slotSize || 50;
+        const pad = part.slotPadding || 5;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const sx = x + c * (sz + pad);
+            const sy = y + r * (sz + pad);
+            ctx.fillStyle = part.slotBgColor || 'rgba(50,50,50,0.8)';
+            ctx.fillRect(sx, sy, sz, sz);
+            ctx.strokeStyle = part.slotBorderColor || '#666';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, sy, sz, sz);
+          }
+        }
+        break;
+      }
+
+      case 'attr-row':
+        ctx.fillStyle = part.labelColor || '#aaaaaa';
+        ctx.font = `${part.fontSize || 13}px Arial`;
+        ctx.textBaseline = 'top';
+        ctx.fillText(`${part.attrLabel || ''}:`, x, y);
+        ctx.fillStyle = part.attrColor || '#ffffff';
+        ctx.fillText('999/999', x + 60, y);
+        break;
+
+      case 'scrollbar':
+        ctx.fillStyle = part.trackColor || 'rgba(255,255,255,0.1)';
+        ctx.fillRect(x, y, width, height);
+        ctx.fillStyle = part.thumbColor || 'rgba(255,255,255,0.4)';
+        ctx.fillRect(x, y, width, height * 0.4);
+        break;
+
+      case 'icon':
+        ctx.font = `${part.fontSize || 24}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(part.icon || '⚔️', x + width / 2, y + height / 2);
+        ctx.textAlign = 'left';
+        break;
+
+      case 'progress-bar':
+        ctx.fillStyle = part.bgColor || '#333';
+        ctx.fillRect(x, y, width, height);
+        ctx.fillStyle = part.fillColor || '#4CAF50';
+        ctx.fillRect(x, y, width * (part.value || 0.5), height);
+        ctx.strokeStyle = part.borderColor || '#666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, width, height);
+        break;
+
+      default:
+        // 未知类型画占位框
+        ctx.strokeStyle = '#f88';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 2]);
+        ctx.strokeRect(x, y, width, height);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#f88';
+        ctx.font = '10px Arial';
+        ctx.fillText(part.type, x + 2, y + 12);
+    }
+  }
+
+
+  /** 渲染属性面板 */
+  _renderProps() {
+    const propsEl = this.container.querySelector('#pe-props');
+    const panel = this.activePanel;
+
+    if (!this.selectedPartId || !panel) {
+      // 显示面板属性
+      if (panel) {
+        propsEl.innerHTML = `
+          <h4>面板属性</h4>
+          <div class="pe-prop-section">
+            <div class="pe-prop-section-title">基本</div>
+            <div class="pe-prop-row"><label>ID</label><input type="text" data-panel-key="id" value="${panel.id}"></div>
+            <div class="pe-prop-row"><label>名称</label><input type="text" data-panel-key="name" value="${panel.name}"></div>
+            <div class="pe-prop-row"><label>宽度</label><input type="number" data-panel-key="width" value="${panel.width}"></div>
+            <div class="pe-prop-row"><label>高度</label><input type="number" data-panel-key="height" value="${panel.height}"></div>
+          </div>
+          <div class="pe-prop-section">
+            <div class="pe-prop-section-title">样式</div>
+            <div class="pe-prop-row"><label>背景色</label><input type="text" data-panel-key="backgroundColor" value="${panel.backgroundColor || ''}"></div>
+            <div class="pe-prop-row"><label>边框色</label><input type="color" data-panel-key="borderColor" value="${panel.borderColor || '#4a9eff'}"></div>
+            <div class="pe-prop-row"><label>边框宽</label><input type="number" data-panel-key="borderWidth" value="${panel.borderWidth || 2}" step="1"></div>
+          </div>
+          <div class="pe-prop-section">
+            <div class="pe-prop-section-title">部件列表 (${panel.parts.length})</div>
+            ${panel.parts.map(p => `<div style="font-size:11px;color:#aaa;padding:2px 0;cursor:pointer;" data-select-part="${p.id}">• ${p.label || p.id} <span style="color:#666">(${p.type})</span></div>`).join('')}
+          </div>
+        `;
+        // 面板属性输入
+        propsEl.querySelectorAll('[data-panel-key]').forEach(input => {
+          input.addEventListener('change', () => {
+            const key = input.dataset.panelKey;
+            let val = input.value;
+            if (key === 'width' || key === 'height' || key === 'borderWidth') val = parseInt(val) || 0;
+            panel[key] = val;
+            this._renderTabs();
+            this._renderCanvas();
+          });
+        });
+        // 部件列表点击选中
+        propsEl.querySelectorAll('[data-select-part]').forEach(el => {
+          el.addEventListener('click', () => {
+            this.selectedPartId = el.dataset.selectPart;
+            this._renderCanvas();
+            this._renderProps();
+          });
+        });
+      } else {
+        propsEl.innerHTML = '<h4>属性</h4><div class="pe-prop-empty">无面板</div>';
+      }
+      return;
+    }
+
+    // 部件属性
+    const part = panel.parts.find(p => p.id === this.selectedPartId);
+    if (!part) {
+      propsEl.innerHTML = '<h4>属性</h4><div class="pe-prop-empty">部件未找到</div>';
+      return;
+    }
+
+    const typeInfo = PART_TYPES[part.type] || { label: part.type };
+    let html = `<h4>部件属性</h4>`;
+    html += `<div class="pe-prop-section"><div class="pe-prop-section-title">基本</div>`;
+    html += `<div class="pe-prop-row"><label>ID</label><input type="text" data-part-key="id" value="${part.id}"></div>`;
+    html += `<div class="pe-prop-row"><label>名称</label><input type="text" data-part-key="label" value="${part.label || ''}"></div>`;
+    html += `<div class="pe-prop-row"><label>类型</label><select data-part-key="type">${Object.entries(PART_TYPES).map(([k, v]) => `<option value="${k}" ${k === part.type ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>`;
+    html += `</div>`;
+
+    html += `<div class="pe-prop-section"><div class="pe-prop-section-title">位置/大小</div>`;
+    html += `<div class="pe-prop-row"><label>X</label><input type="number" data-part-key="x" value="${part.x}"></div>`;
+    html += `<div class="pe-prop-row"><label>Y</label><input type="number" data-part-key="y" value="${part.y}"></div>`;
+    html += `<div class="pe-prop-row"><label>宽度</label><input type="number" data-part-key="width" value="${part.width}"></div>`;
+    html += `<div class="pe-prop-row"><label>高度</label><input type="number" data-part-key="height" value="${part.height}"></div>`;
+    html += `</div>`;
+
+    // 按类型显示额外属性
+    html += `<div class="pe-prop-section"><div class="pe-prop-section-title">类型属性</div>`;
+    html += this._buildTypeProps(part);
+    html += `</div>`;
+
+    propsEl.innerHTML = html;
+
+    // 绑定输入事件
+    propsEl.querySelectorAll('[data-part-key]').forEach(input => {
+      input.addEventListener('change', () => {
+        const key = input.dataset.partKey;
+        let val = input.value;
+        // 数值字段
+        if (['x', 'y', 'width', 'height', 'fontSize', 'cols', 'rows', 'slotSize', 'slotPadding', 'borderWidth', 'value'].includes(key)) {
+          val = parseFloat(val) || 0;
+        }
+        if (key === 'id') {
+          // 更新选中 id
+          this.selectedPartId = val;
+        }
+        part[key] = val;
+        this._renderCanvas();
+      });
+    });
+  }
+
+  /** 根据部件类型生成额外属性表单 */
+  _buildTypeProps(part) {
+    let html = '';
+    switch (part.type) {
+      case 'text':
+        html += this._propRow('text', '文本', part.text || '', 'text');
+        html += this._propRow('fontSize', '字号', part.fontSize || 14, 'number');
+        html += this._propRow('fontWeight', '粗体', part.fontWeight || 'normal', 'select', ['normal', 'bold']);
+        html += this._propRow('color', '颜色', part.color || '#ffffff', 'color');
+        html += this._propRow('align', '对齐', part.align || 'left', 'select', ['left', 'center', 'right']);
+        break;
+      case 'line':
+        html += this._propRow('color', '颜色', part.color || '#4a9eff', 'color');
+        break;
+      case 'button':
+        html += this._propRow('text', '文本', part.text || '', 'text');
+        html += this._propRow('fontSize', '字号', part.fontSize || 12, 'number');
+        html += this._propRow('color', '文字色', part.color || '#ffffff', 'color');
+        html += this._propRow('bgColor', '背景色', part.bgColor || '#3a4a7e', 'color');
+        html += this._propRow('borderColor', '边框色', part.borderColor || '#666', 'color');
+        break;
+      case 'equip-slot':
+        html += this._propRow('slotType', '槽类型', part.slotType || '', 'text');
+        html += this._propRow('slotLabel', '槽名', part.slotLabel || '', 'text');
+        html += this._propRow('slotBgColor', '背景', part.slotBgColor || 'rgba(30,30,30,0.9)', 'text');
+        html += this._propRow('slotBorderColor', '边框', part.slotBorderColor || '#555', 'color');
+        break;
+      case 'slot-grid':
+        html += this._propRow('cols', '列数', part.cols || 6, 'number');
+        html += this._propRow('rows', '行数', part.rows || 4, 'number');
+        html += this._propRow('slotSize', '格子大小', part.slotSize || 50, 'number');
+        html += this._propRow('slotPadding', '间距', part.slotPadding || 5, 'number');
+        html += this._propRow('slotBgColor', '格子背景', part.slotBgColor || '', 'text');
+        html += this._propRow('slotBorderColor', '格子边框', part.slotBorderColor || '#666', 'color');
+        break;
+      case 'attr-row':
+        html += this._propRow('attrLabel', '属性名', part.attrLabel || '', 'text');
+        html += this._propRow('attrColor', '值颜色', part.attrColor || '#ffffff', 'color');
+        html += this._propRow('labelColor', '标签色', part.labelColor || '#aaaaaa', 'color');
+        html += this._propRow('fontSize', '字号', part.fontSize || 13, 'number');
+        break;
+      case 'scrollbar':
+        html += this._propRow('trackColor', '轨道色', part.trackColor || '', 'text');
+        html += this._propRow('thumbColor', '滑块色', part.thumbColor || '', 'text');
+        break;
+      case 'icon':
+        html += this._propRow('icon', '图标', part.icon || '', 'text');
+        html += this._propRow('fontSize', '大小', part.fontSize || 24, 'number');
+        break;
+      case 'progress-bar':
+        html += this._propRow('fillColor', '填充色', part.fillColor || '#4CAF50', 'color');
+        html += this._propRow('bgColor', '背景色', part.bgColor || '#333', 'color');
+        html += this._propRow('borderColor', '边框色', part.borderColor || '#666', 'color');
+        html += this._propRow('value', '进度(0~1)', part.value || 0.5, 'number');
+        break;
+    }
+    return html;
+  }
+
+  /** 生成属性行 HTML */
+  _propRow(key, label, value, type, options) {
+    if (type === 'select') {
+      const opts = (options || []).map(o => `<option value="${o}" ${o === value ? 'selected' : ''}>${o}</option>`).join('');
+      return `<div class="pe-prop-row"><label>${label}</label><select data-part-key="${key}">${opts}</select></div>`;
+    }
+    if (type === 'color') {
+      return `<div class="pe-prop-row"><label>${label}</label><input type="color" data-part-key="${key}" value="${value}"><input type="text" data-part-key="${key}" value="${value}" style="width:80px"></div>`;
+    }
+    return `<div class="pe-prop-row"><label>${label}</label><input type="${type}" data-part-key="${key}" value="${value}" ${type === 'number' ? 'step="1"' : ''}></div>`;
+  }
+
+
+  // ─── 交互：鼠标事件 ─────────────────────────────────────
+
+  _canvasXY(e) {
+    const canvas = this.container.querySelector('#pe-canvas');
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / this.scale,
+      y: (e.clientY - rect.top) / this.scale
+    };
+  }
+
+  _getPartAt(x, y) {
+    const panel = this.activePanel;
+    if (!panel) return null;
+    // 从后往前（上层优先）
+    for (let i = panel.parts.length - 1; i >= 0; i--) {
+      const p = panel.parts[i];
+      if (x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  _isOnResizeHandle(part, x, y) {
+    if (!part) return false;
+    const hx = part.x + part.width;
+    const hy = part.y + part.height;
+    return Math.abs(x - hx) < 8 && Math.abs(y - hy) < 8;
+  }
+
+  _onMouseDown(e) {
+    const { x, y } = this._canvasXY(e);
+    const panel = this.activePanel;
+    if (!panel) return;
+
+    const edgeThreshold = 8;
+
+    // 检查面板边缘拖拽（优先级最高）
+    const onRight = Math.abs(x - panel.width) < edgeThreshold && y >= 0 && y <= panel.height;
+    const onBottom = Math.abs(y - panel.height) < edgeThreshold && x >= 0 && x <= panel.width;
+    if (onRight || onBottom) {
+      let mode = 'panel-resize-both';
+      if (onRight && !onBottom) mode = 'panel-resize-right';
+      else if (onBottom && !onRight) mode = 'panel-resize-bottom';
+      this._dragState = { mode, startX: x, startY: y, startW: panel.width, startH: panel.height };
+      this.selectedPartId = null;
+      this._renderProps();
+      this._startGlobalDrag(e);
+      return;
+    }
+
+    const selPart = this.selectedPartId ? panel.parts.find(p => p.id === this.selectedPartId) : null;
+
+    // 检查是否点到部件缩放手柄
+    if (selPart && this._isOnResizeHandle(selPart, x, y)) {
+      this._dragState = { mode: 'resize', part: selPart, startX: x, startY: y, startW: selPart.width, startH: selPart.height };
+      this._startGlobalDrag(e);
+      return;
+    }
+
+    // 点击命中部件
+    const hit = this._getPartAt(x, y);
+    if (hit) {
+      this.selectedPartId = hit.id;
+      this._dragState = { mode: 'move', part: hit, startX: x, startY: y, origX: hit.x, origY: hit.y };
+      this._renderCanvas();
+      this._renderProps();
+      this._startGlobalDrag(e);
+      return;
+    }
+
+    // 点空白取消选择
+    this.selectedPartId = null;
+    this._renderCanvas();
+    this._renderProps();
+  }
+
+  /** 开始拖拽时绑定全局 mousemove/mouseup，确保鼠标移出 canvas 也能跟踪 */
+  _startGlobalDrag(e) {
+    e.preventDefault();
+    const onMove = (ev) => this._onGlobalMouseMove(ev);
+    const onUp = (ev) => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      this._onMouseUp(ev);
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  /** 全局拖拽 mousemove：用 canvas 的 boundingRect 换算坐标 */
+  _onGlobalMouseMove(e) {
+    if (!this._dragState) return;
+    const canvas = this.container.querySelector('#pe-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / this.scale;
+    const y = (e.clientY - rect.top) / this.scale;
+    const panel = this.activePanel;
+    if (!panel) return;
+    const ds = this._dragState;
+
+    if (ds.mode === 'move') {
+      ds.part.x = Math.round(ds.origX + (x - ds.startX));
+      ds.part.y = Math.round(ds.origY + (y - ds.startY));
+      this._renderCanvas();
+    } else if (ds.mode === 'resize') {
+      ds.part.width = Math.max(10, Math.round(ds.startW + (x - ds.startX)));
+      ds.part.height = Math.max(10, Math.round(ds.startH + (y - ds.startY)));
+      this._renderCanvas();
+    } else if (ds.mode === 'panel-resize-right') {
+      panel.width = Math.max(100, Math.round(ds.startW + (x - ds.startX)));
+      this._renderCanvas();
+    } else if (ds.mode === 'panel-resize-bottom') {
+      panel.height = Math.max(100, Math.round(ds.startH + (y - ds.startY)));
+      this._renderCanvas();
+    } else if (ds.mode === 'panel-resize-both') {
+      panel.width = Math.max(100, Math.round(ds.startW + (x - ds.startX)));
+      panel.height = Math.max(100, Math.round(ds.startH + (y - ds.startY)));
+      this._renderCanvas();
+    }
+  }
+
+  _onMouseMove(e) {
+    // 非拖拽时仅更新光标样式
+    if (this._dragState) return;
+    const { x, y } = this._canvasXY(e);
+    const panel = this.activePanel;
+    if (!panel) return;
+    const canvas = this.container.querySelector('#pe-canvas');
+    const edgeThreshold = 8;
+    const onRight = Math.abs(x - panel.width) < edgeThreshold && y >= 0 && y <= panel.height;
+    const onBottom = Math.abs(y - panel.height) < edgeThreshold && x >= 0 && x <= panel.width;
+    if (onRight && onBottom) canvas.style.cursor = 'nwse-resize';
+    else if (onRight) canvas.style.cursor = 'ew-resize';
+    else if (onBottom) canvas.style.cursor = 'ns-resize';
+    else canvas.style.cursor = 'default';
+  }
+
+  _onMouseUp(e) {
+    if (this._dragState) {
+      const wasPanelResize = this._dragState.mode && this._dragState.mode.startsWith('panel-resize');
+      this._dragState = null;
+      this._renderProps(); // 更新属性面板中的坐标/大小
+      if (wasPanelResize) {
+        // 面板尺寸变化后需重绘 Canvas（尺寸改变）
+        this._renderCanvas();
+      }
+    }
+  }
+
+  _onWheel(e) {
+    // 固定100%，不支持缩放，滚轮留给容器自身滚动
+  }
+
+  // ─── 面板管理 ─────────────────────────────────────────
+
+  _addPanel() {
+    const id = 'panel_' + Date.now();
+    this.panels.push({
+      id,
+      name: '新面板',
+      width: 300,
+      height: 400,
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      borderColor: '#4a9eff',
+      borderWidth: 2,
+      parts: [
+        { id: 'title', type: 'text', label: '标题', x: 15, y: 15, width: 270, height: 24, text: '新面板', fontSize: 18, fontWeight: 'bold', color: '#4a9eff', align: 'left' }
+      ]
+    });
+    this.activePanelIndex = this.panels.length - 1;
+    this.selectedPartId = null;
+    this._render();
+  }
+
+  _deletePanel(idx) {
+    if (this.panels.length <= 1) {
+      this._showToast('至少保留一个面板', true);
+      return;
+    }
+    if (!confirm(`确认删除面板「${this.panels[idx].name}」？`)) return;
+    this.panels.splice(idx, 1);
+    if (this.activePanelIndex >= this.panels.length) {
+      this.activePanelIndex = this.panels.length - 1;
+    }
+    this.selectedPartId = null;
+    this._render();
+  }
+
+  // ─── 部件管理 ─────────────────────────────────────────
+
+  _addPart() {
+    const panel = this.activePanel;
+    if (!panel) return;
+
+    // 弹出类型选择
+    const typeKeys = Object.keys(PART_TYPES);
+    const choice = prompt(
+      '选择部件类型（输入序号）：\n' +
+      typeKeys.map((k, i) => `${i + 1}. ${PART_TYPES[k].label} (${k})`).join('\n'),
+      '1'
+    );
+    if (!choice) return;
+    const idx = parseInt(choice) - 1;
+    if (idx < 0 || idx >= typeKeys.length) return;
+
+    const typeKey = typeKeys[idx];
+    const defaults = PART_TYPES[typeKey].defaults;
+    const partId = typeKey + '_' + Date.now();
+    const newPart = {
+      id: partId,
+      type: typeKey,
+      label: PART_TYPES[typeKey].label,
+      x: 20,
+      y: 20,
+      width: typeKey === 'slot-grid' ? 330 : typeKey === 'line' ? 270 : 80,
+      height: typeKey === 'slot-grid' ? 220 : typeKey === 'line' ? 2 : 30,
+      ...defaults
+    };
+    panel.parts.push(newPart);
+    this.selectedPartId = partId;
+    this._render();
+  }
+
+  _deletePart() {
+    const panel = this.activePanel;
+    if (!panel || !this.selectedPartId) return;
+    const idx = panel.parts.findIndex(p => p.id === this.selectedPartId);
+    if (idx < 0) return;
+    panel.parts.splice(idx, 1);
+    this.selectedPartId = null;
+    this._render();
+  }
+
+  _duplicatePart() {
+    const panel = this.activePanel;
+    if (!panel || !this.selectedPartId) return;
+    const src = panel.parts.find(p => p.id === this.selectedPartId);
+    if (!src) return;
+    const dup = JSON.parse(JSON.stringify(src));
+    dup.id = src.id + '_copy_' + Date.now();
+    dup.label = (src.label || '') + ' (副本)';
+    dup.x += 15;
+    dup.y += 15;
+    panel.parts.push(dup);
+    this.selectedPartId = dup.id;
+    this._render();
+  }
+
+  // ─── Toast 提示 ────────────────────────────────────────
+
+  _showToast(msg, isError = false) {
+    const existing = document.querySelector('.pe-toast');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.className = 'pe-toast' + (isError ? ' error' : '');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, 2500);
+  }
+}
+
+export default PanelEditor;

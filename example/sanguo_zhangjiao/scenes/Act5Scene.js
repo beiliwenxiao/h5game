@@ -318,10 +318,12 @@ export class Act5Scene extends BaseGameScene {
         // 还有下一场战斗
         this.startBattle(this.currentBattle + 1);
       } else {
-        // 全部战斗完成，切换到第六幕
+        // 全部战斗完成 → 触发器驱动切幕（按 N 进入第六幕）
         this.isSceneComplete = true;
         this.battleState = 'complete';
-        this.switchToNextScene();
+        if (this.gameLoader && this.gameLoader.triggerSystem) {
+          this.gameLoader.triggerSystem.fire('sceneComplete', { sceneId: 'Act5Scene' });
+        }
       }
     }
   }

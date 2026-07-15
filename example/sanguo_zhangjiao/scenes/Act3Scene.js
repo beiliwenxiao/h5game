@@ -234,7 +234,10 @@ export class Act3Scene extends BaseGameScene {
       if (!this.isSceneComplete) {
         this.isSceneComplete = true;
         this.notify('使用铜钱剑，即将前往第四幕...', 'success');
-        setTimeout(() => this.switchToNextScene(), 1500);
+        // 触发器驱动切幕
+        if (this.gameLoader && this.gameLoader.triggerSystem) {
+          this.gameLoader.triggerSystem.fire('sceneComplete', { sceneId: 'Act3Scene' });
+        }
       }
     }
   }

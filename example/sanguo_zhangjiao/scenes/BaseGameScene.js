@@ -1992,6 +1992,9 @@ export class BaseGameScene extends PrologueScene {
   update(deltaTime) {
     if (!this.isActive || this.isPaused) return;
     
+    // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
+    this._updatePromptSwitch();
+    
     // 性能监控：开始计时
     const updateStartTime = performance.now();
     
@@ -2893,6 +2896,8 @@ export class BaseGameScene extends PrologueScene {
       if (opts.sceneFlag) this.gameLoader.blackboard.set(opts.sceneFlag, true);
       // 子类补充场景专属动作 / 监听
       if (typeof opts.onReady === 'function') opts.onReady(this.gameLoader, trig);
+      // 通用动作：按 N 切换到下一幕（所有幕可用）
+      trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
       // 玩家上下文
       if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
       // 进入场景事件
@@ -2901,6 +2906,40 @@ export class BaseGameScene extends PrologueScene {
     } catch (e) {
       console.warn('BaseGameScene.initGameLoader 失败:', e);
       return null;
+    }
+  }
+
+  // ─── 通用切幕：按 N 切换到下一幕 ────────────────────────
+
+  /**
+   * 启动"按 N 切幕"提示（触发器动作 promptSwitch）
+   * @param {Object} p - { scene: 目标场景名, text: 提示文案 }
+   */
+  _startPromptSwitch(p = {}) {
+    this._promptSwitchState = {
+      scene: p.scene || 'Act2Scene',
+      text: p.text || '按 N 进入下一幕'
+    };
+  }
+
+  /**
+   * 每帧检测 N 键切幕（在 super.update 之前调用，避免 inputManager.update 清掉按键）
+   * @private
+   */
+  _updatePromptSwitch() {
+    if (!this._promptSwitchState) return;
+    this._showScreenTip(this._promptSwitchState.text, { persist: true });
+    const im = this.inputManager;
+    if (!im) return;
+    const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
+    if (pressed('n') || pressed('N')) {
+      const scene = this._promptSwitchState.scene;
+      this._promptSwitchState = null;
+      this._hideScreenTip();
+      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
+      if (sm) {
+        sm.switchTo(scene);
+      }
     }
   }
 

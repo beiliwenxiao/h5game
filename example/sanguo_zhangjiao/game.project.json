@@ -1508,7 +1508,7 @@
       "once": true
     },
     {
-      "id": "trg_wave2_cleared_countdown",
+      "id": "trg_wave2_cleared_switch",
       "when": {
         "type": "waveCleared",
         "params": {
@@ -1517,11 +1517,10 @@
       },
       "do": [
         {
-          "action": "sceneCountdown",
+          "action": "promptSwitch",
           "params": {
             "scene": "Act2Scene",
-            "seconds": 20,
-            "text": "战斗结束！可以拾取物品"
+            "text": "战斗结束！按 N 进入下一幕"
           }
         }
       ],
@@ -1776,6 +1775,110 @@
           "action": "showTip",
           "params": {
             "text": "拜师成功！获得经验 200、铜钱 100。按 T 打开技能树修炼。"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_complete_switch",
+      "when": {
+        "type": "sceneComplete",
+        "params": {
+          "sceneId": "Act2Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act2Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "promptSwitch",
+          "params": {
+            "scene": "Act3Scene",
+            "text": "第二幕完成！按 N 进入第三幕"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act3_complete_switch",
+      "when": {
+        "type": "sceneComplete",
+        "params": {
+          "sceneId": "Act3Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act3Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "promptSwitch",
+          "params": {
+            "scene": "Act4Scene",
+            "text": "第三幕完成！按 N 进入第四幕"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act4_complete_switch",
+      "when": {
+        "type": "sceneComplete",
+        "params": {
+          "sceneId": "Act4Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act4Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "promptSwitch",
+          "params": {
+            "scene": "Act5Scene",
+            "text": "第四幕完成！按 N 进入第五幕"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_complete_switch",
+      "when": {
+        "type": "sceneComplete",
+        "params": {
+          "sceneId": "Act5Scene"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act5Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "promptSwitch",
+          "params": {
+            "scene": "Act6Scene",
+            "text": "第五幕完成！按 N 进入第六幕"
           }
         }
       ],

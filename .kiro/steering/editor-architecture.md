@@ -540,15 +540,23 @@ VehicleSystem:
 - **命名统一**：全部用「资源库(定义+放置) / 内容库(养成)」两词，不再出现"精灵"混称。
 - **运行时实体化已接**：`DataDrivenPrologueScene._spawnGroup` 已支持 kind=item/equipment/enemy/npc/building/vehicle（库定义 + 放置坐标 → EntityFactory 实例化）。
 - [x] [验收] 序章**可玩流程**（`?ddscene=1`）已完全 GameProject 驱动，与旧 Act1 对齐：醒来→移动→点火→拾取→装备武器→双波战斗（野狗+饥民）→倒计时死亡过渡→切第二幕，全程零硬编码。
-- [ ] [验收] **删除 PrologueManager / 用 DataDrivenPrologueScene 替换默认 Act1**（高风险，待用户确认；当前新旧并存，默认走旧 Act1，`?ddscene=1` 走数据驱动）。
+- [x] [验收] **删除 PrologueManager / 用 DataDrivenPrologueScene 替换默认 Act1**：已完成。默认入口走 DataDrivenPrologueScene，注册为 'Act1Scene' 兼容切幕。旧 Act1SceneECS.js / PrologueManager.js 已删除。`?ddscene=preview` 仍可用于静态预览。
 
 ### P5 — 无缝大地图流式（最大工程）
-- [ ] P5-1 统一世界坐标（相机/碰撞/实体全改世界坐标，§11 铁律）
-- [ ] P5-2 WorldStreamingManager：3×3 加载 / 离开>2 格卸载 / 局部↔世界转换
-- [ ] P5-3 LoadedChunk：instantiate/serialize/restoreState/destroy
-- [ ] P5-4 WorldTerrainRenderer：全局地形按视口裁剪渲染（无缝）
-- [ ] P5-5 世界地图 Tab：网格分配 scene + 全局地形编辑 + 拼接预览
-- [ ] [验收] 玩家跨 chunk 无缝移动，回头怪不复活，编辑器可编大地图
+- [x] P5-1 统一世界坐标：现有坐标系已是世界坐标（camera.position/entity.transform.position/getViewBounds 全部世界坐标），无需改造。
+- [x] P5-2 WorldStreamingManager（`src/core/WorldStreamingManager.js`）：九宫格 3×3 加载 / 曼哈顿>2 卸载 / worldToChunk / chunkOrigin / serialize/deserialize / onChunkLoad/onChunkUnload 回调
+- [x] P5-3 LoadedChunk（`src/core/LoadedChunk.js`）：instantiate（局部→世界坐标）/ serialize / restoreState / destroy / 状态持久化（pickedItems/killedEnemies/switches/npcPositions）
+- [x] P5-4 WorldTerrainRenderer（`src/rendering/WorldTerrainRenderer.js`）：全局地形按视口裁剪渲染 + 空间网格索引加速 + ShapeRenderer 渲染 shape
+- [x] P5-5 世界地图 Tab（`editor/WorldMapEditor.js`）：网格分配 scene + 缩略图预览 + 添加/删除行列 + 保存到 game.project.json
+- [ ] [验收] 玩家跨 chunk 无缝移动，回头怪不复活，编辑器可编大地图（框架已就位，运行时接入待集成到 BaseGameScene）
+
+### P5 补充：BaseGameScene 通用编辑器场景渲染（已完成）
+- [x] `BaseGameScene._initEditorTerrain()`：根据 actNumber→editorSceneId 映射，自动创建 Scene1Terrain 加载编辑器场景数据
+- [x] `BaseGameScene.renderBackground()`：有 terrain 时渲染编辑器场景（地形椭圆/shape/装饰物/背景图）
+- [x] `BaseGameScene.renderWorldObjects()`：有 terrain 时 Y-sort 渲染队列（装饰物+实体混排）
+- [x] `BaseGameScene.checkTerrainCollision()`：通用地形碰撞（椭圆/水池/树/shape）
+- [x] `Scene1Terrain._applyEditorOverrides()`：按 sceneId 动态查找 JSON 文件名（不再写死"序章"）
+- [x] 全局图集共享：`SceneEditor._mergeGlobalAtlases()` 每个场景自动合并全局 atlases.json
 
 ### P6 — 存档 + 性能 + 示例战场
 - [ ] P6-1 存档系统：chunk 状态 + 黑板 + 任务序列化/读档
@@ -557,8 +565,7 @@ VehicleSystem:
 - [ ] [验收] 存读档正确；大地图 60FPS；攻城战示例可玩
 
 ### 建议起步
-从 **P0** 开始（低风险、复用你已完成的椭圆/填充/淡化逻辑、为后续所有视觉编辑打底）。
-P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依赖它）。
+从 **P0** 开始（低风险、复用你已完成的椭圆/填充/淡化逻辑、为后续所有视觉编辑打底）。P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依赖它）。
 
 ## 17. 进度快照（截至当前）
 
@@ -701,3 +708,45 @@ P0 完成后 **P1** 是关键跳板（触发器内核，后续逻辑编辑全依
   - `trg_act6_ending_savior/leader/witness/survivor`(dialogueEnd{ending_xxx} + if act6Scene → setVar ending + giveReward(exp/gold 按结局递减) + showTip 结局达成)。
   - `ending` 变量写黑板，供将来正式游戏/存档读结局分支。
 - **至此全六幕剧情节点均已数据化接入**（序章完整流程 / 二觉醒救活 / 三铜钱剑 / 四拜师奖励 / 五 BOSS 台词+里程碑 / 六结局分支），全部事件源→触发器→动作，零改各幕核心逻辑。事件源模式覆盖：sceneEnter/interact/itemPickup/equipItem/classSelected/kill(含 name)/waveCleared/dialogueEnd(含 id)/playerMoved/panelOpen/计数阈值。
+
+### 17.13 P5 大地图流式 + 编辑器增强 + 面板编辑器（本轮）
+
+#### 已删除旧代码
+- **`Act1SceneECS.js`**（~2000 行旧硬编码第一幕）—— 由 DataDrivenPrologueScene 完全替代
+- **`PrologueManager.js`** + `PrologueManager.test.js` —— 由 GameLoader + TriggerSystem 替代
+- 默认入口改为 DataDrivenPrologueScene，注册为 `'Act1Scene'` 兼容切幕引用
+
+#### P5 大地图流式框架（已交付）
+| 文件 | 说明 |
+|------|------|
+| `src/core/WorldStreamingManager.js` | 九宫格流式：3×3 加载 / 曼哈顿>2 卸载 / worldToChunk / serialize/deserialize |
+| `src/core/LoadedChunk.js` | chunk 实体实例化（局部→世界）/ 状态持久化（picked/killed/switches/npc） |
+| `src/rendering/WorldTerrainRenderer.js` | 全局地形空间索引 + 按视口裁剪 + ShapeRenderer 渲染 |
+
+#### BaseGameScene 通用编辑器场景渲染（已完成）
+- `_initEditorTerrain()`：actNumber→editorSceneId 映射（1=scene_Prologue, 2=scene_Act2, ...），自动创建 Scene1Terrain
+- `renderBackground()`：有 terrain 时渲染编辑器场景数据
+- `renderWorldObjects()`：有 terrain 时 Y-sort 渲染队列（装饰物+实体混排+悬崖）
+- `checkTerrainCollision()`：通用碰撞（椭圆/水池/树/collide shape）+ `_resolveShapeCollision`
+- `Scene1Terrain`：按 sceneId 动态查找 JSON fallback 文件名（支持所有幕）
+- 全局图集共享：`SceneEditor._mergeGlobalAtlases()` + `SceneDataLoader.getGlobalAtlases()`
+
+#### 面板编辑器（新增）
+| 文件 | 说明 |
+|------|------|
+| `editor/PanelEditor.js` | 面板可视化编辑器：每个面板一个 tab（新增/删除），部件拖拽/缩放/属性编辑，10 种部件类型 |
+| `src/ui/PanelLayoutLoader.js` | 运行时加载 PanelLayout.json，供面板组件读取编辑器配置 |
+| `config/PanelLayout.json` | 默认面板布局数据（属性/装备/背包，匹配游戏实际样式） |
+| `editor/UIEditor.js` 增强 | 面板类组件用 canvas 绘制真实预览（读 PanelLayout.json） |
+| `src/ui/PlayerInfoPanel.js` | 新增 `applyPanelLayout(def)` + `_renderFromLayout(ctx)` 数据驱动渲染 |
+| `src/ui/InventoryPanel.js` | 新增 `applyPanelLayout(def)` 覆盖 slotsPerRow/maxVisibleRows/slotSize 等 |
+| `BaseGameScene._applyPanelLayout()` | 加载 PanelLayout.json 应用到属性/装备/背包面板 |
+
+#### 地图编辑器增强
+- 全选/复制/粘贴：3 个工具栏按钮（`editor-select-all/copy/paste`），不再用热键避免浏览器冲突
+- 全局图集共享：任何场景加载时自动合并 `config/atlases.json`
+
+#### 下一步
+1. **P5 验收**：集成 WorldStreamingManager 到 BaseGameScene，实现跨 chunk 移动
+2. **P6-1 存档**：chunk 状态 + 黑板 + 任务序列化/读档
+3. **P6-3 示例攻城战**：BattleConfig 驱动的完整关卡

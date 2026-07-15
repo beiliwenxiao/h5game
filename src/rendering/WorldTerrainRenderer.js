@@ -4,7 +4,7 @@
  * @project   H5Game - 基于HTML5的游戏引擎
  * @author    刘枭 (beiliwenxiao)
  * @email     beiliwenxiao@qq.com
- * @date      2026-07-14
+ * @date      2026-07-16
  * @blog      https://blog.csdn.net/beiliwenxiao
  * @repo      https://github.com/beiliwenxiao/h5game
  *            https://gitee.com/coderaaa/h5game
@@ -13,157 +13,192 @@
 import { ShapeRenderer } from './ShapeRenderer.js';
 
 /**
- * WorldTerrainRenderer - 无缝大地图地形渲染器（P5-4）
+ * WorldTerrainRenderer - 全局地形渲染器
  *
- * authority: 'client'  // 纯表现层
+ * 渲染跨 chunk 连续的世界地形（shape 定义，世界坐标）。
+ * 按相机视口裁剪，只画可见区域内的 shape，保证大地图下的渲染性能。
  *
- * 职责：
- *   - 渲染全局地形（worldTerrains 中的 shape 数据，世界坐标定义，跨 chunk 连续无缝）
- *   - 渲染已加载 chunk 的图层（背景 shape/deco/image/slice，局部坐标+origin 偏移）
- *   - 按相机视口裁剪，只画可见区域
- *   - 背景色填充
+ * 地形数据来自 GameProject.worldTerrains[terrainId]：
+ *   { shapes: Shape[], backgroundColor: string }
+ * shape 使用世界坐标定义，天然跨 chunk 无缝。
  *
- * 使用方式：
- *   const wtr = new WorldTerrainRenderer();
- *   wtr.init(worldTerrain, resolver);
- *   // 每帧渲染：
- *   wtr.render(ctx, camera, loadedChunks);
+ * 性能策略：
+ * - 空间网格索引（gridCellSize）加速视口裁剪
+ * - 静态 shape 离屏缓存（per-chunk 级别，可选）
  */
 export class WorldTerrainRenderer {
-  constructor() {
-    this.worldTerrain = null;  // { shapes:[], backgroundColor }
-    this.resolver = null;      // ShapeRenderer 的 resolver（getImage/getAtlas）
-    this._shapeRenderer = new ShapeRenderer();
-  }
-
   /**
-   * 初始化
-   * @param {Object} worldTerrain - project.worldTerrains[id] = { shapes:[], backgroundColor }
-   * @param {Object} resolver - { getImage(src), getAtlas(atlasId) } 供 ShapeRenderer
+   * @param {Object} options
+   * @param {Array} [options.shapes] - 地形 shape 数组（世界坐标）
+   * @param {string} [options.backgroundColor] - 全局背景色
+   * @param {number} [options.gridCellSize=512] - 空间索引格子大小
+   * @param {Object} [options.resolver] - ShapeRenderer 资源解析器
    */
-  init(worldTerrain, resolver) {
-    this.worldTerrain = worldTerrain || { shapes: [], backgroundColor: '#1a2a1a' };
-    this.resolver = resolver || {};
+  constructor(options = {}) {
+    this.shapes = options.shapes || [];
+    this.backgroundColor = options.backgroundColor || '#1a2a1a';
+    this.gridCellSize = options.gridCellSize || 512;
+    this.resolver = options.resolver || null;
+
+    // 空间网格索引：gridKey -> shape[]
+    this._grid = new Map();
+    this._buildSpatialIndex();
   }
 
   /**
-   * 渲染大地图地形
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {Object} camera - 相机（需有 getViewBounds()）
-   * @param {Array<LoadedChunk>} loadedChunks - 当前已加载的 chunk 列表
+   * 设置地形数据
+   * @param {Object} terrainData - { shapes, backgroundColor }
    */
-  render(ctx, camera, loadedChunks = []) {
-    const bounds = camera.getViewBounds();
-
-    // 1. 背景色填充（整个视口）
-    if (this.worldTerrain.backgroundColor) {
-      ctx.save();
-      ctx.fillStyle = this.worldTerrain.backgroundColor;
-      ctx.fillRect(0, 0, camera.width, camera.height);
-      ctx.restore();
-    }
-
-    // 2. 全局地形 shape（世界坐标，跨 chunk 无缝）
-    if (Array.isArray(this.worldTerrain.shapes)) {
-      ctx.save();
-      // 应用相机变换：世界坐标 → 屏幕坐标
-      ctx.translate(-bounds.left, -bounds.top);
-      for (const shape of this.worldTerrain.shapes) {
-        if (!this._shapeInView(shape, bounds)) continue;
-        ShapeRenderer.render(ctx, shape, this.resolver);
-      }
-      ctx.restore();
-    }
-
-    // 3. 各 chunk 的图层渲染（局部坐标 + origin 偏移）
-    for (const chunk of loadedChunks) {
-      if (!this._chunkInView(chunk, bounds, camera)) continue;
-      this._renderChunkLayers(ctx, chunk, bounds);
-    }
+  setTerrainData(terrainData) {
+    if (!terrainData) return;
+    this.shapes = terrainData.shapes || [];
+    this.backgroundColor = terrainData.backgroundColor || this.backgroundColor;
+    this._buildSpatialIndex();
   }
 
   /**
-   * 渲染单个 chunk 的图层
+   * 设置资源解析器
+   * @param {Object} resolver - { getImage(key), getSliceSource(shape) }
+   */
+  setResolver(resolver) {
+    this.resolver = resolver;
+  }
+
+  /**
+   * 构建空间网格索引
    * @private
    */
-  _renderChunkLayers(ctx, chunk, bounds) {
-    if (!Array.isArray(chunk.layers)) return;
+  _buildSpatialIndex() {
+    this._grid.clear();
+    const cellSize = this.gridCellSize;
 
-    ctx.save();
-    // 偏移到 chunk 世界原点（相对视口）
-    ctx.translate(chunk.origin.x - bounds.left, chunk.origin.y - bounds.top);
+    for (const shape of this.shapes) {
+      const bounds = this._getShapeBounds(shape);
+      if (!bounds) continue;
 
-    for (const layer of chunk.layers) {
-      if (layer.visible === false) continue;
-      if (!Array.isArray(layer.objects)) continue;
+      const startCol = Math.floor(bounds.left / cellSize);
+      const endCol = Math.floor(bounds.right / cellSize);
+      const startRow = Math.floor(bounds.top / cellSize);
+      const endRow = Math.floor(bounds.bottom / cellSize);
 
-      for (const obj of layer.objects) {
-        if (obj.type === 'shape' || obj.type === 'fill' || obj.type === 'ellipse') {
-          ShapeRenderer.render(ctx, obj, this.resolver);
-        } else if (obj.type === 'deco') {
-          this._renderDeco(ctx, obj);
-        } else if (obj.type === 'image') {
-          this._renderImage(ctx, obj);
+      for (let r = startRow; r <= endRow; r++) {
+        for (let c = startCol; c <= endCol; c++) {
+          const key = `${c},${r}`;
+          if (!this._grid.has(key)) this._grid.set(key, []);
+          this._grid.get(key).push(shape);
         }
-        // ref/spawn/region 等逻辑对象不渲染
       }
     }
-
-    ctx.restore();
   }
 
   /**
-   * 渲染装饰物（简易：用 resolver 取图集切片绘制）
+   * 获取 shape 的 AABB 包围盒
    * @private
    */
-  _renderDeco(ctx, obj) {
-    // 尝试从 resolver 获取图集切片
-    if (!this.resolver || !this.resolver.getDecoSprite) return;
-    const sprite = this.resolver.getDecoSprite(obj.decoKey);
-    if (!sprite || !sprite.image) return;
-
-    const w = obj.width || sprite.sw * (obj.scale || 1);
-    const h = obj.height || sprite.sh * (obj.scale || 1);
-    ctx.drawImage(sprite.image, sprite.sx, sprite.sy, sprite.sw, sprite.sh, obj.x, obj.y, w, h);
-  }
-
-  /**
-   * 渲染图片对象
-   * @private
-   */
-  _renderImage(ctx, obj) {
-    if (!this.resolver || !this.resolver.getImage) return;
-    const img = this.resolver.getImage(obj.imageId || obj.imageSrc);
-    if (!img || !img.complete) return;
-
-    const w = obj.width || img.naturalWidth;
-    const h = obj.height || img.naturalHeight;
-    ctx.drawImage(img, obj.x || 0, obj.y || 0, w, h);
-  }
-
-  /**
-   * 粗裁剪：shape 是否在视口内
-   * @private
-   */
-  _shapeInView(shape, bounds) {
-    // 简单包围盒检查
+  _getShapeBounds(shape) {
     const x = shape.x || 0;
     const y = shape.y || 0;
-    const w = shape.width || shape.radius * 2 || 200;
-    const h = shape.height || shape.radius * 2 || 200;
-    return !(x + w < bounds.left || x > bounds.right || y + h < bounds.top || y > bounds.bottom);
+    const w = shape.width || 0;
+    const h = shape.height || 0;
+
+    if (shape.shapeType === 'polygon' || shape.shapeType === 'path') {
+      if (!shape.points || shape.points.length === 0) return null;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const [px, py] of shape.points) {
+        const wx = x + px;
+        const wy = y + py;
+        if (wx < minX) minX = wx;
+        if (wy < minY) minY = wy;
+        if (wx > maxX) maxX = wx;
+        if (wy > maxY) maxY = wy;
+      }
+      return { left: minX, top: minY, right: maxX, bottom: maxY };
+    }
+
+    return { left: x, top: y, right: x + w, bottom: y + h };
   }
 
   /**
-   * 粗裁剪：chunk 是否在视口内
-   * @private
+   * 查询视口内的 shape（使用空间索引加速）
+   * @param {{left, top, right, bottom}} viewBounds - 相机视口（世界坐标）
+   * @returns {Array} 可能可见的 shape 列表（可能有少量重复，但无大影响）
    */
-  _chunkInView(chunk, bounds, camera) {
-    const ox = chunk.origin.x, oy = chunk.origin.y;
-    // chunk 尺寸从 sceneData 或默认 1280x720
-    const cw = (chunk.sceneData && chunk.sceneData.size && chunk.sceneData.size.width) || 1280;
-    const ch = (chunk.sceneData && chunk.sceneData.size && chunk.sceneData.size.height) || 720;
-    return !(ox + cw < bounds.left || ox > bounds.right || oy + ch < bounds.top || oy > bounds.bottom);
+  queryVisible(viewBounds) {
+    const cellSize = this.gridCellSize;
+    const startCol = Math.floor(viewBounds.left / cellSize);
+    const endCol = Math.floor(viewBounds.right / cellSize);
+    const startRow = Math.floor(viewBounds.top / cellSize);
+    const endRow = Math.floor(viewBounds.bottom / cellSize);
+
+    const seen = new Set();
+    const result = [];
+
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        const key = `${c},${r}`;
+        const shapes = this._grid.get(key);
+        if (!shapes) continue;
+        for (const shape of shapes) {
+          if (!seen.has(shape)) {
+            seen.add(shape);
+            result.push(shape);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * 渲染地形（只画视口内可见的 shape）
+   * 调用前 ctx 应已应用相机 translate（世界坐标系）
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {{left, top, right, bottom}} viewBounds - 相机视口
+   */
+  render(ctx, viewBounds) {
+    // 全局背景色
+    ctx.fillStyle = this.backgroundColor;
+    ctx.fillRect(viewBounds.left, viewBounds.top,
+      viewBounds.right - viewBounds.left,
+      viewBounds.bottom - viewBounds.top);
+
+    // 渲染可见 shape
+    const visible = this.queryVisible(viewBounds);
+    for (const shape of visible) {
+      ShapeRenderer.render(ctx, shape, this.resolver);
+    }
+  }
+
+  /**
+   * 添加 shape 到地形
+   * @param {Object} shape
+   */
+  addShape(shape) {
+    this.shapes.push(shape);
+    // 增量更新索引
+    const bounds = this._getShapeBounds(shape);
+    if (!bounds) return;
+    const cellSize = this.gridCellSize;
+    const startCol = Math.floor(bounds.left / cellSize);
+    const endCol = Math.floor(bounds.right / cellSize);
+    const startRow = Math.floor(bounds.top / cellSize);
+    const endRow = Math.floor(bounds.bottom / cellSize);
+    for (let r = startRow; r <= endRow; r++) {
+      for (let c = startCol; c <= endCol; c++) {
+        const key = `${c},${r}`;
+        if (!this._grid.has(key)) this._grid.set(key, []);
+        this._grid.get(key).push(shape);
+      }
+    }
+  }
+
+  /**
+   * 清空地形数据
+   */
+  clear() {
+    this.shapes = [];
+    this._grid.clear();
   }
 }
 

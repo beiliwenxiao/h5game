@@ -355,9 +355,10 @@ export class Act2Scene extends BaseGameScene {
       else if (this.waitingForEquip && !this.isSceneComplete && this.checkEquipmentDone()) {
         this.isSceneComplete = true;
         this.notify('装备完成！即将进入第三幕...', 'success');
-        setTimeout(() => {
-          this.transitionToAct3();
-        }, 2000);
+        // 触发器驱动切幕（fire sceneComplete → 触发器 promptSwitch）
+        if (this.gameLoader && this.gameLoader.triggerSystem) {
+          this.gameLoader.triggerSystem.fire('sceneComplete', { sceneId: 'Act2Scene' });
+        }
       }
     }
   }

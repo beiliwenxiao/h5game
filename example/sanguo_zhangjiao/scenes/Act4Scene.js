@@ -938,14 +938,15 @@ export class Act4Scene extends BaseGameScene {
       }
     }
 
-    // N键 - 前往第五幕
+    // N键 - 前往第五幕（通过触发器驱动）
     const nPressed = this.inputManager.isKeyDown('n') || this.inputManager.isKeyDown('N');
-    if (nPressed) {
+    if (nPressed && this.classSelected) {
       const now = Date.now();
       if (!this._lastNextSceneTime || now - this._lastNextSceneTime > 1000) {
         this._lastNextSceneTime = now;
-        console.log('Act4Scene: N键触发，切换到第五幕');
-        this.switchToNextScene();
+        if (this.gameLoader && this.gameLoader.triggerSystem) {
+          this.gameLoader.triggerSystem.fire('sceneComplete', { sceneId: 'Act4Scene' });
+        }
       }
     }
   }

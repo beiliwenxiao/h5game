@@ -263,9 +263,11 @@ export class TriggerEditor {
       .trg-hint{margin-left:auto;color:#8aa;font-size:12px;}
       .trg-main{flex:1;display:flex;overflow:hidden;}
       .trg-list{width:240px;background:#111a30;border-right:1px solid #2a3a5e;overflow-y:auto;}
-      .trg-item{padding:10px 14px;border-bottom:1px solid #1e2b47;cursor:pointer;}
+      .trg-item{padding:10px 14px;border-bottom:1px solid #1e2b47;cursor:pointer;display:flex;align-items:center;gap:6px;}
       .trg-item:hover{background:#1a2540;}
       .trg-item.active{background:#2a3a6e;}
+      .trg-item.disabled{opacity:0.45;}
+      .trg-item .trg-status{font-size:10px;flex-shrink:0;}
       .trg-item .tid{font-weight:bold;font-size:13px;}
       .trg-item .twhen{font-size:11px;color:#9ab;}
       .trg-detail{flex:1;padding:16px;overflow-y:auto;}
@@ -301,9 +303,11 @@ export class TriggerEditor {
     list.innerHTML = '';
     this.triggers.forEach((t, i) => {
       const item = document.createElement('div');
-      item.className = 'trg-item' + (i === this.selectedIndex ? ' active' : '');
+      const disabled = t.enabled === false;
+      item.className = 'trg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
       const whenLabel = (WHEN_TYPES.find(w => w.v === t.when?.type) || {}).label || t.when?.type || '?';
-      item.innerHTML = `<div class="tid">${t.id || '(未命名)'}</div><div class="twhen">when: ${whenLabel}</div>`;
+      const statusIcon = disabled ? '⏸' : '▶';
+      item.innerHTML = `<span class="trg-status">${statusIcon}</span><div class="tid">${t.id || '(未命名)'}</div><div class="twhen">when: ${whenLabel}</div>`;
       item.addEventListener('click', () => {
         this._commitDetail();
         this.selectedIndex = i;
@@ -365,6 +369,7 @@ export class TriggerEditor {
 
     panel.innerHTML = `
       <div class="row"><label>ID</label><input type="text" id="d-id" value="${t.id || ''}"></div>
+      <div class="row"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="d-enabled" ${t.enabled !== false ? 'checked' : ''}> 启用</label></div>
       <div class="row"><label>触发时机 when.type</label><select id="d-when-type">${whenOpts}</select></div>
       ${timerRow}
       <div class="row"><label>when.params (JSON)</label><textarea id="d-when-params" placeholder='如 {"sceneId":"scene_a"}'>${this._json(t.when?.params)}</textarea></div>
@@ -466,6 +471,13 @@ export class TriggerEditor {
     if (!t || !panel || !panel.querySelector('#d-id')) return;
 
     t.id = panel.querySelector('#d-id').value.trim() || t.id;
+    // enabled：未勾选 = false（停用），勾选 = 删除字段（默认启用）
+    const enabledEl = panel.querySelector('#d-enabled');
+    if (enabledEl && !enabledEl.checked) {
+      t.enabled = false;
+    } else {
+      delete t.enabled; // 默认启用不写字段，保持 JSON 简洁
+    }
     t.when = t.when || {};
     t.when.type = panel.querySelector('#d-when-type').value;
     t.when.params = this._parseJson(panel.querySelector('#d-when-params').value, {});

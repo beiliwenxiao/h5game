@@ -121,6 +121,8 @@ export class TriggerSystem {
 
   /** 尝试执行触发器（检查 once/cooldown/if 条件） */
   _tryRun(t) {
+    // 停用的触发器不执行
+    if (t.enabled === false) return;
     if (t.once && this._firedOnce.has(t.id)) return;
     const now = Date.now();
     if (t.cooldown && this._cooldowns[t.id] && now < this._cooldowns[t.id]) return;

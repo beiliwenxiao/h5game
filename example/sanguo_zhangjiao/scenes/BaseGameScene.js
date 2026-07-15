@@ -49,6 +49,7 @@ import { UILayoutLoader } from '../../../src/ui/UILayoutLoader.js';
 import { PanelLayoutLoader } from '../../../src/ui/PanelLayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
+import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
 import { WeaponRenderer } from '../../../src/rendering/WeaponRenderer.js';
 import { EnemyWeaponRenderer } from '../../../src/rendering/EnemyWeaponRenderer.js';
@@ -83,6 +84,11 @@ export class BaseGameScene extends PrologueScene {
     
     // 调试模式（开启后显示坐标标记和日志）
     this.debugMode = false;
+
+    // 编辑器场景渲染器（通用，所有幕共享 Scene1Terrain 加载和渲染能力）
+    // actNumber → editorSceneId 映射，子类可覆盖 this.editorSceneId
+    this.terrain = null;
+    this.editorSceneId = sceneData.editorSceneId || this._getDefaultEditorSceneId(actNumber);
     
     // 核心系统
     this.inputManager = null;
@@ -245,6 +251,9 @@ export class BaseGameScene extends PrologueScene {
     
     // 生成等距地图
     this.generateIsometricMap();
+
+    // 初始化编辑器场景地形（所有幕通用，如果编辑器有该场景数据就加载渲染）
+    this._initEditorTerrain();
     
     // 初始化输入管理器
     this.inputManager = new InputManager(canvas);
@@ -2102,6 +2111,9 @@ export class BaseGameScene extends PrologueScene {
     // 检查实体之间的碰撞
     this.collisionSystem.update(this.entities);
     
+    // 检查地形碰撞（编辑器场景有 terrain 时生效）
+    this.checkTerrainCollision();
+    
     // 处理敌人选中
     this.handleEnemySelection();
     
@@ -3111,12 +3123,53 @@ export class BaseGameScene extends PrologueScene {
    * 渲染世界对象（实体等）- 子类可覆盖以添加自定义渲染顺序
    */
   renderWorldObjects(ctx) {
-    // 使用等距渲染器的深度排序（如果可用）
+    // 如果有编辑器地形，使用 Y-sort 渲染队列（实体+装饰物混排）
+    if (this.terrain) {
+      const renderQueue = [];
+
+      // 地表层装饰物（草，始终在最底层）
+      this.terrain.renderBelowDecorations(ctx);
+
+      // 把装饰物（树等碰撞物）加入 Y-sort 队列
+      this.terrain.collectDecorations(renderQueue, ctx);
+
+      // 把实体加入 Y-sort 队列
+      for (const entity of this.entities) {
+        const transform = entity.getComponent('transform');
+        if (transform) {
+          renderQueue.push({
+            type: 'entity',
+            y: transform.position.y,
+            entity: entity
+          });
+        }
+      }
+
+      // 按 Y 排序
+      renderQueue.sort((a, b) => a.y - b.y);
+
+      // 渲染
+      for (const item of renderQueue) {
+        if (item.type === 'entity') {
+          this.renderEntity(ctx, item.entity);
+        } else if (item.render) {
+          item.render();
+        }
+      }
+
+      // 悬崖（在所有之上）
+      this.terrain.renderCliffs(ctx);
+
+      // 气泡对话
+      this.renderSpeechBubbles(ctx);
+      return;
+    }
+
+    // 无编辑器地形时，走原来的排序逻辑
     let sortedEntities;
     if (this.isometricRenderer) {
       sortedEntities = this.isometricRenderer.sortByDepth(this.entities);
     } else {
-      // 备用：按Y坐标排序
       sortedEntities = [...this.entities].sort((a, b) => {
         const transformA = a.getComponent('transform');
         const transformB = b.getComponent('transform');
@@ -3284,6 +3337,16 @@ export class BaseGameScene extends PrologueScene {
    * 渲染背景 - 子类覆盖
    */
   renderBackground(ctx) {
+    // 优先使用编辑器场景地形渲染
+    if (this.terrain) {
+      // 盆地外整体淡黑色
+      const vb = this.camera.getViewBounds();
+      ctx.fillStyle = this.terrain.sceneBackgroundColor || '#1f1a14';
+      ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
+      // 盆地草地+水池+shape
+      this.terrain.renderGround(ctx);
+      return;
+    }
     // 渲染等距地图
     if (this.isometricRenderer) {
       // 先绘制无限延伸的网格
@@ -3298,6 +3361,186 @@ export class BaseGameScene extends PrologueScene {
       // 备用：简单背景
       ctx.fillStyle = '#2a2a2a';
       ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    }
+  }
+
+  // ─── 编辑器场景地形（通用，所有幕共享） ────────────────────
+
+  /**
+   * actNumber → 编辑器场景 ID 的默认映射
+   * 子类可覆盖 this.editorSceneId 来自定义
+   */
+  _getDefaultEditorSceneId(actNumber) {
+    const map = {
+      1: 'scene_Prologue',
+      2: 'scene_Act2',
+      3: 'scene_Act3',
+      4: 'scene_Act4',
+      5: 'scene_Act5',
+      6: 'scene_Act6'
+    };
+    return map[actNumber] || `scene_Act${actNumber}`;
+  }
+
+  /**
+   * 初始化编辑器场景地形
+   * 如果编辑器中有对应场景数据（localStorage 或 JSON），创建 Scene1Terrain 渲染
+   * 子类已自行创建 this.terrain 时跳过
+   */
+  _initEditorTerrain() {
+    // 子类（如 Act1SceneECS / DataDrivenPrologueScene）已自行创建 terrain 时不覆盖
+    if (this.terrain) return;
+
+    // 检查编辑器中是否有该场景的数据
+    const gameId = 'sanguo_zhangjiao';
+    const sceneId = this.editorSceneId;
+    let hasData = false;
+
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        if (raw) {
+          const scenes = JSON.parse(raw);
+          if (Array.isArray(scenes) && scenes.find(s => s && s.id === sceneId)) {
+            hasData = true;
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    if (!hasData) return; // 编辑器没有这个场景的数据，走旧逻辑
+
+    // 创建通用地形实例，加载编辑器场景数据
+    const cx = this.logicalWidth / 2;
+    const cy = this.logicalHeight / 2;
+    this.terrain = new Scene1Terrain({
+      centerX: cx,
+      centerY: cy,
+      width: this.logicalWidth,
+      height: this.logicalHeight,
+      editorGameId: gameId,
+      editorSceneId: sceneId
+    });
+  }
+
+  /**
+   * 检查地形碰撞（通用：椭圆盆地边界 + 水池 + 树 + collide shape）
+   * 有 terrain 时自动生效；子类覆盖可扩展
+   */
+  checkTerrainCollision() {
+    if (!this.terrain) return;
+
+    const t = this.terrain;
+    const cx = t.centerX;
+    const cy = t.centerY;
+    const irx = t.basinInnerRadiusX;
+    const iry = t.basinInnerRadiusY;
+    const halfAng = t.entranceAngleHalfWidth;
+
+    for (const entity of this.entities) {
+      if (entity.isDead || entity.isDying) continue;
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      const p = transform.position;
+
+      // 1. 椭圆盆地边界（南向留入口扇形）
+      if (irx && iry) {
+        let dx = p.x - cx;
+        let dy = p.y - cy;
+        const ed = Math.hypot(dx / irx, dy / iry);
+        if (ed < 0.85) entity._leftBasin = false;
+        if (!entity._leftBasin && ed > 1) {
+          const ang = Math.atan2(dy, dx);
+          const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          const inEntranceFan = angDist < halfAng;
+          if (inEntranceFan) {
+            entity._leftBasin = true;
+          } else if (ed > 0.001) {
+            const k = 0.99 / ed;
+            p.x = cx + dx * k;
+            p.y = cy + dy * k;
+          }
+        }
+      }
+
+      // 2. 水池碰撞
+      for (const pond of t.waterPatches) {
+        const pdx = p.x - pond.x;
+        const pdy = p.y - pond.y;
+        const nx = pdx / pond.rx;
+        const ny = pdy / pond.ry;
+        const d2 = nx * nx + ny * ny;
+        if (d2 < 1 && d2 > 0) {
+          const k = 1 / Math.sqrt(d2);
+          p.x = pond.x + pdx * k * 1.02;
+          p.y = pond.y + pdy * k * 1.02;
+        } else if (d2 === 0) {
+          p.y = pond.y - pond.ry - 1;
+        }
+      }
+
+      // 3. 树木碰撞
+      const entityRadius = 12;
+      const trees = t.getTreeColliders();
+      for (const tree of trees) {
+        const tdx = p.x - tree.x;
+        const tdy = p.y - tree.y;
+        const minDist = tree.r + entityRadius;
+        const d2 = tdx * tdx + tdy * tdy;
+        if (d2 < minDist * minDist) {
+          const td = Math.sqrt(d2);
+          if (td > 0.001) {
+            const k = minDist / td;
+            p.x = tree.x + tdx * k;
+            p.y = tree.y + tdy * k;
+          } else {
+            p.y = tree.y + minDist;
+          }
+        }
+      }
+
+      // 4. collide shape 碰撞
+      if (t._collisionShapes && t._collisionShapes.length) {
+        for (const s of t._collisionShapes) {
+          this._resolveShapeCollision(p, s, entityRadius);
+        }
+      }
+    }
+  }
+
+  /**
+   * 将实体推出 collide shape
+   * @private
+   */
+  _resolveShapeCollision(p, s, radius) {
+    const t = this.terrain;
+    if (!t || !t._pointInCollisionShape || !t._pointInCollisionShape(s, p.x, p.y)) return;
+    const EPS = 0.5;
+    const st = s.shapeType;
+    if (st === 'circle' || st === 'ellipse') {
+      const scx = (s.x || 0) + (s.width || 0) / 2;
+      const scy = (s.y || 0) + (s.height || 0) / 2;
+      const dirx = p.x - scx, diry = p.y - scy;
+      const dl = Math.hypot(dirx, diry) || 1;
+      const rx = (st === 'circle' ? Math.min(s.width, s.height) : s.width) / 2 || 1;
+      const ry = (st === 'circle' ? Math.min(s.width, s.height) : s.height) / 2 || 1;
+      const ux = dirx / rx, uy = diry / ry;
+      const d = Math.hypot(ux, uy) || 1;
+      p.x = scx + dirx / d + dirx / dl * EPS;
+      p.y = scy + diry / d + diry / dl * EPS;
+    } else if (st === 'polygon' || st === 'path') {
+      // 多边形推出：找最近边，推到外侧
+      if (t._pushOutOfPolygon) t._pushOutOfPolygon(p, s);
+    } else {
+      // rect: 推出到最近边
+      const left = s.x || 0, top = s.y || 0;
+      const right = left + (s.width || 0), bottom = top + (s.height || 0);
+      const dL = p.x - left, dR = right - p.x, dT = p.y - top, dB = bottom - p.y;
+      const minD = Math.min(dL, dR, dT, dB);
+      if (minD === dL) p.x = left - EPS;
+      else if (minD === dR) p.x = right + EPS;
+      else if (minD === dT) p.y = top - EPS;
+      else p.y = bottom + EPS;
     }
   }
 

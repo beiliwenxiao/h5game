@@ -691,7 +691,6 @@
     </div>
     
     <script type="module">
-        import { Act1SceneECS } from './scenes/Act1SceneECS.js';
         import { DataDrivenScene } from './scenes/DataDrivenScene.js';
         import { DataDrivenPrologueScene } from './scenes/DataDrivenPrologueScene.js';
         import { Act2Scene } from './scenes/Act2Scene.js';
@@ -944,11 +943,6 @@
                 await sleep(300);
                 
                 updateLoading(60, '注册场景...');
-                // 创建并注册第一幕场景
-                const act1Scene = new Act1SceneECS();
-                act1Scene.assetManager = assetManager; // 传递 AssetManager
-                sceneManager.registerScene('Act1Scene', act1Scene);
-                sceneManager.registerScene('Act1SceneECS', act1Scene); // 兼容旧名称
                 
                 // 创建并注册第二幕场景
                 const act2Scene = new Act2Scene();
@@ -976,7 +970,6 @@
                 sceneManager.registerScene('Act6Scene', act6Scene);
                 
                 // 设置场景管理器引用
-                act1Scene.setSceneManager(sceneManager);
                 act2Scene.setSceneManager(sceneManager);
                 act3Scene.setSceneManager(sceneManager);
                 act4Scene.setSceneManager(sceneManager);
@@ -990,16 +983,14 @@
                     maxNotifications: 5
                 });
                 
-                scene = act1Scene;
+                scene = null;
                 await sleep(500);
                 
                 updateLoading(75, '初始化玩家实体...');
                 
                 // 使用场景管理器切换到第一幕
                 updateLoading(90, '进入第一幕...');
-                // 【P4-5 并存试点】默认走旧 Act1；带参数时改用数据驱动场景做并列对照：
-                //   ?ddscene=1        → 可玩数据驱动序章（继承 BaseGameScene，复用可玩管线）
-                //   ?ddscene=preview  → 轻量静态预览（ShapeRenderer，仅看渲染）
+                // ?ddscene=preview → 轻量静态预览；否则默认走数据驱动序章
                 const _ddSceneId = new URLSearchParams(location.search).get('ddscene');
                 if (_ddSceneId === 'preview') {
                     const dd = new DataDrivenScene('DataDrivenScene', { sceneManager });
@@ -1007,47 +998,27 @@
                         await dd.loadProjectUrl('game.project.json');
                         await dd.loadEditorScene('sanguo_zhangjiao', 'scene_Prologue', 'assets/scenes/');
                     } catch (e) {
-                        console.warn('[P4-5] DataDrivenScene 预览加载失败', e);
+                        console.warn('DataDrivenScene 预览加载失败', e);
                     }
                     sceneManager.registerScene('DataDrivenScene', dd);
                     scene = dd;
                     sceneManager.switchTo('DataDrivenScene');
-                    console.log('[P4-5] 已进入数据驱动静态预览');
-                } else if (_ddSceneId) {
-                    // 可玩数据驱动序章
+                } else {
+                    // 默认：数据驱动序章
                     const dd = new DataDrivenPrologueScene();
                     dd.assetManager = assetManager;
+                    sceneManager.registerScene('Act1Scene', dd); // 兼容旧名称引用
                     sceneManager.registerScene('DataDrivenPrologueScene', dd);
                     dd.setSceneManager(sceneManager);
                     scene = dd;
                     sceneManager.switchTo('DataDrivenPrologueScene');
-                    console.log('[P4-5] 已进入可玩数据驱动序章');
-                } else {
-                    sceneManager.switchTo('Act1Scene');
                 }
                 await sleep(500);
                 
-                // 场景进入后，设置教程回调（此时教程系统已初始化）
-                console.log('设置教程回调...');
-                setupSceneCallbacks(act1Scene);
+                // 场景进入后，设置教程回调
                 setupSceneCallbacks(act2Scene);
                 setupSceneCallbacks(act3Scene);
-                
-                // 重新触发第一个教程显示（因为之前回调还没设置）
-                // 数据驱动场景(?ddscene)不走 Act1 硬编码教程，跳过
-                if (!new URLSearchParams(location.search).get('ddscene')) {
-                    console.log('尝试显示第一个教程...');
-                    console.log('tutorialSystem 存在:', !!act1Scene.tutorialSystem);
-                    console.log('progressive_tip_1 已完成:', act1Scene.tutorialsCompleted.progressive_tip_1);
-
-                    if (act1Scene.tutorialSystem && !act1Scene.tutorialsCompleted.progressive_tip_1) {
-                        // 先清除之前的教程状态（因为回调还没设置时就显示了）
-                        act1Scene.tutorialSystem.currentTutorial = null;
-
-                        const result = act1Scene.tutorialSystem.showTutorial('progressive_tip_1');
-                        console.log('showTutorial 返回:', result);
-                    }
-                }
+                if (scene) setupSceneCallbacks(scene);
                 
                 updateLoading(100, '完成！');
                 await sleep(500);

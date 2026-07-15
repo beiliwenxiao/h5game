@@ -204,8 +204,17 @@ export class Scene1Terrain {
     
     // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
     if (!scene) {
-      // 场景 JSON 存在 assets/scenes/ 下（不是图片目录 assetBase）
-      const jsonFile = '序章 - 盆地营地.json';
+      // 场景名映射（与编辑器保存的文件名一致）
+      const sceneFileNames = {
+        'scene_Prologue': '序章 - 盆地营地.json',
+        'scene_Act1': '第一幕 - 起义军营.json',
+        'scene_Act2': '第二幕 - 战场.json',
+        'scene_Act3': '第三幕 - 城池.json',
+        'scene_Act4': '第四幕 - 山寨.json',
+        'scene_Act5': '第五幕 - 决战.json',
+        'scene_Act6': '第六幕 - 结局.json'
+      };
+      const jsonFile = sceneFileNames[sceneId] || (sceneId + '.json');
       const jsonPath = 'assets/scenes/' + encodeURIComponent(jsonFile).replace(/%2F/g, '/');
       fetch(jsonPath)
         .then(res => res.ok ? res.json() : null)

@@ -549,6 +549,7 @@ export class SceneEditorInteraction {
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'z') { e.preventDefault(); editor.history.undo(); }
       else if (e.key === 'y') { e.preventDefault(); editor.history.redo(); }
+      return;
     }
 
     if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -558,5 +559,67 @@ export class SceneEditorInteraction {
     if (e.key === 'v' || e.key === 'V') editor.ui.setMode('select');
     else if (e.key === 'h' || e.key === 'H') editor.ui.setMode('pan');
     else if (e.key === 'p' || e.key === 'P') editor.ui.setMode('place');
+  }
+
+  /**
+   * 全选当前激活图层的所有对象
+   */
+  _selectAll() {
+    const editor = this.editor;
+    const layers = editor.sceneData.layers;
+    if (!layers || layers.length === 0) return;
+    const layer = layers[editor.activeLayerIndex];
+    if (!layer || !layer.objects || layer.locked || !layer.visible) return;
+    editor.selectedObjects = [...layer.objects];
+    editor.canvas.render();
+    editor.ui.updateObjectProperties();
+  }
+
+  /**
+   * 复制选中的对象到剪贴板
+   */
+  _copySelection() {
+    const editor = this.editor;
+    if (editor.selectedObjects.length === 0) return;
+    // 深拷贝选中对象
+    this._clipboard = JSON.parse(JSON.stringify(editor.selectedObjects));
+    editor.ui.showToast(`已复制 ${this._clipboard.length} 个对象`);
+  }
+
+  /**
+   * 粘贴剪贴板中的对象（偏移 20px 避免完全重叠）
+   */
+  _pasteSelection() {
+    const editor = this.editor;
+    if (!this._clipboard || this._clipboard.length === 0) return;
+    const layers = editor.sceneData.layers;
+    if (!layers || layers.length === 0) return;
+    const layer = layers[editor.activeLayerIndex];
+    if (!layer || layer.locked) {
+      editor.ui.showToast('当前图层已锁定，无法粘贴', true);
+      return;
+    }
+    if (!layer.objects) layer.objects = [];
+
+    const pasted = [];
+    const offset = 20;
+    for (const src of this._clipboard) {
+      const obj = JSON.parse(JSON.stringify(src));
+      // 偏移位置避免重叠
+      if (obj.x !== undefined) obj.x += offset;
+      if (obj.y !== undefined) obj.y += offset;
+      // 多边形/路径的点偏移
+      if (obj.points) {
+        obj.points = obj.points.map(p => [p[0] + offset, p[1] + offset]);
+      }
+      layer.objects.push(obj);
+      pasted.push(obj);
+    }
+
+    editor.selectedObjects = pasted;
+    editor.history.saveHistory();
+    editor.canvas.render();
+    editor.ui.updateObjectProperties();
+    editor.ui.showToast(`已粘贴 ${pasted.length} 个对象`);
   }
 }

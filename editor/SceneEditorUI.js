@@ -33,6 +33,9 @@ export class SceneEditorUI {
           <div class="toolbar-group">
             <button id="editor-save" class="primary" title="保存场景到工程（localStorage + assets/scenes JSON 文件）">💾 保存到工程</button>
             <button id="editor-clear-cache" title="清理本地 localStorage 缓存（下次从工程 JSON 文件重新加载）">🧹 清理缓存</button>
+            <button id="editor-select-all" title="全选当前图层所有对象">☐ 全选</button>
+            <button id="editor-copy" title="复制选中对象">📋 复制</button>
+            <button id="editor-paste" title="粘贴已复制的对象">📌 粘贴</button>
           </div>
           <div class="toolbar-group">
             <button id="editor-undo" title="撤销 (Ctrl+Z)">↶</button>

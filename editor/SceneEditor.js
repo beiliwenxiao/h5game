@@ -249,6 +249,13 @@ export class SceneEditor {
     document.getElementById('editor-save').addEventListener('click', () => this.history.save());
     const clearCacheBtn = document.getElementById('editor-clear-cache');
     if (clearCacheBtn) clearCacheBtn.addEventListener('click', () => { if (this.onClearCache) this.onClearCache(); });
+    // 全选/复制/粘贴按钮
+    const selAllBtn = document.getElementById('editor-select-all');
+    if (selAllBtn) selAllBtn.addEventListener('click', () => this.interactionModule._selectAll());
+    const copyBtn = document.getElementById('editor-copy');
+    if (copyBtn) copyBtn.addEventListener('click', () => this.interactionModule._copySelection());
+    const pasteBtn = document.getElementById('editor-paste');
+    if (pasteBtn) pasteBtn.addEventListener('click', () => this.interactionModule._pasteSelection());
     document.getElementById('editor-export').addEventListener('click', () => this.history.exportJSON());
     document.getElementById('editor-import').addEventListener('click', () => {
       document.getElementById('editor-json-input').click();

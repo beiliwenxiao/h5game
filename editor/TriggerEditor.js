@@ -307,7 +307,15 @@ export class TriggerEditor {
       item.className = 'trg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
       const whenLabel = (WHEN_TYPES.find(w => w.v === t.when?.type) || {}).label || t.when?.type || '?';
       const statusIcon = disabled ? '⏸' : '▶';
-      item.innerHTML = `<span class="trg-status">${statusIcon}</span><div class="tid">${t.id || '(未命名)'}</div><div class="twhen">when: ${whenLabel}</div>`;
+      item.innerHTML = `<span class="trg-status" data-toggle="${i}">${statusIcon}</span><div class="tid">${t.id || '(未命名)'}</div><div class="twhen">when: ${whenLabel}</div>`;
+      item.querySelector('.trg-status').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._commitDetail();
+        t.enabled = t.enabled === false ? undefined : false;
+        if (t.enabled === undefined) delete t.enabled;
+        this._renderList();
+        this._renderDetail();
+      });
       item.addEventListener('click', () => {
         this._commitDetail();
         this.selectedIndex = i;
@@ -396,6 +404,11 @@ export class TriggerEditor {
         t.do.splice(di, 1);
         this._renderDetail();
       });
+    });
+    // 启用/停用变化时即时刷新列表图标
+    panel.querySelector('#d-enabled').addEventListener('change', () => {
+      this._commitDetail();
+      this._renderList();
     });
     // when 类型变化即时刷新列表标签 + 重渲染详情（显示/隐藏 timer 专用字段）
     panel.querySelector('#d-when-type').addEventListener('change', (e) => {

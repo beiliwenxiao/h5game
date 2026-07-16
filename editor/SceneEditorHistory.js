@@ -39,6 +39,8 @@ export class SceneEditorHistory {
     this.undoStack.push(JSON.stringify(editor.sceneData));
     if (this.undoStack.length > this.maxSize) this.undoStack.shift();
     this.redoStack = [];
+    // 每次操作后自动持久化保存（写入 localStorage + 文件）
+    this.save();
   }
 
   /**

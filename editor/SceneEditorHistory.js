@@ -88,6 +88,9 @@ export class SceneEditorHistory {
     // 保存前清理 imageAssets：只保留场景中实际使用的图片
     this._cleanupImageAssets();
     
+    // 保存前截断位置参数精度（不超过小数点后2位）
+    this._roundPositionValues();
+    
     if (editor.onSceneChange) editor.onSceneChange(editor.sceneData);
     editor.ui.showToast('场景已保存');
     return editor.sceneData;
@@ -123,10 +126,34 @@ export class SceneEditorHistory {
   }
 
   /**
+   * 截断所有图层对象的位置/尺寸参数精度，不超过小数点后2位
+   * @private
+   */
+  _roundPositionValues() {
+    const editor = this.editor;
+    const r2 = (v) => Math.round(v * 100) / 100;
+    const posKeys = ['x', 'y', 'width', 'height', 'radius', 'scale'];
+
+    for (const layer of editor.sceneData.layers) {
+      if (!layer.objects) continue;
+      for (const obj of layer.objects) {
+        for (const key of posKeys) {
+          if (typeof obj[key] === 'number') obj[key] = r2(obj[key]);
+        }
+        // 多边形/路径的顶点
+        if (Array.isArray(obj.points)) {
+          obj.points = obj.points.map(p => [r2(p[0]), r2(p[1])]);
+        }
+      }
+    }
+  }
+
+  /**
    * 导出 JSON
    */
   exportJSON() {
     const editor = this.editor;
+    this._roundPositionValues();
     const json = JSON.stringify(editor.sceneData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

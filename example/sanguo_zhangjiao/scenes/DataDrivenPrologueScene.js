@@ -84,12 +84,39 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
 
-    // 盆地地形（与旧场景同一份编辑器数据，视觉+碰撞一致）
+    // 大地图 chunk 偏移：scene_Prologue 在 grid[0][1]，原点 (1280, 0)
+    const chunkWidth = 1280;
+    const chunkHeight = 720;
+    this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight }; // col=1, row=0
+
+    // 将火堆位置偏移到世界坐标
+    this.campfire.x += this._prologueOffset.x;
+    this.campfire.y += this._prologueOffset.y;
+
+    // 将玩家位置设为临时出生点（后续由编辑器放置点 type:'spawn' kind:'player' 覆盖）
+    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (playerTransform) {
+      playerTransform.position.x = 100;
+      playerTransform.position.y = 100;
+    }
+
+    // scene_Prologue 地形（世界坐标，传入 worldOffset 让所有对象自动偏移）
     this.terrain = new Scene1Terrain({
-      centerX: this.campfire.x,
-      centerY: this.campfire.y,
-      width: 1280,
-      height: 720
+      centerX: 350,
+      centerY: 250,
+      width: chunkWidth,
+      height: chunkHeight,
+      worldOffset: { x: this._prologueOffset.x, y: this._prologueOffset.y }
+    });
+
+    // scene_Act1 地形（grid[0][0]，原点 (0,0)，无偏移）
+    this.terrainAct1 = new Scene1Terrain({
+      centerX: 640,
+      centerY: 360,
+      width: chunkWidth,
+      height: chunkHeight,
+      editorSceneId: 'scene_Act1',
+      worldOffset: { x: 0, y: 0 }
     });
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
@@ -716,6 +743,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
     }
     this._placements = placements;
+    // 放置点坐标是场景局部坐标，需要加上 chunk 偏移转换为世界坐标
+    if (this._prologueOffset) {
+      for (const pl of this._placements) {
+        pl.x += this._prologueOffset.x;
+        pl.y += this._prologueOffset.y;
+      }
+    }
+
+    // 查找玩家出生点（编辑器中放置 type:'spawn', ref:'player'）
+    const playerSpawn = placements.find(pl => pl.type === 'spawn' && (pl.ref === 'player' || pl.kind === 'player'));
+    if (playerSpawn) {
+      const pt = this.playerEntity && this.playerEntity.getComponent('transform');
+      if (pt) {
+        pt.position.x = playerSpawn.x;
+        pt.position.y = playerSpawn.y;
+        console.log('[DDScene] 玩家出生点（编辑器）:', playerSpawn.x, playerSpawn.y);
+      }
+    }
+
     console.log('[DDScene] 场景放置点(type:ref):', placements.length);
   }
 
@@ -821,6 +867,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const vb = this.camera.getViewBounds();
       ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
       this.terrain.renderGround(ctx);
+      if (this.terrainAct1) this.terrainAct1.renderGround(ctx);
     } else {
       super.renderBackground(ctx);
     }
@@ -840,6 +887,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     if (this.terrain) this.terrain.renderBelowDecorations(ctx);
     if (this.terrain) this.terrain.collectDecorations(renderQueue, ctx);
+    if (this.terrainAct1) this.terrainAct1.renderBelowDecorations(ctx);
+    if (this.terrainAct1) this.terrainAct1.collectDecorations(renderQueue, ctx);
 
     renderQueue.sort((a, b) => a.y - b.y);
     for (const item of renderQueue) {
@@ -848,6 +897,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
 
     if (this.terrain) this.terrain.renderCliffs(ctx);
+    if (this.terrainAct1) this.terrainAct1.renderCliffs(ctx);
   }
 
   /** 火堆下半部分 */

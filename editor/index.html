@@ -844,6 +844,9 @@
                     list.innerHTML = '<div style="padding:15px;color:#666;text-align:center;">暂无场景，请创建新场景</div>';
                     return;
                 }
+
+                // 按名称排序
+                scenes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-CN'));
                 
                 list.innerHTML = scenes.map(scene => `
                     <div class="scene-item ${scene.id === this.currentSceneId ? 'active' : ''}" data-id="${scene.id}">

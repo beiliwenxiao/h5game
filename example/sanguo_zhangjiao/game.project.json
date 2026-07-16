@@ -19,15 +19,31 @@
         "id": "prologue_world",
         "chunkWidth": 1280,
         "chunkHeight": 720,
-        "cols": 2,
-        "rows": 2,
+        "cols": 4,
+        "rows": 4,
         "grid": [
           [
             "scene_Act1",
-            "scene_Prologue"
+            "scene_Prologue",
+            null,
+            null
           ],
           [
             "scene_south",
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
             null
           ]
         ]

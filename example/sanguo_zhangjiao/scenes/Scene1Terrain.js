@@ -41,8 +41,12 @@ export class Scene1Terrain {
    * @param {number} config.centerY - 盆地中心 Y（与火堆同 Y，250）
    * @param {number} config.width   - 盆地宽度（约一屏，1280）
    * @param {number} config.height  - 盆地高度（约一屏，720）
+   * @param {{x:number,y:number}} [config.worldOffset] - chunk 在世界中的偏移量
    */
   constructor(config = {}) {
+    // 世界偏移量（大地图 chunk 原点）
+    this.worldOffset = config.worldOffset || { x: 0, y: 0 };
+
     // 盆地中心 = 火堆位置
     this.centerX = config.centerX ?? 350;
     this.centerY = config.centerY ?? 250;
@@ -166,6 +170,11 @@ export class Scene1Terrain {
     this._buildDecorations();
     // 尝试应用游戏编辑器保存的场景数据（localStorage），实现编辑器与游戏联动
     this._applyEditorOverrides(config);
+
+    // 如果没有编辑器数据（_applySceneData 未执行），也需要对默认数据应用 worldOffset
+    if ((this.worldOffset.x !== 0 || this.worldOffset.y !== 0) && !this._worldOffsetApplied) {
+      this._applyWorldOffsetToDefaults();
+    }
   }
 
   /**
@@ -415,6 +424,98 @@ export class Scene1Terrain {
       this._combinedGroundCache = null;
       this._grassCanvas = null;
     }
+
+    // === 应用 worldOffset：把所有解析出的坐标从场景局部坐标转为世界坐标 ===
+    const ox = this.worldOffset.x;
+    const oy = this.worldOffset.y;
+    if (ox !== 0 || oy !== 0) {
+      this._worldOffsetApplied = true;
+      // 盆地中心
+      this.centerX += ox;
+      this.centerY += oy;
+      this.basinLeft += ox;
+      this.basinRight += ox;
+      this.basinTop += oy;
+      this.basinBottom += oy;
+      this.entranceCenterX = this.centerX;
+
+      // 装饰物（底部中心锚点）
+      for (const d of this.decorations) {
+        d.x += ox;
+        d.y += oy;
+      }
+      this._treeColliders = null;
+
+      // 水池
+      for (const p of this.waterPatches) {
+        p.x += ox;
+        p.y += oy;
+      }
+
+      // 背景图片
+      for (const bg of this._editorBackgroundImages) {
+        bg.x += ox;
+        bg.y += oy;
+      }
+
+      // 碰撞 shapes
+      for (const s of this._collisionShapes) {
+        if (s.x !== undefined) { s.x += ox; s.y += oy; }
+        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
+      }
+
+      // 渲染 shapes
+      for (const s of this._editorShapes) {
+        if (s.x !== undefined) { s.x += ox; s.y += oy; }
+        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
+      }
+
+      // 地形椭圆
+      if (this._terrainEllipse) {
+        this._terrainEllipse.cx += ox;
+        this._terrainEllipse.cy += oy;
+      }
+
+      this._combinedGroundCache = null;
+      this._grassCanvas = null;
+    }
+  }
+
+  /**
+   * 对程序化默认数据应用 worldOffset（无编辑器数据时的兜底）
+   * @private
+   */
+  _applyWorldOffsetToDefaults() {
+    const ox = this.worldOffset.x;
+    const oy = this.worldOffset.y;
+
+    this.centerX += ox;
+    this.centerY += oy;
+    this.basinLeft += ox;
+    this.basinRight += ox;
+    this.basinTop += oy;
+    this.basinBottom += oy;
+    this.entranceCenterX = this.centerX;
+
+    for (const d of this.decorations) {
+      d.x += ox;
+      d.y += oy;
+    }
+    this._treeColliders = null;
+
+    for (const p of this.waterPatches) {
+      p.x += ox;
+      p.y += oy;
+    }
+
+    if (this._terrainEllipse) {
+      this._terrainEllipse.cx += ox;
+      this._terrainEllipse.cy += oy;
+    }
+
+    this._combinedGroundCache = null;
+    this._grassCanvas = null;
+    this._worldOffsetApplied = true;
   }
 
   /**

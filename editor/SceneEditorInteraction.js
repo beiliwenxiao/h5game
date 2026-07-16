@@ -697,15 +697,18 @@ export class SceneEditorInteraction {
   }
 
   /**
-   * 全选当前激活图层的所有对象
+   * 全选所有未锁定可见图层中的对象
    */
   _selectAll() {
     const editor = this.editor;
     const layers = editor.sceneData.layers;
     if (!layers || layers.length === 0) return;
-    const layer = layers[editor.activeLayerIndex];
-    if (!layer || !layer.objects || layer.locked || !layer.visible) return;
-    editor.selectedObjects = [...layer.objects];
+    const allObjects = [];
+    for (const layer of layers) {
+      if (!layer || !layer.objects || layer.locked || !layer.visible) continue;
+      allObjects.push(...layer.objects);
+    }
+    editor.selectedObjects = allObjects;
     editor.canvas.render();
     editor.ui.updateObjectProperties();
   }

@@ -36,8 +36,8 @@
 .canvas-container canvas { position: absolute; top: 0; left: 0; }
 #editor-canvas { z-index: 1; }
 #editor-overlay { z-index: 2; pointer-events: none; }
-.zoom-controls { position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center; gap: 5px; background: rgba(22, 33, 62, 0.9); padding: 5px 10px; border-radius: 4px; }
-.zoom-controls button { width: 24px; height: 24px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; }
+.zoom-controls { position: absolute; bottom: 10px; right: 10px; display: flex; align-items: center; gap: 5px; background: rgba(22, 33, 62, 0.9); padding: 5px 10px; border-radius: 4px; z-index: 10; }
+.zoom-controls button { min-width: 28px; height: 28px; padding: 0 6px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px; white-space: nowrap; }
 .zoom-controls span { font-size: 12px; min-width: 50px; text-align: center; }
 .layer-list { max-height: 200px; overflow-y: auto; }
 .layer-item { display: flex; align-items: center; padding: 5px 6px; margin-bottom: 2px; background: #2a3a5e; border-radius: 4px; cursor: pointer; font-size: 11px; gap: 2px; }

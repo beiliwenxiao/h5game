@@ -29,23 +29,13 @@
           "sliceKey": "grassTile",
           "decoKey": null,
           "shapeType": "ellipse"
-        },
-        {
-          "id": "obj_1783095865778",
-          "type": "image",
-          "imageId": "img_1783095863410",
-          "x": -285.99999999999983,
-          "y": -103.12517580872012,
-          "width": 1280,
-          "height": 720,
-          "rotation": 0
         }
       ]
     },
     {
       "id": "layer_fill",
       "name": "遮挡层",
-      "visible": false,
+      "visible": true,
       "locked": false,
       "objects": [
         {
@@ -436,6 +426,16 @@
           "stroke": "#5a8a4a",
           "strokeWidth": 0,
           "collide": true
+        },
+        {
+          "id": "obj_1783095865778",
+          "type": "image",
+          "imageId": "img_1783095863410",
+          "x": -285.99999999999983,
+          "y": -103.12517580872012,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0
         }
       ]
     },
@@ -445,6 +445,61 @@
       "visible": true,
       "locked": false,
       "objects": [
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 828.9922991091646,
+          "y": 144.51978180318088,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 880.0653143416895,
+          "y": 126.64136434743534,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 913.1048779480512,
+          "y": 104.51978180318088,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1039.1868544521874,
+          "y": 101.40994198264656,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 952.6873791305136,
+          "y": 111.14493231308765,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
         {
           "id": "obj_1782935243135_106",
           "type": "slice",
@@ -554,17 +609,6 @@
           "width": 96,
           "height": 96,
           "name": "草地装饰"
-        },
-        {
-          "id": "obj_1782934699584_213",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree2",
-          "x": 1071.4928656230977,
-          "y": -10.289239072963412,
-          "width": 64,
-          "height": 96,
-          "name": "中树"
         },
         {
           "id": "obj_1782934664962_44",
@@ -818,17 +862,6 @@
           "height": 96,
           "scale": 1,
           "name": "tree2"
-        },
-        {
-          "id": "deco_61858434",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 932,
-          "y": 30,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
         },
         {
           "id": "obj_1782930742158_28",
@@ -1494,7 +1527,7 @@
           "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 936,
+          "x": 957.8131455478127,
           "y": 58,
           "width": 96,
           "height": 96,
@@ -1505,8 +1538,8 @@
           "id": "deco_10509278",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 983,
-          "y": 109,
+          "x": 1002.2468931304228,
+          "y": 70.50621373915408,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1942,22 +1975,11 @@
           "name": "草地装饰"
         },
         {
-          "id": "deco_78422236",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 935,
-          "y": 38,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
           "id": "deco_23504119",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 955,
-          "y": 136,
+          "x": 952.4337475826102,
+          "y": 143.69875725216917,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1967,8 +1989,8 @@
           "id": "deco_3690540",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 961,
-          "y": 145,
+          "x": 986.6625241738974,
+          "y": 137.30124274783083,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1978,8 +2000,8 @@
           "id": "deco_11207367",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 956,
-          "y": 176,
+          "x": 959.8493786260846,
+          "y": 183.69875725216917,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2451,19 +2473,8 @@
           "id": "deco_22371719",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 874,
-          "y": 40,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_15914601",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 914,
-          "y": 74,
+          "x": 879.1325048347795,
+          "y": 29.73499033044108,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2655,28 +2666,6 @@
           "height": 96,
           "scale": 1,
           "name": "tree2"
-        },
-        {
-          "id": "deco_74748613",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 315.116544713915,
-          "y": 628.6510385947932,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_9903159",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 256.15740194629893,
-          "y": 627.5480580488615,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
         },
         {
           "id": "deco_56093836",
@@ -4435,48 +4424,15 @@
           "name": "大树"
         },
         {
-          "id": "deco_83485156",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": 1047.153716947368,
-          "y": 51.70516589035107,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
-        },
-        {
           "id": "deco_58903506",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1004,
-          "y": 167,
+          "x": 989.8856117043564,
+          "y": 172.13250483477947,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
-        },
-        {
-          "id": "deco_429859",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 997,
-          "y": 27,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_82509700",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 1061.9645530015584,
-          "y": 114.53180609631727,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
         },
         {
           "id": "deco_91584654",
@@ -4736,8 +4692,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1129,
-          "y": 81,
+          "x": 1122.5843689565256,
+          "y": 0.16304885222356802,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -4950,6 +4906,28 @@
           "height": 96,
           "scale": 1,
           "name": "tree2"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1071.4928656230977,
+          "y": -10.289239072963412,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 927.2527109101551,
+          "y": 35.37328510093387,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
         }
       ]
     },
@@ -7155,8 +7133,8 @@
       }
     }
   ],
-  "createdAt": "2026-06-01T20:00:28.273Z",
-  "updatedAt": "2026-07-09T22:29:20.624Z",
+  "createdAt": "2026-07-16T16:04:11.293Z",
+  "updatedAt": "2026-07-16T16:04:11.294Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

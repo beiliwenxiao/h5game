@@ -477,9 +477,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 相机后处理：限制在盆地内（被 BaseGameScene.update 调用） */
+  /** 相机后处理：限制在大地图边缘（被 BaseGameScene.update 调用） */
   postCameraUpdate() {
-    this.clampCameraToBasin();
+    this.clampCameraToWorldBounds();
   }
 
   /**
@@ -983,18 +983,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   // ==================== 相机 / 碰撞（迁移自 Act1） ====================
 
-  /** 限制相机在盆地范围内 */
+  /** 限制相机在盆地范围内 — 大地图模式下不限制 */
   clampCameraToBasin() {
-    if (!this.terrain || !this.camera) return;
-    const t = this.terrain;
+    // if (!this.terrain || !this.camera) return;
+    // const t = this.terrain;
+    // const halfW = this.camera.width / 2;
+    // const halfH = this.camera.height / 2;
+    // const maxCamX = t.basinRadiusX - halfW;
+    // const maxCamY = t.basinRadiusY - halfH;
+    // const clampX = maxCamX > 0 ? Math.max(-maxCamX, Math.min(maxCamX, this.camera.position.x - t.centerX)) : 0;
+    // const clampY = maxCamY > 0 ? Math.max(-maxCamY, Math.min(maxCamY, this.camera.position.y - t.centerY)) : 0;
+    // this.camera.position.x = t.centerX + clampX;
+    // this.camera.position.y = t.centerY + clampY;
+  }
+
+  /** 限制相机不超出大地图世界边界 */
+  clampCameraToWorldBounds() {
+    if (!this.camera) return;
+    // 大地图尺寸：worldMap region 2col×2row × 1280×720
+    const worldWidth = 2 * 1280;
+    const worldHeight = 2 * 720;
+
     const halfW = this.camera.width / 2;
     const halfH = this.camera.height / 2;
-    const maxCamX = t.basinRadiusX - halfW;
-    const maxCamY = t.basinRadiusY - halfH;
-    const clampX = maxCamX > 0 ? Math.max(-maxCamX, Math.min(maxCamX, this.camera.position.x - t.centerX)) : 0;
-    const clampY = maxCamY > 0 ? Math.max(-maxCamY, Math.min(maxCamY, this.camera.position.y - t.centerY)) : 0;
-    this.camera.position.x = t.centerX + clampX;
-    this.camera.position.y = t.centerY + clampY;
+
+    this.camera.position.x = Math.max(halfW, Math.min(worldWidth - halfW, this.camera.position.x));
+    this.camera.position.y = Math.max(halfH, Math.min(worldHeight - halfH, this.camera.position.y));
   }
 
   /** 火堆碰撞（阻止玩家穿过火堆） */
@@ -1044,21 +1058,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (!transform) continue;
       const p = transform.position;
 
-      // 1) 椭圆盆地边界（南向入口扇形可通过）
-      const dx = p.x - cx, dy = p.y - cy;
-      const ed = Math.hypot(dx / irx, dy / iry);
-      if (ed < 0.85) entity._leftBasin = false;
-      if (!entity._leftBasin && ed > 1) {
-        const ang = Math.atan2(dy, dx);
-        const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-        if (angDist < halfAng) {
-          entity._leftBasin = true;
-        } else if (ed > 0.001) {
-          const k = 0.99 / ed;
-          p.x = cx + dx * k;
-          p.y = cy + dy * k;
-        }
-      }
+      // 1) 椭圆盆地边界 — 大地图模式下不限制
+      // const dx = p.x - cx, dy = p.y - cy;
+      // const ed = Math.hypot(dx / irx, dy / iry);
+      // if (ed < 0.85) entity._leftBasin = false;
+      // if (!entity._leftBasin && ed > 1) {
+      //   const ang = Math.atan2(dy, dx);
+      //   const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      //   if (angDist < halfAng) {
+      //     entity._leftBasin = true;
+      //   } else if (ed > 0.001) {
+      //     const k = 0.99 / ed;
+      //     p.x = cx + dx * k;
+      //     p.y = cy + dy * k;
+      //   }
+      // }
 
       // 2) 水池（推开）
       for (const pond of t.waterPatches) {

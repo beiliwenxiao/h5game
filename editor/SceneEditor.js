@@ -309,6 +309,7 @@ export class SceneEditor {
 
     // 键盘快捷键
     document.addEventListener('keydown', (e) => this.interactionModule.handleKeyDown(e));
+    document.addEventListener('keyup', (e) => this.interactionModule.handleKeyUp(e));
 
     // 资源拖放
     this.assets.setupAssetDragDrop();

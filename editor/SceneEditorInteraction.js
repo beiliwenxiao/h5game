@@ -22,6 +22,8 @@ export class SceneEditorInteraction {
    */
   constructor(editor) {
     this.editor = editor;
+    // 方向键持续移动状态
+    this._arrowKeyState = null; // { key, startTime, moved, intervalId }
   }
 
   /**
@@ -228,6 +230,11 @@ export class SceneEditorInteraction {
         editor.interaction.isDragging = true;
         editor.interaction.dragStart = { x: pos.x, y: pos.y };
         editor.interaction.objectStart = { x: clicked.x || 0, y: clicked.y || 0 };
+        // 记录所有选中对象的起始位置（多对象拖动）
+        editor.interaction.allObjectStarts = editor.selectedObjects.map(o => ({
+          x: o.x || 0, y: o.y || 0,
+          points: (o.type === 'shape' && Array.isArray(o.points)) ? o.points.map(p => [p[0], p[1]]) : null
+        }));
         // 多边形/路径移动：记录顶点起始快照
         if (clicked.type === 'shape' && Array.isArray(clicked.points)) {
           editor.interaction.pointsStart = clicked.points.map(p => [p[0], p[1]]);
@@ -235,7 +242,12 @@ export class SceneEditorInteraction {
           editor.interaction.pointsStart = null;
         }
       } else {
-        editor.selectedObjects = [];
+        // 空白处按下：开始框选
+        if (!e.shiftKey) editor.selectedObjects = [];
+        editor.interaction.isDragging = true;
+        editor.interaction.isBoxSelecting = true;
+        editor.interaction.boxSelectStart = { x: pos.x, y: pos.y };
+        editor.interaction.boxSelectEnd = { x: pos.x, y: pos.y };
       }
 
       editor.ui.updateObjectProperties();
@@ -297,19 +309,29 @@ export class SceneEditorInteraction {
 
       editor.ui.updateObjectProperties();
       editor.render();
+    } else if (editor.interaction.mode === 'select' && editor.interaction.isBoxSelecting) {
+      // 框选：更新选择框终点并重绘
+      const pos = this.screenToScene(e.offsetX, e.offsetY);
+      editor.interaction.boxSelectEnd = { x: pos.x, y: pos.y };
+      editor.render();
+      this._renderBoxSelection();
     } else if (editor.interaction.mode === 'select' && editor.selectedObjects.length > 0) {
       const pos = this.screenToScene(e.offsetX, e.offsetY);
       const dx = pos.x - editor.interaction.dragStart.x;
       const dy = pos.y - editor.interaction.dragStart.y;
 
-      for (const obj of editor.selectedObjects) {
+      const starts = editor.interaction.allObjectStarts || [];
+      for (let i = 0; i < editor.selectedObjects.length; i++) {
+        const obj = editor.selectedObjects[i];
+        const start = starts[i];
+        if (!start) continue;
         // 多边形/路径：整体偏移所有顶点
-        if (obj.type === 'shape' && Array.isArray(obj.points) && editor.interaction.pointsStart) {
-          obj.points = editor.interaction.pointsStart.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
+        if (obj.type === 'shape' && Array.isArray(obj.points) && start.points) {
+          obj.points = start.points.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
           continue;
         }
-        obj.x = editor.interaction.objectStart.x + dx;
-        obj.y = editor.interaction.objectStart.y + dy;
+        obj.x = start.x + dx;
+        obj.y = start.y + dy;
 
         if (obj.type === 'decoration' && obj._decoRef) {
           obj._decoRef.x = obj.x;
@@ -327,6 +349,19 @@ export class SceneEditorInteraction {
    */
   handleMouseUp(e) {
     const editor = this.editor;
+
+    // 框选完成：选中框内对象
+    if (editor.interaction.isBoxSelecting) {
+      this._finishBoxSelection(e.shiftKey);
+      editor.interaction.isBoxSelecting = false;
+      editor.interaction.boxSelectStart = null;
+      editor.interaction.boxSelectEnd = null;
+      editor.interaction.isDragging = false;
+      editor.render();
+      editor.ui.updateObjectProperties();
+      return;
+    }
+
     if (editor.interaction.isDragging &&
         (editor.selectedObjects.length > 0 || editor.interaction.isResizing || editor.interaction.draggingVertex)) {
       editor.history.saveHistory();
@@ -337,6 +372,7 @@ export class SceneEditorInteraction {
     editor.interaction.resizeStart = null;
     editor.interaction.draggingVertex = null;
     editor.interaction.pointsStart = null;
+    editor.interaction.allObjectStarts = null;
   }
 
   /**
@@ -542,13 +578,21 @@ export class SceneEditorInteraction {
   }
 
   /**
-   * 处理键盘事件
+   * 处理键盘按下事件
    */
   handleKeyDown(e) {
     const editor = this.editor;
+
+    // 焦点在输入框/文本域内时，不拦截快捷键，让浏览器原生行为生效
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
     if (e.ctrlKey || e.metaKey) {
       if (e.key === 'z') { e.preventDefault(); editor.history.undo(); }
       else if (e.key === 'y') { e.preventDefault(); editor.history.redo(); }
+      else if (e.key === 'a' || e.key === 'A') { e.preventDefault(); this._selectAll(); }
+      else if (e.key === 'c' || e.key === 'C') { e.preventDefault(); this._copySelection(); }
+      else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); this._pasteSelection(); }
       return;
     }
 
@@ -556,9 +600,100 @@ export class SceneEditorInteraction {
       if (editor.selectedObjects.length > 0) editor.ui.deleteSelectedObjects();
     }
 
+    // 方向键微调选中对象位置
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      if (editor.selectedObjects.length > 0) {
+        e.preventDefault();
+        this._handleArrowKeyDown(e.key);
+      }
+      return;
+    }
+
     if (e.key === 'v' || e.key === 'V') editor.ui.setMode('select');
     else if (e.key === 'h' || e.key === 'H') editor.ui.setMode('pan');
     else if (e.key === 'p' || e.key === 'P') editor.ui.setMode('place');
+  }
+
+  /**
+   * 处理键盘松开事件
+   */
+  handleKeyUp(e) {
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      this._handleArrowKeyUp(e.key);
+    }
+  }
+
+  /**
+   * 方向键按下：首次移动 1px，超过 1 秒后持续移动 20px/s
+   * @private
+   */
+  _handleArrowKeyDown(key) {
+    // 如果同一个键已经在处理中，忽略重复的 keydown（按住时浏览器会重复触发）
+    if (this._arrowKeyState && this._arrowKeyState.key === key) return;
+
+    // 清理之前的状态（如果有不同方向键）
+    this._clearArrowKeyState();
+
+    const editor = this.editor;
+    const dx = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0;
+    const dy = key === 'ArrowUp' ? -1 : key === 'ArrowDown' ? 1 : 0;
+
+    // 首次按下：移动 1px
+    this._moveSelectedObjects(dx, dy);
+
+    // 设置定时器：1 秒后开始持续移动
+    const startTime = Date.now();
+    const holdTimerId = setTimeout(() => {
+      // 1 秒后开始持续移动，20px/s = 每 50ms 移动 1px
+      const intervalId = setInterval(() => {
+        this._moveSelectedObjects(dx, dy);
+      }, 50);
+      if (this._arrowKeyState) {
+        this._arrowKeyState.intervalId = intervalId;
+      }
+    }, 1000);
+
+    this._arrowKeyState = { key, startTime, holdTimerId, intervalId: null };
+  }
+
+  /**
+   * 方向键松开：停止持续移动，保存历史
+   * @private
+   */
+  _handleArrowKeyUp(key) {
+    if (!this._arrowKeyState || this._arrowKeyState.key !== key) return;
+    this._clearArrowKeyState();
+    // 保存历史记录（一次方向键操作作为一个撤销步骤）
+    this.editor.history.saveHistory();
+  }
+
+  /**
+   * 清理方向键持续移动状态
+   * @private
+   */
+  _clearArrowKeyState() {
+    if (!this._arrowKeyState) return;
+    if (this._arrowKeyState.holdTimerId) clearTimeout(this._arrowKeyState.holdTimerId);
+    if (this._arrowKeyState.intervalId) clearInterval(this._arrowKeyState.intervalId);
+    this._arrowKeyState = null;
+  }
+
+  /**
+   * 移动所有选中对象指定像素
+   * @private
+   */
+  _moveSelectedObjects(dx, dy) {
+    const editor = this.editor;
+    for (const obj of editor.selectedObjects) {
+      if (obj.type === 'shape' && Array.isArray(obj.points)) {
+        obj.points = obj.points.map(p => [p[0] + dx, p[1] + dy]);
+      } else {
+        if (obj.x !== undefined) obj.x += dx;
+        if (obj.y !== undefined) obj.y += dy;
+      }
+    }
+    editor.canvas.render();
+    editor.ui.updateObjectProperties();
   }
 
   /**
@@ -628,5 +763,111 @@ export class SceneEditorInteraction {
     editor.canvas.render();
     editor.ui.updateObjectProperties();
     editor.ui.showToast(`已粘贴 ${pasted.length} 个对象`);
+  }
+
+  /**
+   * 渲染框选矩形（在 overlay canvas 上）
+   * @private
+   */
+  _renderBoxSelection() {
+    const editor = this.editor;
+    const overlay = document.getElementById('editor-overlay');
+    if (!overlay) return;
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    const start = editor.interaction.boxSelectStart;
+    const end = editor.interaction.boxSelectEnd;
+    if (!start || !end) return;
+
+    // 转换场景坐标到屏幕坐标
+    const sx = start.x * editor.viewport.scale + editor.viewport.offsetX;
+    const sy = start.y * editor.viewport.scale + editor.viewport.offsetY;
+    const ex = end.x * editor.viewport.scale + editor.viewport.offsetX;
+    const ey = end.y * editor.viewport.scale + editor.viewport.offsetY;
+
+    const x = Math.min(sx, ex);
+    const y = Math.min(sy, ey);
+    const w = Math.abs(ex - sx);
+    const h = Math.abs(ey - sy);
+
+    ctx.strokeStyle = '#4a9eff';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(x, y, w, h);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
+    ctx.fillRect(x, y, w, h);
+  }
+
+  /**
+   * 框选完成：选中矩形范围内的所有对象
+   * @private
+   */
+  _finishBoxSelection(addToSelection) {
+    const editor = this.editor;
+    const start = editor.interaction.boxSelectStart;
+    const end = editor.interaction.boxSelectEnd;
+    if (!start || !end) return;
+
+    const left = Math.min(start.x, end.x);
+    const right = Math.max(start.x, end.x);
+    const top = Math.min(start.y, end.y);
+    const bottom = Math.max(start.y, end.y);
+
+    // 框选范围太小（< 4px）视为点击空白
+    if (right - left < 4 && bottom - top < 4) return;
+
+    const selected = addToSelection ? [...editor.selectedObjects] : [];
+
+    // 遍历所有可见未锁定图层
+    for (const layer of editor.sceneData.layers) {
+      if (!layer || layer.locked || !layer.visible || !layer.objects) continue;
+      for (const obj of layer.objects) {
+        if (selected.includes(obj)) continue;
+        if (this._isObjectInRect(obj, left, top, right, bottom)) {
+          selected.push(obj);
+        }
+      }
+    }
+
+    editor.selectedObjects = selected;
+
+    // 清除 overlay
+    const overlay = document.getElementById('editor-overlay');
+    if (overlay) {
+      overlay.getContext('2d').clearRect(0, 0, overlay.width, overlay.height);
+    }
+  }
+
+  /**
+   * 判断对象是否在矩形框选范围内（对象中心或对象边界与选框相交）
+   * @private
+   */
+  _isObjectInRect(obj, left, top, right, bottom) {
+    if (obj.type === 'shape' && Array.isArray(obj.points) && obj.points.length > 0) {
+      // 多边形/路径：任一顶点在框内即选中
+      return obj.points.some(p => p[0] >= left && p[0] <= right && p[1] >= top && p[1] <= bottom);
+    }
+
+    if (obj.type === 'circle') {
+      // 圆形：圆心在框内
+      return obj.x >= left && obj.x <= right && obj.y >= top && obj.y <= bottom;
+    }
+
+    if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
+      // 点状对象：位置在框内
+      return obj.x >= left && obj.x <= right && obj.y >= top && obj.y <= bottom;
+    }
+
+    // 矩形类对象（rect/image/slice/fill/deco/ellipse/region）：边界框相交
+    if (obj.x !== undefined && obj.width !== undefined) {
+      const objRight = obj.x + obj.width;
+      const objBottom = obj.y + obj.height;
+      // 相交判定：不是完全不相交
+      return !(obj.x > right || objRight < left || obj.y > bottom || objBottom < top);
+    }
+
+    return false;
   }
 }

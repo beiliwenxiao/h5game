@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>游戏编辑器 - H5Game Engine</title>
+    <title>游戏编辑器 - YiJian18-Engine Engine</title>
     <style>
         * {
             margin: 0;
@@ -1034,7 +1034,7 @@
                 const gameId = this.currentGameId || 'sanguo_zhangjiao';
                 if (!confirm('确定清理本地缓存？\n将删除 localStorage 中该游戏的场景编辑数据，随后从工程 JSON 文件重新加载（文件不受影响）。')) return;
                 try {
-                    localStorage.removeItem('h5game_editor_data_scenes_' + gameId);
+                    localStorage.removeItem('yijian18-engine_editor_data_scenes_' + gameId);
                     console.log('[Editor] 已清理 localStorage 场景缓存:', gameId);
                 } catch (e) {
                     console.warn('[Editor] 清理缓存失败:', e);

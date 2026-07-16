@@ -24,7 +24,7 @@
         "grid": [
           [
             "scene_Prologue",
-            "scene_east"
+            null
           ],
           [
             "scene_south",
@@ -1388,7 +1388,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "您好，欢迎光临H5Game游戏编辑器的Demo!这是第一个触发器"
+            "text": "您好，欢迎光临YiJian18-Engine游戏编辑器的Demo!这是第一个触发器"
           }
         }
       ],

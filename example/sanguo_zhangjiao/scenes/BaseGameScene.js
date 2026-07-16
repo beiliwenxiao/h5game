@@ -1,13 +1,13 @@
 ﻿﻿/**
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
  * 
- * @project   H5Game - 基于HTML5的游戏引擎
+ * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  * @author    刘枭 (beiliwenxiao)
  * @email     beiliwenxiao@qq.com
  * @date      2026-01-14
  * @blog      https://blog.csdn.net/beiliwenxiao
- * @repo      https://github.com/beiliwenxiao/h5game
- *            https://gitee.com/coderaaa/h5game
+ * @repo      https://github.com/beiliwenxiao/yijian18-engine
+ *            https://gitee.com/coderaaa/yijian18-engine
  */
 
 /**
@@ -3464,7 +3464,7 @@ export class BaseGameScene extends PrologueScene {
 
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
         if (raw) {
           const scenes = JSON.parse(raw);
           if (Array.isArray(scenes) && scenes.find(s => s && s.id === sceneId)) {

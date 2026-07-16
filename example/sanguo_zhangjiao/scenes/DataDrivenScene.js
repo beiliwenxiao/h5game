@@ -1,13 +1,13 @@
 /************************************************************
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
  * 
- * @project   H5Game - 基于HTML5的游戏引擎
+ * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  * @author    刘枭 (beiliwenxiao)
  * @email     beiliwenxiao@qq.com
  * @date      2026-01-14
  * @blog      https://blog.csdn.net/beiliwenxiao
- * @repo      https://github.com/beiliwenxiao/h5game
- *            https://gitee.com/coderaaa/h5game
+ * @repo      https://github.com/beiliwenxiao/yijian18-engine
+ *            https://gitee.com/coderaaa/yijian18-engine
  ************************************************************/
 
 /**
@@ -115,7 +115,7 @@ export class DataDrivenScene extends Scene {
 
   /**
    * 加载编辑器保存的场景数据作为视觉（与旧 Scene1Terrain 同一份数据源）：
-   *   优先 localStorage 'h5game_editor_data_scenes_<gameId>'，回退 assets/scenes/*.json
+   *   优先 localStorage 'yijian18-engine_editor_data_scenes_<gameId>'，回退 assets/scenes/*.json
    * @param {string} gameId
    * @param {string} sceneId - 如 'scene_Prologue'
    * @param {string} assetBase - 如 'assets/scenes/'
@@ -126,7 +126,7 @@ export class DataDrivenScene extends Scene {
     // 1) localStorage
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('h5game_editor_data_scenes_' + gameId);
+        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
         if (raw) {
           const scenes = JSON.parse(raw);
           scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;

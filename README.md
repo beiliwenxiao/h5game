@@ -1,10 +1,19 @@
-# H5Game - 基于HTML5的游戏引擎
+# 一剑十八年引擎(YiJian18-Engine) - 跨平台2D/3D ECS 游戏引擎
 
-一个基于完整 ECS 架构的 HTML5 游戏引擎
+一剑十八年引擎(YiJian18-Engine)-跨平台 2D/3D ECS 游戏引擎。
+采用 Entity-Component-System (ECS) 架构设计。
+采用Kiro开发，使用Claude opus 4.6、GPT 5.6 sol、GLM 5.2等模型。
+核心系统与游戏逻辑完全分离，支持 Canvas 2D 和 three.js 3D 双渲染后端，
+支持魂系动作RPG游戏，并留有多人在线游戏的后续可能。
 
-官方QQ群:58607027
+取名故事：2008年我主程的第一款游戏《铁血英雄》上线，当时在凤天工作室。
+后来因为各种原因，转战电商行业，直到2026年，仍然在做电商相关的工作(小程序：值得爱生活服务)。
+这中间，正好是十八年。作为一个大龄程序员(2026年45岁)，职业生涯已经见底，却无任何可以拿出手的作品。
+而我曾经的同事，却有不少大神级作品。
+再加上AI的方便，正好做做以前想做而没空做的项目。游戏正是其中一项。
+年轻时划出一剑，转眼已经过了十八年。于是取名一剑十八年。
 
-![游戏预览](example/sanguo_zhangjiao/assets/images/003.png)
+闻箫工作室 官方QQ群:58607027
 
 ![地图编辑器](editor/map_editor.png)
 
@@ -20,11 +29,11 @@ https://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x3
 
 1. 克隆项目
    ```bash
-   git clone https://gitee.com/coderaaa/h5game.git 
+   git clone https://gitee.com/coderaaa/yijian18-engine.git 
    或 
-   git clone https://github.com/beiliwenxiao/h5game.git
+   git clone https://github.com/beiliwenxiao/yijian18-engine.git
 
-   cd h5game
+   cd yijian18-engine
    ```
 
 2. 安装依赖
@@ -63,7 +72,7 @@ npm run dev
 Demo 支持双渲染后端，通过 URL 参数切换：
 
 - `?mode=2d` - Canvas 2D 渲染（默认）
-- `?mode=3d` - three.js 3D 渲染
+- `?mode=3d` - three.js 3D 渲染 (目前支持不足)
 - `?mode=auto` - 自动选择（WebGL 可用时优先 3D）
 
 示例：
@@ -84,14 +93,8 @@ http://localhost:3000/example/sanguo_zhangjiao/index.html?mode=3d
 
 ### 示例项目
 
-`example/sanguo_zhangjiao/` 是基于本引擎开发的完整游戏示例，包含六幕剧情：
-
-- 第一幕 - 绝望的开始：角色创建、教程、战斗
-- 第二幕 - 张角的召唤：加入黄巾军，学习新技能
-- 第三幕 - 黄巾初起：参与起义战斗，招募 NPC
-- 第四幕 - 烽火连天：大规模战斗，攻城略地
-- 第五幕 - 风云变幻：阵营抉择，剧情分支
-- 第六幕 - 序章终章：最终决战
+`example/sanguo_zhangjiao/` 是基于本引擎开发的完整游戏示例
+![游戏预览](example/sanguo_zhangjiao/assets/images/003.png)
 
 ## 🏗️ 项目结构
 

@@ -2281,17 +2281,6 @@
           "name": "tree2"
         },
         {
-          "id": "deco_944244",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": -265,
-          "y": 159,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
-        },
-        {
           "id": "deco_84280594",
           "type": "deco",
           "decoKey": "tree2",
@@ -3256,17 +3245,6 @@
           "name": "tree3"
         },
         {
-          "id": "deco_81710875",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -340,
-          "y": 307,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
           "id": "deco_69890609",
           "type": "deco",
           "decoKey": "tree2",
@@ -3309,17 +3287,6 @@
           "height": 128,
           "scale": 1,
           "name": "tree3"
-        },
-        {
-          "id": "deco_75071771",
-          "type": "deco",
-          "decoKey": "tree1",
-          "x": -372.53133604044837,
-          "y": 155,
-          "width": 96,
-          "height": 128,
-          "scale": 1,
-          "name": "tree1"
         },
         {
           "id": "deco_69413230",
@@ -3689,7 +3656,7 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": -219,
+          "x": -217.06386991829305,
           "y": -134,
           "width": 64,
           "height": 96,
@@ -4740,8 +4707,8 @@
       "collide": true
     }
   },
-  "createdAt": "2026-07-15T14:34:27.721Z",
-  "updatedAt": "2026-07-15T14:34:27.721Z",
+  "createdAt": "2026-07-16T16:04:13.272Z",
+  "updatedAt": "2026-07-16T16:04:13.272Z",
   "atlases": [
     {
       "id": "mountain_landscape",

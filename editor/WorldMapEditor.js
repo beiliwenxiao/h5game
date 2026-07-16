@@ -380,10 +380,8 @@ export class WorldMapEditor {
 
     // 缩放到场景坐标系
     ctx.save();
-    const centerX = scene.centerX || sceneW / 2;
-    const centerY = scene.centerY || sceneH / 2;
-    const sceneX = centerX - sceneW / 2;
-    const sceneY = centerY - sceneH / 2;
+    const sceneX = 0;
+    const sceneY = 0;
     ctx.scale(scale, scale);
     ctx.translate(-sceneX, -sceneY);
 

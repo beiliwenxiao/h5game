@@ -355,11 +355,12 @@ export class SceneEditorUI {
     const scaleY = containerHeight / editor.sceneData.height;
     editor.viewport.scale = Math.min(scaleX, scaleY, 2) * 0.9;
 
-    const centerX = editor.sceneData.centerX || editor.sceneData.width / 2;
-    const centerY = editor.sceneData.centerY || editor.sceneData.height / 2;
+    // 视口对准场景方框正中心（width/2, height/2）
+    const sceneCenterX = editor.sceneData.width / 2;
+    const sceneCenterY = editor.sceneData.height / 2;
 
-    editor.viewport.offsetX = containerWidth / 2 - centerX * editor.viewport.scale;
-    editor.viewport.offsetY = containerHeight / 2 - centerY * editor.viewport.scale;
+    editor.viewport.offsetX = containerWidth / 2 - sceneCenterX * editor.viewport.scale;
+    editor.viewport.offsetY = containerHeight / 2 - sceneCenterY * editor.viewport.scale;
 
     this._updateZoomDisplay();
   }

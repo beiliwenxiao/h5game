@@ -1523,6 +1523,7 @@
     },
     {
       "id": "trg_wave2_cleared_switch",
+      "enabled": false,
       "when": {
         "type": "waveCleared",
         "params": {
@@ -1796,6 +1797,7 @@
     },
     {
       "id": "trg_act2_complete_switch",
+      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1822,6 +1824,7 @@
     },
     {
       "id": "trg_act3_complete_switch",
+      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1848,6 +1851,7 @@
     },
     {
       "id": "trg_act4_complete_switch",
+      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1874,6 +1878,7 @@
     },
     {
       "id": "trg_act5_complete_switch",
+      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {

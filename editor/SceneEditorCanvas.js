@@ -37,13 +37,11 @@ export class SceneEditorCanvas {
     ctx.translate(editor.viewport.offsetX, editor.viewport.offsetY);
     ctx.scale(editor.viewport.scale, editor.viewport.scale);
 
-    // 计算场景可见区域（以地形中心为基准居中）
-    const centerX = editor.sceneData.centerX || editor.sceneData.width / 2;
-    const centerY = editor.sceneData.centerY || editor.sceneData.height / 2;
+    // 计算场景可见区域（从原点开始）
     const sceneW = editor.sceneData.width;
     const sceneH = editor.sceneData.height;
-    const sceneX = centerX - sceneW / 2;
-    const sceneY = centerY - sceneH / 2;
+    const sceneX = 0;
+    const sceneY = 0;
 
     // 绘制背景（辅助用的长方形纯色背景）
     if (editor.options.showBackground) {
@@ -549,8 +547,8 @@ export class SceneEditorCanvas {
       radiusX = ellipseObj.width / 2;
       aspectY = ellipseObj.height / ellipseObj.width;
     } else {
-      centerX = data.centerX || data.width / 2;
-      centerY = (data.centerY || data.height / 2) - 32;
+      centerX = data.width / 2;
+      centerY = data.height / 2 - 32;
       radiusX = data.basinRadius || 640;
       aspectY = data.basinAspectY || 0.65;
     }

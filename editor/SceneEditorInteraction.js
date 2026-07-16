@@ -583,11 +583,14 @@ export class SceneEditorInteraction {
     if (editor.selectedObjects.length === 0) return;
     // 深拷贝选中对象
     this._clipboard = JSON.parse(JSON.stringify(editor.selectedObjects));
+    // 记录复制时的场景ID，用于跨场景粘贴时判断是否需要偏移
+    this._clipboardSceneId = editor.sceneData.id || editor.sceneData.name;
     editor.ui.showToast(`已复制 ${this._clipboard.length} 个对象`);
   }
 
   /**
-   * 粘贴剪贴板中的对象（偏移 20px 避免完全重叠）
+   * 粘贴剪贴板中的对象
+   * 同场景粘贴偏移 20px 避免重叠，跨场景粘贴保持原始坐标
    */
   _pasteSelection() {
     const editor = this.editor;
@@ -601,16 +604,20 @@ export class SceneEditorInteraction {
     }
     if (!layer.objects) layer.objects = [];
 
+    // 跨场景粘贴保持原始坐标，同场景粘贴偏移 20px 避免重叠
+    const currentSceneId = editor.sceneData.id || editor.sceneData.name;
+    const isSameScene = this._clipboardSceneId === currentSceneId;
+    const offset = isSameScene ? 20 : 0;
+
     const pasted = [];
-    const offset = 20;
     for (const src of this._clipboard) {
       const obj = JSON.parse(JSON.stringify(src));
-      // 偏移位置避免重叠
-      if (obj.x !== undefined) obj.x += offset;
-      if (obj.y !== undefined) obj.y += offset;
-      // 多边形/路径的点偏移
-      if (obj.points) {
-        obj.points = obj.points.map(p => [p[0] + offset, p[1] + offset]);
+      if (offset > 0) {
+        if (obj.x !== undefined) obj.x += offset;
+        if (obj.y !== undefined) obj.y += offset;
+        if (obj.points) {
+          obj.points = obj.points.map(p => [p[0] + offset, p[1] + offset]);
+        }
       }
       layer.objects.push(obj);
       pasted.push(obj);

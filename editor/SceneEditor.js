@@ -188,8 +188,8 @@ export class SceneEditor {
     // 添加椭圆
     document.getElementById('editor-add-ellipse').addEventListener('click', () => {
       const data = this.sceneData;
-      const cx = data.centerX || data.width / 2;
-      const cy = data.centerY || data.height / 2;
+      const cx = data.width / 2;
+      const cy = data.height / 2;
       const rx = 200;
       const ry = 130;
       const obj = this.ui.addObject({

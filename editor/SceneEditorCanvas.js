@@ -49,11 +49,6 @@ export class SceneEditorCanvas {
       ctx.fillRect(sceneX, sceneY, sceneW, sceneH);
     }
 
-    // 绘制场景边框（辅助线）
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1 / editor.viewport.scale;
-    ctx.strokeRect(sceneX, sceneY, sceneW, sceneH);
-
     // === 按图层顺序渲染，地形效果穿插在对应图层位置 ===
     const data = editor.sceneData;
     const hasTerrain = !!data.terrain;
@@ -72,8 +67,11 @@ export class SceneEditorCanvas {
       for (const obj of layer.objects) this._renderObject(ctx, obj);
     }
 
-    // 绘制网格（以地形中心为基准对齐）
+    // 绘制网格和辅助方框（在所有图层之上）
     if (editor.options.showGrid) this._renderGrid(ctx, sceneX, sceneY, sceneW, sceneH);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1 / editor.viewport.scale;
+    ctx.strokeRect(sceneX, sceneY, sceneW, sceneH);
 
     ctx.restore();
     this._renderSelection();

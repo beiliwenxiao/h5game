@@ -125,6 +125,7 @@ export class SceneEditorUI {
               <span id="editor-zoom-level">100%</span>
               <button id="editor-zoom-in">+</button>
               <button id="editor-zoom-fit">适应</button>
+              <button id="editor-toggle-neighbors" title="显示/隐藏相邻场景参考">🗺️</button>
             </div>
           </div>
           

@@ -4338,8 +4338,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 954.81,
-          "y": 677.09,
+          "x": 954.24,
+          "y": 656.69,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4576,7 +4576,7 @@
     }
   },
   "createdAt": "2026-07-16T16:04:13.272Z",
-  "updatedAt": "2026-07-16T19:19:32.832Z",
+  "updatedAt": "2026-07-16T19:53:29.390Z",
   "atlases": [
     {
       "id": "mountain_landscape",

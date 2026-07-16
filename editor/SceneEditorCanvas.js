@@ -49,6 +49,11 @@ export class SceneEditorCanvas {
       ctx.fillRect(sceneX, sceneY, sceneW, sceneH);
     }
 
+    // === 相邻场景参考层（半透明，不可交互）===
+    if (editor.showNeighbors && editor.neighborScenes.length > 0) {
+      this._renderNeighborScenes(ctx);
+    }
+
     // === 按图层顺序渲染，地形效果穿插在对应图层位置 ===
     const data = editor.sceneData;
     const hasTerrain = !!data.terrain;
@@ -108,6 +113,54 @@ export class SceneEditorCanvas {
       ctx.lineTo(sx + w, y);
       ctx.stroke();
     }
+  }
+
+  /**
+   * 渲染相邻场景参考层（半透明、带边框标注）
+   * @private
+   */
+  _renderNeighborScenes(ctx) {
+    const editor = this.editor;
+    ctx.save();
+    ctx.globalAlpha = 0.35;
+
+    for (const neighbor of editor.neighborScenes) {
+      const { sceneData, offsetX, offsetY } = neighbor;
+      if (!sceneData || !sceneData.layers) continue;
+
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+
+      // 背景
+      ctx.fillStyle = sceneData.backgroundColor || '#1a2a1a';
+      ctx.fillRect(0, 0, sceneData.width, sceneData.height);
+
+      // 渲染所有可见图层的对象
+      for (const layer of sceneData.layers) {
+        if (!layer.visible || !layer.objects) continue;
+        for (const obj of layer.objects) {
+          this._renderObject(ctx, obj);
+        }
+      }
+
+      // 边框和标签
+      ctx.globalAlpha = 0.6;
+      ctx.strokeStyle = '#ffaa00';
+      ctx.lineWidth = 2 / editor.viewport.scale;
+      ctx.setLineDash([6 / editor.viewport.scale, 4 / editor.viewport.scale]);
+      ctx.strokeRect(0, 0, sceneData.width, sceneData.height);
+      ctx.setLineDash([]);
+
+      // 场景名称标签
+      ctx.fillStyle = '#ffaa00';
+      ctx.font = `${14 / editor.viewport.scale}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.fillText(sceneData.name || sceneData.id || '邻居场景', 8 / editor.viewport.scale, 20 / editor.viewport.scale);
+
+      ctx.restore();
+    }
+
+    ctx.restore();
   }
 
   /**

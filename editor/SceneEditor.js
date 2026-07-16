@@ -117,6 +117,11 @@ export class SceneEditor {
     this.selectedSlice = null;
     this.draggingSlice = null;
 
+    // 相邻场景参考（大地图多场景编辑模式）
+    // 格式: [{ sceneData, offsetX, offsetY }]
+    this.neighborScenes = [];
+    this.showNeighbors = false;
+
     // 视口控制
     this.viewport = {
       scale: viewportCfg.scale || 1,
@@ -293,6 +298,12 @@ export class SceneEditor {
     document.getElementById('editor-zoom-out').addEventListener('click', () => this.ui.zoom(0.8));
     document.getElementById('editor-zoom-fit').addEventListener('click', () => {
       this.ui.fitToContainer();
+      this.render();
+    });
+    document.getElementById('editor-toggle-neighbors').addEventListener('click', () => {
+      this.showNeighbors = !this.showNeighbors;
+      const btn = document.getElementById('editor-toggle-neighbors');
+      btn.style.background = this.showNeighbors ? '#4CAF50' : '';
       this.render();
     });
 

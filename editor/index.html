@@ -411,6 +411,18 @@
             cursor: pointer;
             font-size: 11px;
         }
+
+        .scene-drag-handle {
+            cursor: grab;
+            margin-right: 8px;
+            color: #666;
+            font-size: 14px;
+            user-select: none;
+        }
+
+        .scene-item.drag-over {
+            border-top: 2px solid #4CAF50;
+        }
         
         .scene-sidebar-footer {
             padding: 10px;
@@ -845,11 +857,36 @@
                     return;
                 }
 
-                // 按名称排序
-                scenes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-CN'));
+                // 按已保存的排序顺序排列（无保存时按名称排序）
+                const orderKey = `yijian18-engine_scene_order_${gameId}`;
+                let savedOrder = null;
+                try { savedOrder = JSON.parse(localStorage.getItem(orderKey)); } catch(e) {}
+                // localStorage 无数据时，从 JSON 文件异步加载（首次渲染先用名称排序）
+                if (!Array.isArray(savedOrder) || savedOrder.length === 0) {
+                    const game = this.dataManager.getCurrentGame();
+                    const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                    const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
+                    fetch(filePath).then(r => r.ok ? r.json() : null).then(data => {
+                        if (data && Array.isArray(data.order) && data.order.length > 0) {
+                            localStorage.setItem(orderKey, JSON.stringify(data.order));
+                            this.renderSceneList(gameId); // 重新渲染
+                        }
+                    }).catch(() => {});
+                }
+                if (Array.isArray(savedOrder) && savedOrder.length > 0) {
+                    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
+                    scenes.sort((a, b) => {
+                        const ia = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
+                        const ib = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
+                        return ia - ib;
+                    });
+                } else {
+                    scenes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-CN'));
+                }
                 
                 list.innerHTML = scenes.map(scene => `
-                    <div class="scene-item ${scene.id === this.currentSceneId ? 'active' : ''}" data-id="${scene.id}">
+                    <div class="scene-item ${scene.id === this.currentSceneId ? 'active' : ''}" data-id="${scene.id}" draggable="true">
+                        <span class="scene-drag-handle">⋮⋮</span>
                         <span class="scene-name">${scene.name}</span>
                         <div class="scene-actions">
                             <button data-action="edit">编辑</button>
@@ -871,6 +908,48 @@
                             this.deleteScene(sceneId);
                         } else {
                             this.editScene(sceneId);
+                        }
+                    });
+                });
+
+                // 拖拽排序
+                let dragItem = null;
+                list.querySelectorAll('.scene-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        dragItem = item;
+                        item.style.opacity = '0.4';
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                    item.addEventListener('dragend', () => {
+                        item.style.opacity = '1';
+                        dragItem = null;
+                        list.querySelectorAll('.scene-item').forEach(el => el.classList.remove('drag-over'));
+                        // 保存新顺序到 localStorage 和 JSON 文件
+                        const newOrder = [...list.querySelectorAll('.scene-item')].map(el => el.dataset.id);
+                        localStorage.setItem(orderKey, JSON.stringify(newOrder));
+                        this._saveSceneOrder(gameId, newOrder);
+                    });
+                    item.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (item !== dragItem) item.classList.add('drag-over');
+                    });
+                    item.addEventListener('dragleave', () => {
+                        item.classList.remove('drag-over');
+                    });
+                    item.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        item.classList.remove('drag-over');
+                        if (dragItem && dragItem !== item) {
+                            // 在 DOM 中重新排列
+                            const items = [...list.querySelectorAll('.scene-item')];
+                            const fromIdx = items.indexOf(dragItem);
+                            const toIdx = items.indexOf(item);
+                            if (fromIdx < toIdx) {
+                                item.after(dragItem);
+                            } else {
+                                item.before(dragItem);
+                            }
                         }
                     });
                 });
@@ -1076,6 +1155,25 @@
                     }
                 })
                 .catch(err => console.warn('保存文件请求失败:', err));
+            }
+
+            // 保存场景排序到 JSON 文件
+            _saveSceneOrder(gameId, order) {
+                const game = this.dataManager.getCurrentGame();
+                const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
+                const json = JSON.stringify({ gameId, order }, null, 2);
+                fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: filePath, content: json })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) console.log('场景排序已保存:', data.path);
+                    else console.warn('保存排序失败:', data.error);
+                })
+                .catch(err => console.warn('保存排序请求失败:', err));
             }
             
             // 打开图片分割工具

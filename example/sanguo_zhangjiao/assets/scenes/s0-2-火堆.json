@@ -1,0 +1,7144 @@
+{
+  "id": "scene_Prologue",
+  "name": "s0-2-火堆",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#233a19",
+  "layers": [
+    {
+      "id": "layer_bg",
+      "name": "背景层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ellipse_1783349807083_124",
+          "type": "shape",
+          "name": "地形椭圆",
+          "x": -281.95,
+          "y": -106.32,
+          "width": 1308,
+          "height": 763,
+          "fillMode": "slice",
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "stroke": "",
+          "strokeWidth": 0,
+          "edgeFade": 0.15,
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grassTile",
+          "decoKey": null,
+          "shapeType": "ellipse"
+        }
+      ]
+    },
+    {
+      "id": "layer_fill",
+      "name": "遮挡层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "obj_1783353152063",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -64,
+              363
+            ],
+            [
+              -43,
+              326
+            ],
+            [
+              -7,
+              325
+            ],
+            [
+              33,
+              386
+            ],
+            [
+              30,
+              434
+            ],
+            [
+              -1,
+              456
+            ],
+            [
+              -43,
+              457
+            ],
+            [
+              -145,
+              496
+            ],
+            [
+              -174,
+              503
+            ],
+            [
+              -189,
+              481
+            ],
+            [
+              -181,
+              450
+            ],
+            [
+              -69,
+              408
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353361337",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              -7,
+              473
+            ],
+            [
+              28,
+              478
+            ],
+            [
+              51,
+              511
+            ],
+            [
+              49,
+              538
+            ],
+            [
+              -19,
+              559
+            ],
+            [
+              -42,
+              536
+            ],
+            [
+              -37,
+              496
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353433306",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              101,
+              495
+            ],
+            [
+              169,
+              509
+            ],
+            [
+              194,
+              604
+            ],
+            [
+              50,
+              601
+            ],
+            [
+              70,
+              545
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353257569",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              771,
+              446
+            ],
+            [
+              798,
+              424
+            ],
+            [
+              837,
+              457
+            ],
+            [
+              794,
+              479
+            ],
+            [
+              720,
+              528
+            ],
+            [
+              681,
+              559
+            ],
+            [
+              667,
+              543
+            ],
+            [
+              693,
+              522
+            ],
+            [
+              688,
+              514
+            ],
+            [
+              659,
+              531
+            ],
+            [
+              647,
+              509
+            ],
+            [
+              666,
+              500
+            ],
+            [
+              698,
+              487
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783279500096",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              874,
+              249
+            ],
+            [
+              891,
+              248
+            ],
+            [
+              907,
+              213
+            ],
+            [
+              961,
+              206
+            ],
+            [
+              956,
+              281
+            ],
+            [
+              926,
+              320
+            ],
+            [
+              885,
+              325
+            ],
+            [
+              872,
+              329
+            ],
+            [
+              864,
+              353
+            ],
+            [
+              829,
+              361
+            ],
+            [
+              803,
+              343
+            ],
+            [
+              802,
+              316
+            ],
+            [
+              821,
+              301
+            ],
+            [
+              855,
+              310
+            ],
+            [
+              842,
+              287
+            ],
+            [
+              850,
+              267
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ebf4e6",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 2,
+          "collide": true,
+          "patternType": "crosshatch",
+          "gradientType": "radial",
+          "gradientStops": [
+            {
+              "offset": 0,
+              "color": "#000000"
+            },
+            {
+              "offset": 1,
+              "color": "#df2020"
+            }
+          ]
+        },
+        {
+          "id": "obj_1783353571091",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              805,
+              180
+            ],
+            [
+              828,
+              161
+            ],
+            [
+              852,
+              140
+            ],
+            [
+              869,
+              170
+            ],
+            [
+              755,
+              241
+            ],
+            [
+              742,
+              242
+            ],
+            [
+              730,
+              223
+            ],
+            [
+              757,
+              214
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#ffffff",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783351833424",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              436,
+              11
+            ],
+            [
+              482,
+              26
+            ],
+            [
+              501,
+              53
+            ],
+            [
+              474,
+              90
+            ],
+            [
+              413,
+              86
+            ],
+            [
+              395,
+              51
+            ],
+            [
+              407,
+              28
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783095865778",
+          "type": "image",
+          "imageId": "img_1783095863410",
+          "x": -286,
+          "y": -103.13,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "layer_deco",
+      "name": "装饰层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 828.99,
+          "y": 144.52,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 880.07,
+          "y": 126.64,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 913.1,
+          "y": 104.52,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1039.19,
+          "y": 101.41,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 952.69,
+          "y": 111.14,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935243135_106",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 359.2,
+          "y": -98.27,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935235041_289",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 305,
+          "y": -81,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935221330_827",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 252.3,
+          "y": -69.59,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935216343_471",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 199.04,
+          "y": -75.66,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935209007_209",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -116,
+          "y": 14,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935195918_724",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 76,
+          "y": -87,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935192881_848",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -9.86,
+          "y": -32.92,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934862413_407",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 552.44,
+          "y": -105.18,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934846969_844",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 356.13,
+          "y": -257.36,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934841831_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 422.71,
+          "y": -226.15,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934664962_44",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -400.19,
+          "y": 94,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934655061_592",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -413.34,
+          "y": 43.31,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934613650_670",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -304.66,
+          "y": -293.16,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934615278_577",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -313.22,
+          "y": -220.5,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "deco_75973241",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -290,
+          "y": -85,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_70599675",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -232,
+          "y": -120,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_7386535",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -425,
+          "y": 248,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_24377811",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 501.55,
+          "y": -216.64,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_94481938",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 37.49,
+          "y": -217.57,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_14134187",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 45.04,
+          "y": -174.18,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782923280728_332",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush2",
+          "x": 798,
+          "y": 344,
+          "width": 32,
+          "height": 32,
+          "name": "灌木1"
+        },
+        {
+          "id": "deco_52540836",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 328,
+          "y": -245,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_45815389",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 382.64,
+          "y": -236.07,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_71641829",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 402.09,
+          "y": -173.34,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_69655197",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 532,
+          "y": -206,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_83764002",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 582,
+          "y": -173,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_4498391",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 605,
+          "y": -198,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_66013127",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 693,
+          "y": -181,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_60357311",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 736,
+          "y": -131,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_84451209",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 766,
+          "y": -131,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_95401295",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 836,
+          "y": -50,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_68722754",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 847,
+          "y": -46,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_65730296",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 884,
+          "y": -1,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782930742158_28",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 448.51,
+          "y": -105.12,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782930722972_559",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 332.47,
+          "y": -136.18,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782930700920_14",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 299.51,
+          "y": -137.26,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "deco_24626397",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 578,
+          "y": -190,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_76376885",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 509,
+          "y": -203,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_49375333",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 139.3,
+          "y": -131.67,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_50957626",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 248,
+          "y": -223,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_85609045",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 125,
+          "y": -197,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_31988850",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 161,
+          "y": -216,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_25066195",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -90.02,
+          "y": -157.12,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_4768670",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -53,
+          "y": -158,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_57540042",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -150.43,
+          "y": -143.56,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_54192120",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -229,
+          "y": -89,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_51042519",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -175,
+          "y": -105,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_92194462",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -278,
+          "y": -36,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_20133758",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -160,
+          "y": 0,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_3284630",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -317,
+          "y": 60,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_88966018",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -331,
+          "y": 14,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_34946864",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -395,
+          "y": 239,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_92535309",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -385,
+          "y": 190,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_65327728",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -388,
+          "y": 146,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_58555675",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -271,
+          "y": 203,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_30842212",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -285,
+          "y": 226,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_87307529",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -355,
+          "y": 297,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_40082123",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -362,
+          "y": 120,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_41045364",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 372.04,
+          "y": -174.24,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_53015735",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 378,
+          "y": 639,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_14765665",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 378,
+          "y": 654,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_14522043",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 328,
+          "y": 643,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_85117451",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 346.03,
+          "y": 610.57,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_60630314",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 317.27,
+          "y": 645.87,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_40364326",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 195,
+          "y": 680,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_42444104",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 281.49,
+          "y": 617.92,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_45437651",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 242.27,
+          "y": 645.57,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_62700287",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 239.38,
+          "y": 611,
+          "width": 111,
+          "height": 84,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_41955680",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 271.49,
+          "y": 594.54,
+          "width": 108,
+          "height": 72,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_78527262",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 331.38,
+          "y": 584.33,
+          "width": 96,
+          "height": 77,
+          "scale": 1,
+          "name": "grass1",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_77107822",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -164.08,
+          "y": 491.32,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_84846303",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 388.62,
+          "y": 567.44,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_73247594",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 548.09,
+          "y": 532.27,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_36077443",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 212.27,
+          "y": 576.35,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_64274064",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 711.49,
+          "y": -56.41,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_43991810",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 824,
+          "y": 61,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_19356082",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 609.36,
+          "y": 562,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_1010182",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 781.94,
+          "y": -2.38,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_74267525",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 937,
+          "y": 179,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_71386175",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 522,
+          "y": 585,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_39433000",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -215,
+          "y": 448,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_19901590",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -285,
+          "y": 228,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_10648321",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 477,
+          "y": -140,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_95112421",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 751.55,
+          "y": -33.44,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_7740509",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 280,
+          "y": -218,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_4968396",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 470,
+          "y": -225,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_60723142",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 685,
+          "y": -174,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_8408781",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 693,
+          "y": -135,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_93907314",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 792,
+          "y": -96,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_74163727",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 838,
+          "y": -78,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_46456327",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 893,
+          "y": -41,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_8282314",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 901,
+          "y": 19,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 957.81,
+          "y": 58,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_10509278",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1002.25,
+          "y": 70.51,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_89488301",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1000,
+          "y": 155,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_93470240",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 990,
+          "y": 197,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_58685858",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 971,
+          "y": 256,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_43849325",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 978,
+          "y": 295,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_49887819",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 927,
+          "y": 336,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_73197064",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 909,
+          "y": 393,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_42524756",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 886,
+          "y": 453,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_76422584",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 829,
+          "y": 466,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_46954820",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 779,
+          "y": 535,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_30425834",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 740,
+          "y": 547,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_24643779",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 655,
+          "y": 583,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_99437505",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 599,
+          "y": 612,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_70081835",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 536,
+          "y": 631,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_58720682",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 457,
+          "y": 617,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_69154090",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 142,
+          "y": 622,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_39902928",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 63,
+          "y": 633,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_40531905",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 24,
+          "y": 585,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_15006651",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -36,
+          "y": 570,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_96811684",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -118,
+          "y": 545,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_79440130",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -179,
+          "y": 506,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_96537957",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -215,
+          "y": 468,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_58625050",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -264,
+          "y": 442,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_96360225",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -307,
+          "y": 382,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_89174157",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -312,
+          "y": 360,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_10417308",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -393,
+          "y": 239,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_29806879",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 415.82,
+          "y": -100.36,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "obj_1782933696710_74",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -418,
+          "y": 401,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933698713_204",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -389.42,
+          "y": 447.54,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933701030_130",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -250,
+          "y": 589,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933703011_253",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -194,
+          "y": 574,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933705246_495",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -289,
+          "y": 522,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933707541_268",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -226.6,
+          "y": 538.6,
+          "width": 97,
+          "height": 100,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933709851_504",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -310,
+          "y": 495,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934152211_710",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 975,
+          "y": -8,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934154355_562",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 992,
+          "y": -41,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934156410_283",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1025,
+          "y": 51,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934158443_928",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1008,
+          "y": -138,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934160731_336",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 757,
+          "y": -199,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1041,
+          "y": 143,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "deco_23504119",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 952.43,
+          "y": 143.7,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_3690540",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 986.66,
+          "y": 137.3,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_11207367",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 959.85,
+          "y": 183.7,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_7991075",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 975,
+          "y": 242,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_20783689",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 956,
+          "y": 279.62,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_66214150",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 915,
+          "y": 313,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_5170530",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 915,
+          "y": 319,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_28265892",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 902,
+          "y": 381,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_89240081",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 855,
+          "y": 399,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_42805156",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 825,
+          "y": 441,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_35564503",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 763,
+          "y": 481,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_96258899",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 728,
+          "y": 532,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_70274020",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 667,
+          "y": 554,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_96457775",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 593,
+          "y": 578,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_72510111",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 527,
+          "y": 574,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_59815690",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 500,
+          "y": 617,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_69669900",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 104,
+          "y": 576,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_18266214",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 73,
+          "y": 585,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_41393875",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 27,
+          "y": 550,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_60866151",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -57,
+          "y": 540,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_57651262",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -110,
+          "y": 521,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_33574704",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -115,
+          "y": 482,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_89861764",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -209,
+          "y": 436,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_38994131",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -239,
+          "y": 443,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_31784448",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -233,
+          "y": 419,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_4044589",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -312,
+          "y": 297,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_63062528",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -311,
+          "y": 276,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_91037860",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -336,
+          "y": 259,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_34481156",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -341,
+          "y": 212,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_11187203",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -323,
+          "y": 169,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_84670753",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -328,
+          "y": 106,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_92575528",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -303,
+          "y": 40,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_90435419",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -271,
+          "y": 32,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_41628174",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -247,
+          "y": -21,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_72430565",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -216,
+          "y": -16,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_733254",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -197.49,
+          "y": -84,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_23690182",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -152,
+          "y": -107,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_73192042",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -94.97,
+          "y": -125.54,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_38613616",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -57.01,
+          "y": -123.71,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_94808032",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 8.99,
+          "y": -186,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_70426007",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 111,
+          "y": -233,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_53904877",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 167.52,
+          "y": -168.69,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_13575519",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 276,
+          "y": -212,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_71631112",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 592,
+          "y": -148,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_58520818",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 860,
+          "y": 57,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_22371719",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 879.13,
+          "y": 29.73,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_35748366",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 938,
+          "y": 196,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_13194120",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 925,
+          "y": 231,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_25698471",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 901,
+          "y": 251,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_86951968",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 883,
+          "y": 322,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_5174071",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 849,
+          "y": 363,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_41772231",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 812,
+          "y": 396,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_14039078",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 817,
+          "y": 484,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_76945466",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 730,
+          "y": 498,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_7979523",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 708,
+          "y": 481,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_19844572",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 562.55,
+          "y": 538,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_35592175",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 489.74,
+          "y": 533.81,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_4228010",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 182,
+          "y": 563,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_63087293",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 149,
+          "y": 540,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_93764988",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 55,
+          "y": 560,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_63618170",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 14,
+          "y": 551,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_80170471",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -66,
+          "y": 509,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_3539364",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -92,
+          "y": 493,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_56093836",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -282,
+          "y": 240,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_48753339",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -290,
+          "y": 196,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_944244",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -285,
+          "y": 139,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_84280594",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -263,
+          "y": 103,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_656924",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -249,
+          "y": 65,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_71740355",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -136,
+          "y": -91,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_15061921",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 4,
+          "y": -147,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_73995911",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 288.09,
+          "y": -233.68,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_60588392",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 324.15,
+          "y": -188.32,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_68994469",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 465.7,
+          "y": -201.26,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_47495460",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 583.68,
+          "y": -228.05,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_17041592",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 645.56,
+          "y": -171.56,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_1498226",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 710,
+          "y": -189,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_8627965",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 796,
+          "y": -167,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_98309396",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 833.61,
+          "y": -111.54,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_39036495",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 927,
+          "y": -34,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_7575914",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 984,
+          "y": 321,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_46045190",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 964,
+          "y": 346,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_14017986",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 899,
+          "y": 424,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_73880805",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 867,
+          "y": 475,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_59667448",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 761,
+          "y": 565,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_99352456",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 722,
+          "y": 549,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_37549639",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 611,
+          "y": 632,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_56727624",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 548,
+          "y": 625,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_24306957",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 128,
+          "y": 644,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_98552515",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 87,
+          "y": 647,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_33387989",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -22,
+          "y": 588,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_44031224",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -34,
+          "y": 571,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_71266741",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -124,
+          "y": 535,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_87606551",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -208,
+          "y": 479,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_56525709",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -265,
+          "y": 472,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_39640482",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -320,
+          "y": 350,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_48571433",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -389,
+          "y": 225,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_12362023",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -400,
+          "y": 162,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_27281219",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -359,
+          "y": 99,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_82797364",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -371,
+          "y": 70,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_45570550",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -315,
+          "y": -10.51,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_25545910",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -102.61,
+          "y": -89.26,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_90289176",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -23.63,
+          "y": -177.7,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_7417365",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 33.04,
+          "y": -162.17,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_43827683",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 132.51,
+          "y": -118.44,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_99652426",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 205.33,
+          "y": -133.72,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_46086387",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1068,
+          "y": 213,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_69448412",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 902,
+          "y": 528,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_73735458",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 759,
+          "y": 640,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_76081371",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 515,
+          "y": 673,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_56221887",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 149,
+          "y": 646,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_28899574",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 33,
+          "y": 637,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_57342104",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -7,
+          "y": 631,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_26483793",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -88,
+          "y": 585,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_51915375",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -142,
+          "y": 591,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_92335977",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -164,
+          "y": 556,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_78511550",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -297,
+          "y": 531,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_22050148",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -332,
+          "y": 473,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_12503478",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -333,
+          "y": 418,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_75304171",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -409,
+          "y": 281,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_77788830",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 426,
+          "y": 687,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_44946416",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 447,
+          "y": 712,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_76926438",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 383,
+          "y": 707,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_70277778",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 385,
+          "y": 743,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_68512519",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 284,
+          "y": 752,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_34923607",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 281,
+          "y": 752,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_88638534",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 247,
+          "y": 714,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3",
+          "belowEntities": true
+        },
+        {
+          "id": "deco_49103674",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 776,
+          "y": 488,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_3557226",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 149,
+          "y": 643,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_16744607",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 26,
+          "y": 84,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_56910761",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 910.45,
+          "y": -113.42,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_63083026",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 452,
+          "y": 539,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_59986676",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 46,
+          "y": 94,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
+          "id": "deco_37897000",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 722.16,
+          "y": 116.27,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_91187535",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": -19,
+          "y": 515,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_98303561",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 772,
+          "y": 317,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_87548589",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": -177,
+          "y": 147,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
+          "id": "deco_24816495",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": -27,
+          "y": 239,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_28876065",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 136.78,
+          "y": 417.42,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
+          "id": "deco_4935610",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 140,
+          "y": 505,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
+          "id": "deco_7869494",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": -48,
+          "y": 51,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_66491278",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": -91,
+          "y": 92,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_36341499",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 662.2,
+          "y": 121.53,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_91310151",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 873.62,
+          "y": 295.63,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
+          "id": "deco_48559651",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 851,
+          "y": 331,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_66396012",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 558,
+          "y": -82,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_35794524",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 78.86,
+          "y": -155.19,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_25721926",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -85.03,
+          "y": -37.74,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_38856606",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 472,
+          "y": -3,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_41809485",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 476,
+          "y": -71,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
+          "id": "deco_20146927",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 5.99,
+          "y": -123.1,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_54727667",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -279,
+          "y": 273,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_6675406",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -256,
+          "y": 316,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_88847980",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -295,
+          "y": 331,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_81710875",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -360,
+          "y": 287,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_69890609",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -335,
+          "y": 358,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_64437815",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -364.49,
+          "y": 374.52,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_34753807",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -385,
+          "y": 325,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_35096703",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -425,
+          "y": 331,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_75071771",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -392.53,
+          "y": 135,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_69413230",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 958,
+          "y": 348,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_6616848",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 453,
+          "y": 577,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_97650015",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 470,
+          "y": 607,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_89759740",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 440,
+          "y": 632,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_55165633",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 468,
+          "y": 662,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_8901280",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 803,
+          "y": 571,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_9288494",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1042.4,
+          "y": 310.6,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_13995534",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1043.48,
+          "y": 237.13,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_79708997",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 985,
+          "y": 426,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_39559985",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 931,
+          "y": 451,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_17915916",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 880,
+          "y": 522,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_24029960",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1018,
+          "y": 195,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_60701668",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 349.44,
+          "y": -145.72,
+          "width": 66,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_28744135",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 612.42,
+          "y": -137.75,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_94666460",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 642.22,
+          "y": -146,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_38653344",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 765,
+          "y": -62,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_89725678",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 740.69,
+          "y": -119.26,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_45784091",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 820,
+          "y": -39,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_37201608",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -38.54,
+          "y": -61.83,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_94858712",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 51.95,
+          "y": -95.91,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_32462613",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 125.34,
+          "y": -118.93,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_94148807",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -129,
+          "y": -67,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_10814542",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -154.57,
+          "y": -27.61,
+          "width": 64,
+          "height": 129,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_40922726",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -222.54,
+          "y": 8.91,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_50716785",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -186.03,
+          "y": 23.4,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_48892961",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 810,
+          "y": 532,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_19209126",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -287,
+          "y": 419,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_35424101",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": -240,
+          "y": 477,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_53595052",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -233,
+          "y": 550,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_71747705",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 211,
+          "y": 593,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_77392691",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 173,
+          "y": 672,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_55389169",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 510.09,
+          "y": 384.56,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
+          "id": "obj_1782933972889_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -274.14,
+          "y": -165.29,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782933975416_50",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -239,
+          "y": -154,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782933977539_137",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -198,
+          "y": -182,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782933971762_830",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -377,
+          "y": -42.49,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782933969971_30",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -340.95,
+          "y": -124.45,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782934005155_822",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 188.94,
+          "y": -231.62,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934007923_102",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 235,
+          "y": -246,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934010533_93",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 517.76,
+          "y": -269.33,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934017081_133",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 665,
+          "y": -224,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934019107_564",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 395.5,
+          "y": -215.34,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934022249_155",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 314,
+          "y": -296,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934024117_224",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -96,
+          "y": -222,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934025873_396",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 911,
+          "y": -168,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934033350_151",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 837,
+          "y": -206,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782934035570_276",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 953,
+          "y": -209,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "deco_71846299",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 236.55,
+          "y": -142.46,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_527772",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 614.32,
+          "y": -83.08,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934078135_978",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 698.34,
+          "y": -124.91,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934084015_27",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush4",
+          "x": 678.63,
+          "y": -35.73,
+          "width": 30,
+          "height": 30,
+          "name": "灌木2"
+        },
+        {
+          "id": "obj_1782934099182_183",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush4",
+          "x": 706,
+          "y": -6,
+          "width": 30,
+          "height": 30,
+          "name": "灌木2"
+        },
+        {
+          "id": "obj_1782934104859_59",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush2",
+          "x": 590,
+          "y": -23,
+          "width": 32,
+          "height": 32,
+          "name": "灌木1"
+        },
+        {
+          "id": "obj_1782934107267_526",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush2",
+          "x": 648,
+          "y": -12,
+          "width": 32,
+          "height": 32,
+          "name": "灌木1"
+        },
+        {
+          "id": "obj_1782934110177_937",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush3",
+          "x": 526,
+          "y": -34,
+          "width": 32,
+          "height": 32,
+          "name": "草莓"
+        },
+        {
+          "id": "obj_1782934112075_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush3",
+          "x": 560,
+          "y": -41,
+          "width": 32,
+          "height": 32,
+          "name": "草莓"
+        },
+        {
+          "id": "obj_1782934114970_142",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush2",
+          "x": 496,
+          "y": -48,
+          "width": 32,
+          "height": 32,
+          "name": "灌木1"
+        },
+        {
+          "id": "obj_1782934119043_205",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush3",
+          "x": 680,
+          "y": 1,
+          "width": 32,
+          "height": 32,
+          "name": "草莓"
+        },
+        {
+          "id": "obj_1782934121833_342",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush3",
+          "x": 740,
+          "y": 24,
+          "width": 32,
+          "height": 32,
+          "name": "草莓"
+        },
+        {
+          "id": "obj_1782934131929_458",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "bush4",
+          "x": 368.11,
+          "y": 354.43,
+          "width": 30,
+          "height": 30,
+          "name": "灌木2"
+        },
+        {
+          "id": "obj_1782934029869_916",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 948,
+          "y": -119,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "deco_32625172",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 915.98,
+          "y": -37.52,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "obj_1782934027807_226",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 991.57,
+          "y": -53.03,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "deco_58903506",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 989.89,
+          "y": 172.13,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_91584654",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1014.63,
+          "y": 203.83,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_33123576",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1037,
+          "y": 305,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_55103657",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1026,
+          "y": 374,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "obj_1782934571634_371",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 943.69,
+          "y": 534,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782934574880_519",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 868,
+          "y": 579,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934577775_25",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 917,
+          "y": 603,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934583431_319",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 845,
+          "y": 661,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934585794_252",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 1067,
+          "y": 618,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934588524_29",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1018,
+          "y": 532,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934591269_670",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 948,
+          "y": 661,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934593962_693",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1039.15,
+          "y": 448.19,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934597044_286",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -453,
+          "y": 493,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782934600374_510",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -371,
+          "y": 554,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934602744_431",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -486.03,
+          "y": 401.81,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934605008_265",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -291,
+          "y": 592,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934611655_724",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -388,
+          "y": -189,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934617386_726",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -368.1,
+          "y": -249,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934642595_377",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -435.03,
+          "y": 5.47,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934644230_119",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -464.31,
+          "y": 122.75,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934689249_935",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 908,
+          "y": -257,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934692030_235",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 1055.19,
+          "y": -147.32,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934696539_309",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 1112.26,
+          "y": -89.03,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934710153_506",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 1150,
+          "y": 183,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934712327_822",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1122.58,
+          "y": 0.16,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934715222_285",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1121,
+          "y": 304,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "deco_81332988",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 414.37,
+          "y": -165.74,
+          "width": 66,
+          "height": 124,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "obj_1782934876874_638",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 540.73,
+          "y": -180.9,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934873153_597",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 522.18,
+          "y": -121.69,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936157943_847",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 123.26,
+          "y": 80.48,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936161828_237",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 209.44,
+          "y": 12.74,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936166171_740",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": -12.34,
+          "y": 117.92,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936177159_727",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 636.37,
+          "y": 15.85,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936193939_605",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 690.98,
+          "y": 335.25,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936200793_707",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 518.34,
+          "y": 21.54,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936210176_73",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 394.05,
+          "y": 405.17,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936249417_142",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 193.63,
+          "y": 330.49,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936261254_28",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 545.54,
+          "y": 358.03,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782936268755_872",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 481.43,
+          "y": 178.22,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "deco_47316547",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 640.17,
+          "y": 605.03,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_21841616",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 699,
+          "y": 608,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934580746_800",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 709.81,
+          "y": 657.09,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "deco_23082729",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 592.82,
+          "y": 616.28,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_95739984",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 594.45,
+          "y": 681.27,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1071.49,
+          "y": -10.29,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 927.25,
+          "y": 35.37,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        }
+      ]
+    },
+    {
+      "id": "layer_entity",
+      "name": "实体层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_1783537117627_395",
+          "type": "ref",
+          "kind": "item",
+          "ref": "leftover_food",
+          "name": "残羹",
+          "x": 338.72,
+          "y": 162.99,
+          "group": "act1_pickups"
+        },
+        {
+          "id": "ref_equip_clothes_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "ragged_clothes",
+          "name": "破旧衣服",
+          "x": 248.38,
+          "y": 222.26,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_sword_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_sword",
+          "name": "木剑",
+          "x": 315.13,
+          "y": 266.14,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_bow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_bow",
+          "name": "木弓",
+          "x": 557.21,
+          "y": 392.6,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_arrow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_arrow",
+          "name": "木箭",
+          "x": 622.08,
+          "y": 388.03,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_enemy_dog_1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 257.16,
+          "y": 301.11,
+          "group": "act1_wave1"
+        },
+        {
+          "id": "ref_enemy_dog_2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 447.41,
+          "y": 331.98,
+          "group": "act1_wave1"
+        }
+      ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "逻辑对象",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    }
+  ],
+  "decorations": [
+    {
+      "x": 360,
+      "y": -167,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 449,
+      "y": -176,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 458,
+      "y": -182,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 564,
+      "y": -160,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 614,
+      "y": -127,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 637,
+      "y": -120,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 741,
+      "y": -103,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 768,
+      "y": -85,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 798,
+      "y": -53,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 868,
+      "y": -4,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 895,
+      "y": 32,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 916,
+      "y": 45,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 964,
+      "y": 108,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 967,
+      "y": 116,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 987,
+      "y": 182,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1009,
+      "y": 223,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 988,
+      "y": 254,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1007,
+      "y": 288,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 988,
+      "y": 327,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 963,
+      "y": 391,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 947,
+      "y": 397,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 427,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 887,
+      "y": 477,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 857,
+      "y": 519,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 811,
+      "y": 559,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 760,
+      "y": 578,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 699,
+      "y": 600,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 625,
+      "y": 624,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 575,
+      "y": 652,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 532,
+      "y": 663,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 458,
+      "y": 675,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 243,
+      "y": 671,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 136,
+      "y": 654,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 121,
+      "y": 663,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 59,
+      "y": 628,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -9,
+      "y": 618,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -78,
+      "y": 567,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -83,
+      "y": 560,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -177,
+      "y": 514,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -207,
+      "y": 489,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -201,
+      "y": 465,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -263,
+      "y": 409,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -280,
+      "y": 375,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -279,
+      "y": 322,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -304,
+      "y": 305,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -309,
+      "y": 258,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -291,
+      "y": 215,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -296,
+      "y": 184,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -271,
+      "y": 118,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -239,
+      "y": 78,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -215,
+      "y": 57,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -184,
+      "y": 30,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -148,
+      "y": -6,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -120,
+      "y": -29,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -57,
+      "y": -90,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -28,
+      "y": -95,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 38,
+      "y": -108,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 84,
+      "y": -156,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 143,
+      "y": -155,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 204,
+      "y": -172,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 308,
+      "y": -166,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 364,
+      "y": -142,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 428,
+      "y": -131,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 497,
+      "y": -116,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 548,
+      "y": -118,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 624,
+      "y": -102,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 661,
+      "y": -83,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 726,
+      "y": -49,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 797,
+      "y": -16,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 830,
+      "y": 23,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 854,
+      "y": 40,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 892,
+      "y": 103,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 907,
+      "y": 119,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 946,
+      "y": 152,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 958,
+      "y": 226,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 963,
+      "y": 257,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 948,
+      "y": 306,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 924,
+      "y": 337,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 900,
+      "y": 384,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 906,
+      "y": 416,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 844,
+      "y": 474,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 823,
+      "y": 478,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 762,
+      "y": 544,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 740,
+      "y": 559,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 662,
+      "y": 590,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 596,
+      "y": 616,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 561,
+      "y": 606,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 498,
+      "y": 625,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 206,
+      "y": 641,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 181,
+      "y": 618,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 87,
+      "y": 606,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 46,
+      "y": 597,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -34,
+      "y": 555,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -60,
+      "y": 539,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -129,
+      "y": 484,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -182,
+      "y": 445,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -177,
+      "y": 425,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -224,
+      "y": 362,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -247,
+      "y": 319,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -250,
+      "y": 286,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -258,
+      "y": 242,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -237,
+      "y": 217,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -231,
+      "y": 149,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -217,
+      "y": 143,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -186,
+      "y": 68,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -154,
+      "y": 28,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -104,
+      "y": -12,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -97,
+      "y": -21,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -17,
+      "y": -60,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 35,
+      "y": -69,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 72,
+      "y": -87,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 146,
+      "y": -116,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 243,
+      "y": -133,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 312,
+      "y": -148,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 341,
+      "y": -199,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 395,
+      "y": -191,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 503,
+      "y": -208,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 563,
+      "y": -175,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 662,
+      "y": -162,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 694,
+      "y": -142,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 759,
+      "y": -111,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 844,
+      "y": -89,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 910,
+      "y": -44,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 959,
+      "y": 12,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 958,
+      "y": 36,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1029,
+      "y": 105,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1031,
+      "y": 135,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1036,
+      "y": 213,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1050,
+      "y": 241,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1037,
+      "y": 296,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1016,
+      "y": 367,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1012,
+      "y": 424,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 990,
+      "y": 426,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 931,
+      "y": 502,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 899,
+      "y": 520,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 840,
+      "y": 578,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 793,
+      "y": 611,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 754,
+      "y": 627,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 643,
+      "y": 678,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 580,
+      "y": 671,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 520,
+      "y": 693,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 160,
+      "y": 690,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 119,
+      "y": 693,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 10,
+      "y": 666,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -2,
+      "y": 649,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -76,
+      "y": 613,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -160,
+      "y": 557,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -192,
+      "y": 555,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -233,
+      "y": 518,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -288,
+      "y": 428,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -303,
+      "y": 404,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -328,
+      "y": 365,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -357,
+      "y": 303,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -368,
+      "y": 240,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -359,
+      "y": 207,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -327,
+      "y": 145,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -339,
+      "y": 116,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -283,
+      "y": 34,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -239,
+      "y": -5,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -171,
+      "y": -44,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -152,
+      "y": -67,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -96,
+      "y": -103,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -7,
+      "y": -146,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 74,
+      "y": -155,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 86,
+      "y": -170,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 166,
+      "y": -180,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 306,
+      "y": -209,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1125,
+      "y": 247,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1100,
+      "y": 291,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1087,
+      "y": 349,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1085,
+      "y": 383,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1065,
+      "y": 414,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1058,
+      "y": 453,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1017,
+      "y": 504,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1000,
+      "y": 530,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 574,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 912,
+      "y": 600,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 851,
+      "y": 649,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 791,
+      "y": 686,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 731,
+      "y": 654,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 651,
+      "y": 703,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 625,
+      "y": 720,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 547,
+      "y": 719,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 461,
+      "y": 745,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 205,
+      "y": 750,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 181,
+      "y": 724,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 65,
+      "y": 715,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 25,
+      "y": 709,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -40,
+      "y": 663,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -110,
+      "y": 669,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -132,
+      "y": 634,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -201,
+      "y": 597,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -265,
+      "y": 577,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -300,
+      "y": 551,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -301,
+      "y": 496,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -331,
+      "y": 457,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -393,
+      "y": 410,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -357,
+      "y": 364,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -386,
+      "y": 330,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -393,
+      "y": 294,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 442,
+      "y": 669,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 460,
+      "y": 715,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 426,
+      "y": 685,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 426,
+      "y": 700,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 399,
+      "y": 689,
+      "key": "bush2",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 400,
+      "y": 723,
+      "key": "bush4",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 376,
+      "y": 689,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 383,
+      "y": 680,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 357,
+      "y": 696,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 344,
+      "y": 718,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 335,
+      "y": 697,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 313,
+      "y": 724,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 300,
+      "y": 734,
+      "key": "bush2",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 297,
+      "y": 734,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 286,
+      "y": 657,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 283,
+      "y": 667,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 271,
+      "y": 719,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 262,
+      "y": 700,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": -103,
+      "y": 469,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 443,
+      "y": 607,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -223,
+      "y": 249,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 599,
+      "y": 571,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -112,
+      "y": 46,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 270,
+      "y": 607,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 758,
+      "y": 12,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 872,
+      "y": 107,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 794,
+      "y": 467,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 815,
+      "y": 75,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 985,
+      "y": 225,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 792,
+      "y": 470,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 570,
+      "y": 631,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 165,
+      "y": 625,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -167,
+      "y": 494,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -237,
+      "y": 274,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -153,
+      "y": 8,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 173,
+      "y": -151,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 525,
+      "y": -94,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 813,
+      "y": 29,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 328,
+      "y": -172,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 429,
+      "y": -188,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 518,
+      "y": -179,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 557,
+      "y": -157,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 624,
+      "y": -142,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 733,
+      "y": -128,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 741,
+      "y": -89,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 840,
+      "y": -50,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 886,
+      "y": -32,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 941,
+      "y": 5,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 949,
+      "y": 65,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 984,
+      "y": 104,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1031,
+      "y": 155,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1048,
+      "y": 201,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1038,
+      "y": 243,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1019,
+      "y": 302,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1026,
+      "y": 341,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 975,
+      "y": 382,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 957,
+      "y": 439,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 499,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 877,
+      "y": 512,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 827,
+      "y": 581,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 788,
+      "y": 593,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 703,
+      "y": 629,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 647,
+      "y": 658,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 584,
+      "y": 677,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 505,
+      "y": 663,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 190,
+      "y": 668,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 111,
+      "y": 679,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 72,
+      "y": 631,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 12,
+      "y": 616,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -70,
+      "y": 591,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -131,
+      "y": 552,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -167,
+      "y": 514,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -216,
+      "y": 488,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -259,
+      "y": 428,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -264,
+      "y": 406,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -307,
+      "y": 343,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -345,
+      "y": 285,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -337,
+      "y": 236,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -340,
+      "y": 192,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -314,
+      "y": 166,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -269,
+      "y": 106,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -283,
+      "y": 60,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -230,
+      "y": 10,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -181,
+      "y": -43,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -127,
+      "y": -59,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -86,
+      "y": -111,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -5,
+      "y": -112,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 70,
+      "y": -138,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 103,
+      "y": -182,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 209,
+      "y": -170,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 296,
+      "y": -177,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 63,
+      "y": 144,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 170,
+      "y": 248,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 484,
+      "y": 585,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 78,
+      "y": 67,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 61,
+      "y": 74,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 275,
+      "y": 172,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 175,
+      "y": 31,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 740,
+      "y": 98,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 283,
+      "y": 176,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -3,
+      "y": 497,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 788,
+      "y": 299,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -162,
+      "y": 127,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 71,
+      "y": 263,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 635,
+      "y": 9,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": -11,
+      "y": 221,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 361,
+      "y": -35,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 195,
+      "y": 273,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 196,
+      "y": 387,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 118,
+      "y": 178,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 444,
+      "y": -20,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 155,
+      "y": 485,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": -32,
+      "y": 33,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": -75,
+      "y": 74,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 305,
+      "y": 369,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 685,
+      "y": 99,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 902,
+      "y": 254,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 867,
+      "y": 313,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 591,
+      "y": -68,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 666,
+      "y": 432,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": -60,
+      "y": 87,
+      "key": "bush3",
+      "scale": 1
+    }
+  ],
+  "colliders": [],
+  "metadata": {
+    "description": "东汉末年，太平道首领张角的起义军营地",
+    "act": 0,
+    "type": "outdoor"
+  },
+  "centerX": 350,
+  "centerY": 250,
+  "basinRadius": 640,
+  "basinAspectY": 0.65,
+  "basinInnerScale": 0.94,
+  "entranceAngleHalfWidth": 0.15707963267948966,
+  "assetBase": "../example/sanguo_zhangjiao/assets/images/scene1/",
+  "terrain": {
+    "type": "basin",
+    "grassTile": {
+      "sx": 448,
+      "sy": 128,
+      "sw": 64,
+      "sh": 64
+    },
+    "tileSize": 64,
+    "image": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png"
+  },
+  "decoSprites": {
+    "tree1": {
+      "sx": 128,
+      "sy": 384,
+      "sw": 96,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 22
+    },
+    "tree2": {
+      "sx": 224,
+      "sy": 417,
+      "sw": 64,
+      "sh": 96,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 14
+    },
+    "tree3": {
+      "sx": 288,
+      "sy": 385,
+      "sw": 64,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 16
+    },
+    "grass1": {
+      "sx": 128,
+      "sy": 288,
+      "sw": 96,
+      "sh": 96,
+      "scale": 1,
+      "collide": false
+    },
+    "bush2": {
+      "sx": 223,
+      "sy": 289,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush3": {
+      "sx": 224,
+      "sy": 319,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush4": {
+      "sx": 255,
+      "sy": 321,
+      "sw": 30,
+      "sh": 30,
+      "scale": 1,
+      "collide": false
+    }
+  },
+  "waterPatches": [],
+  "atlases": [
+    {
+      "id": "mountain_landscape",
+      "name": "山地景观图集",
+      "path": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png",
+      "width": 512,
+      "height": 512,
+      "slices": {
+        "grassTile": {
+          "name": "草地",
+          "sx": 448,
+          "sy": 128,
+          "sw": 64,
+          "sh": 64
+        },
+        "tree1": {
+          "name": "大树",
+          "sx": 128,
+          "sy": 384,
+          "sw": 96,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 22
+        },
+        "tree2": {
+          "name": "中树",
+          "sx": 224,
+          "sy": 417,
+          "sw": 64,
+          "sh": 96,
+          "collide": true,
+          "colliderRadius": 14
+        },
+        "tree3": {
+          "name": "小树",
+          "sx": 288,
+          "sy": 385,
+          "sw": 64,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 16
+        },
+        "grass1": {
+          "name": "草地装饰",
+          "sx": 128,
+          "sy": 288,
+          "sw": 96,
+          "sh": 96,
+          "collide": false
+        },
+        "bush2": {
+          "name": "灌木1",
+          "sx": 223,
+          "sy": 289,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush3": {
+          "name": "草莓",
+          "sx": 224,
+          "sy": 319,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush4": {
+          "name": "灌木2",
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
+          "collide": false
+        }
+      }
+    }
+  ],
+  "createdAt": "2026-07-16T16:04:11.293Z",
+  "updatedAt": "2026-07-16T19:19:46.243Z",
+  "imageAssets": {
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
+    }
+  }
+}

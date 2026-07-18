@@ -79,6 +79,7 @@ export class SceneEditorCanvas {
     ctx.strokeRect(sceneX, sceneY, sceneW, sceneH);
 
     ctx.restore();
+    this._renderTriggerLinks();
     this._renderSelection();
   }
 
@@ -820,6 +821,77 @@ export class SceneEditorCanvas {
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
     return true;
+  }
+
+  /**
+   * 渲染触发器与目标之间的关联线（虚线箭头）
+   * @private
+   */
+  _renderTriggerLinks() {
+    const editor = this.editor;
+    const canvas = document.getElementById('editor-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    // 收集所有对象（用于按 id 查找目标）
+    const allObjects = [];
+    for (const layer of editor.sceneData.layers) {
+      if (!layer.visible) continue;
+      for (const obj of (layer.objects || [])) allObjects.push(obj);
+    }
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const s = editor.viewport.scale;
+    const ox = editor.viewport.offsetX;
+    const oy = editor.viewport.offsetY;
+
+    for (const obj of allObjects) {
+      if (obj.type !== 'trigger' || !obj.target) continue;
+      // 查找目标对象
+      const target = allObjects.find(o => 
+        o.id === obj.target || o.triggerId === obj.target || 
+        o.spawnId === obj.target || o.name === obj.target ||
+        o.regionId === obj.target || o.portalId === obj.target
+      );
+      if (!target) continue;
+
+      // 触发器中心
+      const srcX = (obj.x + (obj.width || 0) / 2) * s + ox;
+      const srcY = (obj.y + (obj.height || 0) / 2) * s + oy;
+      // 目标中心
+      let tgtX, tgtY;
+      if (target.width !== undefined) {
+        tgtX = (target.x + (target.width || 0) / 2) * s + ox;
+        tgtY = (target.y + (target.height || 0) / 2) * s + oy;
+      } else {
+        tgtX = target.x * s + ox;
+        tgtY = target.y * s + oy;
+      }
+
+      // 虚线
+      ctx.beginPath();
+      ctx.moveTo(srcX, srcY);
+      ctx.lineTo(tgtX, tgtY);
+      ctx.strokeStyle = 'rgba(224, 160, 32, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([5, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 箭头
+      const angle = Math.atan2(tgtY - srcY, tgtX - srcX);
+      const arrowLen = 10;
+      ctx.beginPath();
+      ctx.moveTo(tgtX, tgtY);
+      ctx.lineTo(tgtX - arrowLen * Math.cos(angle - 0.4), tgtY - arrowLen * Math.sin(angle - 0.4));
+      ctx.moveTo(tgtX, tgtY);
+      ctx.lineTo(tgtX - arrowLen * Math.cos(angle + 0.4), tgtY - arrowLen * Math.sin(angle + 0.4));
+      ctx.strokeStyle = 'rgba(224, 160, 32, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**

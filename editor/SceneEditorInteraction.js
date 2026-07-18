@@ -219,6 +219,35 @@ export class SceneEditorInteraction {
       const clicked = this.getObjectAt(pos.x, pos.y);
 
       if (clicked) {
+        // Shift+从触发器拖拽 → 开始连线（关联目标）
+        if (e.shiftKey && clicked.type === 'trigger') {
+          editor.interaction.isDragging = true;
+          editor.interaction.isLinking = true;
+          editor.interaction.linkSource = clicked;
+          editor.interaction.linkEnd = { x: pos.x, y: pos.y };
+          editor.selectedObjects = [clicked];
+          editor.ui.updateObjectProperties();
+          editor.render();
+          return;
+        }
+
+        // 拾取模式：点击目标对象完成关联
+        if (editor.interaction.isPickingTarget) {
+          const source = editor.interaction.pickSource;
+          if (source && clicked !== source) {
+            source.target = clicked.id || clicked.triggerId || clicked.name || '';
+            editor.interaction.isPickingTarget = false;
+            editor.interaction.pickSource = null;
+            editor.selectedObjects = [source];
+            editor.ui.updateObjectProperties();
+            editor.render();
+            editor.ui.showToast('已关联: ' + source.target);
+            const canvas = document.getElementById('editor-overlay') || document.getElementById('editor-canvas');
+            if (canvas) canvas.style.cursor = '';
+          }
+          return;
+        }
+
         if (e.shiftKey) {
           const index = editor.selectedObjects.indexOf(clicked);
           if (index === -1) editor.selectedObjects.push(clicked);
@@ -315,6 +344,12 @@ export class SceneEditorInteraction {
       editor.interaction.boxSelectEnd = { x: pos.x, y: pos.y };
       editor.render();
       this._renderBoxSelection();
+    } else if (editor.interaction.mode === 'select' && editor.interaction.isLinking) {
+      // 连线模式：更新连线终点
+      const pos = this.screenToScene(e.offsetX, e.offsetY);
+      editor.interaction.linkEnd = { x: pos.x, y: pos.y };
+      editor.render();
+      this._renderLinkLine();
     } else if (editor.interaction.mode === 'select' && editor.selectedObjects.length > 0) {
       const pos = this.screenToScene(e.offsetX, e.offsetY);
       const dx = pos.x - editor.interaction.dragStart.x;
@@ -349,6 +384,25 @@ export class SceneEditorInteraction {
    */
   handleMouseUp(e) {
     const editor = this.editor;
+
+    // 连线完成：查找松开位置的目标对象
+    if (editor.interaction.isLinking) {
+      const pos = this.screenToScene(e.offsetX, e.offsetY);
+      const target = this.getObjectAt(pos.x, pos.y);
+      const source = editor.interaction.linkSource;
+      if (target && target !== source && source) {
+        source.target = target.id || target.triggerId || target.spawnId || target.name || '';
+        editor.ui.showToast('已关联: ' + source.name + ' → ' + source.target);
+      }
+      editor.interaction.isLinking = false;
+      editor.interaction.linkSource = null;
+      editor.interaction.linkEnd = null;
+      editor.interaction.isDragging = false;
+      editor.history.saveHistory();
+      editor.ui.updateObjectProperties();
+      editor.render();
+      return;
+    }
 
     // 框选完成：选中框内对象
     if (editor.interaction.isBoxSelecting) {
@@ -431,6 +485,41 @@ export class SceneEditorInteraction {
     }
 
     items.push({ label: '删除对象', action: () => editor.ui.deleteSelectedObjects() });
+
+    // 触发器相关：如果选中的是触发器且有关联目标，显示「断开关联」
+    if (clicked.type === 'trigger' && clicked.target) {
+      items.push({ separator: true });
+      items.push({ label: '断开触发器关联', action: () => {
+        clicked.target = '';
+        editor.history.saveHistory();
+        editor.ui.updateObjectProperties();
+        editor.render();
+        editor.ui.showToast('已断开关联');
+      }});
+    }
+    // 如果选中的是普通对象，且有触发器关联到它，显示「断开触发器」
+    if (clicked.type !== 'trigger') {
+      const linkedTriggers = [];
+      for (const layer of editor.sceneData.layers) {
+        for (const obj of (layer.objects || [])) {
+          if (obj.type === 'trigger' && obj.target && (
+            obj.target === clicked.id || obj.target === clicked.name ||
+            obj.target === clicked.spawnId || obj.target === clicked.regionId || obj.target === clicked.portalId
+          )) {
+            linkedTriggers.push(obj);
+          }
+        }
+      }
+      if (linkedTriggers.length > 0) {
+        items.push({ separator: true });
+        items.push({ label: `断开触发器 (${linkedTriggers.length}个)`, action: () => {
+          for (const trg of linkedTriggers) trg.target = '';
+          editor.history.saveHistory();
+          editor.render();
+          editor.ui.showToast(`已断开 ${linkedTriggers.length} 个触发器关联`);
+        }});
+      }
+    }
 
     for (const item of items) {
       if (item.separator) {
@@ -801,6 +890,69 @@ export class SceneEditorInteraction {
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(74, 158, 255, 0.1)';
     ctx.fillRect(x, y, w, h);
+  }
+
+  /**
+   * 渲染连线（Shift+从触发器拖拽时的实时连线）
+   * @private
+   */
+  _renderLinkLine() {
+    const editor = this.editor;
+    const overlay = document.getElementById('editor-overlay');
+    if (!overlay) return;
+    const ctx = overlay.getContext('2d');
+    ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+    const source = editor.interaction.linkSource;
+    const end = editor.interaction.linkEnd;
+    if (!source || !end) return;
+
+    // 触发器中心
+    const srcX = (source.x + (source.width || 0) / 2) * editor.viewport.scale + editor.viewport.offsetX;
+    const srcY = (source.y + (source.height || 0) / 2) * editor.viewport.scale + editor.viewport.offsetY;
+    const endX = end.x * editor.viewport.scale + editor.viewport.offsetX;
+    const endY = end.y * editor.viewport.scale + editor.viewport.offsetY;
+
+    // 虚线箭头
+    ctx.beginPath();
+    ctx.moveTo(srcX, srcY);
+    ctx.lineTo(endX, endY);
+    ctx.strokeStyle = '#e0a020';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // 箭头头部
+    const angle = Math.atan2(endY - srcY, endX - srcX);
+    const arrowLen = 12;
+    ctx.beginPath();
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - arrowLen * Math.cos(angle - 0.4), endY - arrowLen * Math.sin(angle - 0.4));
+    ctx.moveTo(endX, endY);
+    ctx.lineTo(endX - arrowLen * Math.cos(angle + 0.4), endY - arrowLen * Math.sin(angle + 0.4));
+    ctx.strokeStyle = '#e0a020';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 提示文字
+    ctx.fillStyle = '#e0a020';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('关联目标', (srcX + endX) / 2, (srcY + endY) / 2 - 8);
+  }
+
+  /**
+   * 进入拾取目标模式（属性面板「🎯」按钮调用）
+   * @param {Object} triggerObj - 触发器对象
+   */
+  startPickTarget(triggerObj) {
+    const editor = this.editor;
+    editor.interaction.isPickingTarget = true;
+    editor.interaction.pickSource = triggerObj;
+    const canvas = document.getElementById('editor-overlay') || document.getElementById('editor-canvas');
+    if (canvas) canvas.style.cursor = 'crosshair';
+    editor.ui.showToast('点击场景中的目标对象完成关联…');
   }
 
   /**

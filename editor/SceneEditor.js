@@ -190,36 +190,6 @@ export class SceneEditor {
     document.getElementById('editor-pan').addEventListener('click', () => this.ui.setMode('pan'));
     document.getElementById('editor-place').addEventListener('click', () => this.ui.setMode('place'));
 
-    // 添加椭圆
-    document.getElementById('editor-add-ellipse').addEventListener('click', () => {
-      const data = this.sceneData;
-      const cx = data.width / 2;
-      const cy = data.height / 2;
-      const rx = 200;
-      const ry = 130;
-      const obj = this.ui.addObject({
-        type: 'shape',
-        shapeType: 'ellipse',
-        name: '椭圆_' + Date.now().toString(36),
-        x: cx - rx,
-        y: cy - ry,
-        width: rx * 2,
-        height: ry * 2,
-        fillMode: 'color',
-        fill: '#3a5a2a',
-        opacity: 1,
-        edgeFade: 0,
-        stroke: '',
-        strokeWidth: 0,
-        collide: false
-      });
-      if (obj) {
-        this.selectedObjects = [obj];
-        this.ui.updateObjectProperties();
-        this.ui.showToast('已添加椭圆');
-      }
-    });
-
     // 添加玩家出生点
     document.getElementById('editor-add-player-spawn').addEventListener('click', () => {
       const data = this.sceneData;

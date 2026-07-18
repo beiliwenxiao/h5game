@@ -45,7 +45,6 @@ export class SceneEditorUI {
             <button id="editor-select" class="active" title="选择工具 (V)">◇</button>
             <button id="editor-pan" title="平移工具 (H)">✥</button>
             <button id="editor-place" title="放置工具 (P)">+</button>
-            <button id="editor-add-ellipse" title="添加椭圆">⬭</button>
             <button id="editor-add-player-spawn" title="添加玩家出生点">🧑</button>
             <button id="editor-add-campfire" title="添加火堆">🔥</button>
           </div>
@@ -622,6 +621,14 @@ export class SceneEditorUI {
     }
 
     document.getElementById('editor-delete-obj').addEventListener('click', () => this.deleteSelectedObjects());
+
+    // 🎯 拾取目标按钮（触发器关联）
+    const pickBtn = document.getElementById('editor-pick-target');
+    if (pickBtn && editor.selectedObjects.length === 1 && editor.selectedObjects[0].type === 'trigger') {
+      pickBtn.addEventListener('click', () => {
+        editor.interactionModule.startPickTarget(editor.selectedObjects[0]);
+      });
+    }
   }
 
   /**
@@ -733,7 +740,7 @@ export class SceneEditorUI {
         <option value="itemTransform" ${obj.event === 'itemTransform' ? 'selected' : ''}>物品转化</option>
         <option value="custom" ${obj.event === 'custom' ? 'selected' : ''}>自定义</option>
       </select></div>`;
-      html += `<div class="property-row"><label>目标对象:</label><input type="text" value="${obj.target || ''}" data-prop="target" placeholder="关联的实体/物品 id"></div>`;
+      html += `<div class="property-row"><label>目标对象:</label><input type="text" value="${obj.target || ''}" data-prop="target" placeholder="关联的实体/物品 id" style="flex:1;"><button id="editor-pick-target" title="点击场景中的对象拾取" style="margin-left:4px;padding:2px 6px;cursor:pointer;">🎯</button></div>`;
       html += `<div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>`;
       html += `<div class="property-row"><label>条件(JSON):</label><textarea data-prop="conditions" rows="2" style="width:100%;font-size:11px;">${obj.conditions || ''}</textarea></div>`;
       html += `<div class="property-row"><label>动作:</label><select data-prop="actionType">

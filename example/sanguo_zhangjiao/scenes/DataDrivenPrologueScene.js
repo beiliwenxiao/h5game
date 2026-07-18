@@ -25,6 +25,7 @@
 import { BaseGameScene } from './BaseGameScene.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
+import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   constructor() {
@@ -85,31 +86,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
 
-    // 大地图 chunk 偏移：scene_Prologue 在 grid[0][1]，原点 (1280, 0)
-    // 编辑器中每个 scene 的坐标是 0~1280 局部坐标，运行时加 worldOffset 转为世界坐标
+    // 大地图 chunk 偏移：从 game.project.json worldMap 动态加载地形
+    // 编辑器中每个 scene 的坐标是 0~chunkWidth 局部坐标，运行时加 worldOffset 转为世界坐标
     const chunkWidth = 1280;
     const chunkHeight = 720;
     this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight };
 
-    // scene_Prologue 地形（传入 worldOffset，内部对编辑器数据做偏移）
-    this.terrain = new Scene1Terrain({
-      centerX: 350,
-      centerY: 250,
-      width: chunkWidth,
-      height: chunkHeight,
-      editorSceneId: 's0-1',
-      worldOffset: { x: this._prologueOffset.x, y: this._prologueOffset.y }
-    });
-
-    // scene_Act1 地形（grid[0][0]，原点 (0,0)，无偏移）
-    this.terrainAct1 = new Scene1Terrain({
-      centerX: 640,
-      centerY: 360,
-      width: chunkWidth,
-      height: chunkHeight,
-      editorSceneId: 's0-0',
-      worldOffset: { x: 0, y: 0 }
-    });
+    // 地形实例在 _loadWorldTerrains 中动态创建
+    this.terrain = null;
+    this.terrainAct1 = null;
+    this._terrains = [];
+    this._loadWorldTerrains();
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
     this.loadFireImage();
@@ -707,65 +694,89 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
-   * 加载场景放置点（type:'ref'）：从 localStorage 或导出 JSON 读同一份 scene_Prologue，
-   * 收集所有图层里 type==='ref' 的对象（含 group/kind/ref/x/y）。
+   * 加载场景放置点（type:'ref'/'spawn'）：从 game.project.json 的 worldMap 动态读取所有场景
    * @private
    */
   _loadScenePlacements() {
     const gameId = 'sanguo_zhangjiao';
-    const sceneId = 'scene_Prologue';
-    let scene = null;
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
-        if (raw) {
-          const scenes = JSON.parse(raw);
-          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
+
+    // 从 game.project.json 读取 worldMap 配置
+    fetch('game.project.json')
+      .then(res => res.ok ? res.json() : null)
+      .then(project => {
+        if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) {
+          console.warn('[DDScene] game.project.json 无 worldMap 配置');
+          return;
         }
-      }
-    } catch (e) { /* ignore */ }
-    // fallback 异步加载（不阻塞，后续帧生效）
-    if (!scene && typeof fetch !== 'undefined') {
-      fetch('assets/scenes/' + encodeURIComponent('序章 - 盆地营地.json'))
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (!data) return;
-          const scenes = Array.isArray(data) ? data : [data];
-          const s = scenes.find(s => s && s.id === sceneId);
-          if (s) this._applyPlacements(s);
-        })
-        .catch(() => {});
-      return;
-    }
-    if (scene) this._applyPlacements(scene);
+        const region = project.worldMap.regions[0];
+        const { chunkWidth, chunkHeight, grid } = region;
+        const placements = [];
+        const scenePromises = [];
+
+        // 遍历 grid，收集所有有场景的格子
+        for (let row = 0; row < grid.length; row++) {
+          for (let col = 0; col < (grid[row] || []).length; col++) {
+            const sceneId = grid[row][col];
+            if (!sceneId) continue;
+            const offset = { x: col * chunkWidth, y: row * chunkHeight };
+            // 同步尝试 localStorage
+            const scene = loadSceneFromStorage(gameId, sceneId);
+            if (scene) {
+              this._collectPlacements(scene, placements, offset);
+            } else {
+              // 异步 fallback
+              scenePromises.push(
+                loadSceneFromFile(sceneId).then(s => {
+                  if (s) this._collectPlacements(s, placements, offset);
+                })
+              );
+            }
+          }
+        }
+
+        if (scenePromises.length === 0) {
+          this._placements = placements;
+          this._applySpawnPoints(placements);
+        } else {
+          Promise.all(scenePromises).then(() => {
+            this._placements = placements;
+            this._applySpawnPoints(placements);
+          });
+        }
+      })
+      .catch(e => console.warn('[DDScene] 加载 game.project.json 失败:', e));
   }
 
-  /** 应用场景放置点数据（同步） */
-  _applyPlacements(scene) {
-    const placements = [];
-    if (scene && Array.isArray(scene.layers)) {
-      for (const layer of scene.layers) {
-        for (const o of (layer.objects || [])) {
-          if (o.type === 'ref' || o.type === 'spawn') placements.push(o);
+  /**
+   * 从场景数据中收集放置点，坐标加 offset
+   * @private
+   */
+  _collectPlacements(scene, placements, offset) {
+    if (!scene || !Array.isArray(scene.layers)) return;
+    for (const layer of scene.layers) {
+      for (const o of (layer.objects || [])) {
+        if (o.type === 'ref' || o.type === 'spawn') {
+          placements.push({
+            ...o,
+            x: o.x + (offset ? offset.x : 0),
+            y: o.y + (offset ? offset.y : 0)
+          });
         }
       }
     }
-    this._placements = placements;
-    // 放置点坐标是场景局部坐标，加 worldOffset 转世界坐标
-    if (this._prologueOffset) {
-      for (const pl of this._placements) {
-        pl.x += this._prologueOffset.x;
-        pl.y += this._prologueOffset.y;
-      }
-    }
+  }
 
+  /**
+   * 应用出生点（火堆 + 玩家）
+   * @private
+   */
+  _applySpawnPoints(placements) {
     // 从编辑器放置点读取火堆位置（type:'spawn', ref:'campfire'）
     const campfireSpawn = placements.find(pl => pl.type === 'spawn' && pl.ref === 'campfire');
     if (campfireSpawn) {
       this.campfire.x = campfireSpawn.x;
       this.campfire.y = campfireSpawn.y;
     } else {
-      // 无编辑器放置点时用默认值 + 偏移
       this.campfire.x = 350 + (this._prologueOffset ? this._prologueOffset.x : 0);
       this.campfire.y = 250 + (this._prologueOffset ? this._prologueOffset.y : 0);
     }
@@ -779,7 +790,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         pt.position.y = playerSpawn.y;
       }
     } else {
-      // 无编辑器放置点时的默认位置（火堆旁）
       const pt = this.playerEntity && this.playerEntity.getComponent('transform');
       if (pt) {
         pt.position.x = this.campfire.x + 70;
@@ -787,8 +797,44 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
     }
 
-    console.log('[DDScene] 场景放置点:', placements.length, '玩家:', 
+    console.log('[DDScene] 场景放置点:', placements.length, '玩家:',
       this.playerEntity?.getComponent('transform')?.position, '火堆:', this.campfire.x, this.campfire.y);
+  }
+
+  /**
+   * 从 game.project.json 的 worldMap 动态创建地形实例
+   * @private
+   */
+  _loadWorldTerrains() {
+    fetch('game.project.json')
+      .then(res => res.ok ? res.json() : null)
+      .then(project => {
+        if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) return;
+        const region = project.worldMap.regions[0];
+        const { chunkWidth, chunkHeight, grid } = region;
+
+        for (let row = 0; row < grid.length; row++) {
+          for (let col = 0; col < (grid[row] || []).length; col++) {
+            const sceneId = grid[row][col];
+            if (!sceneId) continue;
+            const offset = { x: col * chunkWidth, y: row * chunkHeight };
+            const t = new Scene1Terrain({
+              centerX: chunkWidth / 2,
+              centerY: chunkHeight / 2,
+              width: chunkWidth,
+              height: chunkHeight,
+              editorSceneId: sceneId,
+              worldOffset: offset
+            });
+            this._terrains.push(t);
+            // 第一个有效地形作为主 terrain（供碰撞等通用逻辑使用）
+            if (!this.terrain) this.terrain = t;
+          }
+        }
+        // 兼容旧代码中 terrainAct1 的引用
+        if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
+      })
+      .catch(e => console.warn('[DDScene] 加载 worldMap 地形失败:', e));
   }
 
   /** 迷雾淡出（平滑过渡到目标浓度） */
@@ -888,12 +934,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 背景：盆地草地+水池（Scene1Terrain） */
   renderBackground(ctx) {
-    if (this.terrain) {
+    if (this._terrains.length > 0) {
       ctx.fillStyle = '#1f1a14';
       const vb = this.camera.getViewBounds();
       ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
-      this.terrain.renderGround(ctx);
-      if (this.terrainAct1) this.terrainAct1.renderGround(ctx);
+      for (const t of this._terrains) t.renderGround(ctx);
     } else {
       super.renderBackground(ctx);
     }
@@ -911,10 +956,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     renderQueue.push({ type: 'campfire_bottom', y: this.campfire.y, render: () => this.renderCampfireBottom(ctx) });
     renderQueue.push({ type: 'campfire_top', y: this.campfire.y - 1, render: () => this.renderCampfireTop(ctx) });
 
-    if (this.terrain) this.terrain.renderBelowDecorations(ctx);
-    if (this.terrain) this.terrain.collectDecorations(renderQueue, ctx);
-    if (this.terrainAct1) this.terrainAct1.renderBelowDecorations(ctx);
-    if (this.terrainAct1) this.terrainAct1.collectDecorations(renderQueue, ctx);
+    for (const t of this._terrains) {
+      t.renderBelowDecorations(ctx);
+      t.collectDecorations(renderQueue, ctx);
+    }
 
     renderQueue.sort((a, b) => a.y - b.y);
     for (const item of renderQueue) {
@@ -922,8 +967,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       else if (item.render) item.render();
     }
 
-    if (this.terrain) this.terrain.renderCliffs(ctx);
-    if (this.terrainAct1) this.terrainAct1.renderCliffs(ctx);
+    for (const t of this._terrains) t.renderCliffs(ctx);
   }
 
   /** 火堆下半部分 */
@@ -1123,8 +1167,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 盆地地形碰撞（椭圆盆地边界 + 水池 + 树 + 编辑器多边形） */
   checkTerrainCollision() {
     if (!this._ctcFirstLog) { console.log('%c[DDScene] checkTerrainCollision 进入方法体', 'color:lime;font-size:14px'); this._ctcFirstLog = true; }
-    if (!this.terrain) { if (!this._noTerrainLogged) { console.warn('[DDScene] checkTerrainCollision: terrain 为 null'); this._noTerrainLogged = true; } return; }
-    const t = this.terrain;
+    if (this._terrains.length === 0) { if (!this._noTerrainLogged) { console.warn('[DDScene] checkTerrainCollision: 地形未加载'); this._noTerrainLogged = true; } return; }
+    const t = this.terrain || this._terrains[0];
     if (!this._collisionInitLogged) {
       console.log('[DDScene] checkTerrainCollision, collisionShapes:', t._collisionShapes?.length,
         'act1 shapes:', this.terrainAct1?._collisionShapes?.length);
@@ -1217,14 +1261,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this._collisionDebugLogged = true;
       }
 
-      // 5) 相邻场景的碰撞 shape（scene_Act1 等）
-      if (this.terrainAct1 && this.terrainAct1._collisionShapes && this.terrainAct1._collisionShapes.length) {
-        if (!this._collisionDebugLogged2) {
-          console.log('[DDScene] terrainAct1._collisionShapes:', this.terrainAct1._collisionShapes.length);
-          this._collisionDebugLogged2 = true;
-        }
-        for (const s of this.terrainAct1._collisionShapes) {
-          this._resolveShapeCollision(p, s, entityRadius);
+      // 5) 所有地形的碰撞 shape
+      for (const terrain of this._terrains) {
+        if (terrain === t) continue; // 已在上面处理过
+        if (terrain._collisionShapes && terrain._collisionShapes.length) {
+          for (const s of terrain._collisionShapes) {
+            this._resolveShapeCollision(p, s, entityRadius);
+          }
         }
       }
     }
@@ -1232,7 +1275,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 把点推出一个 collide shape（多边形/矩形精确边界，椭圆/圆边界） */
   _resolveShapeCollision(p, s, radius) {
-    const t = this.terrain;
+    const t = this.terrain || this._terrains[0];
     if (!t || !t._pointInCollisionShape(s, p.x, p.y)) return;
     const EPS = 0.5;
     const st = s.shapeType;

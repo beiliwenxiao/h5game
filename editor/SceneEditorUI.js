@@ -713,63 +713,62 @@ export class SceneEditorUI {
     } else if (obj.type === 'trigger') {
       html += `<div class="property-row"><label>触发器ID:</label><input type="text" value="${obj.triggerId || ''}" data-prop="triggerId"></div>`;
       html += `<div class="property-row"><label>触发时机:</label><select data-prop="event">
-        <option value="sceneEnter" ${obj.event === 'sceneEnter' ? 'selected' : ''}>进入场景</option>
-        <option value="enterRegion" ${obj.event === 'enterRegion' ? 'selected' : ''}>进入区域</option>
-        <option value="approach" ${obj.event === 'approach' ? 'selected' : ''}>靠近</option>
-        <option value="interact" ${obj.event === 'interact' ? 'selected' : ''}>交互</option>
-        <option value="pickup" ${obj.event === 'pickup' ? 'selected' : ''}>拾取物品</option>
-        <option value="itemPickup" ${obj.event === 'itemPickup' ? 'selected' : ''}>拾取物品(itemPickup)</option>
-        <option value="stand" ${obj.event === 'stand' ? 'selected' : ''}>站立</option>
-        <option value="climb" ${obj.event === 'climb' ? 'selected' : ''}>攀爬</option>
-        <option value="jump" ${obj.event === 'jump' ? 'selected' : ''}>跳跃</option>
-        <option value="enter" ${obj.event === 'enter' ? 'selected' : ''}>进入区域(enter)</option>
-        <option value="leave" ${obj.event === 'leave' ? 'selected' : ''}>离开区域</option>
-        <option value="kill" ${obj.event === 'kill' ? 'selected' : ''}>击杀敌人</option>
-        <option value="dialogueEnd" ${obj.event === 'dialogueEnd' ? 'selected' : ''}>对话结束</option>
-        <option value="questComplete" ${obj.event === 'questComplete' ? 'selected' : ''}>任务完成</option>
-        <option value="questProgress" ${obj.event === 'questProgress' ? 'selected' : ''}>任务进度更新</option>
-        <option value="flagChange" ${obj.event === 'flagChange' ? 'selected' : ''}>变量变化</option>
-        <option value="timer" ${obj.event === 'timer' ? 'selected' : ''}>定时器</option>
-        <option value="chunkEnter" ${obj.event === 'chunkEnter' ? 'selected' : ''}>进入区块</option>
-        <option value="campfireLit" ${obj.event === 'campfireLit' ? 'selected' : ''}>火堆点燃</option>
-        <option value="waveCleared" ${obj.event === 'waveCleared' ? 'selected' : ''}>波次清空</option>
-        <option value="playerMoved" ${obj.event === 'playerMoved' ? 'selected' : ''}>玩家移动</option>
-        <option value="panelOpen" ${obj.event === 'panelOpen' ? 'selected' : ''}>打开面板</option>
-        <option value="equipItem" ${obj.event === 'equipItem' ? 'selected' : ''}>装备物品</option>
-        <option value="classSelected" ${obj.event === 'classSelected' ? 'selected' : ''}>选择职业</option>
-        <option value="itemTransform" ${obj.event === 'itemTransform' ? 'selected' : ''}>物品转化</option>
-        <option value="custom" ${obj.event === 'custom' ? 'selected' : ''}>自定义</option>
+        <option value="sceneEnter" ${obj.event === 'sceneEnter' ? 'selected' : ''}>进入场景 sceneEnter</option>
+        <option value="enterRegion" ${obj.event === 'enterRegion' ? 'selected' : ''}>进入区域 enterRegion</option>
+        <option value="approach" ${obj.event === 'approach' ? 'selected' : ''}>靠近 approach</option>
+        <option value="interact" ${obj.event === 'interact' ? 'selected' : ''}>交互 interact</option>
+        <option value="itemPickup" ${obj.event === 'itemPickup' ? 'selected' : ''}>拾取物品 itemPickup</option>
+        <option value="stand" ${obj.event === 'stand' ? 'selected' : ''}>站立 stand</option>
+        <option value="climb" ${obj.event === 'climb' ? 'selected' : ''}>攀爬 climb</option>
+        <option value="jump" ${obj.event === 'jump' ? 'selected' : ''}>跳跃 jump</option>
+        <option value="enter" ${obj.event === 'enter' ? 'selected' : ''}>进入区域 enter</option>
+        <option value="leave" ${obj.event === 'leave' ? 'selected' : ''}>离开区域 leave</option>
+        <option value="kill" ${obj.event === 'kill' ? 'selected' : ''}>击杀敌人 kill</option>
+        <option value="dialogueEnd" ${obj.event === 'dialogueEnd' ? 'selected' : ''}>对话结束 dialogueEnd</option>
+        <option value="questComplete" ${obj.event === 'questComplete' ? 'selected' : ''}>任务完成 questComplete</option>
+        <option value="questProgress" ${obj.event === 'questProgress' ? 'selected' : ''}>任务进度 questProgress</option>
+        <option value="flagChange" ${obj.event === 'flagChange' ? 'selected' : ''}>变量变化 flagChange</option>
+        <option value="timer" ${obj.event === 'timer' ? 'selected' : ''}>定时器 timer</option>
+        <option value="chunkEnter" ${obj.event === 'chunkEnter' ? 'selected' : ''}>进入区块 chunkEnter</option>
+        <option value="campfireLit" ${obj.event === 'campfireLit' ? 'selected' : ''}>火堆点燃 campfireLit</option>
+        <option value="waveCleared" ${obj.event === 'waveCleared' ? 'selected' : ''}>波次清空 waveCleared</option>
+        <option value="playerMoved" ${obj.event === 'playerMoved' ? 'selected' : ''}>玩家移动 playerMoved</option>
+        <option value="panelOpen" ${obj.event === 'panelOpen' ? 'selected' : ''}>打开面板 panelOpen</option>
+        <option value="equipItem" ${obj.event === 'equipItem' ? 'selected' : ''}>装备物品 equipItem</option>
+        <option value="classSelected" ${obj.event === 'classSelected' ? 'selected' : ''}>选择职业 classSelected</option>
+        <option value="itemTransform" ${obj.event === 'itemTransform' ? 'selected' : ''}>物品转化 itemTransform</option>
+        <option value="custom" ${obj.event === 'custom' ? 'selected' : ''}>自定义 custom</option>
       </select></div>`;
       html += `<div class="property-row"><label>目标对象:</label><input type="text" value="${obj.target || ''}" data-prop="target" placeholder="关联的实体/物品 id" style="flex:1;"><button id="editor-pick-target" title="点击场景中的对象拾取" style="margin-left:4px;padding:2px 6px;cursor:pointer;">🎯</button></div>`;
       html += `<div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>`;
       html += `<div class="property-row"><label>条件(JSON):</label><textarea data-prop="conditions" rows="2" style="width:100%;font-size:11px;">${obj.conditions || ''}</textarea></div>`;
       html += `<div class="property-row"><label>动作:</label><select data-prop="actionType">
         <option value="">-- 选择动作 --</option>
-        <option value="setVar" ${obj.actionType === 'setVar' ? 'selected' : ''}>设置变量</option>
-        <option value="addVar" ${obj.actionType === 'addVar' ? 'selected' : ''}>变量累加</option>
-        <option value="setFlag" ${obj.actionType === 'setFlag' ? 'selected' : ''}>设置标记</option>
-        <option value="toggleFlag" ${obj.actionType === 'toggleFlag' ? 'selected' : ''}>切换标记</option>
-        <option value="startDialogue" ${obj.actionType === 'startDialogue' ? 'selected' : ''}>开始对话</option>
-        <option value="switchScene" ${obj.actionType === 'switchScene' ? 'selected' : ''}>切换场景</option>
-        <option value="loadRegion" ${obj.actionType === 'loadRegion' ? 'selected' : ''}>加载区域</option>
-        <option value="giveReward" ${obj.actionType === 'giveReward' ? 'selected' : ''}>给予奖励</option>
-        <option value="heal" ${obj.actionType === 'heal' ? 'selected' : ''}>治疗/恢复</option>
-        <option value="startQuest" ${obj.actionType === 'startQuest' ? 'selected' : ''}>开始任务</option>
-        <option value="completeQuest" ${obj.actionType === 'completeQuest' ? 'selected' : ''}>完成任务</option>
-        <option value="showTip" ${obj.actionType === 'showTip' ? 'selected' : ''}>显示提示</option>
-        <option value="playSound" ${obj.actionType === 'playSound' ? 'selected' : ''}>播放音效</option>
-        <option value="playBgm" ${obj.actionType === 'playBgm' ? 'selected' : ''}>播放BGM</option>
-        <option value="spawnEnemy" ${obj.actionType === 'spawnEnemy' ? 'selected' : ''}>生成敌人</option>
-        <option value="spawnWave" ${obj.actionType === 'spawnWave' ? 'selected' : ''}>生成波次</option>
-        <option value="spawnGroup" ${obj.actionType === 'spawnGroup' ? 'selected' : ''}>激活放置组</option>
-        <option value="lightCampfire" ${obj.actionType === 'lightCampfire' ? 'selected' : ''}>点燃火堆</option>
-        <option value="sceneCountdown" ${obj.actionType === 'sceneCountdown' ? 'selected' : ''}>倒计时切幕</option>
-        <option value="promptSwitch" ${obj.actionType === 'promptSwitch' ? 'selected' : ''}>提示切幕</option>
-        <option value="wait" ${obj.actionType === 'wait' ? 'selected' : ''}>等待</option>
-        <option value="mount" ${obj.actionType === 'mount' ? 'selected' : ''}>上载具/骑乘</option>
-        <option value="battleWin" ${obj.actionType === 'battleWin' ? 'selected' : ''}>战斗胜利</option>
-        <option value="battleLose" ${obj.actionType === 'battleLose' ? 'selected' : ''}>战斗失败</option>
-        <option value="parallel" ${obj.actionType === 'parallel' ? 'selected' : ''}>并行执行</option>
+        <option value="setVar" ${obj.actionType === 'setVar' ? 'selected' : ''}>设置变量 setVar</option>
+        <option value="addVar" ${obj.actionType === 'addVar' ? 'selected' : ''}>变量累加 addVar</option>
+        <option value="setFlag" ${obj.actionType === 'setFlag' ? 'selected' : ''}>设置标记 setFlag</option>
+        <option value="toggleFlag" ${obj.actionType === 'toggleFlag' ? 'selected' : ''}>切换标记 toggleFlag</option>
+        <option value="startDialogue" ${obj.actionType === 'startDialogue' ? 'selected' : ''}>开始对话 startDialogue</option>
+        <option value="switchScene" ${obj.actionType === 'switchScene' ? 'selected' : ''}>切换场景 switchScene</option>
+        <option value="loadRegion" ${obj.actionType === 'loadRegion' ? 'selected' : ''}>加载区域 loadRegion</option>
+        <option value="giveReward" ${obj.actionType === 'giveReward' ? 'selected' : ''}>给予奖励 giveReward</option>
+        <option value="heal" ${obj.actionType === 'heal' ? 'selected' : ''}>治疗/恢复 heal</option>
+        <option value="startQuest" ${obj.actionType === 'startQuest' ? 'selected' : ''}>开始任务 startQuest</option>
+        <option value="completeQuest" ${obj.actionType === 'completeQuest' ? 'selected' : ''}>完成任务 completeQuest</option>
+        <option value="showTip" ${obj.actionType === 'showTip' ? 'selected' : ''}>显示提示 showTip</option>
+        <option value="playSound" ${obj.actionType === 'playSound' ? 'selected' : ''}>播放音效 playSound</option>
+        <option value="playBgm" ${obj.actionType === 'playBgm' ? 'selected' : ''}>播放BGM playBgm</option>
+        <option value="spawnEnemy" ${obj.actionType === 'spawnEnemy' ? 'selected' : ''}>生成敌人 spawnEnemy</option>
+        <option value="spawnWave" ${obj.actionType === 'spawnWave' ? 'selected' : ''}>生成波次 spawnWave</option>
+        <option value="spawnGroup" ${obj.actionType === 'spawnGroup' ? 'selected' : ''}>激活放置组 spawnGroup</option>
+        <option value="lightCampfire" ${obj.actionType === 'lightCampfire' ? 'selected' : ''}>点燃火堆 lightCampfire</option>
+        <option value="sceneCountdown" ${obj.actionType === 'sceneCountdown' ? 'selected' : ''}>倒计时切幕 sceneCountdown</option>
+        <option value="promptSwitch" ${obj.actionType === 'promptSwitch' ? 'selected' : ''}>提示切幕 promptSwitch</option>
+        <option value="wait" ${obj.actionType === 'wait' ? 'selected' : ''}>等待 wait</option>
+        <option value="mount" ${obj.actionType === 'mount' ? 'selected' : ''}>上载具/骑乘 mount</option>
+        <option value="battleWin" ${obj.actionType === 'battleWin' ? 'selected' : ''}>战斗胜利 battleWin</option>
+        <option value="battleLose" ${obj.actionType === 'battleLose' ? 'selected' : ''}>战斗失败 battleLose</option>
+        <option value="parallel" ${obj.actionType === 'parallel' ? 'selected' : ''}>并行执行 parallel</option>
       </select></div>`;
       html += `<div class="property-row"><label>动作参数(JSON):</label><textarea data-prop="actionParams" rows="2" style="width:100%;font-size:11px;">${obj.actionParams || ''}</textarea></div>`;
       html += `<div class="property-row"><label>仅触发一次:</label><input type="checkbox" data-prop="once" ${obj.once ? 'checked' : ''}></div>`;

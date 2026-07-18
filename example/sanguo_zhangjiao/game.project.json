@@ -1241,7 +1241,7 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "scene_Prologue"
+          "sceneId": "s0-1"
         }
       },
       "if": {
@@ -1539,7 +1539,6 @@
     },
     {
       "id": "trg_wave2_cleared_switch",
-      "enabled": false,
       "when": {
         "type": "waveCleared",
         "params": {
@@ -1578,7 +1577,8 @@
             "delta": 1
           }
         }
-      ]
+      ],
+      "once": false
     },
     {
       "id": "trg_starving_kill_count",
@@ -1813,7 +1813,6 @@
     },
     {
       "id": "trg_act2_complete_switch",
-      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1840,7 +1839,6 @@
     },
     {
       "id": "trg_act3_complete_switch",
-      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1867,7 +1865,6 @@
     },
     {
       "id": "trg_act4_complete_switch",
-      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {
@@ -1894,7 +1891,6 @@
     },
     {
       "id": "trg_act5_complete_switch",
-      "enabled": false,
       "when": {
         "type": "sceneComplete",
         "params": {

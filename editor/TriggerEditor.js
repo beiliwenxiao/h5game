@@ -220,6 +220,11 @@ export class TriggerEditor {
   }
 
   _buildUI() {
+    // 构建 when.type 筛选选项
+    const whenOpts = WHEN_TYPES.map(w => `<option value="${w.v}">${w.label}</option>`).join('');
+    // 构建 do 动作筛选选项
+    const doOpts = ACTION_TYPES.map(a => `<option value="${a.v}">${a.label}</option>`).join('');
+
     this.container.innerHTML = `
       <div class="trg-root">
         <div class="trg-target-tabs" id="trg-target-tabs">
@@ -227,6 +232,22 @@ export class TriggerEditor {
           <button data-target="tutorials">引导 (showTip)</button>
         </div>
         <div class="trg-toolbar">
+          <select id="trg-filter-enabled" title="筛选启用/停用" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部状态</option>
+            <option value="enabled">启用</option>
+            <option value="disabled">停用</option>
+          </select>
+          <select id="trg-filter-scene" title="筛选场景" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部场景</option>
+          </select>
+          <select id="trg-filter-when" title="筛选触发时机" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部时机</option>
+            ${whenOpts}
+          </select>
+          <select id="trg-filter-do" title="筛选动作" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部动作</option>
+            ${doOpts}
+          </select>
           <button id="trg-add">+ 新增</button>
           <button id="trg-del">🗑 删除</button>
           <button id="trg-save" class="primary">💾 保存到工程</button>
@@ -245,6 +266,11 @@ export class TriggerEditor {
     this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
       btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
     });
+    // 筛选器事件
+    this.container.querySelector('#trg-filter-enabled').addEventListener('change', () => this._renderList());
+    this.container.querySelector('#trg-filter-scene').addEventListener('change', () => this._renderList());
+    this.container.querySelector('#trg-filter-when').addEventListener('change', () => this._renderList());
+    this.container.querySelector('#trg-filter-do').addEventListener('change', () => this._renderList());
     this._renderTargetTabs();
   }
 
@@ -296,12 +322,39 @@ export class TriggerEditor {
   _renderList() {
     const list = this.container.querySelector('#trg-list');
     if (!list) return;
-    if (this.triggers.length === 0) {
-      list.innerHTML = '<div class="trg-empty">暂无触发器<br>点击「+ 新增」</div>';
+
+    // 读取筛选条件
+    const filterEnabled = this.container.querySelector('#trg-filter-enabled')?.value || '';
+    const filterScene = this.container.querySelector('#trg-filter-scene')?.value || '';
+    const filterWhen = this.container.querySelector('#trg-filter-when')?.value || '';
+    const filterDo = this.container.querySelector('#trg-filter-do')?.value || '';
+
+    // 更新场景下拉选项（从触发器数据中收集）
+    this._updateSceneFilter();
+
+    // 筛选触发器
+    const filtered = this.triggers.filter((t, i) => {
+      if (filterEnabled === 'enabled' && t.enabled === false) return false;
+      if (filterEnabled === 'disabled' && t.enabled !== false) return false;
+      if (filterScene) {
+        const tScene = t.when?.params?.sceneId || '';
+        if (tScene !== filterScene) return false;
+      }
+      if (filterWhen && t.when?.type !== filterWhen) return false;
+      if (filterDo) {
+        const doList = Array.isArray(t.do) ? t.do : [];
+        if (!doList.some(d => (d.action || d.type || d) === filterDo)) return false;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="trg-empty">无匹配的触发器</div>';
       return;
     }
     list.innerHTML = '';
-    this.triggers.forEach((t, i) => {
+    filtered.forEach((t) => {
+      const i = this.triggers.indexOf(t);
       const item = document.createElement('div');
       const disabled = t.enabled === false;
       item.className = 'trg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
@@ -324,6 +377,23 @@ export class TriggerEditor {
       });
       list.appendChild(item);
     });
+  }
+
+  /** 动态更新场景筛选下拉选项 */
+  _updateSceneFilter() {
+    const select = this.container.querySelector('#trg-filter-scene');
+    if (!select) return;
+    const currentVal = select.value;
+    const scenes = new Set();
+    for (const t of this.triggers) {
+      const s = t.when?.params?.sceneId;
+      if (s) scenes.add(s);
+    }
+    let opts = '<option value="">全部场景</option>';
+    for (const s of scenes) {
+      opts += `<option value="${s}" ${s === currentVal ? 'selected' : ''}>${s}</option>`;
+    }
+    select.innerHTML = opts;
   }
 
   // ---- 详情表单 ----

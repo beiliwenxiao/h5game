@@ -4369,7 +4369,7 @@
           "type": "trigger",
           "name": "trg_spawn_pickup",
           "triggerId": "trg_spawn_pickup",
-          "x": 10,
+          "x": 16.86,
           "y": 220,
           "width": 120,
           "height": 60,
@@ -4618,6 +4618,22 @@
           "actions": "[object Object], [object Object]",
           "once": true,
           "cooldown": 0
+        },
+        {
+          "id": "trigger_1784405050719_535",
+          "type": "trigger",
+          "name": "触发器",
+          "triggerId": "trg_2658",
+          "x": 727.73,
+          "y": 257.67,
+          "width": 65,
+          "height": 42,
+          "event": "approach",
+          "target": "obj_1782936268755_872",
+          "radius": 60,
+          "conditions": "",
+          "actions": "",
+          "actionType": "showTip"
         }
       ]
     }
@@ -4822,7 +4838,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-18T18:57:42.493Z",
+  "updatedAt": "2026-07-18T20:05:00.478Z",
   "atlases": [
     {
       "id": "mountain_landscape",

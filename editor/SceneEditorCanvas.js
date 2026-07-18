@@ -224,7 +224,7 @@ export class SceneEditorCanvas {
       }
     } else if (obj.type === 'slice') {
       this._renderSliceObject(ctx, obj);
-    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger') {
       this._renderLogicObject(ctx, obj);
     } else if (obj.type === 'ref') {
       this._renderRefObject(ctx, obj);
@@ -279,6 +279,28 @@ export class SceneEditorCanvas {
       ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       ctx.setLineDash([]);
       this._drawLogicLabel(ctx, obj.name || '区域', obj.x + 4, obj.y + 14, '#9cc0ff');
+    } else if (obj.type === 'trigger') {
+      // 触发器：虚线方框 + ⚡ 图标
+      ctx.fillStyle = 'rgba(255,200,50,0.1)';
+      ctx.strokeStyle = '#e0a020';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+      ctx.setLineDash([]);
+      // 图标
+      ctx.fillStyle = '#e0a020';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('⚡', obj.x + 4, obj.y + 3);
+      // 事件类型标签
+      const eventLabel = obj.event || 'trigger';
+      this._drawLogicLabel(ctx, obj.name || eventLabel, obj.x + 20, obj.y + 15, '#e0a020');
+      // 如果有目标，显示在下方
+      if (obj.target) {
+        this._drawLogicLabel(ctx, '→ ' + obj.target, obj.x + 4, obj.y + obj.height - 4, '#c89020');
+      }
     } else {
       // 点状标记：spawn/portal/npc
       const colors = {
@@ -834,7 +856,7 @@ export class SceneEditorCanvas {
         w += 4;
         h += 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'region') {
+      } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'region' || obj.type === 'trigger') {
         x = obj.x - 2;
         y = obj.y - 2;
         w = (obj.width || 0) + 4;

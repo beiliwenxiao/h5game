@@ -76,8 +76,8 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
-        } else if (obj.type === 'region') {
-          // 区域：矩形命中
+        } else if (obj.type === 'region' || obj.type === 'trigger') {
+          // 区域/触发器：矩形命中
           if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
             editor.activeLayerIndex = li;
             return obj;
@@ -156,7 +156,7 @@ export class SceneEditorInteraction {
 
     for (const obj of editor.selectedObjects) {
       let hx, hy;
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'trigger' || obj.type === 'region') {
         hx = obj.x + obj.width + 2;
         hy = obj.y + obj.height + 2;
       } else {

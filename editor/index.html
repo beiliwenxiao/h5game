@@ -1026,6 +1026,9 @@
                 
                 this.sceneEditor.loadScene(sceneToLoad);
                 
+                // 同步触发器到场景（从 game.project.json 中未在场景放置的触发器自动创建对象）
+                this._syncTriggersToScene(sceneId);
+                
                 // 加载地形图集
                 if (sceneToLoad.terrain && sceneToLoad.terrain.image) {
                     this.loadTerrainAtlas(sceneToLoad.terrain.image);
@@ -1211,6 +1214,76 @@
                     // 同步更新 _scene_order.json
                     const scenes = this.dataManager.getGameScenes(this.currentGameId);
                     this._saveSceneOrder(this.currentGameId, scenes.map(s => s.id));
+                }
+            }
+
+            // 同步触发器到场景：从 game.project.json 中读取 triggers，
+            // 如果触发器尚未在场景逻辑层中有对应 type:'trigger' 对象，则自动添加到 (10,10)
+            async _syncTriggersToScene(sceneId) {
+                if (!this.sceneEditor) return;
+                const gameId = this.currentGameId || 'sanguo_zhangjiao';
+                const game = this.dataManager.getCurrentGame();
+                const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                const projectPath = `${gamePath}game.project.json`.replace(/^\.\.\//, '');
+
+                let triggers = [];
+                try {
+                    const res = await fetch('/api/read-file?path=' + encodeURIComponent(projectPath));
+                    if (res.ok) {
+                        const data = await res.json();
+                        const project = typeof data.content === 'string' ? JSON.parse(data.content) : data;
+                        triggers = project.triggers || [];
+                    }
+                } catch (e) { /* ignore */ }
+
+                if (triggers.length === 0) return;
+
+                const sceneData = this.sceneEditor.sceneData;
+                if (!sceneData) return;
+
+                // 确保逻辑层存在
+                let logicLayer = sceneData.layers.find(l => l.id === 'layer_logic');
+                if (!logicLayer) {
+                    logicLayer = { id: 'layer_logic', name: '逻辑对象', visible: true, locked: false, objects: [] };
+                    sceneData.layers.push(logicLayer);
+                }
+                if (!Array.isArray(logicLayer.objects)) logicLayer.objects = [];
+
+                // 已存在的触发器 ID 集合
+                const existingIds = new Set(
+                    logicLayer.objects.filter(o => o.type === 'trigger').map(o => o.triggerId)
+                );
+
+                // 为 game.project.json 中尚未放置的触发器创建默认对象
+                let added = 0;
+                let offsetY = 10;
+                for (const trg of triggers) {
+                    if (!trg.id || existingIds.has(trg.id)) continue;
+                    // 只同步属于当前场景的触发器（通过 when.params.sceneId 判断），或无场景限制的
+                    const trgSceneId = trg.when && trg.when.params && trg.when.params.sceneId;
+                    if (trgSceneId && trgSceneId !== sceneId) continue;
+
+                    logicLayer.objects.push({
+                        id: 'trigger_' + Date.now() + '_' + (added++),
+                        type: 'trigger',
+                        name: trg.id,
+                        triggerId: trg.id,
+                        x: 10, y: offsetY,
+                        width: 120, height: 60,
+                        event: (trg.when && trg.when.type) || 'custom',
+                        target: (trg.when && trg.when.params && trg.when.params.target) || '',
+                        radius: 60,
+                        conditions: trg.if ? JSON.stringify(trg.if) : '',
+                        actions: Array.isArray(trg.do) ? trg.do.map(d => d.type || d).join(', ') : '',
+                        once: !!trg.once,
+                        cooldown: trg.cooldown || 0
+                    });
+                    offsetY += 70;
+                }
+
+                if (added > 0) {
+                    this.sceneEditor.render();
+                    console.log(`[Editor] 同步了 ${added} 个触发器到场景 ${sceneId}`);
                 }
             }
 

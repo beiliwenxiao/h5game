@@ -140,8 +140,8 @@ export class SceneEditorAssets {
           editor.selectedObjects = [obj];
           editor.ui.updateObjectProperties();
         }
-      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc') {
-        // 逻辑对象（P2-1）：region/spawn/portal/npc，放入逻辑层
+      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger') {
+        // 逻辑对象（P2-1）：region/spawn/portal/npc/trigger，放入逻辑层
         this._addLogicObject(id, pos.x, pos.y);
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
@@ -216,6 +216,18 @@ export class SceneEditorAssets {
       obj = {
         id: 'npc_' + rnd, type: 'npc', name: 'NPC',
         npcRef: '', x: Math.round(x), y: Math.round(y)
+      };
+    } else if (kind === 'trigger') {
+      const w = 120, h = 80;
+      obj = {
+        id: 'trigger_' + rnd, type: 'trigger', name: '触发器',
+        triggerId: 'trg_' + Math.floor(Math.random() * 10000),
+        x: Math.round(x - w / 2), y: Math.round(y - h / 2), width: w, height: h,
+        event: 'approach',
+        target: '',
+        radius: 60,
+        conditions: '',
+        actions: ''
       };
     }
     if (!obj) return;
@@ -423,6 +435,10 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="portal">
         <div class="asset-preview" style="width:28px;height:30px;border-radius:50%;background:rgba(180,80,220,0.25);border:2px solid #b450dc;"></div>
         <span>传送门</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="trigger">
+        <div class="asset-preview" style="width:38px;height:26px;background:rgba(255,200,50,0.15);border:2px dashed #e0a020;"></div>
+        <span>触发器</span>
       </div>
     `;
     this._bindAssetDrag(list);

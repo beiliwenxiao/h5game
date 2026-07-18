@@ -265,41 +265,86 @@ export class EditorDataManager {
     const game = this.getAllGames().find(g => g.id === gameId);
     if (!game) return [];
     
-    // 场景名称映射（从 JSON 配置加载）
-    const sceneNames = this._sceneNames;
+    // 从 localStorage 加载场景数据
+    const saved = this.loadScenesData(gameId);
     
-    // 预设场景列表（始终展示）
-    const presets = (game.scenes || []).map(name => ({
+    // localStorage 无数据时返回空（等待异步初始化）
+    if (!saved || saved.length === 0) {
+      return [];
+    }
+    
+    return saved.map(s => ({ id: s.id, name: s.name || s.id, type: s.type || 'terrain' }));
+  }
+  
+  /**
+   * 从 _scene_order.json 文件初始化场景列表（首次使用时调用）
+   * @param {string} gameId - 游戏ID
+   * @returns {Promise<boolean>} 是否成功初始化
+   */
+  async initScenesFromFile(gameId) {
+    // 已有数据则跳过
+    const existing = this.loadScenesData(gameId);
+    if (existing && existing.length > 0) return false;
+    
+    const game = this.getAllGames().find(g => g.id === gameId);
+    if (!game) return false;
+    
+    const gamePath = game.path || '../example/sanguo_zhangjiao/';
+    const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
+    
+    try {
+      const resp = await fetch(filePath);
+      if (!resp.ok) throw new Error('fetch failed');
+      const data = await resp.json();
+      
+      if (data && data.scenes && Array.isArray(data.order)) {
+        // 从文件中的 scenes 字段构建场景列表，按 order 排序
+        const scenes = data.order
+          .filter(id => data.scenes[id])
+          .map(id => ({
+            id,
+            name: data.scenes[id].name || id,
+            type: data.scenes[id].type || 'terrain'
+          }));
+        // 追加 order 中没有但 scenes 里有的
+        for (const [id, info] of Object.entries(data.scenes)) {
+          if (!data.order.includes(id)) {
+            scenes.push({ id, name: info.name || id, type: info.type || 'terrain' });
+          }
+        }
+        if (scenes.length > 0) {
+          this.saveScenesData(gameId, scenes);
+          return true;
+        }
+      }
+      
+      // 旧格式文件（只有 order 没有 scenes）：回退到 game.scenes 配置初始化
+      if (data && Array.isArray(data.order) && data.order.length > 0) {
+        return this._initScenesFromConfig(gameId);
+      }
+    } catch (e) {
+      // 文件不存在或读取失败，回退到 game.scenes 配置初始化
+    }
+    
+    return this._initScenesFromConfig(gameId);
+  }
+  
+  /**
+   * 从 game.scenes 配置初始化场景列表（兜底）
+   * @private
+   */
+  _initScenesFromConfig(gameId) {
+    const game = this.getAllGames().find(g => g.id === gameId);
+    if (!game || !game.scenes || game.scenes.length === 0) return false;
+    
+    const sceneNames = this._sceneNames;
+    const scenes = game.scenes.map(name => ({
       id: 'scene_' + name.replace('Scene', ''),
       name: sceneNames[name] || name.replace('Scene', ''),
       type: 'terrain'
     }));
-    
-    // 已保存的场景数据（来自 localStorage）
-    const saved = this.loadScenesData(gameId) || [];
-    const savedById = new Map(saved.map(s => [s.id, s]));
-    
-    // 预设场景的名称集合（用于识别历史脏数据：id 非规范但与预设同名）
-    const presetNames = new Set(presets.map(p => p.name));
-    
-    // 用保存的数据覆盖对应的预设场景（保留预设名称作为后备）
-    const result = presets.map(p => {
-      const s = savedById.get(p.id);
-      if (s) {
-        savedById.delete(p.id);
-        return { id: p.id, name: s.name || p.name, type: s.type || p.type };
-      }
-      return p;
-    });
-    
-    // 追加不在预设列表中的自定义场景
-    // 跳过与预设场景重名的记录（历史 bug 产生的重复脏数据）
-    for (const s of savedById.values()) {
-      if (presetNames.has(s.name)) continue;
-      result.push({ id: s.id, name: s.name || s.id, type: s.type || 'terrain' });
-    }
-    
-    return result;
+    this.saveScenesData(gameId, scenes);
+    return true;
   }
   
   /**
@@ -337,25 +382,13 @@ export class EditorDataManager {
    * 清理重复的场景脏数据
    *
    * 历史 bug 曾用 `scene_<timestamp>` 这种 id 重复保存了同名场景。
-   * 此方法把同名记录合并到规范 id（如 scene_Prologue）上：
-   *   - 同名记录里，优先保留 id 规范的；若规范 id 不存在，则把最新的脏数据改用规范 id
-   *   - 内容以"装饰物/对象更多"的为准，避免丢失已编辑内容
+   * 此方法把同名记录合并：同名记录里选内容最丰富的保留。
    * @param {string} gameId - 游戏ID
    * @returns {boolean} 是否发生了清理
    */
   cleanupDuplicateScenes(gameId) {
     const scenes = this.loadScenesData(gameId);
     if (!scenes || scenes.length === 0) return false;
-    
-    const game = this.getAllGames().find(g => g.id === gameId);
-    const presetIdByName = {};
-    if (game && game.scenes) {
-      const sceneNames = this._sceneNames;
-      for (const name of game.scenes) {
-        const id = 'scene_' + name.replace('Scene', '');
-        presetIdByName[sceneNames[name] || name.replace('Scene', '')] = id;
-      }
-    }
     
     // 衡量场景"内容丰富度"：装饰物 + 各图层对象总数
     const richness = (s) => {
@@ -389,11 +422,7 @@ export class EditorDataManager {
         if (r !== 0) return r;
         return (b.updatedAt || '').localeCompare(a.updatedAt || '');
       });
-      const best = list[0];
-      // 若该名称对应一个预设规范 id，强制使用规范 id
-      const presetId = presetIdByName[name];
-      if (presetId) best.id = presetId;
-      cleaned.push(best);
+      cleaned.push(list[0]);
     }
     
     if (changed) {
@@ -491,45 +520,11 @@ export class EditorDataManager {
     
     const scenes = this.loadScenesData(this.currentGame.id) || [];
     
-    // 1. 优先按 id 精确匹配
+    // 按 id 精确匹配
     let scene = scenes.find(s => s.id === sceneId) || null;
-    
-    // 2. 找不到时，按预设名称回退查找同名记录（兼容历史 timestamp id 的脏数据）
-    if (!scene) {
-      const presetName = this._getPresetSceneName(this.currentGame.id, sceneId);
-      if (presetName) {
-        const matches = scenes.filter(s => s.name === presetName);
-        if (matches.length > 0) {
-          // 选内容最丰富的一条（装饰物 + 图层对象最多）
-          const richness = (s) => {
-            let n = Array.isArray(s.decorations) ? s.decorations.length : 0;
-            if (Array.isArray(s.layers)) for (const l of s.layers) n += (l.objects?.length || 0);
-            return n;
-          };
-          matches.sort((a, b) => richness(b) - richness(a));
-          scene = matches[0];
-        }
-      }
-    }
     
     this.currentScene = scene;
     return this.currentScene;
-  }
-  
-  /**
-   * 根据规范场景 id 获取预设场景名称
-   * @private
-   */
-  _getPresetSceneName(gameId, sceneId) {
-    const game = this.getAllGames().find(g => g.id === gameId);
-    if (!game || !game.scenes) return null;
-    const sceneNames = this._sceneNames;
-    for (const name of game.scenes) {
-      if ('scene_' + name.replace('Scene', '') === sceneId) {
-        return sceneNames[name] || name.replace('Scene', '');
-      }
-    }
-    return null;
   }
   
   /**

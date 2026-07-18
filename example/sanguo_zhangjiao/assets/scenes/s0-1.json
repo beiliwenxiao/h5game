@@ -10,7 +10,16 @@
       "name": "背景层",
       "visible": true,
       "locked": false,
-      "objects": []
+      "objects": [
+        {
+          "id": "obj_1784235759380",
+          "type": "spawn",
+          "ref": "player",
+          "name": "玩家出生点",
+          "x": 1099.59,
+          "y": 229.67
+        }
+      ]
     },
     {
       "id": "layer_fill",
@@ -4499,7 +4508,7 @@
     }
   },
   "createdAt": "2026-07-16T16:04:13.272Z",
-  "updatedAt": "2026-07-16T19:54:02.953Z",
+  "updatedAt": "2026-07-18T15:47:10.031Z",
   "atlases": [
     {
       "id": "mountain_landscape",

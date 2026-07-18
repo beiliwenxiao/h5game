@@ -1,5 +1,5 @@
 {
-  "id": "scene_Prologue",
+  "id": "scene_1784398633235",
   "name": "s0-2-火堆",
   "width": 1280,
   "height": 720,
@@ -39,6 +39,14 @@
           "width": 1280,
           "height": 720,
           "rotation": 0
+        },
+        {
+          "id": "obj_1784235705376",
+          "type": "spawn",
+          "ref": "campfire",
+          "name": "火堆",
+          "x": 680.16,
+          "y": 368.43
         }
       ]
     },
@@ -4697,8 +4705,8 @@
           "kind": "item",
           "ref": "leftover_food",
           "name": "残羹",
-          "x": 561.72,
-          "y": 207.99,
+          "x": 675.33,
+          "y": 252.79,
           "group": "act1_pickups"
         },
         {
@@ -4707,8 +4715,8 @@
           "kind": "equipment",
           "ref": "ragged_clothes",
           "name": "破旧衣服",
-          "x": 471.38,
-          "y": 267.26,
+          "x": 754.07,
+          "y": 372.79,
           "group": "act1_equipment"
         },
         {
@@ -4717,8 +4725,8 @@
           "kind": "equipment",
           "ref": "wooden_sword",
           "name": "木剑",
-          "x": 538.13,
-          "y": 311.14,
+          "x": 757.11,
+          "y": 404.76,
           "group": "act1_equipment"
         },
         {
@@ -4727,8 +4735,8 @@
           "kind": "equipment",
           "ref": "wooden_bow",
           "name": "木弓",
-          "x": 780.21,
-          "y": 437.6,
+          "x": 839.41,
+          "y": 479.2,
           "group": "act1_equipment"
         },
         {
@@ -4737,8 +4745,8 @@
           "kind": "equipment",
           "ref": "wooden_arrow",
           "name": "木箭",
-          "x": 845.08,
-          "y": 433.03,
+          "x": 905.88,
+          "y": 468.23,
           "group": "act1_equipment"
         },
         {
@@ -4747,8 +4755,8 @@
           "kind": "enemy",
           "ref": "wild_dog",
           "name": "野狗",
-          "x": 480.16,
-          "y": 346.11,
+          "x": 552.16,
+          "y": 403.71,
           "group": "act1_wave1"
         },
         {
@@ -4757,8 +4765,8 @@
           "kind": "enemy",
           "ref": "wild_dog",
           "name": "野狗",
-          "x": 670.41,
-          "y": 376.98,
+          "x": 821.64,
+          "y": 422.99,
           "group": "act1_wave1"
         }
       ]
@@ -6718,6 +6726,7 @@
     }
   ],
   "colliders": [],
+  "createdAt": "2026-07-16T16:04:11.293Z",
   "metadata": {
     "description": "东汉末年，太平道首领张角的起义军营地",
     "act": 0,
@@ -6880,8 +6889,7 @@
       }
     }
   ],
-  "createdAt": "2026-07-16T16:04:11.293Z",
-  "updatedAt": "2026-07-16T19:47:49.496Z",
+  "updatedAt": "2026-07-18T18:17:24.239Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

@@ -286,7 +286,13 @@ export class SceneEditorCanvas {
         portal: { fill: 'rgba(180,80,220,0.25)', stroke: '#b450dc', icon: '🌀' },
         npc: { fill: 'rgba(80,200,140,0.25)', stroke: '#50c88c', icon: '☺' }
       };
-      const c = colors[obj.type] || colors.spawn;
+      let c = colors[obj.type] || colors.spawn;
+      // 特殊 spawn 点用特殊样式
+      if (obj.type === 'spawn' && obj.ref === 'player') {
+        c = { fill: 'rgba(80,180,255,0.3)', stroke: '#50b4ff', icon: '🧑' };
+      } else if (obj.type === 'spawn' && obj.ref === 'campfire') {
+        c = { fill: 'rgba(255,160,50,0.3)', stroke: '#ffa030', icon: '🔥' };
+      }
       const r = 16;
       ctx.beginPath();
       ctx.arc(obj.x, obj.y, r, 0, Math.PI * 2);

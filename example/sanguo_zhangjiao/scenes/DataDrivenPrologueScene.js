@@ -34,6 +34,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
 
     // 盆地火堆（含火焰帧动画字段，迁移自 Act1）
+    // 局部坐标，enter() 中会加 worldOffset
     this.campfire = {
       x: 350,
       y: 250,
@@ -85,22 +86,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     super.enter(data);
 
     // 大地图 chunk 偏移：scene_Prologue 在 grid[0][1]，原点 (1280, 0)
+    // 编辑器中每个 scene 的坐标是 0~1280 局部坐标，运行时加 worldOffset 转为世界坐标
     const chunkWidth = 1280;
     const chunkHeight = 720;
-    this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight }; // col=1, row=0
+    this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight };
 
-    // 将火堆位置偏移到世界坐标
-    this.campfire.x += this._prologueOffset.x;
-    this.campfire.y += this._prologueOffset.y;
-
-    // 将玩家位置设为临时出生点（后续由编辑器放置点 type:'spawn' kind:'player' 覆盖）
-    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (playerTransform) {
-      playerTransform.position.x = 100;
-      playerTransform.position.y = 100;
-    }
-
-    // scene_Prologue 地形（世界坐标，传入 worldOffset 让所有对象自动偏移）
+    // scene_Prologue 地形（传入 worldOffset，内部对编辑器数据做偏移）
     this.terrain = new Scene1Terrain({
       centerX: 350,
       centerY: 250,
@@ -180,6 +171,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
+    if (!this._terrainCollisionCalled) {
+      const cs1 = this.terrain?._collisionShapes?.length || 0;
+      const cs2 = this.terrainAct1?._collisionShapes?.length || 0;
+      console.log('%c[DDScene] 碰撞诊断: terrain.shapes=' + cs1 + ' act1.shapes=' + cs2, 'color:red;font-weight:bold');
+      this._terrainCollisionCalled = true;
+    }
     this.checkTerrainCollision();
   }
 
@@ -541,6 +538,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
         // 场景专属动作：提示切幕（等待按 N 或交互键 E 再切下一幕）
         trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
+        // 通用动作：切换调试面板
+        trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
         // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
         trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
         // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
@@ -711,7 +710,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * 收集所有图层里 type==='ref' 的对象（含 group/kind/ref/x/y）。
    * @private
    */
-  async _loadScenePlacements() {
+  _loadScenePlacements() {
     const gameId = 'sanguo_zhangjiao';
     const sceneId = 'scene_Prologue';
     let scene = null;
@@ -724,26 +723,34 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       }
     } catch (e) { /* ignore */ }
+    // fallback 异步加载（不阻塞，后续帧生效）
     if (!scene && typeof fetch !== 'undefined') {
-      try {
-        const path = 'assets/scenes/' + encodeURIComponent('序章 - 盆地营地.json');
-        const res = await fetch(path);
-        if (res.ok) {
-          const scenes = await res.json();
-          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : (scenes && scenes.id === sceneId ? scenes : null);
-        }
-      } catch (e) { /* ignore */ }
+      fetch('assets/scenes/' + encodeURIComponent('序章 - 盆地营地.json'))
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          const scenes = Array.isArray(data) ? data : [data];
+          const s = scenes.find(s => s && s.id === sceneId);
+          if (s) this._applyPlacements(s);
+        })
+        .catch(() => {});
+      return;
     }
+    if (scene) this._applyPlacements(scene);
+  }
+
+  /** 应用场景放置点数据（同步） */
+  _applyPlacements(scene) {
     const placements = [];
     if (scene && Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         for (const o of (layer.objects || [])) {
-          if (o.type === 'ref') placements.push(o);
+          if (o.type === 'ref' || o.type === 'spawn') placements.push(o);
         }
       }
     }
     this._placements = placements;
-    // 放置点坐标是场景局部坐标，需要加上 chunk 偏移转换为世界坐标
+    // 放置点坐标是场景局部坐标，加 worldOffset 转世界坐标
     if (this._prologueOffset) {
       for (const pl of this._placements) {
         pl.x += this._prologueOffset.x;
@@ -751,18 +758,36 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
     }
 
-    // 查找玩家出生点（编辑器中放置 type:'spawn', ref:'player'）
+    // 从编辑器放置点读取火堆位置（type:'spawn', ref:'campfire'）
+    const campfireSpawn = placements.find(pl => pl.type === 'spawn' && pl.ref === 'campfire');
+    if (campfireSpawn) {
+      this.campfire.x = campfireSpawn.x;
+      this.campfire.y = campfireSpawn.y;
+    } else {
+      // 无编辑器放置点时用默认值 + 偏移
+      this.campfire.x = 350 + (this._prologueOffset ? this._prologueOffset.x : 0);
+      this.campfire.y = 250 + (this._prologueOffset ? this._prologueOffset.y : 0);
+    }
+
+    // 从编辑器放置点读取玩家出生点（type:'spawn', ref:'player'）
     const playerSpawn = placements.find(pl => pl.type === 'spawn' && (pl.ref === 'player' || pl.kind === 'player'));
     if (playerSpawn) {
       const pt = this.playerEntity && this.playerEntity.getComponent('transform');
       if (pt) {
         pt.position.x = playerSpawn.x;
         pt.position.y = playerSpawn.y;
-        console.log('[DDScene] 玩家出生点（编辑器）:', playerSpawn.x, playerSpawn.y);
+      }
+    } else {
+      // 无编辑器放置点时的默认位置（火堆旁）
+      const pt = this.playerEntity && this.playerEntity.getComponent('transform');
+      if (pt) {
+        pt.position.x = this.campfire.x + 70;
+        pt.position.y = this.campfire.y + 80;
       }
     }
 
-    console.log('[DDScene] 场景放置点(type:ref):', placements.length);
+    console.log('[DDScene] 场景放置点:', placements.length, '玩家:', 
+      this.playerEntity?.getComponent('transform')?.position, '火堆:', this.campfire.x, this.campfire.y);
   }
 
   /** 迷雾淡出（平滑过渡到目标浓度） */
@@ -1096,8 +1121,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 盆地地形碰撞（椭圆盆地边界 + 水池 + 树 + 编辑器多边形） */
   checkTerrainCollision() {
-    if (!this.terrain) return;
+    if (!this._ctcFirstLog) { console.log('%c[DDScene] checkTerrainCollision 进入方法体', 'color:lime;font-size:14px'); this._ctcFirstLog = true; }
+    if (!this.terrain) { if (!this._noTerrainLogged) { console.warn('[DDScene] checkTerrainCollision: terrain 为 null'); this._noTerrainLogged = true; } return; }
     const t = this.terrain;
+    if (!this._collisionInitLogged) {
+      console.log('[DDScene] checkTerrainCollision, collisionShapes:', t._collisionShapes?.length,
+        'act1 shapes:', this.terrainAct1?._collisionShapes?.length);
+      // 打印碰撞 shapes 坐标详情
+      if (t._collisionShapes) {
+        for (let i = 0; i < Math.min(3, t._collisionShapes.length); i++) {
+          const s = t._collisionShapes[i];
+          console.log(`[DDScene] shape[${i}]: type=${s.shapeType}, points前3个=`, 
+            s.points ? s.points.slice(0, 3) : 'NO POINTS');
+        }
+      }
+      // 打印玩家位置
+      const pt = this.playerEntity?.getComponent('transform');
+      console.log('[DDScene] 玩家位置:', pt ? `(${Math.round(pt.position.x)},${Math.round(pt.position.y)})` : 'null');
+      this._collisionInitLogged = true;
+    }
     const cx = t.centerX, cy = t.centerY;
     const irx = t.basinInnerRadiusX, iry = t.basinInnerRadiusY;
     const halfAng = t.entranceAngleHalfWidth;
@@ -1159,7 +1201,28 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
       // 4) 编辑器 collide shape（多边形/矩形/椭圆，精确边界推开）
       if (t._collisionShapes && t._collisionShapes.length) {
+        if (!this._collisionDebugLogged) {
+          console.log('[DDScene] terrain._collisionShapes:', t._collisionShapes.length, t._collisionShapes.map(s => ({
+            shapeType: s.shapeType, collide: s.collide, hasPoints: !!s.points, pointsLen: s.points?.length,
+            x: s.x, y: s.y, w: s.width, h: s.height
+          })));
+          this._collisionDebugLogged = true;
+        }
         for (const s of t._collisionShapes) {
+          this._resolveShapeCollision(p, s, entityRadius);
+        }
+      } else if (!this._collisionDebugLogged) {
+        console.warn('[DDScene] terrain._collisionShapes 为空！terrain存在:', !!t, 'shapes数组:', t._collisionShapes);
+        this._collisionDebugLogged = true;
+      }
+
+      // 5) 相邻场景的碰撞 shape（scene_Act1 等）
+      if (this.terrainAct1 && this.terrainAct1._collisionShapes && this.terrainAct1._collisionShapes.length) {
+        if (!this._collisionDebugLogged2) {
+          console.log('[DDScene] terrainAct1._collisionShapes:', this.terrainAct1._collisionShapes.length);
+          this._collisionDebugLogged2 = true;
+        }
+        for (const s of this.terrainAct1._collisionShapes) {
           this._resolveShapeCollision(p, s, entityRadius);
         }
       }

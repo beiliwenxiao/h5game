@@ -322,14 +322,15 @@ export class Scene1Terrain {
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
-        // 图层隐藏时（编辑器中设为不可见）跳过其所有对象
-        if (layer.visible === false) continue;
+        const layerHidden = layer.visible === false;
         for (const obj of layer.objects) {
           if (!obj) continue;
-          // 收集 collide 的 shape 作为碰撞区
+          // 碰撞 shape 无论图层是否可见都要收集（碰撞是逻辑层，不依赖视觉显示）
           if (obj.type === 'shape' && obj.collide) {
             this._collisionShapes.push(obj);
           }
+          // 图层隐藏时跳过视觉渲染相关的收集
+          if (layerHidden) continue;
           const _isEllipse = obj.type === 'ellipse' ||
                              (obj.type === 'shape' && obj.shapeType === 'ellipse');
           // 第一个椭圆作为地形椭圆；其余 shape（多边形/矩形/圆/额外椭圆）作为可渲染 shape

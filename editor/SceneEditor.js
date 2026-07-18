@@ -220,6 +220,40 @@ export class SceneEditor {
       }
     });
 
+    // 添加玩家出生点
+    document.getElementById('editor-add-player-spawn').addEventListener('click', () => {
+      const data = this.sceneData;
+      const obj = this.ui.addObject({
+        type: 'spawn',
+        ref: 'player',
+        name: '玩家出生点',
+        x: data.width / 2,
+        y: data.height / 2
+      });
+      if (obj) {
+        this.selectedObjects = [obj];
+        this.ui.updateObjectProperties();
+        this.ui.showToast('已添加玩家出生点');
+      }
+    });
+
+    // 添加火堆
+    document.getElementById('editor-add-campfire').addEventListener('click', () => {
+      const data = this.sceneData;
+      const obj = this.ui.addObject({
+        type: 'spawn',
+        ref: 'campfire',
+        name: '火堆',
+        x: data.width / 2 - 50,
+        y: data.height / 2 - 50
+      });
+      if (obj) {
+        this.selectedObjects = [obj];
+        this.ui.updateObjectProperties();
+        this.ui.showToast('已添加火堆');
+      }
+    });
+
     // 场景设置
     document.getElementById('editor-scene-name').addEventListener('input', (e) => {
       this.sceneData.name = e.target.value;

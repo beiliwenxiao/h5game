@@ -771,7 +771,7 @@
             }
             
             // 编辑游戏
-            editGame(gameId) {
+            async editGame(gameId) {
                 this.currentGameId = gameId;
                 this.currentSceneId = null;
                 const game = this.dataManager.setCurrentGame(gameId);
@@ -780,6 +780,9 @@
                 window._editorCurrentGame = game;
                 
                 if (!game) return;
+                
+                // 首次使用时从 _scene_order.json 初始化场景列表
+                await this.dataManager.initScenesFromFile(gameId);
                 
                 // 更新游戏选择器
                 this._updateGameIndicator(gameId);
@@ -1154,6 +1157,10 @@
                 document.getElementById('new-scene-form').reset();
                 this.renderSceneList(this.currentGameId);
                 this.editScene(scene.id);
+                // 同步更新 _scene_order.json 文件
+                const scenes = this.dataManager.getGameScenes(this.currentGameId);
+                const newOrder = scenes.map(s => s.id);
+                this._saveSceneOrder(this.currentGameId, newOrder);
             }
             
             // 删除场景
@@ -1164,6 +1171,10 @@
                         this.currentSceneId = null;
                     }
                     this.renderSceneList(this.currentGameId);
+                    // 同步更新 _scene_order.json 文件
+                    const scenes = this.dataManager.getGameScenes(this.currentGameId);
+                    const newOrder = scenes.map(s => s.id);
+                    this._saveSceneOrder(this.currentGameId, newOrder);
                 }
             }
             
@@ -1228,7 +1239,13 @@
                 const game = this.dataManager.getCurrentGame();
                 const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
                 const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
-                const json = JSON.stringify({ gameId, order }, null, 2);
+                // 同时保存场景名称，便于首次加载时初始化场景列表
+                const scenes = this.dataManager.getGameScenes(gameId);
+                const sceneMap = {};
+                for (const s of scenes) {
+                    sceneMap[s.id] = { name: s.name, type: s.type || 'terrain' };
+                }
+                const json = JSON.stringify({ gameId, order, scenes: sceneMap }, null, 2);
                 fetch('/api/save-file', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1276,12 +1293,15 @@
             }
 
             // 切换当前游戏（重新加载各子编辑器数据）
-            _switchGame(gameId) {
+            async _switchGame(gameId) {
                 this.currentGameId = gameId;
                 this.currentSceneId = null;
                 const game = this.dataManager.setCurrentGame(gameId);
                 window._editorCurrentGame = game;
                 if (!game) return;
+
+                // 首次使用时从 _scene_order.json 初始化场景列表
+                await this.dataManager.initScenesFromFile(gameId);
 
                 document.getElementById('current-game-name').textContent = game.name;
                 this.renderSceneList(gameId);

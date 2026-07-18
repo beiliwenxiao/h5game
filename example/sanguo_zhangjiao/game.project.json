@@ -1066,7 +1066,7 @@
         "start": {
           "speaker": "旁白",
           "portrait": null,
-          "text": "黄巾起义虽����������失败了，但它的影响却深远地改变了历史的进程。",
+          "text": "黄巾起义虽然失败了，但它的影响却深远地改变了历史的进程。",
           "nextNode": "player_reflect"
         },
         "player_reflect": {
@@ -1208,7 +1208,7 @@
         "start": {
           "speaker": "系统",
           "portrait": null,
-          "text": "序章已完成！你的角色、装备、技能将继承到正式游戏。",
+          "text": "序章已完成！你的角色、装备、技能将有可能继承到正式游戏。",
           "nextNode": "rewards"
         },
         "rewards": {
@@ -1709,7 +1709,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "力克关云长！阳城的黄巾弟兄士气大振！"
+            "text": "���克关云长！阳城的黄巾弟兄士气大振！"
           }
         }
       ],

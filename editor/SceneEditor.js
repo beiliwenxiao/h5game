@@ -257,11 +257,16 @@ export class SceneEditor {
     // 场景设置
     document.getElementById('editor-scene-name').addEventListener('input', (e) => {
       this.sceneData.name = e.target.value;
+      if (this.onSceneMetaChange) this.onSceneMetaChange({ name: e.target.value });
     });
     const sceneIdInput = document.getElementById('editor-scene-id');
     if (sceneIdInput) {
-      sceneIdInput.addEventListener('input', (e) => {
-        this.sceneData.id = e.target.value.trim();
+      sceneIdInput.addEventListener('change', (e) => {
+        const newId = e.target.value.trim();
+        if (!newId) return;
+        const oldId = this.sceneData.id;
+        this.sceneData.id = newId;
+        if (this.onSceneMetaChange) this.onSceneMetaChange({ id: newId, oldId });
       });
     }
     document.getElementById('editor-bg-color').addEventListener('input', (e) => {

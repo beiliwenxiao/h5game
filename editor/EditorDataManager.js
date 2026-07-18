@@ -495,6 +495,47 @@ export class EditorDataManager {
   }
   
   /**
+   * 修改场景 ID
+   * @param {string} gameId - 游戏ID
+   * @param {string} oldId - 旧场景ID
+   * @param {string} newId - 新场景ID
+   * @returns {boolean} 是否成功
+   */
+  renameSceneId(gameId, oldId, newId) {
+    const scenes = this.loadScenesData(gameId) || [];
+    // 检查新 ID 是否已存在
+    if (scenes.some(s => s.id === newId)) {
+      console.warn('场景 ID 已存在:', newId);
+      return false;
+    }
+    const index = scenes.findIndex(s => s.id === oldId);
+    if (index === -1) return false;
+    
+    scenes[index].id = newId;
+    scenes[index].updatedAt = new Date().toISOString();
+    this.saveScenesData(gameId, scenes);
+    return true;
+  }
+  
+  /**
+   * 更新场景元数据（名称等），不覆盖场景内容
+   * @param {string} gameId - 游戏ID
+   * @param {string} sceneId - 场景ID
+   * @param {Object} meta - 要更新的字段 { name?, type? }
+   */
+  updateSceneMeta(gameId, sceneId, meta) {
+    const scenes = this.loadScenesData(gameId) || [];
+    const index = scenes.findIndex(s => s.id === sceneId);
+    if (index === -1) return false;
+    
+    if (meta.name !== undefined) scenes[index].name = meta.name;
+    if (meta.type !== undefined) scenes[index].type = meta.type;
+    scenes[index].updatedAt = new Date().toISOString();
+    this.saveScenesData(gameId, scenes);
+    return true;
+  }
+  
+  /**
    * 删除场景
    * @param {string} gameId - 游戏ID
    * @param {string} sceneId - 场景ID

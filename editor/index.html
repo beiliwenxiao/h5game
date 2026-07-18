@@ -797,6 +797,7 @@
                     this.sceneEditor.onOpenSlicer = () => this.openSlicer();
                     this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
                     this.sceneEditor.onClearCache = () => this.clearSceneCache();
+                    this.sceneEditor.onSceneMetaChange = (meta) => this._handleSceneMetaChange(meta);
                 }
                 
                 // 触发resize以正确显示编辑器
@@ -968,6 +969,7 @@
                     this.sceneEditor.onOpenSlicer = () => this.openSlicer();
                     this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
                     this.sceneEditor.onClearCache = () => this.clearSceneCache();
+                    this.sceneEditor.onSceneMetaChange = (meta) => this._handleSceneMetaChange(meta);
                 }
                 
                 // 先尝试加载预设场景作为基底（提供 terrain / atlases / decoSprites 等完整字段）
@@ -1186,6 +1188,30 @@
                 
                 // 同时通过 API 写入 JSON 文件
                 this._saveSceneToFile(sceneData);
+            }
+
+            // 处理场景元数据变更（名称/ID）
+            _handleSceneMetaChange(meta) {
+                if (!this.currentGameId || !this.currentSceneId) return;
+                
+                if (meta.id && meta.oldId) {
+                    // 修改场景 ID
+                    const success = this.dataManager.renameSceneId(this.currentGameId, meta.oldId, meta.id);
+                    if (success) {
+                        this.currentSceneId = meta.id;
+                        this.renderSceneList(this.currentGameId);
+                        // 同步更新 _scene_order.json
+                        const scenes = this.dataManager.getGameScenes(this.currentGameId);
+                        this._saveSceneOrder(this.currentGameId, scenes.map(s => s.id));
+                    }
+                } else if (meta.name !== undefined) {
+                    // 修改场景名称
+                    this.dataManager.updateSceneMeta(this.currentGameId, this.currentSceneId, { name: meta.name });
+                    this.renderSceneList(this.currentGameId);
+                    // 同步更新 _scene_order.json
+                    const scenes = this.dataManager.getGameScenes(this.currentGameId);
+                    this._saveSceneOrder(this.currentGameId, scenes.map(s => s.id));
+                }
             }
 
             // 清理本地 localStorage 缓存（下次从工程 JSON 文件重新加载；文件不受影响）

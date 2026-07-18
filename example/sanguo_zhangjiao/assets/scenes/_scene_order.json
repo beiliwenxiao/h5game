@@ -1,14 +1,17 @@
 {
   "gameId": "sanguo_zhangjiao",
   "order": [
-    "scene_1784398600550",
-    "scene_1784398633235",
-    "scene_Act1",
-    "scene_Prologue",
-    "scene_Act2",
-    "scene_Act6",
-    "scene_Act3",
-    "scene_Act4",
-    "scene_Act5"
-  ]
+    "s0-0",
+    "s0-1"
+  ],
+  "scenes": {
+    "s0-0": {
+      "name": "s0-0",
+      "type": "terrain"
+    },
+    "s0-1": {
+      "name": "s0-1-火堆",
+      "type": "terrain"
+    }
+  }
 }

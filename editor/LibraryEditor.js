@@ -24,6 +24,27 @@
 // 库分类定义（内容库仅保留角色养成类全局定义；可放置内容 NPC/敌人/物品/装备/商店/载具/建筑
 // 已移到场景编辑器「资源库·内容」Tab 就地定义+放置）。
 const CATEGORIES = [
+  { key: 'players', label: '玩家', tpl: {
+    name: '新玩家', 
+    sprite: { src: '', frameWidth: 64, frameHeight: 64, cols: 4, rows: 4 },
+    animations: { idle: { row: 0, frames: 4, speed: 0.15 }, walk: { row: 1, frames: 4, speed: 0.1 }, attack: { row: 2, frames: 4, speed: 0.08 }, death: { row: 3, frames: 4, speed: 0.12 } },
+    baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 150 }
+  }},
+  { key: 'enemies', label: '敌人/Boss', tpl: {
+    name: '新敌人',
+    sprite: { src: '', frameWidth: 64, frameHeight: 64, cols: 4, rows: 4 },
+    animations: { idle: { row: 0, frames: 4, speed: 0.15 }, walk: { row: 1, frames: 4, speed: 0.1 }, attack: { row: 2, frames: 4, speed: 0.08 }, death: { row: 3, frames: 4, speed: 0.12 } },
+    baseStats: { maxHp: 200, attack: 15, defense: 8, speed: 80 },
+    ai: { type: 'melee', aggroRange: 200, attackRange: 50 },
+    loot: []
+  }},
+  { key: 'npcs', label: 'NPC', tpl: {
+    name: '新NPC',
+    sprite: { src: '', frameWidth: 64, frameHeight: 64, cols: 4, rows: 4 },
+    animations: { idle: { row: 0, frames: 4, speed: 0.2 } },
+    dialogueId: '',
+    shopId: ''
+  }},
   { key: 'classes', label: '职业', tpl: { name: '新职业', baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 100 }, startSkills: [] } },
   { key: 'combatSkills', label: '战斗技能', tpl: { name: '新战斗技能', skillType: 'combat', cooldown: 3, castTime: 0, manaCost: 10, damage: 0, element: 0, range: 100 } },
   { key: 'gatherSkills', label: '采集技能', tpl: { name: '新采集技能', skillType: 'gather', resource: '', gatherTime: 2, level: 1, yield: 1 } },
@@ -243,7 +264,15 @@ export class LibraryEditor {
       panel.innerHTML = '<div class="lib-empty">选择或新增一个' + this._catLabel() + '定义</div>';
       return;
     }
-    // 专属字段 = 去掉通用字段后的其余部分
+
+    // 玩家/敌人/NPC 使用结构化面板
+    const cat = this.activeCategory;
+    if (cat === 'players' || cat === 'enemies' || cat === 'npcs') {
+      this._renderSpriteDetail(panel, e, cat);
+      return;
+    }
+
+    // 其余类别使用通用 JSON 编辑
     const rest = {};
     for (const k of Object.keys(e)) {
       if (!COMMON_FIELDS.includes(k)) rest[k] = e[k];
@@ -254,6 +283,107 @@ export class LibraryEditor {
       <div class="row"><label>专属属性（JSON）</label><textarea id="l-props">${this._json(rest, 2)}</textarea></div>
     `;
     this._bindJsonValidation(panel.querySelector('#l-props'));
+  }
+
+  /**
+   * 渲染 玩家/敌人/NPC 结构化编辑面板（sprite + animations + 属性）
+   */
+  _renderSpriteDetail(panel, e, cat) {
+    const sprite = e.sprite || {};
+    const anims = e.animations || {};
+    const stats = e.baseStats || {};
+    const ai = e.ai || {};
+
+    let animRows = '';
+    for (const [name, anim] of Object.entries(anims)) {
+      animRows += `<tr>
+        <td><input type="text" value="${name}" data-anim-key="${name}" class="anim-name" style="width:60px;"></td>
+        <td><input type="number" value="${anim.row != null ? anim.row : 0}" data-anim="${name}" data-field="row" min="0" style="width:40px;"></td>
+        <td><input type="number" value="${anim.frames || 4}" data-anim="${name}" data-field="frames" min="1" style="width:40px;"></td>
+        <td><input type="number" value="${anim.speed || 0.1}" data-anim="${name}" data-field="speed" min="0.01" step="0.01" style="width:50px;"></td>
+        <td><button class="anim-del" data-anim="${name}" style="padding:2px 6px;cursor:pointer;">×</button></td>
+      </tr>`;
+    }
+
+    let statsHtml = '';
+    for (const [k, v] of Object.entries(stats)) {
+      statsHtml += `<div style="display:inline-block;margin:2px 6px 2px 0;"><label style="font-size:11px;color:#9ab;">${k}</label><input type="number" value="${v}" data-stat="${k}" style="width:50px;margin-left:4px;"></div>`;
+    }
+
+    let aiHtml = '';
+    if (cat === 'enemies') {
+      aiHtml = `
+        <div class="row"><label>AI 类型</label><select id="l-ai-type">
+          <option value="melee" ${ai.type === 'melee' ? 'selected' : ''}>近战</option>
+          <option value="ranged" ${ai.type === 'ranged' ? 'selected' : ''}>远程</option>
+          <option value="patrol" ${ai.type === 'patrol' ? 'selected' : ''}>巡逻</option>
+          <option value="boss" ${ai.type === 'boss' ? 'selected' : ''}>Boss</option>
+          <option value="passive" ${ai.type === 'passive' ? 'selected' : ''}>被动</option>
+        </select></div>
+        <div class="row"><label>仇恨范围</label><input type="number" id="l-ai-aggro" value="${ai.aggroRange || 200}" min="0"></div>
+        <div class="row"><label>攻击范围</label><input type="number" id="l-ai-atkrange" value="${ai.attackRange || 50}" min="0"></div>
+        <div class="row"><label>掉落表(JSON)</label><textarea id="l-loot" style="min-height:60px;">${this._json(e.loot || [], 2)}</textarea></div>
+      `;
+    }
+
+    let npcHtml = '';
+    if (cat === 'npcs') {
+      npcHtml = `
+        <div class="row"><label>对话ID</label><input type="text" id="l-dialogue" value="${e.dialogueId || ''}" placeholder="dialogues 中的 id"></div>
+        <div class="row"><label>商店ID</label><input type="text" id="l-shop" value="${e.shopId || ''}" placeholder="留空表示无商店"></div>
+      `;
+    }
+
+    panel.innerHTML = `
+      <div class="row"><label>ID（库主键）</label><input type="text" id="l-id" value="${e.id || ''}"></div>
+      <div class="row"><label>名称</label><input type="text" id="l-name" value="${e.name || ''}"></div>
+      <hr style="border-color:#2a3a5e;margin:10px 0;">
+      <div class="row"><label style="font-weight:bold;">序列帧（Sprite Sheet）</label></div>
+      <div class="row"><label>图片路径</label><input type="text" id="l-sprite-src" value="${sprite.src || ''}" placeholder="assets/images/player.png"></div>
+      <div class="row" style="display:flex;gap:8px;">
+        <div><label>帧宽</label><input type="number" id="l-sprite-fw" value="${sprite.frameWidth || 64}" min="1" style="width:60px;"></div>
+        <div><label>帧高</label><input type="number" id="l-sprite-fh" value="${sprite.frameHeight || 64}" min="1" style="width:60px;"></div>
+        <div><label>列数</label><input type="number" id="l-sprite-cols" value="${sprite.cols || 4}" min="1" style="width:50px;"></div>
+        <div><label>行数</label><input type="number" id="l-sprite-rows" value="${sprite.rows || 4}" min="1" style="width:50px;"></div>
+      </div>
+      <hr style="border-color:#2a3a5e;margin:10px 0;">
+      <div class="row"><label style="font-weight:bold;">动画定义</label> <button id="l-anim-add" style="padding:2px 8px;cursor:pointer;margin-left:8px;">+ 添加动画</button></div>
+      <table style="width:100%;font-size:11px;border-collapse:collapse;">
+        <thead><tr style="color:#9ab;"><th>名称</th><th>行</th><th>帧数</th><th>速度</th><th></th></tr></thead>
+        <tbody id="l-anim-table">${animRows}</tbody>
+      </table>
+      <hr style="border-color:#2a3a5e;margin:10px 0;">
+      <div class="row"><label style="font-weight:bold;">基础属性</label> <button id="l-stat-add" style="padding:2px 8px;cursor:pointer;margin-left:8px;">+ 属性</button></div>
+      <div id="l-stats-area">${statsHtml}</div>
+      ${aiHtml}
+      ${npcHtml}
+    `;
+
+    // 绑定事件
+    panel.querySelector('#l-anim-add')?.addEventListener('click', () => {
+      const name = 'anim_' + Object.keys(anims).length;
+      anims[name] = { row: Object.keys(anims).length, frames: 4, speed: 0.1 };
+      e.animations = anims;
+      this._renderSpriteDetail(panel, e, cat);
+    });
+    panel.querySelectorAll('.anim-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        delete anims[btn.dataset.anim];
+        e.animations = anims;
+        this._renderSpriteDetail(panel, e, cat);
+      });
+    });
+    panel.querySelector('#l-stat-add')?.addEventListener('click', () => {
+      const name = prompt('属性名（如 maxHp, attack, speed）:');
+      if (name && !stats[name]) {
+        stats[name] = 0;
+        e.baseStats = stats;
+        this._renderSpriteDetail(panel, e, cat);
+      }
+    });
+    if (panel.querySelector('#l-loot')) {
+      this._bindJsonValidation(panel.querySelector('#l-loot'));
+    }
   }
 
   _bindJsonValidation(el) {
@@ -282,6 +412,58 @@ export class LibraryEditor {
     if (!e || !panel || !panel.querySelector('#l-id')) return;
     e.id = panel.querySelector('#l-id').value.trim() || e.id;
     e.name = panel.querySelector('#l-name').value.trim() || e.name;
+
+    const cat = this.activeCategory;
+    // 结构化面板（玩家/敌人/NPC）
+    if (cat === 'players' || cat === 'enemies' || cat === 'npcs') {
+      // sprite
+      const srcEl = panel.querySelector('#l-sprite-src');
+      if (srcEl) {
+        e.sprite = {
+          src: srcEl.value.trim(),
+          frameWidth: parseInt(panel.querySelector('#l-sprite-fw')?.value) || 64,
+          frameHeight: parseInt(panel.querySelector('#l-sprite-fh')?.value) || 64,
+          cols: parseInt(panel.querySelector('#l-sprite-cols')?.value) || 4,
+          rows: parseInt(panel.querySelector('#l-sprite-rows')?.value) || 4
+        };
+      }
+      // animations
+      const anims = {};
+      panel.querySelectorAll('#l-anim-table tr').forEach(tr => {
+        const nameInput = tr.querySelector('.anim-name');
+        if (!nameInput) return;
+        const name = nameInput.value.trim();
+        const key = nameInput.dataset.animKey;
+        const row = parseInt(tr.querySelector(`[data-anim="${key}"][data-field="row"]`)?.value) || 0;
+        const frames = parseInt(tr.querySelector(`[data-anim="${key}"][data-field="frames"]`)?.value) || 4;
+        const speed = parseFloat(tr.querySelector(`[data-anim="${key}"][data-field="speed"]`)?.value) || 0.1;
+        if (name) anims[name] = { row, frames, speed };
+      });
+      e.animations = anims;
+      // baseStats
+      const stats = {};
+      panel.querySelectorAll('[data-stat]').forEach(input => {
+        stats[input.dataset.stat] = parseFloat(input.value) || 0;
+      });
+      e.baseStats = stats;
+      // AI (enemies)
+      if (cat === 'enemies') {
+        e.ai = {
+          type: panel.querySelector('#l-ai-type')?.value || 'melee',
+          aggroRange: parseInt(panel.querySelector('#l-ai-aggro')?.value) || 200,
+          attackRange: parseInt(panel.querySelector('#l-ai-atkrange')?.value) || 50
+        };
+        e.loot = this._parseJson(panel.querySelector('#l-loot')?.value, []);
+      }
+      // NPC fields
+      if (cat === 'npcs') {
+        e.dialogueId = panel.querySelector('#l-dialogue')?.value.trim() || '';
+        e.shopId = panel.querySelector('#l-shop')?.value.trim() || '';
+      }
+      return;
+    }
+
+    // 通用 JSON 面板
     const rest = this._parseJson(panel.querySelector('#l-props').value, {});
     // 用专属字段覆盖（保留 id/name）
     for (const k of Object.keys(e)) {

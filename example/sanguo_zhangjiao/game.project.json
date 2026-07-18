@@ -2299,6 +2299,11 @@
         "controllable": false,
         "onDestroyed": []
       }
-    ]
+    ],
+    "players": [],
+    "combatSkills": [],
+    "gatherSkills": [],
+    "craftSkills": [],
+    "talents": []
   }
 }

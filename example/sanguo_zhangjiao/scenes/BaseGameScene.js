@@ -70,6 +70,7 @@ import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
+import { hasSceneData } from '../../../src/core/SceneDataReader.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -3438,12 +3439,8 @@ export class BaseGameScene extends PrologueScene {
    */
   _getDefaultEditorSceneId(actNumber) {
     const map = {
-      1: 'scene_Prologue',
-      2: 'scene_Act2',
-      3: 'scene_Act3',
-      4: 'scene_Act4',
-      5: 'scene_Act5',
-      6: 'scene_Act6'
+      1: 's0-1',
+      2: 's0-0'
     };
     return map[actNumber] || `scene_Act${actNumber}`;
   }
@@ -3457,24 +3454,11 @@ export class BaseGameScene extends PrologueScene {
     // 子类（如 Act1SceneECS / DataDrivenPrologueScene）已自行创建 terrain 时不覆盖
     if (this.terrain) return;
 
-    // 检查编辑器中是否有该场景的数据
+    // 检查编辑器中是否有该场景的有效数据
     const gameId = 'sanguo_zhangjiao';
     const sceneId = this.editorSceneId;
-    let hasData = false;
 
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
-        if (raw) {
-          const scenes = JSON.parse(raw);
-          if (Array.isArray(scenes) && scenes.find(s => s && s.id === sceneId)) {
-            hasData = true;
-          }
-        }
-      }
-    } catch (e) { /* ignore */ }
-
-    if (!hasData) return; // 编辑器没有这个场景的数据，走旧逻辑
+    if (!hasSceneData(gameId, sceneId)) return;
 
     // 创建通用地形实例，加载编辑器场景数据
     const cx = this.logicalWidth / 2;

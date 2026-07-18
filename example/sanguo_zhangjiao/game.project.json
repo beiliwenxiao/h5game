@@ -23,13 +23,13 @@
         "rows": 4,
         "grid": [
           [
-            "scene_Act1",
-            "scene_Prologue",
+            "s0-0",
+            "s0-1",
             null,
             null
           ],
           [
-            "scene_south",
+            null,
             null,
             null,
             null

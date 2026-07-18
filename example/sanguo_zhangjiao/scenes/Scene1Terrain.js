@@ -11,6 +11,7 @@
  */
 
 import { ShapeRenderer } from '../../../src/rendering/ShapeRenderer.js';
+import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 
 /**
  * Scene1Terrain - 第一幕盆地地形系统
@@ -198,50 +199,20 @@ export class Scene1Terrain {
     const sceneId = config.editorSceneId || 'scene_Prologue';
 
     // 优先从 localStorage 读取（浏览器编辑器联动）
-    let scene = null;
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
-        if (raw) {
-          const scenes = JSON.parse(raw);
-          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
-        }
-      }
-    } catch (e) {
-      console.warn('Scene1Terrain: 读取 localStorage 场景数据失败', e);
-    }
+    const scene = loadSceneFromStorage(gameId, sceneId);
     
-    // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
-    if (!scene) {
-      // 场景名映射（与编辑器保存的文件名一致）
-      const sceneFileNames = {
-        'scene_Prologue': '序章 - 盆地营地.json',
-        'scene_Act1': '第一幕 - 起义军营.json',
-        'scene_Act2': '第二幕 - 战场.json',
-        'scene_Act3': '第三幕 - 城池.json',
-        'scene_Act4': '第四幕 - 山寨.json',
-        'scene_Act5': '第五幕 - 决战.json',
-        'scene_Act6': '第六幕 - 结局.json'
-      };
-      const jsonFile = sceneFileNames[sceneId] || (sceneId + '.json');
-      const jsonPath = 'assets/scenes/' + encodeURIComponent(jsonFile).replace(/%2F/g, '/');
-      fetch(jsonPath)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => {
-          if (!data) return;
-          const scenes = Array.isArray(data) ? data : [data];
-          const s = scenes.find(s => s && s.id === sceneId);
-          if (s) {
-            this._applySceneData(s);
-            // 重建缓存
-            this._grassCanvas = null;
-          }
-        })
-        .catch(e => console.warn('Scene1Terrain: 加载编辑器 JSON fallback 失败', e));
+    if (scene) {
+      this._applySceneData(scene);
       return;
     }
-    
-    this._applySceneData(scene);
+
+    // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
+    loadSceneFromFile(sceneId).then(s => {
+      if (s) {
+        this._applySceneData(s);
+        this._grassCanvas = null;
+      }
+    }).catch(e => console.warn('Scene1Terrain: 加载编辑器 JSON fallback 失败', e));
   }
 
   /**

@@ -97,6 +97,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       centerY: 250,
       width: chunkWidth,
       height: chunkHeight,
+      editorSceneId: 's0-1',
       worldOffset: { x: this._prologueOffset.x, y: this._prologueOffset.y }
     });
 
@@ -106,7 +107,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       centerY: 360,
       width: chunkWidth,
       height: chunkHeight,
-      editorSceneId: 'scene_Act1',
+      editorSceneId: 's0-0',
       worldOffset: { x: 0, y: 0 }
     });
 

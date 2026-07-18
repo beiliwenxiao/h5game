@@ -29,6 +29,7 @@ import { EntityFactory } from '../../../src/ecs/EntityFactory.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
 import { VehicleSystem } from '../../../src/systems/VehicleSystem.js';
 import { RNG } from '../../../src/core/RNG.js';
+import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 
 export class DataDrivenScene extends Scene {
   /**
@@ -122,28 +123,11 @@ export class DataDrivenScene extends Scene {
    * @param {string} [exportFile] - 回退文件名
    */
   async loadEditorScene(gameId = 'sanguo_zhangjiao', sceneId = 'scene_Prologue', assetBase = 'assets/scenes/', exportFile = '序章 - 盆地营地.json') {
-    let scene = null;
-    // 1) localStorage
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + gameId);
-        if (raw) {
-          const scenes = JSON.parse(raw);
-          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : null;
-        }
-      }
-    } catch (e) { console.warn('DataDrivenScene: 读取 localStorage 场景失败', e); }
+    // 优先 localStorage，回退到文件
+    let scene = loadSceneFromStorage(gameId, sceneId);
 
-    // 2) 回退到导出 JSON 文件
-    if (!scene && typeof fetch !== 'undefined') {
-      try {
-        const path = assetBase + encodeURIComponent(exportFile).replace(/%2F/g, '/');
-        const res = await fetch(path);
-        if (res.ok) {
-          const scenes = await res.json();
-          scene = Array.isArray(scenes) ? scenes.find(s => s && s.id === sceneId) : (scenes && scenes.id === sceneId ? scenes : null);
-        }
-      } catch (e) { console.warn('DataDrivenScene: 读取场景文件失败', e); }
+    if (!scene) {
+      scene = await loadSceneFromFile(sceneId, assetBase, exportFile);
     }
 
     if (scene) {

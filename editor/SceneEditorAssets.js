@@ -218,7 +218,7 @@ export class SceneEditorAssets {
         npcRef: '', x: Math.round(x), y: Math.round(y)
       };
     } else if (kind === 'trigger') {
-      const w = 120, h = 80;
+      const w = 36, h = 36;
       obj = {
         id: 'trigger_' + rnd, type: 'trigger', name: '触发器',
         triggerId: 'trg_' + Math.floor(Math.random() * 10000),

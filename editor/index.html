@@ -1254,6 +1254,17 @@
                     logicLayer.objects.filter(o => o.type === 'trigger').map(o => o.triggerId)
                 );
 
+                // 修正所有图层中已有触发器的大小为统一尺寸 36×36
+                for (const layer of sceneData.layers) {
+                    if (!Array.isArray(layer.objects)) continue;
+                    for (const obj of layer.objects) {
+                        if (obj.type === 'trigger') {
+                            obj.width = 36;
+                            obj.height = 36;
+                        }
+                    }
+                }
+
                 // 为 game.project.json 中尚未放置的触发器创建默认对象
                 let added = 0;
                 let offsetY = 10;
@@ -1269,7 +1280,7 @@
                         name: trg.id,
                         triggerId: trg.id,
                         x: 10, y: offsetY,
-                        width: 120, height: 60,
+                        width: 36, height: 36,
                         event: (trg.when && trg.when.type) || 'custom',
                         target: (trg.when && trg.when.params && trg.when.params.target) || '',
                         radius: 60,
@@ -1278,7 +1289,7 @@
                         once: !!trg.once,
                         cooldown: trg.cooldown || 0
                     });
-                    offsetY += 70;
+                    offsetY += 46;
                 }
 
                 if (added > 0) {

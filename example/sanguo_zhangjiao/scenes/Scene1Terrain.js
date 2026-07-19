@@ -989,11 +989,6 @@ export class Scene1Terrain {
       for (const deco of this.decorations) {
         const sprite = this.decoSprites[deco.key];
         if (!sprite || !sprite.collide) continue;
-        // 只对盆地内的树启用碰撞（外圈悬崖区域玩家本来就走不到）
-        if (
-          deco.x < this.basinLeft  || deco.x > this.basinRight ||
-          deco.y < this.basinTop   || deco.y > this.basinBottom
-        ) continue;
         this._treeColliders.push({
           x: deco.x,
           y: deco.y - 4, // 树根中心略上一点

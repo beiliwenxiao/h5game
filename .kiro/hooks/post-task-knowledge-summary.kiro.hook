@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "任务知识总结",
+  "description": "每次任务执行完成后，用200字以内总结本次任务学到的知识，并对每条知识用数字进行编号。让用户确认是否需要存入steering文件",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "请用500字以内，总结本次任务中学到的新知识（包括项目结构、代码规律、技术细节、踩过的坑等），然后询问用户：\"是否需要将以上知识存入 steering 文件中？\"。如果用户同意，将内容写入 .kiro/steering/ 目录下合适的文件（已有文件则追加，没有则新建）。"
+  },
+  "workspaceFolderName": "yijian18-server",
+  "shortName": "post-task-knowledge-summary"
+}

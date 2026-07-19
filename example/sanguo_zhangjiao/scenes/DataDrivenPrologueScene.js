@@ -1392,59 +1392,45 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       //   }
       // }
 
-      // 2) 水池（推开）
-      for (const pond of t.waterPatches) {
-        const pdx = (p.x - pond.x), pdy = (p.y - pond.y);
-        const nx = pdx / pond.rx, ny = pdy / pond.ry;
-        const d2 = nx * nx + ny * ny;
-        if (d2 < 1 && d2 > 0) {
-          const k = 1 / Math.sqrt(d2);
-          p.x = pond.x + pdx * k * 1.02;
-          p.y = pond.y + pdy * k * 1.02;
-        } else if (d2 === 0) {
-          p.y = pond.y - pond.ry - 1;
-        }
-      }
-
-      // 3) 树木（圆形障碍，推开）
-      const entityRadius = 12;
-      const trees = t.getTreeColliders();
-      for (const tree of trees) {
-        const tdx = p.x - tree.x, tdy = p.y - tree.y;
-        const minDist = tree.r + entityRadius;
-        const d2 = tdx * tdx + tdy * tdy;
-        if (d2 < minDist * minDist) {
-          const td = Math.sqrt(d2);
-          if (td > 0.001) {
-            const k = minDist / td;
-            p.x = tree.x + tdx * k;
-            p.y = tree.y + tdy * k;
-          } else {
-            p.y = tree.y + minDist;
+      // 2) 水池（推开）— 遍历所有已加载地形
+      for (const terrain of this._terrains) {
+        for (const pond of terrain.waterPatches) {
+          const pdx = (p.x - pond.x), pdy = (p.y - pond.y);
+          const nx = pdx / pond.rx, ny = pdy / pond.ry;
+          const d2 = nx * nx + ny * ny;
+          if (d2 < 1 && d2 > 0) {
+            const k = 1 / Math.sqrt(d2);
+            p.x = pond.x + pdx * k * 1.02;
+            p.y = pond.y + pdy * k * 1.02;
+          } else if (d2 === 0) {
+            p.y = pond.y - pond.ry - 1;
           }
         }
       }
 
-      // 4) 编辑器 collide shape（多边形/矩形/椭圆，精确边界推开）
-      if (t._collisionShapes && t._collisionShapes.length) {
-        if (!this._collisionDebugLogged) {
-          console.log('[DDScene] terrain._collisionShapes:', t._collisionShapes.length, t._collisionShapes.map(s => ({
-            shapeType: s.shapeType, collide: s.collide, hasPoints: !!s.points, pointsLen: s.points?.length,
-            x: s.x, y: s.y, w: s.width, h: s.height
-          })));
-          this._collisionDebugLogged = true;
+      // 3) 树木（圆形障碍，推开）— 遍历所有已加载地形
+      const entityRadius = 12;
+      for (const terrain of this._terrains) {
+        const trees = terrain.getTreeColliders();
+        for (const tree of trees) {
+          const tdx = p.x - tree.x, tdy = p.y - tree.y;
+          const minDist = tree.r + entityRadius;
+          const d2 = tdx * tdx + tdy * tdy;
+          if (d2 < minDist * minDist) {
+            const td = Math.sqrt(d2);
+            if (td > 0.001) {
+              const k = minDist / td;
+              p.x = tree.x + tdx * k;
+              p.y = tree.y + tdy * k;
+            } else {
+              p.y = tree.y + minDist;
+            }
+          }
         }
-        for (const s of t._collisionShapes) {
-          this._resolveShapeCollision(p, s, entityRadius);
-        }
-      } else if (!this._collisionDebugLogged) {
-        console.warn('[DDScene] terrain._collisionShapes 为空！terrain存在:', !!t, 'shapes数组:', t._collisionShapes);
-        this._collisionDebugLogged = true;
       }
 
-      // 5) 所有地形的碰撞 shape
+      // 4) 编辑器 collide shape（多边形/矩形/椭圆，精确边界推开）— 遍历所有已加载地形
       for (const terrain of this._terrains) {
-        if (terrain === t) continue; // 已在上面处理过
         if (terrain._collisionShapes && terrain._collisionShapes.length) {
           for (const s of terrain._collisionShapes) {
             this._resolveShapeCollision(p, s, entityRadius);

@@ -56,6 +56,27 @@ export class SystemEditor {
         ]
       };
     }
+    // 确保 weather 子对象存在
+    if (!this._data.weather) {
+      this._data.weather = { default: 'clear', transitionSpeed: 0.5 };
+    }
+    // 确保 time 子对象存在
+    if (!this._data.time) {
+      this._data.time = {
+        enabled: false,
+        startPeriod: 'noon',
+        periods: {
+          dawn:         { duration: 60, brightness: 0.4,  fogOpacity: 0.6,  tintColor: 'rgba(80,60,120,0.2)' },
+          earlyMorning: { duration: 60, brightness: 0.6,  fogOpacity: 0.3,  tintColor: 'rgba(255,200,100,0.1)' },
+          morning:      { duration: 60, brightness: 0.9,  fogOpacity: 0.1,  tintColor: 'rgba(0,0,0,0)' },
+          noon:         { duration: 60, brightness: 1.0,  fogOpacity: 0.0,  tintColor: 'rgba(0,0,0,0)' },
+          afternoon:    { duration: 60, brightness: 0.85, fogOpacity: 0.1,  tintColor: 'rgba(255,180,50,0.05)' },
+          dusk:         { duration: 60, brightness: 0.5,  fogOpacity: 0.4,  tintColor: 'rgba(255,100,50,0.15)' },
+          night:        { duration: 60, brightness: 0.25, fogOpacity: 0.7,  tintColor: 'rgba(20,20,80,0.3)' },
+          lateNight:    { duration: 60, brightness: 0.15, fogOpacity: 0.8,  tintColor: 'rgba(10,10,40,0.4)' }
+        }
+      };
+    }
   }
 
   _save() {
@@ -102,6 +123,8 @@ export class SystemEditor {
         <h2 style="color:#4CAF50;margin:0 0 16px;">系统编辑器</h2>
         <div style="display:flex;gap:8px;margin-bottom:16px;">
           <button class="sys-tab active" data-tab="loading">加载页面</button>
+          <button class="sys-tab" data-tab="weather">天气系统</button>
+          <button class="sys-tab" data-tab="time">时间系统</button>
         </div>
         <div id="sys-tab-loading" class="sys-tab-content">
           <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
@@ -123,6 +146,42 @@ export class SystemEditor {
             <button id="sys-ld-add-step" style="margin-top:8px;padding:4px 12px;background:#2a3a2a;border:1px solid #4CAF50;color:#fff;border-radius:4px;cursor:pointer;">+ 添加步骤</button>
           </fieldset>
           <button id="sys-ld-save" style="padding:8px 24px;background:#4CAF50;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">保存</button>
+        </div>
+        <div id="sys-tab-weather" class="sys-tab-content" style="display:none;">
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">天气配置</legend>
+            <div class="sys-row"><label>默认天气:</label><select id="sys-wt-default">
+              <option value="clear">晴天 clear</option>
+              <option value="breeze">微风 breeze</option>
+              <option value="wind">大风 wind</option>
+              <option value="lightRain">小雨 lightRain</option>
+              <option value="heavyRain">大雨 heavyRain</option>
+              <option value="lightFog">小雾 lightFog</option>
+              <option value="heavyFog">大雾 heavyFog</option>
+              <option value="storm">雷暴 storm</option>
+            </select></div>
+            <div class="sys-row"><label>过渡速度:</label><input type="number" id="sys-wt-speed" value="0.5" step="0.1" min="0.1" max="5"></div>
+          </fieldset>
+          <p style="color:#888;font-size:12px;">天气通过触发器动作 <code>setWeather</code> 控制，参数：<code>{"type":"heavyRain"}</code></p>
+          <button id="sys-wt-save" style="padding:8px 24px;background:#4CAF50;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">保存</button>
+        </div>
+        <div id="sys-tab-time" class="sys-tab-content" style="display:none;">
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">时间系统</legend>
+            <div class="sys-row"><label>启用:</label><input type="checkbox" id="sys-tm-enabled"></div>
+            <div class="sys-row"><label>起始时间段:</label><select id="sys-tm-start">
+              <option value="dawn">凌晨</option><option value="earlyMorning">清晨</option>
+              <option value="morning">上午</option><option value="noon" selected>中午</option>
+              <option value="afternoon">下午</option><option value="dusk">黄昏</option>
+              <option value="night">夜晚</option><option value="lateNight">深夜</option>
+            </select></div>
+          </fieldset>
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">各时间段参数</legend>
+            <div id="sys-tm-periods"></div>
+          </fieldset>
+          <p style="color:#888;font-size:12px;">通过触发器动作 <code>setTime</code> 跳转，参数：<code>{"period":"night"}</code></p>
+          <button id="sys-tm-save" style="padding:8px 24px;background:#4CAF50;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">保存</button>
         </div>
       </div>
       <style>
@@ -158,11 +217,46 @@ export class SystemEditor {
   }
 
   _bindEvents() {
-    // 保存
+    // 标签切换
+    this.container.querySelectorAll('.sys-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        this.container.querySelectorAll('.sys-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        this.container.querySelectorAll('.sys-tab-content').forEach(c => c.style.display = 'none');
+        const target = this.container.querySelector(`#sys-tab-${tab.dataset.tab}`);
+        if (target) target.style.display = '';
+      });
+    });
+
+    // 加载页面保存
     this.container.querySelector('#sys-ld-save').addEventListener('click', () => {
       this._collectFields();
       this._save();
     });
+    // 天气保存
+    const wtSave = this.container.querySelector('#sys-wt-save');
+    if (wtSave) wtSave.addEventListener('click', () => {
+      this._data.weather.default = this.container.querySelector('#sys-wt-default').value;
+      this._data.weather.transitionSpeed = parseFloat(this.container.querySelector('#sys-wt-speed').value) || 0.5;
+      this._save();
+    });
+    // 时间保存
+    const tmSave = this.container.querySelector('#sys-tm-save');
+    if (tmSave) tmSave.addEventListener('click', () => {
+      this._data.time.enabled = this.container.querySelector('#sys-tm-enabled').checked;
+      this._data.time.startPeriod = this.container.querySelector('#sys-tm-start').value;
+      // 收集各时间段参数
+      this.container.querySelectorAll('.sys-period-row').forEach(row => {
+        const p = row.dataset.period;
+        if (!this._data.time.periods[p]) return;
+        this._data.time.periods[p].duration = parseFloat(row.querySelector('.p-dur').value) || 60;
+        this._data.time.periods[p].brightness = parseFloat(row.querySelector('.p-bright').value) || 1;
+        this._data.time.periods[p].fogOpacity = parseFloat(row.querySelector('.p-fog').value) || 0;
+        this._data.time.periods[p].tintColor = row.querySelector('.p-tint').value || 'rgba(0,0,0,0)';
+      });
+      this._save();
+    });
+
     // 添加步骤
     this.container.querySelector('#sys-ld-add-step').addEventListener('click', () => {
       const steps = this._data.loading.steps;
@@ -172,6 +266,9 @@ export class SystemEditor {
       this._bindStepEvents();
     });
     this._bindStepEvents();
+    this._renderTimePeriods();
+    this._initWeatherFields();
+    this._initTimeFields();
   }
 
   _bindStepEvents() {
@@ -227,6 +324,37 @@ export class SystemEditor {
 
   _esc(str) {
     return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  _renderTimePeriods() {
+    const container = this.container.querySelector('#sys-tm-periods');
+    if (!container) return;
+    const NAMES = { dawn:'凌晨', earlyMorning:'清晨', morning:'上午', noon:'中午', afternoon:'下午', dusk:'黄昏', night:'夜晚', lateNight:'深夜' };
+    const periods = this._data.time.periods;
+    container.innerHTML = Object.entries(NAMES).map(([key, name]) => {
+      const p = periods[key] || { duration: 60, brightness: 1, fogOpacity: 0, tintColor: 'rgba(0,0,0,0)' };
+      return `<div class="sys-period-row" data-period="${key}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;background:#0a1020;padding:4px 6px;border-radius:3px;">
+        <span style="width:50px;color:#aaa;font-size:11px;">${name}</span>
+        <input class="p-dur" type="number" value="${p.duration}" min="10" max="600" style="width:45px;" title="持续秒数">
+        <input class="p-bright" type="number" value="${p.brightness}" min="0" max="1" step="0.05" style="width:45px;" title="明暗度0~1">
+        <input class="p-fog" type="number" value="${p.fogOpacity}" min="0" max="1" step="0.05" style="width:45px;" title="雾透明度0~1">
+        <input class="p-tint" type="text" value="${p.tintColor}" style="flex:1;font-size:10px;" title="色调rgba">
+      </div>`;
+    }).join('');
+  }
+
+  _initWeatherFields() {
+    const sel = this.container.querySelector('#sys-wt-default');
+    const speed = this.container.querySelector('#sys-wt-speed');
+    if (sel) sel.value = this._data.weather.default || 'clear';
+    if (speed) speed.value = this._data.weather.transitionSpeed || 0.5;
+  }
+
+  _initTimeFields() {
+    const en = this.container.querySelector('#sys-tm-enabled');
+    const start = this.container.querySelector('#sys-tm-start');
+    if (en) en.checked = !!this._data.time.enabled;
+    if (start) start.value = this._data.time.startPeriod || 'noon';
   }
 
   _showToast(msg) {

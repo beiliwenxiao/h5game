@@ -26,6 +26,8 @@ import { BaseGameScene } from './BaseGameScene.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
+import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
+import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -83,6 +85,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     this.terrain = null;
     this.gameLoader = null;
+
+    // 天气系统和时间系统（配置从 game.project.json 的 system 字段加载）
+    this.weatherSystem = new WeatherSystem();
+    this.timeSystem = new TimeSystem({ enabled: false }); // 默认禁用，异步加载配置后启用
   }
 
   enter(data = null) {
@@ -140,6 +146,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 开场迷雾淡出
     this.updateFog(deltaTime);
+
+    // 天气和时间系统更新
+    if (this.weatherSystem) this.weatherSystem.update(deltaTime);
+    if (this.timeSystem) this.timeSystem.update(deltaTime);
 
     // ⑤ 切幕：提示按键（必须在 super.update 之前，因为 super.update 末尾 inputManager.update() 会清除 keysPressed）
     this._updatePromptSwitch();
@@ -639,6 +649,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
         // 通用动作：切换调试面板
         trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
+        // 天气系统动作
+        trig.registerAction('setWeather', (p) => {
+          if (this.weatherSystem && p.type) this.weatherSystem.setWeather(p.type, p);
+        });
+        // 时间系统动作
+        trig.registerAction('setTime', (p) => {
+          if (this.timeSystem && p.period) this.timeSystem.setTimePeriod(p.period);
+        });
         // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
         trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
         // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
@@ -943,6 +961,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
         // 兼容旧代码中 terrainAct1 的引用
         if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
+
+        // 加载天气和时间系统配置
+        if (project.system) {
+          if (project.system.weather) {
+            this.weatherSystem = new WeatherSystem(project.system.weather);
+          }
+          if (project.system.time) {
+            this.timeSystem = new TimeSystem(project.system.time);
+          }
+        }
       })
       .catch(e => console.warn('[DDScene] 加载 worldMap 地形失败:', e));
   }
@@ -969,69 +997,88 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */
   renderFogLayer(ctx) {
-    if (!this.fog.active || this.fog.opacity <= 0.01) return;
+    const w = this.logicalWidth;
+    const h = this.logicalHeight;
 
-    ctx.save();
-    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-    const viewBounds = this.camera.getViewBounds();
-    if (playerTransform) {
-      const playerScreenX = playerTransform.position.x - viewBounds.left;
-      const playerScreenY = playerTransform.position.y - viewBounds.top;
-      const lightRadius = 150;
+    // 1) 时间系统：明暗度和色调叠加
+    if (this.timeSystem) {
+      this.timeSystem.render(ctx, w, h);
+    }
 
-      if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
-      if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
-        this._fogCanvas.width = this.logicalWidth;
-        this._fogCanvas.height = this.logicalHeight;
-      }
-      const fogCtx = this._fogCanvas.getContext('2d');
+    // 2) 迷雾（受时间系统 fogOpacity 调节）
+    const timeFogAdd = this.timeSystem?.enabled ? this.timeSystem.getFogOpacity() : 0;
+    const weatherFogAdd = this.weatherSystem ? this.weatherSystem.getFogAdd() : 0;
+    const baseFogOpacity = this.fog.active ? this.fog.opacity : 0;
+    const totalFogOpacity = Math.min(1, baseFogOpacity + timeFogAdd * 0.3 + weatherFogAdd);
 
-      fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
-      fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-      fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    if (totalFogOpacity > 0.01) {
+      ctx.save();
+      const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+      const viewBounds = this.camera.getViewBounds();
+      if (playerTransform) {
+        const playerScreenX = playerTransform.position.x - viewBounds.left;
+        const playerScreenY = playerTransform.position.y - viewBounds.top;
+        const lightRadius = 150;
 
-      // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
-      fogCtx.globalCompositeOperation = 'destination-out';
-      const yScale = 0.6;
-      fogCtx.save();
-      fogCtx.translate(playerScreenX, playerScreenY);
-      fogCtx.scale(1, yScale);
-      const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
-      gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-      gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      fogCtx.fillStyle = gradient;
-      fogCtx.beginPath();
-      fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
-      fogCtx.fill();
-      fogCtx.restore();
+        if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+        if (this._fogCanvas.width !== w || this._fogCanvas.height !== h) {
+          this._fogCanvas.width = w;
+          this._fogCanvas.height = h;
+        }
+        const fogCtx = this._fogCanvas.getContext('2d');
 
-      // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
-      if (this.campfire.lit) {
-        const campScreenX = this.campfire.x - viewBounds.left;
-        const campScreenY = this.campfire.y - viewBounds.top;
-        const campLightRadius = 150;
+        fogCtx.clearRect(0, 0, w, h);
+        fogCtx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
+        fogCtx.fillRect(0, 0, w, h);
+
+        // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
+        fogCtx.globalCompositeOperation = 'destination-out';
+        const yScale = 0.6;
         fogCtx.save();
-        fogCtx.translate(campScreenX, campScreenY);
+        fogCtx.translate(playerScreenX, playerScreenY);
         fogCtx.scale(1, yScale);
-        const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
-        campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-        campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
-        campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        fogCtx.fillStyle = campGradient;
+        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        fogCtx.fillStyle = gradient;
         fogCtx.beginPath();
-        fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
+        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
         fogCtx.fill();
         fogCtx.restore();
-      }
 
-      fogCtx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(this._fogCanvas, 0, 0);
-    } else {
-      ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-      ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+        // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
+        if (this.campfire.lit) {
+          const campScreenX = this.campfire.x - viewBounds.left;
+          const campScreenY = this.campfire.y - viewBounds.top;
+          const campLightRadius = 150;
+          fogCtx.save();
+          fogCtx.translate(campScreenX, campScreenY);
+          fogCtx.scale(1, yScale);
+          const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
+          campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+          campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
+          campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          fogCtx.fillStyle = campGradient;
+          fogCtx.beginPath();
+          fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
+          fogCtx.fill();
+          fogCtx.restore();
+        }
+
+        fogCtx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(this._fogCanvas, 0, 0);
+      } else {
+        ctx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.restore();
     }
-    ctx.restore();
+
+    // 3) 天气粒子效果（雨、风线等）
+    if (this.weatherSystem) {
+      this.weatherSystem.render(ctx, w, h);
+    }
   }
 
   /** 在迷雾之上绘制编辑器碰撞多边形调试层 */

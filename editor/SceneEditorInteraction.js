@@ -836,9 +836,66 @@ export class SceneEditorInteraction {
     const isSameScene = this._clipboardSceneId === currentSceneId;
     const offset = isSameScene ? 20 : 0;
 
-    const pasted = [];
-    for (const src of this._clipboard) {
-      const obj = JSON.parse(JSON.stringify(src));
+    // 收集当前场景全部对象 ID，确保随机后缀在场景内真正唯一
+    const usedIds = new Set();
+    for (const sceneLayer of layers) {
+      for (const object of (sceneLayer.objects || [])) {
+        if (object?.id) usedIds.add(object.id);
+      }
+    }
+
+    const sourceIdCounts = new Map();
+    for (const source of this._clipboard) {
+      if (source?.id) sourceIdCounts.set(source.id, (sourceIdCounts.get(source.id) || 0) + 1);
+    }
+
+    const createUniqueId = sourceId => {
+      const baseId = sourceId || `obj_${Date.now()}`;
+      let nextId;
+      do {
+        const suffix = Math.floor(100000 + Math.random() * 900000);
+        nextId = `${baseId}_${suffix}`;
+      } while (usedIds.has(nextId));
+      usedIds.add(nextId);
+      return nextId;
+    };
+
+    // 第一遍先为每个实例生成新 ID；只有来源 ID 唯一时才能安全建立引用映射
+    const pasted = this._clipboard.map(source => {
+      const object = JSON.parse(JSON.stringify(source));
+      const oldId = object.id || null;
+      object.id = createUniqueId(oldId);
+      return { object, oldId };
+    });
+    const referenceIdMap = new Map();
+    for (const entry of pasted) {
+      if (entry.oldId && sourceIdCounts.get(entry.oldId) === 1) {
+        referenceIdMap.set(entry.oldId, entry.object.id);
+      }
+    }
+
+    // 第二遍仅同步复制组内部的对象关联；内容库 ref、atlasId、imageId 保持不变
+    const referenceFields = new Set([
+      'target', 'targetId', 'parentId', 'objectId', 'sourceId'
+    ]);
+    const remapReferences = value => {
+      if (!value || typeof value !== 'object') return;
+      if (Array.isArray(value)) {
+        value.forEach(remapReferences);
+        return;
+      }
+      for (const [key, child] of Object.entries(value)) {
+        if (referenceFields.has(key) && typeof child === 'string' && referenceIdMap.has(child)) {
+          value[key] = referenceIdMap.get(child);
+        } else if (child && typeof child === 'object') {
+          remapReferences(child);
+        }
+      }
+    };
+
+    for (const entry of pasted) {
+      const obj = entry.object;
+      remapReferences(obj);
       if (offset > 0) {
         if (obj.x !== undefined) obj.x += offset;
         if (obj.y !== undefined) obj.y += offset;
@@ -847,14 +904,13 @@ export class SceneEditorInteraction {
         }
       }
       layer.objects.push(obj);
-      pasted.push(obj);
     }
 
-    editor.selectedObjects = pasted;
+    editor.selectedObjects = pasted.map(entry => entry.object);
     editor.history.saveHistory();
     editor.canvas.render();
     editor.ui.updateObjectProperties();
-    editor.ui.showToast(`已粘贴 ${pasted.length} 个对象`);
+    editor.ui.showToast(`已粘贴 ${pasted.length} 个对象（ID 已重新生成）`);
   }
 
   /**

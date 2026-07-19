@@ -181,24 +181,6 @@
             margin-top: 10px;
         }
         
-        #performance-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            pointer-events: none;
-            display: block; /* 旧 FPS 性能框暂时打开，便于与新 DebugPanel 对比 */
-            z-index: 99998;
-        }
-        
-        #performance-panel div {
-            margin: 2px 0;
-        }
-        
         #controls-hint {
             position: absolute;
             bottom: 120px;
@@ -605,14 +587,6 @@
                 <p id="tips-text">提示内容</p>
             </div>
             
-            <div id="performance-panel">
-                <div>FPS: <span id="fps">60</span></div>
-                <div>位置: <span id="position">0, 0</span></div>
-                <div>生命值: <span id="hp">100/100</span></div>
-                <div>阶段: <span id="phase">-</span></div>
-                <div>敌人: <span id="enemies">0</span></div>
-            </div>
-            
             <!-- <div id="controls-hint">
                 WASD/方向键: 移动 | 鼠标点击: 移动 | E: 拾取 | C: 属性/装备 | B: 背包 | 1-3: 技能
             </div> -->
@@ -786,12 +760,6 @@
         // 当前教程数据
         let currentTutorialData = null;
         
-        // 调试面板元素
-        const fpsElement = document.getElementById('fps');
-        const positionElement = document.getElementById('position');
-        const hpElement = document.getElementById('hp');
-        const phaseElement = document.getElementById('phase');
-        const enemiesElement = document.getElementById('enemies');
         
         // 教程按钮事件
         tutorialNextBtn.addEventListener('click', () => {
@@ -1416,46 +1384,12 @@
             requestAnimationFrame(gameLoop);
         }
         
-        // 更新调试信息
+        // 更新调试信息（向新 DebugPanel 暴露主游戏循环 FPS + 刷新技能栏）
         function updateDebugInfo() {
             if (!scene) return;
 
             // 向通用 DebugPanel 暴露主游戏循环的真实 FPS 快照
             scene.gameLoopFps = fps;
-            fpsElement.textContent = fps;
-            
-            // 使用 playerEntity（两幕都有）
-            if (scene.playerEntity) {
-                const transform = scene.playerEntity.getComponent('transform');
-                if (transform) {
-                    positionElement.textContent = 
-                        `${Math.floor(transform.position.x)}, ${Math.floor(transform.position.y)}`;
-                } else {
-                    positionElement.textContent = '-';
-                }
-                
-                const stats = scene.playerEntity.getComponent('stats');
-                if (stats) {
-                    hpElement.textContent = `${Math.floor(stats.hp)}/${stats.maxHp}`;
-                }
-            } else {
-                positionElement.textContent = '-';
-                hpElement.textContent = '-';
-            }
-            
-            // tutorialPhase（两幕都有）
-            phaseElement.textContent = scene.tutorialPhase || '-';
-            
-            // enemyEntities（两幕都有，第二幕为空数组）
-            if (scene.enemyEntities && Array.isArray(scene.enemyEntities)) {
-                const aliveEnemies = scene.enemyEntities.filter(enemy => {
-                    const stats = enemy.getComponent('stats');
-                    return stats && stats.hp > 0;
-                });
-                enemiesElement.textContent = aliveEnemies.length;
-            } else {
-                enemiesElement.textContent = '0';
-            }
             
             // 更新技能栏
             updateSkillBar();

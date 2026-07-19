@@ -1018,9 +1018,49 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     ctx.save();
     const viewBounds = this.camera.getViewBounds();
     ctx.translate(-viewBounds.left, -viewBounds.top);
+
+    // 直接遍历所有地形碰撞 shape 绘制，不走 ShapeRenderer 以确保可见
     for (const terrain of this._terrains) {
-      terrain.renderCollisionShapesDebug(ctx, 0.7);
+      const shapes = terrain._collisionShapes;
+      if (!shapes || shapes.length === 0) continue;
+      for (const shape of shapes) {
+        if (shape.shapeType === 'polygon' && Array.isArray(shape.points) && shape.points.length > 2) {
+          ctx.beginPath();
+          ctx.moveTo(shape.points[0][0], shape.points[0][1]);
+          for (let i = 1; i < shape.points.length; i++) {
+            ctx.lineTo(shape.points[i][0], shape.points[i][1]);
+          }
+          ctx.closePath();
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fill();
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else if (shape.shapeType === 'rect' || (shape.x !== undefined && shape.width)) {
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        } else if (shape.shapeType === 'ellipse' || shape.shapeType === 'circle') {
+          const cx = (shape.x || 0) + (shape.width || 0) / 2;
+          const cy = (shape.y || 0) + (shape.height || 0) / 2;
+          const rx = (shape.width || 0) / 2;
+          const ry = (shape.height || 0) / 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fill();
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
     }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 

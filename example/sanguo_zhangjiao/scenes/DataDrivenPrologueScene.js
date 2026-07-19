@@ -961,76 +961,77 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 渲染：父类管线之上叠加开场迷雾，再按需绘制碰撞多边形调试层 */
+  /** 渲染：父类管线 + 碰撞多边形调试层（迷雾已移至 renderFogLayer 钩子） */
   render(ctx) {
     super.render(ctx);
+    this._renderCollisionShapesDebug(ctx);
+  }
 
-    if (this.fog.active && this.fog.opacity > 0.01) {
-      ctx.save();
-      const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-      const viewBounds = this.camera.getViewBounds();
-      if (playerTransform) {
-        const playerScreenX = playerTransform.position.x - viewBounds.left;
-        const playerScreenY = playerTransform.position.y - viewBounds.top;
-        const lightRadius = 150;
+  /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */
+  renderFogLayer(ctx) {
+    if (!this.fog.active || this.fog.opacity <= 0.01) return;
 
-        if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
-        if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
-          this._fogCanvas.width = this.logicalWidth;
-          this._fogCanvas.height = this.logicalHeight;
-        }
-        const fogCtx = this._fogCanvas.getContext('2d');
+    ctx.save();
+    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+    const viewBounds = this.camera.getViewBounds();
+    if (playerTransform) {
+      const playerScreenX = playerTransform.position.x - viewBounds.left;
+      const playerScreenY = playerTransform.position.y - viewBounds.top;
+      const lightRadius = 150;
 
-        fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
-        fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-        fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+      if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+      if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
+        this._fogCanvas.width = this.logicalWidth;
+        this._fogCanvas.height = this.logicalHeight;
+      }
+      const fogCtx = this._fogCanvas.getContext('2d');
 
-        // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
-        fogCtx.globalCompositeOperation = 'destination-out';
-        const yScale = 0.6;
+      fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+      fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+      fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+
+      // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
+      fogCtx.globalCompositeOperation = 'destination-out';
+      const yScale = 0.6;
+      fogCtx.save();
+      fogCtx.translate(playerScreenX, playerScreenY);
+      fogCtx.scale(1, yScale);
+      const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
+      gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+      gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      fogCtx.fillStyle = gradient;
+      fogCtx.beginPath();
+      fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
+      fogCtx.fill();
+      fogCtx.restore();
+
+      // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
+      if (this.campfire.lit) {
+        const campScreenX = this.campfire.x - viewBounds.left;
+        const campScreenY = this.campfire.y - viewBounds.top;
+        const campLightRadius = 150;
         fogCtx.save();
-        fogCtx.translate(playerScreenX, playerScreenY);
+        fogCtx.translate(campScreenX, campScreenY);
         fogCtx.scale(1, yScale);
-        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        fogCtx.fillStyle = gradient;
+        const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
+        campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
+        campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        fogCtx.fillStyle = campGradient;
         fogCtx.beginPath();
-        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
+        fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
         fogCtx.fill();
         fogCtx.restore();
-
-        // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
-        if (this.campfire.lit) {
-          const campScreenX = this.campfire.x - viewBounds.left;
-          const campScreenY = this.campfire.y - viewBounds.top;
-          const campLightRadius = 150;
-          fogCtx.save();
-          fogCtx.translate(campScreenX, campScreenY);
-          fogCtx.scale(1, yScale);
-          const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
-          campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-          campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
-          campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          fogCtx.fillStyle = campGradient;
-          fogCtx.beginPath();
-          fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
-          fogCtx.fill();
-          fogCtx.restore();
-        }
-
-        fogCtx.globalCompositeOperation = 'source-over';
-
-        ctx.drawImage(this._fogCanvas, 0, 0);
-      } else {
-        ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-        ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
       }
-      ctx.restore();
-    }
 
-    this._renderCollisionShapesDebug(ctx);
+      fogCtx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(this._fogCanvas, 0, 0);
+    } else {
+      ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+      ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    }
+    ctx.restore();
   }
 
   /** 在迷雾之上绘制编辑器碰撞多边形调试层 */

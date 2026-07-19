@@ -3420,6 +3420,14 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 迷雾/全屏效果层钩子（世界渲染之后、UI 面板之前）
+   * 子类覆盖以插入迷雾、天气等全屏半透明效果
+   */
+  renderFogLayer(ctx) {
+    // 默认空实现
+  }
+
+  /**
    * 渲染背景 - 子类覆盖
    */
   renderBackground(ctx) {

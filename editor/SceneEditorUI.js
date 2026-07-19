@@ -490,7 +490,7 @@ export class SceneEditorUI {
       for (const layer of editor.sceneData.layers) {
         if (layer.objects.includes(obj)) { objLayerName = layer.name; break; }
       }
-      html = `<div class="property-row"><label>ID:</label><input value="${obj.id || '未知'}" disabled></div>`;
+      html = `<div class="property-row"><label>ID:</label><input value="${obj.id || ''}" data-prop="id" style="font-size:11px;"></div>`;
       html += `<div class="property-row"><label>所在图层:</label><input value="${objLayerName}" disabled style="color:#FFD700;"></div>`;
 
       let depth = -1;
@@ -578,6 +578,30 @@ export class SceneEditorUI {
             }
           }
           this.updateObjectProperties();
+        } else if (prop === 'id') {
+          // ID 修改查重：遍历所有图层对象确保唯一
+          const newId = (value || '').trim();
+          if (!newId) {
+            this.showToast('ID 不能为空', true);
+            e.target.value = obj.id || '';
+            return;
+          }
+          if (newId !== obj.id) {
+            const layers = editor.sceneData.layers || [];
+            let duplicate = false;
+            for (const layer of layers) {
+              for (const o of (layer.objects || [])) {
+                if (o !== obj && o.id === newId) { duplicate = true; break; }
+              }
+              if (duplicate) break;
+            }
+            if (duplicate) {
+              this.showToast(`ID "${newId}" 已存在，不允许重复`, true);
+              e.target.value = obj.id || '';
+              return;
+            }
+            obj.id = newId;
+          }
         } else {
           obj[prop] = value;
         }

@@ -35,6 +35,28 @@
       "locked": false,
       "objects": [
         {
+          "id": "deco_43849325_364404_253691",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1250.65,
+          "y": 418.4,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_43849325_364404",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1235.15,
+          "y": 375.86,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
           "id": "obj_1782935243135_106",
           "type": "slice",
           "atlasId": "mountain_landscape",
@@ -2370,8 +2392,8 @@
           "id": "deco_7575914",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1219.1,
-          "y": 391.54,
+          "x": 1222.48,
+          "y": 390.98,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -4134,7 +4156,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936157943_847",
+          "id": "obj_1782936157943_8471",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4839,7 +4861,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-18T20:51:20.924Z",
+  "updatedAt": "2026-07-19T15:53:54.188Z",
   "atlases": [
     {
       "id": "mountain_landscape",

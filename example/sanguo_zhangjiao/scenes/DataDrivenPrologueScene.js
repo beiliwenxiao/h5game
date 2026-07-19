@@ -726,8 +726,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
 
-    // 点燃火堆后迷雾消散
-    this.fog.targetOpacity = 0;
+    // 点燃火堆后不消散迷雾，保持迷雾系统（光照由玩家周围透光区体现）
 
     // 事件源：火堆点燃 → 触发器 trg_spawn_pickup 生成拾取物
     if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', {});
@@ -1001,6 +1000,26 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
         fogCtx.fill();
         fogCtx.restore();
+
+        // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
+        if (this.campfire.lit) {
+          const campScreenX = this.campfire.x - viewBounds.left;
+          const campScreenY = this.campfire.y - viewBounds.top;
+          const campLightRadius = 150;
+          fogCtx.save();
+          fogCtx.translate(campScreenX, campScreenY);
+          fogCtx.scale(1, yScale);
+          const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
+          campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+          campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
+          campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          fogCtx.fillStyle = campGradient;
+          fogCtx.beginPath();
+          fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
+          fogCtx.fill();
+          fogCtx.restore();
+        }
+
         fogCtx.globalCompositeOperation = 'source-over';
 
         ctx.drawImage(this._fogCanvas, 0, 0);

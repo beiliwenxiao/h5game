@@ -539,7 +539,7 @@ export class SceneEditorUI {
     panel.innerHTML = html;
 
     // 绑定属性修改事件
-    panel.querySelectorAll('input[data-prop], select[data-prop]').forEach(input => {
+    panel.querySelectorAll('input[data-prop], select[data-prop], textarea[data-prop]').forEach(input => {
       input.addEventListener('change', (e) => {
         const prop = e.target.dataset.prop;
         let value;
@@ -712,6 +712,7 @@ export class SceneEditorUI {
       html += `<div class="property-row"><label>NPC库ID:</label><input type="text" value="${obj.npcRef || ''}" data-prop="npcRef" placeholder="library.npcs 的 id"></div>`;
     } else if (obj.type === 'trigger') {
       html += `<div class="property-row"><label>触发器ID:</label><input type="text" value="${obj.triggerId || ''}" data-prop="triggerId"></div>`;
+      html += `<div class="property-row"><label>场景ID:</label><input type="text" value="${obj.sceneId || ''}" data-prop="sceneId" placeholder="留空=当前场景"></div>`;
       html += `<div class="property-row"><label>触发时机:</label><select data-prop="event">
         <option value="sceneEnter" ${obj.event === 'sceneEnter' ? 'selected' : ''}>进入场景 sceneEnter</option>
         <option value="enterRegion" ${obj.event === 'enterRegion' ? 'selected' : ''}>进入区域 enterRegion</option>

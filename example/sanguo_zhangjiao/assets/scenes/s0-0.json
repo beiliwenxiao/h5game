@@ -4624,8 +4624,8 @@
           "type": "trigger",
           "name": "触发器",
           "triggerId": "trg_2658",
-          "x": 727.73,
-          "y": 257.67,
+          "x": 738.07,
+          "y": 261.55,
           "width": 36,
           "height": 36,
           "event": "approach",
@@ -4633,7 +4633,8 @@
           "radius": 60,
           "conditions": "",
           "actions": "",
-          "actionType": "showTip"
+          "actionType": "showTip",
+          "actionParams": "{\"text\":\"您好，您靠近了一颗树\"}"
         }
       ]
     }
@@ -4838,7 +4839,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-18T20:06:26.786Z",
+  "updatedAt": "2026-07-18T20:51:20.924Z",
   "atlases": [
     {
       "id": "mountain_landscape",

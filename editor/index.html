@@ -1191,6 +1191,9 @@
                 
                 // 同时通过 API 写入 JSON 文件
                 this._saveSceneToFile(sceneData);
+
+                // 同步场景中的触发器到 game.project.json
+                this._syncTriggersToProject(sceneData);
             }
 
             // 处理场景元数据变更（名称/ID）
@@ -1283,6 +1286,7 @@
                         width: 36, height: 36,
                         event: (trg.when && trg.when.type) || 'custom',
                         target: (trg.when && trg.when.params && trg.when.params.target) || '',
+                        sceneId: (trg.when && trg.when.params && trg.when.params.sceneId) || '',
                         radius: 60,
                         conditions: trg.if ? JSON.stringify(trg.if) : '',
                         actions: Array.isArray(trg.do) ? trg.do.map(d => d.type || d).join(', ') : '',
@@ -1295,6 +1299,124 @@
                 if (added > 0) {
                     this.sceneEditor.render();
                     console.log(`[Editor] 同步了 ${added} 个触发器到场景 ${sceneId}`);
+                }
+            }
+
+            /**
+             * 将场景中的触发器对象同步到 game.project.json 的 triggers 数组
+             * 场景中新建的触发器如果在 project.triggers 中不存在，则自动添加
+             */
+            async _syncTriggersToProject(sceneData) {
+                if (!sceneData || !Array.isArray(sceneData.layers)) return;
+                const game = this.dataManager.getCurrentGame();
+                const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                const projectPath = `${gamePath}game.project.json`.replace(/^\.\.\//, '');
+
+                // 收集场景中所有触发器对象
+                const sceneTriggers = [];
+                for (const layer of sceneData.layers) {
+                    if (!Array.isArray(layer.objects)) continue;
+                    for (const obj of layer.objects) {
+                        if (obj.type === 'trigger' && obj.triggerId) {
+                            sceneTriggers.push(obj);
+                        }
+                    }
+                }
+                if (sceneTriggers.length === 0) return;
+
+                // 读取 game.project.json
+                let project = null;
+                try {
+                    const res = await fetch('/api/read-file?path=' + encodeURIComponent(projectPath));
+                    if (res.ok) {
+                        const data = await res.json();
+                        project = (data && data.ok && data.content) ? JSON.parse(data.content) : null;
+                    }
+                } catch (e) { return; }
+                if (!project) return;
+                if (!Array.isArray(project.triggers)) project.triggers = [];
+
+                // 同步：场景中有但 project 中没有的触发器，添加到 project
+                const existingIds = new Set(project.triggers.map(t => t.id));
+                let added = 0;
+                for (const obj of sceneTriggers) {
+                    if (existingIds.has(obj.triggerId)) {
+                        // 已存在：更新位置和基本信息
+                        const existing = project.triggers.find(t => t.id === obj.triggerId);
+                        if (existing) {
+                            existing.when = existing.when || {};
+                            existing.when.type = obj.event || existing.when.type || 'approach';
+                            if (obj.target) {
+                                existing.when.params = existing.when.params || {};
+                                existing.when.params.target = obj.target;
+                            }
+                            if (obj.sceneId) {
+                                existing.when.params = existing.when.params || {};
+                                existing.when.params.sceneId = obj.sceneId;
+                            }
+                            if (obj.once !== undefined) existing.once = obj.once;
+                            if (obj.cooldown) existing.cooldown = obj.cooldown;
+                            // 同步动作
+                            if (obj.actionType) {
+                                let params = {};
+                                if (obj.actionParams) {
+                                    try { params = JSON.parse(obj.actionParams); } catch (e) { params = {}; }
+                                }
+                                // 更新 do 数组中第一个动作，或新建
+                                if (!Array.isArray(existing.do)) existing.do = [];
+                                if (existing.do.length > 0) {
+                                    existing.do[0].action = obj.actionType;
+                                    existing.do[0].params = params;
+                                } else {
+                                    existing.do.push({ action: obj.actionType, params });
+                                }
+                            }
+                            // 同步条件
+                            if (obj.conditions) {
+                                try { existing.if = JSON.parse(obj.conditions); } catch (e) { existing.if = obj.conditions; }
+                            }
+                        }
+                        continue;
+                    }
+                    // 新增触发器
+                    const newTrg = {
+                        id: obj.triggerId,
+                        when: {
+                            type: obj.event || 'approach',
+                            params: {}
+                        },
+                        do: [],
+                        once: !!obj.once
+                    };
+                    if (obj.target) newTrg.when.params.target = obj.target;
+                    if (obj.sceneId) newTrg.when.params.sceneId = obj.sceneId;
+                    if (obj.cooldown) newTrg.cooldown = obj.cooldown;
+                    if (obj.actionType) {
+                        let params = {};
+                        if (obj.actionParams) {
+                            try { params = JSON.parse(obj.actionParams); } catch (e) { params = {}; }
+                        }
+                        newTrg.do.push({ action: obj.actionType, params });
+                    }
+                    if (obj.conditions) {
+                        try { newTrg.if = JSON.parse(obj.conditions); } catch (e) { newTrg.if = obj.conditions; }
+                    }
+                    project.triggers.push(newTrg);
+                    added++;
+                }
+
+                if (added > 0 || sceneTriggers.length > 0) {
+                    // 写回 game.project.json
+                    try {
+                        await fetch('/api/save-file', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ path: projectPath, content: JSON.stringify(project, null, 2) })
+                        });
+                        if (added > 0) console.log(`[Editor] 同步了 ${added} 个新触发器到 game.project.json`);
+                    } catch (e) {
+                        console.warn('[Editor] 同步触发器到工程文件失败:', e);
+                    }
                 }
             }
 

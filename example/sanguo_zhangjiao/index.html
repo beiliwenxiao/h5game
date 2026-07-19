@@ -181,20 +181,21 @@
             margin-top: 10px;
         }
         
-        #debug-panel {
+        #performance-panel {
             position: absolute;
             top: 10px;
-            left: 10px;
+            right: 10px;
             background: rgba(0, 0, 0, 0.7);
             padding: 10px;
             border-radius: 5px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
             pointer-events: none;
-            display: none; /* 隐藏 FPS 调试框 */
+            display: block; /* 旧 FPS 性能框暂时打开，便于与新 DebugPanel 对比 */
+            z-index: 99998;
         }
         
-        #debug-panel div {
+        #performance-panel div {
             margin: 2px 0;
         }
         
@@ -604,7 +605,7 @@
                 <p id="tips-text">提示内容</p>
             </div>
             
-            <div id="debug-panel">
+            <div id="performance-panel">
                 <div>FPS: <span id="fps">60</span></div>
                 <div>位置: <span id="position">0, 0</span></div>
                 <div>生命值: <span id="hp">100/100</span></div>
@@ -1418,7 +1419,9 @@
         // 更新调试信息
         function updateDebugInfo() {
             if (!scene) return;
-            
+
+            // 向通用 DebugPanel 暴露主游戏循环的真实 FPS 快照
+            scene.gameLoopFps = fps;
             fpsElement.textContent = fps;
             
             // 使用 playerEntity（两幕都有）

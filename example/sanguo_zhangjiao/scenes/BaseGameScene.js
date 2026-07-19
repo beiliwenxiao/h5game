@@ -2000,11 +2000,6 @@ export class BaseGameScene extends PrologueScene {
     // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
     this._updatePromptSwitch();
     
-    // 调试面板快捷键：按 ` (反引号) 切换
-    if (this.inputManager && (this.inputManager.isKeyPressed ? this.inputManager.isKeyPressed('`') : this.inputManager.isKeyDown('`'))) {
-      this._toggleDebugPanel();
-    }
-    
     // 性能监控：开始计时
     const updateStartTime = performance.now();
     
@@ -2927,6 +2922,18 @@ export class BaseGameScene extends PrologueScene {
    * 切换调试面板显示/隐藏（触发器动作 toggleDebug）
    */
   _toggleDebugPanel() {
+    console.log('[BaseGameScene][DebugPanel] 收到切换请求', {
+      scene: this.name,
+      isActive: this.isActive,
+      isPaused: this.isPaused,
+      panelExists: !!this.debugPanel,
+      visibleBefore: this.debugPanel?.visible ?? false,
+      elementConnectedBefore: this.debugPanel?._el?.isConnected || false,
+      existingDomCount: typeof document !== 'undefined'
+        ? document.querySelectorAll('#debug-panel').length
+        : 0
+    });
+
     if (!this.debugPanel) {
       this.debugPanel = new DebugPanel({
         getScene: () => this,
@@ -2935,8 +2942,17 @@ export class BaseGameScene extends PrologueScene {
           return (eng && eng.sceneManager) || this.sceneManager || null;
         }
       });
+      console.log('[BaseGameScene][DebugPanel] 已创建 DebugPanel 实例');
     }
+
     this.debugPanel.toggle();
+    console.log('[BaseGameScene][DebugPanel] 切换调用结束', {
+      visibleAfter: this.debugPanel.visible,
+      elementConnectedAfter: this.debugPanel._el?.isConnected || false,
+      domElement: typeof document !== 'undefined'
+        ? document.getElementById('debug-panel')
+        : null
+    });
   }
 
   /**
@@ -4321,6 +4337,16 @@ export class BaseGameScene extends PrologueScene {
    */
   exit() {
     super.exit();
+
+    // DOM 调试面板不属于 Canvas，场景退出时必须主动销毁，避免遗留重复 ID 和旧场景刷新循环
+    if (this.debugPanel) {
+      console.log('[BaseGameScene][DebugPanel] 场景退出，清理调试面板', {
+        visible: this.debugPanel.visible,
+        elementConnected: this.debugPanel._el?.isConnected || false
+      });
+      this.debugPanel.hide();
+      this.debugPanel = null;
+    }
     
     if (this.inputManager) {
       this.inputManager.destroy();

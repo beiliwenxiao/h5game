@@ -197,22 +197,59 @@ export class Scene1Terrain {
 
     const gameId = config.editorGameId || 'sanguo_zhangjiao';
     const sceneId = config.editorSceneId || 'scene_Prologue';
+    this._editorSceneId = sceneId;
+
+    console.log('[Scene1Terrain][Collision] 开始读取场景数据', {
+      gameId,
+      sceneId,
+      worldOffset: { ...this.worldOffset },
+      initialCollisionShapes: this._collisionShapes.length
+    });
 
     // 优先从 localStorage 读取（浏览器编辑器联动）
     const scene = loadSceneFromStorage(gameId, sceneId);
     
     if (scene) {
       this._applySceneData(scene);
+      console.log('[Scene1Terrain][Collision] 已应用 localStorage 场景数据', {
+        sceneId,
+        layerCount: scene.layers?.length || 0,
+        collisionShapeCount: this._collisionShapes.length,
+        collisionShapes: this._collisionShapes.map(shape => ({
+          id: shape.id || null,
+          shapeType: shape.shapeType,
+          points: shape.points?.length || 0,
+          x: shape.x,
+          y: shape.y
+        }))
+      });
       return;
     }
 
     // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
+    console.log('[Scene1Terrain][Collision] localStorage 无完整场景，开始异步加载 JSON 文件', { sceneId });
     loadSceneFromFile(sceneId).then(s => {
       if (s) {
         this._applySceneData(s);
         this._grassCanvas = null;
+        console.log('[Scene1Terrain][Collision] 异步场景 JSON 应用成功', {
+          requestedSceneId: sceneId,
+          loadedSceneId: s.id || null,
+          layerCount: s.layers?.length || 0,
+          collisionShapeCount: this._collisionShapes.length,
+          worldOffset: { ...this.worldOffset },
+          collisionShapes: this._collisionShapes.map(shape => ({
+            id: shape.id || null,
+            shapeType: shape.shapeType,
+            points: shape.points?.length || 0,
+            x: shape.x,
+            y: shape.y
+          }))
+        });
+      } else {
+        console.warn('[Scene1Terrain][Collision] 异步加载失败：未找到有效场景 JSON', { sceneId });
       }
-    }).catch(e => console.warn('Scene1Terrain: 加载编辑器 JSON fallback 失败', e));
+    }).catch(e => console.warn('[Scene1Terrain][Collision] 加载编辑器 JSON 异常', { sceneId, error: e }));
   }
 
   /**
@@ -1128,6 +1165,28 @@ export class Scene1Terrain {
     const resolver = this._editorShapeResolver();
     for (const shape of this._editorShapes) {
       ShapeRenderer.render(ctx, shape, resolver);
+    }
+  }
+
+  /**
+   * 调试显示编辑器碰撞区域。只渲染临时副本，不修改场景 shape 数据。
+   * @param {CanvasRenderingContext2D} ctx 已应用世界坐标相机变换
+   * @param {number} opacity 调试层透明度
+   */
+  renderCollisionShapesDebug(ctx, opacity = 0.7) {
+    if (!this._collisionShapes || this._collisionShapes.length === 0) return;
+    const resolver = this._editorShapeResolver();
+    for (const shape of this._collisionShapes) {
+      const debugShape = {
+        ...shape,
+        fillMode: 'color',
+        fill: '#ff9800',
+        opacity,
+        edgeFade: 0,
+        stroke: '#ff3b30',
+        strokeWidth: Math.max(2, Number(shape.strokeWidth) || 0)
+      };
+      ShapeRenderer.render(ctx, debugShape, resolver);
     }
   }
 

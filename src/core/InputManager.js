@@ -124,18 +124,39 @@ export class InputManager {
      */
     handleKeyDown(event) {
         const key = event.key;
-        const mappedKey = this.keyMap[key] || key;
+        const isDebugPanelKey = key === '`' || event.code === 'Backquote';
+        // 反引号键统一归一化为 `，Shift+反引号产生 ~ 时也能正确触发
+        const mappedKey = isDebugPanelKey ? '`' : (this.keyMap[key] || key);
+        const wasDown = this.keys.get(mappedKey) === true;
         
         // 如果键已经按下，不重复触发
-        if (!this.keys.get(mappedKey)) {
+        if (!wasDown) {
             this.keysPressed.set(mappedKey, true);
         }
         
         this.keys.set(mappedKey, true);
+
+        // 调试面板快捷键诊断：确认浏览器事件是否到达 InputManager，以及是否写入本帧按下状态
+        if (isDebugPanelKey) {
+            console.log('[InputManager][DebugPanel] 收到反引号 keydown', {
+                key,
+                code: event.code,
+                repeat: event.repeat,
+                mappedKey,
+                wasDown,
+                pressedThisFrame: this.keysPressed.get(mappedKey) === true,
+                activeElement: document.activeElement?.tagName || null
+            });
+        }
         
-        // 阻止某些默认行为
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(key)) {
+        // 阻止游戏快捷键的浏览器默认行为
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(key) || isDebugPanelKey) {
             event.preventDefault();
+            if (isDebugPanelKey) {
+                console.log('[InputManager][DebugPanel] 已阻止反引号键默认行为', {
+                    defaultPrevented: event.defaultPrevented
+                });
+            }
         }
     }
 

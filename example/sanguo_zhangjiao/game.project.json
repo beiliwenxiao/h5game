@@ -1224,6 +1224,7 @@
   "triggers": [
     {
       "id": "trg_debug_panel",
+      "enabled": false,
       "when": {
         "type": "sceneEnter",
         "params": {}
@@ -1603,7 +1604,8 @@
             "delta": 1
           }
         }
-      ]
+      ],
+      "once": false
     },
     {
       "id": "trg_starving_encourage",
@@ -1663,7 +1665,8 @@
             "delta": 1
           }
         }
-      ]
+      ],
+      "once": false
     },
     {
       "id": "trg_act5_kill_caocao",
@@ -1914,6 +1917,24 @@
         }
       ],
       "once": true
+    },
+    {
+      "id": "trg_2658",
+      "when": {
+        "type": "approach",
+        "params": {
+          "target": "obj_1782936268755_872"
+        }
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "您好，您靠近了一颗树"
+          }
+        }
+      ],
+      "once": false
     }
   ],
   "tutorials": [

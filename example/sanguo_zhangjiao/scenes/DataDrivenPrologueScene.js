@@ -115,9 +115,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   update(deltaTime) {
     if (!this.isActive) return;
 
+    // 必须在任何 inputManager.update() 之前读取，否则本帧按下状态会被清空
+    const debugPanelKeyPressed = !!this.inputManager?.isKeyPressed?.('`');
+
     if (this.isTransitioning) {
       this.updateTransition(deltaTime);
       if (this.transitionPhase === 'show_text' || this.transitionPhase === 'switch_scene') {
+        if (debugPanelKeyPressed) {
+          console.warn('[DDScene][DebugPanel] 反引号已收到，但当前过场阶段会提前结束本帧', {
+            transitionPhase: this.transitionPhase,
+            isTransitioning: this.isTransitioning
+          });
+        }
         this.inputManager.update();
         return;
       }
@@ -137,6 +146,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})（同样需要在 inputManager.update 之前检测按键）
     this._checkCampfireInteract();
+
+    // 事件源：场景触发器靠近检测（approach）
+    this._checkApproachTriggers();
+
+    // 调试面板快捷键：反引号 `
+    if (debugPanelKeyPressed) {
+      console.log('[DDScene][DebugPanel] update 捕获反引号，准备切换面板', {
+        scene: this.name,
+        isActive: this.isActive,
+        isPaused: this.isPaused,
+        isTransitioning: this.isTransitioning,
+        transitionPhase: this.transitionPhase,
+        panelExists: !!this.debugPanel,
+        visibleBefore: this.debugPanel?.visible ?? false
+      });
+      this._toggleDebugPanel();
+    }
 
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
     // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
@@ -159,11 +185,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
     this.checkCampfireCollision();
-    if (!this._terrainCollisionCalled) {
-      const cs1 = this.terrain?._collisionShapes?.length || 0;
-      const cs2 = this.terrainAct1?._collisionShapes?.length || 0;
-      console.log('%c[DDScene] 碰撞诊断: terrain.shapes=' + cs1 + ' act1.shapes=' + cs2, 'color:red;font-weight:bold');
-      this._terrainCollisionCalled = true;
+    const terrainCollisionState = (this._terrains || []).map((terrain, index) => ({
+      index,
+      sceneId: terrain._editorSceneId || null,
+      worldOffset: terrain.worldOffset || null,
+      collisionShapeCount: terrain._collisionShapes?.length || 0
+    }));
+    const terrainCollisionSignature = JSON.stringify(terrainCollisionState);
+    if (terrainCollisionSignature !== this._terrainCollisionSignature) {
+      const playerTransform = this.playerEntity?.getComponent('transform');
+      console.log('[DDScene][Collision] 地形碰撞数据状态变化', {
+        terrains: terrainCollisionState,
+        mainTerrainSceneId: this.terrain?._editorSceneId || null,
+        playerPosition: playerTransform
+          ? { x: playerTransform.position.x, y: playerTransform.position.y }
+          : null
+      });
+      this._terrainCollisionSignature = terrainCollisionSignature;
     }
     this.checkTerrainCollision();
   }
@@ -489,6 +527,76 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
+  /**
+   * 检测场景触发器的「靠近 approach」事件：
+   * 遍历放置点中 event==='approach' 的触发器，检测玩家是否在其 radius 范围内。
+   * 进入范围时 fire('approach', { target, triggerId })，离开时 fire('leave', { target, triggerId })。
+   * @private
+   */
+  _checkApproachTriggers() {
+    if (!this.gameLoader) return;
+    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (!pt) return;
+    const px = pt.position.x;
+    const py = pt.position.y;
+
+    // 从所有地形场景的逻辑层收集 approach 触发器
+    if (!this._approachTriggers) {
+      this._approachTriggers = [];
+      this._approachState = {}; // triggerId → boolean (是否在范围内)
+      // 从 _placements 中找 approach 类型触发器
+      for (const pl of (this._placements || [])) {
+        if (pl.type === 'trigger' && pl.event === 'approach') {
+          this._approachTriggers.push(pl);
+          this._approachState[pl.triggerId || pl.id] = false;
+        }
+      }
+      // 也从场景数据中直接收集（可能不在 placements 中）
+      for (const t of this._terrains || []) {
+        if (!t._sceneDataRaw) continue;
+        const scene = t._sceneDataRaw;
+        if (!Array.isArray(scene.layers)) continue;
+        for (const layer of scene.layers) {
+          for (const obj of (layer.objects || [])) {
+            if (obj.type === 'trigger' && obj.event === 'approach') {
+              // 加上该地形的 worldOffset
+              const wo = t.worldOffset || { x: 0, y: 0 };
+              const key = obj.triggerId || obj.id;
+              if (this._approachState[key] !== undefined) continue; // 已收集
+              this._approachTriggers.push({
+                ...obj,
+                x: obj.x + (obj.width || 0) / 2 + wo.x,
+                y: obj.y + (obj.height || 0) / 2 + wo.y
+              });
+              this._approachState[key] = false;
+            }
+          }
+        }
+      }
+    }
+
+    const trig = this.gameLoader.triggerSystem;
+    for (const at of this._approachTriggers) {
+      const key = at.triggerId || at.id;
+      const radius = at.radius || 60;
+      const tx = at.x + (at.width ? at.width / 2 : 0);
+      const ty = at.y + (at.height ? at.height / 2 : 0);
+      const dist = Math.hypot(px - tx, py - ty);
+      const inRange = dist <= radius;
+      const wasInRange = this._approachState[key];
+
+      if (inRange && !wasInRange) {
+        // 进入范围
+        this._approachState[key] = true;
+        trig.fire('approach', { target: at.target || '', triggerId: key });
+      } else if (!inRange && wasInRange) {
+        // 离开范围
+        this._approachState[key] = false;
+        trig.fire('leave', { target: at.target || '', triggerId: key });
+      }
+    }
+  }
+
   /** 相机后处理：限制在大地图边缘（被 BaseGameScene.update 调用） */
   postCameraUpdate() {
     this.clampCameraToWorldBounds();
@@ -755,7 +863,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!scene || !Array.isArray(scene.layers)) return;
     for (const layer of scene.layers) {
       for (const o of (layer.objects || [])) {
-        if (o.type === 'ref' || o.type === 'spawn') {
+        if (o.type === 'ref' || o.type === 'spawn' || o.type === 'trigger') {
           placements.push({
             ...o,
             x: o.x + (offset ? offset.x : 0),
@@ -851,51 +959,67 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 渲染：父类管线之上叠加开场迷雾（玩家周围 2.5D 椭圆透光区） */
+  /** 渲染：父类管线之上叠加开场迷雾，再按需绘制碰撞多边形调试层 */
   render(ctx) {
     super.render(ctx);
-    if (!(this.fog.active && this.fog.opacity > 0.01)) return;
+
+    if (this.fog.active && this.fog.opacity > 0.01) {
+      ctx.save();
+      const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
+      const viewBounds = this.camera.getViewBounds();
+      if (playerTransform) {
+        const playerScreenX = playerTransform.position.x - viewBounds.left;
+        const playerScreenY = playerTransform.position.y - viewBounds.top;
+        const lightRadius = 120;
+
+        if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+        if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
+          this._fogCanvas.width = this.logicalWidth;
+          this._fogCanvas.height = this.logicalHeight;
+        }
+        const fogCtx = this._fogCanvas.getContext('2d');
+
+        fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+        fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+        fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+
+        // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
+        fogCtx.globalCompositeOperation = 'destination-out';
+        const yScale = 0.6;
+        fogCtx.save();
+        fogCtx.translate(playerScreenX, playerScreenY);
+        fogCtx.scale(1, yScale);
+        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        fogCtx.fillStyle = gradient;
+        fogCtx.beginPath();
+        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
+        fogCtx.fill();
+        fogCtx.restore();
+        fogCtx.globalCompositeOperation = 'source-over';
+
+        ctx.drawImage(this._fogCanvas, 0, 0);
+      } else {
+        ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
+        ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+      }
+      ctx.restore();
+    }
+
+    this._renderCollisionShapesDebug(ctx);
+  }
+
+  /** 在迷雾之上绘制编辑器碰撞多边形调试层 */
+  _renderCollisionShapesDebug(ctx) {
+    if (!this.debugShowCollisionPolygons || !this.camera || !Array.isArray(this._terrains)) return;
 
     ctx.save();
-    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
     const viewBounds = this.camera.getViewBounds();
-    if (playerTransform) {
-      const playerScreenX = playerTransform.position.x - viewBounds.left;
-      const playerScreenY = playerTransform.position.y - viewBounds.top;
-      const lightRadius = 120;
-
-      if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
-      if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {
-        this._fogCanvas.width = this.logicalWidth;
-        this._fogCanvas.height = this.logicalHeight;
-      }
-      const fogCtx = this._fogCanvas.getContext('2d');
-
-      fogCtx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
-      fogCtx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-      fogCtx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-
-      // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
-      fogCtx.globalCompositeOperation = 'destination-out';
-      const yScale = 0.6;
-      fogCtx.save();
-      fogCtx.translate(playerScreenX, playerScreenY);
-      fogCtx.scale(1, yScale);
-      const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
-      gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-      gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-      gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-      fogCtx.fillStyle = gradient;
-      fogCtx.beginPath();
-      fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
-      fogCtx.fill();
-      fogCtx.restore();
-      fogCtx.globalCompositeOperation = 'source-over';
-
-      ctx.drawImage(this._fogCanvas, 0, 0);
-    } else {
-      ctx.fillStyle = `${this.fog.color} ${this.fog.opacity})`;
-      ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    ctx.translate(-viewBounds.left, -viewBounds.top);
+    for (const terrain of this._terrains) {
+      terrain.renderCollisionShapesDebug(ctx, 0.7);
     }
     ctx.restore();
   }

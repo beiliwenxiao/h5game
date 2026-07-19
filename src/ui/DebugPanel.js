@@ -120,6 +120,14 @@ export class DebugPanel {
           <div class="dp-title">触发器事件</div>
           <div id="dp-triggers">--</div>
         </div>
+        <div class="dp-section">
+          <div class="dp-title">天气</div>
+          <div id="dp-weather">--</div>
+        </div>
+        <div class="dp-section">
+          <div class="dp-title">时间</div>
+          <div id="dp-time">--</div>
+        </div>
         <div class="dp-section dp-actions">
           <div class="dp-title">调试显示</div>
           <label class="dp-check-row">
@@ -290,6 +298,32 @@ export class DebugPanel {
       this._el.querySelector('#dp-triggers').innerHTML =
         `总计: ${triggers.length} | 待触发: ${pending.length}<br>` +
         `最近触发: ${lastFired}`;
+    }
+
+    // 天气系统
+    const ws = scene.weatherSystem;
+    if (ws) {
+      const fogAdd = ws.getFogAdd().toFixed(2);
+      this._el.querySelector('#dp-weather').innerHTML =
+        `当前: ${ws.currentWeather}` +
+        (ws.currentWeather !== ws.targetWeather ? ` → ${ws.targetWeather}` : '') +
+        `<br>雾叠加: ${fogAdd}`;
+    } else {
+      this._el.querySelector('#dp-weather').textContent = '未加载';
+    }
+
+    // 时间系统
+    const ts = scene.timeSystem;
+    if (ts && ts.enabled) {
+      const period = ts.getCurrentPeriod();
+      const progress = (ts.getProgress() * 100).toFixed(0);
+      const brightness = ts.getBrightness().toFixed(2);
+      const fogOp = ts.getFogOpacity().toFixed(2);
+      this._el.querySelector('#dp-time').innerHTML =
+        `${period} (${progress}%)<br>` +
+        `明暗: ${brightness} | 雾: ${fogOp}`;
+    } else {
+      this._el.querySelector('#dp-time').textContent = ts ? '已禁用' : '未加载';
     }
   }
 

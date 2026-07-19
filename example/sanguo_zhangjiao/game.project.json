@@ -2379,49 +2379,49 @@
       "startPeriod": "noon",
       "periods": {
         "dawn": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.4,
           "fogOpacity": 0.6,
           "tintColor": "rgba(80,60,120,0.2)"
         },
         "earlyMorning": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.6,
           "fogOpacity": 0.3,
           "tintColor": "rgba(255,200,100,0.1)"
         },
         "morning": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.9,
           "fogOpacity": 0.1,
           "tintColor": "rgba(0,0,0,0)"
         },
         "noon": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 1,
           "fogOpacity": 0,
           "tintColor": "rgba(0,0,0,0)"
         },
         "afternoon": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.85,
           "fogOpacity": 0.1,
           "tintColor": "rgba(255,180,50,0.05)"
         },
         "dusk": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.5,
           "fogOpacity": 0.4,
           "tintColor": "rgba(255,100,50,0.15)"
         },
         "night": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.25,
           "fogOpacity": 0.7,
           "tintColor": "rgba(20,20,80,0.3)"
         },
         "lateNight": {
-          "duration": 60,
+          "duration": 10,
           "brightness": 0.15,
           "fogOpacity": 0.8,
           "tintColor": "rgba(10,10,40,0.4)"

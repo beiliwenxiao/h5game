@@ -744,7 +744,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
 
-    // 点燃火堆后不消散迷雾，保持迷雾系统（光照由玩家周围透光区体现）
+    // 点燃火堆后驱散开场薄雾
+    this.fog.targetOpacity = 0;
 
     // 事件源：火堆点燃 → 触发器 trg_spawn_pickup 生成拾取物
     if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', {});

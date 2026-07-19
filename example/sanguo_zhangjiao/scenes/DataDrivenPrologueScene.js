@@ -973,7 +973,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (playerTransform) {
         const playerScreenX = playerTransform.position.x - viewBounds.left;
         const playerScreenY = playerTransform.position.y - viewBounds.top;
-        const lightRadius = 120;
+        const lightRadius = 150;
 
         if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
         if (this._fogCanvas.width !== this.logicalWidth || this._fogCanvas.height !== this.logicalHeight) {

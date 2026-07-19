@@ -853,7 +853,7 @@ export class SceneEditorInteraction {
       const baseId = sourceId || `obj_${Date.now()}`;
       let nextId;
       do {
-        const suffix = Math.floor(100000 + Math.random() * 900000);
+        const suffix = Math.floor(100 + Math.random() * 900);
         nextId = `${baseId}_${suffix}`;
       } while (usedIds.has(nextId));
       usedIds.add(nextId);

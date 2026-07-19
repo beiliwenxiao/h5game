@@ -2322,5 +2322,53 @@
     "gatherSkills": [],
     "craftSkills": [],
     "talents": []
+  },
+  "system": {
+    "loading": {
+      "title": "张角黄巾起义序章(闻箫工作室)",
+      "subtitle": "第一幕：绝望的开始",
+      "loadingText": "加载中...",
+      "icon": "",
+      "backgroundColor": "#1a1a1a",
+      "titleColor": "#4caf50",
+      "progressBarColor": "#4CAF50,#8BC34A",
+      "steps": [
+        {
+          "progress": 0,
+          "text": "初始化 ECS 系统...",
+          "delay": 100
+        },
+        {
+          "progress": 25,
+          "text": "加载核心系统...",
+          "delay": 100
+        },
+        {
+          "progress": 50,
+          "text": "创建场景管理器...",
+          "delay": 100
+        },
+        {
+          "progress": 60,
+          "text": "注册场景...",
+          "delay": 100
+        },
+        {
+          "progress": 75,
+          "text": "初始化玩家实体...",
+          "delay": 100
+        },
+        {
+          "progress": 90,
+          "text": "进入第一幕...",
+          "delay": 100
+        },
+        {
+          "progress": 100,
+          "text": "完成！",
+          "delay": 100
+        }
+      ]
+    }
   }
 }

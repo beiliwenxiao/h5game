@@ -3130,6 +3130,9 @@ export class BaseGameScene extends PrologueScene {
     // 恢复上下文状态
     ctx.restore();
     
+    // 子类可覆盖此钩子在世界渲染之后、UI 面板之前插入迷雾等全屏效果层
+    this.renderFogLayer(ctx);
+    
     // 渲染鼠标点击的屏幕坐标红色标记（在屏幕坐标系中，不受相机变换影响）
     this._renderClickScreenMarkers(ctx);
     

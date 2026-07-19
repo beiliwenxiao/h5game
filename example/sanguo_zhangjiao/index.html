@@ -895,71 +895,103 @@
         // 初始化游戏
         async function initGame() {
             try {
-                // 模拟加载过程
-                updateLoading(0, '初始化 ECS 系统...');
-                await sleep(500);
-                
-                updateLoading(25, '加载核心系统...');
+                // 从 game.project.json 读取加载页面配置
+                let loadingConfig = null;
+                try {
+                    const projRes = await fetch('game.project.json');
+                    if (projRes.ok) {
+                        const proj = await projRes.json();
+                        loadingConfig = proj.system?.loading || null;
+                    }
+                } catch (e) { /* 使用默认值 */ }
+
+                // 应用加载页面配置
+                if (loadingConfig) {
+                    const ls = document.getElementById('loading-screen');
+                    const h1 = ls?.querySelector('h1');
+                    const h2 = ls?.querySelector('h2');
+                    if (h1 && loadingConfig.title) h1.textContent = loadingConfig.title;
+                    if (h2 && loadingConfig.subtitle) h2.textContent = loadingConfig.subtitle;
+                    if (h1 && loadingConfig.titleColor) h1.style.color = loadingConfig.titleColor;
+                    if (ls && loadingConfig.backgroundColor) ls.style.background = loadingConfig.backgroundColor;
+                    if (loadingConfig.progressBarColor) {
+                        const pf = document.getElementById('progress-fill');
+                        if (pf) pf.style.background = `linear-gradient(90deg, ${loadingConfig.progressBarColor})`;
+                    }
+                    if (loadingConfig.icon) {
+                        const iconEl = document.createElement('img');
+                        iconEl.src = loadingConfig.icon;
+                        iconEl.style.cssText = 'width:64px;height:64px;margin-bottom:16px;';
+                        if (h1) h1.parentNode.insertBefore(iconEl, h1);
+                    }
+                    if (loadingConfig.loadingText) {
+                        loadingText.textContent = loadingConfig.loadingText;
+                    }
+                }
+
+                // 按配置的步骤加载，或使用默认步骤
+                const steps = loadingConfig?.steps || [
+                    { progress: 0, text: '初始化 ECS 系统...', delay: 500 },
+                    { progress: 25, text: '加载核心系统...', delay: 500 },
+                    { progress: 50, text: '创建场景管理器...', delay: 300 },
+                    { progress: 60, text: '注册场景...', delay: 500 },
+                    { progress: 75, text: '初始化玩家实体...', delay: 0 },
+                    { progress: 90, text: '进入第一幕...', delay: 500 },
+                    { progress: 100, text: '完成！', delay: 500 }
+                ];
+                let stepIndex = 0;
+                const nextStep = async () => {
+                    if (stepIndex < steps.length) {
+                        const s = steps[stepIndex];
+                        updateLoading(s.progress, s.text);
+                        if (s.delay > 0) await sleep(s.delay);
+                        stepIndex++;
+                    }
+                };
+
+                // 模拟加载过程（按步骤推进）
+                await nextStep(); // 步骤 0
+
+                await nextStep(); // 步骤 1
                 // 创建并初始化 AssetManager
                 assetManager = new AssetManager();
                 assetManager.setAssetBasePath('assets/');
-                assetManager.loadPlaceholderAssets(); // 加载占位符资源
-                await sleep(500);
-                
-                updateLoading(50, '创建场景管理器...');
+                assetManager.loadPlaceholderAssets();
+
+                await nextStep(); // 步骤 2
                 sceneManager = new SceneManager();
                 sceneManager.setRenderSize(canvas.width, canvas.height);
-                await sleep(300);
+
+                await nextStep(); // 步骤 3
                 
-                updateLoading(60, '注册场景...');
-                
-                // 创建并注册第二幕场景
+                // 创建并注册各幕场景
                 const act2Scene = new Act2Scene();
                 act2Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act2Scene', act2Scene);
-                
-                // 创建并注册第三幕场景
                 const act3Scene = new Act3Scene();
                 act3Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act3Scene', act3Scene);
-                
-                // 创建并注册第四幕场景
                 const act4Scene = new Act4Scene();
                 act4Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act4Scene', act4Scene);
-                
-                // 创建并注册第五幕场景
                 const act5Scene = new Act5Scene();
                 act5Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act5Scene', act5Scene);
-                
-                // 创建并注册第六幕场景
                 const act6Scene = new Act6Scene();
                 act6Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act6Scene', act6Scene);
-                
-                // 设置场景管理器引用
                 act2Scene.setSceneManager(sceneManager);
                 act3Scene.setSceneManager(sceneManager);
                 act4Scene.setSceneManager(sceneManager);
                 act5Scene.setSceneManager(sceneManager);
                 act6Scene.setSceneManager(sceneManager);
                 
-                // 初始化通知系统
-                notificationSystem = new NotificationSystem({
-                    x: 10,
-                    y: 100,
-                    maxNotifications: 5
-                });
-                
+                notificationSystem = new NotificationSystem({ x: 10, y: 100, maxNotifications: 5 });
                 scene = null;
-                await sleep(500);
-                
-                updateLoading(75, '初始化玩家实体...');
-                
-                // 使用场景管理器切换到第一幕
-                updateLoading(90, '进入第一幕...');
-                // ?ddscene=preview → 轻量静态预览；否则默认走数据驱动序章
+
+                await nextStep(); // 步骤 4
+
+                await nextStep(); // 步骤 5
                 const _ddSceneId = new URLSearchParams(location.search).get('ddscene');
                 if (_ddSceneId === 'preview') {
                     const dd = new DataDrivenScene('DataDrivenScene', { sceneManager });
@@ -973,24 +1005,20 @@
                     scene = dd;
                     sceneManager.switchTo('DataDrivenScene');
                 } else {
-                    // 默认：数据驱动序章
                     const dd = new DataDrivenPrologueScene();
                     dd.assetManager = assetManager;
-                    sceneManager.registerScene('Act1Scene', dd); // 兼容旧名称引用
+                    sceneManager.registerScene('Act1Scene', dd);
                     sceneManager.registerScene('DataDrivenPrologueScene', dd);
                     dd.setSceneManager(sceneManager);
                     scene = dd;
                     sceneManager.switchTo('DataDrivenPrologueScene');
                 }
-                await sleep(500);
                 
-                // 场景进入后，设置教程回调
                 setupSceneCallbacks(act2Scene);
                 setupSceneCallbacks(act3Scene);
                 if (scene) setupSceneCallbacks(scene);
                 
-                updateLoading(100, '完成！');
-                await sleep(500);
+                await nextStep(); // 步骤 6（完成）
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';

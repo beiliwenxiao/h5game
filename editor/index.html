@@ -485,6 +485,7 @@
                 <button id="nav-library-editor">内容库</button>
                 <button id="nav-world-map-editor">世界地图</button>
                 <button id="nav-panel-editor">面板编辑器</button>
+                <button id="nav-system-editor">系统编辑器</button>
                 <button id="nav-home">返回首页</button>
             </nav>
         </header>
@@ -551,6 +552,11 @@
             <!-- 面板编辑器页 -->
             <div class="ui-editor-page" id="panel-editor-page">
                 <div id="panel-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
+            </div>
+
+            <!-- 系统编辑器页 -->
+            <div class="ui-editor-page" id="system-editor-page">
+                <div id="system-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
             </div>
         </main>
     </div>
@@ -627,6 +633,7 @@
         import { DialogueGraphEditor } from './DialogueGraphEditor.js';
         import { WorldMapEditor } from './WorldMapEditor.js';
         import { PanelEditor } from './PanelEditor.js';
+        import { SystemEditor } from './SystemEditor.js';
         
         class GameEditor {
             constructor() {
@@ -731,6 +738,7 @@
                 document.getElementById('nav-world-map-editor').addEventListener('click', () => this.showPage('world-map-editor'));
                 document.getElementById('nav-dialogue-editor').addEventListener('click', () => this.showPage('dialogue-editor'));
                 document.getElementById('nav-panel-editor').addEventListener('click', () => this.showPage('panel-editor'));
+                document.getElementById('nav-system-editor').addEventListener('click', () => this.showPage('system-editor'));
                 document.getElementById('nav-home').addEventListener('click', () => window.location.href = '../index.html');
                 
                 // 游戏卡片点击
@@ -1655,6 +1663,16 @@
                         );
                     }
                     this.panelEditor.init();
+                } else if (page === 'system-editor') {
+                    document.getElementById('system-editor-page').classList.add('active');
+                    if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
+                    if (!this.systemEditor) {
+                        this.systemEditor = new SystemEditor(
+                            document.getElementById('system-editor-container'),
+                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                        );
+                    }
+                    this.systemEditor.init();
                 }
             }
             

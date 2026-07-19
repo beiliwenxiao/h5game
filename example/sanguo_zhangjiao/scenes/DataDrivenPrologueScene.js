@@ -28,6 +28,9 @@ import { GameLoader } from '../../../src/core/GameLoader.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
+  // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
+  _initEditorTerrain() { /* 由 _loadWorldTerrains 代替 */ }
+
   constructor() {
     super(1, {
       title: '数据驱动序章',
@@ -1014,6 +1017,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 在迷雾之上绘制编辑器碰撞多边形调试层 */
   _renderCollisionShapesDebug(ctx) {
     if (!this.debugShowCollisionPolygons || !this.camera || !Array.isArray(this._terrains)) return;
+
+    // 调试日志：每 60 帧打印一次，方便排查渲染是否到达此处
+    if (!this._collisionDebugRenderCount) this._collisionDebugRenderCount = 0;
+    this._collisionDebugRenderCount++;
+    if (this._collisionDebugRenderCount % 120 === 1) {
+      const shapeInfo = this._terrains.map((t, i) => {
+        const s0 = t._collisionShapes?.[0];
+        return `[${i}] ${t._editorSceneId}: ${t._collisionShapes?.length || 0} shapes` +
+          (s0 ? `, first.points[0..1]=${JSON.stringify(s0.points?.slice(0,2))}` : '');
+      });
+      const vb = this.camera.getViewBounds();
+      console.log('[DDScene][CollisionDebug]', shapeInfo.join(' | '),
+        `| view: L=${Math.round(vb.left)} T=${Math.round(vb.top)} R=${Math.round(vb.right)} B=${Math.round(vb.bottom)}`);
+    }
 
     ctx.save();
     const viewBounds = this.camera.getViewBounds();

@@ -3467,8 +3467,8 @@ export class BaseGameScene extends PrologueScene {
    * 子类已自行创建 this.terrain 时跳过
    */
   _initEditorTerrain() {
-    // 子类（如 Act1SceneECS / DataDrivenPrologueScene）已自行创建 terrain 时不覆盖
-    if (this.terrain) return;
+    // 子类（如 DataDrivenPrologueScene）自行管理地形时跳过
+    if (this.terrain || this._skipInitEditorTerrain) return;
 
     // 检查编辑器中是否有该场景的有效数据
     const gameId = 'sanguo_zhangjiao';

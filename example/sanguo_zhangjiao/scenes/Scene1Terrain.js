@@ -259,6 +259,24 @@ export class Scene1Terrain {
    */
   _applySceneData(scene) {
     if (!scene) return;
+    // 打印碰撞 shapes 的原始坐标，诊断是否 localStorage 中已带偏移
+    if (Array.isArray(scene.layers)) {
+      for (const layer of scene.layers) {
+        if (!layer || !Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (obj && obj.type === 'shape' && obj.collide && obj.points) {
+            console.log('[Scene1Terrain] _applySceneData 收到碰撞 shape 原始坐标', {
+              sceneId: this._editorSceneId,
+              shapeId: obj.id,
+              worldOffset: { ...this.worldOffset },
+              firstPoint: obj.points[0],
+              alreadyApplied: !!this._worldOffsetApplied
+            });
+            break; // 只打印第一个就够了
+          }
+        }
+      }
+    }
 
     // 1. 覆盖切片配置（用户可能在编辑器里调整过切片位置/尺寸/碰撞）
     if (scene.decoSprites && typeof scene.decoSprites === 'object') {
@@ -338,7 +356,8 @@ export class Scene1Terrain {
             this._collisionShapes.push(obj);
           }
           // 图层隐藏时跳过视觉渲染相关的收集
-          if (layerHidden) continue;
+          // 碰撞 shape 也不重复放入 _editorShapes（避免 worldOffset 双重偏移）
+          if (layerHidden || (obj.type === 'shape' && obj.collide)) continue;
           const _isEllipse = obj.type === 'ellipse' ||
                              (obj.type === 'shape' && obj.shapeType === 'ellipse');
           // 第一个椭圆作为地形椭圆；其余 shape（多边形/矩形/圆/额外椭圆）作为可渲染 shape
@@ -437,7 +456,7 @@ export class Scene1Terrain {
     // === 应用 worldOffset：把所有解析出的坐标从场景局部坐标转为世界坐标 ===
     const ox = this.worldOffset.x;
     const oy = this.worldOffset.y;
-    if (ox !== 0 || oy !== 0) {
+    if ((ox !== 0 || oy !== 0) && !this._worldOffsetApplied) {
       this._worldOffsetApplied = true;
       // 盆地中心
       this.centerX += ox;

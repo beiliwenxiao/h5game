@@ -2371,8 +2371,58 @@
       ]
     },
     "weather": {
-      "default": "clear",
-      "transitionSpeed": 0.5
+      "default": "lightRain",
+      "transitionSpeed": 0.5,
+      "particles": {
+        "clear": {
+          "fogAdd": 0,
+          "count": 0,
+          "windX": 0,
+          "windY": 0
+        },
+        "breeze": {
+          "fogAdd": 0,
+          "count": 15,
+          "windX": 30,
+          "windY": 5
+        },
+        "wind": {
+          "fogAdd": 0.05,
+          "count": 30,
+          "windX": 80,
+          "windY": 10
+        },
+        "lightRain": {
+          "fogAdd": 0.1,
+          "count": 60,
+          "windX": 10,
+          "windY": 300
+        },
+        "heavyRain": {
+          "fogAdd": 0.2,
+          "count": 150,
+          "windX": 30,
+          "windY": 500
+        },
+        "lightFog": {
+          "fogAdd": 0.25,
+          "count": 0,
+          "windX": 0,
+          "windY": 0
+        },
+        "heavyFog": {
+          "fogAdd": 0.5,
+          "count": 0,
+          "windX": 0,
+          "windY": 0
+        },
+        "storm": {
+          "fogAdd": 0.3,
+          "count": 120,
+          "windX": 60,
+          "windY": 450
+        }
+      }
     },
     "time": {
       "enabled": true,

@@ -136,6 +136,22 @@ export class DebugPanel {
           </label>
         </div>
         <div class="dp-section dp-actions">
+          <div class="dp-title">天气控制</div>
+          <div class="dp-btn-row">
+            <select id="dp-weather-select">
+              <option value="clear">晴天</option>
+              <option value="breeze">微风</option>
+              <option value="wind">大风</option>
+              <option value="lightRain">小雨</option>
+              <option value="heavyRain">大雨</option>
+              <option value="lightFog">小雾</option>
+              <option value="heavyFog">大雾</option>
+              <option value="storm">雷暴</option>
+            </select>
+            <button id="dp-weather-apply">应用</button>
+          </div>
+        </div>
+        <div class="dp-section dp-actions">
           <div class="dp-title">操作</div>
           <div class="dp-btn-row">
             <button id="dp-prev-event">◀ 上一事件</button>
@@ -210,6 +226,13 @@ export class DebugPanel {
       if (!scene) return;
       scene.debugShowCollisionPolygons = event.target.checked;
       console.log('[DebugPanel] 地形碰撞多边形显示:', event.target.checked ? '开启' : '关闭');
+    });
+    el.querySelector('#dp-weather-apply').addEventListener('click', () => {
+      const scene = this.getScene();
+      if (!scene || !scene.weatherSystem) return;
+      const type = el.querySelector('#dp-weather-select').value;
+      scene.weatherSystem.setWeather(type);
+      console.log('[DebugPanel] 天气切换:', type);
     });
   }
 
@@ -308,6 +331,9 @@ export class DebugPanel {
         `当前: ${ws.currentWeather}` +
         (ws.currentWeather !== ws.targetWeather ? ` → ${ws.targetWeather}` : '') +
         `<br>雾叠加: ${fogAdd}`;
+      // 同步下拉框
+      const sel = this._el.querySelector('#dp-weather-select');
+      if (sel && sel.value !== ws.targetWeather) sel.value = ws.targetWeather;
     } else {
       this._el.querySelector('#dp-weather').textContent = '未加载';
     }

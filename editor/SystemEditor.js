@@ -58,8 +58,9 @@ export class SystemEditor {
     }
     // 确保 weather 子对象存在
     if (!this._data.weather) {
-      this._data.weather = { default: 'clear', transitionSpeed: 0.5 };
+      this._data.weather = { default: 'clear', transitionSpeed: 0.5, particles: {} };
     }
+    if (!this._data.weather.particles) this._data.weather.particles = {};
     // 确保 time 子对象存在
     if (!this._data.time) {
       this._data.time = {
@@ -162,7 +163,11 @@ export class SystemEditor {
             </select></div>
             <div class="sys-row"><label>过渡速度:</label><input type="number" id="sys-wt-speed" value="0.5" step="0.1" min="0.1" max="5"></div>
           </fieldset>
-          <p style="color:#888;font-size:12px;">天气通过触发器动作 <code>setWeather</code> 控制，参数：<code>{"type":"heavyRain"}</code></p>
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">各天气参数</legend>
+            <div id="sys-wt-defs"></div>
+          </fieldset>
+          <p style="color:#888;font-size:12px;">通过触发器动作 <code>setWeather</code> 切换，参数：<code>{"type":"heavyRain"}</code><br>Debug面板可实时选择天气预览效果。</p>
           <button id="sys-wt-save" style="padding:8px 24px;background:#4CAF50;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">保存</button>
         </div>
         <div id="sys-tab-time" class="sys-tab-content" style="display:none;">
@@ -238,6 +243,17 @@ export class SystemEditor {
     if (wtSave) wtSave.addEventListener('click', () => {
       this._data.weather.default = this.container.querySelector('#sys-wt-default').value;
       this._data.weather.transitionSpeed = parseFloat(this.container.querySelector('#sys-wt-speed').value) || 0.5;
+      // 收集各天气粒子参数
+      this.container.querySelectorAll('.sys-wt-row').forEach(row => {
+        const key = row.dataset.weather;
+        if (!key) return;
+        this._data.weather.particles[key] = {
+          fogAdd: parseFloat(row.querySelector('.wt-fog').value) || 0,
+          count: parseInt(row.querySelector('.wt-count').value) || 0,
+          windX: parseFloat(row.querySelector('.wt-wx').value) || 0,
+          windY: parseFloat(row.querySelector('.wt-wy').value) || 0
+        };
+      });
       this._save();
     });
     // 时间保存
@@ -348,6 +364,32 @@ export class SystemEditor {
     const speed = this.container.querySelector('#sys-wt-speed');
     if (sel) sel.value = this._data.weather.default || 'clear';
     if (speed) speed.value = this._data.weather.transitionSpeed || 0.5;
+
+    // 渲染各天气参数编辑
+    const NAMES = { clear:'晴天', breeze:'微风', wind:'大风', lightRain:'小雨', heavyRain:'大雨', lightFog:'小雾', heavyFog:'大雾', storm:'雷暴' };
+    const DEFAULTS = {
+      clear: { fogAdd: 0, count: 0, windX: 0, windY: 0 },
+      breeze: { fogAdd: 0, count: 15, windX: 30, windY: 5 },
+      wind: { fogAdd: 0.05, count: 30, windX: 80, windY: 10 },
+      lightRain: { fogAdd: 0.1, count: 60, windX: 10, windY: 300 },
+      heavyRain: { fogAdd: 0.2, count: 150, windX: 30, windY: 500 },
+      lightFog: { fogAdd: 0.25, count: 0, windX: 0, windY: 0 },
+      heavyFog: { fogAdd: 0.5, count: 0, windX: 0, windY: 0 },
+      storm: { fogAdd: 0.3, count: 120, windX: 60, windY: 450 }
+    };
+    const defsContainer = this.container.querySelector('#sys-wt-defs');
+    if (!defsContainer) return;
+    const particles = this._data.weather.particles;
+    defsContainer.innerHTML = Object.entries(NAMES).map(([key, name]) => {
+      const d = { ...DEFAULTS[key], ...(particles[key] || {}) };
+      return `<div class="sys-wt-row" data-weather="${key}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;background:#0a1020;padding:4px 6px;border-radius:3px;">
+        <span style="width:40px;color:#aaa;font-size:11px;">${name}</span>
+        <input class="wt-fog" type="number" value="${d.fogAdd}" min="0" max="1" step="0.05" style="width:42px;" title="雾叠加">
+        <input class="wt-count" type="number" value="${d.count}" min="0" max="300" style="width:42px;" title="粒子数">
+        <input class="wt-wx" type="number" value="${d.windX}" min="-200" max="200" style="width:42px;" title="风力X">
+        <input class="wt-wy" type="number" value="${d.windY}" min="0" max="800" style="width:42px;" title="风力Y">
+      </div>`;
+    }).join('');
   }
 
   _initTimeFields() {

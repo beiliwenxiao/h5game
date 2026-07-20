@@ -48,6 +48,7 @@ import { createUIStrategy } from '../../../src/ui/strategies/index.js';
 import { UILayoutLoader } from '../../../src/ui/UILayoutLoader.js';
 import { PanelLayoutLoader } from '../../../src/ui/PanelLayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
+import { Minimap } from '../../../src/ui/Minimap.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
@@ -686,6 +687,23 @@ export class BaseGameScene extends PrologueScene {
     
     // PC 功能按钮初始居中（随屏幕宽度自动对齐）
     this.layoutPCFunctionButtons(this.logicalWidth, this.logicalHeight);
+
+    // 右侧小地图（以真实地图为基础，缩小到10%）
+    const minimapSize = 150;
+    this.minimap = new Minimap({
+      x: this.logicalWidth - minimapSize - 10,
+      y: 10,
+      width: minimapSize,
+      height: minimapSize,
+      scale: 0.1,
+      visible: true
+    });
+    // 绑定地形实例（terrain 在 enter() 中已创建；DDScene 有多个 _terrains）
+    if (this._terrains && this._terrains.length > 0) {
+      this.minimap.setTerrains(this._terrains);
+    } else if (this.terrain) {
+      this.minimap.setTerrain(this.terrain);
+    }
 
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小
     this._applyUILayout();
@@ -1762,6 +1780,12 @@ export class BaseGameScene extends PrologueScene {
     if (this.playerStatusHUD && this.uiStrategy) {
       this.uiStrategy.layoutPlayerStatusHUD(this.playerStatusHUD, width, height);
     }
+
+    // 更新小地图位置（右上角）
+    if (this.minimap) {
+      this.minimap.x = width - this.minimap.width - 10;
+      this.minimap.y = 10;
+    }
   }
 
   generateIsometricMap() {
@@ -2255,7 +2279,46 @@ export class BaseGameScene extends PrologueScene {
     
     // 移除死亡实体
     this.removeDeadEntities();
-    
+
+    // 更新小地图数据（玩家位置、敌人位置、相机视野）
+    if (this.minimap) {
+      // 延迟绑定 terrain（可能异步加载完成）
+      if (this.minimap._terrains.length === 0) {
+        if (this._terrains && this._terrains.length > 0) {
+          this.minimap.setTerrains(this._terrains);
+        } else if (this.terrain) {
+          this.minimap.setTerrain(this.terrain);
+        }
+      }
+      // terrain 的缓存可能后续才构建好，标记脏以便重建缩略图
+      for (const t of this.minimap._terrains) {
+        if (t._combinedGroundCache && !t._minimapCacheNotified) {
+          t._minimapCacheNotified = true;
+          this.minimap._invalidateCache();
+        }
+      }
+      // 玩家位置
+      if (this.playerEntity) {
+        const pt = this.playerEntity.getComponent('transform');
+        if (pt) this.minimap.setPlayerPosition(pt.position);
+      }
+      // 敌人位置
+      const enemyPos = [];
+      for (const e of this.entities) {
+        if (e.type === 'enemy' && !e.isDead && !e.isDying) {
+          const et = e.getComponent('transform');
+          if (et) enemyPos.push(et.position);
+        }
+      }
+      this.minimap.setEnemyPositions(enemyPos);
+      // 相机视野
+      if (this.camera) {
+        this.minimap.setViewBounds(this.camera.getViewBounds());
+      }
+      // 节流更新缩略图缓存
+      this.minimap.update(deltaTime);
+    }
+
     // 更新输入管理器
     this.inputManager.update();
     
@@ -3189,6 +3252,11 @@ export class BaseGameScene extends PrologueScene {
     // 渲染玩家状态 HUD（左上角，移动端）
     if (this.playerStatusHUD) {
       this.playerStatusHUD.render(ctx);
+    }
+
+    // 渲染右侧小地图
+    if (this.minimap) {
+      this.minimap.render(ctx);
     }
     
     // 渲染战斗状态UI
@@ -4376,6 +4444,11 @@ export class BaseGameScene extends PrologueScene {
     }
     
     this.tutorialSystem.cleanup();
+
+    // 释放小地图缓存
+    if (this.minimap) {
+      this.minimap.dispose();
+    }
     
     for (const entity of this.entities) {
       entity.destroy();

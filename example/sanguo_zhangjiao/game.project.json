@@ -2371,7 +2371,7 @@
       ]
     },
     "weather": {
-      "default": "lightRain",
+      "default": "clear",
       "transitionSpeed": 0.5,
       "particles": {
         "clear": {
@@ -2425,7 +2425,7 @@
       }
     },
     "time": {
-      "enabled": true,
+      "enabled": false,
       "startPeriod": "noon",
       "periods": {
         "dawn": {

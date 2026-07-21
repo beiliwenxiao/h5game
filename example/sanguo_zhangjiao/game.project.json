@@ -23,6 +23,12 @@
         "rows": 4,
         "grid": [
           [
+            null,
+            null,
+            null,
+            "scene_Act4"
+          ],
+          [
             "s0-0",
             "s0-1",
             null,
@@ -30,21 +36,15 @@
           ],
           [
             null,
-            null,
-            null,
-            null
-          ],
-          [
-            null,
-            null,
+            "scene_Act3",
             null,
             null
           ],
           [
             null,
-            null,
-            null,
-            null
+            "scene_Act4",
+            "scene_Act5",
+            "scene_Act6"
           ]
         ]
       }

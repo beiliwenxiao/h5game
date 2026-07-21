@@ -2,7 +2,12 @@
   "gameId": "sanguo_zhangjiao",
   "order": [
     "s0-0",
-    "s0-1"
+    "s0-1",
+    "scene_Act2",
+    "scene_Act3",
+    "scene_Act4",
+    "scene_Act5",
+    "scene_Act6"
   ],
   "scenes": {
     "s0-0": {
@@ -11,6 +16,26 @@
     },
     "s0-1": {
       "name": "s0-1-火堆",
+      "type": "terrain"
+    },
+    "scene_Act3": {
+      "name": "scene_Act3",
+      "type": "terrain"
+    },
+    "scene_Act4": {
+      "name": "scene_Act4",
+      "type": "terrain"
+    },
+    "scene_Act5": {
+      "name": "scene_Act5",
+      "type": "terrain"
+    },
+    "scene_Act6": {
+      "name": "scene_Act6",
+      "type": "terrain"
+    },
+    "scene_Act2": {
+      "name": "scene_Act2",
       "type": "terrain"
     }
   }

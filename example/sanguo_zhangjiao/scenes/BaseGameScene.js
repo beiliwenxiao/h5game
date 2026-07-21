@@ -3511,6 +3511,13 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 气泡对话渲染（子类可覆盖）
+   */
+  renderSpeechBubbles(ctx) {
+    // 默认空实现
+  }
+
+  /**
    * 渲染背景 - 子类覆盖
    */
   renderBackground(ctx) {
@@ -3549,8 +3556,7 @@ export class BaseGameScene extends PrologueScene {
    */
   _getDefaultEditorSceneId(actNumber) {
     const map = {
-      1: 's0-1',
-      2: 's0-0'
+      1: 's0-1'
     };
     return map[actNumber] || `scene_Act${actNumber}`;
   }

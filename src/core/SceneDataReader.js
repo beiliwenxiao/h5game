@@ -146,7 +146,12 @@ function _getSceneFileName(sceneId) {
     's0-0': 's0-0.json',
     's0-1': 's0-1-火堆.json',
     'scene_Prologue': 's0-1-火堆.json',
-    'scene_Act1': 's0-0.json'
+    'scene_Act1': 's0-0.json',
+    'scene_Act2': 'scene_Act2.json',
+    'scene_Act3': 'scene_Act3.json',
+    'scene_Act4': 'scene_Act4.json',
+    'scene_Act5': 'scene_Act5.json',
+    'scene_Act6': 'scene_Act6.json'
   };
   return fileNames[sceneId] || (sceneId + '.json');
 }

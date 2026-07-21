@@ -746,6 +746,17 @@ VehicleSystem:
 - 全选/复制/粘贴：3 个工具栏按钮（`editor-select-all/copy/paste`），不再用热键避免浏览器冲突
 - 全局图集共享：任何场景加载时自动合并 `config/atlases.json`
 
+#### Act3-6 编辑器场景数据（新建）
+- `assets/scenes/scene_Act3.json`：第三幕（铜钱法器）场景数据，营地主题，帐篷+旗帜+草地+树木
+- `assets/scenes/scene_Act4.json`：第四幕（职业选择）场景数据，营地主题，3帐篷+旗帜+四周树
+- `assets/scenes/scene_Act5.json`：第五幕（四场战斗）场景数据，战场主题（偏暗），残旗+废墟+岩石+树木
+- `assets/scenes/scene_Act6.json`：第六幕（结局）场景数据，暗色调（#1a1a2a），废墟+残旗+岩石+稀疏树木
+- `assets/scenes/_scene_order.json`：注册 scene_Act3~6
+- `src/core/SceneDataReader.js`：`_getSceneFileName` 新增 scene_Act3~6 映射
+- 所有场景复用 s0-0 的 `decoSprites`/`atlases`/`terrain`/`basinRadius` 结构（营地地形、mountain_landscape 图集）
+- 各场景装饰物已按幕主题差异化：3幕正常营地、4幕教官帐篷多、5幕战场废墟、6幕残破凄凉
+- 后续可在编辑器中进一步细化每幕场景
+
 #### 下一步
 1. **P5 验收**：集成 WorldStreamingManager 到 BaseGameScene，实现跨 chunk 移动
 2. **P6-1 存档**：chunk 状态 + 黑板 + 任务序列化/读档

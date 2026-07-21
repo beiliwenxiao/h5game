@@ -282,24 +282,42 @@ export class EditorDataManager {
    * @returns {Promise<boolean>} 是否成功初始化
    */
   async initScenesFromFile(gameId) {
-    // 已有数据则跳过
     const existing = this.loadScenesData(gameId);
-    if (existing && existing.length > 0) return false;
     
     const game = this.getAllGames().find(g => g.id === gameId);
     if (!game) return false;
     
     const gamePath = game.path || '../example/sanguo_zhangjiao/';
-    const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
+    // 使用 /api/read-file 读取（路径相对于项目根，避免相对路径 404）
+    const apiPath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//g, '');
     
     try {
-      const resp = await fetch(filePath);
-      if (!resp.ok) throw new Error('fetch failed');
-      const data = await resp.json();
+      // 优先用 API 读取（Vite dev server 提供的绝对路径 API）
+      let data = null;
+      try {
+        const apiResp = await fetch('/api/read-file?path=' + encodeURIComponent(apiPath));
+        if (apiResp.ok) {
+          const apiData = await apiResp.json();
+          if (apiData && apiData.ok && apiData.content) {
+            data = JSON.parse(apiData.content);
+          }
+        }
+      } catch (e) { /* fallback to direct fetch */ }
+      
+      // API 不可用时回退到直接 fetch（静态文件）
+      if (!data) {
+        const directPath = `${gamePath}assets/scenes/_scene_order.json`;
+        const resp = await fetch(directPath);
+        if (resp.ok) {
+          data = await resp.json();
+        }
+      }
+      
+      if (!data) throw new Error('无法加载 _scene_order.json');
       
       if (data && data.scenes && Array.isArray(data.order)) {
         // 从文件中的 scenes 字段构建场景列表，按 order 排序
-        const scenes = data.order
+        const fileScenes = data.order
           .filter(id => data.scenes[id])
           .map(id => ({
             id,
@@ -309,11 +327,30 @@ export class EditorDataManager {
         // 追加 order 中没有但 scenes 里有的
         for (const [id, info] of Object.entries(data.scenes)) {
           if (!data.order.includes(id)) {
-            scenes.push({ id, name: info.name || id, type: info.type || 'terrain' });
+            fileScenes.push({ id, name: info.name || id, type: info.type || 'terrain' });
           }
         }
-        if (scenes.length > 0) {
-          this.saveScenesData(gameId, scenes);
+        
+        if (existing && existing.length > 0) {
+          // 已有数据时：合并新增场景（不覆盖已有的）
+          const existingIds = new Set(existing.map(s => s.id));
+          let merged = false;
+          for (const fs of fileScenes) {
+            if (!existingIds.has(fs.id)) {
+              existing.push(fs);
+              merged = true;
+            }
+          }
+          if (merged) {
+            this.saveScenesData(gameId, existing);
+            return true;
+          }
+          return false;
+        }
+        
+        // localStorage 无数据时：整体写入
+        if (fileScenes.length > 0) {
+          this.saveScenesData(gameId, fileScenes);
           return true;
         }
       }
@@ -324,7 +361,11 @@ export class EditorDataManager {
       }
     } catch (e) {
       // 文件不存在或读取失败，回退到 game.scenes 配置初始化
+      console.warn('[EditorDataManager] initScenesFromFile 失败:', e.message);
     }
+    
+    // 已有数据时不回退覆盖
+    if (existing && existing.length > 0) return false;
     
     return this._initScenesFromConfig(gameId);
   }

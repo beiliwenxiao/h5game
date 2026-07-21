@@ -166,12 +166,6 @@ export class DebugPanel {
           <div class="dp-btn-row">
             <select id="dp-goto-act">
               <option value="">跳转到...</option>
-              <option value="Act1Scene">第一幕</option>
-              <option value="Act2Scene">第二幕</option>
-              <option value="Act3Scene">第三幕</option>
-              <option value="Act4Scene">第四幕</option>
-              <option value="Act5Scene">第五幕</option>
-              <option value="Act6Scene">第六幕</option>
             </select>
             <button id="dp-goto-btn">跳转</button>
           </div>
@@ -236,6 +230,57 @@ export class DebugPanel {
       scene.weatherSystem.setWeather(type);
       console.log('[DebugPanel] 天气切换:', type);
     });
+
+    // 动态加载场景列表到跳转下拉
+    this._loadSceneList();
+  }
+
+  /** 从 _scene_order.json 动态加载场景列表 */
+  async _loadSceneList() {
+    const select = this._el && this._el.querySelector('#dp-goto-act');
+    if (!select) return;
+    try {
+      // 尝试 fetch 场景列表文件
+      const res = await fetch('assets/scenes/_scene_order.json');
+      if (!res.ok) throw new Error('fetch failed');
+      const data = await res.json();
+      if (data && data.order && data.scenes) {
+        for (const id of data.order) {
+          const info = data.scenes[id];
+          if (!info) continue;
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.textContent = info.name || id;
+          select.appendChild(opt);
+        }
+        return;
+      }
+    } catch (e) { /* fallback */ }
+
+    // 回退：从 game.project.json 的 worldMap grid 中提取
+    try {
+      const res = await fetch('game.project.json');
+      if (!res.ok) return;
+      const project = await res.json();
+      if (project && project.worldMap && project.worldMap.regions) {
+        const seen = new Set();
+        for (const region of project.worldMap.regions) {
+          if (!region.grid) continue;
+          for (const row of region.grid) {
+            if (!row) continue;
+            for (const sceneId of row) {
+              if (sceneId && !seen.has(sceneId)) {
+                seen.add(sceneId);
+                const opt = document.createElement('option');
+                opt.value = sceneId;
+                opt.textContent = sceneId;
+                select.appendChild(opt);
+              }
+            }
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
   }
 
   /** 销毁 DOM */
@@ -420,10 +465,21 @@ export class DebugPanel {
     const select = this._el.querySelector('#dp-goto-act');
     const sceneId = select.value;
     if (!sceneId) return;
+
+    // 优先大地图内传送（当前场景支持 teleportToChunk 时）
+    const scene = this.getScene();
+    if (scene && scene.teleportToChunk) {
+      scene.teleportToChunk({ scene: sceneId, transition: 'fadeBlack' });
+      select.value = '';
+      return;
+    }
+
+    // 回退：SceneManager 切换
     const sm = this.getSceneManager();
     if (sm) {
       sm.switchTo(sceneId);
     }
+    select.value = '';
   }
 }
 

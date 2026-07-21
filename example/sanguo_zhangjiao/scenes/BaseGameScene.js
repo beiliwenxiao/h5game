@@ -2340,7 +2340,9 @@ export class BaseGameScene extends PrologueScene {
       visibleEntityCount: this.isometricRenderer ? this.isometricRenderer.cullEntities(this.entities).length : 0,
       particleCount: this.particleSystem.getActiveCount(),
       poolStats: this.performanceOptimizer.getPoolStats(),
-      updateTime: updateTime
+      updateTime: updateTime,
+      drawCallsPerFrame: this._drawCallCount || 0,
+      textureMemory: this._estimateTextureMemory()
     });
   }
 
@@ -3111,6 +3113,11 @@ export class BaseGameScene extends PrologueScene {
    * 渲染场景
    */
   render(ctx) {
+    // 重置每帧 draw call 计数器
+    this._drawCallCount = 0;
+    if (!this._drawCallProxied) {
+      this._setupDrawCallCounter(ctx);
+    }
     // 调试：输出渲染调用
     if (this._debugNextRender) {
       console.log('【渲染】render方法被调用, isActive=', this.isActive, 'isPaused=', this.isPaused);
@@ -4418,6 +4425,60 @@ export class BaseGameScene extends PrologueScene {
     if (this._onHintHide) {
       this._onHintHide();
     }
+  }
+
+  /**
+   * 设置 draw call 计数器（代理 ctx 的绘制方法）
+   * 仅在首次调用时执行，之后复用已代理的 ctx
+   * @private
+   */
+  _setupDrawCallCounter(ctx) {
+    this._drawCallProxied = true;
+    const scene = this;
+    const methods = ['drawImage', 'fillRect', 'strokeRect', 'fill', 'stroke', 'fillText', 'strokeText'];
+    for (const m of methods) {
+      const orig = ctx[m];
+      if (orig) {
+        ctx[m] = function() {
+          scene._drawCallCount++;
+          return orig.apply(this, arguments);
+        };
+      }
+    }
+  }
+
+  /**
+   * 估算纹理内存占用（所有已加载的 Image/Canvas 离屏缓存）
+   * @returns {number} 字节数
+   * @private
+   */
+  _estimateTextureMemory() {
+    let bytes = 0;
+    // terrain 离屏缓存
+    const terrains = this._terrains || (this.terrain ? [this.terrain] : []);
+    for (const t of terrains) {
+      if (t._combinedGroundCache) {
+        bytes += t._combinedGroundCache.width * t._combinedGroundCache.height * 4;
+      }
+      if (t._groundDecoCache) {
+        bytes += t._groundDecoCache.width * t._groundDecoCache.height * 4;
+      }
+      if (t._bgImageCache) {
+        bytes += t._bgImageCache.width * t._bgImageCache.height * 4;
+      }
+      // 图集图片
+      for (const key of Object.keys(t.images || {})) {
+        const img = t.images[key];
+        if (img && img.naturalWidth) {
+          bytes += img.naturalWidth * img.naturalHeight * 4;
+        }
+      }
+    }
+    // 小地图缓存
+    if (this.minimap && this.minimap._mapCache) {
+      bytes += this.minimap._mapCache.width * this.minimap._mapCache.height * 4;
+    }
+    return bytes;
   }
 
   /**

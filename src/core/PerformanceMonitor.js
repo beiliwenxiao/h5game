@@ -32,6 +32,8 @@ export class PerformanceMonitor {
       entityCount: 0,
       visibleEntityCount: 0,
       drawCalls: 0,
+      drawCallsPerFrame: 0,
+      textureMemory: 0,
       memoryUsage: 0,
       particleCount: 0,
       poolStats: {}
@@ -151,6 +153,12 @@ export class PerformanceMonitor {
     if (gameState.drawCalls !== undefined) {
       this.metrics.drawCalls = gameState.drawCalls;
     }
+    if (gameState.drawCallsPerFrame !== undefined) {
+      this.metrics.drawCallsPerFrame = gameState.drawCallsPerFrame;
+    }
+    if (gameState.textureMemory !== undefined) {
+      this.metrics.textureMemory = gameState.textureMemory;
+    }
     if (gameState.particleCount !== undefined) {
       this.metrics.particleCount = gameState.particleCount;
     }
@@ -207,6 +215,8 @@ export class PerformanceMonitor {
       { label: 'Entities:', metric: 'entityCount', value: this.metrics.entityCount.toString() },
       { label: 'Visible:', metric: 'visibleEntityCount', value: this.metrics.visibleEntityCount.toString() },
       { label: 'Draw Calls:', metric: 'drawCalls', value: this.metrics.drawCalls.toString() },
+      { label: 'Draw/Frame:', metric: 'drawCallsPerFrame', value: this.metrics.drawCallsPerFrame.toString() },
+      { label: 'Tex Memory:', metric: 'textureMemory', value: this._formatBytes(this.metrics.textureMemory) },
       { label: 'Particles:', metric: 'particleCount', value: this.metrics.particleCount.toString() }
     ];
     
@@ -372,10 +382,24 @@ export class PerformanceMonitor {
     console.log('Entities:', this.metrics.entityCount);
     console.log('Visible Entities:', this.metrics.visibleEntityCount);
     console.log('Draw Calls:', this.metrics.drawCalls);
+    console.log('Draw Calls/Frame:', this.metrics.drawCallsPerFrame);
+    console.log('Texture Memory:', this._formatBytes(this.metrics.textureMemory));
     console.log('Particles:', this.metrics.particleCount);
     if (this.metrics.memoryUsage > 0) {
       console.log('Memory Usage:', this.metrics.memoryUsage, 'MB');
     }
     console.groupEnd();
+  }
+
+  /**
+   * 格式化字节数为可读字符串
+   * @param {number} bytes - 字节数
+   * @returns {string} 格式化后的字符串
+   */
+  _formatBytes(bytes) {
+    if (!bytes || bytes === 0) return '0 B';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
   }
 }

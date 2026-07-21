@@ -105,6 +105,8 @@ export class DebugPanel {
         <div class="dp-section">
           <div class="dp-row"><span>FPS:</span><span id="dp-fps">--</span></div>
           <div class="dp-row"><span>位置:</span><span id="dp-pos">--</span></div>
+          <div class="dp-row"><span>Draw/帧:</span><span id="dp-drawcalls">--</span></div>
+          <div class="dp-row"><span>纹理内存:</span><span id="dp-texmem">--</span></div>
           <div class="dp-row"><span>当前幕:</span><span id="dp-act">--</span></div>
           <div class="dp-row"><span>教程阶段:</span><span id="dp-phase">--</span></div>
         </div>
@@ -272,6 +274,15 @@ export class DebugPanel {
     // 使用主游戏循环桥接的真实 FPS；桥接尚未就绪时回退到面板刷新率
     const gameLoopFps = Number.isFinite(scene.gameLoopFps) ? scene.gameLoopFps : this._fps;
     this._el.querySelector('#dp-fps').textContent = gameLoopFps;
+
+    // Draw call / 纹理内存
+    const pm = scene.performanceMonitor;
+    if (pm && pm.metrics) {
+      this._el.querySelector('#dp-drawcalls').textContent = pm.metrics.drawCallsPerFrame || 0;
+      this._el.querySelector('#dp-texmem').textContent = pm._formatBytes
+        ? pm._formatBytes(pm.metrics.textureMemory)
+        : (pm.metrics.textureMemory ? (pm.metrics.textureMemory / 1048576).toFixed(1) + ' MB' : '0 B');
+    }
 
     // 位置
     const player = scene.playerEntity;

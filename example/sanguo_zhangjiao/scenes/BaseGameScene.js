@@ -4127,10 +4127,10 @@ export class BaseGameScene extends PrologueScene {
     
     if (!transform) return;
     
-    const x = Math.round(transform.position.x);
+    const x = transform.position.x;
     // elevation 向上偏移渲染位置（腾空效果）
     const elevation = transform.position.elevation || 0;
-    const y = Math.round(transform.position.y - elevation);
+    const y = transform.position.y - elevation;
     const size = sprite?.width || 32;
     const height = sprite?.height || 32;
     

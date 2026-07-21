@@ -147,18 +147,17 @@ export class Camera {
       this.position.x += dx * this.smoothFollowSpeed;
       this.position.y += dy * this.smoothFollowSpeed;
       // 足够接近时结束平滑，恢复即时跟随
-      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) {
-        this.position.x = Math.round(targetPos.x);
-        this.position.y = Math.round(targetPos.y);
+      if (Math.abs(dx) < 0.1 && Math.abs(dy) < 0.1) {
+        this.position.x = targetPos.x;
+        this.position.y = targetPos.y;
         this.smoothFollow = false;
       }
       return;
     }
 
-    // 直接让相机跟随目标，不使用死区和平滑
-    // 对坐标取整，避免浮点数导致的像素抖动
-    this.position.x = Math.round(targetPos.x);
-    this.position.y = Math.round(targetPos.y);
+    // 直接让相机跟随目标（不取整，保持亚像素精度实现平滑移动）
+    this.position.x = targetPos.x;
+    this.position.y = targetPos.y;
   }
 
   /**
@@ -236,12 +235,11 @@ export class Camera {
     const halfWidth = this.width / 2;
     const halfHeight = this.height / 2;
     
-    // 对边界坐标取整，避免浮点数导致的渲染抖动
     return {
-      left: Math.round(this.position.x - halfWidth),
-      right: Math.round(this.position.x + halfWidth),
-      top: Math.round(this.position.y - halfHeight),
-      bottom: Math.round(this.position.y + halfHeight)
+      left: this.position.x - halfWidth,
+      right: this.position.x + halfWidth,
+      top: this.position.y - halfHeight,
+      bottom: this.position.y + halfHeight
     };
   }
 }

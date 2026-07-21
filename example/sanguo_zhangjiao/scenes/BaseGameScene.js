@@ -2961,6 +2961,7 @@ export class BaseGameScene extends PrologueScene {
         floatingText: this.floatingTextManager,
         tutorial: { showTip: (p) => this._showScreenTip((p && p.text) || '') },
         player: this.playerEntity || null,
+        scene: this,
         ...(opts.deps || {})
       };
       await this.gameLoader.load(projectUrl, deps);

@@ -516,6 +516,15 @@
                         <h3>场景列表</h3>
                         <div id="current-game-name">未选择游戏</div>
                     </div>
+                    <div style="padding:4px 8px;border-bottom:1px solid #333;display:flex;gap:4px;align-items:center;">
+                        <select id="scene-filter-type" style="flex:1;padding:2px 4px;font-size:12px;background:#2a2a2a;color:#ccc;border:1px solid #444;border-radius:3px;">
+                            <option value="all">所有场景</option>
+                            <option value="worldChunk">大地图块</option>
+                            <option value="standalone">独立场景</option>
+                        </select>
+                        <select id="scene-filter-worldmap" style="flex:1;padding:2px 4px;font-size:12px;background:#2a2a2a;color:#ccc;border:1px solid #444;border-radius:3px;display:none;">
+                        </select>
+                    </div>
                     <div class="scene-list" id="scene-list"></div>
                     <div class="scene-sidebar-footer">
                         <button id="new-scene-btn">+ 新建场景</button>
@@ -755,6 +764,21 @@
                 document.getElementById('cancel-new-scene').addEventListener('click', () => this.hideModal('new-scene-modal'));
                 document.getElementById('confirm-new-scene').addEventListener('click', () => this.createScene());
                 
+                // 场景筛选器
+                document.getElementById('scene-filter-type').addEventListener('change', (e) => {
+                    const wmSelect = document.getElementById('scene-filter-worldmap');
+                    if (e.target.value === 'worldChunk') {
+                        wmSelect.style.display = '';
+                        this._populateWorldMapFilter();
+                    } else {
+                        wmSelect.style.display = 'none';
+                    }
+                    if (this.currentGameId) this.renderSceneList(this.currentGameId);
+                });
+                document.getElementById('scene-filter-worldmap').addEventListener('change', () => {
+                    if (this.currentGameId) this.renderSceneList(this.currentGameId);
+                });
+
                 // 图片分割工具关闭
                 document.getElementById('slicer-modal').addEventListener('click', (e) => {
                     if (e.target.id === 'slicer-modal') this.hideModal('slicer-modal');
@@ -861,8 +885,18 @@
             
             // 渲染场景列表
             renderSceneList(gameId) {
-                const scenes = this.dataManager.getGameScenes(gameId);
+                let scenes = this.dataManager.getGameScenes(gameId);
                 const list = document.getElementById('scene-list');
+                
+                // 筛选逻辑
+                const filterType = document.getElementById('scene-filter-type')?.value || 'all';
+                const filterWorldMap = document.getElementById('scene-filter-worldmap')?.value || '';
+                if (filterType === 'worldChunk') {
+                    scenes = scenes.filter(s => s.sceneType === 'worldChunk');
+                    if (filterWorldMap) scenes = scenes.filter(s => s.worldMap === filterWorldMap);
+                } else if (filterType === 'standalone') {
+                    scenes = scenes.filter(s => s.sceneType === 'standalone' || (!s.sceneType && !s.worldMap));
+                }
                 
                 if (scenes.length === 0) {
                     list.innerHTML = '<div style="padding:15px;color:#666;text-align:center;">暂无场景，请创建新场景</div>';
@@ -965,6 +999,29 @@
                         }
                     });
                 });
+            }
+
+            // 填充世界地图筛选下拉（从 game.project.json 读 regions）
+            async _populateWorldMapFilter() {
+                const select = document.getElementById('scene-filter-worldmap');
+                if (!select) return;
+                select.innerHTML = '<option value="">所有地图</option>';
+                const game = this.dataManager.getCurrentGame();
+                const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
+                const projectPath = `${gamePath}game.project.json`.replace(/^\.\.\//, '');
+                try {
+                    const res = await fetch('/api/read-file?path=' + encodeURIComponent(projectPath));
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const project = (data && data.ok && data.content) ? JSON.parse(data.content) : null;
+                    if (!project || !project.worldMap || !project.worldMap.regions) return;
+                    for (const region of project.worldMap.regions) {
+                        const opt = document.createElement('option');
+                        opt.value = region.id;
+                        opt.textContent = region.name || region.id;
+                        select.appendChild(opt);
+                    }
+                } catch (e) { /* ignore */ }
             }
             
             // 编辑场景
@@ -1276,14 +1333,70 @@
                     }
                 }
 
-                // 为 game.project.json 中尚未放置的触发器创建默认对象
+                // 场景归属匹配：触发器的 scene 字段 或 when.params.sceneId 匹配当前编辑场景
+                // 兼容 SceneManager 名（Act2Scene）和编辑器场景 ID（scene_Act2）的映射
+                const sceneAliases = new Set([sceneId]);
+                // 编辑器 sceneId (scene_Act2) → SceneManager 名 (Act2Scene) 的映射
+                const chunkToAct = {
+                    's0-1': 'Act1Scene', 'scene_Act2': 'Act2Scene', 'scene_Act3': 'Act3Scene',
+                    'scene_Act4': 'Act4Scene', 'scene_Act5': 'Act5Scene', 'scene_Act6': 'Act6Scene'
+                };
+                const actToChunk = {
+                    'Act1Scene': 's0-1', 'Act2Scene': 'scene_Act2', 'Act3Scene': 'scene_Act3',
+                    'Act4Scene': 'scene_Act4', 'Act5Scene': 'scene_Act5', 'Act6Scene': 'scene_Act6'
+                };
+                if (chunkToAct[sceneId]) sceneAliases.add(chunkToAct[sceneId]);
+                if (actToChunk[sceneId]) sceneAliases.add(actToChunk[sceneId]);
+
+                // 判断触发器是否属于当前场景
+                const belongsToScene = (trg) => {
+                    // 1. 顶级 scene 字段（优先）
+                    if (trg.scene) return sceneAliases.has(trg.scene);
+                    // 2. when.params.sceneId
+                    const trgSceneId = trg.when && trg.when.params && trg.when.params.sceneId;
+                    if (trgSceneId) return sceneAliases.has(trgSceneId);
+                    // 3. if 条件中的 sceneFlag 变量（如 "ddScene"、"act2Scene"）
+                    const ifCond = trg.if;
+                    if (ifCond && ifCond.op === '==' && ifCond.left && ifCond.left.var) {
+                        const flagVar = ifCond.left.var;
+                        // sceneFlag 命名规则：actXScene → ActXScene
+                        const flagMap = {
+                            'ddScene': 's0-1', 'act2Scene': 'scene_Act2', 'act3Scene': 'scene_Act3',
+                            'act4Scene': 'scene_Act4', 'act5Scene': 'scene_Act5', 'act6Scene': 'scene_Act6'
+                        };
+                        if (flagMap[flagVar]) return sceneAliases.has(flagMap[flagVar]);
+                    }
+                    // 4. 无归属 → 全局触发器，只在 s0-0（通用/测试）场景显示
+                    return sceneId === 's0-0';
+                };
+
+                // 移除不属于当前场景的触发器对象（清理之前无过滤时同步进来的）
+                const triggerMap = new Map(triggers.map(t => [t.id, t]));
+                for (const layer of sceneData.layers) {
+                    if (!Array.isArray(layer.objects)) continue;
+                    layer.objects = layer.objects.filter(obj => {
+                        if (obj.type !== 'trigger' || !obj.triggerId) return true;
+                        const trg = triggerMap.get(obj.triggerId);
+                        if (!trg) return true; // 在 project 中找不到的保留（可能是手动创建的）
+                        return belongsToScene(trg);
+                    });
+                }
+
+                // 重新计算已存在的触发器 ID（移除后更新）
+                existingIds.clear();
+                for (const layer of sceneData.layers) {
+                    if (!Array.isArray(layer.objects)) continue;
+                    for (const obj of layer.objects) {
+                        if (obj.type === 'trigger' && obj.triggerId) existingIds.add(obj.triggerId);
+                    }
+                }
+
+                // 为 game.project.json 中属于当前场景且尚未放置的触发器创建默认对象
                 let added = 0;
                 let offsetY = 10;
                 for (const trg of triggers) {
                     if (!trg.id || existingIds.has(trg.id)) continue;
-                    // 只同步属于当前场景的触发器（通过 when.params.sceneId 判断），或无场景限制的
-                    const trgSceneId = trg.when && trg.when.params && trg.when.params.sceneId;
-                    if (trgSceneId && trgSceneId !== sceneId) continue;
+                    if (!belongsToScene(trg)) continue;
 
                     logicLayer.objects.push({
                         id: 'trigger_' + Date.now() + '_' + (added++),
@@ -1307,6 +1420,9 @@
                 if (added > 0) {
                     this.sceneEditor.render();
                     console.log(`[Editor] 同步了 ${added} 个触发器到场景 ${sceneId}`);
+                } else {
+                    // 即使没新增，移除操作也可能改变了数据，刷新一下
+                    this.sceneEditor.render();
                 }
             }
 

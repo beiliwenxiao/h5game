@@ -17,20 +17,21 @@
     "regions": [
       {
         "id": "prologue_world",
+        "name": "序章世界",
         "chunkWidth": 1280,
         "chunkHeight": 720,
         "cols": 4,
         "rows": 4,
         "grid": [
           [
-            null,
-            null,
-            null,
-            "scene_Act4"
-          ],
-          [
             "s0-0",
             "s0-1",
+            null,
+            null
+          ],
+          [
+            null,
+            "scene_Act2",
             null,
             null
           ],
@@ -2371,7 +2372,7 @@
       ]
     },
     "weather": {
-      "default": "clear",
+      "default": "lightRain",
       "transitionSpeed": 0.5,
       "particles": {
         "clear": {

@@ -51,6 +51,7 @@ const ACTION_TYPES = [
   { v: 'setFlag', label: '设置标记 setFlag' },
   { v: 'toggleFlag', label: '切换标记 toggleFlag' },
   { v: 'startDialogue', label: '开始对话 startDialogue' },
+  { v: 'teleportToChunk', label: '大地图传送 teleportToChunk' },
   { v: 'switchScene', label: '切换场景 switchScene' },
   { v: 'loadRegion', label: '加载区域 loadRegion' },
   { v: 'giveReward', label: '给予奖励 giveReward' },

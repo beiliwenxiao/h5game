@@ -105,6 +105,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.terrain = null;
     this.terrainAct1 = null;
     this._terrains = [];
+    this._worldRegion = null;
+    this._teleportFade = null;
     this._loadWorldTerrains();
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
@@ -123,6 +125,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   update(deltaTime) {
     if (!this.isActive) return;
+
+    // 传送淡黑效果更新
+    this._updateTeleportFade(deltaTime);
 
     // 必须在任何 inputManager.update() 之前读取，否则本帧按下状态会被清空
     const debugPanelKeyPressed = !!this.inputManager?.isKeyPressed?.('`');
@@ -460,9 +465,167 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   switchToNextScene() {
     const scene = this._nextSceneTarget || 'Act2Scene';
     console.log('[DDScene] switchToNextScene →', scene);
+    // SceneManager 注册名 → chunk sceneId 映射（兼容旧触发器数据）
+    const sceneToChunk = {
+      'Act2Scene': 'scene_Act2',
+      'Act3Scene': 'scene_Act3',
+      'Act4Scene': 'scene_Act4',
+      'Act5Scene': 'scene_Act5',
+      'Act6Scene': 'scene_Act6'
+    };
+    const chunkId = sceneToChunk[scene] || scene;
+    // 尝试大地图内传送（如果目标是同 region 的 chunk）
+    if (this._worldRegion && this._findChunkInGrid(chunkId)) {
+      this.teleportToChunk({ scene: chunkId, transition: 'fadeBlack' });
+      return;
+    }
     const eng = window.gameEngine;
     const sm = (eng && eng.sceneManager) || this.sceneManager;
     if (sm && sm.switchTo) sm.switchTo(scene);
+  }
+
+  /**
+   * 大地图内传送：移动玩家到目标 chunk 的世界坐标
+   * @param {Object} p - { scene, spawnRef, x, y, transition, region }
+   * @returns {Promise|void}
+   */
+  teleportToChunk(p = {}) {
+    const targetScene = p.scene;
+    if (!targetScene) { console.warn('[DDScene] teleportToChunk: 缺少 scene 参数'); return; }
+
+    // 从 grid 查找目标 chunk 位置
+    const pos = this._findChunkInGrid(targetScene);
+    if (!pos) {
+      console.warn('[DDScene] teleportToChunk: 在 grid 中未找到', targetScene);
+      // 回退到 SceneManager 切换
+      const sm = this.sceneManager || (window.gameEngine && window.gameEngine.sceneManager);
+      if (sm && sm.switchTo) sm.switchTo(targetScene);
+      return;
+    }
+
+    const region = this._worldRegion;
+    const chunkW = region.chunkWidth || 1280;
+    const chunkH = region.chunkHeight || 720;
+
+    // 计算目标世界坐标（优先 spawnRef，其次指定坐标，最后 chunk 中心）
+    let localX = p.x != null ? p.x : chunkW / 2;
+    let localY = p.y != null ? p.y : chunkH / 2;
+
+    // 从目标场景数据中找 spawn 点
+    if (p.spawnRef) {
+      const spawnPos = this._findSpawnInChunk(targetScene, p.spawnRef);
+      if (spawnPos) { localX = spawnPos.x; localY = spawnPos.y; }
+    }
+
+    const worldX = pos.col * chunkW + localX;
+    const worldY = pos.row * chunkH + localY;
+
+    const doTeleport = () => {
+      // 移动玩家
+      if (this.playerEntity) {
+        const transform = this.playerEntity.getComponent('transform');
+        if (transform) {
+          transform.position.x = worldX;
+          transform.position.y = worldY;
+        }
+      }
+      // 移动相机
+      if (this.camera) {
+        this.camera.position.x = worldX;
+        this.camera.position.y = worldY;
+      }
+      // fire sceneEnter 事件（触发目标 chunk 的入场触发器）
+      if (this.gameLoader && this.gameLoader.triggerSystem) {
+        this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId: targetScene });
+      }
+      console.log(`[DDScene] teleportToChunk → ${targetScene} (${worldX}, ${worldY})`);
+    };
+
+    // 过渡效果
+    if (p.transition === 'fadeBlack') {
+      return this._fadeTransition(doTeleport);
+    } else {
+      doTeleport();
+    }
+  }
+
+  /**
+   * 淡黑过渡（0.3s 淡黑 → 执行回调 → 0.3s 淡出）
+   * @private
+   */
+  _fadeTransition(callback) {
+    return new Promise((resolve) => {
+      this._teleportFade = { phase: 'out', alpha: 0, callback, resolve };
+    });
+  }
+
+  /** @private 每帧更新传送淡黑效果 */
+  _updateTeleportFade(dt) {
+    const f = this._teleportFade;
+    if (!f) return;
+    const speed = 1 / 0.3; // 0.3 秒完成
+    if (f.phase === 'out') {
+      f.alpha = Math.min(1, f.alpha + dt * speed);
+      if (f.alpha >= 1) {
+        f.callback();
+        f.phase = 'in';
+      }
+    } else if (f.phase === 'in') {
+      f.alpha = Math.max(0, f.alpha - dt * speed);
+      if (f.alpha <= 0) {
+        this._teleportFade = null;
+        f.resolve();
+      }
+    }
+  }
+
+  /** @private 渲染传送淡黑遮罩 */
+  _renderTeleportFade(ctx) {
+    const f = this._teleportFade;
+    if (!f || f.alpha <= 0) return;
+    ctx.save();
+    ctx.fillStyle = `rgba(0, 0, 0, ${f.alpha})`;
+    ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    ctx.restore();
+  }
+
+  /**
+   * 从 worldMap grid 中查找目标 sceneId 的 chunk 位置
+   * @private
+   * @returns {{col, row}|null}
+   */
+  _findChunkInGrid(sceneId) {
+    const region = this._worldRegion;
+    if (!region || !region.grid) return null;
+    for (let row = 0; row < region.grid.length; row++) {
+      const rowArr = region.grid[row];
+      if (!rowArr) continue;
+      for (let col = 0; col < rowArr.length; col++) {
+        if (rowArr[col] === sceneId) return { col, row };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 从目标场景的 terrain 数据中查找 spawn 点
+   * @private
+   */
+  _findSpawnInChunk(sceneId, spawnRef) {
+    for (const t of this._terrains || []) {
+      if (t._editorSceneId !== sceneId) continue;
+      const scene = t._sceneDataRaw;
+      if (!scene || !Array.isArray(scene.layers)) continue;
+      for (const layer of scene.layers) {
+        if (!Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (obj.type === 'spawn' && obj.ref === spawnRef) {
+            return { x: obj.x, y: obj.y };
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /** 判断实体是否已死亡/移除 */
@@ -940,6 +1103,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       .then(project => {
         if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) return;
         const region = project.worldMap.regions[0];
+        this._worldRegion = region; // 保存 region 引用供 teleportToChunk 使用
         const { chunkWidth, chunkHeight, grid } = region;
 
         for (let row = 0; row < grid.length; row++) {
@@ -990,10 +1154,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 渲染：父类管线 + 碰撞多边形调试层（迷雾已移至 renderFogLayer 钩子） */
+  /** 渲染：父类管线 + 碰撞多边形调试层 + 传送淡黑遮罩 */
   render(ctx) {
     super.render(ctx);
     this._renderCollisionShapesDebug(ctx);
+    this._renderTeleportFade(ctx);
   }
 
   /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */
@@ -1370,9 +1535,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 限制相机不超出大地图世界边界 */
   clampCameraToWorldBounds() {
     if (!this.camera) return;
-    // 大地图尺寸：worldMap region 2col×2row × 1280×720
-    const worldWidth = 2 * 1280;
-    const worldHeight = 2 * 720;
+    // 从 worldMap region 动态计算大地图尺寸
+    const region = this._worldRegion;
+    const cols = region ? region.cols : 4;
+    const rows = region ? region.rows : 4;
+    const chunkW = region ? region.chunkWidth : 1280;
+    const chunkH = region ? region.chunkHeight : 720;
+    const worldWidth = cols * chunkW;
+    const worldHeight = rows * chunkH;
 
     const halfW = this.camera.width / 2;
     const halfH = this.camera.height / 2;

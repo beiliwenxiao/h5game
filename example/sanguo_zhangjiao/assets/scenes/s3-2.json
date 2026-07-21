@@ -1,0 +1,642 @@
+{
+  "id": "scene_Act5",
+  "name": "s3-2",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#301515",
+  "layers": [
+    {
+      "id": "layer_bg",
+      "name": "背景层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_fill",
+      "name": "背景填充层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_deco",
+      "name": "装饰层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "deco_75501578",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 631,
+          "y": 465,
+          "width": 30,
+          "height": 45,
+          "scale": 0.95,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_24608912",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 1067,
+          "y": 179,
+          "width": 31,
+          "height": 47,
+          "scale": 0.97,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_78009882",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 425,
+          "y": 343,
+          "width": 38,
+          "height": 57,
+          "scale": 1.18,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_31099423",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 288,
+          "y": 138,
+          "width": 26,
+          "height": 39,
+          "scale": 0.81,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_22911950",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 124,
+          "y": 235,
+          "width": 32,
+          "height": 49,
+          "scale": 1.01,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_62566314",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 199,
+          "y": 199,
+          "width": 36,
+          "height": 55,
+          "scale": 1.14,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_60918665",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 113,
+          "y": 227,
+          "width": 26,
+          "height": 39,
+          "scale": 0.81,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_54497357",
+          "type": "deco",
+          "decoKey": "broken_flag",
+          "x": 344,
+          "y": 151,
+          "width": 32,
+          "height": 48,
+          "scale": 1,
+          "name": "broken_flag"
+        },
+        {
+          "id": "deco_82689389",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 996,
+          "y": 297,
+          "width": 123,
+          "height": 82,
+          "scale": 1.28,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_38275077",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 355,
+          "y": 401,
+          "width": 110,
+          "height": 73,
+          "scale": 1.15,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_44118949",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 510,
+          "y": 339,
+          "width": 100,
+          "height": 67,
+          "scale": 1.04,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_11127901",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 1134,
+          "y": 493,
+          "width": 80,
+          "height": 53,
+          "scale": 0.83,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_86428185",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 1006,
+          "y": 448,
+          "width": 75,
+          "height": 50,
+          "scale": 0.79,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_92269351",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 189,
+          "y": 273,
+          "width": 86,
+          "height": 58,
+          "scale": 0.9,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_13008189",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 1017,
+          "y": 492,
+          "width": 86,
+          "height": 57,
+          "scale": 0.89,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_67034344",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 309,
+          "y": 488,
+          "width": 88,
+          "height": 59,
+          "scale": 0.91,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_9945649",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 952,
+          "y": 415,
+          "width": 98,
+          "height": 66,
+          "scale": 1.02,
+          "name": "ruins"
+        },
+        {
+          "id": "deco_44759985",
+          "type": "deco",
+          "decoKey": "ruins",
+          "x": 518,
+          "y": 447,
+          "width": 108,
+          "height": 72,
+          "scale": 1.13,
+          "name": "ruins"
+        }
+      ]
+    },
+    {
+      "id": "layer_entity",
+      "name": "实体层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_logic",
+      "name": "逻辑对象",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "trigger_1784659343857_12",
+          "type": "trigger",
+          "name": "trg_act5_slay_count",
+          "triggerId": "trg_act5_slay_count",
+          "x": 11.14,
+          "y": 111.55,
+          "width": 36,
+          "height": 36,
+          "event": "kill",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784659343857_13",
+          "type": "trigger",
+          "name": "trg_act5_kill_caocao",
+          "triggerId": "trg_act5_kill_caocao",
+          "x": 12.29,
+          "y": 165.56,
+          "width": 36,
+          "height": 36,
+          "event": "kill",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784659343857_14",
+          "type": "trigger",
+          "name": "trg_act5_kill_guanyu",
+          "triggerId": "trg_act5_kill_guanyu",
+          "x": 15.72,
+          "y": 222.99,
+          "width": 36,
+          "height": 36,
+          "event": "kill",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784659966412_0",
+          "type": "trigger",
+          "name": "trg_enter_act5",
+          "triggerId": "trg_enter_act5",
+          "x": 10,
+          "y": 10,
+          "width": 36,
+          "height": 36,
+          "event": "sceneEnter",
+          "target": "",
+          "sceneId": "Act5Scene",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784659966412_1",
+          "type": "trigger",
+          "name": "trg_act5_complete_switch",
+          "triggerId": "trg_act5_complete_switch",
+          "x": 10,
+          "y": 56,
+          "width": 36,
+          "height": 36,
+          "event": "sceneComplete",
+          "target": "",
+          "sceneId": "Act5Scene",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        }
+      ]
+    }
+  ],
+  "decorations": [
+    {
+      "x": 646.5713835072571,
+      "y": 510.0567819364633,
+      "key": "broken_flag",
+      "scale": 0.9475098610611213
+    },
+    {
+      "x": 1082.4535851285111,
+      "y": 225.7500648851274,
+      "key": "broken_flag",
+      "scale": 0.9715542913282078
+    },
+    {
+      "x": 444.2379237824296,
+      "y": 399.6693135470475,
+      "key": "broken_flag",
+      "scale": 1.1795580388882934
+    },
+    {
+      "x": 301.2387515051471,
+      "y": 176.91713572801888,
+      "key": "broken_flag",
+      "scale": 0.8137735605304006
+    },
+    {
+      "x": 140.37985207530664,
+      "y": 284.0806961683932,
+      "key": "broken_flag",
+      "scale": 1.013138008216926
+    },
+    {
+      "x": 216.97816854202102,
+      "y": 253.2777905945097,
+      "key": "broken_flag",
+      "scale": 1.1378905774736268
+    },
+    {
+      "x": 125.93266965166325,
+      "y": 266.335640901856,
+      "key": "broken_flag",
+      "scale": 0.8122651577052964
+    },
+    {
+      "x": 359.55858838723907,
+      "y": 199.05042650599518,
+      "key": "broken_flag",
+      "scale": 0.997914803120268
+    },
+    {
+      "x": 1058.0705170790063,
+      "y": 379.339456641739,
+      "key": "ruins",
+      "scale": 1.284043217023855
+    },
+    {
+      "x": 409.74955577857304,
+      "y": 474.36146748920976,
+      "key": "ruins",
+      "scale": 1.147865009562981
+    },
+    {
+      "x": 559.9446776136498,
+      "y": 405.181360340296,
+      "key": "ruins",
+      "scale": 1.0398438455722498
+    },
+    {
+      "x": 1173.582029889143,
+      "y": 545.8866120995426,
+      "key": "ruins",
+      "scale": 0.8310203553321867
+    },
+    {
+      "x": 1043.5146336646353,
+      "y": 497.7657319501814,
+      "key": "ruins",
+      "scale": 0.7851997376350685
+    },
+    {
+      "x": 232.70305405962424,
+      "y": 331.0945273056135,
+      "key": "ruins",
+      "scale": 0.9009015561551329
+    },
+    {
+      "x": 1060.1920371224135,
+      "y": 549.1337777809863,
+      "key": "ruins",
+      "scale": 0.8927110673360112
+    },
+    {
+      "x": 352.6511193963937,
+      "y": 546.3425637904287,
+      "key": "ruins",
+      "scale": 0.9143045426878633
+    },
+    {
+      "x": 1000.9577755820741,
+      "y": 480.58595670414434,
+      "key": "ruins",
+      "scale": 1.0235048296039482
+    },
+    {
+      "x": 572.196865348237,
+      "y": 519.6557046471423,
+      "key": "ruins",
+      "scale": 1.1301630022610365
+    }
+  ],
+  "colliders": [],
+  "terrain": {
+    "type": "battlefield",
+    "tileSize": 64,
+    "image": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png"
+  },
+  "centerX": 640,
+  "centerY": 360,
+  "basinRadius": 600,
+  "basinAspectY": 0.65,
+  "decoSprites": {
+    "tree1": {
+      "sx": 128,
+      "sy": 384,
+      "sw": 96,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 22
+    },
+    "tree2": {
+      "sx": 224,
+      "sy": 416,
+      "sw": 64,
+      "sh": 96,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 14
+    },
+    "tree3": {
+      "sx": 288,
+      "sy": 384,
+      "sw": 64,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 16
+    },
+    "grass1": {
+      "sx": 128,
+      "sy": 288,
+      "sw": 96,
+      "sh": 96,
+      "scale": 1,
+      "collide": false
+    },
+    "bush2": {
+      "sx": 224,
+      "sy": 288,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush3": {
+      "sx": 224,
+      "sy": 320,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush4": {
+      "sx": 256,
+      "sy": 320,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "tent": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 64,
+      "sh": 64,
+      "scale": 1,
+      "collide": true
+    },
+    "flag": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 32,
+      "sh": 64,
+      "scale": 1,
+      "collide": false
+    },
+    "fence": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 64,
+      "sh": 32,
+      "scale": 1,
+      "collide": true
+    },
+    "rock": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 48,
+      "sh": 48,
+      "scale": 1,
+      "collide": true
+    },
+    "broken_flag": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 32,
+      "sh": 48,
+      "scale": 1,
+      "collide": false
+    },
+    "ruins": {
+      "sx": 0,
+      "sy": 0,
+      "sw": 96,
+      "sh": 64,
+      "scale": 1,
+      "collide": true
+    }
+  },
+  "type": "terrain",
+  "updatedAt": "2026-07-21T18:42:24.631Z",
+  "atlases": [
+    {
+      "id": "mountain_landscape",
+      "name": "山地景观图集",
+      "path": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png",
+      "width": 512,
+      "height": 512,
+      "slices": {
+        "grassTile": {
+          "name": "草地",
+          "sx": 448,
+          "sy": 128,
+          "sw": 64,
+          "sh": 64
+        },
+        "tree1": {
+          "name": "大树",
+          "sx": 128,
+          "sy": 384,
+          "sw": 96,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 22
+        },
+        "tree2": {
+          "name": "中树",
+          "sx": 224,
+          "sy": 416,
+          "sw": 64,
+          "sh": 96,
+          "collide": true,
+          "colliderRadius": 14
+        },
+        "tree3": {
+          "name": "小树",
+          "sx": 288,
+          "sy": 384,
+          "sw": 64,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 16
+        },
+        "grass1": {
+          "name": "草地装饰",
+          "sx": 128,
+          "sy": 288,
+          "sw": 96,
+          "sh": 96,
+          "collide": false
+        },
+        "bush2": {
+          "name": "灌木1",
+          "sx": 224,
+          "sy": 288,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush3": {
+          "name": "草莓",
+          "sx": 224,
+          "sy": 320,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush4": {
+          "name": "灌木2",
+          "sx": 256,
+          "sy": 320,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        }
+      }
+    }
+  ]
+}

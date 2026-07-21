@@ -42,11 +42,33 @@ export function registerDefaultActions(triggerSystem) {
     },
 
     // ---- 场景 / 大区切换 ----
-    switchScene: (p, ctx) => { ctx.sceneManager?.switchTo?.(p.scene, p.data || null); },
+    switchScene: (p, ctx) => {
+      const sm = ctx.sceneManager;
+      if (!sm || !sm.switchTo) return;
+      if (p.transition === 'text' && sm.startTextTransition) {
+        sm.startTextTransition({
+          mainText: p.text || '场景切换中...',
+          onComplete: () => sm.switchTo(p.scene, p.data || null)
+        });
+      } else {
+        sm.switchTo(p.scene, p.data || null);
+      }
+    },
     loadRegion: (p, ctx) => {
       // 大区流式切换（P5 WorldStreamingManager 接入前，先走 sceneManager）
       if (ctx.world && ctx.world.loadRegion) ctx.world.loadRegion(p.region, p.at);
       else ctx.sceneManager?.switchTo?.(p.region, { at: p.at });
+    },
+
+    // ---- 大地图内传送（同 region 内 chunk 间移动）----
+    teleportToChunk: (p, ctx) => {
+      const scene = ctx.scene; // DataDrivenPrologueScene 或任何大地图场景
+      if (scene && scene.teleportToChunk) {
+        return scene.teleportToChunk(p);
+      }
+      // 回退：走 switchScene
+      console.warn('[TriggerActions] teleportToChunk: 当前场景不支持大地图传送，回退 switchScene');
+      ctx.sceneManager?.switchTo?.(p.scene, p.data || null);
     },
 
     // ---- 奖励 ----

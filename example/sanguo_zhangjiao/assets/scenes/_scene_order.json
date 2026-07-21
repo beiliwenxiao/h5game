@@ -3,11 +3,11 @@
   "order": [
     "s0-0",
     "s0-1",
-    "scene_Act2",
     "scene_Act3",
     "scene_Act4",
     "scene_Act5",
-    "scene_Act6"
+    "scene_Act6",
+    "scene_Act2"
   ],
   "scenes": {
     "s0-0": {
@@ -19,23 +19,23 @@
       "type": "terrain"
     },
     "scene_Act3": {
-      "name": "scene_Act3",
+      "name": "s2-1",
       "type": "terrain"
     },
     "scene_Act4": {
-      "name": "scene_Act4",
+      "name": "s3-1",
       "type": "terrain"
     },
     "scene_Act5": {
-      "name": "scene_Act5",
+      "name": "s3-2",
       "type": "terrain"
     },
     "scene_Act6": {
-      "name": "scene_Act6",
+      "name": "s3-3",
       "type": "terrain"
     },
     "scene_Act2": {
-      "name": "scene_Act2",
+      "name": "s1-1",
       "type": "terrain"
     }
   }

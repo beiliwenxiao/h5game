@@ -106,9 +106,11 @@ export class WorldMapEditor {
 
     // 读 worldMap
     if (this.project.worldMap && this.project.worldMap.regions && this.project.worldMap.regions[0]) {
+      this._currentRegionIndex = 0;
       const r = this.project.worldMap.regions[0];
       this.region = {
         id: r.id || 'default',
+        name: r.name || '',
         chunkWidth: r.chunkWidth || 1280,
         chunkHeight: r.chunkHeight || 720,
         cols: r.cols || 2,
@@ -118,6 +120,9 @@ export class WorldMapEditor {
       this._normalizeGrid();
     }
 
+    this._populateRegionSelect();
+    // 更新输入框
+    this._el.querySelector('.wme-region-name').value = this.region.name || '';
     this._render();
   }
 
@@ -132,7 +137,8 @@ export class WorldMapEditor {
 
     if (!this.project.worldMap) this.project.worldMap = { regions: [] };
     if (!this.project.worldMap.regions) this.project.worldMap.regions = [];
-    this.project.worldMap.regions[0] = { ...this.region };
+    const idx = this._currentRegionIndex || 0;
+    this.project.worldMap.regions[idx] = { ...this.region };
 
     try {
       const res = await fetch('/api/save-file', {
@@ -196,7 +202,11 @@ export class WorldMapEditor {
   _buildHTML() {
     return `
       <div class="wme-toolbar">
+        <label>地图: <select class="wme-region-select"></select></label>
+        <button class="wme-add-region">+ 新建地图</button>
+        <span style="margin:0 8px;color:#555;">|</span>
         <label>Region ID: <input type="text" class="wme-region-id" value="${this.region.id}" /></label>
+        <label>名称: <input type="text" class="wme-region-name" value="${this.region.name || ''}" /></label>
         <label>Chunk宽: <input type="number" class="wme-chunk-w" value="${this.region.chunkWidth}" min="320" step="64" /></label>
         <label>Chunk高: <input type="number" class="wme-chunk-h" value="${this.region.chunkHeight}" min="320" step="64" /></label>
         <button class="wme-add-col">+列</button>
@@ -218,8 +228,74 @@ export class WorldMapEditor {
     this._el.querySelector('.wme-save').onclick = () => this.save();
 
     this._el.querySelector('.wme-region-id').oninput = (e) => { this.region.id = e.target.value; };
+    this._el.querySelector('.wme-region-name').oninput = (e) => { this.region.name = e.target.value; };
     this._el.querySelector('.wme-chunk-w').oninput = (e) => { this.region.chunkWidth = parseInt(e.target.value) || 1280; };
     this._el.querySelector('.wme-chunk-h').oninput = (e) => { this.region.chunkHeight = parseInt(e.target.value) || 720; };
+
+    // 地图选择器
+    this._el.querySelector('.wme-region-select').onchange = (e) => {
+      const idx = parseInt(e.target.value);
+      if (!isNaN(idx)) this._switchRegion(idx);
+    };
+    this._el.querySelector('.wme-add-region').onclick = () => this._addNewRegion();
+  }
+
+  /** 切换当前编辑的 region */
+  _switchRegion(index) {
+    if (!this.project || !this.project.worldMap || !this.project.worldMap.regions) return;
+    const regions = this.project.worldMap.regions;
+    if (index < 0 || index >= regions.length) return;
+    this._currentRegionIndex = index;
+    const r = regions[index];
+    this.region = {
+      id: r.id || 'default',
+      name: r.name || '',
+      chunkWidth: r.chunkWidth || 1280,
+      chunkHeight: r.chunkHeight || 720,
+      cols: r.cols || 2,
+      rows: r.rows || 2,
+      grid: r.grid || []
+    };
+    this._normalizeGrid();
+    // 更新输入框
+    this._el.querySelector('.wme-region-id').value = this.region.id;
+    this._el.querySelector('.wme-region-name').value = this.region.name || '';
+    this._el.querySelector('.wme-chunk-w').value = this.region.chunkWidth;
+    this._el.querySelector('.wme-chunk-h').value = this.region.chunkHeight;
+    this._render();
+  }
+
+  /** 新建地图 region */
+  _addNewRegion() {
+    const name = prompt('新地图名称:', '新地图');
+    if (!name) return;
+    const id = 'region_' + Date.now();
+    const newRegion = {
+      id, name,
+      chunkWidth: 1280, chunkHeight: 720,
+      cols: 2, rows: 2,
+      grid: [[null, null], [null, null]]
+    };
+    if (!this.project) this.project = {};
+    if (!this.project.worldMap) this.project.worldMap = { regions: [] };
+    if (!this.project.worldMap.regions) this.project.worldMap.regions = [];
+    this.project.worldMap.regions.push(newRegion);
+    this._populateRegionSelect();
+    // 切换到新建的
+    const idx = this.project.worldMap.regions.length - 1;
+    this._el.querySelector('.wme-region-select').value = idx;
+    this._switchRegion(idx);
+    this._showToast(`已创建地图: ${name}`);
+  }
+
+  /** 填充 region 下拉选择器 */
+  _populateRegionSelect() {
+    const select = this._el.querySelector('.wme-region-select');
+    if (!select) return;
+    const regions = (this.project && this.project.worldMap && this.project.worldMap.regions) || [];
+    select.innerHTML = regions.map((r, i) =>
+      `<option value="${i}"${i === (this._currentRegionIndex || 0) ? ' selected' : ''}>${r.name || r.id}</option>`
+    ).join('');
   }
 
   /** 渲染网格视图 */

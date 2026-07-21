@@ -273,7 +273,13 @@ export class EditorDataManager {
       return [];
     }
     
-    return saved.map(s => ({ id: s.id, name: s.name || s.id, type: s.type || 'terrain' }));
+    return saved.map(s => ({
+      id: s.id,
+      name: s.name || s.id,
+      type: s.type || 'terrain',
+      sceneType: s.sceneType || null,
+      worldMap: s.worldMap || null
+    }));
   }
   
   /**

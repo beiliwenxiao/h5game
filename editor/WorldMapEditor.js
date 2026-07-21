@@ -157,36 +157,6 @@ export class WorldMapEditor {
     }
   }
 
-  /** 增加一列 */
-  addCol() {
-    this.region.cols++;
-    for (const row of this.region.grid) row.push(null);
-    this._render();
-  }
-
-  /** 增加一行 */
-  addRow() {
-    this.region.rows++;
-    this.region.grid.push(new Array(this.region.cols).fill(null));
-    this._render();
-  }
-
-  /** 删除最后一列（至少保留 1 列） */
-  removeCol() {
-    if (this.region.cols <= 1) return;
-    this.region.cols--;
-    for (const row of this.region.grid) row.pop();
-    this._render();
-  }
-
-  /** 删除最后一行（至少保留 1 行） */
-  removeRow() {
-    if (this.region.rows <= 1) return;
-    this.region.rows--;
-    this.region.grid.pop();
-    this._render();
-  }
-
   // ================ 内部方法 ================
 
   /** 确保 grid 尺寸与 cols/rows 一致 */
@@ -202,7 +172,7 @@ export class WorldMapEditor {
 
   _buildHTML() {
     return `
-      <div class="wme-toolbar">
+      <div class="wme-toolbar" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 0;">
         <label>地图: <select class="wme-region-select"></select></label>
         <button class="wme-add-region">+ 新建地图</button>
         <span style="margin:0 8px;color:#555;">|</span>
@@ -210,10 +180,10 @@ export class WorldMapEditor {
         <label>名称: <input type="text" class="wme-region-name" value="${this.region.name || ''}" /></label>
         <label>Chunk宽: <input type="number" class="wme-chunk-w" value="${this.region.chunkWidth}" min="320" step="64" /></label>
         <label>Chunk高: <input type="number" class="wme-chunk-h" value="${this.region.chunkHeight}" min="320" step="64" /></label>
-        <button class="wme-add-col">+列</button>
-        <button class="wme-remove-col">-列</button>
-        <button class="wme-add-row">+行</button>
-        <button class="wme-remove-row">-行</button>
+        <span style="margin:0 8px;color:#555;">|</span>
+        <label>列数: <input type="number" class="wme-cols" value="${this.region.cols}" min="1" max="100" style="width:50px;" /></label>
+        <label>行数: <input type="number" class="wme-rows" value="${this.region.rows}" min="1" max="100" style="width:50px;" /></label>
+        <button class="wme-apply-size">应用尺寸</button>
         <button class="wme-save">💾 保存</button>
       </div>
       <div class="wme-grid-container" style="position:relative;"></div>
@@ -222,11 +192,8 @@ export class WorldMapEditor {
   }
 
   _bindEvents() {
-    this._el.querySelector('.wme-add-col').onclick = () => this.addCol();
-    this._el.querySelector('.wme-remove-col').onclick = () => this.removeCol();
-    this._el.querySelector('.wme-add-row').onclick = () => this.addRow();
-    this._el.querySelector('.wme-remove-row').onclick = () => this.removeRow();
     this._el.querySelector('.wme-save').onclick = () => this.save();
+    this._el.querySelector('.wme-apply-size').onclick = () => this._applySize();
 
     this._el.querySelector('.wme-region-id').oninput = (e) => { this.region.id = e.target.value; };
     this._el.querySelector('.wme-region-name').oninput = (e) => { this.region.name = e.target.value; };
@@ -239,6 +206,66 @@ export class WorldMapEditor {
       if (!isNaN(idx)) this._switchRegion(idx);
     };
     this._el.querySelector('.wme-add-region').onclick = () => this._addNewRegion();
+  }
+
+  /**
+   * 应用用户输入的行列数
+   * 缩小时不能小于已有地图块的范围，扩大时最大 100
+   */
+  _applySize() {
+    const colsInput = this._el.querySelector('.wme-cols');
+    const rowsInput = this._el.querySelector('.wme-rows');
+    let newCols = parseInt(colsInput.value) || this.region.cols;
+    let newRows = parseInt(rowsInput.value) || this.region.rows;
+
+    // 限制最大 100
+    newCols = Math.min(100, Math.max(1, newCols));
+    newRows = Math.min(100, Math.max(1, newRows));
+
+    // 计算已有地图块的最大行列（不能缩小到比这个更小）
+    let maxUsedCol = 0;
+    let maxUsedRow = 0;
+    for (let r = 0; r < this.region.grid.length; r++) {
+      if (!this.region.grid[r]) continue;
+      for (let c = 0; c < this.region.grid[r].length; c++) {
+        if (this.region.grid[r][c]) {
+          if (c + 1 > maxUsedCol) maxUsedCol = c + 1;
+          if (r + 1 > maxUsedRow) maxUsedRow = r + 1;
+        }
+      }
+    }
+
+    if (newCols < maxUsedCol) {
+      newCols = maxUsedCol;
+      this._showToast(`列数不能小于 ${maxUsedCol}（已有地图块占用）`, 'warn');
+    }
+    if (newRows < maxUsedRow) {
+      newRows = maxUsedRow;
+      this._showToast(`行数不能小于 ${maxUsedRow}（已有地图块占用）`, 'warn');
+    }
+
+    // 更新输入框显示
+    colsInput.value = newCols;
+    rowsInput.value = newRows;
+
+    // 调整 grid 尺寸
+    this.region.cols = newCols;
+    this.region.rows = newRows;
+
+    // 裁剪多余的列
+    for (let r = 0; r < this.region.grid.length; r++) {
+      if (this.region.grid[r] && this.region.grid[r].length > newCols) {
+        this.region.grid[r].length = newCols;
+      }
+    }
+    // 裁剪多余的行
+    if (this.region.grid.length > newRows) {
+      this.region.grid.length = newRows;
+    }
+
+    this._normalizeGrid();
+    this._render();
+    this._showToast(`尺寸已设为 ${newCols}×${newRows}`);
   }
 
   /** 切换当前编辑的 region */
@@ -263,6 +290,8 @@ export class WorldMapEditor {
     this._el.querySelector('.wme-region-name').value = this.region.name || '';
     this._el.querySelector('.wme-chunk-w').value = this.region.chunkWidth;
     this._el.querySelector('.wme-chunk-h').value = this.region.chunkHeight;
+    this._el.querySelector('.wme-cols').value = this.region.cols;
+    this._el.querySelector('.wme-rows').value = this.region.rows;
     this._render();
   }
 

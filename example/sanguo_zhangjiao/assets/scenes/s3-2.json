@@ -3,7 +3,7 @@
   "name": "s3-2",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#301515",
+  "backgroundColor": "#1b450c",
   "layers": [
     {
       "id": "layer_bg",
@@ -561,7 +561,7 @@
     }
   },
   "type": "terrain",
-  "updatedAt": "2026-07-21T18:42:24.631Z",
+  "updatedAt": "2026-07-21T18:52:56.591Z",
   "atlases": [
     {
       "id": "mountain_landscape",

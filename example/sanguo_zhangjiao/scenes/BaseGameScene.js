@@ -704,6 +704,10 @@ export class BaseGameScene extends PrologueScene {
     } else if (this.terrain) {
       this.minimap.setTerrain(this.terrain);
     }
+    // 绑定大地图 region 边界（有 _worldRegion 时小地图以整体边界为准）
+    if (this._worldRegion) {
+      this.minimap.setWorldRegion(this._worldRegion);
+    }
 
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小
     this._applyUILayout();
@@ -2289,6 +2293,10 @@ export class BaseGameScene extends PrologueScene {
         } else if (this.terrain) {
           this.minimap.setTerrain(this.terrain);
         }
+      }
+      // 延迟绑定 worldRegion（异步加载完成后注入）
+      if (!this.minimap._worldRegion && this._worldRegion) {
+        this.minimap.setWorldRegion(this._worldRegion);
       }
       // terrain 的缓存可能后续才构建好，标记脏以便重建缩略图
       for (const t of this.minimap._terrains) {

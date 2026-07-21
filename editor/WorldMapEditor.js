@@ -13,7 +13,7 @@
 import { SceneEditorCanvas } from './SceneEditorCanvas.js';
 
 /**
- * WorldMapEditor - 世界地图编辑器 Tab（P5-5）
+ * WorldMapEditor - 大地图块编辑器 Tab（P5-5）
  *
  * 功能：
  *   - 网格视图（cols×rows）编辑 worldMap.regions[0].grid
@@ -147,7 +147,7 @@ export class WorldMapEditor {
         body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
       });
       if (res.ok) {
-        this._showToast('世界地图已保存 ✓');
+        this._showToast('大地图已保存 ✓');
       } else {
         this._showToast('保存失败: ' + res.status, 'error');
       }

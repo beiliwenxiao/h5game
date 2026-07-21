@@ -48,6 +48,24 @@
             "scene_Act6"
           ]
         ]
+      },
+      {
+        "id": "region_1784660272883",
+        "name": "新地图",
+        "chunkWidth": 1280,
+        "chunkHeight": 720,
+        "cols": 2,
+        "rows": 2,
+        "grid": [
+          [
+            null,
+            null
+          ],
+          [
+            null,
+            null
+          ]
+        ]
       }
     ]
   },

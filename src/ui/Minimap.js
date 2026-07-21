@@ -51,6 +51,8 @@ export class Minimap extends UIElement {
 
     // 地形实例列表
     this._terrains = [];
+    // 大地图 region 边界数据（优先于 terrain 包围盒）
+    this._worldRegion = null;
     // 缩略图离屏 canvas
     this._mapCache = null;
     // 缓存脏标记版本号
@@ -84,6 +86,15 @@ export class Minimap extends UIElement {
    */
   setTerrains(terrains) {
     this._terrains = terrains || [];
+    this._invalidateCache();
+  }
+
+  /**
+   * 设置大地图 region 数据（用于确定小地图整体边界）
+   * @param {Object|null} region - { cols, rows, chunkWidth, chunkHeight }
+   */
+  setWorldRegion(region) {
+    this._worldRegion = region || null;
     this._invalidateCache();
   }
 
@@ -149,16 +160,18 @@ export class Minimap extends UIElement {
       return;
     }
 
-    // 计算所有 terrain 的世界坐标包围盒
+    // 计算世界坐标包围盒（基于 chunk 格子的实际占位，与编辑器一致）
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const chunkW = (this._worldRegion && this._worldRegion.chunkWidth) || 1280;
+    const chunkH = (this._worldRegion && this._worldRegion.chunkHeight) || 720;
+
     for (const t of this._terrains) {
       const ox = t.worldOffset ? t.worldOffset.x : 0;
       const oy = t.worldOffset ? t.worldOffset.y : 0;
-      // terrain 有效区域 = worldOffset + 盆地范围
-      const left = ox + t.centerX - t.basinRadiusX - 60;
-      const top = oy + t.centerY - t.basinRadiusY - 60;
-      const right = ox + t.centerX + t.basinRadiusX + 60;
-      const bottom = oy + t.centerY + t.basinRadiusY + 60;
+      const left = ox;
+      const top = oy;
+      const right = ox + chunkW;
+      const bottom = oy + chunkH;
       if (left < minX) minX = left;
       if (top < minY) minY = top;
       if (right > maxX) maxX = right;
@@ -198,16 +211,15 @@ export class Minimap extends UIElement {
 
     // 逐个 terrain 渲染背景层 + 装饰层
     for (const t of this._terrains) {
-      // --- 区块背景色 ---
+      // --- 区块背景色（填满整个 chunk 格子，与编辑器一致）---
       const bgColor = t.sceneBackgroundColor || '#1f1a14';
       const ox = t.worldOffset ? t.worldOffset.x : 0;
       const oy = t.worldOffset ? t.worldOffset.y : 0;
-      const bx = ox + t.centerX - t.basinRadiusX - 60;
-      const by = oy + t.centerY - t.basinRadiusY - 60;
-      const bw = (t.basinRadiusX + 60) * 2;
-      const bh = (t.basinRadiusY + 60) * 2;
+      // 使用 chunk 尺寸（从 region 或默认 1280×720）
+      const chunkW = (this._worldRegion && this._worldRegion.chunkWidth) || 1280;
+      const chunkH = (this._worldRegion && this._worldRegion.chunkHeight) || 720;
       ctx.fillStyle = bgColor;
-      ctx.fillRect(bx, by, bw, bh);
+      ctx.fillRect(ox, oy, chunkW, chunkH);
 
       // --- 背景层 ---
       if (t._combinedGroundCache) {

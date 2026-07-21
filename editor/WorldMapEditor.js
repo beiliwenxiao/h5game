@@ -61,6 +61,7 @@ export class WorldMapEditor {
   async init() {
     this._el = document.createElement('div');
     this._el.className = 'world-map-editor';
+    this._el.style.cssText = 'width:max-content;min-width:100%;';
     this._el.innerHTML = this._buildHTML();
     this.container.innerHTML = '';
     this.container.appendChild(this._el);
@@ -215,7 +216,7 @@ export class WorldMapEditor {
         <button class="wme-remove-row">-行</button>
         <button class="wme-save">💾 保存</button>
       </div>
-      <div class="wme-grid-container"></div>
+      <div class="wme-grid-container" style="position:relative;"></div>
       <div class="wme-toast" style="display:none;"></div>
     `;
   }
@@ -311,7 +312,7 @@ export class WorldMapEditor {
       .concat(this.availableScenes.map(id => `<option value="${id}">${id}</option>`))
       .join('');
 
-    let html = `<div class="wme-grid" style="display:grid;grid-template-columns:repeat(${this.region.cols},${thumbW}px);gap:4px;">`;
+    let html = `<div class="wme-grid" style="display:grid;grid-template-columns:repeat(${this.region.cols},${thumbW}px);gap:4px;width:max-content;">`;
     for (let r = 0; r < this.region.rows; r++) {
       for (let c = 0; c < this.region.cols; c++) {
         const val = (this.region.grid[r] && this.region.grid[r][c]) || '';
@@ -343,6 +344,12 @@ export class WorldMapEditor {
     }
     html += '</div>';
     html += `<div style="margin-top:8px;color:#aaa;font-size:12px;">${this.region.cols}×${this.region.rows} 格，chunk ${this.region.chunkWidth}×${this.region.chunkHeight}px</div>`;
+    // 右上角小地图容器（fixed 定位，不随滚动移动）
+    html += `<div class="wme-minimap" style="position:fixed;top:60px;right:24px;
+              width:180px;height:180px;background:rgba(20,15,10,0.9);
+              border:2px solid #8B7355;border-radius:4px;overflow:hidden;pointer-events:none;z-index:10;">
+              <canvas class="wme-minimap-canvas" width="180" height="180" style="width:100%;height:100%;"></canvas>
+            </div>`;
 
     gc.innerHTML = html;
 
@@ -373,6 +380,92 @@ export class WorldMapEditor {
       const sceneId = (this.region.grid[r] && this.region.grid[r][c]) || null;
       this._renderCellThumbnail(cell, sceneId, thumbW, thumbH);
     });
+
+    // 绘制右上角小地图（延迟，等缩略图绘制完成）
+    setTimeout(() => this._renderMinimap(gc, thumbW, thumbH), 300);
+  }
+
+  /**
+   * 绘制右上角小地图预览（缩小的全局视图，与游戏中小地图一致的布局）
+   * @private
+   */
+  _renderMinimap(gc, thumbW, thumbH) {
+    const minimapCanvas = gc.querySelector('.wme-minimap-canvas');
+    if (!minimapCanvas) return;
+    const ctx = minimapCanvas.getContext('2d');
+    const mw = minimapCanvas.width;
+    const mh = minimapCanvas.height;
+    ctx.clearRect(0, 0, mw, mh);
+
+    // 背景
+    ctx.fillStyle = 'rgba(20, 15, 10, 1)';
+    ctx.fillRect(0, 0, mw, mh);
+
+    const { cols, rows, chunkWidth, chunkHeight, grid } = this.region;
+
+    // 找到有场景的格子范围
+    let minCol = Infinity, maxCol = -Infinity, minRow = Infinity, maxRow = -Infinity;
+    for (let r = 0; r < rows; r++) {
+      if (!grid[r]) continue;
+      for (let c = 0; c < cols; c++) {
+        if (grid[r][c]) {
+          if (c < minCol) minCol = c;
+          if (c > maxCol) maxCol = c;
+          if (r < minRow) minRow = r;
+          if (r > maxRow) maxRow = r;
+        }
+      }
+    }
+    if (minCol === Infinity) return; // 全空
+
+    const usedCols = maxCol - minCol + 1;
+    const usedRows = maxRow - minRow + 1;
+    const worldW = usedCols * chunkWidth;
+    const worldH = usedRows * chunkHeight;
+
+    // 计算缩放让内容 fit 到小地图（带边距）
+    const pad = 8;
+    const scaleX = (mw - pad * 2) / worldW;
+    const scaleY = (mh - pad * 2) / worldH;
+    const scale = Math.min(scaleX, scaleY);
+    const drawW = worldW * scale;
+    const drawH = worldH * scale;
+    const offsetX = pad + (mw - pad * 2 - drawW) / 2;
+    const offsetY = pad + (mh - pad * 2 - drawH) / 2;
+
+    // 绘制每个有场景的格子
+    for (let r = minRow; r <= maxRow; r++) {
+      if (!grid[r]) continue;
+      for (let c = minCol; c <= maxCol; c++) {
+        const sceneId = grid[r][c];
+        if (!sceneId) continue;
+
+        const x = offsetX + (c - minCol) * chunkWidth * scale;
+        const y = offsetY + (r - minRow) * chunkHeight * scale;
+        const w = chunkWidth * scale;
+        const h = chunkHeight * scale;
+
+        // 尝试从格子缩略图 canvas 中获取图像
+        const cell = gc.querySelector(`.wme-cell[data-r="${r}"][data-c="${c}"]`);
+        const cellCanvas = cell && cell.querySelector('.wme-cell-canvas');
+        if (cellCanvas && cellCanvas.width > 0) {
+          try {
+            ctx.drawImage(cellCanvas, x, y, w, h);
+          } catch (e) {
+            ctx.fillStyle = '#1b450c';
+            ctx.fillRect(x, y, w, h);
+          }
+        } else {
+          ctx.fillStyle = '#1b450c';
+          ctx.fillRect(x, y, w, h);
+        }
+
+        // 格子边框
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, w, h);
+      }
+    }
   }
 
   /**

@@ -255,7 +255,7 @@ export class WorldMapEditor {
             <div class="wme-cell-overlay" style="display:none;position:absolute;inset:0;
                  background:rgba(0,0,0,0.7);flex-direction:column;align-items:center;
                  justify-content:center;gap:6px;padding:8px;border-radius:4px;">
-              <div style="font-size:11px;color:#8cf;font-weight:bold;">(${c}, ${r})</div>
+              <div style="font-size:11px;color:#8cf;font-weight:bold;">(${r}, ${c})</div>
               <select class="wme-cell-select" data-r="${r}" data-c="${c}"
                       style="width:92%;font-size:11px;background:#222;color:#eee;border:1px solid #666;
                              border-radius:3px;padding:3px;">

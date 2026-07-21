@@ -1422,7 +1422,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!this._collisionInitLogged) {
       console.log('[DDScene] checkTerrainCollision, collisionShapes:', t._collisionShapes?.length,
         'act1 shapes:', this.terrainAct1?._collisionShapes?.length);
-      // 打印碰撞 shapes 坐标详情
       if (t._collisionShapes) {
         for (let i = 0; i < Math.min(3, t._collisionShapes.length); i++) {
           const s = t._collisionShapes[i];
@@ -1430,7 +1429,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             s.points ? s.points.slice(0, 3) : 'NO POINTS');
         }
       }
-      // 打印玩家位置
       const pt = this.playerEntity?.getComponent('transform');
       console.log('[DDScene] 玩家位置:', pt ? `(${Math.round(pt.position.x)},${Math.round(pt.position.y)})` : 'null');
       this._collisionInitLogged = true;
@@ -1445,22 +1443,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (!transform) continue;
       const p = transform.position;
 
-      // 1) 椭圆盆地边界 — 大地图模式下不限制
-      // const dx = p.x - cx, dy = p.y - cy;
-      // const ed = Math.hypot(dx / irx, dy / iry);
-      // if (ed < 0.85) entity._leftBasin = false;
-      // if (!entity._leftBasin && ed > 1) {
-      //   const ang = Math.atan2(dy, dx);
-      //   const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-      //   if (angDist < halfAng) {
-      //     entity._leftBasin = true;
-      //   } else if (ed > 0.001) {
-      //     const k = 0.99 / ed;
-      //     p.x = cx + dx * k;
-      //     p.y = cy + dy * k;
-      //   }
-      // }
-
       // 2) 水池（推开）— 遍历所有已加载地形
       for (const terrain of this._terrains) {
         for (const pond of terrain.waterPatches) {
@@ -1469,10 +1451,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           const d2 = nx * nx + ny * ny;
           if (d2 < 1 && d2 > 0) {
             const k = 1 / Math.sqrt(d2);
-            p.x = pond.x + pdx * k * 1.02;
-            p.y = pond.y + pdy * k * 1.02;
+            p.x = pond.x + pdx * k * 1.04;
+            p.y = pond.y + pdy * k * 1.04;
           } else if (d2 === 0) {
-            p.y = pond.y - pond.ry - 1;
+            p.y = pond.y - pond.ry - 2;
           }
         }
       }
@@ -1488,11 +1470,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           if (d2 < minDist * minDist) {
             const td = Math.sqrt(d2);
             if (td > 0.001) {
-              const k = minDist / td;
+              const k = (minDist + 1) / td;
               p.x = tree.x + tdx * k;
               p.y = tree.y + tdy * k;
             } else {
-              p.y = tree.y + minDist;
+              p.y = tree.y + minDist + 1;
             }
           }
         }
@@ -1506,6 +1488,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           }
         }
       }
+
     }
   }
 
@@ -1513,7 +1496,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _resolveShapeCollision(p, s, radius) {
     const t = this.terrain || this._terrains[0];
     if (!t || !t._pointInCollisionShape(s, p.x, p.y)) return;
-    const EPS = 0.5;
+    const EPS = 2;
     const st = s.shapeType;
     if (st === 'circle' || st === 'ellipse') {
       const cx = (s.x || 0) + (s.width || 0) / 2;

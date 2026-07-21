@@ -3609,7 +3609,7 @@ export class BaseGameScene extends PrologueScene {
           if (inEntranceFan) {
             entity._leftBasin = true;
           } else if (ed > 0.001) {
-            const k = 0.99 / ed;
+            const k = 0.97 / ed;
             p.x = cx + dx * k;
             p.y = cy + dy * k;
           }
@@ -3625,10 +3625,10 @@ export class BaseGameScene extends PrologueScene {
         const d2 = nx * nx + ny * ny;
         if (d2 < 1 && d2 > 0) {
           const k = 1 / Math.sqrt(d2);
-          p.x = pond.x + pdx * k * 1.02;
-          p.y = pond.y + pdy * k * 1.02;
+          p.x = pond.x + pdx * k * 1.04;
+          p.y = pond.y + pdy * k * 1.04;
         } else if (d2 === 0) {
-          p.y = pond.y - pond.ry - 1;
+          p.y = pond.y - pond.ry - 2;
         }
       }
 
@@ -3643,11 +3643,11 @@ export class BaseGameScene extends PrologueScene {
         if (d2 < minDist * minDist) {
           const td = Math.sqrt(d2);
           if (td > 0.001) {
-            const k = minDist / td;
+            const k = (minDist + 1) / td;
             p.x = tree.x + tdx * k;
             p.y = tree.y + tdy * k;
           } else {
-            p.y = tree.y + minDist;
+            p.y = tree.y + minDist + 1;
           }
         }
       }
@@ -3658,6 +3658,7 @@ export class BaseGameScene extends PrologueScene {
           this._resolveShapeCollision(p, s, entityRadius);
         }
       }
+
     }
   }
 
@@ -3668,7 +3669,7 @@ export class BaseGameScene extends PrologueScene {
   _resolveShapeCollision(p, s, radius) {
     const t = this.terrain;
     if (!t || !t._pointInCollisionShape || !t._pointInCollisionShape(s, p.x, p.y)) return;
-    const EPS = 0.5;
+    const EPS = 2;
     const st = s.shapeType;
     if (st === 'circle' || st === 'ellipse') {
       const scx = (s.x || 0) + (s.width || 0) / 2;
@@ -4119,10 +4120,10 @@ export class BaseGameScene extends PrologueScene {
     
     if (!transform) return;
     
-    const x = transform.position.x;
+    const x = Math.round(transform.position.x);
     // elevation 向上偏移渲染位置（腾空效果）
     const elevation = transform.position.elevation || 0;
-    const y = transform.position.y - elevation;
+    const y = Math.round(transform.position.y - elevation);
     const size = sprite?.width || 32;
     const height = sprite?.height || 32;
     

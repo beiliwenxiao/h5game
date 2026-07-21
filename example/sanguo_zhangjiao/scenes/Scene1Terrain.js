@@ -1139,8 +1139,9 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderGround(ctx) {
-    // 编辑器中删除了地形椭圆：不渲染草地，只保留水池、背景图片和 shape
+    // 编辑器中删除了地形椭圆：不渲染草地底层，只保留水池、背景图片和 shape
     if (this._hasTerrainEllipse === false) {
+      this._buildGroundDecoCache(); // 装饰层草地仍需构建缓存
       this._renderWaterPatches(ctx);
       this._renderEditorBackgroundImages(ctx);
       this._renderEditorShapes(ctx);   // shape 在背景图片之上，可遮挡底层图片

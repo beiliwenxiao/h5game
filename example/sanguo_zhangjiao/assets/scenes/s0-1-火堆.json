@@ -12,25 +12,6 @@
       "locked": false,
       "objects": [
         {
-          "id": "ellipse_1783349807083_124",
-          "type": "shape",
-          "name": "地形椭圆",
-          "x": 4.05,
-          "y": -2.32,
-          "width": 1308,
-          "height": 763,
-          "fillMode": "slice",
-          "fill": "#3a5a2a",
-          "opacity": 1,
-          "stroke": "",
-          "strokeWidth": 0,
-          "edgeFade": 0.15,
-          "atlasId": "mountain_landscape",
-          "sliceKey": "grassTile",
-          "decoKey": null,
-          "shapeType": "ellipse"
-        },
-        {
           "id": "obj_1783095865778",
           "type": "image",
           "imageId": "img_1783095863410",
@@ -39,14 +20,6 @@
           "width": 1280,
           "height": 720,
           "rotation": 0
-        },
-        {
-          "id": "obj_1784235705376",
-          "type": "spawn",
-          "ref": "campfire",
-          "name": "火堆",
-          "x": 680.16,
-          "y": 368.43
         }
       ]
     },
@@ -444,6 +417,14 @@
           "stroke": "#5a8a4a",
           "strokeWidth": 0,
           "collide": true
+        },
+        {
+          "id": "obj_1784235705376",
+          "type": "spawn",
+          "ref": "campfire",
+          "name": "火堆",
+          "x": 680.16,
+          "y": 368.43
         }
       ]
     },
@@ -1156,7 +1137,7 @@
           "type": "deco",
           "decoKey": "grass1",
           "x": 481,
-          "y": 784,
+          "y": 785.12,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -7132,7 +7113,7 @@
       }
     }
   ],
-  "updatedAt": "2026-07-19T13:48:53.975Z",
+  "updatedAt": "2026-07-19T15:52:33.033Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

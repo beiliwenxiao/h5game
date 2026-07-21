@@ -698,6 +698,8 @@ export class BaseGameScene extends PrologueScene {
       scale: 0.1,
       visible: true
     });
+    // 记录右边锚点（resize 后重新定位用）
+    this.minimap._anchorRight = this.logicalWidth - 10;
     // 绑定地形实例（terrain 在 enter() 中已创建；DDScene 有多个 _terrains）
     if (this._terrains && this._terrains.length > 0) {
       this.minimap.setTerrains(this._terrains);
@@ -1787,6 +1789,7 @@ export class BaseGameScene extends PrologueScene {
 
     // 更新小地图位置（右上角）
     if (this.minimap) {
+      this.minimap._anchorRight = width - 10;
       this.minimap.x = width - this.minimap.width - 10;
       this.minimap.y = 10;
     }

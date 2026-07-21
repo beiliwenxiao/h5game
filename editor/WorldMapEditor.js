@@ -373,11 +373,30 @@ export class WorldMapEditor {
     }
     html += '</div>';
     html += `<div style="margin-top:8px;color:#aaa;font-size:12px;">${this.region.cols}×${this.region.rows} 格，chunk ${this.region.chunkWidth}×${this.region.chunkHeight}px</div>`;
-    // 右上角小地图容器（fixed 定位，不随滚动移动）
+    // 计算小地图外框比例与地图有效区域一致
+    const mmMaxDim = 180;
+    let mmUsedCols = this.region.cols, mmUsedRows = this.region.rows;
+    // 找有效范围
+    let _maxC = 0, _maxR = 0;
+    for (let r = 0; r < this.region.rows; r++) {
+      if (!this.region.grid[r]) continue;
+      for (let c = 0; c < this.region.cols; c++) {
+        if (this.region.grid[r][c]) { if (c + 1 > _maxC) _maxC = c + 1; if (r + 1 > _maxR) _maxR = r + 1; }
+      }
+    }
+    if (_maxC > 0) { mmUsedCols = _maxC; mmUsedRows = _maxR; }
+    const mmWorldW = mmUsedCols * this.region.chunkWidth;
+    const mmWorldH = mmUsedRows * this.region.chunkHeight;
+    const mmAspect = mmWorldW / mmWorldH;
+    let mmW, mmH;
+    if (mmAspect >= 1) { mmW = mmMaxDim; mmH = Math.round(mmMaxDim / mmAspect); }
+    else { mmH = mmMaxDim; mmW = Math.round(mmMaxDim * mmAspect); }
+
+    // 右上角小地图容器（fixed 定位，比例与地图一致）
     html += `<div class="wme-minimap" style="position:fixed;top:60px;right:24px;
-              width:180px;height:180px;background:rgba(20,15,10,0.9);
+              width:${mmW}px;height:${mmH}px;background:rgba(20,15,10,0.9);
               border:2px solid #8B7355;border-radius:4px;overflow:hidden;pointer-events:none;z-index:10;">
-              <canvas class="wme-minimap-canvas" width="180" height="180" style="width:100%;height:100%;"></canvas>
+              <canvas class="wme-minimap-canvas" width="${mmW}" height="${mmH}" style="width:100%;height:100%;"></canvas>
             </div>`;
 
     gc.innerHTML = html;

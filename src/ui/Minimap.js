@@ -187,7 +187,24 @@ export class Minimap extends UIElement {
     this._worldMaxX = maxX;
     this._worldMaxY = maxY;
 
-    // 计算缩略图实际尺寸（保持宽高比，fit 到小地图内部区域）
+    // 自动调整小地图外框比例与地图内容一致（消除上下/左右空白）
+    const maxDim = Math.max(this.width, this.height); // 取当前最大边作为约束
+    const aspect = worldW / worldH;
+    if (aspect >= 1) {
+      // 地图偏宽：宽度不变，高度按比例缩小
+      this.width = maxDim;
+      this.height = Math.round(maxDim / aspect);
+    } else {
+      // 地图偏高：高度不变，宽度按比例缩小
+      this.height = maxDim;
+      this.width = Math.round(maxDim * aspect);
+    }
+    // 重新定位到右上角
+    if (this._anchorRight !== undefined) {
+      this.x = this._anchorRight - this.width;
+    }
+
+    // 计算缩略图实际尺寸（现在外框比例与内容一致，fill 满即可）
     const innerW = this.width - this.padding * 2;
     const innerH = this.height - this.padding * 2;
     const scaleX = innerW / worldW;

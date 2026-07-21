@@ -49,6 +49,10 @@ export class Minimap extends UIElement {
     this.borderWidth = options.borderWidth || 2;
     this.padding = 4;
 
+    // 缩放级别：0=最大（本屏+10%），1=中间，2=最小（全部9宫格）
+    this._zoomLevel = 1; // 默认中间
+    this._maxZoomLevel = 2;
+
     // 地形实例列表
     this._terrains = [];
     // 大地图 region 边界数据（优先于 terrain 包围盒）
@@ -128,6 +132,22 @@ export class Minimap extends UIElement {
   setNPCPositions(positions) { this.npcPositions = positions || []; }
   setViewBounds(bounds) { this.viewBounds = bounds; }
 
+  /** 放大小地图（显示更小范围，更多细节） */
+  zoomIn() {
+    if (this._zoomLevel > 0) {
+      this._zoomLevel--;
+      this._invalidateCache();
+    }
+  }
+
+  /** 缩小小地图（显示更大范围） */
+  zoomOut() {
+    if (this._zoomLevel < this._maxZoomLevel) {
+      this._zoomLevel++;
+      this._invalidateCache();
+    }
+  }
+
   /**
    * 尝试构建/重建缩略图缓存
    * 遍历所有 terrain，将其地面内容渲染到一张离屏 canvas（按 mapScale 缩小）
@@ -160,8 +180,8 @@ export class Minimap extends UIElement {
       return;
     }
 
-    // 计算世界坐标包围盒（基于 chunk 格子的实际占位，与编辑器一致）
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    // 先计算全部 terrain 包围盒（zoom=2 最小缩放用）
+    let fullMinX = Infinity, fullMinY = Infinity, fullMaxX = -Infinity, fullMaxY = -Infinity;
     const chunkW = (this._worldRegion && this._worldRegion.chunkWidth) || 1280;
     const chunkH = (this._worldRegion && this._worldRegion.chunkHeight) || 720;
 
@@ -172,11 +192,47 @@ export class Minimap extends UIElement {
       const top = oy;
       const right = ox + chunkW;
       const bottom = oy + chunkH;
-      if (left < minX) minX = left;
-      if (top < minY) minY = top;
-      if (right > maxX) maxX = right;
-      if (bottom > maxY) maxY = bottom;
+      if (left < fullMinX) fullMinX = left;
+      if (top < fullMinY) fullMinY = top;
+      if (right > fullMaxX) fullMaxX = right;
+      if (bottom > fullMaxY) fullMaxY = bottom;
     }
+
+    // 根据缩放级别决定显示范围
+    let minX, minY, maxX, maxY;
+    if (this._zoomLevel === 0 && this.viewBounds) {
+      // 最大缩放：显示本屏范围 + 10%
+      const vb = this.viewBounds;
+      const vw = vb.right - vb.left;
+      const vh = vb.bottom - vb.top;
+      const expand = 0.1;
+      minX = vb.left - vw * expand;
+      minY = vb.top - vh * expand;
+      maxX = vb.right + vw * expand;
+      maxY = vb.bottom + vh * expand;
+    } else if (this._zoomLevel === 1 && this.playerPosition) {
+      // 中间级别：以玩家为中心显示 3×3 chunk 范围
+      const px = this.playerPosition.x;
+      const py = this.playerPosition.y;
+      const halfW = chunkW * 1.5;
+      const halfH = chunkH * 1.5;
+      minX = px - halfW;
+      minY = py - halfH;
+      maxX = px + halfW;
+      maxY = py + halfH;
+    } else {
+      // 最小缩放（zoom=2）：显示全部
+      minX = fullMinX;
+      minY = fullMinY;
+      maxX = fullMaxX;
+      maxY = fullMaxY;
+    }
+
+    // clamp 到全部范围
+    if (minX < fullMinX) minX = fullMinX;
+    if (minY < fullMinY) minY = fullMinY;
+    if (maxX > fullMaxX) maxX = fullMaxX;
+    if (maxY > fullMaxY) maxY = fullMaxY;
 
     const worldW = maxX - minX;
     const worldH = maxY - minY;
@@ -187,24 +243,28 @@ export class Minimap extends UIElement {
     this._worldMaxX = maxX;
     this._worldMaxY = maxY;
 
-    // 自动调整小地图外框比例与地图内容一致（消除上下/左右空白）
-    const maxDim = Math.max(this.width, this.height); // 取当前最大边作为约束
-    const aspect = worldW / worldH;
-    if (aspect >= 1) {
-      // 地图偏宽：宽度不变，高度按比例缩小
-      this.width = maxDim;
-      this.height = Math.round(maxDim / aspect);
-    } else {
-      // 地图偏高：高度不变，宽度按比例缩小
-      this.height = maxDim;
-      this.width = Math.round(maxDim * aspect);
-    }
-    // 重新定位到右上角
-    if (this._anchorRight !== undefined) {
-      this.x = this._anchorRight - this.width;
+    // 外框尺寸固定为九宫格（全部 terrain）比例，只计算一次
+    if (!this._frameSizeSet) {
+      const fullW = fullMaxX - fullMinX;
+      const fullH = fullMaxY - fullMinY;
+      if (fullW > 0 && fullH > 0) {
+        const maxDim = Math.max(this.width, this.height);
+        const fullAspect = fullW / fullH;
+        if (fullAspect >= 1) {
+          this.width = maxDim;
+          this.height = Math.round(maxDim / fullAspect);
+        } else {
+          this.height = maxDim;
+          this.width = Math.round(maxDim * fullAspect);
+        }
+        if (this._anchorRight !== undefined) {
+          this.x = this._anchorRight - this.width;
+        }
+        this._frameSizeSet = true;
+      }
     }
 
-    // 计算缩略图实际尺寸（现在外框比例与内容一致，fill 满即可）
+    // 计算缩略图实际尺寸
     const innerW = this.width - this.padding * 2;
     const innerH = this.height - this.padding * 2;
     const scaleX = innerW / worldW;
@@ -316,6 +376,10 @@ export class Minimap extends UIElement {
    * @param {number} deltaTime - ms
    */
   update(deltaTime) {
+    // 对于跟随玩家/相机的缩放级别，持续使缓存过期（由 cooldown 节流）
+    if (this._zoomLevel < 2) {
+      this._invalidateCache();
+    }
     this._tryBuildCache(deltaTime);
   }
 
@@ -371,6 +435,9 @@ export class Minimap extends UIElement {
       ctx.textAlign = 'center';
       ctx.fillText('地图加载中...', this.x + this.width / 2, this.y + this.height / 2);
     }
+
+    // 左下角 +/- 缩放按钮
+    this._renderZoomButtons(ctx);
 
     ctx.restore();
   }
@@ -441,5 +508,64 @@ export class Minimap extends UIElement {
   containsPoint(x, y) {
     return x >= this.x && x <= this.x + this.width &&
            y >= this.y && y <= this.y + this.height;
+  }
+
+  /**
+   * 处理点击事件（检测 +/- 按钮）
+   * @param {number} x - 屏幕坐标
+   * @param {number} y - 屏幕坐标
+   * @returns {boolean} 是否消费了点击
+   */
+  handleClick(x, y) {
+    if (!this.visible) return false;
+    const btnSize = 18;
+    const gap = 4;
+    const bx = this.x + this.padding;
+    const by = this.y + this.height - this.padding - btnSize;
+
+    // + 按钮
+    if (x >= bx && x <= bx + btnSize && y >= by && y <= by + btnSize) {
+      this.zoomIn();
+      return true;
+    }
+    // - 按钮
+    const bx2 = bx + btnSize + gap;
+    if (x >= bx2 && x <= bx2 + btnSize && y >= by && y <= by + btnSize) {
+      this.zoomOut();
+      return true;
+    }
+    return false;
+  }
+
+  /** 渲染左下角 +/- 按钮 */
+  _renderZoomButtons(ctx) {
+    const btnSize = 18;
+    const gap = 4;
+    const bx = this.x + this.padding;
+    const by = this.y + this.height - this.padding - btnSize;
+
+    // + 按钮
+    ctx.fillStyle = this._zoomLevel > 0 ? 'rgba(60,80,60,0.85)' : 'rgba(40,40,40,0.6)';
+    ctx.fillRect(bx, by, btnSize, btnSize);
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx, by, btnSize, btnSize);
+    ctx.fillStyle = this._zoomLevel > 0 ? '#fff' : '#666';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('+', bx + btnSize / 2, by + btnSize / 2);
+
+    // - 按钮
+    const bx2 = bx + btnSize + gap;
+    ctx.fillStyle = this._zoomLevel < this._maxZoomLevel ? 'rgba(60,80,60,0.85)' : 'rgba(40,40,40,0.6)';
+    ctx.fillRect(bx2, by, btnSize, btnSize);
+    ctx.strokeStyle = '#8B7355';
+    ctx.strokeRect(bx2, by, btnSize, btnSize);
+    ctx.fillStyle = this._zoomLevel < this._maxZoomLevel ? '#fff' : '#666';
+    ctx.fillText('-', bx2 + btnSize / 2, by + btnSize / 2);
+
+    // 重置 textBaseline
+    ctx.textBaseline = 'alphabetic';
   }
 }

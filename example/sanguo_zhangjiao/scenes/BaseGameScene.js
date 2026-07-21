@@ -2420,6 +2420,14 @@ export class BaseGameScene extends PrologueScene {
       const mousePos = this.inputManager.getMousePosition();
       const button = this.inputManager.getMouseButton() === 2 ? 'right' : 'left';
       
+      // 小地图 +/- 按钮点击
+      if (button === 'left' && this.minimap && this.minimap.visible && this.minimap.containsPoint(mousePos.x, mousePos.y)) {
+        if (this.minimap.handleClick(mousePos.x, mousePos.y)) {
+          this.inputManager.markMouseClickHandled();
+          return;
+        }
+      }
+
       // 如果对话激活，优先处理对话框点击
       if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
         // 检查是否点击在对话框内

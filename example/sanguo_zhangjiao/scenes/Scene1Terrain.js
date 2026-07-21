@@ -259,6 +259,15 @@ export class Scene1Terrain {
    */
   _applySceneData(scene) {
     if (!scene) return;
+
+    // 读取场景背景色
+    if (scene.backgroundColor) {
+      this.sceneBackgroundColor = scene.backgroundColor;
+    }
+
+    // 保存场景原始数据引用（供外部系统如小地图使用）
+    this._sceneDataRaw = scene;
+
     // 打印碰撞 shapes 的原始坐标，诊断是否 localStorage 中已带偏移
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {

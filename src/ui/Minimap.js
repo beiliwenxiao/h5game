@@ -57,9 +57,9 @@ export class Minimap extends UIElement {
     this._cacheVersion = 0;
     // 上次成功构建时的版本
     this._builtVersion = -1;
-    // 缓存重建间隔（避免每帧都尝试重建）
+    // 缓存重建间隔（避免每帧都尝试重建），单位：秒
     this._rebuildCooldown = 0;
-    this._rebuildInterval = 500; // ms
+    this._rebuildInterval = 0.5; // 0.5秒
 
     // 世界坐标范围（所有 terrain 的包围盒）
     this._worldMinX = 0;
@@ -135,10 +135,11 @@ export class Minimap extends UIElement {
     if (this._terrains.length === 0) return;
 
     // 检查是否有至少一个 terrain 准备好了可渲染的内容
-    // 条件：terrain 有 _combinedGroundCache 或其图集已加载（loaded.mountain）
     let anyReady = false;
     for (const t of this._terrains) {
-      if (t._combinedGroundCache || t.loaded.mountain) {
+      if (t._combinedGroundCache || t._groundDecoCache || t.loaded.mountain ||
+          t._bgImageCache ||
+          (t._editorBackgroundImages && t._editorBackgroundImages.some(bg => bg._loaded))) {
         anyReady = true;
         break;
       }
@@ -195,24 +196,58 @@ export class Minimap extends UIElement {
     ctx.scale(scale, scale);
     ctx.translate(-minX, -minY);
 
-    // 逐个 terrain 渲染地面
+    // 逐个 terrain 渲染背景层 + 装饰层
     for (const t of this._terrains) {
+      // --- 区块背景色 ---
+      const bgColor = t.sceneBackgroundColor || '#1f1a14';
+      const ox = t.worldOffset ? t.worldOffset.x : 0;
+      const oy = t.worldOffset ? t.worldOffset.y : 0;
+      const bx = ox + t.centerX - t.basinRadiusX - 60;
+      const by = oy + t.centerY - t.basinRadiusY - 60;
+      const bw = (t.basinRadiusX + 60) * 2;
+      const bh = (t.basinRadiusY + 60) * 2;
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(bx, by, bw, bh);
+
+      // --- 背景层 ---
       if (t._combinedGroundCache) {
-        // 有合并缓存直接绘制
+        // 有合并缓存直接绘制（包含地形椭圆 + 水池 + 背景图片）
         ctx.drawImage(
           t._combinedGroundCache,
           t._combinedGroundCacheX,
           t._combinedGroundCacheY
         );
-      } else if (t.loaded.mountain) {
-        // 缓存未就绪但图集已加载，调用渲染方法
-        ctx.save();
-        t._ensureTerrainEllipseData();
-        t._renderTerrainEllipse(ctx);
+      } else {
+        // 缓存未就绪，逐步渲染各层
+        if (t.loaded.mountain) {
+          ctx.save();
+          t._ensureTerrainEllipseData();
+          t._renderTerrainEllipse(ctx);
+          ctx.restore();
+        }
         t._renderWaterPatches(ctx);
-        ctx.restore();
+        // 背景图片（编辑器中放置的图片对象）
+        if (t._bgImageCache) {
+          ctx.drawImage(t._bgImageCache, t._bgImageCacheX, t._bgImageCacheY);
+        } else if (t._editorBackgroundImages && t._editorBackgroundImages.length > 0) {
+          for (const bgImg of t._editorBackgroundImages) {
+            if (!bgImg._loaded || !bgImg._img) continue;
+            ctx.save();
+            if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
+            ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
+            ctx.restore();
+          }
+        }
       }
-      // 不渲染 shape / 装饰物（缩略图不需要细节）
+
+      // --- 装饰层（草地/灌木等非碰撞装饰物的离屏缓存）---
+      if (t._groundDecoCache) {
+        ctx.drawImage(
+          t._groundDecoCache,
+          t._groundDecoCacheX,
+          t._groundDecoCacheY
+        );
+      }
     }
 
     this._mapCache = canvas;

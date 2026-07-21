@@ -3,7 +3,7 @@
   "name": "s0-1-火堆",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#233a19",
+  "backgroundColor": "#1b450c",
   "layers": [
     {
       "id": "layer_bg",
@@ -7113,7 +7113,7 @@
       }
     }
   ],
-  "updatedAt": "2026-07-19T15:52:33.033Z",
+  "updatedAt": "2026-07-21T14:44:32.081Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

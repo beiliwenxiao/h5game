@@ -2296,6 +2296,14 @@ export class BaseGameScene extends PrologueScene {
           t._minimapCacheNotified = true;
           this.minimap._invalidateCache();
         }
+        if (t._groundDecoCache && !t._minimapDecoNotified) {
+          t._minimapDecoNotified = true;
+          this.minimap._invalidateCache();
+        }
+        if (t._bgImageCache && !t._minimapBgImgNotified) {
+          t._minimapBgImgNotified = true;
+          this.minimap._invalidateCache();
+        }
       }
       // 玩家位置
       if (this.playerEntity) {

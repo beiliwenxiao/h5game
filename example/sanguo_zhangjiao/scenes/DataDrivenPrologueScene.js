@@ -1184,7 +1184,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 背景：盆地草地+水池（Scene1Terrain） */
   renderBackground(ctx) {
     if (this._terrains.length > 0) {
-      ctx.fillStyle = '#1f1a14';
+      const bgColor = (this.terrain && this.terrain.sceneBackgroundColor) || '#1f1a14';
+      ctx.fillStyle = bgColor;
       const vb = this.camera.getViewBounds();
       ctx.fillRect(vb.left, vb.top, vb.right - vb.left, vb.bottom - vb.top);
       for (const t of this._terrains) t.renderGround(ctx);

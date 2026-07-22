@@ -140,8 +140,8 @@ export class SceneEditorAssets {
           editor.selectedObjects = [obj];
           editor.ui.updateObjectProperties();
         }
-      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger') {
-        // 逻辑对象（P2-1）：region/spawn/portal/npc/trigger，放入逻辑层
+      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger' || id === 'buffZone') {
+        // 逻辑对象（P2-1）：region/spawn/portal/npc/trigger/buffZone，放入逻辑层
         this._addLogicObject(id, pos.x, pos.y);
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
@@ -228,6 +228,36 @@ export class SceneEditorAssets {
         radius: 60,
         conditions: '',
         actions: ''
+      };
+    } else if (kind === 'buffZone') {
+      // Buff 多边形：默认 5 顶点正五边形
+      const r = 100; // 半径
+      const cx = Math.round(x), cy = Math.round(y);
+      const pts = [];
+      for (let i = 0; i < 5; i++) {
+        const angle = -Math.PI / 2 + (2 * Math.PI * i) / 5;
+        pts.push([Math.round(cx + r * Math.cos(angle)), Math.round(cy + r * Math.sin(angle))]);
+      }
+      // 计算包围盒
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const p of pts) { if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0]; if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1]; }
+      obj = {
+        id: 'buffZone_' + rnd, type: 'buffZone', name: 'Buff区域',
+        shapeType: 'polygon',
+        points: pts,
+        x: minX, y: minY, width: maxX - minX, height: maxY - minY,
+        fillColor: 'rgba(100, 0, 200, 0.2)',
+        borderColor: 'rgba(100, 0, 200, 0.5)',
+        visible: true,
+        effect: {
+          effectType: 'periodic',
+          stat: 'hp',
+          value: -5,
+          interval: 2,
+          onLeave: 'remove',
+          leaveDuration: 5,
+          target: 'player'
+        }
       };
     }
     if (!obj) return;
@@ -439,6 +469,10 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="trigger">
         <div class="asset-preview" style="width:38px;height:26px;background:rgba(255,200,50,0.15);border:2px dashed #e0a020;"></div>
         <span>触发器</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="buffZone">
+        <div class="asset-preview" style="width:38px;height:26px;background:rgba(100,0,200,0.2);border:2px dashed #8040c0;"></div>
+        <span>Buff多边形</span>
       </div>
     `;
     this._bindAssetDrag(list);

@@ -4726,6 +4726,68 @@
           "actions": "[object Object]",
           "once": false,
           "cooldown": 0
+        },
+        {
+          "id": "trigger_1784761894050_0",
+          "type": "trigger",
+          "name": "5秒后自动点燃火堆",
+          "triggerId": "5秒后自动点燃火堆",
+          "x": 10,
+          "y": 10,
+          "width": 36,
+          "height": 36,
+          "event": "timer",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "buffZone_1784761899956_743",
+          "type": "buffZone",
+          "name": "Buff区域",
+          "shapeType": "polygon",
+          "points": [
+            [
+              579,
+              202
+            ],
+            [
+              674,
+              271
+            ],
+            [
+              638,
+              383
+            ],
+            [
+              520,
+              383
+            ],
+            [
+              484,
+              271
+            ]
+          ],
+          "x": 484,
+          "y": 202,
+          "width": 190,
+          "height": 181,
+          "fillColor": "rgba(100, 0, 200, 0.2)",
+          "borderColor": "rgba(100, 0, 200, 0.5)",
+          "visible": true,
+          "effect": {
+            "effectType": "periodic",
+            "stat": "hp",
+            "value": -5,
+            "interval": 2,
+            "onLeave": "remove",
+            "leaveDuration": 5,
+            "target": "player"
+          }
         }
       ]
     }
@@ -6840,7 +6902,7 @@
       }
     }
   ],
-  "updatedAt": "2026-07-21T18:42:20.004Z",
+  "updatedAt": "2026-07-21T18:52:38.981Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

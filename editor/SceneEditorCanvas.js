@@ -225,7 +225,7 @@ export class SceneEditorCanvas {
       }
     } else if (obj.type === 'slice') {
       this._renderSliceObject(ctx, obj);
-    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger') {
+    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger' || obj.type === 'buffZone') {
       this._renderLogicObject(ctx, obj);
     } else if (obj.type === 'ref') {
       this._renderRefObject(ctx, obj);
@@ -301,6 +301,31 @@ export class SceneEditorCanvas {
       // 如果有目标，显示在下方
       if (obj.target) {
         this._drawLogicLabel(ctx, '→ ' + obj.target, obj.x + 4, obj.y + obj.height - 4, '#c89020');
+      }
+    } else if (obj.type === 'buffZone') {
+      // Buff 多边形：半透明填充 + 边框 + 名称标签
+      const points = obj.points || [];
+      if (points.length >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.closePath();
+        ctx.fillStyle = obj.fillColor || 'rgba(100, 0, 200, 0.2)';
+        ctx.fill();
+        ctx.strokeStyle = obj.borderColor || 'rgba(100, 0, 200, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // 名称标签
+      const labelX = (obj.x || (points[0] && points[0][0])) + 4;
+      const labelY = (obj.y || (points[0] && points[0][1])) + 14;
+      this._drawLogicLabel(ctx, obj.name || 'Buff区域', labelX, labelY, '#c080ff');
+      // 效果类型小标签
+      if (obj.effect) {
+        const effText = `${obj.effect.stat || 'hp'} ${obj.effect.value > 0 ? '+' : ''}${obj.effect.value || 0}`;
+        this._drawLogicLabel(ctx, effText, labelX, labelY + 14, '#a060d0');
       }
     } else {
       // 点状标记：spawn/portal/npc
@@ -966,6 +991,29 @@ export class SceneEditorCanvas {
           continue;
         }
         // rect/ellipse/circle 形状：继续走下方缩放手柄
+      } else if (obj.type === 'buffZone' && Array.isArray(obj.points)) {
+        // Buff 多边形：显示顶点手柄（与 shape polygon 一致）
+        // 先画包围盒
+        let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
+        for (const p of obj.points) {
+          if (p[0] < bMinX) bMinX = p[0]; if (p[0] > bMaxX) bMaxX = p[0];
+          if (p[1] < bMinY) bMinY = p[1]; if (p[1] > bMaxY) bMaxY = p[1];
+        }
+        ctx.strokeRect(bMinX - 2, bMinY - 2, bMaxX - bMinX + 4, bMaxY - bMinY + 4);
+        // 顶点手柄
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#cc88ff';
+        ctx.strokeStyle = '#8040c0';
+        ctx.lineWidth = 1.5 / editor.viewport.scale;
+        const vs = handleSize;
+        for (const p of obj.points) {
+          ctx.fillRect(p[0] - vs / 2, p[1] - vs / 2, vs, vs);
+          ctx.strokeRect(p[0] - vs / 2, p[1] - vs / 2, vs, vs);
+        }
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2 / editor.viewport.scale;
+        ctx.setLineDash([6 / editor.viewport.scale, 4 / editor.viewport.scale]);
+        continue;
       } else {
         continue;
       }

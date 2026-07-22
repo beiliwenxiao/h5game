@@ -136,6 +136,10 @@ export class DebugPanel {
             <input type="checkbox" id="dp-show-collision" ${this.getScene()?.debugShowCollisionPolygons ? 'checked' : ''}>
             显示地形碰撞多边形（70%）
           </label>
+          <label class="dp-check-row">
+            <input type="checkbox" id="dp-show-buffzones" ${this.getScene()?.debugShowBuffZones ? 'checked' : ''}>
+            显示 Buff 多边形
+          </label>
         </div>
         <div class="dp-section dp-actions">
           <div class="dp-title">天气控制</div>
@@ -222,6 +226,12 @@ export class DebugPanel {
       if (!scene) return;
       scene.debugShowCollisionPolygons = event.target.checked;
       console.log('[DebugPanel] 地形碰撞多边形显示:', event.target.checked ? '开启' : '关闭');
+    });
+    el.querySelector('#dp-show-buffzones').addEventListener('change', (event) => {
+      const scene = this.getScene();
+      if (!scene) return;
+      scene.debugShowBuffZones = event.target.checked;
+      console.log('[DebugPanel] Buff 多边形显示:', event.target.checked ? '开启' : '关闭');
     });
     el.querySelector('#dp-weather-apply').addEventListener('click', () => {
       const scene = this.getScene();
@@ -366,6 +376,8 @@ export class DebugPanel {
     // 场景状态可能由外部代码改变，保持复选框显示同步
     const collisionToggle = this._el.querySelector('#dp-show-collision');
     if (collisionToggle) collisionToggle.checked = scene.debugShowCollisionPolygons === true;
+    const buffZoneToggle = this._el.querySelector('#dp-show-buffzones');
+    if (buffZoneToggle) buffZoneToggle.checked = scene.debugShowBuffZones === true;
 
     // 触发器事件
     const gl = scene.gameLoader;

@@ -846,7 +846,7 @@
         "player_go": {
           "speaker": "你",
           "portrait": "player",
-          "text": "是！",
+          "text": "��！",
           "nextNode": null
         }
       }
@@ -1447,11 +1447,11 @@
       "once": true
     },
     {
-      "id": "30秒后自动点燃火堆",
+      "id": "5秒后自动点燃火堆",
       "when": {
         "type": "timer",
         "params": {
-          "seconds": 30
+          "seconds": 5
         }
       },
       "if": {
@@ -1954,6 +1954,22 @@
         }
       ],
       "once": false
+    },
+    {
+      "id": "30秒后自动点燃火堆",
+      "when": {
+        "type": "timer",
+        "params": {}
+      },
+      "do": [],
+      "once": true,
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ddScene"
+        },
+        "right": true
+      }
     }
   ],
   "tutorials": [

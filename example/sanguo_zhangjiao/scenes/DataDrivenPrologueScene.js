@@ -1383,6 +1383,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
 
     for (const t of this._terrains) t.renderCliffs(ctx);
+
+    // 渲染 Buff 多边形区域
+    this._renderBuffZones(ctx);
   }
 
   /** 火堆下半部分 */

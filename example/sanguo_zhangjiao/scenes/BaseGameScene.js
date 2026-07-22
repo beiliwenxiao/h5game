@@ -72,6 +72,7 @@ import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
 import { hasSceneData } from '../../../src/core/SceneDataReader.js';
+import { ZoneEffectSystem } from '../../../src/systems/ZoneEffectSystem.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -112,6 +113,7 @@ export class BaseGameScene extends PrologueScene {
     this.collisionSystem = null;
     this.pickupSystem = null;
     this.meditationSystem = null;
+    this.zoneEffectSystem = null;
     
     // 扇形攻击系统（由 MeleeAttackSystem 管理）
     this.meleeAttackSystem = null;
@@ -355,6 +357,37 @@ export class BaseGameScene extends PrologueScene {
       floatingTextManager: this.floatingTextManager,
       skillEffects: this.skillEffects,
       combatSystem: this.combatSystem
+    });
+
+    // 初始化区域效果系统（Buff 多边形）
+    this.zoneEffectSystem = new ZoneEffectSystem();
+    this.zoneEffectSystem.setCallbacks({
+      onEnterZone: (entity, zone) => {
+        if (entity !== this.playerEntity) return;
+        const eff = zone.effect || {};
+        const statNames = { hp: '生命', mp: '法力', attack: '攻击', defense: '防御', speed: '速度' };
+        const statName = statNames[eff.stat] || eff.stat;
+        const isGain = (eff.value || 0) > 0;
+        const tipText = isGain
+          ? `进入增益区域：${zone.name || 'Buff区域'}（${statName} +${eff.value}）`
+          : `进入减益区域：${zone.name || 'Buff区域'}（${statName} ${eff.value}）`;
+        this._showScreenTip(tipText);
+        setTimeout(() => this._hideScreenTip(), 2500);
+      },
+      onLeaveZone: (entity, zone) => {
+        if (entity !== this.playerEntity) return;
+        this._showScreenTip(`离开区域：${zone.name || 'Buff区域'}`);
+        setTimeout(() => this._hideScreenTip(), 1500);
+      },
+      onEffectApply: (entity, zone, stat, value) => {
+        const transform = entity.getComponent ? entity.getComponent('transform') : null;
+        if (!transform || !this.floatingTextManager) return;
+        const pos = transform.position;
+        const color = value > 0 ? '#00ff88' : '#ff4444';
+        const prefix = value > 0 ? '+' : '';
+        const statShort = { hp: 'HP', mp: 'MP', attack: 'ATK', defense: 'DEF', speed: 'SPD' }[stat] || stat;
+        this.floatingTextManager.addText(pos.x, pos.y - 40, `${prefix}${value} ${statShort}`, color);
+      }
     });
     
     // 初始化近战攻击系统
@@ -2170,6 +2203,15 @@ export class BaseGameScene extends PrologueScene {
     // 更新打坐状态（通过冥想系统）
     this.meditationSystem.update(deltaTime, this.playerEntity);
     
+    // 更新区域效果（Buff 多边形）
+    if (this.zoneEffectSystem) {
+      // 延迟收集 buffZone（terrain 异步加载完成后）
+      if (!this._buffZonesCollected) {
+        this._collectBuffZones();
+      }
+      this.zoneEffectSystem.update(deltaTime, this.entities);
+    }
+    
     // 更新装备系统
     this.equipmentSystem.update(deltaTime, this.entities);
     
@@ -3349,6 +3391,9 @@ export class BaseGameScene extends PrologueScene {
       // 悬崖（在所有之上）
       this.terrain.renderCliffs(ctx);
 
+      // 渲染可见的 Buff 多边形区域
+      this._renderBuffZones(ctx);
+
       // 气泡对话
       this.renderSpeechBubbles(ctx);
       return;
@@ -3579,6 +3624,122 @@ export class BaseGameScene extends PrologueScene {
       1: 's0-1'
     };
     return map[actNumber] || `scene_Act${actNumber}`;
+  }
+
+  /**
+   * 从已加载的 terrain 场景数据中收集 buffZone 对象，注入 ZoneEffectSystem
+   * @private
+   */
+  _collectBuffZones() {
+    const terrains = this._terrains || (this.terrain ? [this.terrain] : []);
+    if (terrains.length === 0) return; // 还没加载完
+
+    const zones = [];
+    let loadedCount = 0;
+    for (const t of terrains) {
+      const scene = t._sceneDataRaw;
+      if (!scene) continue;
+      loadedCount++;
+      if (!Array.isArray(scene.layers)) continue;
+      const ox = t.worldOffset ? t.worldOffset.x : 0;
+      const oy = t.worldOffset ? t.worldOffset.y : 0;
+      for (const layer of scene.layers) {
+        if (!Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (obj.type !== 'buffZone' || !obj.effect) continue;
+          // 转世界坐标
+          const worldPoints = (obj.points || []).map(p => [p[0] + ox, p[1] + oy]);
+          zones.push({
+            id: obj.id,
+            name: obj.name || '',
+            points: worldPoints,
+            fillColor: obj.fillColor,
+            borderColor: obj.borderColor,
+            visible: obj.visible !== false,
+            effect: obj.effect
+          });
+        }
+      }
+    }
+
+    // 有任何 terrain 已加载就更新 zones（后续加载完的会再次更新）
+    if (loadedCount > 0) {
+      this.zoneEffectSystem.setZones(zones);
+      this._buffZones = zones;
+      // 全部加载完才标记收集完成（不再重复尝试）
+      if (loadedCount >= terrains.length) {
+        this._buffZonesCollected = true;
+      }
+      if (zones.length > 0 && !this._buffZonesLogged) {
+        console.log(`[BaseGameScene] 收集到 ${zones.length} 个 Buff 多边形 (${loadedCount}/${terrains.length} terrains loaded)`);
+        this._buffZonesLogged = true;
+      }
+    }
+  }
+
+  /**
+   * 渲染可见的 Buff 多边形（半透明填充 + 边框）
+   * debugShowBuffZones=true 时：显示所有（含隐形），并附加名称/效果标签
+   * @private
+   */
+  _renderBuffZones(ctx) {
+    const debugMode = this.debugShowBuffZones === true;
+    if (!this._buffZones || this._buffZones.length === 0) {
+      if (debugMode && !this._buffZonesCollected) {
+        // 还没收集完，尝试立即收集一次
+        this._collectBuffZones();
+      }
+      if (!this._buffZones || this._buffZones.length === 0) return;
+    }
+    for (const zone of this._buffZones) {
+      if (!zone.points || zone.points.length < 3) continue;
+      if (!zone.visible && !debugMode) continue;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(zone.points[0][0], zone.points[0][1]);
+      for (let i = 1; i < zone.points.length; i++) {
+        ctx.lineTo(zone.points[i][0], zone.points[i][1]);
+      }
+      ctx.closePath();
+
+      // 填充
+      if (debugMode) {
+        ctx.fillStyle = zone.visible
+          ? (zone.fillColor || 'rgba(100, 0, 200, 0.15)')
+          : 'rgba(200, 0, 0, 0.15)'; // 隐形区域用红色半透明
+      } else {
+        ctx.fillStyle = zone.fillColor || 'rgba(100, 0, 200, 0.15)';
+      }
+      ctx.fill();
+
+      // 边框
+      ctx.strokeStyle = debugMode
+        ? (zone.visible ? (zone.borderColor || 'rgba(100,0,200,0.5)') : 'rgba(200,0,0,0.5)')
+        : (zone.borderColor || 'rgba(100,0,200,0.5)');
+      ctx.lineWidth = debugMode ? 2 : 1.5;
+      if (debugMode) ctx.setLineDash([6, 3]);
+      ctx.stroke();
+      if (debugMode) ctx.setLineDash([]);
+
+      // 调试模式额外：名称 + 效果标签
+      if (debugMode) {
+        const cx = zone.points.reduce((s, p) => s + p[0], 0) / zone.points.length;
+        const cy = zone.points.reduce((s, p) => s + p[1], 0) / zone.points.length;
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(zone.name || 'Buff', cx, cy - 6);
+        if (zone.effect) {
+          const eff = zone.effect;
+          const label = `${eff.stat || 'hp'} ${eff.value > 0 ? '+' : ''}${eff.value || 0} (${eff.effectType || '?'})`;
+          ctx.fillStyle = '#ccc';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(label, cx, cy + 8);
+        }
+      }
+      ctx.restore();
+    }
   }
 
   /**

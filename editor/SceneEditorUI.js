@@ -528,6 +528,8 @@ export class SceneEditorUI {
         html += this._buildShapeProperties(obj);
       } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger') {
         html += this._buildLogicProperties(obj);
+      } else if (obj.type === 'buffZone') {
+        html += this._buildBuffZoneProperties(obj);
       } else if (obj.type === 'ref') {
         html += this._buildRefProperties(obj);
       } else if (obj.fill) {
@@ -577,6 +579,12 @@ export class SceneEditorUI {
               obj.points.splice(idx, 1);
             }
           }
+          // buffZone：同步包围盒
+          if (obj.type === 'buffZone') {
+            let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
+            for (const p of obj.points) { if (p[0] < bMinX) bMinX = p[0]; if (p[0] > bMaxX) bMaxX = p[0]; if (p[1] < bMinY) bMinY = p[1]; if (p[1] > bMaxY) bMaxY = p[1]; }
+            obj.x = bMinX; obj.y = bMinY; obj.width = bMaxX - bMinX; obj.height = bMaxY - bMinY;
+          }
           this.updateObjectProperties();
         } else if (prop === 'id') {
           // ID 修改查重：遍历所有图层对象确保唯一
@@ -601,6 +609,16 @@ export class SceneEditorUI {
               return;
             }
             obj.id = newId;
+          }
+        } else if (prop.startsWith('effect.')) {
+          // Buff 多边形嵌套属性：effect.stat, effect.value, effect.interval, etc.
+          if (!obj.effect) obj.effect = {};
+          const subKey = prop.slice(7); // 去掉 'effect.'
+          // 数值类型转换
+          if (['value', 'interval', 'delay', 'leaveDuration'].includes(subKey)) {
+            obj.effect[subKey] = parseFloat(value) || 0;
+          } else {
+            obj.effect[subKey] = value;
           }
         } else {
           obj[prop] = value;
@@ -658,6 +676,50 @@ export class SceneEditorUI {
   /**
    * 构建内容库放置引用（type:'ref'）的属性 HTML。
    * 明细在内容库定义里；这里只编辑放置相关：组名 group（供 spawnGroup 触发器整批激活）。
+  /**
+   * Buff 多边形属性面板
+   * @private
+   */
+  _buildBuffZoneProperties(obj) {
+    const eff = obj.effect || {};
+    let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"><label style="color:#c080ff;font-weight:bold;">Buff 多边形</label></div>';
+    html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
+    html += `<div class="property-row"><label>顶点数:</label><input type="number" value="${(obj.points || []).length}" min="3" max="100" data-prop="_vertexCount" title="修改后重新生成正多边形"></div>`;
+    html += `<div class="property-row"><label>填充色:</label><input type="text" value="${obj.fillColor || 'rgba(100,0,200,0.2)'}" data-prop="fillColor" style="font-size:10px;"></div>`;
+    html += `<div class="property-row"><label>边框色:</label><input type="text" value="${obj.borderColor || 'rgba(100,0,200,0.5)'}" data-prop="borderColor" style="font-size:10px;"></div>`;
+    html += `<div class="property-row"><label>游戏中可见:</label><input type="checkbox" ${obj.visible !== false ? 'checked' : ''} data-prop="visible"></div>`;
+    html += '<div class="property-row" style="border-top:1px solid #444;margin-top:4px;padding-top:4px;"><label style="color:#a060d0;">效果设置</label></div>';
+    html += `<div class="property-row"><label>效果类型:</label><select data-prop="effect.effectType">
+      <option value="instant" ${eff.effectType === 'instant' ? 'selected' : ''}>即时</option>
+      <option value="periodic" ${eff.effectType === 'periodic' ? 'selected' : ''}>周期</option>
+      <option value="delayed" ${eff.effectType === 'delayed' ? 'selected' : ''}>延迟</option>
+    </select></div>`;
+    html += `<div class="property-row"><label>目标属性:</label><select data-prop="effect.stat">
+      <option value="hp" ${eff.stat === 'hp' ? 'selected' : ''}>生命 hp</option>
+      <option value="mp" ${eff.stat === 'mp' ? 'selected' : ''}>法力 mp</option>
+      <option value="attack" ${eff.stat === 'attack' ? 'selected' : ''}>攻击</option>
+      <option value="defense" ${eff.stat === 'defense' ? 'selected' : ''}>防御</option>
+      <option value="speed" ${eff.stat === 'speed' ? 'selected' : ''}>速度</option>
+    </select></div>`;
+    html += `<div class="property-row"><label>数值:</label><input type="number" value="${eff.value || 0}" data-prop="effect.value"></div>`;
+    html += `<div class="property-row"><label>周期(秒):</label><input type="number" value="${eff.interval || 2}" step="0.5" min="0.1" data-prop="effect.interval"></div>`;
+    html += `<div class="property-row"><label>延迟(秒):</label><input type="number" value="${eff.delay || 10}" step="1" min="1" data-prop="effect.delay"></div>`;
+    html += `<div class="property-row"><label>离开行为:</label><select data-prop="effect.onLeave">
+      <option value="remove" ${eff.onLeave === 'remove' ? 'selected' : ''}>立即消失</option>
+      <option value="countdown" ${eff.onLeave === 'countdown' ? 'selected' : ''}>倒计时消失</option>
+      <option value="continue" ${eff.onLeave === 'continue' ? 'selected' : ''}>永久保留</option>
+    </select></div>`;
+    html += `<div class="property-row"><label>离开倒计时:</label><input type="number" value="${eff.leaveDuration || 5}" step="1" min="0" data-prop="effect.leaveDuration"> 秒</div>`;
+    html += `<div class="property-row"><label>作用目标:</label><select data-prop="effect.target">
+      <option value="player" ${eff.target === 'player' ? 'selected' : ''}>玩家</option>
+      <option value="enemy" ${eff.target === 'enemy' ? 'selected' : ''}>敌人</option>
+      <option value="all" ${eff.target === 'all' ? 'selected' : ''}>所有</option>
+    </select></div>`;
+    return html;
+  }
+
+  /**
+   * 放置引用对象属性面板
    * @private
    */
   _buildRefProperties(obj) {

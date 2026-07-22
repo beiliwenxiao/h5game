@@ -82,6 +82,12 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
+        } else if (obj.type === 'buffZone') {
+          // Buff 多边形：射线法命中
+          if (obj.points && this._pointInPolygon(obj.points, x, y)) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
         } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
           // 点状逻辑对象/放置引用：18px 半径命中
           if (Math.hypot(x - obj.x, y - obj.y) <= 18) {
@@ -131,6 +137,25 @@ export class SceneEditorInteraction {
       if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
     }
     return inside;
+  }
+
+  /**
+   * 同步 buffZone 的 x/y/width/height 包围盒（顶点变化后调用）
+   * @private
+   */
+  _syncBuffZoneBBox(obj) {
+    if (!obj.points || obj.points.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of obj.points) {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+    obj.x = minX;
+    obj.y = minY;
+    obj.width = maxX - minX;
+    obj.height = maxY - minY;
   }
 
   /**
@@ -186,10 +211,10 @@ export class SceneEditorInteraction {
     }
 
     if (editor.interaction.mode === 'select') {
-      // 选中单个多边形/路径时，优先检测顶点拖拽
+      // 选中单个多边形/路径/buffZone时，优先检测顶点拖拽
       if (editor.selectedObjects.length === 1) {
         const sel = editor.selectedObjects[0];
-        if (sel.type === 'shape' && (sel.shapeType === 'polygon' || sel.shapeType === 'path')) {
+        if ((sel.type === 'shape' && (sel.shapeType === 'polygon' || sel.shapeType === 'path')) || sel.type === 'buffZone') {
           const vi = this.getVertexAt(sel, pos.x, pos.y);
           if (vi !== -1) {
             editor.interaction.isDragging = true;
@@ -262,10 +287,10 @@ export class SceneEditorInteraction {
         // 记录所有选中对象的起始位置（多对象拖动）
         editor.interaction.allObjectStarts = editor.selectedObjects.map(o => ({
           x: o.x || 0, y: o.y || 0,
-          points: (o.type === 'shape' && Array.isArray(o.points)) ? o.points.map(p => [p[0], p[1]]) : null
+          points: ((o.type === 'shape' || o.type === 'buffZone') && Array.isArray(o.points)) ? o.points.map(p => [p[0], p[1]]) : null
         }));
-        // 多边形/路径移动：记录顶点起始快照
-        if (clicked.type === 'shape' && Array.isArray(clicked.points)) {
+        // 多边形/路径/buffZone 移动：记录顶点起始快照
+        if ((clicked.type === 'shape' || clicked.type === 'buffZone') && Array.isArray(clicked.points)) {
           editor.interaction.pointsStart = clicked.points.map(p => [p[0], p[1]]);
         } else {
           editor.interaction.pointsStart = null;
@@ -308,6 +333,10 @@ export class SceneEditorInteraction {
       const { obj, index } = editor.interaction.draggingVertex;
       if (obj.points && obj.points[index]) {
         obj.points[index] = [Math.round(pos.x), Math.round(pos.y)];
+        // buffZone: 同步 x/y/width/height 包围盒
+        if (obj.type === 'buffZone') {
+          this._syncBuffZoneBBox(obj);
+        }
         editor.ui.updateObjectProperties();
         editor.render();
       }
@@ -363,6 +392,12 @@ export class SceneEditorInteraction {
         // 多边形/路径：整体偏移所有顶点
         if (obj.type === 'shape' && Array.isArray(obj.points) && start.points) {
           obj.points = start.points.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
+          continue;
+        }
+        // Buff 多边形：整体偏移所有顶点 + 同步包围盒
+        if (obj.type === 'buffZone' && Array.isArray(obj.points) && start.points) {
+          obj.points = start.points.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
+          this._syncBuffZoneBBox(obj);
           continue;
         }
         obj.x = start.x + dx;

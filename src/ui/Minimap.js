@@ -437,7 +437,7 @@ export class Minimap extends UIElement {
     }
 
     // 左下角 +/- 缩放按钮
-    this._renderZoomButtons(ctx);
+    // (已移除，改为点击小地图切换缩放)
 
     ctx.restore();
   }
@@ -511,61 +511,17 @@ export class Minimap extends UIElement {
   }
 
   /**
-   * 处理点击事件（检测 +/- 按钮）
+   * 处理点击事件：点击小地图任意位置，依次切换 3 种缩放级别
    * @param {number} x - 屏幕坐标
    * @param {number} y - 屏幕坐标
    * @returns {boolean} 是否消费了点击
    */
   handleClick(x, y) {
-    if (!this.visible) return false;
-    const btnSize = 18;
-    const gap = 4;
-    const bx = this.x + this.padding;
-    const by = this.y + this.height - this.padding - btnSize;
-
-    // + 按钮
-    if (x >= bx && x <= bx + btnSize && y >= by && y <= by + btnSize) {
-      this.zoomIn();
-      return true;
-    }
-    // - 按钮
-    const bx2 = bx + btnSize + gap;
-    if (x >= bx2 && x <= bx2 + btnSize && y >= by && y <= by + btnSize) {
-      this.zoomOut();
-      return true;
-    }
-    return false;
+    if (!this.visible || !this.containsPoint(x, y)) return false;
+    // 循环切换：0 → 1 → 2 → 0
+    this._zoomLevel = (this._zoomLevel + 1) % (this._maxZoomLevel + 1);
+    this._invalidateCache();
+    return true;
   }
 
-  /** 渲染左下角 +/- 按钮 */
-  _renderZoomButtons(ctx) {
-    const btnSize = 18;
-    const gap = 4;
-    const bx = this.x + this.padding;
-    const by = this.y + this.height - this.padding - btnSize;
-
-    // + 按钮
-    ctx.fillStyle = this._zoomLevel > 0 ? 'rgba(60,80,60,0.85)' : 'rgba(40,40,40,0.6)';
-    ctx.fillRect(bx, by, btnSize, btnSize);
-    ctx.strokeStyle = '#8B7355';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(bx, by, btnSize, btnSize);
-    ctx.fillStyle = this._zoomLevel > 0 ? '#fff' : '#666';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('+', bx + btnSize / 2, by + btnSize / 2);
-
-    // - 按钮
-    const bx2 = bx + btnSize + gap;
-    ctx.fillStyle = this._zoomLevel < this._maxZoomLevel ? 'rgba(60,80,60,0.85)' : 'rgba(40,40,40,0.6)';
-    ctx.fillRect(bx2, by, btnSize, btnSize);
-    ctx.strokeStyle = '#8B7355';
-    ctx.strokeRect(bx2, by, btnSize, btnSize);
-    ctx.fillStyle = this._zoomLevel < this._maxZoomLevel ? '#fff' : '#666';
-    ctx.fillText('-', bx2 + btnSize / 2, by + btnSize / 2);
-
-    // 重置 textBaseline
-    ctx.textBaseline = 'alphabetic';
-  }
 }

@@ -81,7 +81,7 @@ export class SceneEditorUI {
                   <button class="asset-tab" data-tab="logic">逻辑</button>
                   <button class="asset-tab" data-tab="content">内容</button>
                 </div>
-                <div class="asset-actions">
+                <div class="asset-actions" id="editor-image-actions" style="display:none;">
                   <button id="editor-add-image">添加图片</button>
                   <button id="editor-use-slicer">编辑切片</button>
                 </div>
@@ -89,6 +89,11 @@ export class SceneEditorUI {
                   <div class="asset-list" id="editor-asset-list"></div>
                 </div>
                 <div id="asset-atlases" class="asset-panel" style="display:none;">
+                  <div class="asset-actions" style="margin-bottom:6px;">
+                    <button id="editor-atlas-add" title="新增一个图集">+ 新增图集</button>
+                    <button id="editor-atlas-delete" title="删除选中的图集">🗑 删除</button>
+                    <button id="editor-atlas-save" title="保存所有图集到 config/atlases.json">💾 保存图集</button>
+                  </div>
                   <div class="atlas-list" id="editor-atlas-list"></div>
                 </div>
                 <div id="asset-logic" class="asset-panel" style="display:none;">
@@ -226,6 +231,9 @@ export class SceneEditorUI {
           const el = editor.container.querySelector(sel);
           if (el) el.style.display = (name === tabName) ? 'block' : 'none';
         }
+        // 「添加图片 / 编辑切片」按钮仅在图集 Tab 显示（属于图集内的操作）
+        const imgActions = editor.container.querySelector('#editor-image-actions');
+        if (imgActions) imgActions.style.display = (tabName === 'atlases') ? 'flex' : 'none';
         // 内容 Tab 首次打开时加载内容库定义
         if (tabName === 'logic') editor.assets.updateLogicList?.();
         if (tabName === 'content') editor.assets.updateContentLibrary?.();
@@ -238,6 +246,13 @@ export class SceneEditorUI {
     if (saveBtn) saveBtn.addEventListener('click', () => editor.assets.saveContentLibrary?.());
     const filter = editor.container.querySelector('#editor-content-filter');
     if (filter) filter.addEventListener('change', () => editor.assets.updateContentList?.());
+    // 图集 Tab 的按钮
+    const atlasAddBtn = editor.container.querySelector('#editor-atlas-add');
+    if (atlasAddBtn) atlasAddBtn.addEventListener('click', () => editor.assets.addAtlas?.());
+    const atlasDelBtn = editor.container.querySelector('#editor-atlas-delete');
+    if (atlasDelBtn) atlasDelBtn.addEventListener('click', () => editor.assets.deleteAtlas?.());
+    const atlasSaveBtn = editor.container.querySelector('#editor-atlas-save');
+    if (atlasSaveBtn) atlasSaveBtn.addEventListener('click', () => editor.assets.saveAtlases?.());
   }
 
   /**
@@ -520,7 +535,9 @@ export class SceneEditorUI {
         html += `<div class="property-row"><label>旋转:</label><input type="number" value="${Math.round(obj.rotation)}" data-prop="rotation"></div>`;
       }
 
-      if (obj.type === 'fill') {
+      if (obj.type === 'image') {
+        html += this._buildImageProperties(obj);
+      } else if (obj.type === 'fill') {
         html += this._buildFillProperties(obj);
       } else if (obj.type === 'ellipse') {
         html += this._buildEllipseProperties(obj);
@@ -631,6 +648,34 @@ export class SceneEditorUI {
         editor.render();
       });
     });
+
+    // 图片对象：路径编辑 + 文件大小查询
+    const imageSrcInput = document.getElementById('editor-image-src');
+    if (imageSrcInput && editor.selectedObjects.length === 1 && editor.selectedObjects[0].type === 'image') {
+      const imgObj = editor.selectedObjects[0];
+      // 初次显示时异步查询文件大小
+      this._fetchImageFileSize(imageSrcInput.value);
+      imageSrcInput.addEventListener('change', () => {
+        const newSrc = imageSrcInput.value.trim();
+        if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
+        if (!editor.sceneData.imageAssets[imgObj.imageId]) {
+          editor.sceneData.imageAssets[imgObj.imageId] = { src: newSrc };
+        } else {
+          editor.sceneData.imageAssets[imgObj.imageId].src = newSrc;
+        }
+        // 重新加载图片刷新画布与尺寸显示
+        const newImg = new Image();
+        newImg.onload = () => {
+          editor.loadedImages.set(imgObj.imageId, newImg);
+          const dimEl = document.getElementById('editor-image-dim');
+          if (dimEl) dimEl.value = `${newImg.naturalWidth}×${newImg.naturalHeight}`;
+          editor.render();
+        };
+        newImg.onerror = () => this.showToast('图片加载失败: ' + newSrc, 'error');
+        newImg.src = newSrc;
+        this._fetchImageFileSize(newSrc);
+      });
+    }
 
     // 加载图片按钮
     const loadImgBtn = document.getElementById('editor-load-fill-image');
@@ -998,6 +1043,52 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label>边框宽:</label><input type="number" value="${obj.strokeWidth || 0}" min="0" step="1" data-prop="strokeWidth"></div>`;
     html += `<div class="property-row"><label>可碰撞:</label><input type="checkbox" ${obj.collide ? 'checked' : ''} data-prop="collide" title="作为不可通行区域"></div>`;
     return html;
+  }
+
+  /**
+   * 构建图片对象（type:'image'）的属性 HTML：路径/URL、图片尺寸、文件大小
+   * 图片路径存于 sceneData.imageAssets[imageId].src，不是 obj 上，故用独立 id 绑定。
+   * @private
+   */
+  _buildImageProperties(obj) {
+    const editor = this.editor;
+    const asset = editor.sceneData.imageAssets?.[obj.imageId];
+    const src = asset?.src || '';
+    const img = editor.loadedImages.get(obj.imageId);
+    const dim = img ? `${img.naturalWidth || img.width}×${img.naturalHeight || img.height}` : '未加载';
+    let html = '';
+    html += `<div class="property-row"><label title="图片相对路径或 URL">路径:</label><input type="text" id="editor-image-src" value="${src}" style="flex:1;"></div>`;
+    html += `<div class="property-row"><label>图片尺寸:</label><input id="editor-image-dim" value="${dim}" disabled style="color:#88ccff;"></div>`;
+    html += `<div class="property-row"><label>文件大小:</label><input id="editor-image-filesize" value="计算中…" disabled style="color:#88ccff;"></div>`;
+    return html;
+  }
+
+  /**
+   * 通过 dev server /api/file-size 查询图片文件大小并显示（人类可读）
+   * @private
+   */
+  async _fetchImageFileSize(src) {
+    const el = document.getElementById('editor-image-filesize');
+    if (!el) return;
+    if (!src) { el.value = '无路径'; return; }
+    // 只有相对路径（本地文件）才能查；http(s)/data URL 直接标注
+    if (/^(https?:|data:)/i.test(src)) { el.value = '外部资源'; return; }
+    // 编辑器路径（如 ../example/xxx）转为相对仓库根路径
+    const relPath = src.replace(/^(\.\.\/)+/, '');
+    try {
+      const res = await fetch('/api/file-size?path=' + encodeURIComponent(relPath));
+      const data = await res.json();
+      if (data && data.ok) {
+        const bytes = data.size;
+        el.value = bytes < 1024 ? `${bytes} B`
+          : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB`
+          : `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+      } else {
+        el.value = '未找到文件';
+      }
+    } catch (e) {
+      el.value = '查询失败';
+    }
   }
 
   /**

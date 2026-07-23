@@ -138,6 +138,31 @@ function editorFileAPIPlugin() {
           res.end(JSON.stringify({ ok: true, files }));
           return;
         }
+
+        // 获取文件大小（字节）——用于编辑器显示图片文件大小
+        if (req.method === 'GET' && req.url.startsWith('/api/file-size')) {
+          const url = new URL(req.url, 'http://localhost');
+          const filePath = url.searchParams.get('path');
+          if (!filePath) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ error: '缺少 path 参数' }));
+            return;
+          }
+          const absPath = path.resolve(repoRoot, filePath);
+          if (!absPath.startsWith(repoRoot)) {
+            res.statusCode = 403;
+            res.end(JSON.stringify({ error: '路径越权' }));
+            return;
+          }
+          if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: '文件不存在' }));
+            return;
+          }
+          res.setHeader('Content-Type', 'application/json; charset=utf-8');
+          res.end(JSON.stringify({ ok: true, size: fs.statSync(absPath).size }));
+          return;
+        }
         
         next();
       });

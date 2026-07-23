@@ -4529,27 +4529,27 @@
           "shapeType": "polygon",
           "points": [
             [
-              714,
+              715,
               35
             ],
             [
-              762,
+              763,
               132
             ],
             [
-              722,
+              723,
               298
             ],
             [
-              422,
+              423,
               197
             ],
             [
-              520,
+              521,
               105
             ]
           ],
-          "x": 422,
+          "x": 423,
           "y": 35,
           "width": 340,
           "height": 263,
@@ -4770,7 +4770,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-22T23:05:49.943Z",
+  "updatedAt": "2026-07-23T23:07:58.509Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -4847,5 +4847,7 @@
         }
       }
     }
-  ]
+  ],
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world"
 }

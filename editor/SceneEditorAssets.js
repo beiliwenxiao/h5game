@@ -624,8 +624,10 @@ export class SceneEditorAssets {
     for (const atlas of editor.sceneData.atlases) {
       const item = document.createElement('div');
       item.className = 'atlas-item';
+      if (editor.selectedAtlasId === atlas.id) item.classList.add('selected');
 
       let slicesHtml = '';
+      const sliceCount = atlas.slices ? Object.keys(atlas.slices).length : 0;
       if (atlas.slices) {
         for (const [sliceKey, slice] of Object.entries(atlas.slices)) {
           slicesHtml += `
@@ -637,16 +639,61 @@ export class SceneEditorAssets {
         }
       }
 
+      // 选中图集时展开属性编辑区
+      let propsHtml = '';
+      if (editor.selectedAtlasId === atlas.id) {
+        propsHtml = `
+          <div class="atlas-props" data-atlas="${atlas.id}">
+            <div class="atlas-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
+            <div class="atlas-prop-row"><label>名称:</label><input type="text" class="atlas-prop" data-prop="name" value="${atlas.name || ''}"></div>
+            <div class="atlas-prop-row"><label>路径:</label><input type="text" class="atlas-prop" data-prop="path" value="${atlas.path || ''}" title="图集图片的相对路径或 URL"></div>
+            <div class="atlas-prop-row"><label>宽度:</label><input type="number" class="atlas-prop" data-prop="width" value="${atlas.width || 0}"></div>
+            <div class="atlas-prop-row"><label>高度:</label><input type="number" class="atlas-prop" data-prop="height" value="${atlas.height || 0}"></div>
+            <div class="atlas-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
+          </div>
+        `;
+      }
+
       item.innerHTML = `
-        <div class="atlas-header">
+        <div class="atlas-header" data-atlas="${atlas.id}">
           <span>${atlas.name}</span>
-          <span style="font-size:10px;color:#666;">${atlas.width}×${atlas.height}</span>
+          <span style="font-size:10px;color:#666;">${atlas.width}×${atlas.height} · ${sliceCount}片</span>
         </div>
+        ${propsHtml}
         <div class="slice-grid">${slicesHtml}</div>
       `;
 
       list.appendChild(item);
     }
+
+    // 绑定图集头部点击 → 选中图集
+    list.querySelectorAll('.atlas-header').forEach(header => {
+      header.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._selectAtlas(header.dataset.atlas);
+      });
+    });
+
+    // 绑定图集属性编辑
+    list.querySelectorAll('.atlas-props').forEach(propsEl => {
+      const atlasId = propsEl.dataset.atlas;
+      propsEl.querySelectorAll('.atlas-prop').forEach(input => {
+        input.addEventListener('change', () => {
+          const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
+          if (!atlas) return;
+          const prop = input.dataset.prop;
+          const value = input.type === 'number' ? parseFloat(input.value) : input.value;
+          atlas[prop] = value;
+          if (prop === 'path') {
+            // 路径变化，重新加载图集图片以刷新预览
+            editor.loadedImages.delete(atlas.id);
+            this.loadAtlasImages();
+          }
+          this._updateAtlasList();
+          editor.render();
+        });
+      });
+    });
 
     // 绑定切片事件
     list.querySelectorAll('.slice-item').forEach(sliceItem => {
@@ -669,6 +716,82 @@ export class SceneEditorAssets {
         sliceItem.classList.remove('dragging');
       });
     });
+  }
+
+  /**
+   * 选中图集（展开属性编辑区）
+   * @private
+   */
+  _selectAtlas(atlasId) {
+    const editor = this.editor;
+    // 再次点击已选中的图集则取消选中
+    editor.selectedAtlasId = (editor.selectedAtlasId === atlasId) ? null : atlasId;
+    this._updateAtlasList();
+    this._updateSlicePreviews();
+  }
+
+  /**
+   * 新增图集
+   */
+  addAtlas() {
+    const editor = this.editor;
+    if (!editor.sceneData.atlases) editor.sceneData.atlases = [];
+    const id = 'atlas_' + Date.now().toString(36);
+    const atlas = {
+      id,
+      name: '新图集',
+      path: '',
+      width: 512,
+      height: 512,
+      slices: {}
+    };
+    editor.sceneData.atlases.push(atlas);
+    editor.selectedAtlasId = id;
+    this._updateAtlasList();
+    editor.ui.showToast?.('已新增图集，请设置图片路径');
+  }
+
+  /**
+   * 删除选中的图集
+   */
+  deleteAtlas() {
+    const editor = this.editor;
+    const atlasId = editor.selectedAtlasId;
+    if (!atlasId) { editor.ui.showToast?.('请先选中一个图集', 'error'); return; }
+    const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
+    if (!atlas) return;
+    if (!confirm(`确定删除图集「${atlas.name}」吗？`)) return;
+    editor.sceneData.atlases = editor.sceneData.atlases.filter(a => a.id !== atlasId);
+    editor.loadedImages.delete(atlasId);
+    editor.selectedAtlasId = null;
+    if (editor.selectedSlice && editor.selectedSlice.atlasId === atlasId) editor.selectedSlice = null;
+    this._updateAtlasList();
+    editor.render();
+    editor.ui.showToast?.('已删除图集');
+  }
+
+  /**
+   * 保存所有图集到全局配置 config/atlases.json
+   * 同时把切片属性一并写回。
+   */
+  async saveAtlases() {
+    const editor = this.editor;
+    const atlases = editor.sceneData.atlases || [];
+    const content = JSON.stringify({ atlases }, null, 2);
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'editor/config/atlases.json', content })
+      });
+      const data = await res.json();
+      editor.ui.showToast?.(
+        data && data.ok ? '图集已保存到 config/atlases.json' : ('保存失败: ' + (data.error || '未知')),
+        data && data.ok ? 'success' : 'error'
+      );
+    } catch (e) {
+      editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+    }
   }
 
   /**

@@ -59,9 +59,14 @@
 .scene-info .info-row label { width: 50px; color: #aaa; }
 .scene-info .info-row input { width: 60px; padding: 4px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 4px; color: #fff; font-size: 11px; }
 .atlas-list { display: flex; flex-direction: column; gap: 5px; }
-.atlas-item { background: #2a3a5e; border-radius: 4px; overflow: hidden; }
+.atlas-item { background: #2a3a5e; border-radius: 4px; overflow: hidden; border: 2px solid transparent; }
+.atlas-item.selected { border-color: #4CAF50; }
 .atlas-header { display: flex; align-items: center; justify-content: space-between; padding: 8px; cursor: pointer; font-size: 12px; }
 .atlas-header:hover { background: #3a4a7e; }
+.atlas-props { padding: 8px; background: #1e2a48; font-size: 11px; }
+.atlas-prop-row { display: flex; align-items: center; margin-bottom: 5px; gap: 5px; }
+.atlas-prop-row label { width: 50px; color: #aaa; flex-shrink: 0; }
+.atlas-prop-row input { flex: 1; min-width: 0; padding: 3px 6px; background: #2a3a5e; border: 1px solid #3a4a7e; border-radius: 3px; color: #fff; font-size: 11px; }
 .atlas-preview { width: 100%; max-height: 100px; background: #1a1a2e; overflow: hidden; display: none; }
 .atlas-preview img { width: 100%; height: auto; }
 .slice-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; padding: 8px; background: #1a1a2e; }

@@ -116,6 +116,7 @@ export class SceneEditor {
     this.loadedImages = new Map();
     this.selectedSlice = null;
     this.draggingSlice = null;
+    this.selectedAtlasId = null;
 
     // 相邻场景参考（大地图多场景编辑模式）
     // 格式: [{ sceneData, offsetX, offsetY }]
@@ -380,6 +381,7 @@ export class SceneEditor {
     this.loadedImages = new Map();
     this.selectedObjects = [];
     this.selectedSlice = null;
+    this.selectedAtlasId = null;
     this.activeLayerIndex = 0;
     this.history.reset();
 

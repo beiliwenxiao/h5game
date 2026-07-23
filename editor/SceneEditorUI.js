@@ -775,6 +775,32 @@ export class SceneEditorUI {
   }
 
   /**
+   * 获取场景下拉选项 HTML（从 localStorage 场景列表读取）
+   * @private
+   */
+  _getSceneOptions(currentValue) {
+    let options = `<option value="" ${!currentValue ? 'selected' : ''}>(当前场景)</option>`;
+    try {
+      const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_sanguo_zhangjiao');
+      if (raw) {
+        const scenes = JSON.parse(raw);
+        if (Array.isArray(scenes)) {
+          for (const s of scenes) {
+            if (!s || !s.id) continue;
+            const sel = s.id === currentValue ? 'selected' : '';
+            options += `<option value="${s.id}" ${sel}>${s.name || s.id}</option>`;
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    // 如果当前值不在列表中（自定义值），追加一项
+    if (currentValue && !options.includes(`value="${currentValue}" selected`)) {
+      options += `<option value="${currentValue}" selected>${currentValue}</option>`;
+    }
+    return options;
+  }
+
+  /**
    * 构建逻辑对象（region/spawn/portal/npc）的属性 HTML（P2-1）
    * 这些字段直接作为 obj 的属性，走通用 data-prop 绑定（obj[prop]=value）。
    * @private
@@ -798,7 +824,9 @@ export class SceneEditorUI {
       html += `<div class="property-row"><label>NPC库ID:</label><input type="text" value="${obj.npcRef || ''}" data-prop="npcRef" placeholder="library.npcs 的 id"></div>`;
     } else if (obj.type === 'trigger') {
       html += `<div class="property-row"><label>触发器ID:</label><input type="text" value="${obj.triggerId || ''}" data-prop="triggerId"></div>`;
-      html += `<div class="property-row"><label>场景ID:</label><input type="text" value="${obj.sceneId || ''}" data-prop="sceneId" placeholder="留空=当前场景"></div>`;
+      // 所属场景下拉（从编辑器场景列表动态读取）
+      const sceneOptions = this._getSceneOptions(obj.sceneId || '');
+      html += `<div class="property-row"><label>所属场景:</label><select data-prop="sceneId">${sceneOptions}</select></div>`;
       html += `<div class="property-row"><label>触发时机:</label><select data-prop="event">
         <option value="sceneEnter" ${obj.event === 'sceneEnter' ? 'selected' : ''}>进入场景 sceneEnter</option>
         <option value="enterRegion" ${obj.event === 'enterRegion' ? 'selected' : ''}>进入区域 enterRegion</option>

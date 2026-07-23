@@ -320,34 +320,81 @@ export class EditorDataManager {
       }
       
       if (!data) throw new Error('无法加载 _scene_order.json');
+
+      // 从 game.project.json 读 worldMap grid 推断 sceneType
+      let worldChunkIds = new Set();
+      let worldMapForScene = {};
+      try {
+        const projPath = `${gamePath}game.project.json`.replace(/^\.\.\//g, '');
+        const projResp = await fetch('/api/read-file?path=' + encodeURIComponent(projPath));
+        if (projResp.ok) {
+          const projData = await projResp.json();
+          const project = (projData && projData.ok && projData.content) ? JSON.parse(projData.content) : null;
+          if (project && project.worldMap && project.worldMap.regions) {
+            for (const region of project.worldMap.regions) {
+              if (!region.grid) continue;
+              for (const row of region.grid) {
+                if (!row) continue;
+                for (const sceneId of row) {
+                  if (sceneId) {
+                    worldChunkIds.add(sceneId);
+                    worldMapForScene[sceneId] = region.id;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) { /* ignore */ }
       
       if (data && data.scenes && Array.isArray(data.order)) {
         // 从文件中的 scenes 字段构建场景列表，按 order 排序
         const fileScenes = data.order
           .filter(id => data.scenes[id])
-          .map(id => ({
-            id,
-            name: data.scenes[id].name || id,
-            type: data.scenes[id].type || 'terrain'
-          }));
+          .map(id => {
+            const info = data.scenes[id];
+            // sceneType 优先从 _scene_order.json 读，否则从 worldMap 推断
+            const sceneType = info.sceneType || (worldChunkIds.has(id) ? 'worldChunk' : 'standalone');
+            const worldMap = info.worldMap || worldMapForScene[id] || null;
+            return { id, name: info.name || id, type: info.type || 'terrain', sceneType, worldMap };
+          });
         // 追加 order 中没有但 scenes 里有的
         for (const [id, info] of Object.entries(data.scenes)) {
           if (!data.order.includes(id)) {
-            fileScenes.push({ id, name: info.name || id, type: info.type || 'terrain' });
+            const sceneType = info.sceneType || (worldChunkIds.has(id) ? 'worldChunk' : 'standalone');
+            const worldMap = info.worldMap || worldMapForScene[id] || null;
+            fileScenes.push({ id, name: info.name || id, type: info.type || 'terrain', sceneType, worldMap });
           }
         }
         
         if (existing && existing.length > 0) {
-          // 已有数据时：合并新增场景（不覆盖已有的）
-          const existingIds = new Set(existing.map(s => s.id));
-          let merged = false;
+          // 已有数据时：合并新增场景 + 同步 sceneType/worldMap 到已有场景
+          const existingMap = new Map(existing.map(s => [s.id, s]));
+          let changed = false;
           for (const fs of fileScenes) {
-            if (!existingIds.has(fs.id)) {
+            if (existingMap.has(fs.id)) {
+              // 已有场景：同步 sceneType 和 worldMap（如果原来没有或不一致）
+              const ex = existingMap.get(fs.id);
+              if (ex.sceneType !== fs.sceneType || ex.worldMap !== fs.worldMap) {
+                ex.sceneType = fs.sceneType;
+                ex.worldMap = fs.worldMap;
+                changed = true;
+              }
+            } else {
+              // 新场景
               existing.push(fs);
-              merged = true;
+              changed = true;
             }
           }
-          if (merged) {
+          // 对于不在 fileScenes 中的已有场景，也根据 worldMap 推断 sceneType
+          for (const ex of existing) {
+            if (!ex.sceneType) {
+              ex.sceneType = worldChunkIds.has(ex.id) ? 'worldChunk' : 'standalone';
+              ex.worldMap = worldMapForScene[ex.id] || null;
+              changed = true;
+            }
+          }
+          if (changed) {
             this.saveScenesData(gameId, existing);
             return true;
           }

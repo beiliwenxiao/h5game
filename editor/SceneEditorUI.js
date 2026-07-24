@@ -221,6 +221,21 @@ export class SceneEditorUI {
       logic: '#asset-logic',
       content: '#asset-content'
     };
+    // Tab 默认描述
+    const tabDescriptions = {
+      shapes: '用于基础的几何图形、背景图填充、碰撞多边形等。',
+      atlases: '图片，以及图片的切片。用于构造装饰层，以及大部分地图上的视觉效果。',
+      logic: '用于事件触发，以及刷怪、传送、Buff区域等等。',
+      content: '物品、道具、玩家、NPC、商店、建筑、载具等等。'
+    };
+    const showTabDefault = (tabName) => {
+      const title = document.getElementById('slice-panel-title');
+      const propsPanel = document.getElementById('slice-properties');
+      if (title) title.textContent = '说明';
+      if (propsPanel) propsPanel.innerHTML = `<div class="no-selection" style="white-space:normal;">${tabDescriptions[tabName] || ''}</div>`;
+      editor.selectedSlice = null;
+      editor.selectedAtlasId = null;
+    };
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
         tabs.forEach(t => t.classList.remove('active'));
@@ -230,14 +245,18 @@ export class SceneEditorUI {
           const el = editor.container.querySelector(sel);
           if (el) el.style.display = (name === tabName) ? 'block' : 'none';
         }
-        // 「添加图片 / 编辑切片」按钮仅在图集 Tab 显示（属于图集内的操作）
+        // 「添加图片」按钮仅在图集 Tab 显示
         const imgActions = editor.container.querySelector('#editor-image-actions');
         if (imgActions) imgActions.style.display = (tabName === 'atlases') ? 'flex' : 'none';
+        // 切换 Tab 时重置下方面板为默认描述
+        showTabDefault(tabName);
         // 内容 Tab 首次打开时加载内容库定义
         if (tabName === 'logic') editor.assets.updateLogicList?.();
         if (tabName === 'content') editor.assets.updateContentLibrary?.();
       });
     });
+    // 初始显示默认描述（图形 Tab）
+    showTabDefault('shapes');
     // 内容 Tab 的按钮
     const addBtn = editor.container.querySelector('#editor-content-add');
     if (addBtn) addBtn.addEventListener('click', () => editor.assets.addContentDefinition?.());

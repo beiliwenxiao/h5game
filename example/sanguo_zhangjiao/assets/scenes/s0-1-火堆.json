@@ -6810,10 +6810,11 @@
     "bush3": {
       "sx": 224,
       "sy": 319,
-      "sw": 32,
-      "sh": 32,
+      "sw": 47,
+      "sh": 44,
       "scale": 1,
-      "collide": false
+      "collide": false,
+      "colliderRadius": 16
     },
     "bush4": {
       "sx": 255,
@@ -6887,9 +6888,10 @@
           "name": "草莓",
           "sx": 224,
           "sy": 319,
-          "sw": 32,
-          "sh": 32,
-          "collide": false
+          "sw": 47,
+          "sh": 44,
+          "collide": false,
+          "colliderRadius": 16
         },
         "bush4": {
           "name": "灌木2",
@@ -6902,11 +6904,13 @@
       }
     }
   ],
-  "updatedAt": "2026-07-21T18:52:38.981Z",
+  "updatedAt": "2026-07-22T23:11:46.219Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
       "name": "bg1.png"
     }
-  }
+  },
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world"
 }

@@ -83,7 +83,6 @@ export class SceneEditorUI {
                 </div>
                 <div class="asset-actions" id="editor-image-actions" style="display:none;">
                   <button id="editor-add-image">添加图片</button>
-                  <button id="editor-use-slicer">编辑切片</button>
                 </div>
                 <div id="asset-shapes" class="asset-panel">
                   <div class="asset-list" id="editor-asset-list"></div>

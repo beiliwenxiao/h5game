@@ -483,3 +483,11 @@ export class SceneDataLoader {
 }
 
 export const sceneDataLoader = new SceneDataLoader();
+
+/**
+ * 外部更新图集缓存（保存图集后调用，避免刷新前缓存过时）
+ * @param {object} config - { atlases: [...] }
+ */
+export function updateAtlasesCache(config) {
+  _atlasesConfig = config;
+}

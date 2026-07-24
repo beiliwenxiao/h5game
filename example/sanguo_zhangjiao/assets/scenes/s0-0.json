@@ -4707,11 +4707,12 @@
     },
     "bush3": {
       "sx": 224,
-      "sy": 320,
+      "sy": 319,
       "sw": 32,
       "sh": 32,
       "scale": 1,
-      "collide": false
+      "collide": false,
+      "colliderRadius": 16
     },
     "bush4": {
       "sx": 256,
@@ -4770,7 +4771,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-23T23:07:58.509Z",
+  "updatedAt": "2026-07-24T19:10:54.859Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -4798,7 +4799,7 @@
         "tree2": {
           "name": "中树",
           "sx": 224,
-          "sy": 416,
+          "sy": 417,
           "sw": 64,
           "sh": 96,
           "collide": true,
@@ -4807,7 +4808,7 @@
         "tree3": {
           "name": "小树",
           "sx": 288,
-          "sy": 384,
+          "sy": 385,
           "sw": 64,
           "sh": 128,
           "collide": true,
@@ -4823,8 +4824,8 @@
         },
         "bush2": {
           "name": "灌木1",
-          "sx": 224,
-          "sy": 288,
+          "sx": 223,
+          "sy": 289,
           "sw": 32,
           "sh": 32,
           "collide": false
@@ -4832,17 +4833,18 @@
         "bush3": {
           "name": "草莓",
           "sx": 224,
-          "sy": 320,
+          "sy": 319,
           "sw": 32,
           "sh": 32,
-          "collide": false
+          "collide": false,
+          "colliderRadius": 16
         },
         "bush4": {
           "name": "灌木2",
-          "sx": 256,
-          "sy": 320,
-          "sw": 32,
-          "sh": 32,
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
           "collide": false
         }
       }

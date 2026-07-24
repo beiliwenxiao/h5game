@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
+import { updateAtlasesCache } from './SceneDataLoader.js';
+
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
  * 负责图集、切片、精灵拖放等资源相关功能
@@ -777,7 +779,8 @@ export class SceneEditorAssets {
   async saveAtlases() {
     const editor = this.editor;
     const atlases = editor.sceneData.atlases || [];
-    const content = JSON.stringify({ atlases }, null, 2);
+    const configObj = { atlases };
+    const content = JSON.stringify(configObj, null, 2);
     try {
       const res = await fetch('/api/save-file', {
         method: 'POST',
@@ -785,12 +788,60 @@ export class SceneEditorAssets {
         body: JSON.stringify({ path: 'editor/config/atlases.json', content })
       });
       const data = await res.json();
-      editor.ui.showToast?.(
-        data && data.ok ? '图集已保存到 config/atlases.json' : ('保存失败: ' + (data.error || '未知')),
-        data && data.ok ? 'success' : 'error'
-      );
+      if (data && data.ok) {
+        // 同步更新内存缓存，这样下次场景加载不会读到旧值
+        updateAtlasesCache(configObj);
+        // 同时触发当前场景保存
+        editor.history.save();
+        // 更新所有场景的 atlases（图集是全局共享的，修改应影响所有场景）
+        this._syncAtlasesToAllScenes(atlases);
+        editor.ui.showToast?.('图集已保存到 config/atlases.json');
+      } else {
+        editor.ui.showToast?.('保存失败: ' + (data.error || '未知'), 'error');
+      }
     } catch (e) {
       editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+    }
+  }
+
+  /**
+   * 将最新图集数据同步写入 localStorage 中当前游戏的所有场景
+   * @private
+   */
+  _syncAtlasesToAllScenes(atlases) {
+    // 获取当前游戏 ID
+    const gameId = this._contentGameId();
+    // localStorage key 格式与 EditorDataManager 一致
+    const storageKey = `yijian18-engine_editor_data_scenes_${gameId}`;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const scenes = JSON.parse(raw);
+      if (!Array.isArray(scenes)) return;
+      let changed = false;
+      for (const scene of scenes) {
+        if (scene.atlases) {
+          // 以 id 为 key 替换/新增
+          const idMap = new Map(scene.atlases.map((a, i) => [a.id, i]));
+          for (const atlas of atlases) {
+            const copy = JSON.parse(JSON.stringify(atlas));
+            if (idMap.has(atlas.id)) {
+              scene.atlases[idMap.get(atlas.id)] = copy;
+            } else {
+              scene.atlases.push(copy);
+            }
+          }
+          changed = true;
+        } else {
+          scene.atlases = JSON.parse(JSON.stringify(atlases));
+          changed = true;
+        }
+      }
+      if (changed) {
+        localStorage.setItem(storageKey, JSON.stringify(scenes));
+      }
+    } catch (e) {
+      console.warn('[saveAtlases] 同步所有场景 atlases 失败:', e);
     }
   }
 
@@ -819,6 +870,10 @@ export class SceneEditorAssets {
     if (propsPanel) {
       propsPanel.innerHTML = `
         <div class="slice-prop-row">
+          <label>图集:</label>
+          <input value="${atlas.name || atlas.id}" disabled style="color:#FFD700;">
+        </div>
+        <div class="slice-prop-row">
           <label>名称:</label>
           <input type="text" id="slice-name" value="${slice.name || sliceKey}">
         </div>
@@ -846,6 +901,10 @@ export class SceneEditorAssets {
           <label>碰撞半径:</label>
           <input type="number" id="slice-radius" value="${slice.colliderRadius || 16}">
         </div>
+        <div class="slice-prop-row" style="margin-top:8px;">
+          <button id="slice-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
+          <button id="slice-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button>
+        </div>
       `;
 
       // 绑定属性修改事件
@@ -869,9 +928,227 @@ export class SceneEditorAssets {
           });
         }
       });
+
+      // 编辑按钮：弹出切片编辑弹窗
+      const editBtn = document.getElementById('slice-edit-btn');
+      editBtn.addEventListener('click', () => {
+        this._openSliceEditorModal(atlas, sliceKey, slice);
+      });
+
+      // 删除按钮：从图集中移除该切片
+      const deleteBtn = document.getElementById('slice-delete-btn');
+      deleteBtn.addEventListener('click', () => {
+        if (!confirm(`确定删除切片「${slice.name || sliceKey}」吗？`)) return;
+        delete atlas.slices[sliceKey];
+        // 同步 decoSprites
+        if (editor.sceneData.decoSprites && editor.sceneData.decoSprites[sliceKey]) {
+          delete editor.sceneData.decoSprites[sliceKey];
+        }
+        editor.selectedSlice = null;
+        // 清空切片属性面板
+        const propsPanel = document.getElementById('slice-properties');
+        if (propsPanel) propsPanel.innerHTML = '<div class="no-selection">未选中切片</div>';
+        this._updateAtlasList();
+        this._updateSlicePreviews();
+        editor.render();
+        editor.ui.showToast?.('切片已删除');
+      });
     }
 
     editor.selectedSlice = { atlasId, sliceKey, slice };
+  }
+
+  /**
+   * 打开切片编辑弹窗：显示图集原图，可拖动/调整切片选框，实时参数反馈
+   * @private
+   */
+  _openSliceEditorModal(atlas, sliceKey, slice) {
+    const editor = this.editor;
+    const img = editor.loadedImages.get(atlas.id);
+    if (!img) {
+      editor.ui.showToast?.('图集图片未加载，请先设置路径并保存', 'error');
+      return;
+    }
+
+    // 创建遮罩 + 弹窗
+    const overlay = document.createElement('div');
+    overlay.id = 'slice-editor-overlay';
+    overlay.innerHTML = `
+      <div id="slice-editor-modal">
+        <div class="slice-modal-header">
+          <span>切片编辑 - ${slice.name || sliceKey}（图集: ${atlas.name}）</span>
+          <button id="slice-modal-close" title="关闭">✕</button>
+        </div>
+        <div class="slice-modal-body">
+          <div class="slice-modal-canvas-wrap">
+            <canvas id="slice-modal-canvas"></canvas>
+          </div>
+          <div class="slice-modal-params">
+            <div class="smp-row"><label>X:</label><input type="number" id="smp-sx" value="${slice.sx}"></div>
+            <div class="smp-row"><label>Y:</label><input type="number" id="smp-sy" value="${slice.sy}"></div>
+            <div class="smp-row"><label>宽:</label><input type="number" id="smp-sw" value="${slice.sw}"></div>
+            <div class="smp-row"><label>高:</label><input type="number" id="smp-sh" value="${slice.sh}"></div>
+            <div class="smp-row"><label>碰撞:</label><input type="checkbox" id="smp-collide" ${slice.collide ? 'checked' : ''}></div>
+            <div class="smp-row"><label>碰撞半径:</label><input type="number" id="smp-radius" value="${slice.colliderRadius || 16}"></div>
+            <div class="smp-info" id="smp-info">图集: ${img.naturalWidth}×${img.naturalHeight}</div>
+            <div class="smp-row" style="margin-top:12px;">
+              <button id="smp-confirm" style="flex:1;">确定</button>
+              <button id="smp-cancel" style="flex:1;">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 状态
+    const orig = { sx: slice.sx, sy: slice.sy, sw: slice.sw, sh: slice.sh };
+    const state = { sx: slice.sx, sy: slice.sy, sw: slice.sw, sh: slice.sh };
+    let dragging = null; // null | 'move' | 'resize-br'
+    let dragStart = { mx: 0, my: 0, sx: 0, sy: 0, sw: 0, sh: 0 };
+
+    const canvas = document.getElementById('slice-modal-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // 缩放：让图集图片适应弹窗画布区域（限800×600）
+    const maxCW = Math.min(800, window.innerWidth - 320);
+    const maxCH = Math.min(600, window.innerHeight - 160);
+    const scale = Math.min(maxCW / img.naturalWidth, maxCH / img.naturalHeight, 2);
+    const cw = Math.round(img.naturalWidth * scale);
+    const ch = Math.round(img.naturalHeight * scale);
+    canvas.width = cw;
+    canvas.height = ch;
+
+    const draw = () => {
+      ctx.clearRect(0, 0, cw, ch);
+      // 图集原图
+      ctx.drawImage(img, 0, 0, cw, ch);
+      // 半透明遮罩
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0, 0, cw, ch);
+      // 高亮选区
+      const rx = state.sx * scale, ry = state.sy * scale;
+      const rw = state.sw * scale, rh = state.sh * scale;
+      ctx.drawImage(img, state.sx, state.sy, state.sw, state.sh, rx, ry, rw, rh);
+      // 边框
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx, ry, rw, rh);
+      // 右下角手柄
+      ctx.fillStyle = '#4CAF50';
+      ctx.fillRect(rx + rw - 6, ry + rh - 6, 8, 8);
+    };
+    draw();
+
+    // 实时更新参数输入框
+    const syncInputs = () => {
+      document.getElementById('smp-sx').value = Math.round(state.sx);
+      document.getElementById('smp-sy').value = Math.round(state.sy);
+      document.getElementById('smp-sw').value = Math.round(state.sw);
+      document.getElementById('smp-sh').value = Math.round(state.sh);
+    };
+
+    // Canvas 鼠标事件：拖动移动选框 / 右下角缩放
+    const getCanvasPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+      const pos = getCanvasPos(e);
+      const rx = state.sx * scale, ry = state.sy * scale;
+      const rw = state.sw * scale, rh = state.sh * scale;
+      // 右下角手柄（10px范围）
+      if (Math.abs(pos.x - (rx + rw)) < 10 && Math.abs(pos.y - (ry + rh)) < 10) {
+        dragging = 'resize-br';
+      } else if (pos.x >= rx && pos.x <= rx + rw && pos.y >= ry && pos.y <= ry + rh) {
+        dragging = 'move';
+      } else {
+        return;
+      }
+      dragStart = { mx: pos.x, my: pos.y, sx: state.sx, sy: state.sy, sw: state.sw, sh: state.sh };
+      e.preventDefault();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragging) {
+        // 光标样式
+        const pos = getCanvasPos(e);
+        const rx = state.sx * scale, ry = state.sy * scale;
+        const rw = state.sw * scale, rh = state.sh * scale;
+        if (Math.abs(pos.x - (rx + rw)) < 10 && Math.abs(pos.y - (ry + rh)) < 10) {
+          canvas.style.cursor = 'nwse-resize';
+        } else if (pos.x >= rx && pos.x <= rx + rw && pos.y >= ry && pos.y <= ry + rh) {
+          canvas.style.cursor = 'move';
+        } else {
+          canvas.style.cursor = 'crosshair';
+        }
+        return;
+      }
+      const pos = getCanvasPos(e);
+      const dx = (pos.x - dragStart.mx) / scale;
+      const dy = (pos.y - dragStart.my) / scale;
+      if (dragging === 'move') {
+        state.sx = Math.max(0, Math.min(img.naturalWidth - state.sw, Math.round(dragStart.sx + dx)));
+        state.sy = Math.max(0, Math.min(img.naturalHeight - state.sh, Math.round(dragStart.sy + dy)));
+      } else if (dragging === 'resize-br') {
+        state.sw = Math.max(4, Math.min(img.naturalWidth - state.sx, Math.round(dragStart.sw + dx)));
+        state.sh = Math.max(4, Math.min(img.naturalHeight - state.sy, Math.round(dragStart.sh + dy)));
+      }
+      syncInputs();
+      draw();
+    });
+
+    const stopDrag = () => { dragging = null; };
+    canvas.addEventListener('mouseup', stopDrag);
+    canvas.addEventListener('mouseleave', stopDrag);
+
+    // 参数输入框变化 → 刷新画布
+    ['smp-sx', 'smp-sy', 'smp-sw', 'smp-sh'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        const v = parseInt(el.value) || 0;
+        if (id === 'smp-sx') state.sx = Math.max(0, v);
+        else if (id === 'smp-sy') state.sy = Math.max(0, v);
+        else if (id === 'smp-sw') state.sw = Math.max(1, v);
+        else if (id === 'smp-sh') state.sh = Math.max(1, v);
+        draw();
+      });
+    });
+
+    // 关闭/确定/取消
+    const close = () => { overlay.remove(); };
+    document.getElementById('slice-modal-close').addEventListener('click', close);
+    document.getElementById('smp-cancel').addEventListener('click', () => {
+      // 恢复原始值
+      state.sx = orig.sx; state.sy = orig.sy; state.sw = orig.sw; state.sh = orig.sh;
+      close();
+    });
+    document.getElementById('smp-confirm').addEventListener('click', () => {
+      // 写回 slice 数据
+      slice.sx = Math.round(state.sx);
+      slice.sy = Math.round(state.sy);
+      slice.sw = Math.round(state.sw);
+      slice.sh = Math.round(state.sh);
+      const collideEl = document.getElementById('smp-collide');
+      const radiusEl = document.getElementById('smp-radius');
+      slice.collide = collideEl.checked;
+      slice.colliderRadius = parseInt(radiusEl.value) || 16;
+      // 同步 decoSprites
+      if (editor.sceneData.decoSprites && editor.sceneData.decoSprites[sliceKey]) {
+        Object.assign(editor.sceneData.decoSprites[sliceKey], {
+          sx: slice.sx, sy: slice.sy, sw: slice.sw, sh: slice.sh,
+          collide: slice.collide, colliderRadius: slice.colliderRadius
+        });
+      }
+      // 刷新左侧切片属性面板和预览
+      this._selectSlice(atlas.id, sliceKey);
+      this._updateSlicePreviews();
+      editor.render();
+      close();
+    });
+    // 点遮罩空白区也关闭
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
   }
 
   /**

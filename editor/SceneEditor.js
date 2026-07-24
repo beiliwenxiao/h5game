@@ -289,9 +289,6 @@ export class SceneEditor {
       const file = e.target.files[0];
       if (file) this.assets.addImageAsset(file);
     });
-    document.getElementById('editor-use-slicer').addEventListener('click', () => {
-      if (this.onOpenSlicer) this.onOpenSlicer();
-    });
 
     // 图层
     document.getElementById('editor-add-layer').addEventListener('click', () => this.layers.addLayer());
@@ -436,10 +433,14 @@ export class SceneEditor {
     const globalAtlases = sceneDataLoader.getGlobalAtlases();
     if (!globalAtlases || globalAtlases.length === 0) return;
     if (!this.sceneData.atlases) this.sceneData.atlases = [];
-    const existingIds = new Set(this.sceneData.atlases.map(a => a.id));
+    const existingMap = new Map(this.sceneData.atlases.map((a, i) => [a.id, i]));
     for (const atlas of globalAtlases) {
-      if (!existingIds.has(atlas.id)) {
-        this.sceneData.atlases.push(JSON.parse(JSON.stringify(atlas)));
+      const copy = JSON.parse(JSON.stringify(atlas));
+      if (existingMap.has(atlas.id)) {
+        // 以全局配置为准覆盖（保证保存后刷新能拿到最新切片属性）
+        this.sceneData.atlases[existingMap.get(atlas.id)] = copy;
+      } else {
+        this.sceneData.atlases.push(copy);
       }
     }
   }

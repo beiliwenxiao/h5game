@@ -83,8 +83,18 @@ export class SceneEditorInteraction {
             return obj;
           }
         } else if (obj.type === 'buffZone') {
-          // Buff 多边形：射线法命中
-          if (obj.points && this._pointInPolygon(obj.points, x, y)) {
+          // Buff 区域：根据 shapeType 检测命中
+          let hit = false;
+          if (obj.shapeType === 'rect') {
+            hit = x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height;
+          } else if (obj.shapeType === 'ellipse') {
+            const cx = obj.x + obj.width / 2, cy = obj.y + obj.height / 2;
+            const rx = obj.width / 2, ry = obj.height / 2;
+            hit = rx > 0 && ry > 0 && ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1;
+          } else if (obj.points && obj.points.length >= 3) {
+            hit = this._pointInPolygon(obj.points, x, y);
+          }
+          if (hit) {
             editor.activeLayerIndex = li;
             return obj;
           }
@@ -181,7 +191,7 @@ export class SceneEditorInteraction {
 
     for (const obj of editor.selectedObjects) {
       let hx, hy;
-      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'trigger' || obj.type === 'region') {
+      if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco' || obj.type === 'ellipse' || obj.type === 'trigger' || obj.type === 'region' || (obj.type === 'buffZone' && (obj.shapeType === 'rect' || obj.shapeType === 'ellipse'))) {
         hx = obj.x + obj.width + 2;
         hy = obj.y + obj.height + 2;
       } else {

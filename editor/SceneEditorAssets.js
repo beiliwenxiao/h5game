@@ -142,9 +142,74 @@ export class SceneEditorAssets {
           editor.selectedObjects = [obj];
           editor.ui.updateObjectProperties();
         }
-      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger' || id === 'buffZone') {
-        // 逻辑对象（P2-1）：region/spawn/portal/npc/trigger/buffZone，放入逻辑层
+      } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger' || id === 'buffZone' || id === 'buffRect' || id === 'buffEllipse' || id === 'playerSpawn' || id === 'campfire') {
+        // 逻辑对象：放入逻辑层
         this._addLogicObject(id, pos.x, pos.y);
+      } else if (id === 'terrain-rect') {
+        // 地形四边形：放入背景填充层（矩形，非椭圆）
+        const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
+        const w = 300, h = 300;
+        const obj = {
+          id: 'fill_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          type: 'fill',
+          name: '地形四边形',
+          x: Math.round(pos.x - w / 2),
+          y: Math.round(pos.y - h / 2),
+          width: w,
+          height: h,
+          fillMode: 'color',
+          fillColor: '#3a5a2a',
+          opacity: 1,
+          edgeFade: 0
+        };
+        if (fillLayer) {
+          fillLayer.locked = false;
+          fillLayer.objects.push(obj);
+          editor.activeLayerIndex = editor.sceneData.layers.indexOf(fillLayer);
+        } else {
+          editor.ui.addObject(obj);
+        }
+        editor.selectedObjects = [obj];
+        editor.history.saveHistory();
+        editor.ui.updateObjectCount();
+        editor.ui.updateObjectProperties();
+        editor.render();
+      } else if (id === 'terrain-polygon') {
+        // 地形多边形：放入背景填充层（正五边形，顶点可拖拽）
+        const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
+        const r = 180;
+        const cx = pos.x, cy = pos.y;
+        const pts = [];
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+          pts.push([Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r)]);
+        }
+        const obj = {
+          id: 'shape_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+          type: 'shape',
+          shapeType: 'polygon',
+          name: '地形多边形',
+          points: pts,
+          fillMode: 'color',
+          fill: '#3a5a2a',
+          opacity: 1,
+          edgeFade: 0,
+          stroke: '#5a8a4a',
+          strokeWidth: 0,
+          collide: false
+        };
+        if (fillLayer) {
+          fillLayer.locked = false;
+          fillLayer.objects.push(obj);
+          editor.activeLayerIndex = editor.sceneData.layers.indexOf(fillLayer);
+        } else {
+          editor.ui.addObject(obj);
+        }
+        editor.selectedObjects = [obj];
+        editor.history.saveHistory();
+        editor.ui.updateObjectCount();
+        editor.ui.updateObjectProperties();
+        editor.render();
       } else if (id === 'fill') {
         const fillLayer = editor.sceneData.layers.find(l => l.id === 'layer_fill');
         const fillObj = {
@@ -231,6 +296,22 @@ export class SceneEditorAssets {
         conditions: '',
         actions: ''
       };
+    } else if (kind === 'playerSpawn') {
+      obj = {
+        id: 'spawn_' + rnd, type: 'spawn', name: '玩家出生点',
+        spawnId: 'spawn_player_' + Math.floor(Math.random() * 10000),
+        ref: 'player',
+        x: Math.round(x), y: Math.round(y),
+        enemyRef: '', count: 1, wave: 0, radius: 0
+      };
+    } else if (kind === 'campfire') {
+      obj = {
+        id: 'spawn_' + rnd, type: 'spawn', name: '火堆',
+        spawnId: 'spawn_campfire_' + Math.floor(Math.random() * 10000),
+        ref: 'campfire',
+        x: Math.round(x), y: Math.round(y),
+        enemyRef: '', count: 1, wave: 0, radius: 0
+      };
     } else if (kind === 'buffZone') {
       // Buff 多边形：默认 5 顶点正五边形
       const r = 100; // 半径
@@ -248,6 +329,46 @@ export class SceneEditorAssets {
         shapeType: 'polygon',
         points: pts,
         x: minX, y: minY, width: maxX - minX, height: maxY - minY,
+        fillColor: 'rgba(100, 0, 200, 0.2)',
+        borderColor: 'rgba(100, 0, 200, 0.5)',
+        visible: true,
+        effect: {
+          effectType: 'periodic',
+          stat: 'hp',
+          value: -5,
+          interval: 2,
+          onLeave: 'remove',
+          leaveDuration: 5,
+          target: 'player'
+        }
+      };
+    } else if (kind === 'buffRect') {
+      // Buff 四边形
+      const w = 200, h = 140;
+      obj = {
+        id: 'buffZone_' + rnd, type: 'buffZone', name: 'Buff四边形',
+        shapeType: 'rect',
+        x: Math.round(x - w / 2), y: Math.round(y - h / 2), width: w, height: h,
+        fillColor: 'rgba(100, 0, 200, 0.2)',
+        borderColor: 'rgba(100, 0, 200, 0.5)',
+        visible: true,
+        effect: {
+          effectType: 'periodic',
+          stat: 'hp',
+          value: -5,
+          interval: 2,
+          onLeave: 'remove',
+          leaveDuration: 5,
+          target: 'player'
+        }
+      };
+    } else if (kind === 'buffEllipse') {
+      // Buff 椭圆形
+      const rx = 120, ry = 80;
+      obj = {
+        id: 'buffZone_' + rnd, type: 'buffZone', name: 'Buff椭圆形',
+        shapeType: 'ellipse',
+        x: Math.round(x - rx), y: Math.round(y - ry), width: rx * 2, height: ry * 2,
         fillColor: 'rgba(100, 0, 200, 0.2)',
         borderColor: 'rgba(100, 0, 200, 0.5)',
         visible: true,
@@ -438,6 +559,14 @@ export class SceneEditorAssets {
         <div class="asset-preview" style="width:40px;height:26px;border-radius:50%;background:#3a5a2a;border:1px solid #5a8a4a;"></div>
         <span>地形椭圆</span>
       </div>
+      <div class="asset-item placeholder" draggable="true" data-type="terrain-rect">
+        <div class="asset-preview" style="width:36px;height:36px;background:#3a5a2a;border:1px solid #5a8a4a;border-radius:0;"></div>
+        <span>地形四边形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="terrain-polygon">
+        <div class="asset-preview" style="width:34px;height:30px;background:#3a5a2a;border:1px solid #5a8a4a;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);"></div>
+        <span>地形多边形</span>
+      </div>
       <div class="asset-item placeholder" draggable="true" data-type="polygon">
         <div class="asset-preview" style="width:34px;height:30px;background:#3a5a2a;border:1px solid #5a8a4a;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);"></div>
         <span>多边形</span>
@@ -472,9 +601,25 @@ export class SceneEditorAssets {
         <div class="asset-preview" style="width:38px;height:26px;background:rgba(255,200,50,0.15);border:2px dashed #e0a020;"></div>
         <span>触发器</span>
       </div>
+      <div class="asset-item placeholder" draggable="true" data-type="playerSpawn">
+        <div class="asset-preview" style="width:30px;height:30px;border-radius:50%;background:rgba(80,180,255,0.3);border:2px solid #50b4ff;display:flex;align-items:center;justify-content:center;font-size:14px;">🧑</div>
+        <span>玩家出生点</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="campfire">
+        <div class="asset-preview" style="width:30px;height:30px;border-radius:50%;background:rgba(255,160,50,0.3);border:2px solid #ffa030;display:flex;align-items:center;justify-content:center;font-size:14px;">🔥</div>
+        <span>火堆</span>
+      </div>
       <div class="asset-item placeholder" draggable="true" data-type="buffZone">
-        <div class="asset-preview" style="width:38px;height:26px;background:rgba(100,0,200,0.2);border:2px dashed #8040c0;"></div>
+        <div class="asset-preview" style="width:30px;height:30px;background:rgba(100,0,200,0.2);border:2px dashed #8040c0;clip-path:polygon(50% 0%,100% 38%,82% 100%,18% 100%,0% 38%);"></div>
         <span>Buff多边形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="buffRect">
+        <div class="asset-preview" style="width:38px;height:26px;background:rgba(100,0,200,0.2);border:2px dashed #8040c0;"></div>
+        <span>Buff四边形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="buffEllipse">
+        <div class="asset-preview" style="width:38px;height:26px;border-radius:50%;background:rgba(100,0,200,0.2);border:2px dashed #8040c0;"></div>
+        <span>Buff椭圆形</span>
       </div>
     `;
     this._bindAssetDrag(list);

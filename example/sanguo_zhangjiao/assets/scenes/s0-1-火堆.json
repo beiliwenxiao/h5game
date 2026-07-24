@@ -6888,8 +6888,8 @@
           "name": "草莓",
           "sx": 224,
           "sy": 319,
-          "sw": 47,
-          "sh": 44,
+          "sw": 32,
+          "sh": 32,
           "collide": false,
           "colliderRadius": 16
         },
@@ -6900,11 +6900,20 @@
           "sw": 30,
           "sh": 30,
           "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
         }
       }
     }
   ],
-  "updatedAt": "2026-07-22T23:11:46.219Z",
+  "updatedAt": "2026-07-24T19:11:15.531Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",

@@ -45,8 +45,6 @@ export class SceneEditorUI {
             <button id="editor-select" class="active" title="选择工具 (V)">◇</button>
             <button id="editor-pan" title="平移工具 (H)">✥</button>
             <button id="editor-place" title="放置工具 (P)">+</button>
-            <button id="editor-add-player-spawn" title="添加玩家出生点">🧑</button>
-            <button id="editor-add-campfire" title="添加火堆">🔥</button>
           </div>
           <div class="toolbar-group">
             <label>场景名称:</label>

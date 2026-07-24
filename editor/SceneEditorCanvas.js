@@ -303,24 +303,53 @@ export class SceneEditorCanvas {
         this._drawLogicLabel(ctx, '→ ' + obj.target, obj.x + 4, obj.y + obj.height - 4, '#c89020');
       }
     } else if (obj.type === 'buffZone') {
-      // Buff 多边形：半透明填充 + 边框 + 名称标签
-      const points = obj.points || [];
-      if (points.length >= 3) {
+      // Buff 区域：根据 shapeType 渲染不同形状
+      const fillColor = obj.fillColor || 'rgba(100, 0, 200, 0.2)';
+      const borderColor = obj.borderColor || 'rgba(100, 0, 200, 0.5)';
+
+      if (obj.shapeType === 'rect') {
+        // 四边形
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
+        ctx.setLineDash([]);
+      } else if (obj.shapeType === 'ellipse') {
+        // 椭圆形
+        const cx = obj.x + obj.width / 2, cy = obj.y + obj.height / 2;
+        const rx = obj.width / 2, ry = obj.height / 2;
         ctx.beginPath();
-        ctx.moveTo(points[0][0], points[0][1]);
-        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
         ctx.closePath();
-        ctx.fillStyle = obj.fillColor || 'rgba(100, 0, 200, 0.2)';
+        ctx.fillStyle = fillColor;
         ctx.fill();
-        ctx.strokeStyle = obj.borderColor || 'rgba(100, 0, 200, 0.5)';
+        ctx.strokeStyle = borderColor;
         ctx.lineWidth = 2;
         ctx.setLineDash([6, 3]);
         ctx.stroke();
         ctx.setLineDash([]);
+      } else {
+        // 多边形（默认）
+        const points = obj.points || [];
+        if (points.length >= 3) {
+          ctx.beginPath();
+          ctx.moveTo(points[0][0], points[0][1]);
+          for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+          ctx.closePath();
+          ctx.fillStyle = fillColor;
+          ctx.fill();
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = 2;
+          ctx.setLineDash([6, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       }
       // 名称标签
-      const labelX = (obj.x || (points[0] && points[0][0])) + 4;
-      const labelY = (obj.y || (points[0] && points[0][1])) + 14;
+      const labelX = (obj.x != null ? obj.x : (obj.points && obj.points[0] ? obj.points[0][0] : 0)) + 4;
+      const labelY = (obj.y != null ? obj.y : (obj.points && obj.points[0] ? obj.points[0][1] : 0)) + 14;
       this._drawLogicLabel(ctx, obj.name || 'Buff区域', labelX, labelY, '#c080ff');
       // 效果类型小标签
       if (obj.effect) {
@@ -1014,6 +1043,13 @@ export class SceneEditorCanvas {
         ctx.lineWidth = 2 / editor.viewport.scale;
         ctx.setLineDash([6 / editor.viewport.scale, 4 / editor.viewport.scale]);
         continue;
+      } else if (obj.type === 'buffZone' && (obj.shapeType === 'rect' || obj.shapeType === 'ellipse')) {
+        // Buff 四边形/椭圆：包围盒选中框 + 缩放手柄
+        x = obj.x - 2;
+        y = obj.y - 2;
+        w = (obj.width || 0) + 4;
+        h = (obj.height || 0) + 4;
+        ctx.strokeRect(x, y, w, h);
       } else {
         continue;
       }

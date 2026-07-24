@@ -2,7 +2,7 @@
   "atlases": [
     {
       "id": "mountain_landscape",
-      "name": "山地景观图集",
+      "name": "草原景观图集",
       "path": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png",
       "width": 512,
       "height": 512,

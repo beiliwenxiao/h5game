@@ -4521,51 +4521,6 @@
           "actions": "",
           "actionType": "showTip",
           "actionParams": "{\"text\":\"您好，您靠近了一颗树\"}"
-        },
-        {
-          "id": "buffZone_1784738821663_85",
-          "type": "buffZone",
-          "name": "悲伤沼泽",
-          "shapeType": "polygon",
-          "points": [
-            [
-              715,
-              35
-            ],
-            [
-              763,
-              132
-            ],
-            [
-              723,
-              298
-            ],
-            [
-              423,
-              197
-            ],
-            [
-              521,
-              105
-            ]
-          ],
-          "x": 423,
-          "y": 35,
-          "width": 340,
-          "height": 263,
-          "fillColor": "rgba(100, 0, 200, 0.2)",
-          "borderColor": "rgba(100, 0, 200, 0.5)",
-          "visible": true,
-          "effect": {
-            "effectType": "periodic",
-            "stat": "hp",
-            "value": -2,
-            "interval": 1,
-            "onLeave": "remove",
-            "leaveDuration": 5,
-            "target": "player",
-            "delay": 10
-          }
         }
       ]
     }
@@ -4771,7 +4726,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-24T19:10:54.859Z",
+  "updatedAt": "2026-07-24T19:28:26.283Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -4846,6 +4801,15 @@
           "sw": 30,
           "sh": 30,
           "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
         }
       }
     }

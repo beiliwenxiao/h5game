@@ -641,27 +641,11 @@ export class SceneEditorAssets {
         }
       }
 
-      // 选中图集时展开属性编辑区
-      let propsHtml = '';
-      if (editor.selectedAtlasId === atlas.id) {
-        propsHtml = `
-          <div class="atlas-props" data-atlas="${atlas.id}">
-            <div class="atlas-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
-            <div class="atlas-prop-row"><label>名称:</label><input type="text" class="atlas-prop" data-prop="name" value="${atlas.name || ''}"></div>
-            <div class="atlas-prop-row"><label>路径:</label><input type="text" class="atlas-prop" data-prop="path" value="${atlas.path || ''}" title="图集图片的相对路径或 URL"></div>
-            <div class="atlas-prop-row"><label>宽度:</label><input type="number" class="atlas-prop" data-prop="width" value="${atlas.width || 0}"></div>
-            <div class="atlas-prop-row"><label>高度:</label><input type="number" class="atlas-prop" data-prop="height" value="${atlas.height || 0}"></div>
-            <div class="atlas-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
-          </div>
-        `;
-      }
-
       item.innerHTML = `
         <div class="atlas-header" data-atlas="${atlas.id}">
           <span>${atlas.name}</span>
           <span style="font-size:10px;color:#666;">${atlas.width}×${atlas.height} · ${sliceCount}片</span>
         </div>
-        ${propsHtml}
         <div class="slice-grid">${slicesHtml}</div>
       `;
 
@@ -673,27 +657,6 @@ export class SceneEditorAssets {
       header.addEventListener('click', (e) => {
         e.stopPropagation();
         this._selectAtlas(header.dataset.atlas);
-      });
-    });
-
-    // 绑定图集属性编辑
-    list.querySelectorAll('.atlas-props').forEach(propsEl => {
-      const atlasId = propsEl.dataset.atlas;
-      propsEl.querySelectorAll('.atlas-prop').forEach(input => {
-        input.addEventListener('change', () => {
-          const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
-          if (!atlas) return;
-          const prop = input.dataset.prop;
-          const value = input.type === 'number' ? parseFloat(input.value) : input.value;
-          atlas[prop] = value;
-          if (prop === 'path') {
-            // 路径变化，重新加载图集图片以刷新预览
-            editor.loadedImages.delete(atlas.id);
-            this.loadAtlasImages();
-          }
-          this._updateAtlasList();
-          editor.render();
-        });
       });
     });
 
@@ -728,8 +691,361 @@ export class SceneEditorAssets {
     const editor = this.editor;
     // 再次点击已选中的图集则取消选中
     editor.selectedAtlasId = (editor.selectedAtlasId === atlasId) ? null : atlasId;
+    editor.selectedSlice = null;
     this._updateAtlasList();
     this._updateSlicePreviews();
+    this._showAtlasProperties();
+  }
+
+  /**
+   * 在左侧"选中切片/图集"面板中展示选中图集的属性
+   * @private
+   */
+  _showAtlasProperties() {
+    const editor = this.editor;
+    const propsPanel = document.getElementById('slice-properties');
+    const title = document.getElementById('slice-panel-title');
+    if (!propsPanel) return;
+
+    if (!editor.selectedAtlasId) {
+      if (title) title.textContent = '选中切片';
+      propsPanel.innerHTML = '<div class="no-selection">未选中切片</div>';
+      return;
+    }
+
+    const atlas = editor.sceneData.atlases?.find(a => a.id === editor.selectedAtlasId);
+    if (!atlas) return;
+
+    if (title) title.textContent = '选中图集';
+    const sliceCount = atlas.slices ? Object.keys(atlas.slices).length : 0;
+
+    propsPanel.innerHTML = `
+      <div class="slice-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
+      <div class="slice-prop-row"><label>名称:</label><input type="text" id="atlas-prop-name" value="${atlas.name || ''}"></div>
+      <div class="slice-prop-row"><label>图片路径:</label><input type="text" id="atlas-prop-path" value="${atlas.path || ''}" title="图集图片相对路径或 URL"></div>
+      <div class="slice-prop-row"><label>宽度:</label><input type="number" id="atlas-prop-width" value="${atlas.width || 0}"></div>
+      <div class="slice-prop-row"><label>高度:</label><input type="number" id="atlas-prop-height" value="${atlas.height || 0}"></div>
+      <div class="slice-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
+      <div class="slice-prop-row" style="margin-top:8px;">
+        <button id="atlas-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
+        <button id="atlas-new-slice-btn" style="flex:1;padding:5px;cursor:pointer;">+ 新建切片</button>
+      </div>
+      <div class="slice-prop-row">
+        <button id="atlas-save-btn" style="width:100%;padding:5px;cursor:pointer;">💾 保存图集</button>
+      </div>
+    `;
+
+    // 绑定属性修改
+    const nameInput = document.getElementById('atlas-prop-name');
+    const pathInput = document.getElementById('atlas-prop-path');
+    const widthInput = document.getElementById('atlas-prop-width');
+    const heightInput = document.getElementById('atlas-prop-height');
+
+    nameInput.addEventListener('change', () => { atlas.name = nameInput.value; this._updateAtlasList(); });
+    pathInput.addEventListener('change', () => {
+      atlas.path = pathInput.value;
+      editor.loadedImages.delete(atlas.id);
+      this.loadAtlasImages();
+      this._updateAtlasList();
+    });
+    widthInput.addEventListener('change', () => { atlas.width = parseInt(widthInput.value) || 0; });
+    heightInput.addEventListener('change', () => { atlas.height = parseInt(heightInput.value) || 0; });
+
+    // 编辑按钮：弹窗展示图集图片，可更换路径
+    document.getElementById('atlas-edit-btn').addEventListener('click', () => {
+      this._openAtlasEditorModal(atlas);
+    });
+
+    // 新建切片按钮
+    document.getElementById('atlas-new-slice-btn').addEventListener('click', () => {
+      this._openNewSliceModal(atlas);
+    });
+
+    // 保存按钮
+    document.getElementById('atlas-save-btn').addEventListener('click', () => {
+      this.saveAtlases();
+    });
+  }
+
+  /**
+   * 打开图集编辑弹窗：展示图集图片预览，可更换图片路径
+   * @private
+   */
+  _openAtlasEditorModal(atlas) {
+    const editor = this.editor;
+    const img = editor.loadedImages.get(atlas.id);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'slice-editor-overlay';
+    overlay.innerHTML = `
+      <div id="slice-editor-modal">
+        <div class="slice-modal-header">
+          <span>图集编辑 - ${atlas.name || atlas.id}</span>
+          <button id="slice-modal-close" title="关闭">✕</button>
+        </div>
+        <div class="slice-modal-body">
+          <div class="slice-modal-canvas-wrap">
+            <canvas id="atlas-modal-canvas"></canvas>
+            ${!img ? '<div style="padding:20px;color:#f88;font-size:12px;">图片未加载，请设置正确路径</div>' : ''}
+          </div>
+          <div class="slice-modal-params">
+            <div class="smp-row"><label>名称:</label><input type="text" id="amp-name" value="${atlas.name || ''}"></div>
+            <div class="smp-row"><label>图片路径:</label><input type="text" id="amp-path" value="${atlas.path || ''}" style="min-width:180px;"></div>
+            <div class="smp-row"><label>宽度:</label><input type="number" id="amp-width" value="${atlas.width || 0}"></div>
+            <div class="smp-row"><label>高度:</label><input type="number" id="amp-height" value="${atlas.height || 0}"></div>
+            <div class="smp-info">切片数: ${atlas.slices ? Object.keys(atlas.slices).length : 0}</div>
+            <div class="smp-row" style="margin-top:6px;">
+              <button id="amp-reload" style="flex:1;">刷新图片</button>
+            </div>
+            <div class="smp-row" style="margin-top:12px;">
+              <button id="amp-confirm" style="flex:1;">确定</button>
+              <button id="amp-cancel" style="flex:1;">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 绘制图集预览
+    const canvas = document.getElementById('atlas-modal-canvas');
+    const drawAtlas = () => {
+      const curImg = editor.loadedImages.get(atlas.id);
+      if (!curImg || !canvas) return;
+      const maxCW = Math.min(700, window.innerWidth - 320);
+      const maxCH = Math.min(500, window.innerHeight - 160);
+      const scale = Math.min(maxCW / curImg.naturalWidth, maxCH / curImg.naturalHeight, 2);
+      canvas.width = Math.round(curImg.naturalWidth * scale);
+      canvas.height = Math.round(curImg.naturalHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(curImg, 0, 0, canvas.width, canvas.height);
+      // 画所有切片线框
+      if (atlas.slices) {
+        ctx.strokeStyle = 'rgba(76,175,80,0.7)';
+        ctx.lineWidth = 1;
+        for (const slice of Object.values(atlas.slices)) {
+          ctx.strokeRect(slice.sx * scale, slice.sy * scale, slice.sw * scale, slice.sh * scale);
+        }
+      }
+    };
+    drawAtlas();
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('slice-modal-close').addEventListener('click', close);
+    document.getElementById('amp-cancel').addEventListener('click', close);
+
+    // 刷新图片
+    document.getElementById('amp-reload').addEventListener('click', () => {
+      const newPath = document.getElementById('amp-path').value.trim();
+      if (!newPath) return;
+      const newImg = new Image();
+      newImg.onload = () => {
+        editor.loadedImages.set(atlas.id, newImg);
+        document.getElementById('amp-width').value = newImg.naturalWidth;
+        document.getElementById('amp-height').value = newImg.naturalHeight;
+        drawAtlas();
+      };
+      newImg.onerror = () => editor.ui.showToast?.('图片加载失败: ' + newPath, 'error');
+      newImg.src = newPath;
+    });
+
+    // 确定
+    document.getElementById('amp-confirm').addEventListener('click', () => {
+      atlas.name = document.getElementById('amp-name').value.trim() || atlas.name;
+      const newPath = document.getElementById('amp-path').value.trim();
+      if (newPath && newPath !== atlas.path) {
+        atlas.path = newPath;
+        editor.loadedImages.delete(atlas.id);
+        this.loadAtlasImages();
+      }
+      atlas.width = parseInt(document.getElementById('amp-width').value) || atlas.width;
+      atlas.height = parseInt(document.getElementById('amp-height').value) || atlas.height;
+      this._updateAtlasList();
+      this._showAtlasProperties();
+      editor.render();
+      close();
+    });
+  }
+
+  /**
+   * 打开新建切片弹窗（与编辑切片弹窗类似，但初始选框为默认位置）
+   * @private
+   */
+  _openNewSliceModal(atlas) {
+    const editor = this.editor;
+    const img = editor.loadedImages.get(atlas.id);
+    if (!img) {
+      editor.ui.showToast?.('图集图片未加载，请先设置路径', 'error');
+      return;
+    }
+
+    // 默认切片参数
+    const state = { sx: 0, sy: 0, sw: 64, sh: 64 };
+    let sliceName = '新切片';
+    let sliceKey = 'slice_' + Date.now().toString(36);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'slice-editor-overlay';
+    overlay.innerHTML = `
+      <div id="slice-editor-modal">
+        <div class="slice-modal-header">
+          <span>新建切片 - 图集: ${atlas.name}</span>
+          <button id="slice-modal-close" title="关闭">✕</button>
+        </div>
+        <div class="slice-modal-body">
+          <div class="slice-modal-canvas-wrap">
+            <canvas id="slice-modal-canvas"></canvas>
+          </div>
+          <div class="slice-modal-params">
+            <div class="smp-row"><label>Key:</label><input type="text" id="smp-key" value="${sliceKey}"></div>
+            <div class="smp-row"><label>名称:</label><input type="text" id="smp-name" value="${sliceName}"></div>
+            <div class="smp-row"><label>X:</label><input type="number" id="smp-sx" value="${state.sx}"></div>
+            <div class="smp-row"><label>Y:</label><input type="number" id="smp-sy" value="${state.sy}"></div>
+            <div class="smp-row"><label>宽:</label><input type="number" id="smp-sw" value="${state.sw}"></div>
+            <div class="smp-row"><label>高:</label><input type="number" id="smp-sh" value="${state.sh}"></div>
+            <div class="smp-row"><label>碰撞:</label><input type="checkbox" id="smp-collide"></div>
+            <div class="smp-row"><label>碰撞半径:</label><input type="number" id="smp-radius" value="16"></div>
+            <div class="smp-info">拖动选框选择切片区域</div>
+            <div class="smp-row" style="margin-top:12px;">
+              <button id="smp-confirm" style="flex:1;">创建</button>
+              <button id="smp-cancel" style="flex:1;">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const canvas = document.getElementById('slice-modal-canvas');
+    const ctx = canvas.getContext('2d');
+
+    const maxCW = Math.min(800, window.innerWidth - 320);
+    const maxCH = Math.min(600, window.innerHeight - 160);
+    const scale = Math.min(maxCW / img.naturalWidth, maxCH / img.naturalHeight, 2);
+    const cw = Math.round(img.naturalWidth * scale);
+    const ch = Math.round(img.naturalHeight * scale);
+    canvas.width = cw;
+    canvas.height = ch;
+
+    let dragging = null;
+    let dragStart = {};
+
+    const draw = () => {
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.drawImage(img, 0, 0, cw, ch);
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0, 0, cw, ch);
+      const rx = state.sx * scale, ry = state.sy * scale;
+      const rw = state.sw * scale, rh = state.sh * scale;
+      ctx.drawImage(img, state.sx, state.sy, state.sw, state.sh, rx, ry, rw, rh);
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.fillStyle = '#4CAF50';
+      ctx.fillRect(rx + rw - 6, ry + rh - 6, 8, 8);
+    };
+    draw();
+
+    const syncInputs = () => {
+      document.getElementById('smp-sx').value = Math.round(state.sx);
+      document.getElementById('smp-sy').value = Math.round(state.sy);
+      document.getElementById('smp-sw').value = Math.round(state.sw);
+      document.getElementById('smp-sh').value = Math.round(state.sh);
+    };
+
+    const getCanvasPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    };
+
+    canvas.addEventListener('mousedown', (e) => {
+      const pos = getCanvasPos(e);
+      const rx = state.sx * scale, ry = state.sy * scale;
+      const rw = state.sw * scale, rh = state.sh * scale;
+      if (Math.abs(pos.x - (rx + rw)) < 10 && Math.abs(pos.y - (ry + rh)) < 10) {
+        dragging = 'resize-br';
+      } else if (pos.x >= rx && pos.x <= rx + rw && pos.y >= ry && pos.y <= ry + rh) {
+        dragging = 'move';
+      } else {
+        return;
+      }
+      dragStart = { mx: pos.x, my: pos.y, sx: state.sx, sy: state.sy, sw: state.sw, sh: state.sh };
+      e.preventDefault();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragging) {
+        const pos = getCanvasPos(e);
+        const rx = state.sx * scale, ry = state.sy * scale;
+        const rw = state.sw * scale, rh = state.sh * scale;
+        if (Math.abs(pos.x - (rx + rw)) < 10 && Math.abs(pos.y - (ry + rh)) < 10) {
+          canvas.style.cursor = 'nwse-resize';
+        } else if (pos.x >= rx && pos.x <= rx + rw && pos.y >= ry && pos.y <= ry + rh) {
+          canvas.style.cursor = 'move';
+        } else {
+          canvas.style.cursor = 'crosshair';
+        }
+        return;
+      }
+      const pos = getCanvasPos(e);
+      const dx = (pos.x - dragStart.mx) / scale;
+      const dy = (pos.y - dragStart.my) / scale;
+      if (dragging === 'move') {
+        state.sx = Math.max(0, Math.min(img.naturalWidth - state.sw, Math.round(dragStart.sx + dx)));
+        state.sy = Math.max(0, Math.min(img.naturalHeight - state.sh, Math.round(dragStart.sy + dy)));
+      } else if (dragging === 'resize-br') {
+        state.sw = Math.max(4, Math.min(img.naturalWidth - state.sx, Math.round(dragStart.sw + dx)));
+        state.sh = Math.max(4, Math.min(img.naturalHeight - state.sy, Math.round(dragStart.sh + dy)));
+      }
+      syncInputs();
+      draw();
+    });
+
+    const stopDrag = () => { dragging = null; };
+    canvas.addEventListener('mouseup', stopDrag);
+    canvas.addEventListener('mouseleave', stopDrag);
+
+    ['smp-sx', 'smp-sy', 'smp-sw', 'smp-sh'].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('input', () => {
+        const v = parseInt(el.value) || 0;
+        if (id === 'smp-sx') state.sx = Math.max(0, v);
+        else if (id === 'smp-sy') state.sy = Math.max(0, v);
+        else if (id === 'smp-sw') state.sw = Math.max(1, v);
+        else if (id === 'smp-sh') state.sh = Math.max(1, v);
+        draw();
+      });
+    });
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('slice-modal-close').addEventListener('click', close);
+    document.getElementById('smp-cancel').addEventListener('click', close);
+
+    document.getElementById('smp-confirm').addEventListener('click', () => {
+      const key = document.getElementById('smp-key').value.trim() || sliceKey;
+      const name = document.getElementById('smp-name').value.trim() || '新切片';
+      if (atlas.slices[key]) {
+        editor.ui.showToast?.(`切片 Key "${key}" 已存在，请换一个`, 'error');
+        return;
+      }
+      atlas.slices[key] = {
+        name,
+        sx: Math.round(state.sx),
+        sy: Math.round(state.sy),
+        sw: Math.round(state.sw),
+        sh: Math.round(state.sh),
+        collide: document.getElementById('smp-collide').checked,
+        colliderRadius: parseInt(document.getElementById('smp-radius').value) || 16
+      };
+      this._updateAtlasList();
+      this._updateSlicePreviews();
+      this._showAtlasProperties();
+      editor.render();
+      editor.ui.showToast?.('切片已创建: ' + name);
+      close();
+    });
   }
 
   /**
@@ -857,6 +1173,9 @@ export class SceneEditorAssets {
     const slice = atlas.slices?.[sliceKey];
     if (!slice) return;
 
+    // 切片选中时取消图集选中（避免面板冲突）
+    editor.selectedAtlasId = null;
+
     // 更新选中状态
     editor.container.querySelectorAll('.slice-item').forEach(item => {
       item.classList.remove('selected');
@@ -867,6 +1186,8 @@ export class SceneEditorAssets {
 
     // 显示切片属性
     const propsPanel = document.getElementById('slice-properties');
+    const title = document.getElementById('slice-panel-title');
+    if (title) title.textContent = '选中切片';
     if (propsPanel) {
       propsPanel.innerHTML = `
         <div class="slice-prop-row">

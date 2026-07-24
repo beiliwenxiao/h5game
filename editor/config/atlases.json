@@ -73,6 +73,15 @@
           "sw": 30,
           "sh": 30,
           "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
         }
       }
     }

@@ -111,7 +111,7 @@ export class SceneEditorUI {
               </div>
             </div>
             <div class="sidebar-section">
-              <h3>选中切片</h3>
+              <h3 id="slice-panel-title">选中切片</h3>
               <div id="slice-properties">
                 <div class="no-selection">未选中切片</div>
               </div>

@@ -30,7 +30,7 @@ import { SceneEditorInteraction } from './SceneEditorInteraction.js';
 import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
-import { sceneDataLoader } from './SceneDataLoader.js';
+import { sceneDataLoader, getGlobalImages } from './SceneDataLoader.js';
 
 // 编辑器默认配置（运行时从 JSON 加载覆盖）
 let _editorDefaults = null;
@@ -255,6 +255,9 @@ export class SceneEditor {
       const file = e.target.files[0];
       if (file) this.assets.addImageAsset(file);
     });
+    document.getElementById('editor-save-scene-btn').addEventListener('click', () => {
+      this.assets.saveImages();
+    });
 
     // 图层
     document.getElementById('editor-add-layer').addEventListener('click', () => this.layers.addLayer());
@@ -377,6 +380,7 @@ export class SceneEditor {
 
     // 合并全局图集到场景数据（所有场景共享同一套图集资源）
     this._mergeGlobalAtlases();
+    this._mergeGlobalImages();
 
     // 加载图集和图片
     this.assets.loadAtlasImages();
@@ -408,6 +412,21 @@ export class SceneEditor {
       } else {
         this.sceneData.atlases.push(copy);
       }
+    }
+  }
+
+  /**
+   * 合并全局图片资源到当前场景。
+   * 以全局配置 config/images.json 为准覆盖，保证保存后刷新能拿到最新图片路径。
+   * @private
+   */
+  _mergeGlobalImages() {
+    const globalImages = getGlobalImages();
+    if (!globalImages || Object.keys(globalImages).length === 0) return;
+    if (!this.sceneData.imageAssets) this.sceneData.imageAssets = {};
+    for (const [id, data] of Object.entries(globalImages)) {
+      // 全局配置为准覆盖
+      this.sceneData.imageAssets[id] = JSON.parse(JSON.stringify(data));
     }
   }
 

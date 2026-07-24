@@ -23,20 +23,23 @@ import { SceneDataExporter } from './SceneDataExporter.js';
 let _scenePresetsConfig = null;
 let _decoSpritesConfig = null;
 let _atlasesConfig = null;
+let _imagesConfig = null;
 
 /**
  * 加载场景配置
  */
 async function _loadConfigs() {
   try {
-    const [presetsResp, decoResp, atlasResp] = await Promise.all([
+    const [presetsResp, decoResp, atlasResp, imagesResp] = await Promise.all([
       fetch('./config/scene-presets.json'),
       fetch('./config/deco-sprites.json'),
-      fetch('./config/atlases.json')
+      fetch('./config/atlases.json'),
+      fetch('./config/images.json')
     ]);
     _scenePresetsConfig = await presetsResp.json();
     _decoSpritesConfig = await decoResp.json();
     _atlasesConfig = await atlasResp.json();
+    _imagesConfig = await imagesResp.json();
   } catch (e) {
     console.warn('加载场景配置失败，使用内置默认值:', e);
   }
@@ -490,4 +493,20 @@ export const sceneDataLoader = new SceneDataLoader();
  */
 export function updateAtlasesCache(config) {
   _atlasesConfig = config;
+}
+
+/**
+ * 获取全局图片资源配置
+ * @returns {object} images 对象 { imageId: { src, name } }
+ */
+export function getGlobalImages() {
+  return (_imagesConfig && _imagesConfig.images) || {};
+}
+
+/**
+ * 外部更新图片资源缓存（保存图片后调用）
+ * @param {object} config - { images: { ... } }
+ */
+export function updateImagesCache(config) {
+  _imagesConfig = config;
 }

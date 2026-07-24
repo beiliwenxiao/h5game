@@ -42,8 +42,8 @@ export class SceneEditorUI {
             <button id="editor-redo" title="重做 (Ctrl+Y)">↷</button>
           </div>
           <div class="toolbar-group">
-            <button id="editor-select" class="active" title="选择工具 (V)">◇</button>
-            <button id="editor-pan" title="平移工具 (H)">✥</button>
+            <button id="editor-select" class="active" title="选择工具 (V)">↖</button>
+            <button id="editor-pan" title="平移工具 (H)">🖐️</button>
             <button id="editor-place" title="放置工具 (P)">+</button>
           </div>
           <div class="toolbar-group">
@@ -81,6 +81,7 @@ export class SceneEditorUI {
                 </div>
                 <div class="asset-actions" id="editor-image-actions" style="display:none;">
                   <button id="editor-add-image">添加图片</button>
+                  <button id="editor-save-scene-btn">💾 保存</button>
                 </div>
                 <div id="asset-shapes" class="asset-panel">
                   <div class="asset-list" id="editor-asset-list"></div>
@@ -243,9 +244,9 @@ export class SceneEditorUI {
           const el = editor.container.querySelector(sel);
           if (el) el.style.display = (name === tabName) ? 'block' : 'none';
         }
-        // 「添加图片」按钮仅在图集 Tab 显示
+        // 「添加图片」按钮仅在图形 Tab 显示
         const imgActions = editor.container.querySelector('#editor-image-actions');
-        if (imgActions) imgActions.style.display = (tabName === 'atlases') ? 'flex' : 'none';
+        if (imgActions) imgActions.style.display = (tabName === 'shapes') ? 'flex' : 'none';
         // 切换 Tab 时重置下方面板为默认描述
         showTabDefault(tabName);
         // 内容 Tab 首次打开时加载内容库定义
@@ -255,6 +256,9 @@ export class SceneEditorUI {
     });
     // 初始显示默认描述（图形 Tab）
     showTabDefault('shapes');
+    // 图形 Tab 默认激活，显示添加图片按钮
+    const imgActionsInit = editor.container.querySelector('#editor-image-actions');
+    if (imgActionsInit) imgActionsInit.style.display = 'flex';
     // 内容 Tab 的按钮
     const addBtn = editor.container.querySelector('#editor-content-add');
     if (addBtn) addBtn.addEventListener('click', () => editor.assets.addContentDefinition?.());
@@ -691,6 +695,21 @@ export class SceneEditorUI {
         newImg.src = newSrc;
         this._fetchImageFileSize(newSrc);
       });
+
+      // 编辑按钮：弹窗编辑图片属性
+      const imgEditBtn = document.getElementById('editor-image-edit-btn');
+      if (imgEditBtn) {
+        imgEditBtn.addEventListener('click', () => this._openImageEditorModal(imgObj));
+      }
+
+      // 删除按钮：删除图片对象及其资源引用
+      const imgDelBtn = document.getElementById('editor-image-delete-btn');
+      if (imgDelBtn) {
+        imgDelBtn.addEventListener('click', () => {
+          if (!confirm('确定删除该图片对象吗？')) return;
+          this.deleteSelectedObjects();
+        });
+      }
     }
 
     // 加载图片按钮
@@ -1076,6 +1095,7 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label title="图片相对路径或 URL">路径:</label><input type="text" id="editor-image-src" value="${src}" style="flex:1;"></div>`;
     html += `<div class="property-row"><label>图片尺寸:</label><input id="editor-image-dim" value="${dim}" disabled style="color:#88ccff;"></div>`;
     html += `<div class="property-row"><label>文件大小:</label><input id="editor-image-filesize" value="计算中…" disabled style="color:#88ccff;"></div>`;
+    html += `<div class="property-row" style="margin-top:8px;"><button id="editor-image-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button><button id="editor-image-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button></div>`;
     return html;
   }
 
@@ -1105,6 +1125,118 @@ export class SceneEditorUI {
     } catch (e) {
       el.value = '查询失败';
     }
+  }
+
+  /**
+   * 打开图片编辑弹窗：展示图片预览，可更换路径、调整尺寸
+   * @private
+   */
+  _openImageEditorModal(imgObj) {
+    const editor = this.editor;
+    const asset = editor.sceneData.imageAssets?.[imgObj.imageId];
+    const src = asset?.src || '';
+    const img = editor.loadedImages.get(imgObj.imageId);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'slice-editor-overlay';
+    overlay.innerHTML = `
+      <div id="slice-editor-modal">
+        <div class="slice-modal-header">
+          <span>图片编辑 - ${imgObj.id || imgObj.imageId}</span>
+          <button id="slice-modal-close" title="关闭">✕</button>
+        </div>
+        <div class="slice-modal-body">
+          <div class="slice-modal-canvas-wrap">
+            <canvas id="img-modal-canvas"></canvas>
+            ${!img ? '<div style="padding:20px;color:#f88;font-size:12px;">图片未加载，请设置正确路径</div>' : ''}
+          </div>
+          <div class="slice-modal-params">
+            <div class="smp-row"><label>图片路径:</label><input type="text" id="imp-path" value="${src}" style="min-width:180px;"></div>
+            <div class="smp-row"><label>图片宽:</label><input type="number" id="imp-nat-w" value="${img ? img.naturalWidth : 0}" disabled style="color:#88ccff;"></div>
+            <div class="smp-row"><label>图片高:</label><input type="number" id="imp-nat-h" value="${img ? img.naturalHeight : 0}" disabled style="color:#88ccff;"></div>
+            <div class="smp-row"><label>对象宽:</label><input type="number" id="imp-width" value="${Math.round(imgObj.width)}"></div>
+            <div class="smp-row"><label>对象高:</label><input type="number" id="imp-height" value="${Math.round(imgObj.height)}"></div>
+            <div class="smp-row"><label>旋转:</label><input type="number" id="imp-rotation" value="${imgObj.rotation || 0}"></div>
+            <div class="smp-row" style="margin-top:6px;">
+              <button id="imp-reload" style="flex:1;">刷新图片</button>
+              <button id="imp-fit" style="flex:1;">适应原始尺寸</button>
+            </div>
+            <div class="smp-row" style="margin-top:12px;">
+              <button id="imp-confirm" style="flex:1;">确定</button>
+              <button id="imp-cancel" style="flex:1;">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    // 绘制图片预览
+    const canvas = document.getElementById('img-modal-canvas');
+    const drawImg = () => {
+      const curImg = editor.loadedImages.get(imgObj.imageId);
+      if (!curImg || !canvas) return;
+      const maxCW = Math.min(600, window.innerWidth - 320);
+      const maxCH = Math.min(450, window.innerHeight - 160);
+      const scale = Math.min(maxCW / curImg.naturalWidth, maxCH / curImg.naturalHeight, 2);
+      canvas.width = Math.round(curImg.naturalWidth * scale);
+      canvas.height = Math.round(curImg.naturalHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(curImg, 0, 0, canvas.width, canvas.height);
+    };
+    drawImg();
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('slice-modal-close').addEventListener('click', close);
+    document.getElementById('imp-cancel').addEventListener('click', close);
+
+    // 刷新图片
+    document.getElementById('imp-reload').addEventListener('click', () => {
+      const newPath = document.getElementById('imp-path').value.trim();
+      if (!newPath) return;
+      const newImg = new Image();
+      newImg.onload = () => {
+        editor.loadedImages.set(imgObj.imageId, newImg);
+        document.getElementById('imp-nat-w').value = newImg.naturalWidth;
+        document.getElementById('imp-nat-h').value = newImg.naturalHeight;
+        drawImg();
+      };
+      newImg.onerror = () => this.showToast('图片加载失败: ' + newPath, 'error');
+      newImg.src = newPath;
+    });
+
+    // 适应原始尺寸
+    document.getElementById('imp-fit').addEventListener('click', () => {
+      const curImg = editor.loadedImages.get(imgObj.imageId);
+      if (curImg) {
+        document.getElementById('imp-width').value = curImg.naturalWidth;
+        document.getElementById('imp-height').value = curImg.naturalHeight;
+      }
+    });
+
+    // 确定
+    document.getElementById('imp-confirm').addEventListener('click', () => {
+      const newPath = document.getElementById('imp-path').value.trim();
+      if (newPath && newPath !== src) {
+        if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
+        if (!editor.sceneData.imageAssets[imgObj.imageId]) {
+          editor.sceneData.imageAssets[imgObj.imageId] = { src: newPath };
+        } else {
+          editor.sceneData.imageAssets[imgObj.imageId].src = newPath;
+        }
+        // 重新加载
+        const reImg = new Image();
+        reImg.onload = () => { editor.loadedImages.set(imgObj.imageId, reImg); editor.render(); };
+        reImg.src = newPath;
+      }
+      imgObj.width = parseInt(document.getElementById('imp-width').value) || imgObj.width;
+      imgObj.height = parseInt(document.getElementById('imp-height').value) || imgObj.height;
+      imgObj.rotation = parseInt(document.getElementById('imp-rotation').value) || 0;
+      this.updateObjectProperties();
+      editor.render();
+      close();
+    });
   }
 
   /**

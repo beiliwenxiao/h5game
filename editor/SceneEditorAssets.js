@@ -10,7 +10,7 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
-import { updateAtlasesCache } from './SceneDataLoader.js';
+import { updateAtlasesCache, updateImagesCache } from './SceneDataLoader.js';
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -520,6 +520,7 @@ export class SceneEditorAssets {
           <span>${file.name.substring(0, 8)}</span>
         `;
         assetList.appendChild(item);
+        this._bindImageItemClick(item, id);
         resolve(id);
       };
       img.onerror = () => {
@@ -576,6 +577,195 @@ export class SceneEditorAssets {
         <span>背景填充</span>
       </div>
     `;
+
+    // 渲染已有的图片资源（来自 imageAssets）
+    const editor = this.editor;
+    const assets = editor.sceneData.imageAssets;
+    if (assets) {
+      for (const [id, data] of Object.entries(assets)) {
+        const item = document.createElement('div');
+        item.className = 'asset-item';
+        item.draggable = true;
+        item.dataset.id = id;
+        const displayName = (data.name || id).substring(0, 10);
+        item.innerHTML = `
+          <div class="asset-preview"><img src="${data.src}" alt="${displayName}" style="width:100%;height:100%;object-fit:contain;"></div>
+          <span>${displayName}</span>
+        `;
+        list.appendChild(item);
+        this._bindImageItemClick(item, id);
+      }
+    }
+  }
+
+  /**
+   * 绑定图片资源项的点击事件 → 选中时下方面板显示图片属性
+   * @private
+   */
+  _bindImageItemClick(item, imageId) {
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      // 高亮选中
+      const list = document.getElementById('editor-asset-list');
+      if (list) list.querySelectorAll('.asset-item').forEach(el => el.classList.remove('selected'));
+      item.classList.add('selected');
+      this.editor.selectedSlice = null;
+      this.editor.selectedAtlasId = null;
+      this._showImageAssetProperties(imageId);
+    });
+  }
+
+  /**
+   * 在下方面板显示选中图片资源的属性 + 编辑/删除按钮
+   * @private
+   */
+  _showImageAssetProperties(imageId) {
+    const editor = this.editor;
+    const asset = editor.sceneData.imageAssets?.[imageId];
+    if (!asset) return;
+
+    const title = document.getElementById('slice-panel-title');
+    const propsPanel = document.getElementById('slice-properties');
+    if (title) title.textContent = '选中图片';
+    if (!propsPanel) return;
+
+    const img = editor.loadedImages.get(imageId);
+    const dim = img ? `${img.naturalWidth}×${img.naturalHeight}` : '未加载';
+
+    propsPanel.innerHTML = `
+      <div class="slice-prop-row"><label>ID:</label><input value="${imageId}" disabled style="color:#FFD700;"></div>
+      <div class="slice-prop-row"><label>名称:</label><input type="text" id="img-asset-name" value="${asset.name || ''}"></div>
+      <div class="slice-prop-row"><label>路径:</label><input type="text" id="img-asset-path" value="${asset.src || ''}" title="图片相对路径或 URL"></div>
+      <div class="slice-prop-row"><label>尺寸:</label><input value="${dim}" disabled style="color:#88ccff;"></div>
+      <div class="slice-prop-row" style="margin-top:8px;">
+        <button id="img-asset-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
+        <button id="img-asset-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button>
+      </div>
+    `;
+
+    // 名称修改
+    document.getElementById('img-asset-name').addEventListener('change', (e) => {
+      asset.name = e.target.value;
+    });
+    // 路径修改
+    document.getElementById('img-asset-path').addEventListener('change', (e) => {
+      asset.src = e.target.value.trim();
+      editor.loadedImages.delete(imageId);
+      this.loadImageAssets();
+      this._updateSpriteList();
+    });
+    // 编辑按钮：弹窗
+    document.getElementById('img-asset-edit-btn').addEventListener('click', () => {
+      this._openImageAssetEditorModal(imageId);
+    });
+    // 删除按钮
+    document.getElementById('img-asset-delete-btn').addEventListener('click', () => {
+      if (!confirm(`确定删除图片资源「${asset.name || imageId}」吗？`)) return;
+      delete editor.sceneData.imageAssets[imageId];
+      editor.loadedImages.delete(imageId);
+      // 同时删除场景中引用该图片的对象
+      for (const layer of editor.sceneData.layers) {
+        layer.objects = layer.objects.filter(obj => !(obj.type === 'image' && obj.imageId === imageId));
+      }
+      this._updateSpriteList();
+      editor.render();
+      editor.ui.updateObjectCount();
+      // 重置面板
+      if (title) title.textContent = '说明';
+      propsPanel.innerHTML = '<div class="no-selection">用于基础的几何图形、背景图填充、碰撞多边形等。</div>';
+      editor.ui.showToast?.('图片资源已删除');
+    });
+  }
+
+  /**
+   * 打开图片资源编辑弹窗（在资源库中选中时）
+   * @private
+   */
+  _openImageAssetEditorModal(imageId) {
+    const editor = this.editor;
+    const asset = editor.sceneData.imageAssets?.[imageId];
+    if (!asset) return;
+    const img = editor.loadedImages.get(imageId);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'slice-editor-overlay';
+    overlay.innerHTML = `
+      <div id="slice-editor-modal">
+        <div class="slice-modal-header">
+          <span>图片编辑 - ${asset.name || imageId}</span>
+          <button id="slice-modal-close" title="关闭">✕</button>
+        </div>
+        <div class="slice-modal-body">
+          <div class="slice-modal-canvas-wrap">
+            <canvas id="img-asset-modal-canvas"></canvas>
+            ${!img ? '<div style="padding:20px;color:#f88;font-size:12px;">图片未加载，请设置正确路径</div>' : ''}
+          </div>
+          <div class="slice-modal-params">
+            <div class="smp-row"><label>名称:</label><input type="text" id="iam-name" value="${asset.name || ''}"></div>
+            <div class="smp-row"><label>路径:</label><input type="text" id="iam-path" value="${asset.src || ''}" style="min-width:180px;"></div>
+            <div class="smp-row"><label>宽度:</label><input type="number" id="iam-width" value="${img ? img.naturalWidth : 0}" disabled style="color:#88ccff;"></div>
+            <div class="smp-row"><label>高度:</label><input type="number" id="iam-height" value="${img ? img.naturalHeight : 0}" disabled style="color:#88ccff;"></div>
+            <div class="smp-row" style="margin-top:6px;">
+              <button id="iam-reload" style="flex:1;">刷新图片</button>
+            </div>
+            <div class="smp-row" style="margin-top:12px;">
+              <button id="iam-confirm" style="flex:1;">确定</button>
+              <button id="iam-cancel" style="flex:1;">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const canvas = document.getElementById('img-asset-modal-canvas');
+    const drawImg = () => {
+      const curImg = editor.loadedImages.get(imageId);
+      if (!curImg || !canvas) return;
+      const maxCW = Math.min(600, window.innerWidth - 320);
+      const maxCH = Math.min(450, window.innerHeight - 160);
+      const scale = Math.min(maxCW / curImg.naturalWidth, maxCH / curImg.naturalHeight, 2);
+      canvas.width = Math.round(curImg.naturalWidth * scale);
+      canvas.height = Math.round(curImg.naturalHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(curImg, 0, 0, canvas.width, canvas.height);
+    };
+    drawImg();
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('slice-modal-close').addEventListener('click', close);
+    document.getElementById('iam-cancel').addEventListener('click', close);
+
+    // 刷新图片
+    document.getElementById('iam-reload').addEventListener('click', () => {
+      const newPath = document.getElementById('iam-path').value.trim();
+      if (!newPath) return;
+      const newImg = new Image();
+      newImg.onload = () => {
+        editor.loadedImages.set(imageId, newImg);
+        document.getElementById('iam-width').value = newImg.naturalWidth;
+        document.getElementById('iam-height').value = newImg.naturalHeight;
+        drawImg();
+      };
+      newImg.onerror = () => editor.ui.showToast?.('图片加载失败: ' + newPath, 'error');
+      newImg.src = newPath;
+    });
+
+    // 确定
+    document.getElementById('iam-confirm').addEventListener('click', () => {
+      asset.name = document.getElementById('iam-name').value.trim() || asset.name;
+      const newPath = document.getElementById('iam-path').value.trim();
+      if (newPath && newPath !== asset.src) {
+        asset.src = newPath;
+        editor.loadedImages.delete(imageId);
+        this.loadImageAssets();
+      }
+      this._updateSpriteList();
+      this._showImageAssetProperties(imageId);
+      editor.render();
+      close();
+    });
   }
 
   /**
@@ -1303,6 +1493,64 @@ export class SceneEditorAssets {
       }
     } catch (e) {
       console.warn('[saveAtlases] 同步所有场景 atlases 失败:', e);
+    }
+  }
+
+  /**
+   * 保存所有图片资源到全局配置 config/images.json
+   * 同时同步到所有场景的 localStorage。
+   */
+  async saveImages() {
+    const editor = this.editor;
+    const images = editor.sceneData.imageAssets || {};
+    const configObj = { images };
+    const content = JSON.stringify(configObj, null, 2);
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'editor/config/images.json', content })
+      });
+      const data = await res.json();
+      if (data && data.ok) {
+        updateImagesCache(configObj);
+        editor.history.save();
+        this._syncImagesToAllScenes(images);
+        editor.ui.showToast?.('图片资源已保存到 config/images.json');
+      } else {
+        editor.ui.showToast?.('保存失败: ' + (data.error || '未知'), 'error');
+      }
+    } catch (e) {
+      editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+    }
+  }
+
+  /**
+   * 将最新图片资源同步写入 localStorage 中当前游戏的所有场景
+   * @private
+   */
+  _syncImagesToAllScenes(images) {
+    const gameId = this._contentGameId();
+    const storageKey = `yijian18-engine_editor_data_scenes_${gameId}`;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return;
+      const scenes = JSON.parse(raw);
+      if (!Array.isArray(scenes)) return;
+      let changed = false;
+      for (const scene of scenes) {
+        if (!scene.imageAssets) scene.imageAssets = {};
+        // 以全局为准覆盖
+        for (const [id, data] of Object.entries(images)) {
+          scene.imageAssets[id] = JSON.parse(JSON.stringify(data));
+        }
+        changed = true;
+      }
+      if (changed) {
+        localStorage.setItem(storageKey, JSON.stringify(scenes));
+      }
+    } catch (e) {
+      console.warn('[saveImages] 同步所有场景 imageAssets 失败:', e);
     }
   }
 

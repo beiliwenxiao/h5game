@@ -101,12 +101,31 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const chunkHeight = 720;
     this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight };
 
+    // 同步先把火堆/玩家/相机放到正确的世界位置（默认序章 chunk 偏移），
+    // 避免异步 _applySpawnPoints 完成前先渲染在局部坐标再"跳变"到目标位置。
+    // 之后 _applySpawnPoints 若有编辑器放置点会再精修（通常同值，无跳变）。
+    this.campfire.x = 350 + this._prologueOffset.x;
+    this.campfire.y = 250 + this._prologueOffset.y;
+    const _pt0 = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (_pt0) {
+      _pt0.position.x = this.campfire.x + 70;
+      _pt0.position.y = this.campfire.y + 80;
+    }
+    if (this.camera && _pt0) {
+      this.camera.position.x = _pt0.position.x;
+      this.camera.position.y = _pt0.position.y;
+    }
+
     // 地形实例在 _loadWorldTerrains 中动态创建
     this.terrain = null;
     this.terrainAct1 = null;
     this._terrains = [];
     this._worldRegion = null;
     this._teleportFade = null;
+    // 加载门标志：地形 + 放置点异步就绪后才渲染世界（避免跳变/闪树）
+    this._sceneReady = false;
+    this._terrainsLoaded = false;
+    this._spawnApplied = false;
     this._loadWorldTerrains();
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
@@ -119,6 +138,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
     this._initGameLoader();
+
+    // 安全兜底：即使某个异步加载失败，最多 3 秒后也强制开放渲染，避免永久黑屏
+    setTimeout(() => {
+      if (!this._sceneReady) {
+        this._terrainsLoaded = true;
+        this._spawnApplied = true;
+        this._sceneReady = true;
+      }
+    }, 3000);
 
     console.log('DataDrivenPrologueScene: 进入（数据驱动序章）');
   }
@@ -144,6 +172,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this.inputManager.update();
         return;
       }
+    }
+
+    // 玩家实体就绪后同步到触发器上下文（保证 giveReward/heal 等动作能拿到 ctx.player）
+    if (this.gameLoader && this.playerEntity && !this._playerCtxSynced) {
+      this.gameLoader.updateContext({ player: this.playerEntity });
+      this._playerCtxSynced = true;
     }
 
     // 火焰动画 + 粒子发射器更新
@@ -1168,6 +1202,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
     }
 
+    // 出生点定位完成后，把相机同步到玩家最终位置（避免相机残留在旧位置造成跳变）
+    const finalPt = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (this.camera && finalPt) {
+      this.camera.setPosition(finalPt.position.x, finalPt.position.y);
+    }
+
+    this._spawnApplied = true;
+    this._checkSceneReady();
+
     console.log('[DDScene] 场景放置点:', placements.length, '玩家:',
       this.playerEntity?.getComponent('transform')?.position, '火堆:', this.campfire.x, this.campfire.y);
   }
@@ -1215,8 +1258,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             this.timeSystem = new TimeSystem(project.system.time);
           }
         }
+        this._terrainsLoaded = true;
+        this._checkSceneReady();
       })
-      .catch(e => console.warn('[DDScene] 加载 worldMap 地形失败:', e));
+      .catch(e => {
+        console.warn('[DDScene] 加载 worldMap 地形失败:', e);
+        this._terrainsLoaded = true;
+        this._checkSceneReady();
+      });
+  }
+
+  /** 地形 + 放置点都就绪后开放渲染（加载门） */
+  _checkSceneReady() {
+    if (this._terrainsLoaded && this._spawnApplied) this._sceneReady = true;
   }
 
   /** 迷雾淡出（平滑过渡到目标浓度） */
@@ -1235,6 +1289,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 渲染：父类管线 + 碰撞多边形调试层 + 传送淡黑遮罩 */
   render(ctx) {
+    // 加载门：地形/放置点异步加载完成前只填背景色，避免先渲染在默认位置再"跳变"、
+    // 以及编辑器数据加载前闪现程序化默认树。
+    if (!this._sceneReady) {
+      const bg = (this.terrain && this.terrain.sceneBackgroundColor) || '#1f1a14';
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, this.logicalWidth || (ctx.canvas && ctx.canvas.width) || 1280, this.logicalHeight || (ctx.canvas && ctx.canvas.height) || 720);
+      return;
+    }
     super.render(ctx);
     this._renderCollisionShapesDebug(ctx);
     this._renderTeleportFade(ctx);

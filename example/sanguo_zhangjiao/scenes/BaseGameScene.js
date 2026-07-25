@@ -4431,7 +4431,7 @@ export class BaseGameScene extends PrologueScene {
       }
       
       // 普通序列帧精灵（横向/网格帧条，NPC 等用）：非 static/4x8/3x3 格式
-      if (!rendered && !sprite.isStatic && !sprite.useAnimatedSprite && !sprite.useDirectionalSprite
+      if (!rendered && sprite.spriteSheet && !sprite.isStatic && !sprite.useAnimatedSprite && !sprite.useDirectionalSprite
           && sprite.animations && sprite.animations.size > 0 && this.assetManager) {
         const image = this.assetManager.getAsset(sprite.spriteSheet);
         const isImageReady = image && (

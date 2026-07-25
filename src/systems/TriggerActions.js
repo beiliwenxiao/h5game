@@ -72,13 +72,23 @@ export function registerDefaultActions(triggerSystem) {
     },
 
     // ---- 奖励 ----
+    // giveReward{ exp, gold, items }：items 每项可为完整物品对象，或 { id, quantity }（按内容库 registries.items 解析）
     giveReward: (p, ctx) => {
       const player = ctx.player;
       if (!player) return;
       if (p.exp && player.addExp) player.addExp(p.exp);
       const inv = player.getComponent && player.getComponent('inventory');
+      const itemReg = ctx.registries && ctx.registries.items;
       if (inv && Array.isArray(p.items)) {
-        for (const it of p.items) inv.addItem?.(it, it.quantity || 1);
+        for (const raw of p.items) {
+          let it = raw;
+          // 只给了 id（或 {id,quantity} 无其它字段）时，从内容库解析完整定义
+          if (raw && raw.id && !raw.name && itemReg && itemReg.get) {
+            const def = itemReg.get(raw.id);
+            if (def) it = { ...def, ...raw };
+          }
+          inv.addItem?.(it, (raw && raw.quantity) || 1);
+        }
       }
       if (p.gold && ctx.blackboard) ctx.blackboard.add('gold', p.gold);
     },

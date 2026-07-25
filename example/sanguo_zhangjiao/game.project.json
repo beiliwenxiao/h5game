@@ -252,7 +252,7 @@
           "speaker": "张角",
           "portrait": "zhangjiao",
           "text": "这里是我们的粥棚。乱世之中，百姓流离失所，我们在这里施粥救济灾民。",
-          "nextNode": "player_thanks"
+          "nextNode": null
         },
         "player_thanks": {
           "speaker": "你",
@@ -1237,6 +1237,32 @@
           "nextNode": null
         }
       }
+    },
+    {
+      "id": "dlg_ms0mnqzu",
+      "title": "新对话",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "",
+          "portrait": null,
+          "text": "",
+          "nextNode": null
+        }
+      }
+    },
+    {
+      "id": "dlg_ms0mny0c",
+      "title": "新对话",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "",
+          "portrait": null,
+          "text": "",
+          "nextNode": null
+        }
+      }
     }
   ],
   "quests": [],
@@ -1487,7 +1513,7 @@
       "when": {
         "type": "timer",
         "params": {
-          "seconds": 5
+          "seconds": 30
         }
       },
       "if": {
@@ -1834,6 +1860,42 @@
           "action": "showTip",
           "params": {
             "text": "张角的符水让你恢复了体力，你从濒死中活了过来。"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_give_talisman",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "talisman_water"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act2Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "giveReward",
+          "params": {
+            "items": [
+              {
+                "id": "talisman_water",
+                "quantity": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "得到 符水 x1，按 B 打开背包，使用可恢复 50 点生命"
           }
         }
       ],
@@ -2311,6 +2373,20 @@
         },
         "scale": 1,
         "stackable": false
+      },
+      {
+        "id": "talisman_water",
+        "name": "符水",
+        "type": "consumable",
+        "usable": true,
+        "stackable": true,
+        "maxStack": 10,
+        "rarity": 1,
+        "description": "张角的符水，可以恢复50点生命值",
+        "effect": {
+          "type": "heal",
+          "value": 50
+        }
       },
       {
         "id": "leftover_food",

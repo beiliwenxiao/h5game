@@ -306,8 +306,13 @@ export class DialogueSystem {
     this.currentNode = null;
     this.stopTypewriter();
 
-    // 触发结束回调
-    if (this.onEndCallback) {
+    // 触发所有结束监听器（多监听器：场景 fire dialogueEnd + 动作 await 等各自独立）
+    if (this._endListeners && this._endListeners.length) {
+      // 复制一份，避免监听器在回调中取消订阅导致遍历错乱
+      for (const cb of [...this._endListeners]) {
+        try { cb(dialogue); } catch (e) { console.warn('DialogueSystem: onEnd 监听器出错', e); }
+      }
+    } else if (this.onEndCallback) {
       this.onEndCallback(dialogue);
     }
 
@@ -496,11 +501,21 @@ export class DialogueSystem {
   }
 
   /**
-   * 设置结束回调
-   * @param {Function} callback - 回调函数
+   * 注册对话结束监听器（支持多个）。
+   * @param {Function} callback - 回调 (dialogue) => void
+   * @returns {Function} 取消订阅函数（调用后移除该监听器）
    */
   onEnd(callback) {
+    if (typeof callback !== 'function') return () => {};
+    if (!this._endListeners) this._endListeners = [];
+    this._endListeners.push(callback);
+    // 兼容旧代码：保留 onEndCallback 指向最近一个（不影响多监听器）
     this.onEndCallback = callback;
+    return () => {
+      const i = this._endListeners.indexOf(callback);
+      if (i !== -1) this._endListeners.splice(i, 1);
+      if (this.onEndCallback === callback) this.onEndCallback = null;
+    };
   }
 
   /**

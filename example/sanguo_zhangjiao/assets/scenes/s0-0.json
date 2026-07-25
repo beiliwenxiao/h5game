@@ -4310,8 +4310,8 @@
           "name": "玩家出生点",
           "spawnId": "spawn_player_3832",
           "ref": "player",
-          "x": 206.25,
-          "y": 403.41,
+          "x": 541.19,
+          "y": 519.35,
           "enemyRef": "",
           "count": 1,
           "wave": 0,
@@ -4323,8 +4323,8 @@
           "name": "火堆",
           "spawnId": "spawn_campfire_9251",
           "ref": "campfire",
-          "x": 253.14,
-          "y": 355.71,
+          "x": 612.56,
+          "y": 528.33,
           "enemyRef": "",
           "count": 1,
           "wave": 0,
@@ -4414,6 +4414,9 @@
     }
   ],
   "colliders": [],
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world",
   "createdAt": "2026-07-24T22:13:00.079Z",
   "terrain": {
     "type": "camp",
@@ -4534,7 +4537,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-07-24T22:13:00.079Z",
+  "updatedAt": "2026-07-25T17:40:23.645Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -4622,12 +4625,14 @@
       }
     }
   ],
-  "sceneType": "worldChunk",
-  "worldMap": "prologue_world",
   "imageAssets": {
     "img_1784926747445": {
       "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
       "name": "bg_0_0.png"
+    },
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
     }
   }
 }

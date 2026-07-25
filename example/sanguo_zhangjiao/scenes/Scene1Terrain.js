@@ -326,11 +326,12 @@ export class Scene1Terrain {
           const sprite = this.decoSprites[key];
           const w = obj.width || sprite.sw;
           const h = obj.height || sprite.sh;
-          // 左上角 -> 底部中心锚点
+          // 左上角 -> 底部中心锚点；存独立 w/h（与编辑器一致，宽高各自照搬，不锁宽高比）
           decorations.push({
             x: Math.round(obj.x + w / 2),
             y: Math.round(obj.y + h),
             key,
+            w, h,
             scale: w / sprite.sw
           });
         }
@@ -1067,9 +1068,7 @@ export class Scene1Terrain {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const deco of groundDecos) {
       const sprite = this.decoSprites[deco.key];
-      const scale = deco.scale * (sprite.scale ?? 1);
-      const w = sprite.sw * scale;
-      const h = sprite.sh * scale;
+      const { w, h } = this._decoRenderSize(deco, sprite);
       const dx = deco.x - w / 2;
       const dy = deco.y - h;
       minX = Math.min(minX, dx);
@@ -1095,9 +1094,7 @@ export class Scene1Terrain {
     
     for (const deco of groundDecos) {
       const sprite = this.decoSprites[deco.key];
-      const scale = deco.scale * (sprite.scale ?? 1);
-      const w = sprite.sw * scale;
-      const h = sprite.sh * scale;
+      const { w, h } = this._decoRenderSize(deco, sprite);
       const dx = deco.x - w / 2 - offsetX;
       const dy = deco.y - h - offsetY;
       gctx.drawImage(
@@ -1131,9 +1128,7 @@ export class Scene1Terrain {
     if (!this.loaded.mountain) return;
     const sprite = this.decoSprites[deco.key];
     if (!sprite) return;
-    const totalScale = deco.scale * (sprite.scale ?? 1);
-    const w = sprite.sw * totalScale;
-    const h = sprite.sh * totalScale;
+    const { w, h } = this._decoRenderSize(deco, sprite);
     // 锚点：底部中央
     const dx = deco.x - w / 2;
     const dy = deco.y - h;
@@ -1142,6 +1137,20 @@ export class Scene1Terrain {
       sprite.sx, sprite.sy, sprite.sw, sprite.sh,
       dx, dy, w, h
     );
+  }
+
+  /**
+   * 计算装饰物渲染尺寸：
+   *   - 编辑器摆放的装饰物有独立 w/h（宽高各自照搬，与编辑器一致，允许非等比）
+   *   - 程序化生成的装饰物无 w/h，回退到 scale × 切片原始尺寸 × sprite.scale
+   * @private
+   */
+  _decoRenderSize(deco, sprite) {
+    if (deco.w != null && deco.h != null) {
+      return { w: deco.w, h: deco.h };
+    }
+    const totalScale = (deco.scale ?? 1) * (sprite.scale ?? 1);
+    return { w: sprite.sw * totalScale, h: sprite.sh * totalScale };
   }
 
   /**

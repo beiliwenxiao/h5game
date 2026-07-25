@@ -83,7 +83,8 @@ export class GameLoader {
       player: deps.player,
       audioManager: deps.audioManager,
       floatingText: deps.floatingText,
-      tutorial: deps.tutorial
+      tutorial: deps.tutorial,
+      registries: this.registries
     });
     registerDefaultActions(this.triggerSystem);
     this.triggerSystem.registerAll(proj.triggers || []);

@@ -151,10 +151,6 @@ export class DialogueGraphEditor {
     this.container.innerHTML = `
       <div class="dlg-root">
         <div class="dlg-toolbar">
-          <button id="dlg-add">+ 新增对话</button>
-          <button id="dlg-del">🗑 删除对话</button>
-          <button id="dlg-import">⬇ 导入 DialogueData</button>
-          <button id="dlg-save" class="primary">💾 保存到工程</button>
           <select id="dlg-filter-enabled" title="筛选启用/停用" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
             <option value="">全部状态</option>
             <option value="enabled">启用</option>
@@ -163,6 +159,10 @@ export class DialogueGraphEditor {
           <select id="dlg-filter-scene" title="筛选场景/幕" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
             <option value="">全部场景</option>
           </select>
+          <button id="dlg-add">+ 新增对话</button>
+          <button id="dlg-del">🗑 删除对话</button>
+          <button id="dlg-import">⬇ 导入 DialogueData</button>
+          <button id="dlg-save" class="primary">💾 保存到工程</button>
           <span class="dlg-hint">数据 → ${this.projectPath} · dialogues</span>
         </div>
         <div class="dlg-main">

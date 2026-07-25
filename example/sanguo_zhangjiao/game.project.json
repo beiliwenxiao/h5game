@@ -225,7 +225,7 @@
         "start": {
           "speaker": "旁白",
           "portrait": null,
-          "text": "你死了...但这不是��局",
+          "text": "你死了...但这不是结局",
           "nextNode": null
         }
       }
@@ -634,7 +634,7 @@
     },
     {
       "id": "class_selected_mage",
-      "title": "选择军师",
+      "title": "选择法师",
       "act": "act4",
       "startNode": "start",
       "nodes": {
@@ -665,7 +665,7 @@
       "startNode": "start",
       "nodes": {
         "start": {
-          "speaker": "���角",
+          "speaker": "张角",
           "portrait": "zhangjiao",
           "text": "苍天已死，黄天当立！",
           "nextNode": "crowd_response"
@@ -780,12 +780,12 @@
           "text": "你要救援张梁吗？",
           "choices": [
             {
-              "id": "ch_1",
+              "id": "rescue",
               "text": "救援张梁",
               "nextNode": "rescue_success"
             },
             {
-              "id": "ch_2",
+              "id": "retreat",
               "text": "撤退",
               "nextNode": "retreat"
             }
@@ -846,7 +846,7 @@
         "player_go": {
           "speaker": "你",
           "portrait": "player",
-          "text": "��！",
+          "text": "是！",
           "nextNode": null
         }
       }
@@ -915,12 +915,12 @@
           "text": "你要救援张宝吗？",
           "choices": [
             {
-              "id": "ch_1",
+              "id": "rescue",
               "text": "救援张宝",
               "nextNode": "rescue_success"
             },
             {
-              "id": "ch_2",
+              "id": "retreat",
               "text": "撤退",
               "nextNode": "retreat"
             }
@@ -1053,7 +1053,7 @@
         "start": {
           "speaker": "张角",
           "portrait": "zhangjiao",
-          "text": "苍天已死...黄天当立...可惜...我看不到那一天了...",
+          "text": "苍天��死...黄天当立...可惜...我看不到那一天了...",
           "nextNode": "player_cry"
         },
         "player_cry": {
@@ -1227,7 +1227,7 @@
         "start": {
           "speaker": "系统",
           "portrait": null,
-          "text": "序章已完成！你的角色、装备、技能将有可能继承到正式游戏。",
+          "text": "序章已完成！你的角色、装备、技能将继承到正式游戏。",
           "nextNode": "rewards"
         },
         "rewards": {

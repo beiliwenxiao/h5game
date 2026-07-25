@@ -90,9 +90,12 @@ export class GameLoader {
     // 引导 = 触发器（tutorials 直接作为触发器注册）
     this.triggerSystem.registerAll(proj.tutorials || []);
 
-    // 3. 对话 → DialogueSystem
+    // 3. 对话 → DialogueSystem（跳过 enabled:false 的停用对话）
     if (deps.dialogueSystem && Array.isArray(proj.dialogues)) {
-      for (const d of proj.dialogues) deps.dialogueSystem.registerDialogue?.(d.id, d);
+      for (const d of proj.dialogues) {
+        if (d.enabled === false) continue;
+        deps.dialogueSystem.registerDialogue?.(d.id, d);
+      }
     }
 
     // 4. 任务 → QuestSystem

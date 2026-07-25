@@ -155,6 +155,14 @@ export class DialogueGraphEditor {
           <button id="dlg-del">🗑 删除对话</button>
           <button id="dlg-import">⬇ 导入 DialogueData</button>
           <button id="dlg-save" class="primary">💾 保存到工程</button>
+          <select id="dlg-filter-enabled" title="筛选启用/停用" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部状态</option>
+            <option value="enabled">启用</option>
+            <option value="disabled">停用</option>
+          </select>
+          <select id="dlg-filter-scene" title="筛选场景/幕" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部场景</option>
+          </select>
           <span class="dlg-hint">数据 → ${this.projectPath} · dialogues</span>
         </div>
         <div class="dlg-main">
@@ -167,6 +175,24 @@ export class DialogueGraphEditor {
     this.container.querySelector('#dlg-del').addEventListener('click', () => this._deleteDialogue());
     this.container.querySelector('#dlg-import').addEventListener('click', () => this.importLegacy());
     this.container.querySelector('#dlg-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#dlg-filter-enabled').addEventListener('change', () => this._renderList());
+    this.container.querySelector('#dlg-filter-scene').addEventListener('change', () => this._renderList());
+  }
+
+  /** 动态更新场景/幕筛选下拉（从对话 act 字段收集） */
+  _updateSceneFilter() {
+    const select = this.container.querySelector('#dlg-filter-scene');
+    if (!select) return;
+    const currentVal = select.value;
+    const scenes = new Set();
+    for (const d of this.dialogues) {
+      if (d.act) scenes.add(d.act);
+    }
+    let opts = '<option value="">全部场景</option>';
+    for (const s of scenes) {
+      opts += `<option value="${s}" ${s === currentVal ? 'selected' : ''}>${s}</option>`;
+    }
+    select.innerHTML = opts;
   }
 
   _injectStyles() {
@@ -184,6 +210,7 @@ export class DialogueGraphEditor {
       .dlg-item{padding:9px 14px;border-bottom:1px solid #1e2b47;cursor:pointer;}
       .dlg-item:hover{background:#1a2540;}
       .dlg-item.active{background:#2a3a6e;}
+      .dlg-item.disabled{opacity:0.45;}
       .dlg-item .di-title{font-weight:bold;font-size:13px;}
       .dlg-item .di-id{font-size:11px;color:#9ab;}
       .dlg-detail{flex:1;padding:16px;overflow-y:auto;}
@@ -235,17 +262,54 @@ export class DialogueGraphEditor {
   _renderList() {
     const list = this.container.querySelector('#dlg-list');
     if (!list) return;
+
+    // 更新场景/幕下拉
+    this._updateSceneFilter();
+
     if (this.dialogues.length === 0) {
       list.innerHTML = '<div class="dlg-empty">暂无对话<br>点「+ 新增」或「导入」</div>';
       return;
     }
+
+    const filterEnabled = this.container.querySelector('#dlg-filter-enabled')?.value || '';
+    const filterScene = this.container.querySelector('#dlg-filter-scene')?.value || '';
+
+    const filtered = this.dialogues.filter(d => {
+      if (filterEnabled === 'enabled' && d.enabled === false) return false;
+      if (filterEnabled === 'disabled' && d.enabled !== false) return false;
+      if (filterScene && (d.act || '') !== filterScene) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div class="dlg-empty">无匹配的对话</div>';
+      return;
+    }
+
     list.innerHTML = '';
-    this.dialogues.forEach((d, i) => {
+    filtered.forEach((d) => {
+      const i = this.dialogues.indexOf(d);
       const item = document.createElement('div');
-      item.className = 'dlg-item' + (i === this.selectedIndex ? ' active' : '');
+      const disabled = d.enabled === false;
+      item.className = 'dlg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
       const cnt = d.nodes ? Object.keys(d.nodes).length : 0;
-      item.innerHTML = `<div class="di-title">${d.title || d.id || '(未命名)'}</div>
-        <div class="di-id">${d.id || ''} · ${cnt} 节点${d.act ? ' · ' + d.act : ''}</div>`;
+      const statusIcon = disabled ? '⏸' : '▶';
+      item.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">
+          <span class="dlg-status-icon" data-toggle="${i}" title="启用/停用" style="cursor:pointer;flex-shrink:0;">${statusIcon}</span>
+          <div style="flex:1;overflow:hidden;">
+            <div class="di-title">${this._esc(d.title || d.id || '(未命名)')}</div>
+            <div class="di-id">${this._esc(d.id || '')} · ${cnt} 节点${d.act ? ' · ' + this._esc(d.act) : ''}</div>
+          </div>
+        </div>`;
+      // 状态图标点击切换启用/停用
+      item.querySelector('.dlg-status-icon').addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._commitDetail();
+        d.enabled = d.enabled === false ? undefined : false;
+        if (d.enabled === undefined) delete d.enabled;
+        this._renderList();
+        this._renderDetail();
+      });
       item.addEventListener('click', () => {
         this._commitDetail();
         this.selectedIndex = i;
@@ -274,6 +338,10 @@ export class DialogueGraphEditor {
       <div class="dlg-2col">
         <div class="row"><label>对话 ID</label><input type="text" id="d-id" value="${this._esc(d.id || '')}"></div>
         <div class="row"><label>标题 title</label><input type="text" id="d-title" value="${this._esc(d.title || '')}"></div>
+      </div>
+      <div class="dlg-2col">
+        <div class="row"><label>所属场景/幕 act</label><input type="text" id="d-act" value="${this._esc(d.act || '')}" placeholder="如 act1 / s1-1"></div>
+        <div class="row"><label>状态</label><label style="display:flex;align-items:center;gap:5px;color:#fff;"><input type="checkbox" id="d-enabled" ${d.enabled !== false ? 'checked' : ''} style="width:auto;"> 启用</label></div>
       </div>
       <div class="row"><label>起始节点 startNode</label><select id="d-start">${startOpts || '<option value="">(无节点)</option>'}</select></div>
       <div class="row" style="display:flex;gap:8px;">
@@ -333,6 +401,10 @@ export class DialogueGraphEditor {
 
     panel.innerHTML = html;
     this._bindDetailEvents(panel, d);
+
+    // 启用/停用即时刷新列表图标
+    const enEl = panel.querySelector('#d-enabled');
+    if (enEl) enEl.addEventListener('change', () => { this._commitDetail(); this._renderList(); });
   }
 
   /** 生成一个 node 下拉（含“结束(null)”） */
@@ -406,6 +478,18 @@ export class DialogueGraphEditor {
 
     d.id = panel.querySelector('#d-id').value.trim() || d.id;
     d.title = panel.querySelector('#d-title').value.trim();
+    // 所属场景/幕
+    const actEl = panel.querySelector('#d-act');
+    if (actEl) {
+      const av = actEl.value.trim();
+      if (av) d.act = av; else delete d.act;
+    }
+    // 启用/停用：未勾选=false，勾选=删除字段（默认启用，保持 JSON 简洁）
+    const enabledEl = panel.querySelector('#d-enabled');
+    if (enabledEl) {
+      if (!enabledEl.checked) d.enabled = false;
+      else delete d.enabled;
+    }
     const startSel = panel.querySelector('#d-start');
     if (startSel && startSel.value) d.startNode = startSel.value;
 

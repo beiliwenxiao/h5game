@@ -71,7 +71,8 @@ const ACTION_TYPES = [
   { v: 'spawnGroup', label: '激活放置组 spawnGroup' },
   { v: 'lightCampfire', label: '点燃火堆 lightCampfire' },
   { v: 'sceneCountdown', label: '倒计时切幕 sceneCountdown' },
-  { v: 'promptSwitch', label: '提示切幕 promptSwitch' }
+  { v: 'promptSwitch', label: '提示切幕 promptSwitch' },
+  { v: 'teleportToChunk', label: '传送到区块 teleportToChunk' }
 ];
 
 export class TriggerEditor {

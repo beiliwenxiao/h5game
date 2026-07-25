@@ -29,6 +29,7 @@ import { BuildingComponent } from './components/BuildingComponent.js';
 import { VehicleComponent } from './components/VehicleComponent.js';
 import { ObjectiveComponent } from './components/ObjectiveComponent.js';
 import { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
+import { NpcComponent } from './components/NpcComponent.js';
 
 /**
  * 实体工厂类
@@ -360,29 +361,71 @@ export class EntityFactory {
    */
   createNPC(npcData) {
     const entity = new Entity(npcData.id || this.generateId(), 'npc');
-    
-    // 添加变换组件
+
+    // 变换组件
     const position = npcData.position || { x: 0, y: 0 };
     entity.addComponent(new TransformComponent(position.x, position.y));
-    
-    // 添加精灵组件
-    const sprite = new SpriteComponent(npcData.spriteSheet || 'npc_sprite', {
-      width: 32,
-      height: 32,
-      defaultAnimation: 'idle'
+
+    // ---- 精灵组件（序列帧配置）----
+    // 兼容两种格式：编辑器格式 sprite.src + 行式动画{row,frames,speed}；简写格式 sprite.sheet + 帧数组{frames:[],frameRate}
+    const spriteCfg = npcData.sprite || {};
+    const sheet = spriteCfg.sheet || spriteCfg.src || npcData.spriteSheet || 'npc_sprite';
+    const frameW = spriteCfg.frameWidth || 32;
+    const frameH = spriteCfg.frameHeight || 32;
+    const cols = spriteCfg.cols || 1;
+    const sprite = new SpriteComponent(sheet, {
+      width: frameW,
+      height: frameH,
+      isStatic: !!spriteCfg.isStatic,
+      defaultAnimation: spriteCfg.defaultAnimation || 'idle'
     });
-    sprite.addAnimation('idle', {
-      frames: [0],
-      frameRate: 1,
-      loop: true
-    });
+    sprite.scale = spriteCfg.scale || 1;
+    // 动作配置：注册所有动画（两种格式归一化为帧索引数组）
+    const anims = spriteCfg.animations || { idle: { row: 0, frames: 1, speed: 0.5 } };
+    let firstAnim = null;
+    for (const [name, a] of Object.entries(anims)) {
+      if (!firstAnim) firstAnim = name;
+      let frames, frameRate;
+      if (Array.isArray(a.frames)) {
+        // 简写格式：frames 已是索引数组
+        frames = a.frames;
+        frameRate = a.frameRate || 4;
+      } else {
+        // 编辑器格式：{row, frames:数量, speed:秒/帧} → 展开为帧索引数组
+        const count = a.frames || 1;
+        const row = a.row || 0;
+        frames = [];
+        for (let i = 0; i < count; i++) frames.push(row * cols + i);
+        frameRate = a.speed ? (1 / a.speed) : 4;
+      }
+      sprite.addAnimation(name, {
+        frames,
+        frameRate,
+        loop: a.loop !== undefined ? a.loop : true
+      });
+    }
+    sprite.playAnimation(spriteCfg.defaultAnimation || firstAnim || 'idle', true);
     entity.addComponent(sprite);
-    
-    // 存储NPC信息
+
+    // ---- 名字组件（含称号）----
+    entity.addComponent(new NameComponent(npcData.name || 'NPC', {
+      color: npcData.faction === 'hostile' ? '#ff6666' : '#ffffff'
+    }));
+
+    // ---- 属性组件（可选，兼容 stats / baseStats）----
+    const npcStats = npcData.stats || npcData.baseStats;
+    if (npcStats) {
+      entity.addComponent(new StatsComponent(npcStats));
+    }
+
+    // ---- NPC 组件（交互/对话/立绘/阵营）----
+    entity.addComponent(new NpcComponent(npcData));
+
+    // 兼容旧字段
     entity.name = npcData.name;
     entity.dialogue = npcData.dialogue || [];
-    
-    // 默认分层
+
+    // 分层（entity 层参与 Y-sort）
     entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
 
     return entity;
@@ -393,6 +436,37 @@ export class EntityFactory {
    * @param {Object} data - { id, buildingType, position, maxHp, team, footprint, colliderRadius, controllable, onDestroyed, spriteSheet, name }
    * @returns {Entity}
    */
+  /**
+   * 创建静态世界道具（如煮粥大锅）——归类为物品(worldProp)，但作为场景静物渲染，不可拾取。
+   * 支持序列帧图片(sprite.src/spriteSheet)或内置代码渲染样式(renderStyle)。
+   * @param {Object} data - 道具定义（来自 library.items 且 worldProp:true）
+   */
+  createProp(data = {}) {
+    const entity = new Entity(data.id || this.generateId(), 'prop');
+    const position = data.position || { x: 0, y: 0 };
+    entity.addComponent(new TransformComponent(position.x, position.y));
+
+    // 代码渲染样式（无图时用内置绘制）
+    if (data.renderStyle) entity.renderStyle = data.renderStyle;
+
+    // 精灵（序列帧图片或占位；有 renderStyle 也需要 sprite 进入渲染流程）
+    const spCfg = data.sprite || {};
+    const sheet = spCfg.sheet || spCfg.src || data.spriteSheet || '';
+    const sprite = new SpriteComponent(sheet, {
+      width: spCfg.frameWidth || data.width || 64,
+      height: spCfg.frameHeight || data.height || 64,
+      defaultAnimation: 'idle'
+    });
+    sprite.scale = spCfg.scale || data.scale || 1;
+    sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
+    entity.addComponent(sprite);
+
+    if (data.name) entity.addComponent(new NameComponent(data.name, { color: '#ddd', fontSize: 12, offsetY: -18, visible: data.showName !== false }));
+    entity.name = data.name || 'prop';
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+    return entity;
+  }
+
   createBuilding(data = {}) {
     const entity = new Entity(data.id || this.generateId(), 'building');
     entity.faction = data.team || 'neutral';
@@ -411,13 +485,17 @@ export class EntityFactory {
       onDestroyed: data.onDestroyed
     }));
 
-    // 精灵（可选）
-    if (data.spriteSheet) {
-      const sprite = new SpriteComponent(data.spriteSheet, {
+    // 代码渲染样式（无精灵图时用内置绘制，如 'cauldron'）
+    if (data.renderStyle) entity.renderStyle = data.renderStyle;
+
+    // 精灵（可选）：有图集或有 renderStyle 都需要 sprite 才能进入 renderEntity 渲染流程
+    if (data.spriteSheet || data.renderStyle) {
+      const sprite = new SpriteComponent(data.spriteSheet || '', {
         width: data.width || 64,
         height: data.height || 64,
         defaultAnimation: 'idle'
       });
+      sprite.scale = data.scale || 1;
       sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
       entity.addComponent(sprite);
     }

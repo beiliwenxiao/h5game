@@ -1,9 +1,9 @@
 {
-  "id": "scene_Act2",
+  "id": "s1-1",
   "name": "s1-1",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#1b450c",
+  "backgroundColor": "#2a2020",
   "layers": [
     {
       "id": "layer_bg",
@@ -24,41 +24,7 @@
       "name": "装饰层",
       "visible": true,
       "locked": false,
-      "objects": [
-        {
-          "id": "deco_48405651",
-          "type": "deco",
-          "decoKey": "cauldron",
-          "x": 368,
-          "y": 236,
-          "width": 64,
-          "height": 64,
-          "scale": 1,
-          "name": "cauldron"
-        },
-        {
-          "id": "deco_21676711",
-          "type": "deco",
-          "decoKey": "table",
-          "x": 560,
-          "y": 352,
-          "width": 80,
-          "height": 48,
-          "scale": 1,
-          "name": "table"
-        },
-        {
-          "id": "deco_34061325",
-          "type": "deco",
-          "decoKey": "mat",
-          "x": 768,
-          "y": 318,
-          "width": 64,
-          "height": 32,
-          "scale": 1,
-          "name": "mat"
-        }
-      ]
+      "objects": []
     },
     {
       "id": "layer_entity",
@@ -68,31 +34,51 @@
       "objects": []
     },
     {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_zhangjiao_s11",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "zhangjiao",
+          "name": "张角",
+          "x": 520,
+          "y": 300,
+          "group": "act2_npcs"
+        },
+        {
+          "id": "ref_cook_s11",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "cook",
+          "name": "粥棚伙夫",
+          "x": 660,
+          "y": 340,
+          "group": "act2_npcs"
+        },
+        {
+          "id": "ref_cauldron_s11",
+          "type": "ref",
+          "kind": "item",
+          "ref": "cauldron",
+          "name": "煮粥大锅",
+          "x": 614.18,
+          "y": 313.56,
+          "group": "act2_npcs"
+        }
+      ]
+    },
+    {
       "id": "layer_logic",
       "name": "逻辑对象",
       "visible": true,
       "locked": false,
       "objects": [
         {
-          "id": "trigger_1784656141232_16",
-          "type": "trigger",
-          "name": "trg_act2_awakening_heal",
-          "triggerId": "trg_act2_awakening_heal",
-          "x": 10,
-          "y": 746,
-          "width": 36,
-          "height": 36,
-          "event": "dialogueEnd",
-          "target": "",
-          "sceneId": "",
-          "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act2Scene\"},\"right\":true}",
-          "actions": "[object Object], [object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784660511960_0",
+          "id": "trigger_1784988233075_0",
           "type": "trigger",
           "name": "trg_enter_act2",
           "triggerId": "trg_enter_act2",
@@ -102,15 +88,15 @@
           "height": 36,
           "event": "sceneEnter",
           "target": "",
-          "sceneId": "Act2Scene",
+          "sceneId": "s1-1",
           "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act2Scene\"},\"right\":true}",
-          "actions": "[object Object]",
+          "conditions": "",
+          "actions": "[object Object], [object Object], [object Object], [object Object]",
           "once": true,
           "cooldown": 0
         },
         {
-          "id": "trigger_1784660511960_1",
+          "id": "trigger_1784988233075_1",
           "type": "trigger",
           "name": "trg_act2_complete_switch",
           "triggerId": "trg_act2_complete_switch",
@@ -120,7 +106,7 @@
           "height": 36,
           "event": "sceneComplete",
           "target": "",
-          "sceneId": "Act2Scene",
+          "sceneId": "s1-1",
           "radius": 60,
           "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act2Scene\"},\"right\":true}",
           "actions": "[object Object]",
@@ -130,27 +116,11 @@
       ]
     }
   ],
-  "decorations": [
-    {
-      "x": 400,
-      "y": 300,
-      "key": "cauldron",
-      "scale": 1
-    },
-    {
-      "x": 600,
-      "y": 400,
-      "key": "table",
-      "scale": 1
-    },
-    {
-      "x": 800,
-      "y": 350,
-      "key": "mat",
-      "scale": 1
-    }
-  ],
+  "decorations": [],
   "colliders": [],
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world",
   "terrain": {
     "type": "indoor",
     "tileSize": 48
@@ -229,7 +199,6 @@
       "collide": false
     }
   },
-  "type": "terrain",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -257,7 +226,7 @@
         "tree2": {
           "name": "中树",
           "sx": 224,
-          "sy": 416,
+          "sy": 417,
           "sw": 64,
           "sh": 96,
           "collide": true,
@@ -266,7 +235,7 @@
         "tree3": {
           "name": "小树",
           "sx": 288,
-          "sy": 384,
+          "sy": 385,
           "sw": 64,
           "sh": 128,
           "collide": true,
@@ -282,8 +251,8 @@
         },
         "bush2": {
           "name": "灌木1",
-          "sx": 224,
-          "sy": 288,
+          "sx": 223,
+          "sy": 289,
           "sw": 32,
           "sh": 32,
           "collide": false
@@ -291,21 +260,42 @@
         "bush3": {
           "name": "草莓",
           "sx": 224,
-          "sy": 320,
+          "sy": 319,
           "sw": 32,
           "sh": 32,
-          "collide": false
+          "collide": false,
+          "colliderRadius": 16
         },
         "bush4": {
           "name": "灌木2",
-          "sx": 256,
-          "sy": 320,
-          "sw": 32,
-          "sh": 32,
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
           "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
         }
       }
     }
   ],
-  "updatedAt": "2026-07-21T18:42:18.420Z"
+  "createdAt": "2026-07-25T15:43:02.839Z",
+  "updatedAt": "2026-07-25T15:43:02.839Z",
+  "imageAssets": {
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
+    },
+    "img_1784926747445": {
+      "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
+      "name": "bg_0_0.png"
+    }
+  }
 }

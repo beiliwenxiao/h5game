@@ -31,21 +31,21 @@
           ],
           [
             null,
-            "scene_Act2",
+            "s1-1",
             null,
             null
           ],
           [
             null,
-            "scene_Act3",
+            "s2-1",
             null,
             null
           ],
           [
             null,
-            "scene_Act4",
-            "scene_Act5",
-            "scene_Act6"
+            "s3-1",
+            "s3-2",
+            "s3-3"
           ]
         ]
       },
@@ -665,7 +665,7 @@
       "startNode": "start",
       "nodes": {
         "start": {
-          "speaker": "张角",
+          "speaker": "���角",
           "portrait": "zhangjiao",
           "text": "苍天已死，黄天当立！",
           "nextNode": "crowd_response"
@@ -1287,15 +1287,8 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "Act2Scene"
+          "sceneId": "s1-1"
         }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
       },
       "do": [
         {
@@ -1303,6 +1296,25 @@
           "params": {
             "key": "act",
             "value": 2
+          }
+        },
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act2Scene",
+            "value": true
+          }
+        },
+        {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act2_npcs"
+          }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "awakening"
           }
         }
       ],
@@ -1313,15 +1325,8 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "Act3Scene"
+          "sceneId": "s2-1"
         }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act3Scene"
-        },
-        "right": true
       },
       "do": [
         {
@@ -1329,6 +1334,19 @@
           "params": {
             "key": "act",
             "value": 3
+          }
+        },
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act3Scene",
+            "value": true
+          }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "coin_artifact_intro"
           }
         }
       ],
@@ -1339,15 +1357,8 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "Act4Scene"
+          "sceneId": "s3-1"
         }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act4Scene"
-        },
-        "right": true
       },
       "do": [
         {
@@ -1355,6 +1366,19 @@
           "params": {
             "key": "act",
             "value": 4
+          }
+        },
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act4Scene",
+            "value": true
+          }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "class_selection_intro"
           }
         }
       ],
@@ -1365,15 +1389,8 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "Act5Scene"
+          "sceneId": "s3-2"
         }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act5Scene"
-        },
-        "right": true
       },
       "do": [
         {
@@ -1381,6 +1398,19 @@
           "params": {
             "key": "act",
             "value": 5
+          }
+        },
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act5Scene",
+            "value": true
+          }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "uprising_intro"
           }
         }
       ],
@@ -1391,15 +1421,8 @@
       "when": {
         "type": "sceneEnter",
         "params": {
-          "sceneId": "Act6Scene"
+          "sceneId": "s3-3"
         }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act6Scene"
-        },
-        "right": true
       },
       "do": [
         {
@@ -1407,6 +1430,19 @@
           "params": {
             "key": "act",
             "value": 6
+          }
+        },
+        {
+          "action": "setVar",
+          "params": {
+            "key": "act6Scene",
+            "value": true
+          }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "ending_intro"
           }
         }
       ],
@@ -1569,7 +1605,7 @@
         {
           "action": "promptSwitch",
           "params": {
-            "scene": "Act2Scene",
+            "scene": "s1-1",
             "text": "战斗结束！按 N 进入下一幕"
           }
         }
@@ -1838,7 +1874,7 @@
       "when": {
         "type": "sceneComplete",
         "params": {
-          "sceneId": "Act2Scene"
+          "sceneId": "s1-1"
         }
       },
       "if": {
@@ -1852,7 +1888,7 @@
         {
           "action": "promptSwitch",
           "params": {
-            "scene": "Act3Scene",
+            "scene": "s2-1",
             "text": "第二幕完成！按 N 进入第三幕"
           }
         }
@@ -1864,7 +1900,7 @@
       "when": {
         "type": "sceneComplete",
         "params": {
-          "sceneId": "Act3Scene"
+          "sceneId": "s2-1"
         }
       },
       "if": {
@@ -1878,7 +1914,7 @@
         {
           "action": "promptSwitch",
           "params": {
-            "scene": "Act4Scene",
+            "scene": "s3-1",
             "text": "第三幕完成！按 N 进入第四幕"
           }
         }
@@ -1890,7 +1926,7 @@
       "when": {
         "type": "sceneComplete",
         "params": {
-          "sceneId": "Act4Scene"
+          "sceneId": "s3-1"
         }
       },
       "if": {
@@ -1904,7 +1940,7 @@
         {
           "action": "promptSwitch",
           "params": {
-            "scene": "Act5Scene",
+            "scene": "s3-2",
             "text": "第四幕完成！按 N 进入第五幕"
           }
         }
@@ -1916,7 +1952,7 @@
       "when": {
         "type": "sceneComplete",
         "params": {
-          "sceneId": "Act5Scene"
+          "sceneId": "s3-2"
         }
       },
       "if": {
@@ -1930,7 +1966,7 @@
         {
           "action": "promptSwitch",
           "params": {
-            "scene": "Act6Scene",
+            "scene": "s3-3",
             "text": "第五幕完成！按 N 进入第六幕"
           }
         }
@@ -2154,6 +2190,72 @@
         "shopId": "",
         "questId": "",
         "spriteSheet": "npc_sprite"
+      },
+      {
+        "id": "zhangjiao",
+        "name": "张角",
+        "title": "太平道创始人",
+        "portrait": "zhangjiao",
+        "faction": "friendly",
+        "renderStyle": "zhangjiao",
+        "sprite": {
+          "src": "",
+          "frameWidth": 64,
+          "frameHeight": 112,
+          "cols": 4,
+          "rows": 1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 2,
+            "speed": 0.4
+          }
+        },
+        "baseStats": {
+          "maxHp": 200
+        },
+        "dialogueId": "talisman_water",
+        "shopId": "",
+        "questId": "",
+        "interaction": {
+          "radius": 70,
+          "prompt": "按 E 与张角对话",
+          "trigger": "interact"
+        }
+      },
+      {
+        "id": "cook",
+        "name": "粥棚伙夫",
+        "title": "",
+        "portrait": "",
+        "faction": "friendly",
+        "renderStyle": "cook",
+        "sprite": {
+          "src": "",
+          "frameWidth": 48,
+          "frameHeight": 72,
+          "cols": 4,
+          "rows": 1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 2,
+            "speed": 0.5
+          }
+        },
+        "baseStats": {
+          "maxHp": 50
+        },
+        "dialogueId": "",
+        "shopId": "",
+        "questId": "",
+        "interaction": {
+          "radius": 50,
+          "prompt": "按 E 交谈",
+          "trigger": "interact"
+        }
       }
     ],
     "enemies": [
@@ -2195,6 +2297,20 @@
         "stackable": true,
         "maxStack": 99,
         "effect": {}
+      },
+      {
+        "id": "cauldron",
+        "name": "煮粥大锅",
+        "type": "prop",
+        "worldProp": true,
+        "renderStyle": "cauldron",
+        "sprite": {
+          "src": "",
+          "frameWidth": 80,
+          "frameHeight": 80
+        },
+        "scale": 1,
+        "stackable": false
       },
       {
         "id": "leftover_food",

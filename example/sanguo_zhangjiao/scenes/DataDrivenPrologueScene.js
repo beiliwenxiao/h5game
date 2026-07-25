@@ -165,6 +165,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})（同样需要在 inputManager.update 之前检测按键）
     this._checkCampfireInteract();
 
+    // NPC 交互：靠近 NPC 按 E / 点击 → 触发其对话/商店
+    this._checkNpcInteract();
+
     // 事件源：场景触发器靠近检测（approach）
     this._checkApproachTriggers();
 
@@ -289,12 +292,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   _startPromptSwitch(p = {}) {
     this._promptSwitch = {
-      scene: p.scene || 'Act2Scene',
+      scene: p.scene || 's1-1',
+      spawnRef: p.spawnRef || null,
       text: p.text || '序章完成 — 按 N 或 交互键(E) 进入下一幕'
     };
   }
 
-  /** @private 提示切幕刷新 + 按键切场景 */
+  /** @private 提示切幕刷新 + 按键传送到目标区块 */
   _updatePromptSwitch() {
     if (!this._promptSwitch) return;
     this._showScreenTip(this._promptSwitch.text, { persist: true });
@@ -303,13 +307,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
     if (pressed('n') || pressed('N') || pressed('e') || pressed('E')) {
       const scene = this._promptSwitch.scene;
+      const spawnRef = this._promptSwitch.spawnRef || null;
       this._promptSwitch = null;
       this._hideScreenTip();
-      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
-      if (sm && sm.switchTo) {
-        console.log('[DDScene] 提示切幕：切换场景 →', scene);
-        sm.switchTo(scene);
-      }
+      console.log('[DDScene] 提示切幕：传送到区块 →', scene);
+      this.teleportToChunk({ scene, spawnRef, transition: 'fadeBlack' });
     }
   }
 
@@ -420,7 +422,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _startSceneCountdown(p = {}) {
     if (this._countdown) return; // 已在倒计时
     this._countdown = {
-      scene: p.scene || 'Act2Scene',
+      scene: p.scene || 's1-1',
       remain: p.seconds != null ? p.seconds : 20,
       text: p.text || '战斗结束！可以拾取物品'
     };
@@ -460,28 +462,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
-   * 覆盖 BaseGameScene.switchToNextScene：切到数据指定的目标场景
+   * 覆盖 BaseGameScene.switchToNextScene：传送到数据指定的目标区块
    */
   switchToNextScene() {
-    const scene = this._nextSceneTarget || 'Act2Scene';
-    console.log('[DDScene] switchToNextScene →', scene);
-    // SceneManager 注册名 → chunk sceneId 映射（兼容旧触发器数据）
-    const sceneToChunk = {
-      'Act2Scene': 'scene_Act2',
-      'Act3Scene': 'scene_Act3',
-      'Act4Scene': 'scene_Act4',
-      'Act5Scene': 'scene_Act5',
-      'Act6Scene': 'scene_Act6'
-    };
-    const chunkId = sceneToChunk[scene] || scene;
-    // 尝试大地图内传送（如果目标是同 region 的 chunk）
-    if (this._worldRegion && this._findChunkInGrid(chunkId)) {
-      this.teleportToChunk({ scene: chunkId, transition: 'fadeBlack' });
-      return;
-    }
-    const eng = window.gameEngine;
-    const sm = (eng && eng.sceneManager) || this.sceneManager;
-    if (sm && sm.switchTo) sm.switchTo(scene);
+    const scene = this._nextSceneTarget || 's1-1';
+    console.log('[DDScene] switchToNextScene → teleportToChunk:', scene);
+    this.teleportToChunk({ scene, transition: 'fadeBlack' });
   }
 
   /**
@@ -687,6 +673,72 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * NPC 交互检测：遍历已生成的 NPC，玩家在交互范围内时：
+   * - trigger==='approach'：进入范围自动触发一次
+   * - trigger==='interact'：按 E / 点击 NPC 触发
+   * 触发内容：优先对话(dialogueId)，其次商店(shopId)。同时 fire('interact',{target:npcId})。
+   * @private
+   */
+  _checkNpcInteract() {
+    const npcs = this._npcEntities;
+    if (!npcs || npcs.length === 0) return;
+    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
+    if (!pt) return;
+    // 对话进行中不重复触发
+    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive && this.dialogueSystem.isDialogueActive()) return;
+
+    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
+    const clicked = this.inputManager.isMouseClicked && this.inputManager.isMouseClicked() && !this.inputManager.isMouseClickHandled();
+    const m = this.inputManager.mouse;
+
+    for (const npc of npcs) {
+      const nt = npc.getComponent('transform');
+      const nc = npc.getComponent('npc');
+      if (!nt || !nc || !nc.hasInteraction()) continue;
+
+      const dist = Math.hypot(nt.position.x - pt.position.x, nt.position.y - pt.position.y);
+      const inRange = dist <= (nc.interactionRadius || 60);
+      nc.inRange = inRange;
+
+      const doInteract = () => {
+        this.gameLoader && this.gameLoader.triggerSystem.fire('interact', { target: nc.npcId });
+        if (nc.dialogueId && this.dialogueSystem && this.dialogueSystem.startDialogue) {
+          this.dialogueSystem.startDialogue(nc.dialogueId);
+        } else if (nc.shopId && this.shopSystem && this.shopSystem.openShop) {
+          this.shopSystem.openShop(nc.shopId);
+        }
+      };
+
+      if (nc.interactionTrigger === 'approach') {
+        // 靠近自动触发一次
+        if (inRange && !nc.interacted) {
+          nc.interacted = true;
+          doInteract();
+          return;
+        }
+        if (!inRange) nc.interacted = false;
+      } else {
+        // 按 E 或点击 NPC
+        if (!inRange) continue;
+        let clickedNpc = false;
+        if (clicked && m) {
+          const sp = npc.getComponent('sprite');
+          const hh = (sp?.height || 48) * (sp?.scale || 1);
+          const hw = (sp?.width || 32) * (sp?.scale || 1);
+          if (Math.abs(m.worldX - nt.position.x) <= hw / 2 + 10 && (nt.position.y - m.worldY) <= hh + 10 && (m.worldY - nt.position.y) <= 20) {
+            clickedNpc = true;
+          }
+        }
+        if (ePressed || clickedNpc) {
+          if (clickedNpc) this.inputManager.markMouseClickHandled && this.inputManager.markMouseClickHandled();
+          doInteract();
+          return;
+        }
+      }
+    }
+  }
+
+  /**
    * 覆盖父类：装备变更回调 → fire('equipItem') 事件源
    * 触发器可监听 equipItem 来做"装备武器后刷怪"等逻辑。
    */
@@ -806,10 +858,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('lightCampfire', () => this.lightCampfire());
         // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
         trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
-        // 场景专属动作：倒计时后触发死亡过渡→切幕（与旧 Act1 一致）
+        // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
         trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
-        // 场景专属动作：提示切幕（等待按 N 或交互键 E 再切下一幕）
+        // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
         trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
+        // 大地图传送（直接传送到指定区块，不切换独立场景）
+        trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
+        // 切换到独立场景（离开大地图，进入副本/过场等独立场景）
+        trig.registerAction('switchScene', (p) => {
+          const scene = p.scene || p.target;
+          if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return; }
+          console.log('[DDScene] switchScene →', scene);
+          const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
+          if (sm && sm.switchTo) sm.switchTo(scene, p);
+        });
         // 通用动作：切换调试面板
         trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
         // 天气系统动作
@@ -825,7 +887,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
         trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
-          this.dialogueSystem.onEnd(() => trig.fire('dialogueEnd', {}));
+          // 带对话 id，供 dialogueEnd{id:'xxx'} 触发器精确匹配
+          this.dialogueSystem.onEnd((dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id }));
         }
         if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
         trig.fire('sceneEnter', { sceneId: 'scene_Prologue' });
@@ -938,8 +1001,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const def = reg[this._regKey(pl.kind)] ? reg[this._regKey(pl.kind)].get(pl.ref) : null;
       if (!def) { console.warn('[DDScene] spawnGroup 未找到定义', pl.kind, pl.ref); continue; }
       if (pl.kind === 'item') {
-        this.pickupItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
-        itemN++;
+        if (def.worldProp) {
+          // 静态世界道具（如煮粥大锅）：作为场景静物渲染，不可拾取
+          const prop = this.entityFactory.createProp({ ...def, position: { x: pl.x, y: pl.y } });
+          this.entities.push(prop);
+          entN++;
+        } else {
+          // 普通物品：可拾取掉落
+          this.pickupItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
+          itemN++;
+        }
       } else if (pl.kind === 'equipment') {
         this.equipmentItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
         eqN++;
@@ -965,7 +1036,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         entN++;
       } else if (pl.kind === 'npc') {
         const npc = this.entityFactory.createNPC({ ...def, position: { x: pl.x, y: pl.y } });
+        // 加载 NPC 序列帧图集（key=图集路径，与 renderEntity getAsset 一致；无图片则渲染占位色块）
+        const sheet = def.sprite && (def.sprite.sheet || def.sprite.src);
+        if (sheet && this.assetManager && !this.assetManager.getAsset(sheet)) {
+          const full = sheet.startsWith('assets/') ? sheet : ('assets/' + sheet.replace(/^.*assets\//, ''));
+          this.assetManager.loadImage(sheet, full).catch(() => console.warn('[DDScene] NPC 图集加载失败（将用占位）:', full));
+        }
         this.entities.push(npc);
+        this._npcEntities = this._npcEntities || [];
+        this._npcEntities.push(npc);
         entN++;
       } else if (pl.kind === 'building') {
         const b = this.entityFactory.createBuilding({ ...def, position: { x: pl.x, y: pl.y } });

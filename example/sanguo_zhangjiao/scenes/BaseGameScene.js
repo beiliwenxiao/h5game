@@ -73,6 +73,7 @@ import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
 import { hasSceneData } from '../../../src/core/SceneDataReader.js';
 import { ZoneEffectSystem } from '../../../src/systems/ZoneEffectSystem.js';
+import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
 
 export class BaseGameScene extends PrologueScene {
   constructor(actNumber, sceneData = {}) {
@@ -4429,6 +4430,43 @@ export class BaseGameScene extends PrologueScene {
         }
       }
       
+      // 普通序列帧精灵（横向/网格帧条，NPC 等用）：非 static/4x8/3x3 格式
+      if (!rendered && !sprite.isStatic && !sprite.useAnimatedSprite && !sprite.useDirectionalSprite
+          && sprite.animations && sprite.animations.size > 0 && this.assetManager) {
+        const image = this.assetManager.getAsset(sprite.spriteSheet);
+        const isImageReady = image && (
+          (image instanceof HTMLCanvasElement) ||
+          (image.complete && image.naturalWidth > 0)
+        );
+        if (isImageReady) {
+          const fw = sprite.width || 32;
+          const fh = sprite.height || 32;
+          const imgW = image.naturalWidth || image.width;
+          const cols = Math.max(1, Math.floor(imgW / fw));
+          const frameIndex = sprite.getCurrentFrame() || 0;
+          const sx = (frameIndex % cols) * fw;
+          const sy = Math.floor(frameIndex / cols) * fh;
+          const scale = sprite.scale || 1;
+          const destW = fw * scale;
+          const destH = fh * scale;
+          ctx.drawImage(image, sx, sy, fw, fh, x - destW / 2, y - destH, destW, destH);
+          rendered = true;
+        }
+      }
+
+      // 内置代码渲染样式（无序列帧图片时，用 renderStyle 绘制精美立绘/道具）
+      if (!rendered) {
+        const npcC = entity.getComponent('npc');
+        const styleKey = (npcC && npcC.renderStyle) || entity.renderStyle;
+        if (styleKey) {
+          const drawFn = getNpcRenderStyle(styleKey);
+          if (drawFn) {
+            drawFn(ctx, x, y, sprite.scale || 1);
+            rendered = true;
+          }
+        }
+      }
+
       // 如果没有成功渲染精灵图，使用占位符（底部对齐）
       if (!rendered) {
         if (entity.type === 'loot' && entity.itemData) {
@@ -4466,11 +4504,37 @@ export class BaseGameScene extends PrologueScene {
       
       ctx.fillStyle = nameComponent.color || '#ffffff';
       ctx.fillText(nameComponent.name, x, nameY);
+
+      // NPC 称号（名字上方，金色）
+      const npcComp = entity.getComponent('npc');
+      if (npcComp && npcComp.title) {
+        ctx.font = '11px Arial';
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(npcComp.title, x, nameY - 18);
+      }
       ctx.restore();
     }
+
+    // NPC 交互提示（玩家在范围内时，实体下方显示"按 E 对话"）
+    {
+      const npcComp = entity.getComponent('npc');
+      if (npcComp && npcComp.inRange && npcComp.interactionTrigger === 'interact' && npcComp.hasInteraction()) {
+        ctx.save();
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        const pw = ctx.measureText(npcComp.interactionPrompt).width + 8;
+        ctx.fillRect(x - pw / 2, y + 4, pw, 18);
+        ctx.fillStyle = '#ffff88';
+        ctx.fillText(npcComp.interactionPrompt, x, y + 17);
+        ctx.restore();
+      }
+    }
     
-    // 渲染生命值条（在实体头顶上方）
-    if (stats && stats.maxHp > 0) {
+    // 渲染生命值条（在实体头顶上方）——非敌对 NPC 不显示血条
+    const _npcC = entity.getComponent('npc');
+    const _hideHpBar = _npcC && _npcC.faction !== 'hostile';
+    if (stats && stats.maxHp > 0 && !_hideHpBar) {
       const barWidth = 40;
       const barHeight = 4;
       const barX = x - barWidth / 2;

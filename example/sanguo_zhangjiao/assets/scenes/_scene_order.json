@@ -3,39 +3,39 @@
   "order": [
     "s0-0",
     "s0-1",
-    "scene_Act3",
-    "scene_Act4",
-    "scene_Act5",
-    "scene_Act6",
-    "scene_Act2"
+    "s1-1",
+    "s2-1",
+    "s3-1",
+    "s3-2",
+    "s3-3"
   ],
   "scenes": {
+    "s3-1": {
+      "name": "s3-1",
+      "type": "terrain"
+    },
     "s0-0": {
       "name": "s0-0",
       "type": "terrain"
     },
     "s0-1": {
-      "name": "s0-1-火堆",
+      "name": "s0-1",
       "type": "terrain"
     },
-    "scene_Act3": {
+    "s1-1": {
+      "name": "s1-1",
+      "type": "terrain"
+    },
+    "s2-1": {
       "name": "s2-1",
       "type": "terrain"
     },
-    "scene_Act4": {
-      "name": "s3-1",
-      "type": "terrain"
-    },
-    "scene_Act5": {
+    "s3-2": {
       "name": "s3-2",
       "type": "terrain"
     },
-    "scene_Act6": {
+    "s3-3": {
       "name": "s3-3",
-      "type": "terrain"
-    },
-    "scene_Act2": {
-      "name": "s1-1",
       "type": "terrain"
     }
   }

@@ -959,6 +959,7 @@ export class SceneEditorUI {
         <option value="lightCampfire" ${obj.actionType === 'lightCampfire' ? 'selected' : ''}>点燃火堆 lightCampfire</option>
         <option value="sceneCountdown" ${obj.actionType === 'sceneCountdown' ? 'selected' : ''}>倒计时切幕 sceneCountdown</option>
         <option value="promptSwitch" ${obj.actionType === 'promptSwitch' ? 'selected' : ''}>提示切幕 promptSwitch</option>
+        <option value="teleportToChunk" ${obj.actionType === 'teleportToChunk' ? 'selected' : ''}>传送到区块 teleportToChunk</option>
         <option value="wait" ${obj.actionType === 'wait' ? 'selected' : ''}>等待 wait</option>
         <option value="mount" ${obj.actionType === 'mount' ? 'selected' : ''}>上载具/骑乘 mount</option>
         <option value="battleWin" ${obj.actionType === 'battleWin' ? 'selected' : ''}>战斗胜利 battleWin</option>

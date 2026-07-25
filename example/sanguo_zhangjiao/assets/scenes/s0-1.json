@@ -1,9 +1,9 @@
 {
-  "id": "s0-0",
-  "name": "s0-0",
+  "id": "s0-1",
+  "name": "s0-1",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#1b450c",
+  "backgroundColor": "#233a19",
   "layers": [
     {
       "id": "layer_bg",
@@ -12,11 +12,30 @@
       "locked": false,
       "objects": [
         {
-          "id": "obj_1784927434233",
+          "id": "ellipse_1783349807083_124",
+          "type": "shape",
+          "name": "地形椭圆",
+          "x": 4.05,
+          "y": -2.32,
+          "width": 1308,
+          "height": 763,
+          "fillMode": "slice",
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "stroke": "",
+          "strokeWidth": 0,
+          "edgeFade": 0.15,
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grassTile",
+          "decoKey": null,
+          "shapeType": "ellipse"
+        },
+        {
+          "id": "obj_1783095865778",
           "type": "image",
-          "imageId": "img_1784926747445",
+          "imageId": "img_1783095863410",
           "x": 0,
-          "y": 0,
+          "y": 0.87,
           "width": 1280,
           "height": 720,
           "rotation": 0
@@ -25,10 +44,400 @@
     },
     {
       "id": "layer_fill",
-      "name": "背景填充层",
+      "name": "遮挡层",
       "visible": true,
       "locked": false,
-      "objects": []
+      "objects": [
+        {
+          "id": "obj_1783353152063",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              222,
+              467
+            ],
+            [
+              243,
+              430
+            ],
+            [
+              279,
+              429
+            ],
+            [
+              319,
+              490
+            ],
+            [
+              316,
+              538
+            ],
+            [
+              285,
+              560
+            ],
+            [
+              243,
+              561
+            ],
+            [
+              141,
+              600
+            ],
+            [
+              112,
+              607
+            ],
+            [
+              97,
+              585
+            ],
+            [
+              105,
+              554
+            ],
+            [
+              217,
+              512
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353361337",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              279,
+              577
+            ],
+            [
+              314,
+              582
+            ],
+            [
+              337,
+              615
+            ],
+            [
+              335,
+              642
+            ],
+            [
+              267,
+              663
+            ],
+            [
+              244,
+              640
+            ],
+            [
+              249,
+              600
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353433306",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              387,
+              599
+            ],
+            [
+              455,
+              613
+            ],
+            [
+              480,
+              708
+            ],
+            [
+              336,
+              705
+            ],
+            [
+              356,
+              649
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783353257569",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              1057,
+              550
+            ],
+            [
+              1084,
+              528
+            ],
+            [
+              1123,
+              561
+            ],
+            [
+              1080,
+              583
+            ],
+            [
+              1006,
+              632
+            ],
+            [
+              967,
+              663
+            ],
+            [
+              953,
+              647
+            ],
+            [
+              979,
+              626
+            ],
+            [
+              974,
+              618
+            ],
+            [
+              945,
+              635
+            ],
+            [
+              933,
+              613
+            ],
+            [
+              952,
+              604
+            ],
+            [
+              984,
+              591
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783279500096",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              1160,
+              353
+            ],
+            [
+              1177,
+              352
+            ],
+            [
+              1193,
+              317
+            ],
+            [
+              1247,
+              310
+            ],
+            [
+              1242,
+              385
+            ],
+            [
+              1212,
+              424
+            ],
+            [
+              1171,
+              429
+            ],
+            [
+              1158,
+              433
+            ],
+            [
+              1150,
+              457
+            ],
+            [
+              1115,
+              465
+            ],
+            [
+              1089,
+              447
+            ],
+            [
+              1088,
+              420
+            ],
+            [
+              1107,
+              405
+            ],
+            [
+              1141,
+              414
+            ],
+            [
+              1128,
+              391
+            ],
+            [
+              1136,
+              371
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ebf4e6",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 2,
+          "collide": true,
+          "patternType": "crosshatch",
+          "gradientType": "radial",
+          "gradientStops": [
+            {
+              "offset": 0,
+              "color": "#000000"
+            },
+            {
+              "offset": 1,
+              "color": "#df2020"
+            }
+          ]
+        },
+        {
+          "id": "obj_1783353571091",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              1091,
+              284
+            ],
+            [
+              1114,
+              265
+            ],
+            [
+              1138,
+              244
+            ],
+            [
+              1155,
+              274
+            ],
+            [
+              1041,
+              345
+            ],
+            [
+              1028,
+              346
+            ],
+            [
+              1016,
+              327
+            ],
+            [
+              1043,
+              318
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#ffffff",
+          "strokeWidth": 0,
+          "collide": true
+        },
+        {
+          "id": "obj_1783351833424",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "多边形",
+          "points": [
+            [
+              722,
+              115
+            ],
+            [
+              768,
+              130
+            ],
+            [
+              787,
+              157
+            ],
+            [
+              760,
+              194
+            ],
+            [
+              699,
+              190
+            ],
+            [
+              681,
+              155
+            ],
+            [
+              693,
+              132
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#ffffff",
+          "opacity": 0,
+          "edgeFade": 0,
+          "stroke": "#5a8a4a",
+          "strokeWidth": 0,
+          "collide": true
+        }
+      ]
     },
     {
       "id": "layer_deco",
@@ -37,34 +446,67 @@
       "locked": false,
       "objects": [
         {
-          "id": "deco_43849325_364404_253691",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1250.65,
-          "y": 418.4,
+          "x": 1114.99,
+          "y": 248.52,
           "width": 96,
           "height": 96,
           "scale": 1,
           "name": "grass1"
         },
         {
-          "id": "deco_43849325_364404",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1235.15,
-          "y": 375.86,
+          "x": 1166.07,
+          "y": 230.64,
           "width": 96,
           "height": 96,
           "scale": 1,
           "name": "grass1"
+        },
+        {
+          "id": "deco_16864398",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1199.1,
+          "y": 208.52,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1325.19,
+          "y": 205.41,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782934163168_270",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 1238.69,
+          "y": 215.14,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
         },
         {
           "id": "obj_1782935243135_106",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 617.17,
-          "y": -68.54,
+          "x": 645.2,
+          "y": 5.73,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -74,8 +516,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 550,
-          "y": -61,
+          "x": 591,
+          "y": 23,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -85,8 +527,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 497.3,
-          "y": -49.59,
+          "x": 538.3,
+          "y": 34.41,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -96,8 +538,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 444.04,
-          "y": -55.66,
+          "x": 485.04,
+          "y": 28.34,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935209007_209",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 170,
+          "y": 118,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -107,8 +560,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 321,
-          "y": -67,
+          "x": 362,
+          "y": 17,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782935192881_848",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": 276.14,
+          "y": 71.08,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -118,8 +582,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 796.36,
-          "y": -68.96,
+          "x": 838.44,
+          "y": -1.18,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -129,8 +593,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 602.86,
-          "y": -199.24,
+          "x": 642.13,
+          "y": -153.36,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -140,41 +604,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 688.5,
-          "y": -194.02,
-          "width": 96,
-          "height": 96,
-          "name": "草地装饰"
-        },
-        {
-          "id": "obj_1782934699584_213",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree2",
-          "x": 1316.49,
-          "y": 9.71,
-          "width": 64,
-          "height": 96,
-          "name": "中树"
-        },
-        {
-          "id": "obj_1782934664962_44",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "grass1",
-          "x": -155.19,
-          "y": 114,
-          "width": 96,
-          "height": 96,
-          "name": "草地装饰"
-        },
-        {
-          "id": "obj_1782934655061_592",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "grass1",
-          "x": -168.34,
-          "y": 63.31,
+          "x": 708.71,
+          "y": -122.15,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -184,8 +615,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": -59.66,
-          "y": -273.16,
+          "x": -62.78,
+          "y": -129.82,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -195,8 +626,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": -68.22,
-          "y": -200.5,
+          "x": -27.22,
+          "y": -116.5,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -205,8 +636,8 @@
           "id": "deco_75973241",
           "type": "deco",
           "decoKey": "tree1",
-          "x": -45,
-          "y": -65,
+          "x": -4,
+          "y": 19,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -216,30 +647,19 @@
           "id": "deco_70599675",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 13,
-          "y": -100,
+          "x": 54,
+          "y": -16,
           "width": 96,
           "height": 128,
           "scale": 1,
           "name": "tree1"
         },
         {
-          "id": "deco_7386535",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -180,
-          "y": 268,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
           "id": "deco_24377811",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 746.55,
-          "y": -196.64,
+          "x": 787.55,
+          "y": -112.64,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -249,8 +669,8 @@
           "id": "deco_94481938",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 282.49,
-          "y": -197.57,
+          "x": 323.49,
+          "y": -113.57,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -260,8 +680,8 @@
           "id": "deco_14134187",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 290.04,
-          "y": -154.18,
+          "x": 331.04,
+          "y": -70.18,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -272,8 +692,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
-          "x": 1043,
-          "y": 364,
+          "x": 1084,
+          "y": 448,
           "width": 32,
           "height": 32,
           "name": "灌木1"
@@ -282,8 +702,8 @@
           "id": "deco_52540836",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 573,
-          "y": -225,
+          "x": 614,
+          "y": -141,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -293,8 +713,8 @@
           "id": "deco_45815389",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 676.15,
-          "y": -188.35,
+          "x": 668.64,
+          "y": -132.07,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -304,8 +724,8 @@
           "id": "deco_71641829",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 647.09,
-          "y": -153.34,
+          "x": 688.09,
+          "y": -69.34,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -315,8 +735,8 @@
           "id": "deco_69655197",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 777,
-          "y": -186,
+          "x": 818,
+          "y": -102,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -326,8 +746,8 @@
           "id": "deco_83764002",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 827,
-          "y": -153,
+          "x": 868,
+          "y": -69,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -337,8 +757,8 @@
           "id": "deco_4498391",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 850,
-          "y": -178,
+          "x": 891,
+          "y": -94,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -348,8 +768,8 @@
           "id": "deco_66013127",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 938,
-          "y": -161,
+          "x": 979,
+          "y": -77,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -359,8 +779,8 @@
           "id": "deco_60357311",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 981,
-          "y": -111,
+          "x": 1022,
+          "y": -27,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -370,8 +790,8 @@
           "id": "deco_84451209",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1011,
-          "y": -111,
+          "x": 1052,
+          "y": -27,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -381,8 +801,8 @@
           "id": "deco_95401295",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1081,
-          "y": -30,
+          "x": 1122,
+          "y": 54,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -392,8 +812,8 @@
           "id": "deco_68722754",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1092,
-          "y": -26,
+          "x": 1133,
+          "y": 58,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -403,31 +823,20 @@
           "id": "deco_65730296",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1129,
-          "y": 19,
+          "x": 1170,
+          "y": 103,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
         },
         {
-          "id": "deco_61858434",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 1177,
-          "y": 50,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
           "id": "obj_1782930742158_28",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 693.51,
-          "y": -85.12,
+          "x": 734.51,
+          "y": -1.12,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -437,8 +846,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 577.47,
-          "y": -116.18,
+          "x": 618.47,
+          "y": -32.18,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -448,8 +857,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 544.51,
-          "y": -117.26,
+          "x": 585.51,
+          "y": -33.26,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -458,8 +867,8 @@
           "id": "deco_24626397",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 823,
-          "y": -170,
+          "x": 864,
+          "y": -86,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -469,8 +878,8 @@
           "id": "deco_76376885",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 754,
-          "y": -183,
+          "x": 795,
+          "y": -99,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -480,8 +889,8 @@
           "id": "deco_49375333",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 384.3,
-          "y": -111.67,
+          "x": 425.3,
+          "y": -27.67,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -491,8 +900,8 @@
           "id": "deco_50957626",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 493,
-          "y": -203,
+          "x": 534,
+          "y": -119,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -502,8 +911,8 @@
           "id": "deco_85609045",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 370,
-          "y": -177,
+          "x": 411,
+          "y": -93,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -513,8 +922,8 @@
           "id": "deco_31988850",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 406,
-          "y": -196,
+          "x": 447,
+          "y": -112,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -524,8 +933,8 @@
           "id": "deco_25066195",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 154.98,
-          "y": -137.12,
+          "x": 195.98,
+          "y": -53.12,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -535,8 +944,8 @@
           "id": "deco_4768670",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 192,
-          "y": -138,
+          "x": 233,
+          "y": -54,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -546,8 +955,8 @@
           "id": "deco_57540042",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 94.57,
-          "y": -123.56,
+          "x": 135.57,
+          "y": -39.56,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -557,8 +966,8 @@
           "id": "deco_54192120",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 16,
-          "y": -69,
+          "x": 57,
+          "y": 15,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -568,8 +977,8 @@
           "id": "deco_51042519",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 70,
-          "y": -85,
+          "x": 111,
+          "y": -1,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -579,8 +988,19 @@
           "id": "deco_92194462",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -33,
-          "y": -16,
+          "x": 8,
+          "y": 68,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_20133758",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 126,
+          "y": 104,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -590,8 +1010,8 @@
           "id": "deco_3284630",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -72,
-          "y": 80,
+          "x": -31,
+          "y": 164,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -601,8 +1021,8 @@
           "id": "deco_88966018",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -86,
-          "y": 34,
+          "x": -45,
+          "y": 118,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -612,30 +1032,8 @@
           "id": "deco_34946864",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -150,
-          "y": 259,
-          "width": 96,
-          "height": 96,
-          "scale": 1,
-          "name": "grass1"
-        },
-        {
-          "id": "deco_92535309",
-          "type": "deco",
-          "decoKey": "grass1",
-          "x": -140,
-          "y": 210,
-          "width": 96,
-          "height": 96,
-          "scale": 1,
-          "name": "grass1"
-        },
-        {
-          "id": "deco_65327728",
-          "type": "deco",
-          "decoKey": "grass1",
-          "x": -143,
-          "y": 166,
+          "x": -40.53,
+          "y": 329.31,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -645,8 +1043,8 @@
           "id": "deco_58555675",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -26,
-          "y": 223,
+          "x": 15,
+          "y": 307,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -656,8 +1054,8 @@
           "id": "deco_30842212",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -40,
-          "y": 246,
+          "x": 1,
+          "y": 330,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -667,8 +1065,8 @@
           "id": "deco_87307529",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -110,
-          "y": 317,
+          "x": -69,
+          "y": 401,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -678,8 +1076,8 @@
           "id": "deco_40082123",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -117,
-          "y": 140,
+          "x": -34.92,
+          "y": 249.87,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -689,8 +1087,8 @@
           "id": "deco_41045364",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 617.04,
-          "y": -154.24,
+          "x": 658.04,
+          "y": -70.24,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -700,8 +1098,8 @@
           "id": "deco_53015735",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 623,
-          "y": 659,
+          "x": 664,
+          "y": 743,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -712,8 +1110,8 @@
           "id": "deco_14765665",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 623,
-          "y": 674,
+          "x": 664,
+          "y": 758,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -724,8 +1122,8 @@
           "id": "deco_14522043",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 573,
-          "y": 663,
+          "x": 614,
+          "y": 747,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -736,8 +1134,8 @@
           "id": "deco_85117451",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 591.03,
-          "y": 630.57,
+          "x": 632.03,
+          "y": 714.57,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -748,8 +1146,8 @@
           "id": "deco_60630314",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 562.27,
-          "y": 665.87,
+          "x": 603.27,
+          "y": 749.87,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -760,8 +1158,8 @@
           "id": "deco_40364326",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 440,
-          "y": 700,
+          "x": 481,
+          "y": 784,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -772,8 +1170,8 @@
           "id": "deco_42444104",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 526.49,
-          "y": 637.92,
+          "x": 567.49,
+          "y": 721.92,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -784,8 +1182,8 @@
           "id": "deco_45437651",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 487.27,
-          "y": 665.57,
+          "x": 528.27,
+          "y": 749.57,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -796,8 +1194,8 @@
           "id": "deco_62700287",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 484.38,
-          "y": 631,
+          "x": 525.38,
+          "y": 715,
           "width": 111,
           "height": 84,
           "scale": 1,
@@ -808,8 +1206,8 @@
           "id": "deco_41955680",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 516.49,
-          "y": 614.54,
+          "x": 557.49,
+          "y": 698.54,
           "width": 108,
           "height": 72,
           "scale": 1,
@@ -820,8 +1218,8 @@
           "id": "deco_78527262",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 576.38,
-          "y": 604.33,
+          "x": 617.38,
+          "y": 688.33,
           "width": 96,
           "height": 77,
           "scale": 1,
@@ -832,8 +1230,8 @@
           "id": "deco_77107822",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 80.92,
-          "y": 511.32,
+          "x": 121.92,
+          "y": 595.32,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -843,8 +1241,8 @@
           "id": "deco_84846303",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 633.62,
-          "y": 587.44,
+          "x": 674.62,
+          "y": 671.44,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -854,8 +1252,8 @@
           "id": "deco_73247594",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 793.09,
-          "y": 552.27,
+          "x": 834.09,
+          "y": 636.27,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -865,8 +1263,8 @@
           "id": "deco_36077443",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 457.27,
-          "y": 596.35,
+          "x": 498.27,
+          "y": 680.35,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -876,8 +1274,8 @@
           "id": "deco_64274064",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 956.49,
-          "y": -36.41,
+          "x": 997.49,
+          "y": 47.59,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -887,8 +1285,8 @@
           "id": "deco_43991810",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1069,
-          "y": 81,
+          "x": 1110,
+          "y": 165,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -898,8 +1296,8 @@
           "id": "deco_19356082",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 854.36,
-          "y": 582,
+          "x": 895.36,
+          "y": 666,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -909,8 +1307,8 @@
           "id": "deco_1010182",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1026.94,
-          "y": 17.62,
+          "x": 1067.94,
+          "y": 101.62,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -920,8 +1318,8 @@
           "id": "deco_74267525",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1182,
-          "y": 199,
+          "x": 1223,
+          "y": 283,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -931,8 +1329,8 @@
           "id": "deco_71386175",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 767,
-          "y": 605,
+          "x": 808,
+          "y": 689,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -942,8 +1340,8 @@
           "id": "deco_39433000",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 30,
-          "y": 468,
+          "x": 71,
+          "y": 552,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -953,8 +1351,8 @@
           "id": "deco_19901590",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -40,
-          "y": 248,
+          "x": -21.82,
+          "y": 309.18,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -964,8 +1362,8 @@
           "id": "deco_10648321",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 727.41,
-          "y": -69.19,
+          "x": 763,
+          "y": -36,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -975,8 +1373,8 @@
           "id": "deco_95112421",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 996.55,
-          "y": -13.44,
+          "x": 1037.55,
+          "y": 70.56,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -986,8 +1384,8 @@
           "id": "deco_7740509",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 525,
-          "y": -198,
+          "x": 566,
+          "y": -114,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -997,8 +1395,8 @@
           "id": "deco_4968396",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 699.91,
-          "y": -146.51,
+          "x": 756,
+          "y": -121,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1008,8 +1406,8 @@
           "id": "deco_60723142",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 930,
-          "y": -154,
+          "x": 971,
+          "y": -70,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1019,8 +1417,8 @@
           "id": "deco_8408781",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 938,
-          "y": -115,
+          "x": 979,
+          "y": -31,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1030,8 +1428,8 @@
           "id": "deco_93907314",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1037,
-          "y": -76,
+          "x": 1078,
+          "y": 8,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1041,8 +1439,8 @@
           "id": "deco_74163727",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1083,
-          "y": -58,
+          "x": 1124,
+          "y": 26,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1052,8 +1450,8 @@
           "id": "deco_46456327",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1138,
-          "y": -21,
+          "x": 1179,
+          "y": 63,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1063,8 +1461,8 @@
           "id": "deco_8282314",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1146,
-          "y": 39,
+          "x": 1187,
+          "y": 123,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1074,8 +1472,8 @@
           "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1181,
-          "y": 78,
+          "x": 1243.81,
+          "y": 162,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1085,8 +1483,8 @@
           "id": "deco_10509278",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1228,
-          "y": 129,
+          "x": 1288.25,
+          "y": 174.51,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1096,8 +1494,8 @@
           "id": "deco_89488301",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1245,
-          "y": 175,
+          "x": 1286,
+          "y": 259,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1107,8 +1505,8 @@
           "id": "deco_93470240",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1235,
-          "y": 217,
+          "x": 1276,
+          "y": 301,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1118,8 +1516,8 @@
           "id": "deco_58685858",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1216,
-          "y": 276,
+          "x": 1257,
+          "y": 360,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1129,8 +1527,8 @@
           "id": "deco_43849325",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1223,
-          "y": 315,
+          "x": 1264,
+          "y": 399,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1140,8 +1538,8 @@
           "id": "deco_49887819",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1172,
-          "y": 356,
+          "x": 1213,
+          "y": 440,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1151,8 +1549,8 @@
           "id": "deco_73197064",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1154,
-          "y": 413,
+          "x": 1195,
+          "y": 497,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1162,8 +1560,8 @@
           "id": "deco_42524756",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1131,
-          "y": 473,
+          "x": 1172,
+          "y": 557,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1173,8 +1571,8 @@
           "id": "deco_76422584",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1074,
-          "y": 486,
+          "x": 1115,
+          "y": 570,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1184,8 +1582,8 @@
           "id": "deco_46954820",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 1024,
-          "y": 555,
+          "x": 1065,
+          "y": 639,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1195,8 +1593,8 @@
           "id": "deco_30425834",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 985,
-          "y": 567,
+          "x": 1026,
+          "y": 651,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1206,8 +1604,8 @@
           "id": "deco_24643779",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 900,
-          "y": 603,
+          "x": 941,
+          "y": 687,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1217,8 +1615,8 @@
           "id": "deco_99437505",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 844,
-          "y": 632,
+          "x": 885,
+          "y": 716,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1228,8 +1626,8 @@
           "id": "deco_70081835",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 781,
-          "y": 651,
+          "x": 822,
+          "y": 735,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1239,8 +1637,8 @@
           "id": "deco_58720682",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 702,
-          "y": 637,
+          "x": 743,
+          "y": 721,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1250,8 +1648,8 @@
           "id": "deco_69154090",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 387,
-          "y": 642,
+          "x": 428,
+          "y": 726,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1261,8 +1659,8 @@
           "id": "deco_39902928",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 308,
-          "y": 653,
+          "x": 349,
+          "y": 737,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1272,8 +1670,8 @@
           "id": "deco_40531905",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 269,
-          "y": 605,
+          "x": 310,
+          "y": 689,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1283,8 +1681,8 @@
           "id": "deco_15006651",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 209,
-          "y": 590,
+          "x": 250,
+          "y": 674,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1294,8 +1692,8 @@
           "id": "deco_96811684",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 127,
-          "y": 565,
+          "x": 168,
+          "y": 649,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1305,8 +1703,8 @@
           "id": "deco_79440130",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 66,
-          "y": 526,
+          "x": 107,
+          "y": 610,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1316,8 +1714,8 @@
           "id": "deco_96537957",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 30,
-          "y": 488,
+          "x": 71,
+          "y": 572,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1327,8 +1725,8 @@
           "id": "deco_58625050",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -19,
-          "y": 462,
+          "x": 22,
+          "y": 546,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1338,8 +1736,8 @@
           "id": "deco_96360225",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -62,
-          "y": 402,
+          "x": -21,
+          "y": 486,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1349,19 +1747,8 @@
           "id": "deco_89174157",
           "type": "deco",
           "decoKey": "grass1",
-          "x": -67,
-          "y": 380,
-          "width": 96,
-          "height": 96,
-          "scale": 1,
-          "name": "grass1"
-        },
-        {
-          "id": "deco_10417308",
-          "type": "deco",
-          "decoKey": "grass1",
-          "x": -148,
-          "y": 259,
+          "x": -26,
+          "y": 464,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1371,8 +1758,8 @@
           "id": "deco_29806879",
           "type": "deco",
           "decoKey": "grass1",
-          "x": 658.66,
-          "y": -63.06,
+          "x": 701.82,
+          "y": 3.64,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1383,8 +1770,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": -173,
-          "y": 421,
+          "x": -132,
+          "y": 505,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1394,8 +1781,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": -144.42,
-          "y": 467.54,
+          "x": -103.42,
+          "y": 551.54,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1405,8 +1792,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": -5,
-          "y": 609,
+          "x": 36,
+          "y": 693,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1416,8 +1803,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 51,
-          "y": 594,
+          "x": 92,
+          "y": 678,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1427,8 +1814,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": -44,
-          "y": 542,
+          "x": -3,
+          "y": 626,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1438,8 +1825,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 18.4,
-          "y": 558.6,
+          "x": 59.4,
+          "y": 642.6,
           "width": 97,
           "height": 100,
           "name": "草地装饰"
@@ -1449,8 +1836,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": -65,
-          "y": 515,
+          "x": -24,
+          "y": 599,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1460,8 +1847,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1220,
-          "y": 12,
+          "x": 1261,
+          "y": 96,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1471,8 +1858,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1237,
-          "y": -21,
+          "x": 1278,
+          "y": 63,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1482,8 +1869,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1270,
-          "y": 71,
+          "x": 1311,
+          "y": 155,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1493,8 +1880,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1253,
-          "y": -118,
+          "x": 1294,
+          "y": -34,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1504,8 +1891,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1002,
-          "y": -179,
+          "x": 1043,
+          "y": -95,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
@@ -1515,40 +1902,95 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
-          "x": 1286,
-          "y": 163,
+          "x": 1327,
+          "y": 247,
           "width": 96,
           "height": 96,
           "name": "草地装饰"
         },
         {
-          "id": "deco_78422236",
+          "id": "deco_23504119",
           "type": "deco",
-          "decoKey": "tree3",
-          "x": 1180,
-          "y": 58,
+          "decoKey": "tree2",
+          "x": 1238.43,
+          "y": 247.7,
           "width": 64,
-          "height": 128,
+          "height": 96,
           "scale": 1,
-          "name": "tree3"
+          "name": "tree2"
         },
         {
-          "id": "deco_66214150",
+          "id": "deco_3690540",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1182.63,
-          "y": 378.84,
+          "x": 1272.66,
+          "y": 241.3,
           "width": 96,
           "height": 128,
           "scale": 1,
           "name": "tree1"
         },
         {
+          "id": "deco_11207367",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1245.85,
+          "y": 287.7,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_7991075",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1261,
+          "y": 346,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_20783689",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1242,
+          "y": 383.62,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_66214150",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1201,
+          "y": 417,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_5170530",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1201,
+          "y": 423,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
           "id": "deco_28265892",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1147,
-          "y": 401,
+          "x": 1188,
+          "y": 485,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1558,8 +2000,8 @@
           "id": "deco_89240081",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1100,
-          "y": 419,
+          "x": 1141,
+          "y": 503,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1569,8 +2011,8 @@
           "id": "deco_42805156",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1070,
-          "y": 461,
+          "x": 1111,
+          "y": 545,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1580,8 +2022,8 @@
           "id": "deco_35564503",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1008,
-          "y": 501,
+          "x": 1049,
+          "y": 585,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1591,8 +2033,8 @@
           "id": "deco_96258899",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 973,
-          "y": 552,
+          "x": 1014,
+          "y": 636,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1602,8 +2044,8 @@
           "id": "deco_70274020",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 912,
-          "y": 574,
+          "x": 953,
+          "y": 658,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1613,8 +2055,8 @@
           "id": "deco_96457775",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 838,
-          "y": 598,
+          "x": 879,
+          "y": 682,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1624,8 +2066,8 @@
           "id": "deco_72510111",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 772,
-          "y": 594,
+          "x": 813,
+          "y": 678,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1635,8 +2077,8 @@
           "id": "deco_59815690",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 745,
-          "y": 637,
+          "x": 786,
+          "y": 721,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1646,8 +2088,8 @@
           "id": "deco_69669900",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 349,
-          "y": 596,
+          "x": 390,
+          "y": 680,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1657,8 +2099,8 @@
           "id": "deco_18266214",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 318,
-          "y": 605,
+          "x": 359,
+          "y": 689,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1668,8 +2110,8 @@
           "id": "deco_41393875",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 272,
-          "y": 570,
+          "x": 313,
+          "y": 654,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1679,8 +2121,8 @@
           "id": "deco_60866151",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 188,
-          "y": 560,
+          "x": 229,
+          "y": 644,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1690,8 +2132,8 @@
           "id": "deco_57651262",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 135,
-          "y": 541,
+          "x": 176,
+          "y": 625,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1701,8 +2143,8 @@
           "id": "deco_33574704",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 130,
-          "y": 502,
+          "x": 171,
+          "y": 586,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1712,8 +2154,8 @@
           "id": "deco_89861764",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 36,
-          "y": 456,
+          "x": 77,
+          "y": 540,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1723,8 +2165,8 @@
           "id": "deco_38994131",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 6,
-          "y": 463,
+          "x": 47,
+          "y": 547,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1734,85 +2176,19 @@
           "id": "deco_31784448",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 12,
-          "y": 439,
+          "x": 53,
+          "y": 523,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
-        },
-        {
-          "id": "deco_4044589",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -67,
-          "y": 317,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_63062528",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -66,
-          "y": 296,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_91037860",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -91,
-          "y": 279,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_34481156",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -96,
-          "y": 232,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_11187203",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -78,
-          "y": 189,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_84670753",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -49.48,
-          "y": 126,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
         },
         {
           "id": "deco_92575528",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -58,
-          "y": 60,
+          "x": -17,
+          "y": 144,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1822,30 +2198,19 @@
           "id": "deco_90435419",
           "type": "deco",
           "decoKey": "tree2",
-          "x": -26,
-          "y": 52,
+          "x": 15,
+          "y": 136,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
         },
         {
-          "id": "deco_41628174",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -2,
-          "y": -1,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
           "id": "deco_72430565",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 29,
-          "y": 4,
+          "x": 70,
+          "y": 88,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1855,8 +2220,8 @@
           "id": "deco_733254",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 47.51,
-          "y": -64,
+          "x": 88.51,
+          "y": 20,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -1866,8 +2231,8 @@
           "id": "deco_23690182",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 93,
-          "y": -87,
+          "x": 134,
+          "y": -3,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1877,8 +2242,8 @@
           "id": "deco_73192042",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 150.03,
-          "y": -105.54,
+          "x": 191.03,
+          "y": -21.54,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1888,8 +2253,8 @@
           "id": "deco_38613616",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 187.99,
-          "y": -103.71,
+          "x": 228.99,
+          "y": -19.71,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1899,8 +2264,8 @@
           "id": "deco_94808032",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 253.99,
-          "y": -166,
+          "x": 294.99,
+          "y": -82,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1910,8 +2275,8 @@
           "id": "deco_70426007",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 356,
-          "y": -213,
+          "x": 397,
+          "y": -129,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1921,8 +2286,8 @@
           "id": "deco_53904877",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 412.52,
-          "y": -148.69,
+          "x": 453.52,
+          "y": -64.69,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1932,8 +2297,8 @@
           "id": "deco_13575519",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 521,
-          "y": -192,
+          "x": 562,
+          "y": -108,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1943,8 +2308,8 @@
           "id": "deco_71631112",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 837,
-          "y": -128,
+          "x": 878,
+          "y": -44,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1954,8 +2319,8 @@
           "id": "deco_58520818",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1105,
-          "y": 77,
+          "x": 1146,
+          "y": 161,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -1965,19 +2330,41 @@
           "id": "deco_22371719",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1119,
-          "y": 60,
+          "x": 1165.13,
+          "y": 133.73,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
         },
         {
-          "id": "deco_15914601",
+          "id": "deco_35748366",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1224,
+          "y": 300,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_13194120",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1159,
-          "y": 94,
+          "x": 1211,
+          "y": 335,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_25698471",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1187,
+          "y": 355,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1987,8 +2374,8 @@
           "id": "deco_86951968",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1154.82,
-          "y": 411.49,
+          "x": 1169,
+          "y": 426,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -1998,8 +2385,8 @@
           "id": "deco_5174071",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1106.19,
-          "y": 398.85,
+          "x": 1135,
+          "y": 467,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2009,8 +2396,8 @@
           "id": "deco_41772231",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1057,
-          "y": 416,
+          "x": 1098,
+          "y": 500,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2020,8 +2407,8 @@
           "id": "deco_14039078",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1071.29,
-          "y": 535.59,
+          "x": 1103,
+          "y": 588,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2031,8 +2418,8 @@
           "id": "deco_76945466",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 975,
-          "y": 518,
+          "x": 1016,
+          "y": 602,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2042,8 +2429,8 @@
           "id": "deco_7979523",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 953,
-          "y": 501,
+          "x": 994,
+          "y": 585,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2053,8 +2440,8 @@
           "id": "deco_19844572",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 807.55,
-          "y": 558,
+          "x": 848.55,
+          "y": 642,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2064,8 +2451,8 @@
           "id": "deco_35592175",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 734.74,
-          "y": 553.81,
+          "x": 775.74,
+          "y": 637.81,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2075,8 +2462,8 @@
           "id": "deco_4228010",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 427,
-          "y": 583,
+          "x": 468,
+          "y": 667,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2086,8 +2473,8 @@
           "id": "deco_63087293",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 394,
-          "y": 560,
+          "x": 435,
+          "y": 644,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2097,8 +2484,8 @@
           "id": "deco_93764988",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 300,
-          "y": 580,
+          "x": 341,
+          "y": 664,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2108,8 +2495,8 @@
           "id": "deco_63618170",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 259,
-          "y": 571,
+          "x": 300,
+          "y": 655,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2119,8 +2506,8 @@
           "id": "deco_80170471",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 179,
-          "y": 529,
+          "x": 220,
+          "y": 613,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2130,52 +2517,8 @@
           "id": "deco_3539364",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 153,
-          "y": 513,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_74748613",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 560.12,
-          "y": 648.65,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_9903159",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": 501.16,
-          "y": 647.55,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_56093836",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -37,
-          "y": 260,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_48753339",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -45,
-          "y": 216,
+          "x": 194,
+          "y": 597,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2185,30 +2528,19 @@
           "id": "deco_84280594",
           "type": "deco",
           "decoKey": "tree2",
-          "x": -18,
-          "y": 123,
+          "x": 23,
+          "y": 207,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
         },
         {
-          "id": "deco_656924",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -4,
-          "y": 85,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
           "id": "deco_71740355",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 109,
-          "y": -71,
+          "x": 150,
+          "y": 13,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2218,8 +2550,8 @@
           "id": "deco_15061921",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 249,
-          "y": -127,
+          "x": 290,
+          "y": -43,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2229,8 +2561,8 @@
           "id": "deco_73995911",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 533.09,
-          "y": -213.68,
+          "x": 574.09,
+          "y": -129.68,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2240,8 +2572,19 @@
           "id": "deco_60588392",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 569.15,
-          "y": -168.32,
+          "x": 610.15,
+          "y": -84.32,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_68994469",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 751.7,
+          "y": -97.26,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2251,8 +2594,8 @@
           "id": "deco_47495460",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 828.68,
-          "y": -208.05,
+          "x": 869.68,
+          "y": -124.05,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2262,8 +2605,8 @@
           "id": "deco_17041592",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 890.56,
-          "y": -151.56,
+          "x": 931.56,
+          "y": -67.56,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2273,8 +2616,8 @@
           "id": "deco_1498226",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 955,
-          "y": -169,
+          "x": 996,
+          "y": -85,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2284,8 +2627,8 @@
           "id": "deco_8627965",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1041,
-          "y": -147,
+          "x": 1082,
+          "y": -63,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2295,8 +2638,8 @@
           "id": "deco_98309396",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1078.61,
-          "y": -91.54,
+          "x": 1119.61,
+          "y": -7.54,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2306,8 +2649,8 @@
           "id": "deco_39036495",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1172,
-          "y": -14,
+          "x": 1213,
+          "y": 70,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2317,19 +2660,30 @@
           "id": "deco_7575914",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1222.48,
-          "y": 390.98,
+          "x": 1270,
+          "y": 425,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
         },
         {
+          "id": "deco_46045190",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1250,
+          "y": 450,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
           "id": "deco_14017986",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1187.89,
-          "y": 473.26,
+          "x": 1185,
+          "y": 528,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2339,8 +2693,8 @@
           "id": "deco_73880805",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1137.6,
-          "y": 507.19,
+          "x": 1153,
+          "y": 579,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2350,8 +2704,8 @@
           "id": "deco_59667448",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1006,
-          "y": 585,
+          "x": 1047,
+          "y": 669,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2361,8 +2715,8 @@
           "id": "deco_99352456",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 967,
-          "y": 583.87,
+          "x": 1008,
+          "y": 653,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2372,8 +2726,8 @@
           "id": "deco_37549639",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 856,
-          "y": 652,
+          "x": 897,
+          "y": 736,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2383,8 +2737,8 @@
           "id": "deco_56727624",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 793,
-          "y": 645,
+          "x": 834,
+          "y": 729,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2394,8 +2748,8 @@
           "id": "deco_24306957",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 373,
-          "y": 664,
+          "x": 414,
+          "y": 748,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2405,8 +2759,8 @@
           "id": "deco_98552515",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 332,
-          "y": 667,
+          "x": 373,
+          "y": 751,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2416,8 +2770,8 @@
           "id": "deco_33387989",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 223,
-          "y": 608,
+          "x": 264,
+          "y": 692,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2427,8 +2781,8 @@
           "id": "deco_44031224",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 211,
-          "y": 591,
+          "x": 252,
+          "y": 675,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2438,8 +2792,8 @@
           "id": "deco_71266741",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 121,
-          "y": 555,
+          "x": 162,
+          "y": 639,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2449,8 +2803,8 @@
           "id": "deco_87606551",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 37,
-          "y": 499,
+          "x": 78,
+          "y": 583,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2460,8 +2814,8 @@
           "id": "deco_56525709",
           "type": "deco",
           "decoKey": "tree2",
-          "x": -20,
-          "y": 492,
+          "x": 21,
+          "y": 576,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2471,74 +2825,19 @@
           "id": "deco_39640482",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -75,
-          "y": 370,
+          "x": -27.58,
+          "y": 483.53,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
-        },
-        {
-          "id": "deco_48571433",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -144,
-          "y": 245,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_12362023",
-          "type": "deco",
-          "decoKey": "tree3",
-          "x": -155,
-          "y": 182,
-          "width": 64,
-          "height": 128,
-          "scale": 1,
-          "name": "tree3"
-        },
-        {
-          "id": "deco_27281219",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -114,
-          "y": 119,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_82797364",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -126,
-          "y": 90,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_45570550",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -70,
-          "y": 9.49,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
         },
         {
           "id": "deco_25545910",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 142.39,
-          "y": -69.26,
+          "x": 183.39,
+          "y": 14.74,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2548,8 +2847,8 @@
           "id": "deco_90289176",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 221.37,
-          "y": -157.7,
+          "x": 262.37,
+          "y": -73.7,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2559,8 +2858,8 @@
           "id": "deco_7417365",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 278.04,
-          "y": -142.17,
+          "x": 319.04,
+          "y": -58.17,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2570,8 +2869,8 @@
           "id": "deco_43827683",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 377.51,
-          "y": -98.44,
+          "x": 418.51,
+          "y": -14.44,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2581,8 +2880,19 @@
           "id": "deco_99652426",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 450.33,
-          "y": -113.72,
+          "x": 491.33,
+          "y": -29.72,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_46086387",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1354,
+          "y": 317,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2592,8 +2902,8 @@
           "id": "deco_69448412",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1147,
-          "y": 548,
+          "x": 1188,
+          "y": 632,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2603,8 +2913,8 @@
           "id": "deco_73735458",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1004,
-          "y": 660,
+          "x": 1045,
+          "y": 744,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2614,8 +2924,8 @@
           "id": "deco_76081371",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 760,
-          "y": 693,
+          "x": 801,
+          "y": 777,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2625,8 +2935,8 @@
           "id": "deco_56221887",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 394,
-          "y": 666,
+          "x": 435,
+          "y": 750,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2636,8 +2946,8 @@
           "id": "deco_28899574",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 278,
-          "y": 657,
+          "x": 319,
+          "y": 741,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2647,8 +2957,8 @@
           "id": "deco_57342104",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 238,
-          "y": 651,
+          "x": 279,
+          "y": 735,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2658,8 +2968,8 @@
           "id": "deco_26483793",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 157,
-          "y": 605,
+          "x": 198,
+          "y": 689,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -2669,8 +2979,8 @@
           "id": "deco_51915375",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 103,
-          "y": 611,
+          "x": 144,
+          "y": 695,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2680,8 +2990,8 @@
           "id": "deco_92335977",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 53.95,
-          "y": 618.51,
+          "x": 122,
+          "y": 660,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2691,8 +3001,8 @@
           "id": "deco_78511550",
           "type": "deco",
           "decoKey": "tree2",
-          "x": -52,
-          "y": 551,
+          "x": -11,
+          "y": 635,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2702,8 +3012,8 @@
           "id": "deco_22050148",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -87,
-          "y": 493,
+          "x": -46,
+          "y": 577,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -2713,30 +3023,19 @@
           "id": "deco_12503478",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -88,
-          "y": 438,
+          "x": -47,
+          "y": 522,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
         },
         {
-          "id": "deco_75304171",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -164,
-          "y": 301,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
           "id": "deco_77788830",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 671,
-          "y": 707,
+          "x": 712,
+          "y": 791,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2747,8 +3046,8 @@
           "id": "deco_44946416",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 692,
-          "y": 732,
+          "x": 733,
+          "y": 816,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2759,8 +3058,8 @@
           "id": "deco_76926438",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 628,
-          "y": 727,
+          "x": 669,
+          "y": 811,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2771,8 +3070,8 @@
           "id": "deco_70277778",
           "type": "deco",
           "decoKey": "bush4",
-          "x": 630,
-          "y": 763,
+          "x": 671,
+          "y": 847,
           "width": 30,
           "height": 30,
           "scale": 1,
@@ -2783,8 +3082,8 @@
           "id": "deco_68512519",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 529,
-          "y": 772,
+          "x": 570,
+          "y": 856,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2795,8 +3094,8 @@
           "id": "deco_34923607",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 526,
-          "y": 772,
+          "x": 567,
+          "y": 856,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2807,8 +3106,8 @@
           "id": "deco_88638534",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 492,
-          "y": 734,
+          "x": 533,
+          "y": 818,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2816,11 +3115,22 @@
           "belowEntities": true
         },
         {
+          "id": "deco_49103674",
+          "type": "deco",
+          "decoKey": "bush3",
+          "x": 1062,
+          "y": 592,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush3"
+        },
+        {
           "id": "deco_3557226",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 394,
-          "y": 663,
+          "x": 435,
+          "y": 747,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2830,8 +3140,8 @@
           "id": "deco_16744607",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 271,
-          "y": 104,
+          "x": 312,
+          "y": 188,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2841,8 +3151,8 @@
           "id": "deco_56910761",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1155.45,
-          "y": -93.42,
+          "x": 1196.45,
+          "y": -9.42,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -2852,19 +3162,30 @@
           "id": "deco_63083026",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 697,
-          "y": 559,
+          "x": 738,
+          "y": 643,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
         },
         {
+          "id": "deco_59986676",
+          "type": "deco",
+          "decoKey": "bush4",
+          "x": 332,
+          "y": 198,
+          "width": 30,
+          "height": 30,
+          "scale": 1,
+          "name": "bush4"
+        },
+        {
           "id": "deco_37897000",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 967.16,
-          "y": 136.27,
+          "x": 1008.16,
+          "y": 220.27,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2874,8 +3195,8 @@
           "id": "deco_91187535",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 226,
-          "y": 535,
+          "x": 267,
+          "y": 619,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2885,8 +3206,8 @@
           "id": "deco_98303561",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 1017,
-          "y": 337,
+          "x": 1058,
+          "y": 421,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2896,8 +3217,8 @@
           "id": "deco_87548589",
           "type": "deco",
           "decoKey": "bush4",
-          "x": 68,
-          "y": 167,
+          "x": 109,
+          "y": 251,
           "width": 30,
           "height": 30,
           "scale": 1,
@@ -2907,8 +3228,8 @@
           "id": "deco_24816495",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 218,
-          "y": 259,
+          "x": 259,
+          "y": 343,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2918,8 +3239,8 @@
           "id": "deco_28876065",
           "type": "deco",
           "decoKey": "bush4",
-          "x": 381.78,
-          "y": 437.42,
+          "x": 422.78,
+          "y": 521.42,
           "width": 30,
           "height": 30,
           "scale": 1,
@@ -2929,8 +3250,8 @@
           "id": "deco_4935610",
           "type": "deco",
           "decoKey": "bush4",
-          "x": 385,
-          "y": 525,
+          "x": 426,
+          "y": 609,
           "width": 30,
           "height": 30,
           "scale": 1,
@@ -2940,19 +3261,30 @@
           "id": "deco_7869494",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 197,
-          "y": 71,
+          "x": 238,
+          "y": 155,
           "width": 32,
           "height": 32,
           "scale": 1,
           "name": "bush3"
         },
         {
+          "id": "deco_66491278",
+          "type": "deco",
+          "decoKey": "bush2",
+          "x": 195,
+          "y": 196,
+          "width": 32,
+          "height": 32,
+          "scale": 1,
+          "name": "bush2"
+        },
+        {
           "id": "deco_36341499",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 907.2,
-          "y": 141.53,
+          "x": 948.2,
+          "y": 225.53,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2962,8 +3294,8 @@
           "id": "deco_91310151",
           "type": "deco",
           "decoKey": "bush2",
-          "x": 1118.62,
-          "y": 315.63,
+          "x": 1159.62,
+          "y": 399.63,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2973,8 +3305,8 @@
           "id": "deco_48559651",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 1096,
-          "y": 351,
+          "x": 1137,
+          "y": 435,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2984,8 +3316,8 @@
           "id": "deco_66396012",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 803,
-          "y": -62,
+          "x": 844,
+          "y": 22,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -2995,8 +3327,19 @@
           "id": "deco_35794524",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 323.86,
-          "y": -135.19,
+          "x": 364.86,
+          "y": -51.19,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_25721926",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 200.97,
+          "y": 66.26,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3006,8 +3349,8 @@
           "id": "deco_38856606",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 717,
-          "y": 17,
+          "x": 758,
+          "y": 101,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -3017,8 +3360,8 @@
           "id": "deco_41809485",
           "type": "deco",
           "decoKey": "bush3",
-          "x": 721,
-          "y": -51,
+          "x": 762,
+          "y": 33,
           "width": 32,
           "height": 32,
           "scale": 1,
@@ -3028,41 +3371,19 @@
           "id": "deco_20146927",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 250.99,
-          "y": -103.1,
+          "x": 291.99,
+          "y": -19.1,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
         },
         {
-          "id": "deco_54727667",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -34,
-          "y": 293,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_6675406",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -11,
-          "y": 336,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
-          "id": "deco_88847980",
+          "id": "deco_81710875",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -50,
-          "y": 351,
+          "x": -100.34,
+          "y": 400.13,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3072,8 +3393,8 @@
           "id": "deco_69890609",
           "type": "deco",
           "decoKey": "tree2",
-          "x": -90,
-          "y": 378,
+          "x": -16.9,
+          "y": 237.33,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3083,30 +3404,30 @@
           "id": "deco_64437815",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -119.49,
-          "y": 394.52,
+          "x": -78.49,
+          "y": 478.52,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
         },
         {
-          "id": "deco_34753807",
-          "type": "deco",
-          "decoKey": "tree2",
-          "x": -140,
-          "y": 345,
-          "width": 64,
-          "height": 96,
-          "scale": 1,
-          "name": "tree2"
-        },
-        {
           "id": "deco_35096703",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -180,
-          "y": 351,
+          "x": -141.57,
+          "y": 451.69,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_69413230",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1244,
+          "y": 452,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3116,8 +3437,8 @@
           "id": "deco_6616848",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 698,
-          "y": 597,
+          "x": 739,
+          "y": 681,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3127,8 +3448,8 @@
           "id": "deco_97650015",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 715,
-          "y": 627,
+          "x": 756,
+          "y": 711,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3138,8 +3459,8 @@
           "id": "deco_89759740",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 685,
-          "y": 652,
+          "x": 726,
+          "y": 736,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3149,8 +3470,8 @@
           "id": "deco_55165633",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 713,
-          "y": 682,
+          "x": 754,
+          "y": 766,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3160,8 +3481,30 @@
           "id": "deco_8901280",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1057.29,
-          "y": 628.16,
+          "x": 1089,
+          "y": 675,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_9288494",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1328.4,
+          "y": 414.6,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_13995534",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1329.48,
+          "y": 341.13,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3171,8 +3514,8 @@
           "id": "deco_79708997",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1233.07,
-          "y": 431.66,
+          "x": 1271,
+          "y": 530,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3182,8 +3525,8 @@
           "id": "deco_39559985",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1194.29,
-          "y": 520.99,
+          "x": 1217,
+          "y": 555,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3193,19 +3536,30 @@
           "id": "deco_17915916",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1161.58,
-          "y": 578.58,
+          "x": 1166,
+          "y": 626,
           "width": 64,
           "height": 128,
           "scale": 1,
           "name": "tree3"
         },
         {
+          "id": "deco_24029960",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1304,
+          "y": 299,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
           "id": "deco_60701668",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 582.55,
-          "y": -124.64,
+          "x": 635.44,
+          "y": -41.72,
           "width": 66,
           "height": 128,
           "scale": 1,
@@ -3215,8 +3569,8 @@
           "id": "deco_28744135",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 857.42,
-          "y": -117.75,
+          "x": 898.42,
+          "y": -33.75,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3226,8 +3580,8 @@
           "id": "deco_94666460",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 887.22,
-          "y": -126,
+          "x": 928.22,
+          "y": -42,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3237,8 +3591,8 @@
           "id": "deco_38653344",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1010,
-          "y": -42,
+          "x": 1051,
+          "y": 42,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3248,8 +3602,8 @@
           "id": "deco_89725678",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 985.69,
-          "y": -99.26,
+          "x": 1026.69,
+          "y": -15.26,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3259,8 +3613,19 @@
           "id": "deco_45784091",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1065,
-          "y": -19,
+          "x": 1106,
+          "y": 65,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_37201608",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 247.46,
+          "y": 42.17,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3270,8 +3635,8 @@
           "id": "deco_94858712",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 293.44,
-          "y": -93.48,
+          "x": 337.95,
+          "y": 8.09,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3281,32 +3646,32 @@
           "id": "deco_32462613",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 370.34,
-          "y": -98.93,
+          "x": 411.34,
+          "y": -14.93,
           "width": 96,
           "height": 128,
           "scale": 1,
           "name": "tree1"
         },
         {
-          "id": "deco_40922726",
+          "id": "deco_94148807",
           "type": "deco",
-          "decoKey": "tree3",
-          "x": 22.46,
-          "y": 28.91,
+          "decoKey": "tree2",
+          "x": 157,
+          "y": 37,
           "width": 64,
-          "height": 128,
+          "height": 96,
           "scale": 1,
-          "name": "tree3"
+          "name": "tree2"
         },
         {
-          "id": "deco_50716785",
+          "id": "deco_10814542",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 58.97,
-          "y": 43.4,
+          "x": 131.43,
+          "y": 76.39,
           "width": 64,
-          "height": 128,
+          "height": 129,
           "scale": 1,
           "name": "tree3"
         },
@@ -3314,8 +3679,8 @@
           "id": "deco_48892961",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 1053.14,
-          "y": 576.16,
+          "x": 1096,
+          "y": 636,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3325,8 +3690,8 @@
           "id": "deco_19209126",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -42,
-          "y": 439,
+          "x": -1,
+          "y": 523,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3336,8 +3701,8 @@
           "id": "deco_35424101",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 5,
-          "y": 497,
+          "x": 46,
+          "y": 581,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3347,8 +3712,8 @@
           "id": "deco_53595052",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 12,
-          "y": 570,
+          "x": 53,
+          "y": 654,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3358,8 +3723,8 @@
           "id": "deco_71747705",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 456,
-          "y": 613,
+          "x": 497,
+          "y": 697,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3369,8 +3734,8 @@
           "id": "deco_77392691",
           "type": "deco",
           "decoKey": "tree3",
-          "x": -4.54,
-          "y": 615.99,
+          "x": 459,
+          "y": 776,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3380,31 +3745,20 @@
           "id": "deco_55389169",
           "type": "deco",
           "decoKey": "bush4",
-          "x": 755.09,
-          "y": 404.56,
+          "x": 796.09,
+          "y": 488.56,
           "width": 30,
           "height": 30,
           "scale": 1,
           "name": "bush4"
         },
         {
-          "id": "obj_1782933972889_213",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree3",
-          "x": -29.14,
-          "y": -145.29,
-          "width": 64,
-          "height": 128,
-          "name": "小树"
-        },
-        {
           "id": "obj_1782933975416_50",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 7.94,
-          "y": -134,
+          "x": 47,
+          "y": -50,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3414,19 +3768,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 47,
-          "y": -162,
-          "width": 96,
-          "height": 128,
-          "name": "大树"
-        },
-        {
-          "id": "obj_1782933971762_830",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree1",
-          "x": -132,
-          "y": -22.49,
+          "x": 88,
+          "y": -78,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3436,8 +3779,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": -95.95,
-          "y": -104.45,
+          "x": -54.95,
+          "y": -20.45,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3447,8 +3790,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 433.94,
-          "y": -211.62,
+          "x": 474.94,
+          "y": -127.62,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3458,8 +3801,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 480,
-          "y": -226,
+          "x": 521,
+          "y": -142,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3469,8 +3812,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 762.76,
-          "y": -249.33,
+          "x": 803.76,
+          "y": -165.33,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3480,8 +3823,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 910,
-          "y": -204,
+          "x": 951,
+          "y": -120,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3491,8 +3834,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 640.5,
-          "y": -195.34,
+          "x": 681.5,
+          "y": -111.34,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3502,8 +3845,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 559,
-          "y": -276,
+          "x": 600,
+          "y": -192,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3513,8 +3856,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 149,
-          "y": -202,
+          "x": 190,
+          "y": -118,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3524,8 +3867,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1156,
-          "y": -148,
+          "x": 1197,
+          "y": -64,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3535,8 +3878,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 1082,
-          "y": -186,
+          "x": 1123,
+          "y": -102,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3546,8 +3889,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 1198,
-          "y": -189,
+          "x": 1239,
+          "y": -105,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3556,8 +3899,8 @@
           "id": "deco_71846299",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 481.55,
-          "y": -122.46,
+          "x": 522.55,
+          "y": -38.46,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3567,8 +3910,8 @@
           "id": "deco_527772",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 859.32,
-          "y": -63.08,
+          "x": 900.32,
+          "y": 20.92,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -3579,8 +3922,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 943.34,
-          "y": -104.91,
+          "x": 984.34,
+          "y": -20.91,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3590,8 +3933,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
-          "x": 923.63,
-          "y": -15.73,
+          "x": 964.63,
+          "y": 68.27,
           "width": 30,
           "height": 30,
           "name": "灌木2"
@@ -3601,8 +3944,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
-          "x": 951,
-          "y": 14,
+          "x": 992,
+          "y": 98,
           "width": 30,
           "height": 30,
           "name": "灌木2"
@@ -3612,8 +3955,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
-          "x": 835,
-          "y": -3,
+          "x": 876,
+          "y": 81,
           "width": 32,
           "height": 32,
           "name": "灌木1"
@@ -3623,8 +3966,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
-          "x": 893,
-          "y": 8,
+          "x": 934,
+          "y": 92,
           "width": 32,
           "height": 32,
           "name": "灌木1"
@@ -3634,8 +3977,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
-          "x": 771,
-          "y": -14,
+          "x": 812,
+          "y": 70,
           "width": 32,
           "height": 32,
           "name": "草莓"
@@ -3645,8 +3988,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
-          "x": 805,
-          "y": -21,
+          "x": 846,
+          "y": 63,
           "width": 32,
           "height": 32,
           "name": "草莓"
@@ -3656,8 +3999,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
-          "x": 741,
-          "y": -15.03,
+          "x": 782,
+          "y": 56,
           "width": 32,
           "height": 32,
           "name": "灌木1"
@@ -3667,8 +4010,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
-          "x": 925,
-          "y": 21,
+          "x": 966,
+          "y": 105,
           "width": 32,
           "height": 32,
           "name": "草莓"
@@ -3678,8 +4021,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
-          "x": 985,
-          "y": 44,
+          "x": 1026,
+          "y": 128,
           "width": 32,
           "height": 32,
           "name": "草莓"
@@ -3689,8 +4032,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
-          "x": 613.11,
-          "y": 374.43,
+          "x": 654.11,
+          "y": 458.43,
           "width": 30,
           "height": 30,
           "name": "灌木2"
@@ -3700,8 +4043,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 1193,
-          "y": -99,
+          "x": 1234,
+          "y": -15,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3710,8 +4053,8 @@
           "id": "deco_32625172",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1160.98,
-          "y": -17.52,
+          "x": 1201.98,
+          "y": 66.48,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -3722,29 +4065,51 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 1236.57,
-          "y": -33.03,
+          "x": 1277.57,
+          "y": 50.97,
           "width": 96,
           "height": 128,
           "name": "大树"
         },
         {
-          "id": "deco_83485156",
+          "id": "deco_58903506",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1275.89,
+          "y": 276.13,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_91584654",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 1292.15,
-          "y": 71.71,
+          "x": 1300.63,
+          "y": 307.83,
           "width": 96,
           "height": 128,
           "scale": 1,
           "name": "tree1"
         },
         {
-          "id": "deco_429859",
+          "id": "deco_33123576",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1323,
+          "y": 409,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_55103657",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 1242,
-          "y": 47,
+          "x": 1312,
+          "y": 478,
           "width": 64,
           "height": 128,
           "scale": 1,
@@ -3755,8 +4120,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 1206.98,
-          "y": 622.27,
+          "x": 1229.69,
+          "y": 638,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -3766,8 +4131,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1113,
-          "y": 599,
+          "x": 1154,
+          "y": 683,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3777,8 +4142,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1147.37,
-          "y": 625.44,
+          "x": 1203,
+          "y": 707,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3788,8 +4153,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1090,
-          "y": 681,
+          "x": 1131,
+          "y": 765,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3799,8 +4164,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1291.56,
-          "y": 639.86,
+          "x": 1353,
+          "y": 722,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3810,8 +4175,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1263,
-          "y": 552,
+          "x": 1304,
+          "y": 636,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3821,8 +4186,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1193,
-          "y": 681,
+          "x": 1234,
+          "y": 765,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3832,30 +4197,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1282.1,
-          "y": 479.45,
+          "x": 1325.15,
+          "y": 552.19,
           "width": 64,
           "height": 96,
           "name": "中树"
-        },
-        {
-          "id": "obj_1782934597044_286",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree1",
-          "x": -208,
-          "y": 513,
-          "width": 96,
-          "height": 128,
-          "name": "大树"
         },
         {
           "id": "obj_1782934600374_510",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": -126,
-          "y": 574,
+          "x": -85,
+          "y": 658,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3865,8 +4219,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": -241.03,
-          "y": 421.81,
+          "x": -200.03,
+          "y": 505.81,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3876,63 +4230,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": -40.85,
-          "y": 601.69,
+          "x": -5,
+          "y": 696,
           "width": 64,
           "height": 96,
           "name": "中树"
-        },
-        {
-          "id": "obj_1782934611655_724",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree3",
-          "x": -143,
-          "y": -169,
-          "width": 64,
-          "height": 128,
-          "name": "小树"
-        },
-        {
-          "id": "obj_1782934617386_726",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree2",
-          "x": -123.1,
-          "y": -229,
-          "width": 64,
-          "height": 96,
-          "name": "中树"
-        },
-        {
-          "id": "obj_1782934642595_377",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree2",
-          "x": -190.03,
-          "y": 25.47,
-          "width": 64,
-          "height": 96,
-          "name": "中树"
-        },
-        {
-          "id": "obj_1782934644230_119",
-          "type": "slice",
-          "atlasId": "mountain_landscape",
-          "sliceKey": "tree3",
-          "x": -219.31,
-          "y": 142.75,
-          "width": 64,
-          "height": 128,
-          "name": "小树"
         },
         {
           "id": "obj_1782934689249_935",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1153,
-          "y": -237,
+          "x": 1194,
+          "y": -153,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3942,8 +4252,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1300.19,
-          "y": -127.32,
+          "x": 1341.19,
+          "y": -43.32,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3953,8 +4263,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 1357.26,
-          "y": -69.03,
+          "x": 1398.26,
+          "y": 14.97,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782934710153_506",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 1436,
+          "y": 287,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3964,8 +4285,19 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 1374,
-          "y": 101,
+          "x": 1408.58,
+          "y": 104.16,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934715222_285",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1407,
+          "y": 408,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -3974,8 +4306,8 @@
           "id": "deco_81332988",
           "type": "deco",
           "decoKey": "tree3",
-          "x": 659.37,
-          "y": -145.74,
+          "x": 700.37,
+          "y": -61.74,
           "width": 66,
           "height": 124,
           "scale": 1,
@@ -3986,8 +4318,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 785.73,
-          "y": -160.9,
+          "x": 826.73,
+          "y": -76.9,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -3997,19 +4329,85 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 771.5,
-          "y": -75.75,
+          "x": 808.18,
+          "y": -17.69,
           "width": 64,
           "height": 96,
           "name": "中树"
+        },
+        {
+          "id": "obj_1782936157943_847",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 409.26,
+          "y": 184.48,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936161828_237",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 495.44,
+          "y": 116.74,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936166171_740",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 273.66,
+          "y": 221.92,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "obj_1782936177159_727",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 922.37,
+          "y": 119.85,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936193939_605",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 976.98,
+          "y": 439.25,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782936200793_707",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 804.34,
+          "y": 125.54,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
         },
         {
           "id": "obj_1782936210176_73",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
-          "x": 612.75,
-          "y": 644.68,
+          "x": 680.05,
+          "y": 509.17,
           "width": 64,
           "height": 96,
           "name": "中树"
@@ -4019,8 +4417,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 525.52,
-          "y": 556.28,
+          "x": 479.63,
+          "y": 434.49,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4030,8 +4428,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
-          "x": 599.61,
-          "y": 567.81,
+          "x": 831.54,
+          "y": 462.03,
           "width": 96,
           "height": 128,
           "name": "大树"
@@ -4041,8 +4439,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 509.09,
-          "y": 16.12,
+          "x": 767.43,
+          "y": 282.22,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4051,8 +4449,8 @@
           "id": "deco_47316547",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 885.17,
-          "y": 625.03,
+          "x": 926.17,
+          "y": 709.03,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -4062,8 +4460,8 @@
           "id": "deco_21841616",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 944,
-          "y": 628,
+          "x": 985,
+          "y": 712,
           "width": 64,
           "height": 96,
           "scale": 1,
@@ -4074,8 +4472,8 @@
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
-          "x": 954.24,
-          "y": 656.69,
+          "x": 995.81,
+          "y": 761.09,
           "width": 64,
           "height": 128,
           "name": "小树"
@@ -4084,8 +4482,8 @@
           "id": "deco_23082729",
           "type": "deco",
           "decoKey": "tree1",
-          "x": 837.82,
-          "y": 636.28,
+          "x": 878.82,
+          "y": 720.28,
           "width": 96,
           "height": 128,
           "scale": 1,
@@ -4095,12 +4493,188 @@
           "id": "deco_95739984",
           "type": "deco",
           "decoKey": "tree2",
-          "x": 839.45,
-          "y": 701.27,
+          "x": 880.45,
+          "y": 785.27,
           "width": 64,
           "height": 96,
           "scale": 1,
           "name": "tree2"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1357.49,
+          "y": 93.71,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934699584_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": 1213.25,
+          "y": 139.37,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "deco_45570550",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -29,
+          "y": 117.83,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782933972889_213",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree3",
+          "x": 34.68,
+          "y": -23.25,
+          "width": 64,
+          "height": 128,
+          "name": "小树"
+        },
+        {
+          "id": "deco_41628174",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 40.52,
+          "y": 73.87,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_40922726",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 63.46,
+          "y": 112.91,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_50716785",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 99.97,
+          "y": 127.4,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_656924",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 37,
+          "y": 169,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_91037860",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -63.79,
+          "y": 203.95,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_63062528",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 19.93,
+          "y": 267.02,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_6675406",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 34.99,
+          "y": 314.06,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_34753807",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -114.41,
+          "y": 543.26,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934597044_286",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -167,
+          "y": 597,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782933971762_830",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": 83.6,
+          "y": 221.99,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "deco_88847980",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 82.53,
+          "y": 275.09,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_4044589",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 76.71,
+          "y": 317.55,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
         }
       ]
     },
@@ -4112,318 +4686,2155 @@
       "objects": []
     },
     {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_1783537117627_395",
+          "type": "ref",
+          "kind": "item",
+          "ref": "leftover_food",
+          "name": "残羹",
+          "x": 675.33,
+          "y": 252.79,
+          "group": "act1_pickups"
+        },
+        {
+          "id": "ref_equip_clothes_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "ragged_clothes",
+          "name": "破旧衣服",
+          "x": 754.07,
+          "y": 372.79,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_sword_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_sword",
+          "name": "木剑",
+          "x": 757.11,
+          "y": 404.76,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_bow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_bow",
+          "name": "木弓",
+          "x": 839.41,
+          "y": 479.2,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_equip_arrow_1",
+          "type": "ref",
+          "kind": "equipment",
+          "ref": "wooden_arrow",
+          "name": "木箭",
+          "x": 905.88,
+          "y": 468.23,
+          "group": "act1_equipment"
+        },
+        {
+          "id": "ref_enemy_dog_1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 552.16,
+          "y": 403.71,
+          "group": "act1_wave1"
+        },
+        {
+          "id": "ref_enemy_dog_2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "wild_dog",
+          "name": "野狗",
+          "x": 821.64,
+          "y": 422.99,
+          "group": "act1_wave1"
+        }
+      ]
+    },
+    {
       "id": "layer_logic",
       "name": "逻辑对象",
       "visible": true,
       "locked": false,
       "objects": [
         {
-          "id": "trigger_1784404042694_0",
+          "id": "trigger_1784929010873_0",
           "type": "trigger",
-          "name": "trg_debug_panel",
-          "triggerId": "trg_debug_panel",
+          "name": "trg_demo_enter_scene1",
+          "triggerId": "trg_demo_enter_scene1",
           "x": 10,
           "y": 10,
           "width": 36,
           "height": 36,
           "event": "sceneEnter",
           "target": "",
+          "sceneId": "s0-1",
           "radius": 60,
-          "conditions": "",
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act\"},\"right\":0}",
           "actions": "[object Object]",
           "once": true,
           "cooldown": 0
         },
         {
-          "id": "trigger_1784404042694_1",
+          "id": "trigger_1784929010873_1",
           "type": "trigger",
-          "name": "出现火堆",
-          "triggerId": "出现火堆",
-          "x": 13.43,
-          "y": 59.42,
+          "name": "5秒后自动点燃火堆",
+          "triggerId": "5秒后自动点燃火堆",
+          "x": 10,
+          "y": 56,
           "width": 36,
           "height": 36,
-          "event": "interact",
-          "target": "campfire",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_3",
-          "type": "trigger",
-          "name": "trg_spawn_pickup",
-          "triggerId": "trg_spawn_pickup",
-          "x": 11.14,
-          "y": 169.7,
-          "width": 36,
-          "height": 36,
-          "event": "campfireLit",
+          "event": "timer",
           "target": "",
+          "sceneId": "",
           "radius": 60,
-          "conditions": "",
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
           "actions": "[object Object]",
           "once": true,
           "cooldown": 0
         },
         {
-          "id": "trigger_1784404042694_4",
+          "id": "trigger_1784929010873_2",
           "type": "trigger",
-          "name": "trg_pickup_food_drop_equip",
-          "triggerId": "trg_pickup_food_drop_equip",
-          "x": 14.57,
-          "y": 222.55,
-          "width": 36,
-          "height": 36,
-          "event": "itemPickup",
-          "target": "",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_5",
-          "type": "trigger",
-          "name": "trg_spawn_wave",
-          "triggerId": "trg_spawn_wave",
-          "x": 8.86,
-          "y": 284.54,
-          "width": 36,
-          "height": 36,
-          "event": "equipItem",
-          "target": "",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_6",
-          "type": "trigger",
-          "name": "trg_wave_cleared_switch",
-          "triggerId": "trg_wave_cleared_switch",
-          "x": 8.86,
-          "y": 344.26,
-          "width": 36,
-          "height": 36,
-          "event": "waveCleared",
-          "target": "",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_7",
-          "type": "trigger",
-          "name": "trg_next_wave_starving",
-          "triggerId": "trg_next_wave_starving",
-          "x": 13.43,
-          "y": 393.68,
-          "width": 36,
-          "height": 36,
-          "event": "nextWave",
-          "target": "",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_8",
-          "type": "trigger",
-          "name": "trg_wave2_cleared_switch",
-          "triggerId": "trg_wave2_cleared_switch",
-          "x": 12.29,
-          "y": 447.67,
-          "width": 36,
-          "height": 36,
-          "event": "waveCleared",
-          "target": "",
-          "radius": 60,
-          "conditions": "",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784404042694_11",
-          "type": "trigger",
-          "name": "trg_starving_encourage",
-          "triggerId": "trg_starving_encourage",
-          "x": 13.27,
-          "y": 502.26,
+          "name": "trg_kill_count",
+          "triggerId": "trg_kill_count",
+          "x": 10,
+          "y": 102,
           "width": 36,
           "height": 36,
           "event": "kill",
           "target": "",
+          "sceneId": "",
           "radius": 60,
-          "conditions": "{\"op\":\"and\",\"args\":[{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true},{\"op\":\">=\",\"left\":{\"var\":\"starvingKilled\"},\"right\":9}]}",
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
           "actions": "[object Object]",
-          "once": true,
+          "once": false,
           "cooldown": 0
         },
         {
-          "id": "trigger_1784404042694_15",
+          "id": "trigger_1784929010873_3",
           "type": "trigger",
-          "name": "trg_act5_bloodbath",
-          "triggerId": "trg_act5_bloodbath",
-          "x": 13.98,
-          "y": 553.93,
+          "name": "trg_starving_kill_count",
+          "triggerId": "trg_starving_kill_count",
+          "x": 10,
+          "y": 148,
           "width": 36,
           "height": 36,
           "event": "kill",
           "target": "",
+          "sceneId": "",
           "radius": 60,
-          "conditions": "{\"op\":\"and\",\"args\":[{\"op\":\"==\",\"left\":{\"var\":\"act5Scene\"},\"right\":true},{\"op\":\">=\",\"left\":{\"var\":\"act5Kills\"},\"right\":100}]}",
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
           "actions": "[object Object]",
-          "once": true,
+          "once": false,
           "cooldown": 0
         },
         {
-          "id": "trigger_1784405050719_535",
+          "id": "trigger_1784929010873_4",
           "type": "trigger",
-          "name": "触发器",
-          "triggerId": "trg_2658",
-          "x": 590.51,
-          "y": 75.7,
+          "name": "30秒后自动点燃火堆",
+          "triggerId": "30秒后自动点燃火堆",
+          "x": 10,
+          "y": 194,
           "width": 36,
           "height": 36,
-          "event": "approach",
-          "target": "obj_1782936268755_872",
+          "event": "timer",
+          "target": "",
+          "sceneId": "",
           "radius": 60,
-          "conditions": "",
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
           "actions": "",
-          "actionType": "showTip",
-          "actionParams": "{\"text\":\"您好，您靠近了一颗树\"}"
-        },
-        {
-          "id": "spawn_1784929300087_129",
-          "type": "spawn",
-          "name": "玩家出生点",
-          "spawnId": "spawn_player_3832",
-          "ref": "player",
-          "x": 206.25,
-          "y": 403.41,
-          "enemyRef": "",
-          "count": 1,
-          "wave": 0,
-          "radius": 0
-        },
-        {
-          "id": "spawn_1784929363639_779",
-          "type": "spawn",
-          "name": "火堆",
-          "spawnId": "spawn_campfire_9251",
-          "ref": "campfire",
-          "x": 253.14,
-          "y": 355.71,
-          "enemyRef": "",
-          "count": 1,
-          "wave": 0,
-          "radius": 0
+          "once": true,
+          "cooldown": 0
         }
       ]
     }
   ],
   "decorations": [
     {
-      "x": 699.4010055900557,
-      "y": 340.1683808258588,
-      "key": "tent",
+      "x": 360,
+      "y": -167,
+      "key": "tree3",
       "scale": 1
     },
     {
-      "x": 321.1647034255623,
-      "y": 411.8770719793984,
-      "key": "tent",
+      "x": 449,
+      "y": -176,
+      "key": "tree3",
       "scale": 1
     },
     {
-      "x": 821.3229182275585,
-      "y": 156.36401176748984,
-      "key": "tent",
+      "x": 458,
+      "y": -182,
+      "key": "tree3",
       "scale": 1
     },
     {
-      "x": 203.03299129150483,
-      "y": 213.28692755814964,
-      "key": "tent",
+      "x": 564,
+      "y": -160,
+      "key": "tree2",
       "scale": 1
     },
     {
-      "x": 474.22032369031587,
-      "y": 320.0953722792191,
-      "key": "tent",
+      "x": 614,
+      "y": -127,
+      "key": "tree2",
       "scale": 1
     },
     {
-      "x": 853.3298972311103,
-      "y": 386.54756557035614,
-      "key": "tent",
+      "x": 637,
+      "y": -120,
+      "key": "tree3",
       "scale": 1
     },
     {
-      "x": 705.9480669470263,
-      "y": 547.1699716510111,
-      "key": "tent",
+      "x": 741,
+      "y": -103,
+      "key": "tree1",
       "scale": 1
     },
     {
-      "x": 938.0388263324456,
-      "y": 490.2569772397433,
-      "key": "tent",
+      "x": 768,
+      "y": -85,
+      "key": "tree2",
       "scale": 1
     },
     {
-      "x": 667.0778754013953,
-      "y": 258.1274271747691,
-      "key": "flag",
+      "x": 798,
+      "y": -53,
+      "key": "tree3",
       "scale": 1
     },
     {
-      "x": 1017.4635414581111,
-      "y": 229.6344996102315,
-      "key": "flag",
+      "x": 868,
+      "y": -4,
+      "key": "tree2",
       "scale": 1
     },
     {
-      "x": 162.45064738320684,
-      "y": 307.70134041444464,
-      "key": "flag",
+      "x": 895,
+      "y": 32,
+      "key": "tree1",
       "scale": 1
     },
     {
-      "x": 995.0935606356215,
-      "y": 301.39461765130727,
-      "key": "flag",
+      "x": 916,
+      "y": 45,
+      "key": "tree2",
       "scale": 1
     },
     {
-      "x": 571.3541271497281,
-      "y": 530.5935504057416,
-      "key": "flag",
+      "x": 964,
+      "y": 108,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 967,
+      "y": 116,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 987,
+      "y": 182,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1009,
+      "y": 223,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 988,
+      "y": 254,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1007,
+      "y": 288,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 988,
+      "y": 327,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 963,
+      "y": 391,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 947,
+      "y": 397,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 427,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 887,
+      "y": 477,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 857,
+      "y": 519,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 811,
+      "y": 559,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 760,
+      "y": 578,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 699,
+      "y": 600,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 625,
+      "y": 624,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 575,
+      "y": 652,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 532,
+      "y": 663,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 458,
+      "y": 675,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 243,
+      "y": 671,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 136,
+      "y": 654,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 121,
+      "y": 663,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 59,
+      "y": 628,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -9,
+      "y": 618,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -78,
+      "y": 567,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -83,
+      "y": 560,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -177,
+      "y": 514,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -207,
+      "y": 489,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -201,
+      "y": 465,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -263,
+      "y": 409,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -280,
+      "y": 375,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -279,
+      "y": 322,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -304,
+      "y": 305,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -309,
+      "y": 258,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -291,
+      "y": 215,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -296,
+      "y": 184,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -271,
+      "y": 118,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -239,
+      "y": 78,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -215,
+      "y": 57,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -184,
+      "y": 30,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -148,
+      "y": -6,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -120,
+      "y": -29,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -57,
+      "y": -90,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -28,
+      "y": -95,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 38,
+      "y": -108,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 84,
+      "y": -156,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 143,
+      "y": -155,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 204,
+      "y": -172,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 308,
+      "y": -166,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 364,
+      "y": -142,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 428,
+      "y": -131,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 497,
+      "y": -116,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 548,
+      "y": -118,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 624,
+      "y": -102,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 661,
+      "y": -83,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 726,
+      "y": -49,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 797,
+      "y": -16,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 830,
+      "y": 23,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 854,
+      "y": 40,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 892,
+      "y": 103,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 907,
+      "y": 119,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 946,
+      "y": 152,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 958,
+      "y": 226,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 963,
+      "y": 257,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 948,
+      "y": 306,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 924,
+      "y": 337,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 900,
+      "y": 384,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 906,
+      "y": 416,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 844,
+      "y": 474,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 823,
+      "y": 478,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 762,
+      "y": 544,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 740,
+      "y": 559,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 662,
+      "y": 590,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 596,
+      "y": 616,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 561,
+      "y": 606,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 498,
+      "y": 625,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 206,
+      "y": 641,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 181,
+      "y": 618,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 87,
+      "y": 606,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 46,
+      "y": 597,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -34,
+      "y": 555,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -60,
+      "y": 539,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -129,
+      "y": 484,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -182,
+      "y": 445,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -177,
+      "y": 425,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -224,
+      "y": 362,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -247,
+      "y": 319,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -250,
+      "y": 286,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -258,
+      "y": 242,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -237,
+      "y": 217,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -231,
+      "y": 149,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -217,
+      "y": 143,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -186,
+      "y": 68,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -154,
+      "y": 28,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -104,
+      "y": -12,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -97,
+      "y": -21,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -17,
+      "y": -60,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 35,
+      "y": -69,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 72,
+      "y": -87,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 146,
+      "y": -116,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 243,
+      "y": -133,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 312,
+      "y": -148,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 341,
+      "y": -199,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 395,
+      "y": -191,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 503,
+      "y": -208,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 563,
+      "y": -175,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 662,
+      "y": -162,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 694,
+      "y": -142,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 759,
+      "y": -111,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 844,
+      "y": -89,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 910,
+      "y": -44,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 959,
+      "y": 12,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 958,
+      "y": 36,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1029,
+      "y": 105,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1031,
+      "y": 135,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1036,
+      "y": 213,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1050,
+      "y": 241,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1037,
+      "y": 296,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1016,
+      "y": 367,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1012,
+      "y": 424,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 990,
+      "y": 426,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 931,
+      "y": 502,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 899,
+      "y": 520,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 840,
+      "y": 578,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 793,
+      "y": 611,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 754,
+      "y": 627,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 643,
+      "y": 678,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 580,
+      "y": 671,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 520,
+      "y": 693,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 160,
+      "y": 690,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 119,
+      "y": 693,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 10,
+      "y": 666,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -2,
+      "y": 649,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -76,
+      "y": 613,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -160,
+      "y": 557,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -192,
+      "y": 555,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -233,
+      "y": 518,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -288,
+      "y": 428,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -303,
+      "y": 404,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -328,
+      "y": 365,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -357,
+      "y": 303,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -368,
+      "y": 240,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -359,
+      "y": 207,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -327,
+      "y": 145,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -339,
+      "y": 116,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -283,
+      "y": 34,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -239,
+      "y": -5,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -171,
+      "y": -44,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -152,
+      "y": -67,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -96,
+      "y": -103,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -7,
+      "y": -146,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 74,
+      "y": -155,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 86,
+      "y": -170,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 166,
+      "y": -180,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 306,
+      "y": -209,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1125,
+      "y": 247,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1100,
+      "y": 291,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1087,
+      "y": 349,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1085,
+      "y": 383,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1065,
+      "y": 414,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1058,
+      "y": 453,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1017,
+      "y": 504,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1000,
+      "y": 530,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 574,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 912,
+      "y": 600,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 851,
+      "y": 649,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 791,
+      "y": 686,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 731,
+      "y": 654,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 651,
+      "y": 703,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 625,
+      "y": 720,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 547,
+      "y": 719,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 461,
+      "y": 745,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 205,
+      "y": 750,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 181,
+      "y": 724,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 65,
+      "y": 715,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 25,
+      "y": 709,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -40,
+      "y": 663,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": -110,
+      "y": 669,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -132,
+      "y": 634,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -201,
+      "y": 597,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -265,
+      "y": 577,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -300,
+      "y": 551,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -301,
+      "y": 496,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -331,
+      "y": 457,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -393,
+      "y": 410,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": -357,
+      "y": 364,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -386,
+      "y": 330,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": -393,
+      "y": 294,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 442,
+      "y": 669,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 460,
+      "y": 715,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 426,
+      "y": 685,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 426,
+      "y": 700,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 399,
+      "y": 689,
+      "key": "bush2",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 400,
+      "y": 723,
+      "key": "bush4",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 376,
+      "y": 689,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 383,
+      "y": 680,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 357,
+      "y": 696,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 344,
+      "y": 718,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 335,
+      "y": 697,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 313,
+      "y": 724,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 300,
+      "y": 734,
+      "key": "bush2",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 297,
+      "y": 734,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 286,
+      "y": 657,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 283,
+      "y": 667,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 271,
+      "y": 719,
+      "key": "bush3",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": 262,
+      "y": 700,
+      "key": "grass1",
+      "scale": 1,
+      "belowEntities": true
+    },
+    {
+      "x": -103,
+      "y": 469,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 443,
+      "y": 607,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -223,
+      "y": 249,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 599,
+      "y": 571,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -112,
+      "y": 46,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 270,
+      "y": 607,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 758,
+      "y": 12,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 872,
+      "y": 107,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 794,
+      "y": 467,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 815,
+      "y": 75,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 985,
+      "y": 225,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 792,
+      "y": 470,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 570,
+      "y": 631,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 165,
+      "y": 625,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -167,
+      "y": 494,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -237,
+      "y": 274,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -153,
+      "y": 8,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 173,
+      "y": -151,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 525,
+      "y": -94,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 813,
+      "y": 29,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 328,
+      "y": -172,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 429,
+      "y": -188,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 518,
+      "y": -179,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 557,
+      "y": -157,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 624,
+      "y": -142,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 733,
+      "y": -128,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 741,
+      "y": -89,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 840,
+      "y": -50,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 886,
+      "y": -32,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 941,
+      "y": 5,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 949,
+      "y": 65,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 984,
+      "y": 104,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1031,
+      "y": 155,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1048,
+      "y": 201,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1038,
+      "y": 243,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1019,
+      "y": 302,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1026,
+      "y": 341,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 975,
+      "y": 382,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 957,
+      "y": 439,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 934,
+      "y": 499,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 877,
+      "y": 512,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 827,
+      "y": 581,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 788,
+      "y": 593,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 703,
+      "y": 629,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 647,
+      "y": 658,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 584,
+      "y": 677,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 505,
+      "y": 663,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 190,
+      "y": 668,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 111,
+      "y": 679,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 72,
+      "y": 631,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 12,
+      "y": 616,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -70,
+      "y": 591,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -131,
+      "y": 552,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -167,
+      "y": 514,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -216,
+      "y": 488,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -259,
+      "y": 428,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -264,
+      "y": 406,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -307,
+      "y": 343,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -345,
+      "y": 285,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -337,
+      "y": 236,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -340,
+      "y": 192,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -314,
+      "y": 166,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -269,
+      "y": 106,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -283,
+      "y": 60,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -230,
+      "y": 10,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -181,
+      "y": -43,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -127,
+      "y": -59,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -86,
+      "y": -111,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": -5,
+      "y": -112,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 70,
+      "y": -138,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 103,
+      "y": -182,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 209,
+      "y": -170,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 296,
+      "y": -177,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 63,
+      "y": 144,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 170,
+      "y": 248,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 484,
+      "y": 585,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 78,
+      "y": 67,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 61,
+      "y": 74,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 275,
+      "y": 172,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 175,
+      "y": 31,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 740,
+      "y": 98,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 283,
+      "y": 176,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -3,
+      "y": 497,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 788,
+      "y": 299,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": -162,
+      "y": 127,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 71,
+      "y": 263,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 635,
+      "y": 9,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": -11,
+      "y": 221,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 361,
+      "y": -35,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 195,
+      "y": 273,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 196,
+      "y": 387,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": 118,
+      "y": 178,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 444,
+      "y": -20,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 155,
+      "y": 485,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": -32,
+      "y": 33,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": -75,
+      "y": 74,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 305,
+      "y": 369,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 685,
+      "y": 99,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 902,
+      "y": 254,
+      "key": "bush2",
+      "scale": 1
+    },
+    {
+      "x": 867,
+      "y": 313,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 591,
+      "y": -68,
+      "key": "bush3",
+      "scale": 1
+    },
+    {
+      "x": 666,
+      "y": 432,
+      "key": "bush4",
+      "scale": 1
+    },
+    {
+      "x": -60,
+      "y": 87,
+      "key": "bush3",
       "scale": 1
     }
   ],
   "colliders": [],
-  "createdAt": "2026-07-24T22:13:00.079Z",
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world",
+  "metadata": {
+    "description": "东汉末年，太平道首领张角的起义军营地",
+    "act": 0,
+    "type": "outdoor"
+  },
+  "centerX": 350,
+  "centerY": 250,
+  "basinRadius": 640,
+  "basinAspectY": 0.65,
+  "basinInnerScale": 0.94,
+  "entranceAngleHalfWidth": 0.15707963267948966,
+  "assetBase": "../example/sanguo_zhangjiao/assets/images/scene1/",
   "terrain": {
-    "type": "camp",
+    "type": "basin",
+    "grassTile": {
+      "sx": 448,
+      "sy": 128,
+      "sw": 64,
+      "sh": 64
+    },
     "tileSize": 64,
     "image": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png"
   },
-  "centerX": 640,
-  "centerY": 360,
-  "basinRadius": 500,
-  "basinAspectY": 0.7,
   "decoSprites": {
     "tree1": {
       "sx": 128,
@@ -4436,7 +6847,7 @@
     },
     "tree2": {
       "sx": 224,
-      "sy": 416,
+      "sy": 417,
       "sw": 64,
       "sh": 96,
       "scale": 1,
@@ -4445,7 +6856,7 @@
     },
     "tree3": {
       "sx": 288,
-      "sy": 384,
+      "sy": 385,
       "sw": 64,
       "sh": 128,
       "scale": 1,
@@ -4461,8 +6872,8 @@
       "collide": false
     },
     "bush2": {
-      "sx": 224,
-      "sy": 288,
+      "sx": 223,
+      "sy": 289,
       "sw": 32,
       "sh": 32,
       "scale": 1,
@@ -4474,67 +6885,18 @@
       "sw": 32,
       "sh": 32,
       "scale": 1,
-      "collide": false,
-      "colliderRadius": 16
+      "collide": false
     },
     "bush4": {
-      "sx": 256,
-      "sy": 320,
-      "sw": 32,
-      "sh": 32,
+      "sx": 255,
+      "sy": 321,
+      "sw": 30,
+      "sh": 30,
       "scale": 1,
       "collide": false
-    },
-    "tent": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 64,
-      "sh": 64,
-      "scale": 1,
-      "collide": true
-    },
-    "flag": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 32,
-      "sh": 64,
-      "scale": 1,
-      "collide": false
-    },
-    "fence": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 64,
-      "sh": 32,
-      "scale": 1,
-      "collide": true
-    },
-    "rock": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 48,
-      "sh": 48,
-      "scale": 1,
-      "collide": true
-    },
-    "broken_flag": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 32,
-      "sh": 48,
-      "scale": 1,
-      "collide": false
-    },
-    "ruins": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 96,
-      "sh": 64,
-      "scale": 1,
-      "collide": true
     }
   },
-  "updatedAt": "2026-07-24T22:13:00.079Z",
+  "waterPatches": [],
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -4622,9 +6984,13 @@
       }
     }
   ],
-  "sceneType": "worldChunk",
-  "worldMap": "prologue_world",
+  "createdAt": "2026-07-25T15:39:13.747Z",
+  "updatedAt": "2026-07-25T15:39:13.747Z",
   "imageAssets": {
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
+    },
     "img_1784926747445": {
       "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
       "name": "bg_0_0.png"

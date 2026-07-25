@@ -10,7 +10,7 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
-import { updateAtlasesCache, updateImagesCache } from './SceneDataLoader.js';
+import { updateAtlasesCache, updateImagesCache, addGlobalImage } from './SceneDataLoader.js';
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -509,6 +509,8 @@ export class SceneEditorAssets {
         
         if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
         editor.sceneData.imageAssets[id] = { src: relativeSrc, name: file.name };
+        // 登记到全局图片库缓存，使其成为库资源（切换场景/保存清理时不丢失）
+        addGlobalImage(id, { src: relativeSrc, name: file.name });
 
         const assetList = document.getElementById('editor-asset-list');
         const item = document.createElement('div');

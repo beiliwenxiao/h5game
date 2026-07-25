@@ -486,9 +486,13 @@ export class SceneEditorInteraction {
     this.removeContextMenu();
     if (!clicked) return;
 
-    editor.selectedObjects = [clicked];
-    editor.ui.updateObjectProperties();
-    editor.render();
+    // 如果右键点击的对象不在当前选中集合中，则替换选中为该对象
+    // 如果已在集合中，保持多选不变
+    if (!editor.selectedObjects.includes(clicked)) {
+      editor.selectedObjects = [clicked];
+      editor.ui.updateObjectProperties();
+      editor.render();
+    }
 
     const isDecoration = clicked.type === 'decoration';
 
@@ -507,6 +511,17 @@ export class SceneEditorInteraction {
     menu.style.cssText = `position:fixed;left:${e.clientX}px;top:${e.clientY}px;background:#16213e;border:1px solid #3a4a7e;border-radius:4px;padding:4px 0;z-index:99999;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:13px;min-width:140px;`;
 
     const items = [];
+
+    // 对齐功能（选中物体时总是显示）
+    if (editor.selectedObjects.length > 0) {
+      items.push({ label: '左对齐', action: () => this._alignObjects('left') });
+      items.push({ label: '右对齐', action: () => this._alignObjects('right') });
+      items.push({ label: '水平居中对齐', action: () => this._alignObjects('centerX') });
+      items.push({ label: '上对齐', action: () => this._alignObjects('top') });
+      items.push({ label: '下对齐', action: () => this._alignObjects('bottom') });
+      items.push({ label: '垂直居中对齐', action: () => this._alignObjects('centerY') });
+      items.push({ separator: true });
+    }
 
     if (isDecoration) {
       items.push({ label: '上移一层', action: () => this._moveDecorationOrder(clicked, 'up') });
@@ -605,6 +620,108 @@ export class SceneEditorInteraction {
       document.removeEventListener('mousedown', this._contextMenuCloser);
       this._contextMenuCloser = null;
     }
+  }
+
+  /**
+   * 对齐选中对象
+   * 单个对象时以场景边缘为基准；多个对象时以最边缘对象为基准。
+   * @param {'left'|'right'|'centerX'|'top'|'bottom'|'centerY'} direction
+   */
+  _alignObjects(direction) {
+    const editor = this.editor;
+    const objs = editor.selectedObjects;
+    if (objs.length === 0) return;
+
+    editor.history.saveHistory();
+
+    // 获取对象包围盒
+    const getBBox = (obj) => {
+      if (obj.type === 'circle') {
+        return { x: obj.x - obj.radius, y: obj.y - obj.radius, w: obj.radius * 2, h: obj.radius * 2 };
+      }
+      if ((obj.type === 'shape' || obj.type === 'buffZone') && Array.isArray(obj.points) && obj.points.length > 0) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const p of obj.points) { minX = Math.min(minX, p[0]); minY = Math.min(minY, p[1]); maxX = Math.max(maxX, p[0]); maxY = Math.max(maxY, p[1]); }
+        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+      }
+      if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+        return { x: obj.x - 16, y: obj.y - 16, w: 32, h: 32 };
+      }
+      return { x: obj.x || 0, y: obj.y || 0, w: obj.width || 0, h: obj.height || 0 };
+    };
+
+    if (objs.length === 1) {
+      // 单个对象：以场景边缘对齐
+      const obj = objs[0];
+      const bb = getBBox(obj);
+      const sw = editor.sceneData.width;
+      const sh = editor.sceneData.height;
+
+      const setPos = (newX, newY) => {
+        if (obj.type === 'circle') { obj.x = newX + obj.radius; obj.y = newY + obj.radius; }
+        else if ((obj.type === 'shape' || obj.type === 'buffZone') && Array.isArray(obj.points)) {
+          const dx = newX - bb.x, dy = newY - bb.y;
+          obj.points = obj.points.map(p => [p[0] + dx, p[1] + dy]);
+          if (obj.x != null) { obj.x += dx; obj.y += dy; }
+        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+          obj.x = newX + 16; obj.y = newY + 16;
+        } else { obj.x = newX; obj.y = newY; }
+      };
+
+      if (direction === 'left') setPos(0, bb.y);
+      else if (direction === 'right') setPos(sw - bb.w, bb.y);
+      else if (direction === 'centerX') setPos((sw - bb.w) / 2, bb.y);
+      else if (direction === 'top') setPos(bb.x, 0);
+      else if (direction === 'bottom') setPos(bb.x, sh - bb.h);
+      else if (direction === 'centerY') setPos(bb.x, (sh - bb.h) / 2);
+    } else {
+      // 多个对象：以最边缘对象为基准
+      const boxes = objs.map(o => ({ obj: o, bb: getBBox(o) }));
+
+      let target;
+      if (direction === 'left') {
+        target = Math.min(...boxes.map(b => b.bb.x));
+      } else if (direction === 'right') {
+        target = Math.max(...boxes.map(b => b.bb.x + b.bb.w));
+      } else if (direction === 'centerX') {
+        const minX = Math.min(...boxes.map(b => b.bb.x));
+        const maxX = Math.max(...boxes.map(b => b.bb.x + b.bb.w));
+        target = (minX + maxX) / 2;
+      } else if (direction === 'top') {
+        target = Math.min(...boxes.map(b => b.bb.y));
+      } else if (direction === 'bottom') {
+        target = Math.max(...boxes.map(b => b.bb.y + b.bb.h));
+      } else if (direction === 'centerY') {
+        const minY = Math.min(...boxes.map(b => b.bb.y));
+        const maxY = Math.max(...boxes.map(b => b.bb.y + b.bb.h));
+        target = (minY + maxY) / 2;
+      }
+
+      for (const { obj, bb } of boxes) {
+        let dx = 0, dy = 0;
+        if (direction === 'left') dx = target - bb.x;
+        else if (direction === 'right') dx = target - (bb.x + bb.w);
+        else if (direction === 'centerX') dx = target - (bb.x + bb.w / 2);
+        else if (direction === 'top') dy = target - bb.y;
+        else if (direction === 'bottom') dy = target - (bb.y + bb.h);
+        else if (direction === 'centerY') dy = target - (bb.y + bb.h / 2);
+
+        if (dx === 0 && dy === 0) continue;
+
+        if (obj.type === 'circle') { obj.x += dx; obj.y += dy; }
+        else if ((obj.type === 'shape' || obj.type === 'buffZone') && Array.isArray(obj.points)) {
+          obj.points = obj.points.map(p => [p[0] + dx, p[1] + dy]);
+          if (obj.x != null) { obj.x += dx; obj.y += dy; }
+        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+          obj.x += dx; obj.y += dy;
+        } else {
+          obj.x = (obj.x || 0) + dx; obj.y = (obj.y || 0) + dy;
+        }
+      }
+    }
+
+    editor.ui.updateObjectProperties();
+    editor.render();
   }
 
   /**

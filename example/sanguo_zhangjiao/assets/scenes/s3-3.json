@@ -1,9 +1,9 @@
 {
-  "id": "scene_Act6",
+  "id": "s3-3",
   "name": "s3-3",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#1b450c",
+  "backgroundColor": "#1a1a2a",
   "layers": [
     {
       "id": "layer_bg",
@@ -26,37 +26,125 @@
       "locked": false,
       "objects": [
         {
-          "id": "deco_68223505",
+          "id": "deco_act6_grass1",
           "type": "deco",
-          "decoKey": "throne",
-          "x": 582,
-          "y": 85,
-          "width": 115,
-          "height": 115,
-          "scale": 1.2,
-          "name": "throne"
+          "decoKey": "grass1",
+          "x": 200,
+          "y": 150,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
         },
         {
-          "id": "deco_44174966",
+          "id": "deco_act6_grass2",
           "type": "deco",
-          "decoKey": "screen",
-          "x": 368,
-          "y": 254,
+          "decoKey": "grass1",
+          "x": 600,
+          "y": 120,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_act6_grass3",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 1000,
+          "y": 160,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_act6_grass4",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 400,
+          "y": 520,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_act6_grass5",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": 800,
+          "y": 540,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_act6_tree1",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 70,
+          "y": 550,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_act6_tree2",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 1140,
+          "y": 560,
           "width": 64,
           "height": 96,
           "scale": 1,
-          "name": "screen"
+          "name": "tree2"
         },
         {
-          "id": "deco_22636233",
+          "id": "deco_act6_tree3",
           "type": "deco",
-          "decoKey": "candle",
-          "x": 838,
-          "y": 218,
-          "width": 24,
-          "height": 32,
+          "decoKey": "tree3",
+          "x": 80,
+          "y": 70,
+          "width": 64,
+          "height": 128,
           "scale": 1,
-          "name": "candle"
+          "name": "tree3"
+        },
+        {
+          "id": "deco_act6_tree4",
+          "type": "deco",
+          "decoKey": "tree1",
+          "x": 1100,
+          "y": 80,
+          "width": 96,
+          "height": 128,
+          "scale": 1,
+          "name": "tree1"
+        },
+        {
+          "id": "deco_act6_tree5",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": 70,
+          "y": 280,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "deco_act6_tree6",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": 1150,
+          "y": 300,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
         }
       ]
     },
@@ -74,7 +162,7 @@
       "locked": false,
       "objects": [
         {
-          "id": "trigger_1784660565197_0",
+          "id": "trigger_1784994144525_0",
           "type": "trigger",
           "name": "trg_enter_act6",
           "triggerId": "trg_enter_act6",
@@ -84,10 +172,10 @@
           "height": 36,
           "event": "sceneEnter",
           "target": "",
-          "sceneId": "Act6Scene",
+          "sceneId": "s3-3",
           "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act6Scene\"},\"right\":true}",
-          "actions": "[object Object]",
+          "conditions": "",
+          "actions": "[object Object], [object Object], [object Object]",
           "once": true,
           "cooldown": 0
         }
@@ -96,31 +184,180 @@
   ],
   "decorations": [
     {
-      "x": 640,
-      "y": 200,
-      "key": "throne",
-      "scale": 1.2
-    },
-    {
-      "x": 400,
-      "y": 350,
-      "key": "screen",
+      "x": 248,
+      "y": 246,
+      "key": "grass1",
       "scale": 1
     },
     {
-      "x": 850,
-      "y": 250,
-      "key": "candle",
+      "x": 648,
+      "y": 216,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 1048,
+      "y": 256,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 448,
+      "y": 616,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 848,
+      "y": 636,
+      "key": "grass1",
+      "scale": 1
+    },
+    {
+      "x": 118,
+      "y": 678,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 1172,
+      "y": 656,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 112,
+      "y": 198,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 1148,
+      "y": 208,
+      "key": "tree1",
+      "scale": 1
+    },
+    {
+      "x": 102,
+      "y": 376,
+      "key": "tree2",
+      "scale": 1
+    },
+    {
+      "x": 1182,
+      "y": 428,
+      "key": "tree3",
+      "scale": 1
+    },
+    {
+      "x": 516,
+      "y": 368,
+      "key": "broken_flag",
+      "scale": 1
+    },
+    {
+      "x": 766,
+      "y": 388,
+      "key": "broken_flag",
+      "scale": 1
+    },
+    {
+      "x": 398,
+      "y": 444,
+      "key": "ruins",
+      "scale": 1
+    },
+    {
+      "x": 868,
+      "y": 464,
+      "key": "ruins",
       "scale": 1
     }
   ],
   "colliders": [],
-  "terrain": {
-    "type": "indoor",
-    "tileSize": 48
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world",
+  "imageAssets": {
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
+    },
+    "img_1784926747445": {
+      "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
+      "name": "bg_0_0.png"
+    }
   },
+  "terrain": {
+    "type": "camp",
+    "tileSize": 64,
+    "image": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png"
+  },
+  "centerX": 640,
+  "centerY": 360,
+  "basinRadius": 500,
+  "basinAspectY": 0.7,
   "decoSprites": {
-    "cauldron": {
+    "tree1": {
+      "sx": 128,
+      "sy": 384,
+      "sw": 96,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 22
+    },
+    "tree2": {
+      "sx": 224,
+      "sy": 416,
+      "sw": 64,
+      "sh": 96,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 14
+    },
+    "tree3": {
+      "sx": 288,
+      "sy": 384,
+      "sw": 64,
+      "sh": 128,
+      "scale": 1,
+      "collide": true,
+      "colliderRadius": 16
+    },
+    "grass1": {
+      "sx": 128,
+      "sy": 288,
+      "sw": 96,
+      "sh": 96,
+      "scale": 1,
+      "collide": false
+    },
+    "bush2": {
+      "sx": 224,
+      "sy": 288,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush3": {
+      "sx": 224,
+      "sy": 320,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "bush4": {
+      "sx": 256,
+      "sy": 320,
+      "sw": 32,
+      "sh": 32,
+      "scale": 1,
+      "collide": false
+    },
+    "tent": {
       "sx": 0,
       "sy": 0,
       "sw": 64,
@@ -128,73 +365,47 @@
       "scale": 1,
       "collide": true
     },
-    "table": {
+    "flag": {
       "sx": 0,
       "sy": 0,
-      "sw": 80,
-      "sh": 48,
+      "sw": 32,
+      "sh": 64,
       "scale": 1,
-      "collide": true
+      "collide": false
     },
-    "mat": {
+    "fence": {
       "sx": 0,
       "sy": 0,
       "sw": 64,
       "sh": 32,
       "scale": 1,
-      "collide": false
+      "collide": true
     },
-    "incense": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 32,
-      "sh": 48,
-      "scale": 1,
-      "collide": false
-    },
-    "cushion": {
+    "rock": {
       "sx": 0,
       "sy": 0,
       "sw": 48,
-      "sh": 24,
+      "sh": 48,
       "scale": 1,
-      "collide": false
+      "collide": true
     },
-    "talisman": {
+    "broken_flag": {
       "sx": 0,
       "sy": 0,
       "sw": 32,
-      "sh": 32,
+      "sh": 48,
       "scale": 1,
       "collide": false
     },
-    "throne": {
+    "ruins": {
       "sx": 0,
       "sy": 0,
       "sw": 96,
-      "sh": 96,
+      "sh": 64,
       "scale": 1,
       "collide": true
-    },
-    "screen": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 64,
-      "sh": 96,
-      "scale": 1,
-      "collide": true
-    },
-    "candle": {
-      "sx": 0,
-      "sy": 0,
-      "sw": 24,
-      "sh": 32,
-      "scale": 1,
-      "collide": false
     }
   },
-  "type": "terrain",
-  "updatedAt": "2026-07-21T18:42:26.581Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -222,7 +433,7 @@
         "tree2": {
           "name": "中树",
           "sx": 224,
-          "sy": 416,
+          "sy": 417,
           "sw": 64,
           "sh": 96,
           "collide": true,
@@ -231,7 +442,7 @@
         "tree3": {
           "name": "小树",
           "sx": 288,
-          "sy": 384,
+          "sy": 385,
           "sw": 64,
           "sh": 128,
           "collide": true,
@@ -247,8 +458,8 @@
         },
         "bush2": {
           "name": "灌木1",
-          "sx": 224,
-          "sy": 288,
+          "sx": 223,
+          "sy": 289,
           "sw": 32,
           "sh": 32,
           "collide": false
@@ -256,20 +467,31 @@
         "bush3": {
           "name": "草莓",
           "sx": 224,
-          "sy": 320,
+          "sy": 319,
           "sw": 32,
           "sh": 32,
-          "collide": false
+          "collide": false,
+          "colliderRadius": 16
         },
         "bush4": {
           "name": "灌木2",
-          "sx": 256,
-          "sy": 320,
-          "sw": 32,
-          "sh": 32,
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
           "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
         }
       }
     }
-  ]
+  ],
+  "updatedAt": "2026-07-25T15:42:28.778Z"
 }

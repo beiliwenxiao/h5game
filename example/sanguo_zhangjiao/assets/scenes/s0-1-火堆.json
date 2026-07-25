@@ -3,7 +3,7 @@
   "name": "s0-1-火堆",
   "width": 1280,
   "height": 720,
-  "backgroundColor": "#1b450c",
+  "backgroundColor": "#233a19",
   "layers": [
     {
       "id": "layer_bg",
@@ -11,6 +11,25 @@
       "visible": true,
       "locked": false,
       "objects": [
+        {
+          "id": "ellipse_1783349807083_124",
+          "type": "shape",
+          "name": "地形椭圆",
+          "x": 4.05,
+          "y": -2.32,
+          "width": 1308,
+          "height": 763,
+          "fillMode": "slice",
+          "fill": "#3a5a2a",
+          "opacity": 1,
+          "stroke": "",
+          "strokeWidth": 0,
+          "edgeFade": 0.15,
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grassTile",
+          "decoKey": null,
+          "shapeType": "ellipse"
+        },
         {
           "id": "obj_1783095865778",
           "type": "image",
@@ -417,14 +436,6 @@
           "stroke": "#5a8a4a",
           "strokeWidth": 0,
           "collide": true
-        },
-        {
-          "id": "obj_1784235705376",
-          "type": "spawn",
-          "ref": "campfire",
-          "name": "火堆",
-          "x": 680.16,
-          "y": 368.43
         }
       ]
     },
@@ -435,7 +446,7 @@
       "locked": false,
       "objects": [
         {
-          "id": "deco_16864398_v8c1n6",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1114.99,
@@ -446,7 +457,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_16864398_w3m7x9",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1166.07,
@@ -457,7 +468,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_16864398_x9q4b2",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1199.1,
@@ -468,7 +479,7 @@
           "name": "grass1"
         },
         {
-          "id": "obj_1782934163168_270_r8m3q5",
+          "id": "obj_1782934163168_270",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -479,7 +490,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934163168_270_s4k9v2",
+          "id": "obj_1782934163168_270",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -490,7 +501,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935243135_106_a7k2m9",
+          "id": "obj_1782935243135_106",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -501,7 +512,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935235041_289_b4n8q1",
+          "id": "obj_1782935235041_289",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -512,7 +523,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935221330_827_c9r3v6",
+          "id": "obj_1782935221330_827",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -523,7 +534,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935216343_471_d2x7p4",
+          "id": "obj_1782935216343_471",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -534,7 +545,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935209007_209_e8j1w5",
+          "id": "obj_1782935209007_209",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -545,7 +556,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935195918_724_f3m9s2",
+          "id": "obj_1782935195918_724",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -556,7 +567,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782935192881_848_g6q4z8",
+          "id": "obj_1782935192881_848",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -567,7 +578,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934862413_407_h1v7c3",
+          "id": "obj_1782934862413_407",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -578,7 +589,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934846969_844_j5p2n9",
+          "id": "obj_1782934846969_844",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -589,7 +600,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934841831_270_k8w4r1",
+          "id": "obj_1782934841831_270",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -600,7 +611,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934613650_670_m2z6d7",
+          "id": "obj_1782934613650_670",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -611,7 +622,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934615278_577_n9c3x5",
+          "id": "obj_1782934615278_577",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -622,7 +633,7 @@
           "name": "大树"
         },
         {
-          "id": "deco_75973241_p4f8v2",
+          "id": "deco_75973241",
           "type": "deco",
           "decoKey": "tree1",
           "x": -4,
@@ -633,7 +644,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_70599675_q7m1k6",
+          "id": "deco_70599675",
           "type": "deco",
           "decoKey": "tree1",
           "x": 54,
@@ -644,7 +655,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_24377811_r3x9b4",
+          "id": "deco_24377811",
           "type": "deco",
           "decoKey": "tree1",
           "x": 787.55,
@@ -655,7 +666,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_94481938_s6n2w8",
+          "id": "deco_94481938",
           "type": "deco",
           "decoKey": "tree1",
           "x": 323.49,
@@ -666,7 +677,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_14134187_t1q5z3",
+          "id": "deco_14134187",
           "type": "deco",
           "decoKey": "tree2",
           "x": 331.04,
@@ -677,7 +688,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782923280728_332_u8d4m7",
+          "id": "obj_1782923280728_332",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
@@ -688,7 +699,7 @@
           "name": "灌木1"
         },
         {
-          "id": "deco_52540836_v2k7p9",
+          "id": "deco_52540836",
           "type": "deco",
           "decoKey": "tree3",
           "x": 614,
@@ -699,7 +710,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_45815389_w5r1c6",
+          "id": "deco_45815389",
           "type": "deco",
           "decoKey": "tree3",
           "x": 668.64,
@@ -710,7 +721,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_71641829_x9b3n2",
+          "id": "deco_71641829",
           "type": "deco",
           "decoKey": "tree3",
           "x": 688.09,
@@ -721,7 +732,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_69655197_y4v8q1",
+          "id": "deco_69655197",
           "type": "deco",
           "decoKey": "tree2",
           "x": 818,
@@ -732,7 +743,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_83764002_z7m2f5",
+          "id": "deco_83764002",
           "type": "deco",
           "decoKey": "tree2",
           "x": 868,
@@ -743,7 +754,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_4498391_a3p9x6",
+          "id": "deco_4498391",
           "type": "deco",
           "decoKey": "tree3",
           "x": 891,
@@ -754,7 +765,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_66013127_b8c4r2",
+          "id": "deco_66013127",
           "type": "deco",
           "decoKey": "tree1",
           "x": 979,
@@ -765,7 +776,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_60357311_c1w7k9",
+          "id": "deco_60357311",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1022,
@@ -776,7 +787,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_84451209_d5n2v8",
+          "id": "deco_84451209",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1052,
@@ -787,7 +798,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_95401295_e9q3m4",
+          "id": "deco_95401295",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1122,
@@ -798,7 +809,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_68722754_f2x6b1",
+          "id": "deco_68722754",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1133,
@@ -809,7 +820,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_65730296_g7r4z5",
+          "id": "deco_65730296",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1170,
@@ -820,7 +831,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782930742158_28_h3m8p2",
+          "id": "obj_1782930742158_28",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -831,7 +842,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782930722972_559_j6v1c9",
+          "id": "obj_1782930722972_559",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -842,7 +853,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782930700920_14_k4q7w3",
+          "id": "obj_1782930700920_14",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -853,7 +864,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "deco_24626397_m8b2n6",
+          "id": "deco_24626397",
           "type": "deco",
           "decoKey": "grass1",
           "x": 864,
@@ -864,7 +875,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_76376885_n1z5r8",
+          "id": "deco_76376885",
           "type": "deco",
           "decoKey": "grass1",
           "x": 795,
@@ -875,7 +886,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_49375333_p7c3x4",
+          "id": "deco_49375333",
           "type": "deco",
           "decoKey": "grass1",
           "x": 425.3,
@@ -886,7 +897,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_50957626_q2m9v5",
+          "id": "deco_50957626",
           "type": "deco",
           "decoKey": "grass1",
           "x": 534,
@@ -897,7 +908,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_85609045_r8k1b7",
+          "id": "deco_85609045",
           "type": "deco",
           "decoKey": "grass1",
           "x": 411,
@@ -908,7 +919,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_31988850_s4w6q2",
+          "id": "deco_31988850",
           "type": "deco",
           "decoKey": "grass1",
           "x": 447,
@@ -919,7 +930,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_25066195_t9n3d1",
+          "id": "deco_25066195",
           "type": "deco",
           "decoKey": "grass1",
           "x": 195.98,
@@ -930,7 +941,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_4768670_u5x8m4",
+          "id": "deco_4768670",
           "type": "deco",
           "decoKey": "grass1",
           "x": 233,
@@ -941,7 +952,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_57540042_v1p7z6",
+          "id": "deco_57540042",
           "type": "deco",
           "decoKey": "grass1",
           "x": 135.57,
@@ -952,7 +963,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_54192120_w6r2c8",
+          "id": "deco_54192120",
           "type": "deco",
           "decoKey": "grass1",
           "x": 57,
@@ -963,7 +974,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_51042519_x3b9k5",
+          "id": "deco_51042519",
           "type": "deco",
           "decoKey": "grass1",
           "x": 111,
@@ -974,7 +985,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_92194462_y8m4q1",
+          "id": "deco_92194462",
           "type": "deco",
           "decoKey": "grass1",
           "x": 8,
@@ -985,7 +996,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_20133758_z2v7n9",
+          "id": "deco_20133758",
           "type": "deco",
           "decoKey": "grass1",
           "x": 126,
@@ -996,7 +1007,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_3284630_a6c1x3",
+          "id": "deco_3284630",
           "type": "deco",
           "decoKey": "grass1",
           "x": -31,
@@ -1007,7 +1018,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_88966018_b9k5r7",
+          "id": "deco_88966018",
           "type": "deco",
           "decoKey": "grass1",
           "x": -45,
@@ -1018,7 +1029,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_34946864_c4n8w2",
+          "id": "deco_34946864",
           "type": "deco",
           "decoKey": "grass1",
           "x": -40.53,
@@ -1029,7 +1040,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_58555675_d7q3m6",
+          "id": "deco_58555675",
           "type": "deco",
           "decoKey": "grass1",
           "x": 15,
@@ -1040,7 +1051,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_30842212_e1r6p8",
+          "id": "deco_30842212",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1,
@@ -1051,7 +1062,18 @@
           "name": "grass1"
         },
         {
-          "id": "deco_40082123_g3n9c5",
+          "id": "deco_87307529",
+          "type": "deco",
+          "decoKey": "grass1",
+          "x": -69,
+          "y": 401,
+          "width": 96,
+          "height": 96,
+          "scale": 1,
+          "name": "grass1"
+        },
+        {
+          "id": "deco_40082123",
           "type": "deco",
           "decoKey": "grass1",
           "x": -34.92,
@@ -1062,7 +1084,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_41045364_h8q4v1",
+          "id": "deco_41045364",
           "type": "deco",
           "decoKey": "grass1",
           "x": 658.04,
@@ -1073,7 +1095,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_53015735_j2k7w9",
+          "id": "deco_53015735",
           "type": "deco",
           "decoKey": "grass1",
           "x": 664,
@@ -1085,7 +1107,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_14765665_k6b1r3",
+          "id": "deco_14765665",
           "type": "deco",
           "decoKey": "grass1",
           "x": 664,
@@ -1097,7 +1119,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_14522043_m9v5q7",
+          "id": "deco_14522043",
           "type": "deco",
           "decoKey": "grass1",
           "x": 614,
@@ -1109,7 +1131,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_85117451_n4c8x2",
+          "id": "deco_85117451",
           "type": "deco",
           "decoKey": "grass1",
           "x": 632.03,
@@ -1121,7 +1143,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_60630314_p1m6z8",
+          "id": "deco_60630314",
           "type": "deco",
           "decoKey": "grass1",
           "x": 603.27,
@@ -1133,11 +1155,11 @@
           "belowEntities": true
         },
         {
-          "id": "deco_40364326_q7w3k5",
+          "id": "deco_40364326",
           "type": "deco",
           "decoKey": "grass1",
           "x": 481,
-          "y": 785.12,
+          "y": 784,
           "width": 96,
           "height": 96,
           "scale": 1,
@@ -1145,7 +1167,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_42444104_r2n9b4",
+          "id": "deco_42444104",
           "type": "deco",
           "decoKey": "grass1",
           "x": 567.49,
@@ -1157,7 +1179,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_45437651_s8x1v6",
+          "id": "deco_45437651",
           "type": "deco",
           "decoKey": "grass1",
           "x": 528.27,
@@ -1169,7 +1191,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_62700287_t5q7m3",
+          "id": "deco_62700287",
           "type": "deco",
           "decoKey": "grass1",
           "x": 525.38,
@@ -1181,7 +1203,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_41955680_u9c2r8",
+          "id": "deco_41955680",
           "type": "deco",
           "decoKey": "grass1",
           "x": 557.49,
@@ -1193,7 +1215,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_78527262_v4k6w1",
+          "id": "deco_78527262",
           "type": "deco",
           "decoKey": "grass1",
           "x": 617.38,
@@ -1205,7 +1227,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_77107822_w1p8n5",
+          "id": "deco_77107822",
           "type": "deco",
           "decoKey": "grass1",
           "x": 121.92,
@@ -1216,7 +1238,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_84846303_x6v3b9",
+          "id": "deco_84846303",
           "type": "deco",
           "decoKey": "grass1",
           "x": 674.62,
@@ -1227,7 +1249,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_73247594_y2m7q4",
+          "id": "deco_73247594",
           "type": "deco",
           "decoKey": "grass1",
           "x": 834.09,
@@ -1238,7 +1260,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_36077443_z8r1c6",
+          "id": "deco_36077443",
           "type": "deco",
           "decoKey": "grass1",
           "x": 498.27,
@@ -1249,7 +1271,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_64274064_a5x9k2",
+          "id": "deco_64274064",
           "type": "deco",
           "decoKey": "grass1",
           "x": 997.49,
@@ -1260,7 +1282,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_43991810_b1n4v7",
+          "id": "deco_43991810",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1110,
@@ -1271,7 +1293,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_19356082_c7q2m8",
+          "id": "deco_19356082",
           "type": "deco",
           "decoKey": "grass1",
           "x": 895.36,
@@ -1282,7 +1304,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_1010182_d3w6p9",
+          "id": "deco_1010182",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1067.94,
@@ -1293,7 +1315,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_74267525_e9b5r1",
+          "id": "deco_74267525",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1223,
@@ -1304,7 +1326,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_71386175_f4m8x3",
+          "id": "deco_71386175",
           "type": "deco",
           "decoKey": "grass1",
           "x": 808,
@@ -1315,7 +1337,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_39433000_g1v7n6",
+          "id": "deco_39433000",
           "type": "deco",
           "decoKey": "grass1",
           "x": 71,
@@ -1326,7 +1348,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_19901590_h6k2q9",
+          "id": "deco_19901590",
           "type": "deco",
           "decoKey": "grass1",
           "x": -21.82,
@@ -1337,7 +1359,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_10648321_j2c8w4",
+          "id": "deco_10648321",
           "type": "deco",
           "decoKey": "grass1",
           "x": 763,
@@ -1348,7 +1370,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_95112421_k7r3m5",
+          "id": "deco_95112421",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1037.55,
@@ -1359,7 +1381,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_7740509_m4x9b1",
+          "id": "deco_7740509",
           "type": "deco",
           "decoKey": "grass1",
           "x": 566,
@@ -1370,7 +1392,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_4968396_n8q1v7",
+          "id": "deco_4968396",
           "type": "deco",
           "decoKey": "grass1",
           "x": 756,
@@ -1381,7 +1403,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_60723142_p3m6c2",
+          "id": "deco_60723142",
           "type": "deco",
           "decoKey": "grass1",
           "x": 971,
@@ -1392,7 +1414,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_8408781_q9w4k8",
+          "id": "deco_8408781",
           "type": "deco",
           "decoKey": "grass1",
           "x": 979,
@@ -1403,7 +1425,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_93907314_r5n2x6",
+          "id": "deco_93907314",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1078,
@@ -1414,7 +1436,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_74163727_s1b7m3",
+          "id": "deco_74163727",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1124,
@@ -1425,7 +1447,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_46456327_t6v9q4",
+          "id": "deco_46456327",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1179,
@@ -1436,7 +1458,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_8282314_u2k5r8",
+          "id": "deco_8282314",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1187,
@@ -1447,7 +1469,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_16864398_y5r8v1",
+          "id": "deco_16864398",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1243.81,
@@ -1458,7 +1480,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_10509278_z1n6k3",
+          "id": "deco_10509278",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1288.25,
@@ -1469,7 +1491,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_89488301_a7w2m5",
+          "id": "deco_89488301",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1286,
@@ -1480,7 +1502,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_93470240_b4x9q6",
+          "id": "deco_93470240",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1276,
@@ -1491,7 +1513,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_58685858_c8r3v2",
+          "id": "deco_58685858",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1257,
@@ -1502,7 +1524,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_43849325_d2m7b9",
+          "id": "deco_43849325",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1264,
@@ -1513,7 +1535,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_49887819_e6q1n4",
+          "id": "deco_49887819",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1213,
@@ -1524,7 +1546,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_73197064_f3v8k7",
+          "id": "deco_73197064",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1195,
@@ -1535,7 +1557,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_42524756_g9m2x5",
+          "id": "deco_42524756",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1172,
@@ -1546,7 +1568,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_76422584_h4q7c1",
+          "id": "deco_76422584",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1115,
@@ -1557,7 +1579,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_46954820_j8n3v6",
+          "id": "deco_46954820",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1065,
@@ -1568,7 +1590,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_30425834_k2w9m4",
+          "id": "deco_30425834",
           "type": "deco",
           "decoKey": "grass1",
           "x": 1026,
@@ -1579,7 +1601,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_24643779_m7b1r8",
+          "id": "deco_24643779",
           "type": "deco",
           "decoKey": "grass1",
           "x": 941,
@@ -1590,7 +1612,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_99437505_n5x6q2",
+          "id": "deco_99437505",
           "type": "deco",
           "decoKey": "grass1",
           "x": 885,
@@ -1601,7 +1623,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_70081835_p9c4k3",
+          "id": "deco_70081835",
           "type": "deco",
           "decoKey": "grass1",
           "x": 822,
@@ -1612,7 +1634,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_58720682_q1v7m5",
+          "id": "deco_58720682",
           "type": "deco",
           "decoKey": "grass1",
           "x": 743,
@@ -1623,7 +1645,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_69154090_r6n2x9",
+          "id": "deco_69154090",
           "type": "deco",
           "decoKey": "grass1",
           "x": 428,
@@ -1634,7 +1656,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_39902928_s3q8b4",
+          "id": "deco_39902928",
           "type": "deco",
           "decoKey": "grass1",
           "x": 349,
@@ -1645,7 +1667,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_40531905_t7m1w6",
+          "id": "deco_40531905",
           "type": "deco",
           "decoKey": "grass1",
           "x": 310,
@@ -1656,7 +1678,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_15006651_u4x9c2",
+          "id": "deco_15006651",
           "type": "deco",
           "decoKey": "grass1",
           "x": 250,
@@ -1667,7 +1689,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_96811684_v8k3r5",
+          "id": "deco_96811684",
           "type": "deco",
           "decoKey": "grass1",
           "x": 168,
@@ -1678,7 +1700,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_79440130_w2m7q1",
+          "id": "deco_79440130",
           "type": "deco",
           "decoKey": "grass1",
           "x": 107,
@@ -1689,7 +1711,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_96537957_x6b4n8",
+          "id": "deco_96537957",
           "type": "deco",
           "decoKey": "grass1",
           "x": 71,
@@ -1700,7 +1722,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_58625050_y1v9k3",
+          "id": "deco_58625050",
           "type": "deco",
           "decoKey": "grass1",
           "x": 22,
@@ -1711,7 +1733,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_96360225_z5q2m7",
+          "id": "deco_96360225",
           "type": "deco",
           "decoKey": "grass1",
           "x": -21,
@@ -1722,7 +1744,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_89174157_a9x6c4",
+          "id": "deco_89174157",
           "type": "deco",
           "decoKey": "grass1",
           "x": -26,
@@ -1733,7 +1755,7 @@
           "name": "grass1"
         },
         {
-          "id": "deco_29806879_b3r8v1",
+          "id": "deco_29806879",
           "type": "deco",
           "decoKey": "grass1",
           "x": 701.82,
@@ -1744,7 +1766,29 @@
           "name": "grass1"
         },
         {
-          "id": "obj_1782933701030_130_e6v3n2",
+          "id": "obj_1782933696710_74",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -132,
+          "y": 505,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933698713_204",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "grass1",
+          "x": -103.42,
+          "y": 551.54,
+          "width": 96,
+          "height": 96,
+          "name": "草地装饰"
+        },
+        {
+          "id": "obj_1782933701030_130",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1755,7 +1799,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782933703011_253_f8k1m4",
+          "id": "obj_1782933703011_253",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1766,7 +1810,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782933705246_495_g2x7q6",
+          "id": "obj_1782933705246_495",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1777,7 +1821,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782933707541_268_h9c4r3",
+          "id": "obj_1782933707541_268",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1788,7 +1832,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782933709851_504_j5m8v1",
+          "id": "obj_1782933709851_504",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1799,7 +1843,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934152211_710_k1q6b7",
+          "id": "obj_1782934152211_710",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1810,7 +1854,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934154355_562_m7x2n5",
+          "id": "obj_1782934154355_562",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1821,7 +1865,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934156410_283_n3r9k8",
+          "id": "obj_1782934156410_283",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1832,7 +1876,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934158443_928_p6v1m4",
+          "id": "obj_1782934158443_928",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1843,7 +1887,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934160731_336_q2c8x7",
+          "id": "obj_1782934160731_336",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1854,7 +1898,7 @@
           "name": "草地装饰"
         },
         {
-          "id": "obj_1782934163168_270_t1n6b8",
+          "id": "obj_1782934163168_270",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "grass1",
@@ -1920,7 +1964,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_66214150_u7q2x4",
+          "id": "deco_66214150",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1201,
@@ -1942,7 +1986,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_28265892_v3m8c6",
+          "id": "deco_28265892",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1188,
@@ -1953,7 +1997,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_89240081_w9r1k5",
+          "id": "deco_89240081",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1141,
@@ -1964,7 +2008,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_42805156_x5v7n2",
+          "id": "deco_42805156",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1111,
@@ -1975,7 +2019,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_35564503_y2q6m9",
+          "id": "deco_35564503",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1049,
@@ -1986,7 +2030,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_96258899_z8c3x1",
+          "id": "deco_96258899",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1014,
@@ -1997,7 +2041,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_70274020_a4k9v7",
+          "id": "deco_70274020",
           "type": "deco",
           "decoKey": "tree2",
           "x": 953,
@@ -2008,7 +2052,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_96457775_b1m5r8",
+          "id": "deco_96457775",
           "type": "deco",
           "decoKey": "tree2",
           "x": 879,
@@ -2019,7 +2063,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_72510111_c6x2q3",
+          "id": "deco_72510111",
           "type": "deco",
           "decoKey": "tree1",
           "x": 813,
@@ -2030,7 +2074,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_59815690_d9v4n1",
+          "id": "deco_59815690",
           "type": "deco",
           "decoKey": "tree2",
           "x": 786,
@@ -2041,7 +2085,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_69669900_e3r8k6",
+          "id": "deco_69669900",
           "type": "deco",
           "decoKey": "tree3",
           "x": 390,
@@ -2052,7 +2096,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_18266214_f7m1x5",
+          "id": "deco_18266214",
           "type": "deco",
           "decoKey": "tree1",
           "x": 359,
@@ -2063,7 +2107,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_41393875_g2q9c4",
+          "id": "deco_41393875",
           "type": "deco",
           "decoKey": "tree3",
           "x": 313,
@@ -2074,7 +2118,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_60866151_h8v3n7",
+          "id": "deco_60866151",
           "type": "deco",
           "decoKey": "tree1",
           "x": 229,
@@ -2085,7 +2129,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_57651262_j4m9q2",
+          "id": "deco_57651262",
           "type": "deco",
           "decoKey": "tree2",
           "x": 176,
@@ -2096,7 +2140,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_33574704_k8v1c6",
+          "id": "deco_33574704",
           "type": "deco",
           "decoKey": "tree3",
           "x": 171,
@@ -2107,7 +2151,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_89861764_m3x7n5",
+          "id": "deco_89861764",
           "type": "deco",
           "decoKey": "tree3",
           "x": 77,
@@ -2118,7 +2162,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_38994131_n9q2r8",
+          "id": "deco_38994131",
           "type": "deco",
           "decoKey": "tree2",
           "x": 47,
@@ -2129,7 +2173,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_31784448_p5k6v1",
+          "id": "deco_31784448",
           "type": "deco",
           "decoKey": "tree2",
           "x": 53,
@@ -2140,7 +2184,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_92575528_q1m8x4",
+          "id": "deco_92575528",
           "type": "deco",
           "decoKey": "tree3",
           "x": -17,
@@ -2151,7 +2195,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_90435419_r7c3n9",
+          "id": "deco_90435419",
           "type": "deco",
           "decoKey": "tree2",
           "x": 15,
@@ -2162,7 +2206,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_72430565_s2v6q5",
+          "id": "deco_72430565",
           "type": "deco",
           "decoKey": "tree2",
           "x": 70,
@@ -2173,7 +2217,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_733254_t8m1k7",
+          "id": "deco_733254",
           "type": "deco",
           "decoKey": "tree1",
           "x": 88.51,
@@ -2184,7 +2228,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_23690182_u4x9b3",
+          "id": "deco_23690182",
           "type": "deco",
           "decoKey": "tree3",
           "x": 134,
@@ -2195,7 +2239,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_73192042_v9q5m2",
+          "id": "deco_73192042",
           "type": "deco",
           "decoKey": "tree2",
           "x": 191.03,
@@ -2206,7 +2250,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_38613616_w3n7c8",
+          "id": "deco_38613616",
           "type": "deco",
           "decoKey": "tree3",
           "x": 228.99,
@@ -2217,7 +2261,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_94808032_x6k2v4",
+          "id": "deco_94808032",
           "type": "deco",
           "decoKey": "tree3",
           "x": 294.99,
@@ -2228,7 +2272,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_70426007_y1m8r5",
+          "id": "deco_70426007",
           "type": "deco",
           "decoKey": "tree3",
           "x": 397,
@@ -2239,7 +2283,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_53904877_z7q3x9",
+          "id": "deco_53904877",
           "type": "deco",
           "decoKey": "tree2",
           "x": 453.52,
@@ -2250,7 +2294,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_13575519_a2v6k1",
+          "id": "deco_13575519",
           "type": "deco",
           "decoKey": "tree2",
           "x": 562,
@@ -2261,7 +2305,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_71631112_b8m4n7",
+          "id": "deco_71631112",
           "type": "deco",
           "decoKey": "tree2",
           "x": 878,
@@ -2272,7 +2316,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_58520818_c3x9q5",
+          "id": "deco_58520818",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1146,
@@ -2283,7 +2327,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_22371719_d7k1v6",
+          "id": "deco_22371719",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1165.13,
@@ -2294,7 +2338,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_35748366_e4m8c2",
+          "id": "deco_35748366",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1224,
@@ -2305,7 +2349,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_13194120_f9q5x3",
+          "id": "deco_13194120",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1211,
@@ -2316,7 +2360,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_25698471_g1v7n4",
+          "id": "deco_25698471",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1187,
@@ -2327,7 +2371,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_86951968_h6k2r8",
+          "id": "deco_86951968",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1169,
@@ -2338,7 +2382,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_5174071_j3m9x1",
+          "id": "deco_5174071",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1135,
@@ -2349,7 +2393,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_41772231_k8q4c7",
+          "id": "deco_41772231",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1098,
@@ -2360,7 +2404,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_14039078_m2v6n5",
+          "id": "deco_14039078",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1103,
@@ -2371,7 +2415,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_76945466_n7x1k9",
+          "id": "deco_76945466",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1016,
@@ -2382,7 +2426,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_7979523_p4m8q6",
+          "id": "deco_7979523",
           "type": "deco",
           "decoKey": "tree3",
           "x": 994,
@@ -2393,7 +2437,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_19844572_q9c3v2",
+          "id": "deco_19844572",
           "type": "deco",
           "decoKey": "tree3",
           "x": 848.55,
@@ -2404,7 +2448,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_35592175_r1n7x5",
+          "id": "deco_35592175",
           "type": "deco",
           "decoKey": "tree1",
           "x": 775.74,
@@ -2415,7 +2459,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_4228010_s6k2m9",
+          "id": "deco_4228010",
           "type": "deco",
           "decoKey": "tree1",
           "x": 468,
@@ -2426,7 +2470,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_63087293_t3v8q4",
+          "id": "deco_63087293",
           "type": "deco",
           "decoKey": "tree3",
           "x": 435,
@@ -2437,7 +2481,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_93764988_u7m1c6",
+          "id": "deco_93764988",
           "type": "deco",
           "decoKey": "tree2",
           "x": 341,
@@ -2448,7 +2492,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_63618170_v2x9n8",
+          "id": "deco_63618170",
           "type": "deco",
           "decoKey": "tree2",
           "x": 300,
@@ -2459,7 +2503,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_80170471_w8q4k3",
+          "id": "deco_80170471",
           "type": "deco",
           "decoKey": "tree2",
           "x": 220,
@@ -2470,7 +2514,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_3539364_x5m7v1",
+          "id": "deco_3539364",
           "type": "deco",
           "decoKey": "tree2",
           "x": 194,
@@ -2481,7 +2525,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_84280594_y9c2r6",
+          "id": "deco_84280594",
           "type": "deco",
           "decoKey": "tree2",
           "x": 23,
@@ -2492,7 +2536,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_71740355_z3n8q5",
+          "id": "deco_71740355",
           "type": "deco",
           "decoKey": "tree3",
           "x": 150,
@@ -2503,7 +2547,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_15061921_a6v1k4",
+          "id": "deco_15061921",
           "type": "deco",
           "decoKey": "tree3",
           "x": 290,
@@ -2514,7 +2558,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_73995911_b2m9x7",
+          "id": "deco_73995911",
           "type": "deco",
           "decoKey": "tree3",
           "x": 574.09,
@@ -2525,7 +2569,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_60588392_c8q3n1",
+          "id": "deco_60588392",
           "type": "deco",
           "decoKey": "tree3",
           "x": 610.15,
@@ -2536,7 +2580,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_68994469_d4v7r5",
+          "id": "deco_68994469",
           "type": "deco",
           "decoKey": "tree3",
           "x": 751.7,
@@ -2547,7 +2591,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_47495460_e1k6m8",
+          "id": "deco_47495460",
           "type": "deco",
           "decoKey": "tree3",
           "x": 869.68,
@@ -2558,7 +2602,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_17041592_f7x2q9",
+          "id": "deco_17041592",
           "type": "deco",
           "decoKey": "tree2",
           "x": 931.56,
@@ -2569,7 +2613,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_1498226_g3n8v4",
+          "id": "deco_1498226",
           "type": "deco",
           "decoKey": "tree1",
           "x": 996,
@@ -2580,7 +2624,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_8627965_h9m1c6",
+          "id": "deco_8627965",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1082,
@@ -2591,7 +2635,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_98309396_j5q7x2",
+          "id": "deco_98309396",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1119.61,
@@ -2602,7 +2646,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_39036495_k2v8n3",
+          "id": "deco_39036495",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1213,
@@ -2613,7 +2657,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_7575914_m6r1k9",
+          "id": "deco_7575914",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1270,
@@ -2635,7 +2679,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_14017986_n4x7q5",
+          "id": "deco_14017986",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1185,
@@ -2646,7 +2690,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_73880805_p9v3m1",
+          "id": "deco_73880805",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1153,
@@ -2657,7 +2701,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_59667448_q4x8n6",
+          "id": "deco_59667448",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1047,
@@ -2668,7 +2712,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_99352456_r1k7c5",
+          "id": "deco_99352456",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1008,
@@ -2679,7 +2723,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_37549639_s6m2q9",
+          "id": "deco_37549639",
           "type": "deco",
           "decoKey": "tree2",
           "x": 897,
@@ -2690,7 +2734,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_56727624_t3v8x4",
+          "id": "deco_56727624",
           "type": "deco",
           "decoKey": "tree2",
           "x": 834,
@@ -2701,7 +2745,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_24306957_u9n1k7",
+          "id": "deco_24306957",
           "type": "deco",
           "decoKey": "tree2",
           "x": 414,
@@ -2712,7 +2756,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_98552515_v5q6m2",
+          "id": "deco_98552515",
           "type": "deco",
           "decoKey": "tree2",
           "x": 373,
@@ -2723,7 +2767,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_33387989_w2x9c8",
+          "id": "deco_33387989",
           "type": "deco",
           "decoKey": "tree3",
           "x": 264,
@@ -2734,7 +2778,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_44031224_x7k3v1",
+          "id": "deco_44031224",
           "type": "deco",
           "decoKey": "tree3",
           "x": 252,
@@ -2745,7 +2789,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_71266741_y4m8r6",
+          "id": "deco_71266741",
           "type": "deco",
           "decoKey": "tree1",
           "x": 162,
@@ -2756,7 +2800,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_87606551_z1q5n9",
+          "id": "deco_87606551",
           "type": "deco",
           "decoKey": "tree1",
           "x": 78,
@@ -2767,7 +2811,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_56525709_a8v2k4",
+          "id": "deco_56525709",
           "type": "deco",
           "decoKey": "tree2",
           "x": 21,
@@ -2778,7 +2822,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_39640482_b3x7m5",
+          "id": "deco_39640482",
           "type": "deco",
           "decoKey": "tree3",
           "x": -27.58,
@@ -2789,7 +2833,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_25545910_c9q1v6",
+          "id": "deco_25545910",
           "type": "deco",
           "decoKey": "tree2",
           "x": 183.39,
@@ -2800,7 +2844,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_90289176_d6k4n8",
+          "id": "deco_90289176",
           "type": "deco",
           "decoKey": "tree1",
           "x": 262.37,
@@ -2811,7 +2855,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_7417365_e2m9x3",
+          "id": "deco_7417365",
           "type": "deco",
           "decoKey": "tree2",
           "x": 319.04,
@@ -2822,7 +2866,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_43827683_f7v1q5",
+          "id": "deco_43827683",
           "type": "deco",
           "decoKey": "tree2",
           "x": 418.51,
@@ -2833,7 +2877,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_99652426_g4x8k2",
+          "id": "deco_99652426",
           "type": "deco",
           "decoKey": "tree3",
           "x": 491.33,
@@ -2855,7 +2899,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_69448412_h1n6m9",
+          "id": "deco_69448412",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1188,
@@ -2866,7 +2910,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_73735458_j8q3v7",
+          "id": "deco_73735458",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1045,
@@ -2877,7 +2921,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_76081371_k5m2x4",
+          "id": "deco_76081371",
           "type": "deco",
           "decoKey": "tree2",
           "x": 801,
@@ -2888,7 +2932,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_56221887_m9v6c1",
+          "id": "deco_56221887",
           "type": "deco",
           "decoKey": "tree3",
           "x": 435,
@@ -2899,7 +2943,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_28899574_n2q7k5",
+          "id": "deco_28899574",
           "type": "deco",
           "decoKey": "tree3",
           "x": 319,
@@ -2910,7 +2954,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_57342104_p6x1r8",
+          "id": "deco_57342104",
           "type": "deco",
           "decoKey": "tree3",
           "x": 279,
@@ -2921,7 +2965,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_26483793_q3v9m4",
+          "id": "deco_26483793",
           "type": "deco",
           "decoKey": "tree1",
           "x": 198,
@@ -2932,7 +2976,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_51915375_r7k2n6",
+          "id": "deco_51915375",
           "type": "deco",
           "decoKey": "tree3",
           "x": 144,
@@ -2943,7 +2987,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_92335977_s1m8x5",
+          "id": "deco_92335977",
           "type": "deco",
           "decoKey": "tree3",
           "x": 122,
@@ -2954,7 +2998,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_78511550_t6q4v9",
+          "id": "deco_78511550",
           "type": "deco",
           "decoKey": "tree2",
           "x": -11,
@@ -2965,7 +3009,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_22050148_u3x7c2",
+          "id": "deco_22050148",
           "type": "deco",
           "decoKey": "tree3",
           "x": -46,
@@ -2976,7 +3020,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_12503478_v8n1k5",
+          "id": "deco_12503478",
           "type": "deco",
           "decoKey": "tree3",
           "x": -47,
@@ -2987,7 +3031,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_77788830_w4m9q6",
+          "id": "deco_77788830",
           "type": "deco",
           "decoKey": "bush3",
           "x": 712,
@@ -2999,7 +3043,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_44946416_x2v6r3",
+          "id": "deco_44946416",
           "type": "deco",
           "decoKey": "bush3",
           "x": 733,
@@ -3011,7 +3055,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_76926438_y7k3m1",
+          "id": "deco_76926438",
           "type": "deco",
           "decoKey": "bush2",
           "x": 669,
@@ -3023,7 +3067,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_70277778_z5q8x4",
+          "id": "deco_70277778",
           "type": "deco",
           "decoKey": "bush4",
           "x": 671,
@@ -3035,7 +3079,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_68512519_a1n6v9",
+          "id": "deco_68512519",
           "type": "deco",
           "decoKey": "bush2",
           "x": 570,
@@ -3047,7 +3091,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_34923607_b8m2k7",
+          "id": "deco_34923607",
           "type": "deco",
           "decoKey": "bush3",
           "x": 567,
@@ -3059,7 +3103,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_88638534_c4x9q1",
+          "id": "deco_88638534",
           "type": "deco",
           "decoKey": "bush3",
           "x": 533,
@@ -3071,7 +3115,7 @@
           "belowEntities": true
         },
         {
-          "id": "deco_49103674_d9v3n5",
+          "id": "deco_49103674",
           "type": "deco",
           "decoKey": "bush3",
           "x": 1062,
@@ -3082,7 +3126,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_3557226_e6k1m8",
+          "id": "deco_3557226",
           "type": "deco",
           "decoKey": "bush2",
           "x": 435,
@@ -3093,7 +3137,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_16744607_f2q7x4",
+          "id": "deco_16744607",
           "type": "deco",
           "decoKey": "bush2",
           "x": 312,
@@ -3104,7 +3148,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_56910761_g8n5v3",
+          "id": "deco_56910761",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1196.45,
@@ -3115,7 +3159,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_63083026_h4m9k1",
+          "id": "deco_63083026",
           "type": "deco",
           "decoKey": "tree2",
           "x": 738,
@@ -3126,7 +3170,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_59986676_j1x6q8",
+          "id": "deco_59986676",
           "type": "deco",
           "decoKey": "bush4",
           "x": 332,
@@ -3137,7 +3181,7 @@
           "name": "bush4"
         },
         {
-          "id": "deco_37897000_k7v2n4",
+          "id": "deco_37897000",
           "type": "deco",
           "decoKey": "bush3",
           "x": 1008.16,
@@ -3148,7 +3192,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_91187535_m3q8c9",
+          "id": "deco_91187535",
           "type": "deco",
           "decoKey": "bush3",
           "x": 267,
@@ -3159,7 +3203,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_98303561_n9m1x6",
+          "id": "deco_98303561",
           "type": "deco",
           "decoKey": "bush2",
           "x": 1058,
@@ -3170,7 +3214,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_87548589_p5k7v2",
+          "id": "deco_87548589",
           "type": "deco",
           "decoKey": "bush4",
           "x": 109,
@@ -3181,7 +3225,7 @@
           "name": "bush4"
         },
         {
-          "id": "deco_24816495_q2x4m8",
+          "id": "deco_24816495",
           "type": "deco",
           "decoKey": "bush3",
           "x": 259,
@@ -3192,7 +3236,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_28876065_r8m3v1",
+          "id": "deco_28876065",
           "type": "deco",
           "decoKey": "bush4",
           "x": 422.78,
@@ -3203,7 +3247,7 @@
           "name": "bush4"
         },
         {
-          "id": "deco_4935610_s4q9k6",
+          "id": "deco_4935610",
           "type": "deco",
           "decoKey": "bush4",
           "x": 426,
@@ -3214,7 +3258,7 @@
           "name": "bush4"
         },
         {
-          "id": "deco_7869494_t1x7n5",
+          "id": "deco_7869494",
           "type": "deco",
           "decoKey": "bush3",
           "x": 238,
@@ -3225,7 +3269,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_66491278_u6m2c8",
+          "id": "deco_66491278",
           "type": "deco",
           "decoKey": "bush2",
           "x": 195,
@@ -3236,7 +3280,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_36341499_v3v8q4",
+          "id": "deco_36341499",
           "type": "deco",
           "decoKey": "bush2",
           "x": 948.2,
@@ -3247,7 +3291,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_91310151_w9k1m7",
+          "id": "deco_91310151",
           "type": "deco",
           "decoKey": "bush2",
           "x": 1159.62,
@@ -3258,7 +3302,7 @@
           "name": "bush2"
         },
         {
-          "id": "deco_48559651_x5n6r2",
+          "id": "deco_48559651",
           "type": "deco",
           "decoKey": "bush3",
           "x": 1137,
@@ -3269,7 +3313,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_66396012_y2q8v9",
+          "id": "deco_66396012",
           "type": "deco",
           "decoKey": "bush3",
           "x": 844,
@@ -3280,7 +3324,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_35794524_z7m3x1",
+          "id": "deco_35794524",
           "type": "deco",
           "decoKey": "tree2",
           "x": 364.86,
@@ -3291,7 +3335,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_25721926_a4k9c6",
+          "id": "deco_25721926",
           "type": "deco",
           "decoKey": "tree2",
           "x": 200.97,
@@ -3302,7 +3346,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_38856606_b1v7n5",
+          "id": "deco_38856606",
           "type": "deco",
           "decoKey": "bush3",
           "x": 758,
@@ -3313,7 +3357,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_41809485_c6m2q8",
+          "id": "deco_41809485",
           "type": "deco",
           "decoKey": "bush3",
           "x": 762,
@@ -3324,7 +3368,7 @@
           "name": "bush3"
         },
         {
-          "id": "deco_20146927_d3x8k4",
+          "id": "deco_20146927",
           "type": "deco",
           "decoKey": "tree3",
           "x": 291.99,
@@ -3335,7 +3379,18 @@
           "name": "tree3"
         },
         {
-          "id": "deco_69890609_g2v8x9",
+          "id": "deco_81710875",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -100.34,
+          "y": 400.13,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_69890609",
           "type": "deco",
           "decoKey": "tree2",
           "x": -16.9,
@@ -3344,6 +3399,28 @@
           "height": 96,
           "scale": 1,
           "name": "tree2"
+        },
+        {
+          "id": "deco_64437815",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -78.49,
+          "y": 478.52,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
+        },
+        {
+          "id": "deco_35096703",
+          "type": "deco",
+          "decoKey": "tree3",
+          "x": -141.57,
+          "y": 451.69,
+          "width": 64,
+          "height": 128,
+          "scale": 1,
+          "name": "tree3"
         },
         {
           "id": "deco_69413230",
@@ -3357,7 +3434,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_6616848_m6q2c8",
+          "id": "deco_6616848",
           "type": "deco",
           "decoKey": "tree2",
           "x": 739,
@@ -3368,7 +3445,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_97650015_n3v9k5",
+          "id": "deco_97650015",
           "type": "deco",
           "decoKey": "tree3",
           "x": 756,
@@ -3379,7 +3456,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_89759740_p8m1x7",
+          "id": "deco_89759740",
           "type": "deco",
           "decoKey": "tree2",
           "x": 726,
@@ -3390,7 +3467,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_55165633_q5q6v2",
+          "id": "deco_55165633",
           "type": "deco",
           "decoKey": "tree1",
           "x": 754,
@@ -3401,7 +3478,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_8901280_r2k8n9",
+          "id": "deco_8901280",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1089,
@@ -3434,7 +3511,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_79708997_s7m3c1",
+          "id": "deco_79708997",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1271,
@@ -3445,7 +3522,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_39559985_t4x9q6",
+          "id": "deco_39559985",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1217,
@@ -3456,7 +3533,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_17915916_u1v7k5",
+          "id": "deco_17915916",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1166,
@@ -3478,7 +3555,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_60701668_v6n2m8",
+          "id": "deco_60701668",
           "type": "deco",
           "decoKey": "tree3",
           "x": 635.44,
@@ -3489,7 +3566,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_28744135_w3q8x4",
+          "id": "deco_28744135",
           "type": "deco",
           "decoKey": "tree3",
           "x": 898.42,
@@ -3500,7 +3577,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_94666460_x9k1v7",
+          "id": "deco_94666460",
           "type": "deco",
           "decoKey": "tree3",
           "x": 928.22,
@@ -3511,7 +3588,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_38653344_y5m6n2",
+          "id": "deco_38653344",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1051,
@@ -3522,7 +3599,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_89725678_z2x8q9",
+          "id": "deco_89725678",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1026.69,
@@ -3533,7 +3610,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_45784091_a7v3k1",
+          "id": "deco_45784091",
           "type": "deco",
           "decoKey": "tree3",
           "x": 1106,
@@ -3544,7 +3621,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_37201608_b4m9c6",
+          "id": "deco_37201608",
           "type": "deco",
           "decoKey": "tree3",
           "x": 247.46,
@@ -3555,7 +3632,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_94858712_c1q7x5",
+          "id": "deco_94858712",
           "type": "deco",
           "decoKey": "tree3",
           "x": 337.95,
@@ -3566,7 +3643,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_32462613_d6v2n8",
+          "id": "deco_32462613",
           "type": "deco",
           "decoKey": "tree1",
           "x": 411.34,
@@ -3577,7 +3654,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_94148807_e3k8m4",
+          "id": "deco_94148807",
           "type": "deco",
           "decoKey": "tree2",
           "x": 157,
@@ -3588,7 +3665,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_10814542_f9x1q7",
+          "id": "deco_10814542",
           "type": "deco",
           "decoKey": "tree3",
           "x": 131.43,
@@ -3599,7 +3676,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_48892961_j7v3k1",
+          "id": "deco_48892961",
           "type": "deco",
           "decoKey": "tree2",
           "x": 1096,
@@ -3610,7 +3687,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_19209126_k4m9x6",
+          "id": "deco_19209126",
           "type": "deco",
           "decoKey": "tree3",
           "x": -1,
@@ -3621,7 +3698,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_35424101_m1q7c5",
+          "id": "deco_35424101",
           "type": "deco",
           "decoKey": "tree1",
           "x": 46,
@@ -3632,7 +3709,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_53595052_n6v2k8",
+          "id": "deco_53595052",
           "type": "deco",
           "decoKey": "tree2",
           "x": 53,
@@ -3643,7 +3720,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_71747705_p3x8m4",
+          "id": "deco_71747705",
           "type": "deco",
           "decoKey": "tree3",
           "x": 497,
@@ -3654,7 +3731,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_77392691_q9k1v7",
+          "id": "deco_77392691",
           "type": "deco",
           "decoKey": "tree3",
           "x": 459,
@@ -3665,7 +3742,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_55389169_r5m6n2",
+          "id": "deco_55389169",
           "type": "deco",
           "decoKey": "bush4",
           "x": 796.09,
@@ -3676,7 +3753,7 @@
           "name": "bush4"
         },
         {
-          "id": "obj_1782933975416_50_t7v3k1",
+          "id": "obj_1782933975416_50",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -3687,7 +3764,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782933977539_137_u4m9c6",
+          "id": "obj_1782933977539_137",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -3698,7 +3775,7 @@
           "name": "大树"
         },
         {
-          "id": "obj_1782933969971_30_k2v8c4",
+          "id": "obj_1782933969971_30",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -3709,7 +3786,7 @@
           "name": "大树"
         },
         {
-          "id": "obj_1782934005155_822_m9m1x7",
+          "id": "obj_1782934005155_822",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3720,7 +3797,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934007923_102_n5q6v2",
+          "id": "obj_1782934007923_102",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3731,7 +3808,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934010533_93_p2k8n9",
+          "id": "obj_1782934010533_93",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3742,7 +3819,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934017081_133_q7m3c1",
+          "id": "obj_1782934017081_133",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3753,7 +3830,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934019107_564_r4x9v6",
+          "id": "obj_1782934019107_564",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3764,7 +3841,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934022249_155_s1q7k5",
+          "id": "obj_1782934022249_155",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3775,7 +3852,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934024117_224_t6n2m8",
+          "id": "obj_1782934024117_224",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3786,7 +3863,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934025873_396_u3v8x4",
+          "id": "obj_1782934025873_396",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3797,7 +3874,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934033350_151_v9k1q7",
+          "id": "obj_1782934033350_151",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -3808,7 +3885,7 @@
           "name": "大树"
         },
         {
-          "id": "obj_1782934035570_276_w5m6n2",
+          "id": "obj_1782934035570_276",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -3819,7 +3896,7 @@
           "name": "大树"
         },
         {
-          "id": "deco_71846299_v1q7x5",
+          "id": "deco_71846299",
           "type": "deco",
           "decoKey": "tree1",
           "x": 522.55,
@@ -3830,7 +3907,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_527772_w6m2k8",
+          "id": "deco_527772",
           "type": "deco",
           "decoKey": "tree2",
           "x": 900.32,
@@ -3841,7 +3918,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782934078135_978_x2q8v9",
+          "id": "obj_1782934078135_978",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -3852,7 +3929,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934084015_27_y7k3m1",
+          "id": "obj_1782934084015_27",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
@@ -3863,7 +3940,7 @@
           "name": "灌木2"
         },
         {
-          "id": "obj_1782934099182_183_z4x9c6",
+          "id": "obj_1782934099182_183",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
@@ -3874,7 +3951,7 @@
           "name": "灌木2"
         },
         {
-          "id": "obj_1782934104859_59_a1v7n5",
+          "id": "obj_1782934104859_59",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
@@ -3885,7 +3962,7 @@
           "name": "灌木1"
         },
         {
-          "id": "obj_1782934107267_526_b6m2q8",
+          "id": "obj_1782934107267_526",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
@@ -3896,7 +3973,7 @@
           "name": "灌木1"
         },
         {
-          "id": "obj_1782934110177_937_c3k8x4",
+          "id": "obj_1782934110177_937",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
@@ -3907,7 +3984,7 @@
           "name": "草莓"
         },
         {
-          "id": "obj_1782934112075_270_d9v1n7",
+          "id": "obj_1782934112075_270",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
@@ -3918,7 +3995,7 @@
           "name": "草莓"
         },
         {
-          "id": "obj_1782934114970_142_e5m6q2",
+          "id": "obj_1782934114970_142",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush2",
@@ -3929,7 +4006,7 @@
           "name": "灌木1"
         },
         {
-          "id": "obj_1782934119043_205_f2x8k9",
+          "id": "obj_1782934119043_205",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
@@ -3940,7 +4017,7 @@
           "name": "草莓"
         },
         {
-          "id": "obj_1782934121833_342_g7v3m1",
+          "id": "obj_1782934121833_342",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush3",
@@ -3951,7 +4028,7 @@
           "name": "草莓"
         },
         {
-          "id": "obj_1782934131929_458_h4q9c6",
+          "id": "obj_1782934131929_458",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "bush4",
@@ -3962,7 +4039,7 @@
           "name": "灌木2"
         },
         {
-          "id": "obj_1782934029869_916_j1k7n5",
+          "id": "obj_1782934029869_916",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -3973,7 +4050,7 @@
           "name": "大树"
         },
         {
-          "id": "deco_32625172_x3v9n4",
+          "id": "deco_32625172",
           "type": "deco",
           "decoKey": "tree1",
           "x": 1201.98,
@@ -3984,7 +4061,7 @@
           "name": "tree1"
         },
         {
-          "id": "obj_1782934027807_226_k6m2x8",
+          "id": "obj_1782934027807_226",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -4039,7 +4116,7 @@
           "name": "tree3"
         },
         {
-          "id": "obj_1782934571634_371_m3v8q4",
+          "id": "obj_1782934571634_371",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -4050,7 +4127,7 @@
           "name": "大树"
         },
         {
-          "id": "obj_1782934574880_519_n9k1c7",
+          "id": "obj_1782934574880_519",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4061,7 +4138,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934577775_25_p5m6v2",
+          "id": "obj_1782934577775_25",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4072,7 +4149,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934583431_319_q2x8n9",
+          "id": "obj_1782934583431_319",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4083,7 +4160,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934585794_252_r7v3k1",
+          "id": "obj_1782934585794_252",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4094,7 +4171,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934588524_29_s4m9q6",
+          "id": "obj_1782934588524_29",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4105,7 +4182,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934591269_670_t1k7x5",
+          "id": "obj_1782934591269_670",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4116,7 +4193,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934593962_693_u6v2n8",
+          "id": "obj_1782934593962_693",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4127,7 +4204,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934600374_510_v3m8c4",
+          "id": "obj_1782934600374_510",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4138,7 +4215,18 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934605008_265_x5m6v2",
+          "id": "obj_1782934602744_431",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree2",
+          "x": -200.03,
+          "y": 505.81,
+          "width": 64,
+          "height": 96,
+          "name": "中树"
+        },
+        {
+          "id": "obj_1782934605008_265",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4149,7 +4237,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934689249_935_y2x8n9",
+          "id": "obj_1782934689249_935",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4160,7 +4248,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934692030_235_a1f7k9",
+          "id": "obj_1782934692030_235",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4171,7 +4259,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934696539_309_b4m2q8",
+          "id": "obj_1782934696539_309",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4193,7 +4281,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934712327_822_c9v3n6",
+          "id": "obj_1782934712327_822",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4215,7 +4303,7 @@
           "name": "中树"
         },
         {
-          "id": "deco_81332988_y8q1c6",
+          "id": "deco_81332988",
           "type": "deco",
           "decoKey": "tree3",
           "x": 700.37,
@@ -4226,7 +4314,7 @@
           "name": "tree3"
         },
         {
-          "id": "obj_1782934876874_638_d2x8p5",
+          "id": "obj_1782934876874_638",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4237,7 +4325,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782934873153_597_e7r1w4",
+          "id": "obj_1782934873153_597",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4248,7 +4336,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936157943_847_f3k9z2",
+          "id": "obj_1782936157943_847",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4259,7 +4347,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782936161828_237_g8m4c1",
+          "id": "obj_1782936161828_237",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4270,7 +4358,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936166171_740_h5q2v7",
+          "id": "obj_1782936166171_740",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4281,7 +4369,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782936177159_727_j1n6x3",
+          "id": "obj_1782936177159_727",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4292,7 +4380,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936193939_605_k7b4r9",
+          "id": "obj_1782936193939_605",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4303,7 +4391,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936200793_707_m2w8d5",
+          "id": "obj_1782936200793_707",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4314,7 +4402,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782936210176_73_n9c1q6",
+          "id": "obj_1782936210176_73",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4325,7 +4413,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782936249417_142_p4v7k2",
+          "id": "obj_1782936249417_142",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4336,7 +4424,7 @@
           "name": "小树"
         },
         {
-          "id": "obj_1782936261254_28_q8x3m1",
+          "id": "obj_1782936261254_28",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -4347,7 +4435,7 @@
           "name": "大树"
         },
         {
-          "id": "obj_1782936268755_872_r5n9b4",
+          "id": "obj_1782936268755_872",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4358,7 +4446,7 @@
           "name": "小树"
         },
         {
-          "id": "deco_47316547_z4m7x2",
+          "id": "deco_47316547",
           "type": "deco",
           "decoKey": "tree1",
           "x": 926.17,
@@ -4369,7 +4457,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_21841616_a9k3v5",
+          "id": "deco_21841616",
           "type": "deco",
           "decoKey": "tree2",
           "x": 985,
@@ -4380,7 +4468,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782934580746_800_s1k6w8",
+          "id": "obj_1782934580746_800",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4391,7 +4479,7 @@
           "name": "小树"
         },
         {
-          "id": "deco_23082729_b5n8q1",
+          "id": "deco_23082729",
           "type": "deco",
           "decoKey": "tree1",
           "x": 878.82,
@@ -4402,7 +4490,7 @@
           "name": "tree1"
         },
         {
-          "id": "deco_95739984_c2x6m9",
+          "id": "deco_95739984",
           "type": "deco",
           "decoKey": "tree2",
           "x": 880.45,
@@ -4413,7 +4501,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782934699584_213_t7q2c5",
+          "id": "obj_1782934699584_213",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4424,7 +4512,7 @@
           "name": "中树"
         },
         {
-          "id": "obj_1782934699584_213_u3m8v1",
+          "id": "obj_1782934699584_213",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree2",
@@ -4435,7 +4523,7 @@
           "name": "中树"
         },
         {
-          "id": "deco_45570550_d7v1k4",
+          "id": "deco_45570550",
           "type": "deco",
           "decoKey": "tree2",
           "x": -29,
@@ -4446,7 +4534,7 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782933972889_213_s2q8x9",
+          "id": "obj_1782933972889_213",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree3",
@@ -4457,7 +4545,7 @@
           "name": "小树"
         },
         {
-          "id": "deco_41628174_e3m9n6",
+          "id": "deco_41628174",
           "type": "deco",
           "decoKey": "tree3",
           "x": 40.52,
@@ -4468,7 +4556,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_40922726_g5m6v2",
+          "id": "deco_40922726",
           "type": "deco",
           "decoKey": "tree3",
           "x": 63.46,
@@ -4479,7 +4567,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_50716785_h2q8n9",
+          "id": "deco_50716785",
           "type": "deco",
           "decoKey": "tree3",
           "x": 99.97,
@@ -4490,7 +4578,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_656924_f8q2x5",
+          "id": "deco_656924",
           "type": "deco",
           "decoKey": "tree3",
           "x": 37,
@@ -4501,7 +4589,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_91037860_g4k7v1",
+          "id": "deco_91037860",
           "type": "deco",
           "decoKey": "tree2",
           "x": -63.79,
@@ -4512,7 +4600,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_63062528_h1n6m8",
+          "id": "deco_63062528",
           "type": "deco",
           "decoKey": "tree2",
           "x": 19.93,
@@ -4523,7 +4611,7 @@
           "name": "tree2"
         },
         {
-          "id": "deco_6675406_e9q1v7",
+          "id": "deco_6675406",
           "type": "deco",
           "decoKey": "tree2",
           "x": 34.99,
@@ -4534,7 +4622,29 @@
           "name": "tree2"
         },
         {
-          "id": "obj_1782933971762_830_w6b1n7",
+          "id": "deco_34753807",
+          "type": "deco",
+          "decoKey": "tree2",
+          "x": -114.41,
+          "y": 543.26,
+          "width": 64,
+          "height": 96,
+          "scale": 1,
+          "name": "tree2"
+        },
+        {
+          "id": "obj_1782934597044_286",
+          "type": "slice",
+          "atlasId": "mountain_landscape",
+          "sliceKey": "tree1",
+          "x": -167,
+          "y": 597,
+          "width": 96,
+          "height": 128,
+          "name": "大树"
+        },
+        {
+          "id": "obj_1782933971762_830",
           "type": "slice",
           "atlasId": "mountain_landscape",
           "sliceKey": "tree1",
@@ -4545,7 +4655,7 @@
           "name": "大树"
         },
         {
-          "id": "deco_88847980_f5n6m2",
+          "id": "deco_88847980",
           "type": "deco",
           "decoKey": "tree3",
           "x": 82.53,
@@ -4556,7 +4666,7 @@
           "name": "tree3"
         },
         {
-          "id": "deco_4044589_j6x3q9",
+          "id": "deco_4044589",
           "type": "deco",
           "decoKey": "tree3",
           "x": 76.71,
@@ -4660,16 +4770,17 @@
       "locked": false,
       "objects": [
         {
-          "id": "trigger_1784406376996_1",
+          "id": "trigger_1784929010873_0",
           "type": "trigger",
           "name": "trg_demo_enter_scene1",
           "triggerId": "trg_demo_enter_scene1",
           "x": 10,
-          "y": 56,
+          "y": 10,
           "width": 36,
           "height": 36,
           "event": "sceneEnter",
           "target": "",
+          "sceneId": "s0-1",
           "radius": 60,
           "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act\"},\"right\":0}",
           "actions": "[object Object]",
@@ -4677,63 +4788,12 @@
           "cooldown": 0
         },
         {
-          "id": "trigger_1784406376996_3",
-          "type": "trigger",
-          "name": "30秒后自动点燃火堆",
-          "triggerId": "30秒后自动点燃火堆",
-          "x": 13.35,
-          "y": 107.86,
-          "width": 36,
-          "height": 36,
-          "event": "timer",
-          "target": "",
-          "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
-          "actions": "[object Object]",
-          "once": true,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784406376996_10",
-          "type": "trigger",
-          "name": "trg_kill_count",
-          "triggerId": "trg_kill_count",
-          "x": 16.69,
-          "y": 163.35,
-          "width": 36,
-          "height": 36,
-          "event": "kill",
-          "target": "",
-          "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
-          "actions": "[object Object]",
-          "once": false,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784406376996_11",
-          "type": "trigger",
-          "name": "trg_starving_kill_count",
-          "triggerId": "trg_starving_kill_count",
-          "x": 18.92,
-          "y": 223.85,
-          "width": 36,
-          "height": 36,
-          "event": "kill",
-          "target": "",
-          "radius": 60,
-          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
-          "actions": "[object Object]",
-          "once": false,
-          "cooldown": 0
-        },
-        {
-          "id": "trigger_1784761894050_0",
+          "id": "trigger_1784929010873_1",
           "type": "trigger",
           "name": "5秒后自动点燃火堆",
           "triggerId": "5秒后自动点燃火堆",
           "x": 10,
-          "y": 10,
+          "y": 56,
           "width": 36,
           "height": 36,
           "event": "timer",
@@ -4746,48 +4806,58 @@
           "cooldown": 0
         },
         {
-          "id": "buffZone_1784761899956_743",
-          "type": "buffZone",
-          "name": "Buff区域",
-          "shapeType": "polygon",
-          "points": [
-            [
-              579,
-              202
-            ],
-            [
-              674,
-              271
-            ],
-            [
-              638,
-              383
-            ],
-            [
-              520,
-              383
-            ],
-            [
-              484,
-              271
-            ]
-          ],
-          "x": 484,
-          "y": 202,
-          "width": 190,
-          "height": 181,
-          "fillColor": "rgba(100, 0, 200, 0.2)",
-          "borderColor": "rgba(100, 0, 200, 0.5)",
-          "visible": true,
-          "effect": {
-            "effectType": "periodic",
-            "stat": "hp",
-            "value": -5,
-            "interval": 2,
-            "onLeave": "remove",
-            "leaveDuration": 5,
-            "target": "player"
-          }
+          "id": "trigger_1784929010873_2",
+          "type": "trigger",
+          "name": "trg_kill_count",
+          "triggerId": "trg_kill_count",
+          "x": 10,
+          "y": 102,
+          "width": 36,
+          "height": 36,
+          "event": "kill",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784929010873_3",
+          "type": "trigger",
+          "name": "trg_starving_kill_count",
+          "triggerId": "trg_starving_kill_count",
+          "x": 10,
+          "y": 148,
+          "width": 36,
+          "height": 36,
+          "event": "kill",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1784929010873_4",
+          "type": "trigger",
+          "name": "30秒后自动点燃火堆",
+          "triggerId": "30秒后自动点燃火堆",
+          "x": 10,
+          "y": 194,
+          "width": 36,
+          "height": 36,
+          "event": "timer",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"ddScene\"},\"right\":true}",
+          "actions": "",
+          "once": true,
+          "cooldown": 0
         }
       ]
     }
@@ -6739,7 +6809,9 @@
     }
   ],
   "colliders": [],
-  "createdAt": "2026-07-16T16:04:11.293Z",
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "prologue_world",
   "metadata": {
     "description": "东汉末年，太平道首领张角的起义军营地",
     "act": 0,
@@ -6810,11 +6882,10 @@
     "bush3": {
       "sx": 224,
       "sy": 319,
-      "sw": 47,
-      "sh": 44,
+      "sw": 32,
+      "sh": 32,
       "scale": 1,
-      "collide": false,
-      "colliderRadius": 16
+      "collide": false
     },
     "bush4": {
       "sx": 255,
@@ -6913,13 +6984,12 @@
       }
     }
   ],
-  "updatedAt": "2026-07-24T19:11:15.531Z",
+  "createdAt": "2026-07-16T16:04:11.293Z",
+  "updatedAt": "2026-07-24T21:37:40.481Z",
   "imageAssets": {
     "img_1783095863410": {
       "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
       "name": "bg1.png"
     }
-  },
-  "sceneType": "worldChunk",
-  "worldMap": "prologue_world"
+  }
 }

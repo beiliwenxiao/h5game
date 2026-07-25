@@ -510,3 +510,15 @@ export function getGlobalImages() {
 export function updateImagesCache(config) {
   _imagesConfig = config;
 }
+
+/**
+ * 向全局图片缓存合并单张图片（添加图片时调用，使其成为全局库资源，切场景不丢失）
+ * @param {string} id - 图片 id
+ * @param {object} data - { src, name }
+ */
+export function addGlobalImage(id, data) {
+  if (!id || !data) return;
+  if (!_imagesConfig) _imagesConfig = { images: {} };
+  if (!_imagesConfig.images) _imagesConfig.images = {};
+  _imagesConfig.images[id] = data;
+}

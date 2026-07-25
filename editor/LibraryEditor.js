@@ -24,11 +24,26 @@
 // 库分类定义（内容库仅保留角色养成类全局定义；可放置内容 NPC/敌人/物品/装备/商店/载具/建筑
 // 已移到场景编辑器「资源库·内容」Tab 就地定义+放置）。
 const CATEGORIES = [
-  { key: 'players', label: '玩家', tpl: {
-    name: '新玩家', 
+  // ==== 可放置内容（与场景编辑器「资源库·内容」分类一一对应）====
+  { key: 'items', label: '物品', tpl: {
+    name: '新物品', type: 'consumable', icon: '', stackable: true, maxStack: 99, effect: {}
+  }},
+  { key: 'equipment', label: '装备', tpl: {
+    name: '新装备', slot: 'weapon', icon: '', stats: { attack: 0, defense: 0 }, rarity: 1
+  }},
+  { key: 'npcs', label: 'NPC', tpl: {
+    name: '新NPC',
+    title: '',
+    portrait: '',
+    faction: 'friendly',
+    renderStyle: '',
     sprite: { src: '', frameWidth: 64, frameHeight: 64, cols: 4, rows: 4 },
-    animations: { idle: { row: 0, frames: 4, speed: 0.15 }, walk: { row: 1, frames: 4, speed: 0.1 }, attack: { row: 2, frames: 4, speed: 0.08 }, death: { row: 3, frames: 4, speed: 0.12 } },
-    baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 150 }
+    animations: { idle: { row: 0, frames: 4, speed: 0.2 } },
+    baseStats: { maxHp: 100 },
+    dialogueId: '',
+    shopId: '',
+    questId: '',
+    interaction: { radius: 60, prompt: '按 E 对话', trigger: 'interact' }
   }},
   { key: 'enemies', label: '敌人/Boss', tpl: {
     name: '新敌人',
@@ -38,12 +53,20 @@ const CATEGORIES = [
     ai: { type: 'melee', aggroRange: 200, attackRange: 50 },
     loot: []
   }},
-  { key: 'npcs', label: 'NPC', tpl: {
-    name: '新NPC',
+  { key: 'shops', label: '商店', tpl: { name: '新商店', goods: [] } },
+  { key: 'vehicles', label: '载具', tpl: {
+    name: '新载具', vehicleType: 'horse', speed: 200, hp: 100,
+    seats: [{ id: 'drv', role: 'driver', offset: [0, 0] }]
+  }},
+  { key: 'buildings', label: '建筑', tpl: {
+    name: '新建筑', buildingType: 'gate', maxHp: 1000, colliderRadius: 40, controllable: false, onDestroyed: []
+  }},
+  // ==== 角色养成全局定义 ====
+  { key: 'players', label: '玩家', tpl: {
+    name: '新玩家',
     sprite: { src: '', frameWidth: 64, frameHeight: 64, cols: 4, rows: 4 },
-    animations: { idle: { row: 0, frames: 4, speed: 0.2 } },
-    dialogueId: '',
-    shopId: ''
+    animations: { idle: { row: 0, frames: 4, speed: 0.15 }, walk: { row: 1, frames: 4, speed: 0.1 }, attack: { row: 2, frames: 4, speed: 0.08 }, death: { row: 3, frames: 4, speed: 0.12 } },
+    baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 150 }
   }},
   { key: 'classes', label: '职业', tpl: { name: '新职业', baseStats: { maxHp: 100, maxMp: 50, attack: 10, defense: 5, speed: 100 }, startSkills: [] } },
   { key: 'combatSkills', label: '战斗技能', tpl: { name: '新战斗技能', skillType: 'combat', cooldown: 3, castTime: 0, manaCost: 10, damage: 0, element: 0, range: 100 } },
@@ -328,9 +351,29 @@ export class LibraryEditor {
 
     let npcHtml = '';
     if (cat === 'npcs') {
+      const it = e.interaction || {};
       npcHtml = `
+        <hr style="border-color:#2a3a5e;margin:10px 0;">
+        <div class="row"><label style="font-weight:bold;">NPC 配置</label></div>
+        <div class="row"><label>称号（名字上方显示，可选）</label><input type="text" id="l-title" value="${e.title || ''}" placeholder="如 太平道创始人"></div>
+        <div class="row"><label>立绘 key（对话框显示，可选）</label><input type="text" id="l-portrait" value="${e.portrait || ''}" placeholder="如 zhangjiao"></div>
+        <div class="row"><label>内置立绘样式 renderStyle（无序列帧图片时用，可选）</label><input type="text" id="l-renderstyle" value="${e.renderStyle || ''}" placeholder="如 zhangjiao / cook"></div>
+        <div class="row"><label>阵营</label><select id="l-faction">
+          <option value="friendly" ${(e.faction || 'friendly') === 'friendly' ? 'selected' : ''}>友好 friendly</option>
+          <option value="neutral" ${e.faction === 'neutral' ? 'selected' : ''}>中立 neutral</option>
+          <option value="hostile" ${e.faction === 'hostile' ? 'selected' : ''}>敌对 hostile</option>
+        </select></div>
         <div class="row"><label>对话ID</label><input type="text" id="l-dialogue" value="${e.dialogueId || ''}" placeholder="dialogues 中的 id"></div>
         <div class="row"><label>商店ID</label><input type="text" id="l-shop" value="${e.shopId || ''}" placeholder="留空表示无商店"></div>
+        <div class="row"><label>任务ID</label><input type="text" id="l-quest" value="${e.questId || ''}" placeholder="留空表示无任务"></div>
+        <div class="row" style="display:flex;gap:8px;align-items:flex-end;">
+          <div style="flex:1;"><label>交互半径</label><input type="number" id="l-it-radius" value="${it.radius != null ? it.radius : 60}" min="0" style="width:100%;"></div>
+          <div style="flex:1;"><label>触发方式</label><select id="l-it-trigger" style="width:100%;">
+            <option value="interact" ${(it.trigger || 'interact') === 'interact' ? 'selected' : ''}>按 E/点击</option>
+            <option value="approach" ${it.trigger === 'approach' ? 'selected' : ''}>靠近自动</option>
+          </select></div>
+        </div>
+        <div class="row"><label>交互提示文字</label><input type="text" id="l-it-prompt" value="${it.prompt || '按 E 对话'}"></div>
       `;
     }
 
@@ -457,8 +500,18 @@ export class LibraryEditor {
       }
       // NPC fields
       if (cat === 'npcs') {
+        e.title = panel.querySelector('#l-title')?.value.trim() || '';
+        e.portrait = panel.querySelector('#l-portrait')?.value.trim() || '';
+        e.renderStyle = panel.querySelector('#l-renderstyle')?.value.trim() || '';
+        e.faction = panel.querySelector('#l-faction')?.value || 'friendly';
         e.dialogueId = panel.querySelector('#l-dialogue')?.value.trim() || '';
         e.shopId = panel.querySelector('#l-shop')?.value.trim() || '';
+        e.questId = panel.querySelector('#l-quest')?.value.trim() || '';
+        e.interaction = {
+          radius: parseInt(panel.querySelector('#l-it-radius')?.value) || 60,
+          trigger: panel.querySelector('#l-it-trigger')?.value || 'interact',
+          prompt: panel.querySelector('#l-it-prompt')?.value.trim() || '按 E 对话'
+        };
       }
       return;
     }

@@ -337,9 +337,11 @@ export class Scene1Terrain {
       }
     }
 
-    // 只要编辑器中定义了装饰物（即便全部隐藏导致 decorations 为空），
-    // 就以编辑器数据为准；否则保留程序化生成的默认装饰物，避免误清空。
-    if (totalDecoDefined > 0) {
+    // 场景来自编辑器（有 layers 数据）时，一律以编辑器装饰数据为准：
+    //   - 有装饰（含全部隐藏）→ 用编辑器数据
+    //   - 装饰层为空 → 清空程序化默认树木（编辑器没放就是没有，不该出现森林）
+    // 只有「完全没有编辑器 layers 数据」的场景才保留程序化生成的默认装饰物。
+    if (Array.isArray(scene.layers) && scene.layers.length > 0) {
       this.decorations = decorations;
       this._treeColliders = null; // 重置碰撞缓存，下次按新装饰物重建
       // 标记：使用编辑器保存的顺序（深度），不再 Y-sort

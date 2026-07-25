@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
+import { getGlobalImages } from './SceneDataLoader.js';
+
 /**
  * SceneEditorHistory - 场景编辑器撤销/重做/导入导出模块
  */
@@ -111,10 +113,13 @@ export class SceneEditorHistory {
         if (obj.imageId) usedIds.add(obj.imageId);
       }
     }
-    
-    // 删除未引用的条目
+
+    // 全局图片库中的图片视为库资源，保留（即使未在场景中放置）
+    const globalImages = getGlobalImages() || {};
+
+    // 删除既未被对象引用、也不在全局库中的条目
     for (const id of Object.keys(editor.sceneData.imageAssets)) {
-      if (!usedIds.has(id)) {
+      if (!usedIds.has(id) && !globalImages[id]) {
         delete editor.sceneData.imageAssets[id];
       }
     }

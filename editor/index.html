@@ -1048,6 +1048,11 @@
                 // 再读取本地存储中已保存的场景数据
                 let saved = this.dataManager.setCurrentScene(sceneId);
 
+                // localStorage 中只有元信息（无 layers）时，视为未加载，需从文件恢复
+                if (saved && !saved.layers) {
+                    saved = null;
+                }
+
                 // localStorage 无数据时，从导出的场景 JSON 文件兜底加载（避免清缓存后丢失编辑）
                 if (!saved) {
                     saved = await this._loadSceneFromFile(sceneId, presetScene);
@@ -1177,22 +1182,30 @@
             async _loadSceneFromFile(sceneId, presetScene) {
                 const gameId = this.currentGameId || 'sanguo_zhangjiao';
                 const name = (presetScene && presetScene.name) || sceneId;
-                const path = `example/${gameId}/assets/scenes/${name}.json`;
-                try {
-                    const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
-                    const data = await res.json();
-                    if (data && data.ok && data.content) {
-                        const parsed = JSON.parse(data.content);
-                        const scenes = Array.isArray(parsed) ? parsed : [parsed];
-                        const s = scenes.find(x => x && x.id === sceneId) || scenes[0];
-                        if (s) {
-                            console.log('[Editor] localStorage 无数据，从文件恢复场景:', path);
-                            return s;
+                
+                // 优先用 sceneId 作为文件名，再用 name（处理 id 和文件名不一致的情况）
+                const candidates = [sceneId];
+                if (name !== sceneId) candidates.push(name);
+                
+                for (const filename of candidates) {
+                    const path = `example/${gameId}/assets/scenes/${filename}.json`;
+                    try {
+                        const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
+                        const data = await res.json();
+                        if (data && data.ok && data.content) {
+                            const parsed = JSON.parse(data.content);
+                            const scenes = Array.isArray(parsed) ? parsed : [parsed];
+                            const s = scenes.find(x => x && x.id === sceneId) || scenes[0];
+                            if (s && s.layers) {
+                                console.log('[Editor] 从文件恢复场景:', path);
+                                return s;
+                            }
                         }
+                    } catch (e) {
+                        // 继续尝试下一个候选文件名
                     }
-                } catch (e) {
-                    console.warn('[Editor] 场景文件兜底加载失败:', e);
                 }
+                console.warn('[Editor] 场景文件兜底加载失败，所有候选文件均无法匹配:', candidates);
                 return null;
             }
 

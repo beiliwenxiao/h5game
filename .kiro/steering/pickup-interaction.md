@@ -44,3 +44,38 @@ updateMouseAngle → handlePickupClick() → meleeAttackSystem.update() → ... 
 
 ## 世界坐标获取
 点击世界坐标优先用 `this.camera.screenToWorld(screenX, screenY)`，相机不存在时回退 `inputManager.getMouseWorldPosition()`（与 `_debugRightClick` 一致）。
+
+
+## 获得物品弹窗（食物/装备）
+
+### 功能
+拾取或获得「食物(consumable)/装备(equipment)」时，弹出带图标的小窗口 + 左侧系统文字提示。
+- 窗口：物品图标（稀有度边框）、名称（稀有度色）、描述、属性对比、两个按钮（主操作 + 放入背包）
+- **属性对比配色约定（涨红跌绿）**：增加 → 箭头向上 ▲ + 红色(`#ff4d4d`) + `+N`；减少 → 箭头向下 ▼ + 绿色(`#3cc46a`) + `-N`
+
+### 组件 `src/ui/ItemGainedPopup.js`（继承 UIElement）
+- `show({ item, comparison, primaryLabel, onPrimary, onStore })` / `hide()`
+- `comparison`：`[{ name:'攻击', diff:+3 }, ...]`，diff>0 涨红↑、diff<0 跌绿↓
+- 复用 `ItemIconRenderer.drawIcon()` 画图标（失败回退首字占位）
+- `handleMouseClick` 内做按钮命中检测；zIndex=260（高于其它面板，UIClickHandler 按 zIndex 降序派发，优先拿到点击）
+- 高度随对比行数自适应
+
+### 触发流程（两条路径，统一走 `BaseGameScene.onItemGained(item, player)`）
+1. **拾取**：`PickupSystem.onPickup(cb)` 钩子 → 在 BaseGameScene 注册 `this.pickupSystem.onPickup((item,p)=>this.onItemGained(item,p))`。注意：拾取时 `PickupSystem.pickupItem` **已把物品加入背包**，所以"放入背包"按钮=仅关闭窗口。
+2. **得到（奖励/对话）**：`TriggerActions.giveReward` 每加一件物品后调用 `ctx.onItemGained(item, player)`。链路：`giveReward` → `ctx.onItemGained` ←(GameLoader setContext 透传 `deps.onItemGained`)← `DataDrivenPrologueScene._initGameLoader` 传入 `onItemGained:(item,p)=>this.onItemGained(...)`。
+
+### onItemGained 逻辑（BaseGameScene）
+- 只对 `type==='equipment'` 或 `'consumable'` 弹窗
+- 左侧系统提示：`this.notificationSystem.addNotification('获得 xxx', ...)`（NotificationSystem 渲染于左上 HUD 下方 x:10,y:96）
+- 装备：`_computeEquipComparison(item, player)` 预览"新装备 stats vs 当前槽位装备 stats"差值（**不真正装备**）；主按钮"装备"
+- 可用消耗品：主按钮"使用"
+- 主按钮动作 `_onGainedPopupPrimary`：
+  - 装备：从背包 `removeItem` → `EquipmentSystem.equipItem(player, targetSlot, item)`（穿上+重算属性，旧装备放回背包）→ 属性变化提示 → `_refreshEquipmentPanels`
+  - 消耗品：在 `inventory.slots` 定位 → `inventoryPanel.useItem(idx)` 应用效果
+
+### 关键点/复用
+- **槽位映射**：`{weapon:'mainhand', shield:'offhand', ammo:'offhand', ring:'ring1'}`，其余 subType 即槽位名；用 `EquipmentComponent.isValidEquipmentForSlot` 校验
+- **面板刷新**：面板持有玩家实体引用并每帧从中渲染，装备后调 `setPlayer`/`setEntity` 重设即可（不是 updatePlayer/updateInventory）
+- **渲染顺序**：BaseGameScene.render 末尾显式 `notificationSystem.render(ctx)` 再 `itemGainedPopup.render(ctx)`（弹窗最上层）；update 里 `notificationSystem.update(deltaTime)` 过期清理
+- **点击注册**：弹窗注册进 `uiClickHandler`（仅可见时接收点击，按钮外点击不拦截）；通知系统不可交互，不注册点击
+- 新弹窗/系统提示是框架级能力，其他 demo 复用同一套 `PickupSystem.onPickup` + `giveReward` 的 `ctx.onItemGained` 钩子即可接入

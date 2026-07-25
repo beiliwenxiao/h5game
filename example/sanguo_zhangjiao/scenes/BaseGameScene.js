@@ -1,4 +1,4 @@
-﻿﻿/**
+﻿/**
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
  * 
  * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
@@ -50,6 +50,8 @@ import { PanelLayoutLoader } from '../../../src/ui/PanelLayoutLoader.js';
 import { DialogueBox } from '../../../src/ui/DialogueBox.js';
 import { Minimap } from '../../../src/ui/Minimap.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
+import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
+import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -350,6 +352,8 @@ export class BaseGameScene extends PrologueScene {
       floatingTextManager: this.floatingTextManager,
       weaponRenderer: this.weaponRenderer
     });
+    // 拾取食物/装备 → 弹出"获得物品"窗口 + 左侧系统提示
+    this.pickupSystem.onPickup((item, player) => this.onItemGained(item, player));
     
     // 初始化冥想系统
     this.meditationSystem = new MeditationSystem();
@@ -700,7 +704,25 @@ export class BaseGameScene extends PrologueScene {
       });
     }
 
+    // 左侧系统文字提示（拾取/装备等）
+    this.notificationSystem = new NotificationSystem({
+      x: 10,
+      y: 96,
+      width: 300,
+      height: 200
+    });
+
+    // 获得物品弹窗（食物/装备：图标 + 属性对比 + 装备/放入背包）
+    const popupW = 320;
+    this.itemGainedPopup = new ItemGainedPopup({
+      x: (this.logicalWidth - popupW) / 2,
+      width: popupW,
+      // 底边紧贴底部控制栏（栏顶 = logicalHeight - 100）上方
+      anchorBottom: this.logicalHeight - 100
+    });
+
     // 注册 UI 元素到 UIClickHandler
+    this.uiClickHandler.registerElement(this.itemGainedPopup);
     this.uiClickHandler.registerElement(this.inventoryPanel);
     this.uiClickHandler.registerElement(this.playerInfoPanel);
     this.uiClickHandler.registerElement(this.bottomControlBar);
@@ -887,6 +909,141 @@ export class BaseGameScene extends PrologueScene {
    * 装备变化回调
    * @param {Array} messages - 消息数组
    */
+  /**
+   * 获得物品（拾取/奖励）→ 左侧系统提示 + 弹出"获得物品"窗口（食物/装备）。
+   * 物品此时已进入背包（PickupSystem 已 addItem）：
+   *   - 装备：主按钮"装备"（穿上并从背包移除，旧装备放回背包）
+   *   - 可用消耗品：主按钮"使用"
+   *   - 其它：仅"放入背包"（关闭窗口）
+   * @param {Object} item - 物品数据（含 type/subType/stats/rarity 等）
+   * @param {Object} player - 玩家实体
+   */
+  onItemGained(item, player) {
+    if (!item) return;
+    const type = item.type;
+    // 只对食物(consumable)与装备(equipment)弹窗
+    if (type !== 'equipment' && type !== 'consumable') return;
+
+    // 左侧系统文字提示
+    if (this.notificationSystem) {
+      const qty = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';
+      this.notificationSystem.addNotification(
+        `获得 ${item.name || '物品'}${qty}`,
+        type === 'equipment' ? 'info' : 'success'
+      );
+    }
+    if (!this.itemGainedPopup) return;
+
+    let comparison = [];
+    let primaryLabel = null;
+    if (type === 'equipment') {
+      comparison = this._computeEquipComparison(item, player);
+      primaryLabel = '装备';
+    } else if (type === 'consumable' && item.usable) {
+      primaryLabel = '使用';
+    }
+
+    this.itemGainedPopup.show({
+      item,
+      comparison,
+      primaryLabel: primaryLabel || '放入背包',
+      onPrimary: primaryLabel ? () => this._onGainedPopupPrimary(item, player) : () => this.itemGainedPopup.hide(),
+      onStore: () => this.itemGainedPopup.hide()
+    });
+  }
+
+  /**
+   * 计算"装备该物品后 vs 当前对应槽位装备"的属性差值（预览，不真正装备）。
+   * @returns {Array<{name:string, diff:number}>}
+   * @private
+   */
+  _computeEquipComparison(item, player) {
+    const eq = player && player.getComponent('equipment');
+    if (!eq) return [];
+    const slotMap = { weapon: 'mainhand', shield: 'offhand', ammo: 'offhand', ring: 'ring1' };
+    const targetSlot = slotMap[item.subType] || item.subType;
+    const current = eq.getEquipment ? eq.getEquipment(targetSlot) : null;
+    const curStats = (current && current.stats) || {};
+    const newStats = item.stats || {};
+    const names = { attack: '攻击', defense: '防御', maxHp: '生命', maxMp: '魔法', speed: '速度' };
+    const out = [];
+    for (const k of Object.keys(names)) {
+      const diff = (newStats[k] || 0) - (curStats[k] || 0);
+      if (diff !== 0) out.push({ name: names[k], diff });
+    }
+    return out;
+  }
+
+  /**
+   * 弹窗主按钮：装备（equipment）或使用（consumable）。物品已在背包中。
+   * @private
+   */
+  _onGainedPopupPrimary(item, player) {
+    if (!player) { this.itemGainedPopup.hide(); return; }
+    const inv = player.getComponent('inventory');
+
+    if (item.type === 'equipment') {
+      const eq = player.getComponent('equipment');
+      const stats = player.getComponent('stats');
+      const slotMap = { weapon: 'mainhand', shield: 'offhand', ammo: 'offhand', ring: 'ring1' };
+      const targetSlot = slotMap[item.subType] || item.subType;
+      if (eq && eq.isValidEquipmentForSlot && !eq.isValidEquipmentForSlot(item, targetSlot)) {
+        if (this.notificationSystem) this.notificationSystem.addWarning(`${item.name} 无法装备到该槽位`);
+        this.itemGainedPopup.hide();
+        return;
+      }
+      // 记录装备前属性
+      const oldStats = stats ? {
+        attack: stats.attack, defense: stats.defense,
+        maxHp: stats.maxHp, maxMp: stats.maxMp, speed: stats.speed
+      } : null;
+      // 从背包移除该物品（弹药按整组）
+      if (inv) inv.removeItem(item.id, item.subType === 'ammo' ? (item.quantity || 1) : 1);
+      // 装备（复用 EquipmentSystem：equip + 属性重算）
+      const oldItem = this.equipmentSystem
+        ? this.equipmentSystem.equipItem(player, targetSlot, item)
+        : (eq ? eq.equip(targetSlot, item) : null);
+      if (oldItem && inv) inv.addItem(oldItem, oldItem.quantity || 1);
+      // 系统提示 + 属性变化
+      if (this.notificationSystem) {
+        this.notificationSystem.addNotification(`装备了 ${item.name}`, 'success');
+        if (oldStats && stats) {
+          const changeTxt = this._statChangeText(oldStats, stats);
+          if (changeTxt) this.notificationSystem.addNotification(changeTxt, 'info');
+        }
+      }
+      // 刷新装备/属性面板
+      this._refreshEquipmentPanels(player);
+    } else if (item.type === 'consumable' && item.usable) {
+      // 在背包中定位该物品，走背包的使用逻辑（应用效果 + 触发 onItemUse）
+      if (inv && inv.slots && this.inventoryPanel && this.inventoryPanel.useItem) {
+        const idx = inv.slots.findIndex(s => s && s.item && s.item.id === item.id);
+        if (idx >= 0) this.inventoryPanel.useItem(idx);
+      }
+      if (this.notificationSystem) this.notificationSystem.addNotification(`使用了 ${item.name}`, 'success');
+    }
+
+    this.itemGainedPopup.hide();
+  }
+
+  /** @private 生成属性变化文本（涨用+、跌用-） */
+  _statChangeText(oldStats, newStats) {
+    const names = { attack: '攻击', defense: '防御', maxHp: '生命', maxMp: '魔法', speed: '速度' };
+    const parts = [];
+    for (const k of Object.keys(names)) {
+      const diff = (newStats[k] || 0) - (oldStats[k] || 0);
+      if (diff !== 0) parts.push(`${names[k]} ${diff > 0 ? '+' : ''}${diff}`);
+    }
+    return parts.join('  ');
+  }
+
+  /** @private 装备变化后刷新装备/属性面板显示 */
+  _refreshEquipmentPanels(player) {
+    if (this.playerInfoPanel && this.playerInfoPanel.updatePlayer) this.playerInfoPanel.updatePlayer(player);
+    if (this.equipmentPanel && this.equipmentPanel.updatePlayer) this.equipmentPanel.updatePlayer(player);
+    if (this.inventoryPanel && this.inventoryPanel.updateInventory) this.inventoryPanel.updateInventory(player);
+  }
+
   onEquipmentChanged(messages) {
     if (!messages || messages.length === 0) return;
     
@@ -2233,6 +2390,7 @@ export class BaseGameScene extends PrologueScene {
       this.skillEffects.update(deltaTime);
     }
     this.floatingTextManager.update(deltaTime);
+    if (this.notificationSystem) this.notificationSystem.update(deltaTime);
     this.particleSystem.update(deltaTime);
     
     // 更新武器渲染器
@@ -3353,6 +3511,11 @@ export class BaseGameScene extends PrologueScene {
     if (this.performanceMonitor && this.performanceMonitor.enabled) {
       this.performanceMonitor.render(ctx);
     }
+
+    // 左侧系统文字提示
+    if (this.notificationSystem) this.notificationSystem.render(ctx);
+    // 获得物品弹窗（最上层）
+    if (this.itemGainedPopup) this.itemGainedPopup.render(ctx);
   }
 
   /**

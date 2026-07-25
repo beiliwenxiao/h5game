@@ -521,6 +521,7 @@
                             <option value="all">所有场景</option>
                             <option value="worldChunk">大地图块</option>
                             <option value="standalone">独立场景</option>
+                            <option value="template">场景模板</option>
                         </select>
                         <select id="scene-filter-worldmap" style="flex:1;padding:2px 4px;font-size:12px;background:#2a2a2a;color:#ccc;border:1px solid #444;border-radius:3px;display:none;">
                         </select>
@@ -528,6 +529,7 @@
                     <div class="scene-list" id="scene-list"></div>
                     <div class="scene-sidebar-footer">
                         <button id="new-scene-btn">+ 新建场景</button>
+                        <button id="new-template-btn" title="新建场景模板">+ 新建场景模板</button>
                     </div>
                 </div>
                 <div id="scene-editor-container" style="flex:1;overflow:hidden;min-height:0;"></div>
@@ -605,6 +607,11 @@
                     <input type="text" id="scene-name" required placeholder="输入场景名称">
                 </div>
                 <div class="form-group">
+                    <label>场景模板</label>
+                    <select id="scene-template"></select>
+                    <div id="scene-template-desc" style="margin-top:4px;font-size:12px;color:#888;"></div>
+                </div>
+                <div class="form-group">
                     <label>场景宽度</label>
                     <input type="number" id="scene-width" value="1280" min="100">
                 </div>
@@ -623,6 +630,8 @@
             </div>
         </div>
     </div>
+
+
     
     <!-- 图片分割工具模态框 -->
     <div class="modal-overlay" id="slicer-modal">
@@ -632,7 +641,7 @@
     </div>
 
     <script type="module">
-        import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig } from './EditorDataManager.js';
+        import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig, loadSceneTemplatesConfig } from './EditorDataManager.js';
         import { SceneEditor, loadEditorDefaults } from './SceneEditor.js';
         import { ImageSlicer } from './ImageSlicer.js';
         import { SceneDataLoader } from './SceneDataLoader.js';
@@ -665,7 +674,8 @@
                 await Promise.all([
                     loadEditorDefaults(),
                     loadBuiltinGamesConfig(),
-                    loadScenePresetsConfig()
+                    loadScenePresetsConfig(),
+                    loadSceneTemplatesConfig()
                 ]);
                 // 用加载的配置初始化数据管理器
                 await this.dataManager.init();
@@ -760,9 +770,14 @@
                 document.getElementById('confirm-new-game').addEventListener('click', () => this.createGame());
                 
                 // 新建场景
-                document.getElementById('new-scene-btn').addEventListener('click', () => this.showModal('new-scene-modal'));
+                document.getElementById('new-scene-btn').addEventListener('click', () => { this.populateSceneTemplates(); this.showModal('new-scene-modal'); });
                 document.getElementById('cancel-new-scene').addEventListener('click', () => this.hideModal('new-scene-modal'));
+                // 模板下拉切换：更新描述，并把模板的宽高/背景色回填到表单（用户仍可再改）
+                document.getElementById('scene-template').addEventListener('change', () => this.onSceneTemplateChange());
                 document.getElementById('confirm-new-scene').addEventListener('click', () => this.createScene());
+
+                // 新建场景模板
+                document.getElementById('new-template-btn').addEventListener('click', () => this.createNewTemplate());
                 
                 // 场景筛选器
                 document.getElementById('scene-filter-type').addEventListener('change', (e) => {
@@ -891,6 +906,12 @@
                 // 筛选逻辑
                 const filterType = document.getElementById('scene-filter-type')?.value || 'all';
                 const filterWorldMap = document.getElementById('scene-filter-worldmap')?.value || '';
+                // 「场景模板」筛选：列表只显示模板项
+                if (filterType === 'template') {
+                    list.innerHTML = this._buildTemplateSectionHtml();
+                    this._bindTemplateItems(list);
+                    return;
+                }
                 if (filterType === 'worldChunk') {
                     scenes = scenes.filter(s => s.sceneType === 'worldChunk');
                     if (filterWorldMap) scenes = scenes.filter(s => s.worldMap === filterWorldMap);
@@ -942,7 +963,7 @@
                 `).join('');
                 
                 // 绑定场景点击事件
-                list.querySelectorAll('.scene-item').forEach(item => {
+                list.querySelectorAll('.scene-item:not(.template-item)').forEach(item => {
                     item.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const action = e.target.dataset.action;
@@ -958,9 +979,9 @@
                     });
                 });
 
-                // 拖拽排序
+                // 拖拽排序（仅普通场景项参与，排除模板项）
                 let dragItem = null;
-                list.querySelectorAll('.scene-item').forEach(item => {
+                list.querySelectorAll('.scene-item:not(.template-item)').forEach(item => {
                     item.addEventListener('dragstart', (e) => {
                         dragItem = item;
                         item.style.opacity = '0.4';
@@ -969,9 +990,9 @@
                     item.addEventListener('dragend', () => {
                         item.style.opacity = '1';
                         dragItem = null;
-                        list.querySelectorAll('.scene-item').forEach(el => el.classList.remove('drag-over'));
-                        // 保存新顺序到 localStorage 和 JSON 文件
-                        const newOrder = [...list.querySelectorAll('.scene-item')].map(el => el.dataset.id);
+                        list.querySelectorAll('.scene-item:not(.template-item)').forEach(el => el.classList.remove('drag-over'));
+                        // 保存新顺序到 localStorage 和 JSON 文件（排除模板项）
+                        const newOrder = [...list.querySelectorAll('.scene-item:not(.template-item)')].map(el => el.dataset.id);
                         localStorage.setItem(orderKey, JSON.stringify(newOrder));
                         this._saveSceneOrder(gameId, newOrder);
                     });
@@ -988,7 +1009,7 @@
                         item.classList.remove('drag-over');
                         if (dragItem && dragItem !== item) {
                             // 在 DOM 中重新排列
-                            const items = [...list.querySelectorAll('.scene-item')];
+                            const items = [...list.querySelectorAll('.scene-item:not(.template-item)')];
                             const fromIdx = items.indexOf(dragItem);
                             const toIdx = items.indexOf(item);
                             if (fromIdx < toIdx) {
@@ -1027,6 +1048,8 @@
             // 编辑场景
             async editScene(sceneId) {
                 this.currentSceneId = sceneId;
+                // 退出模板编辑态（编辑的是普通游戏场景）
+                this._editingTemplateId = null;
                 
                 // 确保场景编辑器已初始化
                 if (!this.sceneEditor) {
@@ -1221,6 +1244,157 @@
                 img.src = imageUrl;
             }
             
+            // 填充"场景模板"下拉（打开新建场景弹窗时调用）
+            populateSceneTemplates() {
+                const sel = document.getElementById('scene-template');
+                if (!sel) return;
+                const { defaultTemplateId, templates } = this.dataManager.getSceneTemplates();
+                sel.innerHTML = templates.map(t =>
+                    `<option value="${t.id}">${t.name}</option>`
+                ).join('');
+                sel.value = defaultTemplateId;
+                this.onSceneTemplateChange();
+            }
+
+            // 模板切换：显示描述，并把模板的宽高/背景色回填到表单（用户仍可再改）
+            onSceneTemplateChange() {
+                const sel = document.getElementById('scene-template');
+                if (!sel) return;
+                const tpl = this.dataManager.getSceneTemplate(sel.value);
+                const descEl = document.getElementById('scene-template-desc');
+                if (descEl) descEl.textContent = tpl ? (tpl.description || '') : '';
+                if (tpl && tpl.scene) {
+                    const s = tpl.scene;
+                    if (s.width) document.getElementById('scene-width').value = s.width;
+                    if (s.height) document.getElementById('scene-height').value = s.height;
+                    if (s.backgroundColor) document.getElementById('scene-bg-color').value = s.backgroundColor;
+                }
+            }
+
+            // 编辑模板：用场景编辑器打开模板的 scene 数据，保存时写回 scene-templates.json
+            editSceneTemplate(templateId) {
+                const tpl = this.dataManager.getSceneTemplate(templateId);
+                if (!tpl) return;
+                // 确保编辑器已初始化
+                if (!this.sceneEditor) {
+                    this.sceneEditor = new SceneEditor(document.getElementById('scene-editor-container'));
+                    this.sceneEditor.onOpenSlicer = () => this.openSlicer();
+                    this.sceneEditor.onSceneChange = (data) => this.saveScene(data);
+                    this.sceneEditor.onClearCache = () => this.clearSceneCache();
+                    this.sceneEditor.onSceneMetaChange = (meta) => this._handleSceneMetaChange(meta);
+                }
+                // 进入模板编辑态
+                this._editingTemplateId = templateId;
+                this.currentSceneId = null;
+                const sceneToLoad = JSON.parse(JSON.stringify(tpl.scene || {}));
+                sceneToLoad.id = templateId;
+                sceneToLoad.name = tpl.name;
+                // 让模板资源库与其他场景一致：聚合所有场景已有的图片资源
+                // （全局图片库由 loadScene 内部 _mergeGlobalImages 再叠加一次）
+                sceneToLoad.imageAssets = this._collectAllSceneImages(sceneToLoad.imageAssets);
+                this.sceneEditor.loadScene(sceneToLoad);
+                if (this.sceneEditor.ui && this.sceneEditor.ui.showToast) {
+                    this.sceneEditor.ui.showToast('正在编辑模板「' + tpl.name + '」，保存将写回模板');
+                }
+                // 刷新左侧列表以高亮当前编辑的模板
+                if (this.currentGameId) this.renderSceneList(this.currentGameId);
+                window.dispatchEvent(new Event('resize'));
+            }
+
+            // 新建模板（克隆默认模板），随后进入编辑
+            createNewTemplate() {
+                const name = prompt('输入新模板名称：', '新模板');
+                if (!name) return;
+                const { template } = this.dataManager.createSceneTemplate({ name });
+                this._saveTemplatesToFile();
+                this.editSceneTemplate(template.id);
+            }
+
+            // 删除模板
+            deleteTemplate(templateId) {
+                const tpl = this.dataManager.getSceneTemplate(templateId);
+                if (!tpl) return;
+                if (!confirm('确定删除模板「' + tpl.name + '」？')) return;
+                if (this._editingTemplateId === templateId) this._editingTemplateId = null;
+                this.dataManager.deleteSceneTemplate(templateId);
+                this._saveTemplatesToFile();
+                // 刷新左侧列表
+                if (this.currentGameId) this.renderSceneList(this.currentGameId);
+            }
+
+            // 把模板配置写回 editor/config/scene-templates.json
+            _saveTemplatesToFile() {
+                const cfg = this.dataManager.getSceneTemplatesConfig();
+                const json = JSON.stringify(cfg, null, 2);
+                fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: 'editor/config/scene-templates.json', content: json })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) console.log('场景模板已保存到文件:', data.path);
+                    else console.warn('保存模板文件失败:', data.error);
+                })
+                .catch(err => console.warn('保存模板文件请求失败:', err));
+            }
+
+            // 聚合当前游戏所有场景的图片资源（imageAssets）为一个合集，
+            // 使模板编辑时的资源库图片与其他场景一致（含在某个场景新加、但尚未写入全局 images.json 的图片）。
+            _collectAllSceneImages(base = {}) {
+                const merged = { ...(base || {}) };
+                try {
+                    const scenes = this.dataManager.loadScenesData(this.currentGameId) || [];
+                    for (const s of scenes) {
+                        if (s && s.imageAssets) {
+                            for (const [id, data] of Object.entries(s.imageAssets)) {
+                                if (!merged[id]) merged[id] = JSON.parse(JSON.stringify(data));
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[模板] 聚合场景图片失败:', e);
+                }
+                return merged;
+            }
+
+            // 构建左侧列表底部的「场景模板」分组 HTML
+            _buildTemplateSectionHtml() {
+                const { templates } = this.dataManager.getSceneTemplates();
+                const items = templates.map(t => `
+                    <div class="scene-item template-item ${this._editingTemplateId === t.id ? 'active' : ''}" data-tpl-id="${t.id}" title="${t.description || ''}">
+                        <span class="scene-name">📐 ${t.name}</span>
+                        <div class="scene-actions">
+                            <button data-tpl-action="edit">编辑</button>
+                            <button data-tpl-action="delete">×</button>
+                        </div>
+                    </div>
+                `).join('');
+                return `
+                    <div class="scene-template-section" style="margin-top:10px;border-top:1px solid #3a3a3a;padding-top:6px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;color:#8bc34a;font-size:12px;font-weight:bold;">
+                            <span>场景模板</span>
+                            <button id="inline-add-template" title="新建模板" style="padding:0 6px;">＋</button>
+                        </div>
+                        ${items || '<div style="padding:8px;color:#666;font-size:12px;text-align:center;">暂无模板</div>'}
+                    </div>`;
+            }
+
+            // 绑定模板项的点击（编辑/删除）与新建模板按钮
+            _bindTemplateItems(list) {
+                list.querySelectorAll('.template-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const id = item.dataset.tplId;
+                        const action = e.target.dataset.tplAction;
+                        if (action === 'delete') this.deleteTemplate(id);
+                        else this.editSceneTemplate(id);
+                    });
+                });
+                const addBtn = list.querySelector('#inline-add-template');
+                if (addBtn) addBtn.addEventListener('click', (e) => { e.stopPropagation(); this.createNewTemplate(); });
+            }
+
             // 创建场景
             createScene() {
                 const name = document.getElementById('scene-name').value.trim();
@@ -1231,6 +1405,7 @@
                 
                 const scene = this.dataManager.createScene(this.currentGameId, {
                     name,
+                    templateId: document.getElementById('scene-template').value,
                     width: parseInt(document.getElementById('scene-width').value) || 1280,
                     height: parseInt(document.getElementById('scene-height').value) || 720,
                     backgroundColor: document.getElementById('scene-bg-color').value
@@ -1263,6 +1438,12 @@
             
             // 保存场景
             saveScene(sceneData) {
+                // 模板编辑态：写回 scene-templates.json，而非游戏场景
+                if (this._editingTemplateId) {
+                    this.dataManager.upsertSceneTemplate(this._editingTemplateId, sceneData);
+                    this._saveTemplatesToFile();
+                    return;
+                }
                 if (!this.currentGameId || !this.currentSceneId) return;
                 // 保存到 localStorage
                 this.dataManager.updateScene(this.currentGameId, this.currentSceneId, sceneData);
@@ -1276,6 +1457,15 @@
 
             // 处理场景元数据变更（名称/ID）
             _handleSceneMetaChange(meta) {
+                // 模板编辑态：只更新模板名称（模板 id 不允许改），写回 scene-templates.json
+                if (this._editingTemplateId) {
+                    if (meta.name !== undefined) {
+                        this.dataManager.updateSceneTemplateMeta(this._editingTemplateId, { name: meta.name });
+                        this._saveTemplatesToFile();
+                        if (this.currentGameId) this.renderSceneList(this.currentGameId);
+                    }
+                    return;
+                }
                 if (!this.currentGameId || !this.currentSceneId) return;
                 
                 if (meta.id && meta.oldId) {

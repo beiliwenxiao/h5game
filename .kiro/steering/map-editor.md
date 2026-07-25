@@ -21,6 +21,7 @@ editor/
 ├── config/
 │   ├── editor-defaults.json      ← 编辑器核心默认值
 │   ├── scene-presets.json        ← 预设场景配置
+│   ├── scene-templates.json      ← 场景模板（多套可复用的新建场景初始数据）
 │   ├── deco-sprites.json         ← 装饰物精灵图配置
 │   ├── atlases.json              ← 图集资源定义
 │   └── builtin-games.json        ← 内置游戏列表
@@ -93,6 +94,15 @@ editor/
 - `sceneNames` — 场景代码名 → 显示名称 的映射
 - `presetScenesList` — 预设场景列表（id, name, type）
 
+### `editor/config/scene-templates.json`
+场景模板配置（**多套**可复用的新建场景初始数据）：
+- `defaultTemplateId` — 新建场景时默认选中的模板 id
+- `templates[]` — 模板数组，每个模板：
+  - `id` / `name` / `description` / `category` / `thumbnail`
+  - `scene` — 模板的场景初始数据，**与真实场景 JSON 同构**（`width, height, backgroundColor, type, terrain, layers[], decoSprites, atlases` 等）。这是核心设计：新建时只需深拷贝 `scene` + 换 id/name，无需转换；编辑模板时直接把这份 `scene` 丢给场景编辑器打开。
+
+与 `scene-presets.json` 的区别：presets 是三国 demo 里**已有的具体场景实例**；templates 是**通用可复用的初始骨架**（户外/室内/战场/空白等）。与 `editor-defaults.json.scene` 的区别：后者是"无模板时的最小空场景兜底"。
+
 ### `editor/config/deco-sprites.json`
 装饰物精灵图配置：
 - `outdoor` — 室外场景精灵（树/灌木/帐篷/旗帜/围栏/废墟等）
@@ -118,13 +128,14 @@ editor/
 ```javascript
 // index.html 中的初始化流程：
 import { SceneEditor, loadEditorDefaults } from './SceneEditor.js';
-import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig } from './EditorDataManager.js';
+import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig, loadSceneTemplatesConfig } from './EditorDataManager.js';
 
 // 1. 并行加载所有配置
 await Promise.all([
   loadEditorDefaults(),
   loadBuiltinGamesConfig(),
-  loadScenePresetsConfig()
+  loadScenePresetsConfig(),
+  loadSceneTemplatesConfig()
 ]);
 
 // 2. 初始化数据管理器
@@ -151,7 +162,7 @@ const sceneEditor = new SceneEditor(containerElement);
 | `SceneEditorLayers.js` | 无 | `addLayer()`, `deleteLayer()`, `moveLayerUp()`, `batchSetDepth()`, `normalizeLayers()`, `mergeDecorationsToLayer()` |
 | `SceneEditorAssets.js` | 无 | `setupAssetDragDrop()`, `addImageAsset()`, `updateAssetLibrary()`, `loadAtlasImages()` |
 | `SceneEditorHistory.js` | 无 | `saveHistory()`, `undo()`, `redo()`, `save()`, `exportJSON()`, `importJSON()` |
-| `EditorDataManager.js` | `builtin-games.json`, `scene-presets.json` | `init()`, `getBuiltinGames()`, `getGameScenes()`, `setCurrentScene()` |
+| `EditorDataManager.js` | `builtin-games.json`, `scene-presets.json`, `scene-templates.json` | `init()`, `getBuiltinGames()`, `getGameScenes()`, `setCurrentScene()`, `createScene()`, `getSceneTemplates()`, `upsertSceneTemplate()` |
 | `SceneDataLoader.js` | `scene-presets.json`, `deco-sprites.json`, `atlases.json` | `loadScene()`, `getScenePreset()` |
 | `SceneDataExporter.js` | `scene-presets.json`, `deco-sprites.json` | `exportScene()` |
 
@@ -161,6 +172,7 @@ const sceneEditor = new SceneEditor(containerElement);
 
 - 想修改默认背景色：编辑 `editor-defaults.json` 的 `scene.backgroundColor`
 - 想添加新场景预设：在 `scene-presets.json` 的 `scenes` 中增加条目
+- 想添加新场景模板：在 `scene-templates.json` 的 `templates` 中增加条目（或在编辑器里点「📐 场景模板 → + 新建模板」可视化编辑并自动写回）
 - 想修改装饰物的精灵图坐标：编辑 `deco-sprites.json` 中对应的 sprite
 - 想添加新图集：在 `atlases.json` 的 `atlases` 数组中追加
 
@@ -211,6 +223,75 @@ const sceneEditor = new SceneEditor(containerElement);
 - `Scene1Terrain._applySceneData()` 第3步读取 `type:'image'` 对象
 - 从 `scene.imageAssets[obj.imageId].src` 获取路径
 - **路径修正**：编辑器路径（如 `../example/sanguo_zhangjiao/assets/images/x.png`）→ 游戏路径（`assets/images/x.png`），通过截取 `assets/` 之后的部分实现
+
+## 场景模板机制（多套可复用模板）
+
+### 概念分层（三者各司其职，勿混淆）
+```
+editor-defaults.json.scene   →  无模板时的最小空场景兜底（保留）
+scene-templates.json         →  多套可命名、可复用的完整初始模板（新建时套用）
+游戏 localStorage / *.json    →  由模板生成的具体场景实例
+```
+- `scene-presets.json`：三国 demo 里**已有的具体场景**（scene_Prologue 等），是实例配置，不是通用模板。
+
+### 核心设计：模板 scene 与真实场景 JSON 同构
+每个模板的 `scene` 字段结构 = 一份完整场景 JSON 的子集。带来两个好处：
+1. **新建**只需深拷贝 `template.scene` + 分配新 id/name，无转换逻辑
+2. **编辑**模板时直接把 `template.scene` 丢给场景编辑器打开，复用全部图层/椭圆/装饰/对象能力
+
+### 新建流程（应用模板）
+1. 新建场景弹窗有「场景模板」下拉（`#scene-template`），选项来自 `scene-templates.json`，默认选 `defaultTemplateId`
+2. 切换下拉 → `onSceneTemplateChange()` 显示描述并把模板宽高/背景色回填表单（用户仍可改）
+3. `createScene()` 把 `templateId` 传给 `EditorDataManager.createScene(gameId, {templateId,...})`：
+   - 深拷贝模板 `scene` 作为初始内容 → 覆盖用户填的 name/宽高/背景色 → 生成新 id + createdAt
+   - 无 templateId 时回退最小空场景（不破坏旧行为）
+
+### 模板编辑入口（复用场景编辑器，零新增编辑器 UI）
+入口有两个（管理弹窗已废弃删除）：
+1. **筛选下拉选「场景模板」**（`#scene-filter-type` 的 `value="template"`）→ `renderSceneList()` 检测到该值时**只渲染模板项**（`_buildTemplateSectionHtml()`），每项含「编辑/×删除」+ 顶部「＋」新建
+2. **场景侧栏底部「+ 新建场景模板」按钮**（`#new-template-btn`）→ `createNewTemplate()`（任意视图下都能快速新建）
+
+- 点模板项/「编辑」→ `editSceneTemplate(id)`：进入**模板编辑态**（设 `this._editingTemplateId`，`currentSceneId=null`），用模板 `scene` 调 `sceneEditor.loadScene()`
+- **保存分支**：`saveScene(data)` 检测到 `_editingTemplateId` 时 → `dataManager.upsertSceneTemplate(id, data)` 更新内存配置 → `_saveTemplatesToFile()` 通过 `/api/save-file` 写回 `editor/config/scene-templates.json`；**不**写游戏场景/触发器
+- 编辑普通场景时 `editScene()` 会 `this._editingTemplateId = null` 退出模板态，两条保存路径互不干扰
+
+### 关键坑 1：模板编辑态改名不保存
+编辑器改场景名走 `onSceneMetaChange({name})` → `_handleSceneMetaChange(meta)`，但该方法开头有 `if (!this.currentGameId || !this.currentSceneId) return;`。模板态下 `currentSceneId=null` 会直接 return，名称改动丢失。
+**修复**：`_handleSceneMetaChange` 开头加模板态分支 → `dataManager.updateSceneTemplateMeta(id, {name})`（**只**改元信息、不动 scene）+ `_saveTemplatesToFile()`。
+配套：`upsertSceneTemplate(id, sceneData, meta)` 加防御——**仅当 `sceneData` 非空时才覆盖 `tpl.scene`**，否则"只改名"会把整个 scene 清空。
+
+### 关键坑 2：模板项复用 `scene-item` class 导致双绑定/拖拽污染
+模板项若带 `scene-item` class，会被普通场景的点击处理器和拖拽排序处理器一并选中：① 双重绑定点击（模板点击 + 场景点击，后者拿到 undefined sceneId）；② 能被拖进场景排序，`_scene_order` 里被塞入 `undefined`。
+**修复**：模板项用 `scene-item template-item` 双 class，场景侧所有处理器的选择器改为 `.scene-item:not(.template-item)`；模板项点击单独由 `_bindTemplateItems()` 绑定（`data-tpl-action`）。
+
+### 关键坑 3：模板资源库缺少新加的图片
+`loadScene` 内部只 `_mergeGlobalImages()`（全局 `images.json`），但**新加的图片常只存在于某个场景自己的 `imageAssets`（localStorage），未写进全局库**。模板 `scene` 没有 per-scene imageAssets，于是缺图。
+**修复**：`editSceneTemplate` 打开模板前用 `_collectAllSceneImages()` 聚合当前游戏**所有场景**的 `imageAssets` 塞进 `sceneToLoad.imageAssets`（`loadScene` 再叠加全局库）→ 模板资源库 = 所有场景图片 ∪ 全局库，与其他场景一致。保存时 `_cleanupImageAssets` 自动裁掉未使用且非全局的条目，模板不被撑大。
+
+### EditorDataManager 模板相关方法
+| 方法 | 作用 |
+|------|------|
+| `getSceneTemplates()` | 返回 `{ defaultTemplateId, templates }` |
+| `getSceneTemplate(id)` | 按 id 取单个模板 |
+| `getSceneTemplatesConfig()` | 取完整配置对象（用于写回文件） |
+| `createScene(gameId, {templateId,...})` | 按模板深拷贝生成新场景实例 |
+| `upsertSceneTemplate(id, sceneData, meta)` | 更新/新增模板的 scene（剥离 id/时间戳等实例字段；`sceneData` 为空时只更新 meta 不动 scene） |
+| `updateSceneTemplateMeta(id, meta)` | 只改模板 name/description/category，不动 scene（用于编辑器内改模板名） |
+| `createSceneTemplate({name, baseTemplateId})` | 克隆基模板新建模板 |
+| `deleteSceneTemplate(id)` | 删除模板（default 被删时回退首个） |
+
+### index.html 侧模板相关方法
+| 方法 | 作用 |
+|------|------|
+| `populateSceneTemplates()` / `onSceneTemplateChange()` | 新建弹窗模板下拉填充/切换回填宽高背景色 |
+| `_buildTemplateSectionHtml()` / `_bindTemplateItems(list)` | 「场景模板」筛选视图的列表 HTML 与事件绑定 |
+| `editSceneTemplate(id)` | 进入模板编辑态并加载到场景编辑器 |
+| `createNewTemplate()` / `deleteTemplate(id)` | 新建/删除模板 |
+| `_collectAllSceneImages(base)` | 聚合所有场景 imageAssets（模板资源库图片一致性） |
+| `_saveTemplatesToFile()` | 写回 `editor/config/scene-templates.json` |
+
+### 数据一致性
+模板的唯一真实数据源是 `editor/config/scene-templates.json`。任何模板增删改都通过 `_saveTemplatesToFile()` 写回该文件（内存 `_sceneTemplatesConfig` 同步更新）。新增内置模板直接编辑此 JSON 即可，编辑器启动时 `loadSceneTemplatesConfig()` 加载。
 
 ## 场景保存机制
 

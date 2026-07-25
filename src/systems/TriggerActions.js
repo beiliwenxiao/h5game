@@ -88,6 +88,10 @@ export function registerDefaultActions(triggerSystem) {
             if (def) it = { ...def, ...raw };
           }
           inv.addItem?.(it, (raw && raw.quantity) || 1);
+          // 获得物品回调（弹出"获得物品"窗口 + 系统提示）；食物/装备才弹
+          if (ctx.onItemGained) {
+            try { ctx.onItemGained({ ...it, quantity: (raw && raw.quantity) || 1 }, player); } catch (e) { /* ignore */ }
+          }
         }
       }
       if (p.gold && ctx.blackboard) ctx.blackboard.add('gold', p.gold);

@@ -24,6 +24,7 @@
 // 运行时配置缓存
 let _builtinGamesConfig = null;
 let _scenePresetsConfig = null;
+let _sceneTemplatesConfig = null;
 
 /**
  * 加载内置游戏配置
@@ -55,7 +56,41 @@ async function loadScenePresetsConfig() {
   return _scenePresetsConfig;
 }
 
-export { loadBuiltinGamesConfig, loadScenePresetsConfig };
+/**
+ * 加载场景模板配置（多套可复用的新建场景模板）
+ */
+async function loadSceneTemplatesConfig() {
+  if (_sceneTemplatesConfig) return _sceneTemplatesConfig;
+  try {
+    const resp = await fetch('./config/scene-templates.json');
+    _sceneTemplatesConfig = await resp.json();
+  } catch (e) {
+    console.warn('加载场景模板配置失败，使用内置默认值:', e);
+    _sceneTemplatesConfig = {
+      defaultTemplateId: 'tpl_blank',
+      templates: [{
+        id: 'tpl_blank',
+        name: '空白场景',
+        description: '最基础的空场景',
+        category: 'basic',
+        scene: {
+          width: 1280, height: 720, backgroundColor: '#2a3a1a', type: 'terrain',
+          layers: [
+            { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+            { id: 'layer_fill', name: '背景填充层', visible: true, locked: false, objects: [] },
+            { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+            { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] },
+            { id: 'layer_placement', name: '放置层', visible: true, locked: false, objects: [] },
+            { id: 'layer_logic', name: '逻辑对象', visible: true, locked: false, objects: [] }
+          ]
+        }
+      }]
+    };
+  }
+  return _sceneTemplatesConfig;
+}
+
+export { loadBuiltinGamesConfig, loadScenePresetsConfig, loadSceneTemplatesConfig };
 
 export class EditorDataManager {
   constructor() {
@@ -526,29 +561,156 @@ export class EditorDataManager {
   }
   
   /**
-   * 创建新场景
-   * @param {string} gameId - 游戏ID
-   * @param {Object} sceneData - 场景数据
+   * 获取所有场景模板（含默认模板 id）
+   * @returns {{ defaultTemplateId:string, templates:Array }}
    */
-  createScene(gameId, sceneData) {
+  getSceneTemplates() {
+    const cfg = _sceneTemplatesConfig || { defaultTemplateId: 'tpl_blank', templates: [] };
+    return { defaultTemplateId: cfg.defaultTemplateId || 'tpl_blank', templates: cfg.templates || [] };
+  }
+
+  /**
+   * 按 id 获取单个模板
+   * @param {string} templateId
+   * @returns {Object|null}
+   */
+  getSceneTemplate(templateId) {
+    const { templates } = this.getSceneTemplates();
+    return templates.find(t => t && t.id === templateId) || null;
+  }
+
+  /**
+   * 获取完整模板配置对象（用于写回 scene-templates.json）
+   * @returns {Object}
+   */
+  getSceneTemplatesConfig() {
+    if (!_sceneTemplatesConfig) _sceneTemplatesConfig = { defaultTemplateId: 'tpl_blank', templates: [] };
+    return _sceneTemplatesConfig;
+  }
+
+  /**
+   * 更新（或新增）某模板的场景数据与元信息（写入内存配置，文件写入由调用方通过 API 完成）。
+   * @param {string} templateId
+   * @param {Object} sceneData - 编辑器保存的完整场景数据（作为模板 scene）
+   * @param {Object} [meta] - { name, description, category }
+   * @returns {Object} 更新后的完整模板配置
+   */
+  upsertSceneTemplate(templateId, sceneData, meta = {}) {
+    const cfg = this.getSceneTemplatesConfig();
+    cfg.templates = cfg.templates || [];
+    let tpl = cfg.templates.find(t => t && t.id === templateId);
+    if (!tpl) {
+      tpl = { id: templateId, name: meta.name || templateId, description: meta.description || '', category: meta.category || 'custom', thumbnail: '' };
+      cfg.templates.push(tpl);
+    }
+    if (meta.name !== undefined) tpl.name = meta.name;
+    if (meta.description !== undefined) tpl.description = meta.description;
+    if (meta.category !== undefined) tpl.category = meta.category;
+    // 仅当传入了有效场景数据时才覆盖 scene（避免改名等只带 meta 的场景把 scene 清空）
+    if (sceneData && typeof sceneData === 'object') {
+      const scene = JSON.parse(JSON.stringify(sceneData));
+      // 剥离与模板无关的实例字段（id/时间戳等运行实例信息）
+      delete scene.id;
+      delete scene.createdAt;
+      delete scene.updatedAt;
+      delete scene.templateId;
+      tpl.scene = scene;
+    }
+    return cfg;
+  }
+
+  /**
+   * 仅更新模板元信息（名称/描述/分类），不改动 scene。用于编辑器内改模板名称。
+   * @param {string} templateId
+   * @param {Object} meta - { name?, description?, category? }
+   * @returns {Object} 更新后的完整模板配置
+   */
+  updateSceneTemplateMeta(templateId, meta = {}) {
+    return this.upsertSceneTemplate(templateId, null, meta);
+  }
+
+  /**
+   * 新建模板：以 baseTemplateId 的场景为初始内容克隆一份新模板。
+   * @param {Object} opts - { name, description?, category?, baseTemplateId? }
+   * @returns {{ template:Object, config:Object }}
+   */
+  createSceneTemplate(opts = {}) {
+    const cfg = this.getSceneTemplatesConfig();
+    cfg.templates = cfg.templates || [];
+    const baseId = opts.baseTemplateId || cfg.defaultTemplateId || (cfg.templates[0] && cfg.templates[0].id);
+    const baseTpl = this.getSceneTemplate(baseId);
+    const scene = baseTpl && baseTpl.scene ? JSON.parse(JSON.stringify(baseTpl.scene))
+      : { width: 1280, height: 720, backgroundColor: '#2a3a1a', type: 'terrain', layers: [] };
+    const template = {
+      id: 'tpl_' + Date.now(),
+      name: opts.name || '新模板',
+      description: opts.description || '',
+      category: opts.category || 'custom',
+      thumbnail: '',
+      scene
+    };
+    cfg.templates.push(template);
+    return { template, config: cfg };
+  }
+
+  /**
+   * 删除模板（不允许删除到空；defaultTemplateId 被删时回退到第一个模板）。
+   * @param {string} templateId
+   * @returns {Object} 更新后的完整模板配置
+   */
+  deleteSceneTemplate(templateId) {
+    const cfg = this.getSceneTemplatesConfig();
+    cfg.templates = (cfg.templates || []).filter(t => t && t.id !== templateId);
+    if (cfg.defaultTemplateId === templateId) {
+      cfg.defaultTemplateId = (cfg.templates[0] && cfg.templates[0].id) || 'tpl_blank';
+    }
+    return cfg;
+  }
+
+  /**
+   * 创建新场景。若指定 templateId，则以该模板的 scene 数据为初始内容（深拷贝），
+   * 再用 sceneData 中用户填写的字段覆盖（name / 宽高 / 背景色）。
+   * 无模板时回退到最小空场景（保持旧行为）。
+   * @param {string} gameId - 游戏ID
+   * @param {Object} sceneData - 场景数据 { name, width, height, backgroundColor, templateId }
+   */
+  createScene(gameId, sceneData = {}) {
     const scenes = this.loadScenesData(gameId) || [];
-    
-    // 从 JSON 配置获取默认值
-    const defaults = _scenePresetsConfig || {};
     const editorDefaults = { width: 1280, height: 720, backgroundColor: '#2a3a1a' };
-    
+
+    // 1. 取模板（未指定则用默认模板）
+    const { defaultTemplateId } = this.getSceneTemplates();
+    const templateId = sceneData.templateId || defaultTemplateId;
+    const template = this.getSceneTemplate(templateId);
+    // 深拷贝模板 scene 作为初始数据，避免污染模板本身
+    const base = template && template.scene
+      ? JSON.parse(JSON.stringify(template.scene))
+      : {
+          layers: [
+            { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+            { id: 'layer_fill', name: '背景填充层', visible: true, locked: false, objects: [] },
+            { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+            { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] },
+            { id: 'layer_placement', name: '放置层', visible: true, locked: false, objects: [] },
+            { id: 'layer_logic', name: '逻辑对象', visible: true, locked: false, objects: [] }
+          ]
+        };
+
+    // 2. 生成场景实例：模板数据 + 用户覆盖字段 + 新 id/时间戳
+    const newId = 'scene_' + Date.now();
     const scene = {
-      id: 'scene_' + Date.now(),
-      name: sceneData.name || '新场景',
-      width: sceneData.width || editorDefaults.width,
-      height: sceneData.height || editorDefaults.height,
-      backgroundColor: sceneData.backgroundColor || editorDefaults.backgroundColor,
-      layers: [],
-      decorations: [],
-      colliders: [],
+      ...base,
+      id: newId,
+      name: sceneData.name || base.name || '新场景',
+      width: sceneData.width || base.width || editorDefaults.width,
+      height: sceneData.height || base.height || editorDefaults.height,
+      backgroundColor: sceneData.backgroundColor || base.backgroundColor || editorDefaults.backgroundColor,
+      templateId,
+      decorations: base.decorations || [],
+      colliders: base.colliders || [],
       createdAt: new Date().toISOString()
     };
-    
+
     scenes.push(scene);
     this.saveScenesData(gameId, scenes);
     return scene;

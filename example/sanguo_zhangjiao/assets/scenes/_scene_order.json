@@ -10,10 +10,6 @@
     "s3-3"
   ],
   "scenes": {
-    "s3-1": {
-      "name": "s3-1",
-      "type": "terrain"
-    },
     "s0-0": {
       "name": "s0-0",
       "type": "terrain"
@@ -28,6 +24,10 @@
     },
     "s2-1": {
       "name": "s2-1",
+      "type": "terrain"
+    },
+    "s3-1": {
+      "name": "s3-1",
       "type": "terrain"
     },
     "s3-2": {

@@ -933,6 +933,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         audioManager: this.audioManager || (eng && eng.audioManager) || null,
         floatingText: this.floatingTextManager,
         tutorial: { showTip: (p) => this._showScreenTip(p.text || '') },
+        onItemGained: (item, player) => this.onItemGained(item, player || this.playerEntity),
         player: this.playerEntity || null
       }).then(() => {
         const trig = this.gameLoader.triggerSystem;

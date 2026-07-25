@@ -186,7 +186,8 @@ export class DialogueGraphEditor {
     const currentVal = select.value;
     const scenes = new Set();
     for (const d of this.dialogues) {
-      if (d.act) scenes.add(d.act);
+      const s = d.scene || d.act;
+      if (s) scenes.add(s);
     }
     let opts = '<option value="">全部场景</option>';
     for (const s of scenes) {
@@ -277,7 +278,7 @@ export class DialogueGraphEditor {
     const filtered = this.dialogues.filter(d => {
       if (filterEnabled === 'enabled' && d.enabled === false) return false;
       if (filterEnabled === 'disabled' && d.enabled !== false) return false;
-      if (filterScene && (d.act || '') !== filterScene) return false;
+      if (filterScene && (d.scene || d.act || '') !== filterScene) return false;
       return true;
     });
 
@@ -294,11 +295,12 @@ export class DialogueGraphEditor {
       item.className = 'dlg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
       const cnt = d.nodes ? Object.keys(d.nodes).length : 0;
       const statusIcon = disabled ? '⏸' : '▶';
+      const sceneLabel = d.scene || d.act || '';
       item.innerHTML = `<div style="display:flex;align-items:center;gap:6px;">
           <span class="dlg-status-icon" data-toggle="${i}" title="启用/停用" style="cursor:pointer;flex-shrink:0;">${statusIcon}</span>
           <div style="flex:1;overflow:hidden;">
             <div class="di-title">${this._esc(d.title || d.id || '(未命名)')}</div>
-            <div class="di-id">${this._esc(d.id || '')} · ${cnt} 节点${d.act ? ' · ' + this._esc(d.act) : ''}</div>
+            <div class="di-id">${this._esc(d.id || '')} · ${cnt} 节点${sceneLabel ? ' · ' + this._esc(sceneLabel) : ''}</div>
           </div>
         </div>`;
       // 状态图标点击切换启用/停用
@@ -340,7 +342,7 @@ export class DialogueGraphEditor {
         <div class="row"><label>标题 title</label><input type="text" id="d-title" value="${this._esc(d.title || '')}"></div>
       </div>
       <div class="dlg-2col">
-        <div class="row"><label>所属场景/幕 act</label><input type="text" id="d-act" value="${this._esc(d.act || '')}" placeholder="如 act1 / s1-1"></div>
+        <div class="row"><label>所属场景 (场景ID)</label><input type="text" id="d-scene" value="${this._esc(d.scene || d.act || '')}" placeholder="如 s1-1 / s2-1"></div>
         <div class="row"><label>状态</label><label style="display:flex;align-items:center;gap:5px;color:#fff;"><input type="checkbox" id="d-enabled" ${d.enabled !== false ? 'checked' : ''} style="width:auto;"> 启用</label></div>
       </div>
       <div class="row"><label>起始节点 startNode</label><select id="d-start">${startOpts || '<option value="">(无节点)</option>'}</select></div>
@@ -478,11 +480,11 @@ export class DialogueGraphEditor {
 
     d.id = panel.querySelector('#d-id').value.trim() || d.id;
     d.title = panel.querySelector('#d-title').value.trim();
-    // 所属场景/幕
-    const actEl = panel.querySelector('#d-act');
-    if (actEl) {
-      const av = actEl.value.trim();
-      if (av) d.act = av; else delete d.act;
+    // 所属场景（场景 ID，如 s1-1）
+    const sceneEl = panel.querySelector('#d-scene');
+    if (sceneEl) {
+      const sv = sceneEl.value.trim();
+      if (sv) d.scene = sv; else delete d.scene;
     }
     // 启用/停用：未勾选=false，勾选=删除字段（默认启用，保持 JSON 简洁）
     const enabledEl = panel.querySelector('#d-enabled');

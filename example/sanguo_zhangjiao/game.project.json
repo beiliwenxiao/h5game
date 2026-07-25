@@ -90,7 +90,8 @@
           "text": "你是一名普通的流民，为了生存而挣扎...",
           "nextNode": null
         }
-      }
+      },
+      "scene": "s0-0"
     },
     {
       "id": "tutorial_movement",
@@ -104,7 +105,8 @@
           "text": "你从黑暗中醒来，饥寒交迫。按 C 查看属性",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_after_attribute",
@@ -118,7 +120,8 @@
           "text": "你四处走了走，看了看。按WASD移动",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_pickup",
@@ -228,7 +231,8 @@
           "text": "你死了...但这不是结局",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "awakening",
@@ -330,7 +334,8 @@
           "text": "装备只是外物，真正的力量来自于你自己。",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act2"
     },
     {
       "id": "skill_tutorial",
@@ -480,7 +485,8 @@
           "text": "这样就不会浪费了。",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act3"
     },
     {
       "id": "class_selection_intro",
@@ -656,7 +662,8 @@
           "text": "多谢师父！我一定不会让您失望！",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act4"
     },
     {
       "id": "uprising_intro",
@@ -780,12 +787,12 @@
           "text": "你要救援张梁吗？",
           "choices": [
             {
-              "id": "rescue",
+              "id": "ch_1",
               "text": "救援张梁",
               "nextNode": "rescue_success"
             },
             {
-              "id": "retreat",
+              "id": "ch_2",
               "text": "撤退",
               "nextNode": "retreat"
             }
@@ -803,7 +810,8 @@
           "text": "对不起...我无能为力...",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act5"
     },
     {
       "id": "guanhai_joins",
@@ -1074,7 +1082,8 @@
           "text": "张角闭上了眼睛，永远地离开了这个世界。",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act5"
     },
     {
       "id": "ending_intro",

@@ -1493,9 +1493,9 @@
       },
       "do": [
         {
-          "action": "showTip",
+          "action": "startDialogue",
           "params": {
-            "text": "您好，欢迎光临YiJian18-Engine游戏编辑器的Demo!这是第一个触发器"
+            "id": "intro"
           }
         }
       ],

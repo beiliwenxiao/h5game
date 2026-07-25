@@ -1411,9 +1411,51 @@
           }
         },
         {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act4_instructors"
+          }
+        },
+        {
           "action": "startDialogue",
           "params": {
             "id": "class_selection_intro"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act4_select_warrior",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "warrior_intro"
+        }
+      },
+      "do": [
+        {
+          "action": "selectClass",
+          "params": {
+            "classId": "warrior"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act4_select_archer",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "archer_intro"
+        }
+      },
+      "do": [
+        {
+          "action": "selectClass",
+          "params": {
+            "classId": "archer"
           }
         }
       ],
@@ -1446,6 +1488,244 @@
           "action": "startDialogue",
           "params": {
             "id": "uprising_intro"
+          }
+        },
+        {
+          "action": "spawnWave",
+          "params": {
+            "group": "act5_battle1",
+            "enemies": [
+              {
+                "name": "官府士兵",
+                "count": 40,
+                "templateId": "soldier",
+                "stats": {
+                  "maxHp": 60,
+                  "attack": 8,
+                  "defense": 5,
+                  "speed": 80
+                }
+              },
+              {
+                "name": "县令",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#FF5722",
+                "stats": {
+                  "maxHp": 150,
+                  "attack": 18,
+                  "defense": 12,
+                  "speed": 90
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_battle2",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act5_battle1"
+        }
+      },
+      "do": [
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "guangzong_intro"
+          }
+        },
+        {
+          "action": "spawnWave",
+          "params": {
+            "group": "act5_battle2",
+            "enemies": [
+              {
+                "name": "官府士兵",
+                "count": 50,
+                "templateId": "soldier",
+                "stats": {
+                  "maxHp": 80,
+                  "attack": 10,
+                  "defense": 7,
+                  "speed": 85
+                }
+              },
+              {
+                "name": "曹操·孟德",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 300,
+                  "attack": 30,
+                  "defense": 20,
+                  "speed": 120
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_battle3",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act5_battle2"
+        }
+      },
+      "do": [
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "yangcheng_intro"
+          }
+        },
+        {
+          "action": "spawnWave",
+          "params": {
+            "group": "act5_battle3",
+            "enemies": [
+              {
+                "name": "官府士兵",
+                "count": 40,
+                "templateId": "soldier",
+                "stats": {
+                  "maxHp": 90,
+                  "attack": 12,
+                  "defense": 8,
+                  "speed": 90
+                }
+              },
+              {
+                "name": "刘备·玄德",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 250,
+                  "attack": 25,
+                  "defense": 18,
+                  "speed": 110
+                }
+              },
+              {
+                "name": "关羽·云长",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 350,
+                  "attack": 35,
+                  "defense": 22,
+                  "speed": 130
+                }
+              },
+              {
+                "name": "张飞·翼德",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 380,
+                  "attack": 38,
+                  "defense": 20,
+                  "speed": 125
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act5_battle4",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act5_battle3"
+        }
+      },
+      "do": [
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "final_battle_intro"
+          }
+        },
+        {
+          "action": "spawnWave",
+          "params": {
+            "group": "act5_battle4",
+            "enemies": [
+              {
+                "name": "官府精兵",
+                "count": 60,
+                "templateId": "soldier",
+                "stats": {
+                  "maxHp": 100,
+                  "attack": 14,
+                  "defense": 10,
+                  "speed": 95
+                }
+              },
+              {
+                "name": "卢植",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 280,
+                  "attack": 28,
+                  "defense": 19,
+                  "speed": 115
+                }
+              },
+              {
+                "name": "朱儁",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 300,
+                  "attack": 30,
+                  "defense": 20,
+                  "speed": 118
+                }
+              },
+              {
+                "name": "皇甫嵩",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 320,
+                  "attack": 32,
+                  "defense": 22,
+                  "speed": 120
+                }
+              },
+              {
+                "name": "孙坚",
+                "count": 1,
+                "templateId": "soldier",
+                "color": "#9C27B0",
+                "stats": {
+                  "maxHp": 340,
+                  "attack": 33,
+                  "defense": 23,
+                  "speed": 125
+                }
+              }
+            ]
           }
         }
       ],
@@ -1839,6 +2119,12 @@
           "params": {
             "text": "百人斩！黄天之威，震慑朝廷大军！"
           }
+        },
+        {
+          "action": "completeScene",
+          "params": {
+            "sceneId": "s3-2"
+          }
         }
       ],
       "once": true
@@ -1911,6 +2197,67 @@
       "once": true
     },
     {
+      "id": "trg_act3_give_coin_sword",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "coin_artifact_intro"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act3Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "giveReward",
+          "params": {
+            "items": [
+              {
+                "id": "coin_sword",
+                "quantity": 1
+              }
+            ]
+          }
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "得到 铜钱剑 x1，按 B 打开背包，使用铜钱剑前往第四幕"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act3_use_coin_sword",
+      "when": {
+        "type": "itemUsed",
+        "params": {
+          "id": "coin_sword"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "act3Scene"
+        },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "completeScene",
+          "params": {
+            "sceneId": "s2-1"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "trg_act4_class_selected",
       "when": {
         "type": "classSelected",
@@ -1934,7 +2281,13 @@
         {
           "action": "showTip",
           "params": {
-            "text": "拜师成功！获得经验 200、铜钱 100。按 T 打开技能树修炼。"
+            "text": "拜师成功！获得经验 200、铜钱 100。按 T 打开技能树修炼。稍后可继续前往第五幕。"
+          }
+        },
+        {
+          "action": "completeScene",
+          "params": {
+            "sceneId": "s3-1"
           }
         }
       ],
@@ -2327,6 +2680,72 @@
           "prompt": "按 E 交谈",
           "trigger": "interact"
         }
+      },
+      {
+        "id": "zhangliang",
+        "name": "张梁",
+        "title": "战士教官",
+        "portrait": "zhangliang",
+        "faction": "friendly",
+        "renderStyle": "zhangliang",
+        "sprite": {
+          "src": "",
+          "frameWidth": 64,
+          "frameHeight": 96,
+          "cols": 4,
+          "rows": 1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 2,
+            "speed": 0.4
+          }
+        },
+        "baseStats": {
+          "maxHp": 300
+        },
+        "dialogueId": "warrior_intro",
+        "shopId": "",
+        "questId": "",
+        "interaction": {
+          "radius": 70,
+          "prompt": "按 E 选择战士之道",
+          "trigger": "interact"
+        }
+      },
+      {
+        "id": "zhangbao",
+        "name": "张宝",
+        "title": "弓箭手教官",
+        "portrait": "zhangbao",
+        "faction": "friendly",
+        "renderStyle": "zhangbao",
+        "sprite": {
+          "src": "",
+          "frameWidth": 64,
+          "frameHeight": 96,
+          "cols": 4,
+          "rows": 1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 2,
+            "speed": 0.4
+          }
+        },
+        "baseStats": {
+          "maxHp": 250
+        },
+        "dialogueId": "archer_intro",
+        "shopId": "",
+        "questId": "",
+        "interaction": {
+          "radius": 70,
+          "prompt": "按 E 选择弓箭手之道",
+          "trigger": "interact"
+        }
       }
     ],
     "enemies": [
@@ -2409,6 +2828,20 @@
         "effect": {
           "type": "heal",
           "value": 20
+        }
+      },
+      {
+        "id": "coin_sword",
+        "name": "铜钱剑",
+        "type": "consumable",
+        "subType": "currency_item",
+        "usable": true,
+        "stackable": false,
+        "maxStack": 1,
+        "rarity": 2,
+        "description": "用铜钱串成的法器剑，使用后前往第四幕",
+        "effect": {
+          "type": "next_scene"
         }
       }
     ],

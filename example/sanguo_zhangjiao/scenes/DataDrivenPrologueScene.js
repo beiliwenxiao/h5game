@@ -28,6 +28,7 @@ import { GameLoader } from '../../../src/core/GameLoader.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
+import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -445,6 +446,58 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
 
     this._starvingSpawner.spawnedCount++;
+  }
+
+  /**
+   * 数据驱动：批量生成一波敌人（第五幕战役）。围绕玩家四周随机散布。
+   * 触发器 do:spawnWave 调用，明细直接写在触发器 params（可含小兵+名将 BOSS）。
+   * @param {Object} p - {
+   *   group: 组名（供 waveCleared 判定；默认 'act5_wave'）,
+   *   enemies: [ { name, count, templateId, level, stats:{maxHp,attack,defense,speed}, color, aiType } ]
+   * }
+   * @private
+   */
+  _spawnWave(p = {}) {
+    const group = p.group || 'act5_wave';
+    const entries = Array.isArray(p.enemies) ? p.enemies : [];
+    if (entries.length === 0) { console.warn('[DDScene] spawnWave: enemies 为空'); return; }
+    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
+    const cx = pt ? pt.position.x : this.campfire.x;
+    const cy = pt ? pt.position.y : this.campfire.y;
+    this._groupEnemies = this._groupEnemies || {};
+    this._groupEnemies[group] = this._groupEnemies[group] || [];
+    let total = 0;
+    for (const e of entries) {
+      const count = Math.max(1, e.count || 1);
+      for (let i = 0; i < count; i++) {
+        // 四周环形随机散布（BOSS 距离更近一些）
+        const dist = (e.count === 1 ? 200 : 260) + Math.random() * 220;
+        const angle = Math.random() * Math.PI * 2;
+        const x = cx + Math.cos(angle) * dist;
+        const y = cy + Math.sin(angle) * dist;
+        const st = e.stats || {};
+        const enemy = this.entityFactory.createEnemy({
+          name: e.name || '官府士兵',
+          templateId: e.templateId || 'soldier',
+          level: e.level || 3,
+          position: { x, y },
+          stats: {
+            maxHp: st.maxHp || 60, hp: st.maxHp || 60,
+            attack: st.attack || 8, defense: st.defense || 5, speed: st.speed || 85
+          },
+          color: e.color || null,
+          aiType: e.aiType || 'aggressive'
+        });
+        this.entities.push(enemy);
+        this.enemyEntities.push(enemy);
+        if (this.aiSystem && this.aiSystem.registerAI) {
+          this.aiSystem.registerAI(enemy, e.aiType || 'aggressive');
+        }
+        this._groupEnemies[group].push(enemy);
+        total++;
+      }
+    }
+    console.log(`[DDScene] spawnWave(${group}): 生成 ${total} 个敌人`);
   }
 
   /**
@@ -920,6 +973,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
         // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
         trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
+        // 场景专属动作：批量生成一波敌人（第五幕战役，小兵+名将）
+        trig.registerAction('spawnWave', (p) => this._spawnWave(p));
+        // 场景专属动作：选择职业（第四幕，对话结束后由 dialogueEnd 触发器调用）
+        trig.registerAction('selectClass', (p) => this._selectClass(p));
+        // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
+        trig.registerAction('completeScene', (p = {}) => {
+          const sceneId = p.sceneId || p.scene;
+          if (!sceneId) { console.warn('[DDScene] completeScene: 缺少 sceneId'); return; }
+          console.log('[DDScene] completeScene →', sceneId);
+          trig.fire('sceneComplete', { sceneId });
+        });
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           // 带对话 id，供 dialogueEnd{id:'xxx'} 触发器精确匹配
           this.dialogueSystem.onEnd((dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id }));
@@ -1099,6 +1163,75 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * 数据驱动：选择职业（第四幕）。触发器 dialogueEnd{id:warrior_intro/archer_intro} → selectClass{classId}
+   * 复用框架 ClassSystem：设置玩家职业/技能点/初始装备，并 fire('classSelected')。
+   * @param {Object} p - { classId: 'warrior'|'archer'|'mage' }
+   * @private
+   */
+  _selectClass(p = {}) {
+    const classType = p.classId || p.class || ClassType.WARRIOR;
+    if (this._classSelected) { console.log('[DDScene] 已选择过职业，忽略'); return; }
+    // 懒创建职业系统（复用框架 ClassSystem）
+    if (!this.classSystem) this.classSystem = new ClassSystem();
+    const ok = this.classSystem.selectClass('player', classType);
+    if (!ok) { console.warn('[DDScene] selectClass 失败:', classType); return; }
+    this._classSelected = true;
+    this.selectedClass = classType;
+
+    // 更新玩家实体职业/技能点
+    if (this.playerEntity) {
+      const stats = this.playerEntity.getComponent('stats');
+      if (stats) {
+        stats.class = classType;
+        stats.skillPoints = (stats.skillPoints || 0) + 5;
+        const classData = this.classSystem.getClassData(classType);
+        if (classData && typeof stats.setUnitType === 'function' && classData.baseUnitType != null) {
+          stats.setUnitType(classData.baseUnitType);
+        }
+      }
+    }
+
+    // 给予职业初始装备（放进背包）
+    try {
+      const startingEquipment = this.classSystem.getStartingEquipment(classType) || [];
+      const inventory = this.playerEntity && this.playerEntity.getComponent('inventory');
+      if (inventory) {
+        for (const eq of startingEquipment) {
+          const isAmmo = eq.type === 'ammo';
+          const item = {
+            id: eq.id,
+            name: eq.name,
+            type: isAmmo ? 'equipment' : 'equipment',
+            subType: isAmmo ? 'ammo' : eq.type,
+            rarity: 1,
+            maxStack: isAmmo ? 99 : 1,
+            stats: {}
+          };
+          inventory.addItem(item, isAmmo ? (eq.quantity || 30) : 1);
+        }
+      }
+    } catch (e) { console.warn('[DDScene] 发放职业装备失败:', e); }
+
+    const className = ClassNames[classType] || classType;
+    if (this.notificationSystem && this.notificationSystem.notify) {
+      this.notificationSystem.notify(`你选择了 ${className} 职业！`, 'success');
+    } else {
+      this._showScreenTip && this._showScreenTip(`你选择了 ${className} 职业！`);
+    }
+    console.log('%c[DDScene] 选择职业:', 'color:#4CAF50', className);
+
+    // 数据驱动事件源：可供 when:classSelected 触发器继续推进剧情
+    if (this.gameLoader && this.gameLoader.triggerSystem) {
+      this.gameLoader.triggerSystem.fire('classSelected', { class: classType, className });
+    }
+    // 同步黑板变量，供条件判定
+    if (this.gameLoader && this.gameLoader.blackboard) {
+      this.gameLoader.blackboard.set('selectedClass', classType);
+      this.gameLoader.blackboard.set('classSelected', true);
+    }
+  }
+
+  /**
    * 加载场景放置点（type:'ref'/'spawn'）：从 game.project.json 的 worldMap 动态读取所有场景
    * @private
    */
@@ -1118,36 +1251,34 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         const placements = [];
         const scenePromises = [];
 
-        // 遍历 grid，收集所有有场景的格子
+        // 遍历 grid，收集所有有场景的格子。
+        // 放置点（NPC/敌人/道具/触发器）是游戏运行配置，JSON 文件为唯一真实数据源，
+        // 因此【优先从文件读取】，避免编辑器旧 localStorage 缓存导致放置点缺失（NPC 不出现）。
+        // 文件读取失败时才回退到 localStorage 缓存。
         for (let row = 0; row < grid.length; row++) {
           for (let col = 0; col < (grid[row] || []).length; col++) {
             const sceneId = grid[row][col];
             if (!sceneId) continue;
             const offset = { x: col * chunkWidth, y: row * chunkHeight };
-            // 同步尝试 localStorage
-            const scene = loadSceneFromStorage(gameId, sceneId);
-            if (scene) {
-              this._collectPlacements(scene, placements, offset);
-            } else {
-              // 异步 fallback
-              scenePromises.push(
-                loadSceneFromFile(sceneId).then(s => {
+            scenePromises.push(
+              loadSceneFromFile(sceneId)
+                .then(s => {
+                  // 文件无有效数据时回退 localStorage 缓存
+                  if (!s || !Array.isArray(s.layers)) s = loadSceneFromStorage(gameId, sceneId);
                   if (s) this._collectPlacements(s, placements, offset);
                 })
-              );
-            }
+                .catch(() => {
+                  const s = loadSceneFromStorage(gameId, sceneId);
+                  if (s) this._collectPlacements(s, placements, offset);
+                })
+            );
           }
         }
 
-        if (scenePromises.length === 0) {
+        Promise.all(scenePromises).then(() => {
           this._placements = placements;
           this._applySpawnPoints(placements);
-        } else {
-          Promise.all(scenePromises).then(() => {
-            this._placements = placements;
-            this._applySpawnPoints(placements);
-          });
-        }
+        });
       })
       .catch(e => console.warn('[DDScene] 加载 game.project.json 失败:', e));
   }

@@ -134,6 +134,34 @@
       "objects": []
     },
     {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_zhangliang_s31",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "zhangliang",
+          "name": "张梁",
+          "x": 480,
+          "y": 300,
+          "group": "act4_instructors"
+        },
+        {
+          "id": "ref_zhangbao_s31",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "zhangbao",
+          "name": "张宝",
+          "x": 800,
+          "y": 300,
+          "group": "act4_instructors"
+        }
+      ]
+    },
+    {
       "id": "layer_logic",
       "name": "逻辑对象",
       "visible": true,

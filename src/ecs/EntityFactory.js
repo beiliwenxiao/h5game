@@ -369,7 +369,9 @@ export class EntityFactory {
     // ---- 精灵组件（序列帧配置）----
     // 兼容两种格式：编辑器格式 sprite.src + 行式动画{row,frames,speed}；简写格式 sprite.sheet + 帧数组{frames:[],frameRate}
     const spriteCfg = npcData.sprite || {};
-    const sheet = spriteCfg.sheet || spriteCfg.src || npcData.spriteSheet || 'npc_sprite';
+    // 无真实图片来源时留空（不再默认 'npc_sprite'）：renderEntity 图片分支会因 spriteSheet 为空跳过，
+    // 直接走 renderStyle 代码立绘 / 占位，避免每帧 getAsset('npc_sprite') 刷警告。
+    const sheet = spriteCfg.sheet || spriteCfg.src || npcData.spriteSheet || '';
     const frameW = spriteCfg.frameWidth || 32;
     const frameH = spriteCfg.frameHeight || 32;
     const cols = spriteCfg.cols || 1;

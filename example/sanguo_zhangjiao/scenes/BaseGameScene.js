@@ -877,6 +877,10 @@ export class BaseGameScene extends PrologueScene {
         }
       }
     }
+    // 数据驱动事件源：物品被使用 → fire('itemUsed',{id}) 供触发器响应（如铜钱剑推进剧情）
+    if (this.gameLoader && this.gameLoader.triggerSystem && item) {
+      this.gameLoader.triggerSystem.fire('itemUsed', { id: item.id, item });
+    }
   }
 
   /**

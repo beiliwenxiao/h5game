@@ -303,7 +303,9 @@ export class PickupSystem {
     entity.addComponent(new TransformComponent(x, y));
     
     const color = item.type === 'health_potion' ? '#ff3333' : '#3333ff';
-    const sprite = new SpriteComponent('loot_sprite', {
+    // 不设图片来源（掉落物由 renderEntity 的占位分支/ItemIconRenderer 绘制），
+    // 避免 renderEntity 每帧 getAsset('loot_sprite') 刷 "Image not found" 警告
+    const sprite = new SpriteComponent('', {
       width: 16, height: 24, color, visible: true, defaultAnimation: 'idle'
     });
     sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });

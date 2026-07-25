@@ -79,3 +79,27 @@ updateMouseAngle → handlePickupClick() → meleeAttackSystem.update() → ... 
 - **渲染顺序**：BaseGameScene.render 末尾显式 `notificationSystem.render(ctx)` 再 `itemGainedPopup.render(ctx)`（弹窗最上层）；update 里 `notificationSystem.update(deltaTime)` 过期清理
 - **点击注册**：弹窗注册进 `uiClickHandler`（仅可见时接收点击，按钮外点击不拦截）；通知系统不可交互，不注册点击
 - 新弹窗/系统提示是框架级能力，其他 demo 复用同一套 `PickupSystem.onPickup` + `giveReward` 的 `ctx.onItemGained` 钩子即可接入
+
+
+## 获得物品弹窗——连续拾取队列
+
+### 需求
+连续拾取多件食物/装备时，新物品不覆盖当前弹窗，而是**排队逐个弹出**让用户依次选择。
+
+### 实现（BaseGameScene）
+- 维护 `this._gainedQueue = [{item, player}, ...]`
+- `onItemGained(item, player)`：每件都发左侧系统提示；把 `{item, player}` **压入队列**；仅当 `itemGainedPopup.visible === false` 时才 `_showNextGained()` 弹出队首（避免打断正在处理的那件）
+- `_showNextGained()`：`q.shift()` 出队一件 → 算 `comparison`/`primaryLabel` → `popup.show({..., remaining: q.length})`；三个按钮回调（装备/使用、放入背包）处理完统一调 `_showNextGained()` 推进；队列空则 `popup.hide()`
+- `_onGainedPopupPrimary` **不再自己 hide/show**（含装备失败的提前 return 分支也不 hide），显示推进完全交给 `_showNextGained` 收尾，避免 hide 后又 show 的抖动，也保证装备失败仍推进到下一件
+
+### 弹窗（ItemGainedPopup）
+- `show({ remaining })` 存 `this.remaining`；`render` 在右上角画「还有 N 件」提示队列剩余
+
+### 关键点
+- 入队判断用 `popup.visible`；正在显示时只入队不弹，靠按钮回调驱动出队，形成"处理一件→弹下一件"的链
+- 系统文字提示（NotificationSystem）与队列解耦：每件拾取都即时提示，不受逐个弹窗节奏影响
+
+## 掉落物/无图源实体：sprite 图源留空避免刷警告（通用规则）
+`renderEntity` 的序列帧分支条件是 `sprite.spriteSheet` 为真时才 `getAsset()`。若给实体设了**不存在的占位图名**（如 `'loot_sprite'`、`'npc_sprite'`），会每帧 `getAsset` 失败刷 `AssetManager: Image 'xxx' not found`。
+**规则**：实体无真实图片来源时，`SpriteComponent` 的图源一律传空字符串 `''`（不要用占位名），使 renderEntity 跳过图片分支，落到 renderStyle 代码立绘 / 占位色块 / `renderPotionSprite`(loot) 等分支。
+已修复点：`EntityFactory.createNPC`（无图→''）、`PickupSystem.createLootEntity`（`'loot_sprite'`→''）。`createProp` 本就用 `|| ''`。

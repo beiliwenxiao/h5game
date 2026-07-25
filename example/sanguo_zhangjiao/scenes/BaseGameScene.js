@@ -924,7 +924,7 @@ export class BaseGameScene extends PrologueScene {
     // 只对食物(consumable)与装备(equipment)弹窗
     if (type !== 'equipment' && type !== 'consumable') return;
 
-    // 左侧系统文字提示
+    // 左侧系统文字提示（每件都提示）
     if (this.notificationSystem) {
       const qty = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';
       this.notificationSystem.addNotification(
@@ -934,6 +934,23 @@ export class BaseGameScene extends PrologueScene {
     }
     if (!this.itemGainedPopup) return;
 
+    // 连续拾取：入队，逐个弹出让用户选择（后来的不覆盖当前正在处理的）
+    this._gainedQueue = this._gainedQueue || [];
+    this._gainedQueue.push({ item, player: player || this.playerEntity });
+    // 当前无弹窗显示时，弹出队首
+    if (!this.itemGainedPopup.visible) this._showNextGained();
+  }
+
+  /**
+   * 从获得队列取下一件显示；队列空则关闭弹窗。
+   * 用户点任一按钮后调用本方法推进队列。
+   * @private
+   */
+  _showNextGained() {
+    const q = this._gainedQueue || [];
+    if (q.length === 0) { if (this.itemGainedPopup) this.itemGainedPopup.hide(); return; }
+    const { item, player } = q.shift();
+    const type = item.type;
     let comparison = [];
     let primaryLabel = null;
     if (type === 'equipment') {
@@ -942,13 +959,15 @@ export class BaseGameScene extends PrologueScene {
     } else if (type === 'consumable' && item.usable) {
       primaryLabel = '使用';
     }
-
     this.itemGainedPopup.show({
       item,
       comparison,
       primaryLabel: primaryLabel || '放入背包',
-      onPrimary: primaryLabel ? () => this._onGainedPopupPrimary(item, player) : () => this.itemGainedPopup.hide(),
-      onStore: () => this.itemGainedPopup.hide()
+      remaining: q.length, // 队列中还剩多少件（弹窗显示"还有 N 件"）
+      onPrimary: primaryLabel
+        ? () => { this._onGainedPopupPrimary(item, player); this._showNextGained(); }
+        : () => this._showNextGained(),
+      onStore: () => this._showNextGained()
     });
   }
 
@@ -989,7 +1008,6 @@ export class BaseGameScene extends PrologueScene {
       const targetSlot = slotMap[item.subType] || item.subType;
       if (eq && eq.isValidEquipmentForSlot && !eq.isValidEquipmentForSlot(item, targetSlot)) {
         if (this.notificationSystem) this.notificationSystem.addWarning(`${item.name} 无法装备到该槽位`);
-        this.itemGainedPopup.hide();
         return;
       }
       // 记录装备前属性
@@ -1022,8 +1040,6 @@ export class BaseGameScene extends PrologueScene {
       }
       if (this.notificationSystem) this.notificationSystem.addNotification(`使用了 ${item.name}`, 'success');
     }
-
-    this.itemGainedPopup.hide();
   }
 
   /** @private 生成属性变化文本（涨用+、跌用-） */

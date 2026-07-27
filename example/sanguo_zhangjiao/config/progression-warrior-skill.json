@@ -1,0 +1,230 @@
+{
+  "id": "warrior-skill",
+  "mode": "classSkill",
+  "version": 1,
+  "pointPool": "skill",
+  "rules": { "requireConnected": false },
+  "nodes": [
+    {
+      "id": "cleave",
+      "name": "劈砍",
+      "description": "解锁劈砍",
+      "kind": "activeSkill",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "region": "cleave",
+      "position": { "x": 2, "y": 0 },
+      "effects": [
+        { "type": "skill.unlock", "target": "cleave", "value": true }
+      ]
+    },
+
+    {
+      "id": "cleave_damage",
+      "name": "劈砍强化",
+      "description": "每级提高劈砍伤害 10%",
+      "kind": "skillModifier",
+      "maxRank": 3,
+      "costs": { "skill": 1 },
+      "prerequisites": ["cleave"],
+      "region": "cleave",
+      "position": { "x": 1, "y": 1 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.damage", "operation": "addPercent", "value": 0.1 }
+      ]
+    },
+    {
+      "id": "cleave_cooldown",
+      "name": "疾风劈",
+      "description": "每级降低劈砍冷却 0.5 秒",
+      "kind": "skillModifier",
+      "maxRank": 2,
+      "costs": { "skill": 1 },
+      "prerequisites": ["cleave"],
+      "region": "cleave",
+      "position": { "x": 3, "y": 1 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.cooldown", "operation": "add", "value": -0.5 }
+      ]
+    },
+
+    {
+      "id": "cleave_form_whirlwind",
+      "name": "形态：旋风斩",
+      "description": "劈砍改为范围攻击，单体伤害降低。与斩杀形态互斥",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 2 },
+      "prerequisites": { "mode": "any", "nodes": ["cleave_damage", "cleave_cooldown"] },
+      "choiceGroup": "cleave_form",
+      "gates": { "spentInRegion": 3 },
+      "region": "cleave",
+      "position": { "x": 1, "y": 2 },
+      "effects": [
+        { "type": "rule.override", "target": "skill.cleave.variant", "value": "whirlwind" }
+      ]
+    },
+    {
+      "id": "cleave_form_execute",
+      "name": "形态：斩杀",
+      "description": "劈砍改为单体高伤，冷却更长。与旋风斩形态互斥",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 2 },
+      "prerequisites": { "mode": "any", "nodes": ["cleave_damage", "cleave_cooldown"] },
+      "choiceGroup": "cleave_form",
+      "gates": { "spentInRegion": 3 },
+      "region": "cleave",
+      "position": { "x": 3, "y": 2 },
+      "effects": [
+        { "type": "rule.override", "target": "skill.cleave.variant", "value": "execute" }
+      ]
+    },
+
+    {
+      "id": "jump",
+      "name": "跳跃",
+      "description": "解锁跳跃",
+      "kind": "activeSkill",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "region": "locomotion",
+      "position": { "x": 6, "y": 0 },
+      "effects": [
+        { "type": "skill.unlock", "target": "jump", "value": true }
+      ]
+    },
+    {
+      "id": "jump_air_control",
+      "name": "空中微调",
+      "description": "跳跃中可小幅调整方向",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["jump"],
+      "region": "locomotion",
+      "position": { "x": 5, "y": 1 },
+      "effects": [
+        { "type": "rule.override", "target": "locomotion.airControl", "value": true }
+      ]
+    },
+    {
+      "id": "power_jump",
+      "name": "用力跳跃",
+      "description": "解锁蓄力跳跃",
+      "kind": "activeSkill",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["jump"],
+      "region": "locomotion",
+      "position": { "x": 7, "y": 1 },
+      "effects": [
+        { "type": "skill.unlock", "target": "power_jump", "value": true }
+      ]
+    },
+    {
+      "id": "power_jump_landing",
+      "name": "落地冲击",
+      "description": "蓄力跳落地时对周围造成伤害，但取消落地缓冲",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["power_jump"],
+      "choiceGroup": "power_jump_landing_style",
+      "region": "locomotion",
+      "position": { "x": 8, "y": 2 },
+      "effects": [
+        { "type": "rule.override", "target": "locomotion.landingImpact", "value": true }
+      ]
+    },
+    {
+      "id": "power_jump_soft_landing",
+      "name": "落地缓冲",
+      "description": "取消蓄力跳的落地硬直，与落地冲击互斥",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["power_jump"],
+      "choiceGroup": "power_jump_landing_style",
+      "region": "locomotion",
+      "position": { "x": 6, "y": 2 },
+      "effects": [
+        { "type": "rule.override", "target": "locomotion.softLanding", "value": true }
+      ]
+    },
+
+    {
+      "id": "climb",
+      "name": "攀爬",
+      "description": "解锁攀爬",
+      "kind": "activeSkill",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["jump"],
+      "region": "locomotion",
+      "position": { "x": 6, "y": 3 },
+      "effects": [
+        { "type": "skill.unlock", "target": "climb", "value": true }
+      ]
+    },
+    {
+      "id": "climb_stamina",
+      "name": "臂力",
+      "description": "每级降低攀爬体力消耗 15%",
+      "kind": "skillModifier",
+      "maxRank": 2,
+      "costs": { "skill": 1 },
+      "prerequisites": ["climb"],
+      "region": "locomotion",
+      "position": { "x": 5, "y": 4 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.climb.cost.stamina", "operation": "addPercent", "value": -0.15 }
+      ]
+    },
+    {
+      "id": "climb_jump",
+      "name": "攀爬起跳",
+      "description": "攀爬中可起跳换面",
+      "kind": "skillModifier",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["climb"],
+      "region": "locomotion",
+      "position": { "x": 7, "y": 4 },
+      "effects": [
+        { "type": "rule.override", "target": "locomotion.climbJump", "value": true }
+      ]
+    },
+
+    {
+      "id": "warrior_toughness",
+      "name": "坚韧",
+      "description": "每级提高最大生命 30、防御 2",
+      "kind": "passive",
+      "maxRank": 5,
+      "costs": { "skill": 1 },
+      "region": "core",
+      "position": { "x": 10, "y": 0 },
+      "effects": [
+        { "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 30 },
+        { "type": "attribute.modify", "target": "defense", "operation": "add", "value": 2 }
+      ]
+    },
+    {
+      "id": "warrior_unyielding",
+      "name": "势不可挡",
+      "description": "免疫击退，但受到的治疗降低 30%",
+      "kind": "keystone",
+      "maxRank": 1,
+      "costs": { "skill": 3 },
+      "prerequisites": ["warrior_toughness"],
+      "gates": { "characterLevel": 12, "spentInRegion": 5 },
+      "region": "core",
+      "position": { "x": 10, "y": 1 },
+      "effects": [
+        { "type": "rule.override", "target": "combat.knockbackImmune", "value": true },
+        { "type": "combat.modify", "target": "healingReceived", "operation": "addPercent", "value": -0.3 }
+      ]
+    }
+  ]
+}

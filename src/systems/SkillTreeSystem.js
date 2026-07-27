@@ -13,7 +13,19 @@
 /**
  * SkillTreeSystem.js
  * 技能树系统 - 管理技能树数据结构、技能点分配和技能解锁
+ *
+ * 被动效果不再由调用方逐字段解释，统一通过 EffectResolver 结算；
+ * 主动技能的实际释放将在 AbilitySystem 中处理，本系统只负责解锁与等级。
  */
+
+import { EffectResolver } from './effects/EffectResolver.js';
+import { ProgressionGraphSystem } from './progression/ProgressionGraphSystem.js';
+import { LegacyProgressionAdapter } from './progression/LegacyProgressionAdapter.js';
+import { convertSkillTree } from './progression/LegacyTreeConverter.js';
+import { GraphMode } from './progression/GraphDefinition.js';
+
+/** 被动技能可作用的角色属性字段（与现有 stats 字段命名保持一致） */
+const SKILL_STAT_TARGETS = ['maxHp', 'maxMp', 'attack', 'defense', 'speed', 'hpRegen', 'manaRegen'];
 
 /**
  * 技能树节点
@@ -131,9 +143,54 @@ export class SkillTreeNode {
  * 技能树系统
  */
 export class SkillTreeSystem {
-  constructor() {
-    this.skillTrees = new Map(); // 按职业存储技能树
+  /**
+   * @param {Object} [config]
+   * @param {EffectResolver} [config.effectResolver] - 可注入的统一效果结算器
+   */
+  constructor(config = {}) {
+    this.skillTrees = new Map(); // 按职业存储技能树（节点定义，兼容旧 UI 读取）
+    this.effectResolver = config.effectResolver || new EffectResolver();
     this.initializeSkillTrees();
+
+    // 统一成长图内核：角色分配状态与效果结算的唯一真实来源
+    this.progressionSystem = config.progressionSystem || new ProgressionGraphSystem({
+      effectResolver: this.effectResolver
+    });
+    this.progressionAdapter = new LegacyProgressionAdapter({
+      progressionSystem: this.progressionSystem
+    });
+    this._registerProgressionGraphs();
+  }
+
+  /**
+   * 把硬编码技能树导出为图配置并注册到成长图系统
+   * @private
+   */
+  _registerProgressionGraphs() {
+    for (const [className, tree] of this.skillTrees) {
+      this.progressionSystem.registerGraph(convertSkillTree(tree, { id: `${className}-skill` }));
+    }
+  }
+
+  /**
+   * 把指定角色的分配状态投影到共享节点对象。
+   *
+   * 节点上的 currentLevel / isLearned 仅作为当前查询角色的只读视图，
+   * 供尚未迁移到 getViewModel 的 SkillTreePanel 渲染使用；
+   * 真实状态保存在 ProgressionState 中，按角色隔离。
+   *
+   * @param {Object} character - 角色数据
+   */
+  projectCharacterState(character) {
+    const tree = this.getSkillTree(character && character.class);
+    if (!tree) return;
+
+    for (const node of tree.getAllNodes()) {
+      const rank = this.progressionAdapter.getNodeRank(character, GraphMode.CLASS_SKILL, node.id);
+      node.currentLevel = rank;
+      node.isLearned = rank > 0;
+    }
+    tree.updateUnlockStatus();
   }
 
   /**
@@ -563,7 +620,14 @@ export class SkillTreeSystem {
       return false;
     }
 
-    return skillTree.learnSkill(character, skillId);
+    // 转发到统一成长图内核，角色等级不再写入共享节点
+    const success = this.progressionAdapter.learnSkill(character, skillId);
+    if (success) {
+      this.projectCharacterState(character);
+      const node = skillTree.getNode(skillId);
+      if (node) console.log(`成功学习技能: ${node.name} (等级 ${node.currentLevel})`);
+    }
+    return success;
   }
 
   /**
@@ -578,7 +642,9 @@ export class SkillTreeSystem {
       return 0;
     }
 
-    return skillTree.resetAllSkills(character);
+    const refunded = this.progressionAdapter.resetSkillTree(character);
+    this.projectCharacterState(character);
+    return refunded;
   }
 
   /**
@@ -587,12 +653,78 @@ export class SkillTreeSystem {
    * @returns {Object} 被动技能效果汇总
    */
   getPassiveEffects(character) {
-    const skillTree = this.getSkillTree(character.class);
+    const skillTree = this.getSkillTree(character && character.class);
     if (!skillTree) {
       return {};
     }
 
-    return skillTree.getPassiveEffects();
+    return this.progressionAdapter.getPassiveEffects(character);
+  }
+
+  /**
+   * 同步角色的效果来源。
+   *
+   * 分配动作已由成长图内核自动同步效果，此方法保留用于外部显式刷新
+   * （例如存档恢复后），行为为幂等。
+   *
+   * @param {Object} character - 角色数据
+   * @returns {string} 来源标识
+   */
+  syncEffectSource(character) {
+    const graphId = this.progressionAdapter.resolveGraphId(character, GraphMode.CLASS_SKILL);
+    if (!graphId) return this.getEffectSourceId(character);
+    return this.progressionSystem.syncEffectSource(this._resolveEntityId(character), graphId);
+  }
+
+  /**
+   * 获取角色已解锁的主动技能标识列表
+   * @param {Object} character - 角色数据
+   * @returns {Array<string>}
+   */
+  getUnlockedActiveSkillIds(character) {
+    return this.getActiveSkills(character).map(s => s.id);
+  }
+
+  /**
+   * 应用被动技能效果到角色属性
+   * @param {Object} character - 角色数据
+   * @param {Object} baseStats - 基础属性
+   * @returns {Object} 应用效果后的属性
+   */
+  applyPassiveEffects(character, baseStats) {
+    const effects = this.getPassiveEffects(character);
+    if (!effects || Object.keys(effects).length === 0) {
+      return { ...baseStats };
+    }
+
+    const modifiedStats = this.progressionAdapter.applyEffectsToStats(
+      character,
+      baseStats,
+      SKILL_STAT_TARGETS
+    );
+
+    modifiedStats.passiveSkillEffects = effects;
+    return modifiedStats;
+  }
+
+  /**
+   * 获取角色被动技能在 EffectResolver 中的来源标识
+   * @param {Object} character - 角色数据
+   * @returns {string}
+   */
+  getEffectSourceId(character) {
+    return `progression:${character && character.class ? character.class : 'unknown'}-skill`;
+  }
+
+  /**
+   * 解析角色在效果系统中的实体标识
+   * @private
+   * @param {Object} character
+   * @returns {string}
+   */
+  _resolveEntityId(character) {
+    if (!character) return 'unknown-character';
+    return String(character.id || character.characterId || character.name || 'default-character');
   }
 
   /**
@@ -601,12 +733,12 @@ export class SkillTreeSystem {
    * @returns {Array} 主动技能列表
    */
   getActiveSkills(character) {
-    const skillTree = this.getSkillTree(character.class);
+    const skillTree = this.getSkillTree(character && character.class);
     if (!skillTree) {
       return [];
     }
 
-    return skillTree.getActiveSkills();
+    return this.progressionAdapter.getActiveSkills(character);
   }
 
   /**
@@ -616,17 +748,42 @@ export class SkillTreeSystem {
    * @returns {boolean}
    */
   canLearnSkill(character, skillId) {
-    const skillTree = this.getSkillTree(character.class);
-    if (!skillTree) {
+    const skillTree = this.getSkillTree(character && character.class);
+    if (!skillTree || !skillTree.getNode(skillId)) {
       return false;
     }
 
-    const node = skillTree.getNode(skillId);
-    if (!node) {
-      return false;
-    }
+    return this.progressionAdapter.canLearnSkill(character, skillId);
+  }
 
-    return node.canLearn(character, skillTree);
+  /**
+   * 获取技能树 UI 视图模型（推荐替代直接读取节点状态）
+   * @param {Object} character - 角色数据
+   * @returns {Object|null}
+   */
+  getViewModel(character) {
+    return this.progressionAdapter.getViewModel(character, GraphMode.CLASS_SKILL);
+  }
+
+  /**
+   * 序列化角色技能成长数据
+   * @param {Object} character - 角色数据
+   * @returns {Object}
+   */
+  serializeCharacter(character) {
+    return this.progressionAdapter.serialize(character);
+  }
+
+  /**
+   * 恢复角色技能成长数据，并刷新节点投影
+   * @param {Object} character - 角色数据
+   * @param {Object} data - 存档数据
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  deserializeCharacter(character, data) {
+    const result = this.progressionAdapter.deserialize(character, data);
+    if (result.ok) this.projectCharacterState(character);
+    return result;
   }
 }
 

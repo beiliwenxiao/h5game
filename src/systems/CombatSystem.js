@@ -1489,6 +1489,68 @@ export class CombatSystem {
   }
 
   /**
+   * AbilitySystem 执行器入口（S2 拆分）。
+   *
+   * 准入判定、消耗扣除、冷却与施法状态由 AbilitySystem 负责；
+   * 本方法只负责表现与伤害结算，因此不再重复检查冷却与魔法值。
+   *
+   * @param {Object} context - AbilitySystem 传入的执行上下文
+   * @param {Entity} context.caster - 施法者
+   * @param {SkillDefinition} context.definition - 技能定义
+   * @param {Object} context.params - 已被 skill.modify 效果解析后的运行期参数
+   * @param {Entity|null} context.target - 目标实体
+   * @param {Object|null} context.targetPosition - 目标位置
+   * @param {Array<Entity>} context.entities - 实体列表
+   * @param {number} context.currentTime - 当前时间（毫秒）
+   * @returns {boolean} 是否执行成功
+   */
+  executeSkill(context) {
+    const { caster, definition, params, target, targetPosition, entities, currentTime } = context || {};
+    if (!caster || !definition) return false;
+
+    // view 为形态解析后的运行期视图；无形态时退回基础定义
+    const view = (context && context.view) || definition;
+
+    const casterTransform = caster.getComponent('transform');
+    if (!casterTransform) return false;
+
+    // 把定义与运行期参数还原为执行层使用的技能对象，复用现有表现与结算逻辑
+    const skill = {
+      id: view.id || definition.id,
+      name: view.name || definition.name,
+      type: view.category || definition.category,
+      ...params
+    };
+    if (view.vfx) Object.assign(skill, view.vfx);
+
+    // 显示技能名称（在玩家头顶）
+    if (this.floatingTextManager && caster.type === 'player') {
+      this.floatingTextManager.addText(
+        casterTransform.position.x,
+        casterTransform.position.y - 50,
+        skill.name,
+        '#ffff00'
+      );
+    }
+
+    const pos = targetPosition || (target && target.getComponent('transform')
+      ? target.getComponent('transform').position
+      : null);
+
+    const targeting = view.targeting || definition.targeting;
+    if (pos && (targeting === 'area' || targeting === 'position' || targeting === 'direction')) {
+      this.applyAOESkillEffects(caster, pos, skill, currentTime, entities || []);
+      if (caster.type === 'player') {
+        this.addSkillRangeIndicator(casterTransform.position, pos, skill);
+      }
+      return true;
+    }
+
+    this.applySkillEffects(caster, target || null, skill, currentTime);
+    return true;
+  }
+
+  /**
    * 应用技能效果（单目标）
    * @param {Entity} caster - 施法者
    * @param {Entity} target - 目标

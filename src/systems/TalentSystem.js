@@ -13,7 +13,19 @@
 /**
  * TalentSystem.js
  * 天赋系统 - 管理角色天赋的解锁、效果计算和重置
+ *
+ * 效果结算已统一交由 EffectResolver：本系统只负责节点解锁与效果产出，
+ * 不再逐字段判断 effects.xxx 后手工写入 stats。
  */
+
+import { EffectResolver } from './effects/EffectResolver.js';
+import { ProgressionGraphSystem } from './progression/ProgressionGraphSystem.js';
+import { LegacyProgressionAdapter } from './progression/LegacyProgressionAdapter.js';
+import { convertTalentTree } from './progression/LegacyTreeConverter.js';
+import { GraphMode } from './progression/GraphDefinition.js';
+
+/** 天赋效果可作用的角色属性字段（与现有 stats 字段命名保持一致） */
+const TALENT_STAT_TARGETS = ['maxHp', 'maxMp', 'attack', 'defense', 'speed', 'hpRegen', 'manaRegen'];
 
 /**
  * 天赋类型枚举
@@ -343,9 +355,54 @@ export class TalentTree {
  * 天赋系统主类
  */
 export class TalentSystem {
-  constructor() {
-    this.talentTrees = new Map(); // 按职业存储天赋树
+  /**
+   * @param {Object} [config]
+   * @param {EffectResolver} [config.effectResolver] - 可注入的统一效果结算器
+   */
+  constructor(config = {}) {
+    this.talentTrees = new Map(); // 按职业存储天赋树（节点定义，兼容旧 UI 读取）
+    this.effectResolver = config.effectResolver || new EffectResolver();
     this.initializeTalentTrees();
+
+    // 统一成长图内核：角色分配状态与效果结算的唯一真实来源
+    this.progressionSystem = config.progressionSystem || new ProgressionGraphSystem({
+      effectResolver: this.effectResolver
+    });
+    this.progressionAdapter = new LegacyProgressionAdapter({
+      progressionSystem: this.progressionSystem
+    });
+    this._registerProgressionGraphs();
+  }
+
+  /**
+   * 把硬编码天赋树导出为图配置并注册到成长图系统
+   * @private
+   */
+  _registerProgressionGraphs() {
+    for (const [className, tree] of this.talentTrees) {
+      this.progressionSystem.registerGraph(convertTalentTree(tree, { id: `${className}-talent` }));
+    }
+  }
+
+  /**
+   * 把指定角色的分配状态投影到共享节点对象。
+   *
+   * 节点上的 currentLevel / isLearned 仅作为当前查询角色的只读视图，
+   * 供尚未迁移到 getViewModel 的 TalentPanel 渲染使用；
+   * 真实状态保存在 ProgressionState 中，按角色隔离。
+   *
+   * @param {Object} character - 角色数据
+   */
+  projectCharacterState(character) {
+    const tree = this.getTalentTree(character && character.class);
+    if (!tree) return;
+
+    for (const node of tree.getAllNodes()) {
+      const rank = this.progressionAdapter.getNodeRank(character, GraphMode.CLASS_TALENT, node.id);
+      node.currentLevel = rank;
+      node.isLearned = rank > 0;
+    }
+    tree.updateUnlockStatus();
   }
 
   /**
@@ -766,12 +823,18 @@ export class TalentSystem {
    * @returns {Object} {success: boolean, message: string}
    */
   learnTalent(character, talentId) {
-    const talentTree = this.getTalentTree(character.class);
+    const talentTree = this.getTalentTree(character && character.class);
     if (!talentTree) {
-      return { success: false, message: `未找到职业 ${character.class} 的天赋树` };
+      return { success: false, message: `未找到职业 ${character && character.class} 的天赋树` };
+    }
+    if (!talentTree.getNode(talentId)) {
+      return { success: false, message: `天赋 ${talentId} 不存在` };
     }
 
-    return talentTree.learnTalent(character, talentId);
+    // 转发到统一成长图内核，角色等级不再写入共享节点
+    const result = this.progressionAdapter.learnTalent(character, talentId);
+    if (result.success) this.projectCharacterState(character);
+    return result;
   }
 
   /**
@@ -780,13 +843,15 @@ export class TalentSystem {
    * @returns {number} 返还的天赋点数
    */
   resetTalentTree(character) {
-    const talentTree = this.getTalentTree(character.class);
+    const talentTree = this.getTalentTree(character && character.class);
     if (!talentTree) {
-      console.warn(`未找到职业 ${character.class} 的天赋树`);
+      console.warn(`未找到职业 ${character && character.class} 的天赋树`);
       return 0;
     }
 
-    return talentTree.resetAllTalents(character);
+    const refunded = this.progressionAdapter.resetTalentTree(character);
+    this.projectCharacterState(character);
+    return refunded;
   }
 
   /**
@@ -795,12 +860,12 @@ export class TalentSystem {
    * @returns {Object} 天赋效果汇总
    */
   getTalentEffects(character) {
-    const talentTree = this.getTalentTree(character.class);
+    const talentTree = this.getTalentTree(character && character.class);
     if (!talentTree) {
       return {};
     }
 
-    return talentTree.getAllEffects();
+    return this.progressionAdapter.getTalentEffects(character);
   }
 
   /**
@@ -810,17 +875,16 @@ export class TalentSystem {
    * @returns {Object} {canLearn: boolean, reason: string}
    */
   canLearnTalent(character, talentId) {
-    const talentTree = this.getTalentTree(character.class);
+    const talentTree = this.getTalentTree(character && character.class);
     if (!talentTree) {
       return { canLearn: false, reason: '未找到天赋树' };
     }
 
-    const node = talentTree.getNode(talentId);
-    if (!node) {
+    if (!talentTree.getNode(talentId)) {
       return { canLearn: false, reason: '天赋不存在' };
     }
 
-    return node.canLearn(character, talentTree);
+    return this.progressionAdapter.canLearnTalent(character, talentId);
   }
 
   /**
@@ -848,34 +912,92 @@ export class TalentSystem {
       return { ...baseStats };
     }
 
-    const modifiedStats = { ...baseStats };
+    const modifiedStats = this.progressionAdapter.applyEffectsToStats(
+      character,
+      baseStats,
+      TALENT_STAT_TARGETS
+    );
 
-    // 应用各种效果
-    if (effects.maxHpBonus) {
-      modifiedStats.maxHp = (modifiedStats.maxHp || 0) + effects.maxHpBonus;
-    }
-    if (effects.maxManaBonus) {
-      modifiedStats.maxMp = (modifiedStats.maxMp || 0) + effects.maxManaBonus;
-    }
-    if (effects.attackBonus) {
-      modifiedStats.attack = (modifiedStats.attack || 0) + effects.attackBonus;
-    }
-    if (effects.defenseBonus) {
-      modifiedStats.defense = (modifiedStats.defense || 0) + effects.defenseBonus;
-    }
-    if (effects.speedBonus) {
-      modifiedStats.speed = (modifiedStats.speed || 0) + effects.speedBonus;
-    }
-    if (effects.hpRegenBonus) {
-      modifiedStats.hpRegen = (modifiedStats.hpRegen || 0) + effects.hpRegenBonus;
-    }
-    if (effects.manaRegenBonus) {
-      modifiedStats.manaRegen = (modifiedStats.manaRegen || 0) + effects.manaRegenBonus;
-    }
-
-    // 存储天赋效果供其他系统使用
+    // 保留旧字段供尚未迁移的系统与 UI 使用
     modifiedStats.talentEffects = effects;
 
     return modifiedStats;
+  }
+
+  /**
+   * 同步角色的效果来源。
+   *
+   * 分配动作已由成长图内核自动同步效果，此方法保留用于外部显式刷新
+   * （例如存档恢复后），行为为幂等。
+   *
+   * @param {Object} character - 角色数据
+   * @returns {string} 来源标识
+   */
+  syncEffectSource(character) {
+    const graphId = this.progressionAdapter.resolveGraphId(character, GraphMode.CLASS_TALENT);
+    if (!graphId) return this.getEffectSourceId(character);
+    return this.progressionSystem.syncEffectSource(this._resolveEntityId(character), graphId);
+  }
+
+  /**
+   * 获取角色天赋在 EffectResolver 中的来源标识
+   * @param {Object} character - 角色数据
+   * @returns {string}
+   */
+  getEffectSourceId(character) {
+    return `progression:${character && character.class ? character.class : 'unknown'}-talent`;
+  }
+
+  /**
+   * 获取天赋树 UI 视图模型（推荐替代直接读取节点状态）
+   * @param {Object} character - 角色数据
+   * @returns {Object|null}
+   */
+  getViewModel(character) {
+    return this.progressionAdapter.getViewModel(character, GraphMode.CLASS_TALENT);
+  }
+
+  /**
+   * 序列化角色天赋成长数据
+   * @param {Object} character - 角色数据
+   * @returns {Object}
+   */
+  serializeCharacter(character) {
+    return this.progressionAdapter.serialize(character);
+  }
+
+  /**
+   * 恢复角色天赋成长数据，并刷新节点投影
+   * @param {Object} character - 角色数据
+   * @param {Object} data - 存档数据
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  deserializeCharacter(character, data) {
+    const result = this.progressionAdapter.deserialize(character, data);
+    if (result.ok) this.projectCharacterState(character);
+    return result;
+  }
+
+  /**
+   * 查询天赋对某个数值的贡献明细
+   * @param {Object} character - 角色数据
+   * @param {string} target - 目标数值名，如 'attack'
+   * @param {number} [baseValue] - 基线值
+   * @returns {Object}
+   */
+  explainTalentEffect(character, target, baseValue = 0) {
+    this.syncEffectSource(character);
+    return this.effectResolver.explain(this._resolveEntityId(character), target, baseValue);
+  }
+
+  /**
+   * 解析角色在效果系统中的实体标识
+   * @private
+   * @param {Object} character
+   * @returns {string}
+   */
+  _resolveEntityId(character) {
+    if (!character) return 'unknown-character';
+    return String(character.id || character.characterId || character.name || 'default-character');
   }
 }

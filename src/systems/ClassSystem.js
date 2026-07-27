@@ -23,6 +23,11 @@
 import { SkillTreeSystem } from './SkillTreeSystem.js';
 import { UnitSystem, UnitTypes } from './UnitSystem.js';
 import { AttributeSystem, AttributeType } from './AttributeSystem.js';
+import { EffectResolver } from './effects/EffectResolver.js';
+import { EffectSource, EffectSourceKind } from './effects/EffectSource.js';
+
+/** 特化加成可作用的角色属性字段 */
+const SPECIALIZATION_STAT_TARGETS = ['maxHp', 'attack', 'defense', 'speed'];
 
 /**
  * 职业类型枚举
@@ -137,9 +142,17 @@ export class SpecializationData {
  * 职业系统主类
  */
 export class ClassSystem {
-  constructor() {
+  /**
+   * @param {Object} [config]
+   * @param {EffectResolver} [config.effectResolver] - 可注入的统一效果结算器，
+   *        不传时自行创建，并与内部 SkillTreeSystem 共用同一实例。
+   */
+  constructor(config = {}) {
+    // 统一效果结算器（职业固定修正是基线，其余来源在其上叠加）
+    this.effectResolver = config.effectResolver || new EffectResolver();
+
     // 集成现有系统
-    this.skillTreeSystem = new SkillTreeSystem();
+    this.skillTreeSystem = new SkillTreeSystem({ effectResolver: this.effectResolver });
     this.unitSystem = new UnitSystem();
     this.attributeSystem = new AttributeSystem();
     
@@ -582,25 +595,28 @@ export class ClassSystem {
     // 应用属性系统效果
     const statsWithAttributes = this.attributeSystem.applyAttributeEffects(characterId, baseStats);
     
-    // 应用特化加成
+    // 应用特化加成（统一走 EffectResolver，不再逐字段判断倍率）
     const specialization = this.getCharacterSpecialization(characterId);
     if (specialization) {
-      const bonuses = specialization.bonuses;
-      
-      if (bonuses.healthMultiplier) {
-        statsWithAttributes.maxHp = Math.floor(statsWithAttributes.maxHp * bonuses.healthMultiplier);
+      const bonuses = specialization.bonuses || {};
+      this._syncSpecializationSource(characterId, specialization);
+
+      const targets = {};
+      for (const key of SPECIALIZATION_STAT_TARGETS) {
+        if (typeof statsWithAttributes[key] === 'number') {
+          targets[key] = statsWithAttributes[key];
+        }
       }
-      if (bonuses.attackMultiplier) {
-        statsWithAttributes.attack = Math.floor(statsWithAttributes.attack * bonuses.attackMultiplier);
+
+      const resolved = this.effectResolver.resolveAll(characterId, targets);
+      for (const key of Object.keys(targets)) {
+        // 只改写确实被加成影响的字段，保持未受影响字段的原值
+        if (resolved[key] !== targets[key]) {
+          statsWithAttributes[key] = Math.floor(resolved[key]);
+        }
       }
-      if (bonuses.defenseMultiplier) {
-        statsWithAttributes.defense = Math.floor(statsWithAttributes.defense * bonuses.defenseMultiplier);
-      }
-      if (bonuses.speedMultiplier) {
-        statsWithAttributes.speed = Math.floor(statsWithAttributes.speed * bonuses.speedMultiplier);
-      }
-      
-      // 添加特化特殊效果
+
+      // 添加特化特殊效果（保留旧字段供未迁移系统使用）
       statsWithAttributes.specializationBonuses = bonuses;
     }
     
@@ -610,6 +626,39 @@ export class ClassSystem {
     return statsWithAttributes;
   }
   
+  /**
+   * 将兵种特化加成同步为 EffectResolver 的一个来源
+   * @private
+   * @param {string} characterId - 角色ID
+   * @param {SpecializationData} specialization - 特化数据
+   * @returns {string} 来源标识
+   */
+  _syncSpecializationSource(characterId, specialization) {
+    const sourceId = `specialization:${specialization.id}`;
+
+    // 同一角色只保留当前特化来源，切换特化时移除旧来源
+    this.effectResolver.removeSourcesByKind(characterId, EffectSourceKind.CLASS);
+
+    this.effectResolver.addSource(characterId, EffectSource.fromLegacy(
+      sourceId,
+      EffectSourceKind.CLASS,
+      specialization.bonuses || {}
+    ));
+
+    return sourceId;
+  }
+
+  /**
+   * 查询某个属性的最终来源明细，用于验证“职业修正为基线、其余来源叠加”
+   * @param {string} characterId - 角色ID
+   * @param {string} target - 目标属性名
+   * @param {number} [baseValue] - 基线值
+   * @returns {Object}
+   */
+  explainStat(characterId, target, baseValue = 0) {
+    return this.effectResolver.explain(characterId, target, baseValue);
+  }
+
   /**
    * 角色升级
    * @param {string} characterId - 角色ID

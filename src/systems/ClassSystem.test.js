@@ -5,8 +5,8 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ClassSystem, ClassType, ClassNames, ClassInstructors } from './ClassSystem.js';
-import { UnitTypes } from '../../systems/UnitSystem.js';
-import { AttributeType } from '../../systems/AttributeSystem.js';
+import { UnitTypes } from './UnitSystem.js';
+import { AttributeType } from './AttributeSystem.js';
 
 describe('ClassSystem', () => {
   let classSystem;

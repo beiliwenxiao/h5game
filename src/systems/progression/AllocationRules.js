@@ -26,6 +26,7 @@ import { PrerequisiteMode } from './NodeDefinition.js';
 
 /** 拒绝原因 */
 export const AllocationReject = {
+  GRAPH_DISABLED: 'graphDisabled',
   NODE_NOT_FOUND: 'nodeNotFound',
   MAX_RANK: 'maxRank',
   PREREQUISITE: 'prerequisite',

@@ -162,10 +162,14 @@ describe('ClassSystem', () => {
       };
       
       classSystem.learnSkill('player1', 'warrior_basic_combat', character);
+      // 学习消耗 1 点：5 → 4
+      expect(character.skillPoints).toBe(4);
+
       const returnedPoints = classSystem.resetSkillTree('player1', character);
       
       expect(returnedPoints).toBe(1);
-      expect(character.skillPoints).toBe(6);
+      // 重置返还 1 点：4 → 5
+      expect(character.skillPoints).toBe(5);
     });
   });
   
@@ -192,12 +196,16 @@ describe('ClassSystem', () => {
     
     it('应该能重置属性点', () => {
       classSystem.allocateAttribute('player1', AttributeType.STRENGTH, 3);
+      // 分配后可用点数 5 - 3 = 2
+      expect(classSystem.getCharacterAttributes('player1').availablePoints).toBe(2);
+
       const result = classSystem.resetAttributes('player1');
       
       expect(result).toBe(true);
       const attributes = classSystem.getCharacterAttributes('player1');
       expect(attributes.strength).toBe(10);
-      expect(attributes.availablePoints).toBe(8); // 5初始 + 3返还
+      // 返还 3 点后回到初始 5
+      expect(attributes.availablePoints).toBe(5);
     });
   });
   

@@ -11,6 +11,11 @@
  ************************************************************/
 
 import { Blackboard } from './Blackboard.js';
+import { ProgressionGraphSystem } from '../systems/progression/ProgressionGraphSystem.js';
+import { ProgressionProfile } from '../systems/progression/ProgressionProfile.js';
+import { SkillRegistry } from '../systems/ability/SkillRegistry.js';
+import { createContentValidator } from './validation/ContentSchemas.js';
+import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
 import { createStandardRegistries } from './Registry.js';
@@ -36,7 +41,103 @@ export class GameLoader {
     this.triggerSystem = new TriggerSystem();
     // 内容库注册表（P2）：库与实例分离，运行时实例化引用库 id
     this.registries = createStandardRegistries();
+
+    // 成长系统（技能树 / 职业天赋 / 兵种天赋 / 天赋盘）
+    this.progressionProfile = null;
+    this.progressionSystem = null;
+    this.skillRegistry = new SkillRegistry();
+
+    // 内容校验器：在修改运行状态之前拦截错误配置
+    this.contentValidator = createContentValidator();
+    /** 最近一次装配的校验错误，供错误提示界面读取 */
+    this.lastValidationErrors = [];
+
     this._baseDir = '';
+  }
+
+  /**
+   * 装配成长系统：Profile、成长图、技能定义。
+   *
+   * 校验失败的图或技能不会写入运行时，并通过返回值报告，
+   * 保证错误配置不进入可运行状态。
+   *
+   * @param {Object} proj - GameProject
+   * @param {Object} [deps] - { effectResolver }
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  assembleProgression(proj, deps = {}) {
+    const config = proj && proj.progression;
+    const errors = [];
+    this.lastValidationErrors = [];
+
+    // 先整体校验：非法配置不进入运行状态
+    if (config) {
+      const configCheck = this.contentValidator.validate(config, 'progressionConfig', 'progression');
+      if (!configCheck.ok) {
+        this.lastValidationErrors = configCheck.errors;
+        console.warn('GameLoader: progression 配置校验失败，已跳过成长装配\n' + formatErrors(configCheck.errors));
+        return { ok: false, errors: configCheck.errors };
+      }
+    }
+
+    this.progressionProfile = new ProgressionProfile(config || {});
+    const profileCheck = this.progressionProfile.validate();
+    if (!profileCheck.ok) {
+      errors.push(...profileCheck.errors.map(e => ({ ...e, path: `progression.${e.path}` })));
+    }
+
+    this.progressionSystem = new ProgressionGraphSystem({
+      effectResolver: deps.effectResolver,
+      profile: this.progressionProfile
+    });
+
+    if (!config) return { ok: errors.length === 0, errors };
+
+    // 技能定义：Schema 校验通过后才注册
+    const skills = config.skills && Array.isArray(config.skills.skills)
+      ? config.skills.skills
+      : (Array.isArray(config.skills) ? config.skills : []);
+
+    const skillCheck = this.contentValidator.validateList(skills, 'skill', 'progression.skills');
+    if (skillCheck.ok) {
+      const skillResult = this.skillRegistry.registerAll(skills);
+      for (const item of skillResult.errors) {
+        errors.push({
+          code: 'invalidSkill',
+          path: `progression.skills.${item.id}`,
+          message: JSON.stringify(item.errors)
+        });
+      }
+    } else {
+      errors.push(...skillCheck.errors);
+    }
+
+    // 成长图：Schema 校验通过后才交给成长系统
+    for (const graphConfig of config.graphs || []) {
+      const graphPath = `progression.graphs.${(graphConfig && graphConfig.id) || '<unknown>'}`;
+      const graphCheck = this.contentValidator.validate(graphConfig, 'progressionGraph', graphPath);
+
+      if (!graphCheck.ok) {
+        errors.push(...graphCheck.errors);
+        continue;
+      }
+
+      const result = this.progressionSystem.registerGraph(graphConfig);
+      if (!result.ok) {
+        errors.push(...result.errors.map(e => ({ ...e, path: `${graphPath}.${e.path}` })));
+      }
+    }
+
+    this.lastValidationErrors = errors;
+    return { ok: errors.length === 0, errors };
+  }
+
+  /**
+   * 获取最近一次装配的校验错误文本，供错误提示界面显示
+   * @returns {string}
+   */
+  getValidationReport() {
+    return formatErrors(this.lastValidationErrors);
   }
 
   /** 取某类内容库注册表（npcs/enemies/items/equipment/shops/classes/skills/vehicles/buildings） */
@@ -133,7 +234,13 @@ export class GameLoader {
       }
     }
 
-    // 7. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem
+    // 7. 成长系统 → ProgressionGraphSystem + SkillRegistry
+    const progressionResult = this.assembleProgression(proj, deps);
+    if (!progressionResult.ok) {
+      console.warn('GameLoader: 成长配置存在问题，已跳过非法项', progressionResult.errors);
+    }
+
+    // 8. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem
     this.bridgeEventSources(deps);
   }
 
@@ -192,18 +299,40 @@ export class GameLoader {
     this.triggerSystem.update(dt);
   }
 
-  /** 序列化运行时状态（存档：黑板 + 触发器 once/cooldown） */
-  serialize() {
-    return {
+  /**
+   * 序列化运行时状态（存档：黑板 + 触发器 once/cooldown + 角色成长）
+   * @param {string} [characterId] - 提供时一并保存该角色的成长状态
+   */
+  serialize(characterId = null) {
+    const data = {
       blackboard: this.blackboard.serialize(),
       triggers: this.triggerSystem.serialize()
     };
+
+    if (characterId && this.progressionSystem) {
+      data.progression = this.progressionSystem.serializeCharacter(characterId);
+    }
+
+    return data;
   }
 
-  deserialize(data) {
-    if (!data) return;
+  /**
+   * 从存档恢复
+   * @param {Object} data
+   * @param {string} [characterId]
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  deserialize(data, characterId = null) {
+    if (!data) return { ok: false, errors: [{ code: 'missingField', path: '', message: '存档为空' }] };
+
     this.blackboard.deserialize(data.blackboard);
     this.triggerSystem.deserialize(data.triggers);
+
+    if (characterId && data.progression && this.progressionSystem) {
+      return this.progressionSystem.deserializeCharacter(characterId, data.progression);
+    }
+
+    return { ok: true, errors: [] };
   }
 
   // ---- 内部：加载 + $ref 解析 ----

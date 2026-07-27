@@ -31,6 +31,14 @@ export {
 export { ProgressionGraphSystem } from './ProgressionGraphSystem.js';
 export { LegacyProgressionAdapter } from './LegacyProgressionAdapter.js';
 export {
+  ProgressionProfile,
+  ProgressionKind,
+  PROGRESSION_PRESETS,
+  DEFAULT_PROFILE_NAME,
+  KIND_TO_MODE,
+  KIND_TO_POOL
+} from './ProgressionProfile.js';
+export {
   convertLegacyEffects,
   convertSkillNode,
   convertTalentNode,

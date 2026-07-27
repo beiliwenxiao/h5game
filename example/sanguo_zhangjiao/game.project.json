@@ -5,6 +5,36 @@
     "version": 1,
     "schema": 2
   },
+  "progression": {
+    "profile": "arpg",
+    "primary": "talentTree",
+    "enabled": [
+      "skillTree",
+      "talentTree",
+      "unitTalent",
+      "passiveBoard"
+    ],
+    "secondary": [
+      "passiveBoard"
+    ],
+    "pointPools": {
+      "skill": "independent",
+      "talent": "independent",
+      "unit": "independent",
+      "passive": "independent"
+    },
+    "unlock": {
+      "skillTree": "characterCreated",
+      "talentTree": "classSelected",
+      "unitTalent": "firstBattle",
+      "passiveBoard": "milestone"
+    },
+    "graphs": [
+      { "$ref": "config/progression-warrior-skill.json" },
+      { "$ref": "config/progression-passive-board.json" }
+    ],
+    "skills": { "$ref": "config/skills.json" }
+  },
   "variables": {
     "act": 0,
     "killCount": 0,

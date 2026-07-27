@@ -29,6 +29,7 @@
 import { GraphDefinition, GraphMode, PointPool } from './GraphDefinition.js';
 import { ProgressionState } from './ProgressionState.js';
 import { PointLedger } from './PointLedger.js';
+import { ProgressionProfile } from './ProgressionProfile.js';
 import { EffectResolver } from '../effects/EffectResolver.js';
 import { EffectSource, EffectSourceKind } from '../effects/EffectSource.js';
 import {
@@ -54,7 +55,8 @@ export class ProgressionGraphSystem {
   /**
    * @param {Object} [config]
    * @param {EffectResolver} [config.effectResolver] - 统一效果结算器
-   * @param {Object} [config.pointAliases] - 点数池别名，用于共享点数
+   * @param {ProgressionProfile|Object} [config.profile] - 项目级成长配置
+   * @param {Object} [config.pointAliases] - 点数池别名，用于共享点数（profile 未提供时使用）
    * @param {Function} [config.onEvent] - (evt, data) => void
    */
   constructor(config = {}) {
@@ -66,8 +68,42 @@ export class ProgressionGraphSystem {
     this.ledgers = new Map();
 
     this.effectResolver = config.effectResolver || new EffectResolver();
-    this.pointAliases = config.pointAliases || {};
+
+    this.profile = config.profile
+      ? (config.profile instanceof ProgressionProfile ? config.profile : new ProgressionProfile(config.profile))
+      : null;
+
+    this.pointAliases = this.profile
+      ? this.profile.getPointAliases()
+      : (config.pointAliases || {});
+
     this.onEvent = config.onEvent || (() => {});
+  }
+
+  /**
+   * 设置项目级成长配置。
+   * 已创建的账本会同步别名，保证共享点数配置生效。
+   * @param {ProgressionProfile|Object} profile
+   */
+  setProfile(profile) {
+    this.profile = profile instanceof ProgressionProfile ? profile : new ProgressionProfile(profile);
+    this.pointAliases = this.profile.getPointAliases();
+    for (const ledger of this.ledgers.values()) {
+      ledger.aliases = { ...this.pointAliases };
+    }
+  }
+
+  /**
+   * 判断某张图当前是否被 Profile 启用。
+   * 未设置 Profile 时视为全部启用。
+   * @param {string} graphId
+   * @returns {boolean}
+   */
+  isGraphEnabled(graphId) {
+    if (!this.profile) return true;
+    const graph = this.getGraph(graphId);
+    if (!graph) return false;
+    return this.profile.getEnabledModes().includes(graph.mode);
   }
 
   // ---------------- 图注册 ----------------
@@ -190,6 +226,14 @@ export class ProgressionGraphSystem {
     const graph = this.getGraph(graphId);
     if (!graph) {
       return { ok: false, reason: AllocationReject.NODE_NOT_FOUND, message: `成长图不存在: ${graphId}` };
+    }
+
+    if (!this.isGraphEnabled(graphId)) {
+      return {
+        ok: false,
+        reason: AllocationReject.GRAPH_DISABLED,
+        message: `当前项目未启用该成长结构: ${graphId}`
+      };
     }
 
     const node = graph.getNode(nodeId);

@@ -183,6 +183,54 @@ export class SceneEditorInteraction {
   }
 
   /**
+   * 检测点是否命中多边形的某条边（用于右键"在边上插入顶点"）。
+   * 返回边起点索引，或 -1。判定：点到线段距离 ≤ 6px（编辑器坐标）。
+   * @private
+   */
+  _getEdgeAt(shape, x, y) {
+    if (!shape.points || shape.points.length < 2) return -1;
+    const threshold = 6 / this.editor.viewport.scale;
+    const pts = shape.points;
+    for (let i = 0; i < pts.length; i++) {
+      const j = (i + 1) % pts.length;
+      if (this._distToSegment(x, y, pts[i][0], pts[i][1], pts[j][0], pts[j][1]) <= threshold) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * 点到线段的距离
+   * @private
+   */
+  _distToSegment(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return Math.hypot(px - ax, py - ay);
+    let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+
+  /**
+   * 顶点增删后同步 buffZone 的 x/y/width/height 包围盒
+   * @private
+   */
+  _syncBoundingBox(obj) {
+    if (obj.type !== 'buffZone' || !Array.isArray(obj.points) || obj.points.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of obj.points) {
+      if (p[0] < minX) minX = p[0];
+      if (p[0] > maxX) maxX = p[0];
+      if (p[1] < minY) minY = p[1];
+      if (p[1] > maxY) maxY = p[1];
+    }
+    obj.x = minX; obj.y = minY;
+    obj.width = maxX - minX; obj.height = maxY - minY;
+  }
+
+  /**
    * 检查指定位置是否在选中对象的右下角缩放手柄上
    */
   getResizeHandleAt(x, y) {
@@ -545,6 +593,63 @@ export class SceneEditorInteraction {
     }
 
     items.push({ label: '删除对象', action: () => editor.ui.deleteSelectedObjects() });
+
+    // ─── 多边形/Buff多边形 顶点编辑 ────────────────────────
+    const isVertexShape = (clicked.type === 'shape' && (clicked.shapeType === 'polygon' || clicked.shapeType === 'path'))
+      || (clicked.type === 'buffZone' && Array.isArray(clicked.points));
+
+    if (isVertexShape && Array.isArray(clicked.points) && clicked.points.length >= 3) {
+      // 判断右键命中的是某个顶点还是某条边
+      const hitVertex = this.getVertexAt(clicked, pos.x, pos.y);
+      const hitEdge = hitVertex === -1 ? this._getEdgeAt(clicked, pos.x, pos.y) : -1;
+
+      if (hitVertex !== -1) {
+        items.push({ separator: true });
+        items.push({
+          label: `🔴 删除顶点 #${hitVertex}`,
+          disabled: clicked.points.length <= 3, // 三角形不能再删
+          action: () => {
+            if (clicked.points.length <= 3) return;
+            clicked.points.splice(hitVertex, 1);
+            this._syncBoundingBox(clicked);
+            editor.history.saveHistory();
+            editor.ui.updateObjectProperties();
+            editor.render();
+            editor.ui.showToast(`已删除顶点 #${hitVertex}，剩余 ${clicked.points.length} 个`);
+          }
+        });
+        items.push({
+          label: `➕ 在顶点 #${hitVertex} 后插入`,
+          action: () => {
+            const cur = clicked.points[hitVertex];
+            const next = clicked.points[(hitVertex + 1) % clicked.points.length];
+            const mid = [Math.round((cur[0] + next[0]) / 2), Math.round((cur[1] + next[1]) / 2)];
+            clicked.points.splice(hitVertex + 1, 0, mid);
+            this._syncBoundingBox(clicked);
+            editor.history.saveHistory();
+            editor.ui.updateObjectProperties();
+            editor.render();
+            editor.ui.showToast(`已在 #${hitVertex} 后插入顶点，共 ${clicked.points.length} 个`);
+          }
+        });
+      } else if (hitEdge !== -1) {
+        items.push({ separator: true });
+        items.push({
+          label: `➕ 在边 #${hitEdge}→#${(hitEdge + 1) % clicked.points.length} 中间插入顶点`,
+          action: () => {
+            const a = clicked.points[hitEdge];
+            const b = clicked.points[(hitEdge + 1) % clicked.points.length];
+            const mid = [Math.round((a[0] + b[0]) / 2), Math.round((a[1] + b[1]) / 2)];
+            clicked.points.splice(hitEdge + 1, 0, mid);
+            this._syncBoundingBox(clicked);
+            editor.history.saveHistory();
+            editor.ui.updateObjectProperties();
+            editor.render();
+            editor.ui.showToast(`已在边上插入顶点，共 ${clicked.points.length} 个`);
+          }
+        });
+      }
+    }
 
     // 触发器相关：如果选中的是触发器且有关联目标，显示「断开关联」
     if (clicked.type === 'trigger' && clicked.target) {

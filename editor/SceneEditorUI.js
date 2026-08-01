@@ -586,6 +586,29 @@ export class SceneEditorUI {
         else if (e.target.type === 'number') value = parseFloat(e.target.value);
         else value = e.target.value;
 
+        // 碰撞/可落脚互斥：勾选一个自动取消另一个
+        if (prop === 'collide' && value) {
+          obj.collide = true;
+          obj.walkable = false;
+          this.updateObjectProperties();
+          editor.render();
+          return;
+        } else if (prop === 'walkable' && value) {
+          obj.walkable = true;
+          obj.collide = false;
+          this.updateObjectProperties();
+          editor.render();
+          return;
+        } else if (prop === 'collide' && !value) {
+          obj.collide = false;
+          editor.render();
+          return;
+        } else if (prop === 'walkable' && !value) {
+          obj.walkable = false;
+          editor.render();
+          return;
+        }
+
         if (prop === 'gradientColor0' || prop === 'gradientColor1') {
           if (!obj.gradientStops) {
             obj.gradientStops = [{ offset: 0, color: '#000000' }, { offset: 1, color: '#333333' }];
@@ -1127,7 +1150,8 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label>边缘淡化:</label><input type="number" value="${obj.edgeFade || 0}" step="0.05" min="0" max="1" data-prop="edgeFade"></div>`;
     html += `<div class="property-row"><label>边框色:</label><input type="color" value="${obj.stroke || '#5a8a4a'}" data-prop="stroke"></div>`;
     html += `<div class="property-row"><label>边框宽:</label><input type="number" value="${obj.strokeWidth || 0}" min="0" step="1" data-prop="strokeWidth"></div>`;
-    html += `<div class="property-row"><label>可碰撞:</label><input type="checkbox" ${obj.collide ? 'checked' : ''} data-prop="collide" title="作为不可通行区域"></div>`;
+    html += `<div class="property-row"><label>可碰撞:</label><input type="checkbox" ${obj.collide ? 'checked' : ''} data-prop="collide" title="不可通行区域（与'可落脚'互斥）"></div>`;
+    html += `<div class="property-row"><label>可落脚:</label><input type="checkbox" ${obj.walkable ? 'checked' : ''} data-prop="walkable" title="可行走区域（与'可碰撞'互斥）"></div>`;
     return html;
   }
 

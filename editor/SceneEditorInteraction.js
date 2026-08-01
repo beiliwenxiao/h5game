@@ -707,6 +707,24 @@ export class SceneEditorInteraction {
 
     document.body.appendChild(menu);
 
+    // ─── 自动定位：如果菜单超出视口边界则翻转方向 ───
+    // 必须在 appendChild 之后才能拿到实际渲染尺寸
+    const menuRect = menu.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let menuX = e.clientX;
+    let menuY = e.clientY;
+    // 右边溢出 → 向左展开
+    if (menuX + menuRect.width > vw - 4) {
+      menuX = Math.max(4, menuX - menuRect.width);
+    }
+    // 下边溢出 → 向上展开
+    if (menuY + menuRect.height > vh - 4) {
+      menuY = Math.max(4, menuY - menuRect.height);
+    }
+    menu.style.left = menuX + 'px';
+    menu.style.top = menuY + 'px';
+
     this._contextMenuCloser = (ev) => {
       if (!menu.contains(ev.target)) this.removeContextMenu();
     };

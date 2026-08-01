@@ -354,6 +354,7 @@ export class Scene1Terrain {
     // 同时读取 type:'ellipse' 对象更新盆地椭圆参数
     this._editorBackgroundImages = [];
     this._collisionShapes = [];
+    this._walkableShapes = [];  // walkable 可落脚区域：内部即使有碰撞区也不阻塞
     this._editorShapes = [];
     this._sceneAtlases = scene.atlases || null;
     let foundEllipse = false;
@@ -367,9 +368,13 @@ export class Scene1Terrain {
           if (obj.type === 'shape' && obj.collide) {
             this._collisionShapes.push(obj);
           }
+          // 可落脚 shape：同样不依赖视觉层
+          if (obj.type === 'shape' && obj.walkable) {
+            this._walkableShapes.push(obj);
+          }
           // 图层隐藏时跳过视觉渲染相关的收集
-          // 碰撞 shape 也不重复放入 _editorShapes（避免 worldOffset 双重偏移）
-          if (layerHidden || (obj.type === 'shape' && obj.collide)) continue;
+          // 碰撞/可落脚 shape 也不重复放入 _editorShapes（避免 worldOffset 双重偏移）
+          if (layerHidden || (obj.type === 'shape' && (obj.collide || obj.walkable))) continue;
           const _isEllipse = obj.type === 'ellipse' ||
                              (obj.type === 'shape' && obj.shapeType === 'ellipse');
           // 第一个椭圆作为地形椭圆；其余 shape（多边形/矩形/圆/额外椭圆）作为可渲染 shape
@@ -500,6 +505,12 @@ export class Scene1Terrain {
 
       // 碰撞 shapes
       for (const s of this._collisionShapes) {
+        if (s.x !== undefined) { s.x += ox; s.y += oy; }
+        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
+      }
+
+      // 可落脚 shapes
+      for (const s of this._walkableShapes) {
         if (s.x !== undefined) { s.x += ox; s.y += oy; }
         if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
       }
@@ -934,6 +945,13 @@ export class Scene1Terrain {
    * @returns {boolean} true 表示阻塞，不能走
    */
   isBlocked(x, y) {
+    // 可落脚区域优先：如果点在任意 walkable shape 内，直接放行（无论脚下是否有碰撞区）
+    if (this._walkableShapes && this._walkableShapes.length) {
+      for (const s of this._walkableShapes) {
+        if (this._pointInCollisionShape(s, x, y)) return false;
+      }
+    }
+
     // 编辑器 collide shape（多边形/矩形/椭圆碰撞区）：命中即阻塞
     if (this._collisionShapes && this._collisionShapes.length) {
       for (const s of this._collisionShapes) {

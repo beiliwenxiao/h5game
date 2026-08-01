@@ -514,33 +514,61 @@ export class BaseGameScene extends PrologueScene {
 
 
   /**
-   * 初始化 UI 面板
-   */
-  /**
    * 处理装备槽点击（卸下装备）——属性面板/装备面板共用
    * @param {string} slotType - 装备槽类型
    * @param {string} button - 鼠标按钮
    */
   _handleEquipmentSlotClick(slotType, button) {
-    // 右键点击或移动端左键点击卸下装备
-    if ((button === 'right' || this.isMobileLayout) && this.playerEntity) {
-      const equipment = this.playerEntity.getComponent('equipment');
-      if (equipment && equipment.slots[slotType]) {
-        const itemName = equipment.slots[slotType].name;
-        this.equipmentSystem.unequip(this.playerEntity, slotType);
-        const transform = this.playerEntity.getComponent('transform');
-        if (transform) {
-          this.floatingTextManager.addText(
-            transform.position.x,
-            transform.position.y - 30,
-            `卸下 ${itemName}`,
-            '#ffff00'
-          );
-        }
+    // 仅右键点击（PC）或移动端左键点击才卸下装备
+    if (button !== 'right' && !this.isMobileLayout) return;
+    if (!this.playerEntity) return;
+
+    const equipment = this.playerEntity.getComponent('equipment');
+    if (!equipment || !equipment.slots[slotType]) return;
+
+    const inv = this.playerEntity.getComponent('inventory');
+    const quantity = equipment.slots[slotType].quantity || 1;
+
+    const removed = this.equipmentSystem
+      ? this.equipmentSystem.unequipItem(this.playerEntity, slotType)
+      : equipment.unequip(slotType);
+    if (!removed) return;
+
+    // 放回背包。EquipmentSystem.unequipItem 不管背包，放不进去必须撤销卸下，
+    // 否则装备直接消失。addItem 返回实际放入数量，0 表示背包满。
+    if (inv) {
+      const added = inv.addItem(removed, quantity);
+      if (!added) {
+        if (this.equipmentSystem) this.equipmentSystem.equipItem(this.playerEntity, slotType, removed);
+        else equipment.equip(slotType, removed);
+        if (this.notificationSystem) this.notificationSystem.addWarning('背包已满，无法卸下装备');
+        return;
+      }
+      if (added < quantity) {
+        console.warn(`BaseGameScene: 卸下 ${removed.name} 时背包空间不足，${quantity - added} 个已丢失`);
       }
     }
+
+    const transform = this.playerEntity.getComponent('transform');
+    if (transform) {
+      this.floatingTextManager.addText(
+        transform.position.x,
+        transform.position.y - 30,
+        `卸下 ${removed.name}`,
+        '#ffff00'
+      );
+    }
+
+    this._refreshEquipmentPanels(this.playerEntity);
+    // 走统一出口，让 equipItem 事件源也能感知卸下（触发器可据此判断"武器已卸下"）
+    this.onEquipmentChanged([`卸下了 ${removed.name}`], {
+      slot: slotType, item: null, oldItem: removed, action: 'unequip'
+    });
   }
 
+  /**
+   * 初始化 UI 面板
+   */
   initializeUIPanels() {
     // 角色信息面板（包含装备）
     const piOpts = (this.uiStrategy && this.uiStrategy.getPlayerInfoOptions)
@@ -584,8 +612,8 @@ export class BaseGameScene extends PrologueScene {
       onItemUse: (item, healAmount, manaAmount) => {
         this.onItemUsed(item, healAmount, manaAmount);
       },
-      onEquipmentChange: (messages) => {
-        this.onEquipmentChanged(messages);
+      onEquipmentChange: (messages, info) => {
+        this.onEquipmentChanged(messages, info);
       }
     });
     // 平台相关布局（移动端居中、底部对齐）
@@ -1023,15 +1051,19 @@ export class BaseGameScene extends PrologueScene {
         : (eq ? eq.equip(targetSlot, item) : null);
       if (oldItem && inv) inv.addItem(oldItem, oldItem.quantity || 1);
       // 系统提示 + 属性变化
+      const changeTxt = (oldStats && stats) ? this._statChangeText(oldStats, stats) : '';
       if (this.notificationSystem) {
         this.notificationSystem.addNotification(`装备了 ${item.name}`, 'success');
-        if (oldStats && stats) {
-          const changeTxt = this._statChangeText(oldStats, stats);
-          if (changeTxt) this.notificationSystem.addNotification(changeTxt, 'info');
-        }
+        if (changeTxt) this.notificationSystem.addNotification(changeTxt, 'info');
       }
       // 刷新装备/属性面板
       this._refreshEquipmentPanels(player);
+      // 装备变化通知：必须与 InventoryPanel 的装备路径走同一出口，
+      // 否则数据驱动事件源 equipItem 不会发出（如"装备武器后刷野狗"的触发器就不会触发）
+      const messages = [`装备了 ${item.name}`];
+      if (oldItem) messages.push(`卸下了 ${oldItem.name}`);
+      if (changeTxt) messages.push(changeTxt);
+      this.onEquipmentChanged(messages, { slot: targetSlot, item, oldItem, action: 'equip' });
     } else if (item.type === 'consumable' && item.usable) {
       // 在背包中定位该物品，走背包的使用逻辑（应用效果 + 触发 onItemUse）
       if (inv && inv.slots && this.inventoryPanel && this.inventoryPanel.useItem) {
@@ -1060,7 +1092,13 @@ export class BaseGameScene extends PrologueScene {
     if (this.inventoryPanel && this.inventoryPanel.updateInventory) this.inventoryPanel.updateInventory(player);
   }
 
-  onEquipmentChanged(messages) {
+  /**
+   * 装备变化统一出口。所有装备/卸下路径都必须经过这里，子类可覆盖以派发事件源。
+   * @param {string[]} messages - 展示用文案
+   * @param {Object} [info] - 结构化信息 { slot, item, oldItem, action }，
+   *   由知道细节的调用方传入；InventoryPanel 等旧路径不传，子类需自行兜底推断。
+   */
+  onEquipmentChanged(messages, info = null) {
     if (!messages || messages.length === 0) return;
     
     if (this.playerEntity) {

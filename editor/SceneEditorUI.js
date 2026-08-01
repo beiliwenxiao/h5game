@@ -657,6 +657,24 @@ export class SceneEditorUI {
           } else {
             obj.effect[subKey] = value;
           }
+        } else if (prop.startsWith('overrides.')) {
+          // 放置点级覆盖（type:'ref'）：同一库定义在不同场景呈现不同交互
+          // 运行时 spawnGroup 会做 { ...libraryDef, ...placement.overrides }
+          // 留空表示不覆盖，需从 overrides 中删除，避免写入空字符串盖掉库定义
+          const path = prop.slice(10).split('.'); // 去掉 'overrides.'
+          if (!obj.overrides) obj.overrides = {};
+          let holder = obj.overrides;
+          for (let i = 0; i < path.length - 1; i++) {
+            if (!holder[path[i]] || typeof holder[path[i]] !== 'object') holder[path[i]] = {};
+            holder = holder[path[i]];
+          }
+          const leaf = path[path.length - 1];
+          const isEmpty = value === '' || value === null || (typeof value === 'number' && isNaN(value));
+          if (isEmpty) delete holder[leaf];
+          else holder[leaf] = value;
+          // 清理空对象，保持场景 JSON 干净
+          this._pruneEmptyObjects(obj.overrides);
+          if (Object.keys(obj.overrides).length === 0) delete obj.overrides;
         } else {
           obj[prop] = value;
         }
@@ -808,7 +826,39 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label>引用定义ID:</label><input value="${obj.ref || ''}" disabled title="明细在内容库中编辑"></div>`;
     html += `<div class="property-row"><label>名称:</label><input value="${obj.name || ''}" disabled></div>`;
     html += `<div class="property-row"><label title="供触发器 spawnGroup 整批激活；同组的放置点一起生成">组名 group:</label><input type="text" value="${obj.group || ''}" data-prop="group" placeholder="如 act1_pickups"></div>`;
+
+    // 放置点级覆盖：同一库定义在不同场景可挂不同交互（如张角在第二幕给符水、第三幕给铜钱剑）
+    // 留空 = 沿用内容库定义
+    if (obj.kind === 'npc') {
+      const ov = obj.overrides || {};
+      const ovIt = ov.interaction || {};
+      html += '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;">' +
+        '<label style="color:#7cf;font-weight:bold;" title="仅覆盖本放置点，不改内容库定义。留空则沿用库定义">本处覆盖</label></div>';
+      html += `<div class="property-row"><label>对话ID:</label><input type="text" value="${ov.dialogueId || ''}" data-prop="overrides.dialogueId" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>商店ID:</label><input type="text" value="${ov.shopId || ''}" data-prop="overrides.shopId" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>交互半径:</label><input type="number" value="${ovIt.radius != null ? ovIt.radius : ''}" min="0" data-prop="overrides.interaction.radius" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>交互方式:</label><select data-prop="overrides.interaction.trigger">
+        <option value="" ${!ovIt.trigger ? 'selected' : ''}>（用库定义）</option>
+        <option value="interact" ${ovIt.trigger === 'interact' ? 'selected' : ''}>按键 E</option>
+        <option value="approach" ${ovIt.trigger === 'approach' ? 'selected' : ''}>靠近自动</option>
+      </select></div>`;
+    }
     return html;
+  }
+
+  /**
+   * 递归删除对象中的空子对象（供 overrides 清理，保持场景 JSON 干净）
+   * @private
+   */
+  _pruneEmptyObjects(node) {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    for (const key of Object.keys(node)) {
+      const v = node[key];
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        this._pruneEmptyObjects(v);
+        if (Object.keys(v).length === 0) delete node[key];
+      }
+    }
   }
 
   /**

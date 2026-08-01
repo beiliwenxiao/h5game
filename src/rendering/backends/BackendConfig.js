@@ -15,6 +15,8 @@
  * 渲染后端配置与 URL 参数解析
  */
 
+import { PlatformProfile } from '../../core/PlatformProfile.js';
+
 /**
  * 默认后端配置
  */
@@ -37,6 +39,35 @@ export const DEFAULT_BACKEND_CONFIG = Object.freeze({
 const VALID_MODES = ['2d', '3d', 'auto'];
 const VALID_HUD = ['main', 'overlay', 'auto'];
 const VALID_CAMERA = ['ortho', 'perspective'];
+
+/**
+ * 按运行宿主的后端默认值。
+ *
+ * 决策依据：three.js 只在 PC 端作为发布特性，其余端默认走 Canvas2D。
+ *   electron   PC 自带 Chromium，允许 auto 选到 3D
+ *   web        保持 auto，便于浏览器调试两种后端
+ *   capacitor  Android WebView 虽有 WebGL，但中低端机性能不确定，默认 2D
+ *   weapp      微信小游戏包体敏感且无 DOM，固定 2D
+ *
+ * 这里只改变默认值，显式传入的 userConfig 与 URL 参数仍可覆盖；
+ * 小游戏构建会把 ThreeBackend 替换为桩，即使被显式指定也会安全回退。
+ */
+export const HOST_BACKEND_DEFAULTS = Object.freeze({
+  electron: { mode: 'auto' },
+  web: { mode: 'auto' },
+  capacitor: { mode: '2d' },
+  weapp: { mode: '2d' }
+});
+
+/**
+ * 获取指定宿主的后端默认配置
+ * @param {string} [host] - 'web' | 'electron' | 'capacitor' | 'weapp'
+ * @returns {Object} 默认配置片段
+ */
+export function getHostBackendDefaults(host) {
+  if (!host) return {};
+  return HOST_BACKEND_DEFAULTS[host] ? { ...HOST_BACKEND_DEFAULTS[host] } : {};
+}
 
 /**
  * 深拷贝配置对象
@@ -135,18 +166,29 @@ export function parseUrlParams(search) {
 }
 
 /**
- * 合并默认配置 + 代码配置 + URL 参数 → 最终 BackendConfig
+ * 合并默认配置 + 宿主默认值 + 代码配置 + URL 参数 → 最终 BackendConfig
  *
- * 优先级（从低到高）：DEFAULT_BACKEND_CONFIG < userConfig < URL
+ * 优先级（从低到高）：
+ *   DEFAULT_BACKEND_CONFIG < 宿主默认值 < userConfig < URL 参数
+ *
+ * 宿主默认值放在 userConfig 之下，因此项目仍可显式指定 mode；
+ * URL 参数最高，保证浏览器调试不受限制。
  *
  * @param {Object} [userConfig]
  * @param {string|URLSearchParams} [urlSearch]
+ * @param {Object} [options]
+ * @param {string} [options.host] - 运行宿主；不传时自动检测
  * @returns {typeof DEFAULT_BACKEND_CONFIG}
  */
-export function parseBackendConfig(userConfig = {}, urlSearch) {
+export function parseBackendConfig(userConfig = {}, urlSearch, options = {}) {
   const base = cloneConfig(DEFAULT_BACKEND_CONFIG);
+
+  const host = options.host !== undefined ? options.host : PlatformProfile.host;
+  const withHost = deepMerge(base, sanitize(getHostBackendDefaults(host)));
+
   const sanitizedUser = sanitize(userConfig);
-  const withUser = deepMerge(base, sanitizedUser);
+  const withUser = deepMerge(withHost, sanitizedUser);
+
   const urlOverride = parseUrlParams(urlSearch);
   return deepMerge(withUser, urlOverride);
 }
@@ -182,4 +224,10 @@ function sanitize(cfg) {
   return out;
 }
 
-export default { DEFAULT_BACKEND_CONFIG, parseBackendConfig, parseUrlParams };
+export default {
+  DEFAULT_BACKEND_CONFIG,
+  HOST_BACKEND_DEFAULTS,
+  parseBackendConfig,
+  parseUrlParams,
+  getHostBackendDefaults
+};

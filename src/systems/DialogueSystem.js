@@ -49,6 +49,9 @@ export class DialogueSystem {
     // 最大历史记录数
     this.maxHistorySize = 50;
     
+    // 已完整播完的对话 id（供 NPC 重复交互、触发器条件判定）
+    this.completedDialogues = new Set();
+    
     // 回调函数
     this.onStartCallback = null;
     this.onNodeChangeCallback = null;
@@ -306,6 +309,9 @@ export class DialogueSystem {
     this.currentNode = null;
     this.stopTypewriter();
 
+    // 标记为已完成（在回调之前置位，监听器里查 hasCompleted 才拿得到正确结果）
+    if (dialogue.id) this.completedDialogues.add(dialogue.id);
+
     // 触发所有结束监听器（多监听器：场景 fire dialogueEnd + 动作 await 等各自独立）
     if (this._endListeners && this._endListeners.length) {
       // 复制一份，避免监听器在回调中取消订阅导致遍历错乱
@@ -422,6 +428,24 @@ export class DialogueSystem {
    */
   isDialogueActive() {
     return this.currentDialogue !== null;
+  }
+
+  /**
+   * 该对话是否已完整播完过
+   * @param {string} dialogueId - 对话ID
+   * @returns {boolean}
+   */
+  hasCompleted(dialogueId) {
+    return !!dialogueId && this.completedDialogues.has(dialogueId);
+  }
+
+  /**
+   * 清除某段对话的完成标记（供"可重复对话"或调试重播）
+   * @param {string} [dialogueId] - 省略则清除全部
+   */
+  clearCompleted(dialogueId = null) {
+    if (dialogueId) this.completedDialogues.delete(dialogueId);
+    else this.completedDialogues.clear();
   }
 
   /**
@@ -584,7 +608,8 @@ export class DialogueSystem {
       currentDialogueId: this.currentDialogue ? this.currentDialogue.id : null,
       currentNodeId: this.currentNode ? this.currentNode.id : null,
       variables: this.currentDialogue ? { ...this.currentDialogue.variables } : {},
-      history: [...this.history]
+      history: [...this.history],
+      completedDialogues: [...this.completedDialogues]
     };
   }
 
@@ -601,6 +626,11 @@ export class DialogueSystem {
     // 恢复历史
     if (stateData.history) {
       this.history = [...stateData.history];
+    }
+
+    // 恢复已完成对话（决定 NPC 是否还会重复讲同一段剧情）
+    if (Array.isArray(stateData.completedDialogues)) {
+      this.completedDialogues = new Set(stateData.completedDialogues);
     }
 
     // 恢复对话

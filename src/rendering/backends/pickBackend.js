@@ -14,11 +14,25 @@
  * pickBackend.js
  * 根据 BackendConfig 选择并构造具体渲染后端实例
  *
- * 阶段 A：ThreeBackend 尚未实现，'3d' / 'auto' 统一落到 Canvas2DBackend。
- * M5 之后会动态 import three 并使用 ThreeBackend。
+ * three.js 通过动态 import 加载，因此只在真正选择 3D 时才拉取对应 chunk，
+ * 主包不含 three。小游戏等不支持的宿主直接跳过加载，避免无谓的失败尝试。
  */
 
 import { Canvas2DBackend } from './Canvas2DBackend.js';
+import { PlatformProfile, RuntimeHost } from '../../core/PlatformProfile.js';
+
+/** 不支持 three.js 的运行宿主 */
+const HOSTS_WITHOUT_THREE = [RuntimeHost.WEAPP];
+
+/**
+ * 当前宿主是否允许加载 3D 后端
+ * @param {string} [host]
+ * @returns {boolean}
+ */
+export function supportsThreeBackend(host) {
+  const target = host !== undefined ? host : PlatformProfile.host;
+  return !HOSTS_WITHOUT_THREE.includes(target);
+}
 
 /**
  * 是否具备 WebGL
@@ -41,6 +55,15 @@ export function hasWebGL() {
 export async function pickBackend(config) {
   const mode = config?.mode ?? 'auto';
   if (mode === '2d') return new Canvas2DBackend();
+
+  // 宿主不支持 3D 时直接用 2D，不尝试加载 three chunk
+  if (!supportsThreeBackend(config?.host)) {
+    if (mode === '3d') {
+      console.warn('[pickBackend] 当前宿主不支持 3D 后端，已回退 Canvas2D');
+    }
+    return new Canvas2DBackend();
+  }
+
   if (mode === '3d') {
     const ThreeBackendCtor = await tryLoadThreeBackend();
     if (ThreeBackendCtor) return new ThreeBackendCtor();

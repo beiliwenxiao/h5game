@@ -40,6 +40,11 @@ export class NpcComponent extends Component {
     this.shopId = config.shopId || '';
     this.questId = config.questId || '';
 
+    // 对话讲完后是否还能再讲一遍（默认不能，避免剧情对话被反复触发）
+    this.repeatableDialogue = config.repeatableDialogue === true;
+    // 对话讲完后再次交互时的台词；留空则由上层用默认模板生成
+    this.idleText = config.idleText || '';
+
     // 交互配置
     const it = config.interaction || {};
     this.interactionRadius = it.radius != null ? it.radius : 60;
@@ -54,6 +59,16 @@ export class NpcComponent extends Component {
   /** 是否有可交互内容 */
   hasInteraction() {
     return !!(this.dialogueId || this.shopId || this.questId);
+  }
+
+  /**
+   * 对话讲完后再次交互时显示的台词
+   * @param {string} [npcName] - NPC 名字，用于填充默认模板
+   * @returns {string}
+   */
+  getIdleText(npcName = '') {
+    if (this.idleText) return this.idleText;
+    return `${npcName || this.npcId || '他'} 看了你一眼，继续忙事情去了。`;
   }
 
   serialize() {

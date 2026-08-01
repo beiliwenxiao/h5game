@@ -764,6 +764,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * - trigger==='approach'：进入范围自动触发一次
    * - trigger==='interact'：按 E / 点击 NPC 触发
    * 触发内容：优先对话(dialogueId)，其次商店(shopId)。同时 fire('interact',{target:npcId})。
+   *
+   * 对话已讲完（DialogueSystem.hasCompleted）且未标记 repeatableDialogue 时，不再重播剧情：
+   * 有商店则开商店，否则飘一句"XXX 看了你一眼，继续忙事情去了。"
    * @private
    */
   _checkNpcInteract() {
@@ -789,10 +792,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
       const doInteract = () => {
         this.gameLoader && this.gameLoader.triggerSystem.fire('interact', { target: nc.npcId });
-        if (nc.dialogueId && this.dialogueSystem && this.dialogueSystem.startDialogue) {
-          this.dialogueSystem.startDialogue(nc.dialogueId);
+
+        const ds = this.dialogueSystem;
+        const dialogueDone = !!(nc.dialogueId && ds && ds.hasCompleted && ds.hasCompleted(nc.dialogueId));
+        const canTalk = nc.dialogueId && ds && ds.startDialogue && (nc.repeatableDialogue || !dialogueDone);
+
+        if (canTalk) {
+          ds.startDialogue(nc.dialogueId);
         } else if (nc.shopId && this.shopSystem && this.shopSystem.openShop) {
           this.shopSystem.openShop(nc.shopId);
+        } else if (dialogueDone) {
+          this._showNpcIdleText(npc, nc);
         }
       };
 
@@ -826,20 +836,60 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * 对话已讲完的 NPC 再次交互时的反馈：NPC 头顶飘一句忙碌台词。
+   * 带 2 秒节流，避免按住 E 时每帧刷屏。
+   * @param {Entity} npc
+   * @param {NpcComponent} nc
+   * @private
+   */
+  _showNpcIdleText(npc, nc) {
+    const now = performance.now();
+    if (nc._idleTextAt && now - nc._idleTextAt < 2000) return;
+    nc._idleTextAt = now;
+
+    const nameC = npc.getComponent && npc.getComponent('name');
+    const npcName = (nameC && nameC.name) || npc.name || nc.npcId || '';
+    const text = nc.getIdleText ? nc.getIdleText(npcName) : `${npcName} 看了你一眼，继续忙事情去了。`;
+
+    const nt = npc.getComponent('transform');
+    if (nt && this.floatingTextManager) {
+      const sp = npc.getComponent('sprite');
+      const height = (sp?.height || 48) * (sp?.scale || 1);
+      this.floatingTextManager.addText(nt.position.x, nt.position.y - height - 20, text, '#cccccc');
+    }
+    if (this.notificationSystem) this.notificationSystem.addNotification(text, 'info');
+  }
+
+  /**
    * 覆盖父类：装备变更回调 → fire('equipItem') 事件源
    * 触发器可监听 equipItem 来做"装备武器后刷怪"等逻辑。
+   *
+   * slot 用内容侧的逻辑名（武器统一为 'weapon'），因为 EquipmentComponent 的真实槽位叫
+   * 'mainhand'，而 game.project.json 的触发器写的是 'weapon'。
+   *
+   * @param {string[]} messages
+   * @param {Object} [info] - { slot, item, oldItem, action }，来自知道细节的调用方
    */
-  onEquipmentChanged(messages) {
-    super.onEquipmentChanged(messages);
-    if (this.gameLoader) {
-      // 检查当前装备的武器槽
-      const eq = this.playerEntity && this.playerEntity.getComponent('equipment');
-      const weapon = eq && eq.slots && eq.slots.weapon;
-      this.gameLoader.triggerSystem.fire('equipItem', {
-        slot: 'weapon',
-        item: weapon ? (weapon.id || weapon.name || '') : ''
-      });
-    }
+  onEquipmentChanged(messages, info = null) {
+    super.onEquipmentChanged(messages, info);
+    if (!this.gameLoader) return;
+
+    const eq = this.playerEntity && this.playerEntity.getComponent('equipment');
+    const slots = (eq && eq.slots) || {};
+    // 槽位：优先用调用方给的真实槽位，否则兜底按主手武器推断（旧路径不传 info）
+    const rawSlot = (info && info.slot) || (slots.mainhand ? 'mainhand' : 'weapon');
+    const slot = rawSlot === 'mainhand' ? 'weapon' : rawSlot;
+    // 卸下用独立事件，否则"卸下武器"也会命中 equipItem 触发器（如误刷野狗）
+    const isUnequip = !!(info && info.action === 'unequip');
+    const changed = isUnequip
+      ? (info.oldItem || null)
+      : ((info && info.item) || slots[rawSlot] || slots.mainhand || slots.weapon || null);
+
+    this.gameLoader.triggerSystem.fire(isUnequip ? 'unequipItem' : 'equipItem', {
+      slot,
+      rawSlot,
+      item: changed ? (changed.id || changed.name || '') : ''
+    });
   }
 
   /**
@@ -1097,8 +1147,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       '\n  火堆:', `(${this.campfire.x},${this.campfire.y})`);
     let itemN = 0, eqN = 0, entN = 0;
     for (const pl of placements) {
-      const def = reg[this._regKey(pl.kind)] ? reg[this._regKey(pl.kind)].get(pl.ref) : null;
-      if (!def) { console.warn('[DDScene] spawnGroup 未找到定义', pl.kind, pl.ref); continue; }
+      const baseDef = reg[this._regKey(pl.kind)] ? reg[this._regKey(pl.kind)].get(pl.ref) : null;
+      if (!baseDef) { console.warn('[DDScene] spawnGroup 未找到定义', pl.kind, pl.ref); continue; }
+      // 放置点级覆盖：同一库定义可在不同 chunk 呈现不同交互
+      // （例：张角在 s1-1 给符水对话，在 s2-1 给铜钱剑对话）
+      const def = pl.overrides ? this._mergeOverrides(baseDef, pl.overrides) : baseDef;
       if (pl.kind === 'item') {
         if (def.worldProp) {
           // 静态世界道具（如煮粥大锅）：作为场景静物渲染，不可拾取
@@ -1156,6 +1209,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
     }
     console.log(`[DDScene] spawnGroup(${group}): 物品${itemN} 装备${eqN} 其它${entN}`);
+  }
+
+  /**
+   * 合并放置点覆盖到库定义（不修改库定义本身）。
+   * 普通对象递归合并一层，这样只覆盖 interaction.radius 时不会丢掉库里的 prompt/trigger；
+   * 数组与基本类型直接整体替换。
+   * @param {Object} base - 内容库定义
+   * @param {Object} overrides - 放置点上的覆盖
+   * @returns {Object} 新对象
+   * @private
+   */
+  _mergeOverrides(base, overrides) {
+    const out = { ...base };
+    for (const [k, v] of Object.entries(overrides || {})) {
+      const isPlain = v && typeof v === 'object' && !Array.isArray(v);
+      const basePlain = out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]);
+      out[k] = (isPlain && basePlain) ? this._mergeOverrides(out[k], v) : v;
+    }
+    return out;
   }
 
   /** kind → registries 键名 */

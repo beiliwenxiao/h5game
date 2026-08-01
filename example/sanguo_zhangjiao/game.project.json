@@ -1409,6 +1409,12 @@
           }
         },
         {
+          "action": "spawnGroup",
+          "params": {
+            "group": "act3_npcs"
+          }
+        },
+        {
           "action": "startDialogue",
           "params": {
             "id": "coin_artifact_intro"

@@ -1373,7 +1373,9 @@ export class InventoryPanel extends UIElement {
         
         // 计算属性变化并显示提示
         const statChanges = this.calculateStatChanges(oldStats, statsComponent);
-        this.showEquipmentNotification(item.name, oldItem?.name, statChanges, true);
+        this.showEquipmentNotification(item.name, oldItem?.name, statChanges, true, {
+          slot: targetSlot, item, oldItem, action: 'equip'
+        });
       }
       
       console.log(`成功装备物品: ${item.name} 到 ${subType} 槽位`);
@@ -1619,8 +1621,10 @@ export class InventoryPanel extends UIElement {
    * @param {string} unequipName - 卸下的物品名称
    * @param {Object} statChanges - 属性变化
    * @param {boolean} isEquip - 是否是装备操作
+   * @param {Object} [info] - 结构化变更信息 { slot, item, oldItem, action }，
+   *   随 onEquipmentChange 一并回传，供上层派发事件（如"装备武器后刷怪"的触发器）
    */
-  showEquipmentNotification(equipName, unequipName, statChanges, isEquip) {
+  showEquipmentNotification(equipName, unequipName, statChanges, isEquip, info = null) {
     // 构建通知消息
     let messages = [];
     
@@ -1653,7 +1657,7 @@ export class InventoryPanel extends UIElement {
     
     // 触发通知回调
     if (this.onEquipmentChange) {
-      this.onEquipmentChange(messages);
+      this.onEquipmentChange(messages, info);
     }
   }
 }

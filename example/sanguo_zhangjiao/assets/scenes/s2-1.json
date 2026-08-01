@@ -79,6 +79,27 @@
       "objects": []
     },
     {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_zhangjiao_s21",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "zhangjiao",
+          "name": "张角",
+          "x": 400,
+          "y": 300,
+          "group": "act3_npcs",
+          "overrides": {
+            "dialogueId": "coin_artifact_intro"
+          }
+        }
+      ]
+    },
+    {
       "id": "layer_logic",
       "name": "逻辑对象",
       "visible": true,
@@ -424,6 +445,78 @@
           "conditions": "",
           "actions": "[object Object]",
           "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_act3_0",
+          "type": "trigger",
+          "name": "trg_enter_act3",
+          "triggerId": "trg_enter_act3",
+          "x": 1180,
+          "y": 10,
+          "width": 36,
+          "height": 36,
+          "event": "sceneEnter",
+          "target": "",
+          "sceneId": "s2-1",
+          "radius": 60,
+          "conditions": "",
+          "actions": "",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_act3_1",
+          "type": "trigger",
+          "name": "trg_act3_give_coin_sword",
+          "triggerId": "trg_act3_give_coin_sword",
+          "x": 1180,
+          "y": 56,
+          "width": 36,
+          "height": 36,
+          "event": "dialogueEnd",
+          "target": "coin_artifact_intro",
+          "sceneId": "s2-1",
+          "radius": 60,
+          "conditions": "",
+          "actions": "",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_act3_2",
+          "type": "trigger",
+          "name": "trg_act3_use_coin_sword",
+          "triggerId": "trg_act3_use_coin_sword",
+          "x": 1180,
+          "y": 102,
+          "width": 36,
+          "height": 36,
+          "event": "itemUsed",
+          "target": "coin_sword",
+          "sceneId": "s2-1",
+          "radius": 60,
+          "conditions": "",
+          "actions": "",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_act3_3",
+          "type": "trigger",
+          "name": "trg_act3_complete_switch",
+          "triggerId": "trg_act3_complete_switch",
+          "x": 1180,
+          "y": 148,
+          "width": 36,
+          "height": 36,
+          "event": "sceneComplete",
+          "target": "",
+          "sceneId": "s2-1",
+          "radius": 60,
+          "conditions": "",
+          "actions": "",
+          "once": true,
           "cooldown": 0
         }
       ]

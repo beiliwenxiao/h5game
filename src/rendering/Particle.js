@@ -37,6 +37,7 @@ export class Particle {
     this.initialAlpha = this.alpha;
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
+    this.shape = config.shape || 'circle'; // circle / streak / ripple
     this.active = true;
     // 记录初始位置，供 3D 渲染器做坐标映射
     this.initialPosition = { ...config.position };
@@ -101,40 +102,52 @@ export class Particle {
   render(ctx, camera) {
     if (!this.active) return;
 
-    // 直接使用世界坐标，因为相机变换已经在ctx中应用了
     const screenX = this.position.x;
     const screenY = this.position.y;
     
-    // 确保所有值都是有效的数字
-    if (!isFinite(screenX) || !isFinite(screenY)) {
-      return;
-    }
+    if (!isFinite(screenX) || !isFinite(screenY)) return;
 
     ctx.save();
     ctx.globalAlpha = this.alpha;
     
-    // 确保 size 是有效的正数
     const safeSize = Math.max(0.1, this.size || 1);
-    
-    // 为火焰粒子添加发光效果
-    if (this.color && this.color.startsWith('#ff')) {
-      // 外层发光
+
+    if (this.shape === 'streak') {
+      // 水面横向光条：扁平水平椭圆，沿速度方向拉伸
+      const len = safeSize * 3.5;
+      const h = safeSize * 0.6;
+      ctx.fillStyle = this.color || '#88ccee';
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY, len, h, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.shape === 'ripple') {
+      // 涟漪：扁平椭圆环，随生命扩大并淡出
+      const lifeRatio = this.life / this.maxLife;
+      const expandScale = 1 + (1 - lifeRatio) * 2; // 从 1x 扩大到 3x
+      const rx = safeSize * expandScale * 2;
+      const ry = safeSize * expandScale * 0.8;
+      ctx.strokeStyle = this.color || '#aaddee';
+      ctx.lineWidth = Math.max(0.5, safeSize * 0.4 * lifeRatio);
+      ctx.beginPath();
+      ctx.ellipse(screenX, screenY, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (this.color && this.color.startsWith('#ff')) {
+      // 火焰粒子：径向渐变发光
       const glowGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, safeSize * 1.5);
       glowGradient.addColorStop(0, this.color);
-      glowGradient.addColorStop(0.5, this.color + '80'); // 50%透明
-      glowGradient.addColorStop(1, this.color + '00'); // 完全透明
+      glowGradient.addColorStop(0.5, this.color + '80');
+      glowGradient.addColorStop(1, this.color + '00');
       ctx.fillStyle = glowGradient;
       ctx.beginPath();
       ctx.arc(screenX, screenY, safeSize * 1.5, 0, Math.PI * 2);
       ctx.fill();
       
-      // 核心
       ctx.fillStyle = this.color;
       ctx.beginPath();
       ctx.arc(screenX, screenY, safeSize * 0.6, 0, Math.PI * 2);
       ctx.fill();
     } else {
-      // 非火焰粒子（如烟雾、瞬移特效）使用普通渲染
+      // 默认圆形粒子
       ctx.fillStyle = this.color || '#ffffff';
       ctx.beginPath();
       ctx.arc(screenX, screenY, safeSize, 0, Math.PI * 2);
@@ -159,6 +172,7 @@ export class Particle {
     this.initialAlpha = this.alpha;
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
+    this.shape = config.shape || 'circle';
     this.active = true;
     // 记录初始位置，供 3D 渲染器做坐标映射
     this.initialPosition = { ...config.position };

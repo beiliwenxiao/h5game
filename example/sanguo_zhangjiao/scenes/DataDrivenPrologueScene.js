@@ -1468,12 +1468,63 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
         this._terrainsLoaded = true;
         this._checkSceneReady();
+
+        // 特效区域：遍历所有 chunk 加载 effectZone 数据
+        this._initMultiChunkEffectZones(grid, chunkWidth, chunkHeight);
       })
       .catch(e => {
         console.warn('[DDScene] 加载 worldMap 地形失败:', e);
         this._terrainsLoaded = true;
         this._checkSceneReady();
       });
+  }
+
+  /**
+   * 多 chunk 场景的特效区域初始化：遍历所有场景文件，收集 effectZone 数据。
+   * @private
+   */
+  _initMultiChunkEffectZones(grid, chunkWidth, chunkHeight) {
+    if (!this.particleSystem) return;
+    import('../../../src/rendering/EffectZoneRenderer.js').then(({ EffectZoneRenderer: EZR }) => {
+      this.effectZoneRenderer = new EZR(this.particleSystem);
+      const allZones = [];
+
+      const promises = [];
+      for (let row = 0; row < grid.length; row++) {
+        for (let col = 0; col < (grid[row] || []).length; col++) {
+          const sceneId = grid[row][col];
+          if (!sceneId) continue;
+          const offset = { x: col * chunkWidth, y: row * chunkHeight };
+          promises.push(
+            loadSceneFromFile(sceneId).then(data => {
+              if (data && Array.isArray(data.layers)) {
+                for (const layer of data.layers) {
+                  if (!layer || !Array.isArray(layer.objects)) continue;
+                  for (const obj of layer.objects) {
+                    if (obj && obj.type === 'effectZone' && Array.isArray(obj.points) && obj.points.length >= 3) {
+                      allZones.push({
+                        ...obj,
+                        points: obj.points.map(p => [p[0] + offset.x, p[1] + offset.y]),
+                        x: (obj.x || 0) + offset.x,
+                        y: (obj.y || 0) + offset.y
+                      });
+                    }
+                  }
+                }
+              }
+            }).catch(() => { /* 无此场景文件 */ })
+          );
+        }
+      }
+
+      Promise.all(promises).then(() => {
+        if (allZones.length > 0) {
+          this.effectZoneRenderer.zones = allZones;
+          this.effectZoneRenderer._accumulators = allZones.map(() => 0);
+          console.log(`[DDScene] 加载了 ${allZones.length} 个特效区域`);
+        }
+      });
+    }).catch(() => { /* EffectZoneRenderer 加载失败，忽略 */ });
   }
 
   /** 地形 + 放置点都就绪后开放渲染（加载门） */

@@ -142,6 +142,39 @@ export class SceneEditorAssets {
           editor.selectedObjects = [obj];
           editor.ui.updateObjectProperties();
         }
+      } else if (id === 'effectZone') {
+        // 特效区域多边形：粒子特效展示区（火焰/流水/湖面/冰面等）
+        const r = 100;
+        const cx = pos.x, cy = pos.y;
+        const pts = [];
+        for (let i = 0; i < 5; i++) {
+          const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+          pts.push([Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r)]);
+        }
+        const minX = Math.min(...pts.map(p => p[0]));
+        const minY = Math.min(...pts.map(p => p[1]));
+        const maxX = Math.max(...pts.map(p => p[0]));
+        const maxY = Math.max(...pts.map(p => p[1]));
+        const obj = editor.ui.addObject({
+          type: 'effectZone',
+          name: '特效区域',
+          effectType: 'fire',       // fire / water / lake / ice / smoke / sparkle
+          points: pts,
+          x: minX, y: minY, width: maxX - minX, height: maxY - minY,
+          // 粒子参数（默认火焰）
+          particleRate: 12,         // 每秒生成粒子数
+          particleLife: 1.2,        // 粒子生命（秒）
+          particleSize: 6,          // 粒子初始大小
+          particleSpeed: 40,        // 粒子初始速度
+          particleColor: '#ff6622', // 粒子主色
+          particleAlpha: 0.8,       // 粒子初始透明度
+          fillColor: 'rgba(255,120,30,0.15)', // 编辑器预览填充
+          borderColor: 'rgba(255,140,40,0.7)'  // 编辑器预览边框
+        });
+        if (obj) {
+          editor.selectedObjects = [obj];
+          editor.ui.updateObjectProperties();
+        }
       } else if (id === 'region' || id === 'spawn' || id === 'portal' || id === 'npc' || id === 'trigger' || id === 'buffZone' || id === 'buffRect' || id === 'buffEllipse' || id === 'playerSpawn' || id === 'campfire') {
         // 逻辑对象：放入逻辑层
         this._addLogicObject(id, pos.x, pos.y);
@@ -573,6 +606,10 @@ export class SceneEditorAssets {
       <div class="asset-item placeholder" draggable="true" data-type="polygon">
         <div class="asset-preview" style="width:34px;height:30px;background:#3a5a2a;border:1px solid #5a8a4a;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);"></div>
         <span>多边形</span>
+      </div>
+      <div class="asset-item placeholder" draggable="true" data-type="effectZone">
+        <div class="asset-preview" style="width:34px;height:30px;background:rgba(255,120,30,0.35);border:2px dashed #ff8833;clip-path:polygon(50% 0,100% 38%,82% 100%,18% 100%,0 38%);"></div>
+        <span>特效区域</span>
       </div>
       <div class="asset-item placeholder" draggable="true" data-type="fill">
         <div class="asset-preview fill" style="background:linear-gradient(135deg,#333,#666);border:1px dashed #888;"></div>

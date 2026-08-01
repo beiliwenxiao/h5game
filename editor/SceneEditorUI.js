@@ -567,6 +567,8 @@ export class SceneEditorUI {
         html += this._buildLogicProperties(obj);
       } else if (obj.type === 'buffZone') {
         html += this._buildBuffZoneProperties(obj);
+      } else if (obj.type === 'effectZone') {
+        html += this._buildEffectZoneProperties(obj);
       } else if (obj.type === 'ref') {
         html += this._buildRefProperties(obj);
       } else if (obj.fill) {
@@ -639,8 +641,8 @@ export class SceneEditorUI {
               obj.points.splice(idx, 1);
             }
           }
-          // buffZone：同步包围盒
-          if (obj.type === 'buffZone') {
+          // buffZone/effectZone：同步包围盒
+          if (obj.type === 'buffZone' || obj.type === 'effectZone') {
             let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
             for (const p of obj.points) { if (p[0] < bMinX) bMinX = p[0]; if (p[0] > bMaxX) bMaxX = p[0]; if (p[1] < bMinY) bMinY = p[1]; if (p[1] > bMaxY) bMaxY = p[1]; }
             obj.x = bMinX; obj.y = bMinY; obj.width = bMaxX - bMinX; obj.height = bMaxY - bMinY;
@@ -836,6 +838,35 @@ export class SceneEditorUI {
       <option value="enemy" ${eff.target === 'enemy' ? 'selected' : ''}>敌人</option>
       <option value="all" ${eff.target === 'all' ? 'selected' : ''}>所有</option>
     </select></div>`;
+    return html;
+  }
+
+  /**
+   * 特效区域多边形属性面板
+   * @private
+   */
+  _buildEffectZoneProperties(obj) {
+    let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"><label style="color:#ff9944;font-weight:bold;">特效区域</label></div>';
+    html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
+    html += `<div class="property-row"><label>顶点数:</label><input type="number" value="${(obj.points || []).length}" min="3" max="100" data-prop="_vertexCount" title="修改后重新生成正多边形"></div>`;
+    html += `<div class="property-row"><label>特效类型:</label><select data-prop="effectType">
+      <option value="fire" ${obj.effectType === 'fire' ? 'selected' : ''}>🔥 火焰</option>
+      <option value="water" ${obj.effectType === 'water' ? 'selected' : ''}>💧 流水</option>
+      <option value="lake" ${obj.effectType === 'lake' ? 'selected' : ''}>🌊 湖面</option>
+      <option value="ice" ${obj.effectType === 'ice' ? 'selected' : ''}>❄ 冰面</option>
+      <option value="smoke" ${obj.effectType === 'smoke' ? 'selected' : ''}>💨 烟雾</option>
+      <option value="sparkle" ${obj.effectType === 'sparkle' ? 'selected' : ''}>✨ 光粒</option>
+    </select></div>`;
+    html += '<div class="property-row" style="border-top:1px solid #444;margin-top:4px;padding-top:4px;"><label style="color:#ffbb66;">粒子参数</label></div>';
+    html += `<div class="property-row"><label>生成速率:</label><input type="number" value="${obj.particleRate || 12}" min="1" max="200" data-prop="particleRate" title="每秒生成粒子数"></div>`;
+    html += `<div class="property-row"><label>生命(秒):</label><input type="number" value="${obj.particleLife || 1.2}" step="0.1" min="0.1" max="10" data-prop="particleLife"></div>`;
+    html += `<div class="property-row"><label>大小:</label><input type="number" value="${obj.particleSize || 6}" min="1" max="50" data-prop="particleSize"></div>`;
+    html += `<div class="property-row"><label>速度:</label><input type="number" value="${obj.particleSpeed || 40}" min="0" max="500" data-prop="particleSpeed"></div>`;
+    html += `<div class="property-row"><label>主色:</label><input type="color" value="${obj.particleColor || '#ff6622'}" data-prop="particleColor"></div>`;
+    html += `<div class="property-row"><label>透明度:</label><input type="number" value="${obj.particleAlpha || 0.8}" step="0.05" min="0" max="1" data-prop="particleAlpha"></div>`;
+    html += '<div class="property-row" style="border-top:1px solid #444;margin-top:4px;padding-top:4px;"><label style="color:#ffbb66;">编辑器预览</label></div>';
+    html += `<div class="property-row"><label>填充色:</label><input type="text" value="${obj.fillColor || 'rgba(255,120,30,0.15)'}" data-prop="fillColor" style="font-size:10px;"></div>`;
+    html += `<div class="property-row"><label>边框色:</label><input type="text" value="${obj.borderColor || 'rgba(255,140,40,0.7)'}" data-prop="borderColor" style="font-size:10px;"></div>`;
     return html;
   }
 

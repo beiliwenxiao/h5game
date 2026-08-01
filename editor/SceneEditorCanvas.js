@@ -225,7 +225,7 @@ export class SceneEditorCanvas {
       }
     } else if (obj.type === 'slice') {
       this._renderSliceObject(ctx, obj);
-    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger' || obj.type === 'buffZone') {
+    } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger' || obj.type === 'buffZone' || obj.type === 'effectZone') {
       this._renderLogicObject(ctx, obj);
     } else if (obj.type === 'ref') {
       this._renderRefObject(ctx, obj);
@@ -356,6 +356,30 @@ export class SceneEditorCanvas {
         const effText = `${obj.effect.stat || 'hp'} ${obj.effect.value > 0 ? '+' : ''}${obj.effect.value || 0}`;
         this._drawLogicLabel(ctx, effText, labelX, labelY + 14, '#a060d0');
       }
+    } else if (obj.type === 'effectZone') {
+      // 特效区域多边形：虚线边框 + 半透明填充 + 名称 + 特效类型
+      const fillColor = obj.fillColor || 'rgba(255,120,30,0.15)';
+      const borderColor = obj.borderColor || 'rgba(255,140,40,0.7)';
+      const points = obj.points || [];
+      if (points.length >= 3) {
+        ctx.beginPath();
+        ctx.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.fill();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // 标签
+      const lx = (obj.x != null ? obj.x : (points[0] ? points[0][0] : 0)) + 4;
+      const ly = (obj.y != null ? obj.y : (points[0] ? points[0][1] : 0)) + 14;
+      const effectNames = { fire: '🔥火焰', water: '💧流水', lake: '🌊湖面', ice: '❄冰面', smoke: '💨烟雾', sparkle: '✨光粒' };
+      this._drawLogicLabel(ctx, obj.name || '特效区域', lx, ly, '#ff9944');
+      this._drawLogicLabel(ctx, effectNames[obj.effectType] || obj.effectType || '火焰', lx, ly + 14, '#ffbb66');
     } else {
       // 点状标记：spawn/portal/npc
       const colors = {
@@ -1020,8 +1044,8 @@ export class SceneEditorCanvas {
           continue;
         }
         // rect/ellipse/circle 形状：继续走下方缩放手柄
-      } else if (obj.type === 'buffZone' && Array.isArray(obj.points)) {
-        // Buff 多边形：显示顶点手柄（与 shape polygon 一致）
+      } else if ((obj.type === 'buffZone' || obj.type === 'effectZone') && Array.isArray(obj.points)) {
+        // Buff/特效 多边形：显示顶点手柄（与 shape polygon 一致）
         // 先画包围盒
         let bMinX = Infinity, bMinY = Infinity, bMaxX = -Infinity, bMaxY = -Infinity;
         for (const p of obj.points) {

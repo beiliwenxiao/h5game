@@ -211,6 +211,46 @@
           "stroke": "#5a8a4a",
           "strokeWidth": 0,
           "collide": true
+        },
+        {
+          "id": "obj_1785625264619",
+          "type": "effectZone",
+          "name": "特效区域",
+          "effectType": "lake",
+          "points": [
+            [
+              439,
+              170
+            ],
+            [
+              554,
+              218
+            ],
+            [
+              448,
+              346
+            ],
+            [
+              372,
+              288
+            ],
+            [
+              315,
+              192
+            ]
+          ],
+          "x": 315,
+          "y": 170,
+          "width": 239,
+          "height": 176,
+          "particleRate": 12,
+          "particleLife": 1.2,
+          "particleSize": 6,
+          "particleSpeed": 40,
+          "particleColor": "#2483ff",
+          "particleAlpha": 0,
+          "fillColor": "rgba(255,120,30,0.15)",
+          "borderColor": "rgba(255,140,40,0.7)"
         }
       ]
     },
@@ -4718,7 +4758,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-08-01T22:33:07.265Z",
+  "updatedAt": "2026-08-01T23:03:43.233Z",
   "atlases": [
     {
       "id": "mountain_landscape",

@@ -56,6 +56,7 @@ import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
+import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeaponRenderer } from '../../../src/rendering/WeaponRenderer.js';
 import { EnemyWeaponRenderer } from '../../../src/rendering/EnemyWeaponRenderer.js';
 import { FlightSystem } from '../../../src/systems/FlightSystem.js';
@@ -74,7 +75,7 @@ import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
-import { hasSceneData } from '../../../src/core/SceneDataReader.js';
+import { hasSceneData, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { ZoneEffectSystem } from '../../../src/systems/ZoneEffectSystem.js';
 import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
 
@@ -165,6 +166,9 @@ export class BaseGameScene extends PrologueScene {
     
     // 粒子系统
     this.particleSystem = new ParticleSystem(500);
+    
+    // 特效区域粒子渲染器（加载场景后由 terrain._applySceneData 或 _initEffectZones 填充）
+    this.effectZoneRenderer = null;
     
     // 等距渲染器
     this.isometricRenderer = null;
@@ -2502,6 +2506,8 @@ export class BaseGameScene extends PrologueScene {
     this.floatingTextManager.update(deltaTime);
     if (this.notificationSystem) this.notificationSystem.update(deltaTime);
     this.particleSystem.update(deltaTime);
+    // 特效区域粒子生成
+    if (this.effectZoneRenderer) this.effectZoneRenderer.update(deltaTime);
     
     // 更新武器渲染器
     if (this.weaponRenderer) {
@@ -4051,6 +4057,30 @@ export class BaseGameScene extends PrologueScene {
       editorGameId: gameId,
       editorSceneId: sceneId
     });
+
+    // 初始化特效区域粒子（异步加载场景文件中的 effectZone）
+    this._initEffectZones(sceneId);
+  }
+
+  /**
+   * 从场景数据中加载特效区域，接入粒子系统。
+   * 场景文件异步获取，完成后 effectZoneRenderer 开始生成粒子。
+   * @param {string} sceneId
+   * @param {{x:number,y:number}} [worldOffset]
+   * @private
+   */
+  _initEffectZones(sceneId, worldOffset = { x: 0, y: 0 }) {
+    if (!this.particleSystem) return;
+    this.effectZoneRenderer = new EffectZoneRenderer(this.particleSystem);
+
+    // 从文件加载场景数据
+    loadSceneFromFile(sceneId)
+      .then(data => {
+        if (data && Array.isArray(data.layers)) {
+          this.effectZoneRenderer.loadFromSceneData(data, worldOffset);
+        }
+      })
+      .catch(() => { /* 无场景文件，不加载特效区域 */ });
   }
 
   /**

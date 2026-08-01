@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">三国张角</string>
+    <string name="title_activity_main">三国张角</string>
+    <string name="package_name">com.sanguo.zhangjiao</string>
+    <string name="custom_url_scheme">com.sanguo.zhangjiao</string>
+</resources>

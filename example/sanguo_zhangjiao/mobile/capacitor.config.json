@@ -1,0 +1,11 @@
+{
+  "appId": "com.h5game.zhangjiao",
+  "appName": "张角黄巾起义",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

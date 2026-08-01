@@ -23,12 +23,54 @@ Thumbs.db
 # docs
 docs/
 
-# 资源不要上传,桌面打包与手机打包不上传
+# 美术资源不上传
 example/sanguo_zhangjiao/assets/images/*
-example/sanguo_zhangjiao/desktop/*
-example/sanguo_zhangjiao/mobile/
 
-# 安卓打包
-android/*
+# ============================================================
+# 打包相关：提交手写配置与脚本，排除依赖、生成物与本机配置
+# 目的是让其他人克隆仓库后能直接打包，同时不污染仓库体积
+# ============================================================
+
+# ---------- Android（Capacitor，根目录） ----------
+# 保留：build.gradle / AndroidManifest.xml / res / gradle wrapper / gradlew
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+# 从 dist 拷贝进来的 Web 产物与自动生成的配置
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/app/src/main/res/xml/config.xml
+# Capacitor 生成的 Cordova 插件桥接目录
+android/capacitor-cordova-android-plugins/
+# 打包输出
+android/app/release/
+android/app/*.apk
+android/app/*.aab
+# 签名文件属于凭据，禁止提交
+android/app/*.jks
+android/app/*.keystore
+*.jks
+*.keystore
+
+# ---------- Electron 桌面打包 ----------
+# 保留：package.json / main.js / copy-web.js / pack.js
+example/sanguo_zhangjiao/desktop/node_modules/
+example/sanguo_zhangjiao/desktop/release/
+example/sanguo_zhangjiao/desktop/game/
+
+# ---------- 移动端打包（独立 Capacitor 工程） ----------
+# 详细规则见 example/sanguo_zhangjiao/mobile/.gitignore
+# 该工程的 android/ 目录整体排除，可用 npx cap add android 重新生成
+# 保留：package.json / capacitor.config.json / build-apk.js / copy-web.js
+
+# ---------- 微信小游戏（预留，接入时启用） ----------
+# 保留：project.config.json / game.json / 构建脚本 / 适配层代码
+# weapp/node_modules/
+# weapp/dist/
+# weapp/miniprogram_npm/
+# weapp/project.private.config.json
 
 

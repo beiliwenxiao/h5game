@@ -1,0 +1,19 @@
+{
+  "name": "sanguo-zhangjiao-desktop",
+  "version": "1.0.0",
+  "description": "张角黄巾起义序章 - 桌面版",
+  "author": "h5game",
+  "main": "main.js",
+  "scripts": {
+    "build:web": "vite build --config ../vite.config.js",
+    "copy:web": "node copy-web.js",
+    "prepare:web": "npm run build:web && npm run copy:web",
+    "start": "electron .",
+    "pack": "node pack.js",
+    "dist": "npm run prepare:web && npm run pack"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.4.4",
+    "electron": "^31.0.0"
+  }
+}

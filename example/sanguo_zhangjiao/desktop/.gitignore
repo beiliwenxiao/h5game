@@ -1,0 +1,22 @@
+# Electron 桌面打包
+#
+# 提交：package.json、main.js、copy-web.js、pack.js
+# 排除：依赖、从 dist 拷贝的 Web 产物、打包输出
+#
+# 说明：game/ 由 copy-web.js 从 Vite 构建产物拷贝生成，
+# release/ 由 pack.js 输出，两者都可重新生成，不入库。
+
+node_modules/
+package-lock.json
+
+# copy-web.js 拷贝进来的 Web 产物
+game/
+
+# @electron/packager 输出
+release/
+out/
+dist/
+
+# 日志
+*.log
+npm-debug.log*

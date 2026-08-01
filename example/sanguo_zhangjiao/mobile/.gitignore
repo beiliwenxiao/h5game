@@ -1,0 +1,5 @@
+node_modules/
+www/
+release/
+# Capacitor 生成的原生工程（可由 npx cap add android 重新生成）
+android/

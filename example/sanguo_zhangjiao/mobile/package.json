@@ -1,0 +1,23 @@
+{
+  "name": "sanguo-zhangjiao-mobile",
+  "version": "1.0.0",
+  "description": "张角黄巾起义序章 - 安卓/移动版（Capacitor）",
+  "author": "h5game",
+  "scripts": {
+    "build:web": "vite build --config ../vite.config.js",
+    "copy:web": "node copy-web.js",
+    "prepare:web": "npm run build:web && npm run copy:web",
+    "cap:sync": "cap sync android",
+    "cap:add": "cap add android",
+    "cap:open": "cap open android",
+    "build:apk": "node build-apk.js",
+    "dist": "npm run prepare:web && npm run cap:sync && npm run build:apk"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

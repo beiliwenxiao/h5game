@@ -1,0 +1,541 @@
+{
+  "id": "global-passive",
+  "mode": "passiveBoard",
+  "version": 1,
+  "pointPool": "passive",
+  "startNodes": ["start_warrior", "start_archer", "start_strategist"],
+  "rules": { "requireConnected": true },
+  "_layout": "三个职业起点位于外圈，核心天赋位于中心；跨职业路线需经过更多过路点",
+  "nodes": [
+    {
+      "id": "start_warrior",
+      "name": "战士起点",
+      "kind": "start",
+      "maxRank": 1,
+      "costs": { "passive": 0 },
+      "region": "infantry",
+      "position": { "x": 2, "y": 8 }
+    },
+    {
+      "id": "start_archer",
+      "name": "弓手起点",
+      "kind": "start",
+      "maxRank": 1,
+      "costs": { "passive": 0 },
+      "region": "ranged",
+      "position": { "x": 14, "y": 8 }
+    },
+    {
+      "id": "start_strategist",
+      "name": "军师起点",
+      "kind": "start",
+      "maxRank": 1,
+      "costs": { "passive": 0 },
+      "region": "life",
+      "position": { "x": 8, "y": 15 }
+    },
+
+    {
+      "id": "inf_hp_1",
+      "name": "体魄",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "infantry",
+      "position": { "x": 3, "y": 7 },
+      "effects": [{ "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 20 }]
+    },
+    {
+      "id": "inf_def_1",
+      "name": "披甲",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "infantry",
+      "position": { "x": 2, "y": 6 },
+      "effects": [{ "type": "attribute.modify", "target": "defense", "operation": "add", "value": 2 }]
+    },
+    {
+      "id": "inf_stamina_1",
+      "name": "耐力",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "infantry",
+      "position": { "x": 4, "y": 8 },
+      "effects": [{ "type": "attribute.modify", "target": "maxStamina", "operation": "add", "value": 10 }]
+    },
+    {
+      "id": "inf_block",
+      "name": "格挡",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "infantry",
+      "position": { "x": 3, "y": 5 },
+      "effects": [{ "type": "combat.modify", "target": "blockChance", "operation": "add", "value": 0.02 }]
+    },
+    {
+      "id": "inf_notable_wall",
+      "name": "重要：铁壁",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "infantry",
+      "position": { "x": 2, "y": 4 },
+      "effects": [
+        { "type": "combat.modify", "target": "damageReduction", "operation": "add", "value": 0.08 },
+        { "type": "attribute.modify", "target": "maxHp", "operation": "addPercent", "value": 0.05 }
+      ]
+    },
+    {
+      "id": "inf_charge_resist",
+      "name": "抗冲锋",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "infantry",
+      "position": { "x": 4, "y": 6 },
+      "effects": [{ "type": "combat.modify", "target": "counteredPenalty", "operation": "add", "value": 0.05 }]
+    },
+    {
+      "id": "inf_notable_formation",
+      "name": "重要：阵型",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "infantry",
+      "position": { "x": 5, "y": 5 },
+      "effects": [
+        { "type": "combat.modify", "target": "counterBonus", "operation": "add", "value": 0.1 },
+        { "type": "attribute.modify", "target": "defense", "operation": "add", "value": 5 }
+      ]
+    },
+    {
+      "id": "inf_mastery",
+      "name": "精通：步战",
+      "kind": "mastery",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "infantry",
+      "position": { "x": 4, "y": 4 },
+      "effects": [{ "type": "combat.modify", "target": "meleeDamage", "operation": "addPercent", "value": 0.12 }]
+    },
+    {
+      "id": "inf_socket",
+      "name": "插槽：步兵",
+      "kind": "socket",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "infantry",
+      "position": { "x": 5, "y": 3 },
+      "effects": [{ "type": "rule.override", "target": "socket.infantry", "value": true }]
+    },
+
+    {
+      "id": "rng_range_1",
+      "name": "视距",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "ranged",
+      "position": { "x": 13, "y": 7 },
+      "effects": [{ "type": "combat.modify", "target": "attackRange", "operation": "add", "value": 20 }]
+    },
+    {
+      "id": "rng_crit_1",
+      "name": "瞄准",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "ranged",
+      "position": { "x": 14, "y": 6 },
+      "effects": [{ "type": "combat.modify", "target": "criticalChance", "operation": "add", "value": 0.02 }]
+    },
+    {
+      "id": "rng_reload",
+      "name": "装填",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "ranged",
+      "position": { "x": 12, "y": 8 },
+      "effects": [{ "type": "combat.modify", "target": "attackSpeed", "operation": "addPercent", "value": 0.06 }]
+    },
+    {
+      "id": "rng_notable_volley",
+      "name": "重要：齐射",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "ranged",
+      "position": { "x": 14, "y": 4 },
+      "effects": [
+        { "type": "combat.modify", "target": "criticalDamage", "operation": "add", "value": 0.25 },
+        { "type": "skill.modify", "target": "skill.arrow_shot.damage", "operation": "addPercent", "value": 0.1 }
+      ]
+    },
+    {
+      "id": "rng_pierce",
+      "name": "破甲",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "ranged",
+      "position": { "x": 13, "y": 5 },
+      "effects": [{ "type": "combat.modify", "target": "spellPenetration", "operation": "add", "value": 4 }]
+    },
+    {
+      "id": "rng_notable_mobility",
+      "name": "重要：游走",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "ranged",
+      "position": { "x": 11, "y": 6 },
+      "effects": [
+        { "type": "attribute.modify", "target": "speed", "operation": "addPercent", "value": 0.08 },
+        { "type": "combat.modify", "target": "dodgeChance", "operation": "add", "value": 0.05 }
+      ]
+    },
+    {
+      "id": "rng_mastery",
+      "name": "精通：弓弩",
+      "kind": "mastery",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "ranged",
+      "position": { "x": 12, "y": 4 },
+      "effects": [{ "type": "combat.modify", "target": "rangedDamage", "operation": "addPercent", "value": 0.12 }]
+    },
+    {
+      "id": "rng_socket",
+      "name": "插槽：弓弩",
+      "kind": "socket",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "ranged",
+      "position": { "x": 11, "y": 3 },
+      "effects": [{ "type": "rule.override", "target": "socket.ranged", "value": true }]
+    },
+
+    {
+      "id": "life_gather_speed",
+      "name": "手法",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "life",
+      "position": { "x": 8, "y": 14 },
+      "effects": [{ "type": "gather.modify", "target": "gather.duration", "operation": "addPercent", "value": -0.05 }]
+    },
+    {
+      "id": "life_tool_durability",
+      "name": "惜物",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "life",
+      "position": { "x": 7, "y": 14 },
+      "effects": [{ "type": "gather.modify", "target": "gather.toolWearChance", "operation": "addPercent", "value": -0.1 }]
+    },
+    {
+      "id": "life_capacity",
+      "name": "负重",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "life",
+      "position": { "x": 9, "y": 14 },
+      "effects": [{ "type": "inventory.modify", "target": "carryCapacity", "operation": "add", "value": 15 }]
+    },
+    {
+      "id": "life_yield",
+      "name": "巧取",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "life",
+      "position": { "x": 8, "y": 13 },
+      "effects": [{ "type": "gather.modify", "target": "gather.yieldBonus", "operation": "addPercent", "value": 0.08 }]
+    },
+    {
+      "id": "life_notable_quiet",
+      "name": "重要：隐声",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "life",
+      "position": { "x": 6, "y": 13 },
+      "effects": [
+        { "type": "gather.modify", "target": "gather.alertRadius", "operation": "addPercent", "value": -0.3 }
+      ]
+    },
+    {
+      "id": "life_construction",
+      "name": "营建",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "life",
+      "position": { "x": 10, "y": 13 },
+      "effects": [{ "type": "gather.modify", "target": "construction.buildSpeed", "operation": "addPercent", "value": 0.1 }]
+    },
+    {
+      "id": "life_notable_engineer",
+      "name": "重要：工师",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "life",
+      "position": { "x": 11, "y": 12 },
+      "effects": [
+        { "type": "construction.unlock", "target": "reinforced_palisade", "value": true },
+        { "type": "gather.modify", "target": "construction.materialCost", "operation": "addPercent", "value": -0.1 }
+      ]
+    },
+    {
+      "id": "life_mastery",
+      "name": "精通：生计",
+      "kind": "mastery",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "life",
+      "position": { "x": 8, "y": 12 },
+      "effects": [{ "type": "gather.modify", "target": "gather.duration", "operation": "addPercent", "value": -0.1 }]
+    },
+
+    {
+      "id": "veh_horse_stamina",
+      "name": "驭马",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "vehicle",
+      "position": { "x": 5, "y": 12 },
+      "effects": [{ "type": "vehicle.modify", "target": "vehicle.horseFoodCost", "operation": "addPercent", "value": -0.12 }]
+    },
+    {
+      "id": "veh_cargo",
+      "name": "载运",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "vehicle",
+      "position": { "x": 4, "y": 11 },
+      "effects": [{ "type": "vehicle.modify", "target": "vehicle.cargoCapacity", "operation": "add", "value": 20 }]
+    },
+    {
+      "id": "veh_notable_siege",
+      "name": "重要：攻城",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "vehicle",
+      "position": { "x": 5, "y": 10 },
+      "effects": [
+        { "type": "vehicle.modify", "target": "vehicle.siegeDamage", "operation": "addPercent", "value": 0.15 },
+        { "type": "vehicle.modify", "target": "vehicle.assembleCost", "operation": "addPercent", "value": -0.1 }
+      ]
+    },
+    {
+      "id": "veh_mastery",
+      "name": "精通：辎重",
+      "kind": "mastery",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "vehicle",
+      "position": { "x": 4, "y": 9 },
+      "effects": [{ "type": "vehicle.modify", "target": "vehicle.durability", "operation": "addPercent", "value": 0.2 }]
+    },
+
+    {
+      "id": "loco_stamina",
+      "name": "轻身",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "locomotion",
+      "position": { "x": 11, "y": 10 },
+      "effects": [{ "type": "skill.modify", "target": "skill.flight.cost.stamina", "operation": "addPercent", "value": -0.08 }]
+    },
+    {
+      "id": "loco_range",
+      "name": "远跃",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "locomotion",
+      "position": { "x": 12, "y": 11 },
+      "effects": [{ "type": "skill.modify", "target": "skill.flight.range", "operation": "addPercent", "value": 0.08 }]
+    },
+    {
+      "id": "loco_climb",
+      "name": "攀援",
+      "kind": "minor",
+      "maxRank": 2,
+      "region": "locomotion",
+      "position": { "x": 13, "y": 11 },
+      "effects": [{ "type": "skill.modify", "target": "skill.climb.cost.stamina", "operation": "addPercent", "value": -0.15 }]
+    },
+    {
+      "id": "loco_notable_agile",
+      "name": "重要：身法",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "locomotion",
+      "position": { "x": 11, "y": 9 },
+      "effects": [
+        { "type": "rule.override", "target": "locomotion.airControl", "value": true },
+        { "type": "attribute.modify", "target": "speed", "operation": "addPercent", "value": 0.05 }
+      ]
+    },
+
+    {
+      "id": "core_hp",
+      "name": "根基",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "core",
+      "position": { "x": 8, "y": 7 },
+      "effects": [{ "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 25 }]
+    },
+    {
+      "id": "core_attack",
+      "name": "锋锐",
+      "kind": "minor",
+      "maxRank": 3,
+      "region": "core",
+      "position": { "x": 8, "y": 6 },
+      "effects": [{ "type": "attribute.modify", "target": "attack", "operation": "add", "value": 3 }]
+    },
+    {
+      "id": "core_bridge_west",
+      "name": "西路",
+      "kind": "minor",
+      "maxRank": 1,
+      "region": "core",
+      "position": { "x": 6, "y": 8 },
+      "effects": [{ "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 10 }]
+    },
+    {
+      "id": "core_bridge_east",
+      "name": "东路",
+      "kind": "minor",
+      "maxRank": 1,
+      "region": "core",
+      "position": { "x": 10, "y": 8 },
+      "effects": [{ "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 10 }]
+    },
+    {
+      "id": "core_bridge_south",
+      "name": "南路",
+      "kind": "minor",
+      "maxRank": 1,
+      "region": "core",
+      "position": { "x": 8, "y": 10 },
+      "effects": [{ "type": "attribute.modify", "target": "maxStamina", "operation": "add", "value": 8 }]
+    },
+    {
+      "id": "core_notable_veteran",
+      "name": "重要：老卒",
+      "kind": "notable",
+      "maxRank": 1,
+      "costs": { "passive": 2 },
+      "region": "core",
+      "position": { "x": 8, "y": 9 },
+      "effects": [
+        { "type": "attribute.modify", "target": "attack", "operation": "add", "value": 6 },
+        { "type": "attribute.modify", "target": "defense", "operation": "add", "value": 4 }
+      ]
+    },
+    {
+      "id": "key_no_crit",
+      "name": "核心：稳手",
+      "description": "无法暴击，但全部命中伤害提高 25%",
+      "kind": "keystone",
+      "maxRank": 1,
+      "costs": { "passive": 3 },
+      "gates": { "spentInGraph": 12 },
+      "region": "core",
+      "position": { "x": 7, "y": 6 },
+      "effects": [
+        { "type": "rule.override", "target": "combat.cannotCrit", "value": true },
+        { "type": "combat.modify", "target": "hitDamage", "operation": "addPercent", "value": 0.25 }
+      ]
+    },
+    {
+      "id": "key_reckless_gather",
+      "name": "核心：竭泽",
+      "description": "采集速度翻倍，但采集时警戒范围翻倍",
+      "kind": "keystone",
+      "maxRank": 1,
+      "costs": { "passive": 3 },
+      "gates": { "spentInGraph": 12 },
+      "region": "core",
+      "position": { "x": 9, "y": 10 },
+      "effects": [
+        { "type": "gather.modify", "target": "gather.duration", "operation": "multiply", "value": 0.5 },
+        { "type": "gather.modify", "target": "gather.alertRadius", "operation": "multiply", "value": 2 }
+      ]
+    },
+    {
+      "id": "key_glass_cannon",
+      "name": "核心：孤勇",
+      "description": "攻击提高 40%，但最大生命降低 30%",
+      "kind": "keystone",
+      "maxRank": 1,
+      "costs": { "passive": 3 },
+      "gates": { "spentInGraph": 12 },
+      "region": "core",
+      "position": { "x": 9, "y": 6 },
+      "effects": [
+        { "type": "attribute.modify", "target": "attack", "operation": "addPercent", "value": 0.4 },
+        { "type": "attribute.modify", "target": "maxHp", "operation": "addPercent", "value": -0.3 }
+      ]
+    }
+  ],
+  "edges": [
+    ["start_warrior", "inf_hp_1"],
+    ["start_warrior", "inf_def_1"],
+    ["start_warrior", "inf_stamina_1"],
+    ["inf_def_1", "inf_block"],
+    ["inf_block", "inf_notable_wall"],
+    ["inf_hp_1", "inf_charge_resist"],
+    ["inf_stamina_1", "inf_charge_resist"],
+    ["inf_charge_resist", "inf_notable_formation"],
+    ["inf_block", "inf_mastery"],
+    ["inf_notable_formation", "inf_mastery"],
+    ["inf_mastery", "inf_socket"],
+
+    ["start_archer", "rng_range_1"],
+    ["start_archer", "rng_crit_1"],
+    ["start_archer", "rng_reload"],
+    ["rng_crit_1", "rng_pierce"],
+    ["rng_pierce", "rng_notable_volley"],
+    ["rng_range_1", "rng_notable_mobility"],
+    ["rng_reload", "rng_notable_mobility"],
+    ["rng_notable_mobility", "rng_mastery"],
+    ["rng_pierce", "rng_mastery"],
+    ["rng_mastery", "rng_socket"],
+
+    ["start_strategist", "life_gather_speed"],
+    ["start_strategist", "life_tool_durability"],
+    ["start_strategist", "life_capacity"],
+    ["life_gather_speed", "life_yield"],
+    ["life_tool_durability", "life_notable_quiet"],
+    ["life_capacity", "life_construction"],
+    ["life_construction", "life_notable_engineer"],
+    ["life_yield", "life_mastery"],
+    ["life_notable_quiet", "life_mastery"],
+
+    ["life_notable_quiet", "veh_horse_stamina"],
+    ["veh_horse_stamina", "veh_cargo"],
+    ["veh_cargo", "veh_notable_siege"],
+    ["veh_notable_siege", "veh_mastery"],
+
+    ["life_notable_engineer", "loco_climb"],
+    ["loco_climb", "loco_range"],
+    ["loco_range", "loco_stamina"],
+    ["loco_stamina", "loco_notable_agile"],
+
+    ["veh_mastery", "core_bridge_west"],
+    ["inf_stamina_1", "core_bridge_west"],
+    ["loco_notable_agile", "core_bridge_east"],
+    ["rng_reload", "core_bridge_east"],
+    ["life_mastery", "core_bridge_south"],
+
+    ["core_bridge_west", "core_notable_veteran"],
+    ["core_bridge_east", "core_notable_veteran"],
+    ["core_bridge_south", "core_notable_veteran"],
+    ["core_notable_veteran", "core_hp"],
+    ["core_hp", "core_attack"],
+
+    ["core_attack", "key_no_crit"],
+    ["core_attack", "key_glass_cannon"],
+    ["core_bridge_south", "key_reckless_gather"]
+  ]
+}

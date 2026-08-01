@@ -1,0 +1,28 @@
+{
+  "description": "YiJian18-Engine 微信小游戏",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "node_modules" },
+      { "type": "file", "value": "README.md" }
+    ]
+  },
+  "setting": {
+    "urlCheck": false,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "autoAudits": false,
+    "coverView": true,
+    "showShadowRootInWxmlPanel": true,
+    "scopeDataCheck": false
+  },
+  "compileType": "game",
+  "appid": "",
+  "projectname": "yijian18-minigame",
+  "libVersion": "3.3.5",
+  "simulatorType": "wechat",
+  "simulatorPluginLibVersion": {}
+}

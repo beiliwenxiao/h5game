@@ -1,0 +1,209 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ *
+ * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @date      2026-08-02
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/yijian18-engine
+ *            https://gitee.com/coderaaa/yijian18-engine
+ ************************************************************/
+
+/**
+ * Xbox360Profile.js
+ *
+ * Xbox 360（以及所有遵循 W3C "standard" 映射的兼容手柄）的按键档案。
+ *
+ * 包含三部分：
+ *   1. BUTTON / AXIS 索引常量（W3C Standard Gamepad 布局）
+ *   2. DEFAULT_BINDINGS —— 手柄按钮 → 项目已有虚拟键名的映射
+ *   3. PAD_LAYOUT —— 手柄 UI 的绘制布局（归一化坐标，供 GamepadPanel 画图）
+ *
+ * 虚拟键名必须与 InputManager.keyMap 的输出保持一致，否则按下没反应：
+ *   移动    up / down / left / right
+ *   药水    skill1(红) / skill2(蓝)
+ *   技能    skill3 / skill4 / skill5 / skill6 / skill7
+ *   拾取    e        面板  c(属性) / b(背包) / v(装备)
+ *   格挡    q        取消  escape
+ *
+ * authority: 'client'  // 纯输入映射，无游戏逻辑
+ */
+
+/** W3C Standard Gamepad 按钮索引（Xbox 360 实体按键） */
+export const PadButton = {
+  A: 0,
+  B: 1,
+  X: 2,
+  Y: 3,
+  LB: 4,
+  RB: 5,
+  LT: 6,
+  RT: 7,
+  BACK: 8,
+  START: 9,
+  LS: 10,          // 左摇杆按下
+  RS: 11,          // 右摇杆按下
+  DPAD_UP: 12,
+  DPAD_DOWN: 13,
+  DPAD_LEFT: 14,
+  DPAD_RIGHT: 15,
+  GUIDE: 16        // 中间的 Xbox 灯圈键（部分驱动不上报）
+};
+
+/** W3C Standard Gamepad 轴索引 */
+export const PadAxis = {
+  LEFT_X: 0,
+  LEFT_Y: 1,
+  RIGHT_X: 2,
+  RIGHT_Y: 3
+};
+
+/** 按钮显示名（UI 用） */
+export const PAD_BUTTON_LABELS = {
+  [PadButton.A]: 'A',
+  [PadButton.B]: 'B',
+  [PadButton.X]: 'X',
+  [PadButton.Y]: 'Y',
+  [PadButton.LB]: 'LB',
+  [PadButton.RB]: 'RB',
+  [PadButton.LT]: 'LT',
+  [PadButton.RT]: 'RT',
+  [PadButton.BACK]: 'Back',
+  [PadButton.START]: 'Start',
+  [PadButton.LS]: 'LS',
+  [PadButton.RS]: 'RS',
+  [PadButton.DPAD_UP]: '↑',
+  [PadButton.DPAD_DOWN]: '↓',
+  [PadButton.DPAD_LEFT]: '←',
+  [PadButton.DPAD_RIGHT]: '→',
+  [PadButton.GUIDE]: 'Xbox'
+};
+
+/** 攻击动作标记：绑定值为此时，该按钮注入虚拟鼠标左键（走准星攻击），不作为普通虚拟键 */
+export const ATTACK_ACTION = 'attack';
+/** 空绑定标记：该按钮不做任何事 */
+export const NONE_ACTION = '';
+
+/**
+ * 默认绑定：手柄按钮 → 动作。
+ * 动作为虚拟键名（对齐 InputManager.keyMap），或特殊标记 ATTACK_ACTION（攻击）、NONE_ACTION（无）。
+ */
+export const DEFAULT_BINDINGS = {
+  [PadButton.A]: ATTACK_ACTION,   // 攻击：走虚拟准星的鼠标左键
+  [PadButton.B]: 'skill1',        // 红药水
+  [PadButton.X]: 'e',             // 拾取 / 交互
+  [PadButton.Y]: 'skill2',        // 蓝药水
+  [PadButton.LB]: 'skill3',       // 技能1
+  [PadButton.RB]: 'skill4',       // 技能2
+  [PadButton.LT]: 'skill5',       // 技能3
+  [PadButton.RT]: 'skill6',       // 技能4
+  [PadButton.BACK]: 'c',          // 属性面板
+  [PadButton.START]: 'b',         // 背包
+  [PadButton.LS]: 'q',            // 格挡
+  [PadButton.RS]: 'escape',       // 取消选中
+  [PadButton.DPAD_UP]: 'up',
+  [PadButton.DPAD_DOWN]: 'down',
+  [PadButton.DPAD_LEFT]: 'left',
+  [PadButton.DPAD_RIGHT]: 'right',
+  [PadButton.GUIDE]: NONE_ACTION
+};
+
+/**
+ * 可绑定动作清单（供编辑器下拉 + 运行时校验）。
+ * value 是写进 bindings 的动作标记，label 是中文显示名。
+ * value 必须与各系统实际读取的虚拟键名一致（见 InputManager.keyMap / CombatSystem.skillKeyMap）。
+ */
+export const BINDABLE_ACTIONS = [
+  { value: NONE_ACTION, label: '（无）', group: '其它' },
+  { value: ATTACK_ACTION, label: '攻击', group: '战斗' },
+  { value: 'up', label: '上移', group: '移动' },
+  { value: 'down', label: '下移', group: '移动' },
+  { value: 'left', label: '左移', group: '移动' },
+  { value: 'right', label: '右移', group: '移动' },
+  { value: 'e', label: '拾取/交互', group: '战斗' },
+  { value: 'q', label: '格挡', group: '战斗' },
+  { value: 'skill1', label: '红药水', group: '快捷' },
+  { value: 'skill2', label: '蓝药水', group: '快捷' },
+  { value: 'skill3', label: '技能1', group: '技能' },
+  { value: 'skill4', label: '技能2', group: '技能' },
+  { value: 'skill5', label: '技能3', group: '技能' },
+  { value: 'skill6', label: '技能4', group: '技能' },
+  { value: 'skill7', label: '技能5', group: '技能' },
+  { value: 'c', label: '属性面板', group: '面板' },
+  { value: 'b', label: '背包面板', group: '面板' },
+  { value: 'v', label: '装备面板', group: '面板' },
+  { value: 'escape', label: '取消选中', group: '其它' },
+  { value: 'space', label: '确认/继续', group: '其它' }
+];
+
+/** 动作 value → 中文名（快速查表） */
+export const ACTION_LABELS = BINDABLE_ACTIONS.reduce((m, a) => { m[a.value] = a.label; return m; }, {});
+
+/** 绑定的中文说明（UI 映射表用） */
+export const BINDING_DESCRIPTIONS = {
+  [PadButton.A]: '攻击',
+  [PadButton.B]: '红药水',
+  [PadButton.X]: '拾取/交互',
+  [PadButton.Y]: '蓝药水',
+  [PadButton.LB]: '技能1',
+  [PadButton.RB]: '技能2',
+  [PadButton.LT]: '技能3',
+  [PadButton.RT]: '技能4',
+  [PadButton.BACK]: '属性面板',
+  [PadButton.START]: '背包',
+  [PadButton.LS]: '格挡',
+  [PadButton.RS]: '取消选中',
+  [PadButton.DPAD_UP]: '上',
+  [PadButton.DPAD_DOWN]: '下',
+  [PadButton.DPAD_LEFT]: '左',
+  [PadButton.DPAD_RIGHT]: '右',
+  [PadButton.GUIDE]: '—'
+};
+
+/**
+ * 手柄 UI 绘制布局。坐标为归一化值（0~1），相对面板的手柄绘制区。
+ * shape: 'circle' 圆键 | 'round' 圆角矩形（肩键/扳机/Back/Start）
+ */
+export const PAD_LAYOUT = {
+  /** 摇杆（cx, cy 为中心，r 为底盘半径） */
+  sticks: [
+    { axis: 'left', cx: 0.24, cy: 0.50, r: 0.085, clickButton: PadButton.LS, label: 'L' },
+    { axis: 'right', cx: 0.62, cy: 0.68, r: 0.085, clickButton: PadButton.RS, label: 'R' }
+  ],
+  /** 按钮 */
+  buttons: [
+    { index: PadButton.Y, x: 0.855, y: 0.34, shape: 'circle', r: 0.045, color: '#d9b310' },
+    { index: PadButton.B, x: 0.925, y: 0.44, shape: 'circle', r: 0.045, color: '#c0392b' },
+    { index: PadButton.A, x: 0.855, y: 0.54, shape: 'circle', r: 0.045, color: '#27ae60' },
+    { index: PadButton.X, x: 0.785, y: 0.44, shape: 'circle', r: 0.045, color: '#2980b9' },
+
+    { index: PadButton.DPAD_UP, x: 0.40, y: 0.62, shape: 'round', w: 0.055, h: 0.075 },
+    { index: PadButton.DPAD_DOWN, x: 0.40, y: 0.80, shape: 'round', w: 0.055, h: 0.075 },
+    { index: PadButton.DPAD_LEFT, x: 0.33, y: 0.71, shape: 'round', w: 0.075, h: 0.055 },
+    { index: PadButton.DPAD_RIGHT, x: 0.47, y: 0.71, shape: 'round', w: 0.075, h: 0.055 },
+
+    { index: PadButton.LB, x: 0.22, y: 0.16, shape: 'round', w: 0.16, h: 0.07 },
+    { index: PadButton.RB, x: 0.78, y: 0.16, shape: 'round', w: 0.16, h: 0.07 },
+    { index: PadButton.LT, x: 0.22, y: 0.05, shape: 'round', w: 0.12, h: 0.06 },
+    { index: PadButton.RT, x: 0.78, y: 0.05, shape: 'round', w: 0.12, h: 0.06 },
+
+    { index: PadButton.BACK, x: 0.44, y: 0.38, shape: 'round', w: 0.075, h: 0.05 },
+    { index: PadButton.START, x: 0.62, y: 0.38, shape: 'round', w: 0.075, h: 0.05 },
+    { index: PadButton.GUIDE, x: 0.53, y: 0.31, shape: 'circle', r: 0.038, color: '#6f7d86' }
+  ]
+};
+
+/** 该 gamepad 是否为 standard 映射（非 standard 时索引不可信） */
+export function isStandardMapping(pad) {
+  return !!pad && (pad.mapping === 'standard' || pad.mapping === '');
+}
+
+/** 从 gamepad.id 粗略判断是否 Xbox 系手柄（仅用于 UI 文案，不影响映射） */
+export function looksLikeXboxPad(pad) {
+  if (!pad || !pad.id) return false;
+  const id = pad.id.toLowerCase();
+  return id.includes('xbox') || id.includes('xinput') || id.includes('360');
+}
+
+export default { PadButton, PadAxis, DEFAULT_BINDINGS, PAD_LAYOUT };

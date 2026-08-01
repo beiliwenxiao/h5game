@@ -246,6 +246,12 @@ export class GameEngine {
      */
     update(deltaTime) {
         try {
+            // 手柄轮询必须在帧首：Gamepad API 是轮询式的，
+            // 若放到帧末（inputManager.update 处）本帧读到的会是上一帧状态
+            if (this.inputManager && this.inputManager.pollGamepads) {
+                this.inputManager.pollGamepads();
+            }
+
             // 处理场景输入
             if (this.sceneManager && this.inputManager) {
                 this.sceneManager.handleInput(this.inputManager);

@@ -102,6 +102,13 @@ export class UIEditor {
 
     this._dragState = null;
     this._initialized = false;
+
+    // 手柄绑定编辑器数据（与 Xbox360Profile.DEFAULT_BINDINGS 同构）
+    this._defaultGamepadBindings = null; // 异步加载
+    this._gamepadBindings = {};
+    this._gamepadDeadzone = 0.22;
+    this._gamepadTriggerThreshold = 0.5;
+    this._gamepadMeta = null; // { PadButton, PAD_BUTTON_LABELS, BINDABLE_ACTIONS, ... }
   }
 
   _cloneDefault(platform) {
@@ -115,6 +122,7 @@ export class UIEditor {
     this._buildUI();
     await this._loadFromFiles();
     await this._loadPanelLayout();
+    await this._loadGamepadConfig();
     this._render();
   }
 
@@ -191,6 +199,7 @@ export class UIEditor {
           <div class="uie-platform-switch">
             <button data-platform="mobile" class="active">📱 Android UI</button>
             <button data-platform="desktop">🖥️ PC UI</button>
+            <button data-platform="gamepad">🎮 手柄</button>
           </div>
           <div class="uie-actions">
             <button id="uie-reset">恢复默认</button>
@@ -224,6 +233,15 @@ export class UIEditor {
 
     this.container.querySelector('#uie-save').addEventListener('click', () => this.save());
     this.container.querySelector('#uie-reset').addEventListener('click', () => {
+      if (this.platform === 'gamepad') {
+        if (confirm('恢复手柄绑定为默认？(未保存)')) {
+          this._gamepadBindings = { ...this._defaultGamepadBindings };
+          this._gamepadDeadzone = 0.22;
+          this._gamepadTriggerThreshold = 0.5;
+          this._render();
+        }
+        return;
+      }
       if (confirm('恢复当前平台为默认布局？(未保存)')) {
         this.layouts[this.platform] = this._cloneDefault(this.platform);
         this.selectedId = null;
@@ -265,6 +283,10 @@ export class UIEditor {
 
   /** 渲染当前平台的舞台和组件 */
   _render() {
+    if (this.platform === 'gamepad') {
+      this._renderGamepadEditor();
+      return;
+    }
     const layout = this.layouts[this.platform];
     const stage = this.container.querySelector('#uie-stage');
     if (!stage) return;
@@ -398,6 +420,9 @@ export class UIEditor {
 
   /** 保存当前两套布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
   async save() {
+    // 手柄绑定保存到独立文件
+    await this._saveGamepadConfig();
+
     for (const platform of ['desktop', 'mobile']) {
       const file = this.configBase + (platform === 'desktop' ? 'UILayout.desktop.json' : 'UILayout.mobile.json');
       const layout = this.layouts[platform];
@@ -563,6 +588,202 @@ export class UIEditor {
       }
     }
     ctx.restore();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 手柄绑定编辑器
+  // ═══════════════════════════════════════════════════════════════════
+
+  /** 加载手柄绑定配置（从 config/gamepad.json）和 Xbox360Profile 元数据 */
+  async _loadGamepadConfig() {
+    // 动态 import Xbox360Profile（编辑器不在 src 下，用相对路径）
+    try {
+      const mod = await import('../src/core/input/Xbox360Profile.js');
+      this._gamepadMeta = {
+        PadButton: mod.PadButton,
+        PAD_BUTTON_LABELS: mod.PAD_BUTTON_LABELS,
+        BINDABLE_ACTIONS: mod.BINDABLE_ACTIONS,
+        ACTION_LABELS: mod.ACTION_LABELS,
+        DEFAULT_BINDINGS: mod.DEFAULT_BINDINGS,
+        ATTACK_ACTION: mod.ATTACK_ACTION,
+        NONE_ACTION: mod.NONE_ACTION,
+        BINDING_DESCRIPTIONS: mod.BINDING_DESCRIPTIONS
+      };
+      this._defaultGamepadBindings = { ...mod.DEFAULT_BINDINGS };
+      this._gamepadBindings = { ...mod.DEFAULT_BINDINGS };
+    } catch (e) {
+      console.warn('UIEditor: 无法加载 Xbox360Profile，手柄编辑器不可用', e);
+      return;
+    }
+
+    // 尝试加载已保存的配置
+    const file = this.configBase + 'gamepad.json';
+    try {
+      const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.ok && data.content) {
+          const cfg = JSON.parse(data.content);
+          if (cfg.bindings) {
+            for (const [k, v] of Object.entries(cfg.bindings)) {
+              this._gamepadBindings[Number(k)] = v;
+            }
+          }
+          if (cfg.deadzone != null) this._gamepadDeadzone = cfg.deadzone;
+          if (cfg.triggerThreshold != null) this._gamepadTriggerThreshold = cfg.triggerThreshold;
+        }
+      }
+    } catch (e) {
+      // 无配置文件，用默认绑定
+    }
+  }
+
+  /** 保存手柄绑定配置到 config/gamepad.json */
+  async _saveGamepadConfig() {
+    if (!this._gamepadMeta) return;
+    const file = this.configBase + 'gamepad.json';
+    const cfg = {
+      bindings: this._gamepadBindings,
+      deadzone: this._gamepadDeadzone,
+      triggerThreshold: this._gamepadTriggerThreshold
+    };
+    const content = JSON.stringify(cfg, null, 2);
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: file, content })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '保存失败');
+    } catch (e) {
+      this._setStatus(`手柄配置保存失败: ${e.message}`, true);
+    }
+  }
+
+  /** 渲染手柄绑定编辑界面 */
+  _renderGamepadEditor() {
+    const stage = this.container.querySelector('#uie-stage');
+    const props = this.container.querySelector('#uie-props');
+    if (!stage || !props) return;
+
+    if (!this._gamepadMeta) {
+      stage.innerHTML = '<div style="padding:40px;color:#ff8888;text-align:center;">Xbox360Profile 加载失败，手柄编辑器不可用</div>';
+      props.innerHTML = '';
+      return;
+    }
+
+    const { PadButton, PAD_BUTTON_LABELS, BINDABLE_ACTIONS, ACTION_LABELS, ATTACK_ACTION, NONE_ACTION } = this._gamepadMeta;
+
+    // 舞台：手柄按键绑定列表（表格形式，每行一个按钮 + 下拉选择动作）
+    stage.style.width = '600px';
+    stage.style.height = 'auto';
+    stage.style.minHeight = '400px';
+    stage.style.overflow = 'auto';
+    stage.style.padding = '20px';
+    stage.style.display = 'block';
+
+    const buttonIndices = Object.keys(PadButton).map(k => PadButton[k]).filter(v => typeof v === 'number');
+
+    let html = `
+      <h3 style="color:#8fc7ff;margin:0 0 16px">Xbox 360 手柄按键绑定</h3>
+      <p style="color:#778;font-size:12px;margin-bottom:16px;">为每个手柄按钮选择对应的游戏动作。左摇杆固定为移动、右摇杆固定为瞄准，不可更改。</p>
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="border-bottom:1px solid #2a3a5e;">
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:100px;">按钮</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;">绑定动作</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:100px;">默认</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    for (const idx of buttonIndices) {
+      if (idx === PadButton.GUIDE) continue; // Guide 键大多驱动不上报，不让用户绑
+      const btnLabel = PAD_BUTTON_LABELS[idx] || `按钮${idx}`;
+      const currentAction = this._gamepadBindings[idx] != null ? this._gamepadBindings[idx] : NONE_ACTION;
+      const defaultAction = this._defaultGamepadBindings[idx] != null ? this._defaultGamepadBindings[idx] : NONE_ACTION;
+      const defaultLabel = ACTION_LABELS[defaultAction] || (defaultAction === ATTACK_ACTION ? '攻击' : '—');
+
+      // 按分组渲染 options
+      const groups = {};
+      for (const a of BINDABLE_ACTIONS) {
+        if (!groups[a.group]) groups[a.group] = [];
+        groups[a.group].push(a);
+      }
+
+      let options = '';
+      for (const [groupName, actions] of Object.entries(groups)) {
+        options += `<optgroup label="${groupName}">`;
+        for (const a of actions) {
+          const sel = a.value === currentAction ? 'selected' : '';
+          options += `<option value="${a.value}" ${sel}>${a.label}</option>`;
+        }
+        options += '</optgroup>';
+      }
+
+      const isDefault = currentAction === defaultAction;
+      const rowColor = isDefault ? '' : 'background:rgba(76,175,80,0.08);';
+
+      html += `
+        <tr style="border-bottom:1px solid #1a2540;${rowColor}">
+          <td style="padding:6px 8px;font-weight:bold;color:#cfe3ff;">${btnLabel}</td>
+          <td style="padding:6px 8px;">
+            <select data-btn="${idx}" style="width:100%;background:#0a1020;color:#fff;border:1px solid #2a3a5e;padding:5px;border-radius:3px;">
+              ${options}
+            </select>
+          </td>
+          <td style="padding:6px 8px;color:#556;font-size:11px;">${defaultLabel}</td>
+        </tr>
+      `;
+    }
+
+    html += '</tbody></table>';
+    stage.innerHTML = html;
+
+    // 绑定下拉事件
+    stage.querySelectorAll('select[data-btn]').forEach(sel => {
+      sel.addEventListener('change', () => {
+        const idx = Number(sel.dataset.btn);
+        this._gamepadBindings[idx] = sel.value;
+        this._setStatus('已修改（未保存）');
+      });
+    });
+
+    // 右侧属性面板：死区 + 扳机阈值
+    props.innerHTML = `
+      <h4 style="color:#4CAF50;">手柄参数</h4>
+      <div class="uie-prop-row">
+        <label style="width:80px;">摇杆死区</label>
+        <input type="number" id="gp-deadzone" value="${this._gamepadDeadzone}" step="0.01" min="0" max="0.5" style="width:70px;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:5px;border-radius:3px;">
+      </div>
+      <div class="uie-prop-empty" style="margin-bottom:8px;font-size:11px;">推荐 0.15~0.3，越大松手回归越灵敏</div>
+      <div class="uie-prop-row">
+        <label style="width:80px;">扳机阈值</label>
+        <input type="number" id="gp-trigger" value="${this._gamepadTriggerThreshold}" step="0.05" min="0.1" max="0.9" style="width:70px;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:5px;border-radius:3px;">
+      </div>
+      <div class="uie-prop-empty" style="margin-bottom:16px;font-size:11px;">LT/RT 超过此值视为按下</div>
+      <div style="border-top:1px solid #2a3a5e;padding-top:12px;margin-top:12px;">
+        <h4 style="color:#778;font-size:12px;">固定映射（不可更改）</h4>
+        <p style="color:#556;font-size:11px;line-height:1.6;">
+          左摇杆 → 移动（模拟量）<br>
+          右摇杆 → 瞄准准星<br>
+          十字键 → 方向移动（数字）
+        </p>
+      </div>
+    `;
+
+    const dzInput = props.querySelector('#gp-deadzone');
+    const tgInput = props.querySelector('#gp-trigger');
+    if (dzInput) dzInput.addEventListener('input', () => {
+      const v = parseFloat(dzInput.value);
+      if (!isNaN(v) && v >= 0 && v <= 0.5) this._gamepadDeadzone = v;
+    });
+    if (tgInput) tgInput.addEventListener('input', () => {
+      const v = parseFloat(tgInput.value);
+      if (!isNaN(v) && v >= 0.1 && v <= 0.9) this._gamepadTriggerThreshold = v;
+    });
   }
 }
 export default UIEditor;

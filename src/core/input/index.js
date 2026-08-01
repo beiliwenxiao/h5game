@@ -28,3 +28,20 @@ export {
   HANDLER_CONSTRAINTS,
   matchesConstraint
 } from './InputActionRouter.js';
+
+export { GamepadManager, ATTACK_BUTTON } from './GamepadManager.js';
+
+export {
+  PadButton,
+  PadAxis,
+  DEFAULT_BINDINGS,
+  ATTACK_ACTION,
+  NONE_ACTION,
+  PAD_LAYOUT,
+  PAD_BUTTON_LABELS,
+  BINDING_DESCRIPTIONS,
+  BINDABLE_ACTIONS,
+  ACTION_LABELS,
+  isStandardMapping,
+  looksLikeXboxPad
+} from './Xbox360Profile.js';

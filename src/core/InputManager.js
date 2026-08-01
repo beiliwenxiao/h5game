@@ -10,9 +10,11 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  ************************************************************/
 
+import { GamepadManager } from './input/GamepadManager.js';
+
 /**
  * 输入管理器
- * 统一处理键盘、鼠标输入
+ * 统一处理键盘、鼠标、手柄输入
  */
 export class InputManager {
     constructor(canvas) {
@@ -22,6 +24,19 @@ export class InputManager {
         this.keys = new Map();
         this.keysPressed = new Map(); // 本帧按下的键
         this.keysReleased = new Map(); // 本帧释放的键
+        
+        // 手柄状态（独立存放，查询时与键盘取或；不写进 keys 以免干扰键盘的按下/释放判定）
+        this.gamepad = new GamepadManager();
+        this._padDown = new Set();
+        this._padPressed = new Set();
+        this._padReleased = new Set();
+        this._padMouseButtons = new Set();   // 手柄注入的虚拟鼠标按键
+        this._padCursorActive = false;       // 本帧准星是否由右摇杆控制
+        this._padPolledThisFrame = false;    // 帧守卫：本帧是否已轮询手柄
+        
+        // 手柄虚拟准星：以画面中心（≈玩家所在处，相机跟随）为原点，右摇杆偏移出瞄准点
+        this.gamepadCursorRadius = 150;
+        this.gamepadEnabled = true;
         
         // 鼠标状态
         this.mouse = {
@@ -149,8 +164,8 @@ export class InputManager {
             });
         }
         
-        // 阻止游戏快捷键的浏览器默认行为
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(key) || isDebugPanelKey) {
+        // 阻止游戏快捷键的浏览器默认行为（F1 默认打开帮助，需拦截）
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab', 'F1'].includes(key) || isDebugPanelKey) {
             event.preventDefault();
             if (isDebugPanelKey) {
                 console.log('[InputManager][DebugPanel] 已阻止反引号键默认行为', {
@@ -294,21 +309,21 @@ export class InputManager {
     }
 
     /**
-     * 检查键是否按下
+     * 检查键是否按下（键盘或手柄）
      * @param {string} key - 键名
      * @returns {boolean}
      */
     isKeyDown(key) {
-        return this.keys.get(key) === true;
+        return this.keys.get(key) === true || this._padDown.has(key);
     }
 
     /**
-     * 检查键是否在本帧按下
+     * 检查键是否在本帧按下（键盘或手柄）
      * @param {string} key - 键名
      * @returns {boolean}
      */
     isKeyPressed(key) {
-        return this.keysPressed.get(key) === true;
+        return this.keysPressed.get(key) === true || this._padPressed.has(key);
     }
 
     /**
@@ -316,24 +331,145 @@ export class InputManager {
      * @returns {boolean}
      */
     isAnyKeyPressed() {
-        return this.keysPressed.size > 0;
+        return this.keysPressed.size > 0 || this._padPressed.size > 0;
     }
 
     /**
-     * 检查键是否在本帧释放
+     * 检查键是否在本帧释放（键盘或手柄）
      * @param {string} key - 键名
      * @returns {boolean}
      */
     isKeyReleased(key) {
-        return this.keysReleased.get(key) === true;
+        return this.keysReleased.get(key) === true || this._padReleased.has(key);
     }
 
     /**
-     * 获取本帧按下的所有键
+     * 获取本帧按下的所有键（含手柄）
      * @returns {Array<string>}
      */
     getKeysPressed() {
-        return Array.from(this.keysPressed.keys());
+        const keys = new Set(this.keysPressed.keys());
+        for (const k of this._padPressed) keys.add(k);
+        return Array.from(keys);
+    }
+
+    // ─── 手柄 ───────────────────────────────────────────
+
+    /**
+     * 帧首轮询手柄并注入虚拟键 / 虚拟准星。
+     * 必须在任何 isKeyDown/isKeyPressed 读取之前调用（GameEngine.update 开头），
+     * 否则本帧读到的是上一帧的手柄状态。
+     * @returns {boolean} 本帧是否有可用手柄
+     */
+    pollGamepads() {
+        if (!this.gamepadEnabled || !this.gamepad) return false;
+        // 帧守卫：一帧只真正轮询一次。GameEngine 路径与场景 update 可能都会调，
+        // 重复 poll 会用刚写入的状态做对比，导致本帧 pressed/released 被清空。
+        // 守卫在帧末 update() 重置。
+        if (this._padPolledThisFrame) return this.isGamepadConnected();
+        this._padPolledThisFrame = true;
+
+        const active = this.gamepad.poll();
+        this._padDown.clear();
+        this._padPressed.clear();
+        this._padReleased.clear();
+        this._padMouseButtons.clear();
+        this._padCursorActive = false;
+        if (!active) return false;
+
+        const vk = this.gamepad.getVirtualKeys();
+        for (const k of vk.down) this._padDown.add(k);
+        for (const k of vk.pressed) this._padPressed.add(k);
+        for (const k of vk.released) this._padReleased.add(k);
+
+        this._updateGamepadCursor();
+        return true;
+    }
+
+    /**
+     * 右摇杆驱动虚拟准星，A 键注入鼠标左键（攻击瞄准复用鼠标那套逻辑）。
+     * 准星原点取画面中心：相机跟随玩家，中心即玩家位置，无需知道玩家实体。
+     * @private
+     */
+    _updateGamepadCursor() {
+        const aim = this.gamepad.getAimVector();
+        if (aim.magnitude > 0) {
+            const cx = this.canvas ? this.canvas.width / 2 : 0;
+            const cy = this.canvas ? this.canvas.height / 2 : 0;
+            this.mouse.x = cx + aim.x * this.gamepadCursorRadius;
+            this.mouse.y = cy + aim.y * this.gamepadCursorRadius;
+            this.mouse.worldX = this.mouse.x + this.cameraX;
+            this.mouse.worldY = this.mouse.y + this.cameraY;
+            this._padCursorActive = true;
+        }
+
+        // 攻击键（绑定为 attack 的按钮，默认 A）：等价按住鼠标左键
+        // （MeleeAttackSystem 读 isMouseButtonDown(0)），支持编辑器改绑
+        if (this.gamepad.isAttackDown()) {
+            this._padMouseButtons.add(0);
+            if (this.gamepad.isAttackPressed()) this.mouse.clicked = true;
+        }
+    }
+
+    /** 是否有手柄连接 */
+    isGamepadConnected() {
+        return !!this.gamepad && this.gamepad.isConnected();
+    }
+
+    /** 手柄信息（无手柄返回 null） */
+    getGamepadInfo() {
+        return this.gamepad ? this.gamepad.info : null;
+    }
+
+    /** 本帧准星是否由手柄右摇杆控制（供 UI 画准星） */
+    isGamepadCursorActive() {
+        return this._padCursorActive;
+    }
+
+    /** 启用/禁用手柄输入 */
+    setGamepadEnabled(enabled) {
+        this.gamepadEnabled = !!enabled;
+        if (!this.gamepadEnabled) {
+            this._padDown.clear();
+            this._padPressed.clear();
+            this._padReleased.clear();
+            this._padMouseButtons.clear();
+            this._padCursorActive = false;
+        }
+    }
+
+    /**
+     * 移动输入向量。手柄左摇杆可给出模拟量（轻推慢走），键盘/十字键为 ±1。
+     * MovementSystem 优先用它，取不到再退回逐键判断。
+     * @returns {{x:number, y:number, magnitude:number}}
+     */
+    getMoveAxis() {
+        // 手柄优先：摇杆有输入时用模拟量
+        if (this.gamepad && this.gamepad.isConnected()) {
+            const mv = this.gamepad.getMoveVector();
+            if (mv.magnitude > 0) return mv;
+        }
+
+        let x = 0, y = 0;
+        if (this.keys.get('left') === true) x -= 1;
+        if (this.keys.get('right') === true) x += 1;
+        if (this.keys.get('up') === true) y -= 1;
+        if (this.keys.get('down') === true) y += 1;
+        if (x === 0 && y === 0) return { x: 0, y: 0, magnitude: 0 };
+
+        const mag = Math.hypot(x, y);
+        return { x: x / mag, y: y / mag, magnitude: 1 };
+    }
+
+    /**
+     * 手柄震动（不支持的平台静默忽略）
+     * @param {number} [duration=200]
+     * @param {number} [strong=0.6]
+     * @param {number} [weak=0.3]
+     */
+    vibrate(duration, strong, weak) {
+        if (this.gamepad) return this.gamepad.vibrate(duration, strong, weak);
+        return Promise.resolve(false);
     }
 
     /**
@@ -391,7 +527,7 @@ export class InputManager {
      * @returns {boolean}
      */
     isMouseDown() {
-        return this.mouse.isDown;
+        return this.mouse.isDown || this._padMouseButtons.size > 0;
     }
 
     /**
@@ -400,7 +536,7 @@ export class InputManager {
      * @returns {boolean}
      */
     isMouseButtonDown(button) {
-        return this.mouse.buttons.has(button);
+        return this.mouse.buttons.has(button) || this._padMouseButtons.has(button);
     }
 
     /**
@@ -547,6 +683,9 @@ export class InputManager {
         // 清除鼠标点击状态
         this.mouse.clicked = false;
         this.mouse.handled = false;  // 重置处理标记
+        
+        // 重置手柄帧守卫：下一帧允许再次真正轮询
+        this._padPolledThisFrame = false;
     }
 
     /**
@@ -560,6 +699,11 @@ export class InputManager {
         this.mouse.isDown = false;
         this.mouse.button = -1;
         this.mouse.buttons.clear();
+        this._padDown.clear();
+        this._padPressed.clear();
+        this._padReleased.clear();
+        this._padMouseButtons.clear();
+        this._padCursorActive = false;
     }
 
     /**
@@ -576,6 +720,7 @@ export class InputManager {
         this.canvas.removeEventListener('touchend', this.handleTouchEnd);
         this.canvas.removeEventListener('touchmove', this.handleTouchMove);
         
+        if (this.gamepad) this.gamepad.destroy();
         this.clear();
         this.clearHotkeys();
         console.log('InputManager: Destroyed');

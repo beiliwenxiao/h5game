@@ -206,32 +206,32 @@ export class MovementSystem {
     const sprite = playerEntity.getComponent('sprite');
     if (!movement) return;
     
-    // 检测方向键输入
+    // 方向输入：优先取归一化的方向向量（手柄摇杆带模拟量），
+    // 拿不到再退回逐键判断（旧版 InputManager / 测试替身）
     let vx = 0;
     let vy = 0;
-    
-    const upPressed = this.inputManager.isKeyDown('up');
-    const downPressed = this.inputManager.isKeyDown('down');
-    const leftPressed = this.inputManager.isKeyDown('left');
-    const rightPressed = this.inputManager.isKeyDown('right');
-    
-    if (upPressed) {
-      vy -= 1;
-    }
-    if (downPressed) {
-      vy += 1;
-    }
-    if (leftPressed) {
-      vx -= 1;
-    }
-    if (rightPressed) {
-      vx += 1;
-    }
-    
+    let magnitude = 0;
 
-    
-    // 如果有键盘输入
-    if (vx !== 0 || vy !== 0) {
+    if (typeof this.inputManager.getMoveAxis === 'function') {
+      const axis = this.inputManager.getMoveAxis();
+      vx = axis.x;
+      vy = axis.y;
+      magnitude = axis.magnitude;
+    } else {
+      if (this.inputManager.isKeyDown('up')) vy -= 1;
+      if (this.inputManager.isKeyDown('down')) vy += 1;
+      if (this.inputManager.isKeyDown('left')) vx -= 1;
+      if (this.inputManager.isKeyDown('right')) vx += 1;
+      if (vx !== 0 || vy !== 0) {
+        const len = Math.hypot(vx, vy);
+        vx /= len;
+        vy /= len;
+        magnitude = 1;
+      }
+    }
+
+    // 如果有方向输入
+    if (magnitude > 0) {
       // 获取修改后的移动速度（考虑状态效果）
       let speed = movement.speed;
       if (this.statusEffectSystem) {
@@ -239,10 +239,9 @@ export class MovementSystem {
         speed = modifiedStats.speed;
       }
       
-      // 归一化方向向量（避免斜向移动过快）
-      const magnitude = Math.sqrt(vx * vx + vy * vy);
-      vx = (vx / magnitude) * speed;
-      vy = (vy / magnitude) * speed;
+      // vx/vy 已归一化（斜向不会超速）；magnitude 为摇杆推杆量，键盘恒为 1
+      vx = vx * speed * magnitude;
+      vy = vy * speed * magnitude;
       
       // 开始键盘移动
       movement.startKeyboardMovement(vx, vy);

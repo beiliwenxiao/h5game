@@ -155,6 +155,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   update(deltaTime) {
     if (!this.isActive) return;
 
+    // 手柄轮询：必须在本场景读取任何输入之前（本场景在 super.update 之前就读 E/N 等键）。
+    // 帧守卫保证一帧只真正轮询一次，super.update 里的重复调用会被跳过。
+    if (this.inputManager && this.inputManager.pollGamepads) this.inputManager.pollGamepads();
+
     // 传送淡黑效果更新
     this._updateTeleportFade(deltaTime);
 

@@ -52,6 +52,7 @@ import { Minimap } from '../../../src/ui/Minimap.js';
 import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
 import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
+import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -470,6 +471,44 @@ export class BaseGameScene extends PrologueScene {
       this.performanceMonitor.toggle();
       console.log('性能监控:', this.performanceMonitor.enabled ? '开启' : '关闭');
     }, { cooldown: 300 });
+
+    // 手柄映射面板切换 (F1)
+    this.inputManager.registerHotkey('toggle_gamepad_panel', ['F1'], () => {
+      if (this.gamepadPanel) this.gamepadPanel.toggle();
+    }, { cooldown: 300 });
+
+    // 手柄连接时提示 + 轻微震动反馈；Guide(Xbox) 键切换手柄面板
+    if (this.inputManager.gamepad) {
+      const gp = this.inputManager.gamepad;
+      gp.onConnect((info) => {
+        if (this.notificationSystem) {
+          this.notificationSystem.addNotification(
+            `${info.isXbox ? 'Xbox 手柄' : '手柄'}已连接（按 F1 查看按键）`, 'success');
+        }
+        this.inputManager.vibrate(180, 0.5, 0.3);
+      });
+      gp.onDisconnect(() => {
+        if (this.notificationSystem) this.notificationSystem.addNotification('手柄已断开', 'info');
+      });
+    }
+  }
+
+  /**
+   * 加载编辑器保存的手柄绑定配置（config/gamepad.json）。
+   * 文件不存在或加载失败时静默使用 Xbox360Profile 的默认绑定。
+   * @private
+   */
+  _loadGamepadConfig() {
+    if (!this.inputManager || !this.inputManager.gamepad) return;
+    fetch('config/gamepad.json')
+      .then(res => res.ok ? res.json() : null)
+      .then(cfg => {
+        if (cfg) {
+          this.inputManager.gamepad.applyConfig(cfg);
+          console.log('BaseGameScene: 已加载手柄绑定配置 config/gamepad.json');
+        }
+      })
+      .catch(() => { /* 无配置文件，用默认绑定 */ });
   }
 
   /**
@@ -749,8 +788,21 @@ export class BaseGameScene extends PrologueScene {
       anchorBottom: this.logicalHeight - 100
     });
 
+    // 手柄面板（Xbox 360）：HUD 常驻指示 + 完整映射图（F1 打开）
+    this.gamepadPanel = new GamepadPanel({
+      inputManager: this.inputManager,
+      x: (this.logicalWidth - 460) / 2,
+      y: (this.logicalHeight - 360) / 2,
+      width: 460,
+      height: 360,
+      visible: false
+    });
+    // 加载编辑器保存的手柄绑定配置（不存在则用默认绑定）
+    this._loadGamepadConfig();
+
     // 注册 UI 元素到 UIClickHandler
     this.uiClickHandler.registerElement(this.itemGainedPopup);
+    this.uiClickHandler.registerElement(this.gamepadPanel);
     this.uiClickHandler.registerElement(this.inventoryPanel);
     this.uiClickHandler.registerElement(this.playerInfoPanel);
     this.uiClickHandler.registerElement(this.bottomControlBar);
@@ -2277,6 +2329,10 @@ export class BaseGameScene extends PrologueScene {
   update(deltaTime) {
     if (!this.isActive || this.isPaused) return;
     
+    // 手柄轮询：demo 用自建主循环（不走 GameEngine），故在场景 update 帧首轮询。
+    // 有帧守卫保护，重复调用（子类已 poll / GameEngine 已 poll）会被跳过。
+    if (this.inputManager && this.inputManager.pollGamepads) this.inputManager.pollGamepads();
+    
     // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
     this._updatePromptSwitch();
     
@@ -3570,6 +3626,11 @@ export class BaseGameScene extends PrologueScene {
     if (this.notificationSystem) this.notificationSystem.render(ctx);
     // 获得物品弹窗（最上层）
     if (this.itemGainedPopup) this.itemGainedPopup.render(ctx);
+    // 手柄 HUD / 面板（最上层，HUD 手柄连上即显示）
+    if (this.gamepadPanel) {
+      this.gamepadPanel.update(16);
+      this.gamepadPanel.render(ctx);
+    }
   }
 
   /**

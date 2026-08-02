@@ -1,0 +1,68 @@
+---
+inclusion: fileMatch
+fileMatchPattern: '{**/EffectZoneRenderer*,**/Particle*,**/ParticleSystem*,**/SceneEditorAssets*,**/Scene1Terrain*}'
+---
+
+# 特效区域（effectZone）
+
+## 概述
+
+`type: 'effectZone'` 是编辑器中的多边形对象，在游戏运行时区域内持续生成粒子，实现火焰、流水、湖面、冰面等面状特效。
+
+## 数据结构
+
+```json
+{
+  "type": "effectZone",
+  "name": "特效区域",
+  "effectType": "fire",
+  "points": [[x,y], ...],
+  "x": minX, "y": minY, "width": w, "height": h,
+  "particleRate": 12,
+  "particleLife": 1.2,
+  "particleSize": 6,
+  "particleSpeed": 40,
+  "particleColor": "#ff6622",
+  "particleAlpha": 0.8,
+  "fillColor": "rgba(255,120,30,0.15)",
+  "borderColor": "rgba(255,140,40,0.7)"
+}
+```
+
+## 模块
+
+| 文件 | 职责 |
+|---|---|
+| `src/rendering/EffectZoneRenderer.js` | 收集场景 effectZone → 按 rate 在多边形内随机生成粒子 |
+| `src/rendering/Particle.js` | 粒子渲染，支持 shape: circle/streak/ripple |
+| `editor/SceneEditorAssets.js` | "图形"标签页可拖入"特效区域" |
+| `editor/SceneEditorUI.js` | 属性面板：特效类型/粒子参数/预览色 |
+| `editor/SceneEditorCanvas.js` | 编辑器内渲染（橙色虚线多边形 + 标签） |
+| `editor/SceneEditorInteraction.js` | 命中检测 + 顶点拖拽 + 右键菜单 |
+
+## 特效预设
+
+| effectType | shape | 生成位置 | 表现 |
+|---|---|---|---|
+| fire | circle（火焰渐变） | 底部 30% | 上浮红黄粒子 |
+| water | streak（扁平光条） | 均匀分布 | 水平流动蓝色条纹 |
+| lake | ripple（椭圆环） | 均匀分布 | 扩散淡出涟漪 |
+| ice | circle | 均匀分布 | 小亮点缓慢上飘 |
+| smoke | circle | 底部 30% | 灰白大块上升 |
+| sparkle | circle | 均匀分布 | 金色快闪小点 |
+
+## 粒子形状（Particle.shape）
+
+- `circle`：默认实心圆（火焰加渐变发光）
+- `streak`：水平扁平椭圆光条（宽=size×3.5，高=size×0.6），模拟水面波光
+- `ripple`：扁平椭圆环 + stroke，随生命从 1x 扩大到 3x 并淡出
+
+## 接入路径
+
+- 单 chunk 场景：`BaseGameScene._initEditorTerrain` → `_initEffectZones(sceneId)` 异步加载
+- 多 chunk 场景：`DataDrivenPrologueScene._initMultiChunkEffectZones` 动态 import + 遍历所有 chunk
+- 每帧 `effectZoneRenderer.update(deltaTime)` 生成粒子，由已有 `particleSystem.update/render` 驱动
+
+## 编辑器使用提示
+
+水面效果建议：生成速率 40~60、粒子大小 2~3、生命 2~3 秒。条纹越密越小越透明越像水面。

@@ -1,6 +1,6 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/MovementSystem.js,**/Xbox360Profile.js,**/GamepadManager.js}'
+fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/MovementSystem.js,**/Xbox360Profile.js,**/GamepadManager.js,**/UIEditor.js}'
 ---
 
 # 手柄支持（Xbox 360 / W3C Standard Gamepad）
@@ -66,6 +66,32 @@ LS 格挡        RS 取消选中    F1 手柄按键图
 ```
 
 `GamepadManager.setBinding(buttonIndex, key)` 可运行时改绑定；构造时传 `options.bindings` 覆盖默认。
+
+## 编辑器绑定配置（UIEditor 手柄标签页）
+
+UIEditor 的第三个标签页 `🎮 手柄`：
+- 左侧表格：每个手柄按钮一行 + 下拉选择可绑定动作（分组：战斗/移动/技能/快捷/面板/其它）
+- 右侧：摇杆死区 + 扳机阈值数值输入
+- 保存到 `config/gamepad.json`（与 UILayout.desktop/mobile.json 同目录）
+- 游戏运行时 `BaseGameScene._loadGamepadConfig()` 读取并 `GamepadManager.applyConfig(cfg)`
+
+### 可绑定动作清单（Xbox360Profile.BINDABLE_ACTIONS）
+
+`ATTACK_ACTION`（攻击，走虚拟鼠标）、`NONE_ACTION`（无）、以及所有虚拟键名。`ACTION_LABELS` 提供中文名快速查表。
+
+### 攻击键可配置
+
+绑定值为 `ATTACK_ACTION`（`'attack'`）的按钮走虚拟鼠标左键。可以把攻击从 A 改到 RT 等：
+- `GamepadManager.getAttackButtons()` → 所有绑定为 attack 的按钮索引列表
+- `GamepadManager.isAttackDown()` / `isAttackPressed()` → 查询
+
+## Demo 主循环与帧守卫
+
+张角 demo 不走 `GameEngine`（自建主循环），所以 `pollGamepads` 必须在场景 update 帧首调用：
+- `BaseGameScene.update` 开头：`this.inputManager.pollGamepads()`
+- `DataDrivenPrologueScene.update` 开头也调一次（它在 `super.update` 前就读输入）
+
+**帧守卫**：`InputManager._padPolledThisFrame`，一帧只真正轮询一次。`InputManager.update()`（帧末清帧）重置。重复调用（GameEngine + 场景）不会互相清空 pressed/released。
 
 ## 测试
 

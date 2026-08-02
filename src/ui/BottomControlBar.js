@@ -17,6 +17,7 @@
 
 import { UIElement } from './UIElement.js';
 import { ItemIconRenderer } from './ItemIconRenderer.js';
+import { InputHints } from '../core/input/InputHints.js';
 
 /**
  * 底部控制栏
@@ -72,12 +73,15 @@ export class BottomControlBar extends UIElement {
     };
     
     this.skillSlots = [];
+    // hintAction 映射：让每个槽位按当前输入方案取快捷键名
+    const slotHintActions = ['potionHp', 'potionMp', 'skill1', 'skill2', 'skill3', 'heal', 'meditation'];
     for (let i = 0; i < totalSlots; i++) {
       this.skillSlots.push({
         x: startX + i * (slotSize + slotGap),
         y: 50,
         size: slotSize,
         hotkey: `${i + 1}`,
+        hintAction: slotHintActions[i] || '',
         skillIndex: i < 2 ? -1 : i - 2, // 前2个是药水，后5个是技能(0-4)
         isPotion: i < 2 // 1、2号槽是药水槽
       });
@@ -400,13 +404,14 @@ export class BottomControlBar extends UIElement {
         }
       }
       
-      // 快捷键提示（槽下方）
+      // 快捷键提示（槽下方）—— 手柄连接时显示手柄按钮名
       if (this.showHotkeyNumbers) {
+        const hotkeyText = slot.hintAction ? InputHints.key(slot.hintAction) : slot.hotkey;
         ctx.fillStyle = '#ffd479';
         ctx.font = 'bold 11px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
-        ctx.fillText(slot.hotkey, slotX, slotY + halfSize + 13);
+        ctx.fillText(hotkeyText, slotX, slotY + halfSize + 13);
       }
 
       // 名称显示（槽上方）

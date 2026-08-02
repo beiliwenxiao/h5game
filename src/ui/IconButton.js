@@ -11,6 +11,7 @@
  ************************************************************/
 
 import { UIElement } from './UIElement.js';
+import { InputHints } from '../core/input/InputHints.js';
 
 /**
  * IconButton - 通用图标按钮（Canvas 渲染，可点击）
@@ -38,7 +39,8 @@ export class IconButton extends UIElement {
     });
     this.icon = options.icon || '';
     this.label = options.label || '';
-    this.hotkey = options.hotkey || '';   // 快捷键提示（如 'C'、'B'）
+    this.hotkey = options.hotkey || '';   // 静态快捷键提示（兜底，优先用 hintAction）
+    this.hintAction = options.hintAction || ''; // InputHints 动作名：每帧取当前方案的按键名
     this.onClick = options.onClick || null;
     this.bgColor = options.bgColor || 'rgba(40, 40, 40, 0.85)';
     this.borderColor = options.borderColor || '#888';
@@ -94,13 +96,14 @@ export class IconButton extends UIElement {
       ctx.font = `${Math.floor(h * 0.22)}px Arial`;
       ctx.fillText(this.label, cx, cy + h * 0.3);
     }
-    // 快捷键（右上角）
-    if (this.hotkey) {
+    // 快捷键（右上角）—— 手柄插上时自动显示手柄按钮名
+    const hotkeyText = this.hintAction ? InputHints.key(this.hintAction) : this.hotkey;
+    if (hotkeyText) {
       ctx.fillStyle = '#ffd479';
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       ctx.font = `bold ${Math.floor(h * 0.26)}px Arial`;
-      ctx.fillText(this.hotkey, x + w - 3, y + 2);
+      ctx.fillText(hotkeyText, x + w - 3, y + 2);
     }
     // 冷却：扇形遮罩 + 倒计时文字（与技能栏 SkillBar 一致的样式）
     if (this.cdRemaining > 0 && this.cdTotal > 0) {

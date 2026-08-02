@@ -695,25 +695,25 @@ export class BaseGameScene extends PrologueScene {
     if (!this.isMobileLayout) {
       this.bagButton = new IconButton({
         x: 946, y: 640, width: 50, height: 50,
-        icon: '🎒', label: '背包', hotkey: InputHints.key('bag'),
+        icon: '🎒', label: '背包', hintAction: 'bag',
         onClick: () => { if (this.backpackPanel) this.backpackPanel.toggle(); }
       });
       // 轻功（按下进入瞄准，左键在射程内确认瞬移）
       this.flightButton = new IconButton({
         x: 722, y: 640, width: 50, height: 50,
-        icon: '💨', label: '轻功', hotkey: InputHints.key('flight'),
+        icon: '💨', label: '轻功', hintAction: 'flight',
         onClick: () => { this.enterPCAimMode('flight'); }
       });
       // 投掷（按下进入瞄准，左键在射程内确认投掷）
       this.throwButton = new IconButton({
         x: 778, y: 640, width: 50, height: 50,
-        icon: '🎯', label: '投掷', hotkey: InputHints.key('throw'),
+        icon: '🎯', label: '投掷', hintAction: 'throw',
         onClick: () => { this.enterPCAimMode('throw'); }
       });
       // 格挡（按下激活格挡防护）
       this.blockButton = new IconButton({
         x: 666, y: 640, width: 50, height: 50,
-        icon: '🛡', label: '格挡', hotkey: InputHints.key('block'),
+        icon: '🛡', label: '格挡', hintAction: 'block',
         onClick: () => { this.activateBlock(); }
       });
     }

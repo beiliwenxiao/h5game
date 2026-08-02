@@ -139,11 +139,11 @@
         "start": {
           "speaker": "旁白",
           "portrait": null,
-          "text": "你从黑暗中醒来，饥寒交迫。按 C 查看属性",
+          "text": "你从黑暗中醒来，饥寒交迫。{bag} 查看属性和背包",
           "nextNode": null
         }
       },
-      "scene": "act1"
+      "scene": "s0-0"
     },
     {
       "id": "tutorial_after_attribute",
@@ -172,7 +172,8 @@
           "text": "你发现一些物品。按E键拾取",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_inventory",
@@ -186,7 +187,8 @@
           "text": "按B键查看背包",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_equip",
@@ -200,7 +202,8 @@
           "text": "点击物品装备",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_equipment_panel",
@@ -214,7 +217,8 @@
           "text": "按V键查看装备",
           "nextNode": null
         }
-      }
+      },
+      "scene": "act1"
     },
     {
       "id": "tutorial_combat",
@@ -1504,7 +1508,9 @@
       },
       "if": {
         "op": "!=",
-        "left": { "var": "classSelected" },
+        "left": {
+          "var": "classSelected"
+        },
         "right": true
       },
       "do": [
@@ -1527,7 +1533,9 @@
       },
       "if": {
         "op": "!=",
-        "left": { "var": "classSelected" },
+        "left": {
+          "var": "classSelected"
+        },
         "right": true
       },
       "do": [
@@ -1550,7 +1558,9 @@
       },
       "if": {
         "op": "!=",
-        "left": { "var": "classSelected" },
+        "left": {
+          "var": "classSelected"
+        },
         "right": true
       },
       "do": [
@@ -1637,7 +1647,9 @@
       "do": [
         {
           "action": "heal",
-          "params": { "hp": 9999 }
+          "params": {
+            "hp": 9999
+          }
         },
         {
           "action": "startDialogue",
@@ -1691,7 +1703,9 @@
       "do": [
         {
           "action": "heal",
-          "params": { "hp": 9999 }
+          "params": {
+            "hp": 9999
+          }
         },
         {
           "action": "startDialogue",
@@ -1769,7 +1783,9 @@
       "do": [
         {
           "action": "heal",
-          "params": { "hp": 9999 }
+          "params": {
+            "hp": 9999
+          }
         },
         {
           "action": "startDialogue",
@@ -1904,7 +1920,9 @@
         },
         {
           "action": "wait",
-          "params": { "seconds": 1 }
+          "params": {
+            "seconds": 1
+          }
         },
         {
           "action": "startDialogue",
@@ -1926,17 +1944,24 @@
       "id": "trg_act6_ending_savior",
       "when": {
         "type": "sceneEnter",
-        "params": { "sceneId": "s3-3" }
+        "params": {
+          "sceneId": "s3-3"
+        }
       },
       "if": {
         "op": ">=",
-        "left": { "var": "act5Kills" },
+        "left": {
+          "var": "act5Kills"
+        },
         "right": 100
       },
       "do": [
         {
           "action": "setVar",
-          "params": { "key": "endingType", "value": "savior" }
+          "params": {
+            "key": "endingType",
+            "value": "savior"
+          }
         }
       ],
       "once": true
@@ -2382,18 +2407,24 @@
       },
       "if": {
         "op": "==",
-        "left": { "var": "act2Scene" },
+        "left": {
+          "var": "act2Scene"
+        },
         "right": true
       },
       "do": [
         {
           "action": "wait",
-          "params": { "seconds": 1 },
+          "params": {
+            "seconds": 1
+          },
           "await": true
         },
         {
           "action": "startDialogue",
-          "params": { "id": "equipment_upgrade" }
+          "params": {
+            "id": "equipment_upgrade"
+          }
         }
       ],
       "once": true
@@ -2408,18 +2439,24 @@
       },
       "if": {
         "op": "==",
-        "left": { "var": "act2Scene" },
+        "left": {
+          "var": "act2Scene"
+        },
         "right": true
       },
       "do": [
         {
           "action": "wait",
-          "params": { "seconds": 1 },
+          "params": {
+            "seconds": 1
+          },
           "await": true
         },
         {
           "action": "startDialogue",
-          "params": { "id": "talisman_water" }
+          "params": {
+            "id": "talisman_water"
+          }
         }
       ],
       "once": true
@@ -2429,22 +2466,30 @@
       "enabled": false,
       "when": {
         "type": "itemUsed",
-        "params": { "id": "talisman_water" }
+        "params": {
+          "id": "talisman_water"
+        }
       },
       "if": {
         "op": "==",
-        "left": { "var": "act2Scene" },
+        "left": {
+          "var": "act2Scene"
+        },
         "right": true
       },
       "do": [
         {
           "action": "wait",
-          "params": { "seconds": 1 },
+          "params": {
+            "seconds": 1
+          },
           "await": true
         },
         {
           "action": "startDialogue",
-          "params": { "id": "equipment_upgrade" }
+          "params": {
+            "id": "equipment_upgrade"
+          }
         }
       ],
       "once": true
@@ -2453,11 +2498,15 @@
       "id": "trg_act2_give_equipment",
       "when": {
         "type": "dialogueEnd",
-        "params": { "id": "equipment_upgrade" }
+        "params": {
+          "id": "equipment_upgrade"
+        }
       },
       "if": {
         "op": "==",
-        "left": { "var": "act2Scene" },
+        "left": {
+          "var": "act2Scene"
+        },
         "right": true
       },
       "do": [
@@ -2465,18 +2514,29 @@
           "action": "giveReward",
           "params": {
             "items": [
-              { "id": "cloth_belt", "quantity": 1 },
-              { "id": "straw_sandals", "quantity": 1 }
+              {
+                "id": "cloth_belt",
+                "quantity": 1
+              },
+              {
+                "id": "straw_sandals",
+                "quantity": 1
+              }
             ]
           }
         },
         {
           "action": "showTip",
-          "params": { "text": "得到 布腰带 和 草鞋，按 B 打开背包，装备后继续" }
+          "params": {
+            "text": "得到 布腰带 和 草鞋，按 B 打开背包，装备后继续"
+          }
         },
         {
           "action": "setVar",
-          "params": { "key": "act2WaitEquip", "value": true }
+          "params": {
+            "key": "act2WaitEquip",
+            "value": true
+          }
         }
       ],
       "once": true
@@ -2489,13 +2549,18 @@
       },
       "if": {
         "op": "==",
-        "left": { "var": "act2WaitEquip" },
+        "left": {
+          "var": "act2WaitEquip"
+        },
         "right": true
       },
       "do": [
         {
           "action": "addVar",
-          "params": { "key": "act2EquipCount", "delta": 1 }
+          "params": {
+            "key": "act2EquipCount",
+            "delta": 1
+          }
         }
       ],
       "once": false
@@ -2508,13 +2573,17 @@
       },
       "if": {
         "op": ">=",
-        "left": { "var": "act2EquipCount" },
+        "left": {
+          "var": "act2EquipCount"
+        },
         "right": 2
       },
       "do": [
         {
           "action": "completeScene",
-          "params": { "sceneId": "s1-1" }
+          "params": {
+            "sceneId": "s1-1"
+          }
         }
       ],
       "once": true
@@ -2760,9 +2829,7 @@
       "id": "tut_wake",
       "when": {
         "type": "sceneEnter",
-        "params": {
-          "sceneId": "scene_Prologue"
-        }
+        "params": {}
       },
       "if": {
         "op": "==",
@@ -2775,7 +2842,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "你从黑暗中醒来，饥寒交迫。按 WASD 四处走走看看"
+            "text": "你从黑暗中醒来，饥寒交迫。{move}四处走走看看"
           }
         }
       ],
@@ -2798,7 +2865,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "你发现一个熄灭的火堆，靠近它按 E 点燃"
+            "text": "你发现一个熄灭的火堆，靠近它 {interact} 点燃"
           }
         }
       ],
@@ -3241,7 +3308,10 @@
         "name": "布腰带",
         "type": "equipment",
         "subType": "belt",
-        "stats": { "defense": 2, "maxHp": 10 },
+        "stats": {
+          "defense": 2,
+          "maxHp": 10
+        },
         "description": "简单的布制腰带，聊胜于无",
         "rarity": 0,
         "maxStack": 1
@@ -3251,7 +3321,10 @@
         "name": "草鞋",
         "type": "equipment",
         "subType": "boots",
-        "stats": { "defense": 1, "speed": 3 },
+        "stats": {
+          "defense": 1,
+          "speed": 3
+        },
         "description": "用稻草编织的鞋子，轻便耐穿",
         "rarity": 0,
         "maxStack": 1

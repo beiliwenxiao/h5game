@@ -403,6 +403,8 @@ export class UIEditor {
 
     // 计算预览缩放（适配舞台容器宽度）
     const wrap = this.container.querySelector('.uie-stage-wrap');
+    // 布局画布需要居中展示
+    if (wrap) wrap.style.alignItems = 'center';
     const maxW = (wrap.clientWidth || 800) - 40;
     const maxH = (wrap.clientHeight || 500) - 40;
     const cw = layout.canvas.width;
@@ -802,6 +804,10 @@ export class UIEditor {
     const props = this.container.querySelector('#uie-props');
     if (!stage || !props) return;
 
+    // 文案表格很长，取消垂直居中避免内容被裁切到容器外
+    const wrap = this.container.querySelector('.uie-stage-wrap');
+    if (wrap) wrap.style.alignItems = 'flex-start';
+
     if (!this._hintActions) {
       stage.innerHTML = '<div style="padding:40px;color:#ff8888;text-align:center;">InputHints 加载失败，提示文案编辑器不可用</div>';
       props.innerHTML = '';
@@ -812,7 +818,7 @@ export class UIEditor {
     stage.style.height = 'auto';
     stage.style.minHeight = '400px';
     stage.style.overflow = 'auto';
-    stage.style.padding = '20px';
+    stage.style.padding = '12px 20px 20px';
     stage.style.display = 'block';
 
     // 手柄列用绑定动作下拉：文案跟随绑定，不写死按钮名
@@ -825,21 +831,21 @@ export class UIEditor {
         <code style="color:#8fc">{bag}打开背包</code>，运行时按玩家当前设备替换。
         手柄列选的是"绑定动作"，实际按钮名由手柄绑定表反查，改绑定后提示自动跟着变。
       </p>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;line-height:2.2;">
         <thead>
           <tr style="border-bottom:1px solid #2a3a5e;">
-            <th style="text-align:left;padding:8px;color:#4CAF50;width:110px;">动作</th>
-            <th style="text-align:left;padding:8px;color:#4CAF50;width:120px;">PC 按键</th>
-            <th style="text-align:left;padding:8px;color:#4CAF50;width:90px;">PC 句式</th>
-            <th style="text-align:left;padding:8px;color:#4CAF50;width:130px;">Android 控件</th>
-            <th style="text-align:left;padding:8px;color:#4CAF50;width:150px;">手柄绑定动作</th>
-            <th style="text-align:left;padding:8px;color:#4CAF50;">预览（键鼠 / 触屏 / 手柄）</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;width:110px;">动作</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;width:120px;">PC 按键</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;width:90px;">PC 句式</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;width:130px;">Android 控件</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;width:150px;">手柄绑定动作</th>
+            <th style="text-align:left;padding:10px 8px;color:#4CAF50;">预览（键鼠 / 触屏 / 手柄）</th>
           </tr>
         </thead>
         <tbody>
     `;
 
-    const inputStyle = 'width:100%;background:#0a1020;color:#fff;border:1px solid #2a3a5e;padding:4px;border-radius:3px;font-size:12px;';
+    const inputStyle = 'width:100%;background:#0a1020;color:#fff;border:1px solid #2a3a5e;padding:6px 8px;border-radius:3px;font-size:12px;';
 
     for (const [action, def] of Object.entries(this._hintActions)) {
       const pcKey = (def.pc && def.pc.key) || '';
@@ -870,21 +876,21 @@ export class UIEditor {
 
       html += `
         <tr style="border-bottom:1px solid #1a2540;">
-          <td style="padding:6px 8px;font-weight:bold;color:#cfe3ff;">${action}</td>
-          <td style="padding:6px 8px;">
+          <td style="padding:10px 8px;font-weight:bold;color:#cfe3ff;">${action}</td>
+          <td style="padding:10px 8px;">
             <input type="text" data-hint-pckey="${action}" value="${pcKey}" style="${inputStyle}">
           </td>
-          <td style="padding:6px 8px;">
+          <td style="padding:10px 8px;">
             <select data-hint-pckind="${action}" style="${inputStyle}">
               <option value="key" ${pcKind === 'key' ? 'selected' : ''}>按X键</option>
               <option value="raw" ${pcKind === 'raw' ? 'selected' : ''}>点击X</option>
             </select>
           </td>
-          <td style="padding:6px 8px;">
+          <td style="padding:10px 8px;">
             <input type="text" data-hint-android="${action}" value="${android}" style="${inputStyle}">
           </td>
-          <td style="padding:6px 8px;">${padCell}</td>
-          <td style="padding:6px 8px;color:#9fb;">${preview}</td>
+          <td style="padding:10px 8px;">${padCell}</td>
+          <td style="padding:10px 8px;color:#9fb;">${preview}</td>
         </tr>
       `;
     }
@@ -941,6 +947,10 @@ export class UIEditor {
     const stage = this.container.querySelector('#uie-stage');
     const props = this.container.querySelector('#uie-props');
     if (!stage || !props) return;
+
+    // 表格长列表，取消垂直居中
+    const wrap = this.container.querySelector('.uie-stage-wrap');
+    if (wrap) wrap.style.alignItems = 'flex-start';
 
     if (!this._gamepadMeta) {
       stage.innerHTML = '<div style="padding:40px;color:#ff8888;text-align:center;">Xbox360Profile 加载失败，手柄编辑器不可用</div>';

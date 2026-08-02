@@ -12,10 +12,11 @@ const repoRoot = path.resolve(__dirname, '../../');
  * 拷贝运行时按字符串路径加载的资源目录。
  * 这些资源不是通过 import 引入的，Vite 不会自动处理，需要手动整体拷贝：
  *   - assets/  图片、音频等
- *   - data/    运行时 fetch 的 JSON 配置（ActXData.json、AudioConfig.json 等）
+ *   - data/    运行时 fetch 的剧情和资源数据
+ *   - config/  UIEditor、PanelEditor 与手柄绑定的运行时配置
  */
 function copyRuntimeDirsPlugin(outDir) {
-  const dirs = ['assets', 'data'];
+  const dirs = ['assets', 'data', 'config'];
   return {
     name: 'copy-runtime-dirs',
     apply: 'build',

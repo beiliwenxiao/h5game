@@ -118,8 +118,41 @@ export class UIEditor {
     this._buildUI();
     await this._loadFromFiles();
     await this._loadPanelLayout();
+    // 面板的内外框比例由面板编辑器维护，这里先把历史数据规范到该比例
+    this._normalizePanelAspects();
     await this._loadGamepadConfig();
     this._render();
+  }
+
+  /**
+   * 取组件被锁定的宽高比（来自面板编辑器的面板尺寸）。
+   * @param {Object} comp - UI 布局组件
+   * @returns {number|null} 宽/高比，无约束时返回 null
+   */
+  _getLockedAspect(comp) {
+    const panel = comp && this._panelLayouts ? this._panelLayouts[comp.id] : null;
+    if (!panel || !panel.width || !panel.height) return null;
+    return panel.width / panel.height;
+  }
+
+  /**
+   * 把面板类组件的尺寸规范到面板编辑器定义的比例。
+   * 取放大方向（面积不缩小），符合"等比时尽量最大化"。
+   */
+  _normalizePanelAspects() {
+    for (const platform of ['desktop', 'mobile']) {
+      const layout = this.layouts[platform];
+      if (!layout || !Array.isArray(layout.components)) continue;
+      for (const comp of layout.components) {
+        const aspect = this._getLockedAspect(comp);
+        if (!aspect) continue;
+        const byWidth = comp.width;
+        const byHeight = Math.round(comp.height * aspect);
+        const width = Math.max(byWidth, byHeight);
+        comp.width = width;
+        comp.height = Math.round(width / aspect);
+      }
+    }
   }
 
   /** 加载面板编辑器的布局数据（用于真实面板预览） */
@@ -375,8 +408,17 @@ export class UIEditor {
       ds.comp.x = Math.round(ds.startX + dx);
       ds.comp.y = Math.round(ds.startY + dy);
     } else {
-      ds.comp.width = Math.max(16, Math.round(ds.startW + dx));
-      ds.comp.height = Math.max(16, Math.round(ds.startH + dy));
+      const aspect = this._getLockedAspect(ds.comp);
+      if (aspect) {
+        // 面板只允许等比缩放：取水平/垂直中更大的推进量，既跟手又保持比例
+        const scale = Math.max((ds.startW + dx) / ds.startW, (ds.startH + dy) / ds.startH);
+        const width = Math.max(16, Math.round(ds.startW * scale));
+        ds.comp.width = width;
+        ds.comp.height = Math.max(16, Math.round(width / aspect));
+      } else {
+        ds.comp.width = Math.max(16, Math.round(ds.startW + dx));
+        ds.comp.height = Math.max(16, Math.round(ds.startH + dy));
+      }
     }
     this._render();
   }
@@ -398,13 +440,27 @@ export class UIEditor {
           <input type="number" data-k="${k}" value="${comp[k]}">
         </div>
       `).join('')}
+      ${this._getLockedAspect(comp)
+        ? '<div class="uie-prop-empty" style="margin-top:6px">比例由面板编辑器维护，仅支持等比缩放（改宽或高会自动联动）。</div>'
+        : ''}
       <div class="uie-prop-empty" style="margin-top:10px">画布: ${layout.canvas.width}×${layout.canvas.height}</div>
     `;
     props.querySelectorAll('input[data-k]').forEach(input => {
       input.addEventListener('input', () => {
         const k = input.dataset.k;
         const v = parseInt(input.value, 10);
-        if (!isNaN(v)) { comp[k] = v; this._render(); }
+        if (isNaN(v)) return;
+        const aspect = this._getLockedAspect(comp);
+        if (aspect && k === 'width') {
+          comp.width = v;
+          comp.height = Math.max(16, Math.round(v / aspect));
+        } else if (aspect && k === 'height') {
+          comp.height = v;
+          comp.width = Math.max(16, Math.round(v * aspect));
+        } else {
+          comp[k] = v;
+        }
+        this._render();
       });
     });
   }

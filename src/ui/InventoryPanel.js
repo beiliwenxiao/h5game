@@ -175,6 +175,8 @@ export class InventoryPanel extends UIElement {
         color: f.color,
         bgColor: f.bgColor,
         borderColor: f.borderColor,
+        activeBgColor: f.activeBgColor,
+        activeBorderColor: f.activeBorderColor,
         fontSize: f.fontSize
       }));
     }
@@ -205,7 +207,8 @@ export class InventoryPanel extends UIElement {
     } else {
       count = this.getFilteredItems(inv).length;
     }
-    return Math.ceil(count / this.slotsPerRow);
+    // 至少铺满可见区域，避免筛选结果稀少时网格塌缩
+    return Math.max(Math.ceil(count / this.slotsPerRow), this.maxVisibleRows);
   }
 
   /**
@@ -328,9 +331,11 @@ export class InventoryPanel extends UIElement {
     const x = this.x + (part?.x ?? 16);
     const y = this.y + (part?.y ?? this.height - 22);
     const width = part?.width || 120;
+    // 背景条高度跟随部件高度，保证面板缩放后比例一致
+    const height = part?.height || 20;
 
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(x - 6, y - 14, width, 20);
+    ctx.fillRect(x - height * 0.3, y - height * 0.7, width, height);
     ctx.fillStyle = part?.color || '#FFD700';
     ctx.font = `bold ${part?.fontSize || 13}px Arial`;
     ctx.textAlign = part?.align || 'left';
@@ -422,12 +427,17 @@ export class InventoryPanel extends UIElement {
       const buttonY = this.y + button.y;
       const isActive = inventoryComponent.currentFilter === button.name;
       
-      // 按钮背景
-      ctx.fillStyle = isActive ? 'rgba(100, 150, 255, 0.8)' : (button.bgColor || 'rgba(100, 100, 100, 0.5)');
+      // 按钮背景：激活态用 activeBgColor，常态用 bgColor。
+      // 两者必须分开配置，否则某个按钮的常态色被设成高亮色时会看起来"永远选中"。
+      ctx.fillStyle = isActive
+        ? (button.activeBgColor || 'rgba(100, 150, 255, 0.8)')
+        : (button.bgColor || 'rgba(100, 100, 100, 0.5)');
       ctx.fillRect(buttonX, buttonY, button.width, button.height);
       
       // 按钮边框
-      ctx.strokeStyle = isActive ? '#6496ff' : (button.borderColor || '#888');
+      ctx.strokeStyle = isActive
+        ? (button.activeBorderColor || '#6496ff')
+        : (button.borderColor || '#888');
       ctx.lineWidth = 1;
       ctx.strokeRect(buttonX, buttonY, button.width, button.height);
       
@@ -478,22 +488,29 @@ export class InventoryPanel extends UIElement {
         }
       }
     } else {
-      // 分类显示：只显示符合条件的物品，紧密排列
+      // 分类显示：符合条件的物品紧密排列，其余位置保留空格子，
+      // 保证切换筛选时网格始终存在（匹配项为 0 时也不会整片消失）。
       const filteredItems = this.getFilteredItems(inventoryComponent);
-      
-      for (let i = 0; i < filteredItems.length; i++) {
+      const totalCells = this.getTotalRows() * this.slotsPerRow;
+
+      for (let i = 0; i < totalCells; i++) {
         const row = Math.floor(i / this.slotsPerRow);
         const col = i % this.slotsPerRow;
-        
+
         const visibleRow = row - this.scrollRow;
         if (visibleRow < 0) continue;
         if (visibleRow >= this.maxVisibleRows) break;
-        
+
         const slotX = this.x + this.slotStartX + col * (this.slotSize + this.slotPadding);
         const slotY = this.y + this.slotStartY + visibleRow * (this.slotSize + this.slotPadding);
-        
+
         const filteredItem = filteredItems[i];
-        this.renderFilteredSlot(ctx, filteredItem, slotX, slotY, i);
+        if (filteredItem) {
+          this.renderFilteredSlot(ctx, filteredItem, slotX, slotY, filteredItem.index);
+        } else {
+          // 占位空格子：传 -1 避免与真实槽位的悬停/选中状态冲突
+          this.renderEmptySlot(ctx, slotX, slotY, -1);
+        }
       }
     }
     
@@ -506,8 +523,9 @@ export class InventoryPanel extends UIElement {
    * @param {CanvasRenderingContext2D} ctx
    */
   renderScrollbar(ctx) {
-    const totalRows = this.getTotalRows();
-    if (totalRows <= this.maxVisibleRows) return;
+    // 滚动条常驻：切换分类导致内容不足一屏时也保留，避免控件忽隐忽现。
+    // 不可滚动时滑块铺满轨道并降低对比度表示禁用。
+    const scrollable = this.getMaxScrollRow() > 0;
 
     const scrollbar = this._getLayoutPart('scrollbar');
     const track = this.getScrollbarTrackRect();
@@ -515,9 +533,13 @@ export class InventoryPanel extends UIElement {
     ctx.fillRect(track.x, track.y, track.width, track.height);
 
     const thumb = this.getScrollbarThumbRect();
-    ctx.fillStyle = this.scrollbarDragging
-      ? 'rgba(180,200,255,0.95)'
-      : (scrollbar?.thumbColor || 'rgba(180,180,180,0.8)');
+    if (this.scrollbarDragging) {
+      ctx.fillStyle = 'rgba(180,200,255,0.95)';
+    } else if (scrollable) {
+      ctx.fillStyle = scrollbar?.thumbColor || 'rgba(180,180,180,0.8)';
+    } else {
+      ctx.fillStyle = scrollbar?.thumbDisabledColor || 'rgba(180,180,180,0.3)';
+    }
     ctx.fillRect(thumb.x, thumb.y, thumb.width, thumb.height);
   }
 
@@ -604,8 +626,11 @@ export class InventoryPanel extends UIElement {
    * @param {number} slotIndex - 槽位索引
    */
   renderEmptySlot(ctx, x, y, slotIndex) {
-    const isHovered = this.hoveredSlot === slotIndex;
-    const isSelected = this.selectedSlot === slotIndex;
+    // slotIndex < 0 表示筛选视图里的占位格子，不参与悬停/选中判定。
+    // 否则它会与 hoveredSlot/selectedSlot 的初始值 -1 相等而被误判为选中（黄框）。
+    const isRealSlot = slotIndex >= 0;
+    const isHovered = isRealSlot && this.hoveredSlot === slotIndex;
+    const isSelected = isRealSlot && this.selectedSlot === slotIndex;
     this._renderSlotFrame(ctx, x, y, isHovered, isSelected);
   }
 
@@ -1534,7 +1559,11 @@ export class InventoryPanel extends UIElement {
     const inventoryComponent = this.entity.getComponent('inventory');
     if (inventoryComponent) {
       inventoryComponent.setFilter(filterName);
-      
+      // 切换分类后回到首行，避免沿用上一分类的滚动位置而显示空白区域
+      this.scrollRow = 0;
+      this.hoveredSlot = -1;
+      this.selectedSlot = -1;
+
       if (this.onFilterChange) {
         this.onFilterChange(filterName);
       }

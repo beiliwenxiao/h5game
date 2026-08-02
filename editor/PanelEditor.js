@@ -170,6 +170,12 @@ export class PanelEditor {
     this._dragState = null;
     // 方向键按住状态：每个方向独立计时，支持斜向微调。
     this._arrowKeyHolds = new Map();
+    this._arrowHistorySnapshot = null;
+    this._arrowHistoryChanged = false;
+    // 与场景编辑器一致的快照历史：仅保存真实布局数据，不保存选中/拖拽临时状态。
+    this.undoStack = [];
+    this.redoStack = [];
+    this.maxHistorySize = 50;
     // 画布缩放
     this.scale = 1;
 
@@ -181,11 +187,71 @@ export class PanelEditor {
     return this.panels[this.activePanelIndex] || null;
   }
 
+  _createHistorySnapshot() {
+    return JSON.stringify({ panels: this.panels, activePanelIndex: this.activePanelIndex });
+  }
+
+  _commitHistorySnapshot(snapshot) {
+    if (!snapshot || snapshot === this._createHistorySnapshot()) return false;
+    this.undoStack.push(snapshot);
+    if (this.undoStack.length > this.maxHistorySize) this.undoStack.shift();
+    this.redoStack = [];
+    this._updateHistoryButtons();
+    return true;
+  }
+
+  /** 保存当前变更前的状态；调用方应确保后续确实会修改布局。 */
+  saveHistory() {
+    this.undoStack.push(this._createHistorySnapshot());
+    if (this.undoStack.length > this.maxHistorySize) this.undoStack.shift();
+    this.redoStack = [];
+    this._updateHistoryButtons();
+    return true;
+  }
+
+  resetHistory() {
+    this.undoStack = [];
+    this.redoStack = [];
+    this._updateHistoryButtons();
+  }
+
+  _restoreHistorySnapshot(snapshot) {
+    const state = JSON.parse(snapshot);
+    this.panels = state.panels;
+    this.activePanelIndex = Math.max(0, Math.min(state.activePanelIndex || 0, this.panels.length - 1));
+    this._dragState = null;
+    this._clearArrowKeyHolds(false);
+    this._clearSelection();
+    this._render();
+  }
+
+  undo() {
+    if (this.undoStack.length === 0) return;
+    this.redoStack.push(this._createHistorySnapshot());
+    this._restoreHistorySnapshot(this.undoStack.pop());
+    this._showToast('↶ 已撤销');
+  }
+
+  redo() {
+    if (this.redoStack.length === 0) return;
+    this.undoStack.push(this._createHistorySnapshot());
+    this._restoreHistorySnapshot(this.redoStack.pop());
+    this._showToast('↷ 已重做');
+  }
+
+  _updateHistoryButtons() {
+    const undoButton = this.container?.querySelector('#pe-undo');
+    const redoButton = this.container?.querySelector('#pe-redo');
+    if (undoButton) undoButton.disabled = this.undoStack.length === 0;
+    if (redoButton) redoButton.disabled = this.redoStack.length === 0;
+  }
+
   /** 初始化 */
   async init() {
     if (this._initialized) return;
     this._initialized = true;
     await this._loadFromFile();
+    this.resetHistory();
     this._buildUI();
     this._render();
   }
@@ -231,6 +297,8 @@ export class PanelEditor {
         <div class="pe-toolbar">
           <div class="pe-tab-actions">
             <button id="pe-save" class="primary">💾 保存</button>
+            <button id="pe-undo" title="撤销 (Ctrl/⌘+Z)">↶ 撤销</button>
+            <button id="pe-redo" title="重做 (Ctrl/⌘+Shift+Z 或 Ctrl+Y)">↷ 重做</button>
             <button id="pe-add-panel" title="新增面板">＋面板</button>
           </div>
           <div class="pe-tabs" id="pe-tabs"></div>
@@ -275,6 +343,7 @@ export class PanelEditor {
       .pe-tabs .pe-tab:hover .pe-tab-close { display:inline; }
       .pe-tab-actions button { padding:6px 12px; background:#3a4a7e; border:none; border-radius:4px; color:#fff; cursor:pointer; font-size:12px; }
       .pe-tab-actions button.primary { background:#4CAF50; color:#000; font-weight:bold; }
+      .pe-tab-actions button:disabled { opacity:0.45; cursor:not-allowed; }
       .pe-main { flex:1; display:flex; overflow:hidden; }
       .pe-canvas-wrap { flex:1; display:flex; flex-direction:column; overflow:hidden; }
       .pe-canvas-toolbar { display:flex; gap:8px; padding:6px 12px; background:#111a30; border-bottom:1px solid #2a3a5e; align-items:center; }
@@ -286,6 +355,8 @@ export class PanelEditor {
       .pe-props { width:280px; background:#111a30; border-left:1px solid #2a3a5e; padding:14px; overflow-y:auto; }
       .pe-props h4 { color:#4CAF50; margin-bottom:10px; }
       .pe-prop-empty { color:#778; font-size:13px; }
+      .pe-prop-hint { font-size:11px; color:#7a8ca8; line-height:1.5; margin-top:4px; }
+      .pe-prop-row input:disabled { opacity:0.6; cursor:not-allowed; }
       .pe-prop-section { margin-bottom:12px; border-bottom:1px solid #2a3a5e; padding-bottom:8px; }
       .pe-prop-section-title { font-size:11px; color:#6a8; margin-bottom:6px; text-transform:uppercase; }
       .pe-prop-row { display:flex; align-items:center; margin-bottom:6px; gap:6px; }
@@ -303,6 +374,8 @@ export class PanelEditor {
   _bindEvents() {
     // 保存
     this.container.querySelector('#pe-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#pe-undo').addEventListener('click', () => this.undo());
+    this.container.querySelector('#pe-redo').addEventListener('click', () => this.redo());
     // 新增面板
     this.container.querySelector('#pe-add-panel').addEventListener('click', () => this._addPanel());
     // 新增部件
@@ -331,6 +404,7 @@ export class PanelEditor {
     this._renderTabs();
     this._renderCanvas();
     this._renderProps();
+    this._updateHistoryButtons();
   }
 
   /** 渲染面板 tab 栏 */
@@ -586,6 +660,7 @@ export class PanelEditor {
             <div class="pe-prop-row"><label>名称</label><input type="text" data-panel-key="name" value="${panel.name}"></div>
             <div class="pe-prop-row"><label>宽度</label><input type="number" data-panel-key="width" value="${panel.width}"></div>
             <div class="pe-prop-row"><label>高度</label><input type="number" data-panel-key="height" value="${panel.height}"></div>
+            <div class="pe-prop-hint">此处的宽高比就是背包的内外框比例，UI 编辑器只能等比缩放它。</div>
           </div>
           <div class="pe-prop-section">
             <div class="pe-prop-section-title">样式</div>
@@ -604,7 +679,10 @@ export class PanelEditor {
             const key = input.dataset.panelKey;
             let val = input.value;
             if (key === 'width' || key === 'height' || key === 'borderWidth') val = parseInt(val) || 0;
+            if (panel[key] === val) return;
+            const snapshot = this._createHistorySnapshot();
             panel[key] = val;
+            this._commitHistorySnapshot(snapshot);
             this._renderTabs();
             this._renderCanvas();
           });
@@ -663,6 +741,8 @@ export class PanelEditor {
         if (['x', 'y', 'width', 'height', 'fontSize', 'cols', 'rows', 'slotSize', 'slotPadding', 'borderWidth', 'value'].includes(key)) {
           val = parseFloat(val) || 0;
         }
+        if (part[key] === val) return;
+        const snapshot = this._createHistorySnapshot();
         if (key === 'id') {
           // 同步主选中项与多选集合中的 id。
           this.selectedPartIds.delete(this.selectedPartId);
@@ -670,6 +750,7 @@ export class PanelEditor {
           this.selectedPartId = val;
         }
         part[key] = val;
+        this._commitHistorySnapshot(snapshot);
         this._renderCanvas();
       });
     });
@@ -809,6 +890,22 @@ export class PanelEditor {
   }
 
   _onKeyDown(e) {
+    const modifier = e.ctrlKey || e.metaKey;
+    const lowerKey = e.key.toLowerCase();
+    if (modifier && !this._isEditableTarget(e.target)) {
+      if (lowerKey === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) this.redo();
+        else this.undo();
+        return;
+      }
+      if (lowerKey === 'y') {
+        e.preventDefault();
+        this.redo();
+        return;
+      }
+    }
+
     if (this._isEditableTarget(e.target)) return;
     const direction = {
       ArrowLeft: [-1, 0],
@@ -821,16 +918,20 @@ export class PanelEditor {
     e.preventDefault();
     if (this._arrowKeyHolds.has(e.key)) return;
 
+    if (this._arrowKeyHolds.size === 0) {
+      this._arrowHistorySnapshot = this._createHistorySnapshot();
+      this._arrowHistoryChanged = false;
+    }
     const [dx, dy] = direction;
     // 首次按下立即精确移动 1px。
-    this._moveSelectedParts(dx, dy);
+    this._arrowHistoryChanged = this._moveSelectedParts(dx, dy) || this._arrowHistoryChanged;
     const startedAt = performance.now();
     const timer = window.setInterval(() => {
       const elapsed = performance.now() - startedAt;
       if (elapsed < 1000) return;
       // 每 100ms 移动一次，依次对应 10 / 50 / 100 px/s。
       const pixelsPerTick = elapsed >= 3000 ? 10 : (elapsed >= 2000 ? 5 : 1);
-      this._moveSelectedParts(dx * pixelsPerTick, dy * pixelsPerTick);
+      this._arrowHistoryChanged = this._moveSelectedParts(dx * pixelsPerTick, dy * pixelsPerTick) || this._arrowHistoryChanged;
     }, 100);
     this._arrowKeyHolds.set(e.key, timer);
   }
@@ -840,14 +941,24 @@ export class PanelEditor {
     if (timer === undefined) return;
     window.clearInterval(timer);
     this._arrowKeyHolds.delete(e.key);
-    this._renderProps();
+    if (this._arrowKeyHolds.size === 0) {
+      if (this._arrowHistoryChanged) this._commitHistorySnapshot(this._arrowHistorySnapshot);
+      this._arrowHistorySnapshot = null;
+      this._arrowHistoryChanged = false;
+      this._renderProps();
+    }
   }
 
-  _clearArrowKeyHolds() {
+  _clearArrowKeyHolds(commitHistory = true) {
     for (const timer of this._arrowKeyHolds.values()) {
       window.clearInterval(timer);
     }
     this._arrowKeyHolds.clear();
+    if (commitHistory && this._arrowHistoryChanged) {
+      this._commitHistorySnapshot(this._arrowHistorySnapshot);
+    }
+    this._arrowHistorySnapshot = null;
+    this._arrowHistoryChanged = false;
   }
 
   _canvasXY(e) {
@@ -892,7 +1003,10 @@ export class PanelEditor {
       let mode = 'panel-resize-both';
       if (onRight && !onBottom) mode = 'panel-resize-right';
       else if (onBottom && !onRight) mode = 'panel-resize-bottom';
-      this._dragState = { mode, startX: x, startY: y, startW: panel.width, startH: panel.height };
+      this._dragState = {
+        mode, startX: x, startY: y, startW: panel.width, startH: panel.height,
+        historySnapshot: this._createHistorySnapshot()
+      };
       this._clearSelection();
       this._renderProps();
       this._startGlobalDrag(e);
@@ -904,7 +1018,8 @@ export class PanelEditor {
     if (singleSelectedPart && this._isOnResizeHandle(singleSelectedPart, x, y)) {
       this._dragState = {
         mode: 'resize', part: singleSelectedPart, startX: x, startY: y,
-        startW: singleSelectedPart.width, startH: singleSelectedPart.height
+        startW: singleSelectedPart.width, startH: singleSelectedPart.height,
+        historySnapshot: this._createHistorySnapshot()
       };
       this._startGlobalDrag(e);
       return;
@@ -930,7 +1045,8 @@ export class PanelEditor {
         mode: 'move-selection',
         startX: x,
         startY: y,
-        positions: partsToMove.map(part => ({ part, x: part.x, y: part.y }))
+        positions: partsToMove.map(part => ({ part, x: part.x, y: part.y })),
+        historySnapshot: this._createHistorySnapshot()
       };
       this._renderCanvas();
       this._renderProps();
@@ -1032,6 +1148,7 @@ export class PanelEditor {
       }
     }
 
+    if (ds.historySnapshot) this._commitHistorySnapshot(ds.historySnapshot);
     this._renderCanvas();
     this._renderProps();
   }
@@ -1044,6 +1161,7 @@ export class PanelEditor {
 
   _addPanel() {
     const id = 'panel_' + Date.now();
+    const snapshot = this._createHistorySnapshot();
     this.panels.push({
       id,
       name: '新面板',
@@ -1058,6 +1176,7 @@ export class PanelEditor {
     });
     this.activePanelIndex = this.panels.length - 1;
     this._clearSelection();
+    this._commitHistorySnapshot(snapshot);
     this._render();
   }
 
@@ -1067,11 +1186,13 @@ export class PanelEditor {
       return;
     }
     if (!confirm(`确认删除面板「${this.panels[idx].name}」？`)) return;
+    const snapshot = this._createHistorySnapshot();
     this.panels.splice(idx, 1);
     if (this.activePanelIndex >= this.panels.length) {
       this.activePanelIndex = this.panels.length - 1;
     }
     this._clearSelection();
+    this._commitHistorySnapshot(snapshot);
     this._render();
   }
 
@@ -1106,8 +1227,10 @@ export class PanelEditor {
       height: typeKey === 'slot-grid' ? 220 : typeKey === 'line' ? 2 : 30,
       ...defaults
     };
+    const snapshot = this._createHistorySnapshot();
     panel.parts.push(newPart);
     this._setSelection([newPart], partId);
+    this._commitHistorySnapshot(snapshot);
     this._render();
   }
 
@@ -1116,8 +1239,10 @@ export class PanelEditor {
     const selectedParts = this._getSelectedParts();
     if (!panel || selectedParts.length === 0) return;
     const selectedIds = new Set(selectedParts.map(part => part.id));
+    const snapshot = this._createHistorySnapshot();
     panel.parts = panel.parts.filter(part => !selectedIds.has(part.id));
     this._clearSelection();
+    this._commitHistorySnapshot(snapshot);
     this._render();
   }
 
@@ -1131,8 +1256,10 @@ export class PanelEditor {
     dup.label = (src.label || '') + ' (副本)';
     dup.x += 15;
     dup.y += 15;
+    const snapshot = this._createHistorySnapshot();
     panel.parts.push(dup);
     this._setSelection([dup], dup.id);
+    this._commitHistorySnapshot(snapshot);
     this._render();
   }
 

@@ -210,20 +210,10 @@ export class PlayerInfoPanel extends UIElement {
             if (equip) {
               this.drawEquipIcon(ctx, equip, px, py, pw, ph);
             } else {
-              ctx.fillStyle = '#555';
-              ctx.font = '10px Arial';
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'middle';
-              ctx.fillText(part.slotLabel || '', px + pw / 2, py + ph / 2);
-              ctx.textAlign = 'left';
+              this._drawEmptySlotLabel(ctx, part.slotLabel, px, py, pw, ph);
             }
           } else {
-            ctx.fillStyle = '#555';
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(part.slotLabel || '', px + pw / 2, py + ph / 2);
-            ctx.textAlign = 'left';
+            this._drawEmptySlotLabel(ctx, part.slotLabel, px, py, pw, ph);
           }
           // 悬停高亮
           if (this.hoveredEquipSlot === slotType) {
@@ -250,7 +240,8 @@ export class PlayerInfoPanel extends UIElement {
           ctx.textBaseline = 'top';
           ctx.fillText(`${label}:`, px, py);
           ctx.fillStyle = part.attrColor || '#ffffff';
-          ctx.fillText(value, px + 60, py);
+          // 标签与数值的间距随面板缩放（组合背包会按比例注入 valueOffsetX）
+          ctx.fillText(value, px + (part.valueOffsetX ?? 60), py);
           break;
         }
         case 'slot-grid': {
@@ -280,6 +271,25 @@ export class PlayerInfoPanel extends UIElement {
     if (this.showEquipmentSection && equipment) {
       this.renderEquipmentTooltip(ctx, equipment);
     }
+  }
+
+  /**
+   * 绘制空装备槽的占位文字，字号随槽位尺寸缩放，避免面板缩小后文字溢出。
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {string} label - 槽位名称
+   * @param {number} px - 槽位左上角 x
+   * @param {number} py - 槽位左上角 y
+   * @param {number} pw - 槽位宽
+   * @param {number} ph - 槽位高
+   */
+  _drawEmptySlotLabel(ctx, label, px, py, pw, ph) {
+    const fontSize = Math.max(8, Math.round(Math.min(pw, ph) * 0.2));
+    ctx.fillStyle = '#555';
+    ctx.font = `${fontSize}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label || '', px + pw / 2, py + ph / 2);
+    ctx.textAlign = 'left';
   }
 
   /**

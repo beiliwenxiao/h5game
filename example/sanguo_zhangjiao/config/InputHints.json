@@ -81,7 +81,8 @@
         "kind": "key"
       },
       "android": "轻功按钮",
-      "padKey": "ctrl"
+      "padKey": "ctrl",
+      "padFallback": "未绑定"
     },
     "throw": {
       "pc": {
@@ -89,7 +90,8 @@
         "kind": "key"
       },
       "android": "投掷按钮",
-      "padKey": "shift"
+      "padKey": "shift",
+      "padFallback": "未绑定"
     },
     "harvest": {
       "pc": {
@@ -97,7 +99,8 @@
         "kind": "key"
       },
       "android": "采集按钮",
-      "padKey": "f"
+      "padKey": "f",
+      "padFallback": "未绑定"
     },
     "potionHp": {
       "pc": {
@@ -153,7 +156,8 @@
         "kind": "key"
       },
       "android": "打坐按钮",
-      "padKey": "skill7"
+      "padKey": "skill7",
+      "padFallback": "未绑定"
     },
     "nextAct": {
       "pc": {
@@ -169,7 +173,7 @@
         "kind": "key"
       },
       "android": "点击对话框",
-      "padKey": "space"
+      "padKey": "e"
     },
     "cancel": {
       "pc": {

@@ -39,20 +39,20 @@ const DEFAULT_ACTIONS = {
   pickup: { pc: { key: 'E', kind: 'key' }, android: '交互按钮', padKey: 'e' },
   interact: { pc: { key: 'E', kind: 'key' }, android: '交互按钮', padKey: 'e' },
   bag: { pc: { key: 'B', kind: 'key' }, android: '背包按钮', padKey: 'b' },
-  playerInfo: { pc: { key: 'C', kind: 'key' }, android: '背包按钮', padKey: 'c' },
-  block: { pc: { key: 'Q', kind: 'key' }, android: '格挡按钮', padKey: 'q' },
-  flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padKey: 'ctrl' },
-  throw: { pc: { key: 'Shift', kind: 'key' }, android: '投掷按钮', padKey: 'shift' },
-  harvest: { pc: { key: 'F', kind: 'key' }, android: '采集按钮', padKey: 'f' },
-  potionHp: { pc: { key: '1', kind: 'key' }, android: '红瓶按钮', padKey: 'skill1' },
-  potionMp: { pc: { key: '2', kind: 'key' }, android: '蓝瓶按钮', padKey: 'skill2' },
-  skill1: { pc: { key: '3', kind: 'key' }, android: '技能按钮', padKey: 'skill3' },
-  skill2: { pc: { key: '4', kind: 'key' }, android: '技能按钮', padKey: 'skill4' },
-  skill3: { pc: { key: '5', kind: 'key' }, android: '技能按钮', padKey: 'skill5' },
-  heal: { pc: { key: '6', kind: 'key' }, android: '回血按钮', padKey: 'skill6' },
-  meditation: { pc: { key: '7', kind: 'key' }, android: '打坐按钮', padKey: 'skill7' },
+  playerInfo: { pc: { key: 'C', kind: 'key' }, android: '背包按钮', padKey: 'b' },
+  block: { pc: { key: 'Q', kind: 'key' }, android: '格挡按钮', padFixed: 'LT', padKind: 'key' },
+  flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padFixed: 'Y', padKind: 'key' },
+  throw: { pc: { key: 'Shift', kind: 'key' }, android: '投掷按钮', padFixed: 'B', padKind: 'key' },
+  harvest: { pc: { key: 'F', kind: 'key' }, android: '采集按钮', padKey: 'f', padFallback: '未绑定' },
+  potionHp: { pc: { key: '1', kind: 'key' }, android: '红瓶按钮', padFixed: '十字键↑', padKind: 'key' },
+  potionMp: { pc: { key: '2', kind: 'key' }, android: '蓝瓶按钮', padFixed: '十字键↓', padKind: 'key' },
+  skill1: { pc: { key: '3', kind: 'key' }, android: '技能按钮', padFixed: 'RB', padKind: 'key' },
+  skill2: { pc: { key: '4', kind: 'key' }, android: '技能按钮', padFixed: 'RB', padKind: 'key' },
+  skill3: { pc: { key: '5', kind: 'key' }, android: '技能按钮', padFixed: 'RB', padKind: 'key' },
+  heal: { pc: { key: '6', kind: 'key' }, android: '回血按钮', padFixed: 'RB', padKind: 'key' },
+  meditation: { pc: { key: '7', kind: 'key' }, android: '打坐按钮', padFixed: 'RB', padKind: 'key' },
   nextAct: { pc: { key: 'N', kind: 'key' }, android: '交互按钮', padKey: 'n' },
-  dialogueContinue: { pc: { key: '空格', kind: 'key' }, android: '点击对话框', padKey: 'space' },
+  dialogueContinue: { pc: { key: '空格/E', kind: 'key' }, android: '点击对话框', padKey: 'e', padFallback: 'X' },
   cancel: { pc: { key: 'Esc', kind: 'key' }, android: '返回', padKey: 'escape' },
   skillTree: { pc: { key: 'T', kind: 'key' }, android: '技能树按钮', padKey: 't' },
   attribute: { pc: { key: 'P', kind: 'key' }, android: '背包按钮', padKey: 'p' },
@@ -165,6 +165,7 @@ class InputHintsRegistry {
     const wrapped = wrap(rawKey);
 
     if (scheme === 'gamepad') {
+      if (rawKey === '未绑定') return `（手柄未绑定${def.android || action}）`;
       const kind = def.padKind || 'key';
       return kind === 'raw' ? `推动${wrapped}` : `按手柄 ${wrapped} 键`;
     }
@@ -214,8 +215,8 @@ class InputHintsRegistry {
         }
       }
     }
-    // 该动作在手柄上没有绑定：退回触屏/键鼠说法，避免显示空白
-    return def.android || (def.pc && def.pc.key) || '';
+    // 该动作在手柄上没有绑定：优先用 padFallback，不退回 android 说法（那是触屏的）
+    return def.padFallback || (def.pc && def.pc.key) || '';
   }
 }
 

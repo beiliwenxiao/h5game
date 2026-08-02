@@ -16,6 +16,7 @@
  */
 
 import { UIElement } from './UIElement.js';
+import { InputHints } from '../core/input/InputHints.js';
 
 export class DialogueBox extends UIElement {
   constructor(options = {}) {
@@ -453,7 +454,8 @@ export class DialogueBox extends UIElement {
   }
 
   renderContinuePrompt(ctx) {
-    const promptText = '▼ 点击继续 ▼';
+    // 按当前输入方案显示匹配的操作提示
+    const promptText = `▼ ${InputHints.phrase('dialogueContinue')} ▼`;
     const promptX = this.x + this.width - this.padding - 10;
     const promptY = this.y + this.height - this.padding - 10;
     ctx.save();

@@ -80,32 +80,40 @@ export const PAD_BUTTON_LABELS = {
   [PadButton.GUIDE]: 'Xbox'
 };
 
-/** 攻击动作标记：绑定值为此时，该按钮注入虚拟鼠标左键（走准星攻击），不作为普通虚拟键 */
+/** 攻击动作标记：绑定值为此时，该按钮走手柄攻击流程（按住瞄准+释放攻击），不作为普通虚拟键 */
 export const ATTACK_ACTION = 'attack';
 /** 空绑定标记：该按钮不做任何事 */
 export const NONE_ACTION = '';
 
+// ---- 手柄专用动作标记（不映射为虚拟键，由 GamepadCombatController 解释） ----
+export const SKILL_RELEASE_ACTION = 'skillRelease';   // RB：释放当前技能
+export const SKILL_SWITCH_ACTION = 'skillSwitch';     // LB：切换技能（环形轮盘）
+export const FLIGHT_ACTION = 'flight';                // Y 按住：轻功
+export const THROW_ACTION = 'throw';                  // B 按住：投掷
+export const BLOCK_ACTION = 'block';                  // LT 按住：格挡
+
 /**
  * 默认绑定：手柄按钮 → 动作。
- * 动作为虚拟键名（对齐 InputManager.keyMap），或特殊标记 ATTACK_ACTION（攻击）、NONE_ACTION（无）。
+ * 新方案：RT攻击 / RB释放技能 / LB切换技能(环形轮盘) / Y轻功 / B投掷 / LT格挡
+ * A/X=交互 / 十字键↑↓=药水 / Back=背包 / Start=空出
  */
 export const DEFAULT_BINDINGS = {
-  [PadButton.A]: ATTACK_ACTION,   // 攻击：走虚拟准星的鼠标左键
-  [PadButton.B]: 'skill1',        // 红药水
-  [PadButton.X]: 'e',             // 拾取 / 交互
-  [PadButton.Y]: 'skill2',        // 蓝药水
-  [PadButton.LB]: 'skill3',       // 技能1
-  [PadButton.RB]: 'skill4',       // 技能2
-  [PadButton.LT]: 'skill5',       // 技能3
-  [PadButton.RT]: 'skill6',       // 技能4
-  [PadButton.BACK]: 'c',          // 属性面板
-  [PadButton.START]: 'b',         // 背包
-  [PadButton.LS]: 'q',            // 格挡
-  [PadButton.RS]: 'escape',       // 取消选中
-  [PadButton.DPAD_UP]: 'up',
-  [PadButton.DPAD_DOWN]: 'down',
-  [PadButton.DPAD_LEFT]: 'left',
-  [PadButton.DPAD_RIGHT]: 'right',
+  [PadButton.A]: 'e',                   // 拾取/交互/确认对话
+  [PadButton.B]: THROW_ACTION,          // 投掷（按住+右摇杆方向+释放）
+  [PadButton.X]: 'e',                   // 拾取/交互/确认对话（与A一致）
+  [PadButton.Y]: FLIGHT_ACTION,         // 轻功（按住+左摇杆位置+释放）
+  [PadButton.LB]: SKILL_SWITCH_ACTION,  // 切换技能（按住弹环形轮盘）
+  [PadButton.RB]: SKILL_RELEASE_ACTION, // 释放当前选中技能
+  [PadButton.LT]: BLOCK_ACTION,         // 格挡（按住生效）
+  [PadButton.RT]: ATTACK_ACTION,        // 普通攻击（按住+右摇杆方向+释放）
+  [PadButton.BACK]: 'b',               // 背包（属性+装备+物品）
+  [PadButton.START]: NONE_ACTION,       // 空出
+  [PadButton.LS]: NONE_ACTION,          // 空出
+  [PadButton.RS]: 'escape',             // 取消选中
+  [PadButton.DPAD_UP]: 'skill1',        // 红药水
+  [PadButton.DPAD_DOWN]: 'skill2',      // 蓝药水
+  [PadButton.DPAD_LEFT]: NONE_ACTION,
+  [PadButton.DPAD_RIGHT]: NONE_ACTION,
   [PadButton.GUIDE]: NONE_ACTION
 };
 
@@ -116,25 +124,17 @@ export const DEFAULT_BINDINGS = {
  */
 export const BINDABLE_ACTIONS = [
   { value: NONE_ACTION, label: '（无）', group: '其它' },
-  { value: ATTACK_ACTION, label: '攻击', group: '战斗' },
-  { value: 'up', label: '上移', group: '移动' },
-  { value: 'down', label: '下移', group: '移动' },
-  { value: 'left', label: '左移', group: '移动' },
-  { value: 'right', label: '右移', group: '移动' },
-  { value: 'e', label: '拾取/交互', group: '战斗' },
-  { value: 'q', label: '格挡', group: '战斗' },
+  { value: ATTACK_ACTION, label: '攻击（按住瞄准）', group: '战斗' },
+  { value: SKILL_RELEASE_ACTION, label: '释放技能', group: '战斗' },
+  { value: SKILL_SWITCH_ACTION, label: '切换技能（轮盘）', group: '战斗' },
+  { value: FLIGHT_ACTION, label: '轻功（按住瞄准）', group: '战斗' },
+  { value: THROW_ACTION, label: '投掷（按住瞄准）', group: '战斗' },
+  { value: BLOCK_ACTION, label: '格挡（按住生效）', group: '战斗' },
+  { value: 'e', label: '拾取/交互/确认', group: '交互' },
   { value: 'skill1', label: '红药水', group: '快捷' },
   { value: 'skill2', label: '蓝药水', group: '快捷' },
-  { value: 'skill3', label: '技能1', group: '技能' },
-  { value: 'skill4', label: '技能2', group: '技能' },
-  { value: 'skill5', label: '技能3', group: '技能' },
-  { value: 'skill6', label: '技能4', group: '技能' },
-  { value: 'skill7', label: '技能5', group: '技能' },
-  { value: 'c', label: '属性面板', group: '面板' },
-  { value: 'b', label: '背包面板', group: '面板' },
-  { value: 'v', label: '装备面板', group: '面板' },
-  { value: 'escape', label: '取消选中', group: '其它' },
-  { value: 'space', label: '确认/继续', group: '其它' }
+  { value: 'b', label: '背包', group: '面板' },
+  { value: 'escape', label: '取消选中', group: '其它' }
 ];
 
 /** 动作 value → 中文名（快速查表） */
@@ -142,22 +142,22 @@ export const ACTION_LABELS = BINDABLE_ACTIONS.reduce((m, a) => { m[a.value] = a.
 
 /** 绑定的中文说明（UI 映射表用） */
 export const BINDING_DESCRIPTIONS = {
-  [PadButton.A]: '攻击',
-  [PadButton.B]: '红药水',
-  [PadButton.X]: '拾取/交互',
-  [PadButton.Y]: '蓝药水',
-  [PadButton.LB]: '技能1',
-  [PadButton.RB]: '技能2',
-  [PadButton.LT]: '技能3',
-  [PadButton.RT]: '技能4',
-  [PadButton.BACK]: '属性面板',
-  [PadButton.START]: '背包',
-  [PadButton.LS]: '格挡',
+  [PadButton.A]: '拾取/交互/确认',
+  [PadButton.B]: '投掷（按住瞄准）',
+  [PadButton.X]: '拾取/交互/确认',
+  [PadButton.Y]: '轻功（按住瞄准）',
+  [PadButton.LB]: '切换技能（环形轮盘）',
+  [PadButton.RB]: '释放技能',
+  [PadButton.LT]: '格挡（按住生效）',
+  [PadButton.RT]: '攻击（按住瞄准）',
+  [PadButton.BACK]: '背包',
+  [PadButton.START]: '—',
+  [PadButton.LS]: '—',
   [PadButton.RS]: '取消选中',
-  [PadButton.DPAD_UP]: '上',
-  [PadButton.DPAD_DOWN]: '下',
-  [PadButton.DPAD_LEFT]: '左',
-  [PadButton.DPAD_RIGHT]: '右',
+  [PadButton.DPAD_UP]: '红药水',
+  [PadButton.DPAD_DOWN]: '蓝药水',
+  [PadButton.DPAD_LEFT]: '—',
+  [PadButton.DPAD_RIGHT]: '—',
   [PadButton.GUIDE]: '—'
 };
 

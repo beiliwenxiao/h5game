@@ -23,6 +23,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { GameLoader } from '../../../src/core/GameLoader.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
@@ -2012,9 +2013,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 4;
       ctx.fillText('熄灭的火堆', x, y - 55);
-      if (!(this.uiStrategy && this.uiStrategy.platform === 'mobile')) {
-        ctx.fillText('按 E 点燃', x, y - 40);
-      }
+      ctx.fillText(InputHints.format('{interact}点燃'), x, y - 40);
       ctx.shadowBlur = 0;
       return;
     }

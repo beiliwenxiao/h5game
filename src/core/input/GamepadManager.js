@@ -32,12 +32,23 @@ import {
   DEFAULT_BINDINGS,
   ATTACK_ACTION,
   NONE_ACTION,
+  SKILL_RELEASE_ACTION,
+  SKILL_SWITCH_ACTION,
+  FLIGHT_ACTION,
+  THROW_ACTION,
+  BLOCK_ACTION,
   isStandardMapping,
   looksLikeXboxPad
 } from './Xbox360Profile.js';
 
-/** 默认攻击键（A）。实际攻击键由绑定表中值为 ATTACK_ACTION 的按钮决定，此常量仅作向后兼容默认值 */
-export const ATTACK_BUTTON = PadButton.A;
+/** 默认攻击键（RT）。实际攻击键由绑定表中值为 ATTACK_ACTION 的按钮决定，此常量仅作向后兼容默认值 */
+export const ATTACK_BUTTON = PadButton.RT;
+
+/** 手柄专用动作集合：这些动作不注入虚拟键，由 GamepadCombatController 解释 */
+const GAMEPAD_SPECIAL_ACTIONS = new Set([
+  ATTACK_ACTION, SKILL_RELEASE_ACTION, SKILL_SWITCH_ACTION,
+  FLIGHT_ACTION, THROW_ACTION, BLOCK_ACTION
+]);
 
 export class GamepadManager {
   /**
@@ -65,6 +76,10 @@ export class GamepadManager {
     /** 本帧按下 / 本帧释放 */
     this.buttonsPressed = new Set();
     this.buttonsReleased = new Set();
+
+    /** 按钮按住时长（毫秒），用于区分快按/长按 */
+    this._buttonDownTime = new Map();  // index → timestamp(ms) 按下瞬间时间戳
+    this._lastPollTime = 0;
 
     /** 摇杆（已过死区并重标定） */
     this.leftStick = { x: 0, y: 0, magnitude: 0 };
@@ -121,6 +136,7 @@ export class GamepadManager {
    * @returns {boolean} 本帧是否有可用手柄
    */
   poll() {
+    this._lastPollTime = performance.now();
     if (!this.isSupported()) {
       if (this._wasConnected) this._handleDisconnect();
       return false;
@@ -186,12 +202,30 @@ export class GamepadManager {
         : (typeof b === 'object' && b !== null && b.pressed !== undefined ? !!b.pressed : value > 0.5);
 
       const was = this.buttons.get(i) === true;
-      if (down && !was) this.buttonsPressed.add(i);
-      if (!down && was) this.buttonsReleased.add(i);
+      if (down && !was) {
+        this.buttonsPressed.add(i);
+        this._buttonDownTime.set(i, this._lastPollTime);
+      }
+      if (!down && was) {
+        this.buttonsReleased.add(i);
+        // _buttonDownTime 保留到下帧，供 getButtonHoldDuration 在释放帧查询
+      }
 
       this.buttons.set(i, down);
       this.values.set(i, value);
     }
+  }
+
+  /**
+   * 获取按钮从按下到现在（或刚释放时）的持续毫秒数。
+   * 适合在 buttonsReleased 帧调用，用于区分快按(<150ms)与长按。
+   * @param {number} index - 按钮索引
+   * @returns {number} 持续毫秒，未按过则 0
+   */
+  getButtonHoldDuration(index) {
+    const start = this._buttonDownTime.get(index);
+    if (start == null) return 0;
+    return this._lastPollTime - start;
   }
 
   /** @private 读摇杆，应用死区后把 [deadzone,1] 重标定到 [0,1]，避免死区边缘速度跳变 */
@@ -300,8 +334,8 @@ export class GamepadManager {
     if (!this.isConnected()) return { down, pressed, released };
 
     for (const [indexStr, key] of Object.entries(this.bindings)) {
-      // 空绑定跳过；攻击动作不进虚拟键（走虚拟鼠标，见 InputManager._updateGamepadCursor）
-      if (!key || key === NONE_ACTION || key === ATTACK_ACTION) continue;
+      // 空绑定与手柄专用动作不注入虚拟键，由 GamepadCombatController 单独处理
+      if (!key || key === NONE_ACTION || GAMEPAD_SPECIAL_ACTIONS.has(key)) continue;
       const index = Number(indexStr);
       if (this.isButtonDown(index)) down.add(key);
       if (this.isButtonPressed(index)) pressed.add(key);

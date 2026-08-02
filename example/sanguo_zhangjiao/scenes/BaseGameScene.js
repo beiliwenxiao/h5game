@@ -53,7 +53,9 @@ import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
 import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
 import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
+import { GamepadCombatController, IntentType } from '../../../src/core/input/GamepadCombatController.js';
 import { InputHints } from '../../../src/core/input/InputHints.js';
+import { SkillWheelOverlay } from '../../../src/ui/SkillWheelOverlay.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -747,7 +749,16 @@ export class BaseGameScene extends PrologueScene {
     // 加载编辑器保存的手柄绑定配置（不存在则用默认绑定）
     this._loadGamepadConfig();
 
+    // 手柄战斗控制器：处理 RT攻击/RB技能/LB轮盘/Y轻功/B投掷/LT格挡 的按住→瞄准→释放
+    this.gamepadCombat = new GamepadCombatController();
+    // 环形技能轮盘（LB 按住弹出）
+    this.skillWheelOverlay = new SkillWheelOverlay({
+      canvasWidth: this.logicalWidth,
+      canvasHeight: this.logicalHeight
+    });
+
     // 注册 UI 元素到 UIClickHandler
+    this.uiClickHandler.registerElement(this.skillWheelOverlay);
     this.uiClickHandler.registerElement(this.itemGainedPopup);
     this.uiClickHandler.registerElement(this.gamepadPanel);
     this.uiClickHandler.registerElement(this.backpackPanel);
@@ -2247,6 +2258,208 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 手柄战斗控制器每帧驱动：产出意图并执行对应操作。
+   * @private
+   */
+  _updateGamepadCombat() {
+    if (!this.gamepadCombat || !this.inputManager?.gamepad) return;
+    if (!this.inputManager.gamepad.isConnected()) return;
+
+    const gc = this.gamepadCombat;
+    const gamepad = this.inputManager.gamepad;
+
+    // 同步可用技能数量
+    const combat = this.playerEntity?.getComponent('combat');
+    if (combat && combat.skills) {
+      gc.skillCount = combat.skills.length;
+    }
+
+    // 更新控制器（产出本帧意图）
+    gc.update(gamepad);
+
+    // ---- 手柄瞄准预览同步（RB 按住时显示技能虚线框） ----
+    if (gc.isAiming && gc._skillHolding && combat && combat.skills) {
+      const skill = combat.skills[gc.currentSkillIndex];
+      if (skill && skill.range > 0) {
+        const transform = this.playerEntity?.getComponent('transform');
+        if (transform) {
+          const range = skill.range || 200;
+          this._aimDirX = gc.aimMagnitude > 0 ? gc.aimDirection.x : 0;
+          this._aimDirY = gc.aimMagnitude > 0 ? gc.aimDirection.y : 1;
+          this._aimDistRatio = gc.aimMagnitude;
+          const colorMap = { flame_palm: '#ff6600', ice_finger: '#00ccff', inferno_palm: '#ff3300' };
+          this.skillAimPreview = {
+            skill,
+            color: colorMap[skill.effectType] || '#ffffff'
+          };
+        }
+      }
+    } else if (!gc._skillHolding && !gc._flightHolding && !gc._throwHolding
+              && this.skillAimPreview && !this._pcAimMode) {
+      // 所有手柄瞄准态结束时清除预览
+      this.skillAimPreview = null;
+    }
+
+    // ---- 轻功瞄准预览（Y 按住时显示瞬移目标虚线框） ----
+    if (gc._flightHolding && this.playerEntity) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform) {
+        const flightRange = 300;
+        this._aimDirX = gc.flightMagnitude > 0 ? gc.flightDirection.x : 0;
+        this._aimDirY = gc.flightMagnitude > 0 ? gc.flightDirection.y : 1;
+        this._aimDistRatio = gc.flightMagnitude;
+        this.skillAimPreview = {
+          skill: { id: 'flight_preview', range: flightRange, aoeRadius: 30 },
+          color: '#00ffcc'
+        };
+      }
+    }
+
+    // ---- 投掷瞄准预览（B 按住时显示落点虚线框） ----
+    if (gc._throwHolding && this.playerEntity) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform) {
+        const throwRange = 250;
+        const dir = gc._throwDirection || { x: 0, y: 0 };
+        const mag = gc._throwMagnitude || 0;
+        this._aimDirX = mag > 0 ? dir.x : 0;
+        this._aimDirY = mag > 0 ? dir.y : 1;
+        this._aimDistRatio = mag;
+        this.skillAimPreview = {
+          skill: { id: 'throw_preview', range: throwRange, aoeRadius: 20 },
+          color: '#ffaa00'
+        };
+      }
+    }
+
+    // ---- 处理意图 ----
+
+    // 攻击（RT）
+    const attackIntent = gc.getIntent(IntentType.ATTACK);
+    if (attackIntent && this.playerEntity && this.combatSystem) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform) {
+        let targetWorldX, targetWorldY;
+        if (attackIntent.isQuickTap || !attackIntent.direction) {
+          // 快按：面向方向攻击（取角色前方 100px）
+          const sprite = this.playerEntity.getComponent('sprite');
+          const facing = sprite ? this._directionToVector(sprite.direction) : { x: 1, y: 0 };
+          targetWorldX = transform.position.x + facing.x * 100;
+          targetWorldY = transform.position.y + facing.y * 100;
+        } else {
+          // 长按：右摇杆方向
+          targetWorldX = transform.position.x + attackIntent.direction.x * 150;
+          targetWorldY = transform.position.y + attackIntent.direction.y * 150;
+        }
+        // 模拟鼠标世界坐标，让 MeleeAttackSystem 读到正确方向
+        this.inputManager.mouse.worldX = targetWorldX;
+        this.inputManager.mouse.worldY = targetWorldY;
+        this.inputManager.mouse.clicked = true;
+        this.inputManager.mouse.button = 0;
+        this.inputManager._padMouseButtons.add(0);
+      }
+    }
+
+    // 技能释放（RB）
+    const skillIntent = gc.getIntent(IntentType.SKILL_RELEASE);
+    if (skillIntent && this.playerEntity && this.combatSystem && combat) {
+      const skillIndex = skillIntent.skillIndex;
+      if (skillIndex >= 0 && skillIndex < (combat.skills || []).length) {
+        const skill = combat.skills[skillIndex];
+        if (skill) {
+          const transform = this.playerEntity.getComponent('transform');
+          if (transform) {
+            const range = skill.range || 200;
+            const targetX = transform.position.x + skillIntent.direction.x * range * skillIntent.magnitude;
+            const targetY = transform.position.y + skillIntent.direction.y * range * skillIntent.magnitude;
+            this.combatSystem.tryUseSkillAtPosition(
+              this.playerEntity, skill, { x: targetX, y: targetY },
+              performance.now(), this.entities
+            );
+          }
+        }
+      }
+    }
+
+    // 技能轮盘
+    if (gc.hasIntent(IntentType.SKILL_WHEEL_OPEN) && this.skillWheelOverlay) {
+      // 收集技能列表给轮盘
+      if (combat && combat.skills) {
+        this.skillWheelOverlay.setSkills(combat.skills);
+      }
+      this.skillWheelOverlay.open(gc.currentSkillIndex);
+    }
+    if (gc.hasIntent(IntentType.SKILL_WHEEL_CLOSE) && this.skillWheelOverlay) {
+      this.skillWheelOverlay.close();
+    }
+    if (gc.hasIntent(IntentType.SKILL_SWITCH) && this.skillWheelOverlay) {
+      // 快切不弹轮盘，只更新 HUD 当前技能指示
+    }
+    // 轮盘打开时同步选中
+    if (gc.isWheelOpen && this.skillWheelOverlay) {
+      this.skillWheelOverlay.setSelectedIndex(gc.wheelSelectedIndex);
+    }
+
+    // 轻功（Y）
+    const flightIntent = gc.getIntent(IntentType.FLIGHT);
+    if (flightIntent && this.flightSystem && this.playerEntity) {
+      const transform = this.playerEntity.getComponent('transform');
+      if (transform) {
+        const flightRange = 300; // 轻功最大距离
+        const targetX = transform.position.x + flightIntent.direction.x * flightRange * flightIntent.magnitude;
+        const targetY = transform.position.y + flightIntent.direction.y * flightRange * flightIntent.magnitude;
+        this.flightSystem.startFlight(transform, targetX, targetY);
+      }
+    }
+
+    // 投掷（B）
+    const throwIntent = gc.getIntent(IntentType.THROW);
+    if (throwIntent && this.weaponRenderer && this.playerEntity) {
+      const transform = this.playerEntity.getComponent('transform');
+      const equipment = this.playerEntity.getComponent('equipment');
+      if (!equipment || !equipment.slots.mainhand) {
+        // 未装备武器：提示玩家
+        if (this.notificationSystem) {
+          this.notificationSystem.addNotification('未装备武器，无法投掷', 'warning');
+        }
+      } else if (transform) {
+        const throwRange = 250;
+        const targetX = transform.position.x + throwIntent.direction.x * throwRange;
+        const targetY = transform.position.y + throwIntent.direction.y * throwRange;
+        this.weaponRenderer.throwWeapon(
+          this.playerEntity, null,
+          transform.position, { x: targetX, y: targetY },
+          performance.now()
+        );
+      }
+    }
+
+    // 格挡（LT）
+    if (gc.hasIntent(IntentType.BLOCK_START)) {
+      this.activateBlock?.();
+    }
+    if (gc.hasIntent(IntentType.BLOCK_END)) {
+      this.deactivateBlock?.();
+    }
+
+    gc.consumeIntents();
+  }
+
+  /**
+   * 将精灵朝向字符串转为归一化方向向量
+   * @private
+   */
+  _directionToVector(direction) {
+    const map = {
+      'up': { x: 0, y: -1 }, 'down': { x: 0, y: 1 },
+      'left': { x: -1, y: 0 }, 'right': { x: 1, y: 0 },
+      'up-left': { x: -0.707, y: -0.707 }, 'up-right': { x: 0.707, y: -0.707 },
+      'down-left': { x: -0.707, y: 0.707 }, 'down-right': { x: 0.707, y: 0.707 }
+    };
+    return map[direction] || { x: 0, y: 1 };
+  }
+
+  /**
    * 更新场景
    */
   update(deltaTime) {
@@ -2257,6 +2470,9 @@ export class BaseGameScene extends PrologueScene {
     if (this.inputManager && this.inputManager.pollGamepads) this.inputManager.pollGamepads();
     // 获得物品弹窗优先消费 A 键，防止同帧继续按攻击处理。
     this._handleGainedPopupGamepad();
+    
+    // 手柄战斗控制器：产出本帧意图（攻击/技能/轮盘/轻功/投掷/格挡）
+    this._updateGamepadCombat();
     
     // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
     this._updatePromptSwitch();
@@ -3104,26 +3320,22 @@ export class BaseGameScene extends PrologueScene {
       return;
     }
     
-    // 继续信号：空格键 或（移动端）点击/触摸屏幕
-    const spacePressed = this.inputManager.isKeyDown('space');
+    // 继续信号：空格键、E 键（交互键）、手柄 X 键（绑定为 'e'），或点击/触摸
+    const spacePressed = this.inputManager.isKeyPressed('space');
+    const interactPressed = this.inputManager.isKeyPressed('e');
     const clicked = this.inputManager.isMouseClicked && this.inputManager.isMouseClicked();
-    const continueSignal = spacePressed || clicked;
+    const continueSignal = spacePressed || interactPressed || clicked;
     if (!continueSignal) {
-      // 重置标志，允许下次触发
-      this.lastSpacePressed = false;
       return;
     }
     
-    // 防止连续触发（按住时只触发一次）
-    if (this.lastSpacePressed) {
-      return;
-    }
-    
-    this.lastSpacePressed = true;
+    // isKeyPressed 是帧沿信号（按下瞬间为 true），天然不会连续触发，无需手动防连
     
     // 如果正在打字，跳过打字动画
     if (this.dialogueSystem.isTyping()) {
       this.dialogueSystem.skipTypewriter();
+      // 消费点击，防止穿透到游戏世界
+      if (clicked) this.inputManager.markMouseClickHandled();
       return;
     }
     
@@ -3137,6 +3349,7 @@ export class BaseGameScene extends PrologueScene {
       
       // 继续对话
       this.dialogueSystem.continue();
+      if (clicked) this.inputManager.markMouseClickHandled();
       
       // 如果对话结束，隐藏对话框
       if (!this.dialogueSystem.isDialogueActive() && this.dialogueBox) {
@@ -3553,6 +3766,10 @@ export class BaseGameScene extends PrologueScene {
     if (this.gamepadPanel) {
       this.gamepadPanel.update(16);
       this.gamepadPanel.render(ctx);
+    }
+    // 手柄技能环形轮盘（LB 按住时弹出，覆盖一切）
+    if (this.skillWheelOverlay) {
+      this.skillWheelOverlay.render(ctx);
     }
   }
 

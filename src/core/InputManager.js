@@ -388,8 +388,9 @@ export class InputManager {
     }
 
     /**
-     * 右摇杆驱动虚拟准星，A 键注入鼠标左键（攻击瞄准复用鼠标那套逻辑）。
+     * 右摇杆驱动虚拟准星位置（供瞄准预览使用，不直接触发攻击）。
      * 准星原点取画面中心：相机跟随玩家，中心即玩家位置，无需知道玩家实体。
+     * 攻击/技能/轻功/投掷的释放由 GamepadCombatController 意图驱动，不再注入虚拟鼠标。
      * @private
      */
     _updateGamepadCursor() {
@@ -403,13 +404,7 @@ export class InputManager {
             this.mouse.worldY = this.mouse.y + this.cameraY;
             this._padCursorActive = true;
         }
-
-        // 攻击键（绑定为 attack 的按钮，默认 A）：等价按住鼠标左键
-        // （MeleeAttackSystem 读 isMouseButtonDown(0)），支持编辑器改绑
-        if (this.gamepad.isAttackDown()) {
-            this._padMouseButtons.add(0);
-            if (this.gamepad.isAttackPressed()) this.mouse.clicked = true;
-        }
+        // 手柄战斗操作不再注入虚拟鼠标按键，全部由 GamepadCombatController 产出意图
     }
 
     /** 是否有手柄连接 */

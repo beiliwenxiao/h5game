@@ -162,10 +162,14 @@ export class PanelEditor {
     this.panels = JSON.parse(JSON.stringify(DEFAULT_PANELS));
     // 当前选中的面板 tab 索引
     this.activePanelIndex = 0;
-    // 当前选中的部件
+    // 当前选中的主部件（用于属性编辑/单部件缩放）
     this.selectedPartId = null;
-    // 拖拽状态
+    // 多选集合；单选时也保持与 selectedPartId 同步。
+    this.selectedPartIds = new Set();
+    // 拖拽状态（单选/多选移动、框选或面板缩放）
     this._dragState = null;
+    // 方向键按住状态：每个方向独立计时，支持斜向微调。
+    this._arrowKeyHolds = new Map();
     // 画布缩放
     this.scale = 1;
 
@@ -312,6 +316,13 @@ export class PanelEditor {
     const canvas = this.container.querySelector('#pe-canvas');
     canvas.addEventListener('mousedown', (e) => this._onMouseDown(e));
     canvas.addEventListener('mousemove', (e) => this._onMouseMove(e));
+    // 方向键微调：非表单输入焦点下由编辑器消费，防止页面滚动。
+    this._onKeyDownBound = (e) => this._onKeyDown(e);
+    this._onKeyUpBound = (e) => this._onKeyUp(e);
+    this._onWindowBlurBound = () => this._clearArrowKeyHolds();
+    window.addEventListener('keydown', this._onKeyDownBound);
+    window.addEventListener('keyup', this._onKeyUpBound);
+    window.addEventListener('blur', this._onWindowBlurBound);
     // mouseup 和拖拽中的 mousemove 绑在 window（见 _onMouseDown）
   }
 
@@ -337,7 +348,7 @@ export class PanelEditor {
       btn.addEventListener('click', (e) => {
         if (e.target.classList.contains('pe-tab-close')) return;
         this.activePanelIndex = parseInt(btn.dataset.index);
-        this.selectedPartId = null;
+        this._clearSelection();
         this._render();
       });
     });
@@ -397,19 +408,33 @@ export class PanelEditor {
     ctx.fillStyle = '#4CAF50';
     ctx.fillRect(panel.width - 10, panel.height - 10, 10, 10);
 
-    // 选中框
-    if (this.selectedPartId) {
-      const sel = panel.parts.find(p => p.id === this.selectedPartId);
-      if (sel) {
-        ctx.strokeStyle = '#ff0';
-        ctx.lineWidth = 2;
-        ctx.setLineDash([4, 3]);
-        ctx.strokeRect(sel.x - 1, sel.y - 1, sel.width + 2, sel.height + 2);
-        ctx.setLineDash([]);
-        // 缩放手柄
+    // 选中部件框（多选时逐个显示，单选才显示缩放手柄）
+    const selectedParts = this._getSelectedParts();
+    if (selectedParts.length > 0) {
+      ctx.strokeStyle = '#ff0';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      for (const part of selectedParts) {
+        ctx.strokeRect(part.x - 1, part.y - 1, part.width + 2, part.height + 2);
+      }
+      ctx.setLineDash([]);
+      if (selectedParts.length === 1) {
+        const sel = selectedParts[0];
         ctx.fillStyle = '#ff0';
         ctx.fillRect(sel.x + sel.width - 4, sel.y + sel.height - 4, 8, 8);
       }
+    }
+
+    // 鼠标左键在空白区按住拖动时显示虚线框选区域。
+    if (this._dragState?.mode === 'marquee') {
+      const rect = this._getMarqueeRect(this._dragState);
+      ctx.fillStyle = 'rgba(76, 175, 80, 0.12)';
+      ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
+      ctx.strokeStyle = '#4CAF50';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([6, 4]);
+      ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+      ctx.setLineDash([]);
     }
 
     ctx.restore();
@@ -541,6 +566,15 @@ export class PanelEditor {
     const propsEl = this.container.querySelector('#pe-props');
     const panel = this.activePanel;
 
+    const selectedParts = this._getSelectedParts();
+    if (panel && selectedParts.length > 1) {
+      propsEl.innerHTML = `
+        <h4>已选择 ${selectedParts.length} 个部件</h4>
+        <div class="pe-prop-empty">拖动任一已选部件可整体移动。方向键单按移动 1px；按住 1/2/3 秒后分别以 10/50/100px 每秒移动。</div>
+      `;
+      return;
+    }
+
     if (!this.selectedPartId || !panel) {
       // 显示面板属性
       if (panel) {
@@ -578,7 +612,8 @@ export class PanelEditor {
         // 部件列表点击选中
         propsEl.querySelectorAll('[data-select-part]').forEach(el => {
           el.addEventListener('click', () => {
-            this.selectedPartId = el.dataset.selectPart;
+            const part = panel.parts.find(p => p.id === el.dataset.selectPart);
+            this._setSelection(part ? [part] : []);
             this._renderCanvas();
             this._renderProps();
           });
@@ -629,7 +664,9 @@ export class PanelEditor {
           val = parseFloat(val) || 0;
         }
         if (key === 'id') {
-          // 更新选中 id
+          // 同步主选中项与多选集合中的 id。
+          this.selectedPartIds.delete(this.selectedPartId);
+          this.selectedPartIds.add(val);
           this.selectedPartId = val;
         }
         part[key] = val;
@@ -712,6 +749,107 @@ export class PanelEditor {
 
   // ─── 交互：鼠标事件 ─────────────────────────────────────
 
+  _getSelectedParts() {
+    const panel = this.activePanel;
+    if (!panel || this.selectedPartIds.size === 0) return [];
+    return panel.parts.filter(part => this.selectedPartIds.has(part.id));
+  }
+
+  _setSelection(parts, primaryId = null) {
+    const selected = parts || [];
+    this.selectedPartIds = new Set(selected.map(part => part.id));
+    this.selectedPartId = primaryId && this.selectedPartIds.has(primaryId)
+      ? primaryId
+      : (selected[selected.length - 1]?.id || null);
+  }
+
+  _clearSelection() {
+    this.selectedPartIds.clear();
+    this.selectedPartId = null;
+  }
+
+  _getMarqueeRect(state) {
+    const x = Math.min(state.startX, state.currentX);
+    const y = Math.min(state.startY, state.currentY);
+    return {
+      x,
+      y,
+      width: Math.abs(state.currentX - state.startX),
+      height: Math.abs(state.currentY - state.startY)
+    };
+  }
+
+  _getPartsInRect(rect) {
+    const panel = this.activePanel;
+    if (!panel) return [];
+    return panel.parts.filter(part =>
+      part.x < rect.x + rect.width &&
+      part.x + part.width > rect.x &&
+      part.y < rect.y + rect.height &&
+      part.y + part.height > rect.y
+    );
+  }
+
+  _isEditableTarget(target) {
+    return target instanceof HTMLInputElement ||
+      target instanceof HTMLTextAreaElement ||
+      target instanceof HTMLSelectElement ||
+      target?.isContentEditable;
+  }
+
+  _moveSelectedParts(deltaX, deltaY) {
+    const selectedParts = this._getSelectedParts();
+    if (selectedParts.length === 0) return false;
+    for (const part of selectedParts) {
+      part.x = Math.round(part.x + deltaX);
+      part.y = Math.round(part.y + deltaY);
+    }
+    this._renderCanvas();
+    return true;
+  }
+
+  _onKeyDown(e) {
+    if (this._isEditableTarget(e.target)) return;
+    const direction = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1]
+    }[e.key];
+    if (!direction || this._getSelectedParts().length === 0) return;
+
+    e.preventDefault();
+    if (this._arrowKeyHolds.has(e.key)) return;
+
+    const [dx, dy] = direction;
+    // 首次按下立即精确移动 1px。
+    this._moveSelectedParts(dx, dy);
+    const startedAt = performance.now();
+    const timer = window.setInterval(() => {
+      const elapsed = performance.now() - startedAt;
+      if (elapsed < 1000) return;
+      // 每 100ms 移动一次，依次对应 10 / 50 / 100 px/s。
+      const pixelsPerTick = elapsed >= 3000 ? 10 : (elapsed >= 2000 ? 5 : 1);
+      this._moveSelectedParts(dx * pixelsPerTick, dy * pixelsPerTick);
+    }, 100);
+    this._arrowKeyHolds.set(e.key, timer);
+  }
+
+  _onKeyUp(e) {
+    const timer = this._arrowKeyHolds.get(e.key);
+    if (timer === undefined) return;
+    window.clearInterval(timer);
+    this._arrowKeyHolds.delete(e.key);
+    this._renderProps();
+  }
+
+  _clearArrowKeyHolds() {
+    for (const timer of this._arrowKeyHolds.values()) {
+      window.clearInterval(timer);
+    }
+    this._arrowKeyHolds.clear();
+  }
+
   _canvasXY(e) {
     const canvas = this.container.querySelector('#pe-canvas');
     const rect = canvas.getBoundingClientRect();
@@ -742,13 +880,12 @@ export class PanelEditor {
   }
 
   _onMouseDown(e) {
+    if (e.button !== 0) return;
     const { x, y } = this._canvasXY(e);
     const panel = this.activePanel;
     if (!panel) return;
 
     const edgeThreshold = 8;
-
-    // 检查面板边缘拖拽（优先级最高）
     const onRight = Math.abs(x - panel.width) < edgeThreshold && y >= 0 && y <= panel.height;
     const onBottom = Math.abs(y - panel.height) < edgeThreshold && x >= 0 && x <= panel.width;
     if (onRight || onBottom) {
@@ -756,36 +893,57 @@ export class PanelEditor {
       if (onRight && !onBottom) mode = 'panel-resize-right';
       else if (onBottom && !onRight) mode = 'panel-resize-bottom';
       this._dragState = { mode, startX: x, startY: y, startW: panel.width, startH: panel.height };
-      this.selectedPartId = null;
+      this._clearSelection();
       this._renderProps();
       this._startGlobalDrag(e);
       return;
     }
 
-    const selPart = this.selectedPartId ? panel.parts.find(p => p.id === this.selectedPartId) : null;
-
-    // 检查是否点到部件缩放手柄
-    if (selPart && this._isOnResizeHandle(selPart, x, y)) {
-      this._dragState = { mode: 'resize', part: selPart, startX: x, startY: y, startW: selPart.width, startH: selPart.height };
+    const selectedParts = this._getSelectedParts();
+    const singleSelectedPart = selectedParts.length === 1 ? selectedParts[0] : null;
+    if (singleSelectedPart && this._isOnResizeHandle(singleSelectedPart, x, y)) {
+      this._dragState = {
+        mode: 'resize', part: singleSelectedPart, startX: x, startY: y,
+        startW: singleSelectedPart.width, startH: singleSelectedPart.height
+      };
       this._startGlobalDrag(e);
       return;
     }
 
-    // 点击命中部件
     const hit = this._getPartAt(x, y);
     if (hit) {
-      this.selectedPartId = hit.id;
-      this._dragState = { mode: 'move', part: hit, startX: x, startY: y, origX: hit.x, origY: hit.y };
+      if (e.ctrlKey || e.metaKey) {
+        const next = this._getSelectedParts();
+        const existingIndex = next.findIndex(part => part.id === hit.id);
+        if (existingIndex >= 0) next.splice(existingIndex, 1);
+        else next.push(hit);
+        this._setSelection(next, hit.id);
+        this._renderCanvas();
+        this._renderProps();
+        return;
+      }
+      if (!this.selectedPartIds.has(hit.id)) {
+        this._setSelection([hit], hit.id);
+      }
+      const partsToMove = this._getSelectedParts();
+      this._dragState = {
+        mode: 'move-selection',
+        startX: x,
+        startY: y,
+        positions: partsToMove.map(part => ({ part, x: part.x, y: part.y }))
+      };
       this._renderCanvas();
       this._renderProps();
       this._startGlobalDrag(e);
       return;
     }
 
-    // 点空白取消选择
-    this.selectedPartId = null;
-    this._renderCanvas();
-    this._renderProps();
+    // 在空白区按住左键拖出虚线选框；按住 Ctrl/⌘/Shift 时叠加已有选择。
+    this._dragState = {
+      mode: 'marquee', startX: x, startY: y, currentX: x, currentY: y,
+      additive: e.ctrlKey || e.metaKey || e.shiftKey
+    };
+    this._startGlobalDrag(e);
   }
 
   /** 开始拖拽时绑定全局 mousemove/mouseup，确保鼠标移出 canvas 也能跟踪 */
@@ -812,9 +970,17 @@ export class PanelEditor {
     if (!panel) return;
     const ds = this._dragState;
 
-    if (ds.mode === 'move') {
-      ds.part.x = Math.round(ds.origX + (x - ds.startX));
-      ds.part.y = Math.round(ds.origY + (y - ds.startY));
+    if (ds.mode === 'marquee') {
+      ds.currentX = x;
+      ds.currentY = y;
+      this._renderCanvas();
+    } else if (ds.mode === 'move-selection') {
+      const dx = Math.round(x - ds.startX);
+      const dy = Math.round(y - ds.startY);
+      for (const position of ds.positions) {
+        position.part.x = position.x + dx;
+        position.part.y = position.y + dy;
+      }
       this._renderCanvas();
     } else if (ds.mode === 'resize') {
       ds.part.width = Math.max(10, Math.round(ds.startW + (x - ds.startX)));
@@ -834,7 +1000,6 @@ export class PanelEditor {
   }
 
   _onMouseMove(e) {
-    // 非拖拽时仅更新光标样式
     if (this._dragState) return;
     const { x, y } = this._canvasXY(e);
     const panel = this.activePanel;
@@ -846,19 +1011,29 @@ export class PanelEditor {
     if (onRight && onBottom) canvas.style.cursor = 'nwse-resize';
     else if (onRight) canvas.style.cursor = 'ew-resize';
     else if (onBottom) canvas.style.cursor = 'ns-resize';
-    else canvas.style.cursor = 'default';
+    else canvas.style.cursor = this._getPartAt(x, y) ? 'move' : 'crosshair';
   }
 
   _onMouseUp(e) {
-    if (this._dragState) {
-      const wasPanelResize = this._dragState.mode && this._dragState.mode.startsWith('panel-resize');
-      this._dragState = null;
-      this._renderProps(); // 更新属性面板中的坐标/大小
-      if (wasPanelResize) {
-        // 面板尺寸变化后需重绘 Canvas（尺寸改变）
-        this._renderCanvas();
+    const ds = this._dragState;
+    if (!ds) return;
+    this._dragState = null;
+
+    if (ds.mode === 'marquee') {
+      const rect = this._getMarqueeRect(ds);
+      if (rect.width > 2 && rect.height > 2) {
+        const inRect = this._getPartsInRect(rect);
+        const selected = ds.additive
+          ? [...new Map([...this._getSelectedParts(), ...inRect].map(part => [part.id, part])).values()]
+          : inRect;
+        this._setSelection(selected);
+      } else if (!ds.additive) {
+        this._clearSelection();
       }
     }
+
+    this._renderCanvas();
+    this._renderProps();
   }
 
   _onWheel(e) {
@@ -882,7 +1057,7 @@ export class PanelEditor {
       ]
     });
     this.activePanelIndex = this.panels.length - 1;
-    this.selectedPartId = null;
+    this._clearSelection();
     this._render();
   }
 
@@ -896,7 +1071,7 @@ export class PanelEditor {
     if (this.activePanelIndex >= this.panels.length) {
       this.activePanelIndex = this.panels.length - 1;
     }
-    this.selectedPartId = null;
+    this._clearSelection();
     this._render();
   }
 
@@ -932,17 +1107,17 @@ export class PanelEditor {
       ...defaults
     };
     panel.parts.push(newPart);
-    this.selectedPartId = partId;
+    this._setSelection([newPart], partId);
     this._render();
   }
 
   _deletePart() {
     const panel = this.activePanel;
-    if (!panel || !this.selectedPartId) return;
-    const idx = panel.parts.findIndex(p => p.id === this.selectedPartId);
-    if (idx < 0) return;
-    panel.parts.splice(idx, 1);
-    this.selectedPartId = null;
+    const selectedParts = this._getSelectedParts();
+    if (!panel || selectedParts.length === 0) return;
+    const selectedIds = new Set(selectedParts.map(part => part.id));
+    panel.parts = panel.parts.filter(part => !selectedIds.has(part.id));
+    this._clearSelection();
     this._render();
   }
 
@@ -957,7 +1132,7 @@ export class PanelEditor {
     dup.x += 15;
     dup.y += 15;
     panel.parts.push(dup);
-    this.selectedPartId = dup.id;
+    this._setSelection([dup], dup.id);
     this._render();
   }
 

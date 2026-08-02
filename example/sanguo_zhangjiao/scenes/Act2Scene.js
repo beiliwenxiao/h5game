@@ -22,6 +22,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 import { AttributeSystem } from '../../../src/systems/AttributeSystem.js';
 import { SkillTreeSystem } from '../../../src/systems/SkillTreeSystem.js';
 
@@ -985,17 +986,10 @@ export class Act2Scene extends BaseGameScene {
     if (this.dialogueSystem && this.dialogueSystem.isDialogueActive()) {
       this.hideHint();
     } else if (this.waitingForTalismanUse) {
-      if (this.isMobileLayout) {
-        this.showHint('点击<span class="key">背包</span>打开背包，点击符水使用');
-      } else {
-        this.showHint('按<span class="key">B</span>键打开背包，使用符水');
-      }
+      // 文案只写一份，按当前输入方案（键鼠/触屏/手柄）自动替换按键说法
+      this.showHint(InputHints.formatHtml('{bag}打开背包，使用符水'));
     } else if (this.waitingForEquip && !this.isSceneComplete) {
-      if (this.isMobileLayout) {
-        this.showHint('点击<span class="key">背包</span>打开背包，点击装备穿戴腰带和草鞋');
-      } else {
-        this.showHint('按<span class="key">B</span>键打开背包，装备腰带和草鞋后继续');
-      }
+      this.showHint(InputHints.formatHtml('{bag}打开背包，装备腰带和草鞋后继续'));
     } else if (this.isSceneComplete) {
       this.showHint('第二幕完成！即将进入第三幕...');
     } else {

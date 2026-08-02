@@ -19,6 +19,9 @@
  * 通过触发器动作 `toggleDebug` 启用/停用。
  * DOM 渲染，不走 Canvas，始终覆盖在游戏上层。
  */
+
+import { InputHints } from '../core/input/InputHints.js';
+
 export class DebugPanel {
   /**
    * @param {Object} opts
@@ -147,6 +150,7 @@ export class DebugPanel {
             <button id="dp-gamepad-panel">🎮 Xbox 360 按键图</button>
           </div>
           <div class="dp-row"><span>状态:</span><span id="dp-gamepad-state">--</span></div>
+          <div class="dp-row"><span>提示方案:</span><span id="dp-input-scheme">--</span></div>
         </div>
         <div class="dp-section dp-actions">
           <div class="dp-title">天气控制</div>
@@ -361,6 +365,10 @@ export class DebugPanel {
     this._el.querySelector('#dp-pos').textContent = transform
       ? `${Math.floor(transform.position.x)}, ${Math.floor(transform.position.y)}`
       : '--';
+
+    // 当前操作提示所用的输入方案（键鼠 / 触屏 / 手柄）
+    const schemeEl = this._el.querySelector('#dp-input-scheme');
+    if (schemeEl) schemeEl.textContent = `${InputHints.schemeLabel}（${InputHints.scheme}）`;
 
     // 手柄连接状态
     const gamepadStateEl = this._el.querySelector('#dp-gamepad-state');

@@ -121,7 +121,76 @@ export class UIEditor {
     // 面板的内外框比例由面板编辑器维护，这里先把历史数据规范到该比例
     this._normalizePanelAspects();
     await this._loadGamepadConfig();
+    await this._loadHintsConfig();
     this._render();
+  }
+
+  /**
+   * 加载操作提示文案表（内置默认 + config/InputHints.json 覆盖）。
+   * 文案表由框架的 InputHints 提供，编辑器只做展示与写回，避免两处维护默认值。
+   */
+  async _loadHintsConfig() {
+    try {
+      const mod = await import('../src/core/input/InputHints.js');
+      this._inputHints = mod.InputHints;
+      this._hintDefaults = this._inputHints.getDefaultActions();
+      // 先叠加项目已保存的覆盖，再取全量表
+      const file = this.configBase + 'InputHints.json';
+      try {
+        const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.ok && data.content) {
+            const parsed = JSON.parse(data.content);
+            this._inputHints.merge(parsed && parsed.actions ? parsed.actions : parsed);
+          }
+        }
+      } catch (e) {
+        // 没有覆盖文件，用默认表
+      }
+      this._hintActions = this._inputHints.getActions();
+    } catch (e) {
+      console.warn('UIEditor: InputHints 加载失败，提示文案编辑器不可用', e);
+      this._inputHints = null;
+      this._hintActions = null;
+    }
+  }
+
+  /** 保存提示文案覆盖到 config/InputHints.json */
+  async _saveHintsConfig() {
+    if (!this._hintActions) return;
+    const file = this.configBase + 'InputHints.json';
+    const content = JSON.stringify({ actions: this._hintActions }, null, 2);
+    try {
+      const res = await fetch('/api/save-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: file, content })
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || '保存失败');
+    } catch (e) {
+      this._setStatus(`提示文案保存失败: ${e.message}`, true);
+    }
+  }
+
+  /**
+   * 三套方案下该动作的短语预览。
+   * 把编辑中的文案表和手柄绑定灌进 InputHints 再强制方案取值，
+   * 保证预览与游戏内实际显示完全同源。
+   * @private
+   */
+  _previewHint(action, scheme) {
+    if (!this._inputHints) return '';
+    const hints = this._inputHints;
+    hints.merge(this._hintActions);
+    hints.setInputManager({
+      gamepad: { isConnected: () => true, bindings: this._gamepadBindings }
+    });
+    hints.setScheme(scheme);
+    const text = hints.phrase(action);
+    hints.setScheme(null);
+    return text;
   }
 
   /**
@@ -229,6 +298,7 @@ export class UIEditor {
             <button data-platform="mobile" class="active">📱 Android UI</button>
             <button data-platform="desktop">🖥️ PC UI</button>
             <button data-platform="gamepad">🎮 手柄</button>
+            <button data-platform="hints">💬 提示文案</button>
           </div>
           <div class="uie-actions">
             <button id="uie-reset">恢复默认</button>
@@ -262,6 +332,13 @@ export class UIEditor {
 
     this.container.querySelector('#uie-save').addEventListener('click', () => this.save());
     this.container.querySelector('#uie-reset').addEventListener('click', () => {
+      if (this.platform === 'hints') {
+        if (this._hintDefaults && confirm('恢复提示文案为默认？(未保存)')) {
+          this._hintActions = JSON.parse(JSON.stringify(this._hintDefaults));
+          this._render();
+        }
+        return;
+      }
       if (this.platform === 'gamepad') {
         if (confirm('恢复手柄绑定为默认？(未保存)')) {
           this._gamepadBindings = { ...this._defaultGamepadBindings };
@@ -312,6 +389,10 @@ export class UIEditor {
 
   /** 渲染当前平台的舞台和组件 */
   _render() {
+    if (this.platform === 'hints') {
+      this._renderHintsEditor();
+      return;
+    }
     if (this.platform === 'gamepad') {
       this._renderGamepadEditor();
       return;
@@ -474,6 +555,8 @@ export class UIEditor {
   async save() {
     // 手柄绑定保存到独立文件
     await this._saveGamepadConfig();
+    // 操作提示文案保存到独立文件
+    await this._saveHintsConfig();
 
     for (const platform of ['desktop', 'mobile']) {
       const file = this.configBase + (platform === 'desktop' ? 'UILayout.desktop.json' : 'UILayout.mobile.json');
@@ -511,7 +594,7 @@ export class UIEditor {
         return;
       }
     }
-    this._setStatus(`✅ 已保存到 ${this.configBase}UILayout.desktop.json 和 UILayout.mobile.json`);
+    this._setStatus(`✅ 已保存布局、手柄绑定和提示文案到 ${this.configBase}`);
   }
 
   /**
@@ -711,6 +794,146 @@ export class UIEditor {
     } catch (e) {
       this._setStatus(`手柄配置保存失败: ${e.message}`, true);
     }
+  }
+
+  /** 渲染操作提示文案编辑界面（pc / android / gamepad 三套） */
+  _renderHintsEditor() {
+    const stage = this.container.querySelector('#uie-stage');
+    const props = this.container.querySelector('#uie-props');
+    if (!stage || !props) return;
+
+    if (!this._hintActions) {
+      stage.innerHTML = '<div style="padding:40px;color:#ff8888;text-align:center;">InputHints 加载失败，提示文案编辑器不可用</div>';
+      props.innerHTML = '';
+      return;
+    }
+
+    stage.style.width = '980px';
+    stage.style.height = 'auto';
+    stage.style.minHeight = '400px';
+    stage.style.overflow = 'auto';
+    stage.style.padding = '20px';
+    stage.style.display = 'block';
+
+    // 手柄列用绑定动作下拉：文案跟随绑定，不写死按钮名
+    const bindable = (this._gamepadMeta && this._gamepadMeta.BINDABLE_ACTIONS) || [];
+
+    let html = `
+      <h3 style="color:#8fc7ff;margin:0 0 16px">操作提示文案（三套输入方案）</h3>
+      <p style="color:#778;font-size:12px;margin-bottom:16px;">
+        游戏里的提示、教程、按钮角标都从这里取文案。写一份模板如
+        <code style="color:#8fc">{bag}打开背包</code>，运行时按玩家当前设备替换。
+        手柄列选的是"绑定动作"，实际按钮名由手柄绑定表反查，改绑定后提示自动跟着变。
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;">
+        <thead>
+          <tr style="border-bottom:1px solid #2a3a5e;">
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:110px;">动作</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:120px;">PC 按键</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:90px;">PC 句式</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:130px;">Android 控件</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;width:150px;">手柄绑定动作</th>
+            <th style="text-align:left;padding:8px;color:#4CAF50;">预览（键鼠 / 触屏 / 手柄）</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    const inputStyle = 'width:100%;background:#0a1020;color:#fff;border:1px solid #2a3a5e;padding:4px;border-radius:3px;font-size:12px;';
+
+    for (const [action, def] of Object.entries(this._hintActions)) {
+      const pcKey = (def.pc && def.pc.key) || '';
+      const pcKind = (def.pc && def.pc.kind) || 'key';
+      const android = def.android || '';
+      const padKey = def.padKey || '';
+      const padFixed = def.padFixed || '';
+
+      let padCell;
+      if (padFixed) {
+        // 摇杆等固定部件不参与绑定反查
+        padCell = `<span style="color:#8aa;">固定：${padFixed}</span>`;
+      } else {
+        let options = `<option value="">（未绑定）</option>`;
+        for (const a of bindable) {
+          if (!a.value) continue;
+          const sel = a.value === padKey ? 'selected' : '';
+          options += `<option value="${a.value}" ${sel}>${a.label}（${a.value}）</option>`;
+        }
+        padCell = `<select data-hint-pad="${action}" style="${inputStyle}">${options}</select>`;
+      }
+
+      const preview = [
+        this._previewHint(action, 'pc'),
+        this._previewHint(action, 'android'),
+        this._previewHint(action, 'gamepad')
+      ].join(' / ');
+
+      html += `
+        <tr style="border-bottom:1px solid #1a2540;">
+          <td style="padding:6px 8px;font-weight:bold;color:#cfe3ff;">${action}</td>
+          <td style="padding:6px 8px;">
+            <input type="text" data-hint-pckey="${action}" value="${pcKey}" style="${inputStyle}">
+          </td>
+          <td style="padding:6px 8px;">
+            <select data-hint-pckind="${action}" style="${inputStyle}">
+              <option value="key" ${pcKind === 'key' ? 'selected' : ''}>按X键</option>
+              <option value="raw" ${pcKind === 'raw' ? 'selected' : ''}>点击X</option>
+            </select>
+          </td>
+          <td style="padding:6px 8px;">
+            <input type="text" data-hint-android="${action}" value="${android}" style="${inputStyle}">
+          </td>
+          <td style="padding:6px 8px;">${padCell}</td>
+          <td style="padding:6px 8px;color:#9fb;">${preview}</td>
+        </tr>
+      `;
+    }
+
+    html += '</tbody></table>';
+    stage.innerHTML = html;
+
+    const onEdit = () => {
+      this._renderHintsEditor();
+      this._setStatus('提示文案已修改，记得点「💾 保存到文件」');
+    };
+
+    stage.querySelectorAll('input[data-hint-pckey]').forEach(el => {
+      el.addEventListener('change', () => {
+        const action = el.dataset.hintPckey;
+        this._hintActions[action].pc = { ...(this._hintActions[action].pc || {}), key: el.value };
+        onEdit();
+      });
+    });
+    stage.querySelectorAll('select[data-hint-pckind]').forEach(el => {
+      el.addEventListener('change', () => {
+        const action = el.dataset.hintPckind;
+        this._hintActions[action].pc = { ...(this._hintActions[action].pc || {}), kind: el.value };
+        onEdit();
+      });
+    });
+    stage.querySelectorAll('input[data-hint-android]').forEach(el => {
+      el.addEventListener('change', () => {
+        this._hintActions[el.dataset.hintAndroid].android = el.value;
+        onEdit();
+      });
+    });
+    stage.querySelectorAll('select[data-hint-pad]').forEach(el => {
+      el.addEventListener('change', () => {
+        this._hintActions[el.dataset.hintPad].padKey = el.value;
+        onEdit();
+      });
+    });
+
+    props.innerHTML = `
+      <h4>提示文案</h4>
+      <div class="uie-prop-empty" style="line-height:1.7">
+        占位符两种写法：<br>
+        <code style="color:#8fc">{bag}</code> → 完整短语（含按/点击）<br>
+        <code style="color:#8fc">{key:bag}</code> → 只要按键名<br><br>
+        Android 控件名若本身带动作词（如"点击地面"），不会再叠加"点击"。<br><br>
+        保存位置：<br><code style="color:#8aa">${this.configBase}InputHints.json</code>
+      </div>
+    `;
   }
 
   /** 渲染手柄绑定编辑界面 */

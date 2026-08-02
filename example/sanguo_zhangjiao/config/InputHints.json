@@ -1,0 +1,215 @@
+{
+  "actions": {
+    "move": {
+      "pc": {
+        "key": "W/A/S/D",
+        "kind": "key"
+      },
+      "android": "虚拟摇杆",
+      "padFixed": "左摇杆",
+      "padKind": "raw"
+    },
+    "moveTo": {
+      "pc": {
+        "key": "鼠标右键",
+        "kind": "raw"
+      },
+      "android": "点击地面",
+      "padFixed": "左摇杆",
+      "padKind": "raw"
+    },
+    "aim": {
+      "pc": {
+        "key": "鼠标",
+        "kind": "raw"
+      },
+      "android": "拖动技能按钮",
+      "padFixed": "右摇杆",
+      "padKind": "raw"
+    },
+    "attack": {
+      "pc": {
+        "key": "鼠标左键",
+        "kind": "raw"
+      },
+      "android": "攻击按钮",
+      "padKey": "attack"
+    },
+    "pickup": {
+      "pc": {
+        "key": "E",
+        "kind": "key"
+      },
+      "android": "交互按钮",
+      "padKey": "e"
+    },
+    "interact": {
+      "pc": {
+        "key": "E",
+        "kind": "key"
+      },
+      "android": "交互按钮",
+      "padKey": "e"
+    },
+    "bag": {
+      "pc": {
+        "key": "B",
+        "kind": "key"
+      },
+      "android": "背包按钮",
+      "padKey": "b"
+    },
+    "playerInfo": {
+      "pc": {
+        "key": "C",
+        "kind": "key"
+      },
+      "android": "背包按钮",
+      "padKey": "c"
+    },
+    "block": {
+      "pc": {
+        "key": "Q",
+        "kind": "key"
+      },
+      "android": "格挡按钮",
+      "padKey": "q"
+    },
+    "flight": {
+      "pc": {
+        "key": "Ctrl",
+        "kind": "key"
+      },
+      "android": "轻功按钮",
+      "padKey": "ctrl"
+    },
+    "throw": {
+      "pc": {
+        "key": "Shift",
+        "kind": "key"
+      },
+      "android": "投掷按钮",
+      "padKey": "shift"
+    },
+    "harvest": {
+      "pc": {
+        "key": "F",
+        "kind": "key"
+      },
+      "android": "采集按钮",
+      "padKey": "f"
+    },
+    "potionHp": {
+      "pc": {
+        "key": "1",
+        "kind": "key"
+      },
+      "android": "红瓶按钮",
+      "padKey": "skill1"
+    },
+    "potionMp": {
+      "pc": {
+        "key": "2",
+        "kind": "key"
+      },
+      "android": "蓝瓶按钮",
+      "padKey": "skill2"
+    },
+    "skill1": {
+      "pc": {
+        "key": "3",
+        "kind": "key"
+      },
+      "android": "技能按钮",
+      "padKey": "skill3"
+    },
+    "skill2": {
+      "pc": {
+        "key": "4",
+        "kind": "key"
+      },
+      "android": "技能按钮",
+      "padKey": "skill4"
+    },
+    "skill3": {
+      "pc": {
+        "key": "5",
+        "kind": "key"
+      },
+      "android": "技能按钮",
+      "padKey": "skill5"
+    },
+    "heal": {
+      "pc": {
+        "key": "6",
+        "kind": "key"
+      },
+      "android": "回血按钮",
+      "padKey": "skill6"
+    },
+    "meditation": {
+      "pc": {
+        "key": "7",
+        "kind": "key"
+      },
+      "android": "打坐按钮",
+      "padKey": "skill7"
+    },
+    "nextAct": {
+      "pc": {
+        "key": "N",
+        "kind": "key"
+      },
+      "android": "交互按钮",
+      "padKey": "n"
+    },
+    "dialogueContinue": {
+      "pc": {
+        "key": "空格",
+        "kind": "key"
+      },
+      "android": "点击对话框",
+      "padKey": "space"
+    },
+    "cancel": {
+      "pc": {
+        "key": "Esc",
+        "kind": "key"
+      },
+      "android": "返回",
+      "padKey": "escape"
+    },
+    "skillTree": {
+      "pc": {
+        "key": "T",
+        "kind": "key"
+      },
+      "android": "技能树按钮",
+      "padKey": "t"
+    },
+    "attribute": {
+      "pc": {
+        "key": "P",
+        "kind": "key"
+      },
+      "android": "背包按钮",
+      "padKey": "p"
+    },
+    "unitInfo": {
+      "pc": {
+        "key": "U",
+        "kind": "key"
+      },
+      "android": "兵种按钮",
+      "padKey": "u"
+    },
+    "map": {
+      "pc": {
+        "key": "M",
+        "kind": "key"
+      },
+      "android": "地图按钮",
+      "padKey": "m"
+    }
+  }
+}

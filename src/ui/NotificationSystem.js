@@ -11,6 +11,7 @@
  ************************************************************/
 
 import { UIElement } from './UIElement.js';
+import { InputHints } from '../core/input/InputHints.js';
 
 /**
  * 通知消息类
@@ -123,7 +124,8 @@ export class NotificationSystem extends UIElement {
    * @param {number} [duration=3000] - 显示时长（毫秒）
    */
   addNotification(message, type = 'info', duration = 3000) {
-    const notification = new Notification(message, type, duration);
+    // 支持 {bag}、{key:pickup} 等按键占位符（Canvas 渲染，用纯文本版替换）
+    const notification = new Notification(InputHints.format(message), type, duration);
     this.notifications.push(notification);
 
     // 限制通知数量

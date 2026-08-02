@@ -21,6 +21,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 
 export class Act3Scene extends BaseGameScene {
   constructor() {
@@ -444,7 +445,7 @@ export class Act3Scene extends BaseGameScene {
     } else if (this.isSceneComplete) {
       this.showHint('第三幕完成！即将进入第四幕...');
     } else if (this.hasReceivedCoinSword) {
-      this.showHint('打开背包（<span class="key">B</span>键），使用铜钱剑前往第四幕');
+      this.showHint(InputHints.formatHtml('{bag}打开背包，使用铜钱剑前往第四幕'));
     } else {
       this.hideHint();
     }

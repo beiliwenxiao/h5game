@@ -341,6 +341,22 @@
             display: block;
         }
         
+        /* 背包打开时触屏控件让位：DOM 按钮在 canvas 之上，
+           否则必然压住 Canvas 绘制的背包。
+           applyUILayoutToDom 会把按钮重挂到 #touch-controls，
+           未重挂时仍在 #action-buttons / #bottom-hotbar，两种都要覆盖。 */
+        body.backpack-open #touch-controls > .action-btn,
+        body.backpack-open #touch-controls > .hotbar-btn:not(#hb-bag),
+        body.backpack-open #touch-controls > .potion-btn,
+        body.backpack-open #touch-controls > #joystick-zone,
+        body.backpack-open #action-buttons .action-btn,
+        body.backpack-open #bottom-hotbar .hotbar-btn:not(#hb-bag),
+        body.backpack-open #joystick-zone,
+        body.backpack-open #dpad {
+            opacity: 0.08 !important;
+            pointer-events: none !important;
+        }
+        
         /* 左下角虚拟摇杆区域（透明圆形热区） */
         #joystick-zone {
             position: absolute;
@@ -2318,7 +2334,6 @@
                 'act-axe': 'act-axe',
                 'hb-hp': 'hb-hp',
                 'hb-mp': 'hb-mp',
-                'hb-char': 'hb-char',
                 'hb-bag': 'hb-bag',
                 'hb-skill6': 'hb-skill6',
                 'hb-skill7': 'hb-skill7'

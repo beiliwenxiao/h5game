@@ -24,6 +24,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
 import { SkillTreePanel } from '../../../src/ui/SkillTreePanel.js';
 import { UnitInfoPanel } from '../../../src/ui/UnitInfoPanel.js';
@@ -306,7 +307,7 @@ export class Act4Scene extends BaseGameScene {
     this.tutorialSystem.registerTutorial('skill_tree', {
       id: 'skill_tree',
       title: '技能树系统',
-      content: '按 T 键打开技能树，学习职业专属技能。',
+      content: InputHints.format('{skillTree}打开技能树，学习职业专属技能。'),
       triggerCondition: () => this.classSelected,
       completionCondition: () => true,
       pauseGame: false
@@ -316,7 +317,7 @@ export class Act4Scene extends BaseGameScene {
     this.tutorialSystem.registerTutorial('attribute_allocation', {
       id: 'attribute_allocation',
       title: '属性分配',
-      content: '按 A 键打开属性面板，分配属性点提升角色能力。',
+      content: InputHints.format('{attribute}打开属性面板，分配属性点提升角色能力。'),
       triggerCondition: () => this.classSelected,
       completionCondition: () => true,
       pauseGame: false
@@ -326,7 +327,7 @@ export class Act4Scene extends BaseGameScene {
     this.tutorialSystem.registerTutorial('unit_specialization', {
       id: 'unit_specialization',
       title: '兵种特化',
-      content: '按 U 键查看兵种信息，了解兵种相克关系和升级路径。',
+      content: InputHints.format('{unitInfo}查看兵种信息，了解兵种相克关系和升级路径。'),
       triggerCondition: () => this.classSelected,
       completionCondition: () => true,
       pauseGame: false
@@ -1228,7 +1229,8 @@ export class Act4Scene extends BaseGameScene {
     } else if (!this.classSelected && this.introDialogueCompleted) {
       this.showHint('点击教官选择职业');
     } else if (this.classSelected) {
-      this.showHint('按<span class="key">T</span>/<span class="key">P</span>/<span class="key">U</span>键查看技能树/属性/兵种 | 按<span class="key">N</span>键前往第五幕');
+      this.showHint(InputHints.formatHtml(
+        '{key:skillTree}/{key:attribute}/{key:unitInfo} 查看技能树/属性/兵种 | {nextAct}前往第五幕'));
     } else {
       this.hideHint();
     }

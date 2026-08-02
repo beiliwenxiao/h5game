@@ -22,6 +22,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 
 export class Act5Scene extends BaseGameScene {
   constructor() {
@@ -407,9 +408,9 @@ export class Act5Scene extends BaseGameScene {
       this.showHint('消灭所有敌人！');
     } else if (this.battleState === 'cleared') {
       if (this.currentBattle < this.totalBattles - 1) {
-        this.showHint('战斗胜利！按<span class="key">N</span>键进入下一场战斗');
+        this.showHint(InputHints.formatHtml('战斗胜利！{nextAct}进入下一场战斗'));
       } else {
-        this.showHint('全部战斗完成！按<span class="key">N</span>键前往第六幕');
+        this.showHint(InputHints.formatHtml('全部战斗完成！{nextAct}前往第六幕'));
       }
     } else if (this.isSceneComplete) {
       this.showHint('第五幕完成！');

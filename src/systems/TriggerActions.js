@@ -21,6 +21,9 @@
  * 覆盖：变量/开关、对话、场景/大区、奖励、任务、提示、音频、生成、编排(wait/parallel)、战场。
  * 战场动作(battleWin 等)在 §14 实现 BattleMode 时补充具体逻辑，这里先占位。
  */
+
+import { InputHints } from '../core/input/InputHints.js';
+
 export function registerDefaultActions(triggerSystem) {
   triggerSystem.registerActions({
     // ---- 变量 / 开关 ----
@@ -118,11 +121,13 @@ export function registerDefaultActions(triggerSystem) {
     completeQuest: (p, ctx) => { ctx.questSystem?.turnInQuest?.(p.quest); },
 
     // ---- 提示 / 引导 ----
+    // 文案里可写 {bag}、{key:pickup} 等占位符，按当前输入方案（键鼠/触屏/手柄）替换
     showTip: (p, ctx) => {
-      if (ctx.tutorial && ctx.tutorial.showTip) ctx.tutorial.showTip(p);
+      const params = { ...p, text: InputHints.format(p.text || '') };
+      if (ctx.tutorial && ctx.tutorial.showTip) ctx.tutorial.showTip(params);
       else if (ctx.floatingText && ctx.player) {
         const t = ctx.player.getComponent && ctx.player.getComponent('transform');
-        if (t) ctx.floatingText.addText(t.position.x, t.position.y - 40, p.text || '', '#ffffff');
+        if (t) ctx.floatingText.addText(t.position.x, t.position.y - 40, params.text, '#ffffff');
       }
     },
 

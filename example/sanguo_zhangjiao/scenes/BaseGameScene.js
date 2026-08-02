@@ -53,6 +53,7 @@ import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
 import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
 import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -276,6 +277,8 @@ export class BaseGameScene extends PrologueScene {
     
     // 初始化输入管理器
     this.inputManager = new InputManager(canvas);
+    // 操作提示按当前输入方案（键鼠 / 触屏 / 手柄）取文案，手柄接上会自动切换
+    InputHints.setInputManager(this.inputManager);
     
     // 初始化战斗特效
     this.combatEffects = new CombatEffects(this.particleSystem);
@@ -692,25 +695,25 @@ export class BaseGameScene extends PrologueScene {
     if (!this.isMobileLayout) {
       this.bagButton = new IconButton({
         x: 946, y: 640, width: 50, height: 50,
-        icon: '🎒', label: '背包', hotkey: 'B',
+        icon: '🎒', label: '背包', hotkey: InputHints.key('bag'),
         onClick: () => { if (this.backpackPanel) this.backpackPanel.toggle(); }
       });
       // 轻功（按下进入瞄准，左键在射程内确认瞬移）
       this.flightButton = new IconButton({
         x: 722, y: 640, width: 50, height: 50,
-        icon: '💨', label: '轻功', hotkey: 'Ctrl',
+        icon: '💨', label: '轻功', hotkey: InputHints.key('flight'),
         onClick: () => { this.enterPCAimMode('flight'); }
       });
       // 投掷（按下进入瞄准，左键在射程内确认投掷）
       this.throwButton = new IconButton({
         x: 778, y: 640, width: 50, height: 50,
-        icon: '🎯', label: '投掷', hotkey: 'Shift',
+        icon: '🎯', label: '投掷', hotkey: InputHints.key('throw'),
         onClick: () => { this.enterPCAimMode('throw'); }
       });
       // 格挡（按下激活格挡防护）
       this.blockButton = new IconButton({
         x: 666, y: 640, width: 50, height: 50,
-        icon: '🛡', label: '格挡', hotkey: 'Q',
+        icon: '🛡', label: '格挡', hotkey: InputHints.key('block'),
         onClick: () => { this.activateBlock(); }
       });
     }
@@ -797,6 +800,8 @@ export class BaseGameScene extends PrologueScene {
    */
   async _applyUILayout() {
     try {
+      // 操作提示文案覆盖（UIEditor 的「提示文案」标签页保存）
+      await InputHints.load('config/');
       this.uiLayoutLoader = new UILayoutLoader({ basePath: 'config/' });
       const ok = await this.uiLayoutLoader.load();
       if (!ok) return;
@@ -3141,9 +3146,26 @@ export class BaseGameScene extends PrologueScene {
   }
 
   /**
+   * 背包打开时让 DOM 触屏控件让位（降透明度 + 不接收点击）。
+   * 摇杆和动作按钮是 DOM，z-index 高于 canvas，Canvas 内的层级排序管不到它们。
+   * @private
+   */
+  _syncTouchControlsForBackpack() {
+    if (typeof document === 'undefined' || !document.body) return;
+    const open = !!(this.backpackPanel && this.backpackPanel.visible);
+    if (this._touchControlsDimmed === open) return;
+    this._touchControlsDimmed = open;
+    document.body.classList.toggle('backpack-open', open);
+  }
+
+  /**
    * 更新面板悬停状态（委托给 UISystem）
    */
   updatePanelHover() {
+    // 背包是 Canvas 弹窗，而触屏控件是 DOM（层级在 canvas 之上），
+    // 靠 body class 让 DOM 控件在背包打开时让位
+    this._syncTouchControlsForBackpack();
+
     const mousePos = this.inputManager.getMousePosition();
     this.uiSystem.updateHover(mousePos.x, mousePos.y);
 
@@ -3310,6 +3332,8 @@ export class BaseGameScene extends PrologueScene {
    * @param {Object} [opts] - { persist:true 不自动隐藏（供倒计时/提示切幕每帧刷新用） }
    */
   _showScreenTip(text, opts = {}) {
+    // 与 showHint 一致：显示时替换按键占位符，支持三套输入方案
+    text = InputHints.formatHtml(text);
     if (typeof window !== 'undefined' && window.__ddShowTips) {
       window.__ddShowTips('提示', text);
       clearTimeout(this._tipTimer);
@@ -3481,11 +3505,6 @@ export class BaseGameScene extends PrologueScene {
       this.combatSystem.render(ctx);
     }
     
-    // 渲染统一背包（属性、装备、物品栏）
-    if (this.backpackPanel) {
-      this.backpackPanel.render(ctx);
-    }
-    
     // 渲染底部控制栏
     if (this.bottomControlBar) {
       this.bottomControlBar.render(ctx);
@@ -3518,6 +3537,12 @@ export class BaseGameScene extends PrologueScene {
     // 渲染性能监控面板
     if (this.performanceMonitor && this.performanceMonitor.enabled) {
       this.performanceMonitor.render(ctx);
+    }
+
+    // 统一背包（属性、装备、物品栏）：弹窗性质，必须盖住底部技能栏、
+    // PC 功能按钮、HUD 和小地图，所以放在这些之后绘制
+    if (this.backpackPanel) {
+      this.backpackPanel.render(ctx);
     }
 
     // 左侧系统文字提示
@@ -4860,12 +4885,14 @@ export class BaseGameScene extends PrologueScene {
    * @param {string} title - 提示标题，默认'提示'
    */
   showHint(text, title = '提示') {
+    // 在显示时机替换按键占位符：文案只写一份，中途插拔手柄也能跟着变
+    const resolved = InputHints.formatHtml(text);
     // 如果提示内容没变，不重复显示
-    if (this._currentHintText === text) return;
-    this._currentHintText = text;
+    if (this._currentHintText === resolved) return;
+    this._currentHintText = resolved;
     
     if (this._onHintShow) {
-      this._onHintShow(text, title);
+      this._onHintShow(resolved, title);
     }
   }
 
@@ -4940,6 +4967,12 @@ export class BaseGameScene extends PrologueScene {
    */
   exit() {
     super.exit();
+
+    // 清掉背包让位用的 body class，避免切场景后触屏控件仍是半透明不可点
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('backpack-open');
+    }
+    this._touchControlsDimmed = false;
 
     // DOM 调试面板不属于 Canvas，场景退出时必须主动销毁，避免遗留重复 ID 和旧场景刷新循环
     if (this.debugPanel) {

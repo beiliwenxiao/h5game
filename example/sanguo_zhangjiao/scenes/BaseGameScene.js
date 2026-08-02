@@ -53,6 +53,7 @@ import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
 import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
 import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
+import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { DebugPanel } from '../../../src/ui/DebugPanel.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -1032,7 +1033,14 @@ export class BaseGameScene extends PrologueScene {
    */
   _showNextGained() {
     const q = this._gainedQueue || [];
-    if (q.length === 0) { if (this.itemGainedPopup) this.itemGainedPopup.hide(); return; }
+    if (q.length === 0) {
+      if (this.itemGainedPopup) this.itemGainedPopup.hide();
+      // 数据驱动事件源：获得物品弹窗队列处理完毕（用户点了使用/放入背包/装备）
+      if (this.gameLoader && this.gameLoader.triggerSystem) {
+        this.gameLoader.triggerSystem.fire('gainedPopupClosed', {});
+      }
+      return;
+    }
     const { item, player } = q.shift();
     const type = item.type;
     let comparison = [];
@@ -2326,6 +2334,25 @@ export class BaseGameScene extends PrologueScene {
     console.log('BaseGameScene: UI面板已绑定到玩家实体');
   }
 
+  /**
+   * 手柄 A 键确认获得物品弹窗的主操作（装备或使用）。
+   * A 默认也映射为攻击，因此必须在攻击处理前消费同帧虚拟点击。
+   * @returns {boolean} 是否已处理
+   * @private
+   */
+  _handleGainedPopupGamepad() {
+    const input = this.inputManager;
+    const popup = this.itemGainedPopup;
+    if (!input?.isGamepadConnected?.() || !popup?.visible ||
+        !input.gamepad?.isButtonPressed(PadButton.A)) {
+      return false;
+    }
+
+    if (typeof popup.onPrimary !== 'function') return false;
+    popup.onPrimary();
+    input.markMouseClickHandled();
+    return true;
+  }
 
   /**
    * 更新场景
@@ -2336,6 +2363,8 @@ export class BaseGameScene extends PrologueScene {
     // 手柄轮询：demo 用自建主循环（不走 GameEngine），故在场景 update 帧首轮询。
     // 有帧守卫保护，重复调用（子类已 poll / GameEngine 已 poll）会被跳过。
     if (this.inputManager && this.inputManager.pollGamepads) this.inputManager.pollGamepads();
+    // 获得物品弹窗优先消费 A 键，防止同帧继续按攻击处理。
+    this._handleGainedPopupGamepad();
     
     // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
     this._updatePromptSwitch();

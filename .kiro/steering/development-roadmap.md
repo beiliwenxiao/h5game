@@ -28,16 +28,22 @@ inclusion: manual
 
 ## 当前里程碑：Demo 迁移验证（S11）
 
-目标：旧张角 Demo 通过新架构运行、逐幕对照验收。
+目标：全部走数据驱动（DataDrivenPrologueScene），旧 ActXScene 仅作回退保留。
+
+### 已完成
+
+- **默认入口已切到 DDScene** — 不再需要 `?ddscene=1`，直接走大地图 teleportToChunk
+- **Act3 数据驱动** — s2-1 放置点 + 触发器全链路
+- **Act2 数据驱动** — s1-1 觉醒→符水→装备升级→装备检测→切幕触发器链
+- **Act4 数据驱动** — s3-1 三教官 NPC + 确认窗口 + classSelected → 切幕
+- **Act5 数据驱动** — s3-2 四场战斗波次 + await 对话 + heal 回血 + waveCleared 链 + 完成切幕
+- **Act6 数据驱动** — s3-3 入场对话 → 结局对话 → 完成提示（简化版，统计面板待后续完善）
 
 ### 待完成任务
 
-1. **Act2 数据驱动迁移** — 手绘 NPC（粥棚伙夫/大锅）已有 NpcRenderStyles，需补放置点+触发器
-2. **Act4 数据驱动迁移** — 职业选择流程（DDScene 已有 `_selectClass`）
-3. **Act5 数据驱动迁移** — 四场战斗波次（DDScene 已有 `_spawnWave`）
-4. **Act6 数据驱动迁移** — 统计面板+结局判定（难度最高）
-5. **DOM 触屏按钮迁移到 Canvas** — 微信小游戏前置（无 DOM）
-6. **`?ddscene=1` 全链路验收** — 六幕连续通关、存档恢复
+1. **Act6 统计/奖励/继承面板** — 当前用 showTip 简化，后续可加 Canvas 面板渲染
+2. **DOM 触屏按钮迁移到 Canvas** — 微信小游戏前置（无 DOM）
+3. **全链路验收** — 六幕连续通关、存档恢复
 
 ## 下一里程碑：微信小游戏上线
 

@@ -204,6 +204,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})（同样需要在 inputManager.update 之前检测按键）
     this._checkCampfireInteract();
 
+    // 职业确认窗口检测（第四幕，确认窗口打开时优先处理点击，阻止穿透到 NPC 交互）
+    this._updateClassConfirmation();
+
     // NPC 交互：靠近 NPC 按 E / 点击 → 触发其对话/商店
     this._checkNpcInteract();
 
@@ -1032,12 +1035,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         trig.registerAction('spawnWave', (p) => this._spawnWave(p));
         // 场景专属动作：选择职业（第四幕，对话结束后由 dialogueEnd 触发器调用）
         trig.registerAction('selectClass', (p) => this._selectClass(p));
+        // 场景专属动作：弹出职业确认窗口（第四幕，对话结束后调用；玩家点确认才真正选职业）
+        trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
         // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
         trig.registerAction('completeScene', (p = {}) => {
           const sceneId = p.sceneId || p.scene;
           if (!sceneId) { console.warn('[DDScene] completeScene: 缺少 sceneId'); return; }
           console.log('[DDScene] completeScene →', sceneId);
           trig.fire('sceneComplete', { sceneId });
+        });
+        // 通用动作：关闭获得物品弹窗（剧情自动推进前调用，避免弹窗与对话冲突）
+        trig.registerAction('dismissPopup', () => {
+          if (this.itemGainedPopup && this.itemGainedPopup.visible) {
+            this.itemGainedPopup.hide();
+          }
+          this._gainedQueue = [];
         });
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           // 带对话 id，供 dialogueEnd{id:'xxx'} 触发器精确匹配
@@ -1240,9 +1252,125 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * 弹出职业确认窗口（Canvas 绘制）。玩家点"确认"后调用 _selectClass，点"取消"关闭。
+   * @param {Object} p - { classId }
+   * @private
+   */
+  _showClassConfirmation(p = {}) {
+    const classId = p.classId || p.class || 'warrior';
+    if (this._classSelected) return;
+
+    const classNames = { warrior: '战士', archer: '弓箭手', mage: '法师' };
+    const className = classNames[classId] || classId;
+
+    // 存到实例上，由 render 绘制、update 检测点击
+    this._classConfirm = {
+      classId,
+      className,
+      confirmHover: false,
+      cancelHover: false
+    };
+    console.log(`[DDScene] 显示职业确认窗口: ${className}`);
+  }
+
+  /**
+   * 每帧检测职业确认窗口的按钮点击（在 update 中调用）
+   * @private
+   */
+  _updateClassConfirmation() {
+    const cf = this._classConfirm;
+    if (!cf || !this.inputManager) return;
+
+    const w = 380, h = 180;
+    const px = (this.logicalWidth - w) / 2;
+    const py = (this.logicalHeight - h) / 2;
+    const btnW = 110, btnH = 38;
+    const btnY = py + h - 56;
+    const confirmX = px + w / 2 - btnW - 12;
+    const cancelX = px + w / 2 + 12;
+
+    const mouse = this.inputManager.getMousePosition();
+    cf.confirmHover = mouse.x >= confirmX && mouse.x <= confirmX + btnW && mouse.y >= btnY && mouse.y <= btnY + btnH;
+    cf.cancelHover = mouse.x >= cancelX && mouse.x <= cancelX + btnW && mouse.y >= btnY && mouse.y <= btnY + btnH;
+
+    if (!this.inputManager.isMouseClicked() || this.inputManager.isMouseClickHandled()) return;
+
+    if (cf.confirmHover) {
+      this.inputManager.markMouseClickHandled();
+      this._classConfirm = null;
+      this._selectClass({ classId: cf.classId });
+    } else if (cf.cancelHover) {
+      this.inputManager.markMouseClickHandled();
+      this._classConfirm = null;
+      console.log('[DDScene] 取消职业选择');
+    }
+  }
+
+  /**
+   * 渲染职业确认窗口（在 render 中调用）
+   * @param {CanvasRenderingContext2D} ctx
+   * @private
+   */
+  _renderClassConfirmation(ctx) {
+    const cf = this._classConfirm;
+    if (!cf) return;
+
+    const w = 380, h = 180;
+    const px = (this.logicalWidth - w) / 2;
+    const py = (this.logicalHeight - h) / 2;
+
+    ctx.save();
+    // 半透明遮罩
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    // 面板背景
+    ctx.fillStyle = 'rgba(16,24,40,0.95)';
+    ctx.strokeStyle = '#4CAF50';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(px, py, w, h, 10);
+    ctx.fill();
+    ctx.stroke();
+    // 标题
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 20px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('确认职业选择', px + w / 2, py + 18);
+    // 说明文字
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '15px Arial';
+    ctx.fillText(`确定要选择「${cf.className}」吗？选择后不可更改。`, px + w / 2, py + 60);
+    // 按钮
+    const btnW = 110, btnH = 38;
+    const btnY = py + h - 56;
+    const confirmX = px + w / 2 - btnW - 12;
+    const cancelX = px + w / 2 + 12;
+    // 确认按钮
+    ctx.fillStyle = cf.confirmHover ? '#5dba68' : '#4CAF50';
+    ctx.beginPath();
+    ctx.roundRect(confirmX, btnY, btnW, btnH, 6);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 15px Arial';
+    ctx.fillText('确认', confirmX + btnW / 2, btnY + 10);
+    // 取消按钮
+    ctx.fillStyle = cf.cancelHover ? '#555' : '#3a3a3a';
+    ctx.beginPath();
+    ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('取消', cancelX + btnW / 2, btnY + 10);
+    ctx.restore();
+  }
+
+  /**
    * 数据驱动：选择职业（第四幕）。触发器 dialogueEnd{id:warrior_intro/archer_intro} → selectClass{classId}
-   * 复用框架 ClassSystem：设置玩家职业/技能点/初始装备，并 fire('classSelected')。
-   * @param {Object} p - { classId: 'warrior'|'archer'|'mage' }
    * @private
    */
   _selectClass(p = {}) {
@@ -1559,6 +1687,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     super.render(ctx);
     this._renderCollisionShapesDebug(ctx);
     this._renderTeleportFade(ctx);
+    // 职业确认窗口（最上层，半透明遮罩 + 面板）
+    this._renderClassConfirmation(ctx);
   }
 
   /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */

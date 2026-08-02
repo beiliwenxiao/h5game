@@ -47,7 +47,8 @@
     "starvingKilled": 0,
     "act5Kills": 0,
     "hasSword": false,
-    "gold": 0
+    "gold": 0,
+    "act2EquipCount": 0
   },
   "worldMap": {
     "regions": [
@@ -1200,6 +1201,32 @@
       }
     },
     {
+      "id": "ending_survivor",
+      "title": "幸存者结局",
+      "act": "act6",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "你在乱世中艰难求生，虽然黄巾起义最终失败了，但你活了下来。",
+          "nextNode": "player_survive"
+        },
+        "player_survive": {
+          "speaker": "你",
+          "portrait": "player",
+          "text": "活着...就是胜利。师父，我会带着您的教诲继续走下去。",
+          "nextNode": "narrator_hope"
+        },
+        "narrator_hope": {
+          "speaker": "旁白",
+          "portrait": null,
+          "text": "未来的路还很长。乱世之中，唯有坚韧者才能看到曙光。",
+          "nextNode": null
+        }
+      }
+    },
+    {
       "id": "ending_leader",
       "title": "领袖结局",
       "act": "act6",
@@ -1475,15 +1502,20 @@
           "id": "warrior_intro"
         }
       },
+      "if": {
+        "op": "!=",
+        "left": { "var": "classSelected" },
+        "right": true
+      },
       "do": [
         {
-          "action": "selectClass",
+          "action": "confirmClass",
           "params": {
             "classId": "warrior"
           }
         }
       ],
-      "once": true
+      "once": false
     },
     {
       "id": "trg_act4_select_archer",
@@ -1493,15 +1525,43 @@
           "id": "archer_intro"
         }
       },
+      "if": {
+        "op": "!=",
+        "left": { "var": "classSelected" },
+        "right": true
+      },
       "do": [
         {
-          "action": "selectClass",
+          "action": "confirmClass",
           "params": {
             "classId": "archer"
           }
         }
       ],
-      "once": true
+      "once": false
+    },
+    {
+      "id": "trg_act4_select_mage",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "mage_intro"
+        }
+      },
+      "if": {
+        "op": "!=",
+        "left": { "var": "classSelected" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "confirmClass",
+          "params": {
+            "classId": "mage"
+          }
+        }
+      ],
+      "once": false
     },
     {
       "id": "trg_enter_act5",
@@ -1576,10 +1636,15 @@
       },
       "do": [
         {
+          "action": "heal",
+          "params": { "hp": 9999 }
+        },
+        {
           "action": "startDialogue",
           "params": {
             "id": "guangzong_intro"
-          }
+          },
+          "await": true
         },
         {
           "action": "spawnWave",
@@ -1625,10 +1690,15 @@
       },
       "do": [
         {
+          "action": "heal",
+          "params": { "hp": 9999 }
+        },
+        {
           "action": "startDialogue",
           "params": {
             "id": "yangcheng_intro"
-          }
+          },
+          "await": true
         },
         {
           "action": "spawnWave",
@@ -1698,10 +1768,15 @@
       },
       "do": [
         {
+          "action": "heal",
+          "params": { "hp": 9999 }
+        },
+        {
           "action": "startDialogue",
           "params": {
             "id": "final_battle_intro"
-          }
+          },
+          "await": true
         },
         {
           "action": "spawnWave",
@@ -1774,6 +1849,30 @@
       "once": true
     },
     {
+      "id": "trg_act5_final_cleared",
+      "when": {
+        "type": "waveCleared",
+        "params": {
+          "group": "act5_battle4"
+        }
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "四场战役全部胜利！黄巾军势如破竹！"
+          }
+        },
+        {
+          "action": "completeScene",
+          "params": {
+            "sceneId": "s3-2"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
       "id": "trg_enter_act6",
       "when": {
         "type": "sceneEnter",
@@ -1800,7 +1899,44 @@
           "action": "startDialogue",
           "params": {
             "id": "ending_intro"
+          },
+          "await": true
+        },
+        {
+          "action": "wait",
+          "params": { "seconds": 1 }
+        },
+        {
+          "action": "startDialogue",
+          "params": {
+            "id": "ending_survivor"
+          },
+          "await": true
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "序章完成！感谢游玩《张角黄巾起义序章》。你的选择和战斗已记录在案。"
           }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act6_ending_savior",
+      "when": {
+        "type": "sceneEnter",
+        "params": { "sceneId": "s3-3" }
+      },
+      "if": {
+        "op": ">=",
+        "left": { "var": "act5Kills" },
+        "right": 100
+      },
+      "do": [
+        {
+          "action": "setVar",
+          "params": { "key": "endingType", "value": "savior" }
         }
       ],
       "once": true
@@ -2232,8 +2368,153 @@
         {
           "action": "showTip",
           "params": {
-            "text": "得到 符水 x1，按 B 打开背包，使用可恢复 50 点生命"
+            "text": "得到 符水 x1"
           }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_talisman_popup_closed",
+      "when": {
+        "type": "gainedPopupClosed",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": { "var": "act2Scene" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "wait",
+          "params": { "seconds": 1 },
+          "await": true
+        },
+        {
+          "action": "startDialogue",
+          "params": { "id": "equipment_upgrade" }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_start_talisman_dialogue",
+      "when": {
+        "type": "dialogueEnd",
+        "params": {
+          "id": "awakening"
+        }
+      },
+      "if": {
+        "op": "==",
+        "left": { "var": "act2Scene" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "wait",
+          "params": { "seconds": 1 },
+          "await": true
+        },
+        {
+          "action": "startDialogue",
+          "params": { "id": "talisman_water" }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_use_talisman_start_upgrade",
+      "enabled": false,
+      "when": {
+        "type": "itemUsed",
+        "params": { "id": "talisman_water" }
+      },
+      "if": {
+        "op": "==",
+        "left": { "var": "act2Scene" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "wait",
+          "params": { "seconds": 1 },
+          "await": true
+        },
+        {
+          "action": "startDialogue",
+          "params": { "id": "equipment_upgrade" }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_give_equipment",
+      "when": {
+        "type": "dialogueEnd",
+        "params": { "id": "equipment_upgrade" }
+      },
+      "if": {
+        "op": "==",
+        "left": { "var": "act2Scene" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "giveReward",
+          "params": {
+            "items": [
+              { "id": "cloth_belt", "quantity": 1 },
+              { "id": "straw_sandals", "quantity": 1 }
+            ]
+          }
+        },
+        {
+          "action": "showTip",
+          "params": { "text": "得到 布腰带 和 草鞋，按 B 打开背包，装备后继续" }
+        },
+        {
+          "action": "setVar",
+          "params": { "key": "act2WaitEquip", "value": true }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_act2_equip_done",
+      "when": {
+        "type": "equipItem",
+        "params": {}
+      },
+      "if": {
+        "op": "==",
+        "left": { "var": "act2WaitEquip" },
+        "right": true
+      },
+      "do": [
+        {
+          "action": "addVar",
+          "params": { "key": "act2EquipCount", "delta": 1 }
+        }
+      ],
+      "once": false
+    },
+    {
+      "id": "trg_act2_equip_complete",
+      "when": {
+        "type": "equipItem",
+        "params": {}
+      },
+      "if": {
+        "op": ">=",
+        "left": { "var": "act2EquipCount" },
+        "right": 2
+      },
+      "do": [
+        {
+          "action": "completeScene",
+          "params": { "sceneId": "s1-1" }
         }
       ],
       "once": true
@@ -2954,6 +3235,26 @@
         "rarity": 0,
         "maxStack": 99,
         "quantity": 99
+      },
+      {
+        "id": "cloth_belt",
+        "name": "布腰带",
+        "type": "equipment",
+        "subType": "belt",
+        "stats": { "defense": 2, "maxHp": 10 },
+        "description": "简单的布制腰带，聊胜于无",
+        "rarity": 0,
+        "maxStack": 1
+      },
+      {
+        "id": "straw_sandals",
+        "name": "草鞋",
+        "type": "equipment",
+        "subType": "boots",
+        "stats": { "defense": 1, "speed": 3 },
+        "description": "用稻草编织的鞋子，轻便耐穿",
+        "rarity": 0,
+        "maxStack": 1
       }
     ],
     "shops": [

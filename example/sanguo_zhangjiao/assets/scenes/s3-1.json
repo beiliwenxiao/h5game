@@ -147,7 +147,10 @@
           "name": "张梁",
           "x": 480,
           "y": 300,
-          "group": "act4_instructors"
+          "group": "act4_instructors",
+          "overrides": {
+            "repeatableDialogue": true
+          }
         },
         {
           "id": "ref_zhangbao_s31",
@@ -157,7 +160,24 @@
           "name": "张宝",
           "x": 800,
           "y": 300,
-          "group": "act4_instructors"
+          "group": "act4_instructors",
+          "overrides": {
+            "repeatableDialogue": true
+          }
+        },
+        {
+          "id": "ref_zhangjiao_s31",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "zhangjiao",
+          "name": "张角",
+          "x": 640,
+          "y": 300,
+          "group": "act4_instructors",
+          "overrides": {
+            "dialogueId": "mage_intro",
+            "repeatableDialogue": true
+          }
         }
       ]
     },

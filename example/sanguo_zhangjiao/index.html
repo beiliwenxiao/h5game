@@ -964,7 +964,8 @@
 
                 await nextStep(); // 步骤 3
                 
-                // 创建并注册各幕场景
+                // 旧独立幕场景已废弃——全部通过 DataDrivenPrologueScene 的大地图 teleportToChunk 驱动
+                // 保留注册以防万一有旧代码引用（switchTo 回退路径），但不再主动使用
                 const act2Scene = new Act2Scene();
                 act2Scene.assetManager = assetManager;
                 sceneManager.registerScene('Act2Scene', act2Scene);
@@ -992,6 +993,8 @@
                 await nextStep(); // 步骤 4
 
                 await nextStep(); // 步骤 5
+                // 全部走数据驱动：DataDrivenPrologueScene 管理整个大地图
+                // ?ddscene=preview 仅用于编辑器单场景预览
                 const _ddSceneId = new URLSearchParams(location.search).get('ddscene');
                 if (_ddSceneId === 'preview') {
                     const dd = new DataDrivenScene('DataDrivenScene', { sceneManager });

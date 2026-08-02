@@ -79,6 +79,17 @@ export class MobileUIStrategy extends UIStrategy {
   }
 
   /**
+   * 移动端统一背包：水平居中，避免遮住底部操作区。
+   */
+  layoutBackpackPanel(panel, width, height) {
+    if (!panel) return;
+    panel.x = Math.max(10, Math.round((width - panel.width) / 2));
+    const bottomGap = 58;
+    panel.y = Math.max(10, height - bottomGap - panel.height);
+    if (typeof panel.layout === 'function') panel.layout();
+  }
+
+  /**
    * 移动端装备/角色面板：底部与底部快捷栏对齐（左侧）
    */
   layoutPlayerInfoPanel(panel, width, height) {

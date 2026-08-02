@@ -29,10 +29,8 @@ const DEFAULT_COMPONENTS = {
     // 画布逻辑尺寸（仅用于编辑器预览参考）
     canvas: { width: 1280, height: 720 },
     components: [
-      // 大面板
-      { id: 'playerInfoPanel', label: '属性面板', x: 10, y: 40, width: 320, height: 580, anchor: 'topleft', kind: 'panel' },
-      { id: 'equipmentPanel', label: '装备面板', x: 340, y: 220, width: 300, height: 400, anchor: 'topleft', kind: 'panel' },
-      { id: 'inventoryPanel', label: '背包面板', x: 900, y: 270, width: 360, height: 340, anchor: 'topleft', kind: 'panel' },
+      // 统一背包外框（属性、装备和物品栏的内部部件由 PanelEditor 编辑）
+      { id: 'backpackPanel', label: '背包', x: 190, y: 100, width: 900, height: 520, anchor: 'topleft', kind: 'panel' },
       // 底部控制栏拆分为独立小控件（血球/蓝球/2药水/5技能）
       { id: 'pc-hp-orb', label: '血球', x: 397, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
       { id: 'pc-potion1', label: '红瓶', x: 482, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
@@ -47,15 +45,14 @@ const DEFAULT_COMPONENTS = {
       { id: 'pc-block', label: '格挡', x: 666, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       { id: 'pc-flight', label: '轻功', x: 722, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       { id: 'pc-throw', label: '投掷', x: 778, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      // 功能按钮：属性 / 装备 / 背包
-      { id: 'pc-char', label: '属性', x: 834, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      { id: 'pc-equip', label: '装备', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      { id: 'pc-bag', label: '背包', x: 946, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
+      // 统一背包入口
+      { id: 'pc-bag', label: '背包', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
     ]
   },
   mobile: {
     canvas: { width: 1280, height: 600 },
     components: [
+      { id: 'backpackPanel', label: '背包', x: 190, y: 40, width: 900, height: 500, anchor: 'topleft', kind: 'panel' },
       { id: 'joystick', label: '摇杆区', x: 0, y: 270, width: 384, height: 330, anchor: 'topleft', kind: 'zone' },
       { id: 'hud-avatar', label: 'HUD头像', x: 10, y: 10, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hud-name', label: 'HUD昵称', x: 78, y: 10, width: 140, height: 20, anchor: 'topleft', kind: 'panel' },
@@ -72,7 +69,6 @@ const DEFAULT_COMPONENTS = {
       { id: 'act-axe', label: '采集', x: 1312, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-hp', label: '红瓶', x: 440, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-mp', label: '蓝瓶', x: 510, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
-      { id: 'hb-char', label: '装备', x: 580, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-bag', label: '背包', x: 650, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-skill6', label: '回血', x: 720, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-skill7', label: '打坐', x: 790, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' }

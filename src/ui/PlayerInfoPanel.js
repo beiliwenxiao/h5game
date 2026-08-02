@@ -114,12 +114,12 @@ export class PlayerInfoPanel extends UIElement {
   applyPanelLayout(panelDef) {
     if (!panelDef) return;
     this._panelLayout = panelDef;
-    // 用编辑器定义的面板尺寸覆盖
-    this.width = panelDef.width || this.width;
-    this.height = panelDef.height || this.height;
-    this.backgroundColor = panelDef.backgroundColor || this.backgroundColor;
-    this.borderColor = panelDef.borderColor || this.borderColor;
-    this.borderWidth = panelDef.borderWidth || this.borderWidth;
+    // 组合背包中宽高由 BackpackPanel 与 UIEditor 同步，零值边框必须保留以实现透明子面板。
+    this.width = panelDef.width ?? this.width;
+    this.height = panelDef.height ?? this.height;
+    this.backgroundColor = panelDef.backgroundColor ?? this.backgroundColor;
+    this.borderColor = panelDef.borderColor ?? this.borderColor;
+    this.borderWidth = panelDef.borderWidth ?? this.borderWidth;
   }
 
   /**
@@ -130,13 +130,18 @@ export class PlayerInfoPanel extends UIElement {
     const layout = this._panelLayout;
     const stats = this.player.getComponent('stats');
     const equipment = this.player.getComponent('equipment');
+    this.equipSlots = {};
+    this.attributeButtonRect = null;
 
-    // 面板背景
-    ctx.fillStyle = layout.backgroundColor || this.backgroundColor;
+    // 子面板在组合背包中使用透明底框，外层 BackpackPanel 统一绘制背景和边框。
+    ctx.fillStyle = layout.backgroundColor ?? this.backgroundColor;
     ctx.fillRect(this.x, this.y, this.width, this.height);
-    ctx.strokeStyle = layout.borderColor || this.borderColor;
-    ctx.lineWidth = layout.borderWidth || this.borderWidth;
-    ctx.strokeRect(this.x, this.y, this.width, this.height);
+    const borderWidth = layout.borderWidth ?? this.borderWidth;
+    if (borderWidth > 0) {
+      ctx.strokeStyle = layout.borderColor ?? this.borderColor;
+      ctx.lineWidth = borderWidth;
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
 
     // 遍历 parts 绘制
     for (const part of layout.parts) {

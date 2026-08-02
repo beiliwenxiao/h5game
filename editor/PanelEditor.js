@@ -11,8 +11,8 @@
  * 保存为 config/PanelLayout.json，游戏运行时由面板组件读取并应用。
  */
 
-// 默认面板定义（与游戏实际面板对齐）
-const DEFAULT_PANELS = [
+// 旧三面板定义仅保留作为历史参考；实际回退默认值使用下方的统一背包定义。
+const LEGACY_DEFAULT_PANELS = [
   {
     id: 'playerInfoPanel',
     name: '属性面板',
@@ -86,6 +86,52 @@ const DEFAULT_PANELS = [
   }
 ];
 
+// 默认统一背包定义：外框由 UIEditor 编辑，部件按 section 在组合面板中分区渲染。
+const DEFAULT_PANELS = [
+  {
+    id: 'backpackPanel', name: '背包', width: 900, height: 520,
+    backgroundColor: 'rgba(0, 0, 0, 0.88)', borderColor: '#4a9eff', borderWidth: 2,
+    parts: [
+      { id: 'characterTitle', section: 'character', type: 'text', label: '角色装备标题', x: 20, y: 18, width: 260, height: 24, text: '角色装备', fontSize: 18, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'characterSeparator', section: 'character', type: 'line', label: '角色分隔线', x: 20, y: 47, width: 270, height: 1, color: '#4a9eff' },
+      { id: 'className', section: 'character', type: 'text', label: '角色名', x: 20, y: 60, width: 260, height: 20, text: '{className}', fontSize: 16, fontWeight: 'bold', color: '#ffffff', align: 'left' },
+      { id: 'classLabel', section: 'character', type: 'text', label: '职业标签', x: 20, y: 87, width: 40, height: 18, text: '职业:', fontSize: 14, color: '#aaaaaa', align: 'left' },
+      { id: 'classValue', section: 'character', type: 'text', label: '职业值', x: 65, y: 87, width: 80, height: 18, text: '{class}', fontSize: 14, fontWeight: 'bold', color: '#ff6b6b', align: 'left' },
+      { id: 'levelLabel', section: 'character', type: 'text', label: '等级标签', x: 165, y: 87, width: 40, height: 18, text: '等级:', fontSize: 14, color: '#aaaaaa', align: 'left' },
+      { id: 'levelValue', section: 'character', type: 'text', label: '等级值', x: 210, y: 87, width: 40, height: 18, text: '{level}', fontSize: 14, color: '#ffffff', align: 'left' },
+      { id: 'attrTitle', section: 'character', type: 'text', label: '属性标题', x: 20, y: 120, width: 40, height: 18, text: '属性', fontSize: 14, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'attrAllocBtn', section: 'character', type: 'button', label: '加点按钮', x: 65, y: 116, width: 24, height: 18, text: '+', fontSize: 12, color: '#ffffff', bgColor: '#2a5a8f', borderColor: '#4a9eff' },
+      { id: 'attrHP', section: 'character', type: 'attr-row', label: 'HP', x: 20, y: 145, width: 260, height: 20, attrLabel: 'HP', attrColor: '#ff4444', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrMP', section: 'character', type: 'attr-row', label: 'MP', x: 20, y: 165, width: 260, height: 20, attrLabel: 'MP', attrColor: '#4444ff', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrAttack', section: 'character', type: 'attr-row', label: '攻击', x: 20, y: 185, width: 260, height: 20, attrLabel: '攻击', attrColor: '#ffaa00', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrDefense', section: 'character', type: 'attr-row', label: '防御', x: 20, y: 205, width: 260, height: 20, attrLabel: '防御', attrColor: '#00aaff', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'attrSpeed', section: 'character', type: 'attr-row', label: '速度', x: 20, y: 225, width: 260, height: 20, attrLabel: '速度', attrColor: '#00ff00', labelColor: '#aaaaaa', fontSize: 13 },
+      { id: 'equipmentTitle', section: 'character', type: 'text', label: '装备标题', x: 20, y: 258, width: 120, height: 18, text: '装备', fontSize: 14, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'slot_accessory', section: 'character', type: 'equip-slot', label: '饰品', x: 20, y: 285, width: 50, height: 50, slotType: 'accessory', slotLabel: '饰品' },
+      { id: 'slot_helmet', section: 'character', type: 'equip-slot', label: '头盔', x: 105, y: 285, width: 50, height: 50, slotType: 'helmet', slotLabel: '头盔' },
+      { id: 'slot_necklace', section: 'character', type: 'equip-slot', label: '项链', x: 190, y: 285, width: 50, height: 50, slotType: 'necklace', slotLabel: '项链' },
+      { id: 'slot_mainhand', section: 'character', type: 'equip-slot', label: '主手', x: 20, y: 340, width: 50, height: 50, slotType: 'mainhand', slotLabel: '主手' },
+      { id: 'slot_armor', section: 'character', type: 'equip-slot', label: '胸甲', x: 105, y: 340, width: 50, height: 50, slotType: 'armor', slotLabel: '胸甲' },
+      { id: 'slot_offhand', section: 'character', type: 'equip-slot', label: '副手', x: 190, y: 340, width: 50, height: 50, slotType: 'offhand', slotLabel: '副手' },
+      { id: 'slot_ring1', section: 'character', type: 'equip-slot', label: '戒指1', x: 20, y: 395, width: 50, height: 50, slotType: 'ring1', slotLabel: '戒指' },
+      { id: 'slot_belt', section: 'character', type: 'equip-slot', label: '腰带', x: 105, y: 395, width: 50, height: 50, slotType: 'belt', slotLabel: '腰带' },
+      { id: 'slot_ring2', section: 'character', type: 'equip-slot', label: '戒指2', x: 190, y: 395, width: 50, height: 50, slotType: 'ring2', slotLabel: '戒指' },
+      { id: 'slot_instrument', section: 'character', type: 'equip-slot', label: '器械', x: 20, y: 450, width: 50, height: 50, slotType: 'instrument', slotLabel: '器械' },
+      { id: 'slot_boots', section: 'character', type: 'equip-slot', label: '鞋子', x: 105, y: 450, width: 50, height: 50, slotType: 'boots', slotLabel: '鞋子' },
+      { id: 'slot_mount', section: 'character', type: 'equip-slot', label: '坐骑', x: 190, y: 450, width: 50, height: 50, slotType: 'mount', slotLabel: '坐骑' },
+      { id: 'bagTitle', section: 'inventory', type: 'text', label: '背包标题', x: 340, y: 18, width: 160, height: 24, text: '背包', fontSize: 18, fontWeight: 'bold', color: '#4a9eff', align: 'left' },
+      { id: 'bagSlotCount', section: 'inventory', type: 'text', label: '槽位数', x: 750, y: 21, width: 130, height: 16, text: '0/30', fontSize: 12, color: '#cccccc', align: 'right' },
+      { id: 'filterAll', section: 'inventory', type: 'button', label: '全部', x: 340, y: 60, width: 74, height: 26, text: '全部' },
+      { id: 'filterEquip', section: 'inventory', type: 'button', label: '装备', x: 420, y: 60, width: 74, height: 26, text: '装备' },
+      { id: 'filterConsume', section: 'inventory', type: 'button', label: '消耗品', x: 500, y: 60, width: 74, height: 26, text: '消耗品' },
+      { id: 'filterMaterial', section: 'inventory', type: 'button', label: '材料', x: 580, y: 60, width: 74, height: 26, text: '材料' },
+      { id: 'filterQuest', section: 'inventory', type: 'button', label: '任务', x: 660, y: 60, width: 74, height: 26, text: '任务' },
+      { id: 'slotGrid', section: 'inventory', type: 'slot-grid', label: '物品格子', x: 340, y: 100, width: 490, height: 380, cols: 9, rows: 7, slotSize: 50, slotPadding: 5 },
+      { id: 'scrollbar', section: 'inventory', type: 'scrollbar', label: '滚动条', x: 842, y: 100, width: 12, height: 380 },
+      { id: 'bagGoldRow', section: 'inventory', type: 'text', label: '金币', x: 340, y: 500, width: 180, height: 20, text: '💰 0 金币', fontSize: 13, fontWeight: 'bold', color: '#FFD700', align: 'left' }
+    ]
+  }
+];
 
 // 部件类型注册表（用于新增部件时的选项）
 const PART_TYPES = {
@@ -556,6 +602,7 @@ export class PanelEditor {
     html += `<div class="pe-prop-row"><label>ID</label><input type="text" data-part-key="id" value="${part.id}"></div>`;
     html += `<div class="pe-prop-row"><label>名称</label><input type="text" data-part-key="label" value="${part.label || ''}"></div>`;
     html += `<div class="pe-prop-row"><label>类型</label><select data-part-key="type">${Object.entries(PART_TYPES).map(([k, v]) => `<option value="${k}" ${k === part.type ? 'selected' : ''}>${v.label}</option>`).join('')}</select></div>`;
+    html += `<div class="pe-prop-row"><label>区域</label><select data-part-key="section"><option value="character" ${part.section === 'character' ? 'selected' : ''}>角色/装备</option><option value="inventory" ${part.section === 'inventory' ? 'selected' : ''}>背包物品</option></select></div>`;
     html += `</div>`;
 
     html += `<div class="pe-prop-section"><div class="pe-prop-section-title">位置/大小</div>`;
@@ -875,6 +922,7 @@ export class PanelEditor {
     const partId = typeKey + '_' + Date.now();
     const newPart = {
       id: partId,
+      section: 'inventory',
       type: typeKey,
       label: PART_TYPES[typeKey].label,
       x: 20,

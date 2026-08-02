@@ -5,6 +5,20 @@
   },
   "components": [
     {
+      "id": "backpackPanel",
+      "label": "背包",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 190,
+      "y": 40,
+      "width": 900,
+      "height": 500,
+      "xPct": 0.14844,
+      "yPct": 0.06667,
+      "wPct": 0.70313,
+      "hPct": 0.83333
+    },
+    {
       "id": "joystick",
       "label": "摇杆区",
       "kind": "zone",
@@ -229,30 +243,16 @@
       "hPct": 0.09333
     },
     {
-      "id": "hb-char",
-      "label": "装备",
-      "kind": "button",
-      "anchor": "topleft",
-      "x": 81,
-      "y": 533,
-      "width": 56,
-      "height": 56,
-      "xPct": 0.06328,
-      "yPct": 0.88833,
-      "wPct": 0.04375,
-      "hPct": 0.09333
-    },
-    {
       "id": "hb-bag",
       "label": "背包",
       "kind": "button",
       "anchor": "topleft",
-      "x": 156,
-      "y": 537,
+      "x": 96,
+      "y": 531,
       "width": 56,
       "height": 56,
-      "xPct": 0.12187,
-      "yPct": 0.895,
+      "xPct": 0.075,
+      "yPct": 0.885,
       "wPct": 0.04375,
       "hPct": 0.09333
     },

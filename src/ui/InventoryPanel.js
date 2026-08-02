@@ -37,6 +37,9 @@ export class InventoryPanel extends UIElement {
     });
 
     this.title = '背包';
+    this.backgroundColor = options.backgroundColor || 'rgba(0, 0, 0, 0.85)';
+    this.borderColor = options.borderColor || '#666';
+    this.borderWidth = options.borderWidth || 2;
     this.entity = null;
     this.slotSize = options.slotSize || 50;
     this.slotPadding = options.slotPadding || 5;
@@ -136,23 +139,23 @@ export class InventoryPanel extends UIElement {
   applyPanelLayout(panelDef) {
     if (!panelDef) return;
     this._panelLayout = panelDef;
-    // 覆盖面板整体属性
-    this.width = panelDef.width || this.width;
-    this.height = panelDef.height || this.height;
-    this.backgroundColor = panelDef.backgroundColor || 'rgba(0, 0, 0, 0.85)';
-    this.borderColor = panelDef.borderColor || '#666';
-    this.borderWidth = panelDef.borderWidth || 2;
-    // 从 parts 中提取格子配置
+    // 组合背包中几何信息由外层 BackpackPanel 同步；这里仅保留内部部件的样式和参数。
+    this.width = panelDef.width ?? this.width;
+    this.height = panelDef.height ?? this.height;
+    this.backgroundColor = panelDef.backgroundColor ?? this.backgroundColor;
+    this.borderColor = panelDef.borderColor ?? this.borderColor;
+    this.borderWidth = panelDef.borderWidth ?? this.borderWidth;
+
     const grid = panelDef.parts.find(p => p.id === 'slotGrid' || p.type === 'slot-grid');
     if (grid) {
-      this.slotsPerRow = grid.cols || this.slotsPerRow;
-      this.maxVisibleRows = grid.rows || this.maxVisibleRows;
-      this.slotSize = grid.slotSize || this.slotSize;
-      this.slotPadding = grid.slotPadding || this.slotPadding;
-      this.slotStartX = grid.x !== undefined ? grid.x : this.slotStartX;
-      this.slotStartY = grid.y !== undefined ? grid.y : this.slotStartY;
+      this.slotsPerRow = grid.cols ?? this.slotsPerRow;
+      this.maxVisibleRows = grid.rows ?? this.maxVisibleRows;
+      this.slotSize = grid.slotSize ?? this.slotSize;
+      this.slotPadding = grid.slotPadding ?? this.slotPadding;
+      this.slotStartX = grid.x ?? this.slotStartX;
+      this.slotStartY = grid.y ?? this.slotStartY;
     }
-    // 从 parts 中提取筛选按钮配置
+
     const filters = panelDef.parts.filter(p => p.type === 'button' && p.id && p.id.startsWith('filter'));
     if (filters.length > 0) {
       const fbDefs = [
@@ -168,14 +171,16 @@ export class InventoryPanel extends UIElement {
         x: f.x,
         y: f.y,
         width: f.width,
-        height: f.height
+        height: f.height,
+        color: f.color,
+        bgColor: f.bgColor,
+        borderColor: f.borderColor,
+        fontSize: f.fontSize
       }));
     }
-    // 滚动条配置
-    const sb = panelDef.parts.find(p => p.type === 'scrollbar');
-    if (sb) {
-      this.scrollbarWidth = sb.width || this.scrollbarWidth;
-    }
+
+    const scrollbar = panelDef.parts.find(p => p.type === 'scrollbar');
+    if (scrollbar) this.scrollbarWidth = scrollbar.width ?? this.scrollbarWidth;
   }
 
   /**
@@ -319,14 +324,19 @@ export class InventoryPanel extends UIElement {
     if (!this.entity) return;
     const stats = this.entity.getComponent('stats');
     const gold = stats ? (stats.gold || 0) : 0;
-    
-    const goldY = this.y + this.height - 22;
+    const part = this._getLayoutPart('bagGoldRow', 'goldRow');
+    const x = this.x + (part?.x ?? 16);
+    const y = this.y + (part?.y ?? this.height - 22);
+    const width = part?.width || 120;
+
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(this.x + 10, goldY - 14, 120, 20);
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 13px Arial';
+    ctx.fillRect(x - 6, y - 14, width, 20);
+    ctx.fillStyle = part?.color || '#FFD700';
+    ctx.font = `bold ${part?.fontSize || 13}px Arial`;
+    ctx.textAlign = part?.align || 'left';
+    const textX = part?.align === 'right' ? x + width : x;
+    ctx.fillText(`💰 ${gold} 金币`, textX, y);
     ctx.textAlign = 'left';
-    ctx.fillText(`💰 ${gold} 金币`, this.x + 16, goldY);
   }
 
   /**
@@ -334,14 +344,13 @@ export class InventoryPanel extends UIElement {
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   renderBackground(ctx) {
-    // 背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+    ctx.fillStyle = this.backgroundColor;
     ctx.fillRect(this.x, this.y, this.width, this.height);
-    
-    // 边框
-    ctx.strokeStyle = '#666';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(this.x, this.y, this.width, this.height);
+    if (this.borderWidth > 0) {
+      ctx.strokeStyle = this.borderColor;
+      ctx.lineWidth = this.borderWidth;
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
   }
 
   /**
@@ -349,23 +358,53 @@ export class InventoryPanel extends UIElement {
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
   renderTitle(ctx) {
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'left';
-    ctx.fillText(this.title, this.x + 20, this.y + 25);
-    
-    // 显示背包使用情况
+    const titlePart = this._getLayoutPart('bagTitle', 'title');
+    const titleX = this.x + (titlePart?.x ?? 20);
+    const titleY = this.y + (titlePart?.y ?? 12) + (titlePart?.fontSize || 16);
+    const titleWidth = titlePart?.width || 100;
+    ctx.fillStyle = titlePart?.color || '#ffffff';
+    ctx.font = `${titlePart?.fontWeight || 'bold'} ${titlePart?.fontSize || 16}px Arial`;
+    ctx.textAlign = titlePart?.align || 'left';
+    const titleTextX = titlePart?.align === 'right' ? titleX + titleWidth : titleX;
+    ctx.fillText(titlePart?.text || this.title, titleTextX, titleY);
+
     if (this.entity) {
       const inventoryComponent = this.entity.getComponent('inventory');
       if (inventoryComponent) {
-        const used = inventoryComponent.getUsedSlotCount();
-        const total = inventoryComponent.maxSlots;
-        ctx.fillStyle = '#cccccc';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${used}/${total}`, this.x + this.width - 20, this.y + 25);
+        const countPart = this._getLayoutPart('bagSlotCount', 'slotCount');
+        const countX = this.x + (countPart?.x ?? this.width - 100);
+        const countY = this.y + (countPart?.y ?? 14) + (countPart?.fontSize || 12);
+        const countWidth = countPart?.width || 80;
+        ctx.fillStyle = countPart?.color || '#cccccc';
+        ctx.font = `${countPart?.fontSize || 12}px Arial`;
+        ctx.textAlign = countPart?.align || 'right';
+        const textX = countPart?.align === 'left' ? countX : countX + countWidth;
+        ctx.fillText(`${inventoryComponent.getUsedSlotCount()}/${inventoryComponent.maxSlots}`, textX, countY);
       }
     }
+    ctx.textAlign = 'left';
+  }
+
+  _getLayoutPart(...ids) {
+    const parts = this._panelLayout?.parts || [];
+    return parts.find(part => ids.includes(part.id)) || null;
+  }
+
+  _getSlotStyle() {
+    const grid = this._getLayoutPart('slotGrid');
+    return {
+      background: grid?.slotBgColor || 'rgba(100, 100, 100, 0.3)',
+      border: grid?.slotBorderColor || '#666'
+    };
+  }
+
+  _renderSlotFrame(ctx, x, y, hovered, selected) {
+    const style = this._getSlotStyle();
+    ctx.fillStyle = hovered ? 'rgba(255, 255, 255, 0.2)' : style.background;
+    ctx.fillRect(x, y, this.slotSize, this.slotSize);
+    ctx.strokeStyle = selected ? '#ffff00' : (hovered ? '#ffffff' : style.border);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, this.slotSize, this.slotSize);
   }
 
   /**
@@ -384,17 +423,17 @@ export class InventoryPanel extends UIElement {
       const isActive = inventoryComponent.currentFilter === button.name;
       
       // 按钮背景
-      ctx.fillStyle = isActive ? 'rgba(100, 150, 255, 0.8)' : 'rgba(100, 100, 100, 0.5)';
+      ctx.fillStyle = isActive ? 'rgba(100, 150, 255, 0.8)' : (button.bgColor || 'rgba(100, 100, 100, 0.5)');
       ctx.fillRect(buttonX, buttonY, button.width, button.height);
       
       // 按钮边框
-      ctx.strokeStyle = isActive ? '#6496ff' : '#888';
+      ctx.strokeStyle = isActive ? '#6496ff' : (button.borderColor || '#888');
       ctx.lineWidth = 1;
       ctx.strokeRect(buttonX, buttonY, button.width, button.height);
       
       // 按钮文字
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '11px Arial';
+      ctx.fillStyle = button.color || '#ffffff';
+      ctx.font = `${button.fontSize || 11}px Arial`;
       ctx.textAlign = 'center';
       ctx.fillText(button.label, buttonX + button.width / 2, buttonY + button.height / 2 + 4);
     }
@@ -468,17 +507,17 @@ export class InventoryPanel extends UIElement {
    */
   renderScrollbar(ctx) {
     const totalRows = this.getTotalRows();
-    if (totalRows <= this.maxVisibleRows) return; // 无需滚动
-    
+    if (totalRows <= this.maxVisibleRows) return;
+
+    const scrollbar = this._getLayoutPart('scrollbar');
     const track = this.getScrollbarTrackRect();
-    
-    // 轨道
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.fillStyle = scrollbar?.trackColor || 'rgba(255,255,255,0.12)';
     ctx.fillRect(track.x, track.y, track.width, track.height);
-    
-    // 滑块
+
     const thumb = this.getScrollbarThumbRect();
-    ctx.fillStyle = this.scrollbarDragging ? 'rgba(180,200,255,0.95)' : 'rgba(180,180,180,0.8)';
+    ctx.fillStyle = this.scrollbarDragging
+      ? 'rgba(180,200,255,0.95)'
+      : (scrollbar?.thumbColor || 'rgba(180,180,180,0.8)');
     ctx.fillRect(thumb.x, thumb.y, thumb.width, thumb.height);
   }
 
@@ -486,6 +525,15 @@ export class InventoryPanel extends UIElement {
    * 滚动条轨道矩形
    */
   getScrollbarTrackRect() {
+    const scrollbar = this._getLayoutPart('scrollbar');
+    if (scrollbar) {
+      return {
+        x: this.x + scrollbar.x,
+        y: this.y + scrollbar.y,
+        width: scrollbar.width || this.scrollbarWidth,
+        height: scrollbar.height || 0
+      };
+    }
     const x = this.x + this.slotStartX + this.slotsPerRow * (this.slotSize + this.slotPadding) + 4;
     const y = this.y + this.slotStartY;
     const height = this.maxVisibleRows * (this.slotSize + this.slotPadding) - this.slotPadding;
@@ -540,15 +588,7 @@ export class InventoryPanel extends UIElement {
     const { slot, index: originalIndex } = filteredItem;
     const isHovered = this.hoveredSlot === originalIndex;
     const isSelected = this.selectedSlot === originalIndex;
-    
-    // 槽位背景
-    ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.2)' : 'rgba(100, 100, 100, 0.3)';
-    ctx.fillRect(x, y, this.slotSize, this.slotSize);
-    
-    // 槽位边框
-    ctx.strokeStyle = isSelected ? '#ffff00' : (isHovered ? '#ffffff' : '#666');
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, this.slotSize, this.slotSize);
+    this._renderSlotFrame(ctx, x, y, isHovered, isSelected);
     
     // 渲染物品
     if (slot) {
@@ -566,15 +606,7 @@ export class InventoryPanel extends UIElement {
   renderEmptySlot(ctx, x, y, slotIndex) {
     const isHovered = this.hoveredSlot === slotIndex;
     const isSelected = this.selectedSlot === slotIndex;
-    
-    // 槽位背景
-    ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.2)' : 'rgba(100, 100, 100, 0.3)';
-    ctx.fillRect(x, y, this.slotSize, this.slotSize);
-    
-    // 槽位边框
-    ctx.strokeStyle = isSelected ? '#ffff00' : (isHovered ? '#ffffff' : '#666');
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, this.slotSize, this.slotSize);
+    this._renderSlotFrame(ctx, x, y, isHovered, isSelected);
   }
 
   /**
@@ -589,15 +621,7 @@ export class InventoryPanel extends UIElement {
     const slot = inventoryComponent.getSlot(slotIndex);
     const isHovered = this.hoveredSlot === slotIndex;
     const isSelected = this.selectedSlot === slotIndex;
-    
-    // 槽位背景
-    ctx.fillStyle = isHovered ? 'rgba(255, 255, 255, 0.2)' : 'rgba(100, 100, 100, 0.3)';
-    ctx.fillRect(x, y, this.slotSize, this.slotSize);
-    
-    // 槽位边框
-    ctx.strokeStyle = isSelected ? '#ffff00' : (isHovered ? '#ffffff' : '#666');
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, this.slotSize, this.slotSize);
+    this._renderSlotFrame(ctx, x, y, isHovered, isSelected);
     
     // 渲染物品
     if (slot) {

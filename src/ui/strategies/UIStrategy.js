@@ -86,6 +86,16 @@ export class UIStrategy {
   }
 
   /**
+   * 布局统一背包面板（属性、装备和物品栏的组合容器）。
+   * @param {Object} panel - BackpackPanel 实例
+   * @param {number} width
+   * @param {number} height
+   */
+  layoutBackpackPanel(panel, width, height) {
+    // 默认不改变位置
+  }
+
+  /**
    * 布局角色信息/装备面板（PlayerInfoPanel）。
    * 默认无操作，子类可覆盖。
    * @param {Object} panel

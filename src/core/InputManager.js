@@ -164,8 +164,9 @@ export class InputManager {
             });
         }
         
-        // 阻止游戏快捷键的浏览器默认行为（F1 默认打开帮助，需拦截）
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab', 'F1'].includes(key) || isDebugPanelKey) {
+        // 阻止游戏快捷键的浏览器默认行为。
+        // F1 不再被游戏占用，完整交回系统/浏览器帮助。
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Tab'].includes(key) || isDebugPanelKey) {
             event.preventDefault();
             if (isDebugPanelKey) {
                 console.log('[InputManager][DebugPanel] 已阻止反引号键默认行为', {
@@ -614,8 +615,15 @@ export class InputManager {
         const keyArray = Array.isArray(keys) ? keys : [keys];
         const cooldown = options.cooldown ?? 300;
         const onPress = options.onPress ?? true;
+        // 修饰键要求：只有键盘上对应修饰键处于按下状态时热键才生效。
+        // 用于把已被系统/浏览器占用的单键（如 F1）改成组合键。
+        const modifiers = {
+            ctrl: options.ctrl === true,
+            shift: options.shift === true,
+            alt: options.alt === true
+        };
         
-        const hotkeyData = { id, callback, cooldown, lastTriggerTime: 0, onPress };
+        const hotkeyData = { id, callback, cooldown, lastTriggerTime: 0, onPress, modifiers };
         
         for (const key of keyArray) {
             const mappedKey = this.keyMap[key] || key;
@@ -630,6 +638,20 @@ export class InputManager {
      * 注销快捷键
      * @param {string} id - 快捷键唯一标识
      */
+    /**
+     * 校验热键要求的修饰键是否满足。
+     * 只看键盘状态，避免手柄映射出的同名虚拟键（如轻功用的 ctrl）造成误触发。
+     * @param {{ctrl:boolean, shift:boolean, alt:boolean}} [modifiers]
+     * @returns {boolean}
+     */
+    _modifiersSatisfied(modifiers) {
+        if (!modifiers) return true;
+        if (modifiers.ctrl && this.keys.get('ctrl') !== true) return false;
+        if (modifiers.shift && this.keys.get('shift') !== true) return false;
+        if (modifiers.alt && this.keys.get('Alt') !== true) return false;
+        return true;
+    }
+
     unregisterHotkey(id) {
         for (const [key, handlers] of this.hotkeys) {
             const filtered = handlers.filter(h => h.id !== id);
@@ -660,6 +682,8 @@ export class InputManager {
                 const shouldTrigger = handler.onPress 
                     ? this.isKeyPressed(key)
                     : this.isKeyDown(key);
+                
+                if (shouldTrigger && !this._modifiersSatisfied(handler.modifiers)) continue;
                 
                 if (shouldTrigger && (now - handler.lastTriggerTime >= handler.cooldown)) {
                     handler.lastTriggerTime = now;

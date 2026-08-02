@@ -37,6 +37,14 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 ### 6. 移动优先用 getMoveAxis()
 `MovementSystem.handleKeyboardInput` 先取 `inputManager.getMoveAxis()`（返回归一化方向 + magnitude 推杆量，手柄摇杆可轻推慢走），拿不到再退回逐键判断。`getMoveAxis` 不存在时（旧 InputManager / 测试替身）走兜底分支，测试不受影响。摇杆同时补出数字方向键（`up/left` 等），让只读 `isKeyDown('up')` 的朝向/动画代码也能跟随。
 
+### 7. 组合键热键用 registerHotkey 的修饰键选项
+`registerHotkey(id, keys, cb, { ctrl, shift, alt })`。需要组合键时用这个选项，不要另写 keydown 监听。
+
+- 判定在 `InputManager._modifiersSatisfied()`，只读 `this.keys`（**纯键盘状态**），不用 `isKeyDown()`。
+- 原因：`isKeyDown()` 会并入手柄虚拟键，而手柄绑定里 `ctrl` 用于轻功，用它判断会在按住轻功时误触发组合键。
+- 需要屏蔽浏览器默认行为时，`handleKeyDown` 里按组合条件 preventDefault（如 `key === 'X' && event.ctrlKey`），不要整键拦截，否则该单键就被游戏吃掉了。
+- 调试/工具类入口优先放调试面板按钮，不要占用键盘键位（手柄按键图就是这么处理的）。
+
 ## 平台支持
 
 | 宿主 | 支持度 |
@@ -50,9 +58,11 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 ## UI（GamepadPanel）
 
 - HUD 常驻小指示：手柄连接即在左下角显示 🎮 + 手柄名，不受面板 `visible` 影响。
-- 完整面板：F1 切换。左半画手柄图（摇杆帽随推杆偏移、按下的键呼吸高亮），右半是按键→功能映射表。
+- 完整面板：由**调试面板**（反引号 `` ` `` 打开）里「手柄」分组的「🎮 Xbox 360 按键图」按钮切换，不占用键盘热键。左半画手柄图（摇杆帽随推杆偏移、按下的键呼吸高亮），右半是按键→功能映射表。
 - 纯 Canvas 绘制无图片依赖（微信小游戏也能画）。面板内点击一律消费，防穿透。
-- F1 默认会打开浏览器帮助，已在 `InputManager.handleKeyDown` 的 preventDefault 白名单中拦截。
+- 手柄面板**不注册任何键盘热键**。F1 被系统/浏览器帮助占用，Ctrl+F1 也易与外部软件冲突，因此入口放在调试面板：
+  - `DebugPanel` 的「手柄」分组里有 `#dp-gamepad-panel` 按钮，点击调 `scene.gamepadPanel.toggle()`；同组的 `#dp-gamepad-state` 每帧显示连接状态（读 `inputManager.gamepad.isConnected()` 与 `.info`）。
+  - `InputManager.handleKeyDown` 的 preventDefault 白名单**不含 F1**，F1 完整交回系统。
 
 ## 默认按键映射
 
@@ -62,7 +72,8 @@ A  攻击        X  拾取/交互
 B  红药水      Y  蓝药水
 LB/RB/LT/RT   技能1/2/3/4
 Back 属性面板  Start 背包
-LS 格挡        RS 取消选中    F1 手柄按键图
+LS 格挡        RS 取消选中
+按键图入口：调试面板（反引号打开）→ 手柄 → 🎮 Xbox 360 按键图
 ```
 
 `GamepadManager.setBinding(buttonIndex, key)` 可运行时改绑定；构造时传 `options.bindings` 覆盖默认。

@@ -142,6 +142,13 @@ export class DebugPanel {
           </label>
         </div>
         <div class="dp-section dp-actions">
+          <div class="dp-title">手柄</div>
+          <div class="dp-btn-row">
+            <button id="dp-gamepad-panel">🎮 Xbox 360 按键图</button>
+          </div>
+          <div class="dp-row"><span>状态:</span><span id="dp-gamepad-state">--</span></div>
+        </div>
+        <div class="dp-section dp-actions">
           <div class="dp-title">天气控制</div>
           <div class="dp-btn-row">
             <select id="dp-weather-select">
@@ -232,6 +239,15 @@ export class DebugPanel {
       if (!scene) return;
       scene.debugShowBuffZones = event.target.checked;
       console.log('[DebugPanel] Buff 多边形显示:', event.target.checked ? '开启' : '关闭');
+    });
+    el.querySelector('#dp-gamepad-panel').addEventListener('click', () => {
+      const scene = this.getScene();
+      if (!scene || !scene.gamepadPanel) {
+        console.warn('[DebugPanel] 当前场景没有手柄面板');
+        return;
+      }
+      scene.gamepadPanel.toggle();
+      console.log('[DebugPanel] 手柄按键图:', scene.gamepadPanel.visible ? '显示' : '隐藏');
     });
     el.querySelector('#dp-weather-apply').addEventListener('click', () => {
       const scene = this.getScene();
@@ -345,6 +361,17 @@ export class DebugPanel {
     this._el.querySelector('#dp-pos').textContent = transform
       ? `${Math.floor(transform.position.x)}, ${Math.floor(transform.position.y)}`
       : '--';
+
+    // 手柄连接状态
+    const gamepadStateEl = this._el.querySelector('#dp-gamepad-state');
+    if (gamepadStateEl) {
+      const gamepad = scene.inputManager?.gamepad;
+      const connected = gamepad?.isConnected ? gamepad.isConnected() : false;
+      const info = gamepad?.info;
+      gamepadStateEl.textContent = connected
+        ? (info?.isXbox ? 'Xbox 手柄已连接' : (info?.id || '手柄已连接'))
+        : '未连接';
+    }
 
     // 当前幕与旧面板的教程阶段
     const actNum = scene.actNumber || '?';

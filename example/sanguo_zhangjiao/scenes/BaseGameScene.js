@@ -470,10 +470,7 @@ export class BaseGameScene extends PrologueScene {
       console.log('性能监控:', this.performanceMonitor.enabled ? '开启' : '关闭');
     }, { cooldown: 300 });
 
-    // 手柄映射面板切换 (F1)
-    this.inputManager.registerHotkey('toggle_gamepad_panel', ['F1'], () => {
-      if (this.gamepadPanel) this.gamepadPanel.toggle();
-    }, { cooldown: 300 });
+    // 手柄映射面板不占用键盘热键，改由调试面板（反引号打开）的「🎮 Xbox 360 按键图」按钮切换。
 
     // 手柄连接时提示 + 轻微震动反馈；Guide(Xbox) 键切换手柄面板
     if (this.inputManager.gamepad) {
@@ -481,7 +478,7 @@ export class BaseGameScene extends PrologueScene {
       gp.onConnect((info) => {
         if (this.notificationSystem) {
           this.notificationSystem.addNotification(
-            `${info.isXbox ? 'Xbox 手柄' : '手柄'}已连接（按 F1 查看按键）`, 'success');
+            `${info.isXbox ? 'Xbox 手柄' : '手柄'}已连接（调试面板可查看按键）`, 'success');
         }
         this.inputManager.vibrate(180, 0.5, 0.3);
       });
@@ -735,7 +732,7 @@ export class BaseGameScene extends PrologueScene {
       anchorBottom: this.logicalHeight - 100
     });
 
-    // 手柄面板（Xbox 360）：HUD 常驻指示 + 完整映射图（F1 打开）
+    // 手柄面板（Xbox 360）：HUD 常驻指示 + 完整映射图（调试面板的手柄按钮打开）
     this.gamepadPanel = new GamepadPanel({
       inputManager: this.inputManager,
       x: (this.logicalWidth - 460) / 2,

@@ -68,6 +68,8 @@ class InputHintsRegistry {
     this._inputManager = null;
     /** 强制方案（调试用），null 表示自动判定 */
     this._forcedScheme = null;
+    /** 最后活跃的输入设备：'pc' | 'gamepad'，用于桌面端在鼠标与手柄之间自动切换 */
+    this._lastInputDevice = 'pc';
   }
 
   /** 绑定 InputManager，用于手柄连接检测与按键绑定反查 */
@@ -120,14 +122,35 @@ class InputHintsRegistry {
     this._forcedScheme = (scheme === 'pc' || scheme === 'android' || scheme === 'gamepad') ? scheme : null;
   }
 
+  /**
+   * 通知有鼠标/键盘输入发生：切回 PC 方案。
+   * 由 InputManager 在检测到鼠标点击或键盘按键时调用。
+   */
+  notifyMouseOrKeyboard() {
+    this._lastInputDevice = 'pc';
+  }
+
+  /**
+   * 通知有手柄按钮输入发生：切到手柄方案。
+   * 由 InputManager 在手柄有按键活动时调用。
+   */
+  notifyGamepad() {
+    this._lastInputDevice = 'gamepad';
+  }
+
   /** 当前输入方案：'pc' | 'android' | 'gamepad' */
   get scheme() {
     if (this._forcedScheme) return this._forcedScheme;
-    const gamepad = this._inputManager && this._inputManager.gamepad;
-    if (gamepad && typeof gamepad.isConnected === 'function' && gamepad.isConnected()) {
-      return 'gamepad';
+    // 移动端固定为 android
+    if (PlatformProfile.isMobile) return 'android';
+    // PC/手柄桌面端：按最后使用的设备切换
+    if (this._lastInputDevice === 'gamepad') {
+      const gamepad = this._inputManager && this._inputManager.gamepad;
+      if (gamepad && typeof gamepad.isConnected === 'function' && gamepad.isConnected()) {
+        return 'gamepad';
+      }
     }
-    return PlatformProfile.isMobile ? 'android' : 'pc';
+    return 'pc';
   }
 
   /** 当前方案的中文名（调试面板等处显示） */

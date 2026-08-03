@@ -11,6 +11,7 @@
  ************************************************************/
 
 import { GamepadManager } from './input/GamepadManager.js';
+import { InputHints } from './input/InputHints.js';
 
 /**
  * 输入管理器
@@ -151,6 +152,9 @@ export class InputManager {
         
         this.keys.set(mappedKey, true);
 
+        // 键盘输入 → 切回 PC 方案
+        InputHints.notifyMouseOrKeyboard();
+
         // 调试面板快捷键诊断：确认浏览器事件是否到达 InputManager，以及是否写入本帧按下状态
         if (isDebugPanelKey) {
             console.log('[InputManager][DebugPanel] 收到反引号 keydown', {
@@ -194,9 +198,11 @@ export class InputManager {
         this.updateMousePosition(event);
         this.mouse.isDown = true;
         this.mouse.button = event.button;
-        this.mouse.buttons.add(event.button);  // 记录按下的按键（支持同时按住）
+        this.mouse.buttons.add(event.button);
         this.mouse.clicked = true;
-        this.mouse.ctrlKey = event.ctrlKey; // 记录Ctrl键状态
+        this.mouse.ctrlKey = event.ctrlKey;
+        // 鼠标点击 → 切回 PC 方案（手柄插着但玩家改用鼠标了）
+        InputHints.notifyMouseOrKeyboard();
     }
 
     /**
@@ -382,6 +388,11 @@ export class InputManager {
         for (const k of vk.down) this._padDown.add(k);
         for (const k of vk.pressed) this._padPressed.add(k);
         for (const k of vk.released) this._padReleased.add(k);
+
+        // 手柄有按钮活动 → 切到手柄方案
+        if (this.gamepad.buttonsPressed.size > 0 || this.gamepad.leftStick.magnitude > 0.3) {
+          InputHints.notifyGamepad();
+        }
 
         this._updateGamepadCursor();
         return true;

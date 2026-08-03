@@ -11,6 +11,7 @@
  ************************************************************/
 
 import { UIElement } from './UIElement.js';
+import { InputHints } from '../core/input/InputHints.js';
 import {
   PAD_LAYOUT,
   PAD_BUTTON_LABELS,
@@ -76,10 +77,13 @@ export class GamepadPanel extends UIElement {
     this._renderPanel(ctx, gp);
   }
 
-  /** @private 左下角小指示：🎮 + 手柄名 */
+  /** @private 左下角小指示：🎮 + 手柄名 + 方案状态 */
   _renderHud(ctx, gp) {
     const info = gp.info || {};
-    const label = info.isXbox ? 'Xbox 手柄' : '手柄';
+    const isActive = InputHints.scheme === 'gamepad';
+    const label = isActive
+      ? (info.isXbox ? 'Xbox 手柄' : '手柄')
+      : (info.isXbox ? 'Xbox (暂停)' : '手柄 (暂停)');
     ctx.save();
     ctx.font = '13px Arial';
     const textW = ctx.measureText(label).width;
@@ -91,17 +95,17 @@ export class GamepadPanel extends UIElement {
     ctx.fillStyle = 'rgba(20,28,40,0.78)';
     this._roundRect(ctx, x, y, w, h, 6);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(80,200,120,0.7)';
+    ctx.strokeStyle = isActive ? 'rgba(80,200,120,0.7)' : 'rgba(200,200,80,0.5)';
     ctx.lineWidth = 1;
     this._roundRect(ctx, x, y, w, h, 6);
     ctx.stroke();
 
-    ctx.fillStyle = '#5fd07a';
+    ctx.fillStyle = isActive ? '#5fd07a' : '#aaa06a';
     ctx.font = '15px Arial';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('🎮', x + 8, y + h / 2 + 1);
-    ctx.fillStyle = '#dfe8f0';
+    ctx.fillText(isActive ? '🎮' : '⏸️', x + 8, y + h / 2 + 1);
+    ctx.fillStyle = isActive ? '#dfe8f0' : '#999980';
     ctx.font = '13px Arial';
     ctx.fillText(label, x + 28, y + h / 2 + 1);
     ctx.restore();

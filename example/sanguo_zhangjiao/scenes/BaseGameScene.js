@@ -1598,8 +1598,8 @@ export class BaseGameScene extends PrologueScene {
     ctx.save();
     ctx.globalAlpha = 0.7;
     ctx.strokeStyle = color || '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
+    ctx.lineWidth = 5;
+    ctx.setLineDash([8, 5]);
     
     if (skill.id === 'ice_finger') {
       // 寒冰指：路径 + 终点圆
@@ -2277,25 +2277,25 @@ export class BaseGameScene extends PrologueScene {
     // 更新控制器（产出本帧意图）
     gc.update(gamepad);
 
-    // ---- 手柄瞄准预览同步（RB 按住时显示技能虚线框） ----
-    if (gc.isAiming && gc._skillHolding && combat && combat.skills) {
+    // ---- 手柄瞄准预览同步（RB/Y/B 按住时显示虚线框，复用 PC 的 setSkillAimPreview 保持一致） ----
+    if (gc._skillHolding && combat && combat.skills) {
       const skill = combat.skills[gc.currentSkillIndex];
       if (skill && skill.range > 0) {
-        const transform = this.playerEntity?.getComponent('transform');
-        if (transform) {
-          const range = skill.range || 200;
-          this._aimDirX = gc.aimMagnitude > 0 ? gc.aimDirection.x : 0;
-          this._aimDirY = gc.aimMagnitude > 0 ? gc.aimDirection.y : 1;
-          this._aimDistRatio = gc.aimMagnitude;
-          const colorMap = { flame_palm: '#ff6600', ice_finger: '#00ccff', inferno_palm: '#ff3300' };
-          this.skillAimPreview = {
-            skill,
-            color: colorMap[skill.effectType] || '#ffffff'
-          };
-        }
+        const dirX = gc.aimMagnitude > 0 ? gc.aimDirection.x : 0;
+        const dirY = gc.aimMagnitude > 0 ? gc.aimDirection.y : 0.01;
+        this.setSkillAimPreview(gc.currentSkillIndex, dirX, dirY, gc.aimMagnitude);
       }
-    } else if (!gc._skillHolding && this.skillAimPreview && !this._pcAimMode) {
-      // RB 释放时清除预览（PC 瞄准模式有自己的清除逻辑，不干扰）
+    } else if (gc._flightHolding) {
+      const dir = gc.flightMagnitude > 0 ? gc.flightDirection : { x: 0, y: 0.01 };
+      const mag = gc.flightMagnitude > 0 ? gc.flightMagnitude : 0.5;
+      this.setSkillAimPreview(-3, dir.x, dir.y, mag);
+    } else if (gc._throwHolding) {
+      const dir = gc._throwMagnitude > 0 ? gc._throwDirection : { x: 0, y: 0.01 };
+      const mag = gc._throwMagnitude > 0 ? gc._throwMagnitude : 0.5;
+      this.setSkillAimPreview(-2, dir.x, dir.y, mag);
+    } else if (!gc._skillHolding && !gc._flightHolding && !gc._throwHolding
+               && this.skillAimPreview && !this._pcAimState) {
+      // 所有手柄瞄准结束时清除预览
       this.skillAimPreview = null;
     }
 

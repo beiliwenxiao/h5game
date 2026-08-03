@@ -3158,7 +3158,7 @@ export class CombatSystem {
     ctx.save();
     ctx.globalAlpha = alpha * 0.6;
     ctx.strokeStyle = indicator.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     ctx.setLineDash([8, 6]);
     ctx.lineDashOffset = -indicator.dashOffset;
 
@@ -3187,7 +3187,7 @@ export class CombatSystem {
     ctx.save();
     ctx.globalAlpha = alpha * 0.5;
     ctx.strokeStyle = indicator.color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     ctx.setLineDash([8, 6]);
     ctx.lineDashOffset = -indicator.dashOffset;
 

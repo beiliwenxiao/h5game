@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
  * 
  * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
@@ -2294,42 +2294,9 @@ export class BaseGameScene extends PrologueScene {
           };
         }
       }
-    } else if (!gc._skillHolding && !gc._flightHolding && !gc._throwHolding
-              && this.skillAimPreview && !this._pcAimMode) {
-      // 所有手柄瞄准态结束时清除预览
+    } else if (!gc._skillHolding && this.skillAimPreview && !this._pcAimMode) {
+      // RB 释放时清除预览（PC 瞄准模式有自己的清除逻辑，不干扰）
       this.skillAimPreview = null;
-    }
-
-    // ---- 轻功瞄准预览（Y 按住时显示瞬移目标虚线框） ----
-    if (gc._flightHolding && this.playerEntity) {
-      const transform = this.playerEntity.getComponent('transform');
-      if (transform) {
-        const flightRange = 300;
-        this._aimDirX = gc.flightMagnitude > 0 ? gc.flightDirection.x : 0;
-        this._aimDirY = gc.flightMagnitude > 0 ? gc.flightDirection.y : 1;
-        this._aimDistRatio = gc.flightMagnitude;
-        this.skillAimPreview = {
-          skill: { id: 'flight_preview', range: flightRange, aoeRadius: 30 },
-          color: '#00ffcc'
-        };
-      }
-    }
-
-    // ---- 投掷瞄准预览（B 按住时显示落点虚线框） ----
-    if (gc._throwHolding && this.playerEntity) {
-      const transform = this.playerEntity.getComponent('transform');
-      if (transform) {
-        const throwRange = 250;
-        const dir = gc._throwDirection || { x: 0, y: 0 };
-        const mag = gc._throwMagnitude || 0;
-        this._aimDirX = mag > 0 ? dir.x : 0;
-        this._aimDirY = mag > 0 ? dir.y : 1;
-        this._aimDistRatio = mag;
-        this.skillAimPreview = {
-          skill: { id: 'throw_preview', range: throwRange, aoeRadius: 20 },
-          color: '#ffaa00'
-        };
-      }
     }
 
     // ---- 处理意图 ----
@@ -2405,9 +2372,15 @@ export class BaseGameScene extends PrologueScene {
     if (flightIntent && this.flightSystem && this.playerEntity) {
       const transform = this.playerEntity.getComponent('transform');
       if (transform) {
-        const flightRange = 300; // 轻功最大距离
-        const targetX = transform.position.x + flightIntent.direction.x * flightRange * flightIntent.magnitude;
-        const targetY = transform.position.y + flightIntent.direction.y * flightRange * flightIntent.magnitude;
+        const flightRange = 300;
+        let dir = flightIntent.direction;
+        if (!dir) {
+          // 快按：用角色面向方向
+          const sprite = this.playerEntity.getComponent('sprite');
+          dir = this._directionToVector(sprite ? sprite.direction : 'down');
+        }
+        const targetX = transform.position.x + dir.x * flightRange * flightIntent.magnitude;
+        const targetY = transform.position.y + dir.y * flightRange * flightIntent.magnitude;
         this.flightSystem.startFlight(transform, targetX, targetY);
       }
     }
@@ -2418,14 +2391,19 @@ export class BaseGameScene extends PrologueScene {
       const transform = this.playerEntity.getComponent('transform');
       const equipment = this.playerEntity.getComponent('equipment');
       if (!equipment || !equipment.slots.mainhand) {
-        // 未装备武器：提示玩家
         if (this.notificationSystem) {
           this.notificationSystem.addNotification('未装备武器，无法投掷', 'warning');
         }
       } else if (transform) {
         const throwRange = 250;
-        const targetX = transform.position.x + throwIntent.direction.x * throwRange;
-        const targetY = transform.position.y + throwIntent.direction.y * throwRange;
+        let dir = throwIntent.direction;
+        if (!dir) {
+          // 快按：用角色面向方向
+          const sprite = this.playerEntity.getComponent('sprite');
+          dir = this._directionToVector(sprite ? sprite.direction : 'down');
+        }
+        const targetX = transform.position.x + dir.x * throwRange * throwIntent.magnitude;
+        const targetY = transform.position.y + dir.y * throwRange * throwIntent.magnitude;
         this.weaponRenderer.throwWeapon(
           this.playerEntity, null,
           transform.position, { x: targetX, y: targetY },

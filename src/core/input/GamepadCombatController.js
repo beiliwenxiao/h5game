@@ -259,27 +259,42 @@ export class GamepadCombatController {
 
     const pressed = gamepad.isButtonPressed(btn);
     const released = gamepad.buttonsReleased.has(btn);
+    const rightStick = gamepad.rightStick;
 
     if (pressed) {
       this._flightHolding = true;
+      this.flightDirection = { x: 0, y: 0 };
+      this.flightMagnitude = 0;
     }
 
-    // 按住期间：左摇杆更新目标方向
-    if (this._flightHolding && leftStick.magnitude > 0) {
-      this.flightDirection = { x: leftStick.x, y: leftStick.y };
-      this.flightMagnitude = leftStick.magnitude;
+    // 按住期间：右摇杆更新目标方向（统一用右摇杆瞄准）
+    if (this._flightHolding && rightStick.magnitude > 0) {
+      this.flightDirection = { x: rightStick.x, y: rightStick.y };
+      this.flightMagnitude = rightStick.magnitude;
     }
 
     if (released && this._flightHolding) {
       this._flightHolding = false;
-      // 只有推了摇杆才释放轻功，否则取消
-      if (this.flightMagnitude > 0.2) {
+      const holdMs = gamepad.getButtonHoldDuration(btn);
+
+      if (holdMs < QUICK_TAP_MS) {
+        // 快按：面向方向轻功（由场景用角色朝向填充方向）
+        this.intents.push({
+          type: IntentType.FLIGHT,
+          direction: null, // null = 用角色面向
+          magnitude: 1,
+          isQuickTap: true
+        });
+      } else if (this.flightMagnitude > 0.2) {
+        // 长按+推了摇杆：精确位置轻功
         this.intents.push({
           type: IntentType.FLIGHT,
           direction: { ...this.flightDirection },
-          magnitude: this.flightMagnitude
+          magnitude: this.flightMagnitude,
+          isQuickTap: false
         });
       }
+      // 长按但没推摇杆 = 取消
       this.flightMagnitude = 0;
     }
   }
@@ -290,7 +305,6 @@ export class GamepadCombatController {
 
     const pressed = gamepad.isButtonPressed(btn);
     const released = gamepad.buttonsReleased.has(btn);
-    const leftStick = gamepad.leftStick;
 
     if (pressed) {
       this._throwHolding = true;
@@ -298,21 +312,34 @@ export class GamepadCombatController {
       this._throwMagnitude = 0;
     }
 
-    // 按住期间：左摇杆更新投掷方向
-    if (this._throwHolding && leftStick.magnitude > 0) {
-      this._throwDirection = { x: leftStick.x, y: leftStick.y };
-      this._throwMagnitude = leftStick.magnitude;
+    // 按住期间：右摇杆更新投掷方向（统一用右摇杆瞄准）
+    if (this._throwHolding && rightStick.magnitude > 0) {
+      this._throwDirection = { x: rightStick.x, y: rightStick.y };
+      this._throwMagnitude = rightStick.magnitude;
     }
 
     if (released && this._throwHolding) {
       this._throwHolding = false;
-      if (this._throwMagnitude > 0.2) {
+      const holdMs = gamepad.getButtonHoldDuration(btn);
+
+      if (holdMs < QUICK_TAP_MS) {
+        // 快按：面向方向投掷（由场景用角色朝向填充方向）
+        this.intents.push({
+          type: IntentType.THROW,
+          direction: null, // null = 用角色面向
+          magnitude: 1,
+          isQuickTap: true
+        });
+      } else if (this._throwMagnitude > 0.2) {
+        // 长按+推了摇杆：精确方向投掷
         this.intents.push({
           type: IntentType.THROW,
           direction: { ...this._throwDirection },
-          magnitude: this._throwMagnitude
+          magnitude: this._throwMagnitude,
+          isQuickTap: false
         });
       }
+      // 长按但没推摇杆 = 取消
       this._throwMagnitude = 0;
     }
   }

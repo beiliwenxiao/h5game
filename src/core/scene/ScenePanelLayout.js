@@ -184,8 +184,6 @@ export class ScenePanelLayout {
       height: 360,
       visible: false
     });
-    // 加载编辑器保存的手柄绑定配置（不存在则用默认绑定）
-    scene._loadGamepadConfig();
 
     // 手柄战斗控制器：处理 RT攻击/RB技能/LB轮盘/Y轻功/B投掷/LT格挡 的按住→瞄准→释放
     scene.gamepadCombat = new GamepadCombatController();
@@ -239,35 +237,33 @@ export class ScenePanelLayout {
   }
 
   /** 将相机、核心系统和 HUD 面板绑定到当前玩家实体。 */
-  bindPlayer() {
+  bindPlayer(player = this.scene.playerEntity, options = {}) {
     const scene = this.scene;
-    if (!scene.playerEntity) return;
+    const { syncCameraPosition = true, log = true } = options || {};
+    scene.playerEntity = player || null;
 
-    // 设置相机跟随玩家
-    const transform = scene.playerEntity.getComponent('transform');
-    if (transform && scene.camera) {
-      scene.camera.setTarget(transform);
-      // 立即设置相机位置到玩家位置，避免初始时的视野偏移
-      scene.camera.setPosition(transform.position.x, transform.position.y);
-    }
-
-    // 设置各系统的玩家实体
-    if (scene.combatSystem) {
-      scene.combatSystem.setPlayerEntity(scene.playerEntity);
-    }
-    if (scene.movementSystem) {
-      scene.movementSystem.setPlayerEntity(scene.playerEntity);
-    }
-    scene.backpackPanel?.setEntity(scene.playerEntity);
-    scene.backpackPanel?.setInputManager(scene.inputManager);
-    if (scene.bottomControlBar) {
-      scene.bottomControlBar.setEntity(scene.playerEntity);
-    }
-    if (scene.playerStatusHUD) {
-      scene.playerStatusHUD.setPlayer(scene.playerEntity);
+    if (player) {
+      const transform = player.getComponent?.('transform');
+      if (transform && scene.camera) {
+        scene.camera.setTarget?.(transform);
+        if (syncCameraPosition) {
+          const position = transform.position || transform;
+          scene.camera.setPosition?.(position.x, position.y);
+        }
+      }
+    } else {
+      scene.camera?.setTarget?.(null);
     }
 
-    console.log('BaseGameScene: UI面板已绑定到玩家实体');
+    scene.combatSystem?.setPlayerEntity?.(player || null);
+    scene.movementSystem?.setPlayerEntity?.(player || null);
+    scene.backpackPanel?.setEntity?.(player || null);
+    scene.backpackPanel?.setInputManager?.(scene.inputManager || null);
+    scene.bottomControlBar?.setEntity?.(player || null);
+    scene.playerStatusHUD?.setPlayer?.(player || null);
+
+    if (player && log) console.log('BaseGameScene: UI面板已绑定到玩家实体');
+    return Boolean(player);
   }
 
   async applyUILayout() {

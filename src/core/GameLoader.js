@@ -53,6 +53,9 @@ export class GameLoader {
     this.lastValidationErrors = [];
 
     this._baseDir = '';
+    this._loadGeneration = 0;
+    this._disposed = false;
+    this._eventSourceDisposers = [];
   }
 
   /**
@@ -154,9 +157,13 @@ export class GameLoader {
    * @returns {Promise<Object>} 解析后的 project
    */
   async load(url, deps = {}) {
-    this._baseDir = url.substring(0, url.lastIndexOf('/') + 1);
+    const generation = ++this._loadGeneration;
+    this._disposed = false;
+    const baseDir = url.substring(0, url.lastIndexOf('/') + 1);
+    this._baseDir = baseDir;
     const proj = await this._loadJson(url);
-    await this._resolveRefs(proj);
+    await this._resolveRefs(proj, baseDir);
+    if (generation !== this._loadGeneration) return proj;
     this.project = proj;
     this.assemble(proj, deps);
     return proj;
@@ -168,6 +175,7 @@ export class GameLoader {
    * @param {Object} deps
    */
   assemble(proj, deps = {}) {
+    this._disposed = false;
     this.project = proj;
 
     // 1. 变量 → 黑板
@@ -256,37 +264,65 @@ export class GameLoader {
    * @param {Object} deps - { questSystem, combatSystem, ... }
    */
   bridgeEventSources(deps = {}) {
+    this._disposed = false;
+    this._releaseEventSources();
     const trig = this.triggerSystem;
 
     // 任务完成 / 进度（QuestSystem 已有 on/emit 机制）
-    if (deps.questSystem && typeof deps.questSystem.on === 'function') {
-      // 防重复订阅：同一 GameLoader 只桥接一次
-      if (!this._questBridged) {
-        this._questBridged = true;
-        deps.questSystem.on('questCompleted', (d) => {
-          const id = d && d.quest ? (d.quest.id || d.quest.questId) : undefined;
-          trig.fire('questComplete', { quest: id });
+    const questSystem = deps.questSystem;
+    if (questSystem && typeof questSystem.on === 'function') {
+      const onQuestCompleted = (d) => {
+        const id = d && d.quest ? (d.quest.id || d.quest.questId) : undefined;
+        trig.fire('questComplete', { quest: id });
+      };
+      const onQuestProgress = (d) => {
+        trig.fire('questProgress', {
+          quest: d && d.quest ? (d.quest.id || d.quest.questId) : undefined,
+          objectiveType: d ? d.objectiveType : undefined,
+          targetId: d ? d.targetId : undefined
         });
-        deps.questSystem.on('questProgress', (d) => {
-          trig.fire('questProgress', {
-            quest: d && d.quest ? (d.quest.id || d.quest.questId) : undefined,
-            objectiveType: d ? d.objectiveType : undefined,
-            targetId: d ? d.targetId : undefined
-          });
-        });
-      }
+      };
+      questSystem.on('questCompleted', onQuestCompleted);
+      this._eventSourceDisposers.push(() => questSystem.off?.('questCompleted', onQuestCompleted));
+      questSystem.on('questProgress', onQuestProgress);
+      this._eventSourceDisposers.push(() => questSystem.off?.('questProgress', onQuestProgress));
     }
 
     // 击杀（CombatSystem 击杀回调 → 通用 kill 事件源）
-    if (deps.combatSystem && typeof deps.combatSystem.setOnKillCallback === 'function') {
-      deps.combatSystem.setOnKillCallback((entity) => {
+    const combatSystem = deps.combatSystem;
+    if (combatSystem && typeof combatSystem.setOnKillCallback === 'function') {
+      const onKill = (entity) => {
         trig.fire('kill', {
           enemyType: entity ? (entity.templateId || entity.type) : undefined,
           entityId: entity ? entity.id : undefined,
           name: entity ? entity.name : undefined
         });
+      };
+      combatSystem.setOnKillCallback(onKill);
+      this._eventSourceDisposers.push(() => {
+        if (combatSystem.onKillCallback === onKill) combatSystem.setOnKillCallback(null);
       });
     }
+  }
+
+  _releaseEventSources() {
+    const disposers = this._eventSourceDisposers.splice(0).reverse();
+    for (const disposer of disposers) {
+      try {
+        disposer();
+      } catch (error) {
+        console.warn('GameLoader: 事件源释放失败', error);
+      }
+    }
+  }
+
+  /** 释放事件桥接并使当前在途加载失效。 */
+  dispose() {
+    if (this._disposed) return false;
+    this._disposed = true;
+    this._loadGeneration++;
+    this._releaseEventSources();
+    return true;
   }
 
   /** 更新触发器/表达式上下文（如玩家实体创建后） */
@@ -347,27 +383,27 @@ export class GameLoader {
    * 递归解析对象/数组中的 { "$ref": "相对路径" }，加载并替换
    * @private
    */
-  async _resolveRefs(node) {
+  async _resolveRefs(node, baseDir = this._baseDir) {
     if (Array.isArray(node)) {
       for (let i = 0; i < node.length; i++) {
-        node[i] = await this._resolveNode(node[i]);
+        node[i] = await this._resolveNode(node[i], baseDir);
       }
     } else if (node && typeof node === 'object') {
       for (const key of Object.keys(node)) {
-        node[key] = await this._resolveNode(node[key]);
+        node[key] = await this._resolveNode(node[key], baseDir);
       }
     }
     return node;
   }
 
-  async _resolveNode(value) {
+  async _resolveNode(value, baseDir = this._baseDir) {
     if (value && typeof value === 'object' && typeof value.$ref === 'string') {
-      const loaded = await this._loadJson(this._baseDir + value.$ref);
-      await this._resolveRefs(loaded);
+      const loaded = await this._loadJson(baseDir + value.$ref);
+      await this._resolveRefs(loaded, baseDir);
       return loaded;
     }
     if (value && typeof value === 'object') {
-      await this._resolveRefs(value);
+      await this._resolveRefs(value, baseDir);
     }
     return value;
   }

@@ -6,6 +6,22 @@
 
 import { IntentType } from '../input/GamepadCombatController.js';
 
+const DIAGONAL_UNIT = Math.SQRT1_2;
+const DIRECTION_VECTORS = Object.freeze({
+  up: Object.freeze({ x: 0, y: -1 }),
+  down: Object.freeze({ x: 0, y: 1 }),
+  left: Object.freeze({ x: -1, y: 0 }),
+  right: Object.freeze({ x: 1, y: 0 }),
+  'up-left': Object.freeze({ x: -DIAGONAL_UNIT, y: -DIAGONAL_UNIT }),
+  'up-right': Object.freeze({ x: DIAGONAL_UNIT, y: -DIAGONAL_UNIT }),
+  'down-left': Object.freeze({ x: -DIAGONAL_UNIT, y: DIAGONAL_UNIT }),
+  'down-right': Object.freeze({ x: DIAGONAL_UNIT, y: DIAGONAL_UNIT })
+});
+
+function directionToVector(direction) {
+  return DIRECTION_VECTORS[direction] || DIRECTION_VECTORS.right;
+}
+
 /**
  * SceneCombatActions - 场景层战斗交互动作（框架级）
  *
@@ -17,95 +33,6 @@ export class SceneCombatActions {
   /** @param {Object} scene - 提供系统、实体和 UI 服务的游戏场景 */
   constructor(scene) {
     this.scene = scene;
-  }
-
-  checkSkillUsable(skill) {
-    const scene = this.scene;
-    if (!scene.playerEntity) return false;
-    const stats = scene.playerEntity.getComponent('stats');
-    const combat = scene.playerEntity.getComponent('combat');
-    if (!stats || !combat) return false;
-
-    const currentTime = performance.now();
-    if (!combat.canUseSkill(skill.id, currentTime)) {
-      const transform = scene.playerEntity.getComponent('transform');
-      if (transform && scene.floatingTextManager) {
-        scene.floatingTextManager.addText(
-          transform.position.x, transform.position.y - 50, '技能冷却中', '#888888'
-        );
-      }
-      return false;
-    }
-
-    if (skill.manaCost && stats.mp < skill.manaCost) {
-      const transform = scene.playerEntity.getComponent('transform');
-      if (transform && scene.floatingTextManager) {
-        scene.floatingTextManager.addText(
-          transform.position.x, transform.position.y - 50,
-          `蓝量不足(需${skill.manaCost})`, '#6666ff'
-        );
-      }
-      return false;
-    }
-    return true;
-  }
-
-  useSkillByIndex(index) {
-    const scene = this.scene;
-    if (!scene.playerEntity || !scene.combatSystem) return;
-    const combat = scene.playerEntity.getComponent('combat');
-    const skill = combat?.skills?.[index];
-    if (!skill || !this.checkSkillUsable(skill)) return;
-
-    if (skill.id === 'heal' || skill.id === 'meditation') {
-      scene.onSkillClicked(skill);
-      return;
-    }
-    if (!scene.isMobileLayout) {
-      scene.enterPCAimMode('skill', index);
-      return;
-    }
-
-    const transform = scene.playerEntity.getComponent('transform');
-    if (!transform) return;
-    const d = scene.getPlayerFacingVector();
-    const range = skill.range || 300;
-    scene.combatSystem.tryUseSkillAtPosition(
-      scene.playerEntity,
-      skill,
-      { x: transform.position.x + d.x * range, y: transform.position.y + d.y * range },
-      performance.now(),
-      scene.entities
-    );
-  }
-
-  useSkillByDirection(index, dirX, dirY, distRatio, targetWorldPos) {
-    const scene = this.scene;
-    if (!scene.playerEntity || !scene.combatSystem) return;
-    const combat = scene.playerEntity.getComponent('combat');
-    const skill = combat?.skills?.[index];
-    if (!skill || !this.checkSkillUsable(skill)) return;
-
-    if (skill.id === 'heal' || skill.id === 'meditation') {
-      scene.onSkillClicked(skill);
-      return;
-    }
-    const transform = scene.playerEntity.getComponent('transform');
-    if (!transform) return;
-
-    let target;
-    if (targetWorldPos) {
-      target = { x: targetWorldPos.x, y: targetWorldPos.y };
-    } else {
-      const magnitude = Math.hypot(dirX, dirY);
-      const dx = magnitude > 0 ? dirX / magnitude : 1;
-      const dy = magnitude > 0 ? dirY / magnitude : 0;
-      const distance = Math.min(distRatio ?? 1, 1) * (skill.range || 300);
-      target = { x: transform.position.x + dx * distance, y: transform.position.y + dy * distance };
-    }
-    scene.combatSystem.tryUseSkillAtPosition(
-      scene.playerEntity, skill, target, performance.now(), scene.entities
-    );
   }
 
   attackByFacing() {
@@ -259,36 +186,6 @@ export class SceneCombatActions {
     }
   }
 
-  handlePickupClick() {
-    const scene = this.scene;
-    const input = scene.inputManager;
-    if (!input || !input.isMouseClicked() || input.isMouseClickHandled() || input.getMouseButton() === 2) return;
-    if (scene.dialogueSystem?.isDialogueActive() || scene.backpackPanel?.visible) return;
-    const mouseScreen = input.getMousePosition();
-    const mouseWorld = scene.camera
-      ? scene.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
-      : input.getMouseWorldPosition();
-    if (this.tryClickPickup(mouseWorld.x, mouseWorld.y)) input.markMouseClickHandled();
-  }
-
-  tryClickPickup(worldX, worldY) {
-    const scene = this.scene;
-    if (!scene.playerEntity || !scene.pickupSystem) return false;
-    const isHit = (x, y) => Math.hypot(x - worldX, y - worldY) <= 30;
-    let hit = scene.pickupItems.some(item => !item.picked && isHit(item.x, item.y));
-    if (!hit) {
-      hit = scene.equipmentItems.some(item => {
-        if (item.picked) return false;
-        const position = item.getComponent?.('transform')?.position;
-        return isHit(position?.x ?? item.x, position?.y ?? item.y);
-      });
-    }
-    if (!hit) return false;
-    const result = scene.pickupSystem.triggerPickup(scene.playerEntity, scene.pickupItems, scene.equipmentItems);
-    for (const removed of result.removedEntities) scene.entities = scene.entities.filter(entity => entity !== removed);
-    return true;
-  }
-
   _showNoWeapon(transform) {
     const scene = this.scene;
     if (transform && scene.floatingTextManager) {
@@ -412,7 +309,7 @@ export class SceneCombatActions {
       scene.setSkillAimPreview(-2, direction.x, direction.y, controller._throwMagnitude || 0.5);
       return;
     }
-    if (scene.skillAimPreview && !scene._aimController?.isAiming) scene.clearSkillAimPreview?.();
+    if (scene.skillAimPreview && !scene._skillActions?.isAiming) scene.clearSkillAimPreview?.();
   }
 
   _performGamepadAttack(intent) {
@@ -420,7 +317,7 @@ export class SceneCombatActions {
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const direction = intent.isQuickTap || !intent.direction
-      ? scene._directionToVector(scene.playerEntity.getComponent('sprite')?.direction)
+      ? directionToVector(scene.playerEntity.getComponent('sprite')?.direction)
       : intent.direction;
     const distance = intent.isQuickTap || !intent.direction ? 100 : 150;
     scene.inputManager.mouse.worldX = transform.position.x + direction.x * distance;
@@ -446,7 +343,7 @@ export class SceneCombatActions {
     const scene = this.scene;
     const transform = scene.playerEntity?.getComponent('transform');
     if (!transform || !scene.flightSystem) return;
-    const direction = intent.direction || scene._directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
+    const direction = intent.direction || directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
     scene.flightSystem.startFlight(
       transform,
       transform.position.x + direction.x * 300 * intent.magnitude,
@@ -462,7 +359,7 @@ export class SceneCombatActions {
       scene.notificationSystem?.addNotification('未装备武器，无法投掷', 'warning');
       return;
     }
-    const direction = intent.direction || scene._directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
+    const direction = intent.direction || directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
     scene.weaponRenderer.throwWeapon(
       scene.playerEntity, null, transform.position,
       {

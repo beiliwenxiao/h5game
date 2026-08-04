@@ -24,6 +24,7 @@ export class SceneFramePipeline {
    */
   run(deltaTime) {
     const scene = this.scene;
+    const services = scene.context?.services || {};
     if (!scene.isActive || scene.isPaused) return;
 
     // 运行时输入前阶段：仅调度显式阶段钩子，不采集/清空输入。
@@ -101,10 +102,12 @@ export class SceneFramePipeline {
 
         // PC 瞄准模式：技能3/4/5、轻功、投掷按下后进入瞄准，左键确认/取消
         // （须在拾取/攻击判定之前，命中时消费本次点击，避免误触发攻击/拾取）
-        scene.updatePCAimMode();
+        if (services.skills) services.skills.updatePCAimMode();
+        else scene.updatePCAimMode();
 
         // PC 左键点击地上物品：优先拾取（须在攻击判定之前，避免误触发攻击）
-        scene.handlePickupClick();
+        if (services.worldInteraction) services.worldInteraction.handlePickupClick();
+        else scene.handlePickupClick();
 
         // 水果忍者式滑动攻击检测（通过 MeleeAttackSystem）
         scene.meleeAttackSystem.setPlayerEntity(scene.playerEntity);
@@ -121,13 +124,15 @@ export class SceneFramePipeline {
     }
 
     // UI 点击处理
-    scene.handleUIClick();
+    if (services.worldInteraction) services.worldInteraction.handleUIClick();
+    else scene.handleUIClick();
 
     // 右键点击调试：显示光圈 + 输出坐标日志
     if (scene.inputManager.isMouseClicked() &&
         scene.inputManager.getMouseButton() === 2 &&
         !scene.inputManager.isMouseClickHandled()) {
-      scene._debugRightClick();
+      if (services.worldInteraction) services.worldInteraction.debugRightClick();
+      else scene._debugRightClick();
     }
 
     // 旧的 Ctrl+左键瞬移已改为：按 Ctrl 进入轻功瞄准、左键确认（见 updatePCAimMode）
@@ -246,7 +251,8 @@ export class SceneFramePipeline {
     }
 
     // 检查空格键继续对话
-    scene.checkDialogueContinue();
+    if (services.dialogue) services.dialogue.checkContinue();
+    else scene.checkDialogueContinue();
 
     // 更新面板（使用节流）
     if (scene.performanceOptimizer.shouldUpdate('ui')) {
@@ -277,8 +283,14 @@ export class SceneFramePipeline {
     );
     // 移除已拾取的掉落物实体——批量移除避免反复 filter 整个数组
     if (pickupResult.removedEntities.length > 0) {
-      const removedSet = new Set(pickupResult.removedEntities);
-      scene.entities = scene.entities.filter(e => !removedSet.has(e));
+      if (scene.entityStore) {
+        scene.entityStore.removeMany(pickupResult.removedEntities);
+      } else {
+        const removedSet = new Set(pickupResult.removedEntities);
+        for (let index = scene.entities.length - 1; index >= 0; index--) {
+          if (removedSet.has(scene.entities[index])) scene.entities.splice(index, 1);
+        }
+      }
     }
 
     // 移除死亡实体

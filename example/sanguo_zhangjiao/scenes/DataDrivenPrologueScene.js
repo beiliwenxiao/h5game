@@ -98,6 +98,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
 
+    this.resourceScope?.track(() => {
+      for (const emitter of this.campfire.emitters) emitter.active = false;
+      this.campfire.emitters.length = 0;
+      if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
+      this.campfire.emitterSmoke = null;
+      this.effectZoneRenderer?.clear?.();
+      this._terrains.length = 0;
+      this.terrain = null;
+      this.terrainAct1 = null;
+      this._worldRegion = null;
+      this.context.world.terrain = null;
+      this.context.world.terrains = null;
+      this.context.world.region = null;
+      this.gameLoader = null;
+    });
+
     // 大地图 chunk 偏移：从 game.project.json worldMap 动态加载地形
     // 编辑器中每个 scene 的坐标是 0~chunkWidth 局部坐标，运行时加 worldOffset 转为世界坐标
     const chunkWidth = 1280;
@@ -143,7 +159,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._initGameLoader();
 
     // 安全兜底：即使某个异步加载失败，最多 3 秒后也强制开放渲染，避免永久黑屏
-    setTimeout(() => {
+    this.resourceScope?.setTimeout(() => {
       if (!this._sceneReady) {
         this._terrainsLoaded = true;
         this._spawnApplied = true;
@@ -444,8 +460,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       aiType: 'aggressive'
     });
 
-    this.entities.push(enemy);
-    this.enemyEntities.push(enemy);
+    this.entityStore.addEnemy(enemy);
     if (this.aiSystem && this.aiSystem.registerAI) {
       this.aiSystem.registerAI(enemy, 'aggressive');
     }
@@ -497,8 +512,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           color: e.color || null,
           aiType: e.aiType || 'aggressive'
         });
-        this.entities.push(enemy);
-        this.enemyEntities.push(enemy);
+        this.entityStore.addEnemy(enemy);
         if (this.aiSystem && this.aiSystem.registerAI) {
           this.aiSystem.registerAI(enemy, e.aiType || 'aggressive');
         }
@@ -554,7 +568,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     console.log('[DDScene] triggerPlayerDeath: 触发死亡过渡');
     const stats = this.playerEntity && this.playerEntity.getComponent('stats');
     if (stats) stats.hp = 0;
-    setTimeout(() => this.startTransition('眼前一黑，你晕了过去...'), 1000);
+    this.resourceScope?.setTimeout(
+      () => this.startTransition('眼前一黑，你晕了过去...'),
+      1000
+    );
   }
 
   /**
@@ -636,8 +653,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _fadeTransition(callback) {
+    if (this._teleportFade?.resolve) {
+      this._teleportFade.resolve(false);
+    }
     return new Promise((resolve) => {
-      this._teleportFade = { phase: 'out', alpha: 0, callback, resolve };
+      const fade = {
+        phase: 'out',
+        alpha: 0,
+        callback: this.resourceScope?.guard(callback) || callback,
+        resolve,
+        cancel: null
+      };
+      this._teleportFade = fade;
+      fade.cancel = this.resourceScope?.track(() => {
+        if (this._teleportFade !== fade) return;
+        this._teleportFade = null;
+        resolve(false);
+      });
     });
   }
 
@@ -649,14 +681,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (f.phase === 'out') {
       f.alpha = Math.min(1, f.alpha + dt * speed);
       if (f.alpha >= 1) {
-        f.callback();
+        f.callback?.();
+        f.callback = null;
         f.phase = 'in';
       }
     } else if (f.phase === 'in') {
       f.alpha = Math.max(0, f.alpha - dt * speed);
       if (f.alpha <= 0) {
         this._teleportFade = null;
-        f.resolve();
+        f.cancel?.();
+        f.resolve(true);
       }
     }
   }
@@ -983,8 +1017,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _initGameLoader() {
     try {
       this.gameLoader = new GameLoader();
+      const gameLoader = this.gameLoader;
+      this.resourceScope?.track(() => gameLoader.dispose());
       const eng = window.gameEngine;
-      this._gameLoaderReady = this.gameLoader.load('game.project.json', {
+      this._gameLoaderReady = gameLoader.load('game.project.json', {
         dialogueSystem: this.dialogueSystem,
         questSystem: this.questSystem,
         combatSystem: this.combatSystem,
@@ -994,13 +1030,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         tutorial: { showTip: (p) => this._showScreenTip(p.text || '') },
         onItemGained: (item, player) => this.onItemGained(item, player || this.playerEntity),
         player: this.playerEntity || null
-      }).then(() => {
-        const trig = this.gameLoader.triggerSystem;
-        trig.on((evt, t) => {
+      }).then(this.resourceScope.guard(() => {
+        const trig = gameLoader.triggerSystem;
+        const offTriggerLog = trig.on((evt, t) => {
           if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
         });
+        this.resourceScope?.track(offTriggerLog);
         // 标记本场景为数据驱动（供仅本场景生效的触发器用 if 判定，避免污染旧 Act1）
-        this.gameLoader.blackboard.set('ddScene', true);
+        gameLoader.blackboard.set('ddScene', true);
         // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
         trig.registerAction('lightCampfire', () => this.lightCampfire());
         // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
@@ -1055,53 +1092,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         });
         if (this.dialogueSystem && this.dialogueSystem.onEnd) {
           // 带对话 id，供 dialogueEnd{id:'xxx'} 触发器精确匹配
-          this.dialogueSystem.onEnd((dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id }));
+          const offDialogueEnd = this.dialogueSystem.onEnd(
+            (dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id })
+          );
+          this.resourceScope?.track(offDialogueEnd);
         }
-        if (this.playerEntity) this.gameLoader.updateContext({ player: this.playerEntity });
+        if (this.playerEntity) gameLoader.updateContext({ player: this.playerEntity });
         trig.fire('sceneEnter', { sceneId: 'scene_Prologue' });
         console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', trig.triggers.length);
-      }).catch(e => console.error('[DDScene][GameLoader] 加载失败:', e));
+      })).catch(this.resourceScope.guard(
+        e => console.error('[DDScene][GameLoader] 加载失败:', e)
+      ));
     } catch (e) {
       console.warn('[DDScene][GameLoader] 初始化失败:', e);
     }
-  }
-
-  /**
-   * 屏幕提示（showTip 动作用）：优先复用原版提示面板 window.__ddShowTips（与旧序章样式一致），
-   * 约 3.5 秒后自动隐藏；不可用时回退到简易黑框。
-   * @param {string} text
-   * @param {Object} [opts] - { persist:true 不自动隐藏（供 promptSwitch/countdown 每帧刷新用） }
-   */
-  _showScreenTip(text, opts = {}) {
-    if (typeof window !== 'undefined' && window.__ddShowTips) {
-      window.__ddShowTips('提示', text);
-      clearTimeout(this._tipTimer);
-      if (!opts.persist) {
-        this._tipTimer = setTimeout(() => { if (window.__ddHideTips) window.__ddHideTips(); }, 3500);
-      }
-      return;
-    }
-    // 回退：简易黑框
-    let el = document.getElementById('dd-trigger-tip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'dd-trigger-tip';
-      el.style.cssText = 'position:fixed;top:22%;left:50%;transform:translateX(-50%);' +
-        'background:rgba(0,0,0,0.82);color:#fff;padding:14px 28px;border-radius:8px;' +
-        'font-size:18px;z-index:99999;pointer-events:none;transition:opacity 0.3s;';
-      document.body.appendChild(el);
-    }
-    el.textContent = text;
-    el.style.opacity = '1';
-    clearTimeout(this._tipTimer);
-    if (!opts.persist) this._tipTimer = setTimeout(() => { el.style.opacity = '0'; }, 2500);
-  }
-
-  /** 隐藏提示面板 */
-  _hideScreenTip() {
-    if (typeof window !== 'undefined' && window.__ddHideTips) window.__ddHideTips();
-    const el = document.getElementById('dd-trigger-tip');
-    if (el) el.style.opacity = '0';
   }
 
   // ==================== 火堆（迁移自 Act1） ====================
@@ -1174,15 +1178,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         if (def.worldProp) {
           // 静态世界道具（如煮粥大锅）：作为场景静物渲染，不可拾取
           const prop = this.entityFactory.createProp({ ...def, position: { x: pl.x, y: pl.y } });
-          this.entities.push(prop);
+          this.entityStore.add(prop);
           entN++;
         } else {
           // 普通物品：可拾取掉落
-          this.pickupItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
+          this.entityStore.addPickup({ ...def, x: pl.x, y: pl.y, picked: false });
           itemN++;
         }
       } else if (pl.kind === 'equipment') {
-        this.equipmentItems.push({ ...def, x: pl.x, y: pl.y, picked: false });
+        this.entityStore.addEquipmentItem({ ...def, x: pl.x, y: pl.y, picked: false });
         eqN++;
       } else if (pl.kind === 'enemy') {
         // 敌人：经 EntityFactory 实例化，加入实体列表 + 敌人列表（AI/战斗系统继承自 BaseGameScene）
@@ -1195,8 +1199,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           lootTable: def.lootTable || [],
           position: { x: pl.x, y: pl.y }
         });
-        this.entities.push(enemy);
-        this.enemyEntities.push(enemy);
+        this.entityStore.addEnemy(enemy);
         // 注册 AI 控制器，敌人才会主动追击/攻击玩家
         if (this.aiSystem && this.aiSystem.registerAI) {
           this.aiSystem.registerAI(enemy, def.aiType || 'aggressive');
@@ -1210,19 +1213,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         const sheet = def.sprite && (def.sprite.sheet || def.sprite.src);
         if (sheet && this.assetManager && !this.assetManager.getAsset(sheet)) {
           const full = sheet.startsWith('assets/') ? sheet : ('assets/' + sheet.replace(/^.*assets\//, ''));
-          this.assetManager.loadImage(sheet, full).catch(() => console.warn('[DDScene] NPC 图集加载失败（将用占位）:', full));
+          const onNpcImageError = () => console.warn('[DDScene] NPC 图集加载失败（将用占位）:', full);
+          this.assetManager.loadImage(sheet, full).catch(
+            this.resourceScope?.guard(onNpcImageError) || onNpcImageError
+          );
         }
-        this.entities.push(npc);
+        this.entityStore.add(npc);
         this._npcEntities = this._npcEntities || [];
         this._npcEntities.push(npc);
         entN++;
       } else if (pl.kind === 'building') {
         const b = this.entityFactory.createBuilding({ ...def, position: { x: pl.x, y: pl.y } });
-        this.entities.push(b);
+        this.entityStore.add(b);
         entN++;
       } else if (pl.kind === 'vehicle') {
         const v = this.entityFactory.createVehicle({ ...def, position: { x: pl.x, y: pl.y } });
-        this.entities.push(v);
+        this.entityStore.add(v);
         entN++;
       }
     }
@@ -1448,7 +1454,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 从 game.project.json 读取 worldMap 配置
     fetch('game.project.json')
       .then(res => res.ok ? res.json() : null)
-      .then(project => {
+      .then(this.resourceScope.guard(project => {
         if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) {
           console.warn('[DDScene] game.project.json 无 worldMap 配置');
           return;
@@ -1482,12 +1488,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           }
         }
 
-        Promise.all(scenePromises).then(() => {
+        Promise.all(scenePromises).then(this.resourceScope.guard(() => {
           this._placements = placements;
           this._applySpawnPoints(placements);
-        });
-      })
-      .catch(e => console.warn('[DDScene] 加载 game.project.json 失败:', e));
+        }));
+      }))
+      .catch(this.resourceScope.guard(
+        e => console.warn('[DDScene] 加载 game.project.json 失败:', e)
+      ));
   }
 
   /**
@@ -1560,10 +1568,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _loadWorldTerrains() {
     fetch('game.project.json')
       .then(res => res.ok ? res.json() : null)
-      .then(project => {
+      .then(this.resourceScope.guard(project => {
         if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) return;
         const region = project.worldMap.regions[0];
         this._worldRegion = region; // 保存 region 引用供 teleportToChunk 使用
+        this.context.world.region = region;
         const { chunkWidth, chunkHeight, grid } = region;
 
         for (let row = 0; row < grid.length; row++) {
@@ -1586,6 +1595,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
         // 兼容旧代码中 terrainAct1 的引用
         if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
+        this.context.world.terrain = this.terrain;
+        this.context.world.terrains = this._terrains;
 
         // 加载天气和时间系统配置
         if (project.system) {
@@ -1601,12 +1612,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
         // 特效区域：遍历所有 chunk 加载 effectZone 数据
         this._initMultiChunkEffectZones(grid, chunkWidth, chunkHeight);
-      })
-      .catch(e => {
+      }))
+      .catch(this.resourceScope.guard(e => {
         console.warn('[DDScene] 加载 worldMap 地形失败:', e);
         this._terrainsLoaded = true;
         this._checkSceneReady();
-      });
+      }));
   }
 
   /**
@@ -1615,7 +1626,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   _initMultiChunkEffectZones(grid, chunkWidth, chunkHeight) {
     if (!this.particleSystem) return;
-    import('../../../src/rendering/EffectZoneRenderer.js').then(({ EffectZoneRenderer: EZR }) => {
+    import('../../../src/rendering/EffectZoneRenderer.js').then(
+      this.resourceScope.guard(({ EffectZoneRenderer: EZR }) => {
       this.effectZoneRenderer = new EZR(this.particleSystem);
       const allZones = [];
 
@@ -1647,14 +1659,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       }
 
-      Promise.all(promises).then(() => {
+      Promise.all(promises).then(this.resourceScope.guard(() => {
         if (allZones.length > 0) {
           this.effectZoneRenderer.zones = allZones;
           this.effectZoneRenderer._accumulators = allZones.map(() => 0);
           console.log(`[DDScene] 加载了 ${allZones.length} 个特效区域`);
         }
-      });
-    }).catch(() => { /* EffectZoneRenderer 加载失败，忽略 */ });
+      }));
+    })).catch(this.resourceScope.guard(() => { /* EffectZoneRenderer 加载失败，忽略 */ }));
   }
 
   /** 地形 + 放置点都就绪后开放渲染（加载门） */

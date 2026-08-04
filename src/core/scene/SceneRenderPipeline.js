@@ -22,6 +22,7 @@ export class SceneRenderPipeline {
 
   render(ctx) {
     const scene = this.scene;
+    const services = scene.context?.services || {};
     if (scene.performanceMonitor?.enabled) {
       scene._drawCallCount = 0;
       if (scene._drawCallProxied && scene._drawCallProxyContext !== ctx) {
@@ -55,7 +56,8 @@ export class SceneRenderPipeline {
     ctx.restore();
 
     scene.renderFogLayer(ctx);
-    scene._renderClickScreenMarkers(ctx);
+    if (services.worldInteraction) services.worldInteraction.renderClickScreenMarkers(ctx);
+    else scene._renderClickScreenMarkers(ctx);
     scene.skillEffects.render(ctx, scene.camera);
     scene.combatEffects.render();
     scene.floatingTextManager.render(ctx, scene.camera);
@@ -154,71 +156,6 @@ export class SceneRenderPipeline {
       position.y - elevation - height - padding <= bounds.bottom;
   }
 
-  renderFlightShadow(ctx) {
-    const scene = this.scene;
-    if (!scene.flightSystem?.isFlying || !scene.playerEntity) return;
-    const position = scene.playerEntity.getComponent('transform')?.position;
-    const elevation = position?.elevation || 0;
-    if (!position || elevation <= 2) return;
-    const ratio = Math.min(1, elevation / 120);
-    const scale = 1 - ratio * 0.4;
-    ctx.save();
-    ctx.beginPath();
-    ctx.ellipse(position.x, position.y, 20 * scale, 8 * scale, 0, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(0, 0, 0, ${0.3 * (1 - ratio * 0.5)})`;
-    ctx.fill();
-    ctx.restore();
-  }
-
-  renderBlockShield(ctx) {
-    const scene = this.scene;
-    if (!scene.combatSystem?.isBlocking() || !scene.playerEntity) return;
-    const transform = scene.playerEntity.getComponent('transform');
-    if (!transform) return;
-    const height = scene.playerEntity.getComponent('sprite')?.height || 64;
-    const cx = transform.position.x;
-    const cy = transform.position.y - height / 2;
-    const now = performance.now();
-    const activeBlock = scene.combatSystem._activeBlock;
-    const progress = Math.min(1, (now - activeBlock.startTime) / activeBlock.duration);
-    const alpha = progress > 0.7 ? (1 - (progress - 0.7) / 0.3) * 0.6 : 0.6;
-    const radius = 36 * (1 + Math.sin(now / 120) * 0.05);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(100, 200, 255, ${alpha * 0.8})`;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-    gradient.addColorStop(0, `rgba(100, 200, 255, ${alpha * 0.15})`);
-    gradient.addColorStop(0.6, `rgba(60, 160, 240, ${alpha * 0.3})`);
-    gradient.addColorStop(1, `rgba(30, 120, 220, ${alpha * 0.5})`);
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.strokeStyle = `rgba(180, 230, 255, ${alpha})`;
-    ctx.lineWidth = 2.5;
-    ctx.stroke();
-    ctx.beginPath();
-    const innerRadius = radius * 0.55;
-    for (let index = 0; index < 6; index++) {
-      const angle = Math.PI * 2 / 6 * index - Math.PI / 2;
-      const x = cx + Math.cos(angle) * innerRadius;
-      const y = cy + Math.sin(angle) * innerRadius;
-      if (index === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = `rgba(150, 220, 255, ${alpha * 0.6})`;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.restore();
-  }
-
   renderCombatStateUI(ctx) {
     const scene = this.scene;
     if (!scene.combatSystem?.isInCombat()) return;
@@ -250,16 +187,22 @@ export class SceneRenderPipeline {
     }
     if (scene.meleeAttackSystem.sliceTrail?.length > 1) scene.meleeAttackSystem.renderSliceTrail(ctx);
     scene.meleeAttackSystem.renderSectorSlashEffects(ctx);
-    this.renderFlightShadow(ctx);
-    this.renderBlockShield(ctx);
+    const worldPresentation = scene.context?.services?.worldPresentation;
+    if (worldPresentation) {
+      worldPresentation.renderFlightShadow(ctx);
+      worldPresentation.renderBlockShield(ctx);
+    }
     scene.particleSystem.render(ctx, scene.camera);
     if (scene._debugParticleFrames > 0) {
       console.log('【渲染】粒子系统活跃粒子数:', scene.particleSystem.getActiveCount());
       scene._debugParticleFrames--;
     }
     scene.combatSystem?.renderSkillRangeIndicators(ctx);
-    scene._renderClickRings(ctx);
-    scene.renderSkillAimPreview(ctx);
+    const services = scene.context?.services || {};
+    if (services.worldInteraction) services.worldInteraction.renderClickRings(ctx);
+    else scene._renderClickRings(ctx);
+    if (services.skills) services.skills.renderAimPreview(ctx);
+    else scene.renderSkillAimPreview(ctx);
   }
 }
 

@@ -196,12 +196,19 @@ MOVE     右键
 - `SceneItemGainedFlow`：管理拾取/奖励后的 FIFO 弹窗、装备比较和使用动作；弹窗装备同样必须经过统一装备事件出口。
 - `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话结束、上下文和 sceneEnter；具体剧情动作仍由场景 `onReady` 注册。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
-- `SceneCombatActions`：承接 PC、触屏和手柄的攻击、技能、轻功、投掷、格挡、药水、自动攻击与点击拾取；不拥有系统或实体状态。
+- `SceneCombatActions`：承接 PC、触屏和手柄的攻击、轻功、投掷、格挡、药水与自动攻击；不拥有系统或实体状态，也不再混入技能编排和世界拾取。
+- `SceneSkillActions`：统一技能可用性、特殊技能、按索引/方向释放、PC 瞄准控制与预览；`SceneAimController` 仍只负责几何和状态。
+- `SceneWorldInteraction`：统一 UI 点击优先级、点击拾取、保留的 `handleTeleport` 入口与右键正式反馈/调试标记；拾取删除必须经过 `SceneEntityStore.removeMany()`。
+- `SceneDialogueFlow`：统一继续对话、跳过打字机、选项节点保护和点击消费；`lastSpacePressed` 继续作为兼容字段保留。
 - `ScenePanelLayout`：组合并绑定 HUD，加载 UIEditor/PanelEditor 布局、响应窗口缩放、同步面板悬停，并在背包打开时协调 Canvas 与 DOM 触屏控件层级。
-- `SceneFramePipeline`：保持旧场景的输入消费、系统更新和转场提前返回顺序，并在准确位置调度 `GameSceneRuntime` 阶段；正常帧最后才清输入。
+- `SceneWorldPresentation`：统一通用 terrain/等距背景、掉落物、飞行阴影与格挡护盾；子场景仍通过 `renderBackground`、`renderFogLayer`、`renderSpeechBubbles` 覆盖 Demo 内容表现。
+- `SceneFramePipeline`：保持旧场景的输入消费、系统更新和转场提前返回顺序，并在准确位置调度 `GameSceneRuntime` 阶段；对话、技能和世界交互优先从 `GameSceneContext.services` 调度，正常帧最后才清输入。
 - `SceneRenderPipeline`：固定世界、屏幕 UI 与最高层弹窗的渲染顺序；Y-sort 数组、实体队列项和 terrain 静态装饰项均复用，减少每帧分配。
 - `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
+- `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理和纹理内存估算；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
 - `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
+
+Demo 默认角色的选择配置、技能和系统/UI 绑定位于 `example/sanguo_zhangjiao/entities/DemoPlayerFactory.js`；底层实体创建仍必须复用框架 `EntityFactory.createPlayer()`，不要把 Demo 技能写入框架。
 
 `BaseGameScene` 已直接继承框架 `Scene`；旧 `PrologueScene` 与 Act1–6 独立场景已删除。运行时只注册 `DataDrivenPrologueScene`，各幕通过 chunk ID 与 `teleportToChunk()` 推进。
 
@@ -222,3 +229,40 @@ FriendSystem                                                        中文名排
 ## 后续阶段
 
 S11 为 Demo 迁移验证：旧张角 Demo 通过新架构运行、逐个切换 `primary` 验证默认体验、100 实体性能检查。需要实际运行才有意义。
+
+## BaseGameScene 深度重构执行方案
+
+目标：`BaseGameScene` 最终只作为组合根，保留 constructor/enter/update/render/exit、暂停控制和少量 Demo 内容 hook；禁止继续把系统、UI、实体和世界状态平铺为无所有权的场景字段。
+
+### 目标结构
+
+- `GameSceneContext`：显式分组 input/camera/runtime/systems/entities/ui/world/presentation。
+- `SceneResourceScope`：统一管理 timer、listener、disposer 和异步 token；退出后禁止异步任务写回旧场景。
+- `SceneLifecycleCoordinator`：固定 Canvas→terrain→input→runtime→systems→UI→player→bindings 初始化顺序，并按逆序释放。
+- `SceneEntityStore`：唯一拥有 all/enemies/pickups/equipmentItems 列表和批量移除/销毁。
+- `ScenePlayerLifecycle`：统一创建或继承玩家、系统/UI/相机绑定和生命周期保护。
+- `SceneInputBindings` / `SceneGamepadFlow`：统一热键、手柄配置、连接事件、弹窗优先消费和战斗意图。
+- `SceneSkillActions` / `SceneWorldInteraction` / `SceneDialogueFlow`：分别拥有技能、世界点击/拾取/选敌、对话输入。
+- `SceneHintPresenter`：统一屏幕提示、InputHints 格式化、DOM fallback 和可取消自动隐藏。
+- `SceneWorldPresentation`：统一背景、迷雾、气泡、拾取、飞行阴影和战斗表现。
+- `SceneFramePipeline` / `SceneRenderPipeline`：只负责编排，改为接收显式 context/services，不再把 scene 当无约束属性仓库。
+
+### 执行阶段
+
+1. 删除无消费者的旧 GameLoader/等距地图/兼容转发入口。
+2. 建立 Context、ResourceScope、EntityStore、PlayerLifecycle，并迁移 enter/exit 状态所有权。
+3. 迁移热键、手柄、提示、技能、世界交互和对话输入。
+4. 扩展 PanelLayout/TerrainBinding，抽离世界表现。
+5. 将 Frame/Render Pipeline 改为显式依赖，迁移 DataDrivenPrologueScene 直接字段访问。
+6. 删除迁移期 getter 和兼容字段，压缩 BaseGameScene 为薄组合根。
+
+### 不可破坏的约束
+
+- `DataDrivenPrologueScene._initEditorTerrain()` 必须保持空实现。
+- 转场 show_text/switch_scene 提前返回时不得清输入；正常帧最后才清输入。
+- 装备/卸下最终必须经过 `onEquipmentChanged(messages, info)`。
+- 操作提示必须使用 `InputHints`，不得硬编码单平台按键。
+- terrain worldOffset 只能应用一次，walkable 优先于 collide。
+- 不删除调试日志、`handleTeleport`、`lastSpacePressed`；调试信息迁移时原样保留。
+- Demo 角色、火堆、剧情和中文内容留在 example；框架模块不硬编码 Demo 内容。
+- 每阶段运行 diagnostics，不自动构建、不运行测试、不修改 desktop、不创建测试页面。

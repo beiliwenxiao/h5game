@@ -1,0 +1,424 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * 
+ * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
+ * @author    刘枭 (beiliwenxiao)
+ * @email     beiliwenxiao@qq.com
+ * @blog      https://blog.csdn.net/beiliwenxiao
+ * @repo      https://github.com/beiliwenxiao/yijian18-engine
+ ************************************************************/
+
+/**
+ * SceneTerrainCollision - 地形碰撞与区域收集（框架级）
+ *
+ * 承担四类地形约束的统一解算：
+ *   1. 椭圆盆地边界（可留入口扇形缺口）
+ *   2. 水池（椭圆，从内部推出）
+ *   3. 树木（圆形碰撞体）
+ *   4. 编辑器 collide shape（rect / circle / ellipse / polygon / path）
+ *
+ * 以及从场景数据收集 buffZone 多边形并转世界坐标。
+ *
+ * 设计约定：
+ *   - 只做几何解算，不认识 ECS 之外的游戏概念
+ *   - 直接就地修改传入的 position 对象（性能考虑，避免每帧分配）
+ *   - terrain 的具体实现通过鸭子类型访问（_pointInCollisionShape / _pushOutOfPolygon 等）
+ *
+ * 用法：
+ *   const collision = new SceneTerrainCollision();
+ *   collision.resolveEntities(terrain, entities, { entityRadius: 12 });
+ *   const zones = SceneTerrainCollision.collectBuffZones(terrains);
+ */
+const EMPTY_SPATIAL_ITEMS = Object.freeze([]);
+
+export class SceneTerrainCollision {
+  /**
+   * @param {Object} [options]
+   * @param {number} [options.entityRadius=12] - 实体碰撞半径
+   * @param {number} [options.pushEpsilon=2] - 推出后的额外余量，防止贴边抖动
+   */
+  constructor(options = {}) {
+    this.entityRadius = options.entityRadius != null ? options.entityRadius : 12;
+    this.pushEpsilon = options.pushEpsilon != null ? options.pushEpsilon : 2;
+    this.spatialCellSize = Math.max(32, options.spatialCellSize || 128);
+    /** terrain -> 静态碰撞数据空间索引；terrain 生命周期结束后可自动回收。 */
+    this._spatialCache = new WeakMap();
+  }
+
+  /**
+   * 对一批实体解算地形碰撞。
+   * @param {Object} terrain - 地形实例（Scene1Terrain 或同构对象）
+   * @param {Array} entities - 实体数组
+   * @param {Object} [options]
+   * @param {number} [options.entityRadius] - 覆盖默认半径
+   */
+  resolveEntities(terrain, entities, options = {}) {
+    if (!terrain || !entities || entities.length === 0) return;
+    const radius = options.entityRadius != null ? options.entityRadius : this.entityRadius;
+
+    const cx = terrain.centerX;
+    const cy = terrain.centerY;
+    const irx = terrain.basinInnerRadiusX;
+    const iry = terrain.basinInnerRadiusY;
+    const halfAng = terrain.entranceAngleHalfWidth;
+    const trees = terrain.getTreeColliders ? terrain.getTreeColliders() : [];
+    const shapes = terrain._collisionShapes || [];
+    const walkables = terrain._walkableShapes || [];
+    const ponds = terrain.waterPatches || [];
+    const hasBasin = options.skipBasin !== true && !!(irx && iry);
+    const spatial = this._getSpatialIndex(terrain, trees, shapes, walkables, ponds, radius);
+
+    for (const entity of entities) {
+      if (entity.isDead || entity.isDying) continue;
+      const transform = entity.getComponent && entity.getComponent('transform');
+      if (!transform) continue;
+      const p = transform.position;
+
+      // 可落脚区域优先于编辑器 collide shape 和盆地边界，与 Scene1Terrain.isBlocked 一致。
+      const nearbyWalkables = this._querySpatial(spatial.walkables, p.x, p.y);
+      let isWalkable = false;
+      for (let i = 0; i < nearbyWalkables.length; i++) {
+        if (terrain._pointInCollisionShape?.(nearbyWalkables[i], p.x, p.y)) {
+          isWalkable = true;
+          break;
+        }
+      }
+      if (!isWalkable) {
+        for (let i = 0; i < spatial.unboundedWalkables.length; i++) {
+          if (terrain._pointInCollisionShape?.(spatial.unboundedWalkables[i], p.x, p.y)) {
+            isWalkable = true;
+            break;
+          }
+        }
+      }
+      if (!isWalkable && hasBasin) this.resolveBasin(p, entity, cx, cy, irx, iry, halfAng);
+      const nearbyPonds = this._querySpatial(spatial.ponds, p.x, p.y);
+      for (let i = 0; i < nearbyPonds.length; i++) this.resolvePond(p, nearbyPonds[i]);
+      const nearbyTrees = this._querySpatial(spatial.trees, p.x, p.y);
+      for (let i = 0; i < nearbyTrees.length; i++) this.resolveTree(p, nearbyTrees[i], radius);
+      const nearbyShapes = isWalkable ? EMPTY_SPATIAL_ITEMS : this._querySpatial(spatial.shapes, p.x, p.y);
+      for (let i = 0; i < nearbyShapes.length; i++) this.resolveShape(terrain, p, nearbyShapes[i], radius);
+      // 缺少可计算包围盒的自定义 shape 始终走兜底列表（walkable 内除外）。
+      if (!isWalkable) {
+        for (let i = 0; i < spatial.unboundedShapes.length; i++) {
+          this.resolveShape(terrain, p, spatial.unboundedShapes[i], radius);
+        }
+      }
+    }
+  }
+
+  /**
+   * 获取或重建 terrain 静态碰撞空间索引。
+   * 数组替换（异步场景加载）或数量/半径变化时自动失效。
+   * @private
+   */
+  _getSpatialIndex(terrain, trees, shapes, walkables, ponds, radius) {
+    let cache = this._spatialCache.get(terrain);
+    if (cache && cache.treeSource === trees && cache.treeCount === trees.length &&
+        cache.shapeSource === shapes && cache.shapeCount === shapes.length &&
+        cache.walkableSource === walkables && cache.walkableCount === walkables.length &&
+        cache.pondSource === ponds && cache.pondCount === ponds.length &&
+        cache.radius === radius) {
+      return cache;
+    }
+
+    cache = {
+      treeSource: trees,
+      treeCount: trees.length,
+      shapeSource: shapes,
+      shapeCount: shapes.length,
+      walkableSource: walkables,
+      walkableCount: walkables.length,
+      pondSource: ponds,
+      pondCount: ponds.length,
+      radius,
+      trees: new Map(),
+      shapes: new Map(),
+      walkables: new Map(),
+      ponds: new Map(),
+      unboundedShapes: [],
+      unboundedWalkables: []
+    };
+
+    for (let i = 0; i < trees.length; i++) {
+      const tree = trees[i];
+      const extent = (tree.r || 0) + radius + 1;
+      this._insertSpatial(cache.trees, tree, tree.x - extent, tree.y - extent,
+        tree.x + extent, tree.y + extent);
+    }
+    for (let i = 0; i < ponds.length; i++) {
+      const pond = ponds[i];
+      this._insertSpatial(cache.ponds, pond, pond.x - pond.rx, pond.y - pond.ry,
+        pond.x + pond.rx, pond.y + pond.ry);
+    }
+    for (let i = 0; i < shapes.length; i++) {
+      const shape = shapes[i];
+      const bounds = this._shapeBounds(shape);
+      if (!bounds) cache.unboundedShapes.push(shape);
+      else this._insertSpatial(cache.shapes, shape, bounds.left, bounds.top, bounds.right, bounds.bottom);
+    }
+    for (let i = 0; i < walkables.length; i++) {
+      const shape = walkables[i];
+      const bounds = this._shapeBounds(shape);
+      if (!bounds) cache.unboundedWalkables.push(shape);
+      else this._insertSpatial(cache.walkables, shape, bounds.left, bounds.top, bounds.right, bounds.bottom);
+    }
+
+    this._spatialCache.set(terrain, cache);
+    return cache;
+  }
+
+  /** @private */
+  _shapeBounds(shape) {
+    if (Array.isArray(shape.points) && shape.points.length > 0) {
+      let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+      for (let i = 0; i < shape.points.length; i++) {
+        const point = shape.points[i];
+        if (!point || point.length < 2) continue;
+        if (point[0] < left) left = point[0];
+        if (point[0] > right) right = point[0];
+        if (point[1] < top) top = point[1];
+        if (point[1] > bottom) bottom = point[1];
+      }
+      if (Number.isFinite(left)) return { left, top, right, bottom };
+    }
+    if (Number.isFinite(shape.x) && Number.isFinite(shape.y) &&
+        Number.isFinite(shape.width) && Number.isFinite(shape.height)) {
+      return {
+        left: Math.min(shape.x, shape.x + shape.width),
+        top: Math.min(shape.y, shape.y + shape.height),
+        right: Math.max(shape.x, shape.x + shape.width),
+        bottom: Math.max(shape.y, shape.y + shape.height)
+      };
+    }
+    return null;
+  }
+
+  /** @private */
+  _insertSpatial(grid, item, left, top, right, bottom) {
+    const size = this.spatialCellSize;
+    const minX = Math.floor(left / size), maxX = Math.floor(right / size);
+    const minY = Math.floor(top / size), maxY = Math.floor(bottom / size);
+    for (let cellX = minX; cellX <= maxX; cellX++) {
+      let column = grid.get(cellX);
+      if (!column) grid.set(cellX, (column = new Map()));
+      for (let cellY = minY; cellY <= maxY; cellY++) {
+        let items = column.get(cellY);
+        if (!items) column.set(cellY, (items = []));
+        items.push(item);
+      }
+    }
+  }
+
+  /** @private */
+  _querySpatial(grid, x, y) {
+    const size = this.spatialCellSize;
+    return grid.get(Math.floor(x / size))?.get(Math.floor(y / size)) || EMPTY_SPATIAL_ITEMS;
+  }
+
+  /**
+   * 椭圆盆地边界：越界则拉回边界内。南向入口扇形内允许离开（一旦离开不再拉回）。
+   * @param {Object} p - position（就地修改）
+   * @param {Object} entity - 实体（用 _leftBasin 记忆是否已从入口离开）
+   */
+  resolveBasin(p, entity, cx, cy, irx, iry, halfAng) {
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const ed = Math.hypot(dx / irx, dy / iry);
+
+    // 回到盆地深处：重置"已离开"标记，边界重新生效
+    if (ed < 0.85) entity._leftBasin = false;
+    if (entity._leftBasin || ed <= 1) return;
+
+    // 判断是否落在南向入口扇形内
+    const ang = Math.atan2(dy, dx);
+    const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+    if (angDist < halfAng) {
+      entity._leftBasin = true;
+      return;
+    }
+    if (ed > 0.001) {
+      const k = 0.97 / ed;
+      p.x = cx + dx * k;
+      p.y = cy + dy * k;
+    }
+  }
+
+  /** 水池：在椭圆内部则推到边缘外 */
+  resolvePond(p, pond) {
+    const pdx = p.x - pond.x;
+    const pdy = p.y - pond.y;
+    const nx = pdx / pond.rx;
+    const ny = pdy / pond.ry;
+    const d2 = nx * nx + ny * ny;
+    if (d2 < 1 && d2 > 0) {
+      const k = 1 / Math.sqrt(d2);
+      p.x = pond.x + pdx * k * 1.04;
+      p.y = pond.y + pdy * k * 1.04;
+    } else if (d2 === 0) {
+      // 正好在圆心：垂直推出，避免除零
+      p.y = pond.y - pond.ry - 2;
+    }
+  }
+
+  /** 树木：圆形碰撞体，重叠则沿连线推开 */
+  resolveTree(p, tree, entityRadius) {
+    const tdx = p.x - tree.x;
+    const tdy = p.y - tree.y;
+    const minDist = tree.r + entityRadius;
+    const d2 = tdx * tdx + tdy * tdy;
+    if (d2 >= minDist * minDist) return;
+
+    const td = Math.sqrt(d2);
+    if (td > 0.001) {
+      const k = (minDist + 1) / td;
+      p.x = tree.x + tdx * k;
+      p.y = tree.y + tdy * k;
+    } else {
+      p.y = tree.y + minDist + 1;
+    }
+  }
+
+  /**
+   * 编辑器 collide shape：按形状类型推出。
+   * @param {Object} terrain - 需提供 _pointInCollisionShape，多边形还需 _pushOutOfPolygon
+   * @param {Object} p - position（就地修改）
+   * @param {Object} s - shape 定义
+   * @param {number} radius - 实体半径（预留，当前按点判定）
+   */
+  resolveShape(terrain, p, s, radius) {
+    if (!terrain || !terrain._pointInCollisionShape) return;
+    if (!terrain._pointInCollisionShape(s, p.x, p.y)) return;
+
+    const EPS = this.pushEpsilon;
+    const st = s.shapeType;
+
+    if (st === 'circle' || st === 'ellipse') {
+      const scx = (s.x || 0) + (s.width || 0) / 2;
+      const scy = (s.y || 0) + (s.height || 0) / 2;
+      const dirx = p.x - scx, diry = p.y - scy;
+      const dl = Math.hypot(dirx, diry) || 1;
+      const rx = (st === 'circle' ? Math.min(s.width, s.height) : s.width) / 2 || 1;
+      const ry = (st === 'circle' ? Math.min(s.width, s.height) : s.height) / 2 || 1;
+      const ux = dirx / rx, uy = diry / ry;
+      const d = Math.hypot(ux, uy) || 1;
+      p.x = scx + dirx / d + dirx / dl * EPS;
+      p.y = scy + diry / d + diry / dl * EPS;
+      return;
+    }
+
+    if (st === 'polygon' || st === 'path') {
+      terrain._pushOutOfPolygon(p, s.points, EPS);
+      return;
+    }
+
+    // rect：推到最近边外侧
+    const left = s.x || 0, top = s.y || 0;
+    const right = left + (s.width || 0), bottom = top + (s.height || 0);
+    const dL = p.x - left, dR = right - p.x, dT = p.y - top, dB = bottom - p.y;
+    const minD = Math.min(dL, dR, dT, dB);
+    if (minD === dL) p.x = left - EPS;
+    else if (minD === dR) p.x = right + EPS;
+    else if (minD === dT) p.y = top - EPS;
+    else p.y = bottom + EPS;
+  }
+
+  /**
+   * 从多个 terrain 的场景数据中收集 buffZone，坐标转为世界坐标。
+   * @param {Array} terrains - terrain 实例数组
+   * @returns {{zones: Array, loadedCount: number, total: number}}
+   */
+  static collectBuffZones(terrains) {
+    const list = terrains || [];
+    const zones = [];
+    let loadedCount = 0;
+
+    for (const t of list) {
+      const scene = t._sceneDataRaw;
+      if (!scene) continue;
+      loadedCount++;
+      if (!Array.isArray(scene.layers)) continue;
+
+      const ox = t.worldOffset ? t.worldOffset.x : 0;
+      const oy = t.worldOffset ? t.worldOffset.y : 0;
+
+      for (const layer of scene.layers) {
+        if (!Array.isArray(layer.objects)) continue;
+        for (const obj of layer.objects) {
+          if (obj.type !== 'buffZone' || !obj.effect) continue;
+          zones.push({
+            id: obj.id,
+            name: obj.name || '',
+            points: (obj.points || []).map(pt => [pt[0] + ox, pt[1] + oy]),
+            fillColor: obj.fillColor,
+            borderColor: obj.borderColor,
+            visible: obj.visible !== false,
+            effect: obj.effect
+          });
+        }
+      }
+    }
+
+    return { zones, loadedCount, total: list.length };
+  }
+
+  /**
+   * 渲染 buffZone 多边形。
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Array} zones - collectBuffZones 产出的区域数组
+   * @param {boolean} [debugMode=false] - true 时显示隐形区域并附加名称/效果标签
+   */
+  static renderBuffZones(ctx, zones, debugMode = false) {
+    if (!zones || zones.length === 0) return;
+
+    for (const zone of zones) {
+      if (!zone.points || zone.points.length < 3) continue;
+      if (!zone.visible && !debugMode) continue;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(zone.points[0][0], zone.points[0][1]);
+      for (let i = 1; i < zone.points.length; i++) {
+        ctx.lineTo(zone.points[i][0], zone.points[i][1]);
+      }
+      ctx.closePath();
+
+      // 填充：调试模式下隐形区域用红色区分
+      if (debugMode) {
+        ctx.fillStyle = zone.visible
+          ? (zone.fillColor || 'rgba(100, 0, 200, 0.15)')
+          : 'rgba(200, 0, 0, 0.15)';
+      } else {
+        ctx.fillStyle = zone.fillColor || 'rgba(100, 0, 200, 0.15)';
+      }
+      ctx.fill();
+
+      ctx.strokeStyle = debugMode
+        ? (zone.visible ? (zone.borderColor || 'rgba(100,0,200,0.5)') : 'rgba(200,0,0,0.5)')
+        : (zone.borderColor || 'rgba(100,0,200,0.5)');
+      ctx.lineWidth = debugMode ? 2 : 1.5;
+      if (debugMode) ctx.setLineDash([6, 3]);
+      ctx.stroke();
+      if (debugMode) ctx.setLineDash([]);
+
+      if (debugMode) {
+        const cx = zone.points.reduce((s, pt) => s + pt[0], 0) / zone.points.length;
+        const cy = zone.points.reduce((s, pt) => s + pt[1], 0) / zone.points.length;
+        ctx.font = '11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(zone.name || 'Buff', cx, cy - 6);
+        if (zone.effect) {
+          const eff = zone.effect;
+          const label = `${eff.stat || 'hp'} ${eff.value > 0 ? '+' : ''}${eff.value || 0} (${eff.effectType || '?'})`;
+          ctx.fillStyle = '#ccc';
+          ctx.font = '10px sans-serif';
+          ctx.fillText(label, cx, cy + 8);
+        }
+      }
+      ctx.restore();
+    }
+  }
+}
+
+export default SceneTerrainCollision;

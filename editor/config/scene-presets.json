@@ -104,14 +104,14 @@
     }
   },
   "sceneNames": {
-    "PrologueScene": "序章 - 盆地营地",
-    "Act1Scene": "第一幕 - 起义军营",
-    "Act2Scene": "第二幕 - 战场",
-    "Act3Scene": "第三幕 - 城池",
-    "Act4Scene": "第四幕 - 山寨",
-    "Act5Scene": "第五幕 - 决战",
-    "Act6Scene": "第六幕 - 结局",
-    "BaseGameScene": "游戏主场景"
+    "s0-0": "序章入口",
+    "s0-1": "第一幕 - 起义军营",
+    "s1-1": "第二幕 - 符水救灾",
+    "s2-1": "第三幕 - 铜钱法器",
+    "s3-1": "第四幕 - 山寨",
+    "s3-2": "第五幕 - 决战",
+    "s3-3": "第六幕 - 结局",
+    "DataDrivenPrologueScene": "数据驱动大地图"
   },
   "presetScenesList": [
     { "id": "scene_Prologue", "name": "序章 - 盆地营地", "type": "terrain" },

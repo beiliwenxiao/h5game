@@ -18,8 +18,8 @@
  * 不继承 Act1 的脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）——这些改由
  * GameProject（game.project.json）的 triggers + 逻辑对象逐步重建。
  *
- * 与旧 Act1 并存：?ddscene=1 进本场景，默认仍进旧 Act1（逐幕对照验收）。
- * 待迁移：渐进提示 / 点火交互 / 拾取物 / 刷怪波次 / 倒计时切幕。
+ * 当前作为 Demo 唯一运行时大地图场景；?ddscene=preview 进入静态编辑器预览。
+ * 各幕流程由 GameProject triggers 与区块传送驱动。
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
@@ -36,9 +36,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _initEditorTerrain() { /* 由 _loadWorldTerrains 代替 */ }
 
   constructor() {
-    super(1, {
+    super({
+      name: 'DataDrivenPrologueScene',
       title: '数据驱动序章',
-      description: '第一幕（数据驱动重建，与旧 Act1 并存对照）'
+      description: '数据驱动大地图场景'
     });
 
     // 盆地火堆（含火焰帧动画字段，迁移自 Act1）

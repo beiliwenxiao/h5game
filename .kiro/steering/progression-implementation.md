@@ -185,9 +185,27 @@ MOVE     右键
 
 `verifyNoSharedReferences(projection)` 可在回归测试中检测视图间是否又出现共享引用。这直接针对 `_applySceneData` 的双重偏移问题。
 
-**GameSceneRuntime**：帧内顺序固定为「输入分发 → 系统更新 → 场景 hook → `InputManager.update()` 清帧」。清帧必须最后，否则本帧按键状态被提前清空。`registerInputHandler`、`registerSnapshotProvider`、`onUpdate` 返回的注销函数自动进入 disposer，`dispose()` 逆序执行。
+**GameSceneRuntime**：既支持完整帧的「输入分发 → 系统更新 → 场景 hook → `InputManager.update()` 清帧」，也支持 `beforeInput` / `priorityInput` / `systems` / `afterScene` 分阶段调度。迁移旧场景时由 `SceneFramePipeline` 在原调用位置触发阶段，转场提前返回不会意外清帧。`registerInputHandler`、`registerSnapshotProvider`、阶段 hook 与 `onUpdate` 的注销函数自动进入 disposer，`dispose()` 逆序执行。
 
-`BaseGameScene` 本体未改动。它有 5000 行且输入与拾取、攻击、瞄准、UI 深度耦合，迁移应分两步：先替换系统注册与 `exit()` 清理，再单独处理输入路由。
+`BaseGameScene` 已采用这些模块，场景本体只保留场景编排、游戏内容钩子与兼容转发入口：
+
+- `SceneTerrainCollision`：集中处理地形边界、池塘、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。walkable/collide 对象仍保持独立引用，禁止重复 worldOffset。
+- `SceneTerrainBinding`：统一单 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；具体 Terrain 类型通过依赖注入。
+- `SceneAimController` + `SceneAimPresentation` + `AimPreviewRenderer`：统一 PC/触屏/手柄的瞄准控制、状态与 5px 虚线预览；场景通过回调注入射程和确认动作。
+- `SceneEquipmentFlow`：统一装备槽位映射、属性差值和装备/卸下事务；变更结果仍必须由 `BaseGameScene.onEquipmentChanged(messages, info)` 派发。
+- `SceneItemGainedFlow`：管理拾取/奖励后的 FIFO 弹窗、装备比较和使用动作；弹窗装备同样必须经过统一装备事件出口。
+- `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话结束、上下文和 sceneEnter；具体剧情动作仍由场景 `onReady` 注册。
+- `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
+- `SceneCombatActions`：承接 PC、触屏和手柄的攻击、技能、轻功、投掷、格挡、药水、自动攻击与点击拾取；不拥有系统或实体状态。
+- `ScenePanelLayout`：组合并绑定 HUD，加载 UIEditor/PanelEditor 布局、响应窗口缩放、同步面板悬停，并在背包打开时协调 Canvas 与 DOM 触屏控件层级。
+- `SceneFramePipeline`：保持旧场景的输入消费、系统更新和转场提前返回顺序，并在准确位置调度 `GameSceneRuntime` 阶段；正常帧最后才清输入。
+- `SceneRenderPipeline`：固定世界、屏幕 UI 与最高层弹窗的渲染顺序；Y-sort 数组、实体队列项和 terrain 静态装饰项均复用，减少每帧分配。
+- `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
+- `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
+
+`BaseGameScene` 已直接继承框架 `Scene`；旧 `PrologueScene` 与 Act1–6 独立场景已删除。运行时只注册 `DataDrivenPrologueScene`，各幕通过 chunk ID 与 `teleportToChunk()` 推进。
+
+新增场景功能应优先落在对应核心模块；仅与具体剧情、角色或资源强耦合的编排才保留在 Demo 场景中。
 
 ## 已知既有测试失败（与本次改造无关）
 

@@ -1536,20 +1536,8 @@
                     }
                 }
 
-                // 场景归属匹配：触发器的 scene 字段 或 when.params.sceneId 匹配当前编辑场景
-                // 兼容 SceneManager 名（Act2Scene）和编辑器场景 ID（scene_Act2）的映射
+                // 场景归属只使用数据驱动 scene/chunk ID，不再映射已删除的 SceneManager 类名。
                 const sceneAliases = new Set([sceneId]);
-                // 编辑器 sceneId (scene_Act2) → SceneManager 名 (Act2Scene) 的映射
-                const chunkToAct = {
-                    's0-1': 'Act1Scene', 'scene_Act2': 'Act2Scene', 'scene_Act3': 'Act3Scene',
-                    'scene_Act4': 'Act4Scene', 'scene_Act5': 'Act5Scene', 'scene_Act6': 'Act6Scene'
-                };
-                const actToChunk = {
-                    'Act1Scene': 's0-1', 'Act2Scene': 'scene_Act2', 'Act3Scene': 'scene_Act3',
-                    'Act4Scene': 'scene_Act4', 'Act5Scene': 'scene_Act5', 'Act6Scene': 'scene_Act6'
-                };
-                if (chunkToAct[sceneId]) sceneAliases.add(chunkToAct[sceneId]);
-                if (actToChunk[sceneId]) sceneAliases.add(actToChunk[sceneId]);
 
                 // 判断触发器是否属于当前场景
                 const belongsToScene = (trg) => {

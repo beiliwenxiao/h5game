@@ -74,23 +74,13 @@ if (!existsSync(entryFile)) {
 import { SceneManager } from '@engine/core/SceneManager.js';
 import { InputManager } from '@engine/core/InputManager.js';
 import { DataDrivenPrologueScene } from '@demo/scenes/DataDrivenPrologueScene.js';
-import { Act2Scene } from '@demo/scenes/Act2Scene.js';
-import { Act3Scene } from '@demo/scenes/Act3Scene.js';
-import { Act4Scene } from '@demo/scenes/Act4Scene.js';
-import { Act5Scene } from '@demo/scenes/Act5Scene.js';
-import { Act6Scene } from '@demo/scenes/Act6Scene.js';
 
 export function bootstrap({ canvas, ctx, screenWidth, screenHeight, dpr }) {
   // 场景管理器
   const sceneManager = new SceneManager();
 
-  // 注册场景
+  // 注册唯一的数据驱动大地图场景
   sceneManager.registerScene('DataDrivenPrologueScene', DataDrivenPrologueScene);
-  sceneManager.registerScene('Act2Scene', Act2Scene);
-  sceneManager.registerScene('Act3Scene', Act3Scene);
-  sceneManager.registerScene('Act4Scene', Act4Scene);
-  sceneManager.registerScene('Act5Scene', Act5Scene);
-  sceneManager.registerScene('Act6Scene', Act6Scene);
 
   // 切换到序章
   sceneManager.switchTo('DataDrivenPrologueScene');

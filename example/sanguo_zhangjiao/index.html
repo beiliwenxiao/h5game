@@ -683,11 +683,6 @@
     <script type="module">
         import { DataDrivenScene } from './scenes/DataDrivenScene.js';
         import { DataDrivenPrologueScene } from './scenes/DataDrivenPrologueScene.js';
-        import { Act2Scene } from './scenes/Act2Scene.js';
-        import { Act3Scene } from './scenes/Act3Scene.js';
-        import { Act4Scene } from './scenes/Act4Scene.js';
-        import { Act5Scene } from './scenes/Act5Scene.js';
-        import { Act6Scene } from './scenes/Act6Scene.js';
         import { SceneManager } from '../../src/core/SceneManager.js';
         import { AssetManager } from '../../src/core/AssetManager.js';
         import { DialogueBox } from '../../src/ui/DialogueBox.js';
@@ -978,30 +973,6 @@
                 sceneManager.setRenderSize(canvas.width, canvas.height);
 
                 await nextStep(); // 步骤 3
-                
-                // 旧独立幕场景已废弃——全部通过 DataDrivenPrologueScene 的大地图 teleportToChunk 驱动
-                // 保留注册以防万一有旧代码引用（switchTo 回退路径），但不再主动使用
-                const act2Scene = new Act2Scene();
-                act2Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act2Scene', act2Scene);
-                const act3Scene = new Act3Scene();
-                act3Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act3Scene', act3Scene);
-                const act4Scene = new Act4Scene();
-                act4Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act4Scene', act4Scene);
-                const act5Scene = new Act5Scene();
-                act5Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act5Scene', act5Scene);
-                const act6Scene = new Act6Scene();
-                act6Scene.assetManager = assetManager;
-                sceneManager.registerScene('Act6Scene', act6Scene);
-                act2Scene.setSceneManager(sceneManager);
-                act3Scene.setSceneManager(sceneManager);
-                act4Scene.setSceneManager(sceneManager);
-                act5Scene.setSceneManager(sceneManager);
-                act6Scene.setSceneManager(sceneManager);
-                
                 notificationSystem = new NotificationSystem({ x: 10, y: 100, maxNotifications: 5 });
                 scene = null;
 
@@ -1025,15 +996,12 @@
                 } else {
                     const dd = new DataDrivenPrologueScene();
                     dd.assetManager = assetManager;
-                    sceneManager.registerScene('Act1Scene', dd);
                     sceneManager.registerScene('DataDrivenPrologueScene', dd);
                     dd.setSceneManager(sceneManager);
                     scene = dd;
                     sceneManager.switchTo('DataDrivenPrologueScene');
                 }
                 
-                setupSceneCallbacks(act2Scene);
-                setupSceneCallbacks(act3Scene);
                 if (scene) setupSceneCallbacks(scene);
                 
                 await nextStep(); // 步骤 6（完成）

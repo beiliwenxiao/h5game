@@ -6,7 +6,7 @@
       "description": "东汉末年，太平道首领张角的传奇故事",
       "thumbnail": "../example/sanguo_zhangjiao/assets/images/003.png",
       "path": "../example/sanguo_zhangjiao/",
-      "scenes": ["PrologueScene", "Act1Scene", "Act2Scene", "Act3Scene", "Act4Scene", "Act5Scene", "Act6Scene"]
+      "scenes": ["s0-0", "s0-1", "s1-1", "s2-1", "s3-1", "s3-2", "s3-3"]
     },
     {
       "id": "sanguo_zhangjiao_3d",

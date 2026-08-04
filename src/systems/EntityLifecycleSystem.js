@@ -98,14 +98,13 @@ export class EntityLifecycleSystem {
       }
     }
     
-    // 从所有跟踪列表中移除
+    // 从所有跟踪列表中移除。批量死亡时用 Set 单次反向扫描，
+    // 避免对每个死亡实体重复 indexOf 整个列表。
     if (deadEntities.length > 0) {
+      const deadSet = new Set(deadEntities);
       for (const list of this.trackedLists) {
-        for (const dead of deadEntities) {
-          const idx = list.indexOf(dead);
-          if (idx > -1) {
-            list.splice(idx, 1);
-          }
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (deadSet.has(list[i])) list.splice(i, 1);
         }
       }
     }

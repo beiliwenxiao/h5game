@@ -252,11 +252,13 @@ export class PerformanceOptimizer {
       ai: 3,           // AI每3帧更新一次
       particles: 1,    // 粒子每帧更新
       effects: 2,      // 特效每2帧更新
-      ui: 2            // UI每2帧更新
+      ui: 2,          // UI每2帧更新
+      minimap: 6      // 小地图敌人扫描每6帧更新一次（约10Hz）
     };
 
-    // 帧计数器
+    // 帧计数器。统计快照无需逐帧重建，默认每 30 帧刷新一次。
     this.frameCount = 0;
+    this.statsUpdateInterval = Math.max(1, options.statsUpdateInterval || 30);
 
     // 性能统计
     this.stats = {
@@ -481,7 +483,9 @@ export class PerformanceOptimizer {
    */
   update() {
     this.frameCount++;
-    this.updateStats();
+    if (this.frameCount === 1 || this.frameCount % this.statsUpdateInterval === 0) {
+      this.updateStats();
+    }
   }
 
   /**

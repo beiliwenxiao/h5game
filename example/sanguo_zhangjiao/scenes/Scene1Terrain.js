@@ -1034,34 +1034,57 @@ export class Scene1Terrain {
    * 标记 belowEntities 的装饰物不参与排序，由 renderBelowDecorations 单独绘制
    * @param {Array} renderQueue - 渲染队列，每项 { type, y, render }
    * @param {CanvasRenderingContext2D} ctx
+   * @param {{left:number,top:number,right:number,bottom:number}} [viewBounds] 可选相机世界视野
    */
-  collectDecorations(renderQueue, ctx) {
-    // 混合策略：
-    // - 非碰撞装饰物（草、灌木）预渲染到离屏缓存，作为整体一次性绘制
-    // - 碰撞装饰物（树）参与 Y-sort，互相之间和实体之间正确遮挡
-    
-    // 渲染草地装饰缓存（一次性绘制所有非碰撞装饰物）
-    if (this._groundDecoCache) {
-      renderQueue.push({
-        type: 'scene1_deco',
-        y: -10000,
-        render: () => {
-          ctx.drawImage(this._groundDecoCache, this._groundDecoCacheX, this._groundDecoCacheY);
-        }
-      });
+  collectDecorations(renderQueue, ctx, viewBounds = null) {
+    // 装饰物、图集切片和 ground cache 都是静态数据。仅在引用变化或 Canvas
+    // 上下文变化时重建队列项，正常帧只追加已缓存对象，避免创建闭包和包装对象。
+    if (this._decorationQueueContext !== ctx ||
+        this._decorationQueueSource !== this.decorations ||
+        this._decorationQueueGroundCache !== this._groundDecoCache) {
+      this._decorationQueueContext = ctx;
+      this._decorationQueueSource = this.decorations;
+      this._decorationQueueGroundCache = this._groundDecoCache;
+      this._decorationQueueEntries = [];
+
+      if (this._groundDecoCache) {
+        this._decorationQueueEntries.push({
+          type: 'scene1_deco',
+          y: -10000,
+          render: () => {
+            ctx.drawImage(this._groundDecoCache, this._groundDecoCacheX, this._groundDecoCacheY);
+          }
+        });
+      }
+
+      for (const deco of this.decorations) {
+        if (deco.belowEntities) continue;
+        const sprite = this.decoSprites[deco.key];
+        if (!sprite || !sprite.collide) continue;
+        const size = this._decoRenderSize(deco, sprite);
+        this._decorationQueueEntries.push({
+          type: 'scene1_deco',
+          y: deco.y,
+          left: deco.x - size.w / 2,
+          right: deco.x + size.w / 2,
+          top: deco.y - size.h,
+          bottom: deco.y,
+          render: () => this._renderDecoration(ctx, deco)
+        });
+      }
     }
-    
-    // 树类：用 Y 坐标排序，参与实体间遮挡
-    for (const deco of this.decorations) {
-      if (deco.belowEntities) continue;
-      const sprite = this.decoSprites[deco.key];
-      if (!sprite || !sprite.collide) continue;
-      
-      renderQueue.push({
-        type: 'scene1_deco',
-        y: deco.y,
-        render: () => this._renderDecoration(ctx, deco)
-      });
+
+    const entries = this._decorationQueueEntries;
+    const padding = 32;
+    for (let i = 0, len = entries.length; i < len; i++) {
+      const entry = entries[i];
+      // ground cache 没有 bounds，始终保留为一次 drawImage；树木在入队前裁剪。
+      if (viewBounds && entry.left !== undefined &&
+          (entry.right + padding < viewBounds.left || entry.left - padding > viewBounds.right ||
+           entry.bottom + padding < viewBounds.top || entry.top - padding > viewBounds.bottom)) {
+        continue;
+      }
+      renderQueue.push(entry);
     }
   }
   

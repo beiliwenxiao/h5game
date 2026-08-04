@@ -1,13 +1,13 @@
 ---
 inclusion: fileMatch
-fileMatchPattern: '{**/Act*Scene*,**/DataDrivenPrologueScene*,**/TriggerActions*,**/game.project.json}'
+fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActions*,**/game.project.json}'
 ---
 
 # 数据驱动幕迁移（Act 迁移）
 
 ## 现状
 
-Act1 已完成数据驱动迁移（DataDrivenPrologueScene），Act2-6 仍是硬编码场景类。Act3 的数据驱动版本实际已在 `game.project.json` 触发器中定义完毕（区块 s2-1），仅缺放置点。
+所有幕已统一迁入 `DataDrivenPrologueScene` 大地图运行时。旧 `PrologueScene`、`Act1SceneRefactored`、`Act2Scene`～`Act6Scene` 及其入口注册均已删除；场景推进只使用 `_scene_order.json` 中的 chunk ID 和 `teleportToChunk()`。
 
 ## 已有触发器驱动的 Act3 流程
 
@@ -39,21 +39,13 @@ Act1 已完成数据驱动迁移（DataDrivenPrologueScene），Act2-6 仍是硬
 |---|---|---|
 | `itemUsed{id}` | `BaseGameScene.onItemUsed` | 铜钱剑使用 → 切幕 |
 | `equipItem{slot,item}` | `DataDrivenPrologueScene.onEquipmentChanged` | 装备武器 → 刷野狗 |
-| `dialogueEnd{id}` | `BaseGameScene.initGameLoader` 中订阅 `dialogueSystem.onEnd` | 对话结束 → 给物品 |
-| `sceneComplete{sceneId}` | 各 Act 的 `fire('sceneComplete')` | 切幕 |
+| `dialogueEnd{id}` | `DataDrivenPrologueScene._initGameLoader` 中订阅 `dialogueSystem.onEnd` | 对话结束 → 给物品 |
+| `sceneComplete{sceneId}` | 数据驱动触发器 `fire('sceneComplete')` | 区块流程推进 |
 
-## 剩余迁移工作量估计（上次评估）
+## 运行时约束
 
-| 幕 | 难度 | 主要障碍 |
-|---|---|---|
-| Act3 | 低（已几乎完成） | 仅缺放置点，现已补齐 |
-| Act2/Act5 | 中 | 手绘 NPC/建筑渲染（已有 NpcRenderStyles）|
-| Act4 | 中高 | 职业选择流程 |
-| Act6 | 高 | 四个统计面板 + 结局判定 |
-
-## 注意事项
-
-- `Act3Scene.js` 保留不删，与数据驱动版并存对照
-- 场景 `?ddscene=1` 进数据驱动版，默认仍进旧版
-- `spawnGroup` 动作需要场景中有对应 group 的 ref 放置点
-- 触发器的 `if` 条件用黑板变量（如 `act3Scene`）限定作用域
+- 默认入口和微信小游戏入口只注册 `DataDrivenPrologueScene`。
+- 不再注册 `Act1Scene` 别名，也不允许回退到 `ActNScene` 类名。
+- `BaseGameScene` 直接继承框架 `Scene`，不再加载 `ActXData.json` 或提供按幕切场景逻辑。
+- `spawnGroup` 动作需要场景中有对应 group 的 ref 放置点。
+- 场景归属、触发器和传送目标统一使用 chunk ID（如 `s0-1`、`s2-1`）。

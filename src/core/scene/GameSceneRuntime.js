@@ -42,6 +42,17 @@ export const UpdateOrder = {
   UI: 900
 };
 
+/**
+ * 帧阶段名称。SceneFramePipeline 可在不改动旧调用顺序的前提下逐段接入，
+ * 新场景则可用 runFrame 一次性执行完整运行时帧。
+ */
+export const FramePhase = Object.freeze({
+  BEFORE_INPUT: 'beforeInput',
+  PRIORITY_INPUT: 'priorityInput',
+  SYSTEMS: 'systems',
+  AFTER_SCENE: 'afterScene'
+});
+
 export class GameSceneRuntime {
   /**
    * @param {Object} [config]
@@ -63,8 +74,12 @@ export class GameSceneRuntime {
     this.inputManager = config.inputManager || null;
     this.camera = config.camera || null;
 
-    /** 场景自定义每帧逻辑 */
+    /** 场景自定义每帧逻辑（旧 update API 兼容） */
     this._updateHooks = [];
+    /** 分阶段钩子，供迁移中的 SceneFramePipeline 精确调度。 */
+    this._phaseHooks = new Map(
+      Object.values(FramePhase).map(phase => [phase, []])
+    );
     /** 退出时需要执行的清理 */
     this._disposers = [];
 
@@ -172,6 +187,54 @@ export class GameSceneRuntime {
   /** 场景进入 */
   enter() {
     this.isActive = true;
+    return this;
+  }
+
+  /**
+   * 注册指定帧阶段的回调。阶段回调不会隐式清帧，适合逐步接入旧场景。
+   * @param {string} phase FramePhase 中的阶段名
+   * @param {(deltaTime:number, context:Object) => void} hook
+   * @returns {Function} 注销函数
+   */
+  onFramePhase(phase, hook) {
+    const hooks = this._phaseHooks.get(phase);
+    if (!hooks || typeof hook !== 'function') return () => {};
+    hooks.push(hook);
+    const off = () => {
+      const index = hooks.indexOf(hook);
+      if (index !== -1) hooks.splice(index, 1);
+    };
+    this._disposers.push(off);
+    return off;
+  }
+
+  /**
+   * 执行一个确定的帧阶段。
+   * systems 阶段仅在 updateSystems=true 时运行容器，保证迁移期的旧系统
+   * 链仍由宿主在原有位置调用，不会被运行时悄然重排。
+   */
+  runFramePhase(phase, deltaTime, options = {}) {
+    if (!this.isActive) return false;
+    if (phase === FramePhase.PRIORITY_INPUT && options.routeInput) {
+      this.inputRouter.update(options.watchedKeys);
+    }
+    if (phase === FramePhase.SYSTEMS && options.updateSystems) {
+      this.container.update(deltaTime, ...(options.systemArgs || []));
+    }
+    const context = { runtime: this, phase, scene: options.scene || null };
+    for (const hook of this._phaseHooks.get(phase) || []) {
+      try {
+        hook(deltaTime, context);
+      } catch (error) {
+        console.warn(`GameSceneRuntime: ${phase} 阶段钩子出错`, error);
+      }
+    }
+    return true;
+  }
+
+  /** 在宿主已完成本帧全部输入读取后执行清帧。 */
+  flushInput(options = {}) {
+    if (!options.skipInputFlush && this.inputManager?.update) this.inputManager.update();
   }
 
   /**
@@ -186,13 +249,11 @@ export class GameSceneRuntime {
   update(deltaTime, options = {}) {
     if (!this.isActive) return;
 
-    // 1. 输入分发：优先级保证拾取先于攻击
-    this.inputRouter.update(options.watchedKeys);
+    this.runFramePhase(FramePhase.BEFORE_INPUT, deltaTime, options);
+    // 输入分发仍在系统更新之前；旧场景可改为逐段调用 runFramePhase。
+    this.runFramePhase(FramePhase.PRIORITY_INPUT, deltaTime, { ...options, routeInput: true });
+    this.runFramePhase(FramePhase.SYSTEMS, deltaTime, { ...options, updateSystems: true });
 
-    // 2. 系统按 order 更新
-    this.container.update(deltaTime, ...(options.systemArgs || []));
-
-    // 3. 场景自定义逻辑
     for (const hook of this._updateHooks) {
       try {
         hook(deltaTime);
@@ -200,11 +261,10 @@ export class GameSceneRuntime {
         console.warn('GameSceneRuntime: update 钩子出错', e);
       }
     }
+    this.runFramePhase(FramePhase.AFTER_SCENE, deltaTime, options);
 
-    // 4. 清帧必须最后执行，否则本帧按键状态会被提前清空
-    if (!options.skipInputFlush && this.inputManager && typeof this.inputManager.update === 'function') {
-      this.inputManager.update();
-    }
+    // 清帧必须最后执行，否则本帧按键状态会被提前清空。
+    this.flushInput(options);
   }
 
   /**
@@ -257,6 +317,7 @@ export class GameSceneRuntime {
     }
     this._disposers = [];
     this._updateHooks = [];
+    for (const hooks of this._phaseHooks.values()) hooks.length = 0;
 
     this.inputRouter.clearAll();
     const systems = this.container.destroy();

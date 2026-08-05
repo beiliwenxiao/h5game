@@ -62,3 +62,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 ```
 
 这样 BaseGameScene 构造函数中的调用会走子类的空实现，不会重复创建 terrain。
+
+## SceneTerrainCollision 不依赖 terrain 私有几何方法
+
+`SceneTerrainCollision` 是框架级几何解算器，不能调用具体 terrain 的 `_pointInCollisionShape`、`_pushOutOfPolygon` 等私有方法。曾经的 polygon/path 分支调用了并不存在的 `terrain._pushOutOfPolygon()`，导致实体首次进入多边形碰撞区时才抛出运行时异常。
+
+约定：
+- shape 点命中和推出算法由 `SceneTerrainCollision` 自己实现
+- terrain 只提供已经应用一次 worldOffset 的 `_collisionShapes` / `_walkableShapes` 等数据
+- walkable 仍优先于 collide，polygon/path 仍按闭合多边形处理
+- 不得用可选调用或空判断绕过缺失算法，否则会静默丢失多边形碰撞

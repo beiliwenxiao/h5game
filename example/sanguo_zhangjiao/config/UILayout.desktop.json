@@ -159,8 +159,8 @@
       "hPct": 0.05556
     },
     {
-      "id": "pc-flight",
-      "label": "轻功",
+      "id": "pc-jump",
+      "label": "跳跃",
       "kind": "button",
       "anchor": "topleft",
       "x": 585,
@@ -173,8 +173,8 @@
       "hPct": 0.05556
     },
     {
-      "id": "pc-throw",
-      "label": "投掷",
+      "id": "pc-flight",
+      "label": "轻功",
       "kind": "button",
       "anchor": "topleft",
       "x": 631,
@@ -182,6 +182,20 @@
       "width": 40,
       "height": 40,
       "xPct": 0.49297,
+      "yPct": 0.81389,
+      "wPct": 0.03125,
+      "hPct": 0.05556
+    },
+    {
+      "id": "pc-throw",
+      "label": "投掷",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 677,
+      "y": 586,
+      "width": 40,
+      "height": 40,
+      "xPct": 0.52891,
       "yPct": 0.81389,
       "wPct": 0.03125,
       "hPct": 0.05556

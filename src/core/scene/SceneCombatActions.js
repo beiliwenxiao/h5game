@@ -78,15 +78,32 @@ export class SceneCombatActions {
     );
   }
 
+  jumpByInput() {
+    const scene = this.scene;
+    const axis = scene.inputManager?.getMoveAxis?.() || { x: 0, y: 0, magnitude: 0 };
+    return this.jumpByDirection(axis.x || 0, axis.y || 0);
+  }
+
+  jumpByDirection(dirX = 0, dirY = 0) {
+    const scene = this.scene;
+    if (scene.dialogueSystem?.isDialogueActive?.() || scene.itemGainedPopup?.visible ||
+        scene.backpackPanel?.visible || scene.isTransitioning) return false;
+    if (!scene.jumpSystem || !scene.playerEntity || scene.playerEntity.isDead || scene.playerEntity.pinnedByWeapon) return false;
+    if (scene.meditationSystem?.isActive?.() || scene.jumpSystem.isJumping(scene.playerEntity)) return false;
+    if (scene.flightSystem?.isPlayerFlying?.()) return false;
+    return scene.jumpSystem.startJump(scene.playerEntity, { x: dirX, y: dirY });
+  }
+
   flightByFacing() {
     const scene = this.scene;
     if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
+    if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const direction = scene.getPlayerFacingVector();
     const distance = scene.flightSystem.config?.maxDistance || 400;
     scene.flightSystem.startFlight(
-      transform,
+      scene.playerEntity,
       transform.position.x + direction.x * distance,
       transform.position.y + direction.y * distance
     );
@@ -95,13 +112,14 @@ export class SceneCombatActions {
   flightByDirection(dirX, dirY, distRatio) {
     const scene = this.scene;
     if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
+    if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
     const transform = scene.playerEntity.getComponent('transform');
     const magnitude = Math.hypot(dirX, dirY);
     if (!transform) return;
     if (magnitude < 1) return this.flightByFacing();
     const distance = (scene.flightSystem.config?.maxDistance || 400) * Math.min(distRatio, 1);
     scene.flightSystem.startFlight(
-      transform,
+      scene.playerEntity,
       transform.position.x + (dirX / magnitude) * distance,
       transform.position.y + (dirY / magnitude) * distance
     );
@@ -226,6 +244,8 @@ export class SceneCombatActions {
     }
 
     this._syncSkillWheel(controller, combat);
+    const jump = controller.getIntent(IntentType.JUMP);
+    if (jump) this.jumpByDirection(jump.direction?.x || 0, jump.direction?.y || 0);
     const flight = controller.getIntent(IntentType.FLIGHT);
     if (flight) this._performGamepadFlight(flight);
     const thrown = controller.getIntent(IntentType.THROW);
@@ -299,9 +319,12 @@ export class SceneCombatActions {
       }
       return;
     }
-    if (controller._flightHolding) {
-      const direction = controller.flightMagnitude > 0 ? controller.flightDirection : { x: 0, y: 0.01 };
-      scene.setSkillAimPreview(-3, direction.x, direction.y, controller.flightMagnitude || 0.5);
+    if (controller.isFlightAiming) {
+      // 满 1 秒才显示；右摇杆归中时 ratio=0，虚线框位于玩家脚下。
+      const direction = controller.flightMagnitude > 0
+        ? controller.flightDirection
+        : { x: 1, y: 0 };
+      scene.setSkillAimPreview(-3, direction.x, direction.y, controller.flightMagnitude);
       return;
     }
     if (controller._throwHolding) {
@@ -342,10 +365,10 @@ export class SceneCombatActions {
   _performGamepadFlight(intent) {
     const scene = this.scene;
     const transform = scene.playerEntity?.getComponent('transform');
-    if (!transform || !scene.flightSystem) return;
+    if (!transform || !scene.flightSystem || scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
     const direction = intent.direction || directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
     scene.flightSystem.startFlight(
-      transform,
+      scene.playerEntity,
       transform.position.x + direction.x * 300 * intent.magnitude,
       transform.position.y + direction.y * 300 * intent.magnitude
     );

@@ -23,8 +23,10 @@ import {
   BLOCK_ACTION
 } from './Xbox360Profile.js';
 
-/** 快按阈值（毫秒）：按住时间低于此值视为快按 */
+/** 快按阈值（毫秒）：攻击/投掷低于此值使用角色面向方向 */
 const QUICK_TAP_MS = 150;
+/** Y 按住达到此时长后才进入轻功瞄准；此前松开均视为跳跃 */
+const FLIGHT_AIM_HOLD_MS = 1000;
 /** 环形轮盘弹出延迟（毫秒）：LB 按住超过此时间才弹轮盘，否则为快切 */
 const WHEEL_POPUP_MS = 200;
 
@@ -38,6 +40,7 @@ export const IntentType = {
   SKILL_WHEEL_OPEN: 'skillWheelOpen',   // 打开轮盘
   SKILL_WHEEL_CLOSE: 'skillWheelClose', // 关闭轮盘并确认
   FLIGHT: 'flight',             // 轻功
+  JUMP: 'jump',                 // 跳跃
   THROW: 'throw',               // 投掷
   BLOCK_START: 'blockStart',    // 格挡开始
   BLOCK_END: 'blockEnd'         // 格挡结束
@@ -54,6 +57,7 @@ export class GamepadCombatController {
     this._attackHolding = false;
     this._skillHolding = false;
     this._flightHolding = false;
+    this._flightAiming = false;
     this._throwHolding = false;
     this._blockActive = false;
     this._wheelOpen = false;
@@ -66,9 +70,12 @@ export class GamepadCombatController {
     this.aimDirection = { x: 0, y: 0 };
     /** 最近一次瞄准推杆量（0~1） */
     this.aimMagnitude = 0;
-    /** 轻功目标方向（左摇杆） */
+    /** 轻功瞄准方向（右摇杆） */
     this.flightDirection = { x: 0, y: 0 };
     this.flightMagnitude = 0;
+    /** Y 轻按期间缓存的左摇杆方向，保证同时松开摇杆与 Y 时仍按按下方向跳跃。 */
+    this.jumpDirection = { x: 0, y: 0 };
+    this.jumpMagnitude = 0;
     /** 轮盘选中索引（-1=未选） */
     this.wheelSelectedIndex = -1;
   }
@@ -99,7 +106,7 @@ export class GamepadCombatController {
     // ---- LB 切换技能 / 环形轮盘 ----
     this._processSkillSwitch(gamepad, rightStick);
 
-    // ---- Y 轻功 ----
+    // ---- 可重绑轻功 ----
     this._processFlight(gamepad, leftStick);
 
     // ---- B 投掷 ----
@@ -134,9 +141,9 @@ export class GamepadCombatController {
     return this._attackHolding || this._skillHolding || this._throwHolding;
   }
 
-  /** 是否正在瞄准轻功 */
+  /** Y 按住超过阈值后是否正在瞄准轻功 */
   get isFlightAiming() {
-    return this._flightHolding;
+    return this._flightAiming;
   }
 
   // ==================== 私有处理方法 ====================
@@ -263,30 +270,47 @@ export class GamepadCombatController {
 
     if (pressed) {
       this._flightHolding = true;
+      this._flightAiming = false;
       this.flightDirection = { x: 0, y: 0 };
       this.flightMagnitude = 0;
+      this.jumpDirection = leftStick.magnitude > 0.2
+        ? { x: leftStick.x, y: leftStick.y }
+        : { x: 0, y: 0 };
+      this.jumpMagnitude = leftStick.magnitude;
     }
 
-    // 按住期间：右摇杆更新目标方向（统一用右摇杆瞄准）
-    if (this._flightHolding && rightStick.magnitude > 0) {
-      this.flightDirection = { x: rightStick.x, y: rightStick.y };
-      this.flightMagnitude = rightStick.magnitude;
+    const holdMs = this._flightHolding ? gamepad.getButtonHoldDuration(btn) : 0;
+    if (this._flightHolding && holdMs < FLIGHT_AIM_HOLD_MS && leftStick.magnitude > 0.2) {
+      this.jumpDirection = { x: leftStick.x, y: leftStick.y };
+      this.jumpMagnitude = leftStick.magnitude;
+    }
+    if (this._flightHolding && holdMs >= FLIGHT_AIM_HOLD_MS) {
+      this._flightAiming = true;
+      // 进入轻功瞄准后，右摇杆绝对位置实时映射虚线框；归中即回到脚下。
+      if (rightStick.magnitude > 0.2) {
+        this.flightDirection = { x: rightStick.x, y: rightStick.y };
+        this.flightMagnitude = rightStick.magnitude;
+      } else {
+        this.flightDirection = { x: 0, y: 0 };
+        this.flightMagnitude = 0;
+      }
     }
 
     if (released && this._flightHolding) {
+      const wasAiming = this._flightAiming;
       this._flightHolding = false;
-      const holdMs = gamepad.getButtonHoldDuration(btn);
+      this._flightAiming = false;
 
-      if (holdMs < QUICK_TAP_MS) {
-        // 快按：面向方向轻功（由场景用角色朝向填充方向）
+      if (holdMs < FLIGHT_AIM_HOLD_MS) {
+        // 未满 1 秒：使用按住期间缓存的左摇杆方向；无方向时原地跳跃。
+        const direction = this.jumpMagnitude > 0.2 ? { ...this.jumpDirection } : null;
         this.intents.push({
-          type: IntentType.FLIGHT,
-          direction: null, // null = 用角色面向
-          magnitude: 1,
+          type: IntentType.JUMP,
+          direction,
           isQuickTap: true
         });
-      } else if (this.flightMagnitude > 0.2) {
-        // 长按+推了摇杆：精确位置轻功
+      } else if (wasAiming && this.flightMagnitude > 0.2) {
+        // 满 1 秒并移动了虚线框：松开后施展轻功。
         this.intents.push({
           type: IntentType.FLIGHT,
           direction: { ...this.flightDirection },
@@ -294,8 +318,9 @@ export class GamepadCombatController {
           isQuickTap: false
         });
       }
-      // 长按但没推摇杆 = 取消
+      // 满 1 秒但虚线框仍在脚下时取消轻功。
       this.flightMagnitude = 0;
+      this.jumpMagnitude = 0;
     }
   }
 

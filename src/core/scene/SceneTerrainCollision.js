@@ -22,7 +22,7 @@
  * 设计约定：
  *   - 只做几何解算，不认识 ECS 之外的游戏概念
  *   - 直接就地修改传入的 position 对象（性能考虑，避免每帧分配）
- *   - terrain 的具体实现通过鸭子类型访问（_pointInCollisionShape / _pushOutOfPolygon 等）
+ *   - terrain 只提供已投影到世界坐标的碰撞数据；shape 命中与推出算法由本模块拥有
  *
  * 用法：
  *   const collision = new SceneTerrainCollision();
@@ -78,14 +78,14 @@ export class SceneTerrainCollision {
       const nearbyWalkables = this._querySpatial(spatial.walkables, p.x, p.y);
       let isWalkable = false;
       for (let i = 0; i < nearbyWalkables.length; i++) {
-        if (terrain._pointInCollisionShape?.(nearbyWalkables[i], p.x, p.y)) {
+        if (this._pointInShape(nearbyWalkables[i], p.x, p.y)) {
           isWalkable = true;
           break;
         }
       }
       if (!isWalkable) {
         for (let i = 0; i < spatial.unboundedWalkables.length; i++) {
-          if (terrain._pointInCollisionShape?.(spatial.unboundedWalkables[i], p.x, p.y)) {
+          if (this._pointInShape(spatial.unboundedWalkables[i], p.x, p.y)) {
             isWalkable = true;
             break;
           }
@@ -97,11 +97,11 @@ export class SceneTerrainCollision {
       const nearbyTrees = this._querySpatial(spatial.trees, p.x, p.y);
       for (let i = 0; i < nearbyTrees.length; i++) this.resolveTree(p, nearbyTrees[i], radius);
       const nearbyShapes = isWalkable ? EMPTY_SPATIAL_ITEMS : this._querySpatial(spatial.shapes, p.x, p.y);
-      for (let i = 0; i < nearbyShapes.length; i++) this.resolveShape(terrain, p, nearbyShapes[i], radius);
+      for (let i = 0; i < nearbyShapes.length; i++) this.resolveShape(p, nearbyShapes[i], radius);
       // 缺少可计算包围盒的自定义 shape 始终走兜底列表（walkable 内除外）。
       if (!isWalkable) {
         for (let i = 0; i < spatial.unboundedShapes.length; i++) {
-          this.resolveShape(terrain, p, spatial.unboundedShapes[i], radius);
+          this.resolveShape(p, spatial.unboundedShapes[i], radius);
         }
       }
     }
@@ -297,14 +297,12 @@ export class SceneTerrainCollision {
 
   /**
    * 编辑器 collide shape：按形状类型推出。
-   * @param {Object} terrain - 需提供 _pointInCollisionShape，多边形还需 _pushOutOfPolygon
    * @param {Object} p - position（就地修改）
    * @param {Object} s - shape 定义
    * @param {number} radius - 实体半径（预留，当前按点判定）
    */
-  resolveShape(terrain, p, s, radius) {
-    if (!terrain || !terrain._pointInCollisionShape) return;
-    if (!terrain._pointInCollisionShape(s, p.x, p.y)) return;
+  resolveShape(p, s, radius) {
+    if (!this._pointInShape(s, p.x, p.y)) return;
 
     const EPS = this.pushEpsilon;
     const st = s.shapeType;
@@ -324,7 +322,7 @@ export class SceneTerrainCollision {
     }
 
     if (st === 'polygon' || st === 'path') {
-      terrain._pushOutOfPolygon(p, s.points, EPS);
+      this._pushOutOfPolygon(p, s.points, EPS);
       return;
     }
 
@@ -337,6 +335,98 @@ export class SceneTerrainCollision {
     else if (minD === dR) p.x = right + EPS;
     else if (minD === dT) p.y = top - EPS;
     else p.y = bottom + EPS;
+  }
+
+  /** @private 与 terrain 实现无关的 shape 点命中。 */
+  _pointInShape(shape, x, y) {
+    if (!shape) return false;
+    if ((shape.shapeType === 'polygon' || shape.shapeType === 'path') && Array.isArray(shape.points)) {
+      return this._pointInPolygon(shape.points, x, y);
+    }
+    const bx = shape.x || 0, by = shape.y || 0;
+    const bw = shape.width || 0, bh = shape.height || 0;
+    const cx = bx + bw / 2, cy = by + bh / 2;
+    if (shape.shapeType === 'circle') {
+      return Math.hypot(x - cx, y - cy) <= Math.min(bw, bh) / 2;
+    }
+    if (shape.shapeType === 'ellipse') {
+      const nx = (x - cx) / (bw / 2 || 1);
+      const ny = (y - cy) / (bh / 2 || 1);
+      return nx * nx + ny * ny <= 1;
+    }
+    return x >= bx && x <= bx + bw && y >= by && y <= by + bh;
+  }
+
+  /** @private 射线法判断点是否在闭合多边形内。 */
+  _pointInPolygon(points, x, y) {
+    if (!Array.isArray(points) || points.length < 3) return false;
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+      const current = points[i], previous = points[j];
+      const xi = Array.isArray(current) ? current[0] : current.x;
+      const yi = Array.isArray(current) ? current[1] : current.y;
+      const xj = Array.isArray(previous) ? previous[0] : previous.x;
+      const yj = Array.isArray(previous) ? previous[1] : previous.y;
+      if (((yi > y) !== (yj > y)) &&
+          (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+
+  /** @private 将多边形内部点推出到最近边界外侧。 */
+  _pushOutOfPolygon(position, points, epsilon) {
+    if (!Array.isArray(points) || points.length < 3) return;
+    let nearestX = position.x, nearestY = position.y;
+    let nearestEdgeX = 0, nearestEdgeY = 0;
+    let bestDistanceSq = Infinity;
+
+    for (let i = 0; i < points.length; i++) {
+      const start = points[i], end = points[(i + 1) % points.length];
+      const ax = Array.isArray(start) ? start[0] : start.x;
+      const ay = Array.isArray(start) ? start[1] : start.y;
+      const bx = Array.isArray(end) ? end[0] : end.x;
+      const by = Array.isArray(end) ? end[1] : end.y;
+      const edgeX = bx - ax, edgeY = by - ay;
+      const edgeLengthSq = edgeX * edgeX + edgeY * edgeY;
+      if (edgeLengthSq <= 0) continue;
+      const projection = Math.max(0, Math.min(1,
+        ((position.x - ax) * edgeX + (position.y - ay) * edgeY) / edgeLengthSq
+      ));
+      const candidateX = ax + edgeX * projection;
+      const candidateY = ay + edgeY * projection;
+      const dx = candidateX - position.x, dy = candidateY - position.y;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        nearestX = candidateX;
+        nearestY = candidateY;
+        nearestEdgeX = edgeX;
+        nearestEdgeY = edgeY;
+      }
+    }
+
+    if (!Number.isFinite(bestDistanceSq)) return;
+    const distance = Math.sqrt(bestDistanceSq);
+    const offset = Math.max(epsilon || 0, 0.001);
+    if (distance > 1e-7) {
+      position.x = nearestX + (nearestX - position.x) / distance * offset;
+      position.y = nearestY + (nearestY - position.y) / distance * offset;
+      return;
+    }
+
+    // 点恰好位于边界时，测试边法线两侧，选择多边形外的一侧。
+    const edgeLength = Math.hypot(nearestEdgeX, nearestEdgeY) || 1;
+    const normalX = -nearestEdgeY / edgeLength;
+    const normalY = nearestEdgeX / edgeLength;
+    const firstX = nearestX + normalX * offset;
+    const firstY = nearestY + normalY * offset;
+    if (!this._pointInPolygon(points, firstX, firstY)) {
+      position.x = firstX;
+      position.y = firstY;
+    } else {
+      position.x = nearestX - normalX * offset;
+      position.y = nearestY - normalY * offset;
+    }
   }
 
   /**

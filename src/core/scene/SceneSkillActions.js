@@ -265,7 +265,7 @@ export class SceneSkillActions {
 
   isMouseOverBottomUI(sx, sy) {
     const scene = this.scene;
-    const buttons = [scene.blockButton, scene.flightButton, scene.throwButton, scene.bagButton];
+    const buttons = [scene.blockButton, scene.jumpButton, scene.flightButton, scene.throwButton, scene.bagButton];
     for (const button of buttons) {
       if (button?.visible !== false && button?.containsPoint?.(sx, sy)) return true;
     }

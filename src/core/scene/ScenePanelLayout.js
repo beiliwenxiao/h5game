@@ -138,6 +138,12 @@ export class ScenePanelLayout {
         icon: '🎒', label: '背包', hintAction: 'bag',
         onClick: () => { if (scene.backpackPanel) scene.backpackPanel.toggle(); }
       });
+      // 跳跃：读取当前键盘/摇杆方向，未输入方向时原地起跳
+      scene.jumpButton = new IconButton({
+        x: 666, y: 640, width: 50, height: 50,
+        icon: '⬆️', label: '跳跃', hintAction: 'jump',
+        onClick: () => { scene.jumpByInput?.(); }
+      });
       // 轻功（按下进入瞄准，左键在射程内确认瞬移）
       scene.flightButton = new IconButton({
         x: 722, y: 640, width: 50, height: 50,
@@ -185,7 +191,7 @@ export class ScenePanelLayout {
       visible: false
     });
 
-    // 手柄战斗控制器：处理 RT攻击/RB技能/LB轮盘/Y轻功/B投掷/LT格挡 的按住→瞄准→释放
+    // 手柄战斗控制器：处理 RT攻击/RB技能/LB轮盘/Y轻按跳跃与长按轻功/B投掷/LT格挡
     scene.gamepadCombat = new GamepadCombatController();
     // 环形技能轮盘（LB 按住弹出）
     scene.skillWheelOverlay = new SkillWheelOverlay({
@@ -201,6 +207,7 @@ export class ScenePanelLayout {
     scene.uiClickHandler.registerElement(scene.bottomControlBar);
     scene.uiClickHandler.registerElement(scene.dialogueBox);
     if (scene.bagButton) scene.uiClickHandler.registerElement(scene.bagButton);
+    if (scene.jumpButton) scene.uiClickHandler.registerElement(scene.jumpButton);
     if (scene.flightButton) scene.uiClickHandler.registerElement(scene.flightButton);
     if (scene.throwButton) scene.uiClickHandler.registerElement(scene.throwButton);
     if (scene.blockButton) scene.uiClickHandler.registerElement(scene.blockButton);
@@ -377,6 +384,7 @@ export class ScenePanelLayout {
     const scene = this.scene;
     return {
       'pc-block': scene.blockButton,
+      'pc-jump': scene.jumpButton,
       'pc-flight': scene.flightButton,
       'pc-throw': scene.throwButton,
       'pc-bag': scene.bagButton

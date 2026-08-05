@@ -38,3 +38,4 @@ export { ClassSystem, ClassType, ClassNames, ClassInstructors, ClassData, Specia
 export { AISystem } from './AISystem.js';
 export { NPCRecruitmentSystem } from './NPCRecruitmentSystem.js';
 export { FlightSystem } from './FlightSystem.js';
+export { JumpSystem } from './JumpSystem.js';

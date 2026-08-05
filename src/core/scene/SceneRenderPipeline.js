@@ -34,6 +34,7 @@ export class SceneRenderPipeline {
       (scene, ctx) => scene.combatSystem?.render(ctx),
       (scene, ctx) => scene.bottomControlBar?.render(ctx),
       (scene, ctx) => scene.blockButton?.render(ctx),
+      (scene, ctx) => scene.jumpButton?.render(ctx),
       (scene, ctx) => scene.flightButton?.render(ctx),
       (scene, ctx) => scene.throwButton?.render(ctx),
       (scene, ctx) => scene.bagButton?.render(ctx),

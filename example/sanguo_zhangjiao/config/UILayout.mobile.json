@@ -173,6 +173,20 @@
       "hPct": 0.10667
     },
     {
+      "id": "act-jump",
+      "label": "跳跃",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 1199,
+      "y": 411,
+      "width": 64,
+      "height": 64,
+      "xPct": 0.93672,
+      "yPct": 0.685,
+      "wPct": 0.05,
+      "hPct": 0.10667
+    },
+    {
       "id": "act-interact",
       "label": "交互",
       "kind": "button",

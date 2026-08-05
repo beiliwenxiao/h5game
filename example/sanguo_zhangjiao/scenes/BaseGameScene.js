@@ -156,6 +156,7 @@ export class BaseGameScene extends Scene {
     this.weaponRenderer = null;
     this.enemyWeaponRenderer = null;
     this.flightSystem = null;
+    this.jumpSystem = null;
     this.collisionSystem = null;
     this.pickupSystem = null;
     this.meditationSystem = null;
@@ -368,6 +369,7 @@ export class BaseGameScene extends Scene {
       meditation: this.meditationSystem,
       zoneEffect: this.zoneEffectSystem,
       flight: this.flightSystem,
+      jump: this.jumpSystem,
       meleeAttack: this.meleeAttackSystem
     });
 
@@ -888,6 +890,16 @@ export class BaseGameScene extends Scene {
   /** 触屏：按指定方向发起扇形攻击。 */
   attackByDirection(dirX, dirY, distRatio) {
     return this._ensureCombatActions().attackByDirection(dirX, dirY, distRatio);
+  }
+
+  /** PC/触屏/手柄：按当前移动输入跳跃；无方向时原地跳。 */
+  jumpByInput() {
+    return this._ensureCombatActions().jumpByInput();
+  }
+
+  /** 按指定方向短距离跳跃。 */
+  jumpByDirection(dirX, dirY) {
+    return this._ensureCombatActions().jumpByDirection(dirX, dirY);
   }
 
   /** 触屏：按角色朝向施展轻功。 */

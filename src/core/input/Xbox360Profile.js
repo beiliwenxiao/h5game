@@ -88,20 +88,20 @@ export const NONE_ACTION = '';
 // ---- 手柄专用动作标记（不映射为虚拟键，由 GamepadCombatController 解释） ----
 export const SKILL_RELEASE_ACTION = 'skillRelease';   // RB：释放当前技能
 export const SKILL_SWITCH_ACTION = 'skillSwitch';     // LB：切换技能（环形轮盘）
-export const FLIGHT_ACTION = 'flight';                // Y 按住：轻功
+export const JUMP_ACTION = 'jump';                    // 可重绑：独立跳跃
+export const FLIGHT_ACTION = 'flight';                // 默认 Y：轻按跳跃，长按轻功
 export const THROW_ACTION = 'throw';                  // B 按住：投掷
 export const BLOCK_ACTION = 'block';                  // LT 按住：格挡
 
 /**
- * 默认绑定：手柄按钮 → 动作。
- * 新方案：RT攻击 / RB释放技能 / LB切换技能(环形轮盘) / Y轻功 / B投掷 / LT格挡
- * A/X=交互 / 十字键↑↓=药水 / Back=背包 / Start=空出
+ * 默认绑定：RT攻击 / RB释放技能 / LB切换技能 / Y轻按跳跃、长按轻功 / B投掷 / LT格挡。
+ * 项目也可把 JUMP_ACTION 绑定到独立按钮，直接按下触发跳跃。
  */
 export const DEFAULT_BINDINGS = {
   [PadButton.A]: 'e',                   // 拾取/交互/确认对话
   [PadButton.B]: THROW_ACTION,          // 投掷（按住+右摇杆方向+释放）
   [PadButton.X]: 'e',                   // 拾取/交互/确认对话（与A一致）
-  [PadButton.Y]: FLIGHT_ACTION,         // 轻功（按住+左摇杆位置+释放）
+  [PadButton.Y]: FLIGHT_ACTION,         // 轻按跳跃；长按+右摇杆轻功
   [PadButton.LB]: SKILL_SWITCH_ACTION,  // 切换技能（按住弹环形轮盘）
   [PadButton.RB]: SKILL_RELEASE_ACTION, // 释放当前选中技能
   [PadButton.LT]: BLOCK_ACTION,         // 格挡（按住生效）
@@ -127,7 +127,8 @@ export const BINDABLE_ACTIONS = [
   { value: ATTACK_ACTION, label: '攻击（按住瞄准）', group: '战斗' },
   { value: SKILL_RELEASE_ACTION, label: '释放技能', group: '战斗' },
   { value: SKILL_SWITCH_ACTION, label: '切换技能（轮盘）', group: '战斗' },
-  { value: FLIGHT_ACTION, label: '轻功（按住瞄准）', group: '战斗' },
+  { value: JUMP_ACTION, label: '跳跃（独立按键）', group: '移动' },
+  { value: FLIGHT_ACTION, label: '跳跃/轻功（轻按/长按）', group: '移动' },
   { value: THROW_ACTION, label: '投掷（按住瞄准）', group: '战斗' },
   { value: BLOCK_ACTION, label: '格挡（按住生效）', group: '战斗' },
   { value: 'e', label: '拾取/交互/确认', group: '交互' },
@@ -145,7 +146,7 @@ export const BINDING_DESCRIPTIONS = {
   [PadButton.A]: '拾取/交互/确认',
   [PadButton.B]: '投掷（按住瞄准）',
   [PadButton.X]: '拾取/交互/确认',
-  [PadButton.Y]: '轻功（按住瞄准）',
+  [PadButton.Y]: '轻按跳跃 / 长按轻功',
   [PadButton.LB]: '切换技能（环形轮盘）',
   [PadButton.RB]: '释放技能',
   [PadButton.LT]: '格挡（按住生效）',

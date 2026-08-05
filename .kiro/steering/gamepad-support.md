@@ -30,8 +30,8 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 ### 3. 虚拟键名必须对齐 InputManager.keyMap 的输出
 绑定表的值是项目已用的虚拟键名（`up/down/left/right`、`skill1..skill7`、`e/c/b/v/q/escape/space`），不是原始物理键。改绑定时对照 `keyMap` 与各系统实际读取的键名（如 CombatSystem 的 `skillKeyMap`/`potionKeyMap` 用 `skill1..skill7`）。
 
-### 4. A 键 = 攻击，走虚拟鼠标而非虚拟键
-`Xbox360Profile.DEFAULT_BINDINGS[A] = null`。A 键在 `InputManager._updateGamepadCursor` 里注入虚拟鼠标左键（`_padMouseButtons.add(0)`），复用 `MeleeAttackSystem` 读 `isMouseButtonDown(0)` 的那套攻击瞄准逻辑。右摇杆驱动虚拟准星（原点取画面中心＝相机跟随的玩家位置）。
+### 4. 专用战斗动作与普通虚拟动作分流
+攻击、轻功、投掷、格挡等需要按住/释放状态机的动作由 `GamepadCombatController` 解释，不注入普通虚拟键。默认 Y 绑定 `FLIGHT_ACTION`：未满 1 秒松开由控制器产出跳跃意图（缓存按住期间的左摇杆方向），按住达到 1 秒后才进入右摇杆轻功瞄准。达到阈值前禁止显示轻功虚线框；达到阈值时虚线框从玩家脚下出现，右摇杆绝对位置控制落点，归中回到脚下。`JUMP_ACTION ('jump')` 保留给项目绑定独立跳跃键，与键盘空格共用 `SceneFramePipeline → jumpByInput()`。
 
 ### 5. 摇杆死区用径向死区 + 重标定
 `_applyDeadzone` 把 `[deadzone,1]` 重映射到 `[0,1]`，避免死区边缘速度突跳。默认死区 0.22。扳机（LT/RT）是模拟量，按 `triggerThreshold`（默认 0.5）离散成按下/松开。
@@ -43,7 +43,7 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 `registerHotkey(id, keys, cb, { ctrl, shift, alt })`。需要组合键时用这个选项，不要另写 keydown 监听。
 
 - 判定在 `InputManager._modifiersSatisfied()`，只读 `this.keys`（**纯键盘状态**），不用 `isKeyDown()`。
-- 原因：`isKeyDown()` 会并入手柄虚拟键，而手柄绑定里 `ctrl` 用于轻功，用它判断会在按住轻功时误触发组合键。
+- 原因：`isKeyDown()` 会并入手柄虚拟键，若项目把手柄按钮映射成修饰键，会误触发组合键。
 - 需要屏蔽浏览器默认行为时，`handleKeyDown` 里按组合条件 preventDefault（如 `key === 'X' && event.ctrlKey`），不要整键拦截，否则该单键就被游戏吃掉了。
 - 调试/工具类入口优先放调试面板按钮，不要占用键盘键位（手柄按键图就是这么处理的）。
 
@@ -73,7 +73,8 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 RT 按住  攻击（快按=面向攻击；长按+右摇杆=精确朝向，松开释放）
 RB 按住  释放当前技能（右摇杆瞄准，松开释放；自瞄技能按下即放）
 LB       切换技能（按住弹出环形轮盘，右摇杆选，松开确认）
-Y 按住   轻功（快按=面向方向；长按+右摇杆=精确位置，松开触发）
+Y < 1秒  松开跳跃（无方向=原地；缓存按住期间的左摇杆方向）
+Y ≥ 1秒  显示脚下轻功虚线框，右摇杆控制位置，松开触发
 B 按住   投掷（快按=面向方向；长按+右摇杆=精确方向，松开投出）
 LT 按住  格挡（按住期间生效，有时效/冷却）
 A        拾取/交互/确认对话
@@ -91,7 +92,8 @@ RS 取消选中
 |---|---|---|---|
 | 普通攻击 | 鼠标左键（方向=鼠标位置） | 攻击按钮按住→拖拽方向→释放 | RT 按住→右摇杆方向→释放 |
 | 技能 | 数字键进入瞄准→鼠标指向→左键确认 | 技能按钮按住→拖拽→释放 | RB 按住→右摇杆指向→释放 |
-| 轻功 | Ctrl 进入瞄准→鼠标指向→左键确认 | 轻功按钮按住→拖拽位置→释放 | Y 快按=面向；长按+右摇杆→释放 |
+| 跳跃 | 空格（方向键同时按下则短跳） | 跳跃按钮（虚拟摇杆决定方向） | Y 未满 1 秒松开（缓存左摇杆方向） |
+| 轻功 | Ctrl 进入瞄准→鼠标指向→左键确认 | 轻功按钮按住→拖拽位置→释放 | Y 满 1 秒才显示脚下虚线框，右摇杆控制 |
 | 投掷 | Shift 进入瞄准→鼠标指向→左键确认 | 投掷按钮按住→拖拽方向→释放 | B 快按=面向；长按+右摇杆→释放 |
 | 格挡 | Q 按住 | 格挡按钮按住 | LT 按住 |
 | 切换技能 | 数字键直选 | 点击技能按钮 | LB 环形轮盘 |

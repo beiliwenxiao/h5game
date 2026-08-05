@@ -14,6 +14,7 @@ import { MeditationSystem } from '../../systems/MeditationSystem.js';
 import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
 import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
 import { FlightSystem } from '../../systems/FlightSystem.js';
+import { JumpSystem } from '../../systems/JumpSystem.js';
 import { CombatEffects } from '../../rendering/CombatEffects.js';
 import { SkillEffects } from '../../rendering/SkillEffects.js';
 import { WeaponRenderer } from '../../rendering/WeaponRenderer.js';
@@ -38,6 +39,7 @@ export class SceneGameplaySystemAssembler {
       floatingTextManager: scene.floatingTextManager,
       camera: scene.camera
     });
+    scene.jumpSystem = new JumpSystem();
 
     scene.combatSystem = new CombatSystem({
       inputManager: scene.inputManager,
@@ -64,7 +66,8 @@ export class SceneGameplaySystemAssembler {
 
     scene.movementSystem = new MovementSystem({
       inputManager: scene.inputManager,
-      camera: scene.camera
+      camera: scene.camera,
+      jumpSystem: scene.jumpSystem
     });
     scene.equipmentSystem = new EquipmentSystem();
     scene.aiSystem = new AISystem();
@@ -106,6 +109,7 @@ export class SceneGameplaySystemAssembler {
 
   dispose() {
     const scene = this.scene;
+    scene.jumpSystem?.cleanup?.();
     scene.flightSystem?.cleanup?.();
     scene.meleeAttackSystem?.cleanup?.();
     scene.enemyWeaponRenderer?.cleanup?.();

@@ -501,6 +501,8 @@
             border-color: rgba(120, 170, 240, 0.8);
         }
         .action-btn.move.pressed { background: rgba(60, 120, 200, 0.9); }
+        /* 跳跃位于轻功下方（无编辑器布局时的兜底位置） */
+        #act-jump { right: 150px; bottom: -64px; }
         /* 轻功与投掷底部对齐 */
         #act-flight { right: 150px; bottom: 0px; }
         /* 交互按钮：投掷左边 */
@@ -650,8 +652,10 @@
                 <div class="action-btn attack" id="act-attack" data-act="attack"><span class="atk-icon">⚔️</span><span class="label atk-label">攻击</span></div>
                 <!-- 格挡按钮 -->
                 <div class="action-btn move" id="act-block" data-act="block">🛡️<span class="label">格挡</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
-                <!-- 中心左下：轻功 -->
+                <!-- 轻功 -->
                 <div class="action-btn move" id="act-flight" data-act="flight">🌀<span class="label">轻功</span><div class="skill-cd-overlay"></div><span class="skill-cd-text"></span></div>
+                <!-- 跳跃：位于轻功下方 -->
+                <div class="action-btn move" id="act-jump" data-act="jump">⬆️<span class="label">跳跃</span></div>
                 <!-- 交互按钮 -->
                 <div class="action-btn move" id="act-interact" data-act="interact">✋<span class="label">交互</span></div>
                 <!-- 中心右侧：投掷 -->
@@ -1898,6 +1902,9 @@
                     if (currentScene.harvestByFacing) currentScene.harvestByFacing();
                 } else if (btn.dataset.act === 'flight') {
                     // 轻功现在走瞄准流程,此处不再触发
+                } else if (btn.dataset.act === 'jump') {
+                    // 读取虚拟摇杆当前方向；无方向时原地跳跃
+                    if (currentScene.jumpByInput) currentScene.jumpByInput();
                 } else if (btn.dataset.act === 'throw') {
                     // 投掷现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.action === 'bag') {
@@ -2297,6 +2304,7 @@
                 'act-skill4': 'act-skill4',
                 'act-skill5': 'act-skill5',
                 'act-flight': 'act-flight',
+                'act-jump': 'act-jump',
                 'act-interact': 'act-interact',
                 'act-throw': 'act-throw',
                 'act-axe': 'act-axe',

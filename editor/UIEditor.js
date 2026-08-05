@@ -41,10 +41,11 @@ const DEFAULT_COMPONENTS = {
       { id: 'pc-skill4', label: '技能4', x: 712, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
       { id: 'pc-skill5', label: '技能5', x: 758, y: 640, width: 40, height: 40, anchor: 'topleft', kind: 'button' },
       { id: 'pc-mp-orb', label: '蓝球', x: 813, y: 625, width: 70, height: 70, anchor: 'topleft', kind: 'button' },
-      // 格挡 / 轻功 / 投掷（等价 Q / Ctrl+左键 / Shift+左键）
+      // 格挡 / 跳跃 / 轻功 / 投掷
       { id: 'pc-block', label: '格挡', x: 666, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      { id: 'pc-flight', label: '轻功', x: 722, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      { id: 'pc-throw', label: '投掷', x: 778, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-jump', label: '跳跃', x: 722, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-flight', label: '轻功', x: 778, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-throw', label: '投掷', x: 834, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       // 统一背包入口
       { id: 'pc-bag', label: '背包', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
     ]
@@ -63,7 +64,8 @@ const DEFAULT_COMPONENTS = {
       { id: 'act-skill3', label: '技能3', x: 1102, y: 452, width: 62, height: 62, anchor: 'topleft', kind: 'button' },
       { id: 'act-skill4', label: '技能4', x: 1062, y: 386, width: 62, height: 62, anchor: 'topleft', kind: 'button' },
       { id: 'act-skill5', label: '技能5', x: 986, y: 380, width: 62, height: 62, anchor: 'topleft', kind: 'button' },
-      { id: 'act-flight', label: '轻功', x: 956, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'act-flight', label: '轻功', x: 956, y: 476, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'act-jump', label: '跳跃', x: 956, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'act-interact', label: '交互', x: 1176, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'act-throw', label: '投掷', x: 1244, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'act-axe', label: '采集', x: 1312, y: 544, width: 56, height: 56, anchor: 'topleft', kind: 'button' },

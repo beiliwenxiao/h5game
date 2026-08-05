@@ -38,6 +38,11 @@ export class SceneFramePipeline {
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
     inputFlow?.beforeFrame(deltaTime);
 
+    // 空格或可重绑手柄 jump 动作按下时起跳；对话/模态状态由统一动作出口拦截。
+    if (scene.inputManager?.isKeyPressed?.('space') || scene.inputManager?.isKeyPressed?.('jump')) {
+      scene.jumpByInput?.();
+    }
+
     // 运行时优先输入阶段保留旧扩展 hook 的准确位置。
     scene._runRuntimePhase?.('priorityInput', deltaTime);
 
@@ -137,12 +142,14 @@ export class SceneFramePipeline {
     // HUD 冷却集中由 SceneHudUpdater 读取显式 UI/System 依赖。
     hudUpdater?.updateCooldowns();
 
+    // 更新跳跃系统（先于普通移动；MovementSystem 会跳过正在跳跃的实体）
+    if (scene.jumpSystem && scene.playerEntity) {
+      scene.jumpSystem.update(deltaTime);
+    }
+
     // 更新轻功飞行系统
     if (scene.flightSystem && scene.playerEntity) {
-      const transform = scene.playerEntity.getComponent('transform');
-      if (transform) {
-        scene.flightSystem.update(deltaTime, transform);
-      }
+      scene.flightSystem.update(deltaTime, scene.playerEntity);
     }
 
     // 更新移动系统（打坐时禁止玩家移动）

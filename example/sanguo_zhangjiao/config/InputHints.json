@@ -81,7 +81,16 @@
         "kind": "key"
       },
       "android": "轻功按钮",
-      "padKey": "ctrl",
+      "padKey": "flight",
+      "padFallback": "未绑定"
+    },
+    "jump": {
+      "pc": {
+        "key": "空格",
+        "kind": "key"
+      },
+      "android": "跳跃按钮",
+      "padKey": "flight",
       "padFallback": "未绑定"
     },
     "throw": {

@@ -35,16 +35,20 @@ export class SceneTerrainBinding {
     return scene.terrain;
   }
 
-  initEffectZones({ sceneId, worldOffset = { x: 0, y: 0 } } = {}) {
+  initEffectZones({ sceneId, worldOffset = { x: 0, y: 0 }, resourceScope = null } = {}) {
     const scene = this.scene;
     if (!scene.particleSystem || !sceneId || !this.EffectZoneRenderer || !this.loadSceneFromFile) return null;
     const renderer = new this.EffectZoneRenderer(scene.particleSystem);
+    const scope = resourceScope || scene.resourceScope || null;
     scene.effectZoneRenderer = renderer;
+    const applyData = data => {
+      if (scope?.disposed || scene.effectZoneRenderer !== renderer) return;
+      if (data && Array.isArray(data.layers)) renderer.loadFromSceneData(data, worldOffset);
+    };
+    const ignoreFailure = () => { /* 无场景文件或场景已退出，不加载特效区域 */ };
     this.loadSceneFromFile(sceneId)
-      .then(data => {
-        if (data && Array.isArray(data.layers)) renderer.loadFromSceneData(data, worldOffset);
-      })
-      .catch(() => { /* 无场景文件，不加载特效区域 */ });
+      .then(scope?.guard?.(applyData) || applyData)
+      .catch(scope?.guard?.(ignoreFailure) || ignoreFailure);
     return renderer;
   }
 
@@ -77,19 +81,21 @@ export class SceneTerrainBinding {
 
   checkTerrainCollision() {
     const scene = this.scene;
-    if (!scene.terrain || !this.SceneTerrainCollision) return;
+    const terrains = scene._terrains?.length ? scene._terrains : (scene.terrain ? [scene.terrain] : []);
+    if (terrains.length === 0 || !this.SceneTerrainCollision) return;
     if (!scene._terrainCollision) scene._terrainCollision = new this.SceneTerrainCollision({ entityRadius: 12 });
-    scene._terrainCollision.resolveEntities(scene.terrain, scene.entities);
+    scene._terrainCollision.resolveTerrains(terrains, scene.entities, { primaryTerrain: scene.terrain || terrains[0] });
   }
 
   updateMinimap(minimap) {
     const scene = this.scene;
     if (!minimap) return;
-    if (minimap._terrains.length === 0) {
+    const minimapTerrains = Array.isArray(minimap._terrains) ? minimap._terrains : [];
+    if (minimapTerrains.length === 0) {
       if (scene._terrains && scene._terrains.length > 0) minimap.setTerrains(scene._terrains);
       else if (scene.terrain) minimap.setTerrain(scene.terrain);
     }
-    for (const terrain of minimap._terrains) {
+    for (const terrain of (minimap._terrains || [])) {
       if (terrain._combinedGroundCache && !terrain._minimapCacheNotified) {
         terrain._minimapCacheNotified = true;
         minimap._invalidateCache();

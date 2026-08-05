@@ -12,9 +12,11 @@
  * 不会改变原有系统链或输入清帧时机。
  */
 export class SceneFramePipeline {
-  /** @param {Object} scene */
-  constructor(scene) {
-    this.scene = scene;
+  /** @param {{scene:Object, context?:Object, hooks?:Object}|Object} config */
+  constructor(config) {
+    this.scene = config?.scene || config;
+    this.context = config?.context || this.scene?.context || null;
+    this.hooks = config?.hooks || {};
     this._onThrownWeaponHit = (enemy, isFinalTarget) => this._handleThrownWeaponHit(enemy, isFinalTarget);
   }
 
@@ -24,26 +26,19 @@ export class SceneFramePipeline {
    */
   run(deltaTime) {
     const scene = this.scene;
-    const services = scene.context?.services || {};
+    const services = this.context?.services || {};
+    const inputFlow = services.input || scene._ensureInputFlow?.();
+    const hudUpdater = services.hud || scene._ensureHudUpdater?.();
     if (!scene.isActive || scene.isPaused) return;
 
     // 运行时输入前阶段：仅调度显式阶段钩子，不采集/清空输入。
     scene._runRuntimePhase?.('beforeInput', deltaTime);
 
-    // 手柄轮询：demo 用自建主循环（不走 GameEngine），故在场景 update 帧首轮询。
-    // 有帧守卫保护，重复调用（子类已 poll / GameEngine 已 poll）会被跳过。
-    if (scene.inputManager && scene.inputManager.pollGamepads) scene.inputManager.pollGamepads();
-    // 获得物品弹窗优先消费 A 键，防止同帧继续按攻击处理。
-    scene._handleGainedPopupGamepad();
+    // 顶层输入流程保证手柄帧首 poll、弹窗优先于战斗，并统一路由输入。
+    // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
+    inputFlow?.beforeFrame(deltaTime);
 
-    // 手柄战斗控制器：产出本帧意图（攻击/技能/轮盘/轻功/投掷/格挡）
-    scene._updateGamepadCombat();
-
-    // 通用：按 N 切幕检测（必须在 inputManager.update 之前，否则按键被清除）
-    scene._updatePromptSwitch();
-
-    // 运行时优先输入阶段位于手柄弹窗、战斗意图和切幕检测之后，
-    // 因而不会抢占旧行为；后续注册路由时可在此处精确接管。
+    // 运行时优先输入阶段保留旧扩展 hook 的准确位置。
     scene._runRuntimePhase?.('priorityInput', deltaTime);
 
     // 性能监控：关闭时不读取高精度时钟。
@@ -61,6 +56,7 @@ export class SceneFramePipeline {
       scene.updateTransition(deltaTime);
       // 过渡期间不更新其他逻辑
       if (scene.transitionPhase === 'show_text' || scene.transitionPhase === 'switch_scene') {
+        inputFlow?.releaseFrame?.();
         return;
       }
     }
@@ -138,16 +134,8 @@ export class SceneFramePipeline {
     // 旧的 Ctrl+左键瞬移已改为：按 Ctrl 进入轻功瞄准、左键确认（见 updatePCAimMode）
     // scene.handleTeleport();
 
-    // 更新 PC 轻功/投掷按钮的冷却显示
-    if (scene.flightButton && scene.flightSystem && scene.flightSystem.getCooldownRemaining) {
-      scene.flightButton.setCooldown(scene.flightSystem.getCooldownRemaining(), scene.flightSystem.getCooldownTotal());
-    }
-    if (scene.throwButton && scene.weaponRenderer && scene.weaponRenderer.getThrowCooldownRemaining) {
-      scene.throwButton.setCooldown(scene.weaponRenderer.getThrowCooldownRemaining(), scene.weaponRenderer.getThrowCooldownTotal());
-    }
-    if (scene.blockButton && scene.combatSystem && scene.combatSystem.getBlockCooldownRemaining) {
-      scene.blockButton.setCooldown(scene.combatSystem.getBlockCooldownRemaining(), scene.combatSystem.getBlockCooldownTotal());
-    }
+    // HUD 冷却集中由 SceneHudUpdater 读取显式 UI/System 依赖。
+    hudUpdater?.updateCooldowns();
 
     // 更新轻功飞行系统
     if (scene.flightSystem && scene.playerEntity) {
@@ -250,32 +238,14 @@ export class SceneFramePipeline {
       }
     }
 
-    // 检查空格键继续对话
-    if (services.dialogue) services.dialogue.checkContinue();
+    // 对话输入在系统更新后消费，保持打字机和选项节点原有顺序。
+    if (inputFlow) inputFlow.afterSystems();
+    else if (services.dialogue) services.dialogue.checkContinue();
     else scene.checkDialogueContinue();
 
-    // 更新面板（使用节流）
-    if (scene.performanceOptimizer.shouldUpdate('ui')) {
-      if (scene.backpackPanel) scene.backpackPanel.update(deltaTime);
-      scene.bottomControlBar.update(deltaTime);
-      if (scene.playerStatusHUD) {
-        scene.playerStatusHUD.update(deltaTime);
-      }
-    }
-
-    // 更新对话框 - 根据对话系统状态显示/隐藏
-    if (scene.dialogueBox && scene.dialogueSystem) {
-      const isDialogueActive = scene.dialogueSystem.isDialogueActive();
-      if (isDialogueActive && !scene.dialogueBox.visible) {
-        scene.dialogueBox.show();
-      } else if (!isDialogueActive && scene.dialogueBox.visible) {
-        scene.dialogueBox.hide();
-      }
-      scene.dialogueBox.update(deltaTime);
-    }
-
-    // 更新鼠标悬停状态
-    scene.updatePanelHover();
+    // HUD 面板和对话框状态集中更新；小地图仍在实体清理后刷新。
+    hudUpdater?.updatePanels(deltaTime);
+    hudUpdater?.updateDialogue(deltaTime);
 
     // 检查拾取（使用拾取系统）
     const pickupResult = scene.pickupSystem.update(
@@ -296,42 +266,13 @@ export class SceneFramePipeline {
     // 移除死亡实体
     scene.removeDeadEntities();
 
-    // 更新小地图数据（玩家位置、敌人位置、相机视野）
-    if (scene.minimap) {
-      // terrain 的延迟绑定与缩略图缓存失效由场景注入的 binding 管理。
-      if (scene._terrainBinding) scene._terrainBinding.updateMinimap(scene.minimap);
-      // 延迟绑定 worldRegion（异步加载完成后注入）
-      if (!scene.minimap._worldRegion && scene._worldRegion) {
-        scene.minimap.setWorldRegion(scene._worldRegion);
-      }
-      // 玩家位置
-      if (scene.playerEntity) {
-        const pt = scene.playerEntity.getComponent('transform');
-        if (pt) scene.minimap.setPlayerPosition(pt.position);
-      }
-      // 敌人位置：小地图视觉以约 10Hz 刷新，避免每帧扫描全部实体并分配数组。
-      if (!scene._minimapEnemyPositions || scene.performanceOptimizer.shouldUpdate('minimap')) {
-        const enemyPositions = [];
-        for (const entity of scene.entities) {
-          if (entity.type === 'enemy' && !entity.isDead && !entity.isDying) {
-            const transform = entity.getComponent('transform');
-            if (transform) enemyPositions.push(transform.position);
-          }
-        }
-        scene._minimapEnemyPositions = enemyPositions;
-      }
-      scene.minimap.setEnemyPositions(scene._minimapEnemyPositions);
-      // 相机视野
-      if (scene.camera) {
-        scene.minimap.setViewBounds(scene.camera.getViewBounds());
-      }
-      // 节流更新缩略图缓存
-      scene.minimap.update(deltaTime);
-    }
+    // 更新小地图数据（玩家、敌人、相机和多 terrain 缓存）。
+    hudUpdater?.updateMinimap(deltaTime);
 
-    // 输入清帧必须保持在原有的正常帧末尾；转场提前返回路径不清帧。
+    // 输入清帧必须保持在原有的正常帧末尾；转场提前返回路径只 releaseFrame。
     scene._runRuntimePhase?.('afterScene', deltaTime);
-    if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
+    if (inputFlow) inputFlow.flush();
+    else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
     else scene.inputManager.update();
 
     // 性能监控关闭时不做计时、可见实体裁剪、纹理遍历和对象池快照。

@@ -30,6 +30,7 @@ export {
 } from './InputActionRouter.js';
 
 export { GamepadManager, ATTACK_BUTTON } from './GamepadManager.js';
+export { SceneInputFlow } from './SceneInputFlow.js';
 
 export {
   PadButton,

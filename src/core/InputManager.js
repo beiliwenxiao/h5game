@@ -49,7 +49,8 @@ export class InputManager {
             button: -1,
             buttons: new Set(),  // 当前按住的所有按键（支持同时按住左右键）
             clicked: false,
-            handled: false  // 标记点击事件是否已被处理（用于 UI 点击阻止）
+            handled: false,  // 标记点击事件是否已被处理（用于 UI 点击阻止）
+            isTouch: false   // 最近一次指针按下是否来自触屏（供 InputActionRouter 标记设备）
         };
         
         // 键位映射
@@ -115,22 +116,31 @@ export class InputManager {
      * 初始化事件监听器
      */
     initEventListeners() {
-        // 键盘事件 - 绑定到 window，确保能捕获所有按键
-        window.addEventListener('keydown', (e) => this.handleKeyDown(e));
-        window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+        // 保存稳定监听引用，确保 destroy() 能精确解除，场景重入不会累积输入处理器。
+        this._eventHandlers = {
+            keydown: (e) => this.handleKeyDown(e),
+            keyup: (e) => this.handleKeyUp(e),
+            mousedown: (e) => this.handleMouseDown(e),
+            mouseup: (e) => this.handleMouseUp(e),
+            mousemove: (e) => this.handleMouseMove(e),
+            contextmenu: (e) => e.preventDefault(),
+            touchstart: (e) => this.handleTouchStart(e),
+            touchend: (e) => this.handleTouchEnd(e),
+            touchmove: (e) => this.handleTouchMove(e)
+        };
+
+        window.addEventListener('keydown', this._eventHandlers.keydown);
+        window.addEventListener('keyup', this._eventHandlers.keyup);
         
         console.log('InputManager: 键盘事件监听器已绑定到 window');
         
-        // 鼠标事件
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-        
-        // 触摸事件（移动端支持）
-        this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e));
-        this.canvas.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-        this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e));
+        this.canvas.addEventListener('mousedown', this._eventHandlers.mousedown);
+        this.canvas.addEventListener('mouseup', this._eventHandlers.mouseup);
+        this.canvas.addEventListener('mousemove', this._eventHandlers.mousemove);
+        this.canvas.addEventListener('contextmenu', this._eventHandlers.contextmenu);
+        this.canvas.addEventListener('touchstart', this._eventHandlers.touchstart);
+        this.canvas.addEventListener('touchend', this._eventHandlers.touchend);
+        this.canvas.addEventListener('touchmove', this._eventHandlers.touchmove);
         
         console.log('InputManager: Event listeners initialized');
     }
@@ -185,7 +195,8 @@ export class InputManager {
      */
     handleKeyUp(event) {
         const key = event.key;
-        const mappedKey = this.keyMap[key] || key;
+        const isDebugPanelKey = key === '`' || key === '~' || event.code === 'Backquote';
+        const mappedKey = isDebugPanelKey ? '`' : (this.keyMap[key] || key);
         
         this.keys.set(mappedKey, false);
         this.keysReleased.set(mappedKey, true);
@@ -196,6 +207,7 @@ export class InputManager {
      */
     handleMouseDown(event) {
         this.updateMousePosition(event);
+        this.mouse.isTouch = false;
         this.mouse.isDown = true;
         this.mouse.button = event.button;
         this.mouse.buttons.add(event.button);
@@ -259,6 +271,7 @@ export class InputManager {
         if (event.touches.length > 0) {
             const touch = event.touches[0];
             this.updateTouchPosition(touch);
+            this.mouse.isTouch = true;
             this.mouse.isDown = true;
             this.mouse.clicked = true;
             // 触摸等价于左键按下，记入 buttons，保证 isMouseButtonDown(0) 生效
@@ -740,17 +753,21 @@ export class InputManager {
      * 销毁输入管理器
      */
     destroy() {
-        // 移除所有事件监听器
-        window.removeEventListener('keydown', this.handleKeyDown);
-        window.removeEventListener('keyup', this.handleKeyUp);
-        this.canvas.removeEventListener('mousedown', this.handleMouseDown);
-        this.canvas.removeEventListener('mouseup', this.handleMouseUp);
-        this.canvas.removeEventListener('mousemove', this.handleMouseMove);
-        this.canvas.removeEventListener('touchstart', this.handleTouchStart);
-        this.canvas.removeEventListener('touchend', this.handleTouchEnd);
-        this.canvas.removeEventListener('touchmove', this.handleTouchMove);
+        const handlers = this._eventHandlers;
+        if (handlers) {
+            window.removeEventListener('keydown', handlers.keydown);
+            window.removeEventListener('keyup', handlers.keyup);
+            this.canvas.removeEventListener('mousedown', handlers.mousedown);
+            this.canvas.removeEventListener('mouseup', handlers.mouseup);
+            this.canvas.removeEventListener('mousemove', handlers.mousemove);
+            this.canvas.removeEventListener('contextmenu', handlers.contextmenu);
+            this.canvas.removeEventListener('touchstart', handlers.touchstart);
+            this.canvas.removeEventListener('touchend', handlers.touchend);
+            this.canvas.removeEventListener('touchmove', handlers.touchmove);
+            this._eventHandlers = null;
+        }
         
-        if (this.gamepad) this.gamepad.destroy();
+        this.gamepad?.destroy?.();
         this.clear();
         this.clearHotkeys();
         console.log('InputManager: Destroyed');

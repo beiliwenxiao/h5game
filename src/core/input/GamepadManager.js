@@ -57,12 +57,16 @@ export class GamepadManager {
    * @param {number} [options.triggerThreshold=0.5] - 扳机被视为"按下"的阈值
    * @param {Object} [options.bindings] - 覆盖默认绑定（按钮索引 → 虚拟键名）
    * @param {Object} [options.nav] - 注入 navigator（供测试）
+   * @param {Object} [options.window] - 注入 window（供测试），默认 globalThis.window
    */
   constructor(options = {}) {
     this.deadzone = options.deadzone != null ? options.deadzone : 0.22;
     this.triggerThreshold = options.triggerThreshold != null ? options.triggerThreshold : 0.5;
     this.bindings = { ...DEFAULT_BINDINGS, ...(options.bindings || {}) };
     this._nav = options.nav || (typeof navigator !== 'undefined' ? navigator : null);
+    this._window = options.window !== undefined
+      ? options.window
+      : (typeof globalThis !== 'undefined' ? globalThis.window : null);
 
     /** 当前使用的手柄索引（首个连接的手柄） */
     this.activeIndex = -1;
@@ -89,6 +93,15 @@ export class GamepadManager {
     this._connectListeners = [];
     this._disconnectListeners = [];
     this._wasConnected = false;
+
+    /** 保存浏览器事件监听引用，供 destroy() 精确移除 */
+    this._onGamepadConnected = (e) => {
+      console.log('GamepadManager: gamepadconnected', e.gamepad && e.gamepad.id);
+    };
+    this._onGamepadDisconnected = (e) => {
+      console.log('GamepadManager: gamepaddisconnected', e.gamepad && e.gamepad.id);
+    };
+    this._browserEventsBound = false;
 
     this._bindBrowserEvents();
   }
@@ -268,13 +281,10 @@ export class GamepadManager {
 
   /** @private 浏览器连接事件只用来打日志和立即唤醒轮询；状态仍以 poll 为准 */
   _bindBrowserEvents() {
-    if (typeof window === 'undefined' || !window.addEventListener) return;
-    window.addEventListener('gamepadconnected', (e) => {
-      console.log('GamepadManager: gamepadconnected', e.gamepad && e.gamepad.id);
-    });
-    window.addEventListener('gamepaddisconnected', (e) => {
-      console.log('GamepadManager: gamepaddisconnected', e.gamepad && e.gamepad.id);
-    });
+    if (this._browserEventsBound || !this._window || typeof this._window.addEventListener !== 'function') return;
+    this._window.addEventListener('gamepadconnected', this._onGamepadConnected);
+    this._window.addEventListener('gamepaddisconnected', this._onGamepadDisconnected);
+    this._browserEventsBound = true;
   }
 
   // ---- 查询 ----
@@ -427,12 +437,28 @@ export class GamepadManager {
     return { ...this.bindings };
   }
 
+  /**
+   * 释放浏览器监听、订阅和内部输入状态。可重复调用。
+   */
   destroy() {
+    if (this._browserEventsBound && this._window && typeof this._window.removeEventListener === 'function') {
+      this._window.removeEventListener('gamepadconnected', this._onGamepadConnected);
+      this._window.removeEventListener('gamepaddisconnected', this._onGamepadDisconnected);
+    }
+    this._browserEventsBound = false;
+
     this._connectListeners.length = 0;
     this._disconnectListeners.length = 0;
+    this.activeIndex = -1;
+    this.info = null;
+    this._wasConnected = false;
     this.buttons.clear();
     this.values.clear();
     this._clearFrameState();
+    this._buttonDownTime.clear();
+    this._lastPollTime = 0;
+    this.leftStick = { x: 0, y: 0, magnitude: 0 };
+    this.rightStick = { x: 0, y: 0, magnitude: 0 };
   }
 }
 

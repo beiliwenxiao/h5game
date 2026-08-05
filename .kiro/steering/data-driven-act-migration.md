@@ -29,7 +29,7 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 }
 ```
 
-`DataDrivenPrologueScene._spawnGroup` 用 `_mergeOverrides(baseDef, pl.overrides)` 递归合并（一层深度），只覆盖指定字段不抹掉库里其他配置。
+`DataDrivenPrologueScene._spawnGroup` 委托框架 `PlacementSpawner.spawnGroup()`，由它执行定义合并和实体创建；场景通过 `onSpawn` 回调维护 `_npcEntities` / `_groupEnemies`，保留 Demo 诊断和剧情副作用。
 
 编辑器支持：SceneEditorUI 的 ref 属性面板对 npc 类显示"本处覆盖"分组（对话ID/商店ID/交互半径/交互方式），`data-prop` 处理器走 `overrides.*` 嵌套分支。
 
@@ -39,7 +39,7 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 |---|---|---|
 | `itemUsed{id}` | `BaseGameScene.onItemUsed` | 铜钱剑使用 → 切幕 |
 | `equipItem{slot,item}` | `DataDrivenPrologueScene.onEquipmentChanged` | 装备武器 → 刷野狗 |
-| `dialogueEnd{id}` | `DataDrivenPrologueScene._initGameLoader` 中订阅 `dialogueSystem.onEnd` | 对话结束 → 给物品 |
+| `dialogueEnd{id}` | `SceneGameLoaderBridge` 对 `dialogueSystem.onEnd` 的唯一订阅 | 对话结束 → 给物品 |
 | `sceneComplete{sceneId}` | 数据驱动触发器 `fire('sceneComplete')` | 区块流程推进 |
 
 ## 运行时约束

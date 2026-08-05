@@ -1,0 +1,177 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
+ ************************************************************/
+
+import { InputHandler } from './InputEvent.js';
+
+const NOOP = () => false;
+const DEFAULT_KEYS = ['e', 'space', 'skill1', 'skill2', 'skill3', 'skill4'];
+
+function wasHandled(value, inputManager) {
+  if (value === true || value?.handled === true || value?.consumed === true) return true;
+  return inputManager?.isMouseClickHandled?.() === true;
+}
+
+/** 帧输入编排：轮询、优先消费、意图更新、路由、清帧。 */
+export class SceneInputFlow {
+  constructor({
+    inputManager = null,
+    runtime = null,
+    router = null,
+    gamepadManager = null,
+    gamepadCombat = null,
+    onPopupConfirm = NOOP,
+    onGamepadCombat = NOOP,
+    onPromptSwitch = NOOP,
+    dialogue = null,
+    aiming = null,
+    worldInteraction = null
+  } = {}) {
+    this.inputManager = inputManager;
+    this.runtime = runtime;
+    this.router = router || runtime?.inputRouter || null;
+    this.gamepadManager = gamepadManager || inputManager?.gamepad || null;
+    this.gamepadCombat = gamepadCombat;
+    this.onPopupConfirm = typeof onPopupConfirm === 'function' ? onPopupConfirm : NOOP;
+    this.onGamepadCombat = typeof onGamepadCombat === 'function' ? onGamepadCombat : NOOP;
+    this.onPromptSwitch = typeof onPromptSwitch === 'function' ? onPromptSwitch : NOOP;
+    this.dialogue = dialogue;
+    this.aiming = aiming;
+    this.worldInteraction = worldInteraction;
+    this._disposers = [];
+    this._registered = false;
+    this._frameStarted = false;
+    this._disposed = false;
+    this._popupConsumed = false;
+  }
+
+  registerDefaults() {
+    if (this._registered || this._disposed) return this;
+    const register = this.router?.register?.bind(this.router);
+    if (!register) return this;
+
+    this._disposers.push(register(InputHandler.MODAL_UI, {
+      id: 'scene-input-modal',
+      constraint: null,
+      handle: event => {
+        if (this._popupConsumed) return true;
+        return wasHandled(this.onPopupConfirm(event), this.inputManager);
+      }
+    }));
+    this._disposers.push(register(InputHandler.PANEL_UI, {
+      id: 'scene-input-panel',
+      constraint: null,
+      handle: event => this._invokeHandled(
+        this.worldInteraction,
+        ['handlePanelInput', 'handleUIInput', 'handleUIClick'],
+        event
+      )
+    }));
+    this._disposers.push(register(InputHandler.AIMING, {
+      id: 'scene-input-aiming',
+      constraint: null,
+      canHandle: event => this._isAiming(event),
+      handle: event => this._invokeHandled(
+        this.aiming,
+        ['handleInput', 'routeInput', 'updatePCAimMode', 'update'],
+        event
+      )
+    }));
+    this._disposers.push(register(InputHandler.PICKUP, {
+      id: 'scene-input-pickup',
+      handle: event => this._invokeHandled(
+        this.worldInteraction,
+        ['handlePickupInput', 'handlePickupEvent', 'handlePickupClick', 'pickup'],
+        event
+      )
+    }));
+    this._registered = true;
+    return this;
+  }
+
+  beforeFrame(dt = 0) {
+    if (this._disposed || this._frameStarted) return [];
+    this._frameStarted = true;
+    this._popupConsumed = false;
+
+    if (typeof this.inputManager?.pollGamepads === 'function') {
+      this.inputManager.pollGamepads();
+    } else {
+      this.gamepadManager?.poll?.();
+    }
+
+    this._popupConsumed = wasHandled(
+      this.onPopupConfirm({ dt, inputManager: this.inputManager, gamepad: this.gamepadManager }),
+      this.inputManager
+    );
+
+    if (!this._popupConsumed) this._updateGamepadCombat(dt);
+    this.onPromptSwitch(dt);
+
+    if (!this.router?.update) return [];
+    return this.router.update(DEFAULT_KEYS);
+  }
+
+  afterSystems() {
+    if (this._disposed || !this.dialogue) return false;
+    for (const name of ['checkContinue', 'checkDialogueContinue', 'handleContinueInput']) {
+      if (typeof this.dialogue[name] === 'function') {
+        return this.dialogue[name]() === true;
+      }
+    }
+    return false;
+  }
+
+  flush() {
+    if (this._disposed) return;
+    if (typeof this.runtime?.flushInput === 'function') this.runtime.flushInput();
+    else this.inputManager?.update?.();
+    this.releaseFrame();
+  }
+
+  /** 结束本次编排但不清输入，供转场提前返回路径使用。 */
+  releaseFrame() {
+    this._frameStarted = false;
+    this._popupConsumed = false;
+  }
+
+  dispose() {
+    if (this._disposed) return;
+    this._disposed = true;
+    for (let index = this._disposers.length - 1; index >= 0; index--) {
+      try { this._disposers[index]?.(); } catch (_) { /* disposer 必须彼此隔离 */ }
+    }
+    this._disposers.length = 0;
+    this._registered = false;
+  }
+
+  _updateGamepadCombat(dt) {
+    const callbackResult = this.onGamepadCombat({
+      dt,
+      inputManager: this.inputManager,
+      gamepad: this.gamepadManager,
+      combat: this.gamepadCombat
+    });
+    if (callbackResult !== false) return callbackResult;
+    return this.gamepadCombat?.update?.(this.gamepadManager);
+  }
+
+  _isAiming(event) {
+    if (!this.aiming) return false;
+    if (typeof this.aiming.canHandle === 'function') return this.aiming.canHandle(event) === true;
+    if (typeof this.aiming.isAiming === 'function') return this.aiming.isAiming() === true;
+    return this.aiming.isAiming === true || this.aiming.state != null;
+  }
+
+  _invokeHandled(target, names, event) {
+    if (!target) return false;
+    for (const name of names) {
+      if (typeof target[name] !== 'function') continue;
+      return wasHandled(target[name](event), this.inputManager);
+    }
+    return false;
+  }
+}
+
+export default SceneInputFlow;

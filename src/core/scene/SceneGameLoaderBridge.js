@@ -7,64 +7,158 @@
 import { GameLoader } from '../GameLoader.js';
 
 export class SceneGameLoaderBridge {
-  /** @param {Object} scene @param {Object} [options] */
-  constructor(scene, { GameLoaderClass = GameLoader } = {}) {
-    this.scene = scene;
+  /**
+   * 推荐传入显式配置；第二参数存在时兼容旧 constructor(scene, options)。
+   * @param {Object} [config]
+   * @param {Object} [legacyOptions]
+   */
+  constructor(config = {}, legacyOptions) {
+    const normalized = arguments.length > 1
+      ? SceneGameLoaderBridge._fromLegacyScene(config, legacyOptions)
+      : config;
+    const {
+      GameLoaderClass = GameLoader,
+      scope = null,
+      dialogueSystem = null,
+      deps = {},
+      onShowTip = null,
+      onItemGained = null,
+      getPlayer = null
+    } = normalized || {};
+
     this.GameLoaderClass = GameLoaderClass;
+    this.scope = scope;
+    this.dialogueSystem = dialogueSystem;
+    this.deps = deps;
+    this.onShowTip = onShowTip;
+    this.onItemGained = onItemGained;
+    this.getPlayer = typeof getPlayer === 'function' ? getPlayer : (() => null);
+    this.loader = null;
     this._dialogueEndOff = null;
+    this._initializeToken = 0;
+    this._disposed = false;
   }
 
-  /** 装配项目并将 GameLoader 写回 scene.gameLoader。 */
-  async initialize(projectUrl = 'game.project.json', options = {}) {
-    const scene = this.scene;
+  /** 支持 initialize(url, options) 与 initialize({ projectUrl, ...options })。 */
+  async initialize(projectOrOptions = {}, legacyOptions = {}) {
+    const options = typeof projectOrOptions === 'string'
+      ? { ...legacyOptions, projectUrl: projectOrOptions }
+      : (projectOrOptions || {});
+    const {
+      projectUrl = 'game.project.json',
+      deps = {},
+      sceneFlag,
+      sceneId,
+      registerActions,
+      onReady
+    } = options;
+
     this.dispose();
-
+    this._disposed = false;
+    const token = this._initializeToken;
     const loader = new this.GameLoaderClass();
-    scene.gameLoader = loader;
-    const engine = typeof window !== 'undefined' ? window.gameEngine : null;
-    const deps = {
-      dialogueSystem: scene.dialogueSystem,
-      questSystem: scene.questSystem,
-      combatSystem: scene.combatSystem,
-      sceneManager: engine ? engine.sceneManager : (scene.sceneManager || null),
-      audioManager: scene.audioManager || engine?.audioManager || null,
-      floatingText: scene.floatingTextManager,
-      tutorial: { showTip: params => scene._showScreenTip((params?.text) || '') },
-      onItemGained: (item, player) => scene.onItemGained(item, player || scene.playerEntity),
-      player: scene.playerEntity || null,
-      scene,
-      ...(options.deps || {})
-    };
+    this.loader = loader;
+    if (this.scope) this.scope.gameLoader = loader;
 
-    await loader.load(projectUrl, deps);
+    const loadDeps = this._createDeps(deps);
+    await loader.load(projectUrl, loadDeps);
+    if (!this._isActive(token, loader)) return loader;
+
     const triggerSystem = loader.triggerSystem;
-    this._bindDialogueEnd(triggerSystem);
+    this._bindDialogueEnd(loadDeps.dialogueSystem, triggerSystem, token, loader);
+    if (!this._isActive(token, loader)) return loader;
 
-    if (options.sceneFlag) loader.blackboard.set(options.sceneFlag, true);
-    // 保持旧顺序：子类自定义动作先注册，再由通用动作定义最终默认实现。
-    if (typeof options.onReady === 'function') options.onReady(loader, triggerSystem);
-    if (typeof scene._startPromptSwitch === 'function') {
-      triggerSystem.registerAction('promptSwitch', params => scene._startPromptSwitch(params));
+    if (sceneFlag) loader.blackboard.set(sceneFlag, true);
+    if (typeof registerActions === 'function') registerActions(triggerSystem, loader);
+    if (!this._isActive(token, loader)) return loader;
+
+    // 保持旧 onReady 顺序：自定义动作先注册，再由通用动作定义最终默认实现。
+    if (typeof onReady === 'function') onReady(loader, triggerSystem);
+    if (!this._isActive(token, loader)) return loader;
+
+    this._registerScopeActions(triggerSystem);
+    if (!this._isActive(token, loader)) return loader;
+
+    const player = this.getPlayer();
+    if (player) loader.updateContext({ player });
+    if (sceneId && this._isActive(token, loader)) {
+      triggerSystem.fire('sceneEnter', { sceneId });
     }
-    if (typeof scene._toggleDebugPanel === 'function') {
-      triggerSystem.registerAction('toggleDebug', () => scene._toggleDebugPanel());
-    }
-    if (scene.playerEntity) loader.updateContext({ player: scene.playerEntity });
-    if (options.sceneId) triggerSystem.fire('sceneEnter', { sceneId: options.sceneId });
     return loader;
   }
 
-  /** 释放桥接事件监听；不销毁场景拥有的 DialogueSystem。 */
+  /** 幂等释放桥接监听以及桥接创建并拥有的 GameLoader。 */
   dispose() {
-    if (typeof this._dialogueEndOff === 'function') this._dialogueEndOff();
+    this._disposed = true;
+    this._initializeToken += 1;
+    const dialogueEndOff = this._dialogueEndOff;
     this._dialogueEndOff = null;
+
+    const loader = this.loader;
+    this.loader = null;
+    if (this.scope?.gameLoader === loader) this.scope.gameLoader = null;
+    try {
+      if (typeof dialogueEndOff === 'function') dialogueEndOff();
+    } finally {
+      if (loader && typeof loader.dispose === 'function') loader.dispose();
+    }
   }
 
-  _bindDialogueEnd(triggerSystem) {
-    const dialogue = this.scene.dialogueSystem;
-    if (!dialogue?.onEnd) return;
-    const off = dialogue.onEnd(data => triggerSystem.fire('dialogueEnd', { id: data?.id }));
+  _createDeps(overrides) {
+    const scope = this.scope;
+    const engine = typeof window !== 'undefined' ? window.gameEngine : null;
+    const defaults = {
+      dialogueSystem: this.dialogueSystem || scope?.dialogueSystem || null,
+      questSystem: scope?.questSystem,
+      combatSystem: scope?.combatSystem,
+      sceneManager: engine?.sceneManager || scope?.sceneManager || null,
+      audioManager: scope?.audioManager || engine?.audioManager || null,
+      floatingText: scope?.floatingTextManager,
+      player: this.getPlayer(),
+      scene: scope
+    };
+    if (typeof this.onShowTip === 'function') {
+      defaults.tutorial = { showTip: params => this.onShowTip(params?.text || '') };
+    }
+    if (typeof this.onItemGained === 'function') {
+      defaults.onItemGained = (item, player) => this.onItemGained(item, player || this.getPlayer());
+    }
+    return { ...defaults, ...this.deps, ...(overrides || {}) };
+  }
+
+  _registerScopeActions(triggerSystem) {
+    const scope = this.scope;
+    if (typeof scope?._startPromptSwitch === 'function') {
+      triggerSystem.registerAction('promptSwitch', params => scope._startPromptSwitch(params));
+    }
+    if (typeof scope?._toggleDebugPanel === 'function') {
+      triggerSystem.registerAction('toggleDebug', () => scope._toggleDebugPanel());
+    }
+  }
+
+  _bindDialogueEnd(dialogueSystem, triggerSystem, token, loader) {
+    if (!dialogueSystem?.onEnd) return;
+    const off = dialogueSystem.onEnd(data => {
+      if (this._isActive(token, loader)) {
+        triggerSystem.fire('dialogueEnd', { id: data?.id });
+      }
+    });
     this._dialogueEndOff = typeof off === 'function' ? off : null;
+  }
+
+  _isActive(token, loader) {
+    return !this._disposed && this._initializeToken === token && this.loader === loader;
+  }
+
+  static _fromLegacyScene(scene = {}, options = {}) {
+    return {
+      ...options,
+      scope: scene,
+      dialogueSystem: scene.dialogueSystem,
+      onShowTip: text => scene._showScreenTip?.(text),
+      onItemGained: (item, player) => scene.onItemGained?.(item, player),
+      getPlayer: () => scene.playerEntity || null
+    };
   }
 }
 

@@ -108,6 +108,22 @@ export class SceneTerrainCollision {
   }
 
   /**
+   * 对多个 chunk terrain 解算碰撞。只有主 terrain 参与盆地边界，避免每个 chunk
+   * 的局部 basin 同时拉扯实体；池塘、树和编辑器 shape 仍遍历全部 terrain。
+   */
+  resolveTerrains(terrains, entities, { primaryTerrain = null, entityRadius = null } = {}) {
+    const list = (terrains || []).filter(Boolean);
+    if (list.length === 0) return;
+    const primary = primaryTerrain || list[0];
+    for (const terrain of list) {
+      this.resolveEntities(terrain, entities, {
+        skipBasin: terrain !== primary,
+        ...(entityRadius == null ? {} : { entityRadius })
+      });
+    }
+  }
+
+  /**
    * 获取或重建 terrain 静态碰撞空间索引。
    * 数组替换（异步场景加载）或数量/半径变化时自动失效。
    * @private

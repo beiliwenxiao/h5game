@@ -71,6 +71,10 @@ import { SceneEntityStore } from '../../../src/core/scene/SceneEntityStore.js';
 import { ScenePlayerLifecycle } from '../../../src/core/scene/ScenePlayerLifecycle.js';
 import { SceneInputBindings } from '../../../src/core/scene/SceneInputBindings.js';
 import { SceneHintPresenter } from '../../../src/core/scene/SceneHintPresenter.js';
+import { SceneLifecycleCoordinator } from '../../../src/core/scene/SceneLifecycleCoordinator.js';
+import { SceneInventoryFlow } from '../../../src/core/scene/SceneInventoryFlow.js';
+import { SceneHudUpdater } from '../../../src/core/scene/SceneHudUpdater.js';
+import { SceneInputFlow } from '../../../src/core/input/SceneInputFlow.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
@@ -103,7 +107,11 @@ export class BaseGameScene extends Scene {
     this.context = new GameSceneContext({ entities: this.entityStore });
     this.resourceScope = null;
     this.playerLifecycle = null;
+    this._lifecycleCoordinator = null;
     this._inputBindings = null;
+    this._inputFlow = null;
+    this._inventoryFlow = null;
+    this._hudUpdater = null;
     this._hintPresenter = null;
     
     // 逻辑尺寸（用于渲染计算，不受 devicePixelRatio 影响）
@@ -275,6 +283,11 @@ export class BaseGameScene extends Scene {
 
     this.resourceScope?.dispose();
     this.resourceScope = new SceneResourceScope();
+    this._lifecycleCoordinator = new SceneLifecycleCoordinator({
+      context: this.context,
+      onError: (phase, name, error) => console.warn(`BaseGameScene lifecycle ${phase} [${name}]`, error)
+    });
+    this.context.lifecycle.coordinator = this._lifecycleCoordinator;
     this._hintPresenter = new SceneHintPresenter({
       resourceScope: this.resourceScope,
       InputHints,
@@ -377,7 +390,7 @@ export class BaseGameScene extends Scene {
       panelLayout,
       lifecycleSystem: this.entityLifecycleSystem
     });
-    this.context.lifecycle.coordinator = this.playerLifecycle;
+    this.context.lifecycle.player = this.playerLifecycle;
     this.playerEntity = this.playerLifecycle.createOrInherit(data || {}, {
       onInherited: (player) => console.log('BaseGameScene: 继承玩家实体', player),
       onCreated: () => console.log('BaseGameScene: 创建新玩家实体')
@@ -416,6 +429,16 @@ export class BaseGameScene extends Scene {
     });
     this.context.input.bindings = this._inputBindings;
     this._inputBindings.register();
+
+    // 顶层 flow 只接收显式依赖；帧管线不再理解弹窗、HUD 和背包内部细节。
+    this._ensureInventoryFlow();
+    this._ensureHudUpdater();
+    this._ensureInputFlow().registerDefaults();
+    Object.assign(this.context.services, {
+      input: this._inputFlow,
+      inventory: this._inventoryFlow,
+      hud: this._hudUpdater
+    });
     this.context.lifecycle.state = 'active';
   }
 
@@ -482,35 +505,7 @@ export class BaseGameScene extends Scene {
    * @param {string} button - 鼠标按钮
    */
   _handleEquipmentSlotClick(slotType, button) {
-    // 仅右键点击（PC）或移动端左键点击才卸下装备
-    if (button !== 'right' && !this.isMobileLayout) return;
-    if (!this.playerEntity) return;
-
-    // 卸下执行（含背包满则撤销）交给框架的 SceneEquipmentFlow
-    const result = this._ensureEquipmentFlow().unequip(this.playerEntity, slotType);
-    if (!result.ok) {
-      if (result.reason === 'inventoryFull' && this.notificationSystem) {
-        this.notificationSystem.addWarning('背包已满，无法卸下装备');
-      }
-      return;
-    }
-
-    const removed = result.oldItem;
-    const transform = this.playerEntity.getComponent('transform');
-    if (transform) {
-      this.floatingTextManager.addText(
-        transform.position.x,
-        transform.position.y - 30,
-        `卸下 ${removed.name}`,
-        '#ffff00'
-      );
-    }
-
-    this._refreshEquipmentPanels(this.playerEntity);
-    // 走统一出口，让 equipItem 事件源也能感知卸下（触发器可据此判断"武器已卸下"）
-    this.onEquipmentChanged([`卸下了 ${removed.name}`], {
-      slot: slotType, item: null, oldItem: removed, action: 'unequip'
-    });
+    return this._ensureInventoryFlow().unequip(slotType, button, { mobile: this.isMobileLayout });
   }
 
   /**
@@ -529,21 +524,7 @@ export class BaseGameScene extends Scene {
    * 物品使用回调
    */
   onItemUsed(item, healAmount, manaAmount) {
-    if (this.playerEntity) {
-      const transform = this.playerEntity.getComponent('transform');
-      if (transform) {
-        if (healAmount > 0) {
-          this.floatingTextManager.addHeal(transform.position.x, transform.position.y - 30, healAmount);
-        }
-        if (manaAmount > 0) {
-          this.floatingTextManager.addManaRestore(transform.position.x, transform.position.y - 50, manaAmount);
-        }
-      }
-    }
-    // 数据驱动事件源：物品被使用 → fire('itemUsed',{id}) 供触发器响应（如铜钱剑推进剧情）
-    if (this.gameLoader && this.gameLoader.triggerSystem && item) {
-      this.gameLoader.triggerSystem.fire('itemUsed', { id: item.id, item });
-    }
+    return this._ensureInventoryFlow().itemUsed(item, healAmount, manaAmount);
   }
 
   /**
@@ -555,7 +536,7 @@ export class BaseGameScene extends Scene {
    * 物品的入背包仍由 PickupSystem / TriggerActions 在调用前完成。
    */
   onItemGained(item, player) {
-    return this._ensureItemGainedFlow().onItemGained(item, player);
+    return this._ensureInventoryFlow().itemGained(item, player);
   }
 
   /** @private 兼容旧场景/手柄弹窗回调：显示队列下一件。 */
@@ -625,13 +606,17 @@ export class BaseGameScene extends Scene {
 
   /** @private 懒创建场景渲染编排器。 */
   _ensureRenderPipeline() {
-    if (!this._renderPipeline) this._renderPipeline = new SceneRenderPipeline(this);
+    if (!this._renderPipeline) {
+      this._renderPipeline = new SceneRenderPipeline({ scene: this, context: this.context });
+    }
     return this._renderPipeline;
   }
 
   /** @private 懒创建场景帧更新管线。 */
   _ensureFramePipeline() {
-    if (!this._framePipeline) this._framePipeline = new SceneFramePipeline(this);
+    if (!this._framePipeline) {
+      this._framePipeline = new SceneFramePipeline({ scene: this, context: this.context });
+    }
     return this._framePipeline;
   }
 
@@ -651,6 +636,82 @@ export class BaseGameScene extends Scene {
   /** 由 SceneFramePipeline 在旧调用链中的准确位置调度运行时阶段。 */
   _runRuntimePhase(phase, deltaTime) {
     return this.sceneRuntime?.runFramePhase(phase, deltaTime, { scene: this }) || false;
+  }
+
+  /** @private 顶层输入编排：帧首采集、优先消费，正常帧末统一清帧。 */
+  _ensureInputFlow() {
+    if (!this._inputFlow) {
+      this._inputFlow = new SceneInputFlow({
+        inputManager: this.inputManager,
+        runtime: this.sceneRuntime,
+        router: this.sceneRuntime?.inputRouter,
+        gamepadCombat: this.gamepadCombatController,
+        onPopupConfirm: () => this._handleGainedPopupGamepad(),
+        onGamepadCombat: () => this._updateGamepadCombat(),
+        onPromptSwitch: () => this._updatePromptSwitch(),
+        dialogue: this._ensureDialogueFlow(),
+        aiming: this._ensureSkillActions(),
+        worldInteraction: this._ensureWorldInteraction()
+      });
+    }
+    return this._inputFlow;
+  }
+
+  /** 子场景在 super.update 前读取输入时调用；同帧重复调用由 flow 守卫跳过。 */
+  _beginInputFrame(deltaTime) {
+    return this._ensureInputFlow().beforeFrame(deltaTime);
+  }
+
+  /** @private 背包、装备和获得物品统一流程。 */
+  _ensureInventoryFlow() {
+    if (!this._inventoryFlow) {
+      this._inventoryFlow = new SceneInventoryFlow({
+        equipmentFlow: this._ensureEquipmentFlow(),
+        itemGainedFlow: this._ensureItemGainedFlow(),
+        getPlayer: () => this.playerEntity,
+        getBackpack: () => this.backpackPanel,
+        getFloatingText: () => this.floatingTextManager,
+        getNotification: () => this.notificationSystem,
+        onEquipmentChanged: (messages, info) => this.onEquipmentChanged(messages, info),
+        onItemUsedEvent: ({ id, item }) => this.gameLoader?.triggerSystem?.fire('itemUsed', { id, item })
+      });
+    }
+    return this._inventoryFlow;
+  }
+
+  /** @private HUD 更新器只读取显式 UI/System/World 投影。 */
+  _ensureHudUpdater() {
+    if (!this._hudUpdater) {
+      this._hudUpdater = new SceneHudUpdater({
+        getUI: () => ({
+          backpack: this.backpackPanel,
+          bottomControlBar: this.bottomControlBar,
+          playerStatusHUD: this.playerStatusHUD,
+          gamepadPanel: this.gamepadPanel,
+          dialogueBox: this.dialogueBox,
+          minimap: this.minimap,
+          flightButton: this.flightButton,
+          throwButton: this.throwButton,
+          blockButton: this.blockButton,
+          updatePanelHover: () => this.updatePanelHover()
+        }),
+        getSystems: () => ({
+          flight: this.flightSystem,
+          weaponRenderer: this.weaponRenderer,
+          combat: this.combatSystem,
+          dialogue: this.dialogueSystem
+        }),
+        getWorld: () => ({
+          terrainBinding: this._terrainBinding,
+          region: this._worldRegion,
+          camera: this.camera
+        }),
+        getPlayer: () => this.playerEntity,
+        getEntities: () => this.entities,
+        performanceOptimizer: this.performanceOptimizer
+      });
+    }
+    return this._hudUpdater;
   }
 
   /** @private 懒创建物品获得队列服务。 */
@@ -1175,7 +1236,7 @@ export class BaseGameScene extends Scene {
 
   /** 从场景数据中加载特效区域，接入粒子系统。 */
   _initEffectZones(sceneId, worldOffset = this._terrainConfig.worldOffset) {
-    return this._terrainBinding.initEffectZones({ sceneId, worldOffset });
+    return this._terrainBinding.initEffectZones({ sceneId, worldOffset, resourceScope: this.resourceScope });
   }
 
   /** 检查单 terrain 场景的地形碰撞；子类可覆写以扩展。 */
@@ -1259,7 +1320,17 @@ export class BaseGameScene extends Scene {
    */
   exit() {
     super.exit();
+    const coordinator = this._lifecycleCoordinator;
+    if (coordinator && coordinator.state === 'idle') {
+      coordinator.track('scene-resources', this, () => this._disposeSceneResources(), 100);
+      coordinator.exitSync();
+      return;
+    }
+    this._disposeSceneResources();
+  }
 
+  /** @private 由 SceneLifecycleCoordinator 拥有的同步场景资源释放事务。 */
+  _disposeSceneResources() {
     // 首先令所有 guard/token 失效，并清除场景计时器、监听和自定义 disposer。
     this.resourceScope?.dispose();
     this.context.lifecycle.state = 'exiting';
@@ -1274,6 +1345,8 @@ export class BaseGameScene extends Scene {
     this._diagnostics.dispose();
 
     // 运行时先撤销阶段钩子和输入路由，再销毁底层输入/系统实例。
+    this._inputFlow?.dispose();
+    this._inputFlow = null;
     this.sceneRuntime?.dispose();
     this.sceneRuntime = null;
 
@@ -1300,9 +1373,22 @@ export class BaseGameScene extends Scene {
     this.entityStore.destroyAll();
     this.context.resetTransient();
     this.playerLifecycle = null;
+    this._lifecycleCoordinator = null;
     this._inputBindings = null;
+    this._inventoryFlow = null;
+    this._hudUpdater = null;
+    this._equipmentFlow = null;
+    this._itemGainedFlow = null;
+    this._aimPresentation = null;
+    this._combatActions = null;
+    this._dialogueFlow = null;
+    this._worldInteraction = null;
+    this._skillActions = null;
+    this._worldPresentation = null;
+    this._panelLayout = null;
     this._hintPresenter = null;
     this.resourceScope = null;
+    this.inputManager = null;
     this.playerEntity = null;
 
     console.log(`BaseGameScene: 退出场景 ${this.name}`);

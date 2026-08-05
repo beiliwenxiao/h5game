@@ -11,9 +11,45 @@
  * 子场景仍可覆盖 renderBackground、renderWorldObjects、renderFogLayer 等内容钩子。
  */
 export class SceneRenderPipeline {
-  /** @param {Object} scene */
-  constructor(scene) {
-    this.scene = scene;
+  /** @param {{scene:Object, context?:Object, worldLayers?:Function[], screenLayers?:Function[], modalLayers?:Function[]}|Object} config */
+  constructor(config) {
+    this.scene = config?.scene || config;
+    this.context = config?.context || this.scene?.context || null;
+    this.worldLayers = config?.worldLayers || [
+      (scene, ctx) => scene.renderBackground(ctx),
+      (scene, ctx) => scene.renderPickupItems(ctx),
+      (scene, ctx) => scene.renderWorldObjects(ctx),
+      (_scene, ctx) => this._renderWorldEffects(ctx)
+    ];
+    this.screenLayers = config?.screenLayers || [
+      (scene, ctx) => scene.renderFogLayer(ctx),
+      (scene, ctx) => (this.context?.services?.worldInteraction
+        ? this.context.services.worldInteraction.renderClickScreenMarkers(ctx)
+        : scene._renderClickScreenMarkers(ctx)),
+      (scene, ctx) => scene.skillEffects.render(ctx, scene.camera),
+      (scene) => scene.combatEffects.render(),
+      (scene, ctx) => scene.floatingTextManager.render(ctx, scene.camera),
+      (scene, ctx) => scene.tutorialSystem?.render(ctx),
+      (scene, ctx) => scene.dialogueBox?.render(ctx),
+      (scene, ctx) => scene.combatSystem?.render(ctx),
+      (scene, ctx) => scene.bottomControlBar?.render(ctx),
+      (scene, ctx) => scene.blockButton?.render(ctx),
+      (scene, ctx) => scene.flightButton?.render(ctx),
+      (scene, ctx) => scene.throwButton?.render(ctx),
+      (scene, ctx) => scene.bagButton?.render(ctx),
+      (scene, ctx) => scene.playerStatusHUD?.render(ctx),
+      (scene, ctx) => scene.minimap?.render(ctx),
+      (scene, ctx) => scene.renderCombatStateUI(ctx),
+      (scene, ctx) => { if (scene.isTransitioning) scene.renderTransition(ctx); },
+      (scene, ctx) => { if (scene.performanceMonitor?.enabled) scene.performanceMonitor.render(ctx); }
+    ];
+    this.modalLayers = config?.modalLayers || [
+      (scene, ctx) => scene.backpackPanel?.render(ctx),
+      (scene, ctx) => scene.notificationSystem?.render(ctx),
+      (scene, ctx) => scene.itemGainedPopup?.render(ctx),
+      (scene, ctx) => scene.gamepadPanel?.render(ctx),
+      (scene, ctx) => scene.skillWheelOverlay?.render(ctx)
+    ];
     /** 每帧复用的世界 Y-sort 队列与实体包装项，容量只增不减。 */
     this._worldQueue = [];
     this._entityQueueItems = [];
@@ -22,7 +58,7 @@ export class SceneRenderPipeline {
 
   render(ctx) {
     const scene = this.scene;
-    const services = scene.context?.services || {};
+    const services = this.context?.services || {};
     if (scene.performanceMonitor?.enabled) {
       scene._drawCallCount = 0;
       if (scene._drawCallProxied && scene._drawCallProxyContext !== ctx) {
@@ -49,41 +85,12 @@ export class SceneRenderPipeline {
     }
     ctx.translate(-viewBounds.left, -viewBounds.top);
 
-    scene.renderBackground(ctx);
-    scene.renderPickupItems(ctx);
-    scene.renderWorldObjects(ctx);
-    this._renderWorldEffects(ctx);
+    for (const layer of this.worldLayers) layer(scene, ctx);
     ctx.restore();
 
-    scene.renderFogLayer(ctx);
-    if (services.worldInteraction) services.worldInteraction.renderClickScreenMarkers(ctx);
-    else scene._renderClickScreenMarkers(ctx);
-    scene.skillEffects.render(ctx, scene.camera);
-    scene.combatEffects.render();
-    scene.floatingTextManager.render(ctx, scene.camera);
-    scene.tutorialSystem?.render(ctx);
-    scene.dialogueBox?.render(ctx);
-    scene.combatSystem?.render(ctx);
-    scene.bottomControlBar?.render(ctx);
-    scene.blockButton?.render(ctx);
-    scene.flightButton?.render(ctx);
-    scene.throwButton?.render(ctx);
-    scene.bagButton?.render(ctx);
-    scene.playerStatusHUD?.render(ctx);
-    scene.minimap?.render(ctx);
-    scene.renderCombatStateUI(ctx);
-    if (scene.isTransitioning) scene.renderTransition(ctx);
-    if (scene.performanceMonitor?.enabled) scene.performanceMonitor.render(ctx);
-
-    // 组合背包必须盖住常规 HUD；通知、物品弹窗、手柄面板和技能轮盘更高。
-    scene.backpackPanel?.render(ctx);
-    scene.notificationSystem?.render(ctx);
-    scene.itemGainedPopup?.render(ctx);
-    if (scene.gamepadPanel) {
-      scene.gamepadPanel.update(16);
-      scene.gamepadPanel.render(ctx);
-    }
-    scene.skillWheelOverlay?.render(ctx);
+    for (const layer of this.screenLayers) layer(scene, ctx);
+    // 模态层固定高于常规 HUD，防止背包与获得物品弹窗被覆盖。
+    for (const layer of this.modalLayers) layer(scene, ctx);
   }
 
   renderWorldObjects(ctx) {

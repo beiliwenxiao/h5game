@@ -12,7 +12,9 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 | 文件 | 职责 |
 |---|---|
 | `src/core/input/Xbox360Profile.js` | W3C standard 按钮/轴索引常量、默认绑定表、UI 绘制布局、按钮标签与功能说明 |
-| `src/core/input/GamepadManager.js` | Gamepad API 轮询器（采集层） |
+| `src/core/input/GamepadManager.js` | Gamepad API 轮询器（采集层），`destroy()` 精确移除浏览器监听 |
+| `src/core/input/SceneInputFlow.js` | 场景帧首 poll、弹窗优先消费、战斗意图、输入路由与正常帧末清帧 |
+| `src/core/scene/SceneInputBindings.js` | 热键、手柄配置加载、连接/断开回调与生命周期注销 |
 | `src/ui/GamepadPanel.js` | 手柄示意 UI（表现层，纯 Canvas） |
 | `src/core/InputManager.js` | 内置 GamepadManager，与键盘状态取或 |
 | `src/systems/MovementSystem.js` | 通过 `getMoveAxis()` 支持摇杆模拟量移动 |
@@ -120,7 +122,7 @@ UIEditor 的第三个标签页 `🎮 手柄`：
 - 左侧表格：每个手柄按钮一行 + 下拉选择可绑定动作（分组：战斗/移动/技能/快捷/面板/其它）
 - 右侧：摇杆死区 + 扳机阈值数值输入
 - 保存到 `config/gamepad.json`（与 UILayout.desktop/mobile.json 同目录）
-- 游戏运行时 `BaseGameScene._loadGamepadConfig()` 读取并 `GamepadManager.applyConfig(cfg)`
+- 游戏运行时由 `SceneInputBindings.register()` 读取配置并调用 `GamepadManager.applyConfig(cfg)`；`BaseGameScene` 不再自行实现 `_loadGamepadConfig()`
 
 ### 可绑定动作清单（Xbox360Profile.BINDABLE_ACTIONS）
 
@@ -134,11 +136,11 @@ UIEditor 的第三个标签页 `🎮 手柄`：
 
 ## Demo 主循环与帧守卫
 
-张角 demo 不走 `GameEngine`（自建主循环），所以 `pollGamepads` 必须在场景 update 帧首调用：
-- `BaseGameScene.update` 开头：`this.inputManager.pollGamepads()`
-- `DataDrivenPrologueScene.update` 开头也调一次（它在 `super.update` 前就读输入）
+张角 demo 不走 `GameEngine`（自建主循环），所以由 `SceneInputFlow.beforeFrame()` 在任何场景输入读取前统一调用 `pollGamepads()`：
+- `DataDrivenPrologueScene.update` 在读取 E/N/反引号前调用 `_beginInputFrame(deltaTime)`
+- `SceneFramePipeline.run` 也调用 `beforeFrame`；flow 的帧守卫会跳过同帧重复编排
 
-**帧守卫**：`InputManager._padPolledThisFrame`，一帧只真正轮询一次。`InputManager.update()`（帧末清帧）重置。重复调用（GameEngine + 场景）不会互相清空 pressed/released。
+**帧守卫**：`SceneInputFlow._frameStarted` 防止整套输入流程重复执行，`InputManager._padPolledThisFrame` 防止底层重复 poll。正常帧由 `SceneInputFlow.flush()` 清输入并重置；转场提前返回只调用 `releaseFrame()`，不得调用 `InputManager.update()`。
 
 ## 测试
 

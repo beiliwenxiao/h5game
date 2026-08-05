@@ -190,11 +190,17 @@ MOVE     右键
 `BaseGameScene` 已采用这些模块，场景本体只保留场景编排、游戏内容钩子与兼容转发入口：
 
 - `SceneTerrainCollision`：集中处理地形边界、池塘、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。walkable/collide 对象仍保持独立引用，禁止重复 worldOffset。
-- `SceneTerrainBinding`：统一单 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；具体 Terrain 类型通过依赖注入。
+- `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；多 chunk 只让主 terrain 参与盆地边界，其余 terrain 仍处理池塘、树与 shape；具体 Terrain 类型通过依赖注入。
 - `SceneAimController` + `SceneAimPresentation` + `AimPreviewRenderer`：统一 PC/触屏/手柄的瞄准控制、状态与 5px 虚线预览；场景通过回调注入射程和确认动作。
 - `SceneEquipmentFlow`：统一装备槽位映射、属性差值和装备/卸下事务；变更结果仍必须由 `BaseGameScene.onEquipmentChanged(messages, info)` 派发。
 - `SceneItemGainedFlow`：管理拾取/奖励后的 FIFO 弹窗、装备比较和使用动作；弹窗装备同样必须经过统一装备事件出口。
-- `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话结束、上下文和 sceneEnter；具体剧情动作仍由场景 `onReady` 注册。
+- `SceneInventoryFlow`：统一卸装、物品使用和获得物品入口；所有卸装结果仍由 `onEquipmentChanged(messages, info)` 派发。
+- `SceneInputFlow`：统一帧首手柄 poll、弹窗优先消费、战斗意图、InputActionRouter 与正常帧末 flush；转场提前返回只 release，不清输入。
+- `SceneHudUpdater`：统一冷却、面板、对话框、手柄面板和小地图更新；RenderPipeline 只绘制，不在 render 内修改 UI 状态。
+- `SceneLifecycleCoordinator`：为同步 Scene API 提供 `exitSync()`，Base 退出事务由协调器拥有；ResourceScope 先失效，随后按既有顺序释放输入、玩家、系统、UI 与实体。
+- `WorldMapLoadSession` + `WorldReadyGate`：项目/场景只加载一次，terrain 与 placements 共享 Promise；JSON 文件优先、localStorage 仅 fallback，3 秒超时仍开放渲染。
+- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。
+- `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话结束唯一订阅、上下文和 sceneEnter；具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
 - `SceneCombatActions`：承接 PC、触屏和手柄的攻击、轻功、投掷、格挡、药水与自动攻击；不拥有系统或实体状态，也不再混入技能编排和世界拾取。
 - `SceneSkillActions`：统一技能可用性、特殊技能、按索引/方向释放、PC 瞄准控制与预览；`SceneAimController` 仍只负责几何和状态。
@@ -202,8 +208,8 @@ MOVE     右键
 - `SceneDialogueFlow`：统一继续对话、跳过打字机、选项节点保护和点击消费；`lastSpacePressed` 继续作为兼容字段保留。
 - `ScenePanelLayout`：组合并绑定 HUD，加载 UIEditor/PanelEditor 布局、响应窗口缩放、同步面板悬停，并在背包打开时协调 Canvas 与 DOM 触屏控件层级。
 - `SceneWorldPresentation`：统一通用 terrain/等距背景、掉落物、飞行阴影与格挡护盾；子场景仍通过 `renderBackground`、`renderFogLayer`、`renderSpeechBubbles` 覆盖 Demo 内容表现。
-- `SceneFramePipeline`：保持旧场景的输入消费、系统更新和转场提前返回顺序，并在准确位置调度 `GameSceneRuntime` 阶段；对话、技能和世界交互优先从 `GameSceneContext.services` 调度，正常帧最后才清输入。
-- `SceneRenderPipeline`：固定世界、屏幕 UI 与最高层弹窗的渲染顺序；Y-sort 数组、实体队列项和 terrain 静态装饰项均复用，减少每帧分配。
+- `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，输入与 HUD 优先从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。
+- `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，并按 `worldLayers → screenLayers → modalLayers` 有序绘制；render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。
 - `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
 - `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理和纹理内存估算；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
 - `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
@@ -241,7 +247,7 @@ S11 为 Demo 迁移验证：旧张角 Demo 通过新架构运行、逐个切换 
 - `SceneLifecycleCoordinator`：固定 Canvas→terrain→input→runtime→systems→UI→player→bindings 初始化顺序，并按逆序释放。
 - `SceneEntityStore`：唯一拥有 all/enemies/pickups/equipmentItems 列表和批量移除/销毁。
 - `ScenePlayerLifecycle`：统一创建或继承玩家、系统/UI/相机绑定和生命周期保护。
-- `SceneInputBindings` / `SceneGamepadFlow`：统一热键、手柄配置、连接事件、弹窗优先消费和战斗意图。
+- `SceneInputBindings` / `SceneInputFlow`：前者统一热键、手柄配置和连接生命周期；后者统一帧首采集、弹窗优先消费、战斗意图、路由和帧末清理。
 - `SceneSkillActions` / `SceneWorldInteraction` / `SceneDialogueFlow`：分别拥有技能、世界点击/拾取/选敌、对话输入。
 - `SceneHintPresenter`：统一屏幕提示、InputHints 格式化、DOM fallback 和可取消自动隐藏。
 - `SceneWorldPresentation`：统一背景、迷雾、气泡、拾取、飞行阴影和战斗表现。

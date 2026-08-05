@@ -25,8 +25,14 @@
 import { BaseGameScene } from './BaseGameScene.js';
 import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
-import { GameLoader } from '../../../src/core/GameLoader.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
+import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
+import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
+import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
+import { PlacementSpawner } from '../../../src/core/scene/PlacementSpawner.js';
+import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
+import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
+import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
@@ -141,10 +147,89 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._terrains = [];
     this._worldRegion = null;
     this._teleportFade = null;
-    // 加载门标志：地形 + 放置点异步就绪后才渲染世界（避免跳变/闪树）
+
+    // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
+    const gameId = 'sanguo_zhangjiao';
+    const scope = this.resourceScope;
+    this._worldLoadSession = new WorldMapLoadSession({
+      scope,
+      loadProject: async projectUrl => {
+        const response = await fetch(projectUrl);
+        if (!response.ok) throw new Error(`加载 ${projectUrl} 失败: HTTP ${response.status}`);
+        return response.json();
+      },
+      loadScene: async sceneId => {
+        const scene = await loadSceneFromFile(sceneId);
+        if (!scene || !Array.isArray(scene.layers)) {
+          throw new Error(`场景 JSON 无有效 layers: ${sceneId}`);
+        }
+        return scene;
+      },
+      loadSceneFallback: sceneId => {
+        const scene = loadSceneFromStorage(gameId, sceneId);
+        if (!scene || !Array.isArray(scene.layers)) {
+          throw new Error(`场景缓存无有效 layers: ${sceneId}`);
+        }
+        return scene;
+      }
+    });
+    this._worldReadyGate = new WorldReadyGate({
+      required: ['terrains', 'placements'],
+      timeout: 3000,
+      scope,
+      onReady: () => this._syncWorldReadyProjection(),
+      onTimeout: () => this._syncWorldReadyProjection()
+    });
+    // wait() 在 timeout/dispose 时会 reject；显式消费，避免未处理 rejection。
+    this._worldReadyGate.wait().catch(() => {});
     this._sceneReady = false;
     this._terrainsLoaded = false;
     this._spawnApplied = false;
+
+    this._fadeOverlayTransition = new FadeOverlayTransition({ duration: 0.3, scope });
+    this._placementSpawner = new PlacementSpawner({
+      entityFactory: this.entityFactory,
+      entityStore: this.entityStore,
+      aiSystem: this.aiSystem,
+      assetManager: this.assetManager,
+      onNpcImageError: scope?.guard(({ url }) => {
+        console.warn('[DDScene] NPC 图集加载失败（将用占位）:', url);
+      }),
+      onSpawn: scope?.guard(({ entity, kind, group }) => {
+        if (kind === 'npc') {
+          this._npcEntities = this._npcEntities || [];
+          this._npcEntities.push(entity);
+        } else if (kind === 'enemy') {
+          this._groupEnemies = this._groupEnemies || {};
+          (this._groupEnemies[group] = this._groupEnemies[group] || []).push(entity);
+        }
+      })
+    });
+    this._chunkNavigator = new ChunkNavigator({
+      getRegion: () => this._worldRegion,
+      getChunk: sceneId => this._worldLoadSession?.getChunk(sceneId),
+      findSpawn: (sceneId, spawnRef) => this._worldLoadSession?.findSpawn(sceneId, spawnRef),
+      getPlayer: () => this.playerEntity,
+      getCamera: () => this.camera,
+      onSceneEnter: ({ sceneId, x, y }) => {
+        if (this.gameLoader?.triggerSystem) {
+          this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
+        }
+        console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
+      },
+      onFallback: ({ reason, sceneId }) => {
+        if (reason === 'missingSceneId') {
+          console.warn('[DDScene] teleportToChunk: 缺少 scene 参数');
+          return null;
+        }
+        console.warn('[DDScene] teleportToChunk: 在 grid 中未找到', sceneId);
+        const sm = this.sceneManager || (window.gameEngine && window.gameEngine.sceneManager);
+        if (sm?.switchTo) sm.switchTo(sceneId);
+        return null;
+      },
+      transition: (type, commit) => type === 'fadeBlack' ? this._fadeTransition(commit) : commit()
+    });
+    this._worldLoadPromise = this._worldLoadSession.load({ projectUrl: 'game.project.json', regionIndex: 0 });
     this._loadWorldTerrains();
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
@@ -158,24 +243,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
     this._initGameLoader();
 
-    // 安全兜底：即使某个异步加载失败，最多 3 秒后也强制开放渲染，避免永久黑屏
-    this.resourceScope?.setTimeout(() => {
-      if (!this._sceneReady) {
-        this._terrainsLoaded = true;
-        this._spawnApplied = true;
-        this._sceneReady = true;
-      }
-    }, 3000);
-
     console.log('DataDrivenPrologueScene: 进入（数据驱动序章）');
   }
 
   update(deltaTime) {
     if (!this.isActive) return;
 
-    // 手柄轮询：必须在本场景读取任何输入之前（本场景在 super.update 之前就读 E/N 等键）。
-    // 帧守卫保证一帧只真正轮询一次，super.update 里的重复调用会被跳过。
-    if (this.inputManager && this.inputManager.pollGamepads) this.inputManager.pollGamepads();
+    // 顶层输入流程必须在本场景读取 E/N/反引号之前启动；同帧 super.update 会被守卫跳过。
+    this._beginInputFrame(deltaTime);
 
     // 传送淡黑效果更新
     this._updateTeleportFade(deltaTime);
@@ -183,18 +258,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 必须在任何 inputManager.update() 之前读取，否则本帧按下状态会被清空
     const debugPanelKeyPressed = !!this.inputManager?.isKeyPressed?.('`');
 
-    if (this.isTransitioning) {
-      this.updateTransition(deltaTime);
-      if (this.transitionPhase === 'show_text' || this.transitionPhase === 'switch_scene') {
-        if (debugPanelKeyPressed) {
-          console.warn('[DDScene][DebugPanel] 反引号已收到，但当前过场阶段会提前结束本帧', {
-            transitionPhase: this.transitionPhase,
-            isTransitioning: this.isTransitioning
-          });
-        }
-        this.inputManager.update();
-        return;
+    if (this.isTransitioning &&
+        (this.transitionPhase === 'show_text' || this.transitionPhase === 'switch_scene')) {
+      if (debugPanelKeyPressed) {
+        console.warn('[DDScene][DebugPanel] 反引号已收到，但当前过场阶段会提前结束本帧', {
+          transitionPhase: this.transitionPhase,
+          isTransitioning: this.isTransitioning
+        });
       }
+      // 转场提前返回只结束本次输入编排，绝不调用 inputManager.update() 清帧。
+      this._inputFlow?.releaseFrame?.();
+      return;
     }
 
     // 玩家实体就绪后同步到触发器上下文（保证 giveReward/heal 等动作能拿到 ctx.player）
@@ -213,8 +287,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (this.weatherSystem) this.weatherSystem.update(deltaTime);
     if (this.timeSystem) this.timeSystem.update(deltaTime);
 
-    // ⑤ 切幕：提示按键（必须在 super.update 之前，因为 super.update 末尾 inputManager.update() 会清除 keysPressed）
-    this._updatePromptSwitch();
+    // 提示切幕已由 SceneInputFlow 在帧首统一处理，确保手柄/键鼠只消费一次。
 
     // 提示按 N 进入下一波（同样在 super.update 前检测按键）
     this._updatePromptNextWave();
@@ -284,7 +357,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
       this._terrainCollisionSignature = terrainCollisionSignature;
     }
-    this.checkTerrainCollision();
   }
 
   /**
@@ -589,120 +661,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @returns {Promise|void}
    */
   teleportToChunk(p = {}) {
-    const targetScene = p.scene;
-    if (!targetScene) { console.warn('[DDScene] teleportToChunk: 缺少 scene 参数'); return; }
-
-    // 从 grid 查找目标 chunk 位置
-    const pos = this._findChunkInGrid(targetScene);
-    if (!pos) {
-      console.warn('[DDScene] teleportToChunk: 在 grid 中未找到', targetScene);
-      // 回退到 SceneManager 切换
-      const sm = this.sceneManager || (window.gameEngine && window.gameEngine.sceneManager);
-      if (sm && sm.switchTo) sm.switchTo(targetScene);
-      return;
-    }
-
-    const region = this._worldRegion;
-    const chunkW = region.chunkWidth || 1280;
-    const chunkH = region.chunkHeight || 720;
-
-    // 计算目标世界坐标（优先 spawnRef，其次指定坐标，最后 chunk 中心）
-    let localX = p.x != null ? p.x : chunkW / 2;
-    let localY = p.y != null ? p.y : chunkH / 2;
-
-    // 从目标场景数据中找 spawn 点
-    if (p.spawnRef) {
-      const spawnPos = this._findSpawnInChunk(targetScene, p.spawnRef);
-      if (spawnPos) { localX = spawnPos.x; localY = spawnPos.y; }
-    }
-
-    const worldX = pos.col * chunkW + localX;
-    const worldY = pos.row * chunkH + localY;
-
-    const doTeleport = () => {
-      // 移动玩家
-      if (this.playerEntity) {
-        const transform = this.playerEntity.getComponent('transform');
-        if (transform) {
-          transform.position.x = worldX;
-          transform.position.y = worldY;
-        }
-      }
-      // 移动相机
-      if (this.camera) {
-        this.camera.position.x = worldX;
-        this.camera.position.y = worldY;
-      }
-      // fire sceneEnter 事件（触发目标 chunk 的入场触发器）
-      if (this.gameLoader && this.gameLoader.triggerSystem) {
-        this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId: targetScene });
-      }
-      console.log(`[DDScene] teleportToChunk → ${targetScene} (${worldX}, ${worldY})`);
-    };
-
-    // 过渡效果
-    if (p.transition === 'fadeBlack') {
-      return this._fadeTransition(doTeleport);
-    } else {
-      doTeleport();
-    }
+    const sceneId = p.sceneId || p.scene;
+    return this._chunkNavigator?.teleport({ ...p, sceneId });
   }
 
   /**
    * 淡黑过渡（0.3s 淡黑 → 执行回调 → 0.3s 淡出）
+   * 对外保持旧契约：完成 resolve true，取消/被替换 resolve false。
    * @private
    */
   _fadeTransition(callback) {
-    if (this._teleportFade?.resolve) {
-      this._teleportFade.resolve(false);
-    }
-    return new Promise((resolve) => {
-      const fade = {
-        phase: 'out',
-        alpha: 0,
-        callback: this.resourceScope?.guard(callback) || callback,
-        resolve,
-        cancel: null
-      };
-      this._teleportFade = fade;
-      fade.cancel = this.resourceScope?.track(() => {
-        if (this._teleportFade !== fade) return;
-        this._teleportFade = null;
-        resolve(false);
-      });
-    });
+    if (!this._fadeOverlayTransition) return Promise.resolve(false);
+    return this._fadeOverlayTransition.start(callback)
+      .then(result => !result?.cancelled);
   }
 
   /** @private 每帧更新传送淡黑效果 */
   _updateTeleportFade(dt) {
-    const f = this._teleportFade;
-    if (!f) return;
-    const speed = 1 / 0.3; // 0.3 秒完成
-    if (f.phase === 'out') {
-      f.alpha = Math.min(1, f.alpha + dt * speed);
-      if (f.alpha >= 1) {
-        f.callback?.();
-        f.callback = null;
-        f.phase = 'in';
-      }
-    } else if (f.phase === 'in') {
-      f.alpha = Math.max(0, f.alpha - dt * speed);
-      if (f.alpha <= 0) {
-        this._teleportFade = null;
-        f.cancel?.();
-        f.resolve(true);
-      }
-    }
+    this._fadeOverlayTransition?.update(dt);
   }
 
   /** @private 渲染传送淡黑遮罩 */
   _renderTeleportFade(ctx) {
-    const f = this._teleportFade;
-    if (!f || f.alpha <= 0) return;
-    ctx.save();
-    ctx.fillStyle = `rgba(0, 0, 0, ${f.alpha})`;
-    ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-    ctx.restore();
+    this._fadeOverlayTransition?.render(ctx, {
+      width: this.logicalWidth,
+      height: this.logicalHeight
+    });
   }
 
   /**
@@ -1016,96 +1000,107 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   _initGameLoader() {
     try {
-      this.gameLoader = new GameLoader();
-      const gameLoader = this.gameLoader;
-      this.resourceScope?.track(() => gameLoader.dispose());
       const eng = window.gameEngine;
-      this._gameLoaderReady = gameLoader.load('game.project.json', {
+      const bridge = new SceneGameLoaderBridge({
+        scope: this.resourceScope,
         dialogueSystem: this.dialogueSystem,
-        questSystem: this.questSystem,
-        combatSystem: this.combatSystem,
-        sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
-        audioManager: this.audioManager || (eng && eng.audioManager) || null,
-        floatingText: this.floatingTextManager,
-        tutorial: { showTip: (p) => this._showScreenTip(p.text || '') },
+        deps: {
+          dialogueSystem: this.dialogueSystem,
+          questSystem: this.questSystem,
+          combatSystem: this.combatSystem,
+          sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
+          audioManager: this.audioManager || (eng && eng.audioManager) || null,
+          floatingText: this.floatingTextManager,
+          scene: this
+        },
+        onShowTip: text => this._showScreenTip(text || ''),
         onItemGained: (item, player) => this.onItemGained(item, player || this.playerEntity),
-        player: this.playerEntity || null
-      }).then(this.resourceScope.guard(() => {
-        const trig = gameLoader.triggerSystem;
-        const offTriggerLog = trig.on((evt, t) => {
-          if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
-        });
-        this.resourceScope?.track(offTriggerLog);
-        // 标记本场景为数据驱动（供仅本场景生效的触发器用 if 判定，避免污染旧 Act1）
-        gameLoader.blackboard.set('ddScene', true);
-        // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
-        trig.registerAction('lightCampfire', () => this.lightCampfire());
-        // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
-        trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
-        // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
-        trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
-        // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
-        trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
-        // 大地图传送（直接传送到指定区块，不切换独立场景）
-        trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
-        // 切换到独立场景（离开大地图，进入副本/过场等独立场景）
-        trig.registerAction('switchScene', (p) => {
-          const scene = p.scene || p.target;
-          if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return; }
-          console.log('[DDScene] switchScene →', scene);
-          const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
-          if (sm && sm.switchTo) sm.switchTo(scene, p);
-        });
-        // 通用动作：切换调试面板
-        trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
-        // 天气系统动作
-        trig.registerAction('setWeather', (p) => {
-          if (this.weatherSystem && p.type) this.weatherSystem.setWeather(p.type, p);
-        });
-        // 时间系统动作
-        trig.registerAction('setTime', (p) => {
-          if (this.timeSystem && p.period) this.timeSystem.setTimePeriod(p.period);
-        });
-        // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
-        trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
-        // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
-        trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
-        // 场景专属动作：批量生成一波敌人（第五幕战役，小兵+名将）
-        trig.registerAction('spawnWave', (p) => this._spawnWave(p));
-        // 场景专属动作：选择职业（第四幕，对话结束后由 dialogueEnd 触发器调用）
-        trig.registerAction('selectClass', (p) => this._selectClass(p));
-        // 场景专属动作：弹出职业确认窗口（第四幕，对话结束后调用；玩家点确认才真正选职业）
-        trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
-        // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
-        trig.registerAction('completeScene', (p = {}) => {
-          const sceneId = p.sceneId || p.scene;
-          if (!sceneId) { console.warn('[DDScene] completeScene: 缺少 sceneId'); return; }
-          console.log('[DDScene] completeScene →', sceneId);
-          trig.fire('sceneComplete', { sceneId });
-        });
-        // 通用动作：关闭获得物品弹窗（剧情自动推进前调用，避免弹窗与对话冲突）
-        trig.registerAction('dismissPopup', () => {
-          if (this.itemGainedPopup && this.itemGainedPopup.visible) {
-            this.itemGainedPopup.hide();
-          }
-          this._gainedQueue = [];
-        });
-        if (this.dialogueSystem && this.dialogueSystem.onEnd) {
-          // 带对话 id，供 dialogueEnd{id:'xxx'} 触发器精确匹配
-          const offDialogueEnd = this.dialogueSystem.onEnd(
-            (dialogue) => trig.fire('dialogueEnd', { id: dialogue && dialogue.id })
-          );
-          this.resourceScope?.track(offDialogueEnd);
+        getPlayer: () => this.playerEntity || null
+      });
+      this._gameLoaderBridge = bridge;
+      this.resourceScope?.track(() => bridge.dispose());
+
+      const ready = bridge.initialize({
+        projectUrl: 'game.project.json',
+        sceneFlag: 'ddScene',
+        sceneId: 'scene_Prologue',
+        registerActions: (trig, gameLoader) => this._registerGameLoaderActions(trig, gameLoader),
+        onReady: (gameLoader, trig) => {
+          const offTriggerLog = trig.on((evt, t) => {
+            if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
+          });
+          this.resourceScope?.track(offTriggerLog);
         }
-        if (this.playerEntity) gameLoader.updateContext({ player: this.playerEntity });
-        trig.fire('sceneEnter', { sceneId: 'scene_Prologue' });
-        console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', trig.triggers.length);
+      });
+      // initialize() 在首次 await 前已创建 loader；立即保留旧字段投影。
+      this.gameLoader = bridge.loader;
+      this._gameLoaderReady = ready.then(this.resourceScope.guard(gameLoader => {
+        if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
+        this.gameLoader = gameLoader;
+        console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
+        return gameLoader;
       })).catch(this.resourceScope.guard(
         e => console.error('[DDScene][GameLoader] 加载失败:', e)
       ));
     } catch (e) {
       console.warn('[DDScene][GameLoader] 初始化失败:', e);
     }
+  }
+
+  /** 将本场景现有触发动作注册到 SceneGameLoaderBridge 创建的 loader。 */
+  _registerGameLoaderActions(trig, gameLoader) {
+    // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
+    trig.registerAction('lightCampfire', () => this.lightCampfire());
+    // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
+    trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
+    // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
+    trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
+    // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
+    trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
+    // 大地图传送（直接传送到指定区块，不切换独立场景）
+    trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
+    // 切换到独立场景（离开大地图，进入副本/过场等独立场景）
+    trig.registerAction('switchScene', (p) => {
+      const scene = p.scene || p.target;
+      if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return; }
+      console.log('[DDScene] switchScene →', scene);
+      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
+      if (sm && sm.switchTo) sm.switchTo(scene, p);
+    });
+    // 通用动作：切换调试面板
+    trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
+    // 天气系统动作
+    trig.registerAction('setWeather', (p) => {
+      if (this.weatherSystem && p.type) this.weatherSystem.setWeather(p.type, p);
+    });
+    // 时间系统动作
+    trig.registerAction('setTime', (p) => {
+      if (this.timeSystem && p.period) this.timeSystem.setTimePeriod(p.period);
+    });
+    // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
+    trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
+    // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
+    trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
+    // 场景专属动作：批量生成一波敌人（第五幕战役，小兵+名将）
+    trig.registerAction('spawnWave', (p) => this._spawnWave(p));
+    // 场景专属动作：选择职业（第四幕，对话结束后由 dialogueEnd 触发器调用）
+    trig.registerAction('selectClass', (p) => this._selectClass(p));
+    // 场景专属动作：弹出职业确认窗口（第四幕，对话结束后调用；玩家点确认才真正选职业）
+    trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
+    // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
+    trig.registerAction('completeScene', (p = {}) => {
+      const sceneId = p.sceneId || p.scene;
+      if (!sceneId) { console.warn('[DDScene] completeScene: 缺少 sceneId'); return; }
+      console.log('[DDScene] completeScene →', sceneId);
+      trig.fire('sceneComplete', { sceneId });
+    });
+    // 通用动作：关闭获得物品弹窗（剧情自动推进前调用，避免弹窗与对话冲突）
+    trig.registerAction('dismissPopup', () => {
+      if (this.itemGainedPopup && this.itemGainedPopup.visible) {
+        this.itemGainedPopup.hide();
+      }
+      this._gainedQueue = [];
+    });
   }
 
   // ==================== 火堆（迁移自 Act1） ====================
@@ -1167,71 +1162,26 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       '\n  放置点:', placements.map(pl => `${pl.ref}@(${pl.x},${pl.y}) kind=${pl.kind}`).join(' | ') || '(无)',
       '\n  玩家:', _pt ? `(${Math.round(_pt.position.x)},${Math.round(_pt.position.y)})` : '?',
       '\n  火堆:', `(${this.campfire.x},${this.campfire.y})`);
-    let itemN = 0, eqN = 0, entN = 0;
-    for (const pl of placements) {
-      const baseDef = reg[this._regKey(pl.kind)] ? reg[this._regKey(pl.kind)].get(pl.ref) : null;
-      if (!baseDef) { console.warn('[DDScene] spawnGroup 未找到定义', pl.kind, pl.ref); continue; }
-      // 放置点级覆盖：同一库定义可在不同 chunk 呈现不同交互
-      // （例：张角在 s1-1 给符水对话，在 s2-1 给铜钱剑对话）
-      const def = pl.overrides ? this._mergeOverrides(baseDef, pl.overrides) : baseDef;
-      if (pl.kind === 'item') {
-        if (def.worldProp) {
-          // 静态世界道具（如煮粥大锅）：作为场景静物渲染，不可拾取
-          const prop = this.entityFactory.createProp({ ...def, position: { x: pl.x, y: pl.y } });
-          this.entityStore.add(prop);
-          entN++;
-        } else {
-          // 普通物品：可拾取掉落
-          this.entityStore.addPickup({ ...def, x: pl.x, y: pl.y, picked: false });
-          itemN++;
-        }
-      } else if (pl.kind === 'equipment') {
-        this.entityStore.addEquipmentItem({ ...def, x: pl.x, y: pl.y, picked: false });
-        eqN++;
-      } else if (pl.kind === 'enemy') {
-        // 敌人：经 EntityFactory 实例化，加入实体列表 + 敌人列表（AI/战斗系统继承自 BaseGameScene）
-        const enemy = this.entityFactory.createEnemy({
-          templateId: def.templateId || pl.ref,
-          name: def.name || '敌人',
-          level: def.level || 1,
-          stats: def.stats || {},
-          aiType: def.aiType || 'aggressive',
-          lootTable: def.lootTable || [],
-          position: { x: pl.x, y: pl.y }
-        });
-        this.entityStore.addEnemy(enemy);
-        // 注册 AI 控制器，敌人才会主动追击/攻击玩家
-        if (this.aiSystem && this.aiSystem.registerAI) {
-          this.aiSystem.registerAI(enemy, def.aiType || 'aggressive');
-        }
-        this._groupEnemies = this._groupEnemies || {};
-        (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
-        entN++;
-      } else if (pl.kind === 'npc') {
-        const npc = this.entityFactory.createNPC({ ...def, position: { x: pl.x, y: pl.y } });
-        // 加载 NPC 序列帧图集（key=图集路径，与 renderEntity getAsset 一致；无图片则渲染占位色块）
-        const sheet = def.sprite && (def.sprite.sheet || def.sprite.src);
-        if (sheet && this.assetManager && !this.assetManager.getAsset(sheet)) {
-          const full = sheet.startsWith('assets/') ? sheet : ('assets/' + sheet.replace(/^.*assets\//, ''));
-          const onNpcImageError = () => console.warn('[DDScene] NPC 图集加载失败（将用占位）:', full);
-          this.assetManager.loadImage(sheet, full).catch(
-            this.resourceScope?.guard(onNpcImageError) || onNpcImageError
-          );
-        }
-        this.entityStore.add(npc);
-        this._npcEntities = this._npcEntities || [];
-        this._npcEntities.push(npc);
-        entN++;
-      } else if (pl.kind === 'building') {
-        const b = this.entityFactory.createBuilding({ ...def, position: { x: pl.x, y: pl.y } });
-        this.entityStore.add(b);
-        entN++;
-      } else if (pl.kind === 'vehicle') {
-        const v = this.entityFactory.createVehicle({ ...def, position: { x: pl.x, y: pl.y } });
-        this.entityStore.add(v);
-        entN++;
+
+    const result = this._placementSpawner.spawnGroup({ group, placements, registries: reg });
+    for (const entry of result.errors) {
+      if (entry.reason === 'definitionNotFound') {
+        console.warn('[DDScene] spawnGroup 未找到定义', entry.kind, entry.ref);
       }
     }
+
+    // 保持旧计数口径：静态 worldProp 归入“其它”。
+    let worldPropN = 0;
+    for (const pl of placements) {
+      if (pl.kind !== 'item') continue;
+      const baseDef = reg[this._regKey(pl.kind)]?.get(pl.ref);
+      const def = pl.overrides ? this._mergeOverrides(baseDef, pl.overrides) : baseDef;
+      if (def?.worldProp) worldPropN++;
+    }
+    const itemN = Math.max(0, result.counts.item - worldPropN);
+    const eqN = result.counts.equipment;
+    const entN = worldPropN + result.counts.enemy + result.counts.npc +
+      result.counts.building + result.counts.vehicle;
     console.log(`[DDScene] spawnGroup(${group}): 物品${itemN} 装备${eqN} 其它${entN}`);
   }
 
@@ -1449,53 +1399,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _loadScenePlacements() {
-    const gameId = 'sanguo_zhangjiao';
+    const loadPromise = this._worldLoadPromise;
+    if (!loadPromise) return;
 
-    // 从 game.project.json 读取 worldMap 配置
-    fetch('game.project.json')
-      .then(res => res.ok ? res.json() : null)
-      .then(this.resourceScope.guard(project => {
-        if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) {
-          console.warn('[DDScene] game.project.json 无 worldMap 配置');
-          return;
-        }
-        const region = project.worldMap.regions[0];
-        const { chunkWidth, chunkHeight, grid } = region;
-        const placements = [];
-        const scenePromises = [];
-
-        // 遍历 grid，收集所有有场景的格子。
-        // 放置点（NPC/敌人/道具/触发器）是游戏运行配置，JSON 文件为唯一真实数据源，
-        // 因此【优先从文件读取】，避免编辑器旧 localStorage 缓存导致放置点缺失（NPC 不出现）。
-        // 文件读取失败时才回退到 localStorage 缓存。
-        for (let row = 0; row < grid.length; row++) {
-          for (let col = 0; col < (grid[row] || []).length; col++) {
-            const sceneId = grid[row][col];
-            if (!sceneId) continue;
-            const offset = { x: col * chunkWidth, y: row * chunkHeight };
-            scenePromises.push(
-              loadSceneFromFile(sceneId)
-                .then(s => {
-                  // 文件无有效数据时回退 localStorage 缓存
-                  if (!s || !Array.isArray(s.layers)) s = loadSceneFromStorage(gameId, sceneId);
-                  if (s) this._collectPlacements(s, placements, offset);
-                })
-                .catch(() => {
-                  const s = loadSceneFromStorage(gameId, sceneId);
-                  if (s) this._collectPlacements(s, placements, offset);
-                })
-            );
-          }
-        }
-
-        Promise.all(scenePromises).then(this.resourceScope.guard(() => {
-          this._placements = placements;
-          this._applySpawnPoints(placements);
-        }));
-      }))
-      .catch(this.resourceScope.guard(
-        e => console.warn('[DDScene] 加载 game.project.json 失败:', e)
-      ));
+    loadPromise.then(this.resourceScope.guard(result => {
+      if (!result.region) {
+        console.warn('[DDScene] game.project.json 无 worldMap 配置');
+      }
+      const placements = result.placements || [];
+      this._placements = placements;
+      this._applySpawnPoints(placements);
+      this._worldReadyGate?.resolve('placements', placements);
+      this._syncWorldReadyProjection();
+    })).catch(this.resourceScope.guard(e => {
+      console.warn('[DDScene] 加载 game.project.json 失败:', e);
+      this._placements = [];
+      this._applySpawnPoints(this._placements);
+      this._worldReadyGate?.resolve('placements', this._placements);
+      this._syncWorldReadyProjection();
+    }));
   }
 
   /**
@@ -1554,9 +1476,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.camera.setPosition(finalPt.position.x, finalPt.position.y);
     }
 
-    this._spawnApplied = true;
-    this._checkSceneReady();
-
     console.log('[DDScene] 场景放置点:', placements.length, '玩家:',
       this.playerEntity?.getComponent('transform')?.position, '火堆:', this.campfire.x, this.campfire.y);
   }
@@ -1566,112 +1485,95 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _loadWorldTerrains() {
-    fetch('game.project.json')
-      .then(res => res.ok ? res.json() : null)
-      .then(this.resourceScope.guard(project => {
-        if (!project || !project.worldMap || !project.worldMap.regions || !project.worldMap.regions[0]) return;
-        const region = project.worldMap.regions[0];
-        this._worldRegion = region; // 保存 region 引用供 teleportToChunk 使用
-        this.context.world.region = region;
-        const { chunkWidth, chunkHeight, grid } = region;
+    const loadPromise = this._worldLoadPromise;
+    if (!loadPromise) return;
 
-        for (let row = 0; row < grid.length; row++) {
-          for (let col = 0; col < (grid[row] || []).length; col++) {
-            const sceneId = grid[row][col];
-            if (!sceneId) continue;
-            const offset = { x: col * chunkWidth, y: row * chunkHeight };
-            const t = new Scene1Terrain({
-              centerX: chunkWidth / 2,
-              centerY: chunkHeight / 2,
-              width: chunkWidth,
-              height: chunkHeight,
-              editorSceneId: sceneId,
-              worldOffset: offset
-            });
-            this._terrains.push(t);
-            // 第一个有效地形作为主 terrain（供碰撞等通用逻辑使用）
-            if (!this.terrain) this.terrain = t;
-          }
+    loadPromise.then(this.resourceScope.guard(result => {
+      const project = result.project;
+      const region = result.region;
+      this._worldRegion = region;
+      this.context.world.region = region;
+      this._terrains.length = 0;
+      this.terrain = null;
+      this.terrainAct1 = null;
+
+      if (region) {
+        const chunkWidth = Number(region.chunkWidth) || 1280;
+        const chunkHeight = Number(region.chunkHeight) || 720;
+        for (const chunk of result.chunks) {
+          const terrain = new Scene1Terrain({
+            centerX: chunkWidth / 2,
+            centerY: chunkHeight / 2,
+            width: chunkWidth,
+            height: chunkHeight,
+            editorSceneId: chunk.sceneId,
+            worldOffset: chunk.offset,
+            skipEditorLoad: true,
+            // 每个 terrain 持有独立数据副本，避免重复 sceneId 的 chunk 共享可变对象。
+            sceneData: chunk.sceneData && Array.isArray(chunk.sceneData.layers)
+              ? JSON.parse(JSON.stringify(chunk.sceneData))
+              : null
+          });
+          this._terrains.push(terrain);
+          if (!this.terrain) this.terrain = terrain;
         }
-        // 兼容旧代码中 terrainAct1 的引用
-        if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
-        this.context.world.terrain = this.terrain;
-        this.context.world.terrains = this._terrains;
+      }
 
-        // 加载天气和时间系统配置
-        if (project.system) {
-          if (project.system.weather) {
-            this.weatherSystem = new WeatherSystem(project.system.weather);
-          }
-          if (project.system.time) {
-            this.timeSystem = new TimeSystem(project.system.time);
-          }
+      // 兼容旧代码中 terrainAct1 的引用
+      if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
+      this.context.world.terrain = this.terrain;
+      this.context.world.terrains = this._terrains;
+
+      // 加载天气和时间系统配置
+      if (project?.system) {
+        if (project.system.weather) {
+          this.weatherSystem = new WeatherSystem(project.system.weather);
         }
-        this._terrainsLoaded = true;
-        this._checkSceneReady();
+        if (project.system.time) {
+          this.timeSystem = new TimeSystem(project.system.time);
+        }
+      }
 
-        // 特效区域：遍历所有 chunk 加载 effectZone 数据
-        this._initMultiChunkEffectZones(grid, chunkWidth, chunkHeight);
-      }))
-      .catch(this.resourceScope.guard(e => {
-        console.warn('[DDScene] 加载 worldMap 地形失败:', e);
-        this._terrainsLoaded = true;
-        this._checkSceneReady();
-      }));
+      // effectZones 已由 session 投影到世界坐标，禁止再次叠加 worldOffset。
+      this._initMultiChunkEffectZones(result.effectZones || []);
+      this._worldReadyGate?.resolve('terrains', this._terrains);
+      this._syncWorldReadyProjection();
+    })).catch(this.resourceScope.guard(e => {
+      console.warn('[DDScene] 加载 worldMap 地形失败:', e);
+      this._worldReadyGate?.resolve('terrains', []);
+      this._syncWorldReadyProjection();
+    }));
   }
 
   /**
    * 多 chunk 场景的特效区域初始化：遍历所有场景文件，收集 effectZone 数据。
    * @private
    */
-  _initMultiChunkEffectZones(grid, chunkWidth, chunkHeight) {
+  _initMultiChunkEffectZones(effectZones) {
     if (!this.particleSystem) return;
-    import('../../../src/rendering/EffectZoneRenderer.js').then(
-      this.resourceScope.guard(({ EffectZoneRenderer: EZR }) => {
-      this.effectZoneRenderer = new EZR(this.particleSystem);
-      const allZones = [];
-
-      const promises = [];
-      for (let row = 0; row < grid.length; row++) {
-        for (let col = 0; col < (grid[row] || []).length; col++) {
-          const sceneId = grid[row][col];
-          if (!sceneId) continue;
-          const offset = { x: col * chunkWidth, y: row * chunkHeight };
-          promises.push(
-            loadSceneFromFile(sceneId).then(data => {
-              if (data && Array.isArray(data.layers)) {
-                for (const layer of data.layers) {
-                  if (!layer || !Array.isArray(layer.objects)) continue;
-                  for (const obj of layer.objects) {
-                    if (obj && obj.type === 'effectZone' && Array.isArray(obj.points) && obj.points.length >= 3) {
-                      allZones.push({
-                        ...obj,
-                        points: obj.points.map(p => [p[0] + offset.x, p[1] + offset.y]),
-                        x: (obj.x || 0) + offset.x,
-                        y: (obj.y || 0) + offset.y
-                      });
-                    }
-                  }
-                }
-              }
-            }).catch(() => { /* 无此场景文件 */ })
-          );
-        }
-      }
-
-      Promise.all(promises).then(this.resourceScope.guard(() => {
-        if (allZones.length > 0) {
-          this.effectZoneRenderer.zones = allZones;
-          this.effectZoneRenderer._accumulators = allZones.map(() => 0);
-          console.log(`[DDScene] 加载了 ${allZones.length} 个特效区域`);
-        }
-      }));
-    })).catch(this.resourceScope.guard(() => { /* EffectZoneRenderer 加载失败，忽略 */ }));
+    const renderer = new EffectZoneRenderer(this.particleSystem);
+    this.effectZoneRenderer?.clear?.();
+    this.effectZoneRenderer = renderer;
+    renderer.zones = Array.isArray(effectZones) ? effectZones : [];
+    renderer._accumulators = renderer.zones.map(() => 0);
+    if (renderer.zones.length > 0) {
+      console.log(`[DDScene] 加载了 ${renderer.zones.length} 个特效区域`);
+    }
   }
 
-  /** 地形 + 放置点都就绪后开放渲染（加载门） */
+  /** 将 WorldReadyGate 状态投影到旧兼容字段；真实渲染门只读取 gate。 */
+  _syncWorldReadyProjection() {
+    const status = this._worldReadyGate?.status;
+    if (!status) return;
+    const timedOut = status.state === 'timedOut';
+    this._terrainsLoaded = timedOut || status.entries.terrains?.state === 'resolved';
+    this._spawnApplied = timedOut || status.entries.placements?.state === 'resolved';
+    this._sceneReady = status.state === 'ready' || timedOut;
+  }
+
+  /** 地形 + 放置点都就绪后开放渲染（兼容入口，真实状态来自 WorldReadyGate） */
   _checkSceneReady() {
-    if (this._terrainsLoaded && this._spawnApplied) this._sceneReady = true;
+    this._syncWorldReadyProjection();
   }
 
   /** 迷雾淡出（平滑过渡到目标浓度） */
@@ -1692,7 +1594,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   render(ctx) {
     // 加载门：地形/放置点异步加载完成前只填背景色，避免先渲染在默认位置再"跳变"、
     // 以及编辑器数据加载前闪现程序化默认树。
-    if (!this._sceneReady) {
+    const worldGateState = this._worldReadyGate?.status.state;
+    if (worldGateState !== 'ready' && worldGateState !== 'timedOut') {
       const bg = (this.terrain && this.terrain.sceneBackgroundColor) || '#1f1a14';
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, this.logicalWidth || (ctx.canvas && ctx.canvas.width) || 1280, this.logicalHeight || (ctx.canvas && ctx.canvas.height) || 720);
@@ -2140,7 +2043,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (t._collisionShapes) {
         for (let i = 0; i < Math.min(3, t._collisionShapes.length); i++) {
           const s = t._collisionShapes[i];
-          console.log(`[DDScene] shape[${i}]: type=${s.shapeType}, points前3个=`, 
+          console.log(`[DDScene] shape[${i}]: type=${s.shapeType}, points前3个=`,
             s.points ? s.points.slice(0, 3) : 'NO POINTS');
         }
       }
@@ -2148,126 +2051,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       console.log('[DDScene] 玩家位置:', pt ? `(${Math.round(pt.position.x)},${Math.round(pt.position.y)})` : 'null');
       this._collisionInitLogged = true;
     }
-    const cx = t.centerX, cy = t.centerY;
-    const irx = t.basinInnerRadiusX, iry = t.basinInnerRadiusY;
-    const halfAng = t.entranceAngleHalfWidth;
-
-    for (const entity of this.entities) {
-      if (entity.isDead || entity.isDying) continue;
-      const transform = entity.getComponent('transform');
-      if (!transform) continue;
-      const p = transform.position;
-
-      // 2) 水池（推开）— 遍历所有已加载地形
-      for (const terrain of this._terrains) {
-        for (const pond of terrain.waterPatches) {
-          const pdx = (p.x - pond.x), pdy = (p.y - pond.y);
-          const nx = pdx / pond.rx, ny = pdy / pond.ry;
-          const d2 = nx * nx + ny * ny;
-          if (d2 < 1 && d2 > 0) {
-            const k = 1 / Math.sqrt(d2);
-            p.x = pond.x + pdx * k * 1.04;
-            p.y = pond.y + pdy * k * 1.04;
-          } else if (d2 === 0) {
-            p.y = pond.y - pond.ry - 2;
-          }
-        }
-      }
-
-      // 3) 树木（圆形障碍，推开）— 遍历所有已加载地形
-      const entityRadius = 12;
-      for (const terrain of this._terrains) {
-        const trees = terrain.getTreeColliders();
-        for (const tree of trees) {
-          const tdx = p.x - tree.x, tdy = p.y - tree.y;
-          const minDist = tree.r + entityRadius;
-          const d2 = tdx * tdx + tdy * tdy;
-          if (d2 < minDist * minDist) {
-            const td = Math.sqrt(d2);
-            if (td > 0.001) {
-              const k = (minDist + 1) / td;
-              p.x = tree.x + tdx * k;
-              p.y = tree.y + tdy * k;
-            } else {
-              p.y = tree.y + minDist + 1;
-            }
-          }
-        }
-      }
-
-      // 4) 编辑器 collide shape（多边形/矩形/椭圆，精确边界推开）— 遍历所有已加载地形
-      for (const terrain of this._terrains) {
-        if (terrain._collisionShapes && terrain._collisionShapes.length) {
-          for (const s of terrain._collisionShapes) {
-            this._resolveShapeCollision(p, s, entityRadius);
-          }
-        }
-      }
-
-    }
-  }
-
-  /** 把点推出一个 collide shape（多边形/矩形精确边界，椭圆/圆边界） */
-  _resolveShapeCollision(p, s, radius) {
-    const t = this.terrain || this._terrains[0];
-    if (!t || !t._pointInCollisionShape(s, p.x, p.y)) return;
-    const EPS = 2;
-    const st = s.shapeType;
-    if (st === 'circle' || st === 'ellipse') {
-      const cx = (s.x || 0) + (s.width || 0) / 2;
-      const cy = (s.y || 0) + (s.height || 0) / 2;
-      const dirx = p.x - cx, diry = p.y - cy;
-      const dl = Math.hypot(dirx, diry) || 1;
-      const rx = (st === 'circle' ? Math.min(s.width, s.height) : s.width) / 2 || 1;
-      const ry = (st === 'circle' ? Math.min(s.width, s.height) : s.height) / 2 || 1;
-      const ux = dirx / rx, uy = diry / ry;
-      const d = Math.hypot(ux, uy) || 1;
-      p.x = cx + dirx / d + dirx / dl * EPS;
-      p.y = cy + diry / d + diry / dl * EPS;
-      return;
-    }
-    let pts = s.points;
-    if (st === 'rect' || !Array.isArray(pts)) {
-      const x = s.x || 0, y = s.y || 0, w = s.width || 0, h = s.height || 0;
-      pts = [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
-    }
-    this._pushOutOfPolygon(p, pts, EPS);
-  }
-
-  /** 把点沿最近边外法向推出多边形（点须已在内） */
-  _pushOutOfPolygon(p, pts, radius) {
-    if (!pts || pts.length < 3) return;
-    let ccx = 0, ccy = 0;
-    for (const q of pts) { ccx += q[0]; ccy += q[1]; }
-    ccx /= pts.length; ccy /= pts.length;
-
-    let best = null, bestD = Infinity;
-    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-      const a = pts[j], b = pts[i];
-      const np = this._closestOnSegment(p.x, p.y, a[0], a[1], b[0], b[1]);
-      const d = Math.hypot(p.x - np.x, p.y - np.y);
-      if (d < bestD) {
-        bestD = d;
-        let nx = -(b[1] - a[1]), ny = (b[0] - a[0]);
-        const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
-        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-        if (nx * (mx - ccx) + ny * (my - ccy) < 0) { nx = -nx; ny = -ny; }
-        best = { x: np.x, y: np.y, nx, ny };
-      }
-    }
-    if (best) {
-      p.x = best.x + best.nx * radius;
-      p.y = best.y + best.ny * radius;
-    }
-  }
-
-  /** 点到线段最近点 */
-  _closestOnSegment(px, py, ax, ay, bx, by) {
-    const dx = bx - ax, dy = by - ay;
-    const l2 = dx * dx + dy * dy || 1;
-    let tt = ((px - ax) * dx + (py - ay) * dy) / l2;
-    tt = Math.max(0, Math.min(1, tt));
-    return { x: ax + dx * tt, y: ay + dy * tt };
+    this._terrainBinding.checkTerrainCollision();
   }
 }
 

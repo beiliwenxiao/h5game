@@ -169,8 +169,13 @@ export class Scene1Terrain {
     this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
-    // 尝试应用游戏编辑器保存的场景数据（localStorage），实现编辑器与游戏联动
-    this._applyEditorOverrides(config);
+    // 世界会话可直接注入已经加载的完整数据，避免 terrain 自己再次读取缓存/文件。
+    if (config.sceneData && Array.isArray(config.sceneData.layers)) {
+      this._editorSceneId = config.editorSceneId || config.sceneData.id || 'scene_Prologue';
+      this._applySceneData(config.sceneData);
+    } else if (!config.skipEditorLoad) {
+      this._applyEditorOverrides(config);
+    }
 
     // 如果没有编辑器数据（_applySceneData 未执行），也需要对默认数据应用 worldOffset
     if ((this.worldOffset.x !== 0 || this.worldOffset.y !== 0) && !this._worldOffsetApplied) {
@@ -364,13 +369,11 @@ export class Scene1Terrain {
         const layerHidden = layer.visible === false;
         for (const obj of layer.objects) {
           if (!obj) continue;
-          // 碰撞 shape 无论图层是否可见都要收集（碰撞是逻辑层，不依赖视觉显示）
-          if (obj.type === 'shape' && obj.collide) {
-            this._collisionShapes.push(obj);
-          }
-          // 可落脚 shape：同样不依赖视觉层
+          // walkable 优先于 collide；即使旧数据同时带两个标记，也只进入一个会偏移的数组。
           if (obj.type === 'shape' && obj.walkable) {
             this._walkableShapes.push(obj);
+          } else if (obj.type === 'shape' && obj.collide) {
+            this._collisionShapes.push(obj);
           }
           // 图层隐藏时跳过视觉渲染相关的收集
           // 碰撞/可落脚 shape 也不重复放入 _editorShapes（避免 worldOffset 双重偏移）

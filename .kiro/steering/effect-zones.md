@@ -60,7 +60,7 @@ fileMatchPattern: '{**/EffectZoneRenderer*,**/Particle*,**/ParticleSystem*,**/Sc
 ## 接入路径
 
 - 单 chunk 场景：`BaseGameScene._initEditorTerrain` → `_initEffectZones(sceneId)` 异步加载
-- 多 chunk 场景：`DataDrivenPrologueScene._initMultiChunkEffectZones` 动态 import + 遍历所有 chunk
+- 多 chunk 场景：`WorldMapLoadSession` 在唯一世界加载 Promise 中收集并应用一次 worldOffset → `DataDrivenPrologueScene._initMultiChunkEffectZones(effectZones)` 直接装配已投影区域
 - 每帧 `effectZoneRenderer.update(deltaTime)` 生成粒子，由已有 `particleSystem.update/render` 驱动
 
 ## 编辑器使用提示

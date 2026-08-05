@@ -14,8 +14,9 @@
  *
  * 用法：
  *   InputHints.setInputManager(inputManager);        // 一次即可，用于手柄检测与绑定反查
- *   InputHints.phrase('bag')                         // ' 按 B 键' / '点击背包按钮' / '按手柄 Start 键'
- *   InputHints.key('bag')                            // 'B' / '背包按钮' / 'Start'
+ *   InputHints.phrase('bag')                         // '按 B 键' / '点击背包按钮' / '按手柄 Back 键'
+ *   InputHints.key('settings')                      // 'Esc' / '系统设置按钮' / 'Start'
+ *   InputHints.key('bag')                           // 'B' / '背包按钮' / 'Back'
  *   InputHints.format('{bag}打开背包，使用符水')      // 整句按当前方案替换
  *   InputHints.format('{bag}打开背包', { keyWrapper: k => `<span class="key">${k}</span>` })
  */
@@ -43,6 +44,7 @@ const DEFAULT_ACTIONS = {
   pickup: { pc: { key: 'E', kind: 'key' }, android: '交互按钮', padKey: 'e' },
   interact: { pc: { key: 'E', kind: 'key' }, android: '交互按钮', padKey: 'e' },
   bag: { pc: { key: 'B', kind: 'key' }, android: '背包按钮', padKey: 'b' },
+  settings: { pc: { key: 'Esc', kind: 'key' }, android: '系统设置按钮', padKey: 'settings', padFallback: 'Start' },
   playerInfo: { pc: { key: 'C', kind: 'key' }, android: '背包按钮', padKey: 'b' },
   block: { pc: { key: 'Q', kind: 'key' }, android: '格挡按钮', padFixed: 'LT', padKind: 'key' },
   flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padKey: FLIGHT_ACTION, padFallback: '未绑定' },

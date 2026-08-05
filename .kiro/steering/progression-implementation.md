@@ -155,6 +155,7 @@ MOVE     右键
 - 参与者错误自动加段落前缀，如 `data.progression.value`。
 - 缺少迁移器时返回 `missingMigration`，不静默失败；有 32 次循环保护。
 - 存档 JSON 损坏时返回 `invalidJson`，**原样保留存档**，不删不覆盖。
+- `SaveGameService` 基于 `SnapshotManager + LocalStorageAdapter` 提供命名空间化多槽存档；业务场景只注入 `capture/validate/restore`，不得绕过原子恢复直接逐段写状态。
 - `ProgressManager` 未废弃，可继续作为旧路径；新代码用 `SnapshotManager` + `LocalStorageAdapter`。
 
 ## 内容校验（S10）

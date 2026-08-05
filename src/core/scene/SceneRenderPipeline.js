@@ -38,6 +38,7 @@ export class SceneRenderPipeline {
       (scene, ctx) => scene.flightButton?.render(ctx),
       (scene, ctx) => scene.throwButton?.render(ctx),
       (scene, ctx) => scene.bagButton?.render(ctx),
+      (scene, ctx) => scene.settingsButton?.render(ctx),
       (scene, ctx) => scene.playerStatusHUD?.render(ctx),
       (scene, ctx) => scene.minimap?.render(ctx),
       (scene, ctx) => scene.renderCombatStateUI(ctx),

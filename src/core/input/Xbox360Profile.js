@@ -92,6 +92,7 @@ export const JUMP_ACTION = 'jump';                    // 可重绑：独立跳�
 export const FLIGHT_ACTION = 'flight';                // 默认 Y：轻按跳跃，长按轻功
 export const THROW_ACTION = 'throw';                  // B 按住：投掷
 export const BLOCK_ACTION = 'block';                  // LT 按住：格挡
+export const SETTINGS_ACTION = 'settings';            // 系统设置/标题菜单
 
 /**
  * 默认绑定：RT攻击 / RB释放技能 / LB切换技能 / Y轻按跳跃、长按轻功 / B投掷 / LT格挡。
@@ -107,7 +108,7 @@ export const DEFAULT_BINDINGS = {
   [PadButton.LT]: BLOCK_ACTION,         // 格挡（按住生效）
   [PadButton.RT]: ATTACK_ACTION,        // 普通攻击（按住+右摇杆方向+释放）
   [PadButton.BACK]: 'b',               // 背包（属性+装备+物品）
-  [PadButton.START]: NONE_ACTION,       // 空出
+  [PadButton.START]: SETTINGS_ACTION,   // 系统设置/标题菜单
   [PadButton.LS]: NONE_ACTION,          // 空出
   [PadButton.RS]: 'escape',             // 取消选中
   [PadButton.DPAD_UP]: 'skill1',        // 红药水
@@ -135,6 +136,7 @@ export const BINDABLE_ACTIONS = [
   { value: 'skill1', label: '红药水', group: '快捷' },
   { value: 'skill2', label: '蓝药水', group: '快捷' },
   { value: 'b', label: '背包', group: '面板' },
+  { value: SETTINGS_ACTION, label: '系统设置', group: '面板' },
   { value: 'escape', label: '取消选中', group: '其它' }
 ];
 
@@ -152,7 +154,7 @@ export const BINDING_DESCRIPTIONS = {
   [PadButton.LT]: '格挡（按住生效）',
   [PadButton.RT]: '攻击（按住瞄准）',
   [PadButton.BACK]: '背包',
-  [PadButton.START]: '—',
+  [PadButton.START]: '系统设置',
   [PadButton.LS]: '—',
   [PadButton.RS]: '取消选中',
   [PadButton.DPAD_UP]: '红药水',

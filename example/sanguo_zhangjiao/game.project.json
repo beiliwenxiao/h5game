@@ -3409,6 +3409,17 @@
     "talents": []
   },
   "system": {
+    "login": {
+      "title": "张角黄巾起义序章",
+      "subtitle": "苍天已死，黄天当立",
+      "description": "乱世将起，你的选择将改变众人的命运。",
+      "backgroundImage": "",
+      "backgroundColor": "#111111",
+      "panelColor": "rgba(15, 15, 18, 0.88)",
+      "titleColor": "#e7c778",
+      "textColor": "#dddddd",
+      "buttonColor": "#4b6728"
+    },
     "loading": {
       "title": "张角黄巾起义序章(闻箫工作室)",
       "subtitle": "第一幕：绝望的开始",

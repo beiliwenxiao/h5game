@@ -665,6 +665,27 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this._chunkNavigator?.teleport({ ...p, sceneId });
   }
 
+  /** Demo 专属运行状态；玩家/任务/黑板由 BaseGameScene 统一保存。 */
+  captureSceneSaveState() {
+    return {
+      campfireLit: !!this.campfire?.lit,
+      firedPickups: [...(this._firedPickups || [])],
+      clearedGroups: [...(this._clearedGroups || [])],
+      tutorialEvents: [...(this._tutFired || [])],
+      nextSceneTarget: this._nextSceneTarget || null,
+      playerDiedTriggered: !!this._playerDiedTriggered
+    };
+  }
+
+  restoreSceneSaveState(data = {}) {
+    this._firedPickups = new Set(data.firedPickups || []);
+    this._clearedGroups = new Set(data.clearedGroups || []);
+    this._tutFired = new Set(data.tutorialEvents || []);
+    this._nextSceneTarget = data.nextSceneTarget || null;
+    this._playerDiedTriggered = !!data.playerDiedTriggered;
+    if (data.campfireLit && !this.campfire?.lit) this.lightCampfire();
+  }
+
   /**
    * 淡黑过渡（0.3s 淡黑 → 执行回调 → 0.3s 淡出）
    * 对外保持旧契约：完成 resolve true，取消/被替换 resolve false。

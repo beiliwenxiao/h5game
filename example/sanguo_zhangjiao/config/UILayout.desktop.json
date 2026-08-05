@@ -213,6 +213,20 @@
       "yPct": 0.81528,
       "wPct": 0.03125,
       "hPct": 0.05556
+    },
+    {
+      "id": "pc-settings",
+      "label": "系统设置",
+      "kind": "button",
+      "anchor": "topleft",
+      "x": 723,
+      "y": 586,
+      "width": 40,
+      "height": 40,
+      "xPct": 0.56484,
+      "yPct": 0.81389,
+      "wPct": 0.03125,
+      "hPct": 0.05556
     }
   ]
 }

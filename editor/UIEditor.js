@@ -46,8 +46,9 @@ const DEFAULT_COMPONENTS = {
       { id: 'pc-jump', label: '跳跃', x: 722, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       { id: 'pc-flight', label: '轻功', x: 778, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
       { id: 'pc-throw', label: '投掷', x: 834, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
-      // 统一背包入口
-      { id: 'pc-bag', label: '背包', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
+      // 统一背包入口 + 系统设置
+      { id: 'pc-bag', label: '背包', x: 890, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' },
+      { id: 'pc-settings', label: '系统设置', x: 946, y: 640, width: 50, height: 50, anchor: 'topleft', kind: 'button' }
     ]
   },
   mobile: {
@@ -72,6 +73,7 @@ const DEFAULT_COMPONENTS = {
       { id: 'hb-hp', label: '红瓶', x: 440, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-mp', label: '蓝瓶', x: 510, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-bag', label: '背包', x: 650, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
+      { id: 'hb-settings', label: '系统设置', x: 580, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-skill6', label: '回血', x: 720, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-skill7', label: '打坐', x: 790, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' }
     ]

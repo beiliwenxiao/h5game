@@ -81,7 +81,7 @@ A        拾取/交互/确认对话
 X        拾取/交互/确认对话
 十字键↑  红药水    十字键↓  蓝药水
 Back 背包（属性+装备+物品）
-Start （空出，留给未来功能）
+Start 系统设置/登录菜单（默认绑定 `settings`，游戏内打开时自动存档并暂停）
 RS 取消选中
 按键图入口：调试面板（反引号打开）→ 手柄 → 🎮 Xbox 360 按键图
 ```
@@ -128,7 +128,7 @@ UIEditor 的第三个标签页 `🎮 手柄`：
 
 ### 可绑定动作清单（Xbox360Profile.BINDABLE_ACTIONS）
 
-`ATTACK_ACTION`（攻击，走虚拟鼠标）、`NONE_ACTION`（无）、以及所有虚拟键名。`ACTION_LABELS` 提供中文名快速查表。
+`ATTACK_ACTION`（攻击，走虚拟鼠标）、`SETTINGS_ACTION`（系统设置/登录菜单）、`NONE_ACTION`（无）、以及所有虚拟键名。`ACTION_LABELS` 提供中文名快速查表。
 
 ### 攻击键可配置
 

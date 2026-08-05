@@ -36,8 +36,9 @@ import { InputHints } from '../../../src/core/input/InputHints.js';
 
 InputHints.setInputManager(this.inputManager);   // 场景创建 InputManager 后调一次
 
-InputHints.key('bag')      // 'B' / '背包按钮' / 'Start'
-InputHints.phrase('bag')   // '按 B 键' / '点击背包按钮' / '按手柄 Start 键'
+InputHints.key('bag')      // 'B' / '背包按钮' / 'Back'
+InputHints.key('settings') // 'Esc' / '系统设置按钮' / 当前绑定按钮（默认 Start）
+InputHints.phrase('bag')   // '按 B 键' / '点击背包按钮' / '按手柄 Back 键'
 InputHints.format('{bag}打开背包，使用符水')      // 整句替换
 InputHints.formatHtml('{bag}打开背包')            // 按键名包 <span class="key">
 InputHints.scheme          // 'pc' | 'android' | 'gamepad'

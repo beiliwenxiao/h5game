@@ -1,8 +1,8 @@
 /**
  * SystemEditor - 系统编辑器
  * 
- * 配置游戏系统级参数（加载页面、全局设置等），保存到 game.project.json 的 system 字段。
- * 第一个标签：加载页面配置（标题、副标题、加载文字、图标、步骤间隔）
+ * 配置游戏系统级参数（登录界面、加载页面、全局设置等），保存到 game.project.json 的 system 字段。
+ * 标签顺序与运行时一致：登录界面 → 加载页面 → 天气/时间系统。
  */
 export class SystemEditor {
   constructor(container, opts = {}) {
@@ -12,28 +12,50 @@ export class SystemEditor {
     this._data = null; // system 配置数据
   }
 
-  init() {
+  async init() {
+    await this._loadData();
     if (!this._initialized) {
-      this._loadData();
       this._render();
       this._initialized = true;
     } else {
-      this._loadData();
-      this._updateFields();
+      this._render();
     }
   }
 
-  _loadData() {
+  async _loadData() {
+    this._data = {};
+    const key = 'yijian18-engine_editor_project_' + this.gameId;
     try {
-      const raw = localStorage.getItem('yijian18-engine_editor_project_' + this.gameId);
-      if (raw) {
-        const project = JSON.parse(raw);
+      // 磁盘 game.project.json 是唯一真实源；成功读取后同步回 localStorage 缓存。
+      const response = await fetch(`../example/${this.gameId}/game.project.json`);
+      if (response.ok) {
+        const project = await response.json();
         this._data = project.system || {};
+        localStorage.setItem(key, JSON.stringify(project));
       } else {
+        throw new Error(`HTTP ${response.status}`);
+      }
+    } catch (error) {
+      try {
+        const raw = localStorage.getItem(key);
+        this._data = raw ? (JSON.parse(raw).system || {}) : {};
+      } catch (_cacheError) {
         this._data = {};
       }
-    } catch (e) {
-      this._data = {};
+    }
+    // 登录页面在运行时位于加载页面之前。
+    if (!this._data.login) {
+      this._data.login = {
+        title: '张角黄巾起义序章',
+        subtitle: '苍天已死，黄天当立',
+        description: '乱世将起，你的选择将改变众人的命运。',
+        backgroundImage: '',
+        backgroundColor: '#111111',
+        panelColor: 'rgba(15, 15, 18, 0.88)',
+        titleColor: '#e7c778',
+        textColor: '#dddddd',
+        buttonColor: '#4b6728'
+      };
     }
     // 确保 loading 子对象存在
     if (!this._data.loading) {
@@ -80,54 +102,76 @@ export class SystemEditor {
     }
   }
 
-  _save() {
+  async _save() {
     try {
       const key = 'yijian18-engine_editor_project_' + this.gameId;
       let project = {};
       const raw = localStorage.getItem(key);
       if (raw) project = JSON.parse(raw);
       project.system = this._data;
-      localStorage.setItem(key, JSON.stringify(project));
 
-      // 同时写入 game.project.json（通过 Vite API）
-      this._saveToFile(project);
-      this._showToast('已保存');
+      // 先持久化磁盘，成功后再更新缓存；两处保持一致才报告成功。
+      const savedProject = await this._saveToFile();
+      localStorage.setItem(key, JSON.stringify(savedProject || project));
+      this._showToast('已保存到配置文件和缓存');
     } catch (e) {
       console.error('SystemEditor: 保存失败', e);
+      this._showToast(`保存失败：${e.message}`);
     }
   }
 
-  async _saveToFile(project) {
-    try {
-      // 读取现有 game.project.json 并合并 system 字段
-      const res = await fetch(`../example/${this.gameId}/game.project.json`);
-      if (!res.ok) return;
-      const existing = await res.json();
-      existing.system = this._data;
-      await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: `example/${this.gameId}/game.project.json`,
-          content: JSON.stringify(existing, null, 2)
-        })
-      });
-    } catch (e) {
-      console.warn('SystemEditor: 写入文件失败（dev server 可能不支持）', e);
-    }
+  async _saveToFile() {
+    // 读取现有 game.project.json 并只合并 system 字段，避免覆盖其它项目配置。
+    const res = await fetch(`../example/${this.gameId}/game.project.json`);
+    if (!res.ok) throw new Error(`读取项目文件失败: HTTP ${res.status}`);
+    const existing = await res.json();
+    existing.system = this._data;
+    const saved = await fetch('/api/save-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: `example/${this.gameId}/game.project.json`,
+        content: JSON.stringify(existing, null, 2)
+      })
+    });
+    if (!saved.ok) throw new Error(`写入项目文件失败: HTTP ${saved.status}`);
+    const result = await saved.json();
+    if (!result.ok) throw new Error(result.error || '写入项目文件失败');
+    return existing;
   }
 
   _render() {
+    const lg = this._data.login;
     const ld = this._data.loading;
     this.container.innerHTML = `
       <div style="padding:16px;color:#ccc;font-family:sans-serif;overflow-y:auto;height:100%;">
         <h2 style="color:#4CAF50;margin:0 0 16px;">系统编辑器</h2>
         <div style="display:flex;gap:8px;margin-bottom:16px;">
-          <button class="sys-tab active" data-tab="loading">加载页面</button>
+          <button class="sys-tab active" data-tab="login">登录界面</button>
+          <button class="sys-tab" data-tab="loading">加载页面</button>
           <button class="sys-tab" data-tab="weather">天气系统</button>
           <button class="sys-tab" data-tab="time">时间系统</button>
         </div>
-        <div id="sys-tab-loading" class="sys-tab-content">
+        <div id="sys-tab-login" class="sys-tab-content">
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">文字内容</legend>
+            <div class="sys-row"><label>标题:</label><input type="text" id="sys-lg-title" value="${this._esc(lg.title)}"></div>
+            <div class="sys-row"><label>副标题:</label><input type="text" id="sys-lg-subtitle" value="${this._esc(lg.subtitle)}"></div>
+            <div class="sys-row"><label>文字描述:</label><textarea id="sys-lg-description" rows="4">${this._esc(lg.description)}</textarea></div>
+          </fieldset>
+          <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
+            <legend style="color:#8cf;">背景与样式</legend>
+            <div class="sys-row"><label>背景图URL:</label><input type="text" id="sys-lg-image" value="${this._esc(lg.backgroundImage)}" placeholder="如 assets/images/login-bg.jpg"></div>
+            <div class="sys-row"><label>背景色:</label><input type="color" id="sys-lg-bg" value="${lg.backgroundColor || '#111111'}"></div>
+            <div class="sys-row"><label>面板颜色:</label><input type="text" id="sys-lg-panel" value="${this._esc(lg.panelColor)}" placeholder="支持 rgba(...) "></div>
+            <div class="sys-row"><label>标题色:</label><input type="color" id="sys-lg-titlecolor" value="${lg.titleColor || '#e7c778'}"></div>
+            <div class="sys-row"><label>文字色:</label><input type="color" id="sys-lg-textcolor" value="${lg.textColor || '#dddddd'}"></div>
+            <div class="sys-row"><label>按钮色:</label><input type="color" id="sys-lg-button" value="${lg.buttonColor || '#4b6728'}"></div>
+          </fieldset>
+          <p style="color:#888;font-size:12px;">运行顺序：登录界面 → 加载页面 → 游戏场景。登录界面固定提供“开始游戏 / 继续游戏 / 退出游戏”。</p>
+          <button id="sys-lg-save" style="padding:8px 24px;background:#4CAF50;border:none;color:#fff;border-radius:4px;cursor:pointer;font-size:14px;">保存</button>
+        </div>
+        <div id="sys-tab-loading" class="sys-tab-content" style="display:none;">
           <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
             <legend style="color:#8cf;">基本信息</legend>
             <div class="sys-row"><label>标题:</label><input type="text" id="sys-ld-title" value="${this._esc(ld.title)}"></div>
@@ -192,7 +236,7 @@ export class SystemEditor {
       <style>
         .sys-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
         .sys-row label { min-width:80px; color:#aaa; font-size:13px; }
-        .sys-row input[type="text"], .sys-row input[type="number"] { flex:1; padding:4px 8px; background:#1a2a3a; border:1px solid #333; color:#fff; border-radius:3px; }
+        .sys-row input[type="text"], .sys-row input[type="number"], .sys-row textarea { flex:1; padding:4px 8px; background:#1a2a3a; border:1px solid #333; color:#fff; border-radius:3px; }
         .sys-row input[type="color"] { width:50px; height:28px; border:none; cursor:pointer; }
         .sys-tab { padding:6px 16px; background:#1a2a3a; border:1px solid #333; color:#aaa; border-radius:4px 4px 0 0; cursor:pointer; }
         .sys-tab.active { background:#0d1326; color:#4CAF50; border-bottom-color:#0d1326; }
@@ -233,10 +277,15 @@ export class SystemEditor {
       });
     });
 
+    // 登录页面保存（位于加载页面之前）
+    this.container.querySelector('#sys-lg-save').addEventListener('click', async () => {
+      this._collectLoginFields();
+      await this._save();
+    });
     // 加载页面保存
-    this.container.querySelector('#sys-ld-save').addEventListener('click', () => {
+    this.container.querySelector('#sys-ld-save').addEventListener('click', async () => {
       this._collectFields();
-      this._save();
+      await this._save();
     });
     // 天气保存
     const wtSave = this.container.querySelector('#sys-wt-save');
@@ -313,6 +362,19 @@ export class SystemEditor {
     });
   }
 
+  _collectLoginFields() {
+    const lg = this._data.login;
+    lg.title = this.container.querySelector('#sys-lg-title').value;
+    lg.subtitle = this.container.querySelector('#sys-lg-subtitle').value;
+    lg.description = this.container.querySelector('#sys-lg-description').value;
+    lg.backgroundImage = this.container.querySelector('#sys-lg-image').value.trim();
+    lg.backgroundColor = this.container.querySelector('#sys-lg-bg').value;
+    lg.panelColor = this.container.querySelector('#sys-lg-panel').value;
+    lg.titleColor = this.container.querySelector('#sys-lg-titlecolor').value;
+    lg.textColor = this.container.querySelector('#sys-lg-textcolor').value;
+    lg.buttonColor = this.container.querySelector('#sys-lg-button').value;
+  }
+
   _collectFields() {
     const ld = this._data.loading;
     ld.title = this.container.querySelector('#sys-ld-title').value;
@@ -339,7 +401,11 @@ export class SystemEditor {
   }
 
   _esc(str) {
-    return (str || '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 
   _renderTimePeriods() {

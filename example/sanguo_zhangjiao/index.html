@@ -583,6 +583,54 @@
             height: 100vw;
             transform: translate(-50%, -50%) rotate(90deg);
         }
+
+        /* ============ 登录/系统菜单（启动时位于加载页面之前） ============ */
+        #login-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111 center/cover no-repeat;
+            pointer-events: auto;
+        }
+        #login-screen.hidden { display: none; }
+        #login-panel {
+            width: min(460px, 88vw);
+            padding: 34px 42px;
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 12px;
+            background: rgba(15, 15, 18, .88);
+            box-shadow: 0 18px 60px rgba(0,0,0,.65);
+            text-align: center;
+            backdrop-filter: blur(5px);
+            position: relative;
+        }
+        #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
+        #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
+        #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
+        .login-actions { display: grid; gap: 12px; }
+        .login-action, .save-slot {
+            width: 100%;
+            padding: 12px 18px;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 6px;
+            color: #fff;
+            background: #4b6728;
+            font: inherit;
+            cursor: pointer;
+        }
+        .login-action:hover, .save-slot:hover { filter: brightness(1.18); }
+        #save-slots { display: none; gap: 9px; margin-top: 18px; }
+        #save-slots.visible { display: grid; }
+        .save-slot { background: rgba(255,255,255,.09); text-align: left; }
+        .save-slot strong, .save-slot span { display: block; }
+        .save-slot span { margin-top: 3px; color: #aaa; font-size: 12px; }
+        #login-message { min-height: 22px; margin-top: 14px; color: #ffd166; }
+        #login-close { display: none; position: absolute; right: 12px; top: 8px; border: 0; background: none; color: #ddd; font-size: 26px; cursor: pointer; }
+        #login-screen.in-game #login-close { display: block; }
+        #loading-screen { display: none; z-index: 9000; }
     </style>
 </head>
 <body>
@@ -669,11 +717,28 @@
                 <div class="hotbar-btn potion-btn" id="hb-hp" data-potion="health"><canvas class="hb-canvas" width="32" height="32"></canvas><span class="hb-count">0</span></div>
                 <div class="hotbar-btn potion-btn" id="hb-mp" data-potion="mana"><canvas class="hb-canvas" width="32" height="32"></canvas><span class="hb-count">0</span></div>
                 <div class="hotbar-btn" id="hb-bag" data-action="bag"><span class="hb-icon">🎒</span><span class="hb-label">背包</span></div>
+                <div class="hotbar-btn" id="hb-settings" data-action="settings"><span class="hb-icon">⚙️</span><span class="hb-label">设置</span></div>
                 <div class="hotbar-btn" id="hb-skill6" data-skill="3"><span class="hb-icon">💓</span><span class="hb-label">回血</span></div>
                 <div class="hotbar-btn" id="hb-skill7" data-skill="4"><span class="hb-icon">🛀</span><span class="hb-label">打坐</span></div>
             </div>
         </div>
         
+        <div id="login-screen">
+            <section id="login-panel" aria-label="游戏登录菜单">
+                <button id="login-close" type="button" aria-label="返回游戏">×</button>
+                <h1 id="login-title">张角黄巾起义序章</h1>
+                <h2 id="login-subtitle">苍天已死，黄天当立</h2>
+                <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
+                <div class="login-actions">
+                    <button class="login-action" id="login-start" type="button">开始游戏</button>
+                    <button class="login-action" id="login-continue" type="button">继续游戏</button>
+                    <button class="login-action" id="login-exit" type="button">退出游戏</button>
+                </div>
+                <div id="save-slots"></div>
+                <p id="login-message" role="status"></p>
+            </section>
+        </div>
+
         <div id="loading-screen">
             <h1>张角黄巾起义序章</h1>
             <h2>第一幕：绝望的开始</h2>
@@ -696,6 +761,7 @@
         import { AttributePanel } from '../../src/ui/AttributePanel.js';
         import { PlayerInfoPanel } from '../../src/ui/PlayerInfoPanel.js';
         import { ItemIconRenderer } from '../../src/ui/ItemIconRenderer.js';
+        import { SaveGameService } from '../../src/core/snapshot/SaveGameService.js';
         import { PortraitsConfig } from './data/PortraitsConfig.js';
         
         // 场景管理器
@@ -716,6 +782,11 @@
         let fps = 60;
         let frameCount = 0;
         let fpsTime = 0;
+        let projectConfig = null;
+        let gameStarted = false;
+        let activeSaveSlot = 1;
+        let autosaveTimer = null;
+        const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 3 });
         
         // 获取元素
         const canvas = document.getElementById('gameCanvas');
@@ -770,6 +841,237 @@
         const tipsPanel = document.getElementById('tips-panel');
         const tipsTitle = document.getElementById('tips-title');
         const tipsText = document.getElementById('tips-text');
+
+        const loginScreen = document.getElementById('login-screen');
+        const loginPanel = document.getElementById('login-panel');
+        const loginTitle = document.getElementById('login-title');
+        const loginSubtitle = document.getElementById('login-subtitle');
+        const loginDescription = document.getElementById('login-description');
+        const loginMessage = document.getElementById('login-message');
+        const saveSlotsElement = document.getElementById('save-slots');
+
+        async function loadProjectConfig() {
+            if (projectConfig) return projectConfig;
+            try {
+                const response = await fetch('game.project.json');
+                if (response.ok) projectConfig = await response.json();
+            } catch (error) {
+                console.warn('读取项目配置失败，使用登录页默认值', error);
+            }
+            return projectConfig || {};
+        }
+
+        function applyLoginConfig(config = {}) {
+            if (config.title) loginTitle.textContent = config.title;
+            if (config.subtitle) loginSubtitle.textContent = config.subtitle;
+            if (config.description) loginDescription.textContent = config.description;
+            if (config.backgroundColor) loginScreen.style.backgroundColor = config.backgroundColor;
+            if (config.backgroundImage) {
+                const safeUrl = String(config.backgroundImage).replace(/["'()]/g, '');
+                loginScreen.style.backgroundImage = `url("${safeUrl}")`;
+            } else {
+                loginScreen.style.backgroundImage = 'none';
+            }
+            if (config.textColor) {
+                loginPanel.style.color = config.textColor;
+                loginDescription.style.color = config.textColor;
+            }
+            if (config.titleColor) loginTitle.style.color = config.titleColor;
+            if (config.panelColor) loginPanel.style.background = config.panelColor;
+            if (config.buttonColor) {
+                document.querySelectorAll('.login-action').forEach(button => { button.style.background = config.buttonColor; });
+            }
+        }
+
+        function setLoginMessage(message = '') {
+            loginMessage.textContent = message;
+        }
+
+        function formatSaveTime(timestamp) {
+            if (!timestamp) return '未知时间';
+            try { return new Date(timestamp).toLocaleString('zh-CN', { hour12: false }); }
+            catch (_error) { return '未知时间'; }
+        }
+
+        function renderSaveSlots(mode) {
+            const slots = saveGames.listSlots();
+            saveSlotsElement.replaceChildren();
+            saveSlotsElement.classList.add('visible');
+            for (const slot of slots) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'save-slot';
+                const title = document.createElement('strong');
+                title.textContent = `存档 ${slot.index}${slot.exists ? '' : '（空）'}`;
+                const detail = document.createElement('span');
+                const meta = slot.info?.meta || {};
+                detail.textContent = slot.exists
+                    ? `${meta.characterName || '未命名角色'}  等级 ${meta.level || 1}  ·  ${formatSaveTime(slot.info?.createdAt)}`
+                    : '空存档位';
+                button.append(title, detail);
+                button.addEventListener('click', () => {
+                    if (mode === 'continue' && !slot.exists) {
+                        setLoginMessage('存档为空，请选择 开始游戏。');
+                        return;
+                    }
+                    if (mode === 'new' && slot.exists && !confirm(`存档 ${slot.index} 已有进度，是否覆盖？`)) return;
+                    startGameFromSlot(mode, slot.index);
+                });
+                saveSlotsElement.appendChild(button);
+            }
+            menuPadIndex = 0;
+            saveSlotsElement.querySelector('.save-slot')?.focus();
+        }
+
+        function currentSaveMeta() {
+            const current = sceneManager?.getCurrentScene?.() || scene;
+            const player = current?.playerEntity;
+            const stats = player?.getComponent?.('stats');
+            const name = player?.getComponent?.('name');
+            return {
+                characterName: name?.name || name?.displayName || player?.name || '张角',
+                level: stats?.level || 1,
+                currentAct: current?.gameLoader?.blackboard?.get?.('act') || 1
+            };
+        }
+
+        function saveCurrentGame({ silent = false } = {}) {
+            if (!gameStarted || !scene?.playerEntity) return null;
+            const result = saveGames.save(activeSaveSlot, currentSaveMeta());
+            if (!silent) setLoginMessage(result.ok ? `已保存到存档 ${activeSaveSlot}` : '保存失败，请稍后重试。');
+            if (!result.ok) console.warn('保存游戏失败', result.errors);
+            return result;
+        }
+
+        function startGameFromSlot(mode, slotIndex) {
+            setLoginMessage('');
+            if (gameStarted || sceneManager) {
+                sessionStorage.setItem('yijian18:boot-command', JSON.stringify({ mode, slotIndex }));
+                location.reload();
+                return;
+            }
+            activeSaveSlot = slotIndex;
+            loginScreen.classList.add('hidden');
+            loadingScreen.style.display = 'flex';
+            initGame({ loadSave: mode === 'continue', slotIndex });
+        }
+
+        async function openSystemMenu() {
+            let autoSaveResult = null;
+            if (gameStarted) {
+                autoSaveResult = saveCurrentGame({ silent: true });
+                scene?.pause?.();
+                loginScreen.classList.add('in-game');
+            } else {
+                loginScreen.classList.remove('in-game');
+            }
+            saveSlotsElement.classList.remove('visible');
+            setLoginMessage(gameStarted
+                ? (autoSaveResult?.ok ? `已自动保存到存档 ${activeSaveSlot}` : '自动保存失败，请稍后重试。')
+                : '');
+            menuPadArmed = false;
+            menuPadIndex = 0;
+            loginScreen.classList.remove('hidden');
+            document.getElementById('login-start').focus();
+        }
+
+        function closeSystemMenu() {
+            if (!gameStarted) return;
+            loginScreen.classList.add('hidden');
+            loginScreen.classList.remove('in-game');
+            scene?.resume?.();
+            lastTime = performance.now();
+        }
+
+        function exitGame() {
+            saveCurrentGame({ silent: true });
+            const app = globalThis.Capacitor?.Plugins?.App;
+            if (app?.exitApp) {
+                app.exitApp();
+                return;
+            }
+            window.close();
+            setLoginMessage('浏览器不允许网页主动关闭，请关闭当前标签页。');
+        }
+
+        document.getElementById('login-start').addEventListener('click', () => {
+            setLoginMessage('请选择用于新游戏的存档位。');
+            renderSaveSlots('new');
+        });
+        document.getElementById('login-continue').addEventListener('click', () => {
+            if (!saveGames.hasAny()) {
+                saveSlotsElement.classList.remove('visible');
+                setLoginMessage('存档为空，请选择 开始游戏。');
+                return;
+            }
+            setLoginMessage('请选择要继续的存档。');
+            renderSaveSlots('continue');
+        });
+        document.getElementById('login-exit').addEventListener('click', exitGame);
+        document.getElementById('login-close').addEventListener('click', closeSystemMenu);
+        window.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && loginScreen.classList.contains('in-game') && !loginScreen.classList.contains('hidden')) {
+                event.preventDefault();
+                closeSystemMenu();
+            }
+        });
+
+        // 登录层不依赖场景 InputManager：初次启动和暂停状态下也可用手柄选择。
+        let menuPadArmed = false;
+        let menuPadDirection = 0;
+        let menuPadIndex = 0;
+        function pollLoginGamepad() {
+            if (!loginScreen.classList.contains('hidden') && navigator.getGamepads) {
+                const pad = Array.from(navigator.getGamepads()).find(Boolean);
+                if (pad) {
+                    const pressed = index => !!pad.buttons[index]?.pressed;
+                    const direction = pressed(12) || (pad.axes[1] || 0) < -0.55 ? -1
+                        : (pressed(13) || (pad.axes[1] || 0) > 0.55 ? 1 : 0);
+                    const selector = saveSlotsElement.classList.contains('visible') ? '.save-slot' : '.login-action';
+                    const active = Array.from(loginScreen.querySelectorAll(selector))
+                        .filter(button => button.offsetParent !== null);
+                    if (!menuPadArmed) {
+                        menuPadArmed = !pressed(0) && !pressed(1) && !pressed(9) && direction === 0;
+                    } else {
+                        if (direction && direction !== menuPadDirection && active.length) {
+                            menuPadIndex = (menuPadIndex + direction + active.length) % active.length;
+                            active[menuPadIndex].focus();
+                        }
+                        if (pressed(0) && !pollLoginGamepad.aWasDown) active[menuPadIndex]?.click();
+                        if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown
+                            && loginScreen.classList.contains('in-game')) closeSystemMenu();
+                    }
+                    menuPadDirection = direction;
+                    pollLoginGamepad.aWasDown = pressed(0);
+                    pollLoginGamepad.cancelWasDown = pressed(1) || pressed(9);
+                }
+            } else {
+                menuPadArmed = false;
+                menuPadDirection = 0;
+                pollLoginGamepad.aWasDown = false;
+                pollLoginGamepad.cancelWasDown = false;
+            }
+            requestAnimationFrame(pollLoginGamepad);
+        }
+        requestAnimationFrame(pollLoginGamepad);
+        globalThis.__openSystemMenu = openSystemMenu;
+        window.addEventListener('pagehide', () => saveCurrentGame({ silent: true }));
+
+        async function bootGameMenu() {
+            const project = await loadProjectConfig();
+            applyLoginConfig(project.system?.login || {});
+            const rawCommand = sessionStorage.getItem('yijian18:boot-command');
+            if (rawCommand) {
+                sessionStorage.removeItem('yijian18:boot-command');
+                try {
+                    const command = JSON.parse(rawCommand);
+                    startGameFromSlot(command.mode, command.slotIndex);
+                    return;
+                } catch (_error) { /* 回到登录界面 */ }
+            }
+            loadingScreen.style.display = 'none';
+            openSystemMenu();
+        }
         
         // 当前教程数据
         let currentTutorialData = null;
@@ -907,17 +1209,11 @@
         }
         
         // 初始化游戏
-        async function initGame() {
+        async function initGame(options = {}) {
             try {
-                // 从 game.project.json 读取加载页面配置
-                let loadingConfig = null;
-                try {
-                    const projRes = await fetch('game.project.json');
-                    if (projRes.ok) {
-                        const proj = await projRes.json();
-                        loadingConfig = proj.system?.loading || null;
-                    }
-                } catch (e) { /* 使用默认值 */ }
+                // 项目配置已在登录页阶段读取；加载页复用同一份配置。
+                const project = await loadProjectConfig();
+                const loadingConfig = project.system?.loading || null;
 
                 // 应用加载页面配置
                 if (loadingConfig) {
@@ -1006,9 +1302,35 @@
                     sceneManager.switchTo('DataDrivenPrologueScene');
                 }
                 
-                if (scene) setupSceneCallbacks(scene);
+                if (scene) {
+                    setupSceneCallbacks(scene);
+                    scene.setSystemMenuCallback?.(() => openSystemMenu());
+
+                    // 读档必须等世界、放置点和 GameLoader 都完成，避免恢复状态被异步初始化覆盖。
+                    const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);
+                    if (readyTasks.length) await Promise.allSettled(readyTasks);
+                    saveGames.setStateProvider({
+                        capture: () => scene.captureSaveState(),
+                        validate: data => scene.validateSaveState(data),
+                        restore: data => scene.restoreSaveState(data)
+                    });
+                    activeSaveSlot = options.slotIndex || 1;
+                    if (options.loadSave) {
+                        const loaded = saveGames.load(activeSaveSlot);
+                        if (!loaded.ok) {
+                            console.warn('读取存档失败', loaded.errors);
+                            throw new Error('存档读取失败，存档数据可能已损坏。');
+                        }
+                    } else {
+                        saveGames.clear(activeSaveSlot);
+                    }
+                }
                 
                 await nextStep(); // 步骤 6（完成）
+                gameStarted = true;
+                if (!options.loadSave) saveGames.save(activeSaveSlot, currentSaveMeta());
+                clearInterval(autosaveTimer);
+                autosaveTimer = setInterval(() => saveCurrentGame({ silent: true }), 30000);
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';
@@ -1022,6 +1344,11 @@
             } catch (error) {
                 console.error('游戏初始化失败:', error);
                 loadingText.textContent = '加载失败: ' + error.message;
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                    loginScreen.classList.remove('hidden');
+                    setLoginMessage(error.message || '游戏加载失败，请重试。');
+                }, 800);
             }
         }
         
@@ -1909,6 +2236,8 @@
                     // 投掷现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.action === 'bag') {
                     if (currentScene.inventoryPanel) currentScene.inventoryPanel.toggle();
+                } else if (btn.dataset.action === 'settings') {
+                    currentScene.openSystemMenu?.();
                 } else if (btn.dataset.action === 'char') {
                     // 装备栏 = PlayerInfoPanel
                     if (currentScene.playerInfoPanel) currentScene.playerInfoPanel.toggle();
@@ -2311,6 +2640,7 @@
                 'hb-hp': 'hb-hp',
                 'hb-mp': 'hb-mp',
                 'hb-bag': 'hb-bag',
+                'hb-settings': 'hb-settings',
                 'hb-skill6': 'hb-skill6',
                 'hb-skill7': 'hb-skill7'
             };
@@ -2411,8 +2741,8 @@
         window.addEventListener('resize', () => { applyForceLandscape(); applyUILayoutToDom(); });
         window.addEventListener('orientationchange', () => { setTimeout(setupOrientation, 100); });
         
-        // 启动游戏
-        initGame();
+        // 显示登录界面；选择开始/继续后才进入加载页面
+        bootGameMenu();
     </script>
 </body>
 </html>

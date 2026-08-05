@@ -10,6 +10,7 @@ export class SceneInputBindings {
     resourceScope,
     configUrl = 'config/gamepad.json',
     toggleBackpack,
+    toggleSettings,
     togglePerformance,
     onGamepadConnected,
     onGamepadDisconnected,
@@ -21,6 +22,7 @@ export class SceneInputBindings {
     this.resourceScope = resourceScope;
     this.configUrl = configUrl;
     this.toggleBackpack = toggleBackpack;
+    this.toggleSettings = toggleSettings;
     this.togglePerformance = togglePerformance;
     this.onGamepadConnected = onGamepadConnected;
     this.onGamepadDisconnected = onGamepadDisconnected;
@@ -37,6 +39,8 @@ export class SceneInputBindings {
     this.inputManager.registerHotkey('toggle_playerinfo', ['c', 'C'], toggleBackpack, { cooldown: 300 });
     this.inputManager.registerHotkey('toggle_inventory', ['b', 'B'], toggleBackpack, { cooldown: 300 });
     this.inputManager.registerHotkey('toggle_equipment', ['v', 'V'], toggleBackpack, { cooldown: 300 });
+    this.inputManager.registerHotkey(
+      'toggle_system_settings', ['escape', 'Escape', 'settings'], () => this.toggleSettings?.(), { cooldown: 300 });
     this.inputManager.registerHotkey(
       'toggle_performance', ['p', 'P'], () => this.togglePerformance?.(), { cooldown: 300 });
 

@@ -262,11 +262,124 @@ export class BaseGameScene extends Scene {
       textDuration: 3.0,
       onSwitch: () => this.switchToNextScene()
     });
+
+    // 宿主页面注入系统菜单入口；场景层不依赖具体 DOM。
+    this._systemMenuCallback = null;
   }
 
   setSceneManager(sceneManager) {
     this.sceneManager = sceneManager;
   }
+
+  setSystemMenuCallback(callback) {
+    this._systemMenuCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  openSystemMenu() {
+    if (this._systemMenuCallback) return this._systemMenuCallback(this);
+    return globalThis.__openSystemMenu?.(this);
+  }
+
+  /** 采集可序列化的通用游戏状态，供 SnapshotManager 原子存档。 */
+  captureSaveState() {
+    const player = this.playerEntity;
+    const transform = player?.getComponent?.('transform');
+    const stats = player?.getComponent?.('stats');
+    const inventory = player?.getComponent?.('inventory');
+    const equipment = player?.getComponent?.('equipment');
+    const name = player?.getComponent?.('name');
+    const statsFields = [
+      'baseMaxHp', 'baseMaxMp', 'baseAttack', 'baseDefense', 'baseSpeed',
+      'maxHp', 'hp', 'maxMp', 'mp', 'attack', 'defense', 'speed', 'level', 'exp',
+      'mainElement', 'elementAttack', 'elementDefense', 'unitType', 'gold', 'attributeEffects'
+    ];
+    const statsData = {};
+    for (const key of statsFields) {
+      if (stats && stats[key] !== undefined) statsData[key] = stats[key];
+    }
+
+    return JSON.parse(JSON.stringify({
+      player: {
+        id: player?.id || null,
+        name: name ? { name: name.name, visible: name.visible, color: name.color } : null,
+        transform: transform ? {
+          x: transform.position.x,
+          y: transform.position.y,
+          elevation: transform.position.elevation || 0,
+          rotation: transform.rotation || 0,
+          scale: { ...transform.scale },
+          floorId: transform.floorId || 'ground'
+        } : null,
+        stats: statsData,
+        inventory: inventory?.exportItems?.() || [],
+        equipment: equipment?.exportEquipment?.() || {}
+      },
+      tutorial: this.tutorialSystem?.saveProgress?.() || null,
+      dialogue: this.dialogueSystem?.saveState?.() || null,
+      quests: this.questSystem?.serialize?.() || null,
+      content: this.gameLoader?.serialize?.(player?.id || null) || null,
+      scene: this.captureSceneSaveState()
+    }));
+  }
+
+  validateSaveState(data) {
+    const errors = [];
+    if (!data || typeof data !== 'object') errors.push({ code: 'missingField', path: '', message: '游戏状态为空' });
+    else if (!data.player || typeof data.player !== 'object') errors.push({ code: 'missingField', path: 'player', message: '缺少玩家状态' });
+    else if (data.player.transform && (!Number.isFinite(data.player.transform.x) || !Number.isFinite(data.player.transform.y))) {
+      errors.push({ code: 'invalidField', path: 'player.transform', message: '玩家坐标无效' });
+    }
+    return { ok: errors.length === 0, errors };
+  }
+
+  /** 恢复通用状态；调用前应等待世界与 GameLoader 初始化完成。 */
+  restoreSaveState(data) {
+    const check = this.validateSaveState(data);
+    if (!check.ok) return check;
+    const player = this.playerEntity;
+    if (!player) return { ok: false, errors: [{ code: 'missingPlayer', path: 'player', message: '玩家尚未创建' }] };
+
+    const transform = player.getComponent('transform');
+    const stats = player.getComponent('stats');
+    const inventory = player.getComponent('inventory');
+    const equipment = player.getComponent('equipment');
+    const name = player.getComponent('name');
+    const savedPlayer = data.player;
+    if (name && savedPlayer.name) {
+      name.name = savedPlayer.name.name || name.name;
+      name.visible = savedPlayer.name.visible !== false;
+      name.color = savedPlayer.name.color || name.color;
+    }
+    if (transform && savedPlayer.transform) {
+      transform.setPosition(savedPlayer.transform.x, savedPlayer.transform.y, savedPlayer.transform.elevation || 0);
+      transform.rotation = savedPlayer.transform.rotation || 0;
+      if (savedPlayer.transform.scale) transform.setScale(savedPlayer.transform.scale.x, savedPlayer.transform.scale.y);
+      transform.floorId = savedPlayer.transform.floorId || 'ground';
+      this.camera?.setPosition?.(savedPlayer.transform.x, savedPlayer.transform.y);
+    }
+    if (equipment && savedPlayer.equipment) {
+      for (const slot of Object.keys(equipment.slots)) equipment.slots[slot] = null;
+      equipment.loadEquipment(savedPlayer.equipment);
+    }
+    if (stats && savedPlayer.stats) Object.assign(stats, JSON.parse(JSON.stringify(savedPlayer.stats)));
+    if (inventory && Array.isArray(savedPlayer.inventory)) inventory.loadItems(savedPlayer.inventory);
+
+    this.tutorialSystem?.loadProgress?.(data.tutorial);
+    this.questSystem?.reset?.();
+    this.questSystem?.deserialize?.(data.quests || {});
+    this.gameLoader?.deserialize?.(data.content, player.id);
+    this.dialogueSystem?.reset?.();
+    this.dialogueSystem?.loadState?.(data.dialogue, { player, scene: this });
+    this.restoreSceneSaveState(data.scene || {});
+    this.bindUIPanelsToPlayer(player, { syncCameraPosition: false, log: false });
+    return { ok: true, errors: [] };
+  }
+
+  /** 子场景覆盖以补充剧情/世界状态。 */
+  captureSceneSaveState() { return {}; }
+
+  /** 子场景覆盖以恢复剧情/世界状态。 */
+  restoreSceneSaveState(_data) {}
 
   pause() {
     this.isPaused = true;
@@ -416,6 +529,7 @@ export class BaseGameScene extends Scene {
       inputManager: this.inputManager,
       resourceScope: this.resourceScope,
       toggleBackpack: () => this.backpackPanel?.toggle(),
+      toggleSettings: () => this.openSystemMenu(),
       togglePerformance: () => this._diagnostics.togglePerformance(),
       onGamepadConnected: (info) => {
         if (this.notificationSystem) {

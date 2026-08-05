@@ -16,3 +16,4 @@
 
 export { SnapshotManager, SNAPSHOT_VERSION } from './SnapshotManager.js';
 export { LocalStorageAdapter } from './LocalStorageAdapter.js';
+export { SaveGameService } from './SaveGameService.js';

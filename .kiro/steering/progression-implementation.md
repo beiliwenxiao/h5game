@@ -155,7 +155,9 @@ MOVE     右键
 - 参与者错误自动加段落前缀，如 `data.progression.value`。
 - 缺少迁移器时返回 `missingMigration`，不静默失败；有 32 次循环保护。
 - 存档 JSON 损坏时返回 `invalidJson`，**原样保留存档**，不删不覆盖。
-- `SaveGameService` 基于 `SnapshotManager + LocalStorageAdapter` 提供命名空间化多槽存档；业务场景只注入 `capture/validate/restore`，不得绕过原子恢复直接逐段写状态。
+- `SaveGameService` 基于 `SnapshotManager + LocalStorageAdapter` 提供命名空间化存档；业务场景只注入 `capture/validate/restore`，不得绕过原子恢复直接逐段写状态。
+- 存档位固定分为一个独立 `autosave` 自动位与最多 100 个 `slot-1` 至 `slot-100` 手动位；自动保存只能调用 `saveAuto()`，手动保存只能调用 `save(index)`，两者不得互相覆盖。
+- 张角 Demo 在 Vite 开发服务器下还必须把成功快照镜像到 `example/sanguo_zhangjiao/saves/{autosave|slot-N}/snapshot.json`，并将画面缩略图以二进制 `thumbnail.jpg` 同目录保存；JSON 用 `meta.previewFile` 引用图片，不重复内嵌 base64。浏览器 localStorage 仍是运行时同步读档缓存，文件写入失败必须向用户明确提示。
 - `ProgressManager` 未废弃，可继续作为旧路径；新代码用 `SnapshotManager` + `LocalStorageAdapter`。
 
 ## 内容校验（S10）

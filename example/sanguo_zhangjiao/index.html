@@ -606,12 +606,24 @@
             text-align: center;
             backdrop-filter: blur(5px);
             position: relative;
+            transition: width .2s ease;
         }
+        #login-panel.has-save-browser { width: min(1040px, 94vw); }
+        .login-layout { display: block; }
+        #login-panel.has-save-browser .login-layout {
+            display: grid;
+            grid-template-columns: minmax(270px, .72fr) minmax(460px, 1.28fr);
+            gap: 30px;
+            align-items: start;
+            text-align: left;
+        }
+        .login-main-column { min-width: 0; text-align: center; }
+        #login-panel.has-save-browser .login-main-column { padding-top: 6px; }
         #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
         #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
         #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
         .login-actions { display: grid; gap: 12px; }
-        .login-action, .save-slot {
+        .login-action, .save-picker-confirm {
             width: 100%;
             padding: 12px 18px;
             border: 1px solid rgba(255,255,255,.18);
@@ -621,12 +633,58 @@
             font: inherit;
             cursor: pointer;
         }
-        .login-action:hover, .save-slot:hover { filter: brightness(1.18); }
-        #save-slots { display: none; gap: 9px; margin-top: 18px; }
+        .login-action:hover, .save-picker-confirm:hover { filter: brightness(1.18); }
+        #login-manual-save, #login-return-game { display: none; }
+        #login-screen.in-game #login-manual-save, #login-screen.in-game #login-return-game { display: block; }
+        #save-slots { display: none; gap: 9px; min-width: 0; text-align: left; }
         #save-slots.visible { display: grid; }
-        .save-slot { background: rgba(255,255,255,.09); text-align: left; }
-        .save-slot strong, .save-slot span { display: block; }
-        .save-slot span { margin-top: 3px; color: #aaa; font-size: 12px; }
+        #save-slot-browser-label { color: #e7c778; font-size: 14px; }
+        @media (max-width: 800px) {
+            #login-panel.has-save-browser { width: min(540px, 94vw); padding: 28px 24px; }
+            #login-panel.has-save-browser .login-layout { grid-template-columns: 1fr; gap: 20px; }
+        }
+        .save-slot-browser {
+            border: 1px solid rgba(194,157,86,.45); background: linear-gradient(135deg, rgba(20,18,15,.97), rgba(43,35,25,.97));
+            box-shadow: inset 0 0 32px rgba(0,0,0,.3); border-radius: 3px;
+        }
+        .save-slot-summary {
+            padding: 9px 12px; border-bottom: 1px solid rgba(194,157,86,.28); color: #d8c49a;
+            font-size: 13px; letter-spacing: .04em;
+        }
+        #save-slot-list { max-height: 390px; overflow-y: auto; padding: 6px; }
+        .save-slot-group {
+            padding: 10px 7px 5px; color: #d5b770; font-size: 12px; font-weight: bold;
+            letter-spacing: .1em; text-transform: uppercase;
+        }
+        .save-slot-option {
+            display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 11px; min-height: 76px;
+            margin: 3px 0; padding: 5px; border: 1px solid transparent; border-left: 3px solid transparent;
+            background: rgba(255,255,255,.025); color: #eee; cursor: pointer; outline: none;
+            transition: background .15s ease, border-color .15s ease;
+        }
+        .save-slot-option:hover, .save-slot-option:focus, .save-slot-option.selected {
+            background: linear-gradient(90deg, rgba(194,157,86,.28), rgba(194,157,86,.06));
+            border-color: rgba(218,185,112,.55); border-left-color: #d9b56b;
+        }
+        .save-slot-option.disabled { color: #777; cursor: not-allowed; filter: grayscale(.8); opacity: .7; }
+        .save-slot-option.disabled:hover { background: rgba(255,255,255,.025); border-color: transparent; border-left-color: transparent; }
+        .save-slot-preview { position: relative; overflow: hidden; min-height: 66px; background: linear-gradient(135deg, #65513a, #202b23); }
+        .save-slot-preview::after { content: ''; position: absolute; inset: 0; border: 1px solid rgba(255,255,255,.12); pointer-events: none; }
+        .save-slot-preview img { width: 100%; height: 100%; min-height: 66px; display: block; object-fit: cover; }
+        .save-slot-type { position: absolute; left: 0; bottom: 0; padding: 3px 6px; background: rgba(11,10,8,.82); color: #e2c27b; font-size: 11px; }
+        .save-slot-details { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+        .save-slot-title { overflow: hidden; color: #f0e5c8; font-size: 14px; font-weight: bold; text-overflow: ellipsis; white-space: nowrap; }
+        .save-slot-location { margin-top: 2px; color: #c5bca9; font-size: 12px; }
+        .save-slot-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; color: #91897c; font-size: 11px; }
+        .save-slot-meta time { overflow: hidden; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+        @media (max-width: 540px) {
+            #save-slot-list { max-height: 330px; }
+            .save-slot-option { grid-template-columns: 100px minmax(0, 1fr); gap: 8px; }
+            .save-slot-preview, .save-slot-preview img { min-height: 58px; }
+            .save-slot-meta { display: block; }
+            .save-slot-meta time { display: block; margin-top: 2px; text-align: left; }
+        }
+        #save-slot-info { min-height: 26px; color: #aaa; font-size: 12px; line-height: 1.5; }
         #login-message { min-height: 22px; margin-top: 14px; color: #ffd166; }
         #login-close { display: none; position: absolute; right: 12px; top: 8px; border: 0; background: none; color: #ddd; font-size: 26px; cursor: pointer; }
         #login-screen.in-game #login-close { display: block; }
@@ -726,16 +784,30 @@
         <div id="login-screen">
             <section id="login-panel" aria-label="游戏登录菜单">
                 <button id="login-close" type="button" aria-label="返回游戏">×</button>
-                <h1 id="login-title">张角黄巾起义序章</h1>
-                <h2 id="login-subtitle">苍天已死，黄天当立</h2>
-                <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
-                <div class="login-actions">
-                    <button class="login-action" id="login-start" type="button">开始游戏</button>
-                    <button class="login-action" id="login-continue" type="button">继续游戏</button>
-                    <button class="login-action" id="login-exit" type="button">退出游戏</button>
+                <div class="login-layout">
+                    <div class="login-main-column">
+                        <h1 id="login-title">张角黄巾起义序章</h1>
+                        <h2 id="login-subtitle">苍天已死，黄天当立</h2>
+                        <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
+                        <div class="login-actions">
+                            <button class="login-action" id="login-start" type="button">开始游戏</button>
+                            <button class="login-action" id="login-read-save" type="button">读取存档</button>
+                            <button class="login-action" id="login-manual-save" type="button">手动存档</button>
+                            <button class="login-action" id="login-return-game" type="button">回到游戏</button>
+                            <button class="login-action" id="login-exit" type="button">退出游戏</button>
+                        </div>
+                        <p id="login-message" role="status"></p>
+                    </div>
+                    <aside id="save-slots" aria-label="存档浏览器">
+                        <label id="save-slot-browser-label">存档浏览（自动存档独立，手动栏位 1–100）</label>
+                        <div id="save-slot-dropdown" class="save-slot-browser" role="region" aria-labelledby="save-slot-browser-label">
+                            <div class="save-slot-summary"><span id="save-slot-selected">请选择存档栏位</span></div>
+                            <div id="save-slot-list" role="listbox" aria-label="存档栏位"></div>
+                        </div>
+                        <p id="save-slot-info"></p>
+                        <button class="save-picker-confirm" id="save-slot-confirm" type="button">确认</button>
+                    </aside>
                 </div>
-                <div id="save-slots"></div>
-                <p id="login-message" role="status"></p>
             </section>
         </div>
 
@@ -784,9 +856,11 @@
         let fpsTime = 0;
         let projectConfig = null;
         let gameStarted = false;
-        let activeSaveSlot = 1;
+        let activeSaveSlot = 1; // 当前选择的手动栏位；自动存档永远使用独立 autosave 位
         let autosaveTimer = null;
-        const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 3 });
+        const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 100 });
+        const SAVE_FILES_ROOT = 'example/sanguo_zhangjiao/saves';
+        const SAVE_SLOT_ID_PATTERN = /^(?:autosave|slot-(?:[1-9]\d?|100))$/;
         
         // 获取元素
         const canvas = document.getElementById('gameCanvas');
@@ -893,34 +967,206 @@
             catch (_error) { return '未知时间'; }
         }
 
-        function renderSaveSlots(mode) {
-            const slots = saveGames.listSlots();
-            saveSlotsElement.replaceChildren();
-            saveSlotsElement.classList.add('visible');
-            for (const slot of slots) {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'save-slot';
-                const title = document.createElement('strong');
-                title.textContent = `存档 ${slot.index}${slot.exists ? '' : '（空）'}`;
-                const detail = document.createElement('span');
-                const meta = slot.info?.meta || {};
-                detail.textContent = slot.exists
-                    ? `${meta.characterName || '未命名角色'}  等级 ${meta.level || 1}  ·  ${formatSaveTime(slot.info?.createdAt)}`
-                    : '空存档位';
-                button.append(title, detail);
-                button.addEventListener('click', () => {
-                    if (mode === 'continue' && !slot.exists) {
-                        setLoginMessage('存档为空，请选择 开始游戏。');
-                        return;
-                    }
-                    if (mode === 'new' && slot.exists && !confirm(`存档 ${slot.index} 已有进度，是否覆盖？`)) return;
-                    startGameFromSlot(mode, slot.index);
-                });
-                saveSlotsElement.appendChild(button);
+        const AUTO_SAVE_SELECTION = 'auto';
+        let savePickerMode = null;
+        let selectedSaveValue = '';
+        let savePickerEntries = [];
+        const saveSlotSelected = document.getElementById('save-slot-selected');
+        const saveSlotList = document.getElementById('save-slot-list');
+        const saveSlotInfo = document.getElementById('save-slot-info');
+        const saveSlotConfirm = document.getElementById('save-slot-confirm');
+
+        function manualSaveSelection(index) {
+            return `manual:${index}`;
+        }
+
+        function parseSaveSelection(value) {
+            if (value === AUTO_SAVE_SELECTION) return { kind: 'auto' };
+            const match = /^manual:(\d+)$/.exec(String(value || ''));
+            const index = Number(match?.[1]);
+            return Number.isInteger(index) && index >= 1 && index <= saveGames.slotCount
+                ? { kind: 'manual', index }
+                : null;
+        }
+
+        function describeSaveEntry(entry, label) {
+            if (!entry?.exists) return `${label}为空`;
+            const meta = entry.info?.meta || {};
+            return `${label}：${meta.characterName || '未命名角色'}，等级 ${meta.level || 1}，保存于 ${formatSaveTime(entry.info?.createdAt)}`;
+        }
+
+        function getSavePickerEntry(value = selectedSaveValue) {
+            return savePickerEntries.find(entry => entry.value === value) || null;
+        }
+
+        function moveSaveSelection(direction) {
+            const options = savePickerEntries.filter(entry => !entry.disabled);
+            if (!options.length) return;
+            const currentIndex = options.findIndex(entry => entry.value === selectedSaveValue);
+            const nextIndex = (currentIndex + direction + options.length) % options.length;
+            selectSaveEntry(options[nextIndex]?.value, { focus: true });
+        }
+
+        function selectSaveEntry(value, { focus = false } = {}) {
+            const selected = getSavePickerEntry(value);
+            if (!selected || selected.disabled) return false;
+            selectedSaveValue = value;
+            saveSlotSelected.textContent = selected.label;
+            for (const entry of savePickerEntries) {
+                const isSelected = entry.value === value;
+                entry.element.classList.toggle('selected', isSelected);
+                entry.element.setAttribute('aria-selected', String(isSelected));
             }
+            selected.element.scrollIntoView({ block: 'nearest' });
+            if (focus) selected.element.focus();
+            updateSavePickerInfo();
+            return true;
+        }
+
+        function updateSavePickerInfo() {
+            const selection = parseSaveSelection(selectedSaveValue);
+            const selected = getSavePickerEntry();
+            if (!selection || !selected) return;
+            saveSlotInfo.textContent = describeSaveEntry(selected.entry, selected.shortLabel);
+            saveSlotConfirm.disabled = savePickerMode === 'continue' && !selected.entry.exists;
+        }
+
+        function buildSavePreview(entry, typeLabel) {
+            const preview = document.createElement('div');
+            preview.className = 'save-slot-preview';
+            const savedPreview = entry.info?.meta?.preview;
+            if (typeof savedPreview === 'string' && savedPreview.startsWith('data:image/')) {
+                const image = document.createElement('img');
+                image.src = savedPreview;
+                image.alt = `${typeLabel}游戏画面`;
+                preview.appendChild(image);
+            }
+            const type = document.createElement('span');
+            type.className = 'save-slot-type';
+            type.textContent = typeLabel;
+            preview.appendChild(type);
+            return preview;
+        }
+
+        /** 巫师式存档浏览：缩略图、分类、区域、等级与时间以固定卡片列表展示。 */
+        function renderSaveSlots(mode) {
+            savePickerMode = mode;
+            const manualSlots = saveGames.listSlots();
+            const autoSlot = saveGames.getAutoSlot();
+            savePickerEntries = [];
+            saveSlotList.replaceChildren();
+
+            function addGroup(label) {
+                const group = document.createElement('div');
+                group.className = 'save-slot-group';
+                group.textContent = label;
+                saveSlotList.appendChild(group);
+            }
+
+            function addOption(value, entry, shortLabel) {
+                const disabled = mode === 'continue' && !entry.exists;
+                const meta = entry.info?.meta || {};
+                const option = document.createElement('div');
+                const label = describeSaveEntry(entry, shortLabel);
+                option.className = `save-slot-option${disabled ? ' disabled' : ''}`;
+                option.tabIndex = disabled ? -1 : 0;
+                option.setAttribute('role', 'option');
+                option.setAttribute('aria-disabled', String(disabled));
+                option.setAttribute('aria-selected', 'false');
+
+                const details = document.createElement('div');
+                details.className = 'save-slot-details';
+                const title = document.createElement('div');
+                title.className = 'save-slot-title';
+                title.textContent = entry.exists
+                    ? `${shortLabel} · ${meta.characterName || '未命名角色'}`
+                    : `${shortLabel} · 空白栏位`;
+                const location = document.createElement('div');
+                location.className = 'save-slot-location';
+                location.textContent = entry.exists
+                    ? (meta.location || `第 ${meta.currentAct || 1} 幕区域`)
+                    : (mode === 'continue' ? '没有可读取的进度' : '在此开始新的旅程');
+                const cardMeta = document.createElement('div');
+                cardMeta.className = 'save-slot-meta';
+                const level = document.createElement('span');
+                level.textContent = entry.exists ? `等级 ${meta.level || 1}` : '未创建';
+                const time = document.createElement('time');
+                time.textContent = entry.exists ? formatSaveTime(entry.info?.createdAt) : '—';
+                cardMeta.append(level, time);
+                details.append(title, location, cardMeta);
+                option.append(buildSavePreview(entry, shortLabel), details);
+                option.addEventListener('click', () => selectSaveEntry(value));
+                option.addEventListener('keydown', event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        selectSaveEntry(value);
+                    } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                        event.preventDefault();
+                        moveSaveSelection(event.key === 'ArrowDown' ? 1 : -1);
+                    }
+                });
+                saveSlotList.appendChild(option);
+                savePickerEntries.push({ value, entry, shortLabel, label, disabled, element: option });
+            }
+
+            if (mode === 'continue') {
+                addGroup('自动存档');
+                addOption(AUTO_SAVE_SELECTION, autoSlot, '自动');
+            }
+
+            addGroup('手动存档');
+            for (const slot of manualSlots) addOption(manualSaveSelection(slot.index), slot, `手动 ${slot.index}`);
+
+            const firstManual = manualSlots.find(slot => slot.exists);
+            const preferred = mode === 'continue'
+                ? (autoSlot.exists ? AUTO_SAVE_SELECTION : firstManual ? manualSaveSelection(firstManual.index) : '')
+                : manualSaveSelection(activeSaveSlot);
+            if (preferred) selectSaveEntry(preferred);
+            else {
+                selectedSaveValue = '';
+                saveSlotSelected.textContent = '没有可读取的存档';
+                saveSlotInfo.textContent = '存档为空，请选择 开始游戏。';
+                saveSlotConfirm.disabled = true;
+            }
+            saveSlotConfirm.textContent = mode === 'continue' ? '读取所选存档'
+                : (mode === 'manualSave' ? '保存到所选手动栏位' : '开始新游戏');
+            saveSlotsElement.classList.add('visible');
+            loginPanel.classList.add('has-save-browser');
             menuPadIndex = 0;
-            saveSlotsElement.querySelector('.save-slot')?.focus();
+            getSavePickerEntry()?.element.focus();
+        }
+
+        /** 生成不依赖主画布的保底缩略图，保证每个磁盘存档目录始终有图片文件。 */
+        function createFallbackSavePreview() {
+            const preview = document.createElement('canvas');
+            preview.width = 240;
+            preview.height = 135;
+            const previewContext = preview.getContext('2d');
+            const gradient = previewContext.createLinearGradient(0, 0, preview.width, preview.height);
+            gradient.addColorStop(0, '#6b4c27');
+            gradient.addColorStop(1, '#182920');
+            previewContext.fillStyle = gradient;
+            previewContext.fillRect(0, 0, preview.width, preview.height);
+            previewContext.fillStyle = 'rgba(255,255,255,.72)';
+            previewContext.font = 'bold 18px sans-serif';
+            previewContext.fillText('张角黄巾起义序章', 18, 65);
+            previewContext.font = '12px sans-serif';
+            previewContext.fillText('存档缩略图', 18, 88);
+            return preview.toDataURL('image/jpeg', 0.45);
+        }
+
+        /** 将当前游戏画面压缩为存档缩略图；主画布不可导出时使用保底图片。 */
+        function captureSavePreview() {
+            if (!canvas?.width || !canvas?.height) return createFallbackSavePreview();
+            try {
+                const preview = document.createElement('canvas');
+                preview.width = 240;
+                preview.height = 135;
+                preview.getContext('2d').drawImage(canvas, 0, 0, preview.width, preview.height);
+                return preview.toDataURL('image/jpeg', 0.45);
+            } catch (_error) {
+                return createFallbackSavePreview();
+            }
         }
 
         function currentSaveMeta() {
@@ -928,46 +1174,169 @@
             const player = current?.playerEntity;
             const stats = player?.getComponent?.('stats');
             const name = player?.getComponent?.('name');
+            const currentAct = current?.gameLoader?.blackboard?.get?.('act') || 1;
             return {
                 characterName: name?.name || name?.displayName || player?.name || '张角',
                 level: stats?.level || 1,
-                currentAct: current?.gameLoader?.blackboard?.get?.('act') || 1
+                currentAct,
+                location: current?.locationName || `第 ${currentAct} 幕区域`,
+                preview: captureSavePreview()
             };
         }
 
-        function saveCurrentGame({ silent = false } = {}) {
-            if (!gameStarted || !scene?.playerEntity) return null;
-            const result = saveGames.save(activeSaveSlot, currentSaveMeta());
-            if (!silent) setLoginMessage(result.ok ? `已保存到存档 ${activeSaveSlot}` : '保存失败，请稍后重试。');
-            if (!result.ok) console.warn('保存游戏失败', result.errors);
-            return result;
+        function saveFilePath(slotId, fileName) {
+            if (!SAVE_SLOT_ID_PATTERN.test(slotId)) throw new RangeError(`无效存档文件栏位: ${slotId}`);
+            return `${SAVE_FILES_ROOT}/${slotId}/${fileName}`;
         }
 
-        function startGameFromSlot(mode, slotIndex) {
+        async function writeSaveFile(path, content, encoding = 'utf8') {
+            try {
+                const response = await fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path, content, encoding })
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok || !payload.ok) {
+                    return {
+                        ok: false,
+                        errors: [{ code: 'fileWriteFailed', path, message: payload.error || `文件保存失败 (${response.status})` }]
+                    };
+                }
+                return { ok: true, errors: [] };
+            } catch (error) {
+                return {
+                    ok: false,
+                    errors: [{ code: 'fileWriteUnavailable', path, message: String(error?.message || error) }]
+                };
+            }
+        }
+
+        /** 将完整快照和对应缩略图镜像到 Demo 存档目录；浏览器缓存仍用于同步读档。 */
+        async function persistSaveFiles(slotId, snapshot) {
+            if (!snapshot) {
+                return { ok: false, errors: [{ code: 'missingSnapshot', path: slotId, message: '没有可写入文件的存档快照' }] };
+            }
+            const diskSnapshot = JSON.parse(JSON.stringify(snapshot));
+            const preview = diskSnapshot.meta?.preview;
+            const previewMatch = typeof preview === 'string'
+                ? /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(preview)
+                : null;
+            if (!previewMatch) {
+                return { ok: false, errors: [{ code: 'missingPreview', path: slotId, message: '当前画面缩略图不可用，未写入存档文件' }] };
+            }
+
+            const extension = previewMatch[1] === 'jpeg' ? 'jpg' : previewMatch[1];
+            delete diskSnapshot.meta.preview;
+            diskSnapshot.meta.previewFile = `thumbnail.${extension}`;
+            const snapshotPath = saveFilePath(slotId, 'snapshot.json');
+            const thumbnailPath = saveFilePath(slotId, diskSnapshot.meta.previewFile);
+            const thumbnailWrite = await writeSaveFile(thumbnailPath, previewMatch[2], 'base64');
+            if (!thumbnailWrite.ok) return thumbnailWrite;
+            const snapshotWrite = await writeSaveFile(snapshotPath, JSON.stringify(diskSnapshot, null, 2));
+            if (!snapshotWrite.ok) return snapshotWrite;
+            return { ok: true, errors: [], snapshotPath, thumbnailPath };
+        }
+
+        async function saveCurrentGame({ silent = false } = {}) {
+            if (!gameStarted || !scene?.playerEntity) return null;
+            const result = saveGames.save(activeSaveSlot, currentSaveMeta());
+            if (!result.ok) {
+                if (!silent) setLoginMessage('手动保存失败，请稍后重试。');
+                console.warn('手动保存失败', result.errors);
+                return result;
+            }
+            const fileResult = await persistSaveFiles(saveGames.slotId(activeSaveSlot), result.snapshot);
+            const completed = { ...result, ok: fileResult.ok, filePersisted: fileResult.ok, errors: [...result.errors, ...fileResult.errors] };
+            if (!silent) {
+                setLoginMessage(fileResult.ok
+                    ? `已手动保存到栏位 ${activeSaveSlot}`
+                    : '手动存档已写入浏览器缓存，但存档文件或缩略图保存失败。');
+            }
+            if (!fileResult.ok) console.warn('手动存档文件保存失败', fileResult.errors);
+            return completed;
+        }
+
+        /** 定时、进菜单和退出统一只更新自动存档位。 */
+        async function autoSaveCurrentGame({ silent = false } = {}) {
+            if (!gameStarted || !scene?.playerEntity) return null;
+            const result = saveGames.saveAuto(currentSaveMeta());
+            if (!result.ok) {
+                if (!silent) setLoginMessage('自动保存失败，请稍后重试。');
+                console.warn('自动保存失败', result.errors);
+                return result;
+            }
+            const fileResult = await persistSaveFiles(saveGames.autoSlotId, result.snapshot);
+            const completed = { ...result, ok: fileResult.ok, filePersisted: fileResult.ok, errors: [...result.errors, ...fileResult.errors] };
+            if (!silent) {
+                setLoginMessage(fileResult.ok
+                    ? '已更新自动存档'
+                    : '自动存档已写入浏览器缓存，但存档文件或缩略图保存失败。');
+            }
+            if (!fileResult.ok) console.warn('自动存档文件保存失败', fileResult.errors);
+            return completed;
+        }
+
+        async function confirmSavePicker() {
+            const selection = parseSaveSelection(selectedSaveValue);
+            if (!selection) return;
+            const selected = getSavePickerEntry();
+            const entry = selected?.entry;
+            if (!entry) return;
+
+            if (savePickerMode === 'continue') {
+                if (!entry.exists) {
+                    setLoginMessage('存档为空，请选择 开始游戏。');
+                    return;
+                }
+                startGameFromSelection('continue', selection);
+                return;
+            }
+
+            // 开始游戏与手动保存只能写入手动栏位，自动位绝不允许被覆盖。
+            if (selection.kind !== 'manual') return;
+            if (entry.exists && !confirm(`手动存档 ${selection.index} 已有进度，是否覆盖？`)) return;
+
+            if (savePickerMode === 'manualSave') {
+                activeSaveSlot = selection.index;
+                const saved = await saveCurrentGame({ silent: true });
+                setLoginMessage(saved?.ok ? `已手动保存到栏位 ${selection.index}`
+                    : saved?.snapshot ? '手动存档已写入浏览器缓存，但存档文件或缩略图保存失败。'
+                    : '手动保存失败，请稍后重试。');
+                renderSaveSlots('manualSave');
+                return;
+            }
+            startGameFromSelection('new', selection);
+        }
+
+        function startGameFromSelection(mode, selection) {
             setLoginMessage('');
             if (gameStarted || sceneManager) {
-                sessionStorage.setItem('yijian18:boot-command', JSON.stringify({ mode, slotIndex }));
+                sessionStorage.setItem('yijian18:boot-command', JSON.stringify({ mode, selection }));
                 location.reload();
                 return;
             }
-            activeSaveSlot = slotIndex;
+            if (selection.kind === 'manual') activeSaveSlot = selection.index;
             loginScreen.classList.add('hidden');
             loadingScreen.style.display = 'flex';
-            initGame({ loadSave: mode === 'continue', slotIndex });
+            initGame({ loadSave: mode === 'continue', saveSelection: selection });
         }
 
         async function openSystemMenu() {
             let autoSaveResult = null;
             if (gameStarted) {
-                autoSaveResult = saveCurrentGame({ silent: true });
+                autoSaveResult = await autoSaveCurrentGame({ silent: true });
                 scene?.pause?.();
                 loginScreen.classList.add('in-game');
             } else {
                 loginScreen.classList.remove('in-game');
             }
             saveSlotsElement.classList.remove('visible');
+            loginPanel.classList.remove('has-save-browser');
             setLoginMessage(gameStarted
-                ? (autoSaveResult?.ok ? `已自动保存到存档 ${activeSaveSlot}` : '自动保存失败，请稍后重试。')
+                ? (autoSaveResult?.ok ? '已更新自动存档'
+                    : autoSaveResult?.snapshot ? '自动存档已写入浏览器缓存，但存档文件或缩略图保存失败。'
+                    : '自动保存失败，请稍后重试。')
                 : '');
             menuPadArmed = false;
             menuPadIndex = 0;
@@ -983,8 +1352,8 @@
             lastTime = performance.now();
         }
 
-        function exitGame() {
-            saveCurrentGame({ silent: true });
+        async function exitGame() {
+            await autoSaveCurrentGame({ silent: true });
             const app = globalThis.Capacitor?.Plugins?.App;
             if (app?.exitApp) {
                 app.exitApp();
@@ -995,18 +1364,25 @@
         }
 
         document.getElementById('login-start').addEventListener('click', () => {
-            setLoginMessage('请选择用于新游戏的存档位。');
+            setLoginMessage('请选择手动存档栏位（1–100）。');
             renderSaveSlots('new');
         });
-        document.getElementById('login-continue').addEventListener('click', () => {
+        document.getElementById('login-read-save').addEventListener('click', () => {
             if (!saveGames.hasAny()) {
                 saveSlotsElement.classList.remove('visible');
+                loginPanel.classList.remove('has-save-browser');
                 setLoginMessage('存档为空，请选择 开始游戏。');
                 return;
             }
-            setLoginMessage('请选择要继续的存档。');
+            setLoginMessage('请选择自动存档或手动存档栏位。');
             renderSaveSlots('continue');
         });
+        document.getElementById('login-manual-save').addEventListener('click', () => {
+            setLoginMessage('请选择要写入的手动存档栏位（1–100）。');
+            renderSaveSlots('manualSave');
+        });
+        document.getElementById('login-return-game').addEventListener('click', closeSystemMenu);
+        saveSlotConfirm.addEventListener('click', confirmSavePicker);
         document.getElementById('login-exit').addEventListener('click', exitGame);
         document.getElementById('login-close').addEventListener('click', closeSystemMenu);
         window.addEventListener('keydown', event => {
@@ -1027,17 +1403,27 @@
                     const pressed = index => !!pad.buttons[index]?.pressed;
                     const direction = pressed(12) || (pad.axes[1] || 0) < -0.55 ? -1
                         : (pressed(13) || (pad.axes[1] || 0) > 0.55 ? 1 : 0);
-                    const selector = saveSlotsElement.classList.contains('visible') ? '.save-slot' : '.login-action';
-                    const active = Array.from(loginScreen.querySelectorAll(selector))
-                        .filter(button => button.offsetParent !== null);
+                    const isPickingSave = saveSlotsElement.classList.contains('visible');
+                    const active = isPickingSave
+                        ? [saveSlotConfirm]
+                        : Array.from(loginScreen.querySelectorAll('.login-action'))
+                            .filter(button => button.offsetParent !== null);
                     if (!menuPadArmed) {
                         menuPadArmed = !pressed(0) && !pressed(1) && !pressed(9) && direction === 0;
                     } else {
-                        if (direction && direction !== menuPadDirection && active.length) {
+                        if (isPickingSave && direction && direction !== menuPadDirection) {
+                            const options = savePickerEntries.filter(entry => !entry.disabled);
+                            const currentIndex = options.findIndex(entry => entry.value === selectedSaveValue);
+                            const nextIndex = (currentIndex + direction + options.length) % options.length;
+                            selectSaveEntry(options[nextIndex]?.value);
+                        } else if (!isPickingSave && direction && direction !== menuPadDirection && active.length) {
                             menuPadIndex = (menuPadIndex + direction + active.length) % active.length;
                             active[menuPadIndex].focus();
                         }
-                        if (pressed(0) && !pollLoginGamepad.aWasDown) active[menuPadIndex]?.click();
+                        if (pressed(0) && !pollLoginGamepad.aWasDown) {
+                            if (isPickingSave) void confirmSavePicker();
+                            else active[menuPadIndex]?.click();
+                        }
                         if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown
                             && loginScreen.classList.contains('in-game')) closeSystemMenu();
                     }
@@ -1055,7 +1441,7 @@
         }
         requestAnimationFrame(pollLoginGamepad);
         globalThis.__openSystemMenu = openSystemMenu;
-        window.addEventListener('pagehide', () => saveCurrentGame({ silent: true }));
+        window.addEventListener('pagehide', () => { void autoSaveCurrentGame({ silent: true }); });
 
         async function bootGameMenu() {
             const project = await loadProjectConfig();
@@ -1065,7 +1451,8 @@
                 sessionStorage.removeItem('yijian18:boot-command');
                 try {
                     const command = JSON.parse(rawCommand);
-                    startGameFromSlot(command.mode, command.slotIndex);
+                    const selection = command.selection || { kind: 'manual', index: command.slotIndex || 1 };
+                    startGameFromSelection(command.mode, selection);
                     return;
                 } catch (_error) { /* 回到登录界面 */ }
             }
@@ -1314,23 +1701,27 @@
                         validate: data => scene.validateSaveState(data),
                         restore: data => scene.restoreSaveState(data)
                     });
-                    activeSaveSlot = options.slotIndex || 1;
+                    const selection = options.saveSelection || { kind: 'manual', index: activeSaveSlot };
+                    if (selection.kind === 'manual') activeSaveSlot = selection.index;
                     if (options.loadSave) {
-                        const loaded = saveGames.load(activeSaveSlot);
+                        const loaded = selection.kind === 'auto'
+                            ? saveGames.loadAuto()
+                            : saveGames.load(selection.index);
                         if (!loaded.ok) {
                             console.warn('读取存档失败', loaded.errors);
                             throw new Error('存档读取失败，存档数据可能已损坏。');
                         }
                     } else {
+                        // 新游戏只清理所选手动栏位，绝不影响自动存档位。
                         saveGames.clear(activeSaveSlot);
                     }
                 }
                 
                 await nextStep(); // 步骤 6（完成）
                 gameStarted = true;
-                if (!options.loadSave) saveGames.save(activeSaveSlot, currentSaveMeta());
+                if (!options.loadSave) await saveCurrentGame({ silent: true });
                 clearInterval(autosaveTimer);
-                autosaveTimer = setInterval(() => saveCurrentGame({ silent: true }), 30000);
+                autosaveTimer = setInterval(() => { void autoSaveCurrentGame({ silent: true }); }, 30000);
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';

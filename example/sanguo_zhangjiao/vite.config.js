@@ -81,15 +81,21 @@ function editorFileAPIPlugin() {
           req.on('data', chunk => { body += chunk; });
           req.on('end', () => {
             try {
-              const { path: filePath, content } = JSON.parse(body);
+              const { path: filePath, content, encoding = 'utf8' } = JSON.parse(body);
               if (!filePath || content === undefined) {
                 res.statusCode = 400;
                 res.end(JSON.stringify({ error: '缺少 path 或 content' }));
                 return;
               }
+              if (encoding !== 'utf8' && encoding !== 'base64') {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ error: '不支持的文件编码' }));
+                return;
+              }
               const absPath = path.resolve(repoRoot, filePath);
-              // 安全检查
-              if (!absPath.startsWith(repoRoot)) {
+              const relativePath = path.relative(repoRoot, absPath);
+              // 必须是仓库内相对路径，避免 ../ 或盘符路径绕过。
+              if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
                 res.statusCode = 403;
                 res.end(JSON.stringify({ error: '路径越权' }));
                 return;
@@ -99,7 +105,8 @@ function editorFileAPIPlugin() {
               if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
               }
-              fs.writeFileSync(absPath, content, 'utf-8');
+              const fileContent = encoding === 'base64' ? Buffer.from(content, 'base64') : content;
+              fs.writeFileSync(absPath, fileContent, encoding === 'base64' ? undefined : 'utf-8');
               res.setHeader('Content-Type', 'application/json; charset=utf-8');
               res.end(JSON.stringify({ ok: true, path: filePath }));
               console.log(`[editor-file-api] 已保存: ${filePath}`);

@@ -683,7 +683,8 @@
             cursor: pointer;
         }
         .save-picker-confirm { width: 100%; }
-        .login-action:hover, .save-picker-confirm:hover { filter: brightness(1.18); }
+        .login-action:disabled { cursor: not-allowed; opacity: .5; filter: grayscale(1); }
+        .login-action:not(:disabled):hover, .save-picker-confirm:hover { filter: brightness(1.18); }
         #login-manual-save, #login-return-game { display: none; }
         #login-screen.in-game #login-manual-save, #login-screen.in-game #login-return-game { display: block; }
         #save-slots { display: none; gap: 9px; min-width: 0; text-align: left; }
@@ -852,6 +853,7 @@
                             <p id="new-game-gender-note" role="status" aria-live="polite"></p>
                         </section>
                         <div class="login-actions">
+                            <button class="login-action" id="login-continue" type="button" disabled>继续游戏</button>
                             <button class="login-action" id="login-start" type="button">开始游戏</button>
                             <button class="login-action" id="login-read-save" type="button">读取存档</button>
                             <button class="login-action" id="login-manual-save" type="button">手动存档</button>
@@ -1182,6 +1184,27 @@
             return Number.isInteger(manualIndex) && manualIndex >= 1 && manualIndex <= saveGames.slotCount
                 ? { kind: 'manual', index: manualIndex }
                 : null;
+        }
+
+        /** 自动档与手动档统一按保存时间挑选，继续游戏始终恢复最近有效进度。 */
+        function getLatestSaveSelection() {
+            const latest = [...saveGames.getAutoSlots(), ...saveGames.listSlots()]
+                .filter(entry => entry.exists && entry.info)
+                .sort((left, right) => {
+                    const timeDelta = (Number(right.info.createdAt) || 0) - (Number(left.info.createdAt) || 0);
+                    if (timeDelta) return timeDelta;
+                    const typeDelta = left.type.localeCompare(right.type);
+                    return typeDelta || left.index - right.index;
+                })[0];
+            return latest ? { kind: latest.type, index: latest.index } : null;
+        }
+
+        function refreshContinueGameAction() {
+            const button = document.getElementById('login-continue');
+            const selection = getLatestSaveSelection();
+            button.disabled = !selection;
+            button.title = selection ? '读取最近保存的游戏进度' : '没有可读取的有效存档';
+            return selection;
         }
 
         function describeSaveEntry(entry, label) {
@@ -1558,6 +1581,7 @@
             } else {
                 loginScreen.classList.remove('in-game');
             }
+            refreshContinueGameAction();
             saveSlotsElement.classList.remove('visible');
             newGameProfile.classList.add('hidden');
             loginPanel.classList.remove('has-save-browser');
@@ -1591,6 +1615,14 @@
             setLoginMessage('浏览器不允许网页主动关闭，请关闭当前标签页。');
         }
 
+        document.getElementById('login-continue').addEventListener('click', () => {
+            const selection = refreshContinueGameAction();
+            if (!selection) {
+                setLoginMessage('没有可读取的有效存档，请选择 开始游戏。');
+                return;
+            }
+            startGameFromSelection('continue', selection);
+        });
         document.getElementById('login-start').addEventListener('click', () => {
             setLoginMessage('请选择手动存档栏位（1–100）。');
             renderSaveSlots('new');
@@ -1635,7 +1667,7 @@
                     const active = isPickingSave
                         ? [saveSlotConfirm]
                         : Array.from(loginScreen.querySelectorAll('.login-action'))
-                            .filter(button => button.offsetParent !== null);
+                            .filter(button => button.offsetParent !== null && !button.disabled);
                     if (!menuPadArmed) {
                         menuPadArmed = !pressed(0) && !pressed(1) && !pressed(9) && direction === 0;
                     } else {

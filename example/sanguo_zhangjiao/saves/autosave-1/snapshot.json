@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786044576728,
+  "createdAt": 1786048195654,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 592.5319821071928,
-          "y": 480.83729298777564,
+          "x": 1033.4582041292176,
+          "y": 304.2940294755659,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -36,7 +36,7 @@
           "maxHp": 150,
           "hp": 150,
           "maxMp": 100,
-          "mp": 100,
+          "mp": 88,
           "attack": 15,
           "defense": 8,
           "speed": 120,

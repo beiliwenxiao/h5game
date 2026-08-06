@@ -1521,7 +1521,7 @@
           }
         }
       ],
-      "once": false
+      "once": true
     },
     {
       "id": "trg_act4_select_archer",
@@ -1546,7 +1546,7 @@
           }
         }
       ],
-      "once": false
+      "once": true
     },
     {
       "id": "trg_act4_select_mage",

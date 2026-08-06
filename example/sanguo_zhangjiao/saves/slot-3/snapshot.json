@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786042468059,
+  "createdAt": 1786048256294,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -57,8 +57,8 @@
         "enabled": true
       },
       "dialogue": {
-        "currentDialogueId": null,
-        "currentNodeId": null,
+        "currentDialogueId": "intro",
+        "currentNodeId": "node1",
         "variables": {},
         "history": [
           {
@@ -66,29 +66,15 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786042421632
+            "timestamp": 1786048256154
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786042421632
-          },
-          {
-            "type": "node",
-            "nodeId": "node2",
-            "speaker": "旁白",
-            "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786042423381
-          },
-          {
-            "type": "end",
-            "dialogueId": "intro",
-            "timestamp": 1786042423964
+            "timestamp": 1786048256154
           }
         ],
-        "completedDialogues": [
-          "intro"
-        ]
+        "completedDialogues": []
       },
       "quests": {
         "activeQuests": [],
@@ -109,10 +95,7 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake",
-            "5秒后自动点燃火堆",
-            "trg_spawn_pickup",
-            "tut_fire"
+            "tut_wake"
           ],
           "cooldowns": {}
         },
@@ -128,7 +111,7 @@
         }
       },
       "scene": {
-        "campfireLit": true,
+        "campfireLit": false,
         "firedPickups": [],
         "clearedGroups": [],
         "tutorialEvents": [],

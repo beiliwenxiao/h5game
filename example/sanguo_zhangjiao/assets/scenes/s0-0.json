@@ -4550,6 +4550,96 @@
           "actions": "[object Object], [object Object]",
           "once": true,
           "cooldown": 0
+        },
+        {
+          "id": "trigger_1786048343122_0",
+          "type": "trigger",
+          "name": "trg_act4_select_mage",
+          "triggerId": "trg_act4_select_mage",
+          "x": 10,
+          "y": 10,
+          "width": 36,
+          "height": 36,
+          "event": "dialogueEnd",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"!=\",\"left\":{\"var\":\"classSelected\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1786048343122_1",
+          "type": "trigger",
+          "name": "trg_act5_final_cleared",
+          "triggerId": "trg_act5_final_cleared",
+          "x": 10,
+          "y": 56,
+          "width": 36,
+          "height": 36,
+          "event": "waveCleared",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "",
+          "actions": "[object Object], [object Object]",
+          "once": true,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1786048343122_2",
+          "type": "trigger",
+          "name": "trg_act2_equip_done",
+          "triggerId": "trg_act2_equip_done",
+          "x": 10,
+          "y": 102,
+          "width": 36,
+          "height": 36,
+          "event": "equipItem",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\"==\",\"left\":{\"var\":\"act2WaitEquip\"},\"right\":true}",
+          "actions": "[object Object]",
+          "once": false,
+          "cooldown": 0
+        },
+        {
+          "id": "trigger_1786048343122_3",
+          "type": "trigger",
+          "name": "trg_act2_equip_complete",
+          "triggerId": "trg_act2_equip_complete",
+          "x": 10,
+          "y": 148,
+          "width": 36,
+          "height": 36,
+          "event": "equipItem",
+          "target": "",
+          "sceneId": "",
+          "radius": 60,
+          "conditions": "{\"op\":\">=\",\"left\":{\"var\":\"act2EquipCount\"},\"right\":2}",
+          "actions": "[object Object]",
+          "once": true,
+          "cooldown": 0
+        }
+      ]
+    },
+    {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "ref_1786048356546_615",
+          "type": "ref",
+          "kind": "item",
+          "ref": "leftover_food",
+          "name": "残羹",
+          "x": 519,
+          "y": 521,
+          "group": ""
         }
       ]
     }
@@ -4758,7 +4848,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-08-01T23:03:43.233Z",
+  "updatedAt": "2026-08-01T23:07:15.785Z",
   "atlases": [
     {
       "id": "mountain_landscape",

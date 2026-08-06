@@ -38,6 +38,14 @@ export class SceneFramePipeline {
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
     inputFlow?.beforeFrame(deltaTime);
 
+    // 技能轮盘只冻结世界模拟，不能使用 isPaused，否则下一帧无法读取 LB 松开沿。
+    if (scene.isSkillWheelWorldPaused) {
+      if (inputFlow) inputFlow.flush();
+      else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
+      else scene.inputManager?.update?.();
+      return;
+    }
+
     // 空格或可重绑手柄 jump 动作按下时起跳；对话/模态状态由统一动作出口拦截。
     if (scene.inputManager?.isKeyPressed?.('space') || scene.inputManager?.isKeyPressed?.('jump')) {
       scene.jumpByInput?.();

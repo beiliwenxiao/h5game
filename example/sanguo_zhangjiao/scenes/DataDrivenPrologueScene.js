@@ -253,6 +253,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 顶层输入流程必须在本场景读取 E/N/反引号之前启动；同帧 super.update 会被守卫跳过。
     this._beginInputFrame(deltaTime);
 
+    // 轮盘已在帧首处理 LB 输入；冻结剧情与环境更新，但保留后续帧的手柄轮询以接收松开沿。
+    if (this.isSkillWheelWorldPaused) {
+      this._inputFlow?.flush?.();
+      return;
+    }
+
     // 传送淡黑效果更新
     this._updateTeleportFade(deltaTime);
 

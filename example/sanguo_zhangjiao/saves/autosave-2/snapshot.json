@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "createdAt": 1786040702575,
+  "createdAt": 1786044586022,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
     "autoSlot": 2,
-    "characterName": "玩家昵称",
+    "characterName": "柔弱女子",
     "level": 1,
     "currentAct": 1,
     "location": "第 1 幕区域",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 592.54,
-          "y": 547.88,
+          "x": 592.5319821071928,
+          "y": 480.83729298777564,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -66,24 +66,31 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786040692972
+            "timestamp": 1786042421632
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786040692972
+            "timestamp": 1786042421632
+          },
+          {
+            "type": "node",
+            "nodeId": "node1",
+            "speaker": "旁白",
+            "text": "东汉末年，天下大乱，民不聊生...",
+            "timestamp": 1786044564348
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786040694341
+            "timestamp": 1786044567501
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786040694780
+            "timestamp": 1786044568261
           }
         ],
         "completedDialogues": [
@@ -109,7 +116,11 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake"
+            "tut_wake",
+            "5秒后自动点燃火堆",
+            "trg_spawn_pickup",
+            "tut_fire",
+            "tut_move"
           ],
           "cooldowns": {}
         },
@@ -125,10 +136,12 @@
         }
       },
       "scene": {
-        "campfireLit": false,
+        "campfireLit": true,
         "firedPickups": [],
         "clearedGroups": [],
-        "tutorialEvents": [],
+        "tutorialEvents": [
+          "moved"
+        ],
         "nextSceneTarget": null,
         "playerDiedTriggered": false
       }

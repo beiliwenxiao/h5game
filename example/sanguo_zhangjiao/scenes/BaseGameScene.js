@@ -94,6 +94,8 @@ export class BaseGameScene extends Scene {
   constructor(sceneData = {}) {
     super(sceneData.name || 'DataDrivenPrologueScene');
     this.isPaused = false;
+    // 独立于系统菜单暂停；技能轮盘仍需在暂停期间持续轮询 LB 松开沿。
+    this.isSkillWheelWorldPaused = false;
     this.sceneManager = null;
     
     // ECS 核心：SceneEntityStore 是所有场景集合的唯一所有者，平铺字段仅作稳定投影。

@@ -244,7 +244,14 @@ export class SceneCombatActions {
 
   updateGamepadCombat() {
     const scene = this.scene;
-    if (!scene.gamepadCombat || !scene.inputManager?.gamepad?.isConnected()) return;
+    if (!scene.gamepadCombat || !scene.inputManager?.gamepad?.isConnected()) {
+      // 手柄断开时必须同时清除控制器状态与独立暂停，避免重连后世界永久冻结。
+      if (scene.gamepadCombat) scene.gamepadCombat.cancelSkillWheel();
+      scene.isSkillWheelWorldPaused = false;
+      scene.skillWheelOverlay?.close?.();
+      return;
+    }
+
     const controller = scene.gamepadCombat;
     const gamepad = scene.inputManager.gamepad;
     const combat = scene.playerEntity?.getComponent('combat');
@@ -252,15 +259,23 @@ export class SceneCombatActions {
     controller.skillCount = Math.max(1, gamepadSkills.length);
     if (controller.currentSkillIndex >= controller.skillCount) controller.currentSkillIndex = 0;
     controller.update(gamepad);
-    this._syncGamepadAimPreview(controller, gamepadSkills);
 
+    // 此状态不能使用 scene.isPaused：后者会在帧首阻断 poll，导致 LB 松开沿永远无法被读取。
+    scene.isSkillWheelWorldPaused = controller.isWheelOpen;
+    this._syncSkillWheel(controller, gamepadSkills);
+    if (scene.isSkillWheelWorldPaused) {
+      // 轮盘停住世界期间仍消费当前帧意图，禁止把攻击/技能/格挡延后到恢复帧执行。
+      controller.consumeIntents();
+      return;
+    }
+
+    this._syncGamepadAimPreview(controller, gamepadSkills);
     const attack = controller.getIntent(IntentType.ATTACK);
     if (attack && scene.playerEntity && scene.combatSystem) this._performGamepadAttack(attack);
 
     const skillIntent = controller.getIntent(IntentType.SKILL_RELEASE);
     if (skillIntent) this._releaseGamepadSkill(gamepadSkills[skillIntent.skillIndex], skillIntent);
 
-    this._syncSkillWheel(controller, gamepadSkills);
     if (controller.hasIntent(IntentType.BLOCK_START)) scene.activateBlock?.();
     if (controller.hasIntent(IntentType.BLOCK_END)) scene.deactivateBlock?.();
     controller.consumeIntents();

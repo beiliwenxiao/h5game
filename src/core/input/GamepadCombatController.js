@@ -129,6 +129,17 @@ export class GamepadCombatController {
     return this._wheelOpen;
   }
 
+  /**
+   * 取消当前轮盘选择，供手柄断开等无法收到 LB 松开沿的路径调用。
+   * @returns {void}
+   */
+  cancelSkillWheel() {
+    this._wheelOpen = false;
+    this._wheelHoldStart = 0;
+    this.wheelSelectedIndex = this.currentSkillIndex;
+    this.consumeIntents();
+  }
+
   /** 是否正在瞄准（攻击/技能/投掷按住中） */
   get isAiming() {
     return this._attackHolding || this._skillHolding || this._throwHolding;

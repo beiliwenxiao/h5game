@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786048195654,
+  "createdAt": 1786050243208,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 1033.4582041292176,
-          "y": 304.2940294755659,
+          "x": 591.1295279829759,
+          "y": 476.7530948009581,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -36,7 +36,7 @@
           "maxHp": 150,
           "hp": 150,
           "maxMp": 100,
-          "mp": 88,
+          "mp": 100,
           "attack": 15,
           "defense": 8,
           "speed": 120,
@@ -66,31 +66,24 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786042421632
+            "timestamp": 1786048256154
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786042421632
-          },
-          {
-            "type": "node",
-            "nodeId": "node1",
-            "speaker": "旁白",
-            "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786044564348
+            "timestamp": 1786048256154
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786044567501
+            "timestamp": 1786048257363
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786044568261
+            "timestamp": 1786048260982
           }
         ],
         "completedDialogues": [
@@ -117,10 +110,11 @@
           "firedOnce": [
             "my_first_trigger",
             "tut_wake",
-            "5秒后自动点燃火堆",
+            "出现火堆",
             "trg_spawn_pickup",
             "tut_fire",
-            "tut_move"
+            "tut_move",
+            "5秒后自动点燃火堆"
           ],
           "cooldowns": {}
         },

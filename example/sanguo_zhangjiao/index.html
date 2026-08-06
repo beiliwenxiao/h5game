@@ -631,6 +631,24 @@
         #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
         #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
         #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
+        #login-footer {
+            position: absolute;
+            /* top: calc(100% + 14px); */
+            left: 50%;
+            width: max-content;
+            max-width: min(460px, 92vw);
+            transform: translateX(-50%);
+            color: rgba(255,255,255,.78);
+            font-size: 12px;
+            line-height: 1.6;
+            text-align: center;
+            pointer-events: auto;
+        }
+        #login-footer p { margin: 0; }
+        #login-footer p + p { margin-top: 6px; }
+        #login-footer a { color: inherit; text-decoration: none; }
+        #login-footer a:hover, #login-footer a:focus-visible { color: #e7c778; text-decoration: underline; }
+        #login-screen.in-game #login-footer { display: none; }
 
         /* 新建、读档、手动存档在独立小窗中执行，不扩展登录菜单。 */
         #save-picker-modal {
@@ -874,6 +892,13 @@
                         <p id="login-message" role="status"></p>
                     </div>
                 </div>
+                <footer id="login-footer" aria-label="项目仓库与版权声明">
+                    <p>
+                        <a href="https://gitee.com/coderaaa/yijian18-engine" target="_blank" rel="noopener noreferrer">Gitee</a> |
+                        <a href="https://github.com/beiliwenxiao/yijian18-engine" target="_blank" rel="noopener noreferrer">GitHub</a>
+                    </p>
+                    <p>当前版本: 0.0.1 | 许可证: MIT</p>
+                </footer>
             </section>
             <div id="save-picker-modal" class="hidden" role="presentation" aria-hidden="true">
                 <section class="save-picker-panel" role="dialog" aria-modal="true" aria-labelledby="save-picker-title">
@@ -923,6 +948,7 @@
         import { DataDrivenPrologueScene } from './scenes/DataDrivenPrologueScene.js';
         import { SceneManager } from '../../src/core/SceneManager.js';
         import { AssetManager } from '../../src/core/AssetManager.js';
+        import { PlatformProfile } from '../../src/core/PlatformProfile.js';
         import { DialogueBox } from '../../src/ui/DialogueBox.js';
         import { SkillTreePanel } from '../../src/ui/SkillTreePanel.js';
         import { NotificationSystem } from '../../src/ui/NotificationSystem.js';
@@ -1089,10 +1115,38 @@
             }
         }
 
-        // 登录页独立布局：由 UI 编辑器的“登录页面 UI”标签保存，
+        // 登录页独立布局：PC 与 Android 分别由 UI 编辑器保存，
         // 不与游戏内 PC/Android HUD 布局混用。
-        let loginLayout = null;
+        const LOGIN_LAYOUT_FILES = Object.freeze({
+            desktop: 'LoginLayout.desktop.json',
+            mobile: 'LoginLayout.mobile.json'
+        });
+        const LEGACY_LOGIN_LAYOUT_FILE = 'LoginLayout.json';
+        const loginLayouts = new Map();
         const LOGIN_LAYOUT_IDS = ['login-panel', 'login-title', 'login-subtitle', 'login-description', 'login-actions'];
+
+        function getLoginLayoutPlatform() {
+            return PlatformProfile.isMobile ? 'mobile' : 'desktop';
+        }
+
+        async function loadLoginLayout(platform) {
+            const cached = loginLayouts.get(platform);
+            if (cached) return cached;
+            const fileNames = [LOGIN_LAYOUT_FILES[platform], LEGACY_LOGIN_LAYOUT_FILE];
+            for (const fileName of fileNames) {
+                try {
+                    const response = await fetch(`config/${fileName}`);
+                    if (!response.ok) continue;
+                    const loaded = await response.json();
+                    if (!Array.isArray(loaded?.components)) continue;
+                    loginLayouts.set(platform, loaded);
+                    return loaded;
+                } catch (_error) {
+                    // 文件不存在或读取失败时继续尝试兼容布局；最终回退到 CSS 默认布局。
+                }
+            }
+            return null;
+        }
 
         function clearLoginLayout() {
             for (const id of LOGIN_LAYOUT_IDS) {
@@ -1124,23 +1178,14 @@
             };
         }
 
-        /** 应用 UI 编辑器保存的登录页布局；独立存档弹窗不参与登录页布局。 */
+        /** 应用 UI 编辑器保存的对应平台登录页布局；独立存档弹窗不参与登录页布局。 */
         async function applyLoginLayout() {
-            if (!loginLayout) {
-                try {
-                    const response = await fetch('config/LoginLayout.json');
-                    if (!response.ok) return false;
-                    const loaded = await response.json();
-                    if (!Array.isArray(loaded?.components)) return false;
-                    loginLayout = loaded;
-                } catch (_error) {
-                    return false; // 文件不存在时沿用 CSS 回退布局
-                }
-            }
             if (loginScreen.classList.contains('in-game')) {
                 clearLoginLayout();
                 return false;
             }
+            const loginLayout = await loadLoginLayout(getLoginLayoutPlatform());
+            if (!loginLayout) return false; // 文件不存在时沿用 CSS 回退布局
 
             const componentMap = new Map(loginLayout.components.map(component => [component.id, component]));
             const panelComponent = componentMap.get('login-panel');

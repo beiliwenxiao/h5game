@@ -14,17 +14,18 @@
  * UIEditor - 界面 UI 编辑器
  *
  * 可视化编辑游戏 UI 组件（按钮、面板、摇杆等）的位置和大小，
- * 分 PC、Android 与登录页面三套布局，保存为 JSON 配置文件：
+ * 分 PC、Android 游戏 UI 与 PC/Android 登录页面四套布局，保存为 JSON 配置文件：
  *   - config/UILayout.desktop.json
  *   - config/UILayout.mobile.json
- *   - config/LoginLayout.json
+ *   - config/LoginLayout.desktop.json
+ *   - config/LoginLayout.mobile.json
  *
  * 保存通过 Vite dev server 的 /api/save-file 写入实际文件。
  * 游戏入口运行时根据平台加载对应 JSON 动态应用布局。
  */
 
 // 各平台默认组件定义（与游戏实际 UI 对齐）
-// 坐标系：以"逻辑画布"左上角为原点；锚点说明见各组件 anchor 字段
+// 坐标系：以“逻辑画布”左上角为原点；锚点说明见各组件 anchor 字段
 const DEFAULT_COMPONENTS = {
   desktop: {
     // 画布逻辑尺寸（仅用于编辑器预览参考）
@@ -91,6 +92,15 @@ const DEFAULT_COMPONENTS = {
   }
 };
 
+const EDITABLE_LAYOUT_PLATFORMS = ['desktop', 'mobile', 'loginDesktop', 'loginMobile'];
+const LOGIN_LAYOUT_PLATFORMS = new Set(['loginDesktop', 'loginMobile']);
+
+function layoutFileName(platform) {
+  if (platform === 'desktop') return 'UILayout.desktop.json';
+  if (platform === 'mobile') return 'UILayout.mobile.json';
+  return platform === 'loginMobile' ? 'LoginLayout.mobile.json' : 'LoginLayout.desktop.json';
+}
+
 export class UIEditor {
   /**
    * @param {HTMLElement} container - 编辑器挂载容器
@@ -107,7 +117,8 @@ export class UIEditor {
     this.layouts = {
       desktop: this._cloneDefault('desktop'),
       mobile: this._cloneDefault('mobile'),
-      login: this._cloneDefault('login')
+      loginDesktop: this._cloneDefault('loginDesktop'),
+      loginMobile: this._cloneDefault('loginMobile')
     };
     this.selectedId = null;
     this.scale = 1; // 预览缩放
@@ -125,7 +136,8 @@ export class UIEditor {
   }
 
   _cloneDefault(platform) {
-    return JSON.parse(JSON.stringify(DEFAULT_COMPONENTS[platform]));
+    const defaultPlatform = LOGIN_LAYOUT_PLATFORMS.has(platform) ? 'login' : platform;
+    return JSON.parse(JSON.stringify(DEFAULT_COMPONENTS[defaultPlatform]));
   }
 
   /** 初始化（首次显示时调用） */
@@ -249,7 +261,7 @@ export class UIEditor {
    * 取放大方向（面积不缩小），符合"等比时尽量最大化"。
    */
   _normalizePanelAspects() {
-    for (const platform of ['desktop', 'mobile', 'login']) {
+    for (const platform of EDITABLE_LAYOUT_PLATFORMS) {
       const layout = this.layouts[platform];
       if (!layout || !Array.isArray(layout.components)) continue;
       for (const comp of layout.components) {
@@ -285,24 +297,25 @@ export class UIEditor {
     }
   }
 
-  /** 从 JSON 文件加载已保存布局（覆盖默认值） */
+  /** 从 JSON 文件加载已保存布局（覆盖默认值）。旧 LoginLayout.json 仅兼容为 PC 登录布局回退。 */
   async _loadFromFiles() {
-    for (const platform of ['desktop', 'mobile', 'login']) {
-      const fileName = platform === 'desktop' ? 'UILayout.desktop.json'
-        : platform === 'mobile' ? 'UILayout.mobile.json'
-          : 'LoginLayout.json';
-      const file = this.configBase + fileName;
-      try {
-        const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
-        if (!res.ok) continue;
-        const data = await res.json();
-        if (data && data.ok && data.content) {
+    for (const platform of EDITABLE_LAYOUT_PLATFORMS) {
+      const fileNames = [layoutFileName(platform)];
+      if (platform === 'loginDesktop') fileNames.push('LoginLayout.json');
+      for (const fileName of fileNames) {
+        const file = this.configBase + fileName;
+        try {
+          const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (!data?.ok || !data.content) continue;
           const parsed = JSON.parse(data.content);
           // 合并：以文件为准，但保留默认组件中文件缺失的项
           this.layouts[platform] = this._mergeLayout(this._cloneDefault(platform), parsed);
+          break;
+        } catch (e) {
+          console.warn('UIEditor: 加载布局失败', platform, e);
         }
-      } catch (e) {
-        console.warn('UIEditor: 加载布局失败', platform, e);
       }
     }
   }
@@ -340,7 +353,8 @@ export class UIEditor {
           <div class="uie-platform-switch">
             <button data-platform="mobile" class="active">📱 Android UI</button>
             <button data-platform="desktop">🖥️ PC UI</button>
-            <button data-platform="login">🔐 登录页面 UI</button>
+            <button data-platform="loginDesktop">🖥️ PC UI 登录页面</button>
+            <button data-platform="loginMobile">📱 Android UI 登录页面</button>
             <button data-platform="gamepad">🎮 手柄</button>
             <button data-platform="hints">💬 提示文案</button>
           </div>
@@ -450,7 +464,7 @@ export class UIEditor {
     const layout = this.layouts[this.platform];
     const stage = this.container.querySelector('#uie-stage');
     if (!stage) return;
-    const isLoginPreview = this.platform === 'login';
+    const isLoginPreview = LOGIN_LAYOUT_PLATFORMS.has(this.platform);
     stage.classList.toggle('login-stage', isLoginPreview);
     const safeLoginBackground = isLoginPreview
       ? this._loginBackgroundImage.replace(/["'()]/g, '')
@@ -498,7 +512,7 @@ export class UIEditor {
         cvs.style.pointerEvents = 'none';
         this._drawPanelPreview(cvs, panelDef, cw, ch);
         el.appendChild(cvs);
-      } else if (this.platform === 'login' && comp.kind === 'login-actions') {
+      } else if (LOGIN_LAYOUT_PLATFORMS.has(this.platform) && comp.kind === 'login-actions') {
         el.textContent = '';
         for (const label of ['开始游戏', '读取存档', '退出游戏']) {
           const action = document.createElement('span');
@@ -617,24 +631,22 @@ export class UIEditor {
     if (el) { el.textContent = msg; el.style.color = isError ? '#ff8888' : '#8aa'; }
   }
 
-  /** 保存 PC、Android 与登录页面三套布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
+  /** 保存 PC、Android 游戏 UI 与两套登录页面布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
   async save() {
     // 手柄绑定保存到独立文件
     await this._saveGamepadConfig();
     // 操作提示文案保存到独立文件
     await this._saveHintsConfig();
 
-    for (const platform of ['desktop', 'mobile', 'login']) {
-      const fileName = platform === 'desktop' ? 'UILayout.desktop.json'
-        : platform === 'mobile' ? 'UILayout.mobile.json'
-          : 'LoginLayout.json';
+    for (const platform of EDITABLE_LAYOUT_PLATFORMS) {
+      const fileName = layoutFileName(platform);
       const file = this.configBase + fileName;
       const layout = this.layouts[platform];
       const cw = layout.canvas.width;
       const ch = layout.canvas.height;
       // 输出：每个组件附带百分比坐标(0~1)，游戏端按实际屏幕尺寸还原
       const out = {
-        ...(platform === 'login' ? { version: 1 } : {}),
+        ...(LOGIN_LAYOUT_PLATFORMS.has(platform) ? { version: 1 } : {}),
         canvas: layout.canvas,
         components: layout.components.map(c => ({
           id: c.id,

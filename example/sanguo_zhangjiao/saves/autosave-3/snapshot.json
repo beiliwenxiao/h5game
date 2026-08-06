@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786049010165,
+  "createdAt": 1786050229981,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 615.5704433199962,
-          "y": 480.4766137919998,
+          "x": 569.9230750657532,
+          "y": 476.17648831844815,
           "elevation": 0,
           "rotation": 0,
           "scale": {

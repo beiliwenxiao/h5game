@@ -211,10 +211,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       findSpawn: (sceneId, spawnRef) => this._worldLoadSession?.findSpawn(sceneId, spawnRef),
       getPlayer: () => this.playerEntity,
       getCamera: () => this.camera,
-      onSceneEnter: ({ sceneId, x, y }) => {
+      onSceneEnter: async ({ sceneId, x, y }) => {
         if (this.gameLoader?.triggerSystem) {
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
+        await this.requestAutoSave({ reason: 'map-change', sceneId });
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
       onFallback: ({ reason, sceneId }) => {
@@ -337,7 +338,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // ⑤ 切幕：倒计时
     this._updateSceneCountdown(deltaTime);
 
-    // 地形碰撞（火堆 + 盆地边界/水池/树/编辑器多边形）
+    // 地形碰撞（火堆 + 水池/树/编辑器碰撞多边形）
     this.checkCampfireCollision();
     const terrainCollisionState = (this._terrains || []).map((terrain, index) => ({
       index,
@@ -1080,10 +1081,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
     // 大地图传送（直接传送到指定区块，不切换独立场景）
     trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
+    // 特殊剧情可显式请求自动存档；实际存储由宿主统一排队执行。
+    trig.registerAction('autoSave', (p = {}) => this.requestAutoSave({ reason: p.reason || 'story-event' }));
     // 切换到独立场景（离开大地图，进入副本/过场等独立场景）
-    trig.registerAction('switchScene', (p) => {
+    trig.registerAction('switchScene', async (p) => {
       const scene = p.scene || p.target;
       if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return; }
+      await this.requestAutoSave({ reason: 'map-change', sceneId: scene });
       console.log('[DDScene] switchScene →', scene);
       const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
       if (sm && sm.switchTo) sm.switchTo(scene, p);

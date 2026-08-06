@@ -799,7 +799,7 @@
                         <p id="login-message" role="status"></p>
                     </div>
                     <aside id="save-slots" aria-label="存档浏览器">
-                        <label id="save-slot-browser-label">存档浏览（自动存档独立，手动栏位 1–100）</label>
+                        <label id="save-slot-browser-label">存档浏览（自动存档 3 位轮换，手动栏位 1–100）</label>
                         <div id="save-slot-dropdown" class="save-slot-browser" role="region" aria-labelledby="save-slot-browser-label">
                             <div class="save-slot-summary"><span id="save-slot-selected">请选择存档栏位</span></div>
                             <div id="save-slot-list" role="listbox" aria-label="存档栏位"></div>
@@ -856,11 +856,12 @@
         let fpsTime = 0;
         let projectConfig = null;
         let gameStarted = false;
-        let activeSaveSlot = 1; // 当前选择的手动栏位；自动存档永远使用独立 autosave 位
+        let activeSaveSlot = 1; // 当前选择的手动栏位；自动存档使用三个独立轮换栏位。
         let autosaveTimer = null;
+        const AUTO_SAVE_INTERVAL_MS = 15 * 60 * 1000;
         const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 100 });
         const SAVE_FILES_ROOT = 'example/sanguo_zhangjiao/saves';
-        const SAVE_SLOT_ID_PATTERN = /^(?:autosave|slot-(?:[1-9]\d?|100))$/;
+        const SAVE_SLOT_ID_PATTERN = /^(?:autosave-[1-3]|slot-(?:[1-9]\d?|100))$/;
         
         // 获取元素
         const canvas = document.getElementById('gameCanvas');
@@ -967,25 +968,33 @@
             catch (_error) { return '未知时间'; }
         }
 
-        const AUTO_SAVE_SELECTION = 'auto';
         let savePickerMode = null;
         let selectedSaveValue = '';
         let savePickerEntries = [];
+        let autoSaveInFlight = null;
         const saveSlotSelected = document.getElementById('save-slot-selected');
         const saveSlotList = document.getElementById('save-slot-list');
         const saveSlotInfo = document.getElementById('save-slot-info');
         const saveSlotConfirm = document.getElementById('save-slot-confirm');
+
+        function autoSaveSelection(index) {
+            return `auto:${index}`;
+        }
 
         function manualSaveSelection(index) {
             return `manual:${index}`;
         }
 
         function parseSaveSelection(value) {
-            if (value === AUTO_SAVE_SELECTION) return { kind: 'auto' };
-            const match = /^manual:(\d+)$/.exec(String(value || ''));
-            const index = Number(match?.[1]);
-            return Number.isInteger(index) && index >= 1 && index <= saveGames.slotCount
-                ? { kind: 'manual', index }
+            const autoMatch = /^auto:(\d+)$/.exec(String(value || ''));
+            const autoIndex = Number(autoMatch?.[1]);
+            if (Number.isInteger(autoIndex) && autoIndex >= 1 && autoIndex <= saveGames.autoSlotCount) {
+                return { kind: 'auto', index: autoIndex };
+            }
+            const manualMatch = /^manual:(\d+)$/.exec(String(value || ''));
+            const manualIndex = Number(manualMatch?.[1]);
+            return Number.isInteger(manualIndex) && manualIndex >= 1 && manualIndex <= saveGames.slotCount
+                ? { kind: 'manual', index: manualIndex }
                 : null;
         }
 
@@ -1052,7 +1061,7 @@
         function renderSaveSlots(mode) {
             savePickerMode = mode;
             const manualSlots = saveGames.listSlots();
-            const autoSlot = saveGames.getAutoSlot();
+            const autoSlots = saveGames.getAutoSlots();
             savePickerEntries = [];
             saveSlotList.replaceChildren();
 
@@ -1110,16 +1119,17 @@
             }
 
             if (mode === 'continue') {
-                addGroup('自动存档');
-                addOption(AUTO_SAVE_SELECTION, autoSlot, '自动');
+                addGroup('自动存档（保留最近 3 份）');
+                for (const slot of autoSlots) addOption(autoSaveSelection(slot.index), slot, `自动 ${slot.index}`);
             }
 
             addGroup('手动存档');
             for (const slot of manualSlots) addOption(manualSaveSelection(slot.index), slot, `手动 ${slot.index}`);
 
             const firstManual = manualSlots.find(slot => slot.exists);
+            const latestAuto = saveGames.getLatestAutoSlot();
             const preferred = mode === 'continue'
-                ? (autoSlot.exists ? AUTO_SAVE_SELECTION : firstManual ? manualSaveSelection(firstManual.index) : '')
+                ? (latestAuto ? autoSaveSelection(latestAuto.index) : firstManual ? manualSaveSelection(firstManual.index) : '')
                 : manualSaveSelection(activeSaveSlot);
             if (preferred) selectSaveEntry(preferred);
             else {
@@ -1257,24 +1267,47 @@
             return completed;
         }
 
-        /** 定时、进菜单和退出统一只更新自动存档位。 */
-        async function autoSaveCurrentGame({ silent = false } = {}) {
-            if (!gameStarted || !scene?.playerEntity) return null;
+        /** 在 Canvas 通知与菜单状态栏同步显示自动存档进度。 */
+        function showAutoSaveStatus(message, type = 'info') {
+            setLoginMessage(message);
+            const current = sceneManager?.getCurrentScene?.() || scene;
+            const notifier = current?.notificationSystem || notificationSystem;
+            if (!notifier) return;
+            if (type === 'success') notifier.addSuccess(message);
+            else if (type === 'error') notifier.addError(message);
+            else notifier.addNotification(message, 'info', 4500);
+        }
+
+        async function performAutoSave({ reason = 'unknown' } = {}) {
+            showAutoSaveStatus('自动存档保存中...');
             const result = saveGames.saveAuto(currentSaveMeta());
             if (!result.ok) {
-                if (!silent) setLoginMessage('自动保存失败，请稍后重试。');
-                console.warn('自动保存失败', result.errors);
+                showAutoSaveStatus('自动存档保存失败', 'error');
+                console.warn('自动保存失败', { reason, errors: result.errors });
                 return result;
             }
-            const fileResult = await persistSaveFiles(saveGames.autoSlotId, result.snapshot);
-            const completed = { ...result, ok: fileResult.ok, filePersisted: fileResult.ok, errors: [...result.errors, ...fileResult.errors] };
-            if (!silent) {
-                setLoginMessage(fileResult.ok
-                    ? '已更新自动存档'
-                    : '自动存档已写入浏览器缓存，但存档文件或缩略图保存失败。');
+            const fileResult = await persistSaveFiles(result.autoSlotId, result.snapshot);
+            const completed = {
+                ...result,
+                ok: fileResult.ok,
+                filePersisted: fileResult.ok,
+                errors: [...result.errors, ...fileResult.errors]
+            };
+            if (fileResult.ok) showAutoSaveStatus('自动存档保存成功', 'success');
+            else {
+                showAutoSaveStatus('自动存档保存失败', 'error');
+                console.warn('自动存档文件保存失败', { reason, errors: fileResult.errors });
             }
-            if (!fileResult.ok) console.warn('自动存档文件保存失败', fileResult.errors);
             return completed;
+        }
+
+        /** 定时、剧情和地图切换共用同一把锁，避免并发覆盖同一自动栏位。 */
+        function autoSaveCurrentGame(options = {}) {
+            if (!gameStarted || !scene?.playerEntity) return Promise.resolve(null);
+            if (autoSaveInFlight) return autoSaveInFlight;
+            autoSaveInFlight = performAutoSave(options)
+                .finally(() => { autoSaveInFlight = null; });
+            return autoSaveInFlight;
         }
 
         async function confirmSavePicker() {
@@ -1325,7 +1358,7 @@
         async function openSystemMenu() {
             let autoSaveResult = null;
             if (gameStarted) {
-                autoSaveResult = await autoSaveCurrentGame({ silent: true });
+                autoSaveResult = await autoSaveCurrentGame({ reason: 'system-menu' });
                 scene?.pause?.();
                 loginScreen.classList.add('in-game');
             } else {
@@ -1334,9 +1367,9 @@
             saveSlotsElement.classList.remove('visible');
             loginPanel.classList.remove('has-save-browser');
             setLoginMessage(gameStarted
-                ? (autoSaveResult?.ok ? '已更新自动存档'
-                    : autoSaveResult?.snapshot ? '自动存档已写入浏览器缓存，但存档文件或缩略图保存失败。'
-                    : '自动保存失败，请稍后重试。')
+                ? (autoSaveResult?.ok ? '自动存档保存成功'
+                    : autoSaveResult?.snapshot ? '自动存档保存失败'
+                    : '自动存档保存失败')
                 : '');
             menuPadArmed = false;
             menuPadIndex = 0;
@@ -1353,7 +1386,7 @@
         }
 
         async function exitGame() {
-            await autoSaveCurrentGame({ silent: true });
+            await autoSaveCurrentGame({ reason: 'exit' });
             const app = globalThis.Capacitor?.Plugins?.App;
             if (app?.exitApp) {
                 app.exitApp();
@@ -1441,7 +1474,7 @@
         }
         requestAnimationFrame(pollLoginGamepad);
         globalThis.__openSystemMenu = openSystemMenu;
-        window.addEventListener('pagehide', () => { void autoSaveCurrentGame({ silent: true }); });
+        window.addEventListener('pagehide', () => { void autoSaveCurrentGame({ reason: 'pagehide' }); });
 
         async function bootGameMenu() {
             const project = await loadProjectConfig();
@@ -1692,6 +1725,7 @@
                 if (scene) {
                     setupSceneCallbacks(scene);
                     scene.setSystemMenuCallback?.(() => openSystemMenu());
+                    scene.setAutoSaveCallback?.(context => autoSaveCurrentGame({ reason: context?.reason || 'scene-event' }));
 
                     // 读档必须等世界、放置点和 GameLoader 都完成，避免恢复状态被异步初始化覆盖。
                     const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);
@@ -1705,7 +1739,7 @@
                     if (selection.kind === 'manual') activeSaveSlot = selection.index;
                     if (options.loadSave) {
                         const loaded = selection.kind === 'auto'
-                            ? saveGames.loadAuto()
+                            ? saveGames.loadAuto(selection.index)
                             : saveGames.load(selection.index);
                         if (!loaded.ok) {
                             console.warn('读取存档失败', loaded.errors);
@@ -1721,7 +1755,7 @@
                 gameStarted = true;
                 if (!options.loadSave) await saveCurrentGame({ silent: true });
                 clearInterval(autosaveTimer);
-                autosaveTimer = setInterval(() => { void autoSaveCurrentGame({ silent: true }); }, 30000);
+                autosaveTimer = setInterval(() => { void autoSaveCurrentGame({ reason: 'interval' }); }, AUTO_SAVE_INTERVAL_MS);
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';

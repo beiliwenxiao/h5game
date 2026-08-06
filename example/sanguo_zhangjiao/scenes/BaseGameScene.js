@@ -263,8 +263,9 @@ export class BaseGameScene extends Scene {
       onSwitch: () => this.switchToNextScene()
     });
 
-    // 宿主页面注入系统菜单入口；场景层不依赖具体 DOM。
+    // 宿主页面注入系统菜单和自动存档入口；场景层不依赖具体 DOM。
     this._systemMenuCallback = null;
+    this._autoSaveCallback = null;
   }
 
   setSceneManager(sceneManager) {
@@ -278,6 +279,15 @@ export class BaseGameScene extends Scene {
   openSystemMenu() {
     if (this._systemMenuCallback) return this._systemMenuCallback(this);
     return globalThis.__openSystemMenu?.(this);
+  }
+
+  /** 宿主注入自动存档入口；剧情/地图切换只请求，不直接依赖存储实现。 */
+  setAutoSaveCallback(callback) {
+    this._autoSaveCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  requestAutoSave(context = {}) {
+    return this._autoSaveCallback?.({ scene: this, ...context }) || Promise.resolve(null);
   }
 
   /** 采集可序列化的通用游戏状态，供 SnapshotManager 原子存档。 */

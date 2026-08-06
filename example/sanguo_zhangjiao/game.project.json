@@ -2620,6 +2620,13 @@
           "params": {
             "text": "得到 铜钱剑 x1，按 B 打开背包，使用铜钱剑前往第四幕"
           }
+        },
+        {
+          "action": "autoSave",
+          "params": {
+            "reason": "coin-sword-received"
+          },
+          "await": true
         }
       ],
       "once": true
@@ -3413,7 +3420,7 @@
       "title": "张角黄巾起义序章",
       "subtitle": "苍天已死，黄天当立",
       "description": "乱世将起，你的选择将改变众人的命运。",
-      "backgroundImage": "",
+      "backgroundImage": "assets/images/main_bg.jpg",
       "backgroundColor": "#111111",
       "panelColor": "rgba(15, 15, 18, 0.88)",
       "titleColor": "#e7c778",

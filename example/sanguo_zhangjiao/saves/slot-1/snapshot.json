@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "createdAt": 1786032374385,
+  "meta": {
+    "gameId": "sanguo_zhangjiao",
+    "kind": "manual",
+    "slot": 1,
+    "characterName": "玩家昵称",
+    "level": 1,
+    "currentAct": 1,
+    "location": "第 1 幕区域",
+    "previewFile": "thumbnail.jpg"
+  },
+  "data": {
+    "game": {
+      "player": {
+        "id": "entity_1",
+        "name": null,
+        "transform": {
+          "x": 592.54,
+          "y": 547.88,
+          "elevation": 0,
+          "rotation": 0,
+          "scale": {
+            "x": 1,
+            "y": 1
+          },
+          "floorId": "ground"
+        },
+        "stats": {
+          "baseMaxHp": 150,
+          "baseMaxMp": 100,
+          "baseAttack": 15,
+          "baseDefense": 8,
+          "baseSpeed": 120,
+          "maxHp": 150,
+          "hp": 150,
+          "maxMp": 100,
+          "mp": 100,
+          "attack": 15,
+          "defense": 8,
+          "speed": 120,
+          "level": 1,
+          "exp": 0,
+          "mainElement": 0,
+          "elementAttack": {},
+          "elementDefense": {},
+          "unitType": 0,
+          "gold": 0,
+          "attributeEffects": null
+        },
+        "inventory": [],
+        "equipment": {}
+      },
+      "tutorial": {
+        "completedTutorials": [],
+        "enabled": true
+      },
+      "dialogue": {
+        "currentDialogueId": "intro",
+        "currentNodeId": "node1",
+        "variables": {},
+        "history": [
+          {
+            "type": "node",
+            "nodeId": "node1",
+            "speaker": "旁白",
+            "text": "东汉末年，天下大乱，民不聊生...",
+            "timestamp": 1786032374223
+          },
+          {
+            "type": "start",
+            "dialogueId": "intro",
+            "timestamp": 1786032374223
+          }
+        ],
+        "completedDialogues": []
+      },
+      "quests": {
+        "activeQuests": [],
+        "completedQuests": [],
+        "questLog": []
+      },
+      "content": {
+        "blackboard": {
+          "act": 0,
+          "killCount": 0,
+          "starvingKilled": 0,
+          "act5Kills": 0,
+          "hasSword": false,
+          "gold": 0,
+          "act2EquipCount": 0,
+          "ddScene": true
+        },
+        "triggers": {
+          "firedOnce": [
+            "my_first_trigger",
+            "tut_wake"
+          ],
+          "cooldowns": {}
+        },
+        "progression": {
+          "state": {
+            "characterId": "entity_1",
+            "graphs": {}
+          },
+          "ledger": {
+            "pools": {},
+            "aliases": {}
+          }
+        }
+      },
+      "scene": {
+        "campfireLit": false,
+        "firedPickups": [],
+        "clearedGroups": [],
+        "tutorialEvents": [],
+        "nextSceneTarget": null,
+        "playerDiedTriggered": false
+      }
+    }
+  }
+}

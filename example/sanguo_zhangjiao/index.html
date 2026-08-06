@@ -612,14 +612,13 @@
             position: relative;
             transition: width .2s ease;
         }
-        /* 初始登录页不显示框；读档浏览器和游戏内系统菜单仍需独立面板承载内容。 */
-        #login-screen:not(.in-game) #login-panel:not(.has-save-browser) {
+        /* 初始登录页不显示框；游戏内系统菜单仍使用独立的小面板。 */
+        #login-screen:not(.in-game) #login-panel {
             background: transparent !important;
             border: 0 !important;
             box-shadow: none !important;
             backdrop-filter: none !important;
         }
-        #login-panel.has-save-browser,
         #login-screen.in-game #login-panel {
             border: 1px solid rgba(255,255,255,.22);
             border-radius: 12px;
@@ -627,30 +626,52 @@
             backdrop-filter: blur(5px);
             background: var(--login-panel-color, rgba(15, 15, 18, .88));
         }
-        #login-panel.has-save-browser { width: min(1040px, 94vw); }
         .login-layout { display: block; }
-        #login-panel.has-save-browser .login-layout {
-            display: grid;
-            grid-template-columns: minmax(270px, .72fr) minmax(460px, 1.28fr);
-            gap: 30px;
-            align-items: stretch;
-            text-align: left;
-        }
         .login-main-column { min-width: 0; text-align: center; }
-        #login-panel.has-save-browser .login-main-column {
-            padding-top: 6px;
-            display: flex;
-            flex-direction: column;
-        }
-        #login-panel.has-save-browser .login-actions { margin-top: auto; }
         #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
         #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
         #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
+
+        /* 新建、读档、手动存档在独立小窗中执行，不扩展登录菜单。 */
+        #save-picker-modal {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            background: rgba(0,0,0,.56);
+        }
+        .save-picker-panel {
+            position: relative;
+            display: grid;
+            gap: 12px;
+            width: min(640px, 94vw);
+            max-height: min(78vh, 650px);
+            padding: 26px;
+            overflow: auto;
+            border: 1px solid rgba(218,185,112,.48);
+            border-radius: 12px;
+            background: rgba(15,15,18,.95);
+            box-shadow: 0 20px 64px rgba(0,0,0,.72);
+            color: #eee;
+        }
+        #save-picker-title { margin: 0; padding-right: 28px; color: #e7c778; font-size: 21px; }
+        #save-picker-close {
+            position: absolute;
+            top: 8px;
+            right: 12px;
+            border: 0;
+            background: none;
+            color: #ddd;
+            font-size: 26px;
+            cursor: pointer;
+        }
         #new-game-profile {
             display: grid;
             gap: 10px;
-            margin: 0 auto 18px;
-            width: min(230px, 100%);
+            margin: 0;
+            width: min(300px, 100%);
             color: #eee;
             text-align: left;
         }
@@ -673,7 +694,7 @@
             width: min(230px, 100%);
             white-space: nowrap;
         }
-        .login-action, .save-picker-confirm {
+        .login-action, .save-picker-confirm, .save-picker-cancel {
             padding: 12px 18px;
             border: 1px solid rgba(255,255,255,.18);
             border-radius: 6px;
@@ -682,17 +703,19 @@
             font: inherit;
             cursor: pointer;
         }
-        .save-picker-confirm { width: 100%; }
+        .save-picker-cancel { background: rgba(255,255,255,.12); }
+        .save-picker-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .login-action:disabled { cursor: not-allowed; opacity: .5; filter: grayscale(1); }
-        .login-action:not(:disabled):hover, .save-picker-confirm:hover { filter: brightness(1.18); }
+        .login-action:not(:disabled):hover, .save-picker-confirm:hover, .save-picker-cancel:hover { filter: brightness(1.18); }
         #login-manual-save, #login-return-game { display: none; }
         #login-screen.in-game #login-manual-save, #login-screen.in-game #login-return-game { display: block; }
         #save-slots { display: none; gap: 9px; min-width: 0; text-align: left; }
         #save-slots.visible { display: grid; }
         #save-slot-browser-label { color: #e7c778; font-size: 14px; }
-        @media (max-width: 800px) {
-            #login-panel.has-save-browser { width: min(540px, 94vw); padding: 28px 24px; }
-            #login-panel.has-save-browser .login-layout { grid-template-columns: 1fr; gap: 20px; }
+        #save-picker-message { min-height: 18px; margin: 0; color: #ffd166; font-size: 12px; line-height: 1.5; }
+        @media (max-width: 540px) {
+            #save-picker-modal { padding: 12px; }
+            .save-picker-panel { padding: 20px 16px; max-height: 86vh; }
         }
         .save-slot-browser {
             border: 1px solid rgba(194,157,86,.45); background: linear-gradient(135deg, rgba(20,18,15,.97), rgba(43,35,25,.97));
@@ -840,18 +863,6 @@
                         <h1 id="login-title">张角黄巾起义序章</h1>
                         <h2 id="login-subtitle">苍天已死，黄天当立</h2>
                         <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
-                        <section id="new-game-profile" class="hidden" aria-label="新建角色资料">
-                            <label class="new-game-field" for="new-game-nickname">
-                                <span>昵称</span>
-                                <input id="new-game-nickname" type="text" value="柔弱女子" maxlength="16" autocomplete="nickname">
-                            </label>
-                            <fieldset class="new-game-gender">
-                                <legend>性别</legend>
-                                <label><input id="new-game-gender-female" name="new-game-gender" type="radio" value="female" checked> 女</label>
-                                <label><input id="new-game-gender-male" name="new-game-gender" type="radio" value="male"> 男</label>
-                            </fieldset>
-                            <p id="new-game-gender-note" role="status" aria-live="polite"></p>
-                        </section>
                         <div class="login-actions">
                             <button class="login-action" id="login-continue" type="button" disabled>继续游戏</button>
                             <button class="login-action" id="login-start" type="button">开始游戏</button>
@@ -862,6 +873,24 @@
                         </div>
                         <p id="login-message" role="status"></p>
                     </div>
+                </div>
+            </section>
+            <div id="save-picker-modal" class="hidden" role="presentation" aria-hidden="true">
+                <section class="save-picker-panel" role="dialog" aria-modal="true" aria-labelledby="save-picker-title">
+                    <button id="save-picker-close" type="button" aria-label="取消">×</button>
+                    <h2 id="save-picker-title">存档浏览</h2>
+                    <section id="new-game-profile" class="hidden" aria-label="新建角色资料">
+                        <label class="new-game-field" for="new-game-nickname">
+                            <span>昵称</span>
+                            <input id="new-game-nickname" type="text" value="柔弱女子" maxlength="16" autocomplete="nickname">
+                        </label>
+                        <fieldset class="new-game-gender">
+                            <legend>性别</legend>
+                            <label><input id="new-game-gender-female" name="new-game-gender" type="radio" value="female" checked> 女</label>
+                            <label><input id="new-game-gender-male" name="new-game-gender" type="radio" value="male"> 男</label>
+                        </fieldset>
+                        <p id="new-game-gender-note" role="status" aria-live="polite"></p>
+                    </section>
                     <aside id="save-slots" aria-label="存档浏览器">
                         <label id="save-slot-browser-label">存档浏览（自动存档 3 位轮换，手动栏位 1–100）</label>
                         <div id="save-slot-dropdown" class="save-slot-browser" role="region" aria-labelledby="save-slot-browser-label">
@@ -869,10 +898,14 @@
                             <div id="save-slot-list" role="listbox" aria-label="存档栏位"></div>
                         </div>
                         <p id="save-slot-info"></p>
-                        <button class="save-picker-confirm" id="save-slot-confirm" type="button">确认</button>
                     </aside>
-                </div>
-            </section>
+                    <p id="save-picker-message" role="status"></p>
+                    <div class="save-picker-actions">
+                        <button class="save-picker-confirm" id="save-slot-confirm" type="button">确认</button>
+                        <button class="save-picker-cancel" id="save-picker-cancel" type="button">取消</button>
+                    </div>
+                </section>
+            </div>
         </div>
 
         <div id="loading-screen">
@@ -988,7 +1021,13 @@
         const loginSubtitle = document.getElementById('login-subtitle');
         const loginDescription = document.getElementById('login-description');
         const loginMessage = document.getElementById('login-message');
+        const savePickerModal = document.getElementById('save-picker-modal');
+        const savePickerTitle = document.getElementById('save-picker-title');
+        const savePickerMessage = document.getElementById('save-picker-message');
+        const savePickerCancel = document.getElementById('save-picker-cancel');
+        const savePickerClose = document.getElementById('save-picker-close');
         const saveSlotsElement = document.getElementById('save-slots');
+        let savePickerOpener = null;
         const NEW_GAME_DEFAULT_NICKNAME = '柔弱女子';
         const newGameProfile = document.getElementById('new-game-profile');
         const newGameNickname = document.getElementById('new-game-nickname');
@@ -1085,7 +1124,7 @@
             };
         }
 
-        /** 应用 UI 编辑器保存的登录页布局；存档浏览器仍使用其双栏响应式布局。 */
+        /** 应用 UI 编辑器保存的登录页布局；独立存档弹窗不参与登录页布局。 */
         async function applyLoginLayout() {
             if (!loginLayout) {
                 try {
@@ -1098,7 +1137,7 @@
                     return false; // 文件不存在时沿用 CSS 回退布局
                 }
             }
-            if (loginPanel.classList.contains('has-save-browser') || loginScreen.classList.contains('in-game')) {
+            if (loginScreen.classList.contains('in-game')) {
                 clearLoginLayout();
                 return false;
             }
@@ -1139,7 +1178,7 @@
             return true;
         }
 
-        // 存档浏览器或系统菜单打开/关闭时，自动在响应式布局与编辑器登录布局之间切换。
+        // 系统菜单打开/关闭时，自动在响应式布局与编辑器登录布局之间切换。
         const refreshLoginLayout = () => { void applyLoginLayout(); };
         new MutationObserver(refreshLoginLayout)
             .observe(loginPanel, { attributes: true, attributeFilter: ['class'] });
@@ -1148,6 +1187,7 @@
 
         function setLoginMessage(message = '') {
             loginMessage.textContent = message;
+            if (!savePickerModal.classList.contains('hidden')) savePickerMessage.textContent = message;
         }
 
         function formatSaveTime(timestamp) {
@@ -1356,10 +1396,41 @@
             }
             saveSlotConfirm.textContent = mode === 'continue' ? '读取所选存档'
                 : (mode === 'manualSave' ? '保存到所选手动栏位' : '开始新游戏');
+            if (!isSavePickerOpen()) {
+                savePickerOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            }
+            savePickerTitle.textContent = mode === 'continue' ? '读取存档'
+                : (mode === 'manualSave' ? '手动存档' : '开始新游戏');
+            savePickerMessage.textContent = loginMessage.textContent;
             saveSlotsElement.classList.add('visible');
-            loginPanel.classList.add('has-save-browser');
+            savePickerModal.classList.remove('hidden');
+            savePickerModal.setAttribute('aria-hidden', 'false');
             menuPadIndex = 0;
-            getSavePickerEntry()?.element.focus();
+            requestAnimationFrame(() => {
+                if (isSavePickerOpen()) getSavePickerEntry()?.element.focus();
+            });
+        }
+
+        function isSavePickerOpen() {
+            return !savePickerModal.classList.contains('hidden');
+        }
+
+        function closeSavePicker({ restoreFocus = true } = {}) {
+            const opener = savePickerOpener;
+            savePickerModal.classList.add('hidden');
+            savePickerModal.setAttribute('aria-hidden', 'true');
+            saveSlotsElement.classList.remove('visible');
+            newGameProfile.classList.add('hidden');
+            savePickerMode = null;
+            selectedSaveValue = '';
+            savePickerEntries = [];
+            savePickerMessage.textContent = '';
+            saveSlotSelected.textContent = '请选择存档栏位';
+            saveSlotInfo.textContent = '';
+            saveSlotConfirm.disabled = false;
+            menuPadIndex = 0;
+            savePickerOpener = null;
+            if (restoreFocus && opener?.isConnected && !loginScreen.classList.contains('hidden')) opener.focus();
         }
 
         /** 生成不依赖主画布的保底缩略图，保证每个磁盘存档目录始终有图片文件。 */
@@ -1560,6 +1631,7 @@
         }
 
         function startGameFromSelection(mode, selection) {
+            closeSavePicker({ restoreFocus: false });
             setLoginMessage('');
             if (gameStarted || sceneManager) {
                 sessionStorage.setItem('yijian18:boot-command', JSON.stringify({ mode, selection }));
@@ -1573,6 +1645,7 @@
         }
 
         async function openSystemMenu() {
+            closeSavePicker({ restoreFocus: false });
             let autoSaveResult = null;
             if (gameStarted) {
                 autoSaveResult = await autoSaveCurrentGame({ reason: 'system-menu' });
@@ -1582,9 +1655,6 @@
                 loginScreen.classList.remove('in-game');
             }
             refreshContinueGameAction();
-            saveSlotsElement.classList.remove('visible');
-            newGameProfile.classList.add('hidden');
-            loginPanel.classList.remove('has-save-browser');
             setLoginMessage(gameStarted
                 ? (autoSaveResult?.ok ? '自动存档保存成功'
                     : autoSaveResult?.snapshot ? '自动存档保存失败'
@@ -1598,6 +1668,7 @@
 
         function closeSystemMenu() {
             if (!gameStarted) return;
+            closeSavePicker({ restoreFocus: false });
             loginScreen.classList.add('hidden');
             loginScreen.classList.remove('in-game');
             scene?.resume?.();
@@ -1629,8 +1700,7 @@
         });
         document.getElementById('login-read-save').addEventListener('click', () => {
             if (!saveGames.hasAny()) {
-                saveSlotsElement.classList.remove('visible');
-                loginPanel.classList.remove('has-save-browser');
+                closeSavePicker({ restoreFocus: false });
                 setLoginMessage('存档为空，请选择 开始游戏。');
                 return;
             }
@@ -1643,10 +1713,21 @@
         });
         document.getElementById('login-return-game').addEventListener('click', closeSystemMenu);
         saveSlotConfirm.addEventListener('click', confirmSavePicker);
+        savePickerClose.addEventListener('click', () => closeSavePicker());
+        savePickerCancel.addEventListener('click', () => closeSavePicker());
+        savePickerModal.addEventListener('click', event => {
+            if (event.target === savePickerModal) closeSavePicker();
+        });
         document.getElementById('login-exit').addEventListener('click', exitGame);
         document.getElementById('login-close').addEventListener('click', closeSystemMenu);
         window.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && loginScreen.classList.contains('in-game') && !loginScreen.classList.contains('hidden')) {
+            if (event.key !== 'Escape' || loginScreen.classList.contains('hidden')) return;
+            if (isSavePickerOpen()) {
+                event.preventDefault();
+                closeSavePicker();
+                return;
+            }
+            if (loginScreen.classList.contains('in-game')) {
                 event.preventDefault();
                 closeSystemMenu();
             }
@@ -1684,8 +1765,10 @@
                             if (isPickingSave) void confirmSavePicker();
                             else active[menuPadIndex]?.click();
                         }
-                        if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown
-                            && loginScreen.classList.contains('in-game')) closeSystemMenu();
+                        if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown) {
+                            if (isPickingSave) closeSavePicker();
+                            else if (loginScreen.classList.contains('in-game')) closeSystemMenu();
+                        }
                     }
                     menuPadDirection = direction;
                     pollLoginGamepad.aWasDown = pressed(0);

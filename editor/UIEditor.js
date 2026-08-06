@@ -14,9 +14,10 @@
  * UIEditor - 界面 UI 编辑器
  *
  * 可视化编辑游戏 UI 组件（按钮、面板、摇杆等）的位置和大小，
- * 分 PC 和 Android 两套布局，保存为 JSON 配置文件：
+ * 分 PC、Android 与登录页面三套布局，保存为 JSON 配置文件：
  *   - config/UILayout.desktop.json
  *   - config/UILayout.mobile.json
+ *   - config/LoginLayout.json
  *
  * 保存通过 Vite dev server 的 /api/save-file 写入实际文件。
  * 游戏入口运行时根据平台加载对应 JSON 动态应用布局。
@@ -77,6 +78,16 @@ const DEFAULT_COMPONENTS = {
       { id: 'hb-skill6', label: '回血', x: 720, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
       { id: 'hb-skill7', label: '打坐', x: 790, y: 540, width: 56, height: 56, anchor: 'topleft', kind: 'button' }
     ]
+  },
+  login: {
+    canvas: { width: 1280, height: 720 },
+    components: [
+      { id: 'login-panel', label: '登录布局容器', x: 460, y: 263, width: 460, height: 266, anchor: 'topleft', kind: 'login-panel' },
+      { id: 'login-title', label: '标题', x: 280, y: 80, width: 720, height: 56, anchor: 'topleft', kind: 'login-title' },
+      { id: 'login-subtitle', label: '副标题', x: 360, y: 155, width: 560, height: 32, anchor: 'topleft', kind: 'login-subtitle' },
+      { id: 'login-description', label: '文字描述', x: 400, y: 200, width: 480, height: 34, anchor: 'topleft', kind: 'login-description' },
+      { id: 'login-actions', label: '主操作区', x: 570, y: 297, width: 230, height: 162, anchor: 'topleft', kind: 'login-actions' }
+    ]
   }
 };
 
@@ -95,13 +106,15 @@ export class UIEditor {
     this.platform = 'mobile'; // 当前编辑平台
     this.layouts = {
       desktop: this._cloneDefault('desktop'),
-      mobile: this._cloneDefault('mobile')
+      mobile: this._cloneDefault('mobile'),
+      login: this._cloneDefault('login')
     };
     this.selectedId = null;
     this.scale = 1; // 预览缩放
 
     this._dragState = null;
     this._initialized = false;
+    this._loginBackgroundImage = '';
 
     // 手柄绑定编辑器数据（与 Xbox360Profile.DEFAULT_BINDINGS 同构）
     this._defaultGamepadBindings = null; // 异步加载
@@ -121,12 +134,35 @@ export class UIEditor {
     this._initialized = true;
     this._buildUI();
     await this._loadFromFiles();
+    await this._loadLoginBackgroundConfig();
     await this._loadPanelLayout();
     // 面板的内外框比例由面板编辑器维护，这里先把历史数据规范到该比例
     this._normalizePanelAspects();
     await this._loadGamepadConfig();
     await this._loadHintsConfig();
     this._render();
+  }
+
+  /** 从项目配置读取登录页背景，保持编辑器预览与游戏运行时一致。 */
+  async _loadLoginBackgroundConfig() {
+    this._loginBackgroundImage = '';
+    try {
+      const projectFile = `example/${this.gameId}/game.project.json`;
+      const response = await fetch('/api/read-file?path=' + encodeURIComponent(projectFile));
+      if (!response.ok) return;
+      const data = await response.json();
+      if (!data || !data.ok || !data.content) return;
+      const project = JSON.parse(data.content);
+      const imagePath = project?.system?.login?.backgroundImage;
+      if (typeof imagePath !== 'string' || !imagePath.trim()) return;
+
+      const normalizedPath = imagePath.trim().replace(/\\/g, '/').replace(/^(\.\.\/)+/, '');
+      this._loginBackgroundImage = normalizedPath.startsWith('assets/')
+        ? `../example/${this.gameId}/${normalizedPath}`
+        : normalizedPath;
+    } catch (e) {
+      console.warn('UIEditor: 登录背景配置加载失败', e);
+    }
   }
 
   /**
@@ -213,7 +249,7 @@ export class UIEditor {
    * 取放大方向（面积不缩小），符合"等比时尽量最大化"。
    */
   _normalizePanelAspects() {
-    for (const platform of ['desktop', 'mobile']) {
+    for (const platform of ['desktop', 'mobile', 'login']) {
       const layout = this.layouts[platform];
       if (!layout || !Array.isArray(layout.components)) continue;
       for (const comp of layout.components) {
@@ -251,8 +287,11 @@ export class UIEditor {
 
   /** 从 JSON 文件加载已保存布局（覆盖默认值） */
   async _loadFromFiles() {
-    for (const platform of ['desktop', 'mobile']) {
-      const file = this.configBase + (platform === 'desktop' ? 'UILayout.desktop.json' : 'UILayout.mobile.json');
+    for (const platform of ['desktop', 'mobile', 'login']) {
+      const fileName = platform === 'desktop' ? 'UILayout.desktop.json'
+        : platform === 'mobile' ? 'UILayout.mobile.json'
+          : 'LoginLayout.json';
+      const file = this.configBase + fileName;
       try {
         const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
         if (!res.ok) continue;
@@ -301,6 +340,7 @@ export class UIEditor {
           <div class="uie-platform-switch">
             <button data-platform="mobile" class="active">📱 Android UI</button>
             <button data-platform="desktop">🖥️ PC UI</button>
+            <button data-platform="login">🔐 登录页面 UI</button>
             <button data-platform="gamepad">🎮 手柄</button>
             <button data-platform="hints">💬 提示文案</button>
           </div>
@@ -374,9 +414,15 @@ export class UIEditor {
       .uie-main { flex:1; display:flex; overflow:hidden; }
       .uie-stage-wrap { flex:1; display:flex; align-items:center; justify-content:center; overflow:auto; padding:20px; background:#070b18; }
       .uie-stage { position:relative; background:#1a2238 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M20 0H0V20" fill="none" stroke="%23223" stroke-width="1"/></svg>'); border:2px solid #4CAF50; box-shadow:0 0 30px rgba(0,0,0,0.6); }
+      .uie-stage.login-stage { background-color:#211613; background-image:none; background-position:center; background-size:cover; background-repeat:no-repeat; }
       .uie-comp { position:absolute; box-sizing:border-box; border:1.5px solid rgba(120,180,255,0.8); background:rgba(80,140,255,0.18); color:#cfe3ff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:move; user-select:none; overflow:hidden; }
       .uie-comp.zone { border-style:dashed; background:rgba(255,200,80,0.12); border-color:rgba(255,200,80,0.7); color:#ffe7a8; }
       .uie-comp.button { border-radius:50%; }
+      .uie-comp.login-panel { border:1.5px dashed rgba(231,199,120,0.7); border-radius:12px; background:transparent; color:#f0d997; box-shadow:none; }
+      .uie-comp.login-title { border-color:rgba(231,199,120,0.8); background:rgba(25,15,8,0.25); color:#f0d997; font-size:13px; font-weight:bold; }
+      .uie-comp.login-subtitle, .uie-comp.login-description { border-color:rgba(255,255,255,0.5); background:rgba(0,0,0,0.2); color:#eee; }
+      .uie-comp.login-actions { display:grid; grid-template-rows:repeat(3, 1fr); gap:10px; padding:0; border:0; background:transparent; overflow:visible; }
+      .uie-login-preview-action { display:flex; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.18); border-radius:6px; background:#4b6728; color:#fff; font-size:12px; pointer-events:none; }
       .uie-comp.selected { border-color:#ff5; background:rgba(255,255,100,0.25); z-index:10; }
       .uie-comp .uie-handle { position:absolute; right:-5px; bottom:-5px; width:12px; height:12px; background:#ff5; border:1px solid #000; cursor:nwse-resize; }
       .uie-props { width:240px; background:#111a30; border-left:1px solid #2a3a5e; padding:14px; overflow-y:auto; }
@@ -404,6 +450,12 @@ export class UIEditor {
     const layout = this.layouts[this.platform];
     const stage = this.container.querySelector('#uie-stage');
     if (!stage) return;
+    const isLoginPreview = this.platform === 'login';
+    stage.classList.toggle('login-stage', isLoginPreview);
+    const safeLoginBackground = isLoginPreview
+      ? this._loginBackgroundImage.replace(/["'()]/g, '')
+      : '';
+    stage.style.backgroundImage = safeLoginBackground ? `url("${safeLoginBackground}")` : '';
 
     // 计算预览缩放（适配舞台容器宽度）
     const wrap = this.container.querySelector('.uie-stage-wrap');
@@ -446,6 +498,14 @@ export class UIEditor {
         cvs.style.pointerEvents = 'none';
         this._drawPanelPreview(cvs, panelDef, cw, ch);
         el.appendChild(cvs);
+      } else if (this.platform === 'login' && comp.kind === 'login-actions') {
+        el.textContent = '';
+        for (const label of ['开始游戏', '读取存档', '退出游戏']) {
+          const action = document.createElement('span');
+          action.className = 'uie-login-preview-action';
+          action.textContent = label;
+          el.appendChild(action);
+        }
       } else {
         el.textContent = comp.label;
       }
@@ -557,20 +617,24 @@ export class UIEditor {
     if (el) { el.textContent = msg; el.style.color = isError ? '#ff8888' : '#8aa'; }
   }
 
-  /** 保存当前两套布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
+  /** 保存 PC、Android 与登录页面三套布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
   async save() {
     // 手柄绑定保存到独立文件
     await this._saveGamepadConfig();
     // 操作提示文案保存到独立文件
     await this._saveHintsConfig();
 
-    for (const platform of ['desktop', 'mobile']) {
-      const file = this.configBase + (platform === 'desktop' ? 'UILayout.desktop.json' : 'UILayout.mobile.json');
+    for (const platform of ['desktop', 'mobile', 'login']) {
+      const fileName = platform === 'desktop' ? 'UILayout.desktop.json'
+        : platform === 'mobile' ? 'UILayout.mobile.json'
+          : 'LoginLayout.json';
+      const file = this.configBase + fileName;
       const layout = this.layouts[platform];
       const cw = layout.canvas.width;
       const ch = layout.canvas.height;
       // 输出：每个组件附带百分比坐标(0~1)，游戏端按实际屏幕尺寸还原
       const out = {
+        ...(platform === 'login' ? { version: 1 } : {}),
         canvas: layout.canvas,
         components: layout.components.map(c => ({
           id: c.id,

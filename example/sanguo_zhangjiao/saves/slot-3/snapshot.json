@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "createdAt": 1786037634485,
+  "createdAt": 1786040693128,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
-    "slot": 1,
+    "slot": 3,
     "characterName": "玩家昵称",
     "level": 1,
     "currentAct": 1,
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 1780.267346923539,
-          "y": 391.6748006726287,
+          "x": 592.54,
+          "y": 547.88,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -57,8 +57,8 @@
         "enabled": true
       },
       "dialogue": {
-        "currentDialogueId": null,
-        "currentNodeId": null,
+        "currentDialogueId": "intro",
+        "currentNodeId": "node1",
         "variables": {},
         "history": [
           {
@@ -66,29 +66,15 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786032374223
+            "timestamp": 1786040692972
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786032374223
-          },
-          {
-            "type": "node",
-            "nodeId": "node2",
-            "speaker": "旁白",
-            "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786032376271
-          },
-          {
-            "type": "end",
-            "dialogueId": "intro",
-            "timestamp": 1786032376662
+            "timestamp": 1786040692972
           }
         ],
-        "completedDialogues": [
-          "intro"
-        ]
+        "completedDialogues": []
       },
       "quests": {
         "activeQuests": [],
@@ -109,13 +95,7 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake",
-            "tut_move",
-            "5秒后自动点燃火堆",
-            "trg_spawn_pickup",
-            "tut_fire",
-            "tut_stats",
-            "tut_done"
+            "tut_wake"
           ],
           "cooldowns": {}
         },
@@ -131,12 +111,10 @@
         }
       },
       "scene": {
-        "campfireLit": true,
+        "campfireLit": false,
         "firedPickups": [],
         "clearedGroups": [],
-        "tutorialEvents": [
-          "moved"
-        ],
+        "tutorialEvents": [],
         "nextSceneTarget": null,
         "playerDiedTriggered": false
       }

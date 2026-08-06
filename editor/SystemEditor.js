@@ -49,6 +49,7 @@ export class SystemEditor {
         title: '张角黄巾起义序章',
         subtitle: '苍天已死，黄天当立',
         description: '乱世将起，你的选择将改变众人的命运。',
+        showDescription: true,
         backgroundImage: '',
         backgroundColor: '#111111',
         panelColor: 'rgba(15, 15, 18, 0.88)',
@@ -56,6 +57,10 @@ export class SystemEditor {
         textColor: '#dddddd',
         buttonColor: '#4b6728'
       };
+    }
+    // 兼容“显示文字”旧配置；保存后统一使用 showDescription。
+    if (this._data.login.showDescription === undefined && this._data.login.showText !== undefined) {
+      this._data.login.showDescription = this._data.login.showText;
     }
     // 确保 loading 子对象存在
     if (!this._data.loading) {
@@ -158,6 +163,7 @@ export class SystemEditor {
             <div class="sys-row"><label>标题:</label><input type="text" id="sys-lg-title" value="${this._esc(lg.title)}"></div>
             <div class="sys-row"><label>副标题:</label><input type="text" id="sys-lg-subtitle" value="${this._esc(lg.subtitle)}"></div>
             <div class="sys-row"><label>文字描述:</label><textarea id="sys-lg-description" rows="4">${this._esc(lg.description)}</textarea></div>
+            <div class="sys-row"><label>显示描述文字:</label><input type="checkbox" id="sys-lg-show-description"${lg.showDescription !== false ? ' checked' : ''}></div>
           </fieldset>
           <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
             <legend style="color:#8cf;">背景与样式</legend>
@@ -367,6 +373,8 @@ export class SystemEditor {
     lg.title = this.container.querySelector('#sys-lg-title').value;
     lg.subtitle = this.container.querySelector('#sys-lg-subtitle').value;
     lg.description = this.container.querySelector('#sys-lg-description').value;
+    lg.showDescription = this.container.querySelector('#sys-lg-show-description').checked;
+    delete lg.showText;
     lg.backgroundImage = this.container.querySelector('#sys-lg-image').value.trim();
     lg.backgroundColor = this.container.querySelector('#sys-lg-bg').value;
     lg.panelColor = this.container.querySelector('#sys-lg-panel').value;

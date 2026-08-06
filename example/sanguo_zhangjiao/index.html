@@ -596,17 +596,36 @@
             pointer-events: auto;
         }
         #login-screen.hidden { display: none; }
+        /* 关闭“显示描述文字”时，仅隐藏标题、副标题与文字描述，保留菜单和存档信息。 */
+        #login-screen.text-hidden #login-title,
+        #login-screen.text-hidden #login-subtitle,
+        #login-screen.text-hidden #login-description { display: none; }
         #login-panel {
             width: min(460px, 88vw);
             padding: 34px 42px;
-            border: 1px solid rgba(255,255,255,.22);
-            border-radius: 12px;
-            background: rgba(15, 15, 18, .88);
-            box-shadow: 0 18px 60px rgba(0,0,0,.65);
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
             text-align: center;
-            backdrop-filter: blur(5px);
+            backdrop-filter: none;
             position: relative;
             transition: width .2s ease;
+        }
+        /* 初始登录页不显示框；读档浏览器和游戏内系统菜单仍需独立面板承载内容。 */
+        #login-screen:not(.in-game) #login-panel:not(.has-save-browser) {
+            background: transparent !important;
+            border: 0 !important;
+            box-shadow: none !important;
+            backdrop-filter: none !important;
+        }
+        #login-panel.has-save-browser,
+        #login-screen.in-game #login-panel {
+            border: 1px solid rgba(255,255,255,.22);
+            border-radius: 12px;
+            box-shadow: 0 18px 60px rgba(0,0,0,.65);
+            backdrop-filter: blur(5px);
+            background: var(--login-panel-color, rgba(15, 15, 18, .88));
         }
         #login-panel.has-save-browser { width: min(1040px, 94vw); }
         .login-layout { display: block; }
@@ -614,17 +633,25 @@
             display: grid;
             grid-template-columns: minmax(270px, .72fr) minmax(460px, 1.28fr);
             gap: 30px;
-            align-items: start;
+            align-items: stretch;
             text-align: left;
         }
         .login-main-column { min-width: 0; text-align: center; }
-        #login-panel.has-save-browser .login-main-column { padding-top: 6px; }
+        #login-panel.has-save-browser .login-main-column {
+            padding-top: 6px;
+            display: flex;
+            flex-direction: column;
+        }
+        #login-panel.has-save-browser .login-actions { margin-top: auto; }
         #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
         #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
         #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
-        .login-actions { display: grid; gap: 12px; }
+        .login-actions { display: grid; gap: 12px; justify-items: center; }
+        .login-action {
+            width: min(230px, 100%);
+            white-space: nowrap;
+        }
         .login-action, .save-picker-confirm {
-            width: 100%;
             padding: 12px 18px;
             border: 1px solid rgba(255,255,255,.18);
             border-radius: 6px;
@@ -633,6 +660,7 @@
             font: inherit;
             cursor: pointer;
         }
+        .save-picker-confirm { width: 100%; }
         .login-action:hover, .save-picker-confirm:hover { filter: brightness(1.18); }
         #login-manual-save, #login-return-game { display: none; }
         #login-screen.in-game #login-manual-save, #login-screen.in-game #login-return-game { display: block; }
@@ -781,7 +809,7 @@
             </div>
         </div>
         
-        <div id="login-screen">
+        <div id="login-screen" class="text-hidden">
             <section id="login-panel" aria-label="游戏登录菜单">
                 <button id="login-close" type="button" aria-label="返回游戏">×</button>
                 <div class="login-layout">
@@ -940,6 +968,8 @@
             if (config.title) loginTitle.textContent = config.title;
             if (config.subtitle) loginSubtitle.textContent = config.subtitle;
             if (config.description) loginDescription.textContent = config.description;
+            const showDescription = config.showDescription ?? config.showText ?? true;
+            loginScreen.classList.toggle('text-hidden', showDescription === false);
             if (config.backgroundColor) loginScreen.style.backgroundColor = config.backgroundColor;
             if (config.backgroundImage) {
                 const safeUrl = String(config.backgroundImage).replace(/["'()]/g, '');
@@ -952,11 +982,109 @@
                 loginDescription.style.color = config.textColor;
             }
             if (config.titleColor) loginTitle.style.color = config.titleColor;
-            if (config.panelColor) loginPanel.style.background = config.panelColor;
+            loginPanel.style.removeProperty('background');
+            if (config.panelColor) loginPanel.style.setProperty('--login-panel-color', config.panelColor);
+            else loginPanel.style.removeProperty('--login-panel-color');
             if (config.buttonColor) {
                 document.querySelectorAll('.login-action').forEach(button => { button.style.background = config.buttonColor; });
             }
         }
+
+        // 登录页独立布局：由 UI 编辑器的“登录页面 UI”标签保存，
+        // 不与游戏内 PC/Android HUD 布局混用。
+        let loginLayout = null;
+        const LOGIN_LAYOUT_IDS = ['login-panel', 'login-title', 'login-subtitle', 'login-description', 'login-actions'];
+
+        function clearLoginLayout() {
+            for (const id of LOGIN_LAYOUT_IDS) {
+                const element = document.getElementById(id);
+                if (!element) continue;
+                for (const property of ['position', 'left', 'top', 'width', 'height', 'margin', 'display', 'justify-items']) {
+                    element.style.removeProperty(property);
+                }
+            }
+            loginPanel.querySelectorAll('.login-action').forEach(button => {
+                button.style.removeProperty('width');
+                button.style.removeProperty('height');
+                button.style.removeProperty('padding');
+            });
+        }
+
+        function getLoginLayoutRect(component, layout, width, height) {
+            const canvasWidth = Number(layout.canvas?.width) || width;
+            const canvasHeight = Number(layout.canvas?.height) || height;
+            const xPct = Number.isFinite(component.xPct) ? component.xPct : (Number(component.x) || 0) / canvasWidth;
+            const yPct = Number.isFinite(component.yPct) ? component.yPct : (Number(component.y) || 0) / canvasHeight;
+            const wPct = Number.isFinite(component.wPct) ? component.wPct : (Number(component.width) || 0) / canvasWidth;
+            const hPct = Number.isFinite(component.hPct) ? component.hPct : (Number(component.height) || 0) / canvasHeight;
+            return {
+                x: Math.round(xPct * width),
+                y: Math.round(yPct * height),
+                width: Math.round(wPct * width),
+                height: Math.round(hPct * height)
+            };
+        }
+
+        /** 应用 UI 编辑器保存的登录页布局；存档浏览器仍使用其双栏响应式布局。 */
+        async function applyLoginLayout() {
+            if (!loginLayout) {
+                try {
+                    const response = await fetch('config/LoginLayout.json');
+                    if (!response.ok) return false;
+                    const loaded = await response.json();
+                    if (!Array.isArray(loaded?.components)) return false;
+                    loginLayout = loaded;
+                } catch (_error) {
+                    return false; // 文件不存在时沿用 CSS 回退布局
+                }
+            }
+            if (loginPanel.classList.contains('has-save-browser') || loginScreen.classList.contains('in-game')) {
+                clearLoginLayout();
+                return false;
+            }
+
+            const componentMap = new Map(loginLayout.components.map(component => [component.id, component]));
+            const panelComponent = componentMap.get('login-panel');
+            if (!panelComponent) return false;
+            const width = loginScreen.clientWidth || window.innerWidth;
+            const height = loginScreen.clientHeight || window.innerHeight;
+            const panelRect = getLoginLayoutRect(panelComponent, loginLayout, width, height);
+            loginPanel.style.position = 'absolute';
+            loginPanel.style.left = `${panelRect.x}px`;
+            loginPanel.style.top = `${panelRect.y}px`;
+            loginPanel.style.width = `${panelRect.width}px`;
+            loginPanel.style.height = `${panelRect.height}px`;
+
+            for (const id of LOGIN_LAYOUT_IDS.slice(1)) {
+                const component = componentMap.get(id);
+                const element = document.getElementById(id);
+                if (!component || !element) continue;
+                const rect = getLoginLayoutRect(component, loginLayout, width, height);
+                element.style.position = 'absolute';
+                element.style.left = `${rect.x - panelRect.x}px`;
+                element.style.top = `${rect.y - panelRect.y}px`;
+                element.style.width = `${rect.width}px`;
+                element.style.height = `${rect.height}px`;
+                element.style.margin = '0';
+                if (id === 'login-actions') {
+                    element.style.display = 'grid';
+                    element.style.justifyItems = 'center';
+                    element.querySelectorAll('.login-action').forEach(button => {
+                        button.style.width = '100%';
+                        button.style.height = '100%';
+                        button.style.padding = '0';
+                    });
+                }
+            }
+            return true;
+        }
+
+        // 存档浏览器或系统菜单打开/关闭时，自动在响应式布局与编辑器登录布局之间切换。
+        const refreshLoginLayout = () => { void applyLoginLayout(); };
+        new MutationObserver(refreshLoginLayout)
+            .observe(loginPanel, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(refreshLoginLayout)
+            .observe(loginScreen, { attributes: true, attributeFilter: ['class'] });
 
         function setLoginMessage(message = '') {
             loginMessage.textContent = message;
@@ -1479,6 +1607,7 @@
         async function bootGameMenu() {
             const project = await loadProjectConfig();
             applyLoginConfig(project.system?.login || {});
+            await applyLoginLayout();
             const rawCommand = sessionStorage.getItem('yijian18:boot-command');
             if (rawCommand) {
                 sessionStorage.removeItem('yijian18:boot-command');
@@ -3163,7 +3292,7 @@
             window.__pointerTransform = transform;
         }
         setupOrientation();
-        window.addEventListener('resize', () => { applyForceLandscape(); applyUILayoutToDom(); });
+        window.addEventListener('resize', () => { applyForceLandscape(); applyUILayoutToDom(); void applyLoginLayout(); });
         window.addEventListener('orientationchange', () => { setTimeout(setupOrientation, 100); });
         
         // 显示登录界面；选择开始/继续后才进入加载页面

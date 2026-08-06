@@ -59,6 +59,15 @@
       "android": "背包按钮",
       "padKey": "b"
     },
+    "settings": {
+      "pc": {
+        "key": "Esc",
+        "kind": "key"
+      },
+      "android": "系统设置按钮",
+      "padKey": "settings",
+      "padFallback": "Start"
+    },
     "playerInfo": {
       "pc": {
         "key": "C",
@@ -73,6 +82,8 @@
         "kind": "key"
       },
       "android": "格挡按钮",
+      "padFixed": "LT",
+      "padKind": "key",
       "padKey": "q"
     },
     "flight": {
@@ -99,6 +110,8 @@
         "kind": "key"
       },
       "android": "投掷按钮",
+      "padFixed": "B",
+      "padKind": "key",
       "padKey": "shift",
       "padFallback": "未绑定"
     },
@@ -117,6 +130,8 @@
         "kind": "key"
       },
       "android": "红瓶按钮",
+      "padFixed": "十字键↑",
+      "padKind": "key",
       "padKey": "skill1"
     },
     "potionMp": {
@@ -125,6 +140,8 @@
         "kind": "key"
       },
       "android": "蓝瓶按钮",
+      "padFixed": "十字键↓",
+      "padKind": "key",
       "padKey": "skill2"
     },
     "skill1": {
@@ -133,6 +150,8 @@
         "kind": "key"
       },
       "android": "技能按钮",
+      "padFixed": "RB",
+      "padKind": "key",
       "padKey": "skill3"
     },
     "skill2": {
@@ -141,6 +160,8 @@
         "kind": "key"
       },
       "android": "技能按钮",
+      "padFixed": "RB",
+      "padKind": "key",
       "padKey": "skill4"
     },
     "skill3": {
@@ -149,6 +170,8 @@
         "kind": "key"
       },
       "android": "技能按钮",
+      "padFixed": "RB",
+      "padKind": "key",
       "padKey": "skill5"
     },
     "heal": {
@@ -157,6 +180,8 @@
         "kind": "key"
       },
       "android": "回血按钮",
+      "padFixed": "RB",
+      "padKind": "key",
       "padKey": "skill6"
     },
     "meditation": {
@@ -165,6 +190,8 @@
         "kind": "key"
       },
       "android": "打坐按钮",
+      "padFixed": "RB",
+      "padKind": "key",
       "padKey": "skill7",
       "padFallback": "未绑定"
     },
@@ -182,7 +209,8 @@
         "kind": "key"
       },
       "android": "点击对话框",
-      "padKey": "e"
+      "padKey": "e",
+      "padFallback": "X"
     },
     "cancel": {
       "pc": {

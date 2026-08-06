@@ -3420,6 +3420,7 @@
       "title": "张角黄巾起义序章",
       "subtitle": "苍天已死，黄天当立",
       "description": "乱世将起，你的选择将改变众人的命运。",
+      "showDescription": false,
       "backgroundImage": "assets/images/main_bg.jpg",
       "backgroundColor": "#111111",
       "panelColor": "rgba(15, 15, 18, 0.88)",

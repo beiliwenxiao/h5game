@@ -1,0 +1,23 @@
+{
+  "bindings": {
+    "0": "e",
+    "1": "throw",
+    "2": "e",
+    "3": "flight",
+    "4": "skillSwitch",
+    "5": "skillRelease",
+    "6": "block",
+    "7": "attack",
+    "8": "b",
+    "9": "settings",
+    "10": "",
+    "11": "escape",
+    "12": "skill1",
+    "13": "skill2",
+    "14": "",
+    "15": "",
+    "16": ""
+  },
+  "deadzone": 0.22,
+  "triggerThreshold": 0.5
+}

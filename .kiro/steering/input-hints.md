@@ -14,7 +14,7 @@
 
 ## 在哪里编辑
 
-**UIEditor → 「💬 提示文案」标签页**（与 PC UI / Android UI / 手柄 并列）。
+**UIEditor → 「💬 提示文案」标签页**（与 PC UI / Android UI / 登录页面 UI / 手柄 并列）。
 
 表格每行一个动作，可编辑：PC 按键、PC 句式（按X键 / 点击X）、Android 控件名、手柄绑定动作。最后一列实时显示三套方案的预览。点「💾 保存到文件」写入 `example/{game}/config/InputHints.json`；「恢复默认」回到框架内置表。
 

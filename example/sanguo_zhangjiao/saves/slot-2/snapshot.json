@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "createdAt": 1786037634485,
+  "createdAt": 1786037637169,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
-    "slot": 1,
+    "slot": 2,
     "characterName": "玩家昵称",
     "level": 1,
     "currentAct": 1,

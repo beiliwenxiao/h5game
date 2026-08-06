@@ -84,7 +84,7 @@ export class SceneTerrainBinding {
     const terrains = scene._terrains?.length ? scene._terrains : (scene.terrain ? [scene.terrain] : []);
     if (terrains.length === 0 || !this.SceneTerrainCollision) return;
     if (!scene._terrainCollision) scene._terrainCollision = new this.SceneTerrainCollision({ entityRadius: 12 });
-    scene._terrainCollision.resolveTerrains(terrains, scene.entities, { primaryTerrain: scene.terrain || terrains[0] });
+    scene._terrainCollision.resolveTerrains(terrains, scene.entities);
   }
 
   updateMinimap(minimap) {

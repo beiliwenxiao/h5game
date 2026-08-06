@@ -192,8 +192,8 @@ MOVE     右键
 
 `BaseGameScene` 已采用这些模块，场景本体只保留场景编排、游戏内容钩子与兼容转发入口：
 
-- `SceneTerrainCollision`：集中处理地形边界、池塘、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。walkable/collide 对象仍保持独立引用，禁止重复 worldOffset。
-- `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；多 chunk 只让主 terrain 参与盆地边界，其余 terrain 仍处理池塘、树与 shape；具体 Terrain 类型通过依赖注入。
+- `SceneTerrainCollision`：集中处理水池、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。椭圆盆地只负责视觉与装饰布局，**不得**作为物理边界；walkable 优先于 collide，区块接缝不会被 terrain 自动推出。
+- `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；所有 terrain 均处理水池、树与 shape，具体 Terrain 类型通过依赖注入。
 - `SceneAimController` + `SceneAimPresentation` + `AimPreviewRenderer`：统一 PC/触屏/手柄的瞄准控制、状态与 5px 虚线预览；场景通过回调注入射程和确认动作。
 - `SceneEquipmentFlow`：统一装备槽位映射、属性差值和装备/卸下事务；变更结果仍必须由 `BaseGameScene.onEquipmentChanged(messages, info)` 派发。
 - `SceneItemGainedFlow`：管理拾取/奖励后的 FIFO 弹窗、装备比较和使用动作；弹窗装备同样必须经过统一装备事件出口。

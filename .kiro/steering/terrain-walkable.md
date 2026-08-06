@@ -17,7 +17,7 @@ fileMatchPattern: '{**/Scene1Terrain*,**/SceneEditorUI*,**/CollisionSystem*}'
 ```
 1. 遍历 walkableShapes → 点在内部 → return false（放行）
 2. 遍历 collisionShapes → 点在内部 → return true（阻塞）
-3. 椭圆盆地边界判定（原有逻辑）
+3. 不再使用椭圆盆地或区块边缘作为自动物理边界
 ```
 
 **walkable 优先于 collide**：可以在整片碰撞区（如树林）中画一条 walkable 多边形（小路），路上的点先命中 walkable 直接放行。

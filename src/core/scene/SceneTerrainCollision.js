@@ -56,16 +56,10 @@ export class SceneTerrainCollision {
     if (!terrain || !entities || entities.length === 0) return;
     const radius = options.entityRadius != null ? options.entityRadius : this.entityRadius;
 
-    const cx = terrain.centerX;
-    const cy = terrain.centerY;
-    const irx = terrain.basinInnerRadiusX;
-    const iry = terrain.basinInnerRadiusY;
-    const halfAng = terrain.entranceAngleHalfWidth;
     const trees = terrain.getTreeColliders ? terrain.getTreeColliders() : [];
     const shapes = terrain._collisionShapes || [];
     const walkables = terrain._walkableShapes || [];
     const ponds = terrain.waterPatches || [];
-    const hasBasin = options.skipBasin !== true && !!(irx && iry);
     const spatial = this._getSpatialIndex(terrain, trees, shapes, walkables, ponds, radius);
 
     for (const entity of entities) {
@@ -91,7 +85,6 @@ export class SceneTerrainCollision {
           }
         }
       }
-      if (!isWalkable && hasBasin) this.resolveBasin(p, entity, cx, cy, irx, iry, halfAng);
       const nearbyPonds = this._querySpatial(spatial.ponds, p.x, p.y);
       for (let i = 0; i < nearbyPonds.length; i++) this.resolvePond(p, nearbyPonds[i]);
       const nearbyTrees = this._querySpatial(spatial.trees, p.x, p.y);
@@ -108,16 +101,14 @@ export class SceneTerrainCollision {
   }
 
   /**
-   * 对多个 chunk terrain 解算碰撞。只有主 terrain 参与盆地边界，避免每个 chunk
-   * 的局部 basin 同时拉扯实体；池塘、树和编辑器 shape 仍遍历全部 terrain。
+   * 对多个 chunk terrain 解算可碰撞装饰物、水面与编辑器 shape。
+   * 旧椭圆盆地只是视觉地形，不再作为任何 terrain 的物理边界。
    */
-  resolveTerrains(terrains, entities, { primaryTerrain = null, entityRadius = null } = {}) {
+  resolveTerrains(terrains, entities, { entityRadius = null } = {}) {
     const list = (terrains || []).filter(Boolean);
     if (list.length === 0) return;
-    const primary = primaryTerrain || list[0];
     for (const terrain of list) {
       this.resolveEntities(terrain, entities, {
-        skipBasin: terrain !== primary,
         ...(entityRadius == null ? {} : { entityRadius })
       });
     }
@@ -230,34 +221,6 @@ export class SceneTerrainCollision {
   _querySpatial(grid, x, y) {
     const size = this.spatialCellSize;
     return grid.get(Math.floor(x / size))?.get(Math.floor(y / size)) || EMPTY_SPATIAL_ITEMS;
-  }
-
-  /**
-   * 椭圆盆地边界：越界则拉回边界内。南向入口扇形内允许离开（一旦离开不再拉回）。
-   * @param {Object} p - position（就地修改）
-   * @param {Object} entity - 实体（用 _leftBasin 记忆是否已从入口离开）
-   */
-  resolveBasin(p, entity, cx, cy, irx, iry, halfAng) {
-    const dx = p.x - cx;
-    const dy = p.y - cy;
-    const ed = Math.hypot(dx / irx, dy / iry);
-
-    // 回到盆地深处：重置"已离开"标记，边界重新生效
-    if (ed < 0.85) entity._leftBasin = false;
-    if (entity._leftBasin || ed <= 1) return;
-
-    // 判断是否落在南向入口扇形内
-    const ang = Math.atan2(dy, dx);
-    const angDist = Math.abs(((ang - Math.PI / 2 + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-    if (angDist < halfAng) {
-      entity._leftBasin = true;
-      return;
-    }
-    if (ed > 0.001) {
-      const k = 0.97 / ed;
-      p.x = cx + dx * k;
-      p.y = cy + dy * k;
-    }
   }
 
   /** 水池：在椭圆内部则推到边缘外 */

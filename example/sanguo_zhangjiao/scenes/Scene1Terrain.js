@@ -941,8 +941,7 @@ export class Scene1Terrain {
   }
 
   /**
-   * 检查指定点是否处于不可通行区域（椭圆树圈外）
-   * 椭圆盆地：超出椭圆就阻塞，南向入口扇形允许通过
+   * 仅检查编辑器定义的可碰撞 shape；旧椭圆盆地只负责视觉与装饰布局，不再阻挡移动。
    * @param {number} x
    * @param {number} y
    * @returns {boolean} true 表示阻塞，不能走
@@ -961,21 +960,7 @@ export class Scene1Terrain {
         if (this._pointInCollisionShape(s, x, y)) return true;
       }
     }
-
-    const dx = x - this.centerX;
-    const dy = y - this.centerY;
-    // 椭圆归一化距离：< 1 在椭圆内
-    const ed = Math.hypot(dx / this.basinInnerRadiusX, dy / this.basinInnerRadiusY);
-    if (ed <= 1) return false;
-    // 检查是否在入口扇形内
-    const ang = Math.atan2(dy, dx);
-    const angDistFromSouth = Math.abs(this._normalizeAngle(ang - Math.PI / 2));
-    if (angDistFromSouth < this.entranceAngleHalfWidth) {
-      // 入口外延伸一段允许通过：基于完整椭圆 1.18 倍
-      const edOuter = Math.hypot(dx / this.basinRadiusX, dy / this.basinRadiusY);
-      return edOuter > 1.18;
-    }
-    return true;
+    return false;
   }
 
   /**

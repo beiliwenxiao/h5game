@@ -2053,7 +2053,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 盆地地形碰撞（椭圆盆地边界 + 水池 + 树 + 编辑器多边形） */
+  /** 地形碰撞（水面 + 树木 + 编辑器碰撞多边形） */
   checkTerrainCollision() {
     if (!this._ctcFirstLog) { console.log('%c[DDScene] checkTerrainCollision 进入方法体', 'color:lime;font-size:14px'); this._ctcFirstLog = true; }
     if (this._terrains.length === 0) { if (!this._noTerrainLogged) { console.warn('[DDScene] checkTerrainCollision: 地形未加载'); this._noTerrainLogged = true; } return; }

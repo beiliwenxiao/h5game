@@ -1599,9 +1599,8 @@
             return completed;
         }
 
-        /** 在 Canvas 通知与菜单状态栏同步显示自动存档进度。 */
+        /** 自动存档状态只通过游戏画面的 NotificationSystem 显示，不写入登录/系统菜单。 */
         function showAutoSaveStatus(message, type = 'info') {
-            setLoginMessage(message);
             const current = sceneManager?.getCurrentScene?.() || scene;
             const notifier = current?.notificationSystem || notificationSystem;
             if (!notifier) return;
@@ -1691,20 +1690,15 @@
 
         async function openSystemMenu() {
             closeSavePicker({ restoreFocus: false });
-            let autoSaveResult = null;
             if (gameStarted) {
-                autoSaveResult = await autoSaveCurrentGame({ reason: 'system-menu' });
+                await autoSaveCurrentGame({ reason: 'system-menu' });
                 scene?.pause?.();
                 loginScreen.classList.add('in-game');
             } else {
                 loginScreen.classList.remove('in-game');
             }
             refreshContinueGameAction();
-            setLoginMessage(gameStarted
-                ? (autoSaveResult?.ok ? '自动存档保存成功'
-                    : autoSaveResult?.snapshot ? '自动存档保存失败'
-                    : '自动存档保存失败')
-                : '');
+            setLoginMessage('');
             menuPadArmed = false;
             menuPadIndex = 0;
             loginScreen.classList.remove('hidden');

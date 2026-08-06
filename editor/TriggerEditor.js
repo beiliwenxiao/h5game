@@ -83,6 +83,8 @@ export class TriggerEditor {
   constructor(container, options = {}) {
     this.container = container;
     this.gameId = options.gameId || 'sanguo_zhangjiao';
+    // 场景列表由编辑器入口按当前游戏动态提供，禁止由触发器引用反推。
+    this.getSceneList = typeof options.getSceneList === 'function' ? options.getSceneList : () => [];
     this.projectPath = `example/${this.gameId}/game.project.json`;
     this.project = null;
     this.triggers = [];
@@ -387,21 +389,37 @@ export class TriggerEditor {
     });
   }
 
-  /** 动态更新场景筛选下拉选项 */
+  /** 动态更新场景筛选下拉选项。 */
   _updateSceneFilter() {
     const select = this.container.querySelector('#trg-filter-scene');
     if (!select) return;
-    const currentVal = select.value;
-    const scenes = new Set();
-    for (const t of this.triggers) {
-      const s = t.when?.params?.sceneId;
-      if (s) scenes.add(s);
+    const currentValue = select.value;
+    const scenes = new Map();
+    try {
+      for (const scene of this.getSceneList()) {
+        if (scene?.id) scenes.set(scene.id, scene.name || scene.id);
+      }
+    } catch (e) {
+      console.warn('TriggerEditor: 获取场景列表失败', e);
     }
-    let opts = '<option value="">全部场景</option>';
-    for (const s of scenes) {
-      opts += `<option value="${s}" ${s === currentVal ? 'selected' : ''}>${s}</option>`;
+
+    // 保留旧触发器中已删除的场景引用，避免筛选值和历史数据被静默抹掉。
+    for (const trigger of this.triggers) {
+      const sceneId = trigger.when?.params?.sceneId;
+      if (sceneId && !scenes.has(sceneId)) scenes.set(sceneId, `${sceneId}（旧引用）`);
     }
-    select.innerHTML = opts;
+
+    let options = '<option value="">全部场景</option>';
+    for (const [sceneId, sceneName] of scenes) {
+      const selected = sceneId === currentValue ? 'selected' : '';
+      options += `<option value="${sceneId}" ${selected}>${sceneName}</option>`;
+    }
+    select.innerHTML = options;
+  }
+
+  /** 场景编辑器增删改场景后调用，保持当前筛选值并重绘触发器列表。 */
+  refreshSceneList() {
+    if (this._initialized) this._renderList();
   }
 
   // ---- 详情表单 ----

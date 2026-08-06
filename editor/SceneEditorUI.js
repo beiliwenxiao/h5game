@@ -959,27 +959,27 @@ export class SceneEditorUI {
   }
 
   /**
-   * 获取场景下拉选项 HTML（从 localStorage 场景列表读取）
+   * 获取场景下拉选项 HTML（由编辑器入口注入当前游戏的场景列表）。
    * @private
    */
   _getSceneOptions(currentValue) {
     let options = `<option value="" ${!currentValue ? 'selected' : ''}>(当前场景)</option>`;
+    const listedIds = new Set();
+    let scenes = [];
     try {
-      const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_sanguo_zhangjiao');
-      if (raw) {
-        const scenes = JSON.parse(raw);
-        if (Array.isArray(scenes)) {
-          for (const s of scenes) {
-            if (!s || !s.id) continue;
-            const sel = s.id === currentValue ? 'selected' : '';
-            options += `<option value="${s.id}" ${sel}>${s.name || s.id}</option>`;
-          }
-        }
-      }
-    } catch (e) { /* ignore */ }
-    // 如果当前值不在列表中（自定义值），追加一项
-    if (currentValue && !options.includes(`value="${currentValue}" selected`)) {
-      options += `<option value="${currentValue}" selected>${currentValue}</option>`;
+      scenes = this.editor.options.getSceneList?.() || [];
+    } catch (e) {
+      console.warn('获取场景列表失败:', e);
+    }
+    for (const scene of scenes) {
+      if (!scene?.id || listedIds.has(scene.id)) continue;
+      listedIds.add(scene.id);
+      const selected = scene.id === currentValue ? 'selected' : '';
+      options += `<option value="${scene.id}" ${selected}>${scene.name || scene.id}</option>`;
+    }
+    // 如果当前值不在列表中（已删除或旧自定义值），追加一项以避免静默丢失引用。
+    if (currentValue && !listedIds.has(currentValue)) {
+      options += `<option value="${currentValue}" selected>${currentValue}（旧引用）</option>`;
     }
     return options;
   }

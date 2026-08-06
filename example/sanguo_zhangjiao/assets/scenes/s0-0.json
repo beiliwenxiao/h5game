@@ -219,34 +219,42 @@
           "effectType": "lake",
           "points": [
             [
-              439,
-              170
+              195,
+              22
             ],
             [
-              554,
-              218
+              322,
+              98
             ],
             [
-              448,
-              346
+              559,
+              191
             ],
             [
-              372,
-              288
+              423,
+              331
             ],
             [
-              315,
-              192
+              309,
+              215
+            ],
+            [
+              198,
+              174
+            ],
+            [
+              154,
+              120
             ]
           ],
-          "x": 315,
-          "y": 170,
-          "width": 239,
-          "height": 176,
-          "particleRate": 12,
-          "particleLife": 1.2,
-          "particleSize": 6,
-          "particleSpeed": 40,
+          "x": 154,
+          "y": 22,
+          "width": 405,
+          "height": 309,
+          "particleRate": 29,
+          "particleLife": 3.5,
+          "particleSize": 3,
+          "particleSpeed": 101,
           "particleColor": "#2483ff",
           "particleAlpha": 0,
           "fillColor": "rgba(255,120,30,0.15)",
@@ -4848,7 +4856,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-08-01T23:07:15.785Z",
+  "updatedAt": "2026-08-06T20:32:43.257Z",
   "atlases": [
     {
       "id": "mountain_landscape",

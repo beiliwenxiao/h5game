@@ -293,6 +293,15 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 ### 数据一致性
 模板的唯一真实数据源是 `editor/config/scene-templates.json`。任何模板增删改都通过 `_saveTemplatesToFile()` 写回该文件（内存 `_sceneTemplatesConfig` 同步更新）。新增内置模板直接编辑此 JSON 即可，编辑器启动时 `loadSceneTemplatesConfig()` 加载。
 
+## 场景列表共享约定
+
+场景编辑器、场景内触发器属性和独立事件编辑器必须共用 `EditorDataManager.getGameScenes(currentGameId)` 作为运行时场景列表的唯一来源。
+
+- `index.html` 通过 `getSceneList` 回调注入当前游戏的场景列表；回调必须在调用时读取 `currentGameId`，不得捕获初始化时的游戏 id。
+- `SceneEditorUI._getSceneOptions()` 和 `TriggerEditor._updateSceneFilter()` 只能调用该回调，禁止直接读取固定 localStorage key，也禁止从已存在触发器的 `sceneId` 反推完整列表。
+- `renderSceneList()` 在场景创建、删除、改名、切换游戏及排序回填后，会刷新已打开的触发器属性和事件编辑器筛选下拉。
+- 列表中保留已删除场景的旧引用，标记为“旧引用”，避免历史触发器配置被静默丢失。
+
 ## 场景保存机制
 
 ### 双重保存

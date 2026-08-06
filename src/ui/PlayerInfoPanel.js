@@ -130,6 +130,8 @@ export class PlayerInfoPanel extends UIElement {
     const layout = this._panelLayout;
     const stats = this.player.getComponent('stats');
     const equipment = this.player.getComponent('equipment');
+    const nameComponent = this.player.getComponent('name');
+    const playerName = nameComponent?.name || nameComponent?.displayName || this.player.name || '玩家';
     this.equipSlots = {};
     this.attributeButtonRect = null;
 
@@ -154,6 +156,7 @@ export class PlayerInfoPanel extends UIElement {
         case 'text': {
           // 替换模板变量
           let text = part.text || '';
+          text = text.replace(/\{playerName\}/g, playerName);
           if (stats) {
             text = text.replace('{className}', this.classNames[this.player.class] || this.player.class || '');
             text = text.replace('{class}', this.classNames[this.player.class] || this.player.class || '');
@@ -339,10 +342,12 @@ export class PlayerInfoPanel extends UIElement {
     // ===== 左侧：角色名 + 属性 =====
     let ly = this.y + pad;
     const className = this.classNames[this.player.class] || this.player.class;
+    const nameComponent = this.player.getComponent('name');
+    const playerName = nameComponent?.name || nameComponent?.displayName || this.player.name || '玩家';
     ctx.fillStyle = this.textColor;
     ctx.font = 'bold 16px Arial';
     ctx.textAlign = 'left';
-    ctx.fillText(className, this.x + pad, ly);
+    ctx.fillText(playerName, this.x + pad, ly);
     ly += 20;
 
     ctx.fillStyle = this.labelColor;
@@ -486,9 +491,11 @@ export class PlayerInfoPanel extends UIElement {
 
     // 绘制角色名称
     const className = this.classNames[this.player.class] || this.player.class;
+    const nameComponent = this.player.getComponent('name');
+    const playerName = nameComponent?.name || nameComponent?.displayName || this.player.name || '玩家';
     ctx.fillStyle = this.textColor;
     ctx.font = 'bold 16px Arial';
-    ctx.fillText(`${className}`, this.x + this.padding, currentY + 5);
+    ctx.fillText(`${playerName}`, this.x + this.padding, currentY + 5);
     
     currentY += this.lineHeight + 5;
 

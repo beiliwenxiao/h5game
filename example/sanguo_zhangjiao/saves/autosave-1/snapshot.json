@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "createdAt": 1786040699417,
+  "createdAt": 1786042469736,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
     "autoSlot": 1,
-    "characterName": "玩家昵称",
+    "characterName": "柔弱女子",
     "level": 1,
     "currentAct": 1,
     "location": "第 1 幕区域",
@@ -66,24 +66,24 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786040692972
+            "timestamp": 1786042421632
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786040692972
+            "timestamp": 1786042421632
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786040694341
+            "timestamp": 1786042423381
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786040694780
+            "timestamp": 1786042423964
           }
         ],
         "completedDialogues": [
@@ -109,7 +109,10 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake"
+            "tut_wake",
+            "5秒后自动点燃火堆",
+            "trg_spawn_pickup",
+            "tut_fire"
           ],
           "cooldowns": {}
         },
@@ -125,7 +128,7 @@
         }
       },
       "scene": {
-        "campfireLit": false,
+        "campfireLit": true,
         "firedPickups": [],
         "clearedGroups": [],
         "tutorialEvents": [],

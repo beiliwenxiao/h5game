@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "createdAt": 1786042460875,
+  "createdAt": 1786042421784,
   "meta": {
     "gameId": "sanguo_zhangjiao",
-    "kind": "auto",
-    "autoSlot": 3,
+    "kind": "manual",
+    "slot": 4,
     "characterName": "柔弱女子",
     "level": 1,
     "currentAct": 1,
@@ -57,8 +57,8 @@
         "enabled": true
       },
       "dialogue": {
-        "currentDialogueId": null,
-        "currentNodeId": null,
+        "currentDialogueId": "intro",
+        "currentNodeId": "node1",
         "variables": {},
         "history": [
           {
@@ -72,23 +72,9 @@
             "type": "start",
             "dialogueId": "intro",
             "timestamp": 1786042421632
-          },
-          {
-            "type": "node",
-            "nodeId": "node2",
-            "speaker": "旁白",
-            "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786042423381
-          },
-          {
-            "type": "end",
-            "dialogueId": "intro",
-            "timestamp": 1786042423964
           }
         ],
-        "completedDialogues": [
-          "intro"
-        ]
+        "completedDialogues": []
       },
       "quests": {
         "activeQuests": [],
@@ -109,10 +95,7 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake",
-            "5秒后自动点燃火堆",
-            "trg_spawn_pickup",
-            "tut_fire"
+            "tut_wake"
           ],
           "cooldowns": {}
         },
@@ -128,7 +111,7 @@
         }
       },
       "scene": {
-        "campfireLit": true,
+        "campfireLit": false,
         "firedPickups": [],
         "clearedGroups": [],
         "tutorialEvents": [],

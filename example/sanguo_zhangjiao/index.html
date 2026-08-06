@@ -646,6 +646,28 @@
         #login-title { margin-bottom: 8px; font-size: 32px; color: #e7c778; }
         #login-subtitle { margin-bottom: 14px; font-size: 18px; color: #eee; }
         #login-description { margin-bottom: 24px; line-height: 1.7; color: #bbb; white-space: pre-line; }
+        #new-game-profile {
+            display: grid;
+            gap: 10px;
+            margin: 0 auto 18px;
+            width: min(230px, 100%);
+            color: #eee;
+            text-align: left;
+        }
+        .new-game-field { display: grid; grid-template-columns: 48px 1fr; gap: 8px; align-items: center; font-size: 13px; }
+        .new-game-field input {
+            min-width: 0;
+            padding: 8px 9px;
+            border: 1px solid rgba(255,255,255,.28);
+            border-radius: 4px;
+            background: rgba(0,0,0,.42);
+            color: #fff;
+            font: inherit;
+        }
+        .new-game-gender { display: flex; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; }
+        .new-game-gender legend { padding: 0; font-size: 13px; }
+        .new-game-gender label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-size: 13px; }
+        #new-game-gender-note { min-height: 18px; margin: 0; color: #ffd166; font-size: 12px; line-height: 1.4; }
         .login-actions { display: grid; gap: 12px; justify-items: center; }
         .login-action {
             width: min(230px, 100%);
@@ -817,6 +839,18 @@
                         <h1 id="login-title">张角黄巾起义序章</h1>
                         <h2 id="login-subtitle">苍天已死，黄天当立</h2>
                         <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
+                        <section id="new-game-profile" class="hidden" aria-label="新建角色资料">
+                            <label class="new-game-field" for="new-game-nickname">
+                                <span>昵称</span>
+                                <input id="new-game-nickname" type="text" value="柔弱女子" maxlength="16" autocomplete="nickname">
+                            </label>
+                            <fieldset class="new-game-gender">
+                                <legend>性别</legend>
+                                <label><input id="new-game-gender-female" name="new-game-gender" type="radio" value="female" checked> 女</label>
+                                <label><input id="new-game-gender-male" name="new-game-gender" type="radio" value="male"> 男</label>
+                            </fieldset>
+                            <p id="new-game-gender-note" role="status" aria-live="polite"></p>
+                        </section>
                         <div class="login-actions">
                             <button class="login-action" id="login-start" type="button">开始游戏</button>
                             <button class="login-action" id="login-read-save" type="button">读取存档</button>
@@ -863,6 +897,7 @@
         import { ItemIconRenderer } from '../../src/ui/ItemIconRenderer.js';
         import { SaveGameService } from '../../src/core/snapshot/SaveGameService.js';
         import { PortraitsConfig } from './data/PortraitsConfig.js';
+        import { SelectedCharacterStore } from './data/SelectedCharacterStore.js';
         
         // 场景管理器
         let sceneManager = null;
@@ -952,6 +987,29 @@
         const loginDescription = document.getElementById('login-description');
         const loginMessage = document.getElementById('login-message');
         const saveSlotsElement = document.getElementById('save-slots');
+        const NEW_GAME_DEFAULT_NICKNAME = '柔弱女子';
+        const newGameProfile = document.getElementById('new-game-profile');
+        const newGameNickname = document.getElementById('new-game-nickname');
+        const newGameGenderFemale = document.getElementById('new-game-gender-female');
+        const newGameGenderMale = document.getElementById('new-game-gender-male');
+        const newGameGenderNote = document.getElementById('new-game-gender-note');
+
+        function applyNewGameProfile() {
+            const nickname = newGameNickname.value.trim().slice(0, 16) || NEW_GAME_DEFAULT_NICKNAME;
+            newGameNickname.value = nickname;
+            SelectedCharacterStore.set({ ...SelectedCharacterStore.get(), name: nickname, gender: 'female' });
+            return nickname;
+        }
+
+        newGameGenderFemale.addEventListener('change', () => {
+            if (!newGameGenderFemale.checked) return;
+            newGameGenderNote.textContent = '';
+        });
+        newGameGenderMale.addEventListener('change', () => {
+            if (!newGameGenderMale.checked) return;
+            newGameGenderFemale.checked = true;
+            newGameGenderNote.textContent = '当前没有男角色的图片，只能选择女角色。';
+        });
 
         async function loadProjectConfig() {
             if (projectConfig) return projectConfig;
@@ -1188,6 +1246,13 @@
         /** 巫师式存档浏览：缩略图、分类、区域、等级与时间以固定卡片列表展示。 */
         function renderSaveSlots(mode) {
             savePickerMode = mode;
+            const isNewGame = mode === 'new';
+            newGameProfile.classList.toggle('hidden', !isNewGame);
+            if (isNewGame) {
+                if (!newGameNickname.value.trim()) newGameNickname.value = NEW_GAME_DEFAULT_NICKNAME;
+                newGameGenderFemale.checked = true;
+                newGameGenderNote.textContent = '';
+            }
             const manualSlots = saveGames.listSlots();
             const autoSlots = saveGames.getAutoSlots();
             savePickerEntries = [];
@@ -1467,6 +1532,7 @@
                 renderSaveSlots('manualSave');
                 return;
             }
+            if (savePickerMode === 'new') applyNewGameProfile();
             startGameFromSelection('new', selection);
         }
 
@@ -1493,6 +1559,7 @@
                 loginScreen.classList.remove('in-game');
             }
             saveSlotsElement.classList.remove('visible');
+            newGameProfile.classList.add('hidden');
             loginPanel.classList.remove('has-save-browser');
             setLoginMessage(gameStarted
                 ? (autoSaveResult?.ok ? '自动存档保存成功'

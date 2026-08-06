@@ -213,46 +213,79 @@ export class SceneCombatActions {
     }
   }
 
+  /** 生成手柄轮盘的可选动作：普通技能外加轻功与投掷。 */
+  getGamepadSkillOptions(combat) {
+    const combatSkills = Array.isArray(combat?.skills) ? combat.skills : [];
+    const scene = this.scene;
+    return [
+      ...combatSkills.map((skill, combatSkillIndex) => ({
+        ...skill,
+        gamepadType: 'combatSkill',
+        combatSkillIndex
+      })),
+      {
+        id: '__gamepad_flight',
+        name: '轻功',
+        icon: '💨',
+        effectType: 'flight',
+        gamepadType: 'flight',
+        range: scene.flightSystem?.config?.maxDistance || 400
+      },
+      {
+        id: '__gamepad_throw',
+        name: '投掷',
+        icon: '🎯',
+        effectType: 'throw',
+        gamepadType: 'throw',
+        range: scene.weaponRenderer?.getThrowRange?.(scene.playerEntity) || 480
+      }
+    ];
+  }
+
   updateGamepadCombat() {
     const scene = this.scene;
     if (!scene.gamepadCombat || !scene.inputManager?.gamepad?.isConnected()) return;
     const controller = scene.gamepadCombat;
     const gamepad = scene.inputManager.gamepad;
     const combat = scene.playerEntity?.getComponent('combat');
-    if (combat?.skills) controller.skillCount = combat.skills.length;
+    const gamepadSkills = this.getGamepadSkillOptions(combat);
+    controller.skillCount = Math.max(1, gamepadSkills.length);
+    if (controller.currentSkillIndex >= controller.skillCount) controller.currentSkillIndex = 0;
     controller.update(gamepad);
-    this._syncGamepadAimPreview(controller, combat);
+    this._syncGamepadAimPreview(controller, gamepadSkills);
 
     const attack = controller.getIntent(IntentType.ATTACK);
     if (attack && scene.playerEntity && scene.combatSystem) this._performGamepadAttack(attack);
 
     const skillIntent = controller.getIntent(IntentType.SKILL_RELEASE);
-    if (skillIntent && combat?.skills && scene.playerEntity && scene.combatSystem) {
-      const skill = combat.skills[skillIntent.skillIndex];
-      const transform = scene.playerEntity?.getComponent('transform');
-      if (skill && transform) {
-        const range = skill.range || 200;
-        scene.combatSystem.tryUseSkillAtPosition(
-          scene.playerEntity, skill,
-          {
-            x: transform.position.x + skillIntent.direction.x * range * skillIntent.magnitude,
-            y: transform.position.y + skillIntent.direction.y * range * skillIntent.magnitude
-          },
-          performance.now(), scene.entities
-        );
-      }
-    }
+    if (skillIntent) this._releaseGamepadSkill(gamepadSkills[skillIntent.skillIndex], skillIntent);
 
-    this._syncSkillWheel(controller, combat);
-    const jump = controller.getIntent(IntentType.JUMP);
-    if (jump) this.jumpByDirection(jump.direction?.x || 0, jump.direction?.y || 0);
-    const flight = controller.getIntent(IntentType.FLIGHT);
-    if (flight) this._performGamepadFlight(flight);
-    const thrown = controller.getIntent(IntentType.THROW);
-    if (thrown) this._performGamepadThrow(thrown);
+    this._syncSkillWheel(controller, gamepadSkills);
     if (controller.hasIntent(IntentType.BLOCK_START)) scene.activateBlock?.();
     if (controller.hasIntent(IntentType.BLOCK_END)) scene.deactivateBlock?.();
     controller.consumeIntents();
+  }
+
+  _releaseGamepadSkill(option, intent) {
+    const scene = this.scene;
+    if (!option || !scene.playerEntity) return;
+    const hasAimDirection = Math.hypot(intent.direction?.x || 0, intent.direction?.y || 0) > 0.2;
+    const direction = hasAimDirection
+      ? intent.direction
+      : (scene.getPlayerFacingVector?.() || directionToVector(scene.playerEntity.getComponent('sprite')?.direction));
+    const magnitude = hasAimDirection ? Math.min(intent.magnitude || 1, 1) : 1;
+
+    if (option.gamepadType === 'flight') {
+      this._performGamepadFlight({ direction, magnitude });
+      return;
+    }
+    if (option.gamepadType === 'throw') {
+      this._performGamepadThrow({ direction, magnitude });
+      return;
+    }
+    scene._ensureSkillActions?.().useSkillByDirection(
+      option.combatSkillIndex, direction.x, direction.y, magnitude
+    );
   }
 
   handleAutoAttack(currentTime) {
@@ -305,31 +338,24 @@ export class SceneCombatActions {
     }
   }
 
-  _syncGamepadAimPreview(controller, combat) {
+  _syncGamepadAimPreview(controller, gamepadSkills) {
     const scene = this.scene;
-    if (controller._skillHolding && combat?.skills) {
-      const skill = combat.skills[controller.currentSkillIndex];
-      if (skill?.range > 0) {
+    if (controller._skillHolding) {
+      const selected = gamepadSkills[controller.currentSkillIndex];
+      const magnitude = controller.aimMagnitude;
+      const direction = magnitude > 0 ? controller.aimDirection : { x: 0, y: 0.01 };
+      if (selected?.gamepadType === 'flight') {
+        scene.setSkillAimPreview(-3, direction.x, direction.y, magnitude || 0.5);
+      } else if (selected?.gamepadType === 'throw') {
+        scene.setSkillAimPreview(-2, direction.x, direction.y, magnitude || 0.5);
+      } else if (selected?.range > 0) {
         scene.setSkillAimPreview(
-          controller.currentSkillIndex,
-          controller.aimMagnitude > 0 ? controller.aimDirection.x : 0,
-          controller.aimMagnitude > 0 ? controller.aimDirection.y : 0.01,
-          controller.aimMagnitude
+          selected.combatSkillIndex,
+          direction.x,
+          direction.y,
+          magnitude
         );
       }
-      return;
-    }
-    if (controller.isFlightAiming) {
-      // 满 1 秒才显示；右摇杆归中时 ratio=0，虚线框位于玩家脚下。
-      const direction = controller.flightMagnitude > 0
-        ? controller.flightDirection
-        : { x: 1, y: 0 };
-      scene.setSkillAimPreview(-3, direction.x, direction.y, controller.flightMagnitude);
-      return;
-    }
-    if (controller._throwHolding) {
-      const direction = controller._throwMagnitude > 0 ? controller._throwDirection : { x: 0, y: 0.01 };
-      scene.setSkillAimPreview(-2, direction.x, direction.y, controller._throwMagnitude || 0.5);
       return;
     }
     if (scene.skillAimPreview && !scene._skillActions?.isAiming) scene.clearSkillAimPreview?.();
@@ -350,12 +376,12 @@ export class SceneCombatActions {
     scene.inputManager._padMouseButtons.add(0);
   }
 
-  _syncSkillWheel(controller, combat) {
+  _syncSkillWheel(controller, gamepadSkills) {
     const scene = this.scene;
     const wheel = scene.skillWheelOverlay;
     if (!wheel) return;
     if (controller.hasIntent(IntentType.SKILL_WHEEL_OPEN)) {
-      if (combat?.skills) wheel.setSkills(combat.skills);
+      wheel.setSkills(gamepadSkills);
       wheel.open(controller.currentSkillIndex);
     }
     if (controller.hasIntent(IntentType.SKILL_WHEEL_CLOSE)) wheel.close();
@@ -364,33 +390,20 @@ export class SceneCombatActions {
 
   _performGamepadFlight(intent) {
     const scene = this.scene;
-    const transform = scene.playerEntity?.getComponent('transform');
-    if (!transform || !scene.flightSystem || scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
-    const direction = intent.direction || directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
-    scene.flightSystem.startFlight(
-      scene.playerEntity,
-      transform.position.x + direction.x * 300 * intent.magnitude,
-      transform.position.y + direction.y * 300 * intent.magnitude
-    );
+    if (!intent?.direction || intent.magnitude <= 0) {
+      scene.flightByFacing?.();
+      return;
+    }
+    scene.flightByDirection?.(intent.direction.x, intent.direction.y, intent.magnitude);
   }
 
   _performGamepadThrow(intent) {
     const scene = this.scene;
-    const transform = scene.playerEntity?.getComponent('transform');
-    if (!transform || !scene.weaponRenderer) return;
-    if (!scene.playerEntity.getComponent('equipment')?.slots?.mainhand) {
-      scene.notificationSystem?.addNotification('未装备武器，无法投掷', 'warning');
+    if (!intent?.direction || intent.magnitude <= 0) {
+      scene.throwByFacing?.();
       return;
     }
-    const direction = intent.direction || directionToVector(scene.playerEntity.getComponent('sprite')?.direction);
-    scene.weaponRenderer.throwWeapon(
-      scene.playerEntity, null, transform.position,
-      {
-        x: transform.position.x + direction.x * 250 * intent.magnitude,
-        y: transform.position.y + direction.y * 250 * intent.magnitude
-      },
-      performance.now()
-    );
+    scene.throwByDirection?.(intent.direction.x, intent.direction.y, intent.magnitude);
   }
 
   _clearMouseAttackState(currentTime) {

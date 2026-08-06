@@ -1,9 +1,9 @@
 {
   "bindings": {
     "0": "e",
-    "1": "throw",
+    "1": "",
     "2": "e",
-    "3": "flight",
+    "3": "jump",
     "4": "skillSwitch",
     "5": "skillRelease",
     "6": "block",

@@ -25,7 +25,8 @@ import { PlatformProfile } from '../PlatformProfile.js';
 import {
   PAD_BUTTON_LABELS,
   ATTACK_ACTION,
-  FLIGHT_ACTION
+  JUMP_ACTION,
+  SKILL_RELEASE_ACTION
 } from './Xbox360Profile.js';
 
 /**
@@ -47,9 +48,9 @@ const DEFAULT_ACTIONS = {
   settings: { pc: { key: 'Esc', kind: 'key' }, android: '系统设置按钮', padKey: 'settings', padFallback: 'Start' },
   playerInfo: { pc: { key: 'C', kind: 'key' }, android: '背包按钮', padKey: 'b' },
   block: { pc: { key: 'Q', kind: 'key' }, android: '格挡按钮', padFixed: 'LT', padKind: 'key' },
-  flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padKey: FLIGHT_ACTION, padFallback: '未绑定' },
-  jump: { pc: { key: '空格', kind: 'key' }, android: '跳跃按钮', padKey: FLIGHT_ACTION, padFallback: '未绑定' },
-  throw: { pc: { key: 'Shift', kind: 'key' }, android: '投掷按钮', padFixed: 'B', padKind: 'key' },
+  flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padKey: SKILL_RELEASE_ACTION, padFallback: '未绑定' },
+  jump: { pc: { key: '空格', kind: 'key' }, android: '跳跃按钮', padKey: JUMP_ACTION, padFallback: '未绑定' },
+  throw: { pc: { key: 'Shift', kind: 'key' }, android: '投掷按钮', padKey: SKILL_RELEASE_ACTION, padFallback: '未绑定' },
   harvest: { pc: { key: 'F', kind: 'key' }, android: '采集按钮', padKey: 'f', padFallback: '未绑定' },
   potionHp: { pc: { key: '1', kind: 'key' }, android: '红瓶按钮', padFixed: '十字键↑', padKind: 'key' },
   potionMp: { pc: { key: '2', kind: 'key' }, android: '蓝瓶按钮', padFixed: '十字键↓', padKind: 'key' },

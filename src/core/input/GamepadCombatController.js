@@ -5,8 +5,8 @@
  *   RT  普通攻击（右摇杆方向，快按=面向攻击，长按=精确朝向）
  *   RB  释放当前选中技能（右摇杆瞄准）
  *   LB  切换技能（按住弹环形轮盘，右摇杆选择，松开确认）
- *   Y   轻功（按住+左摇杆目标位置+释放触发）
- *   B   投掷（按住+右摇杆方向+释放）
+ *   Y   由 InputManager 作为独立 jump 虚拟键处理（按下即跳）
+ *   轻功/投掷 作为轮盘技能，由 RB 释放
  *   LT  格挡（按住期间生效）
  *
  * 该控制器不直接修改游戏状态，而是产出「意图」供场景逻辑执行。
@@ -89,13 +89,12 @@ export class GamepadCombatController {
     if (!gamepad || !gamepad.isConnected()) return;
 
     const rightStick = gamepad.rightStick;
-    const leftStick = gamepad.leftStick;
 
-    // 更新瞄准方向（右摇杆）
-    if (rightStick.magnitude > 0) {
-      this.aimDirection = { x: rightStick.x, y: rightStick.y };
-      this.aimMagnitude = rightStick.magnitude;
-    }
+    // 更新瞄准方向（右摇杆）；归中时清空，避免 RB 松开沿用上一次摇杆方向。
+    this.aimDirection = rightStick.magnitude > 0
+      ? { x: rightStick.x, y: rightStick.y }
+      : { x: 0, y: 0 };
+    this.aimMagnitude = rightStick.magnitude;
 
     // ---- RT 攻击 ----
     this._processAttack(gamepad, rightStick);
@@ -105,12 +104,6 @@ export class GamepadCombatController {
 
     // ---- LB 切换技能 / 环形轮盘 ----
     this._processSkillSwitch(gamepad, rightStick);
-
-    // ---- 可重绑轻功 ----
-    this._processFlight(gamepad, leftStick);
-
-    // ---- B 投掷 ----
-    this._processThrow(gamepad, rightStick);
 
     // ---- LT 格挡 ----
     this._processBlock(gamepad);

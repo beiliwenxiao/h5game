@@ -4565,7 +4565,7 @@
           "name": "trg_act4_select_mage",
           "triggerId": "trg_act4_select_mage",
           "x": 10,
-          "y": 10,
+          "y": 8.71,
           "width": 36,
           "height": 36,
           "event": "dialogueEnd",
@@ -4638,18 +4638,7 @@
       "name": "放置层",
       "visible": true,
       "locked": false,
-      "objects": [
-        {
-          "id": "ref_1786048356546_615",
-          "type": "ref",
-          "kind": "item",
-          "ref": "leftover_food",
-          "name": "残羹",
-          "x": 519,
-          "y": 521,
-          "group": ""
-        }
-      ]
+      "objects": []
     }
   ],
   "decorations": [
@@ -4856,7 +4845,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-08-06T20:32:43.257Z",
+  "updatedAt": "2026-08-06T20:38:43.513Z",
   "atlases": [
     {
       "id": "mountain_landscape",

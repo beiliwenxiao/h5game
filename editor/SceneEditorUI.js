@@ -588,6 +588,27 @@ export class SceneEditorUI {
         else if (e.target.type === 'number') value = parseFloat(e.target.value);
         else value = e.target.value;
 
+        // 切换为放置场景物品时，立即重绘属性面板显示可视化目标选择。
+        if (prop === 'actionType' && obj.type === 'trigger') {
+          obj.actionType = value;
+          if (value === 'spawnPlacements') {
+            let hasSelector = false;
+            try {
+              const params = JSON.parse(obj.actionParams || '{}');
+              hasSelector = !!(params && typeof params === 'object' && params.selector);
+            } catch (e) { /* 切换动作时清除旧动作的非 JSON 参数 */ }
+            if (!hasSelector) obj.actionParams = '';
+          }
+          this.updateObjectProperties();
+          editor.render();
+          return;
+        }
+
+        // 可视化选择器写入的 JSON 同样可撤销。
+        if (prop === 'actionParams' && e.target.dataset.spawnPlacementSelector === 'true' && value !== obj.actionParams) {
+          editor.history.saveHistory();
+        }
+
         // 碰撞/可落脚互斥：勾选一个自动取消另一个
         if (prop === 'collide' && value) {
           obj.collide = true;
@@ -619,6 +640,10 @@ export class SceneEditorUI {
         } else if (prop === 'fillMode') {
           obj.fillMode = value;
           this.updateObjectProperties();
+        } else if (prop === 'tags') {
+          const tags = [...new Set(String(value || '').split(',').map(tag => tag.trim()).filter(Boolean))];
+          if (tags.length) obj.tags = tags;
+          else delete obj.tags;
         } else if (prop === '_vertexCount') {
           // 修改顶点数：加点=在随机边中点插入；减点=随机删除一个顶点（保持形状不变形）
           const n = Math.max(3, Math.min(100, Math.round(value)));
@@ -875,11 +900,13 @@ export class SceneEditorUI {
    * @private
    */
   _buildRefProperties(obj) {
+    const tags = Array.isArray(obj.tags) ? obj.tags.join(', ') : String(obj.tags || '');
     let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
     html += `<div class="property-row"><label>类型:</label><input value="${obj.kind || ''}" disabled></div>`;
     html += `<div class="property-row"><label>引用定义ID:</label><input value="${obj.ref || ''}" disabled title="明细在内容库中编辑"></div>`;
     html += `<div class="property-row"><label>名称:</label><input value="${obj.name || ''}" disabled></div>`;
-    html += `<div class="property-row"><label title="供触发器 spawnGroup 整批激活；同组的放置点一起生成">组名 group:</label><input type="text" value="${obj.group || ''}" data-prop="group" placeholder="如 act1_pickups"></div>`;
+    html += `<div class="property-row"><label title="触发器可按组名批量放置同组物品">组名:</label><input type="text" value="${obj.group || ''}" data-prop="group" placeholder="如 act1_pickups"></div>`;
+    html += `<div class="property-row"><label title="多个标签用英文逗号分隔；触发器可按标签批量放置物品">标签:</label><input type="text" value="${tags}" data-prop="tags" placeholder="如 教程, 食物"></div>`;
 
     // 放置点级覆盖：同一库定义在不同场景可挂不同交互（如张角在第二幕给符水、第三幕给铜钱剑）
     // 留空 = 沿用内容库定义
@@ -990,6 +1017,7 @@ export class SceneEditorUI {
    * @private
    */
   _buildLogicProperties(obj) {
+    const editor = this.editor;
     let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
     html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
     if (obj.type === 'region') {
@@ -1007,8 +1035,37 @@ export class SceneEditorUI {
     } else if (obj.type === 'npc') {
       html += `<div class="property-row"><label>NPC库ID:</label><input type="text" value="${obj.npcRef || ''}" data-prop="npcRef" placeholder="library.npcs 的 id"></div>`;
     } else if (obj.type === 'trigger') {
+      const escapeHtml = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const placementSceneId = editor.sceneData?.id || obj.sceneId || '';
+      const itemPlacements = (editor.sceneData?.layers || []).flatMap(layer =>
+        (layer?.objects || []).filter(item => item?.type === 'ref' && item.kind === 'item' && item.id)
+      );
+      let selectedSelector = null;
+      try {
+        const params = JSON.parse(obj.actionParams || '{}');
+        selectedSelector = params?.selector || null;
+      } catch (e) { /* 非 JSON 的旧动作参数仍由原输入框保留 */ }
+      const sameSelector = selector => JSON.stringify(selectedSelector) === JSON.stringify(selector);
+      const selectorOptions = [];
+      const makeOption = (label, selector) => {
+        const value = JSON.stringify({ selector });
+        selectorOptions.push(`<option value="${escapeHtml(value)}" ${sameSelector(selector) ? 'selected' : ''}>${escapeHtml(label)}</option>`);
+      };
+      const baseSelector = { sceneId: placementSceneId, kinds: ['item'] };
+      for (const placement of itemPlacements) {
+        makeOption(`指定物品 · ${placement.name || placement.ref || placement.id}（${placement.id}）`, {
+          ...baseSelector,
+          placementIds: [placement.id]
+        });
+      }
+      const groups = [...new Set(itemPlacements.map(item => String(item.group || '').trim()).filter(Boolean))];
+      for (const group of groups) makeOption(`按组名 · ${group}`, { ...baseSelector, group });
+      const tags = [...new Set(itemPlacements.flatMap(item => Array.isArray(item.tags) ? item.tags : String(item.tags || '').split(','))
+        .map(tag => String(tag).trim()).filter(Boolean))];
+      for (const tag of tags) makeOption(`按标签 · ${tag}`, { ...baseSelector, tag });
+      const spawnPlacementSelected = obj.actionType === 'spawnPlacements';
+
       html += `<div class="property-row"><label>触发器ID:</label><input type="text" value="${obj.triggerId || ''}" data-prop="triggerId"></div>`;
-      // 所属场景下拉（从编辑器场景列表动态读取）
       const sceneOptions = this._getSceneOptions(obj.sceneId || '');
       html += `<div class="property-row"><label>所属场景:</label><select data-prop="sceneId">${sceneOptions}</select></div>`;
       html += `<div class="property-row"><label>触发时机:</label><select data-prop="event">
@@ -1059,7 +1116,8 @@ export class SceneEditorUI {
         <option value="playBgm" ${obj.actionType === 'playBgm' ? 'selected' : ''}>播放BGM playBgm</option>
         <option value="spawnEnemy" ${obj.actionType === 'spawnEnemy' ? 'selected' : ''}>生成敌人 spawnEnemy</option>
         <option value="spawnWave" ${obj.actionType === 'spawnWave' ? 'selected' : ''}>生成波次 spawnWave</option>
-        <option value="spawnGroup" ${obj.actionType === 'spawnGroup' ? 'selected' : ''}>激活放置组 spawnGroup</option>
+        <option value="spawnGroup" ${obj.actionType === 'spawnGroup' ? 'selected' : ''}>激活放置组（兼容旧配置） spawnGroup</option>
+        <option value="spawnPlacements" ${spawnPlacementSelected ? 'selected' : ''}>放置场景物品 spawnPlacements</option>
         <option value="lightCampfire" ${obj.actionType === 'lightCampfire' ? 'selected' : ''}>点燃火堆 lightCampfire</option>
         <option value="sceneCountdown" ${obj.actionType === 'sceneCountdown' ? 'selected' : ''}>倒计时切幕 sceneCountdown</option>
         <option value="promptSwitch" ${obj.actionType === 'promptSwitch' ? 'selected' : ''}>提示切幕 promptSwitch</option>
@@ -1070,7 +1128,12 @@ export class SceneEditorUI {
         <option value="battleLose" ${obj.actionType === 'battleLose' ? 'selected' : ''}>战斗失败 battleLose</option>
         <option value="parallel" ${obj.actionType === 'parallel' ? 'selected' : ''}>并行执行 parallel</option>
       </select></div>`;
-      html += `<div class="property-row"><label>动作参数(JSON):</label><textarea data-prop="actionParams" rows="2" style="width:100%;font-size:11px;">${obj.actionParams || ''}</textarea></div>`;
+      html += `<div class="property-row" style="display:${spawnPlacementSelected ? '' : 'none'};"><label title="只显示当前场景的 kind:item 放置点">放置目标:</label><select data-prop="actionParams" data-spawn-placement-selector="true" style="font-size:11px;"><option value="">-- 指定物品／按组名／按标签 --</option>${selectorOptions.join('')}</select></div>`;
+      html += `<div class="property-row" style="display:${spawnPlacementSelected ? '' : 'none'};"><small style="color:#9ab;line-height:1.4;">仅列出当前场景的物品放置点；指定物品只生成一件，按组名或标签会批量生成所有匹配物品。</small></div>`;
+      if (spawnPlacementSelected && selectorOptions.length === 0) {
+        html += '<div class="property-row"><small style="color:#e8a24a;">当前场景还没有 kind 为 item 的放置点。请先放置物品，并设置可选的组名或标签。</small></div>';
+      }
+      html += `<div class="property-row" style="display:${spawnPlacementSelected ? 'none' : ''};"><label>动作参数(JSON):</label><textarea data-prop="actionParams" rows="2" style="width:100%;font-size:11px;">${obj.actionParams || ''}</textarea></div>`;
       html += `<div class="property-row"><label>仅触发一次:</label><input type="checkbox" data-prop="once" ${obj.once ? 'checked' : ''}></div>`;
       html += `<div class="property-row"><label>冷却(秒):</label><input type="number" value="${obj.cooldown || 0}" min="0" step="0.5" data-prop="cooldown"></div>`;
     }

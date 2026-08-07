@@ -1942,7 +1942,15 @@
                             document.getElementById('trigger-editor-container'),
                             {
                                 gameId: this.currentGameId || 'sanguo_zhangjiao',
-                                getSceneList: () => this.dataManager.getGameScenes(this.currentGameId)
+                                getSceneList: () => this.dataManager.getGameScenes(this.currentGameId),
+                                getPlacementOptions: () => {
+                                    const sceneData = this.sceneEditor?.sceneData;
+                                    const sceneId = this.currentSceneId || sceneData?.id || '';
+                                    return (sceneData?.layers || []).flatMap(layer =>
+                                        (layer?.objects || []).filter(object => object?.type === 'ref')
+                                            .map(object => ({ ...object, sceneId: object.sceneId || sceneId }))
+                                    );
+                                }
                             }
                         );
                     }

@@ -68,6 +68,7 @@ const ACTION_TYPES = [
   { v: 'battleLose', label: '战斗失败 battleLose' },
   { v: 'spawnWave', label: '生成波次 spawnWave' },
   { v: 'mount', label: '上载具/骑乘 mount' },
+  { v: 'spawnPlacements', label: '放置场景物品 spawnPlacements' },
   { v: 'spawnGroup', label: '激活放置组 spawnGroup' },
   { v: 'lightCampfire', label: '点燃火堆 lightCampfire' },
   { v: 'sceneCountdown', label: '倒计时切幕 sceneCountdown' },
@@ -85,6 +86,8 @@ export class TriggerEditor {
     this.gameId = options.gameId || 'sanguo_zhangjiao';
     // 场景列表由编辑器入口按当前游戏动态提供，禁止由触发器引用反推。
     this.getSceneList = typeof options.getSceneList === 'function' ? options.getSceneList : () => [];
+    // 当前场景的完整放置点由场景编辑器显式注入，供物品生成动作可视化选择。
+    this.getPlacementOptions = typeof options.getPlacementOptions === 'function' ? options.getPlacementOptions : () => [];
     this.projectPath = `example/${this.gameId}/game.project.json`;
     this.project = null;
     this.triggers = [];
@@ -314,6 +317,9 @@ export class TriggerEditor {
       .trg-do-item{border:1px solid #2a3a5e;border-radius:4px;padding:8px;margin-bottom:8px;background:#0f1830;}
       .trg-do-item .do-head{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
       .trg-do-item select{flex:1;}
+      .spawn-placement-controls{display:grid;grid-template-columns:110px minmax(0,1fr);gap:6px;align-items:center;}
+      .spawn-placement-controls label{grid-column:1 / -1;margin:0;color:#7cf;}
+      .spawn-placement-hint{grid-column:1 / -1;color:#89a;font-size:11px;line-height:1.4;}
       .trg-empty{color:#778;padding:40px;text-align:center;}
       .trg-status{padding:6px 16px;font-size:12px;min-height:22px;background:#0a1020;}
       .trg-status.ok{color:#6c6;} .trg-status.err{color:#e66;}
@@ -422,6 +428,94 @@ export class TriggerEditor {
     if (this._initialized) this._renderList();
   }
 
+  _getItemPlacementOptions() {
+    try {
+      return (this.getPlacementOptions() || []).filter(placement =>
+        placement?.type === 'ref' && placement.kind === 'item' && placement.id
+      );
+    } catch (error) {
+      console.warn('TriggerEditor: 获取场景放置物品失败', error);
+      return [];
+    }
+  }
+
+  _normalizeSpawnPlacementParams(params = {}) {
+    const selector = params.selector || params;
+    const placementId = Array.isArray(selector.placementIds)
+      ? selector.placementIds[0] || ''
+      : selector.placementId || '';
+    const group = String(selector.group || '').trim();
+    const tag = Array.isArray(selector.tags)
+      ? selector.tags[0] || ''
+      : selector.tag || '';
+    const mode = placementId ? 'placement' : group ? 'group' : 'tag';
+    return {
+      mode,
+      placementId,
+      group,
+      tag: String(tag || '').trim(),
+      sceneId: String(selector.sceneId || '').trim()
+    };
+  }
+
+  _readSpawnPlacementParams(item) {
+    const mode = item.querySelector('.spawn-placement-mode')?.value || 'placement';
+    const target = item.querySelector('.spawn-placement-target')?.value || '';
+    const sceneId = item.querySelector('.spawn-placement-target')?.selectedOptions?.[0]?.dataset.sceneId || '';
+    const selector = { sceneId, kinds: ['item'] };
+    if (mode === 'placement') selector.placementIds = target ? [target] : [];
+    else if (mode === 'group') selector.group = target;
+    else selector.tag = target;
+    return { selector };
+  }
+
+  _renderSpawnPlacementControls(params = {}) {
+    const selection = this._normalizeSpawnPlacementParams(params);
+    const items = this._getItemPlacementOptions();
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+    const sceneId = selection.sceneId || items[0]?.sceneId || '';
+    const buildOptions = (entries, selected, emptyText) => {
+      const options = entries.map(({ value, label, optionSceneId = sceneId }) =>
+        `<option value="${escape(value)}" data-scene-id="${escape(optionSceneId)}" ${value === selected ? 'selected' : ''}>${escape(label)}</option>`
+      );
+      if (selected && !entries.some(entry => entry.value === selected)) {
+        options.unshift(`<option value="${escape(selected)}" data-scene-id="${escape(sceneId)}" selected>${escape(selected)}（当前场景未找到）</option>`);
+      }
+      return options.length ? options.join('') : `<option value="">${emptyText}</option>`;
+    };
+    const placementEntries = items.map(item => ({
+      value: item.id,
+      label: `${item.name || item.ref || item.id} · ${item.id}`,
+      optionSceneId: item.sceneId || sceneId
+    }));
+    const groupEntries = [...new Map(items.filter(item => item.group).map(item => [item.group, {
+      value: item.group,
+      label: `${item.group}（${item.name || item.ref || item.id}）`,
+      optionSceneId: item.sceneId || sceneId
+    }])).values()];
+    const tagEntries = [...new Map(items.flatMap(item => {
+      const tags = Array.isArray(item.tags) ? item.tags : String(item.tags || '').split(',');
+      return tags.map(tag => tag.trim()).filter(Boolean).map(tag => [tag, {
+        value: tag,
+        label: `${tag}（${item.name || item.ref || item.id}）`,
+        optionSceneId: item.sceneId || sceneId
+      }]);
+    })).values()];
+    const targetEntries = selection.mode === 'group' ? groupEntries : selection.mode === 'tag' ? tagEntries : placementEntries;
+    const selectedTarget = selection.mode === 'group' ? selection.group : selection.mode === 'tag' ? selection.tag : selection.placementId;
+    return `
+      <div class="spawn-placement-controls">
+        <label>放置目标</label>
+        <select class="spawn-placement-mode">
+          <option value="placement" ${selection.mode === 'placement' ? 'selected' : ''}>指定物品</option>
+          <option value="group" ${selection.mode === 'group' ? 'selected' : ''}>按组名</option>
+          <option value="tag" ${selection.mode === 'tag' ? 'selected' : ''}>按标签</option>
+        </select>
+        <select class="spawn-placement-target">${buildOptions(targetEntries, selectedTarget, '请先在场景编辑器打开含物品的场景')}</select>
+        <div class="spawn-placement-hint">仅列出当前打开场景中的放置物品；组名或标签会批量放置所有匹配物品。</div>
+      </div>`;
+  }
+
   // ---- 详情表单 ----
 
   _renderDetail() {
@@ -458,6 +552,9 @@ export class TriggerEditor {
       if (act.action && !ACTION_TYPES.some(a => a.v === act.action)) {
         actOpts = `<option value="${act.action}" selected>自定义: ${act.action}</option>` + actOpts;
       }
+      const paramsEditor = act.action === 'spawnPlacements'
+        ? `${this._renderSpawnPlacementControls(act.params)}<textarea class="do-params" style="display:none">${this._json(act.params)}</textarea>`
+        : `<textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._json(act.params)}</textarea>`;
       doHtml += `
         <div class="trg-do-item" data-di="${di}">
           <div class="do-head">
@@ -467,7 +564,7 @@ export class TriggerEditor {
             </label>
             <button class="trg-mini do-del">删</button>
           </div>
-          <textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._json(act.params)}</textarea>
+          ${paramsEditor}
         </div>`;
     });
 
@@ -498,6 +595,18 @@ export class TriggerEditor {
         const di = parseInt(e.target.closest('.trg-do-item').dataset.di);
         this._commitDetail();
         t.do.splice(di, 1);
+        this._renderDetail();
+      });
+    });
+    panel.querySelectorAll('.do-action').forEach(select => {
+      select.addEventListener('change', () => {
+        this._commitDetail();
+        this._renderDetail();
+      });
+    });
+    panel.querySelectorAll('.spawn-placement-mode').forEach(select => {
+      select.addEventListener('change', () => {
+        this._commitDetail();
         this._renderDetail();
       });
     });
@@ -600,9 +709,13 @@ export class TriggerEditor {
     const doItems = panel.querySelectorAll('.trg-do-item');
     t.do = [];
     doItems.forEach(el => {
+      const action = el.querySelector('.do-action').value;
+      const params = action === 'spawnPlacements'
+        ? this._readSpawnPlacementParams(el)
+        : this._parseJson(el.querySelector('.do-params').value, {});
       t.do.push({
-        action: el.querySelector('.do-action').value,
-        params: this._parseJson(el.querySelector('.do-params').value, {}),
+        action,
+        params,
         ...(el.querySelector('.do-await').checked ? { await: true } : {})
       });
     });

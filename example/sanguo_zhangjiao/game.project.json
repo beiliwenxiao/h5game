@@ -2027,13 +2027,23 @@
       "id": "trg_spawn_pickup",
       "when": {
         "type": "campfireLit",
-        "params": {}
+        "params": {
+          "sceneId": "s0-0"
+        }
       },
       "do": [
         {
-          "action": "spawnGroup",
+          "action": "spawnPlacements",
           "params": {
-            "group": "act1_pickups"
+            "selector": {
+              "sceneId": "s0-0",
+              "kinds": [
+                "item"
+              ],
+              "placementIds": [
+                "ref_1786132771260_26"
+              ]
+            }
           }
         }
       ],
@@ -2357,7 +2367,7 @@
         {
           "action": "showTip",
           "params": {
-            "text": "张角的符水让�����恢复了体力，你从濒死中活了过来。"
+            "text": "张角的符水让�������恢复了体力，你从濒死中活了过来。"
           }
         }
       ],

@@ -44,6 +44,43 @@ function registryGet(registries, kind, ref) {
   return registry[ref] || null;
 }
 
+function toStringList(value) {
+  const values = Array.isArray(value) ? value : [value];
+  return [...new Set(values
+    .flatMap(entry => String(entry ?? '').split(','))
+    .map(entry => entry.trim())
+    .filter(Boolean))];
+}
+
+function normalizeSelector(selector = {}) {
+  return {
+    placementIds: toStringList(selector.placementIds ?? selector.placementId),
+    group: typeof selector.group === 'string' ? selector.group.trim() : '',
+    tags: toStringList(selector.tags ?? selector.tag),
+    tagMode: selector.tagMode === 'all' ? 'all' : 'any',
+    sceneId: typeof selector.sceneId === 'string' ? selector.sceneId.trim() : '',
+    kinds: toStringList(selector.kinds ?? selector.kind)
+  };
+}
+
+function placementMatches(placement, selector) {
+  if (!placement || !selector) return false;
+  const hasCriterion = selector.placementIds.length || selector.group || selector.tags.length || selector.sceneId || selector.kinds.length;
+  if (!hasCriterion) return false;
+  if (selector.placementIds.length && !selector.placementIds.includes(placement.id)) return false;
+  if (selector.group && placement.group !== selector.group) return false;
+  if (selector.sceneId && placement.sceneId !== selector.sceneId) return false;
+  if (selector.kinds.length && !selector.kinds.includes(placement.kind)) return false;
+  if (selector.tags.length) {
+    const placementTags = toStringList(placement.tags);
+    const tagMatched = selector.tagMode === 'all'
+      ? selector.tags.every(tag => placementTags.includes(tag))
+      : selector.tags.some(tag => placementTags.includes(tag));
+    if (!tagMatched) return false;
+  }
+  return true;
+}
+
 /** 将分组放置点与内容注册表定义组合为运行时对象。 */
 export class PlacementSpawner {
   constructor({
@@ -62,14 +99,32 @@ export class PlacementSpawner {
     this.onSpawn = onSpawn;
   }
 
+  /**
+   * 兼容旧触发器：按组名生成放置点。
+   * @param {Object} options
+   * @returns {Object}
+   */
   spawnGroup({ group, placements = [], registries = {} } = {}) {
+    return this.spawnMatching({ placements, registries, selector: { group } });
+  }
+
+  /**
+   * 按放置点 ID、组名、标签、场景或类型筛选并生成。
+   * 各筛选条件同时存在时取交集；未给任何条件时不生成任何对象。
+   * @param {Object} options
+   * @param {Array<Object>} options.placements
+   * @param {Object} options.registries
+   * @param {Object} options.selector
+   * @returns {{selector:Object, matchedPlacements:Array<Object>, counts:Object, entities:Array, errors:Array}}
+   */
+  spawnMatching({ placements = [], registries = {}, selector = {} } = {}) {
+    const normalized = normalizeSelector(selector);
     const counts = { item: 0, equipment: 0, enemy: 0, npc: 0, building: 0, vehicle: 0, total: 0 };
     const entities = [];
     const errors = [];
-    if (group == null) return { group, counts, entities, errors };
+    const matchedPlacements = (placements || []).filter(placement => placementMatches(placement, normalized));
 
-    for (const placement of placements) {
-      if (!placement || placement.group !== group) continue;
+    for (const placement of matchedPlacements) {
       const kind = placement.kind;
       if (!REGISTRY_KEYS[kind]) continue;
       const definition = registryGet(registries, kind, placement.ref);
@@ -92,7 +147,7 @@ export class PlacementSpawner {
         if (kind === 'npc') this._preloadNpcImage(data, entity, placement);
         if (typeof this.onSpawn === 'function') {
           try {
-            this.onSpawn({ entity, kind, group, placement, definition: data });
+            this.onSpawn({ entity, kind, group: placement.group || normalized.group || null, placement, definition: data });
           } catch (error) {
             errors.push({ kind, ref: placement.ref, placement, reason: 'onSpawnFailed', error });
           }
@@ -102,7 +157,7 @@ export class PlacementSpawner {
       }
     }
 
-    return { group, counts, entities, errors };
+    return { selector: normalized, matchedPlacements, counts, entities, errors };
   }
 
   _spawn(kind, data, placement) {

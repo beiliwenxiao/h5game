@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786050382255,
+  "createdAt": 1786136154008,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 591.1295279829759,
-          "y": 476.7530948009581,
+          "x": 541.9747043811029,
+          "y": 547.0330639703948,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -66,24 +66,24 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786048256154
+            "timestamp": 1786135253082
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786048256154
+            "timestamp": 1786135253082
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786048257363
+            "timestamp": 1786135254374
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786048260982
+            "timestamp": 1786135255312
           }
         ],
         "completedDialogues": [

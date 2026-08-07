@@ -1079,8 +1079,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _registerGameLoaderActions(trig, gameLoader) {
     // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
     trig.registerAction('lightCampfire', () => this.lightCampfire());
-    // 场景专属动作：按组激活场景放置点（方案A）—— 明细来自内容库定义，位置来自场景放置点
+    // 场景专属动作：按组激活场景放置点（兼容既有触发器）。
     trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
+    // 场景专属动作：按指定物品、组名或标签放置场景物品。
+    trig.registerAction('spawnPlacements', (p) => this._spawnPlacements(p?.selector || p));
     // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
     trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
     // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
@@ -1170,50 +1172,66 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 点燃火堆后驱散开场薄雾
     this.fog.targetOpacity = 0;
 
-    // 事件源：火堆点燃 → 触发器 trg_spawn_pickup 生成拾取物
-    if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', {});
+    // 当前火堆剧情归属 s0-0；与残羹触发器的 sceneId 精确匹配。
+    if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', { sceneId: 's0-0' });
   }
 
   /**
-   * 按组激活场景放置点（方案A）：找出该 group 的 type:'ref' 放置点，
-   * 按 kind 从内容库(registries)取明细定义 + 放置点坐标 → 生成拾取物/装备/敌人等。
-   * 明细在内容库、位置在场景编辑器、触发器只给组名 —— 三者解耦。
+   * 兼容旧触发器：按组名放置对应场景引用。
    * @param {Object} p - { group }
    * @private
    */
   _spawnGroup(p = {}) {
-    const group = p.group;
-    if (!group || !this.gameLoader) return;
-    const reg = this.gameLoader.registries;
-    const placements = (this._placements || []).filter(pl => pl.group === group);
-    // 诊断：放置点坐标 vs 玩家/火堆坐标（用于排查位置偏差）
-    const _pt = this.playerEntity && this.playerEntity.getComponent('transform');
-    console.log('%c[DDScene] spawnGroup 诊断', 'color:#ff9800',
-      '\n  组:', group,
-      '\n  放置点:', placements.map(pl => `${pl.ref}@(${pl.x},${pl.y}) kind=${pl.kind}`).join(' | ') || '(无)',
-      '\n  玩家:', _pt ? `(${Math.round(_pt.position.x)},${Math.round(_pt.position.y)})` : '?',
-      '\n  火堆:', `(${this.campfire.x},${this.campfire.y})`);
+    return this._spawnPlacements({ group: p.group });
+  }
 
-    const result = this._placementSpawner.spawnGroup({ group, placements, registries: reg });
+  /**
+   * 按放置点 ID、组名或标签生成场景物品/实体。
+   * 世界放置点异步加载完成前先等待，防止 once 触发器空生成后永久失效。
+   * @param {Object} selector - { placementIds?, group?, tag?, tags?, sceneId?, kinds? }
+   * @private
+   */
+  async _spawnPlacements(selector = {}) {
+    const scope = this.resourceScope;
+    if (!scope || scope.disposed || !this.gameLoader) return;
+    try {
+      await this._worldLoadPromise;
+    } catch (error) {
+      if (!scope.disposed) console.warn('[DDScene] 放置点加载失败，无法生成场景物品', error);
+      return;
+    }
+    if (scope.disposed || this.resourceScope !== scope || !this.gameLoader || !this._placementSpawner) return;
+
+    const reg = this.gameLoader.registries;
+    const result = this._placementSpawner.spawnMatching({
+      selector,
+      placements: this._placements || [],
+      registries: reg
+    });
     for (const entry of result.errors) {
       if (entry.reason === 'definitionNotFound') {
-        console.warn('[DDScene] spawnGroup 未找到定义', entry.kind, entry.ref);
+        console.warn('[DDScene] spawnPlacements 未找到定义', entry.kind, entry.ref);
       }
     }
 
-    // 保持旧计数口径：静态 worldProp 归入“其它”。
     let worldPropN = 0;
-    for (const pl of placements) {
-      if (pl.kind !== 'item') continue;
-      const baseDef = reg[this._regKey(pl.kind)]?.get(pl.ref);
-      const def = pl.overrides ? this._mergeOverrides(baseDef, pl.overrides) : baseDef;
-      if (def?.worldProp) worldPropN++;
+    for (const placement of result.matchedPlacements) {
+      if (placement.kind !== 'item') continue;
+      const baseDef = reg[this._regKey(placement.kind)]?.get(placement.ref);
+      const definition = placement.overrides ? this._mergeOverrides(baseDef, placement.overrides) : baseDef;
+      if (definition?.worldProp) worldPropN++;
     }
     const itemN = Math.max(0, result.counts.item - worldPropN);
     const eqN = result.counts.equipment;
     const entN = worldPropN + result.counts.enemy + result.counts.npc +
       result.counts.building + result.counts.vehicle;
-    console.log(`[DDScene] spawnGroup(${group}): 物品${itemN} 装备${eqN} 其它${entN}`);
+    console.log('[DDScene] spawnPlacements', {
+      selector: result.selector,
+      matched: result.matchedPlacements.map(placement => placement.id),
+      items: itemN,
+      equipment: eqN,
+      others: entN
+    });
   }
 
   /**

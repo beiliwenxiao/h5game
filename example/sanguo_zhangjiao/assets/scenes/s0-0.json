@@ -4630,6 +4630,25 @@
           "actions": "[object Object]",
           "once": true,
           "cooldown": 0
+        },
+        {
+          "id": "trigger_spawn_pickup_s0_0",
+          "type": "trigger",
+          "name": "点燃篝火后出现残羹",
+          "triggerId": "trg_spawn_pickup",
+          "x": 10,
+          "y": 194,
+          "width": 36,
+          "height": 36,
+          "event": "campfireLit",
+          "target": "",
+          "sceneId": "s0-0",
+          "radius": 60,
+          "conditions": "",
+          "actionType": "spawnPlacements",
+          "actionParams": "{\"selector\":{\"sceneId\":\"s0-0\",\"kinds\":[\"item\"],\"placementIds\":[\"ref_1786132771260_26\"]}}",
+          "once": true,
+          "cooldown": 0
         }
       ]
     },
@@ -4638,7 +4657,18 @@
       "name": "放置层",
       "visible": true,
       "locked": false,
-      "objects": []
+      "objects": [
+        {
+          "id": "ref_1786132771260_26",
+          "type": "ref",
+          "kind": "item",
+          "ref": "leftover_food",
+          "name": "残羹",
+          "x": 542.06,
+          "y": 503.4,
+          "group": ""
+        }
+      ]
     }
   ],
   "decorations": [
@@ -4845,7 +4875,7 @@
       "collide": true
     }
   },
-  "updatedAt": "2026-08-06T20:38:43.513Z",
+  "updatedAt": "2026-08-07T20:19:10.827Z",
   "atlases": [
     {
       "id": "mountain_landscape",

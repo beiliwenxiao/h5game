@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786177039996,
+  "createdAt": 1786199249943,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 566.2794415104772,
-          "y": 527.0512923588858,
+          "x": 471.4271520033462,
+          "y": 439.7277247919856,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -125,7 +125,18 @@
         "progression": {
           "state": {
             "characterId": "refugee",
-            "graphs": {}
+            "graphs": {
+              "warrior-skill": {
+                "version": 1,
+                "allocations": {},
+                "revision": 3
+              },
+              "global-passive": {
+                "version": 1,
+                "allocations": {},
+                "revision": 9
+              }
+            }
           },
           "ledger": {
             "pools": {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786172297991,
+  "createdAt": 1786201049941,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -14,11 +14,11 @@
   "data": {
     "game": {
       "player": {
-        "id": "entity_1",
+        "id": "refugee",
         "name": null,
         "transform": {
-          "x": 502.16433416109857,
-          "y": 471.24578528279875,
+          "x": 471.4271520033462,
+          "y": 439.7277247919856,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -28,18 +28,18 @@
           "floorId": "ground"
         },
         "stats": {
-          "baseMaxHp": 150,
+          "baseMaxHp": 100,
           "baseMaxMp": 100,
-          "baseAttack": 15,
-          "baseDefense": 8,
-          "baseSpeed": 120,
-          "maxHp": 150,
-          "hp": 150,
+          "baseAttack": 10,
+          "baseDefense": 5,
+          "baseSpeed": 100,
+          "maxHp": 100,
+          "hp": 30,
           "maxMp": 100,
-          "mp": 100,
-          "attack": 15,
-          "defense": 8,
-          "speed": 120,
+          "mp": 10,
+          "attack": 10,
+          "defense": 5,
+          "speed": 100,
           "level": 1,
           "exp": 0,
           "mainElement": 0,
@@ -66,31 +66,24 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786169584322
+            "timestamp": 1786176139228
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786169584322
-          },
-          {
-            "type": "node",
-            "nodeId": "node1",
-            "speaker": "旁白",
-            "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786169597317
+            "timestamp": 1786176139228
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786169598829
+            "timestamp": 1786176141132
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786169599706
+            "timestamp": 1786176141821
           }
         ],
         "completedDialogues": [
@@ -117,27 +110,54 @@
           "firedOnce": [
             "my_first_trigger",
             "tut_wake",
-            "5秒后自动点燃火堆",
+            "出现火堆",
             "trg_spawn_pickup",
             "tut_fire",
-            "tut_move"
+            "tut_move",
+            "trg_pickup_food_drop_equip",
+            "tut_bag",
+            "tut_stats",
+            "tut_done",
+            "5秒后自动点燃火堆"
           ],
           "cooldowns": {}
         },
         "progression": {
           "state": {
-            "characterId": "entity_1",
-            "graphs": {}
+            "characterId": "refugee",
+            "graphs": {
+              "warrior-skill": {
+                "version": 1,
+                "allocations": {},
+                "revision": 3
+              },
+              "global-passive": {
+                "version": 1,
+                "allocations": {},
+                "revision": 9
+              }
+            }
           },
           "ledger": {
-            "pools": {},
+            "pools": {
+              "skill": {
+                "available": 1,
+                "spent": 0
+              },
+              "passive": {
+                "available": 1,
+                "spent": 0
+              }
+            },
             "aliases": {}
           }
         }
       },
       "scene": {
         "campfireLit": true,
-        "firedPickups": [],
+        "firedPickups": [
+          "leftover_food"
+        ],
         "clearedGroups": [],
         "tutorialEvents": [
           "moved"

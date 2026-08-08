@@ -215,7 +215,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         if (this.gameLoader?.triggerSystem) {
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
-        await this.requestAutoSave({ reason: 'map-change', sceneId });
+        // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
       onFallback: ({ reason, sceneId }) => {
@@ -669,7 +669,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   teleportToChunk(p = {}) {
     const sceneId = p.sceneId || p.scene;
-    return this._chunkNavigator?.teleport({ ...p, sceneId });
+    const teleport = this._chunkNavigator?.teleport({ ...p, sceneId });
+    if (!teleport || typeof teleport.then !== 'function') return teleport;
+
+    // FadeOverlayTransition 的 Promise 仅在淡入完成后兑现；此时宿主已可缓存目标区块的有效画面。
+    return teleport.then(result => {
+      if (result === false || result?.cancelled) return result;
+      return Promise.resolve(this.requestAutoSave({ reason: 'map-change', sceneId }))
+        .catch(error => {
+          console.warn('[DDScene] 地图切换自动存档失败:', error);
+          return null;
+        })
+        .then(() => result);
+    });
   }
 
   /** Demo 专属运行状态；玩家/任务/黑板由 BaseGameScene 统一保存。 */

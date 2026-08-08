@@ -997,6 +997,8 @@
         const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 100 });
         const SAVE_FILES_ROOT = 'example/sanguo_zhangjiao/saves';
         const SAVE_SLOT_ID_PATTERN = /^(?:autosave-[1-3]|slot-(?:[1-9]\d?|100))$/;
+        let lastRenderedSavePreview = null;
+        const renderedPreviewWaiters = new Set();
         
         // 获取元素
         const canvas = document.getElementById('gameCanvas');
@@ -1535,9 +1537,9 @@
             return preview.toDataURL('image/jpeg', 0.45);
         }
 
-        /** 将当前游戏画面压缩为存档缩略图；主画布不可导出时使用保底图片。 */
-        function captureSavePreview() {
-            if (!canvas?.width || !canvas?.height) return createFallbackSavePreview();
+        /** 从主画布编码预览；调用方负责确认当前帧不是首帧或转场黑幕。 */
+        function encodeCanvasSavePreview() {
+            if (!canvas?.width || !canvas?.height) return null;
             try {
                 const preview = document.createElement('canvas');
                 preview.width = 240;
@@ -1545,8 +1547,47 @@
                 preview.getContext('2d').drawImage(canvas, 0, 0, preview.width, preview.height);
                 return preview.toDataURL('image/jpeg', 0.45);
             } catch (_error) {
-                return createFallbackSavePreview();
+                return null;
             }
+        }
+
+        /** 淡黑转场与首帧前的 Canvas 都不能作为存档封面来源。 */
+        function canUseCurrentFrameForSavePreview() {
+            const current = sceneManager?.getCurrentScene?.() || scene;
+            return !!(gameStarted && current && !current._fadeOverlayTransition?.active);
+        }
+
+        /** 在完整渲染后缓存有效画面，并唤醒等待首帧存档的调用方。 */
+        function updateRenderedSavePreview() {
+            if (!canUseCurrentFrameForSavePreview()) return false;
+            const preview = encodeCanvasSavePreview();
+            if (!preview) return false;
+            lastRenderedSavePreview = preview;
+            for (const resolve of renderedPreviewWaiters) resolve(preview);
+            renderedPreviewWaiters.clear();
+            return true;
+        }
+
+        /** 等待一张实际渲染的非转场画面；超时则由保底缩略图保证不出现黑图。 */
+        function waitForRenderedSavePreview(timeoutMs = 1500) {
+            if (lastRenderedSavePreview) return Promise.resolve(lastRenderedSavePreview);
+            return new Promise(resolve => {
+                const onPreview = preview => {
+                    clearTimeout(timeout);
+                    renderedPreviewWaiters.delete(onPreview);
+                    resolve(preview);
+                };
+                const timeout = setTimeout(() => {
+                    renderedPreviewWaiters.delete(onPreview);
+                    resolve(lastRenderedSavePreview || createFallbackSavePreview());
+                }, timeoutMs);
+                renderedPreviewWaiters.add(onPreview);
+            });
+        }
+
+        /** 优先复用最后一张完整帧，杜绝把透明首帧或淡黑遮罩写入存档。 */
+        function captureSavePreview() {
+            return lastRenderedSavePreview || createFallbackSavePreview();
         }
 
         function currentSaveMeta() {
@@ -2046,6 +2087,8 @@
         
         // 初始化游戏
         async function initGame(options = {}) {
+            lastRenderedSavePreview = null;
+            renderedPreviewWaiters.clear();
             try {
                 // 项目配置已在登录页阶段读取；加载页复用同一份配置。
                 const project = await loadProjectConfig();
@@ -2169,17 +2212,18 @@
                 
                 await nextStep(); // 步骤 6（完成）
                 gameStarted = true;
-                if (!options.loadSave) await saveCurrentGame({ silent: true });
+
+                // 先启动循环，等待首个完整渲染帧后才创建新游戏初始存档，避免透明 Canvas 被 JPEG 编码为黑图。
+                requestAnimationFrame(gameLoop);
+                if (!options.loadSave) {
+                    await waitForRenderedSavePreview();
+                    await saveCurrentGame({ silent: true });
+                }
                 clearInterval(autosaveTimer);
                 autosaveTimer = setInterval(() => { void autoSaveCurrentGame({ reason: 'interval' }); }, AUTO_SAVE_INTERVAL_MS);
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';
-                
-                console.log('准备启动游戏循环...');
-                
-                // 开始游戏循环
-                requestAnimationFrame(gameLoop);
                 
                 console.log('游戏初始化完成，游戏循环已启动');
             } catch (error) {
@@ -2567,6 +2611,8 @@
                 }
             }
             
+            // 仅在本帧已完整绘制且不处于淡黑过渡时更新存档封面缓存。
+            updateRenderedSavePreview();
             requestAnimationFrame(gameLoop);
         }
         

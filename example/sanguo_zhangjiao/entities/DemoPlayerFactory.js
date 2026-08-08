@@ -82,6 +82,8 @@ export class DemoPlayerFactory {
     this._loadSelectedAsset(scene, selected);
 
     const player = scene.entityFactory.createPlayer({
+      // 成长、存档和效果来源都以角色配置 ID 为键，不能使用每次创建都会变化的实体 ID。
+      id: selected?.id || 'refugee',
       name: selected?.name || '玩家',
       class: selected?.class || 'refugee',
       spriteSheet: selected?.spriteSheet,
@@ -89,13 +91,14 @@ export class DemoPlayerFactory {
       level: 1,
       position: { x, y },
       stats: {
-        maxHp: 150,
-        hp: 150,
+        // 新角色开局资源保持紧张；后续由成长、装备与剧情奖励提升上限。
+        maxHp: 100,
+        hp: 10,
         maxMp: 100,
-        mp: 100,
-        attack: 15,
-        defense: 8,
-        speed: 120
+        mp: 10,
+        attack: 0,
+        defense: 0,
+        speed: 0
       },
       skills: createDefaultSkills(),
       equipment: {},

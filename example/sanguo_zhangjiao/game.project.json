@@ -7,26 +7,24 @@
   },
   "progression": {
     "profile": "arpg",
-    "primary": "talentTree",
+    "primary": "skillTree",
     "enabled": [
       "skillTree",
-      "talentTree",
-      "unitTalent",
       "passiveBoard"
     ],
     "secondary": [
       "passiveBoard"
     ],
+    "graphIds": {
+      "skillTree": "warrior-skill",
+      "passiveBoard": "global-passive"
+    },
     "pointPools": {
       "skill": "independent",
-      "talent": "independent",
-      "unit": "independent",
       "passive": "independent"
     },
     "unlock": {
       "skillTree": "characterCreated",
-      "talentTree": "classSelected",
-      "unitTalent": "firstBattle",
       "passiveBoard": "milestone"
     },
     "graphs": [

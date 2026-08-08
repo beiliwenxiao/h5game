@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786168521225,
+  "createdAt": 1786176139648,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -14,7 +14,7 @@
   "data": {
     "game": {
       "player": {
-        "id": "entity_1",
+        "id": "refugee",
         "name": null,
         "transform": {
           "x": 592.54,
@@ -28,18 +28,18 @@
           "floorId": "ground"
         },
         "stats": {
-          "baseMaxHp": 150,
+          "baseMaxHp": 100,
           "baseMaxMp": 100,
-          "baseAttack": 15,
-          "baseDefense": 8,
-          "baseSpeed": 120,
-          "maxHp": 150,
-          "hp": 150,
+          "baseAttack": 10,
+          "baseDefense": 5,
+          "baseSpeed": 100,
+          "maxHp": 100,
+          "hp": 10,
           "maxMp": 100,
-          "mp": 100,
-          "attack": 15,
-          "defense": 8,
-          "speed": 120,
+          "mp": 10,
+          "attack": 10,
+          "defense": 5,
+          "speed": 100,
           "level": 1,
           "exp": 0,
           "mainElement": 0,
@@ -66,12 +66,12 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786168521081
+            "timestamp": 1786176139228
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786168521081
+            "timestamp": 1786176139228
           }
         ],
         "completedDialogues": []
@@ -101,11 +101,20 @@
         },
         "progression": {
           "state": {
-            "characterId": "entity_1",
+            "characterId": "refugee",
             "graphs": {}
           },
           "ledger": {
-            "pools": {},
+            "pools": {
+              "skill": {
+                "available": 1,
+                "spent": 0
+              },
+              "passive": {
+                "available": 1,
+                "spent": 0
+              }
+            },
             "aliases": {}
           }
         }

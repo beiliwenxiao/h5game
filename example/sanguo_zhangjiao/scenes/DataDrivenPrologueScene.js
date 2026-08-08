@@ -36,6 +36,8 @@ import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
+import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
+import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -94,10 +96,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     this.terrain = null;
     this.gameLoader = null;
+    this.progressionViewModel = null;
+    this.progressionPanel = null;
+    this._progressionBootstrap = { isNewGame: false };
 
     // 天气系统和时间系统（配置从 game.project.json 的 system 字段加载）
     this.weatherSystem = new WeatherSystem();
     this.timeSystem = new TimeSystem({ enabled: false }); // 默认禁用，异步加载配置后启用
+  }
+
+  /** 由宿主在 GameLoader 完成前标记本次启动是新档还是读档。 */
+  setProgressionBootstrap({ isNewGame = false } = {}) {
+    this._progressionBootstrap = { isNewGame: isNewGame === true };
   }
 
   enter(data = null) {
@@ -223,9 +233,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           console.warn('[DDScene] teleportToChunk: 缺少 scene 参数');
           return null;
         }
+        // Act 推进必须走已配置的 chunk；不能将未知 ID 误当作旧独立场景切换。
         console.warn('[DDScene] teleportToChunk: 在 grid 中未找到', sceneId);
-        const sm = this.sceneManager || (window.gameEngine && window.gameEngine.sceneManager);
-        if (sm?.switchTo) sm.switchTo(sceneId);
         return null;
       },
       transition: (type, commit) => type === 'fadeBlack' ? this._fadeTransition(commit) : commit()
@@ -1070,6 +1079,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
           });
           this.resourceScope?.track(offTriggerLog);
+          this._installProgressionUI(gameLoader);
         }
       });
       // initialize() 在首次 await 前已创建 loader；立即保留旧字段投影。
@@ -1085,6 +1095,66 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     } catch (e) {
       console.warn('[DDScene][GameLoader] 初始化失败:', e);
     }
+  }
+
+  /** 安装统一成长面板；UI 只经 ViewModel 调用成长领域命令。 */
+  _installProgressionUI(gameLoader) {
+    const progressionSystem = gameLoader?.progressionSystem;
+    const player = this.playerEntity;
+    if (!progressionSystem || !player || !this.uiSystem || !this.uiClickHandler || !this.inputManager) return;
+
+    this._grantStarterProgressionPoints(progressionSystem, player.id);
+
+    const viewModel = new ProgressionViewModel({ progressionSystem });
+    viewModel.setCharacter(player);
+
+    const margin = 20;
+    const width = Math.min(800, Math.max(320, this.logicalWidth - margin * 2));
+    const height = Math.min(560, Math.max(360, this.logicalHeight - margin * 2));
+    const panel = new ProgressionPanel({
+      viewModel,
+      isMobile: this.isMobileLayout,
+      x: Math.round((this.logicalWidth - width) / 2),
+      y: Math.round((this.logicalHeight - height) / 2),
+      width,
+      height,
+      zIndex: 150
+    });
+    const hotkeyId = 'progression-panel';
+    const togglePanel = () => {
+      if (this.dialogueSystem?.isDialogueActive() || this.itemGainedPopup?.visible || this._classConfirm) return;
+      if (panel.visible) {
+        panel.hide();
+      } else {
+        this.backpackPanel?.hide?.();
+        panel.show();
+      }
+    };
+
+    this.uiSystem.registerPanel('progression', panel);
+    this.uiClickHandler.registerElement(panel);
+    // 't' 同时是 InputHints/手柄绑定表中的技能树虚拟动作；展示文案仍由 InputHints 生成。
+    this.inputManager.registerHotkey(hotkeyId, ['t', 'T'], togglePanel);
+    Object.assign(this.context.ui, { progression: panel });
+    this.progressionViewModel = viewModel;
+    this.progressionPanel = panel;
+
+    this.resourceScope?.track(() => {
+      this.inputManager?.unregisterHotkey?.(hotkeyId);
+      this.uiClickHandler?.unregisterElement?.(panel);
+      this.uiSystem?.unregisterPanel?.('progression');
+      if (this.context.ui.progression === panel) this.context.ui.progression = null;
+      if (this.progressionPanel === panel) this.progressionPanel = null;
+      if (this.progressionViewModel === viewModel) this.progressionViewModel = null;
+    });
+  }
+
+  /** 新档只在成长账本首次建立前给出 S11 验证点；读档永不发放。 */
+  _grantStarterProgressionPoints(progressionSystem, characterId) {
+    if (!this._progressionBootstrap?.isNewGame || !characterId) return;
+    if (progressionSystem.states.has(characterId) || progressionSystem.ledgers.has(characterId)) return;
+    progressionSystem.grantPoints(characterId, 'skill', 1);
+    progressionSystem.grantPoints(characterId, 'passive', 1);
   }
 
   /** 将本场景现有触发动作注册到 SceneGameLoaderBridge 创建的 loader。 */
@@ -1103,14 +1173,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
     // 特殊剧情可显式请求自动存档；实际存储由宿主统一排队执行。
     trig.registerAction('autoSave', (p = {}) => this.requestAutoSave({ reason: p.reason || 'story-event' }));
-    // 切换到独立场景（离开大地图，进入副本/过场等独立场景）
+    // 切换到显式注册的独立场景（副本/过场等）；大地图 Act 推进一律走 teleportToChunk。
     trig.registerAction('switchScene', async (p) => {
       const scene = p.scene || p.target;
-      if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return; }
+      if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return null; }
+      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
+      if (!sm?.scenes?.has?.(scene)) {
+        console.warn('[DDScene] switchScene: 未注册独立场景；区块推进请使用 teleportToChunk', scene);
+        return null;
+      }
       await this.requestAutoSave({ reason: 'map-change', sceneId: scene });
       console.log('[DDScene] switchScene →', scene);
-      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
-      if (sm && sm.switchTo) sm.switchTo(scene, p);
+      sm.switchTo(scene, p);
+      return scene;
     });
     // 通用动作：切换调试面板
     trig.registerAction('toggleDebug', () => this._toggleDebugPanel());

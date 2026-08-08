@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786049159517,
+  "createdAt": 1786172297991,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "entity_1",
         "name": null,
         "transform": {
-          "x": 615.5704433199962,
-          "y": 480.4766137919998,
+          "x": 502.16433416109857,
+          "y": 471.24578528279875,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -66,24 +66,31 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786048256154
+            "timestamp": 1786169584322
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786048256154
+            "timestamp": 1786169584322
+          },
+          {
+            "type": "node",
+            "nodeId": "node1",
+            "speaker": "旁白",
+            "text": "东汉末年，天下大乱，民不聊生...",
+            "timestamp": 1786169597317
           },
           {
             "type": "node",
             "nodeId": "node2",
             "speaker": "旁白",
             "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786048257363
+            "timestamp": 1786169598829
           },
           {
             "type": "end",
             "dialogueId": "intro",
-            "timestamp": 1786048260982
+            "timestamp": 1786169599706
           }
         ],
         "completedDialogues": [
@@ -110,11 +117,10 @@
           "firedOnce": [
             "my_first_trigger",
             "tut_wake",
-            "出现火堆",
+            "5秒后自动点燃火堆",
             "trg_spawn_pickup",
             "tut_fire",
-            "tut_move",
-            "5秒后自动点燃火堆"
+            "tut_move"
           ],
           "cooldowns": {}
         },

@@ -46,10 +46,17 @@ export class ProgressionViewModel {
       const mode = KIND_TO_MODE[kind];
       if (!mode || !this.progressionSystem) return null;
 
+      // 项目配置可以为每种成长结构指定图；仅接受模式匹配的有效图，避免错误配置破坏回退策略。
+      const configuredGraphId = this.profile?.graphIds?.[kind];
+      const configuredGraph = configuredGraphId
+        ? this.progressionSystem.getGraph(configuredGraphId)
+        : null;
+      if (configuredGraph?.mode === mode) return configuredGraph.id;
+
       const graphs = this.progressionSystem.getGraphsByMode(mode);
       if (graphs.length === 0) return null;
 
-      // 优先匹配 <职业>-<后缀> 命名，其次取该模式下第一张图
+      // 优先匹配 <职业>-<后缀> 命名，其次取该模式下第一张图。
       const className = character && character.class;
       if (className) {
         const matched = graphs.find(g => g.id.startsWith(`${className}-`));

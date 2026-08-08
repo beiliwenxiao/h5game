@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786048256294,
+  "createdAt": 1786176062500,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -14,7 +14,7 @@
   "data": {
     "game": {
       "player": {
-        "id": "entity_1",
+        "id": "refugee",
         "name": null,
         "transform": {
           "x": 592.54,
@@ -28,15 +28,15 @@
           "floorId": "ground"
         },
         "stats": {
-          "baseMaxHp": 150,
-          "baseMaxMp": 100,
+          "baseMaxHp": 10,
+          "baseMaxMp": 10,
           "baseAttack": 15,
           "baseDefense": 8,
           "baseSpeed": 120,
-          "maxHp": 150,
-          "hp": 150,
-          "maxMp": 100,
-          "mp": 100,
+          "maxHp": 10,
+          "hp": 10,
+          "maxMp": 10,
+          "mp": 10,
           "attack": 15,
           "defense": 8,
           "speed": 120,
@@ -66,12 +66,12 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786048256154
+            "timestamp": 1786176062024
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786048256154
+            "timestamp": 1786176062024
           }
         ],
         "completedDialogues": []
@@ -95,23 +95,35 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake"
+            "tut_wake",
+            "5秒后自动点燃火堆",
+            "trg_spawn_pickup",
+            "tut_fire"
           ],
           "cooldowns": {}
         },
         "progression": {
           "state": {
-            "characterId": "entity_1",
+            "characterId": "refugee",
             "graphs": {}
           },
           "ledger": {
-            "pools": {},
+            "pools": {
+              "skill": {
+                "available": 1,
+                "spent": 0
+              },
+              "passive": {
+                "available": 1,
+                "spent": 0
+              }
+            },
             "aliases": {}
           }
         }
       },
       "scene": {
-        "campfireLit": false,
+        "campfireLit": true,
         "firedPickups": [],
         "clearedGroups": [],
         "tutorialEvents": [],

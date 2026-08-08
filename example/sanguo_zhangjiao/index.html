@@ -2185,6 +2185,8 @@
                     setupSceneCallbacks(scene);
                     scene.setSystemMenuCallback?.(() => openSystemMenu());
                     scene.setAutoSaveCallback?.(context => autoSaveCurrentGame({ reason: context?.reason || 'scene-event' }));
+                    // 场景须明确区分新档和读档：成长初始点只在新档 GameLoader 就绪时授予。
+                    scene.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
 
                     // 读档必须等世界、放置点和 GameLoader 都完成，避免恢复状态被异步初始化覆盖。
                     const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);

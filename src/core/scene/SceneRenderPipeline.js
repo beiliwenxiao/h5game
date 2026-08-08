@@ -47,6 +47,8 @@ export class SceneRenderPipeline {
     ];
     this.modalLayers = config?.modalLayers || [
       (scene, ctx) => scene.backpackPanel?.render(ctx),
+      // 统一成长面板属于模态 UI，优先从显式 SceneContext 读取。
+      (scene, ctx) => (this.context?.ui?.progression || scene.progressionPanel)?.render(ctx),
       (scene, ctx) => scene.notificationSystem?.render(ctx),
       (scene, ctx) => scene.itemGainedPopup?.render(ctx),
       (scene, ctx) => scene.gamepadPanel?.render(ctx),

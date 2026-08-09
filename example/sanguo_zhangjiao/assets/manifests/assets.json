@@ -3,6 +3,27 @@
   "gameId": "sanguo_zhangjiao",
   "assets": [
     {
+      "assetId": "ui.login.mainBackground",
+      "imageId": "ui.login.mainBackground",
+      "category": "ui-background",
+      "usage": ["login", "title-screen", "background"],
+      "sourceFile": "assets/images/main_bg.jpg",
+      "runtime2D": {
+        "path": "assets/images/main_bg.jpg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "ui.login.mainBackground"
+      },
+      "pivot": { "x": 0.5, "y": 0.5 },
+      "bounds": { "width": 13393, "height": 7288 },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "final",
+      "revision": 1
+    },
+    {
       "assetId": "mountain_landscape",
       "category": "environment-atlas",
       "usage": ["legacy-candidate", "environment"],
@@ -335,6 +356,24 @@
       "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
     },
     {
+      "assetId": "s03.unit.yellowTurbanSoldier", "imageId": "s03.unit.yellowTurbanSoldier",
+      "category": "unit-placeholder", "usage": ["S03", "yellow_turban", "battlefield-unit"],
+      "sourceFile": "assets/images/s03/yellow-turban-soldier.svg",
+      "runtime2D": { "path": "assets/images/s03/yellow-turban-soldier.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s03.unit.yellowTurbanSoldier" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 64 },
+      "animations": [], "targetPhase": "P3", "status": "placeholder", "revision": 1
+    },
+    {
+      "assetId": "s03.unit.hanSoldier", "imageId": "s03.unit.hanSoldier",
+      "category": "unit-placeholder", "usage": ["S03", "han_government", "battlefield-unit"],
+      "sourceFile": "assets/images/s03/han-soldier.svg",
+      "runtime2D": { "path": "assets/images/s03/han-soldier.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s03.unit.hanSoldier" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 64 },
+      "animations": [], "targetPhase": "P3", "status": "placeholder", "revision": 1
+    },
+    {
       "assetId": "s09.environment.campGround", "imageId": "s09.environment.campGround",
       "category": "environment-background", "usage": ["S09", "camp", "ground"],
       "sourceFile": "assets/images/s09/camp-ground.svg",
@@ -414,6 +453,15 @@
       "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.granaryGuard" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 56, "height": 76 },
       "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s04.resource.herbNode", "imageId": "s04.resource.herbNode",
+      "category": "resource-node", "usage": ["S04", "herb", "poison-zone"],
+      "sourceFile": "assets/images/s04/herb-node.svg",
+      "runtime2D": { "path": "assets/images/s04/herb-node.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s04.resource.herbNode" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
     },
     {
       "assetId": "s09.resource.foodNode", "imageId": "s09.resource.foodNode",

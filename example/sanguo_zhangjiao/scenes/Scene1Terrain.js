@@ -165,6 +165,9 @@ export class Scene1Terrain {
     this._editorShapes = [];
     this._shapeImages = new Map();  // shape 图片填充的图片缓存（key=imageSrc）
     this._sceneAtlases = null;      // 场景图集定义（切片填充解析用）
+    // 普通 image 固定在地面层；显式 depthSort 的 image 与实体共用 Y-sort 队列。
+    this._editorBackgroundImages = [];
+    this._depthSortedImages = [];
 
     this._loadImages();
     this._buildWaterPatches();
@@ -355,9 +358,11 @@ export class Scene1Terrain {
       console.log('Scene1Terrain: 已应用编辑器场景数据，装饰物数量 =', decorations.length, '（定义总数 =', totalDecoDefined, '）');
     }
     
-    // 3. 读取图层中的背景图片对象（type:'image' / type:'fill'）
+    // 3. 读取图层中的图片对象：普通 image/fill 留在地面层，显式 depthSort 的 image 进入实体 Y-sort。
     // 同时读取 type:'ellipse' 对象更新盆地椭圆参数
     this._editorBackgroundImages = [];
+    this._depthSortedImages = [];
+    this._bgImageCache = null;
     this._collisionShapes = [];
     this._walkableShapes = [];  // walkable 可落脚区域：内部即使有碰撞区也不阻塞
     this._editorShapes = [];
@@ -417,16 +422,26 @@ export class Scene1Terrain {
               if (assetsIdx !== -1) {
                 src = src.substring(assetsIdx);
               }
-              this._editorBackgroundImages.push({
-                src: src,
+              const imageEntry = {
+                id: obj.id || null,
+                imageId: obj.imageId,
+                src,
                 x: obj.x,
                 y: obj.y,
                 width: obj.width,
                 height: obj.height,
+                rotation: Number.isFinite(obj.rotation) ? obj.rotation : 0,
+                opacity: obj.opacity,
                 layerId: layer.id,
+                sortY: Number.isFinite(obj.sortY) ? obj.sortY : obj.y + obj.height,
                 _img: null,
                 _loaded: false
-              });
+              };
+              if (obj.depthSort === true || obj.ySort === true) {
+                this._depthSortedImages.push(imageEntry);
+              } else {
+                this._editorBackgroundImages.push(imageEntry);
+              }
             }
           } else if (obj.type === 'fill' && obj.fillMode === 'image' && obj.imageSrc) {
             this._editorBackgroundImages.push({
@@ -444,11 +459,11 @@ export class Scene1Terrain {
           }
         }
       }
-      // 加载背景图片
-      for (const bgImg of this._editorBackgroundImages) {
+      // 同一加载链处理地面图片与深度图片；两者只在绘制阶段分流。
+      for (const sceneImage of [...this._editorBackgroundImages, ...this._depthSortedImages]) {
         const img = new Image();
-        img.onload = () => { bgImg._img = img; bgImg._loaded = true; };
-        img.src = bgImg.src;
+        img.onload = () => { sceneImage._img = img; sceneImage._loaded = true; };
+        img.src = sceneImage.src;
       }
 
       // 预加载 shape 的图片填充
@@ -500,10 +515,17 @@ export class Scene1Terrain {
         p.y += oy;
       }
 
-      // 背景图片
+      // 地面图片
       for (const bg of this._editorBackgroundImages) {
         bg.x += ox;
         bg.y += oy;
+      }
+
+      // 与实体共用 Y-sort 的图片；脚底基线与图片坐标必须使用同一次偏移。
+      for (const image of this._depthSortedImages) {
+        image.x += ox;
+        image.y += oy;
+        image.sortY += oy;
       }
 
       // 碰撞 shapes
@@ -1025,13 +1047,15 @@ export class Scene1Terrain {
    * @param {{left:number,top:number,right:number,bottom:number}} [viewBounds] 可选相机世界视野
    */
   collectDecorations(renderQueue, ctx, viewBounds = null) {
-    // 装饰物、图集切片和 ground cache 都是静态数据。仅在引用变化或 Canvas
+    // 装饰物、图集切片、深度图片和 ground cache 都是静态数据。仅在引用变化或 Canvas
     // 上下文变化时重建队列项，正常帧只追加已缓存对象，避免创建闭包和包装对象。
     if (this._decorationQueueContext !== ctx ||
         this._decorationQueueSource !== this.decorations ||
+        this._decorationQueueImageSource !== this._depthSortedImages ||
         this._decorationQueueGroundCache !== this._groundDecoCache) {
       this._decorationQueueContext = ctx;
       this._decorationQueueSource = this.decorations;
+      this._decorationQueueImageSource = this._depthSortedImages;
       this._decorationQueueGroundCache = this._groundDecoCache;
       this._decorationQueueEntries = [];
 
@@ -1039,6 +1063,7 @@ export class Scene1Terrain {
         this._decorationQueueEntries.push({
           type: 'scene1_deco',
           y: -10000,
+          sortPriority: 0,
           render: () => {
             ctx.drawImage(this._groundDecoCache, this._groundDecoCacheX, this._groundDecoCacheY);
           }
@@ -1053,11 +1078,29 @@ export class Scene1Terrain {
         this._decorationQueueEntries.push({
           type: 'scene1_deco',
           y: deco.y,
+          sortPriority: 0,
           left: deco.x - size.w / 2,
           right: deco.x + size.w / 2,
           top: deco.y - size.h,
           bottom: deco.y,
           render: () => this._renderDecoration(ctx, deco)
+        });
+      }
+
+      for (const image of this._depthSortedImages || []) {
+        const rotated = image.rotation !== 0;
+        const centerX = image.x + image.width / 2;
+        const centerY = image.y + image.height / 2;
+        const radius = rotated ? Math.hypot(image.width, image.height) / 2 : 0;
+        this._decorationQueueEntries.push({
+          type: 'scene_image',
+          y: image.sortY,
+          sortPriority: 0,
+          left: rotated ? centerX - radius : image.x,
+          right: rotated ? centerX + radius : image.x + image.width,
+          top: rotated ? centerY - radius : image.y,
+          bottom: rotated ? centerY + radius : image.y + image.height,
+          render: () => this._renderDepthSortedImage(ctx, image)
         });
       }
     }
@@ -1066,7 +1109,7 @@ export class Scene1Terrain {
     const padding = 32;
     for (let i = 0, len = entries.length; i < len; i++) {
       const entry = entries[i];
-      // ground cache 没有 bounds，始终保留为一次 drawImage；树木在入队前裁剪。
+      // ground cache 没有 bounds，始终保留为一次 drawImage；其余静态对象在入队前裁剪。
       if (viewBounds && entry.left !== undefined &&
           (entry.right + padding < viewBounds.left || entry.left - padding > viewBounds.right ||
            entry.bottom + padding < viewBounds.top || entry.top - padding > viewBounds.bottom)) {
@@ -1076,6 +1119,27 @@ export class Scene1Terrain {
     }
   }
   
+  /**
+   * 绘制一个与实体共用脚底排序基线的场景图片。
+   * 图片坐标仍是左上角；rotation 围绕图片中心，不改变 sortY。
+   * @private
+   */
+  _renderDepthSortedImage(ctx, image) {
+    if (!image?._loaded || !image._img) return;
+    ctx.save();
+    if (image.opacity !== undefined) ctx.globalAlpha *= image.opacity;
+    if (image.rotation) {
+      const centerX = image.x + image.width / 2;
+      const centerY = image.y + image.height / 2;
+      ctx.translate(centerX, centerY);
+      ctx.rotate(image.rotation * Math.PI / 180);
+      ctx.drawImage(image._img, -image.width / 2, -image.height / 2, image.width, image.height);
+    } else {
+      ctx.drawImage(image._img, image.x, image.y, image.width, image.height);
+    }
+    ctx.restore();
+  }
+
   /**
    * 构建草地装饰物离屏缓存（非碰撞装饰物：草、灌木）
    * 只在图片加载完成且缓存不存在时构建一次
@@ -1405,7 +1469,18 @@ export class Scene1Terrain {
       return;
     }
     
-    // 全部加载完成后，构建离屏缓存
+    // 单张场景背景直接绘制：避免先压入 1×逻辑缓存再放大到 DPR backing。
+    // 这样以后用相同 imageId 替换 2×/4×源图时，不会在缓存阶段丢失细节。
+    if (this._editorBackgroundImages.length === 1) {
+      const bgImg = this._editorBackgroundImages[0];
+      ctx.save();
+      if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
+      ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
+      ctx.restore();
+      return;
+    }
+
+    // 多张背景全部加载完成后，构建离屏缓存
     if (!this._bgImageCache) {
       // 计算包围盒
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

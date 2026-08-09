@@ -49,6 +49,9 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 - 需要屏蔽浏览器默认行为时，`handleKeyDown` 里按组合条件 preventDefault（如 `key === 'X' && event.ctrlKey`），不要整键拦截，否则该单键就被游戏吃掉了。
 - 调试/工具类入口优先放调试面板按钮，不要占用键盘键位（手柄按键图就是这么处理的）。
 
+### 8. 物理字母键在采集边界统一归一化
+`InputManager` 对 `KeyboardEvent.code` 为 `KeyA`–`KeyZ` 的按键统一生成小写字母虚拟键，再应用 `keyMap`。禁止各业务消费者分别兼容 `e/E`、`q/Q` 等大小写；Caps Lock、Shift 和中文输入法不得改变游戏操作键，修饰键语义继续由独立 modifier 状态表达。`keydown` 与 `keyup` 必须调用同一个归一化入口，避免按下后无法释放。
+
 ## 平台支持
 
 | 宿主 | 支持度 |

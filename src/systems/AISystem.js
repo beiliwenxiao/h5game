@@ -19,6 +19,25 @@
  * - CombatSystem: 攻击判定和伤害计算
  */
 
+const hasTag = (entity, tag) => Array.isArray(entity?.tags) && entity.tags.includes(tag);
+
+/** canonical 战役单位只攻击其他参战阵营；普通敌人继续使用 legacy faction/type 规则。 */
+function isHostileTarget(entity, candidate) {
+  if (candidate === entity || candidate?.isDead || candidate?.isDying) return false;
+  if (hasTag(entity, 'battleParticipant')) {
+    const candidateParticipates = hasTag(candidate, 'battleParticipant')
+      || hasTag(candidate, 'battleIntervenor');
+    return candidateParticipates
+      && !!entity.factionId
+      && !!candidate.factionId
+      && entity.factionId !== candidate.factionId;
+  }
+  if (candidate?.faction === entity.faction) return false;
+  if (entity.faction === 'enemy' && candidate?.type !== 'player' && candidate?.faction !== 'ally') return false;
+  if (entity.faction === 'ally' && candidate?.type !== 'enemy') return false;
+  return true;
+}
+
 /**
  * AI控制器基类
  */
@@ -65,22 +84,7 @@ class AIController {
     const transform = entity.getComponent('transform');
     if (!transform) return null;
 
-    const enemies = allEntities.filter(e => {
-      // 排除自己
-      if (e === entity) return false;
-      
-      // 排除死亡单位
-      if (e.isDead || e.isDying) return false;
-      
-      // 排除同阵营
-      if (e.faction === entity.faction) return false;
-      
-      // 检查是否是敌对目标
-      if (entity.faction === 'enemy' && e.type !== 'player' && e.faction !== 'ally') return false;
-      if (entity.faction === 'ally' && e.type !== 'enemy') return false;
-      
-      return true;
-    });
+    const enemies = allEntities.filter(candidate => isHostileTarget(entity, candidate));
 
     let nearestEnemy = null;
     let nearestDistance = detectionRange;
@@ -395,14 +399,7 @@ class SupportAI extends AIController {
     const transform = entity.getComponent('transform');
     if (!transform) return null;
 
-    const enemies = allEntities.filter(e => {
-      if (e === entity) return false;
-      if (e.isDead || e.isDying) return false;
-      if (e.faction === entity.faction) return false;
-      if (entity.faction === 'enemy' && e.type !== 'player' && e.faction !== 'ally') return false;
-      if (entity.faction === 'ally' && e.type !== 'enemy') return false;
-      return true;
-    });
+    const enemies = allEntities.filter(candidate => isHostileTarget(entity, candidate));
 
     let weakestEnemy = null;
     let lowestHpPercent = 1.0;
@@ -460,6 +457,7 @@ export class AISystem {
 
   createAIController(aiType) {
     switch (aiType) {
+      case 'battleFormation':
       case 'aggressive': return new AggressiveAI();
       case 'defensive': return new DefensiveAI();
       case 'support': return new SupportAI();

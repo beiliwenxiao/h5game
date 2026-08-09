@@ -9,7 +9,7 @@
   "logicalResolution": {
     "width": 1280,
     "height": 720,
-    "scaleMode": "stretch"
+    "scaleMode": "fit"
   },
   "world": {
     "pixelsPerWorldUnit": 1,

@@ -59,6 +59,7 @@ export class SceneObjectProjector {
 
     if (typeof obj.x === 'number') projected.x = obj.x + ox;
     if (typeof obj.y === 'number') projected.y = obj.y + oy;
+    if (typeof obj.sortY === 'number') projected.sortY = obj.sortY + oy;
 
     if (Array.isArray(obj.points)) {
       projected.points = obj.points.map(p => (

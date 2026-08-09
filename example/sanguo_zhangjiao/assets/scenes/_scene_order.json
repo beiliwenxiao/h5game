@@ -1,39 +1,14 @@
 {
   "gameId": "sanguo_zhangjiao",
-  "order": [
-    "S01",
-    "S02",
-    "S09"
-  ],
+  "order": ["S01", "S02", "S09", "S03", "S04", "S05", "S07"],
   "scenes": {
-    "S01": {
-      "name": "S01",
-      "type": "terrain",
-      "sceneType": "worldChunk",
-      "worldMap": "region-a"
-    },
-    "S02": {
-      "name": "S02·废弃营地",
-      "type": "terrain",
-      "sceneType": "worldChunk",
-      "worldMap": "region-a",
-      "productionState": "playable"
-    },
-    "S09": {
-      "name": "S09·粥棚营地",
-      "type": "terrain",
-      "sceneType": "worldChunk",
-      "worldMap": "region-b",
-      "productionState": "playable",
-      "previewOnly": false
-    },
-    "S11": {
-      "name": "S11·广宗战场构图样板",
-      "type": "terrain",
-      "sceneType": "worldChunk",
-      "worldMap": "region-b",
-      "productionState": "greybox",
-      "previewOnly": true
-    }
+    "S01": { "name": "S01", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-a" },
+    "S02": { "name": "S02·废弃营地", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-a", "productionState": "playable" },
+    "S09": { "name": "S09·粥棚营地", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "playable", "previewOnly": false },
+    "S03": { "name": "S03·颍川首战", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "playable", "previewOnly": false },
+    "S04": { "name": "S04·长社战场", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "playable", "previewOnly": false },
+    "S05": { "name": "S05·宛城外围（灰盒入口）", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "greybox", "previewOnly": false },
+    "S07": { "name": "S07·西华战场（灰盒入口）", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "greybox", "previewOnly": false },
+    "S11": { "name": "S11·广宗战场构图样板", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "greybox", "previewOnly": true }
   }
 }

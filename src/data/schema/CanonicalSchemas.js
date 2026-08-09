@@ -13,7 +13,7 @@
 import { FieldType } from '../../core/validation/ContentValidator.js';
 import { ValidationCode, makeError } from '../../core/validation/ValidationError.js';
 
-export const CANONICAL_SCHEMA_VERSION = 1;
+export const CANONICAL_SCHEMA_VERSION = 2;
 
 const idField = () => ({ type: FieldType.STRING, required: true, minLength: 1 });
 const versionField = () => ({
@@ -283,6 +283,27 @@ export const CITY_SCHEMA = {
   }
 };
 
+export const BATTLE_RESOURCE_TRANSFER_SCHEMA = {
+  id: 'battleResourceTransfer',
+  allowUnknown: false,
+  fields: {
+    fromCityId: idField(),
+    toCityId: idField(),
+    resources: { type: FieldType.OBJECT, required: true, valueType: FieldType.INTEGER }
+  },
+  validate(transfer) {
+    const errors = validateNonNegativeIntegerMap(transfer.resources, 'resources');
+    if (transfer.fromCityId === transfer.toCityId) {
+      errors.push(makeError(
+        ValidationCode.INVALID_REFERENCE,
+        'toCityId',
+        '资源转出城市与转入城市不能相同'
+      ));
+    }
+    return { ok: errors.length === 0, errors };
+  }
+};
+
 export const BATTLE_RESULT_SCHEMA = {
   id: 'battleResult',
   fields: {
@@ -293,6 +314,8 @@ export const BATTLE_RESULT_SCHEMA = {
     winnerFactionId: idField(),
     casualties: { type: FieldType.OBJECT, required: true, valueType: FieldType.INTEGER },
     capturedResources: { type: FieldType.OBJECT, required: true, valueType: FieldType.INTEGER },
+    resourceTransfer: { type: FieldType.OBJECT, required: true, schema: 'battleResourceTransfer' },
+    affectedCityId: idField(),
     cityDamage: ratioField(true),
     damagedResourceNodeIds: { type: FieldType.ARRAY, required: true, itemType: FieldType.STRING },
     completedAt: nonNegativeInteger(true)
@@ -302,6 +325,19 @@ export const BATTLE_RESULT_SCHEMA = {
       ...validateNonNegativeIntegerMap(result.casualties, 'casualties'),
       ...validateNonNegativeIntegerMap(result.capturedResources, 'capturedResources')
     ];
+    const captured = result.capturedResources || {};
+    const transferred = result.resourceTransfer?.resources || {};
+    const resourceKeys = new Set([...Object.keys(captured), ...Object.keys(transferred)]);
+    for (const resource of resourceKeys) {
+      if ((captured[resource] || 0) !== (transferred[resource] || 0)) {
+        errors.push(makeError(
+          ValidationCode.OUT_OF_RANGE,
+          `resourceTransfer.resources.${resource}`,
+          '资源转移数量必须与 capturedResources 一致',
+          { expected: captured[resource] || 0, actual: transferred[resource] || 0 }
+        ));
+      }
+    }
     return { ok: errors.length === 0, errors };
   }
 };
@@ -489,6 +525,7 @@ export const CANONICAL_SCHEMAS = [
   INVENTORY_STACK_SCHEMA,
   INVENTORY_SCHEMA,
   CITY_SCHEMA,
+  BATTLE_RESOURCE_TRANSFER_SCHEMA,
   BATTLE_RESULT_SCHEMA,
   TOOL_STATE_SCHEMA,
   CHECKPOINT_PLAYER_SCHEMA,

@@ -83,12 +83,6 @@ export class SceneFramePipeline {
     // 更新空间分区网格
     scene.performanceOptimizer.updateSpatialGrid(scene.entities);
 
-    // 更新相机
-    scene.camera.update(deltaTime);
-
-    // 相机后处理钩子（子类可覆盖，如限制相机在盆地范围内）
-    scene.postCameraUpdate();
-
     // 更新武器渲染器的鼠标角度（保留用于攻击范围计算）
     if (scene.weaponRenderer && scene.playerEntity && scene.inputManager) {
       const mouseWorldPos = scene.inputManager.getMouseWorldPosition(scene.camera);
@@ -189,6 +183,13 @@ export class SceneFramePipeline {
 
     // 检查地形碰撞（编辑器场景有 terrain 时生效）
     scene.checkTerrainCollision();
+
+    // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，
+    // 避免相机长期落后一帧并放大不均匀 deltaTime 造成的画面跳动。
+    scene.camera.update(deltaTime);
+
+    // 相机后处理钩子（子类可覆盖，如限制相机在大地图边缘）
+    scene.postCameraUpdate();
 
     // 处理敌人选中
     scene.handleEnemySelection();

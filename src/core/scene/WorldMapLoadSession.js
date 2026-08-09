@@ -31,6 +31,7 @@ function projectObject(source, offset, chunk) {
   const projected = cloneValue(source);
   if (typeof projected.x === 'number') projected.x += offset.x;
   if (typeof projected.y === 'number') projected.y += offset.y;
+  if (typeof projected.sortY === 'number') projected.sortY += offset.y;
   if (Array.isArray(projected.points)) {
     projected.points = projected.points.map(point => {
       if (Array.isArray(point)) return [point[0] + offset.x, point[1] + offset.y, ...point.slice(2)];

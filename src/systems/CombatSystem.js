@@ -44,6 +44,9 @@ export class CombatSystem {
     this.weaponRenderer = config.weaponRenderer;
     this.enemyWeaponRenderer = config.enemyWeaponRenderer;
     this.floatingTextManager = config.floatingTextManager;
+    this.effectAmountFilter = typeof config.effectAmountFilter === 'function'
+      ? config.effectAmountFilter
+      : null;
     
     // 初始化元素系统
     this.elementSystem = new ElementSystem();
@@ -139,6 +142,31 @@ export class CombatSystem {
     this.onKillCallback = null;
     
     console.log('CombatSystem: Initialized');
+  }
+
+  /** 注入领域效果量过滤器；返回旧过滤器，便于场景退出时恢复。 */
+  setEffectAmountFilter(filter = null) {
+    const previous = this.effectAmountFilter;
+    this.effectAmountFilter = typeof filter === 'function' ? filter : null;
+    return previous;
+  }
+
+  _filterEffectAmount(effectType, sourceEntity, targetEntity, amount) {
+    const normalized = Math.max(0, Number(amount) || 0);
+    if (!this.effectAmountFilter) return normalized;
+    const targetFactionId = targetEntity?.factionId
+      || targetEntity?.faction
+      || targetEntity?.getComponent?.('stats')?.factionId
+      || null;
+    const filtered = this.effectAmountFilter({
+      effectType,
+      sourceEntityId: sourceEntity?.id || null,
+      targetEntityId: targetEntity?.id || null,
+      targetFactionId,
+      sourceEntity,
+      targetEntity
+    }, normalized);
+    return Math.max(0, Number(filtered) || 0);
   }
 
   /**
@@ -786,7 +814,7 @@ export class CombatSystem {
       // 计算并应用伤害（传入攻击类型）
       const damage = this.calculateDamage(attacker, target);
       const attackType = this.getAttackText(attacker);
-      this.applyDamage(target, damage, null, attackType);
+      this.applyDamage(target, damage, null, attackType, { sourceEntity: attacker });
       
       console.log(`${attacker.name || attacker.id} 攻击 ${target.name || target.id}，造成 ${damage} 点伤害`);
     }
@@ -882,24 +910,28 @@ export class CombatSystem {
    * @param {number} damage - 伤害值
    * @param {Object} knockbackDir - 击退方向（可选）{x, y}
    * @param {string} damageType - 伤害类型（可选），如"刺击"、"扫击"、"火焰掌"等
+   * @param {Object} context - 可选来源上下文 { sourceEntity }
    */
-  applyDamage(target, damage, knockbackDir = null, damageType = null) {
+  applyDamage(target, damage, knockbackDir = null, damageType = null, context = {}) {
     const stats = target.getComponent('stats');
     const transform = target.getComponent('transform');
     
     if (!stats) return null;
-    
+
+    const sourceEntity = context.sourceEntity
+      || (target !== this.playerEntity ? this.playerEntity : null);
+    const requestedDamage = this._filterEffectAmount('damage', sourceEntity, target, damage);
     // 扣除生命值，并只按实际生命变化发出受伤事件。
     const hpBefore = Number(stats.hp) || 0;
     const wasDead = hpBefore <= 0;
-    stats.takeDamage(damage);
+    stats.takeDamage(requestedDamage);
     const hpAfter = Number(stats.hp) || 0;
     const appliedDamage = Math.max(0, hpBefore - hpAfter);
     const isDead = hpAfter <= 0;
     if (appliedDamage > 0 && this.onDamageCallback) {
       try {
         this.onDamageCallback({
-          target, requestedDamage: Math.max(0, Number(damage) || 0), appliedDamage,
+          target, requestedDamage, appliedDamage,
           damageType, hpBefore, hpAfter, isDead
         });
       } catch (error) {
@@ -933,7 +965,7 @@ export class CombatSystem {
         this.triggerDeathEffect(target);
       }
     }
-    return { target, requestedDamage: damage, appliedDamage, hpBefore, hpAfter, isDead };
+    return { target, requestedDamage, appliedDamage, hpBefore, hpAfter, isDead };
   }
   
   /**
@@ -1666,7 +1698,7 @@ export class CombatSystem {
     } else if (skill.type === 'heal') {
       // 治疗技能
       const healTarget = target || caster; // 如果没有目标，治疗自己
-      this.applyHeal(healTarget, skill);
+      this.applyHeal(healTarget, skill, caster);
     } else if (skill.type === 'buff') {
       // Buff技能
       this.applyBuff(caster, skill);
@@ -1718,11 +1750,8 @@ export class CombatSystem {
         if (distance <= radius) recipients.push(entity);
       }
       for (const recipient of recipients) {
-        const stats = recipient.getComponent?.('stats');
-        const transform = recipient.getComponent?.('transform');
-        if (!stats) continue;
-        const actualHeal = stats.heal(Number(skill.healAmount) || 0);
-        if (transform && actualHeal > 0) this.showHealNumber(transform.position, actualHeal);
+        if (!recipient.getComponent?.('stats')) continue;
+        this.applyHeal(recipient, { healAmount: Number(skill.healAmount) || 0 }, caster);
       }
       if (this.skillEffects && casterTransform) {
         this.skillEffects.createSkillEffect('strategist_talisman_water', casterTransform.position);
@@ -1985,12 +2014,13 @@ export class CombatSystem {
    * 应用治疗
    * @param {Entity} target - 目标
    * @param {Object} skill - 技能数据
+   * @param {Entity} sourceEntity - 治疗来源（可选）
    */
-  applyHeal(target, skill) {
+  applyHeal(target, skill, sourceEntity = null) {
     const stats = target.getComponent('stats');
     const transform = target.getComponent('transform');
     
-    if (!stats) return;
+    if (!stats) return 0;
     
     // 获取治疗量（支持两种格式）
     let healAmount = 0;
@@ -2002,7 +2032,8 @@ export class CombatSystem {
       const healEffect = skill.effects.find(e => e.type === 'heal');
       healAmount = healEffect?.value || 0;
     }
-    
+    const inferredSource = sourceEntity || (target !== this.playerEntity ? this.playerEntity : target);
+    healAmount = this._filterEffectAmount('heal', inferredSource, target, healAmount);
     // 恢复生命值
     const actualHeal = stats.heal(healAmount);
     
@@ -2010,6 +2041,7 @@ export class CombatSystem {
     if (transform && actualHeal > 0) {
       this.showHealNumber(transform.position, actualHeal);
     }
+    return actualHeal;
   }
 
   /**

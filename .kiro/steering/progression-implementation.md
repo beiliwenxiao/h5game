@@ -154,6 +154,7 @@ MOVE     右键
 - 指针事件被攻击之前的处理者消费时，自动调用 `markMouseClickHandled()`，桥接尚未迁移的 `MeleeAttackSystem`。攻击与移动消费时不标记。
 - `enqueueInteract()` 让 E 键、移动端按钮、触屏产生完全相同的事件。
 - `SceneInputFlow.onModalInput({ inputManager, gamepad })` 在弹窗和世界输入之前执行；职业确认等场景模态必须通过该入口统一消费键鼠、触屏和手柄输入，不能在场景 update 末尾再建第二条输入路径。
+- 正式 Demo 的教程表现只允许走场景 `SceneHintPresenter`；宿主 `setupSceneCallbacks()` 不得再次注册 `TutorialSystem.onShow/onHide`，也不得保留带“上一步/下一步/完成”按钮的第二套 DOM 教程面板。保留的 DOM `tips-panel` 只是 SceneHintPresenter 的渲染出口，必须调用 `InputHints.formatHtml()`，禁止把 `{move}`、`{interact}` 等 token 原样显示。
 - `describeLastFrame()` 输出每个事件的消费者，排查争抢不用加日志。
 
 ## 原子检查点（S9）
@@ -177,6 +178,7 @@ MOVE     右键
 - 张角 Demo 每 15 分钟、完成地图区块传送、以及内容触发器的 `autoSave` 动作都会请求自动保存。保存开始/成功/失败均通过 `NotificationSystem` 与菜单状态栏反馈；场景层只经 `BaseGameScene.requestAutoSave()` 请求，由宿主注入实际服务并用单一 in-flight Promise 防止并发选中同一自动位。
 - 张角 Demo 在 Vite 开发服务器下还必须把成功快照镜像到 `example/sanguo_zhangjiao/saves/{autosave-1|autosave-2|autosave-3|slot-N}/snapshot.json`，并将画面缩略图以二进制 `thumbnail.jpg` 同目录保存；JSON 用 `meta.previewFile` 引用图片，不重复内嵌 base64。浏览器 localStorage 仍是运行时同步读档缓存，文件写入失败必须向用户明确提示。
 - `ProgressManager` 未废弃，可继续作为旧路径；新代码用 `SnapshotManager` + `LocalStorageAdapter`。
+- 限时救援使用 `performance.now()` 一类会在页面重启后归零的单调时钟，active 快照不得只持久化绝对 `startedAt/deadline`。`RescueSystem.serialize()` 必须保存捕获时的 `remaining`，`deserialize()` 必须以新会话单调时钟重建 `startedAt/deadline`；这样读档继续消耗保存前已过去的时间，又不会因时钟纪元变化重置完整时限或立即误判超时。
 
 ## 内容校验（S10）
 
@@ -189,6 +191,7 @@ MOVE     右键
 - `canonicalize` 按 Schema 字段声明顺序重排，其余键名排序，保证 `stringify → parse → stringify` 文本一致。
 - 内置成长 Schema：`effect`、`skill`、`progressionNode`、`progressionGraph`、`progressionConfig`。
 - Canonical Schema 位于 `src/data/schema/`，统一使用 `schemaVersion`，当前覆盖 Unit、Hero、Formation、Army、ResourceNode、Inventory、City、BattleResult、Checkpoint 和 GameProject；数量字段必须是非负整数，损毁比例限制为 `[0,1]`。
+- `createContentValidator()` 的默认 `supportedVersion` 必须跟随 `CANONICAL_SCHEMA_VERSION`；否则 GameLoader 会把同一个校验器注入 LocalMock，并在 BattleResult v2 链路中错误拒绝 Army/Result v2。调用方仍可显式传入更低版本用于兼容性拒绝测试。
 - `GameLoader` 先执行 GameProject、Asset Manifest、成长配置、触发器 ID 和内容库 ID 的完整预检，再替换 project/registries；JSON 文件按文本解析，以保留语法错误行列。失败抛出带 `errors` 的 `ContentValidationError`，旧运行对象不被配置错误替换。
 - 战斗集成统一从 `project.integration.battle.resultSource` 选择单一来源；当前正式可用来源为 `localMock`，通过 `BattleClient` 暴露 `createBattle/intervene/reportBattleResult`，重复 requestId 使用 `IdempotencyStore` 返回首次响应，同 ID 不同载荷拒绝。
 - Asset Manifest 位于游戏 `assets/manifests/assets.json`。按《三国张角传》已锁定资源决策，现有和后续资源视为项目原创或已获授权；当前校验只阻断稳定 `assetId/imageId`、文件引用、状态、尺寸、pivot、动画及 2D/3D 映射错误，不以授权/作者/来源字段阻断开发或发布。
@@ -226,9 +229,9 @@ MOVE     右键
 - `SceneInputFlow`：统一帧首手柄 poll、弹窗优先消费、战斗意图、InputActionRouter 与正常帧末 flush；转场提前返回只 release，不清输入。
 - `SceneHudUpdater`：统一冷却、面板、对话框、手柄面板和小地图更新；RenderPipeline 只绘制，不在 render 内修改 UI 状态。
 - `SceneLifecycleCoordinator`：为同步 Scene API 提供 `exitSync()`，Base 退出事务由协调器拥有；ResourceScope 先失效，随后按既有顺序释放输入、玩家、系统、UI 与实体。
-- `WorldMapLoadSession` + `WorldReadyGate`：项目/场景只加载一次，terrain 与 placements 共享 Promise；JSON 文件优先、localStorage 仅 fallback，3 秒超时仍开放渲染。
+- `WorldMapLoadSession` + `WorldReadyGate`：项目/场景只加载一次，terrain 与 placements 共享 Promise；JSON 文件优先、localStorage 仅 fallback，3 秒超时仍开放渲染。玩家启动意图必须在场景 `enter()` 前确定；通用 placements 投影只允许 `newGame` 首次消费当前 `sceneId` 的 canonical 玩家出生点。读档位置由 `restoreSaveState()`、继承位置由 `ScenePlayerLifecycle`、同区传送由 `ChunkNavigator`、跨区传送由 `RegionCoordinator` 各自持有，加载 placements 不得再次覆盖。
 - `RegionCoordinator`：跨 Region 必须使用独立 shadow session 执行 load/validate，目标提交成功后才释放旧 session；提交开始后的任何失败必须恢复旧 session 与完整状态草稿。卸载区的节点、敌人、掉落等放入按 `regionId` 隔离的 `regionStates`，不得因释放运行时实例而丢失。读档先通过 `SaveGameService.inspect/inspectAuto` 取得目标 `currentSceneId` 并准备对应 Region，再进入同步原子 restore。
-- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。`PlacementSpawner.shouldSpawn({ placement, selector })` 是条件化放置的唯一注入口；返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`，StoryState 解释仍留在具体游戏。
+- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。`PlacementSpawner.shouldSpawn({ placement, selector })` 是条件化放置的唯一注入口；返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`，StoryState 解释仍留在具体游戏。`sceneEnter` 初始组只允许生成开场即可见的静态资源/道具/NPC；延迟敌人必须使用独立 group + `spawnWhen`，由可视化空间 trigger 在领域状态提交后调用 `spawnPlacements`，禁止把尚未进入剧情的主动 AI 混入初始组。
 - `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话事件、场景标记、上下文和 sceneEnter；`DialogueSystem.onEnd/onChoice` 都是可取消的多监听器，Bridge 分别发布 `dialogueEnd{id}` 与 `dialogueChoice{id,choiceId,index,nextNode}`，具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
 - `TimeSystem`：除昼夜段外统一拥有从 1 开始的 `currentDay`，支持 `advanceDays()` 与 `serialize/deserialize`。历史延迟后果描述保存在 StoryState（稳定 event id、dueDay、status），到期领域提交仍遵循草稿→提交→checkpoint，保存失败恢复草稿并保留 pending 供重试。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
@@ -238,8 +241,8 @@ MOVE     右键
 - `SceneDialogueFlow`：统一继续对话、跳过打字机、选项节点保护和点击消费；`lastSpacePressed` 继续作为兼容字段保留。
 - `ScenePanelLayout`：组合并绑定 HUD，加载 UIEditor/PanelEditor 布局、响应窗口缩放、同步面板悬停，并在背包打开时协调 Canvas 与 DOM 触屏控件层级。
 - `SceneWorldPresentation`：统一通用 terrain/等距背景、掉落物、飞行阴影与格挡护盾；子场景仍通过 `renderBackground`、`renderFogLayer`、`renderSpeechBubbles` 覆盖 Demo 内容表现。
-- `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，输入与 HUD 优先从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。
-- `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，并按 `worldLayers → screenLayers → modalLayers` 有序绘制；render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。
+- `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，输入与 HUD 优先从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。相机必须在本帧移动、实体碰撞和地形位置修正完成后跟随最终玩家位置，禁止长期使用上一帧位置。Demo 自建主循环必须在每个 `requestAnimationFrame` 执行一次 update/render，不得用 `elapsed < frameInterval` 跳过 RAF 后再把累计 `deltaTime` 一次性交给移动系统；页面切换或长任务产生的异常 `deltaTime` 应做保守上限钳制。
+- `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，并按 `worldLayers → screenLayers → modalLayers` 有序绘制；render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。显式 `depthSort:true` 的场景图片和 effectZone 粒子进入实体队列，稳定同 Y 顺序为静态图片/装饰（0）→ worldDepth 粒子（1）→实体（2）；普通背景图片与战斗/技能顶层粒子保持原层级。`sortY` 是世界 Y 字段，任何 chunk 投影必须与 `y/points` 同时且只偏移一次。
 - `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
 - `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理和纹理内存估算；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
 - `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
@@ -261,6 +264,19 @@ FriendSystem                                                        中文名排
 ```
 
 修改这些文件时可顺手修复，但不要与成长系统改造混在同一次提交。
+
+## 战役模式与战果结算（P3 基础）
+
+- `BattleSystem` 是单场战役模式和唯一战果的领域权威：`start()` 后只能通过带 `operationId` 的 `selectMode('observe'|'intervene')` 首次确认，确认后不可改选；`freezeResult()` 只接受当前 `battleId` 的 Canonical BattleResult，第二个不同 `resultId` 必须拒绝。
+- 观战不停止 Combat/AI/Collision 表现。玩家对参战阵营的 damage/heal 必须经 `BattleSystem.filterEffectAmount()` 归零；救援入口仅在介入且战役 active 时开放。胜负同时满足时按战役定义的 `outcomePriority` 顺序冻结，不再依赖 `CombatSystem` 内硬编码 if 顺序。
+- Canonical BattleResult schemaVersion 2 明确 `affectedCityId` 与 `resourceTransfer{fromCityId,toCityId,resources}`；`resourceTransfer.resources` 必须与 `capturedResources` 一致。LocalMock 的 createBattle 必须提供受影响城市和资源转移双方，禁止领域层猜测城市归属。
+- `CityWarSystem` 固定按“资源转移 → 城市损毁 → 节点损毁 → WarState → Story 统计”准备完整草稿，再一次提交、发事件和创建 checkpoint。checkpoint 或提交失败必须恢复提交前全状态；`appliedBattleResultIds` 与 operationId 双重幂等，重放不得重复资源、损毁或统计。
+- `BattleModeView` 只接收不可变显示快照并发出 `selectMode/cancel` 命令，不直接持有 BattleSystem、Blackboard 或修改战役状态；提示继续使用 InputHints，手柄 A/X 确认、B 取消。模态提交进入 busy 后仍必须持续返回已消费，禁止世界移动、攻击或交互穿透。
+- pending/active 战役读档后必须先调用 `BattleSystem.rehydrate()`，用原 create requestId 重建无状态 transport 会话；该操作不得改写已恢复的 mode 或 frozenResult。
+- `CombatSystem.setEffectAmountFilter()` 是观战及战役友军效果过滤的唯一接线点；伤害、治疗和 AOE 都必须复用 `applyDamage/applyHeal`，禁止在 Demo 另建绕过过滤器的结算路径。
+- canonical 参战实体必须从内容定义一路保留 `factionId`；legacy `faction` 只作普通敌我兼容。`AISystem` 对带 `battleParticipant` 标签的单位按不同 `factionId` 选敌，介入玩家临时使用 `battleIntervenor` 标签，战役结束后恢复原阵营投影。
+- `BattlefieldRuntimeSystem` 只编排现有 Combat/AI/Collision、统计士气和伤亡并把配置化 signals 交给 `BattleSystem.evaluateOutcome()`；它不拥有实体生命或另做伤害。即时结果与 LocalMock 必须生成同一 Canonical BattleResult v2，再交给 CityWarSystem。
+- 战中 `BattleHudView` 和战后 `BattleResultView` 只消费不可变快照；结果面板关闭只改变 UI 可见性，不能撤销或再次应用战果。
 
 ## 后续阶段
 

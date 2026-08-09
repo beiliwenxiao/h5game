@@ -205,6 +205,9 @@ const sceneEditor = new SceneEditor(containerElement);
 ### 游戏侧渲染策略（混合策略）
 - **非碰撞装饰物**（`sprite.collide === false`，如 grass1、bush2/3/4）：预渲染到离屏缓存 `_groundDecoCache`，作为整体一次绘制，始终在最底层
 - **碰撞装饰物**（`sprite.collide === true`，如 tree1/2/3）：参与 Y-sort，互相之间和与实体之间正确遮挡
+- **场景图片**：普通 `type:'image'` 继续进入 `_bgImageCache` 地面层；需要与角色互相遮挡的建筑、棚屋、车辆或旗帜必须设置 `depthSort:true`，并可用 `sortY` 指定世界脚底基线（省略时为 `y + height`）。编辑器图片属性面板提供“实体遮挡/排序基线Y”，画布以青色虚线显示基线，运行时由 `Scene1Terrain.collectDecorations()` 加入同一队列。
+- 图片 `rotation` 的场景数据单位统一为**度**，编辑器与 Canvas 运行时均在绘制时转换为弧度；禁止一端按度、一端直接传给 `ctx.rotate()`。拖动、对齐、方向键、属性面板直接修改 Y、图层批量偏移或带偏移粘贴带显式 `sortY` 的图片时，基线必须同步相同 Y 位移；只调整 width/height 时显式 `sortY` 保持用户指定的世界脚底线，不随外框拉伸。
+- `sortY` 属于 Y 坐标，跨 chunk 时与对象 `y/points` 一起且只应用一次 worldOffset；图片碰撞仍由独立 shape 持有，禁止从透明像素或图片 bounds 推导业务碰撞。
 
 ## 图片资源管理
 
@@ -317,7 +320,9 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 ## 游戏级表现规格
 
 - `game.project.json.presentation.$ref` 指向当前游戏唯一的 presentation profile；《三国张角传》使用 `config/presentation.json`。禁止把目标逻辑分辨率、像素比例、网格、角色视觉/占地尺寸、方向数和移动端最小字号再复制到 `editor-defaults.json` 或场景类常量。
-- 运行时 Canvas buffer、Camera 和 IsometricRenderer 使用 profile 的逻辑分辨率与 world 参数；CSS 只负责物理显示适配。编辑器经 `SceneEditor.setPresentationProfile()` 使用同一 profile 作为新场景 fallback，不重写已存在场景尺寸。
+- 运行时 Canvas buffer、Camera 和 IsometricRenderer 使用 profile 的逻辑分辨率与 world 参数；CSS 只负责物理显示适配。编辑器经 `SceneEditor.setPresentationProfile()` 使用同一 profile 作为新场景 fallback，不重写已存在场景尺寸。浏览器主 Canvas 必须通过 `CanvasDisplayScaler` 将逻辑分辨率与物理 backing 分离：世界、相机、UI、编辑器和输入始终使用逻辑坐标，backing 才按 CSS 尺寸与 DPR 提升；正式主表现默认使用等比 `fit`，除非产品明确要求非等比拉伸，否则禁止使用 `stretch`。禁止把 `canvas.width/height` 当作逻辑尺寸，也禁止为提高清晰度修改 chunk/场景坐标。鼠标与触摸必须从 CSS rect 映射到 `canvas.logicalWidth/logicalHeight`。
+- 单张全屏或场景级背景必须从源图直接绘制到主 Canvas，禁止先压入 1×逻辑分辨率离屏缓存再二次缩放；多图合并缓存才允许使用逻辑尺寸缓存。《三国张角传》的逻辑分辨率和全屏背景标准尺寸固定为 `1280×720`，不要求制作 `2560×1440` 或 2×/4×背景源图；DPR backing 只改善显示采样，不改变资源规格，也不用于虚构额外纹理细节。背景目标位置与尺寸尽量使用整数逻辑像素，避免无必要的亚像素二次插值。
+- `type:'spawn', ref:'player'` 的坐标语义固定为玩家脚底中心。编辑器必须按 `actors.player.visual` 向锚点上方绘制视觉框，并按 `actors.player.footprint` 在脚底绘制占地椭圆；固定 16px 图标只表示可选择的逻辑锚点，不能代表玩家实际尺寸。运行时 worldOffset 只改变世界坐标，相机会把玩家投影到屏幕视口，因此不得用运行时屏幕像素位置反推或改写编辑器局部出生坐标。
 - 场景构图样板用 `presentationProfile`、`composition`、`assetBudget` 和 `productionState` 标明规格、动线、预算与阶段。尚未进入主流程的样板必须设置 `previewOnly:true`，可登记在 `_scene_order.json.scenes`，但不得加入 `order` 自动推进数组。
 
 ## 触发器与场景对象的所见即所得关联

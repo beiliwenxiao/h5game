@@ -138,7 +138,10 @@ export class EffectZoneRenderer {
           ...obj,
           points: obj.points.map(p => [p[0] + ox, p[1] + oy]),
           x: (obj.x || 0) + ox,
-          y: (obj.y || 0) + oy
+          y: (obj.y || 0) + oy,
+          sortY: Number.isFinite(obj.sortY)
+            ? obj.sortY + oy
+            : (obj.y || 0) + (obj.height || 0) + oy
         };
         this.zones.push(zone);
         this._accumulators.push(0);
@@ -186,7 +189,9 @@ export class EffectZoneRenderer {
       alpha: preset.alpha,
       gravity: preset.gravity,
       friction: preset.friction,
-      shape: preset.shape || 'circle'  // circle / streak / ripple
+      shape: preset.shape || 'circle',  // circle / streak / ripple
+      renderLayer: zone.depthSort === true ? 'worldDepth' : 'effects',
+      sortY: Number.isFinite(zone.sortY) ? zone.sortY : pos.y
     });
   }
 

@@ -1,0 +1,278 @@
+/************************************************************
+ * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
+ * YiJian18-Engine - live battlefield orchestration
+ ************************************************************/
+
+import { BattleMode, BattleState } from './BattleSystem.js';
+import { CANONICAL_SCHEMA_VERSION } from '../data/schema/CanonicalSchemas.js';
+
+const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+const isAlive = entity => {
+  const stats = entity?.getComponent?.('stats');
+  return !!stats && Number(stats.hp) > 0 && !entity.isDead && !entity.isDying;
+};
+const hasTag = (entity, tag) => Array.isArray(entity?.tags) && entity.tags.includes(tag);
+
+/**
+ * Coordinates a live battle without owning CombatSystem, AISystem or entity state.
+ * BattleSystem remains the authority for mode and the single frozen result.
+ */
+export class BattlefieldRuntimeSystem {
+  constructor(config = {}) {
+    this.battleSystem = config.battleSystem || null;
+    this.aiSystem = config.aiSystem || null;
+    this.onEvent = config.onEvent || (() => {});
+    this.reset();
+  }
+
+  reset() {
+    this.active = false;
+    this.elapsed = 0;
+    this.participants = [];
+    this.initialFactions = {};
+    this.playerEntity = null;
+    this.playerRestore = null;
+    this.lastSnapshot = null;
+  }
+
+  start({ entities = [], playerEntity = null, playerFactionId = null } = {}) {
+    if (this.active) return { ok: true, idempotent: true, snapshot: this.getSnapshot() };
+    if (this.battleSystem?.state !== BattleState.ACTIVE || !this.battleSystem?.mode) {
+      return { ok: false, code: 'battleNotActive' };
+    }
+    const definition = this.battleSystem.definition || {};
+    const factionIds = definition.participantFactionIds || [];
+    const candidates = entities.filter(entity => hasTag(entity, 'battleParticipant')
+      && factionIds.includes(entity.factionId));
+    const missingFaction = factionIds.find(factionId => !candidates.some(entity => entity.factionId === factionId));
+    if (missingFaction) return { ok: false, code: 'battleFactionMissing', factionId: missingFaction };
+
+    this.elapsed = 0;
+    this.participants = candidates.map(entity => {
+      const stats = entity.getComponent('stats');
+      return { id: entity.id, factionId: entity.factionId, maxHp: Math.max(1, Number(stats?.maxHp) || 1) };
+    });
+    this.initialFactions = this._createInitialFactions(definition, candidates);
+    this.playerEntity = playerEntity;
+    if (this.battleSystem.mode === BattleMode.INTERVENE) this._attachPlayer(playerEntity, playerFactionId);
+    for (const entity of candidates) this.aiSystem?.activateAI?.(entity, entity.aiType || 'battleFormation');
+    this.active = true;
+    this.lastSnapshot = this._buildSnapshot(entities);
+    this.onEvent('battlefieldStarted', clone(this.lastSnapshot));
+    return { ok: true, snapshot: this.getSnapshot() };
+  }
+
+  update(deltaTime, entities = []) {
+    if (!this.active) return { ok: true, active: false, snapshot: this.getSnapshot() };
+    this.elapsed += Math.max(0, Number(deltaTime) || 0);
+    this.lastSnapshot = this._buildSnapshot(entities);
+    const signals = this._buildSignals(this.lastSnapshot);
+    const outcome = this.battleSystem.evaluateOutcome(signals, match => this._createResult(match, this.lastSnapshot));
+    if (!outcome.ok && outcome.code === 'battleOngoing') {
+      return { ok: true, active: true, snapshot: this.getSnapshot() };
+    }
+    if (!outcome.ok) return outcome;
+
+    const snapshot = this.getSnapshot();
+    this.stop({ entities, preserveSnapshot: true });
+    this.onEvent('battlefieldResolved', { result: clone(outcome.result), snapshot });
+    return { ok: true, active: false, resolved: true, result: clone(outcome.result), snapshot };
+  }
+
+  stop({ entities = [], preserveSnapshot = false } = {}) {
+    const byId = new Map(entities.map(entity => [entity.id, entity]));
+    for (const participant of this.participants) {
+      const entity = byId.get(participant.id);
+      if (entity && isAlive(entity)) this.aiSystem?.deactivateAI?.(entity, entity.aiType || 'battleFormation');
+    }
+    this._restorePlayer();
+    this.active = false;
+    if (!preserveSnapshot) this.lastSnapshot = null;
+  }
+
+  getSnapshot() {
+    return clone(this.lastSnapshot);
+  }
+
+  serialize() {
+    return {
+      schemaVersion: 1,
+      active: this.active,
+      elapsed: this.elapsed,
+      participants: clone(this.participants),
+      initialFactions: clone(this.initialFactions),
+      playerRestore: clone(this.playerRestore),
+      lastSnapshot: clone(this.lastSnapshot)
+    };
+  }
+
+  validateSerialized(snapshot) {
+    if (!snapshot || snapshot.schemaVersion !== 1 || typeof snapshot.active !== 'boolean'
+      || !Array.isArray(snapshot.participants) || !snapshot.initialFactions) {
+      return { ok: false, code: 'invalidSnapshot' };
+    }
+    const invalid = snapshot.participants.find(entry => typeof entry?.id !== 'string' || !entry.id
+      || typeof entry?.factionId !== 'string' || !entry.factionId);
+    return invalid ? { ok: false, code: 'invalidParticipant' } : { ok: true };
+  }
+
+  deserialize(snapshot, { entities = [], playerEntity = null, playerFactionId = null } = {}) {
+    const validation = this.validateSerialized(snapshot);
+    if (!validation.ok) return validation;
+    const participantIds = new Set(snapshot.participants.map(entry => entry.id));
+    if (participantIds.size !== snapshot.participants.length) {
+      return { ok: false, code: 'duplicateParticipant' };
+    }
+    if (snapshot.active && this.battleSystem?.state !== BattleState.ACTIVE) {
+      return { ok: false, code: 'battleStateMismatch' };
+    }
+    this.active = snapshot.active;
+    this.elapsed = Math.max(0, Number(snapshot.elapsed) || 0);
+    this.participants = clone(snapshot.participants);
+    this.initialFactions = clone(snapshot.initialFactions);
+    this.playerRestore = clone(snapshot.playerRestore);
+    this.lastSnapshot = clone(snapshot.lastSnapshot);
+    this.playerEntity = playerEntity;
+    if (this.active) {
+      const byId = new Map(entities.map(entity => [entity.id, entity]));
+      for (const participant of this.participants) {
+        const entity = byId.get(participant.id);
+        if (entity && isAlive(entity)) this.aiSystem?.activateAI?.(entity, entity.aiType || 'battleFormation');
+      }
+      if (this.battleSystem.mode === BattleMode.INTERVENE) this._attachPlayer(playerEntity, playerFactionId);
+      this.lastSnapshot = this._buildSnapshot(entities);
+    }
+    return { ok: true };
+  }
+
+  dispose(entities = []) {
+    this.stop({ entities });
+    this.reset();
+  }
+
+  _createInitialFactions(definition, entities) {
+    const create = definition.createParams || {};
+    const armies = [create.attackerArmy, create.defenderArmy].filter(Boolean);
+    const moraleByFaction = new Map([
+      [create.attackerArmy?.factionId, Number(
+        definition.realtimeMorale?.[create.attackerArmy?.factionId]
+          ?? create.attackerMorale ?? create.attackerArmy?.morale
+      )],
+      [create.defenderArmy?.factionId, Number(
+        definition.realtimeMorale?.[create.defenderArmy?.factionId]
+          ?? create.defenderMorale ?? create.defenderArmy?.morale
+      )]
+    ]);
+    const factions = {};
+    for (const factionId of definition.participantFactionIds || []) {
+      const members = entities.filter(entity => entity.factionId === factionId);
+      const army = armies.find(entry => entry.factionId === factionId);
+      factions[factionId] = {
+        factionId,
+        armyId: army?.id || factionId,
+        name: army?.name || factionId,
+        count: members.length,
+        totalHp: members.reduce((sum, entity) => sum + Math.max(1, Number(entity.getComponent('stats')?.maxHp) || 1), 0),
+        morale: Math.max(0, Math.min(100, moraleByFaction.get(factionId) || 50))
+      };
+    }
+    return factions;
+  }
+
+  _buildSnapshot(entities) {
+    const byId = new Map(entities.map(entity => [entity.id, entity]));
+    const factions = {};
+    for (const [factionId, initial] of Object.entries(this.initialFactions)) {
+      const members = this.participants.filter(entry => entry.factionId === factionId);
+      let alive = 0;
+      let hp = 0;
+      for (const member of members) {
+        const entity = byId.get(member.id);
+        if (!isAlive(entity)) continue;
+        alive++;
+        hp += Math.max(0, Number(entity.getComponent('stats')?.hp) || 0);
+      }
+      const casualtyRatio = initial.count > 0 ? (initial.count - alive) / initial.count : 1;
+      const hpLossRatio = initial.totalHp > 0 ? 1 - Math.min(1, hp / initial.totalHp) : 1;
+      const morale = Math.max(0, Math.round(initial.morale - casualtyRatio * 75 - hpLossRatio * 35));
+      factions[factionId] = {
+        factionId,
+        armyId: initial.armyId,
+        name: initial.name,
+        initial: initial.count,
+        alive,
+        casualties: Math.max(0, initial.count - alive),
+        hpRatio: initial.totalHp > 0 ? Math.max(0, Math.min(1, hp / initial.totalHp)) : 0,
+        morale
+      };
+    }
+    return {
+      battleId: this.battleSystem?.definition?.battleId || null,
+      mode: this.battleSystem?.mode || null,
+      objective: this.battleSystem?.definition?.objective || '击溃敌军或使其士气崩溃',
+      elapsed: this.elapsed,
+      factions
+    };
+  }
+
+  _buildSignals(snapshot) {
+    const definitions = this.battleSystem?.definition?.outcomeSignals || {};
+    const signals = {};
+    for (const [signal, rule] of Object.entries(definitions)) {
+      const faction = snapshot.factions?.[rule.factionId];
+      if (rule.type === 'factionDefeated') signals[signal] = !!faction && faction.alive <= 0;
+      else if (rule.type === 'factionMoraleBroken') signals[signal] = !!faction && faction.morale <= 0;
+      else signals[signal] = false;
+    }
+    return signals;
+  }
+
+  _createResult(match, snapshot) {
+    const definition = this.battleSystem.definition;
+    const create = definition.createParams || {};
+    const basePolicy = definition.realtimeResult || {};
+    const policy = basePolicy.byWinner?.[match.winnerFactionId] || basePolicy;
+    const resources = clone(policy.capturedResources || {});
+    const casualties = {};
+    for (const faction of Object.values(snapshot.factions || {})) {
+      casualties[faction.armyId] = Math.max(0, Math.floor(faction.casualties));
+    }
+    return {
+      schemaVersion: CANONICAL_SCHEMA_VERSION,
+      resultId: policy.resultId || basePolicy.resultId || `result-${definition.battleId}-${create.seed || 0}`,
+      responseId: policy.responseId || basePolicy.responseId || `response-realtime-${definition.battleId}-${create.seed || 0}`,
+      battleId: match.battleId,
+      winnerFactionId: match.winnerFactionId,
+      casualties,
+      capturedResources: resources,
+      resourceTransfer: {
+        fromCityId: create.resourceSourceCityId,
+        toCityId: create.resourceDestinationCityId,
+        resources: clone(resources)
+      },
+      affectedCityId: create.affectedCityId,
+      cityDamage: Math.max(0, Math.min(1, Number(policy.cityDamage) || 0)),
+      damagedResourceNodeIds: clone(policy.damagedResourceNodeIds || []),
+      completedAt: Math.max(0, Math.floor((Number(create.logicalTime) || 0) + this.elapsed))
+    };
+  }
+
+  _attachPlayer(player, factionId) {
+    if (!player || !factionId) return;
+    if (!this.playerRestore) {
+      this.playerRestore = { factionId: player.factionId, tags: [...(player.tags || [])] };
+    }
+    player.factionId = factionId;
+    player.tags = [...new Set([...(player.tags || []), 'battleIntervenor'])];
+  }
+
+  _restorePlayer() {
+    if (!this.playerEntity || !this.playerRestore) return;
+    if (this.playerRestore.factionId === undefined) delete this.playerEntity.factionId;
+    else this.playerEntity.factionId = this.playerRestore.factionId;
+    this.playerEntity.tags = [...this.playerRestore.tags];
+    this.playerRestore = null;
+  }
+}
+
+export default BattlefieldRuntimeSystem;

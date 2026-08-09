@@ -377,6 +377,7 @@ export class SceneEditorInteraction {
         // 记录所有选中对象的起始位置（多对象拖动）
         editor.interaction.allObjectStarts = editor.selectedObjects.map(o => ({
           x: o.x || 0, y: o.y || 0,
+          sortY: Number.isFinite(o.sortY) ? o.sortY : null,
           points: ((o.type === 'shape' || o.type === 'buffZone' || o.type === 'effectZone') && Array.isArray(o.points)) ? o.points.map(p => [p[0], p[1]]) : null
         }));
         // 多边形/路径/buffZone 移动：记录顶点起始快照
@@ -488,10 +489,12 @@ export class SceneEditorInteraction {
         if ((obj.type === 'buffZone' || obj.type === 'effectZone') && Array.isArray(obj.points) && start.points) {
           obj.points = start.points.map(p => [Math.round(p[0] + dx), Math.round(p[1] + dy)]);
           this._syncBuffZoneBBox(obj);
+          if (start.sortY !== null) obj.sortY = start.sortY + dy;
           continue;
         }
         obj.x = start.x + dx;
         obj.y = start.y + dy;
+        if (start.sortY !== null) obj.sortY = start.sortY + dy;
 
         if (obj.type === 'decoration' && obj._decoRef) {
           obj._decoRef.x = obj.x;
@@ -811,14 +814,16 @@ export class SceneEditorInteraction {
       const sh = editor.sceneData.height;
 
       const setPos = (newX, newY) => {
+        const deltaY = newY - bb.y;
         if (obj.type === 'circle') { obj.x = newX + obj.radius; obj.y = newY + obj.radius; }
         else if ((obj.type === 'shape' || obj.type === 'buffZone' || obj.type === 'effectZone') && Array.isArray(obj.points)) {
-          const dx = newX - bb.x, dy = newY - bb.y;
+          const dx = newX - bb.x, dy = deltaY;
           obj.points = obj.points.map(p => [p[0] + dx, p[1] + dy]);
           if (obj.x != null) { obj.x += dx; obj.y += dy; }
         } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
           obj.x = newX + 16; obj.y = newY + 16;
         } else { obj.x = newX; obj.y = newY; }
+        if (Number.isFinite(obj.sortY)) obj.sortY += deltaY;
       };
 
       if (direction === 'left') setPos(0, bb.y);
@@ -870,6 +875,7 @@ export class SceneEditorInteraction {
         } else {
           obj.x = (obj.x || 0) + dx; obj.y = (obj.y || 0) + dy;
         }
+        if (Number.isFinite(obj.sortY)) obj.sortY += dy;
       }
     }
 
@@ -1089,12 +1095,17 @@ export class SceneEditorInteraction {
   _moveSelectedObjects(dx, dy) {
     const editor = this.editor;
     for (const obj of editor.selectedObjects) {
-      if (obj.type === 'shape' && Array.isArray(obj.points)) {
+      if ((obj.type === 'shape' || obj.type === 'buffZone' || obj.type === 'effectZone') && Array.isArray(obj.points)) {
         obj.points = obj.points.map(p => [p[0] + dx, p[1] + dy]);
+        if (obj.type === 'buffZone' || obj.type === 'effectZone') {
+          if (obj.x !== undefined) obj.x += dx;
+          if (obj.y !== undefined) obj.y += dy;
+        }
       } else {
         if (obj.x !== undefined) obj.x += dx;
         if (obj.y !== undefined) obj.y += dy;
       }
+      if (Number.isFinite(obj.sortY)) obj.sortY += dy;
     }
     editor.canvas.render();
     editor.ui.updateObjectProperties();
@@ -1214,9 +1225,10 @@ export class SceneEditorInteraction {
       if (offset > 0) {
         if (obj.x !== undefined) obj.x += offset;
         if (obj.y !== undefined) obj.y += offset;
-        if (obj.points) {
+        if (Array.isArray(obj.points)) {
           obj.points = obj.points.map(p => [p[0] + offset, p[1] + offset]);
         }
+        if (Number.isFinite(obj.sortY)) obj.sortY += offset;
       }
       layer.objects.push(obj);
     }

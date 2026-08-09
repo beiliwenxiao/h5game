@@ -8,7 +8,10 @@ import { SceneEntityStore } from './SceneEntityStore.js';
 const GROUP_DEFAULTS = Object.freeze({
   input: Object.freeze({ manager: null, bindings: null, gamepad: null }),
   camera: Object.freeze({ instance: null, renderer: null }),
-  runtime: Object.freeze({ canvas: null, context: null, width: 0, height: 0, active: false }),
+  runtime: Object.freeze({
+    canvas: null, context: null, width: 0, height: 0,
+    backingWidth: 0, backingHeight: 0, active: false
+  }),
   systems: Object.freeze({ container: null }),
   player: Object.freeze({ entity: null, inherited: false }),
   ui: Object.freeze({ layout: null }),
@@ -51,12 +54,14 @@ export class GameSceneContext {
     this.lifecycle = createGroup('lifecycle', config.lifecycle);
   }
 
-  /** 记录当前 Canvas、绘图上下文和逻辑尺寸。 */
+  /** 记录当前 Canvas、绘图上下文和逻辑尺寸；物理 backing 可由 DPR scaler 独立管理。 */
   setCanvasRuntime(canvas, context = null) {
     this.runtime.canvas = canvas || null;
     this.runtime.context = context || null;
-    this.runtime.width = Number(canvas?.width) || 0;
-    this.runtime.height = Number(canvas?.height) || 0;
+    this.runtime.width = Number(canvas?.logicalWidth) || Number(canvas?.width) || 0;
+    this.runtime.height = Number(canvas?.logicalHeight) || Number(canvas?.height) || 0;
+    this.runtime.backingWidth = Number(canvas?.width) || 0;
+    this.runtime.backingHeight = Number(canvas?.height) || 0;
     this.runtime.active = Boolean(canvas);
     return this.runtime;
   }

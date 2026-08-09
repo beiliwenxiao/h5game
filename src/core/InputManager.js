@@ -146,13 +146,29 @@ export class InputManager {
     }
 
     /**
+     * 将物理字母键归一化为稳定小写虚拟键。
+     * KeyboardEvent.key 会受 Caps Lock、Shift、键盘布局和输入法组合状态影响；
+     * 游戏操作优先使用 code，修饰键语义仍由独立状态表达。
+     */
+    _normalizeKeyboardKey(event) {
+        const key = event?.key || '';
+        const code = event?.code || '';
+        const physicalLetter = /^Key[A-Z]$/.test(code)
+            ? code.slice(3).toLowerCase()
+            : null;
+        const canonicalKey = physicalLetter
+            || (/^[A-Za-z]$/.test(key) ? key.toLowerCase() : key);
+        return this.keyMap[canonicalKey] || canonicalKey;
+    }
+
+    /**
      * 处理键盘按下事件
      */
     handleKeyDown(event) {
         const key = event.key;
         const isDebugPanelKey = key === '`' || event.code === 'Backquote';
-        // 反引号键统一归一化为 `，Shift+反引号产生 ~ 时也能正确触发
-        const mappedKey = isDebugPanelKey ? '`' : (this.keyMap[key] || key);
+        // 反引号单独归一化；字母键统一使用物理 code，避免 Caps Lock/输入法改变操作键。
+        const mappedKey = isDebugPanelKey ? '`' : this._normalizeKeyboardKey(event);
         const wasDown = this.keys.get(mappedKey) === true;
         
         // 如果键已经按下，不重复触发
@@ -196,7 +212,7 @@ export class InputManager {
     handleKeyUp(event) {
         const key = event.key;
         const isDebugPanelKey = key === '`' || key === '~' || event.code === 'Backquote';
-        const mappedKey = isDebugPanelKey ? '`' : (this.keyMap[key] || key);
+        const mappedKey = isDebugPanelKey ? '`' : this._normalizeKeyboardKey(event);
         
         this.keys.set(mappedKey, false);
         this.keysReleased.set(mappedKey, true);
@@ -253,10 +269,11 @@ export class InputManager {
         }
         const rect = this.canvas.getBoundingClientRect();
         
-        // 归一化映射：将 CSS 像素位置映射到 canvas 逻辑坐标
-        // 使用比例映射而非 canvas.width/rect.width（避免 CSS 拉伸导致的不一致）
-        this.mouse.x = (event.clientX - rect.left) / rect.width * this.canvas.width;
-        this.mouse.y = (event.clientY - rect.top) / rect.height * this.canvas.height;
+        // CSS 像素始终映射到项目逻辑坐标；DPR backing 只提升清晰度，不参与输入语义。
+        const logicalWidth = Number(this.canvas.logicalWidth) || this.canvas.width;
+        const logicalHeight = Number(this.canvas.logicalHeight) || this.canvas.height;
+        this.mouse.x = (event.clientX - rect.left) / rect.width * logicalWidth;
+        this.mouse.y = (event.clientY - rect.top) / rect.height * logicalHeight;
         
         // 转换为游戏世界坐标
         this.mouse.worldX = this.mouse.x + this.cameraX;
@@ -318,8 +335,10 @@ export class InputManager {
         }
         const rect = this.canvas.getBoundingClientRect();
         
-        const scaleX = this.canvas.width / rect.width;
-        const scaleY = this.canvas.height / rect.height;
+        const logicalWidth = Number(this.canvas.logicalWidth) || this.canvas.width;
+        const logicalHeight = Number(this.canvas.logicalHeight) || this.canvas.height;
+        const scaleX = logicalWidth / rect.width;
+        const scaleY = logicalHeight / rect.height;
         
         this.mouse.x = (touch.clientX - rect.left) * scaleX;
         this.mouse.y = (touch.clientY - rect.top) * scaleY;
@@ -420,8 +439,10 @@ export class InputManager {
     _updateGamepadCursor() {
         const aim = this.gamepad.getAimVector();
         if (aim.magnitude > 0) {
-            const cx = this.canvas ? this.canvas.width / 2 : 0;
-            const cy = this.canvas ? this.canvas.height / 2 : 0;
+            const logicalWidth = Number(this.canvas?.logicalWidth) || Number(this.canvas?.width) || 0;
+            const logicalHeight = Number(this.canvas?.logicalHeight) || Number(this.canvas?.height) || 0;
+            const cx = logicalWidth / 2;
+            const cy = logicalHeight / 2;
             this.mouse.x = cx + aim.x * this.gamepadCursorRadius;
             this.mouse.y = cy + aim.y * this.gamepadCursorRadius;
             this.mouse.worldX = this.mouse.x + this.cameraX;

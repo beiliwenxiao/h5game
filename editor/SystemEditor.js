@@ -46,7 +46,7 @@ export class SystemEditor {
     // 登录页面在运行时位于加载页面之前。
     if (!this._data.login) {
       this._data.login = {
-        title: '张角黄巾起义序章',
+        title: '三国张角传',
         subtitle: '苍天已死，黄天当立',
         description: '乱世将起，你的选择将改变众人的命运。',
         showDescription: true,
@@ -65,8 +65,8 @@ export class SystemEditor {
     // 确保 loading 子对象存在
     if (!this._data.loading) {
       this._data.loading = {
-        title: '张角黄巾起义序章',
-        subtitle: '第一幕：绝望的开始',
+        title: '三国张角传',
+        subtitle: '三月荒原',
         loadingText: '加载中...',
         icon: '',
         backgroundColor: '#1a1a1a',

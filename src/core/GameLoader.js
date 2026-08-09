@@ -175,6 +175,11 @@ export class GameLoader {
       'assetManifest',
       'assetManifest'
     ).errors);
+    errors.push(...this.contentValidator.validateList(
+      candidate.rescues || [],
+      'rescueDefinition',
+      'rescues'
+    ).errors);
     const progression = candidate.progression;
 
     if (progression) {

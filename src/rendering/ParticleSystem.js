@@ -194,13 +194,50 @@ export class ParticleSystem {
   }
 
   /**
-   * 渲染所有粒子
+   * 渲染顶层粒子。进入 worldDepth 队列的粒子由 collectDepthSorted() 绘制，避免重复。
    * @param {CanvasRenderingContext2D} ctx - Canvas 渲染上下文
    * @param {Object} camera - 相机对象
    */
   render(ctx, camera) {
     for (const particle of this.particles) {
+      if (particle.renderLayer === 'worldDepth') continue;
       particle.render(ctx, camera);
+    }
+  }
+
+  /**
+   * 把显式 worldDepth 粒子加入场景实体 Y-sort 队列。
+   * @param {Array} renderQueue
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {Object} camera
+   * @param {{left:number,top:number,right:number,bottom:number}} [viewBounds]
+   */
+  collectDepthSorted(renderQueue, ctx, camera, viewBounds = null) {
+    for (const particle of this.particles) {
+      if (!particle.active || particle.renderLayer !== 'worldDepth') continue;
+      const padding = Math.max(4, particle.size || 1) * 2;
+      if (viewBounds &&
+          (particle.position.x + padding < viewBounds.left || particle.position.x - padding > viewBounds.right ||
+           particle.position.y + padding < viewBounds.top || particle.position.y - padding > viewBounds.bottom)) {
+        continue;
+      }
+      let item = particle._worldDepthQueueItem;
+      if (!item) {
+        item = {
+          type: 'particle',
+          y: 0,
+          sortPriority: 1,
+          particle,
+          ctx: null,
+          camera: null,
+          render() { this.particle.render(this.ctx, this.camera); }
+        };
+        particle._worldDepthQueueItem = item;
+      }
+      item.y = particle.sortY;
+      item.ctx = ctx;
+      item.camera = camera;
+      renderQueue.push(item);
     }
   }
 

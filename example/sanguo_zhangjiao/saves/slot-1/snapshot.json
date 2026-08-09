@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786264346649,
+  "createdAt": 1786312030623,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -20,8 +20,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1920,
-          "y": 610,
+          "x": 1965.67,
+          "y": 1268.51,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -78,6 +78,7 @@
       },
       "content": {
         "blackboard": {
+          "appliedBattleResultIds": [],
           "cityStates": [
             {
               "buildingDamage": {
@@ -97,6 +98,42 @@
                 "wood": 20
               },
               "schemaVersion": 1
+            },
+            {
+              "buildingDamage": {},
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0,
+              "factionId": "han_government",
+              "id": "city.s03_yingchuan",
+              "morale": 40,
+              "name": "颍川官军屯城",
+              "resources": {
+                "food": 80,
+                "herb": 30,
+                "iron": 40,
+                "wood": 50
+              },
+              "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {
+                "palisade.s04": 0.45
+              },
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.3,
+              "factionId": "han_government",
+              "id": "city.s04_changshe",
+              "morale": 48,
+              "name": "长社官军营垒",
+              "resources": {
+                "food": 45,
+                "herb": 16,
+                "iron": 18,
+                "wood": 20
+              },
+              "schemaVersion": 2
             }
           ],
           "reputation": 50,
@@ -115,6 +152,11 @@
             "unlockedScenes": [
               "S01"
             ]
+          },
+          "warResourceNodeStates": [],
+          "warState": {
+            "battles": {},
+            "casualties": {}
           },
           "ddScene": true
         },
@@ -312,40 +354,6 @@
               "removed": false,
               "quantity": 0
             }
-          },
-          {
-            "id": "S01-bandit-1",
-            "state": {
-              "kind": "enemy",
-              "removed": false,
-              "hp": 45,
-              "position": {
-                "x": 2210,
-                "y": 1020
-              },
-              "ai": {
-                "active": true,
-                "aiType": "aggressive",
-                "lure": null
-              }
-            }
-          },
-          {
-            "id": "S01-bandit-2",
-            "state": {
-              "kind": "enemy",
-              "removed": false,
-              "hp": 45,
-              "position": {
-                "x": 2330,
-                "y": 1075
-              },
-              "ai": {
-                "active": true,
-                "aiType": "aggressive",
-                "lure": null
-              }
-            }
           }
         ],
         "deathDrops": [],
@@ -370,12 +378,47 @@
           "characters": [],
           "completedOperations": []
         },
+        "battleState": {
+          "schemaVersion": 1,
+          "state": "idle",
+          "definition": null,
+          "mode": null,
+          "frozenResult": null,
+          "operations": []
+        },
+        "battlefieldRuntimeState": {
+          "schemaVersion": 1,
+          "active": false,
+          "elapsed": 0,
+          "participants": [],
+          "initialFactions": {},
+          "playerRestore": null,
+          "lastSnapshot": null
+        },
+        "cityWarState": {
+          "schemaVersion": 1,
+          "operations": []
+        },
+        "rescueState": {
+          "schemaVersion": 1,
+          "definition": null,
+          "status": "idle",
+          "stageIndex": -1,
+          "startedAt": null,
+          "deadline": null,
+          "remaining": 0,
+          "result": null,
+          "failureReason": null,
+          "costs": {},
+          "completedStageIds": [],
+          "operations": []
+        },
         "gatheringPolicyOperations": [],
         "timeState": {
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 249.62920000000304
+          "elapsed": 120.04999999999995
         },
         "nextSceneTarget": null,
         "playerDiedTriggered": false

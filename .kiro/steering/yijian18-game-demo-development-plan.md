@@ -111,6 +111,35 @@ example/sanguo_zhangjiao/
 | P5 | 1.5 周 | Content Complete | S13–S14、六结局、成长收口 | 六结局演出与全内容补齐 |
 | P6 | 2 周 | Release Candidate | 全图流式、优化、修复、发布 | 全量替换、压缩、版权与宣传素材 |
 
+### 6.1 当前实施进度（2026-08-10）
+
+状态只使用 `notStarted / inProgress / blocked / done`。`done` 必须满足对应阶段出口门槛；已经完成代码和内容预检、但尚未完成浏览器实际运行或音画验收的工作仍记为 `inProgress`。
+
+| 阶段 | 状态 | 当前已落地 | 尚未完成/出口阻断 |
+|---|---|---|---|
+| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入 | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 对外部调用方的影响 |
+| P1 | inProgress | 原子库存、设备无关拾取、采集与工具回滚、S01 七项教学和一次性收益、普通死亡/DeathDrop、Placement 动态恢复、跨 Region 两阶段切换已实现 | 浏览器验证攻击教学、采集中断、受伤半产量、owner 隔离、奖励幂等、DeathDrop 和两轮 save/load；S02 完整体验与音画仍需验收 |
+| P2 | inProgress | S09 三职业与不可逆确认、职业装备/技能事务、军师采集傀儡、未许可采粮、饥民三分支与延迟后果、四成长池、ProficiencySystem、CityStateSummaryPanel、稳定资产链与通用 Y-sort 已接入 | 浏览器验证三输入、三剧情分支、跨日/读档、城市摘要、熟练度反馈和 S09 动线；真实音频及最终美术审核未完成，S09 不得提升为 `contentComplete` |
+| P3 | inProgress | BattleSystem、CityWarSystem、BattlefieldRuntimeSystem、战役 HUD/战果 UI、S03 实时首战、S04 长社战役、通用 RescueSystem、波才护送、毒区、草药、S03→S04、S04 战后互斥路线事务均已接入 | 浏览器实际战斗、观战/介入、AI/Collision、战中存读档、波才救援和三输入路线选择仍待验收；S05/S07 仅为灰盒入口，S06/S08 未制作，不能称为 Main Alpha |
+| P4 | notStarted | 可复用的 Region、Checkpoint、战役、救援、库存和载具基础系统已存在 | S10–S12 剧情、营建、工事、载具、张梁/张宝救援和百人战尚未进入本阶段内容实施 |
+| P5 | notStarted | 结局所需的 Story/City/War 状态基础正在前序阶段积累 | S13、S14、EndingSystem、六结局演出和成长收口尚未实施 |
+| P6 | notStarted | worldOffset 单次投影、RegionCoordinator 和双渲染基础已建立 | 全图九宫格流式、性能硬门槛、2D/3D 业务一致性、全量资产审计和 Android Release Candidate 尚未执行 |
+
+### 6.2 当前 P3 工作面
+
+- **P3.1 战役公共地基：inProgress**。Canonical BattleResult v2、不可逆观战/介入、实时胜负评估、City/War 原子结算与战役 UI 已实现；浏览器实战和战中存读档未验收。
+- **S03 颍川首战：inProgress**。磁盘场景、两军 placement、战役配置、实时战果和 S04 出口已接通；官军/黄巾按胜方选择不同结算策略的错误已修复。
+- **S04 长社战场：inProgress**。战役、毒区、草药、波才 90 秒救援、撤离检查点和双胜方 CityWar 结算已接入；波才受攻击压力、真实音频和浏览器体验仍不足。
+- **S04 战后路线：inProgress**。`S04RouteCoordinator` 已拥有南阳/西华互斥事务：只动态解锁 S05 或 S07，同路线幂等、异路线锁定、active 救援阻断、checkpoint 失败回滚；checkpoint 成功后的事件与传送失败不得回滚路线。S05/S07 已登记为 `greybox` 且不在初始 `unlockedScenes`。
+- **S05–S08 内容：inProgress**。S05、S07 目前只有普通单 chunk 灰盒入口；S05 张曼成救援、S06 宛城围攻、S07 差异化战场机制、S08 路线收束均未完成。
+
+### 6.3 最近有效验证证据
+
+- `S04RouteCoordinator` 领域 one-off 已覆盖：南阳只解锁 S05、同路线不重复 checkpoint、异路线返回 `routeLocked`、checkpoint 失败完整恢复 StoryState、active 救援阻断、目标缺失拒绝、checkpoint 后事件异常不回滚已持久化路线。
+- 真实 `GameLoader.load()` 已完成全部 `$ref` 解析、内容策略和注册表预检；初始解锁仍只有 S01，S05/S07 只通过路线事务动态解锁。
+- `WorldMapLoadSession` 已验证 S05 offset `{3840,0}`、S07 offset `{3840,1440}`，玩家出生点世界坐标分别为 `{3970,520}`、`{3970,1710}`，磁盘源局部坐标保持不变。
+- 当前相关 JS/JSON diagnostics、`node --check` 与 `git diff --check` 均通过；尚无浏览器 playthrough 证据，因此 P0–P3 均不得整体标记 `done`。
+
 每阶段同时推进四条轨道：A 引擎与领域系统、B 场景和叙事内容、C 美术音频和 UI、D 集成与质量。任何阶段不能只关闭 A 轨道。
 
 ## 7. P0：交付地基与美术预制（3 天）

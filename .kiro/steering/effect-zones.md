@@ -24,10 +24,14 @@ fileMatchPattern: '{**/EffectZoneRenderer*,**/Particle*,**/ParticleSystem*,**/Sc
   "particleSpeed": 40,
   "particleColor": "#ff6622",
   "particleAlpha": 0.8,
+  "depthSort": true,
+  "sortY": 493,
   "fillColor": "rgba(255,120,30,0.15)",
   "borderColor": "rgba(255,140,40,0.7)"
 }
 ```
+
+`depthSort` 默认关闭，关闭时粒子保持在世界特效顶层。需要与角色前后遮挡的烟雾、火焰等可设置 `depthSort:true`，由共享 `ParticleSystem.collectDepthSorted()` 加入实体 Y-sort 队列；`sortY` 为该区域固定脚底基线，省略时使用区域底边。跨 chunk 投影必须对 `sortY` 应用一次且仅一次 Y 偏移。编辑器属性面板提供“世界深度/排序基线Y”，画布以青色虚线显示；整体拖动、对齐、方向键、图层批量偏移或带偏移粘贴区域时，显式 `sortY` 必须同步相同 Y 位移。顶点编辑或外框尺寸调整不自动移动显式基线。
 
 ## 模块
 

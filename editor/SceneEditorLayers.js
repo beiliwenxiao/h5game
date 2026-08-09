@@ -267,14 +267,21 @@ export class SceneEditorLayers {
 
     if (offsetX === 0 && offsetY === 0) return;
 
+    editor.history.saveHistory();
     for (const obj of layer.objects) {
-      obj.x = Math.round(obj.x + offsetX);
-      obj.y = Math.round(obj.y + offsetY);
+      if (Number.isFinite(obj.x)) obj.x = Math.round(obj.x + offsetX);
+      if (Number.isFinite(obj.y)) obj.y = Math.round(obj.y + offsetY);
+      if (Array.isArray(obj.points)) {
+        obj.points = obj.points.map(point => [
+          Math.round(point[0] + offsetX),
+          Math.round(point[1] + offsetY)
+        ]);
+      }
+      if (Number.isFinite(obj.sortY)) obj.sortY += offsetY;
     }
 
     editor.ui.showToast(`已偏移"${layer.name}"中 ${layer.objects.length} 个对象 (${offsetX}, ${offsetY})`);
     editor.ui.updateObjectProperties();
-    editor.history.saveHistory();
     editor.render();
   }
 

@@ -30,35 +30,19 @@
         #gameCanvas {
             border: 2px solid #4CAF50;
             background-color: #2a2a2a;
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
+            image-rendering: auto;
             width: 100%;
             height: 100%;
         }
         
         #ui-overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-        }
-        
-        #tutorial-panel {
-            position: absolute;
-            top: 20px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
-            padding: 20px 40px;
-            border-radius: 15px;
-            border: 3px solid #2196F3;
-            pointer-events: auto;
-            max-width: 600px;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(33, 150, 243, 0.5);
-            animation: fadeIn 0.3s ease-in;
+            transform: translate(-50%, -50%);
+            width: var(--game-display-width, 100%);
+            height: var(--game-display-height, 100%);
+            pointer-events: none;
         }
         
         #tips-panel {
@@ -93,23 +77,10 @@
             }
         }
         
-        #tutorial-panel h3 {
-            color: #2196F3;
-            margin-bottom: 15px;
-            font-size: 16px;
-        }
-        
         #tips-panel h3 {
             color: #4CAF50;
             margin-bottom: 15px;
             font-size: 16px;
-        }
-        
-        #tutorial-panel p {
-            font-size: 14px;
-            line-height: 1.6;
-            color: #ffffff;
-            margin-bottom: 20px;
         }
         
         #tips-panel p {
@@ -117,17 +88,6 @@
             line-height: 1.3;
             color: #ffffff;
             margin: 0;
-        }
-        
-        #tutorial-panel .key {
-            display: inline-block;
-            background: #2196F3;
-            color: #000;
-            padding: 3px 9px;
-            border-radius: 6px;
-            font-weight: bold;
-            font-size: 14px;
-            margin: 0 3px;
         }
         
         #tips-panel .key {
@@ -139,46 +99,6 @@
             font-weight: bold;
             font-size: 14px;
             margin: 0 3px;
-        }
-        
-        #tutorial-panel .tutorial-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 15px;
-        }
-        
-        #tutorial-panel button {
-            padding: 10px 20px;
-            background: #4CAF50;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        #tutorial-panel button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        
-        #tutorial-panel button:active {
-            transform: translateY(0);
-        }
-        
-        #tutorial-panel button:disabled {
-            background: #666;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-        
-        #tutorial-panel .step-indicator {
-            font-size: 14px;
-            color: #aaa;
-            margin-top: 10px;
         }
         
         #controls-hint {
@@ -797,16 +717,6 @@
         <canvas id="gameCanvas"></canvas>
         
         <div id="ui-overlay">
-            <div id="tutorial-panel" class="hidden">
-                <h3 id="tutorial-title">教程</h3>
-                <p id="tutorial-text">教程内容</p>
-                <div class="tutorial-buttons">
-                    <button id="tutorial-prev-btn" style="display: none;">上一步</button>
-                    <button id="tutorial-next-btn">下一步</button>
-                </div>
-                <div class="step-indicator" id="tutorial-step-indicator"></div>
-            </div>
-            
             <div id="tips-panel" class="hidden">
                 <h3 id="tips-title">提示</h3>
                 <p id="tips-text">提示内容</p>
@@ -978,6 +888,7 @@
         import { SceneManager } from '../../src/core/SceneManager.js';
         import { AssetManager } from '../../src/core/AssetManager.js';
         import { PlatformProfile } from '../../src/core/PlatformProfile.js';
+        import { InputHints } from '../../src/core/input/InputHints.js';
         import { DialogueBox } from '../../src/ui/DialogueBox.js';
         import { SkillTreePanel } from '../../src/ui/SkillTreePanel.js';
         import { NotificationSystem } from '../../src/ui/NotificationSystem.js';
@@ -986,6 +897,7 @@
         import { PlayerInfoPanel } from '../../src/ui/PlayerInfoPanel.js';
         import { ItemIconRenderer } from '../../src/ui/ItemIconRenderer.js';
         import { SaveGameService } from '../../src/core/snapshot/SaveGameService.js';
+        import { CanvasDisplayScaler } from '../../src/core/CanvasDisplayScaler.js';
         import { normalizePresentationProfile } from '../../src/core/PresentationProfile.js';
         import presentationProfileData from './config/presentation.json';
         import { PortraitsConfig } from './data/PortraitsConfig.js';
@@ -1030,19 +942,25 @@
         // 获取元素
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const displayScaler = new CanvasDisplayScaler(canvas, {
+            logicalWidth: logicalResolution.width,
+            logicalHeight: logicalResolution.height,
+            scaleMode: logicalResolution.scaleMode,
+            maxDpr: 2
+        });
         
-        // Canvas buffer 使用项目固定逻辑分辨率，CSS 继续负责物理窗口和横竖屏适配。
+        // 世界、相机和编辑器继续使用固定逻辑坐标；仅 Canvas backing 按显示尺寸与 DPR 提升。
         function resizeCanvas() {
-            const width = logicalResolution.width;
-            const height = logicalResolution.height;
-            if (canvas.width !== width) canvas.width = width;
-            if (canvas.height !== height) canvas.height = height;
+            const display = displayScaler.resize();
+            gameContainer.style.setProperty('--game-display-width', `${display.cssWidth}px`);
+            gameContainer.style.setProperty('--game-display-height', `${display.cssHeight}px`);
             
             if (sceneManager) {
-                sceneManager.setRenderSize(width, height);
+                sceneManager.setRenderSize(logicalResolution.width, logicalResolution.height);
                 const currentScene = sceneManager.getCurrentScene();
                 if (currentScene && currentScene.onResize) {
-                    currentScene.onResize(width, height);
+                    currentScene.onResize(logicalResolution.width, logicalResolution.height);
                 }
             }
         }
@@ -1060,12 +978,6 @@
         const loadingScreen = document.getElementById('loading-screen');
         const progressFill = document.getElementById('progress-fill');
         const loadingText = document.getElementById('loading-text');
-        const tutorialPanel = document.getElementById('tutorial-panel');
-        const tutorialTitle = document.getElementById('tutorial-title');
-        const tutorialText = document.getElementById('tutorial-text');
-        const tutorialNextBtn = document.getElementById('tutorial-next-btn');
-        const tutorialPrevBtn = document.getElementById('tutorial-prev-btn');
-        const tutorialStepIndicator = document.getElementById('tutorial-step-indicator');
         
         const tipsPanel = document.getElementById('tips-panel');
         const tipsTitle = document.getElementById('tips-title');
@@ -2057,84 +1969,14 @@
             openSystemMenu();
         }
         
-        // 当前教程数据
-        let currentTutorialData = null;
-        
-        
-        // 教程按钮事件
-        tutorialNextBtn.addEventListener('click', () => {
-            if (scene && scene.tutorialSystem) {
-                const hasNext = scene.tutorialSystem.nextStep();
-                if (!hasNext) {
-                    // 没有下一步了，隐藏教程
-                    hideTutorial();
-                }
-            }
-        });
-        
-        tutorialPrevBtn.addEventListener('click', () => {
-            if (scene && scene.tutorialSystem) {
-                scene.tutorialSystem.previousStep();
-            }
-        });
-        
         // 为场景设置回调
         function setupSceneCallbacks(sceneInstance) {
-            if (!sceneInstance || !sceneInstance.tutorialSystem) {
-                console.warn('setupSceneCallbacks: 场景或教程系统不存在');
+            if (!sceneInstance) {
+                console.warn('setupSceneCallbacks: 场景不存在');
                 return;
             }
             
             console.log('setupSceneCallbacks: 为场景设置回调');
-            
-            // 设置教程回调
-            sceneInstance.tutorialSystem.onShow((data) => {
-                console.log('index.html: onShow 回调被触发');
-                currentTutorialData = data;
-                
-                // 判断是渐进式提示还是基础教程
-                const isProgressiveTip = data.tutorialId && data.tutorialId.startsWith('progressive_tip_');
-                
-                // 处理两种回调格式：
-                // 1. showTutorial 调用时传入 tutorial 对象
-                // 2. showStep 调用时传入 stepData 对象
-                if (data.step && data.step.text) {
-                    // stepData 格式（多步教程）
-                    if (isProgressiveTip) {
-                        // 渐进式提示：使用提示面板（无按钮）
-                        showTips(data.tutorialTitle, data.step.text);
-                    } else {
-                        // 基础教程：使用教程面板（有按钮）
-                        showTutorial(
-                            data.tutorialTitle, 
-                            data.step.text,
-                            data.stepIndex,
-                            data.totalSteps,
-                            data.isLastStep
-                        );
-                    }
-                } else if (data.title) {
-                    // tutorial 对象格式（首次显示）
-                    if (isProgressiveTip) {
-                        // 渐进式提示：使用提示面板（无按钮）
-                        showTips(data.title, data.steps[0]?.text || '');
-                    } else {
-                        // 基础教程：使用教程面板（有按钮）
-                        showTutorial(
-                            data.title, 
-                            data.steps[0]?.text || '',
-                            0,
-                            data.steps.length,
-                            data.steps.length === 1
-                        );
-                    }
-                }
-            });
-            
-            sceneInstance.tutorialSystem.onHide(() => {
-                hideTutorial();
-                hideTips();
-            });
             
             // 设置对话系统回调（如果有）
             if (sceneInstance.dialogueSystem) {
@@ -2258,7 +2100,7 @@
 
                 await nextStep(); // 步骤 2
                 sceneManager = new SceneManager();
-                sceneManager.setRenderSize(canvas.width, canvas.height);
+                sceneManager.setRenderSize(logicalResolution.width, logicalResolution.height);
 
                 await nextStep(); // 步骤 3
                 notificationSystem = new NotificationSystem({ x: 10, y: 100, maxNotifications: 5 });
@@ -2285,6 +2127,8 @@
                     const dd = new DataDrivenPrologueScene();
                     dd.assetManager = assetManager;
                     dd.audioManager = assetManager.getAudioManager();
+                    // 启动意图必须在 enter() 前写入，避免世界加载过快时新档/读档竞态。
+                    dd.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
                     sceneManager.registerScene('DataDrivenPrologueScene', dd);
                     dd.setSceneManager(sceneManager);
                     scene = dd;
@@ -2295,8 +2139,6 @@
                     setupSceneCallbacks(scene);
                     scene.setSystemMenuCallback?.(() => openSystemMenu());
                     scene.setAutoSaveCallback?.(context => autoSaveCurrentGame({ reason: context?.reason || 'scene-event' }));
-                    // 场景须明确区分新档和读档：成长初始点只在新档 GameLoader 就绪时授予。
-                    scene.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
 
                     // 启动必须等待世界和 GameLoader 成功；任何失败都不能进入可运行或可写档状态。
                     const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);
@@ -2377,48 +2219,9 @@
         // 是否触屏设备
         const IS_TOUCH = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
         
-        // 注意：平台文案已由配置层（ProgressiveTipsConfig / TutorialConfig 的
-        // .desktop / .mobile 两套）直接提供，不再在显示时做按键->按钮的运行时替换。
-        // 此函数保留为透传，仅作兼容入口；如需对非配置来源文本做兜底处理可在此扩展。
+        // DOM 提示面板统一消费 InputHints，禁止把 {move} 等 token 原样显示。
         function localizeHintKeys(html) {
-            return html;
-        }
-        
-        // 显示教程（基础教程，有按钮）
-        function showTutorial(title, text, stepIndex = 0, totalSteps = 1, isLastStep = true) {
-            tutorialTitle.textContent = title;
-            // 使用innerHTML支持HTML标签（触屏时把按键替换为屏幕按钮名）
-            tutorialText.innerHTML = localizeHintKeys(text);
-            tutorialPanel.classList.remove('hidden');
-            
-            // 更新步骤指示器
-            if (totalSteps > 1) {
-                tutorialStepIndicator.textContent = `步骤 ${stepIndex + 1} / ${totalSteps}`;
-                tutorialStepIndicator.style.display = 'block';
-            } else {
-                tutorialStepIndicator.style.display = 'none';
-            }
-            
-            // 更新按钮状态
-            // 上一步按钮：只在不是第一步时显示
-            if (stepIndex > 0) {
-                tutorialPrevBtn.style.display = 'inline-block';
-            } else {
-                tutorialPrevBtn.style.display = 'none';
-            }
-            
-            // 下一步按钮：最后一步显示"完成"，其他显示"下一步"
-            if (isLastStep) {
-                tutorialNextBtn.textContent = '完成';
-            } else {
-                tutorialNextBtn.textContent = '下一步';
-            }
-        }
-        
-        // 隐藏教程
-        function hideTutorial() {
-            tutorialPanel.classList.add('hidden');
-            currentTutorialData = null;
+            return InputHints.formatHtml(String(html || ''));
         }
         
         // 显示提示（渐进式提示，无按钮）
@@ -2437,11 +2240,6 @@
         // 暴露给数据驱动场景(DataDrivenPrologueScene)复用原版提示样式
         window.__ddShowTips = (title, text) => showTips(title, text);
         window.__ddHideTips = () => hideTips();
-        
-        // 目标帧率限制
-        const TARGET_FPS = 60;
-        const FRAME_INTERVAL = 1000 / TARGET_FPS;
-        let lastFrameTime = 0;
         
         // 更新技能按钮冷却状态（技能3/4/5 = data-skill 0/1/2）
         function updateSkillButtonCooldowns() {
@@ -2629,17 +2427,10 @@
             }
         }
         
-        // 游戏循环
+        // 游戏循环：每个 RAF 都更新和渲染，避免手工限帧造成位移台阶。
         function gameLoop(currentTime) {
-            // 帧率限制：跳过过快的帧
-            const elapsed = currentTime - lastFrameTime;
-            if (elapsed < FRAME_INTERVAL) {
-                requestAnimationFrame(gameLoop);
-                return;
-            }
-            lastFrameTime = currentTime - (elapsed % FRAME_INTERVAL);
-            
-            const deltaTime = (currentTime - lastTime) / 1000;
+            // 页面切换或长任务后的异常间隔最多推进 50ms，避免实体瞬移。
+            const deltaTime = Math.min(Math.max((currentTime - lastTime) / 1000, 0), 0.05);
             lastTime = currentTime;
             
             // 计算 FPS
@@ -2651,9 +2442,8 @@
                 fpsTime = 0;
             }
             
-            // 清空画布
-            ctx.fillStyle = '#2a2a2a';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 清空物理 backing，并恢复到项目逻辑坐标系后再绘制。
+            displayScaler.beginFrame(ctx, '#2a2a2a');
             
             // 更新和渲染场景
             if (sceneManager) {
@@ -3720,8 +3510,8 @@
                 const rect = canvas.getBoundingClientRect();
                 // 获取当前场景的逻辑尺寸（camera 尺寸），确保与渲染坐标系一致
                 const cs = sceneManager ? sceneManager.getCurrentScene() : null;
-                const logicW = (cs && cs.logicalWidth) || canvas.width;
-                const logicH = (cs && cs.logicalHeight) || canvas.height;
+                const logicW = (cs && cs.logicalWidth) || canvas.logicalWidth || logicalResolution.width;
+                const logicH = (cs && cs.logicalHeight) || canvas.logicalHeight || logicalResolution.height;
                 if (!rotate) {
                     // 未旋转：归一化到逻辑坐标
                     const x = (clientX - rect.left) / rect.width * logicW;

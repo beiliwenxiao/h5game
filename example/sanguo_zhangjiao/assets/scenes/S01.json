@@ -4,16 +4,6 @@
   "width": 1280,
   "height": 720,
   "backgroundColor": "#5a4a32",
-  "productionState": "greybox",
-  "previewOnly": false,
-  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
-  "composition": {
-    "complexity": "low",
-    "focalPoint": "S01-spawn-campfire",
-    "primaryRoute": ["S01-spawn-player", "S01-zone-campfire", "S01-zone-north-exit"],
-    "cameraFrame": { "width": 1280, "height": 720 }
-  },
-  "assetBudget": { "environmentModules": 8, "actorVariants": 4, "interactiveProps": 5, "vfx": 3, "audioLayers": 2 },
   "layers": [
     {
       "id": "layer_bg",
@@ -33,7 +23,24 @@
           "type": "shape",
           "shapeType": "polygon",
           "name": "营火主通行动线",
-          "points": [[690,720],[805,720],[665,450],[525,450]],
+          "points": [
+            [
+              690,
+              720
+            ],
+            [
+              805,
+              720
+            ],
+            [
+              665,
+              450
+            ],
+            [
+              525,
+              450
+            ]
+          ],
           "fillMode": "color",
           "fill": "#9a8054",
           "opacity": 0.45,
@@ -54,7 +61,24 @@
           "type": "shape",
           "shapeType": "polygon",
           "name": "营火安全区",
-          "points": [[500,430],[705,430],[740,585],[480,585]],
+          "points": [
+            [
+              500,
+              430
+            ],
+            [
+              705,
+              430
+            ],
+            [
+              740,
+              585
+            ],
+            [
+              480,
+              585
+            ]
+          ],
           "fillMode": "color",
           "fill": "#d58b35",
           "opacity": 0.18,
@@ -66,7 +90,24 @@
           "type": "shape",
           "shapeType": "polygon",
           "name": "盗匪警戒构图区",
-          "points": [[825,230],[1150,190],[1200,430],[875,460]],
+          "points": [
+            [
+              825,
+              230
+            ],
+            [
+              1150,
+              190
+            ],
+            [
+              1200,
+              430
+            ],
+            [
+              875,
+              460
+            ]
+          ],
           "fillMode": "color",
           "fill": "#7b3530",
           "opacity": 0.18,
@@ -120,7 +161,7 @@
           "id": "S01-spawn-player",
           "type": "spawn",
           "ref": "player",
-          "x": 685.05,
+          "x": 685.67,
           "y": 548.51
         },
         {
@@ -136,17 +177,113 @@
           "kind": "item",
           "ref": "tool.worn_axe",
           "group": "S01-initial",
-          "x": 640,
-          "y": 500,
-          "overrides": { "instanceId": "S01-tool-axe-1" }
+          "x": 639.72,
+          "y": 598.78,
+          "overrides": {
+            "instanceId": "S01-tool-axe-1"
+          }
         },
-        { "id": "S01-node-wood-1", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 430, "y": 390 },
-        { "id": "S01-node-wood-2", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 335, "y": 285 },
-        { "id": "S01-node-wood-3", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 775, "y": 340 },
-        { "id": "S01-node-herb-1", "type": "ref", "kind": "resourceNode", "ref": "node.wild_herb", "group": "S01-initial", "tags": ["resource", "herb"], "x": 515, "y": 315 },
-        { "id": "S01-node-herb-2", "type": "ref", "kind": "resourceNode", "ref": "node.wild_herb", "group": "S01-initial", "tags": ["resource", "herb"], "x": 725, "y": 260 },
-        { "id": "S01-bandit-1", "type": "ref", "kind": "enemy", "ref": "enemy.s01_bandit", "group": "S01-initial", "tags": ["bandit", "warning-zone"], "x": 930, "y": 300 },
-        { "id": "S01-bandit-2", "type": "ref", "kind": "enemy", "ref": "enemy.s01_bandit", "group": "S01-initial", "tags": ["bandit", "warning-zone"], "x": 1050, "y": 355 }
+        {
+          "id": "S01-node-wood-1",
+          "type": "ref",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "group": "S01-initial",
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "x": 430,
+          "y": 390
+        },
+        {
+          "id": "S01-node-wood-2",
+          "type": "ref",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "group": "S01-initial",
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "x": 335,
+          "y": 285
+        },
+        {
+          "id": "S01-node-wood-3",
+          "type": "ref",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "group": "S01-initial",
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "x": 775,
+          "y": 340
+        },
+        {
+          "id": "S01-node-herb-1",
+          "type": "ref",
+          "kind": "resourceNode",
+          "ref": "node.wild_herb",
+          "group": "S01-initial",
+          "tags": [
+            "resource",
+            "herb"
+          ],
+          "x": 515,
+          "y": 315
+        },
+        {
+          "id": "S01-node-herb-2",
+          "type": "ref",
+          "kind": "resourceNode",
+          "ref": "node.wild_herb",
+          "group": "S01-initial",
+          "tags": [
+            "resource",
+            "herb"
+          ],
+          "x": 725,
+          "y": 260
+        },
+        {
+          "id": "S01-bandit-1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s01_bandit",
+          "group": "S01-bandits",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "path": "pendingDefeatResolution",
+            "equals": "specialFaint"
+          },
+          "tags": [
+            "bandit",
+            "warning-zone"
+          ],
+          "x": 930,
+          "y": 300
+        },
+        {
+          "id": "S01-bandit-2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s01_bandit",
+          "group": "S01-bandits",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "path": "pendingDefeatResolution",
+            "equals": "specialFaint"
+          },
+          "tags": [
+            "bandit",
+            "warning-zone"
+          ],
+          "x": 1050,
+          "y": 355
+        }
       ]
     },
     {
@@ -207,6 +344,29 @@
   ],
   "decorations": [],
   "colliders": [],
+  "productionState": "greybox",
+  "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": {
+    "complexity": "low",
+    "focalPoint": "S01-spawn-campfire",
+    "primaryRoute": [
+      "S01-spawn-player",
+      "S01-zone-campfire",
+      "S01-zone-north-exit"
+    ],
+    "cameraFrame": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "assetBudget": {
+    "environmentModules": 8,
+    "actorVariants": 4,
+    "interactiveProps": 5,
+    "vfx": 3,
+    "audioLayers": 2
+  },
   "type": "terrain",
   "sceneType": "worldChunk",
   "worldMap": "region-a",
@@ -306,6 +466,18 @@
     "img_1784926747445": {
       "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
       "name": "bg_0_0.png"
+    },
+    "graybox.naturalTerrain": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
+      "name": "自然地形灰盒"
+    },
+    "graybox.cityGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/city-ground.svg",
+      "name": "城市场地灰盒"
+    },
+    "graybox.battlefieldUnit": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
+      "name": "战场单位灰盒"
     }
   }
 }

@@ -18,7 +18,7 @@
 
 import { FieldType, ContentValidator } from './ContentValidator.js';
 import { ValidationCode, makeError } from './ValidationError.js';
-import { CANONICAL_SCHEMAS } from '../../data/schema/CanonicalSchemas.js';
+import { CANONICAL_SCHEMAS, CANONICAL_SCHEMA_VERSION } from '../../data/schema/CanonicalSchemas.js';
 import { ASSET_MANIFEST_SCHEMAS } from '../../data/schema/AssetManifestSchemas.js';
 import { PRESENTATION_PROFILE_SCHEMAS } from '../../data/schema/PresentationProfileSchemas.js';
 
@@ -254,7 +254,92 @@ export const PROGRESSION_CONFIG_SCHEMA = {
   }
 };
 
-/** 全部内置 Schema：成长配置 + Canonical 业务模型 */
+/** 通用救援阶段；人物、场景与历史事实只通过稳定引用进入内容定义。 */
+export const RESCUE_STAGE_SCHEMA = {
+  id: 'rescueStage',
+  fields: {
+    id: { type: FieldType.STRING, required: true, minLength: 1 },
+    objective: { type: FieldType.STRING, required: true, minLength: 1 }
+  },
+  validate(stage) {
+    const errors = [];
+    if (typeof stage.id === 'string' && !stage.id.trim()) {
+      errors.push(makeError(ValidationCode.MISSING_FIELD, 'id', '救援阶段 id 不能为空'));
+    }
+    if (typeof stage.objective === 'string' && !stage.objective.trim()) {
+      errors.push(makeError(ValidationCode.MISSING_FIELD, 'objective', '救援阶段目标不能为空'));
+    }
+    return { ok: errors.length === 0, errors };
+  }
+};
+
+/** 通用限时救援定义；运行时只解释模式、时限、阶段、成本和稳定引用。 */
+export const RESCUE_DEFINITION_SCHEMA = {
+  id: 'rescueDefinition',
+  fields: {
+    schemaVersion: { type: FieldType.INTEGER, required: true, min: 1, max: 1 },
+    id: { type: FieldType.STRING, required: true, minLength: 1 },
+    battleId: { type: FieldType.STRING, required: true, minLength: 1 },
+    duration: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
+    allowedModes: {
+      type: FieldType.ARRAY,
+      required: true,
+      minItems: 1,
+      itemType: FieldType.STRING
+    },
+    targetEntityId: { type: FieldType.STRING, minLength: 1 },
+    evacuationRef: { type: FieldType.STRING, minLength: 1 },
+    stages: {
+      type: FieldType.ARRAY,
+      required: true,
+      minItems: 1,
+      itemSchema: 'rescueStage'
+    },
+    costs: { type: FieldType.OBJECT, valueType: FieldType.NUMBER }
+  },
+  validate(definition) {
+    const errors = [];
+    if (typeof definition.id === 'string' && !definition.id.trim()) {
+      errors.push(makeError(ValidationCode.MISSING_FIELD, 'id', '救援定义 id 不能为空'));
+    }
+    if (typeof definition.battleId === 'string' && !definition.battleId.trim()) {
+      errors.push(makeError(ValidationCode.MISSING_FIELD, 'battleId', '救援 battleId 不能为空'));
+    }
+    for (const [index, mode] of (definition.allowedModes || []).entries()) {
+      if (mode === 'observe' || mode === 'intervene') continue;
+      errors.push(makeError(
+        ValidationCode.OUT_OF_RANGE,
+        `allowedModes[${index}]`,
+        '救援模式必须为 observe 或 intervene'
+      ));
+    }
+    const stageIds = new Set();
+    for (const [index, stage] of (definition.stages || []).entries()) {
+      if (!stage?.id || stageIds.has(stage.id)) {
+        if (stageIds.has(stage?.id)) {
+          errors.push(makeError(
+            ValidationCode.DUPLICATE_ID,
+            `stages[${index}].id`,
+            `重复的救援阶段 id: ${stage.id}`
+          ));
+        }
+        continue;
+      }
+      stageIds.add(stage.id);
+    }
+    for (const [resource, amount] of Object.entries(definition.costs || {})) {
+      if (amount >= 0) continue;
+      errors.push(makeError(
+        ValidationCode.OUT_OF_RANGE,
+        `costs.${resource}`,
+        '救援成本不得为负数'
+      ));
+    }
+    return { ok: errors.length === 0, errors };
+  }
+};
+
+/** 全部内置 Schema：成长配置、救援定义 + Canonical 业务模型 */
 export const CONTENT_SCHEMAS = [
   EFFECT_SCHEMA,
   SKILL_SCHEMA,
@@ -262,6 +347,8 @@ export const CONTENT_SCHEMAS = [
   GRAPH_SCHEMA,
   PROFICIENCY_CONFIG_SCHEMA,
   PROGRESSION_CONFIG_SCHEMA,
+  RESCUE_STAGE_SCHEMA,
+  RESCUE_DEFINITION_SCHEMA,
   ...CANONICAL_SCHEMAS,
   ...ASSET_MANIFEST_SCHEMAS,
   ...PRESENTATION_PROFILE_SCHEMAS
@@ -273,7 +360,7 @@ export const CONTENT_SCHEMAS = [
  * @returns {ContentValidator}
  */
 export function createContentValidator(config = {}) {
-  const validator = new ContentValidator(config);
+  const validator = new ContentValidator({ supportedVersion: CANONICAL_SCHEMA_VERSION, ...config });
   validator.registerSchemas(CONTENT_SCHEMAS);
   return validator;
 }

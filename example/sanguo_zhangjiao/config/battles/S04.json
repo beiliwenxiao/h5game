@@ -1,0 +1,57 @@
+{
+  "id": "battle.s04.changshe",
+  "battleId": "battle.s04.changshe",
+  "title": "S04·长社战场",
+  "description": "火攻后的长社战线仍在燃烧。介入后可选择护送波才向东突围。",
+  "participantFactionIds": ["yellow_turban", "han_government"],
+  "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s04.changshe", "terrainId": "terrain.s04.changshe",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s04.yellow_turban", "name": "长社黄巾残军", "factionId": "yellow_turban", "formationIds": ["formation.s04.yellow_turban"], "commanderHeroId": "hero.bocai", "morale": 100, "resources": { "food": 24, "wood": 12, "iron": 2, "herb": 10 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s04.han", "name": "长社官军", "factionId": "han_government", "formationIds": ["formation.s04.han"], "commanderHeroId": "hero.s04.han_commander", "morale": 0, "resources": { "food": 45, "wood": 20, "iron": 18, "herb": 16 } },
+    "attackerMorale": 100, "defenderMorale": 0,
+    "attackerCommanderId": "hero.bocai", "defenderCommanderId": "hero.s04.han_commander",
+    "weather": "smoke", "seed": 30401, "logicalTime": 150,
+    "affectedCityId": "city.s04_changshe",
+    "resourceSourceCityId": "city.s04_changshe",
+    "resourceDestinationCityId": "city.s09_guangzong_camp",
+    "resourceNodeIds": ["node.wild_herb"]
+  },
+  "outcomePriority": [
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" },
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" },
+    "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" },
+    "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "在火场与毒区中击溃长社官军",
+  "playerInterventionFactionId": "yellow_turban",
+  "realtimeMorale": { "yellow_turban": 68, "han_government": 72 },
+  "realtimeResult": {
+    "byWinner": {
+      "yellow_turban": {
+        "capturedResources": { "wood": 3, "iron": 2, "food": 8, "herb": 4 },
+        "cityDamage": 0.25,
+        "damagedResourceNodeIds": []
+      },
+      "han_government": {
+        "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 },
+        "cityDamage": 0.1,
+        "damagedResourceNodeIds": ["node.wild_herb"]
+      }
+    }
+  },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "长社战场·选择参战方式",
+    "description": "观战可记录战果；介入后可在西侧残旗下启动波才救援，90 秒内护送至东侧撤离点。",
+    "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能影响交战单位", "不能启动波才救援", "等待长社战果冻结"] },
+    "intervene": { "label": "介入", "consequences": ["进入黄巾残军阵线", "可启动波才限时救援", "承担火场与毒区风险"] }
+  }
+}

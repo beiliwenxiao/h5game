@@ -106,6 +106,7 @@ export class SceneRenderPipeline {
       queue.length = 0;
       scene.terrain.renderBelowDecorations(ctx);
       scene.terrain.collectDecorations(queue, ctx, this._viewBounds);
+      scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
       let entityItemCount = 0;
       for (let i = 0, len = scene.entities.length; i < len; i++) {
         const entity = scene.entities[i];
@@ -119,10 +120,11 @@ export class SceneRenderPipeline {
         }
         entityItemCount++;
         item.y = transform.position.y;
+        item.sortPriority = 2;
         item.entity = entity;
         queue.push(item);
       }
-      queue.sort((a, b) => a.y - b.y);
+      queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
       for (let i = 0, len = queue.length; i < len; i++) {
         const item = queue[i];
         if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
@@ -134,20 +136,32 @@ export class SceneRenderPipeline {
       return;
     }
 
-    const entities = this._entitySortBuffer;
-    entities.length = 0;
+    const queue = this._worldQueue;
+    queue.length = 0;
+    scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
+    let entityItemCount = 0;
     for (let i = 0, len = scene.entities.length; i < len; i++) {
       const entity = scene.entities[i];
-      if (this._isEntityVisible(entity)) entities.push(entity);
+      if (!this._isEntityVisible(entity)) continue;
+      const position = entity.getComponent('transform')?.position;
+      if (!position) continue;
+      let item = this._entityQueueItems[entityItemCount];
+      if (!item) {
+        item = { type: 'entity', y: 0, sortPriority: 2, entity: null };
+        this._entityQueueItems[entityItemCount] = item;
+      }
+      entityItemCount++;
+      item.y = position.y - (position.z || 0) * 0.01;
+      item.sortPriority = 2;
+      item.entity = entity;
+      queue.push(item);
     }
-    entities.sort((a, b) => {
-      const positionA = a.getComponent('transform')?.position;
-      const positionB = b.getComponent('transform')?.position;
-      const depthA = positionA ? positionA.y - (positionA.z || 0) * 0.01 : 0;
-      const depthB = positionB ? positionB.y - (positionB.z || 0) * 0.01 : 0;
-      return depthA - depthB;
-    });
-    for (let i = 0, len = entities.length; i < len; i++) scene.renderEntity(ctx, entities[i]);
+    queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
+    for (let i = 0, len = queue.length; i < len; i++) {
+      const item = queue[i];
+      if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
+      else item.render?.();
+    }
   }
 
   /** 入队前的无分配视野检测；边距覆盖名称、血条和高精灵。 @private */

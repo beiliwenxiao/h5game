@@ -1,0 +1,58 @@
+{
+  "id": "battle.s03.yingchuan",
+  "battleId": "battle.s03.yingchuan",
+  "title": "S03·颍川首战",
+  "description": "黄巾初阵与颍川官军相遇。观战保全自身但不能影响交战单位；介入可进入战线并承担伤亡风险。",
+  "participantFactionIds": ["yellow_turban", "han_government"],
+  "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s03.yingchuan", "terrainId": "terrain.s03.yingchuan",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s03.yellow_turban", "name": "颍川黄巾先军", "factionId": "yellow_turban", "formationIds": ["formation.s03.yellow_turban.vanguard"], "commanderHeroId": "hero.zhangjiao", "morale": 100, "resources": { "food": 40, "wood": 20, "iron": 5, "herb": 15 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s03.han_garrison", "name": "颍川官军守军", "factionId": "han_government", "formationIds": ["formation.s03.han_garrison.line"], "commanderHeroId": "hero.s03.han_commander", "morale": 0, "resources": { "food": 80, "wood": 50, "iron": 40, "herb": 30 } },
+    "attackerMorale": 100, "defenderMorale": 0,
+    "attackerCommanderId": "hero.zhangjiao", "defenderCommanderId": "hero.s03.han_commander",
+    "weather": "dry", "seed": 30301, "logicalTime": 120,
+    "affectedCityId": "city.s03_yingchuan",
+    "resourceSourceCityId": "city.s03_yingchuan",
+    "resourceDestinationCityId": "city.s09_guangzong_camp",
+    "resourceNodeIds": []
+  },
+  "outcomePriority": [
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" },
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" },
+    "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" },
+    "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "击溃颍川官军或使其士气崩溃",
+  "playerInterventionFactionId": "yellow_turban",
+  "realtimeMorale": {
+    "yellow_turban": 75,
+    "han_government": 65
+  },
+  "realtimeResult": {
+    "byWinner": {
+      "yellow_turban": {
+        "capturedResources": { "wood": 6, "iron": 4, "food": 12, "herb": 3 },
+        "cityDamage": 0.18,
+        "damagedResourceNodeIds": []
+      },
+      "han_government": {
+        "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 },
+        "cityDamage": 0.05,
+        "damagedResourceNodeIds": []
+      }
+    }
+  },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "颍川首战·选择参战方式", "description": "本场选择确认后不可更改；确认后两军将按实时 Combat/AI/Collision 流程交战。", "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能伤害或治疗交战阵营", "不能使用战场救援入口", "保留探索与非战役交互"] },
+    "intervene": { "label": "介入", "consequences": ["进入黄巾前线", "允许影响战斗与使用救援", "承担战场伤亡风险"] }
+  }
+}

@@ -728,6 +728,11 @@ export class SceneEditorUI {
           this._pruneEmptyObjects(obj.overrides);
           if (Object.keys(obj.overrides).length === 0) delete obj.overrides;
         } else {
+          // 直接编辑 Y 属于整体位移；显式排序基线跟随同一差值。
+          // width/height 调整只改变外框，显式 sortY 保持用户指定的世界脚底线。
+          if (prop === 'y' && Number.isFinite(obj.y) && Number.isFinite(obj.sortY) && Number.isFinite(value)) {
+            obj.sortY += value - obj.y;
+          }
           obj[prop] = value;
         }
 
@@ -909,6 +914,8 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label>速度:</label><input type="number" value="${obj.particleSpeed || 40}" min="0" max="500" data-prop="particleSpeed"></div>`;
     html += `<div class="property-row"><label>主色:</label><input type="color" value="${obj.particleColor || '#ff6622'}" data-prop="particleColor"></div>`;
     html += `<div class="property-row"><label>透明度:</label><input type="number" value="${obj.particleAlpha || 0.8}" step="0.05" min="0" max="1" data-prop="particleAlpha"></div>`;
+    html += `<div class="property-row"><label title="与实体按脚底基线共同排序，而不是固定覆盖所有角色">世界深度:</label><input type="checkbox" ${obj.depthSort === true ? 'checked' : ''} data-prop="depthSort"></div>`;
+    html += `<div class="property-row"><label title="特效区域的脚底排序 Y；默认使用区域底边">排序基线Y:</label><input type="number" value="${Number.isFinite(obj.sortY) ? obj.sortY : (obj.y || 0) + (obj.height || 0)}" data-prop="sortY"></div>`;
     html += '<div class="property-row" style="border-top:1px solid #444;margin-top:4px;padding-top:4px;"><label style="color:#ffbb66;">编辑器预览</label></div>';
     html += `<div class="property-row"><label>填充色:</label><input type="text" value="${obj.fillColor || 'rgba(255,120,30,0.15)'}" data-prop="fillColor" style="font-size:10px;"></div>`;
     html += `<div class="property-row"><label>边框色:</label><input type="text" value="${obj.borderColor || 'rgba(255,140,40,0.7)'}" data-prop="borderColor" style="font-size:10px;"></div>`;
@@ -1253,6 +1260,8 @@ export class SceneEditorUI {
     html += `<div class="property-row"><label title="替换当前 ID 对应的图片文件，所有引用保持不变">替换文件:</label><input type="text" id="editor-image-src" value="${escapeHtml(src)}" style="flex:1;"></div>`;
     html += `<div class="property-row"><label>图片尺寸:</label><input id="editor-image-dim" value="${dim}" disabled style="color:#88ccff;"></div>`;
     html += `<div class="property-row"><label>文件大小:</label><input id="editor-image-filesize" value="计算中…" disabled style="color:#88ccff;"></div>`;
+    html += `<div class="property-row"><label title="与实体按脚底 Y 共同排序；关闭时图片固定在地面层">实体遮挡:</label><input type="checkbox" ${obj.depthSort === true ? 'checked' : ''} data-prop="depthSort"></div>`;
+    html += `<div class="property-row"><label title="图片脚底排序 Y；默认使用图片底边">排序基线Y:</label><input type="number" value="${Number.isFinite(obj.sortY) ? obj.sortY : (obj.y || 0) + (obj.height || 0)}" data-prop="sortY"></div>`;
     html += `<div class="property-row" style="margin-top:8px;"><button id="editor-image-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button><button id="editor-image-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button></div>`;
     return html;
   }

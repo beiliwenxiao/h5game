@@ -514,10 +514,15 @@ export class BaseGameScene extends Scene {
     const ctx = canvas.getContext('2d');
     this.context.setCanvasRuntime(canvas, ctx);
 
-    // Canvas buffer 固定使用项目逻辑分辨率；CSS 负责适配物理显示尺寸。
+    // 逻辑分辨率与物理 backing 分离：宿主有 DPR scaler 时不得把高清 backing 重置为 1280×720。
     const logical = this.presentationProfile.logicalResolution;
-    if (canvas.width !== logical.width) canvas.width = logical.width;
-    if (canvas.height !== logical.height) canvas.height = logical.height;
+    const displayManaged = Number(canvas.logicalWidth) > 0 && Number(canvas.logicalHeight) > 0;
+    if (!displayManaged) {
+      if (canvas.width !== logical.width) canvas.width = logical.width;
+      if (canvas.height !== logical.height) canvas.height = logical.height;
+    }
+    canvas.logicalWidth = logical.width;
+    canvas.logicalHeight = logical.height;
     this.logicalWidth = logical.width;
     this.logicalHeight = logical.height;
     this.context.runtime.width = this.logicalWidth;

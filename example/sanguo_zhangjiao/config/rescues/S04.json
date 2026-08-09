@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "rescue.s04.bocai",
+  "battleId": "battle.s04.changshe",
+  "duration": 90,
+  "allowedModes": ["intervene"],
+  "targetEntityId": "S04-bocai",
+  "evacuationRef": "bocai-evacuation",
+  "stages": [
+    {
+      "id": "escort-east",
+      "objective": "护送波才抵达东侧撤离点"
+    }
+  ],
+  "costs": {}
+}

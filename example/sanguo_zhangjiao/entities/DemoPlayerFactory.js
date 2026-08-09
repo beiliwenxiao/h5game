@@ -32,10 +32,11 @@ export class DemoPlayerFactory {
       class: selected?.class || 'refugee',
       spriteSheet: selected?.spriteSheet,
       spriteConfig: {
-        width: visual.width,
-        height: visual.height,
+        // 角色配置只补充资源布局；游戏级表现规格最后覆盖尺寸和方向权威。
+        ...(selected?.spriteConfig || {}),
         ...directionConfig,
-        ...(selected?.spriteConfig || {})
+        width: visual.width,
+        height: visual.height
       },
       level: 1,
       position: { x, y },

@@ -223,6 +223,20 @@ export class SceneEditorCanvas {
         ctx.drawImage(img, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
         ctx.restore();
       }
+      if (obj.depthSort === true) {
+        const sortY = Number.isFinite(obj.sortY) ? obj.sortY : obj.y + obj.height;
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#55ddff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(obj.x, sortY);
+        ctx.lineTo(obj.x + obj.width, sortY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        this._drawLogicLabel(ctx, `Y-sort ${Math.round(sortY)}`, obj.x + 4, sortY - 4, '#55ddff');
+        ctx.restore();
+      }
     } else if (obj.type === 'slice') {
       this._renderSliceObject(ctx, obj);
     } else if (obj.type === 'region' || obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'trigger' || obj.type === 'buffZone' || obj.type === 'effectZone') {
@@ -394,6 +408,20 @@ export class SceneEditorCanvas {
       const effectNames = { fire: '🔥火焰', water: '💧流水', lake: '🌊湖面', ice: '❄冰面', smoke: '💨烟雾', sparkle: '✨光粒' };
       this._drawLogicLabel(ctx, obj.name || '特效区域', lx, ly, '#ff9944');
       this._drawLogicLabel(ctx, effectNames[obj.effectType] || obj.effectType || '火焰', lx, ly + 14, '#ffbb66');
+      if (obj.depthSort === true) {
+        const sortY = Number.isFinite(obj.sortY) ? obj.sortY : (obj.y || 0) + (obj.height || 0);
+        ctx.save();
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#55ddff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(obj.x || 0, sortY);
+        ctx.lineTo((obj.x || 0) + (obj.width || 0), sortY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        this._drawLogicLabel(ctx, `Y-sort ${Math.round(sortY)}`, (obj.x || 0) + 4, sortY - 4, '#55ddff');
+        ctx.restore();
+      }
     } else {
       // 点状标记：spawn/portal/npc
       const colors = {
@@ -408,6 +436,38 @@ export class SceneEditorCanvas {
       } else if (obj.type === 'spawn' && obj.ref === 'campfire') {
         c = { fill: 'rgba(255,160,50,0.3)', stroke: '#ffa030', icon: '🔥' };
       }
+      const isPlayerSpawn = obj.type === 'spawn' && obj.ref === 'player';
+      // 玩家 Transform 使用脚底中心锚点；预览尺寸直接消费游戏级 Presentation Profile。
+      if (isPlayerSpawn) {
+        const playerProfile = this.editor.presentationProfile?.actors?.player || {};
+        const visualWidth = Number(playerProfile.visual?.width) > 0 ? Number(playerProfile.visual.width) : 64;
+        const visualHeight = Number(playerProfile.visual?.height) > 0 ? Number(playerProfile.visual.height) : 64;
+        const footprintWidth = Number(playerProfile.footprint?.width) > 0 ? Number(playerProfile.footprint.width) : 28;
+        const footprintHeight = Number(playerProfile.footprint?.height) > 0 ? Number(playerProfile.footprint.height) : 18;
+
+        ctx.fillStyle = 'rgba(80,180,255,0.10)';
+        ctx.strokeStyle = 'rgba(80,180,255,0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.fillRect(obj.x - visualWidth / 2, obj.y - visualHeight, visualWidth, visualHeight);
+        ctx.strokeRect(obj.x - visualWidth / 2, obj.y - visualHeight, visualWidth, visualHeight);
+        ctx.setLineDash([]);
+
+        ctx.beginPath();
+        ctx.ellipse(obj.x, obj.y, footprintWidth / 2, footprintHeight / 2, 0, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(80,180,255,0.18)';
+        ctx.fill();
+        ctx.strokeStyle = '#8dd4ff';
+        ctx.stroke();
+        this._drawLogicLabel(
+          ctx,
+          `玩家 ${visualWidth}×${visualHeight} / 占地 ${footprintWidth}×${footprintHeight}`,
+          obj.x - visualWidth / 2,
+          obj.y - visualHeight - 4,
+          '#8dd4ff'
+        );
+      }
+
       const r = 16;
       ctx.beginPath();
       ctx.arc(obj.x, obj.y, r, 0, Math.PI * 2);

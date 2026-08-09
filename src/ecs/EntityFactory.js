@@ -177,8 +177,9 @@ export class EntityFactory {
   createEnemy(enemyData) {
     const entity = new Entity(enemyData.id || this.generateId(), 'enemy');
     
-    // 设置阵营（敌人阵营）
-    entity.faction = 'enemy';
+    // 设置阵营；faction 保留敌我兼容语义，factionId 保存 canonical 战役阵营。
+    entity.faction = enemyData.faction || 'enemy';
+    entity.factionId = enemyData.factionId || entity.faction;
     
     // 添加变换组件
     const position = enemyData.position || { x: 0, y: 0 };

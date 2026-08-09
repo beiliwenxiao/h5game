@@ -88,7 +88,8 @@ export class LocalMockTransport {
     requireFields(params, [
       'battleId', 'terrainId', 'attackerArmy', 'defenderArmy',
       'attackerMorale', 'defenderMorale', 'attackerCommanderId',
-      'defenderCommanderId', 'weather', 'seed'
+      'defenderCommanderId', 'weather', 'seed', 'affectedCityId',
+      'resourceSourceCityId', 'resourceDestinationCityId'
     ]);
 
     if (!Number.isInteger(params.seed)) {
@@ -114,6 +115,9 @@ export class LocalMockTransport {
       defenderCommanderId: params.defenderCommanderId,
       weather: params.weather,
       seed: params.seed,
+      affectedCityId: params.affectedCityId,
+      resourceSourceCityId: params.resourceSourceCityId,
+      resourceDestinationCityId: params.resourceDestinationCityId,
       logicalTime: Number.isInteger(params.logicalTime) && params.logicalTime >= 0 ? params.logicalTime : 0,
       resourceNodeIds: Array.isArray(params.resourceNodeIds) ? [...params.resourceNodeIds] : []
     };
@@ -226,6 +230,12 @@ export class LocalMockTransport {
         [loser.id]: rng.int(5, 25)
       },
       capturedResources,
+      resourceTransfer: {
+        fromCityId: battle.resourceSourceCityId,
+        toCityId: battle.resourceDestinationCityId,
+        resources: { ...capturedResources }
+      },
+      affectedCityId: battle.affectedCityId,
       cityDamage: Math.round(rng.float(0, 0.6) * 1000) / 1000,
       damagedResourceNodeIds,
       completedAt: Number.isInteger(params.logicalTime) && params.logicalTime >= 0

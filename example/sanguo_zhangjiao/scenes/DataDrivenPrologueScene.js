@@ -38,12 +38,22 @@ import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
+import { BattleSystem, BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
+import { BattlefieldRuntimeSystem } from '../../../src/systems/BattlefieldRuntimeSystem.js';
+import { CityWarSystem } from '../../../src/systems/CityWarSystem.js';
+import { RescueSystem, RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
 import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
+import { BattleModeView } from '../../../src/ui/BattleModeView.js';
+import { BattleHudView } from '../../../src/ui/BattleHudView.js';
+import { BattleResultView } from '../../../src/ui/BattleResultView.js';
+import { RescueObjectiveView } from '../../../src/ui/RescueObjectiveView.js';
+import { IrreversibleChoiceView } from '../../../src/ui/IrreversibleChoiceView.js';
 import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
 import { S09AudioDirector } from '../systems/S09AudioDirector.js';
+import { S04RouteCoordinator, S04_ROUTE_CONFIGS } from '../systems/S04RouteCoordinator.js';
 
 const S01_TUTORIAL_KEYS = Object.freeze([
   'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
@@ -53,6 +63,11 @@ const S09_CITY_ID = 'city.s09_guangzong_camp';
 const S09_REFUGEE_DIALOGUE_ID = 'dialogue.s09.refugeeConflict';
 const S09_REFUGEE_GROUP = 'S09-refugee-conflict';
 const S09_SILENCE_EVENT_TYPE = 's09.silenceFoodCollapse';
+const S03_BATTLE_ID = 'battle.s03.yingchuan';
+const S04_BATTLE_ID = 'battle.s04.changshe';
+const S04_BOCAI_RESCUE_ID = 'rescue.s04.bocai';
+const S01_INITIAL_FOG_OPACITY = 1.0;
+const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -90,8 +105,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 开场迷雾（模糊黑雾 + 玩家周围 2.5D 椭圆透光；点燃火堆后淡出，迁移自 Act1）
     this.fog = {
-      opacity: 0.85,
-      targetOpacity: 0.85,
+      opacity: S01_INITIAL_FOG_OPACITY,
+      targetOpacity: S01_INITIAL_FOG_OPACITY,
       fadeSpeed: 0.4,
       color: 'rgba(30, 30, 40,',
       active: true
@@ -116,13 +131,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.progressionPanel = null;
     this.proficiencySystem = null;
     this.cityStateSummaryPanel = null;
-    this._progressionBootstrap = { isNewGame: false };
+    this._progressionBootstrap = { isNewGame: false, playerStartMode: 'restore' };
+    this._playerStartMode = 'restore';
+    this._initialPlayerSpawnPending = false;
     this.classSystem = null;
     this._classSelected = false;
     this.selectedClass = null;
     this._classConfirm = null;
     this._classSelectionBusy = false;
     this._s09AudioDirector = null;
+    this.battleSystem = null;
+    this.battlefieldRuntime = null;
+    this.cityWarSystem = null;
+    this.battleModeView = null;
+    this.battleHudView = null;
+    this.battleResultView = null;
+    this.rescueSystem = null;
+    this.rescueObjectiveView = null;
+    this.irreversibleChoiceView = null;
+    this.s04RouteCoordinator = null;
+    this._s03BattleConfig = null;
+    this._s04BattleConfig = null;
+    this._s04BocaiRescueConfig = null;
+    this._activeBattleConfig = null;
+    this._s03BattleBusy = false;
+    this._s04RescueBusy = false;
+    this._s04RouteBusy = false;
     this._appliedGatheringPolicyOperations = new Set();
     this._s09RefugeeChoiceBusy = false;
     this._processingDelayedStoryEvents = false;
@@ -132,9 +166,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.timeSystem = new TimeSystem({ enabled: true, currentDay: 1 });
   }
 
-  /** 由宿主在 GameLoader 完成前标记本次启动是新档还是读档。 */
-  setProgressionBootstrap({ isNewGame = false } = {}) {
-    this._progressionBootstrap = { isNewGame: isNewGame === true };
+  /** 由宿主在 enter() 前标记本次启动意图；读档与继承玩家不得消费场景出生点。 */
+  setProgressionBootstrap({ isNewGame = false, playerStartMode = null } = {}) {
+    const newGame = isNewGame === true;
+    const allowedModes = new Set(['newGame', 'restore', 'inherit', 'preserve']);
+    const resolvedMode = allowedModes.has(playerStartMode)
+      ? playerStartMode
+      : (newGame ? 'newGame' : 'restore');
+    this._progressionBootstrap = { isNewGame: newGame, playerStartMode: resolvedMode };
   }
 
   /** 启动闸门：只接受位于 20×20 网格 (1,1) 的 canonical S01。 */
@@ -186,6 +225,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   enter(data = null) {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
+    const inheritedPlayer = this.context?.player?.inherited === true;
+    this._playerStartMode = inheritedPlayer
+      ? 'inherit'
+      : (this._progressionBootstrap?.playerStartMode || 'restore');
+    this._initialPlayerSpawnPending = this._playerStartMode === 'newGame';
     this._configureS01Tutorial();
 
     this._s09AudioDirector?.dispose?.();
@@ -219,6 +263,28 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.cityStateSummaryPanel = null;
       this._classConfirm = null;
       this._classSelectionBusy = false;
+      this.battleModeView?.close?.();
+      this.battleResultView?.close?.();
+      this.battlefieldRuntime?.dispose?.(this.entities || []);
+      this.battleSystem = null;
+      this.battlefieldRuntime = null;
+      this.cityWarSystem = null;
+      this.battleModeView = null;
+      this.battleHudView = null;
+      this.battleResultView = null;
+      this.rescueObjectiveView?.clear?.();
+      this.irreversibleChoiceView?.close?.();
+      this.rescueSystem = null;
+      this.rescueObjectiveView = null;
+      this.irreversibleChoiceView = null;
+      this.s04RouteCoordinator = null;
+      this._s03BattleConfig = null;
+      this._s04BattleConfig = null;
+      this._s04BocaiRescueConfig = null;
+      this._activeBattleConfig = null;
+      this._s03BattleBusy = false;
+      this._s04RescueBusy = false;
+      this._s04RouteBusy = false;
     });
 
     // 大地图 chunk 偏移：从 game.project.json worldMap 动态加载地形
@@ -227,20 +293,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const chunkHeight = 720;
     this._prologueOffset = { x: 1 * chunkWidth, y: 1 * chunkHeight };
 
-    // 同步先把火堆/玩家/相机放到正确的世界位置（默认序章 chunk 偏移），
-    // 避免异步 _applySpawnPoints 完成前先渲染在局部坐标再"跳变"到目标位置。
-    // 之后 _applySpawnPoints 若有编辑器放置点会再精修（通常同值，无跳变）。
+    // 火堆先使用世界坐标兜底，placements 就绪后再由当前场景的 canonical spawn 精确覆盖。
+    // 玩家位置不在这里预写：新游戏、读档、继承和显式传送各有且只有一个位置权威。
     this.campfire.x = 350 + this._prologueOffset.x;
     this.campfire.y = 250 + this._prologueOffset.y;
-    const _pt0 = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (_pt0) {
-      _pt0.position.x = this.campfire.x + 70;
-      _pt0.position.y = this.campfire.y + 80;
-    }
-    if (this.camera && _pt0) {
-      this.camera.position.x = _pt0.position.x;
-      this.camera.position.y = _pt0.position.y;
-    }
 
     // 地形实例在 _loadWorldTerrains 中动态创建
     this.terrain = null;
@@ -444,6 +500,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
     // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
     super.update(deltaTime);
+
+    // Combat/AI/Collision 已在父类帧管线完成；随后按配置优先级判断实时战役结果。
+    this._updateS03BattleRuntime(deltaTime);
+    // 救援计时与护送跟随复用同一帧的实体状态；deadline 仅由 RescueSystem 判定。
+    this._updateS04BocaiRescue(deltaTime);
 
     // 饥民逐渐生成器（第二波）
     this._updateStarvingSpawner(deltaTime);
@@ -1073,6 +1134,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区投影未完成' }] };
     }
     this.currentSceneId = request.sceneId;
+    if (!['S03', 'S04'].includes(request.sceneId)) {
+      this.battleModeView?.close?.();
+      this.battleResultView?.close?.();
+      this.battleHudView?.clear?.();
+      if (this.battlefieldRuntime?.active) {
+        this.battlefieldRuntime.stop({ entities: this.entities || [], preserveSnapshot: true });
+      }
+    }
     const spawn = shadowSession.findSpawn(request.sceneId, request.spawnRef || 'player');
     const transform = this.playerEntity?.getComponent?.('transform');
     if (!spawn || !transform) {
@@ -1215,6 +1284,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       gatheringState: this.gatheringSystem?.serialize?.() || null,
       puppetState: this.gatheringPuppetSystem?.serialize?.() || null,
       proficiencyState: this.proficiencySystem?.serialize?.() || null,
+      battleState: this.battleSystem?.serialize?.() || null,
+      battlefieldRuntimeState: this.battlefieldRuntime?.serialize?.() || null,
+      cityWarState: this.cityWarSystem?.serialize?.() || null,
+      rescueState: this.rescueSystem?.serialize?.() || null,
       gatheringPolicyOperations: [...(this._appliedGatheringPolicyOperations || new Set())],
       timeState: this.timeSystem?.serialize?.() || null,
       nextSceneTarget: this._nextSceneTarget || null,
@@ -1223,6 +1296,44 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   restoreSceneSaveState(data = {}) {
+    if (data.battleState) {
+      if (!this.battleSystem) {
+        return { ok: false, errors: [{ code: 'battleRuntimeUnavailable', path: 'battleState', message: '战役运行时尚未就绪' }] };
+      }
+      const probe = new BattleSystem();
+      const check = probe.deserialize(data.battleState);
+      if (!check.ok) {
+        return { ok: false, errors: [{ code: check.code, path: 'battleState', message: `战役状态校验失败: ${check.code}` }] };
+      }
+    }
+    if (data.battlefieldRuntimeState) {
+      if (!this.battlefieldRuntime) {
+        return { ok: false, errors: [{ code: 'battlefieldRuntimeUnavailable', path: 'battlefieldRuntimeState', message: '实时战场运行时尚未就绪' }] };
+      }
+      const check = this.battlefieldRuntime.validateSerialized(data.battlefieldRuntimeState);
+      if (!check.ok) {
+        return { ok: false, errors: [{ code: check.code, path: 'battlefieldRuntimeState', message: `实时战场状态校验失败: ${check.code}` }] };
+      }
+    }
+    if (data.cityWarState) {
+      if (!this.cityWarSystem) {
+        return { ok: false, errors: [{ code: 'cityWarRuntimeUnavailable', path: 'cityWarState', message: '城市战争运行时尚未就绪' }] };
+      }
+      const probe = new CityWarSystem();
+      const check = probe.deserialize(data.cityWarState);
+      if (!check.ok) {
+        return { ok: false, errors: [{ code: check.code, path: 'cityWarState', message: `城市战争状态校验失败: ${check.code}` }] };
+      }
+    }
+    if (data.rescueState) {
+      if (!this.rescueSystem) {
+        return { ok: false, errors: [{ code: 'rescueRuntimeUnavailable', path: 'rescueState', message: '救援运行时尚未就绪' }] };
+      }
+      const check = this.rescueSystem.validateSerialized(data.rescueState);
+      if (!check.ok) {
+        return { ok: false, errors: [{ code: check.code, path: 'rescueState', message: `救援状态校验失败: ${check.code}` }] };
+      }
+    }
     if (data.proficiencyState && !this.proficiencySystem) {
       return { ok: false, errors: [{
         code: 'proficiencyRuntimeUnavailable', path: 'proficiencyState', message: '熟练度运行时尚未就绪'
@@ -1267,6 +1378,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     for (const item of [...(this.pickupItems || []), ...(this.equipmentItems || [])]) {
       this._applyPendingPlacementState(item, { id: item?.placementId });
     }
+    this._syncWarResourceNodeStates(this.gameLoader?.blackboard?.get?.('warResourceNodeStates') || []);
 
     this.playerDefeatService?.deserialize?.(data.defeatState || {});
     this.gatheringSystem?.deserialize?.(data.gatheringState || {});
@@ -1279,6 +1391,35 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
         }))
       };
+    }
+    if (data.battleState) {
+      const restored = this.battleSystem.deserialize(data.battleState);
+      if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'battleState', message: '战役状态恢复失败' }] };
+      this._activeBattleConfig = data.battleState.definition?.battleId === S04_BATTLE_ID
+        ? this._s04BattleConfig
+        : this._s03BattleConfig;
+    }
+    if (data.battlefieldRuntimeState) {
+      const restored = this.battlefieldRuntime.deserialize(data.battlefieldRuntimeState, {
+        entities: this.entities || [],
+        playerEntity: this.playerEntity,
+        playerFactionId: this._activeBattleConfig?.playerInterventionFactionId || 'yellow_turban'
+      });
+      if (!restored.ok) {
+        return { ok: false, errors: [{ code: restored.code, path: 'battlefieldRuntimeState', message: '实时战场状态恢复失败' }] };
+      }
+      this.battleHudView?.setSnapshot?.(
+        this.battlefieldRuntime.active ? this.battlefieldRuntime.getSnapshot() : null
+      );
+    }
+    if (data.cityWarState) {
+      const restored = this.cityWarSystem.deserialize(data.cityWarState);
+      if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'cityWarState', message: '城市战争状态恢复失败' }] };
+    }
+    if (data.rescueState) {
+      const restored = this.rescueSystem.deserialize(data.rescueState);
+      if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'rescueState', message: '救援状态恢复失败' }] };
+      this.rescueObjectiveView?.setSnapshot?.(restored.state);
     }
     const currentDrops = (this.equipmentItems || [])
       .filter(entity => entity?.getComponent?.('deathDrop'));
@@ -1743,6 +1884,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           this._syncPlayerClassAppearance(currentClass);
 
           this._configureSharedClassEffects(gameLoader);
+          this._installBattleFlow(gameLoader);
           this._installProgressionUI(gameLoader);
         }
       });
@@ -1804,6 +1946,768 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: this.playerEntity });
     this._syncUnlockedClassSkills();
+    return true;
+  }
+
+  /** 安装 S03/S04 战役与通用救援领域系统；UI 只发命令，Blackboard 由事务 adapter 提交。 */
+  _installBattleFlow(gameLoader) {
+    const s03Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S03_BATTLE_ID);
+    const s04Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S04_BATTLE_ID);
+    const rescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S04_BOCAI_RESCUE_ID);
+    if (!s03Source) throw new Error(`缺少战役配置 ${S03_BATTLE_ID}`);
+    if (!s04Source) throw new Error(`缺少战役配置 ${S04_BATTLE_ID}`);
+    if (!rescueSource) throw new Error(`缺少救援配置 ${S04_BOCAI_RESCUE_ID}`);
+
+    const definition = cloneData(s03Source);
+    const s04Definition = cloneData(s04Source);
+    const rescueDefinition = cloneData(rescueSource);
+    definition.playerEntityId = this.playerEntity?.id || definition.playerEntityId;
+    s04Definition.playerEntityId = this.playerEntity?.id || s04Definition.playerEntityId;
+    const battleSystem = new BattleSystem({
+      battleClient: gameLoader.battleClient,
+      validator: gameLoader.contentValidator,
+      onEvent: (event, data) => {
+        if (event === 'battleModeSelected') {
+          this.notificationSystem?.addNotification?.(
+            data.mode === BattleMode.OBSERVE ? '本场已选择观战' : '本场已选择介入',
+            'info'
+          );
+        }
+      }
+    });
+    const previousEffectFilter = this.combatSystem?.setEffectAmountFilter?.(
+      (context, amount) => battleSystem.filterEffectAmount(context, amount)
+    ) || null;
+    const cityWarSystem = new CityWarSystem({
+      validator: gameLoader.contentValidator,
+      readState: () => this._readCityWarState(),
+      commitState: draft => this._commitCityWarState(draft),
+      restoreState: before => this._restoreCityWarState(before),
+      createCheckpoint: checkpoint => this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
+      }),
+      onEvent: event => {
+        if (event === 'battleResultRolledBack') {
+          this.notificationSystem?.addNotification?.('战果检查点失败，城市与战争状态已回滚', 'error');
+        }
+      }
+    });
+    const battleModeView = new BattleModeView({
+      width: Math.min(560, this.logicalWidth - 32),
+      onCommand: command => { void this._handleBattleModeCommand(command); }
+    });
+    const battleHudView = new BattleHudView({ width: Math.min(500, this.logicalWidth - 32) });
+    const battleResultView = new BattleResultView({
+      width: Math.min(520, this.logicalWidth - 32),
+      onCommand: command => {
+        if (command.type === 'close') battleResultView.close();
+      }
+    });
+    const battlefieldRuntime = new BattlefieldRuntimeSystem({
+      battleSystem,
+      aiSystem: this.aiSystem,
+      onEvent: (event, data) => {
+        if (event === 'battlefieldStarted') battleHudView.setSnapshot(data);
+        if (event === 'battlefieldResolved') battleHudView.clear();
+      }
+    });
+    const rescueObjectiveView = new RescueObjectiveView({
+      width: Math.min(500, this.logicalWidth - 32),
+      title: '波才限时救援'
+    });
+    const irreversibleChoiceView = new IrreversibleChoiceView({
+      width: Math.min(600, this.logicalWidth - 32),
+      onCommand: command => { void this._handleS04RouteChoiceCommand(command); }
+    });
+    const rescueSystem = new RescueSystem({
+      onEvent: (event, data) => {
+        if (event === 'rescueStarted' || event === 'rescueStageAdvanced') {
+          rescueObjectiveView.setSnapshot(data);
+        }
+      }
+    });
+    const s04RouteCoordinator = new S04RouteCoordinator({
+      readState: () => ({
+        storyState: cloneData(gameLoader.blackboard?.get?.('storyState') || {}),
+        warState: cloneData(gameLoader.blackboard?.get?.('warState') || {}),
+        appliedBattleResultIds: cloneData(gameLoader.blackboard?.get?.('appliedBattleResultIds') || [])
+      }),
+      writeStoryState: storyState => {
+        if (!gameLoader.blackboard) return false;
+        gameLoader.blackboard.set('storyState', cloneData(storyState));
+        return true;
+      },
+      hasTarget: sceneId => !!this._worldLoadSession?.getChunk?.(sceneId)
+        && !!this._worldLoadSession?.findSpawn?.(sceneId, 'player'),
+      createCheckpoint: checkpoint => this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: checkpoint.sceneId
+      }),
+      onCommitted: ({ route, operationId }) => gameLoader.triggerSystem?.fire?.('routeSelected', {
+        routeId: route.id, entrySceneId: route.entrySceneId, operationId
+      })
+    });
+
+    this.battleSystem = battleSystem;
+    this.battlefieldRuntime = battlefieldRuntime;
+    this.cityWarSystem = cityWarSystem;
+    this.battleModeView = battleModeView;
+    this.battleHudView = battleHudView;
+    this.battleResultView = battleResultView;
+    this.rescueSystem = rescueSystem;
+    this.rescueObjectiveView = rescueObjectiveView;
+    this.irreversibleChoiceView = irreversibleChoiceView;
+    this.s04RouteCoordinator = s04RouteCoordinator;
+    this._s03BattleConfig = definition;
+    this._s04BattleConfig = s04Definition;
+    this._s04BocaiRescueConfig = rescueDefinition;
+    this._activeBattleConfig = definition;
+    this._s03BattleBusy = false;
+    this._s04RescueBusy = false;
+    this._s04RouteBusy = false;
+    this.resourceScope?.track(() => {
+      battleModeView.close();
+      battleResultView.close();
+      battleHudView.clear();
+      rescueObjectiveView.clear();
+      irreversibleChoiceView.close();
+      battlefieldRuntime.dispose(this.entities || []);
+      if (this.battleSystem === battleSystem) {
+        this.combatSystem?.setEffectAmountFilter?.(previousEffectFilter);
+        this.battleSystem = null;
+      }
+      if (this.battlefieldRuntime === battlefieldRuntime) this.battlefieldRuntime = null;
+      if (this.cityWarSystem === cityWarSystem) this.cityWarSystem = null;
+      if (this.battleModeView === battleModeView) this.battleModeView = null;
+      if (this.battleHudView === battleHudView) this.battleHudView = null;
+      if (this.battleResultView === battleResultView) this.battleResultView = null;
+      if (this.rescueSystem === rescueSystem) this.rescueSystem = null;
+      if (this.rescueObjectiveView === rescueObjectiveView) this.rescueObjectiveView = null;
+      if (this.irreversibleChoiceView === irreversibleChoiceView) this.irreversibleChoiceView = null;
+      if (this.s04RouteCoordinator === s04RouteCoordinator) this.s04RouteCoordinator = null;
+      if (this._s03BattleConfig === definition) this._s03BattleConfig = null;
+      if (this._s04BattleConfig === s04Definition) this._s04BattleConfig = null;
+      if (this._s04BocaiRescueConfig === rescueDefinition) this._s04BocaiRescueConfig = null;
+      this._activeBattleConfig = null;
+      this._s03BattleBusy = false;
+      this._s04RescueBusy = false;
+      this._s04RouteBusy = false;
+    });
+    return true;
+  }
+
+  _readCityWarState() {
+    const blackboard = this.gameLoader?.blackboard;
+    const configuredNodes = (this.gameLoader?.project?.library?.resourceNodes || []).map(node => ({
+      id: node.id,
+      damageRatio: Number(node.damageRatio) || 0
+    }));
+    const savedNodes = blackboard?.get?.('warResourceNodeStates');
+    return cloneData({
+      storyState: blackboard?.get?.('storyState') || {},
+      cityStates: blackboard?.get?.('cityStates') || [],
+      warState: blackboard?.get?.('warState') || { battles: {}, casualties: {} },
+      appliedBattleResultIds: blackboard?.get?.('appliedBattleResultIds') || [],
+      resourceNodes: Array.isArray(savedNodes) && savedNodes.length ? savedNodes : configuredNodes
+    });
+  }
+
+  _projectBattleStoryState(state) {
+    const projected = cloneData(state);
+    const s03Result = projected.warState?.battles?.[S03_BATTLE_ID];
+    const s04Result = projected.warState?.battles?.[S04_BATTLE_ID];
+    const activeBattleId = this.battleSystem?.definition?.battleId;
+    const battleModes = { ...(projected.storyState?.battleModes || {}) };
+    if (activeBattleId && this.battleSystem?.mode) battleModes[activeBattleId] = this.battleSystem.mode;
+    projected.storyState = { ...(projected.storyState || {}), battleModes };
+    if (s03Result) {
+      projected.storyState = {
+        ...projected.storyState,
+        month: Math.max(5, Math.floor(Number(projected.storyState?.month) || 0)),
+        s03BattleResolved: true,
+        s03WinnerFactionId: s03Result.winnerFactionId,
+        lastCheckpointId: 'checkpoint.S03.battleResolved'
+      };
+    }
+    if (s04Result) {
+      projected.storyState = {
+        ...projected.storyState,
+        s04BattleResolved: true,
+        s04WinnerFactionId: s04Result.winnerFactionId,
+        lastCheckpointId: 'checkpoint.S04.battleResolved'
+      };
+    }
+    return projected;
+  }
+
+  _commitCityWarState(draft) {
+    const blackboard = this.gameLoader?.blackboard;
+    if (!blackboard) return false;
+    const before = cloneData(blackboard.serialize());
+    const committed = this._projectBattleStoryState(draft);
+    try {
+      blackboard.set('storyState', cloneData(committed.storyState));
+      blackboard.set('cityStates', cloneData(committed.cityStates));
+      blackboard.set('warState', cloneData(committed.warState));
+      blackboard.set('appliedBattleResultIds', cloneData(committed.appliedBattleResultIds));
+      blackboard.set('warResourceNodeStates', cloneData(committed.resourceNodes));
+      this._syncWarResourceNodeStates(committed.resourceNodes);
+      return true;
+    } catch (error) {
+      blackboard.deserialize(before);
+      return false;
+    }
+  }
+
+  _restoreCityWarState(before) {
+    return this._commitCityWarState(before);
+  }
+
+  _syncWarResourceNodeStates(states = []) {
+    const byId = new Map((states || []).map(state => [state.id, state]));
+    for (const entity of this.entities || []) {
+      const node = entity?.getComponent?.('resourceNode');
+      const state = byId.get(entity?.id);
+      if (node && state) node.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
+    }
+    for (const [id, pending] of this._pendingResourceNodeStates || []) {
+      const state = byId.get(id);
+      if (state) pending.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
+    }
+  }
+
+  _activateBattleConfig(definition) {
+    if (!definition || !this.battleSystem || !this.battlefieldRuntime) return false;
+    const currentBattleId = this.battleSystem.definition?.battleId;
+    if (!currentBattleId || currentBattleId === definition.battleId) {
+      this._activeBattleConfig = definition;
+      return true;
+    }
+    if (this.battleSystem.state !== BattleState.RESOLVED) return false;
+    const frozenResult = this.battleSystem.getState().result;
+    const applied = frozenResult
+      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
+    if (!applied) return false;
+    this.battlefieldRuntime.stop({ entities: this.entities || [] });
+    this.battlefieldRuntime.reset();
+    this.battleSystem.reset();
+    this._activeBattleConfig = definition;
+    return true;
+  }
+
+  async openS03BattleMode() {
+    if (this.currentSceneId !== 'S03' || !this.battleSystem || !this._s03BattleConfig) {
+      this._showScreenTip('颍川战役运行时尚未就绪', { title: '无法选择战役模式' });
+      return false;
+    }
+    if (!this._activateBattleConfig(this._s03BattleConfig)) {
+      this._showScreenTip('另一场战役尚未完成结算，不能切换到颍川战役。', { title: '战役状态冲突' });
+      return false;
+    }
+    const frozenResult = this.battleSystem.getState().result;
+    const resultApplied = frozenResult
+      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
+    if (this.battleSystem.state === BattleState.RESOLVED && resultApplied) {
+      this.battleResultView?.open?.({
+        title: '颍川首战·已结算战果',
+        result: frozenResult,
+        mode: this.battleSystem.mode,
+        winnerName: frozenResult?.winnerFactionId,
+        worldChanges: { month: 5 },
+        message: '该战果已经冻结并写入检查点，不能重新选择参战模式。'
+      });
+      return true;
+    }
+    if (this.battleSystem.state === BattleState.ACTIVE && this.battlefieldRuntime?.active) {
+      this._showScreenTip('颍川战役正在进行，当前参战方式不可更改。', { title: '战役进行中' });
+      return true;
+    }
+    try {
+      if (this.battleSystem.state === BattleState.IDLE) {
+        const started = await this.battleSystem.start(this._s03BattleConfig, {
+          requestId: `create:${S03_BATTLE_ID}`
+        });
+        if (!started?.ok) throw new Error(started?.code || 'battleStartRejected');
+      } else {
+        const restored = await this.battleSystem.rehydrate({ requestId: `create:${S03_BATTLE_ID}` });
+        if (!restored?.ok) throw new Error(restored?.code || 'battleRehydrateRejected');
+      }
+      this.battleModeView?.open?.({
+        ...cloneData(this._s03BattleConfig.modeView || {}),
+        description: frozenResult
+          ? '战果已冻结，但上次检查点未提交。确认原模式以重试城市与战争结算。'
+          : this._s03BattleConfig.modeView?.description,
+        selectedMode: this.battleSystem.mode || BattleMode.OBSERVE
+      });
+      return true;
+    } catch (error) {
+      this._showScreenTip(`创建颍川战役失败：${error?.message || error}`, { title: '战役服务错误' });
+      return false;
+    }
+  }
+
+  async openS04BattleMode() {
+    if (this.currentSceneId !== 'S04' || !this.battleSystem || !this._s04BattleConfig) {
+      this._showScreenTip('长社战役运行时尚未就绪', { title: '无法选择战役模式' });
+      return false;
+    }
+    if (!this._activateBattleConfig(this._s04BattleConfig)) {
+      this._showScreenTip('上一场战役尚未完成结算，不能进入长社战役。', { title: '战役状态冲突' });
+      return false;
+    }
+    const frozenResult = this.battleSystem.getState().result;
+    const resultApplied = frozenResult
+      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
+    if (this.battleSystem.state === BattleState.RESOLVED && resultApplied) {
+      this.battleResultView?.open?.({
+        title: '长社战场·已结算战果', result: frozenResult, mode: this.battleSystem.mode,
+        winnerName: frozenResult?.winnerFactionId, worldChanges: { month: 5 },
+        message: '该战果已经冻结并写入检查点，不能重新选择参战模式。'
+      });
+      return true;
+    }
+    if (this.battleSystem.state === BattleState.ACTIVE && this.battlefieldRuntime?.active) {
+      this._showScreenTip('长社战役正在进行，当前参战方式不可更改。', { title: '战役进行中' });
+      return true;
+    }
+    try {
+      if (this.battleSystem.state === BattleState.IDLE) {
+        const started = await this.battleSystem.start(this._s04BattleConfig, { requestId: `create:${S04_BATTLE_ID}` });
+        if (!started?.ok) throw new Error(started?.code || 'battleStartRejected');
+      } else {
+        const restored = await this.battleSystem.rehydrate({ requestId: `create:${S04_BATTLE_ID}` });
+        if (!restored?.ok) throw new Error(restored?.code || 'battleRehydrateRejected');
+      }
+      this.battleModeView?.open?.({
+        ...cloneData(this._s04BattleConfig.modeView || {}),
+        selectedMode: this.battleSystem.mode || BattleMode.OBSERVE
+      });
+      return true;
+    } catch (error) {
+      this._showScreenTip(`创建长社战役失败：${error?.message || error}`, { title: '战役服务错误' });
+      return false;
+    }
+  }
+
+  async _handleBattleModeCommand(command = {}) {
+    if (command.type === 'cancel') {
+      if (!this._s03BattleBusy) this.battleModeView?.close?.();
+      return true;
+    }
+    if (command.type !== 'selectMode') return false;
+    return this.currentSceneId === 'S04'
+      ? this.selectS04BattleMode(command.mode)
+      : this.selectS03BattleMode(command.mode);
+  }
+
+  async selectS03BattleMode(mode) {
+    return this._selectBattleMode(mode, this._s03BattleConfig, 'S03');
+  }
+
+  async selectS04BattleMode(mode) {
+    return this._selectBattleMode(mode, this._s04BattleConfig, 'S04');
+  }
+
+  async _selectBattleMode(mode, config, sceneId) {
+    if (this._s03BattleBusy || !config || !this.battleSystem || !this.cityWarSystem || !this.battlefieldRuntime) return false;
+    if (!this._activateBattleConfig(config)) return false;
+    this._s03BattleBusy = true;
+    this.battleModeView?.setBusy?.(true);
+    try {
+      if (this.battleSystem.mode && this.battleSystem.mode !== mode) {
+        throw new Error(`modeLocked:${this.battleSystem.mode}`);
+      }
+
+      const frozenResult = this.battleSystem.getState().result;
+      if (frozenResult) {
+        await this._settleBattleResult(frozenResult, this.battlefieldRuntime.getSnapshot());
+        this.battleModeView?.close?.();
+        return true;
+      }
+
+      const entry = this._worldLoadSession?.findSpawn?.(
+        sceneId, config.entryPointRef || 'battle-intervention'
+      );
+      if (!this.battleSystem.mode) {
+        const selected = await this.battleSystem.selectMode(mode, {
+          operationId: `mode:${config.battleId}:${mode}`,
+          heroId: this.playerEntity?.id,
+          entryPoint: entry ? { x: entry.x, y: entry.y } : null
+        });
+        if (!selected?.ok) throw new Error(selected?.code || 'modeSelectionRejected');
+      }
+
+      const started = this.battlefieldRuntime.start({
+        entities: this.entities || [],
+        playerEntity: this.playerEntity,
+        playerFactionId: config.playerInterventionFactionId || 'yellow_turban'
+      });
+      if (!started?.ok) throw new Error(started?.code || 'battlefieldStartRejected');
+
+      if (this.battleSystem.mode === BattleMode.INTERVENE && entry) {
+        const transform = this.playerEntity?.getComponent?.('transform');
+        if (transform) {
+          transform.position.x = entry.x;
+          transform.position.y = entry.y;
+          this.camera?.setPosition?.(entry.x, entry.y);
+        }
+      }
+      this.battleHudView?.setSnapshot?.(started.snapshot);
+      this.battleModeView?.close?.();
+      const observing = this.battleSystem.mode === BattleMode.OBSERVE;
+      this._showScreenTip(
+        observing
+          ? `${sceneId === 'S04' ? '长社' : '颍川'}两军开始交战。观战期间不能影响参战单位。`
+          : (sceneId === 'S04'
+            ? '你已进入长社黄巾阵线，可在西侧残旗下启动波才救援。'
+            : '你已进入黄巾前线。击溃官军或使其士气崩溃。'),
+        { title: '战役开始' }
+      );
+      return true;
+    } catch (error) {
+      this._showScreenTip(`战役模式未启动：${error?.message || error}。可保留当前选择重试。`, { title: '启动失败' });
+      return false;
+    } finally {
+      this._s03BattleBusy = false;
+      this.battleModeView?.setBusy?.(false);
+    }
+  }
+
+  _updateS03BattleRuntime(deltaTime) {
+    if (!['S03', 'S04'].includes(this.currentSceneId)
+      || !this.battlefieldRuntime?.active || this._s03BattleBusy) return;
+    const updated = this.battlefieldRuntime.update(deltaTime, this.entities || []);
+    if (updated?.snapshot) this.battleHudView?.setSnapshot?.(updated.snapshot);
+    if (!updated?.resolved || !updated.result) return;
+    this._s03BattleBusy = true;
+    void this._settleBattleResult(updated.result, updated.snapshot)
+      .catch(error => {
+        this._showScreenTip(`战果检查点未提交：${error?.message || error}。可在军令旗处重试。`, { title: '结算失败' });
+      })
+      .finally(() => { this._s03BattleBusy = false; });
+  }
+
+  async _settleBattleResult(result, battleSnapshot = null) {
+    const sceneId = result?.battleId === S04_BATTLE_ID ? 'S04' : 'S03';
+    const checkpointId = `checkpoint.${sceneId}.battleResolved`;
+    const settled = await this.cityWarSystem.applyBattleResult({
+      result,
+      operationId: `settle:${result.resultId}`,
+      context: { mode: this.battleSystem.mode, checkpointId }
+    });
+    if (!settled?.ok) throw new Error(settled?.message || settled?.code || 'battleSettlementRejected');
+
+    const faction = battleSnapshot?.factions?.[result.winnerFactionId];
+    this.battleHudView?.clear?.();
+    this.battleResultView?.open?.({
+      title: sceneId === 'S04' ? '长社战场·战果' : '颍川首战·战果',
+      result,
+      mode: this.battleSystem.mode,
+      winnerName: faction?.name || result.winnerFactionId,
+      worldChanges: { month: 5 },
+      message: sceneId === 'S04'
+        ? '长社战果已冻结并保存；若已介入，仍可完成进行中的波才救援。'
+        : '战果已冻结并保存；北侧出口现可前往长社战场。'
+    });
+    this._showScreenTip(
+      sceneId === 'S04' ? '长社战果已写入城市与战争状态。' : '颍川战果已写入城市与战争状态，时间推进至五月。',
+      { title: '战役结算完成' }
+    );
+    return settled;
+  }
+
+  async _settleS03BattleResult(result, battleSnapshot = null) {
+    return this._settleBattleResult(result, battleSnapshot);
+  }
+
+  async checkS03Exit() {
+    if (this.currentSceneId !== 'S03') return false;
+    const resolved = this.gameLoader?.blackboard?.get?.('warState')?.battles?.[S03_BATTLE_ID];
+    if (!resolved) {
+      this._showScreenTip('先在中央军令旗确认观战或介入，并完成颍川战果结算', { title: '战役尚未完成' });
+      return false;
+    }
+    const targetChunk = this._worldLoadSession?.getChunk?.('S04');
+    const targetSpawn = this._worldLoadSession?.findSpawn?.('S04', 'player');
+    if (!targetChunk || !targetSpawn) {
+      this._showScreenTip('S04 区块或玩家出生点缺失', { title: '长社路线不可用' });
+      return false;
+    }
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    blackboard?.set?.('storyState', {
+      ...beforeStory,
+      unlockedScenes: [...new Set([...(beforeStory.unlockedScenes || []), 'S04'])]
+    });
+    try {
+      const result = await this.teleportToChunk({ scene: 'S04', spawnRef: 'player', transition: 'fadeBlack' });
+      if (result === false || result?.cancelled) throw new Error('sceneTransitionCancelled');
+      this.battleModeView?.close?.();
+      this.battleResultView?.close?.();
+      this.battleHudView?.clear?.();
+      this._showScreenTip('已抵达五月的长社战场。', { title: 'S04·长社战场' });
+      return true;
+    } catch (error) {
+      blackboard?.set?.('storyState', beforeStory);
+      this._showScreenTip(`前往长社失败：${error?.message || error}`, { title: '场景切换失败' });
+      return false;
+    }
+  }
+
+  startS04BocaiRescue() {
+    if (this.currentSceneId !== 'S04' || !this.rescueSystem || !this._s04BocaiRescueConfig) return false;
+    if (this.battleSystem?.mode !== BattleMode.INTERVENE) {
+      this._showScreenTip('只有在长社战役选择介入后才能启动波才救援。', { title: '救援不可用' });
+      return false;
+    }
+    const existing = this.rescueSystem.getState();
+    if (existing.status !== RescueStatus.IDLE) {
+      this.rescueObjectiveView?.setSnapshot?.(existing);
+      this._showScreenTip(
+        existing.status === RescueStatus.ACTIVE ? '波才救援正在进行。' : '波才救援结果已经冻结。',
+        { title: '救援状态' }
+      );
+      return true;
+    }
+    const targetId = this._s04BocaiRescueConfig.targetEntityId;
+    const target = (this.entities || []).find(entity => entity?.id === targetId);
+    if (!target) {
+      this._showScreenTip(`救援目标 ${targetId} 尚未生成`, { title: '救援配置错误' });
+      return false;
+    }
+    const started = this.rescueSystem.start(this._s04BocaiRescueConfig, {
+      mode: this.battleSystem.mode,
+      operationId: `start:${S04_BOCAI_RESCUE_ID}`
+    });
+    if (!started.ok) {
+      this._showScreenTip(`救援未启动：${started.message || started.code}`, { title: '救援失败' });
+      return false;
+    }
+    this.rescueObjectiveView?.setSnapshot?.(started.state);
+    this._showScreenTip('90 秒计时开始。靠近波才后向东侧绿色撤离区移动。', { title: '护送波才' });
+    return true;
+  }
+
+  completeS04BocaiEvacuation() {
+    if (this.currentSceneId !== 'S04' || this.rescueSystem?.status !== RescueStatus.ACTIVE) return false;
+    const definition = this._s04BocaiRescueConfig;
+    const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
+    const evacuation = this._worldLoadSession?.findSpawn?.('S04', definition?.evacuationRef);
+    const transform = target?.getComponent?.('transform');
+    if (!transform || !evacuation) return false;
+    const dx = transform.position.x - evacuation.x;
+    const dy = transform.position.y - evacuation.y;
+    if (Math.hypot(dx, dy) > 80) {
+      this._showScreenTip('波才尚未进入东侧撤离点，请继续护送。', { title: '撤离未完成' });
+      return false;
+    }
+    const before = this.rescueSystem.serialize();
+    const outcome = this.rescueSystem.completeStage('escort-east', {
+      operationId: `complete:${S04_BOCAI_RESCUE_ID}:escort-east`
+    });
+    if (!outcome?.completed) return false;
+    void this._settleS04BocaiRescue(outcome.result, before);
+    return true;
+  }
+
+  _updateS04BocaiRescue(deltaTime) {
+    if (this.currentSceneId !== 'S04' || this.rescueSystem?.status !== RescueStatus.ACTIVE || this._s04RescueBusy) return;
+    const definition = this._s04BocaiRescueConfig;
+    const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
+    const targetStats = target?.getComponent?.('stats');
+    const targetTransform = target?.getComponent?.('transform');
+    const playerTransform = this.playerEntity?.getComponent?.('transform');
+    const before = this.rescueSystem.serialize();
+    let outcome = null;
+    if (!target || !targetStats || Number(targetStats.hp) <= 0) {
+      outcome = this.rescueSystem.fail('targetDefeated', { operationId: `fail:${S04_BOCAI_RESCUE_ID}:target` });
+    } else {
+      outcome = this.rescueSystem.update();
+      if (outcome?.active && targetTransform) {
+        const evacuation = this._worldLoadSession?.findSpawn?.('S04', definition?.evacuationRef);
+        if (evacuation && Math.hypot(
+          targetTransform.position.x - evacuation.x,
+          targetTransform.position.y - evacuation.y
+        ) <= 80) {
+          outcome = this.rescueSystem.completeStage('escort-east', {
+            operationId: `complete:${S04_BOCAI_RESCUE_ID}:escort-east`
+          });
+        }
+      }
+      if (outcome?.active && targetTransform && playerTransform) {
+        const dx = playerTransform.position.x - targetTransform.position.x;
+        const dy = playerTransform.position.y - targetTransform.position.y;
+        const distance = Math.hypot(dx, dy);
+        const movement = target.getComponent?.('movement');
+        if (movement && distance > 62 && distance < 260) {
+          movement.setPath([{ x: playerTransform.position.x - 28, y: playerTransform.position.y + 18 }]);
+        } else if (movement && distance <= 62) {
+          movement.stop();
+        }
+      }
+    }
+    this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
+    if (outcome?.completed && outcome.result) void this._settleS04BocaiRescue(outcome.result, before);
+  }
+
+  async _settleS04BocaiRescue(result, beforeRescueState) {
+    if (this._s04RescueBusy) return false;
+    this._s04RescueBusy = true;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const rescueResults = { ...(beforeStory.rescueResults || {}), [S04_BOCAI_RESCUE_ID]: cloneData(result) };
+    try {
+      blackboard?.set?.('storyState', {
+        ...beforeStory,
+        rescueResults,
+        bocaiSurvived: result.survived === true,
+        lastCheckpointId: 'checkpoint.S04.bocaiRescue'
+      });
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S04.bocaiRescue', sceneId: 'S04'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
+      this._showScreenTip(
+        result.survived ? '波才已从东侧撤离，后续可在 S12 作为友军出现。' : '波才未能在时限内撤离。',
+        { title: result.survived ? '救援成功' : '救援失败' }
+      );
+      return true;
+    } catch (error) {
+      blackboard?.set?.('storyState', beforeStory);
+      const restored = this.rescueSystem.deserialize(beforeRescueState);
+      this.rescueObjectiveView?.setSnapshot?.(restored?.state || this.rescueSystem.getState());
+      this._showScreenTip(`救援检查点失败：${error?.message || error}，结果已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._s04RescueBusy = false;
+    }
+  }
+
+  async openS04RouteChoice() {
+    if (this.currentSceneId !== 'S04' || !this.irreversibleChoiceView || !this.s04RouteCoordinator) return false;
+    const availability = this.s04RouteCoordinator.validateOpen({
+      rescueActive: this.rescueSystem?.status === RescueStatus.ACTIVE
+    });
+    if (availability.committed) {
+      try {
+        return await this._travelS04SelectedRoute(availability.route.routeId);
+      } catch (error) {
+        this._showScreenTip(`前往已选路线失败：${error?.message || error}`, { title: '场景切换失败' });
+        return false;
+      }
+    }
+    if (!availability.ok) {
+      const messages = {
+        battleResultNotApplied: '先完成长社战役并让战果成功写入检查点。',
+        rescueActive: '波才救援仍在计时，先完成或结束救援再离开长社。',
+        routeTargetMissing: `${availability.sceneId || '目标'} 区块或玩家出生点缺失。`
+      };
+      this._showScreenTip(messages[availability.code] || '豫州路线当前不可用。', { title: '路线尚未开放' });
+      return false;
+    }
+
+    this.irreversibleChoiceView.open({
+      title: '长社战后·选择豫州进军路线',
+      description: '南阳与西华路线互斥，确认并写入检查点后不可更改。',
+      allowCancel: true,
+      selectedId: 'nanyang',
+      choices: Object.values(S04_ROUTE_CONFIGS).map(route => ({
+        id: route.id,
+        label: route.label,
+        consequences: route.consequences
+      }))
+    });
+    return true;
+  }
+
+  async _handleS04RouteChoiceCommand(command = {}) {
+    if (command.type === 'cancel') {
+      if (!this._s04RouteBusy) this.irreversibleChoiceView?.close?.();
+      return true;
+    }
+    if (command.type !== 'selectChoice') return false;
+    return this._commitS04RouteChoice(command.choiceId);
+  }
+
+  async _commitS04RouteChoice(routeId) {
+    if (this._s04RouteBusy || this.currentSceneId !== 'S04') return false;
+    const route = S04_ROUTE_CONFIGS[routeId];
+    const coordinator = this.s04RouteCoordinator;
+    if (!route || !coordinator) {
+      this._showScreenTip('所选豫州路线不存在或路线服务尚未就绪。', { title: '路线不可用' });
+      return false;
+    }
+
+    this._s04RouteBusy = true;
+    this.irreversibleChoiceView?.setBusy?.(true);
+    try {
+      const result = await coordinator.commit(routeId, {
+        rescueActive: this.rescueSystem?.status === RescueStatus.ACTIVE
+      });
+      if (!result.ok) {
+        const messages = {
+          routeLocked: `豫州路线已锁定为${S04_ROUTE_CONFIGS[result.routeId]?.label || result.routeId || '其他路线'}。`,
+          routeCommitRolledBack: `路线检查点失败：${result.message || '保存失败'}，选择未写入。`,
+          routeBusy: '路线选择正在提交，请稍候。',
+          battleResultNotApplied: '先完成长社战役并让战果成功写入检查点。',
+          rescueActive: '波才救援仍在计时，先完成或结束救援再选择路线。',
+          routeTargetMissing: `${result.sceneId || '目标'} 区块或玩家出生点缺失。`,
+          invalidRoute: '所选豫州路线不存在。'
+        };
+        const titles = {
+          routeLocked: '路线不可更改',
+          routeCommitRolledBack: '路线提交失败',
+          routeBusy: '路线正在提交'
+        };
+        this._showScreenTip(messages[result.code] || '豫州路线当前不可提交。', {
+          title: titles[result.code] || '路线不可用'
+        });
+        return false;
+      }
+
+      this.irreversibleChoiceView?.close?.();
+      if (!result.idempotent) {
+        this._showScreenTip(`${route.label}已锁定，另一条豫州路线不再开放。`, { title: '路线确认完成' });
+      }
+      if (result.eventError) {
+        console.warn('[DDScene] 路线已持久化，但 routeSelected 事件处理失败:', result.eventError);
+      }
+
+      try {
+        return await this._travelS04SelectedRoute(routeId);
+      } catch (error) {
+        this._showScreenTip(
+          `路线已保存，但前往 ${route.entrySceneId} 失败：${error?.message || error}。可在路线军令旗处重试。`,
+          { title: '场景切换失败' }
+        );
+        return false;
+      }
+    } catch (error) {
+      this._showScreenTip(`路线提交失败：${error?.message || error}`, { title: '路线提交失败' });
+      return false;
+    } finally {
+      this._s04RouteBusy = false;
+      this.irreversibleChoiceView?.setBusy?.(false);
+    }
+  }
+
+  async _travelS04SelectedRoute(routeId) {
+    const route = S04_ROUTE_CONFIGS[routeId];
+    if (!route || this.currentSceneId !== 'S04') return false;
+    if (!this._worldLoadSession?.getChunk?.(route.entrySceneId)
+      || !this._worldLoadSession?.findSpawn?.(route.entrySceneId, 'player')) {
+      throw new Error(`${route.entrySceneId} 区块或玩家出生点缺失`);
+    }
+    const result = await this.teleportToChunk({
+      scene: route.entrySceneId, spawnRef: 'player', transition: 'fadeBlack'
+    });
+    if (result === false || result?.cancelled) throw new Error('sceneTransitionCancelled');
+    this.battleModeView?.close?.();
+    this.battleResultView?.close?.();
+    this.battleHudView?.clear?.();
+    this._showScreenTip(`已进入${route.label}。当前场景为后续内容制作的灰盒入口。`, {
+      title: `${route.entrySceneId}·${route.label}`
+    });
     return true;
   }
 
@@ -2090,6 +2994,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // S02 召见对话完成后创建可恢复检查点，再通过 RegionCoordinator 前往 S09。
     trig.registerAction('acceptS02Summons', (p) => this.acceptS02Summons(p));
     trig.registerAction('travelToS09', () => this.travelToS09());
+    trig.registerAction('travelToS03', () => this.travelToS03());
+    trig.registerAction('openS03BattleMode', () => this.openS03BattleMode());
+    trig.registerAction('checkS03Exit', () => this.checkS03Exit());
+    trig.registerAction('openS04BattleMode', () => this.openS04BattleMode());
+    trig.registerAction('startS04BocaiRescue', () => this.startS04BocaiRescue());
+    trig.registerAction('completeS04BocaiEvacuation', () => this.completeS04BocaiEvacuation());
+    trig.registerAction('openS04RouteChoice', () => this.openS04RouteChoice());
     trig.registerAction('acceptS09Enlistment', () => this.acceptS09Enlistment());
     trig.registerAction('prepareS09RefugeeConflict', () => this.prepareS09RefugeeConflict());
     trig.registerAction('startS09RefugeeConflict', () => this.startS09RefugeeConflict());
@@ -2321,6 +3232,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return { ok: false, errors: [{ code: 'summonsRequired', path: 'storyState.s02SummonsAccepted', message: '尚未接受张角召见' }] };
     }
     return this.travelToRegion({ regionIndex: 1, sceneId: 'S09', spawnRef: 'player' });
+  }
+
+  /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */
+  async travelToS03() {
+    if (this.currentSceneId !== 'S09') {
+      return { ok: false, errors: [{ code: 'wrongScene', path: 'currentSceneId', message: '只能从 S09 出征颍川' }] };
+    }
+    const storyState = this.gameLoader?.blackboard?.get?.('storyState');
+    if (storyState?.joinedYellowTurban !== true || storyState?.classSelectionCommitted !== true) {
+      this._showScreenTip('加入黄巾并确认职业后，才能持军令出征颍川', { title: '出征条件不足' });
+      return { ok: false, errors: [{
+        code: 's03PrerequisiteMissing', path: 'storyState.classSelectionCommitted', message: 'S03 需要完成入伍和职业确认'
+      }] };
+    }
+    const regionIndex = this._findRegionIndexForScene('S03');
+    if (regionIndex < 0) {
+      return { ok: false, errors: [{ code: 'missingTargetScene', path: 'worldMap', message: '世界地图未登记 S03' }] };
+    }
+    return this.travelToRegion({ regionIndex, sceneId: 'S03', spawnRef: 'player' });
   }
 
   /** S09 入伍承诺：剧情事实与检查点共同提交，失败后可重新与张角交谈。 */
@@ -2758,8 +3688,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
     this.campfire.emitterSmoke = null;
     this.campfire.lit = false;
-    this.fog.opacity = 0.85;
-    this.fog.targetOpacity = 0.85;
+    this.fog.opacity = S01_INITIAL_FOG_OPACITY;
+    this.fog.targetOpacity = S01_INITIAL_FOG_OPACITY;
   }
 
   /** 点燃火堆并创建火焰粒子（7 组发射器） */
@@ -2970,6 +3900,30 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** SceneInputFlow 的 MODAL_UI 出口；弹窗存在时无条件吞掉世界输入。 */
   handleModalInput({ inputManager, gamepad } = {}) {
+    if (this.battleResultView?.visible) {
+      return this.battleResultView.handleInput({
+        inputManager,
+        gamepad,
+        viewWidth: this.logicalWidth,
+        viewHeight: this.logicalHeight
+      });
+    }
+    if (this.irreversibleChoiceView?.visible) {
+      return this.irreversibleChoiceView.handleInput({
+        inputManager,
+        gamepad,
+        viewWidth: this.logicalWidth,
+        viewHeight: this.logicalHeight
+      });
+    }
+    if (this.battleModeView?.visible) {
+      return this.battleModeView.handleInput({
+        inputManager,
+        gamepad,
+        viewWidth: this.logicalWidth,
+        viewHeight: this.logicalHeight
+      });
+    }
     const cf = this._classConfirm;
     if (!cf || !inputManager) return false;
     this._updateClassConfirmationHover();
@@ -3234,14 +4188,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const placements = result.placements || [];
       this._placements = placements;
       this._sceneTriggerBindings?.setBindings(result.triggerBindings || [], result.sceneObjects || []);
-      this._applySpawnPoints(placements);
+      this._applySpawnPoints(placements, {
+        sceneId: this.currentSceneId,
+        applyPlayer: this._initialPlayerSpawnPending === true
+      });
       this._worldReadyGate?.resolve('placements', placements);
       this._syncWorldReadyProjection();
     })).catch(this.resourceScope.guard(e => {
       console.warn('[DDScene] 加载 game.project.json 失败:', e);
       this._placements = [];
       this._sceneTriggerBindings?.setBindings([]);
-      this._applySpawnPoints(this._placements);
+      this._applySpawnPoints(this._placements, {
+        sceneId: this.currentSceneId,
+        applyPlayer: this._initialPlayerSpawnPending === true
+      });
       this._worldReadyGate?.resolve('placements', this._placements);
       this._syncWorldReadyProjection();
     }));
@@ -3267,44 +4227,41 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
-   * 应用出生点（火堆 + 玩家）
+   * 应用当前业务场景的出生点。玩家出生点只允许由新游戏启动消费一次；
+   * 读档、继承玩家与显式传送分别由 SaveGame、ScenePlayerLifecycle 和 Navigator 持有位置权威。
    * @private
    */
-  _applySpawnPoints(placements) {
-    // 从编辑器放置点读取火堆位置（type:'spawn', ref:'campfire'）
-    const campfireSpawn = placements.find(pl => pl.type === 'spawn' && pl.ref === 'campfire');
+  _applySpawnPoints(placements, { sceneId = this.currentSceneId, applyPlayer = false } = {}) {
+    const scenePlacements = (placements || []).filter(placement => placement.sceneId === sceneId);
+    const campfireSpawn = scenePlacements.find(placement =>
+      placement.type === 'spawn' && placement.ref === 'campfire');
     if (campfireSpawn) {
       this.campfire.x = campfireSpawn.x;
       this.campfire.y = campfireSpawn.y;
-    } else {
-      this.campfire.x = 350 + (this._prologueOffset ? this._prologueOffset.x : 0);
-      this.campfire.y = 250 + (this._prologueOffset ? this._prologueOffset.y : 0);
     }
 
-    // 从编辑器放置点读取玩家出生点（type:'spawn', ref:'player'）
-    const playerSpawn = placements.find(pl => pl.type === 'spawn' && (pl.ref === 'player' || pl.kind === 'player'));
-    if (playerSpawn) {
-      const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-      if (pt) {
-        pt.position.x = playerSpawn.x;
-        pt.position.y = playerSpawn.y;
-      }
-    } else {
-      const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-      if (pt) {
-        pt.position.x = this.campfire.x + 70;
-        pt.position.y = this.campfire.y + 80;
+    let playerMoved = false;
+    if (applyPlayer) {
+      const playerSpawn = scenePlacements.find(placement =>
+        placement.type === 'spawn' && (placement.ref === 'player' || placement.kind === 'player'));
+      const transform = this.playerEntity?.getComponent?.('transform');
+      if (playerSpawn && transform) {
+        transform.position.x = playerSpawn.x;
+        transform.position.y = playerSpawn.y;
+        this.camera?.setPosition?.(playerSpawn.x, playerSpawn.y);
+        this._initialPlayerSpawnPending = false;
+        playerMoved = true;
+      } else {
+        console.error(`[DDScene] 新游戏缺少 canonical 玩家出生点: ${sceneId}`);
       }
     }
 
-    // 出生点定位完成后，把相机同步到玩家最终位置（避免相机残留在旧位置造成跳变）
-    const finalPt = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (this.camera && finalPt) {
-      this.camera.setPosition(finalPt.position.x, finalPt.position.y);
-    }
-
-    console.log('[DDScene] 场景放置点:', placements.length, '玩家:',
-      this.playerEntity?.getComponent('transform')?.position, '火堆:', this.campfire.x, this.campfire.y);
+    console.log('[DDScene] 场景放置点:', placements?.length || 0,
+      '当前场景:', sceneId,
+      '启动模式:', this._playerStartMode,
+      '玩家出生点已应用:', playerMoved,
+      '玩家:', this.playerEntity?.getComponent('transform')?.position,
+      '火堆:', this.campfire.x, this.campfire.y);
   }
 
   /**
@@ -3431,8 +4388,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     super.render(ctx);
     this._renderCollisionShapesDebug(ctx);
     this._renderTeleportFade(ctx);
+    // 战中 HUD 与救援 HUD 只绘制领域系统的不可变快照。
+    this.battleHudView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    this.rescueObjectiveView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 职业确认窗口（最上层，半透明遮罩 + 面板）
     this._renderClassConfirmation(ctx);
+    // 战役模式确认优先于其他场景弹窗，且不直接修改领域状态。
+    this.battleModeView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    // 路线选择只发命令；互斥、幂等和 checkpoint 由场景领域事务拥有。
+    this.irreversibleChoiceView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    // 战果面板最后绘制并吞掉全部世界输入，关闭只影响 UI 可见性。
+    this.battleResultView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   }
 
   /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */
@@ -3449,7 +4415,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const timeFogAdd = this.timeSystem?.enabled ? this.timeSystem.getFogOpacity() : 0;
     const weatherFogAdd = this.weatherSystem ? this.weatherSystem.getFogAdd() : 0;
     const baseFogOpacity = this.fog.active ? this.fog.opacity : 0;
-    const totalFogOpacity = Math.min(1, baseFogOpacity + timeFogAdd * 0.3 + weatherFogAdd);
+    // 使用分层 alpha 合成而不是直接相加；开场基础雾可达到纯黑，玩家与营火透光区仍由遮罩挖出。
+    const timeFogOpacity = Math.min(1, Math.max(0, timeFogAdd * 0.3));
+    const weatherFogOpacity = Math.min(1, Math.max(0, weatherFogAdd));
+    const composedFogOpacity = 1
+      - (1 - Math.min(1, Math.max(0, baseFogOpacity)))
+      * (1 - timeFogOpacity)
+      * (1 - weatherFogOpacity);
+    const totalFogOpacity = Math.min(1.0, composedFogOpacity);
 
     if (totalFogOpacity > 0.01) {
       ctx.save();
@@ -3636,21 +4609,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 世界对象：实体 + 火堆 + 盆地装饰 Y-sort + 悬崖 */
   renderWorldObjects(ctx) {
     const renderQueue = [];
+    const viewBounds = this.camera.getViewBounds();
     for (const entity of this.entities) {
       const transform = entity.getComponent('transform');
       if (transform) {
-        renderQueue.push({ type: 'entity', y: transform.position.y, entity });
+        renderQueue.push({ type: 'entity', y: transform.position.y, sortPriority: 2, entity });
       }
     }
-    renderQueue.push({ type: 'campfire_bottom', y: this.campfire.y, render: () => this.renderCampfireBottom(ctx) });
-    renderQueue.push({ type: 'campfire_top', y: this.campfire.y - 1, render: () => this.renderCampfireTop(ctx) });
+    renderQueue.push({ type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0, render: () => this.renderCampfireBottom(ctx) });
+    renderQueue.push({ type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0, render: () => this.renderCampfireTop(ctx) });
 
     for (const t of this._terrains) {
       t.renderBelowDecorations(ctx);
-      t.collectDecorations(renderQueue, ctx);
+      t.collectDecorations(renderQueue, ctx, viewBounds);
     }
+    this.particleSystem?.collectDepthSorted?.(renderQueue, ctx, this.camera, viewBounds);
 
-    renderQueue.sort((a, b) => a.y - b.y);
+    renderQueue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
     for (const item of renderQueue) {
       if (item.type === 'entity') this.renderEntity(ctx, item.entity);
       else if (item.render) item.render();

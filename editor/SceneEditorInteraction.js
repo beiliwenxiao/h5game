@@ -11,6 +11,11 @@
  */
 
 import { ShapeRenderer } from '../src/rendering/ShapeRenderer.js';
+import {
+  SCENE_OBJECT_SELECTOR_MODES,
+  sceneObjectMatchesSelector,
+  sceneObjectSelectorValues
+} from '../src/core/scene/SceneObjectSelector.js';
 
 /**
  * SceneEditorInteraction - 场景编辑器交互模块
@@ -24,6 +29,27 @@ export class SceneEditorInteraction {
     this.editor = editor;
     // 方向键持续移动状态
     this._arrowKeyState = null; // { key, startTime, moved, intervalId }
+  }
+
+  /** 返回对象可供触发器关联的全部真实字段值。 */
+  getLinkTargetKeys(object) {
+    return sceneObjectSelectorValues(object, 'auto');
+  }
+
+  /** 按触发器当前选择方式拾取目标；未指定时默认精确对象 ID。 */
+  getPreferredLinkTargetKey(object, source = null) {
+    let mode = SCENE_OBJECT_SELECTOR_MODES.includes(source?.targetMode) ? source.targetMode : 'id';
+    let values = sceneObjectSelectorValues(object, mode);
+    if (values.length === 0) {
+      mode = 'id';
+      values = sceneObjectSelectorValues(object, mode);
+    }
+    if (source) source.targetMode = mode;
+    return values[0] || '';
+  }
+
+  matchesLinkTarget(object, target, targetMode = 'auto') {
+    return sceneObjectMatchesSelector(object, { mode: targetMode, value: target });
   }
 
   /**
@@ -324,7 +350,7 @@ export class SceneEditorInteraction {
         if (editor.interaction.isPickingTarget) {
           const source = editor.interaction.pickSource;
           if (source && clicked !== source) {
-            source.target = clicked.id || clicked.triggerId || clicked.name || '';
+            source.target = this.getPreferredLinkTargetKey(clicked, source);
             editor.interaction.isPickingTarget = false;
             editor.interaction.pickSource = null;
             editor.selectedObjects = [source];
@@ -490,7 +516,7 @@ export class SceneEditorInteraction {
       const target = this.getObjectAt(pos.x, pos.y);
       const source = editor.interaction.linkSource;
       if (target && target !== source && source) {
-        source.target = target.id || target.triggerId || target.spawnId || target.name || '';
+        source.target = this.getPreferredLinkTargetKey(target, source);
         editor.ui.showToast('已关联: ' + source.name + ' → ' + source.target);
       }
       editor.interaction.isLinking = false;
@@ -674,10 +700,7 @@ export class SceneEditorInteraction {
       const linkedTriggers = [];
       for (const layer of editor.sceneData.layers) {
         for (const obj of (layer.objects || [])) {
-          if (obj.type === 'trigger' && obj.target && (
-            obj.target === clicked.id || obj.target === clicked.name ||
-            obj.target === clicked.spawnId || obj.target === clicked.regionId || obj.target === clicked.portalId
-          )) {
+          if (obj.type === 'trigger' && obj.target && this.matchesLinkTarget(clicked, obj.target, obj.targetMode)) {
             linkedTriggers.push(obj);
           }
         }

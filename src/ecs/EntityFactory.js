@@ -30,6 +30,8 @@ import { VehicleComponent } from './components/VehicleComponent.js';
 import { ObjectiveComponent } from './components/ObjectiveComponent.js';
 import { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
 import { NpcComponent } from './components/NpcComponent.js';
+import { ResourceNodeComponent } from './components/ResourceNodeComponent.js';
+import { DeathDropComponent } from './components/DeathDropComponent.js';
 
 /**
  * 实体工厂类
@@ -273,7 +275,7 @@ export class EntityFactory {
     // 返回九宫格方向精灵的名称
     const spriteSheets = {
       'warrior': 'directional_warrior',
-      'mage': 'directional_mage',
+      'strategist': 'directional_strategist',
       'archer': 'directional_archer',
       'refugee': 'directional_refugee'
     };
@@ -466,6 +468,50 @@ export class EntityFactory {
     if (data.name) entity.addComponent(new NameComponent(data.name, { color: '#ddd', fontSize: 12, offsetY: -18, visible: data.showName !== false }));
     entity.name = data.name || 'prop';
     entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+    return entity;
+  }
+
+  createResourceNode(data = {}) {
+    const entity = new Entity(data.id || this.generateId(), 'resourceNode');
+    const position = data.position || { x: 0, y: 0 };
+    entity.addComponent(new TransformComponent(position.x, position.y));
+    entity.addComponent(new ResourceNodeComponent(data));
+
+    const sprite = new SpriteComponent(data.spriteSheet || '', {
+      width: data.width || 48,
+      height: data.height || 48,
+      color: data.resourceType === 'herb' ? '#69a83c' : '#8b6238',
+      defaultAnimation: 'idle'
+    });
+    sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
+    entity.addComponent(sprite);
+    entity.addComponent(new NameComponent(data.name || data.resourceType || '资源节点', {
+      color: '#f0dfb0', fontSize: 12, offsetY: -12
+    }));
+    entity.name = data.name || data.resourceType || '资源节点';
+    entity.tags = ['resourceNode', data.resourceType].filter(Boolean);
+    entity.addComponent(new LayerComponent({ worldLayer: 'entity' }));
+    return entity;
+  }
+
+  createDeathDrop(data = {}) {
+    const entity = new Entity(data.id || `death-drop-${data.deathId || this.generateId()}`, 'loot');
+    const position = data.position || { x: 0, y: 0 };
+    entity.addComponent(new TransformComponent(position.x, position.y));
+    entity.addComponent(new DeathDropComponent(data));
+    const sprite = new SpriteComponent('', {
+      width: 28, height: 24, color: '#d6a94f', visible: true, defaultAnimation: 'idle'
+    });
+    sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
+    entity.addComponent(sprite);
+    entity.addComponent(new NameComponent(data.name || '遗失物资', {
+      color: '#ffd36a', fontSize: 14, offsetY: -22, visible: true
+    }));
+    entity.itemData = { id: 'death-drop', type: 'death_drop', name: data.name || '遗失物资' };
+    entity.name = data.name || '遗失物资';
+    entity.x = position.x;
+    entity.y = position.y;
+    entity.tags = ['loot', 'deathDrop'];
     return entity;
   }
 

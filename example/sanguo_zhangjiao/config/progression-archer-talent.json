@@ -1,0 +1,14 @@
+{
+  "id": "archer-talent", "mode": "classTalent", "version": 1, "pointPool": "talent",
+  "rules": { "requireConnected": false },
+  "nodes": [
+    { "id": "keen_eye", "name": "锐眼", "description": "每级暴击率 +3%", "kind": "passive", "maxRank": 3, "costs": { "talent": 1 }, "region": "marksman", "position": { "x": 0, "y": 0 }, "effects": [{ "type": "combat.modify", "target": "criticalChance", "operation": "add", "value": 0.03 }] },
+    { "id": "long_watch", "name": "远望", "description": "每级攻击距离 +20", "kind": "passive", "maxRank": 2, "costs": { "talent": 1 }, "prerequisites": ["keen_eye"], "region": "marksman", "position": { "x": 0, "y": 1 }, "effects": [{ "type": "combat.modify", "target": "attackRange", "operation": "add", "value": 20 }] },
+    { "id": "light_step", "name": "轻步", "description": "每级移动速度 +5%", "kind": "passive", "maxRank": 2, "costs": { "talent": 1 }, "prerequisites": ["keen_eye"], "region": "skirmish", "position": { "x": 2, "y": 1 }, "effects": [{ "type": "attribute.modify", "target": "speed", "operation": "addPercent", "value": 0.05 }] },
+    { "id": "evasive_shot", "name": "游射", "description": "闪避率 +6%", "kind": "specialization", "maxRank": 1, "costs": { "talent": 1 }, "prerequisites": { "mode": "any", "nodes": ["long_watch", "light_step"] }, "region": "skirmish", "position": { "x": 1, "y": 2 }, "effects": [{ "type": "combat.modify", "target": "dodgeChance", "operation": "add", "value": 0.06 }] },
+    { "id": "volley_doctrine", "name": "专精：齐射", "description": "劲射采用多重射击形态，与穿甲互斥", "kind": "specialization", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["evasive_shot"], "choiceGroup": "archer_doctrine", "region": "doctrine", "position": { "x": 0, "y": 3 }, "effects": [{ "type": "rule.override", "target": "skill.arrow_shot.variant", "value": "volley" }] },
+    { "id": "pierce_doctrine", "name": "专精：穿甲", "description": "劲射采用穿透形态，与齐射互斥", "kind": "specialization", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["evasive_shot"], "choiceGroup": "archer_doctrine", "region": "doctrine", "position": { "x": 2, "y": 3 }, "effects": [{ "type": "rule.override", "target": "skill.arrow_shot.variant", "value": "pierce" }] },
+    { "id": "reserve_breath", "name": "留力", "description": "最大体力 +15", "kind": "passive", "maxRank": 2, "costs": { "talent": 1 }, "prerequisites": { "mode": "any", "nodes": ["volley_doctrine", "pierce_doctrine"] }, "region": "mastery", "position": { "x": 1, "y": 4 }, "effects": [{ "type": "attribute.modify", "target": "maxStamina", "operation": "add", "value": 15 }] },
+    { "id": "silent_hunter", "name": "无声猎手", "description": "远程伤害提高 15%", "kind": "keystone", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["reserve_breath"], "region": "mastery", "position": { "x": 1, "y": 5 }, "effects": [{ "type": "combat.modify", "target": "rangedDamage", "operation": "addPercent", "value": 0.15 }] }
+  ]
+}

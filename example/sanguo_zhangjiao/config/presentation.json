@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "sanguo-zhangjiao-presentation-v1",
+  "visualStyle": {
+    "projection": "top-down-oblique-2d",
+    "tone": "late-han-stylized-realism",
+    "readabilityPriority": true
+  },
+  "logicalResolution": {
+    "width": 1280,
+    "height": 720,
+    "scaleMode": "stretch"
+  },
+  "world": {
+    "pixelsPerWorldUnit": 1,
+    "gridSize": 32,
+    "tileWidth": 64,
+    "tileHeight": 32
+  },
+  "camera": {
+    "followSpeed": 0.15,
+    "deadzone": { "x": 50, "y": 50 }
+  },
+  "actors": {
+    "directionMode": 8,
+    "player": {
+      "visual": { "width": 64, "height": 64 },
+      "footprint": { "width": 28, "height": 18 },
+      "colliderRadius": 14
+    },
+    "unit": {
+      "visual": { "width": 48, "height": 48 },
+      "footprint": { "width": 24, "height": 16 },
+      "colliderRadius": 12
+    }
+  },
+  "ui": { "mobileMinFontPx": 16 },
+  "palette": {
+    "environmentSoil": "#6f6048",
+    "environmentAsh": "#6b6760",
+    "yellowTurbanFill": "#d8aa32",
+    "yellowTurbanOutline": "#2d2412",
+    "hanArmyFill": "#7d3030",
+    "hanArmyOutline": "#c8d0d8",
+    "hazardPoison": "#69a83c",
+    "hazardFire": "#e46b2d"
+  }
+}

@@ -210,9 +210,21 @@ const sceneEditor = new SceneEditor(containerElement);
 
 ### 添加图片流程
 1. 用户先将图片文件放到项目 `example/sanguo_zhangjiao/assets/images/` 目录下（支持子文件夹）
-2. 在编辑器点"添加图片"，弹出输入框让用户填写 `assets/images/` 下的相对路径（如 `scene1/bg.png`）
-3. 编辑器用相对路径直接加载图片，场景数据 `imageAssets[id]` 中只存路径字符串
-4. **不使用 base64/dataURL** — 避免 JSON 膨胀和 localStorage 配额溢出
+2. 在编辑器点“添加图片”，填写 `assets/images/` 下的相对路径，并确认一个稳定 `imageId`；ID 只能包含字母、数字、点、下划线和短横线且以字母开头，禁止再用时间戳自动生成新 ID
+3. 编辑器用相对路径直接加载图片，场景数据 `imageAssets[imageId]` 中保存路径和名称
+4. 图片对象属性中的“图片ID”下拉用于切换到另一个已登记资源；“替换文件”只修改当前 ID 对应路径，必须保留 imageId 和全部场景引用
+5. 保存图片资源时写回 `editor/config/images.json` 并同步当前游戏所有场景缓存
+6. **不使用 base64/dataURL** — 避免 JSON 膨胀和 localStorage 配额溢出
+
+图片切割后的 slice 不分配独立 imageId；slice 继续使用稳定源图集 ID、`sliceKey` 和裁剪数据。
+
+### 资产审计
+
+- 图形资源栏的“🔎 资产审计”会递归扫描当前游戏 `assets/images/`，读取 `assets/manifests/assets.json` 和磁盘场景 JSON。
+- 审计范围包括：重复稳定 ID、Manifest 缺失文件、未登记图片、场景 imageId/atlasId 缺失引用、无效 slice、placeholder 和 3D fallback。
+- 当前项目的资源统一按原创或已获授权处理；审计不检查授权、版权、作者或来源，也不以相关元数据阻断开发。
+- 审计只生成报告，不自动登记图片或修改资源状态。
+- 磁盘场景 JSON 是引用审计的事实源，localStorage 不替代磁盘文件。
 
 ### imageAssets 清理
 - `SceneEditorHistory.save()` 保存前自动调用 `_cleanupImageAssets()`
@@ -301,6 +313,22 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - `SceneEditorUI._getSceneOptions()` 和 `TriggerEditor._updateSceneFilter()` 只能调用该回调，禁止直接读取固定 localStorage key，也禁止从已存在触发器的 `sceneId` 反推完整列表。
 - `renderSceneList()` 在场景创建、删除、改名、切换游戏及排序回填后，会刷新已打开的触发器属性和事件编辑器筛选下拉。
 - 列表中保留已删除场景的旧引用，标记为“旧引用”，避免历史触发器配置被静默丢失。
+
+## 游戏级表现规格
+
+- `game.project.json.presentation.$ref` 指向当前游戏唯一的 presentation profile；《三国张角传》使用 `config/presentation.json`。禁止把目标逻辑分辨率、像素比例、网格、角色视觉/占地尺寸、方向数和移动端最小字号再复制到 `editor-defaults.json` 或场景类常量。
+- 运行时 Canvas buffer、Camera 和 IsometricRenderer 使用 profile 的逻辑分辨率与 world 参数；CSS 只负责物理显示适配。编辑器经 `SceneEditor.setPresentationProfile()` 使用同一 profile 作为新场景 fallback，不重写已存在场景尺寸。
+- 场景构图样板用 `presentationProfile`、`composition`、`assetBudget` 和 `productionState` 标明规格、动线、预算与阶段。尚未进入主流程的样板必须设置 `previewOnly:true`，可登记在 `_scene_order.json.scenes`，但不得加入 `order` 自动推进数组。
+
+## 触发器与场景对象的所见即所得关联
+
+- 空间行为使用统一模型：`game.project.json.triggers[]` 只保存条件/动作/once/cooldown；场景 `type:'trigger'` binding 保存位置、范围、提示、`triggerId`、`targetMode` 和 `target`。项目行为不重复保存场景目标，两者也不是两套触发器。
+- `targetMode` 必须显式选择 `id/group/tag/name/type/ref`，`target` 保存对应场景对象真实字段值。`auto` 仅用于读取未迁移旧数据；新建 binding 默认 `targetMode:'id'`，编辑器会提示迁移。
+- 目标候选必须从当前场景全部图层对象的真实字段生成并去重；不存在的当前值必须保留并标记“当前场景未找到”，禁止静默删除或替换关联。运行时无匹配目标时拒绝执行该 binding。
+- 场景画布必须同时显示 trigger 标记、触发范围和指向所有匹配目标对象的虚线箭头。空间 trigger 与目标重叠时，连线从触发框边缘绘制，不能因中心重合而不可见。
+- 关联操作复用现有功能：选中 trigger 后点属性面板 🎯 再点目标，或按住 Shift 从 trigger 拖到目标；右键可断开。🎯、Shift 拖线、候选列表、画布连线、右键反向断开和运行时解析必须共用 `SceneObjectSelector` 规则。
+- 项目行为通过 `triggerId` 精确绑定，动作需要目标时从事件第三参数的 `targetSelector/targetObject/targetObjects/targetIds` 读取；不得再用隐藏的 `when.params.target` 与场景 binding 重复绑定。
+- 打开场景时磁盘 JSON 是唯一真实源，始终优先于 localStorage；localStorage 仅在磁盘文件不可读时 fallback，并在磁盘读取成功后刷新，避免旧缓存清空 trigger binding。
 
 ## 场景保存机制
 

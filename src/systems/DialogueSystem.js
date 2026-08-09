@@ -57,6 +57,7 @@ export class DialogueSystem {
     this.onNodeChangeCallback = null;
     this.onEndCallback = null;
     this.onChoiceCallback = null;
+    this._choiceListeners = [];
     
     // 是否启用打字机效果
     this.enableTypewriter = true;
@@ -240,8 +241,15 @@ export class DialogueSystem {
       choice.action(context);
     }
 
-    // 触发选择回调
-    if (this.onChoiceCallback) {
+    // 触发选择监听器；复制数组，允许监听器在回调中取消订阅。
+    if (this._choiceListeners.length > 0) {
+      for (const callback of [...this._choiceListeners]) {
+        try { callback(choice, choiceIndex, context); } catch (error) {
+          console.warn('DialogueSystem: onChoice 监听器出错', error);
+        }
+      }
+    } else if (this.onChoiceCallback) {
+      // 兼容直接赋值 onChoiceCallback 的旧调用方。
       this.onChoiceCallback(choice, choiceIndex, context);
     }
 
@@ -543,11 +551,21 @@ export class DialogueSystem {
   }
 
   /**
-   * 设置选择回调
-   * @param {Function} callback - 回调函数
+   * 注册选择监听器（支持多个）。
+   * @param {Function} callback - (choice, choiceIndex, context) => void
+   * @returns {Function} 取消订阅函数
    */
   onChoice(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this._choiceListeners.push(callback);
     this.onChoiceCallback = callback;
+    return () => {
+      const index = this._choiceListeners.indexOf(callback);
+      if (index !== -1) this._choiceListeners.splice(index, 1);
+      if (this.onChoiceCallback === callback) {
+        this.onChoiceCallback = this._choiceListeners[this._choiceListeners.length - 1] || null;
+      }
+    };
   }
 
   /**

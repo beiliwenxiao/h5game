@@ -440,141 +440,163 @@ class SupportAI extends AIController {
  */
 export class AISystem {
   constructor() {
-    // AI控制器映射 entityId -> AIController
     this.aiControllers = new Map();
-    
+    this.inactiveAI = new Map();
+    this.lureTargets = new Map();
     console.log('AISystem: Initialized');
   }
 
-  /**
-   * 注册AI控制器
-   * @param {Entity} entity - 实体
-   * @param {string} aiType - AI类型 'aggressive', 'defensive', 'support'
-   */
   registerAI(entity, aiType = 'aggressive') {
-    const controller = this.createAIController(aiType);
-    this.aiControllers.set(entity.id, controller);
-    
-    // 标记实体为AI控制
+    if (!entity?.id) return false;
+    const resolvedType = aiType || this.inactiveAI.get(entity.id) || entity.aiType || 'aggressive';
+    this.aiControllers.set(entity.id, this.createAIController(resolvedType));
+    this.inactiveAI.delete(entity.id);
     entity.isAI = true;
-    entity.aiType = aiType;
-    
-    console.log(`AISystem: Registered ${aiType} AI for entity ${entity.id}`);
+    entity.aiActive = true;
+    entity.aiType = resolvedType;
+    console.log(`AISystem: Registered ${resolvedType} AI for entity ${entity.id}`);
+    return true;
   }
 
-  /**
-   * 创建AI控制器
-   * @param {string} aiType - AI类型
-   * @returns {AIController}
-   */
   createAIController(aiType) {
     switch (aiType) {
-      case 'aggressive':
-        return new AggressiveAI();
-      case 'defensive':
-        return new DefensiveAI();
-      case 'support':
-        return new SupportAI();
+      case 'aggressive': return new AggressiveAI();
+      case 'defensive': return new DefensiveAI();
+      case 'support': return new SupportAI();
       default:
         console.warn(`AISystem: Unknown AI type: ${aiType}, using aggressive`);
         return new AggressiveAI();
     }
   }
 
-  /**
-   * 移除AI控制器
-   * @param {Entity} entity - 实体
-   */
-  unregisterAI(entity) {
-    if (this.aiControllers.has(entity.id)) {
-      this.aiControllers.delete(entity.id);
-      entity.isAI = false;
-      entity.aiType = null;
-      console.log(`AISystem: Unregistered AI for entity ${entity.id}`);
-    }
+  /** 暂停 AI 但保留期望类型，供可见休眠守卫稍后激活。 */
+  deactivateAI(entity, aiType = entity?.aiType || 'aggressive') {
+    if (!entity?.id) return false;
+    this.aiControllers.delete(entity.id);
+    this.lureTargets.delete(entity.id);
+    this.inactiveAI.set(entity.id, aiType || 'aggressive');
+    entity.getComponent?.('movement')?.stop?.();
+    entity.isAI = false;
+    entity.aiActive = false;
+    entity.aiType = aiType || 'aggressive';
+    return true;
   }
 
-  /**
-   * 更新系统
-   * @param {number} deltaTime - 帧间隔时间（秒）
-   * @param {Array<Entity>} entities - 实体列表
-   * @param {CombatSystem} combatSystem - 战斗系统
-   */
+  /** 幂等激活已存在的实体，不重新创建或改变实体 ID。 */
+  activateAI(entity, aiType = null) {
+    if (!entity?.id || entity.isDead || entity.isDying) return false;
+    const resolvedType = aiType || this.inactiveAI.get(entity.id) || entity.aiType || 'aggressive';
+    if (this.aiControllers.has(entity.id) && entity.aiType === resolvedType) return true;
+    return this.registerAI(entity, resolvedType);
+  }
+
+  /** 完全移除 AI 运行态，用于实体销毁/场景卸载。 */
+  unregisterAI(entity) {
+    if (!entity?.id) return false;
+    const hadActive = this.aiControllers.delete(entity.id);
+    const hadInactive = this.inactiveAI.delete(entity.id);
+    const existed = hadActive || hadInactive;
+    this.lureTargets.delete(entity.id);
+    entity.getComponent?.('movement')?.stop?.();
+    entity.isAI = false;
+    entity.aiActive = false;
+    entity.aiType = null;
+    if (existed) console.log(`AISystem: Unregistered AI for entity ${entity.id}`);
+    return existed;
+  }
+
+  /** 让 AI 在有限时间内优先调查指定位置，结束后恢复原控制器。 */
+  lureToPosition(entity, position, { duration = 6, aiType = null } = {}) {
+    if (!entity?.id || !Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return false;
+    if (!this.activateAI(entity, aiType)) return false;
+    const target = {
+      position: { x: position.x, y: position.y },
+      remaining: Math.max(0.1, Number(duration) || 6)
+    };
+    this.lureTargets.set(entity.id, target);
+    entity.getComponent?.('movement')?.setPath?.([target.position]);
+    return true;
+  }
+
+  getRuntimeState(entity) {
+    if (!entity?.id) return null;
+    const lure = this.lureTargets.get(entity.id);
+    return {
+      active: this.aiControllers.has(entity.id),
+      aiType: this.inactiveAI.get(entity.id) || entity.aiType || 'aggressive',
+      lure: lure ? { position: { ...lure.position }, remaining: lure.remaining } : null
+    };
+  }
+
+  restoreRuntimeState(entity, state = {}) {
+    if (!entity?.id) return false;
+    const aiType = state.aiType || entity.aiType || 'aggressive';
+    if (state.active === false) return this.deactivateAI(entity, aiType);
+    if (!this.activateAI(entity, aiType)) return false;
+    if (state.lure?.position) {
+      return this.lureToPosition(entity, state.lure.position, {
+        duration: state.lure.remaining,
+        aiType
+      });
+    }
+    return true;
+  }
+
   update(deltaTime, entities, combatSystem) {
-    // 更新所有AI控制的实体
     for (const [entityId, controller] of this.aiControllers) {
-      const entity = entities.find(e => e.id === entityId);
-      
+      const entity = entities.find(candidate => candidate.id === entityId);
       if (!entity) {
-        // 实体不存在，移除控制器
         this.aiControllers.delete(entityId);
+        this.lureTargets.delete(entityId);
         continue;
       }
-
-      // 跳过死亡实体
       if (entity.isDead || entity.isDying) continue;
-
-      // 更新AI
+      if (this._updateLure(entity, deltaTime)) continue;
       controller.update(entity, entities, deltaTime, combatSystem);
     }
   }
 
-  /**
-   * 批量注册AI
-   * @param {Array<Entity>} entities - 实体列表
-   * @param {string} aiType - AI类型
-   */
-  registerBatch(entities, aiType = 'aggressive') {
-    for (const entity of entities) {
-      this.registerAI(entity, aiType);
+  _updateLure(entity, deltaTime) {
+    const lure = this.lureTargets.get(entity.id);
+    if (!lure) return false;
+    lure.remaining -= Math.max(0, Number(deltaTime) || 0);
+    const transform = entity.getComponent?.('transform');
+    const distance = transform
+      ? Math.hypot(lure.position.x - transform.position.x, lure.position.y - transform.position.y)
+      : 0;
+    if (lure.remaining <= 0 || distance <= 8) {
+      this.lureTargets.delete(entity.id);
+      entity.getComponent?.('movement')?.stop?.();
+      return false;
     }
+    return true;
   }
 
-  /**
-   * 清除所有AI控制器
-   */
+  registerBatch(entities, aiType = 'aggressive') {
+    for (const entity of entities) this.registerAI(entity, aiType);
+  }
+
   clear() {
     this.aiControllers.clear();
+    this.inactiveAI.clear();
+    this.lureTargets.clear();
     console.log('AISystem: Cleared all AI controllers');
   }
 
-  /**
-   * 获取AI控制的实体数量
-   * @returns {number}
-   */
-  getAICount() {
-    return this.aiControllers.size;
-  }
+  getAICount() { return this.aiControllers.size; }
+  isAIControlled(entity) { return !!entity?.id && this.aiControllers.has(entity.id); }
+  getAIType(entity) { return entity?.aiType || this.inactiveAI.get(entity?.id) || null; }
 
-  /**
-   * 检查实体是否被AI控制
-   * @param {Entity} entity - 实体
-   * @returns {boolean}
-   */
-  isAIControlled(entity) {
-    return this.aiControllers.has(entity.id);
-  }
-
-  /**
-   * 获取实体的AI类型
-   * @param {Entity} entity - 实体
-   * @returns {string|null}
-   */
-  getAIType(entity) {
-    return entity.aiType || null;
-  }
-
-  /**
-   * 更改实体的AI类型
-   * @param {Entity} entity - 实体
-   * @param {string} newAIType - 新的AI类型
-   */
   changeAIType(entity, newAIType) {
-    if (this.aiControllers.has(entity.id)) {
-      const newController = this.createAIController(newAIType);
-      this.aiControllers.set(entity.id, newController);
+    if (!entity?.id) return false;
+    if (!this.aiControllers.has(entity.id)) {
+      this.inactiveAI.set(entity.id, newAIType);
       entity.aiType = newAIType;
-      console.log(`AISystem: Changed AI type for entity ${entity.id} to ${newAIType}`);
+      return true;
     }
+    this.aiControllers.set(entity.id, this.createAIController(newAIType));
+    entity.aiType = newAIType;
+    console.log(`AISystem: Changed AI type for entity ${entity.id} to ${newAIType}`);
+    return true;
   }
 }

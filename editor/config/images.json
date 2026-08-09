@@ -7,6 +7,18 @@
     "img_1784926747445": {
       "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
       "name": "bg_0_0.png"
+    },
+    "graybox.naturalTerrain": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
+      "name": "自然地形灰盒"
+    },
+    "graybox.cityGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/city-ground.svg",
+      "name": "城市场地灰盒"
+    },
+    "graybox.battlefieldUnit": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
+      "name": "战场单位灰盒"
     }
   }
 }

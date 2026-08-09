@@ -86,7 +86,7 @@ export class WorldMapLoadSession {
     const region = regions[regionIndex] || null;
     if (!region) {
       errors.push(errorRecord('region', new Error(`Region ${regionIndex} was not found`), { regionIndex }));
-      return this._commit(version, { project, region: null, chunks: [], placements: [], effectZones: [], errors });
+      return this._commit(version, { project, region: null, chunks: [], sceneObjects: [], placements: [], triggerBindings: [], effectZones: [], errors });
     }
 
     const chunkSpecs = this._chunkSpecs(region);
@@ -107,11 +107,13 @@ export class WorldMapLoadSession {
       ...spec,
       sceneData: sceneOutcomes.get(spec.sceneId)?.data || null
     }));
+    const sceneObjects = [];
     const placements = [];
+    const triggerBindings = [];
     const effectZones = [];
-    for (const chunk of chunks) this._collectChunkObjects(chunk, placements, effectZones);
+    for (const chunk of chunks) this._collectChunkObjects(chunk, sceneObjects, placements, effectZones, triggerBindings);
 
-    return this._commit(version, { project, region, chunks, placements, effectZones, errors });
+    return this._commit(version, { project, region, chunks, sceneObjects, placements, triggerBindings, effectZones, errors });
   }
 
   getSceneData(sceneId) {
@@ -206,7 +208,7 @@ export class WorldMapLoadSession {
     return chunks;
   }
 
-  _collectChunkObjects(chunk, placements, effectZones) {
+  _collectChunkObjects(chunk, sceneObjects, placements, effectZones, triggerBindings) {
     if (!chunk.sceneData) return;
     const candidates = [];
     for (const layer of chunk.sceneData.layers || []) candidates.push(...(layer?.objects || []));
@@ -217,10 +219,14 @@ export class WorldMapLoadSession {
     for (const object of candidates) {
       if (!object || typeof object !== 'object' || seen.has(object)) continue;
       seen.add(object);
-      if (object.type === 'ref' || object.type === 'spawn' || object.type === 'trigger') {
-        placements.push(projectObject(object, chunk.offset, chunk));
+      const projected = projectObject(object, chunk.offset, chunk);
+      sceneObjects.push(projected);
+      if (object.type === 'ref' || object.type === 'spawn') {
+        placements.push(projected);
+      } else if (object.type === 'trigger') {
+        triggerBindings.push(projected);
       } else if (object.type === 'effectZone') {
-        effectZones.push(projectObject(object, chunk.offset, chunk));
+        effectZones.push(projected);
       }
     }
   }

@@ -4,6 +4,7 @@
  ************************************************************/
 
 import { ClickFeedbackRenderer } from '../../rendering/ClickFeedbackRenderer.js';
+import { InputEventType } from '../input/InputEvent.js';
 
 /** 统一处理 UI/世界点击、点击拾取、兼容轻功入口与右键反馈。 */
 export class SceneWorldInteraction {
@@ -48,19 +49,62 @@ export class SceneWorldInteraction {
     }
   }
 
-  handlePickupClick() {
+  handleGatheringCancel(event = {}) {
     const scene = this.scene;
-    const input = scene.inputManager;
-    if (!input?.isMouseClicked() || input.isMouseClickHandled() || input.getMouseButton() === 2) return;
-    if (scene.dialogueSystem?.isDialogueActive() || scene.backpackPanel?.visible) return;
-    const mouseScreen = input.getMousePosition();
-    const mouseWorld = scene.camera
-      ? scene.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
-      : input.getMouseWorldPosition();
-    if (this.tryClickPickup(mouseWorld.x, mouseWorld.y)) input.markMouseClickHandled();
+    if (event.type !== InputEventType.KEY_PRESS || String(event.key).toLowerCase() !== 'e') return false;
+    if (!scene.gatheringSystem?.isActiveFor?.(scene.playerEntity)) return false;
+    scene.gatheringSystem.interrupt('cancelled');
+    return true;
   }
 
-  tryClickPickup(worldX, worldY) {
+  handlePickupInput(event = {}) {
+    const scene = this.scene;
+    if (scene.dialogueSystem?.isDialogueActive() || scene.backpackPanel?.visible) return false;
+    if (this.handleGatheringCancel(event)) return true;
+
+    if (event.type === InputEventType.POINTER_DOWN) {
+      if (!event.world || event.button === 2) return false;
+      return this.tryClickPickup(event.world.x, event.world.y, { operationId: `input-${event.id}` });
+    }
+    if (event.type === InputEventType.KEY_PRESS && String(event.key).toLowerCase() === 'e') {
+      return this.tryRangePickup({ operationId: `input-${event.id}`, device: event.device });
+    }
+    return false;
+  }
+
+  /** 旧直接调用入口仅作为兼容转发；新输入统一走 handlePickupInput。 */
+  handlePickupClick() {
+    const input = this.scene.inputManager;
+    if (!input?.isMouseClicked() || input.isMouseClickHandled() || input.getMouseButton() === 2) return false;
+    const screen = input.getMousePosition();
+    const world = this.scene.camera
+      ? this.scene.camera.screenToWorld(screen.x, screen.y)
+      : input.getMouseWorldPosition();
+    const handled = this.handlePickupInput({
+      id: `legacy-${Date.now()}`,
+      type: InputEventType.POINTER_DOWN,
+      button: input.getMouseButton(),
+      world
+    });
+    if (handled) input.markMouseClickHandled();
+    return handled;
+  }
+
+  tryRangePickup(request = {}) {
+    const scene = this.scene;
+    if (!scene.playerEntity || !scene.pickupSystem) return false;
+    const result = scene.pickupSystem.requestPickup({
+      playerEntity: scene.playerEntity,
+      pickupItems: scene.pickupItems,
+      equipmentItems: scene.equipmentItems,
+      ...request
+    });
+    this._applyPickupResult(result);
+    const picked = (result.pickedItems?.length || 0) > 0 || (result.removedEntities?.length || 0) > 0;
+    return picked || this.scene.harvestByFacing?.({ silent: true }) === true;
+  }
+
+  tryClickPickup(worldX, worldY, request = {}) {
     const scene = this.scene;
     if (!scene.playerEntity || !scene.pickupSystem) return false;
     const isHit = (x, y) => Math.hypot(x - worldX, y - worldY) <= 30;
@@ -74,8 +118,19 @@ export class SceneWorldInteraction {
     }
     if (!hit) return false;
 
-    const result = scene.pickupSystem.triggerPickup(
-      scene.playerEntity, scene.pickupItems, scene.equipmentItems);
+    const result = scene.pickupSystem.requestPickup({
+      playerEntity: scene.playerEntity,
+      pickupItems: scene.pickupItems,
+      equipmentItems: scene.equipmentItems,
+      ...request
+    });
+    this._applyPickupResult(result);
+    // 命中物品即消费指针，背包已满时也不能穿透成攻击。
+    return true;
+  }
+
+  _applyPickupResult(result = {}) {
+    const scene = this.scene;
     const removedEntities = result.removedEntities || [];
     if (scene.entityStore?.removeMany) {
       scene.entityStore.removeMany(removedEntities);
@@ -85,7 +140,6 @@ export class SceneWorldInteraction {
         if (removedSet.has(scene.entities[index])) scene.entities.splice(index, 1);
       }
     }
-    return true;
   }
 
   /** 保留旧 Ctrl+左键轻功入口；当前 PC 主路径由瞄准服务驱动。 */

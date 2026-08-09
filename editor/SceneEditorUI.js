@@ -10,6 +10,11 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
+import {
+  SCENE_OBJECT_SELECTOR_MODES,
+  sceneObjectSelectorValues
+} from '../src/core/scene/SceneObjectSelector.js';
+
 /**
  * SceneEditorUI - 场景编辑器 UI 模块
  * 负责 UI 面板初始化、属性面板更新、基础工具操作
@@ -81,6 +86,7 @@ export class SceneEditorUI {
                 </div>
                 <div class="asset-actions" id="editor-image-actions" style="display:none;">
                   <button id="editor-add-image">添加图片</button>
+                  <button id="editor-audit-assets" title="核对 Manifest、磁盘文件、场景引用、授权与 3D fallback">🔎 资产审计</button>
                   <button id="editor-save-scene-btn">💾 保存</button>
                 </div>
                 <div id="asset-shapes" class="asset-panel">
@@ -588,25 +594,17 @@ export class SceneEditorUI {
         else if (e.target.type === 'number') value = parseFloat(e.target.value);
         else value = e.target.value;
 
-        // 切换为放置场景物品时，立即重绘属性面板显示可视化目标选择。
-        if (prop === 'actionType' && obj.type === 'trigger') {
-          obj.actionType = value;
-          if (value === 'spawnPlacements') {
-            let hasSelector = false;
-            try {
-              const params = JSON.parse(obj.actionParams || '{}');
-              hasSelector = !!(params && typeof params === 'object' && params.selector);
-            } catch (e) { /* 切换动作时清除旧动作的非 JSON 参数 */ }
-            if (!hasSelector) obj.actionParams = '';
+        // triggerId 是场景空间 binding 到项目行为定义的唯一连接。
+        if (prop === 'triggerId' && obj.type === 'trigger') {
+          obj.triggerId = String(value || '').trim();
+          const definition = editor.getProjectTrigger?.(obj.triggerId);
+          if (definition) {
+            obj.event = definition.when?.type || obj.event || 'interact';
+            obj.name = obj.name || definition.id;
           }
           this.updateObjectProperties();
           editor.render();
           return;
-        }
-
-        // 可视化选择器写入的 JSON 同样可撤销。
-        if (prop === 'actionParams' && e.target.dataset.spawnPlacementSelector === 'true' && value !== obj.actionParams) {
-          editor.history.saveHistory();
         }
 
         // 碰撞/可落脚互斥：勾选一个自动取消另一个
@@ -639,6 +637,10 @@ export class SceneEditorUI {
           obj.gradientStops[prop === 'gradientColor0' ? 0 : 1].color = value;
         } else if (prop === 'fillMode') {
           obj.fillMode = value;
+          this.updateObjectProperties();
+        } else if (prop === 'targetMode' && obj.type === 'trigger') {
+          obj.targetMode = SCENE_OBJECT_SELECTOR_MODES.includes(value) ? value : 'id';
+          // 保留原 target；切换模式后立即刷新候选并显式提示失配，禁止静默改绑。
           this.updateObjectProperties();
         } else if (prop === 'tags') {
           const tags = [...new Set(String(value || '').split(',').map(tag => tag.trim()).filter(Boolean))];
@@ -737,10 +739,22 @@ export class SceneEditorUI {
       });
     });
 
-    // 图片对象：路径编辑 + 文件大小查询
+    // 图片对象：切换稳定 imageId，或替换当前 ID 对应的文件。
     const imageSrcInput = document.getElementById('editor-image-src');
+    const imageIdSelect = document.getElementById('editor-image-id');
     if (imageSrcInput && editor.selectedObjects.length === 1 && editor.selectedObjects[0].type === 'image') {
       const imgObj = editor.selectedObjects[0];
+      if (imageIdSelect) {
+        imageIdSelect.addEventListener('change', () => {
+          const nextId = imageIdSelect.value;
+          if (!nextId || nextId === imgObj.imageId) return;
+          editor.history?.saveHistory?.();
+          imgObj.imageId = nextId;
+          editor.render();
+          this.updateObjectProperties();
+          this.showToast(`已切换图片资源：${nextId}`);
+        });
+      }
       // 初次显示时异步查询文件大小
       this._fetchImageFileSize(imageSrcInput.value);
       imageSrcInput.addEventListener('change', () => {
@@ -819,6 +833,12 @@ export class SceneEditorUI {
         editor.interactionModule.startPickTarget(editor.selectedObjects[0]);
       });
     }
+    const editTriggerBtn = document.getElementById('editor-edit-trigger');
+    if (editTriggerBtn) editTriggerBtn.addEventListener('click', () => editor.options.openTriggerEditor?.(obj.triggerId));
+    const previewTriggerBtn = document.getElementById('editor-preview-trigger');
+    if (previewTriggerBtn) previewTriggerBtn.addEventListener('click', () => {
+      editor.options.previewTrigger?.(obj, editor.getProjectTrigger?.(obj.triggerId));
+    });
   }
 
   /**
@@ -985,30 +1005,83 @@ export class SceneEditorUI {
     };
   }
 
-  /**
-   * 获取场景下拉选项 HTML（由编辑器入口注入当前游戏的场景列表）。
-   * @private
-   */
-  _getSceneOptions(currentValue) {
-    let options = `<option value="" ${!currentValue ? 'selected' : ''}>(当前场景)</option>`;
-    const listedIds = new Set();
-    let scenes = [];
-    try {
-      scenes = this.editor.options.getSceneList?.() || [];
-    } catch (e) {
-      console.warn('获取场景列表失败:', e);
+  _buildUnifiedTriggerProperties(obj) {
+    const escapeHtml = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const spatialEvents = ['interact', 'approach', 'enter', 'leave'];
+    const triggers = (this.editor.getProjectTriggers?.() || [])
+      .filter(trigger => spatialEvents.includes(trigger?.when?.type) || trigger?.id === obj.triggerId);
+    const definition = this.editor.getProjectTrigger?.(obj.triggerId);
+    const dangling = !!obj.triggerId && !definition;
+    const invalidSpatialEvent = !!definition && !spatialEvents.includes(definition.when?.type);
+    let options = '<option value="">-- 选择项目触发器 --</option>';
+    for (const trigger of triggers) {
+      const selected = trigger.id === obj.triggerId ? 'selected' : '';
+      options += `<option value="${escapeHtml(trigger.id)}" ${selected}>${escapeHtml(trigger.id)} · ${escapeHtml(this.editor.getTriggerSummary?.(trigger.id) || '')}</option>`;
     }
-    for (const scene of scenes) {
-      if (!scene?.id || listedIds.has(scene.id)) continue;
-      listedIds.add(scene.id);
-      const selected = scene.id === currentValue ? 'selected' : '';
-      options += `<option value="${scene.id}" ${selected}>${scene.name || scene.id}</option>`;
+    if (dangling) options += `<option value="${escapeHtml(obj.triggerId)}" selected>${escapeHtml(obj.triggerId)}（悬空引用）</option>`;
+
+    const selectorModeLabels = {
+      id: '对象 ID',
+      group: '对象组',
+      tag: '标签组',
+      name: '对象名称',
+      type: '对象类型',
+      ref: '内容/语义引用'
+    };
+    const targetMode = SCENE_OBJECT_SELECTOR_MODES.includes(obj.targetMode) ? obj.targetMode : 'auto';
+    let targetModeOptions = SCENE_OBJECT_SELECTOR_MODES.map(mode =>
+      `<option value="${mode}" ${targetMode === mode ? 'selected' : ''}>${selectorModeLabels[mode]}</option>`
+    ).join('');
+    if (targetMode === 'auto') {
+      targetModeOptions = '<option value="auto" selected>旧数据自动匹配（请迁移）</option>' + targetModeOptions;
     }
-    // 如果当前值不在列表中（已删除或旧自定义值），追加一项以避免静默丢失引用。
-    if (currentValue && !listedIds.has(currentValue)) {
-      options += `<option value="${currentValue}" selected>${currentValue}（旧引用）</option>`;
+
+    const candidates = new Map();
+    for (const layer of this.editor.sceneData.layers || []) {
+      for (const candidate of layer.objects || []) {
+        if (!candidate || candidate === obj) continue;
+        for (const value of sceneObjectSelectorValues(candidate, targetMode)) {
+          const existing = candidates.get(value);
+          if (existing) existing.count++;
+          else candidates.set(value, { object: candidate, count: 1 });
+        }
+      }
     }
-    return options;
+    const currentTarget = String(obj.target || '');
+    let targetOptions = '<option value="">-- 不关联场景对象 --</option>';
+    const sortedCandidates = [...candidates.entries()].sort(([a], [b]) => a.localeCompare(b, 'zh-CN'));
+    for (const [value, entry] of sortedCandidates) {
+      const candidate = entry.object;
+      const identity = [...new Set([candidate.name, candidate.ref, candidate.id]
+        .map(item => String(item || '').trim()).filter(item => item && item !== value))].join(' / ') || '未命名对象';
+      const count = entry.count > 1 ? ` · ${entry.count}个对象` : '';
+      const label = `${value} · ${identity} [${candidate.type || 'unknown'}]${count}`;
+      targetOptions += `<option value="${escapeHtml(value)}" ${value === currentTarget ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }
+    const targetMissing = !!currentTarget && !candidates.has(currentTarget);
+    if (targetMissing) {
+      targetOptions += `<option value="${escapeHtml(currentTarget)}" selected>${escapeHtml(currentTarget)}（当前场景未找到）</option>`;
+    }
+
+    const eventType = definition?.when?.type || obj.event || '';
+    const summary = definition ? this.editor.getTriggerSummary?.(definition.id) : '未找到项目行为定义';
+    const legacyFields = ['actionType', 'actionParams', 'conditions', 'once', 'cooldown'].filter(key => obj[key] !== undefined);
+    return `
+      <div class="property-row"><label>名称:</label><input type="text" value="${escapeHtml(obj.name || '')}" data-prop="name"></div>
+      <div class="property-row"><label>项目行为:</label><select data-prop="triggerId">${options}</select></div>
+      <div class="property-row"><label>行为摘要:</label><textarea rows="2" disabled style="width:100%;color:${dangling ? '#ef5350' : '#c9d4ef'}">${escapeHtml(summary)}</textarea></div>
+      ${dangling ? '<div class="property-row"><small style="color:#ef5350;">⚠ triggerId 在 game.project.json 中不存在，运行时不会执行。</small></div>' : ''}
+      ${invalidSpatialEvent ? `<div class="property-row"><small style="color:#ef5350;">⚠ ${escapeHtml(eventType)} 不是空间事件，请在 TriggerEditor 中改为 interact/approach/enter/leave，或删除此场景 binding。</small></div>` : ''}
+      ${targetMode === 'auto' ? '<div class="property-row"><small style="color:#e8a24a;">旧 binding 正在跨字段自动匹配；请选择一种明确的目标方式。</small></div>' : ''}
+      ${targetMissing ? `<div class="property-row"><small style="color:#ef5350;">⚠ 当前 ${escapeHtml(selectorModeLabels[targetMode] || '自动')} 值“${escapeHtml(currentTarget)}”在场景中不存在，运行时会拒绝执行。</small></div>` : ''}
+      <div class="property-row"><label>空间事件:</label><input type="text" value="${escapeHtml(eventType)}" disabled title="由项目行为 when.type 决定"></div>
+      <div class="property-row"><label>目标方式:</label><select data-prop="targetMode">${targetModeOptions}</select></div>
+      <div class="property-row"><label>目标对象:</label><select data-prop="target" style="min-width:0;flex:1;">${targetOptions}</select><button id="editor-pick-target" title="按当前目标方式点击场景对象拾取">🎯</button></div>
+      <div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>
+      <div class="property-row"><label>操作提示:</label><input type="text" value="${escapeHtml(obj.prompt || '')}" data-prop="prompt" placeholder="如 {interact}点燃"></div>
+      <div class="property-row"><button id="editor-edit-trigger" ${obj.triggerId ? '' : 'disabled'}>编辑行为</button><button id="editor-preview-trigger" ${definition ? '' : 'disabled'}>预演摘要</button></div>
+      ${legacyFields.length ? `<div class="property-row"><small style="color:#e8a24a;">旧场景内行为字段已降级为只读兼容数据：${legacyFields.join(', ')}；保存新行为请使用“编辑行为”。</small></div>` : ''}`;
   }
 
   /**
@@ -1019,6 +1092,10 @@ export class SceneEditorUI {
   _buildLogicProperties(obj) {
     const editor = this.editor;
     let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
+    // 场景 trigger 始终只编辑空间 binding；项目中暂时没有行为时也不得回退为第二套动作入口。
+    if (obj.type === 'trigger') {
+      return html + this._buildUnifiedTriggerProperties(obj);
+    }
     html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
     if (obj.type === 'region') {
       html += `<div class="property-row"><label>区域ID:</label><input type="text" value="${obj.regionId || ''}" data-prop="regionId" placeholder="供触发器 enterRegion 引用"></div>`;
@@ -1034,108 +1111,6 @@ export class SceneEditorUI {
       html += `<div class="property-row"><label>目标出生点:</label><input type="text" value="${obj.targetSpawn || ''}" data-prop="targetSpawn" placeholder="目标 spawn id"></div>`;
     } else if (obj.type === 'npc') {
       html += `<div class="property-row"><label>NPC库ID:</label><input type="text" value="${obj.npcRef || ''}" data-prop="npcRef" placeholder="library.npcs 的 id"></div>`;
-    } else if (obj.type === 'trigger') {
-      const escapeHtml = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      const placementSceneId = editor.sceneData?.id || obj.sceneId || '';
-      const itemPlacements = (editor.sceneData?.layers || []).flatMap(layer =>
-        (layer?.objects || []).filter(item => item?.type === 'ref' && item.kind === 'item' && item.id)
-      );
-      let selectedSelector = null;
-      try {
-        const params = JSON.parse(obj.actionParams || '{}');
-        selectedSelector = params?.selector || null;
-      } catch (e) { /* 非 JSON 的旧动作参数仍由原输入框保留 */ }
-      const sameSelector = selector => JSON.stringify(selectedSelector) === JSON.stringify(selector);
-      const selectorOptions = [];
-      const makeOption = (label, selector) => {
-        const value = JSON.stringify({ selector });
-        selectorOptions.push(`<option value="${escapeHtml(value)}" ${sameSelector(selector) ? 'selected' : ''}>${escapeHtml(label)}</option>`);
-      };
-      const baseSelector = { sceneId: placementSceneId, kinds: ['item'] };
-      for (const placement of itemPlacements) {
-        makeOption(`指定物品 · ${placement.name || placement.ref || placement.id}（${placement.id}）`, {
-          ...baseSelector,
-          placementIds: [placement.id]
-        });
-      }
-      const groups = [...new Set(itemPlacements.map(item => String(item.group || '').trim()).filter(Boolean))];
-      for (const group of groups) makeOption(`按组名 · ${group}`, { ...baseSelector, group });
-      const tags = [...new Set(itemPlacements.flatMap(item => Array.isArray(item.tags) ? item.tags : String(item.tags || '').split(','))
-        .map(tag => String(tag).trim()).filter(Boolean))];
-      for (const tag of tags) makeOption(`按标签 · ${tag}`, { ...baseSelector, tag });
-      const spawnPlacementSelected = obj.actionType === 'spawnPlacements';
-
-      html += `<div class="property-row"><label>触发器ID:</label><input type="text" value="${obj.triggerId || ''}" data-prop="triggerId"></div>`;
-      const sceneOptions = this._getSceneOptions(obj.sceneId || '');
-      html += `<div class="property-row"><label>所属场景:</label><select data-prop="sceneId">${sceneOptions}</select></div>`;
-      html += `<div class="property-row"><label>触发时机:</label><select data-prop="event">
-        <option value="sceneEnter" ${obj.event === 'sceneEnter' ? 'selected' : ''}>进入场景 sceneEnter</option>
-        <option value="enterRegion" ${obj.event === 'enterRegion' ? 'selected' : ''}>进入区域 enterRegion</option>
-        <option value="approach" ${obj.event === 'approach' ? 'selected' : ''}>靠近 approach</option>
-        <option value="interact" ${obj.event === 'interact' ? 'selected' : ''}>交互 interact</option>
-        <option value="itemPickup" ${obj.event === 'itemPickup' ? 'selected' : ''}>拾取物品 itemPickup</option>
-        <option value="stand" ${obj.event === 'stand' ? 'selected' : ''}>站立 stand</option>
-        <option value="climb" ${obj.event === 'climb' ? 'selected' : ''}>攀爬 climb</option>
-        <option value="jump" ${obj.event === 'jump' ? 'selected' : ''}>跳跃 jump</option>
-        <option value="enter" ${obj.event === 'enter' ? 'selected' : ''}>进入区域 enter</option>
-        <option value="leave" ${obj.event === 'leave' ? 'selected' : ''}>离开区域 leave</option>
-        <option value="kill" ${obj.event === 'kill' ? 'selected' : ''}>击杀敌人 kill</option>
-        <option value="dialogueEnd" ${obj.event === 'dialogueEnd' ? 'selected' : ''}>对话结束 dialogueEnd</option>
-        <option value="questComplete" ${obj.event === 'questComplete' ? 'selected' : ''}>任务完成 questComplete</option>
-        <option value="questProgress" ${obj.event === 'questProgress' ? 'selected' : ''}>任务进度 questProgress</option>
-        <option value="flagChange" ${obj.event === 'flagChange' ? 'selected' : ''}>变量变化 flagChange</option>
-        <option value="timer" ${obj.event === 'timer' ? 'selected' : ''}>定时器 timer</option>
-        <option value="chunkEnter" ${obj.event === 'chunkEnter' ? 'selected' : ''}>进入区块 chunkEnter</option>
-        <option value="campfireLit" ${obj.event === 'campfireLit' ? 'selected' : ''}>火堆点燃 campfireLit</option>
-        <option value="waveCleared" ${obj.event === 'waveCleared' ? 'selected' : ''}>波次清空 waveCleared</option>
-        <option value="playerMoved" ${obj.event === 'playerMoved' ? 'selected' : ''}>玩家移动 playerMoved</option>
-        <option value="panelOpen" ${obj.event === 'panelOpen' ? 'selected' : ''}>打开面板 panelOpen</option>
-        <option value="equipItem" ${obj.event === 'equipItem' ? 'selected' : ''}>装备物品 equipItem</option>
-        <option value="classSelected" ${obj.event === 'classSelected' ? 'selected' : ''}>选择职业 classSelected</option>
-        <option value="itemTransform" ${obj.event === 'itemTransform' ? 'selected' : ''}>物品转化 itemTransform</option>
-        <option value="custom" ${obj.event === 'custom' ? 'selected' : ''}>自定义 custom</option>
-      </select></div>`;
-      html += `<div class="property-row"><label>目标对象:</label><input type="text" value="${obj.target || ''}" data-prop="target" placeholder="关联的实体/物品 id" style="flex:1;"><button id="editor-pick-target" title="点击场景中的对象拾取" style="margin-left:4px;padding:2px 6px;cursor:pointer;">🎯</button></div>`;
-      html += `<div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>`;
-      html += `<div class="property-row"><label>条件(JSON):</label><textarea data-prop="conditions" rows="2" style="width:100%;font-size:11px;">${obj.conditions || ''}</textarea></div>`;
-      html += `<div class="property-row"><label>动作:</label><select data-prop="actionType">
-        <option value="">-- 选择动作 --</option>
-        <option value="setVar" ${obj.actionType === 'setVar' ? 'selected' : ''}>设置变量 setVar</option>
-        <option value="addVar" ${obj.actionType === 'addVar' ? 'selected' : ''}>变量累加 addVar</option>
-        <option value="setFlag" ${obj.actionType === 'setFlag' ? 'selected' : ''}>设置标记 setFlag</option>
-        <option value="toggleFlag" ${obj.actionType === 'toggleFlag' ? 'selected' : ''}>切换标记 toggleFlag</option>
-        <option value="startDialogue" ${obj.actionType === 'startDialogue' ? 'selected' : ''}>开始对话 startDialogue</option>
-        <option value="switchScene" ${obj.actionType === 'switchScene' ? 'selected' : ''}>切换场景 switchScene</option>
-        <option value="loadRegion" ${obj.actionType === 'loadRegion' ? 'selected' : ''}>加载区域 loadRegion</option>
-        <option value="giveReward" ${obj.actionType === 'giveReward' ? 'selected' : ''}>给予奖励 giveReward</option>
-        <option value="heal" ${obj.actionType === 'heal' ? 'selected' : ''}>治疗/恢复 heal</option>
-        <option value="startQuest" ${obj.actionType === 'startQuest' ? 'selected' : ''}>开始任务 startQuest</option>
-        <option value="completeQuest" ${obj.actionType === 'completeQuest' ? 'selected' : ''}>完成任务 completeQuest</option>
-        <option value="showTip" ${obj.actionType === 'showTip' ? 'selected' : ''}>显示提示 showTip</option>
-        <option value="playSound" ${obj.actionType === 'playSound' ? 'selected' : ''}>播放音效 playSound</option>
-        <option value="playBgm" ${obj.actionType === 'playBgm' ? 'selected' : ''}>播放BGM playBgm</option>
-        <option value="spawnEnemy" ${obj.actionType === 'spawnEnemy' ? 'selected' : ''}>生成敌人 spawnEnemy</option>
-        <option value="spawnWave" ${obj.actionType === 'spawnWave' ? 'selected' : ''}>生成波次 spawnWave</option>
-        <option value="spawnGroup" ${obj.actionType === 'spawnGroup' ? 'selected' : ''}>激活放置组（兼容旧配置） spawnGroup</option>
-        <option value="spawnPlacements" ${spawnPlacementSelected ? 'selected' : ''}>放置场景物品 spawnPlacements</option>
-        <option value="lightCampfire" ${obj.actionType === 'lightCampfire' ? 'selected' : ''}>点燃火堆 lightCampfire</option>
-        <option value="sceneCountdown" ${obj.actionType === 'sceneCountdown' ? 'selected' : ''}>倒计时切幕 sceneCountdown</option>
-        <option value="promptSwitch" ${obj.actionType === 'promptSwitch' ? 'selected' : ''}>提示切幕 promptSwitch</option>
-        <option value="teleportToChunk" ${obj.actionType === 'teleportToChunk' ? 'selected' : ''}>传送到区块 teleportToChunk</option>
-        <option value="wait" ${obj.actionType === 'wait' ? 'selected' : ''}>等待 wait</option>
-        <option value="mount" ${obj.actionType === 'mount' ? 'selected' : ''}>上载具/骑乘 mount</option>
-        <option value="battleWin" ${obj.actionType === 'battleWin' ? 'selected' : ''}>战斗胜利 battleWin</option>
-        <option value="battleLose" ${obj.actionType === 'battleLose' ? 'selected' : ''}>战斗失败 battleLose</option>
-        <option value="parallel" ${obj.actionType === 'parallel' ? 'selected' : ''}>并行执行 parallel</option>
-      </select></div>`;
-      html += `<div class="property-row" style="display:${spawnPlacementSelected ? '' : 'none'};"><label title="只显示当前场景的 kind:item 放置点">放置目标:</label><select data-prop="actionParams" data-spawn-placement-selector="true" style="font-size:11px;"><option value="">-- 指定物品／按组名／按标签 --</option>${selectorOptions.join('')}</select></div>`;
-      html += `<div class="property-row" style="display:${spawnPlacementSelected ? '' : 'none'};"><small style="color:#9ab;line-height:1.4;">仅列出当前场景的物品放置点；指定物品只生成一件，按组名或标签会批量生成所有匹配物品。</small></div>`;
-      if (spawnPlacementSelected && selectorOptions.length === 0) {
-        html += '<div class="property-row"><small style="color:#e8a24a;">当前场景还没有 kind 为 item 的放置点。请先放置物品，并设置可选的组名或标签。</small></div>';
-      }
-      html += `<div class="property-row" style="display:${spawnPlacementSelected ? 'none' : ''};"><label>动作参数(JSON):</label><textarea data-prop="actionParams" rows="2" style="width:100%;font-size:11px;">${obj.actionParams || ''}</textarea></div>`;
-      html += `<div class="property-row"><label>仅触发一次:</label><input type="checkbox" data-prop="once" ${obj.once ? 'checked' : ''}></div>`;
-      html += `<div class="property-row"><label>冷却(秒):</label><input type="number" value="${obj.cooldown || 0}" min="0" step="0.5" data-prop="cooldown"></div>`;
     }
     return html;
   }
@@ -1256,12 +1231,26 @@ export class SceneEditorUI {
    */
   _buildImageProperties(obj) {
     const editor = this.editor;
-    const asset = editor.sceneData.imageAssets?.[obj.imageId];
+    const assets = editor.sceneData.imageAssets || {};
+    const asset = assets[obj.imageId];
     const src = asset?.src || '';
     const img = editor.loadedImages.get(obj.imageId);
     const dim = img ? `${img.naturalWidth || img.width}×${img.naturalHeight || img.height}` : '未加载';
+    const escapeHtml = value => String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    const ids = Object.keys(assets).sort();
+    if (obj.imageId && !ids.includes(obj.imageId)) ids.unshift(obj.imageId);
+    const imageOptions = ids.map(id => {
+      const label = assets[id]?.name ? `${id} · ${assets[id].name}` : id;
+      return `<option value="${escapeHtml(id)}"${id === obj.imageId ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+
     let html = '';
-    html += `<div class="property-row"><label title="图片相对路径或 URL">路径:</label><input type="text" id="editor-image-src" value="${src}" style="flex:1;"></div>`;
+    html += `<div class="property-row"><label title="切换到另一个已登记的稳定图片资源">图片ID:</label><select id="editor-image-id" style="flex:1;">${imageOptions}</select></div>`;
+    html += `<div class="property-row"><label title="替换当前 ID 对应的图片文件，所有引用保持不变">替换文件:</label><input type="text" id="editor-image-src" value="${escapeHtml(src)}" style="flex:1;"></div>`;
     html += `<div class="property-row"><label>图片尺寸:</label><input id="editor-image-dim" value="${dim}" disabled style="color:#88ccff;"></div>`;
     html += `<div class="property-row"><label>文件大小:</label><input id="editor-image-filesize" value="计算中…" disabled style="color:#88ccff;"></div>`;
     html += `<div class="property-row" style="margin-top:8px;"><button id="editor-image-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button><button id="editor-image-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button></div>`;

@@ -18,6 +18,7 @@ export class SceneGameLoaderBridge {
       : config;
     const {
       GameLoaderClass = GameLoader,
+      loaderConfig = {},
       scope = null,
       dialogueSystem = null,
       deps = {},
@@ -27,6 +28,7 @@ export class SceneGameLoaderBridge {
     } = normalized || {};
 
     this.GameLoaderClass = GameLoaderClass;
+    this.loaderConfig = loaderConfig && typeof loaderConfig === 'object' ? loaderConfig : {};
     this.scope = scope;
     this.dialogueSystem = dialogueSystem;
     this.deps = deps;
@@ -35,6 +37,7 @@ export class SceneGameLoaderBridge {
     this.getPlayer = typeof getPlayer === 'function' ? getPlayer : (() => null);
     this.loader = null;
     this._dialogueEndOff = null;
+    this._dialogueChoiceOff = null;
     this._initializeToken = 0;
     this._disposed = false;
   }
@@ -56,7 +59,7 @@ export class SceneGameLoaderBridge {
     this.dispose();
     this._disposed = false;
     const token = this._initializeToken;
-    const loader = new this.GameLoaderClass();
+    const loader = new this.GameLoaderClass(this.loaderConfig);
     this.loader = loader;
     if (this.scope) this.scope.gameLoader = loader;
 
@@ -66,6 +69,7 @@ export class SceneGameLoaderBridge {
 
     const triggerSystem = loader.triggerSystem;
     this._bindDialogueEnd(loadDeps.dialogueSystem, triggerSystem, token, loader);
+    this._bindDialogueChoice(loadDeps.dialogueSystem, triggerSystem, token, loader);
     if (!this._isActive(token, loader)) return loader;
 
     if (sceneFlag) loader.blackboard.set(sceneFlag, true);
@@ -92,13 +96,16 @@ export class SceneGameLoaderBridge {
     this._disposed = true;
     this._initializeToken += 1;
     const dialogueEndOff = this._dialogueEndOff;
+    const dialogueChoiceOff = this._dialogueChoiceOff;
     this._dialogueEndOff = null;
+    this._dialogueChoiceOff = null;
 
     const loader = this.loader;
     this.loader = null;
     if (this.scope?.gameLoader === loader) this.scope.gameLoader = null;
     try {
       if (typeof dialogueEndOff === 'function') dialogueEndOff();
+      if (typeof dialogueChoiceOff === 'function') dialogueChoiceOff();
     } finally {
       if (loader && typeof loader.dispose === 'function') loader.dispose();
     }
@@ -144,6 +151,20 @@ export class SceneGameLoaderBridge {
       }
     });
     this._dialogueEndOff = typeof off === 'function' ? off : null;
+  }
+
+  _bindDialogueChoice(dialogueSystem, triggerSystem, token, loader) {
+    if (!dialogueSystem?.onChoice) return;
+    const off = dialogueSystem.onChoice((choice, index) => {
+      if (!this._isActive(token, loader)) return;
+      triggerSystem.fire('dialogueChoice', {
+        id: dialogueSystem.getCurrentDialogue?.()?.id || null,
+        choiceId: choice?.id || null,
+        index,
+        nextNode: choice?.nextNode || null
+      });
+    });
+    this._dialogueChoiceOff = typeof off === 'function' ? off : null;
   }
 
   _isActive(token, loader) {

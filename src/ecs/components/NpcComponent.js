@@ -29,7 +29,7 @@ export class NpcComponent extends Component {
   constructor(config = {}) {
     super('npc');
 
-    this.npcId = config.id || null;
+    this.npcId = config.npcId || config.id || null;
     this.title = config.title || '';          // 称号（名字上方显示）
     this.portrait = config.portrait || null;  // 立绘 key（对话框用）
     this.faction = config.faction || 'friendly'; // friendly/neutral/hostile

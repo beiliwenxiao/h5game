@@ -110,14 +110,14 @@ export class EquipmentData {
         },
         value: 50
       },
-      magic_staff: {
-        id: 'magic_staff',
-        name: '魔法法杖',
+      strategist_talisman_staff: {
+        id: 'strategist_talisman_staff',
+        name: '符杖',
         type: EquipmentType.WEAPON,
         quality: EquipmentQuality.UNCOMMON,
         level: 3,
-        description: '蕴含魔力的法杖，增强法术威力',
-        icon: 'icon_magic_staff',
+        description: '用于施展符法与指挥战阵的木制符杖',
+        icon: 'icon_strategist_talisman_staff',
         stats: {
           attack: 3,
           maxMp: 20,
@@ -125,7 +125,7 @@ export class EquipmentData {
         },
         requirements: {
           level: 3,
-          class: ['mage']
+          class: ['strategist']
         },
         value: 40
       },
@@ -187,14 +187,14 @@ export class EquipmentData {
         },
         value: 60
       },
-      mage_robe: {
-        id: 'mage_robe',
-        name: '法师长袍',
+      strategist_robe: {
+        id: 'strategist_robe',
+        name: '军师道袍',
         type: EquipmentType.ARMOR,
         quality: EquipmentQuality.UNCOMMON,
         level: 3,
-        description: '蕴含魔力的长袍，增强魔法抗性',
-        icon: 'icon_mage_robe',
+        description: '便于行军与施展符法的轻便道袍',
+        icon: 'icon_strategist_robe',
         stats: {
           defense: 4,
           maxMp: 30,
@@ -202,7 +202,7 @@ export class EquipmentData {
         },
         requirements: {
           level: 3,
-          class: ['mage']
+          class: ['strategist']
         },
         value: 45
       },
@@ -226,21 +226,21 @@ export class EquipmentData {
         },
         value: 20
       },
-      wizard_hat: {
-        id: 'wizard_hat',
-        name: '法师帽',
+      strategist_headpiece: {
+        id: 'strategist_headpiece',
+        name: '军师方巾',
         type: EquipmentType.HELMET,
         quality: EquipmentQuality.UNCOMMON,
         level: 4,
-        description: '法师专用的尖顶帽，增强魔力',
-        icon: 'icon_wizard_hat',
+        description: '军师常用方巾，有助于凝神筹策',
+        icon: 'icon_strategist_headpiece',
         stats: {
           maxMp: 15,
           elementAttack: { 2: 3, 5: 2 } // 水攻击+3，电攻击+2
         },
         requirements: {
           level: 4,
-          class: ['mage']
+          class: ['strategist']
         },
         value: 35
       },
@@ -338,21 +338,21 @@ export class EquipmentData {
         },
         value: 40
       },
-      mana_amulet: {
-        id: 'mana_amulet',
-        name: '魔力护符',
+      strategist_talisman: {
+        id: 'strategist_talisman',
+        name: '护身符',
         type: EquipmentType.ACCESSORY,
         quality: EquipmentQuality.UNCOMMON,
         level: 4,
-        description: '增加魔法值的神秘护符',
-        icon: 'icon_mana_amulet',
+        description: '增加法力并辅助符阵运转的太平道护符',
+        icon: 'icon_strategist_talisman',
         stats: {
           maxMp: 25,
           elementAttack: { 5: 3 } // 电攻击+3
         },
         requirements: {
           level: 4,
-          class: ['mage']
+          class: ['strategist']
         },
         value: 50
       },

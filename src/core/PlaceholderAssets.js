@@ -21,7 +21,7 @@ export class PlaceholderAssets {
 
     /**
      * 创建角色精灵（不同职业）
-     * @param {string} className - 职业名称 ('warrior', 'mage', 'archer')
+     * @param {string} className - 职业名称 ('warrior', 'strategist', 'archer')
      * @param {number} size - 精灵大小
      * @returns {HTMLCanvasElement}
      */
@@ -39,7 +39,7 @@ export class PlaceholderAssets {
         // 根据职业选择颜色
         const colors = {
             warrior: { primary: '#FF6B6B', secondary: '#C92A2A' },
-            mage: { primary: '#4DABF7', secondary: '#1971C2' },
+            strategist: { primary: '#4DABF7', secondary: '#1971C2' },
             archer: { primary: '#51CF66', secondary: '#2F9E44' }
         };
 
@@ -62,7 +62,7 @@ export class PlaceholderAssets {
         ctx.font = `bold ${size / 3}px Arial`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        const symbols = { warrior: '⚔', mage: '✦', archer: '➶' };
+        const symbols = { warrior: '⚔', strategist: '策', archer: '➶' };
         ctx.fillText(symbols[className] || '?', size / 2, size * 0.65);
 
         this.cache.set(key, canvas);
@@ -405,7 +405,7 @@ export class PlaceholderAssets {
         // 根据职业选择颜色
         const colors = {
             warrior: { primary: '#FF6B6B', secondary: '#C92A2A', accent: '#FFE066' },
-            mage: { primary: '#4DABF7', secondary: '#1971C2', accent: '#74C0FC' },
+            strategist: { primary: '#4DABF7', secondary: '#1971C2', accent: '#74C0FC' },
             archer: { primary: '#51CF66', secondary: '#2F9E44', accent: '#8CE99A' },
             refugee: { primary: '#868E96', secondary: '#495057', accent: '#ADB5BD' }
         };
@@ -466,7 +466,7 @@ export class PlaceholderAssets {
                 ctx.font = `bold ${spriteSize * 0.4}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                const symbols = { warrior: '⚔', mage: '✦', archer: '➶', refugee: '?' };
+                const symbols = { warrior: '⚔', strategist: '策', archer: '➶', refugee: '?' };
                 ctx.fillText(symbols[className] || '?', 0, spriteSize * 0.1);
             }
 

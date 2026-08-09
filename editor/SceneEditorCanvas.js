@@ -281,27 +281,41 @@ export class SceneEditorCanvas {
       ctx.setLineDash([]);
       this._drawLogicLabel(ctx, obj.name || '区域', obj.x + 4, obj.y + 14, '#9cc0ff');
     } else if (obj.type === 'trigger') {
-      // 触发器：虚线方框 + ⚡ 图标
-      ctx.fillStyle = 'rgba(255,200,50,0.1)';
-      ctx.strokeStyle = '#e0a020';
+      const definition = this.editor.getProjectTrigger?.(obj.triggerId);
+      const invalidSpatialEvent = !!definition && !['interact', 'approach', 'enter', 'leave'].includes(definition.when?.type);
+      const dangling = !definition || invalidSpatialEvent;
+      const color = dangling ? '#ef5350' : '#e0a020';
+      const centerX = obj.x + (obj.width || 0) / 2;
+      const centerY = obj.y + (obj.height || 0) / 2;
+      if (obj.radius > 0) {
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, obj.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = dangling ? 'rgba(239,83,80,0.6)' : 'rgba(224,160,32,0.45)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 5]);
+        ctx.stroke();
+      }
+      ctx.fillStyle = dangling ? 'rgba(239,83,80,0.12)' : 'rgba(255,200,50,0.1)';
+      ctx.strokeStyle = color;
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 4]);
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
       ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       ctx.setLineDash([]);
-      // 图标
-      ctx.fillStyle = '#e0a020';
+      ctx.fillStyle = color;
       ctx.font = '14px Arial';
       ctx.textAlign = 'left';
       ctx.textBaseline = 'top';
-      ctx.fillText('⚡', obj.x + 4, obj.y + 3);
-      // 事件类型标签
-      const eventLabel = obj.event || 'trigger';
-      this._drawLogicLabel(ctx, obj.name || eventLabel, obj.x + 20, obj.y + 15, '#e0a020');
-      // 如果有目标，显示在下方
-      if (obj.target) {
-        this._drawLogicLabel(ctx, '→ ' + obj.target, obj.x + 4, obj.y + obj.height - 4, '#c89020');
-      }
+      ctx.fillText(dangling ? '⚠' : '⚡', obj.x + 4, obj.y + 3);
+      const identity = `${obj.triggerId || '未绑定'} · ${definition?.when?.type || obj.event || '?'}`;
+      this._drawLogicLabel(ctx, identity, obj.x + 20, obj.y + 15, color);
+      const summary = !definition
+        ? '悬空引用：项目中不存在该触发器'
+        : invalidSpatialEvent
+          ? `无效空间事件：${definition.when?.type || '?'}`
+          : this.editor.getTriggerSummary?.(obj.triggerId);
+      this._drawLogicLabel(ctx, summary, obj.x + 4, obj.y + obj.height + 14, color);
+      if (obj.target) this._drawLogicLabel(ctx, '→ ' + obj.target, obj.x + 4, obj.y + obj.height - 4, color);
     } else if (obj.type === 'buffZone') {
       // Buff 区域：根据 shapeType 渲染不同形状
       const fillColor = obj.fillColor || 'rgba(100, 0, 200, 0.2)';
@@ -911,7 +925,6 @@ export class SceneEditorCanvas {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // 收集所有对象（用于按 id 查找目标）
     const allObjects = [];
     for (const layer of editor.sceneData.layers) {
       if (!layer.visible) continue;
@@ -926,48 +939,46 @@ export class SceneEditorCanvas {
 
     for (const obj of allObjects) {
       if (obj.type !== 'trigger' || !obj.target) continue;
-      // 查找目标对象
-      const target = allObjects.find(o => 
-        o.id === obj.target || o.triggerId === obj.target || 
-        o.spawnId === obj.target || o.name === obj.target ||
-        o.regionId === obj.target || o.portalId === obj.target
+      const targets = allObjects.filter(candidate => candidate !== obj &&
+        editor.interactionModule?.matchesLinkTarget?.(candidate, obj.target, obj.targetMode)
       );
-      if (!target) continue;
 
-      // 触发器中心
-      const srcX = (obj.x + (obj.width || 0) / 2) * s + ox;
-      const srcY = (obj.y + (obj.height || 0) / 2) * s + oy;
-      // 目标中心
-      let tgtX, tgtY;
-      if (target.width !== undefined) {
-        tgtX = (target.x + (target.width || 0) / 2) * s + ox;
-        tgtY = (target.y + (target.height || 0) / 2) * s + oy;
-      } else {
-        tgtX = target.x * s + ox;
-        tgtY = target.y * s + oy;
+      for (const target of targets) {
+        let srcX = (obj.x + (obj.width || 0) / 2) * s + ox;
+        let srcY = (obj.y + (obj.height || 0) / 2) * s + oy;
+        let tgtX, tgtY;
+        if (target.width !== undefined) {
+          tgtX = (target.x + (target.width || 0) / 2) * s + ox;
+          tgtY = (target.y + (target.height || 0) / 2) * s + oy;
+        } else {
+          tgtX = target.x * s + ox;
+          tgtY = target.y * s + oy;
+        }
+        // 空间 trigger 通常与目标重叠；从触发框边缘起笔，仍能看到关联箭头。
+        if (Math.hypot(tgtX - srcX, tgtY - srcY) < 4) {
+          srcX = (obj.x + (obj.width || 0)) * s + ox;
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(srcX, srcY);
+        ctx.lineTo(tgtX, tgtY);
+        ctx.strokeStyle = 'rgba(224, 160, 32, 0.6)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const angle = Math.atan2(tgtY - srcY, tgtX - srcX);
+        const arrowLen = 10;
+        ctx.beginPath();
+        ctx.moveTo(tgtX, tgtY);
+        ctx.lineTo(tgtX - arrowLen * Math.cos(angle - 0.4), tgtY - arrowLen * Math.sin(angle - 0.4));
+        ctx.moveTo(tgtX, tgtY);
+        ctx.lineTo(tgtX - arrowLen * Math.cos(angle + 0.4), tgtY - arrowLen * Math.sin(angle + 0.4));
+        ctx.strokeStyle = 'rgba(224, 160, 32, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
-
-      // 虚线
-      ctx.beginPath();
-      ctx.moveTo(srcX, srcY);
-      ctx.lineTo(tgtX, tgtY);
-      ctx.strokeStyle = 'rgba(224, 160, 32, 0.6)';
-      ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 箭头
-      const angle = Math.atan2(tgtY - srcY, tgtX - srcX);
-      const arrowLen = 10;
-      ctx.beginPath();
-      ctx.moveTo(tgtX, tgtY);
-      ctx.lineTo(tgtX - arrowLen * Math.cos(angle - 0.4), tgtY - arrowLen * Math.sin(angle - 0.4));
-      ctx.moveTo(tgtX, tgtY);
-      ctx.lineTo(tgtX - arrowLen * Math.cos(angle + 0.4), tgtY - arrowLen * Math.sin(angle + 0.4));
-      ctx.strokeStyle = 'rgba(224, 160, 32, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
     }
     ctx.restore();
   }

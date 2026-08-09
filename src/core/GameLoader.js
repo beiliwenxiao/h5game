@@ -19,6 +19,8 @@ import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
 import { createStandardRegistries } from './Registry.js';
+import { BattleClient } from '../integration/BattleClient.js';
+import { LocalMockTransport } from '../integration/LocalMockTransport.js';
 
 /**
  * GameLoader - 数据驱动游戏装配器（P4）
@@ -35,7 +37,13 @@ import { createStandardRegistries } from './Registry.js';
  * 支持 $ref 分文件：{ "$ref": "scenes/a.json" } 会被加载替换。
  */
 export class GameLoader {
-  constructor() {
+  constructor(config = {}) {
+    const {
+      contentValidator = null,
+      contentValidatorConfig = {},
+      projectValidators = [],
+      contentPolicy = null
+    } = config || {};
     this.project = null;
     this.blackboard = new Blackboard();
     this.triggerSystem = new TriggerSystem();
@@ -48,9 +56,21 @@ export class GameLoader {
     this.skillRegistry = new SkillRegistry();
 
     // 内容校验器：在修改运行状态之前拦截错误配置
-    this.contentValidator = createContentValidator();
+    this.contentValidator = contentValidator || createContentValidator(contentValidatorConfig);
+    this.projectValidators = Array.isArray(projectValidators)
+      ? projectValidators.filter(validator => typeof validator === 'function')
+      : [];
+    if (typeof contentPolicy === 'function') {
+      this.projectValidators.push(contentPolicy);
+    } else if (typeof contentPolicy?.validateProject === 'function') {
+      this.projectValidators.push(contentPolicy.validateProject.bind(contentPolicy));
+    }
     /** 最近一次装配的校验错误，供错误提示界面读取 */
     this.lastValidationErrors = [];
+
+    // 战斗集成只允许一个结果源；默认在有效工程装配时创建。
+    this.battleTransport = null;
+    this.battleClient = null;
 
     this._baseDir = '';
     this._loadGeneration = 0;
@@ -136,6 +156,164 @@ export class GameLoader {
   }
 
   /**
+   * 在任何运行状态写入前完成工程、成长配置、触发器和内容库预检。
+   * @returns {{ok: boolean, value: Object|null, errors: Array<Object>}}
+   */
+  validateProjectCandidate(project) {
+    const loaded = this.contentValidator.loadCandidate(project, 'gameProject', this.project);
+    if (!loaded.committed) return { ok: false, value: null, errors: loaded.errors };
+
+    const candidate = loaded.value;
+    const errors = [];
+    errors.push(...this.contentValidator.validate(
+      candidate.presentation,
+      'presentationProfile',
+      'presentation'
+    ).errors);
+    errors.push(...this.contentValidator.validate(
+      candidate.assetManifest,
+      'assetManifest',
+      'assetManifest'
+    ).errors);
+    const progression = candidate.progression;
+
+    if (progression) {
+      errors.push(...this.contentValidator.validate(
+        progression,
+        'progressionConfig',
+        'progression'
+      ).errors);
+
+      const skills = progression.skills && Array.isArray(progression.skills.skills)
+        ? progression.skills.skills
+        : (Array.isArray(progression.skills) ? progression.skills : []);
+      errors.push(...this.contentValidator.validateList(
+        skills,
+        'skill',
+        'progression.skills'
+      ).errors);
+
+      for (const [index, graph] of (progression.graphs || []).entries()) {
+        errors.push(...this.contentValidator.validate(
+          graph,
+          'progressionGraph',
+          `progression.graphs[${index}]`
+        ).errors);
+      }
+    }
+
+    try {
+      new TriggerSystem().registerAll([
+        ...(candidate.triggers || []),
+        ...(candidate.tutorials || [])
+      ]);
+    } catch (error) {
+      errors.push({
+        code: 'invalidTrigger',
+        path: 'triggers',
+        message: String(error && error.message ? error.message : error)
+      });
+    }
+
+    for (const [libraryName, definitions] of Object.entries(candidate.library || {})) {
+      if (!Array.isArray(definitions)) continue;
+      const seen = new Set();
+      definitions.forEach((definition, index) => {
+        const id = definition && definition.id;
+        const path = `library.${libraryName}[${index}].id`;
+        if (typeof id !== 'string' || !id.trim()) {
+          errors.push({ code: 'missingField', path, message: '内容库定义缺少稳定 id' });
+        } else if (seen.has(id)) {
+          errors.push({ code: 'duplicateId', path, message: `重复的内容库 id: ${id}` });
+        }
+        seen.add(id);
+      });
+    }
+
+    const itemDefinitions = Array.isArray(candidate.library?.items) ? candidate.library.items : [];
+    const itemIds = new Set(itemDefinitions.map(item => item?.id).filter(Boolean));
+    const availableToolTypes = new Set(itemDefinitions
+      .filter(item => item?.type === 'tool' && typeof item.toolType === 'string')
+      .map(item => item.toolType));
+    for (const [index, node] of (candidate.library?.resourceNodes || []).entries()) {
+      if (!itemIds.has(node?.itemId)) {
+        errors.push({
+          code: 'invalidReference',
+          path: `library.resourceNodes[${index}].itemId`,
+          message: `资源节点引用了不存在的物品: ${node?.itemId}`
+        });
+      }
+      if (node?.requiredToolType && !availableToolTypes.has(node.requiredToolType)) {
+        errors.push({
+          code: 'invalidReference',
+          path: `library.resourceNodes[${index}].requiredToolType`,
+          message: `资源节点要求的工具类型不存在: ${node.requiredToolType}`
+        });
+      }
+    }
+
+    for (const [index, city] of (candidate.variables?.cityStates || []).entries()) {
+      errors.push(...this.contentValidator.validate(
+        city, 'city', `variables.cityStates[${index}]`
+      ).errors);
+    }
+
+    for (const validator of this.projectValidators) {
+      try {
+        const result = validator(candidate, { loader: this });
+        const policyErrors = Array.isArray(result) ? result : (result?.errors || []);
+        for (const error of policyErrors) {
+          errors.push({
+            code: error?.code || 'projectPolicy',
+            path: error?.path || 'project',
+            message: error?.message || '项目内容策略校验失败',
+            ...(error && typeof error === 'object' ? error : {})
+          });
+        }
+      } catch (error) {
+        errors.push({
+          code: 'projectPolicy',
+          path: 'project',
+          message: String(error?.message || error)
+        });
+      }
+    }
+
+    return { ok: errors.length === 0, value: candidate, errors };
+  }
+
+  /** 创建带结构化 errors 的公开内容校验异常。 */
+  createValidationError(errors = []) {
+    const error = new Error('GameLoader: 工程内容校验失败\n' + formatErrors(errors));
+    error.name = 'ContentValidationError';
+    error.errors = errors;
+    return error;
+  }
+
+  _createValidationError(errors) {
+    return this.createValidationError(errors);
+  }
+
+  _createBattleIntegration(project, deps = {}) {
+    const battleConfig = project.integration.battle;
+    if (battleConfig.resultSource === 'localMock') {
+      const transport = new LocalMockTransport({ validator: this.contentValidator });
+      return { transport, client: new BattleClient({ transport }) };
+    }
+    if (battleConfig.resultSource === 'external' && deps.battleTransport?.request) {
+      return {
+        transport: deps.battleTransport,
+        client: new BattleClient({ transport: deps.battleTransport })
+      };
+    }
+    throw this._createValidationError([{
+      code: 'invalidResultSource',
+      path: `integration.battle.${battleConfig.resultSource}`,
+      message: `战斗结果源 ${battleConfig.resultSource} 当前不可用`
+    }]);
+  }
+
+  /**
    * 获取最近一次装配的校验错误文本，供错误提示界面显示
    * @returns {string}
    */
@@ -143,9 +321,35 @@ export class GameLoader {
     return formatErrors(this.lastValidationErrors);
   }
 
-  /** 取某类内容库注册表（npcs/enemies/items/equipment/shops/classes/skills/vehicles/buildings） */
+  /** 取某类内容库注册表。 */
   getRegistry(name) {
     return this.registries[name] || null;
+  }
+
+  /**
+   * 在实例化前校验场景 ref 放置点，运行态防线仍由 PlacementSpawner 保留。
+   * @param {Array<Object>} placements
+   */
+  validatePlacementReferences(placements = []) {
+    const registryNames = {
+      item: 'items', equipment: 'equipment', enemy: 'enemies', npc: 'npcs',
+      building: 'buildings', vehicle: 'vehicles', resourceNode: 'resourceNodes'
+    };
+    const errors = [];
+    for (const [index, placement] of (placements || []).entries()) {
+      if (placement?.type !== 'ref' || !placement.kind) continue;
+      const registryName = registryNames[placement.kind];
+      if (!registryName) continue;
+      const registry = this.registries[registryName];
+      if (registry?.get?.(placement.ref)) continue;
+      const key = placement.id || index;
+      errors.push({
+        code: 'invalidReference',
+        path: `placements[${key}].ref`,
+        message: `放置点引用了不存在的 ${placement.kind} 定义: ${placement.ref}`
+      });
+    }
+    return { ok: errors.length === 0, errors };
   }
 
   /**
@@ -164,9 +368,7 @@ export class GameLoader {
     const proj = await this._loadJson(url);
     await this._resolveRefs(proj, baseDir);
     if (generation !== this._loadGeneration) return proj;
-    this.project = proj;
-    this.assemble(proj, deps);
-    return proj;
+    return this.assemble(proj, deps);
   }
 
   /**
@@ -175,8 +377,28 @@ export class GameLoader {
    * @param {Object} deps
    */
   assemble(proj, deps = {}) {
+    const validation = this.validateProjectCandidate(proj);
+    if (!validation.ok) {
+      this.lastValidationErrors = validation.errors;
+      throw this._createValidationError(validation.errors);
+    }
+
+    // 所有候选对象先在影子容器中建立；预检失败时不会触碰当前运行状态。
+    const candidate = validation.value;
+    const nextRegistries = createStandardRegistries();
+    for (const key of Object.keys(nextRegistries)) {
+      const definitions = candidate.library?.[key];
+      if (Array.isArray(definitions)) nextRegistries[key].registerAll(definitions);
+    }
+    const battleIntegration = this._createBattleIntegration(candidate, deps);
+
     this._disposed = false;
-    this.project = proj;
+    this.project = candidate;
+    this.registries = nextRegistries;
+    this.battleTransport = battleIntegration.transport;
+    this.battleClient = battleIntegration.client;
+    this.skillRegistry = new SkillRegistry();
+    proj = candidate;
 
     // 1. 变量 → 黑板
     this.blackboard.init(proj.variables || {});
@@ -194,12 +416,12 @@ export class GameLoader {
       floatingText: deps.floatingText,
       tutorial: deps.tutorial,
       onItemGained: deps.onItemGained,
+      battleClient: this.battleClient,
       registries: this.registries
     });
     registerDefaultActions(this.triggerSystem);
-    this.triggerSystem.registerAll(proj.triggers || []);
-    // 引导 = 触发器（tutorials 直接作为触发器注册）
-    this.triggerSystem.registerAll(proj.tutorials || []);
+    // 项目触发器与 tutorials 共用稳定 ID 命名空间；合并预检避免失败后留下半注册状态。
+    this.triggerSystem.registerAll([...(proj.triggers || []), ...(proj.tutorials || [])]);
 
     // 3. 对话 → DialogueSystem（跳过 enabled:false 的停用对话）
     if (deps.dialogueSystem && Array.isArray(proj.dialogues)) {
@@ -214,18 +436,12 @@ export class GameLoader {
       for (const q of proj.quests) deps.questSystem.registerQuest?.(q);
     }
 
-    // 5. 内容库 → 注册表（P2）：全部库类统一进 this.registries
-    if (proj.library) {
+    // 5. 内容库已在影子注册表中完整构建；此处只同步外部兼容 registry。
+    if (proj.library && deps.registries) {
       const lib = proj.library;
-      for (const key of Object.keys(this.registries)) {
-        if (Array.isArray(lib[key])) this.registries[key].registerAll(lib[key]);
-      }
-      // 若外部系统提供了自己的 registry（deps.registries），一并同步注册（桥接现有系统）
-      if (deps.registries) {
-        for (const [key, reg] of Object.entries(deps.registries)) {
-          if (reg && typeof reg.register === 'function' && Array.isArray(lib[key])) {
-            lib[key].forEach(def => reg.register(def));
-          }
+      for (const [key, reg] of Object.entries(deps.registries)) {
+        if (reg && typeof reg.register === 'function' && Array.isArray(lib[key])) {
+          lib[key].forEach(def => reg.register(def));
         }
       }
     }
@@ -250,6 +466,7 @@ export class GameLoader {
 
     // 8. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem
     this.bridgeEventSources(deps);
+    return proj;
   }
 
   /**
@@ -376,7 +593,14 @@ export class GameLoader {
   async _loadJson(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('GameLoader: 加载失败 ' + url);
-    return res.json();
+    const text = await res.text();
+    const parsed = this.contentValidator.parseJson(text);
+    if (!parsed.ok) {
+      const errors = parsed.errors.map(error => ({ ...error, resource: url }));
+      this.lastValidationErrors = errors;
+      throw this._createValidationError(errors);
+    }
+    return parsed.value;
   }
 
   /**

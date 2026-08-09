@@ -163,14 +163,14 @@ export class SkillEffects {
         this.createShieldEffect(position);
         break;
       
-      // 法师技能
-      case 'mage_fireball':
+      // 军师技能
+      case 'strategist_fire_talisman':
         this.createFireballEffect(position, target, onHit);
         break;
-      case 'mage_ice_lance':
+      case 'strategist_binding_talisman':
         this.createIceLanceEffect(position, target, onHit);
         break;
-      case 'mage_heal':
+      case 'strategist_talisman_water':
         this.createHealEffect(position);
         break;
       

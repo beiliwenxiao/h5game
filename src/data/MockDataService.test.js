@@ -15,9 +15,9 @@ const warriorTemplate = mockDataService.getCharacterTemplate('warrior');
 console.log('Warrior Template:', warriorTemplate);
 console.log('✓ Warrior template loaded\n');
 
-const mageTemplate = mockDataService.getCharacterTemplate('mage');
-console.log('Mage Template:', mageTemplate);
-console.log('✓ Mage template loaded\n');
+const strategistTemplate = mockDataService.getCharacterTemplate('strategist');
+console.log('Strategist Template:', strategistTemplate);
+console.log('✓ Strategist template loaded\n');
 
 const archerTemplate = mockDataService.getCharacterTemplate('archer');
 console.log('Archer Template:', archerTemplate);
@@ -60,9 +60,9 @@ const warriorSkills = mockDataService.getCharacterSkills('warrior');
 console.log('Warrior Skills:', warriorSkills.map(s => s.name));
 console.log('✓ Warrior skills loaded\n');
 
-const mageSkills = mockDataService.getCharacterSkills('mage');
-console.log('Mage Skills:', mageSkills.map(s => s.name));
-console.log('✓ Mage skills loaded\n');
+const strategistSkills = mockDataService.getCharacterSkills('strategist');
+console.log('Strategist Skills:', strategistSkills.map(s => s.name));
+console.log('✓ Strategist skills loaded\n');
 
 // 测试6: 获取地图数据
 console.log('Test 6: Get Map Data');

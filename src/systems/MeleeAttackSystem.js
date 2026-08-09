@@ -68,6 +68,7 @@ export class MeleeAttackSystem {
     this.floatingTextManager = null;
     this.playerEntity = null;
     this.entities = [];
+    this.onAttackPerformed = null;
   }
 
   /**
@@ -81,6 +82,9 @@ export class MeleeAttackSystem {
     this.inputManager = deps.inputManager;
     this.combatSystem = deps.combatSystem;
     this.floatingTextManager = deps.floatingTextManager || null;
+    this.onAttackPerformed = typeof deps.onAttackPerformed === 'function'
+      ? deps.onAttackPerformed
+      : null;
   }
 
   /**
@@ -167,10 +171,10 @@ export class MeleeAttackSystem {
    * @param {number} [overrideDistance] - 可选,覆盖攻击距离(用于触屏按distRatio缩放)
    */
   performSectorAttack(playerCenter, currentTime, overrideDistance) {
-    if (!this.playerEntity || !this.combatSystem) return;
+    if (!this.playerEntity || !this.combatSystem) return false;
     
     const playerStats = this.playerEntity.getComponent('stats');
-    if (!playerStats) return;
+    if (!playerStats) return false;
     
     // 获取武器冷却时间
     let weaponCooldown = this.sliceGlobalCooldown;
@@ -203,7 +207,7 @@ export class MeleeAttackSystem {
           }
         }
       }
-      return;
+      return false;
     }
     
     // 远程攻击需要消耗箭矢
@@ -223,7 +227,7 @@ export class MeleeAttackSystem {
               );
             }
           }
-          return;
+          return false;
         }
         offhand.quantity -= 1;
         if (offhand.quantity <= 0) {
@@ -271,6 +275,15 @@ export class MeleeAttackSystem {
         if (sprite.currentAnimation === 'attack') sprite.playAnimation('idle');
       }, 300);
     }
+
+    this.onAttackPerformed?.({
+      player: this.playerEntity,
+      isRanged: this.sectorIsRanged,
+      direction: dir,
+      radius: sectorRadius,
+      time: currentTime
+    });
+    return true;
   }
 
   /**

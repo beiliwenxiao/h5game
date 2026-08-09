@@ -31,6 +31,8 @@ import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
 import { sceneDataLoader, getGlobalImages } from './SceneDataLoader.js';
+import { summarizeTrigger } from '../src/systems/TriggerCatalog.js';
+import { normalizePresentationProfile } from '../src/core/PresentationProfile.js';
 
 // 编辑器默认配置（运行时从 JSON 加载覆盖）
 let _editorDefaults = null;
@@ -81,11 +83,13 @@ export class SceneEditor {
     const sceneCfg = defaults.scene || {};
     const viewportCfg = defaults.viewport || {};
     const historyCfg = defaults.history || {};
+    this.presentationProfile = normalizePresentationProfile(options.presentationProfile || {});
+    const logicalResolution = this.presentationProfile.logicalResolution;
 
     this.options = {
-      width: options.width || editorCfg.width || 1280,
-      height: options.height || editorCfg.height || 720,
-      gridSize: options.gridSize || editorCfg.gridSize || 32,
+      width: options.width || logicalResolution.width || editorCfg.width || 1280,
+      height: options.height || logicalResolution.height || editorCfg.height || 720,
+      gridSize: options.gridSize || this.presentationProfile.world.gridSize || editorCfg.gridSize || 32,
       showGrid: options.showGrid !== undefined ? options.showGrid : (editorCfg.showGrid !== false),
       showBackground: options.showBackground !== undefined ? options.showBackground : (editorCfg.showBackground !== false),
       ...options
@@ -168,6 +172,24 @@ export class SceneEditor {
         this.render();
       }
     });
+  }
+
+  getProjectTriggers() {
+    try { return this.options.getProjectTriggers?.() || []; }
+    catch (error) { console.warn('SceneEditor: 获取项目触发器失败', error); return []; }
+  }
+
+  getProjectTrigger(id) {
+    return this.getProjectTriggers().find(trigger => trigger?.id === id) || null;
+  }
+
+  getTriggerSummary(id) {
+    return summarizeTrigger(this.getProjectTrigger(id));
+  }
+
+  refreshTriggerReferences() {
+    this.ui.updateObjectProperties();
+    this.render();
   }
 
   /**
@@ -255,6 +277,9 @@ export class SceneEditor {
       const file = e.target.files[0];
       if (file) this.assets.addImageAsset(file);
     });
+    document.getElementById('editor-audit-assets')?.addEventListener('click', () => {
+      this.assets.runAssetAudit();
+    });
     document.getElementById('editor-save-scene-btn').addEventListener('click', () => {
       this.assets.saveImages();
     });
@@ -300,6 +325,15 @@ export class SceneEditor {
 
     // 资源拖放
     this.assets.setupAssetDragDrop();
+  }
+
+  /** 应用当前游戏的表现规格；只改变编辑器 fallback，不重写已存在场景尺寸。 */
+  setPresentationProfile(profile = {}) {
+    this.presentationProfile = normalizePresentationProfile(profile);
+    this.options.width = this.presentationProfile.logicalResolution.width;
+    this.options.height = this.presentationProfile.logicalResolution.height;
+    this.options.gridSize = this.presentationProfile.world.gridSize;
+    return this.presentationProfile;
   }
 
   /**

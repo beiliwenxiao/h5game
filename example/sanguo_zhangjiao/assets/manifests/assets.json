@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "gameId": "sanguo_zhangjiao",
+  "assets": [
+    {
+      "assetId": "mountain_landscape",
+      "category": "environment-atlas",
+      "usage": ["legacy-candidate", "environment"],
+      "sourceFile": "assets/images/scene1/mountain_landscape.png",
+      "runtime2D": {
+        "path": "assets/images/scene1/mountain_landscape.png",
+        "mode": "atlas"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "mountain_landscape"
+      },
+      "pivot": { "x": 0.5, "y": 1 },
+      "bounds": { "width": 512, "height": 512 },
+      "animations": [],
+      "license": {
+        "status": "unverified",
+        "name": "待确认",
+        "commercialUse": false
+      },
+      "author": "unknown",
+      "owner": "unknown",
+      "targetPhase": "P1",
+      "status": "placeholder",
+      "revision": 1
+    }
+,
+    {
+      "assetId": "img_1783095863410",
+      "imageId": "img_1783095863410",
+      "category": "environment-background",
+      "usage": ["legacy-candidate", "background"],
+      "sourceFile": "assets/images/scene1/bg1.png",
+      "runtime2D": {
+        "path": "assets/images/scene1/bg1.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "img_1783095863410"
+      },
+      "pivot": { "x": 0, "y": 0 },
+      "bounds": { "width": 1280, "height": 720 },
+      "animations": [],
+      "license": {
+        "status": "unverified",
+        "name": "待确认",
+        "commercialUse": false
+      },
+      "author": "unknown",
+      "owner": "unknown",
+      "targetPhase": "P1",
+      "status": "placeholder",
+      "revision": 1
+    }
+,
+    {
+      "assetId": "img_1784926747445",
+      "imageId": "img_1784926747445",
+      "category": "environment-background",
+      "usage": ["legacy-candidate", "background"],
+      "sourceFile": "assets/images/bg_0_0.png",
+      "runtime2D": {
+        "path": "assets/images/bg_0_0.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "img_1784926747445"
+      },
+      "pivot": { "x": 0, "y": 0 },
+      "bounds": { "width": 1280, "height": 720 },
+      "animations": [],
+      "license": {
+        "status": "unverified",
+        "name": "待确认",
+        "commercialUse": false
+      },
+      "author": "unknown",
+      "owner": "unknown",
+      "targetPhase": "P1",
+      "status": "placeholder",
+      "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.magicSpell", "imageId": "vfx.freePixel.magicSpell",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/1_magicspell_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/1_magicspell_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magicSpell" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 900, "height": 900 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.magic8", "imageId": "vfx.freePixel.magic8",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/2_magic8_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/2_magic8_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magic8" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.blueFire", "imageId": "vfx.freePixel.blueFire",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/3_bluefire_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/3_bluefire_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.blueFire" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.casting", "imageId": "vfx.freePixel.casting",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/4_casting_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/4_casting_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.casting" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 900, "height": 900 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.magickaHit", "imageId": "vfx.freePixel.magickaHit",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/5_magickahit_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/5_magickahit_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magickaHit" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 700, "height": 700 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.flameLash", "imageId": "vfx.freePixel.flameLash",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/6_flamelash_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/6_flamelash_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.flameLash" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 700, "height": 700 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.fireSpin", "imageId": "vfx.freePixel.fireSpin",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/7_firespin_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/7_firespin_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.fireSpin" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.protectionCircle", "imageId": "vfx.freePixel.protectionCircle",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/8_protectioncircle_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/8_protectioncircle_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.protectionCircle" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.brightFire", "imageId": "vfx.freePixel.brightFire",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/9_brightfire_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/9_brightfire_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.brightFire" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.weaponHit", "imageId": "vfx.freePixel.weaponHit",
+      "category": "vfx-spritesheet", "usage": ["vfx", "combat", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/10_weaponhit_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/10_weaponhit_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.weaponHit" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 600, "height": 600 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.fire", "imageId": "vfx.freePixel.fire",
+      "category": "vfx-spritesheet", "usage": ["vfx", "fire", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/11_fire_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/11_fire_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.fire" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.nebula", "imageId": "vfx.freePixel.nebula",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/12_nebula_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/12_nebula_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.nebula" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.vortex", "imageId": "vfx.freePixel.vortex",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/13_vortex_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/13_vortex_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.vortex" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.phantom", "imageId": "vfx.freePixel.phantom",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/14_phantom_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/14_phantom_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.phantom" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.loading", "imageId": "vfx.freePixel.loading",
+      "category": "vfx-spritesheet", "usage": ["vfx", "ui", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/15_loading_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/15_loading_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.loading" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1100, "height": 1100 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P6", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.sunburn", "imageId": "vfx.freePixel.sunburn",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/16_sunburn_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/16_sunburn_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.sunburn" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.felSpell", "imageId": "vfx.freePixel.felSpell",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/17_felspell_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/17_felspell_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.felSpell" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1000, "height": 1000 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.midnight", "imageId": "vfx.freePixel.midnight",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/18_midnight_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/18_midnight_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.midnight" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P5", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.freezing", "imageId": "vfx.freePixel.freezing",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/19_freezing_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/19_freezing_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.freezing" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1000, "height": 1000 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "vfx.freePixel.magicBubbles", "imageId": "vfx.freePixel.magicBubbles",
+      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/20_magicbubbles_spritesheet.png",
+      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/20_magicbubbles_spritesheet.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magicBubbles" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
+      "animations": ["100x100-frames"],
+      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
+      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+    },
+    {
+      "assetId": "graybox.naturalTerrain", "imageId": "graybox.naturalTerrain",
+      "category": "environment-background", "usage": ["graybox", "natural-terrain", "composition"],
+      "sourceFile": "assets/images/graybox/natural-terrain.svg",
+      "runtime2D": { "path": "assets/images/graybox/natural-terrain.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.naturalTerrain" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
+      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+    },
+    {
+      "assetId": "graybox.cityGround", "imageId": "graybox.cityGround",
+      "category": "environment-background", "usage": ["graybox", "city", "composition"],
+      "sourceFile": "assets/images/graybox/city-ground.svg",
+      "runtime2D": { "path": "assets/images/graybox/city-ground.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.cityGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
+      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+    },
+    {
+      "assetId": "graybox.battlefieldUnit", "imageId": "graybox.battlefieldUnit",
+      "category": "unit-placeholder", "usage": ["graybox", "battlefield-unit", "formation-readability"],
+      "sourceFile": "assets/images/graybox/battlefield-unit.svg",
+      "runtime2D": { "path": "assets/images/graybox/battlefield-unit.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.battlefieldUnit" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+    }
+  ]
+}

@@ -579,6 +579,17 @@ export class ProgressionPanel extends UIElement {
       ty += 18;
     }
 
+    const effectSources = [...new Set((detail.effectExplanations || [])
+      .flatMap(explanation => explanation.sources || [])
+      .map(source => source.sourceId))];
+    if (effectSources.length > 0) {
+      ctx.fillStyle = '#8fcf9b';
+      for (const line of this._wrapText(`效果来源：${effectSources.join('、')}`, 15)) {
+        ctx.fillText(line, infoX + 12, ty);
+        ty += 16;
+      }
+    }
+
     if (detail.choiceGroup) {
       ctx.fillStyle = '#e8a';
       ctx.fillText('互斥选择节点', infoX + 12, ty);

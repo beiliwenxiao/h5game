@@ -205,7 +205,7 @@ describe('TalentSystem', () => {
 
   it('应该正确初始化所有职业天赋树', () => {
     expect(talentSystem.getTalentTree('warrior')).not.toBeNull();
-    expect(talentSystem.getTalentTree('mage')).not.toBeNull();
+    expect(talentSystem.getTalentTree('strategist')).not.toBeNull();
     expect(talentSystem.getTalentTree('archer')).not.toBeNull();
   });
 

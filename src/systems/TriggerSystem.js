@@ -27,6 +27,7 @@ import { ExpressionEngine } from './ExpressionEngine.js';
 export class TriggerSystem {
   constructor() {
     this.triggers = [];
+    this._triggersById = new Map();
     this.actions = {};
     this.ctx = {};
     this.expr = new ExpressionEngine({});
@@ -61,23 +62,45 @@ export class TriggerSystem {
     for (const [k, fn] of Object.entries(map)) this.registerAction(k, fn);
   }
 
-  /** 注册一个触发器 */
+  /** 注册一个触发器；项目触发器与 tutorials 共用唯一 ID 命名空间。 */
   register(trigger) {
-    if (!trigger || !trigger.when) return;
+    if (!trigger || typeof trigger.id !== 'string' || !trigger.id.trim()) {
+      throw new Error('TriggerSystem.register: trigger.id 必须是非空字符串');
+    }
+    if (!trigger.when?.type) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.when.type 不能为空`);
+    }
+    if (this._triggersById.has(trigger.id)) {
+      throw new Error(`TriggerSystem.register: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
+    }
     this.triggers.push(trigger);
+    this._triggersById.set(trigger.id, trigger);
     if (trigger.when.type === 'timer') {
       this._timers.push({ trigger, elapsed: 0 });
     }
+    return trigger;
   }
 
-  /** 批量注册 */
+  /** 批量注册；先完整预检，任何重复/缺失 ID 都不会产生半注册状态。 */
   registerAll(list = []) {
-    for (const t of list) this.register(t);
+    const seen = new Set(this._triggersById.keys());
+    for (const trigger of list) {
+      if (!trigger || typeof trigger.id !== 'string' || !trigger.id.trim()) {
+        throw new Error('TriggerSystem.registerAll: trigger.id 必须是非空字符串');
+      }
+      if (!trigger.when?.type) throw new Error(`TriggerSystem.registerAll: ${trigger.id}.when.type 不能为空`);
+      if (seen.has(trigger.id)) {
+        throw new Error(`TriggerSystem.registerAll: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
+      }
+      seen.add(trigger.id);
+    }
+    for (const trigger of list) this.register(trigger);
   }
 
   /** 清空所有触发器与状态 */
   reset() {
     this.triggers = [];
+    this._triggersById.clear();
     this._firedOnce.clear();
     this._cooldowns = {};
     this._timers = [];
@@ -89,11 +112,39 @@ export class TriggerSystem {
    * @param {Object} params - 事件参数（用于与触发器 when.params 匹配）
    */
   fire(whenType, params = {}) {
+    let executed = 0;
     for (const t of this.triggers) {
       if (!t.when || t.when.type !== whenType) continue;
       if (!this._matchParams(t.when.params, params)) continue;
-      this._tryRun(t);
+      if (this._tryRun(t, { type: whenType, params })) executed++;
     }
+    return executed;
+  }
+
+  /** 按稳定 ID 查询触发器定义。 */
+  getById(id) {
+    return this._triggersById.get(id) || null;
+  }
+
+  hasFiredOnce(id) {
+    return this._firedOnce.has(id);
+  }
+
+  clearFiredOnce(id) {
+    if (typeof id === 'string' && id) return this._firedOnce.delete(id);
+    this._firedOnce.clear();
+    return true;
+  }
+
+  /**
+   * 精确触发一个定义，仍完整检查事件类型/参数、enabled、once、cooldown 与 if。
+   * @returns {boolean} 是否接受并开始执行
+   */
+  fireById(id, eventType, params = {}) {
+    const trigger = this.getById(id);
+    if (!trigger?.when || trigger.when.type !== eventType) return false;
+    if (!this._matchParams(trigger.when.params, params)) return false;
+    return this._tryRun(trigger, { type: eventType, params });
   }
 
   /** 每帧更新（处理 timer 类触发器） */
@@ -104,7 +155,7 @@ export class TriggerSystem {
       const interval = item.trigger.when.params?.seconds || 0;
       if (interval > 0 && item.elapsed >= interval) {
         item.elapsed = 0;
-        this._tryRun(item.trigger);
+        this._tryRun(item.trigger, { type: 'timer', params: { seconds: interval } });
       }
     }
   }
@@ -120,29 +171,30 @@ export class TriggerSystem {
   }
 
   /** 尝试执行触发器（检查 once/cooldown/if 条件） */
-  _tryRun(t) {
+  _tryRun(t, event = null) {
     // 停用的触发器不执行
-    if (t.enabled === false) return;
-    if (t.once && this._firedOnce.has(t.id)) return;
+    if (t.enabled === false) return false;
+    if (t.once && this._firedOnce.has(t.id)) return false;
     const now = Date.now();
-    if (t.cooldown && this._cooldowns[t.id] && now < this._cooldowns[t.id]) return;
-    if (t.if && !this.expr.eval(t.if)) return;
+    if (t.cooldown && this._cooldowns[t.id] && now < this._cooldowns[t.id]) return false;
+    if (t.if && !this.expr.eval(t.if)) return false;
 
     if (t.once) this._firedOnce.add(t.id);
     if (t.cooldown) this._cooldowns[t.id] = now + t.cooldown * 1000;
     this._lastFiredId = t.id;
 
-    this._runActions(t);
+    this._runActions(t, event);
+    return true;
   }
 
-  /** 顺序执行动作序列（支持 await 等待异步动作，如对话结束） */
-  async _runActions(t) {
+  /** 顺序执行动作序列；第三参数 event 向动作暴露本次事件及已解析目标。 */
+  async _runActions(t, event = null) {
     this._emit('triggerStart', t);
     for (const act of t.do || []) {
       const fn = this.actions[act.action];
       if (!fn) { console.warn('TriggerSystem: 未注册动作', act.action); continue; }
       try {
-        const r = fn(act.params || {}, this.ctx);
+        const r = fn(act.params || {}, this.ctx, event);
         if (act.await && r && typeof r.then === 'function') await r;
       } catch (e) {
         console.warn('TriggerSystem: 动作执行出错', act.action, e);

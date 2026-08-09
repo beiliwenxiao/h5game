@@ -34,3 +34,5 @@ export { BuildingComponent, BuildingType } from './components/BuildingComponent.
 export { ObjectiveComponent, ObjectiveKind } from './components/ObjectiveComponent.js';
 export { VehicleComponent, SeatRole } from './components/VehicleComponent.js';
 export { RiderComponent } from './components/RiderComponent.js';
+export { ResourceNodeComponent } from './components/ResourceNodeComponent.js';
+export { DeathDropComponent } from './components/DeathDropComponent.js';

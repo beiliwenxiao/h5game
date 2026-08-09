@@ -200,8 +200,8 @@ export class SkillTreeSystem {
     // 战士技能树
     this.skillTrees.set('warrior', this.createWarriorSkillTree());
     
-    // 法师技能树
-    this.skillTrees.set('mage', this.createMageSkillTree());
+    // 军师技能树
+    this.skillTrees.set('strategist', this.createStrategistSkillTree());
     
     // 弓箭手技能树
     this.skillTrees.set('archer', this.createArcherSkillTree());
@@ -338,65 +338,53 @@ export class SkillTreeSystem {
   }
 
   /**
-   * 创建法师技能树
+   * 创建军师技能树
    * @returns {SkillTree}
    */
-  createMageSkillTree() {
+  createStrategistSkillTree() {
     const nodes = [
-      // 第一层 - 基础技能
       new SkillTreeNode({
-        id: 'mage_mana_mastery',
-        name: '法力精通',
-        description: '提高最大法力值和法力回复速度',
+        id: 'strategist_planning_focus',
+        name: '凝神筹策',
+        description: '提高最大法力值和法力回复速度，为持续谋划提供资源',
         type: 'passive',
         maxLevel: 5,
         requiredLevel: 1,
         requiredPoints: 1,
         position: { x: 1, y: 0 },
-        effects: {
-          maxManaBonus: 20,
-          manaRegenBonus: 2
-        }
+        effects: { maxManaBonus: 20, manaRegenBonus: 2 }
       }),
-
       new SkillTreeNode({
-        id: 'mage_fire_mastery',
-        name: '火系精通',
-        description: '提高火系法术伤害',
+        id: 'strategist_fire_tactics',
+        name: '火攻筹划',
+        description: '提高火攻与火系符法效果',
         type: 'passive',
         maxLevel: 3,
-        prerequisites: ['mage_mana_mastery'], // 添加前置条件
+        prerequisites: ['strategist_planning_focus'],
         requiredLevel: 3,
         requiredPoints: 1,
         position: { x: 0, y: 1 },
-        effects: {
-          fireElementBonus: 5
-        }
+        effects: { fireElementBonus: 5 }
       }),
-
       new SkillTreeNode({
-        id: 'mage_ice_mastery',
-        name: '冰系精通',
-        description: '提高冰系法术伤害',
+        id: 'strategist_formation_mastery',
+        name: '符阵精通',
+        description: '提高寒阵与控制符法效果',
         type: 'passive',
         maxLevel: 3,
-        prerequisites: ['mage_mana_mastery'], // 添加前置条件
+        prerequisites: ['strategist_planning_focus'],
         requiredLevel: 3,
         requiredPoints: 1,
         position: { x: 2, y: 1 },
-        effects: {
-          iceElementBonus: 5
-        }
+        effects: { iceElementBonus: 5 }
       }),
-
-      // 第二层 - 进阶技能
       new SkillTreeNode({
-        id: 'mage_meteor',
-        name: '流星术',
-        description: '召唤流星攻击目标区域',
+        id: 'strategist_fire_attack',
+        name: '火攻号令',
+        description: '在目标区域发动火攻，造成范围压制',
         type: 'active',
         maxLevel: 3,
-        prerequisites: ['mage_fire_mastery'],
+        prerequisites: ['strategist_fire_tactics'],
         requiredLevel: 10,
         requiredPoints: 2,
         position: { x: 0, y: 2 },
@@ -407,14 +395,13 @@ export class SkillTreeSystem {
           cooldown: [25, 22, 20]
         }
       }),
-
       new SkillTreeNode({
-        id: 'mage_blizzard',
-        name: '暴风雪',
-        description: '在大范围内持续造成冰系伤害',
+        id: 'strategist_wind_snow_formation',
+        name: '风雪困阵',
+        description: '布置持续范围符阵，减缓并消耗敌军',
         type: 'active',
         maxLevel: 3,
-        prerequisites: ['mage_ice_mastery'],
+        prerequisites: ['strategist_formation_mastery'],
         requiredLevel: 10,
         requiredPoints: 2,
         position: { x: 2, y: 2 },
@@ -426,43 +413,33 @@ export class SkillTreeSystem {
           cooldown: [30, 28, 25]
         }
       }),
-
-      // 第三层 - 高级技能
       new SkillTreeNode({
-        id: 'mage_arcane_mastery',
-        name: '奥术精通',
-        description: '所有法术伤害提高，并获得法术穿透',
+        id: 'strategist_grand_strategy',
+        name: '运筹帷幄',
+        description: '全面强化符法和谋略，并获得法术穿透',
         type: 'passive',
         maxLevel: 3,
-        prerequisites: ['mage_mana_mastery'],
+        prerequisites: ['strategist_planning_focus'],
         requiredLevel: 12,
         requiredPoints: 2,
         position: { x: 1, y: 2 },
-        effects: {
-          spellDamageMultiplier: 0.2,
-          spellPenetration: 10
-        }
+        effects: { spellDamageMultiplier: 0.2, spellPenetration: 10 }
       }),
-
       new SkillTreeNode({
-        id: 'mage_time_stop',
-        name: '时间停止',
-        description: '短暂停止时间，只有自己可以行动',
+        id: 'strategist_stasis_formation',
+        name: '定军阵',
+        description: '短暂定住战局，使敌军无法行动',
         type: 'active',
         maxLevel: 1,
-        prerequisites: ['mage_arcane_mastery', 'mage_meteor', 'mage_blizzard'],
+        prerequisites: ['strategist_grand_strategy', 'strategist_fire_attack', 'strategist_wind_snow_formation'],
         requiredLevel: 20,
         requiredPoints: 5,
         position: { x: 1, y: 3 },
-        effects: {
-          duration: 3,
-          manaCost: 100,
-          cooldown: 120
-        }
+        effects: { duration: 3, manaCost: 100, cooldown: 120 }
       })
     ];
 
-    return new SkillTree('mage', nodes);
+    return new SkillTree('strategist', nodes);
   }
 
   /**

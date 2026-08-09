@@ -36,8 +36,8 @@
       "name": "劲射",
       "description": "远程单体射击",
       "category": "attack",
-      "targeting": "entity",
-      "params": { "damage": 25, "range": 320, "cooldown": 3, "projectileCount": 1 },
+      "targeting": "position",
+      "params": { "damage": 25, "range": 320, "radius": 24, "cooldown": 3, "projectileCount": 1 },
       "costs": { "stamina": 8 },
       "tags": ["ranged", "physical"],
       "variants": {
@@ -65,6 +65,16 @@
       "params": { "healAmount": 40, "radius": 140, "cooldown": 12, "castTime": 600 },
       "costs": { "mp": 25 },
       "tags": ["support"]
+    },
+    {
+      "id": "gathering_puppet",
+      "name": "采集傀儡",
+      "description": "军师每次职业检查点可召唤一次傀儡执行采集；傀儡被摧毁时取消本次产物。",
+      "category": "utility",
+      "targeting": "position",
+      "params": { "duration": 20, "range": 240, "cooldown": 0, "charges": 1, "backlashDamage": 15 },
+      "costs": {},
+      "tags": ["gather", "summon", "strategist"]
     },
     {
       "id": "jump",

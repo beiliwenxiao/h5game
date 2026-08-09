@@ -19,62 +19,10 @@
  * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写工程文件（保留其它字段）。
  */
 
-const WHEN_TYPES = [
-  { v: 'sceneEnter', label: '进入场景 sceneEnter' },
-  { v: 'enterRegion', label: '进入区域 enterRegion' },
-  { v: 'dialogueEnd', label: '对话结束 dialogueEnd' },
-  { v: 'kill', label: '击杀敌人 kill' },
-  { v: 'itemPickup', label: '拾取物品 itemPickup' },
-  { v: 'interact', label: '交互 interact' },
-  { v: 'questComplete', label: '任务完成 questComplete' },
-  { v: 'questProgress', label: '任务进度 questProgress' },
-  { v: 'flagChange', label: '变量变化 flagChange' },
-  { v: 'timer', label: '定时器 timer' },
-  { v: 'chunkEnter', label: '进入区块 chunkEnter' },
-  { v: 'campfireLit', label: '火堆点燃 campfireLit' },
-  { v: 'waveCleared', label: '波次清空 waveCleared' },
-  { v: 'playerMoved', label: '玩家移动 playerMoved' },
-  { v: 'panelOpen', label: '打开面板 panelOpen' },
-  { v: 'equipItem', label: '装备物品 equipItem' },
-  { v: 'classSelected', label: '选择职业 classSelected' },
-  { v: 'approach', label: '靠近 approach' },
-  { v: 'stand', label: '站立 stand' },
-  { v: 'climb', label: '攀爬 climb' },
-  { v: 'jump', label: '跳跃 jump' },
-  { v: 'leave', label: '离开区域 leave' },
-  { v: 'itemTransform', label: '物品转化 itemTransform' }
-];
+import { getTriggerEvents, getTriggerActions, validateTriggerDefinition } from '../src/systems/TriggerCatalog.js';
 
-const ACTION_TYPES = [
-  { v: 'setVar', label: '设置变量 setVar' },
-  { v: 'addVar', label: '变量累加 addVar' },
-  { v: 'setFlag', label: '设置标记 setFlag' },
-  { v: 'toggleFlag', label: '切换标记 toggleFlag' },
-  { v: 'startDialogue', label: '开始对话 startDialogue' },
-  { v: 'teleportToChunk', label: '大地图传送 teleportToChunk' },
-  { v: 'switchScene', label: '切换场景 switchScene' },
-  { v: 'loadRegion', label: '加载区域 loadRegion' },
-  { v: 'giveReward', label: '给予奖励 giveReward' },
-  { v: 'heal', label: '治疗/恢复 heal' },
-  { v: 'startQuest', label: '开始任务 startQuest' },
-  { v: 'completeQuest', label: '完成任务 completeQuest' },
-  { v: 'showTip', label: '显示提示 showTip' },
-  { v: 'playSound', label: '播放音效 playSound' },
-  { v: 'playBgm', label: '播放BGM playBgm' },
-  { v: 'spawnEnemy', label: '生成敌人 spawnEnemy' },
-  { v: 'wait', label: '等待 wait' },
-  { v: 'parallel', label: '并行执行 parallel' },
-  { v: 'battleWin', label: '战斗胜利 battleWin' },
-  { v: 'battleLose', label: '战斗失败 battleLose' },
-  { v: 'spawnWave', label: '生成波次 spawnWave' },
-  { v: 'mount', label: '上载具/骑乘 mount' },
-  { v: 'spawnPlacements', label: '放置场景物品 spawnPlacements' },
-  { v: 'spawnGroup', label: '激活放置组 spawnGroup' },
-  { v: 'lightCampfire', label: '点燃火堆 lightCampfire' },
-  { v: 'sceneCountdown', label: '倒计时切幕 sceneCountdown' },
-  { v: 'promptSwitch', label: '提示切幕 promptSwitch' },
-  { v: 'teleportToChunk', label: '传送到区块 teleportToChunk' }
-];
+let WHEN_TYPES = getTriggerEvents();
+let ACTION_TYPES = getTriggerActions();
 
 export class TriggerEditor {
   /**
@@ -88,6 +36,7 @@ export class TriggerEditor {
     this.getSceneList = typeof options.getSceneList === 'function' ? options.getSceneList : () => [];
     // 当前场景的完整放置点由场景编辑器显式注入，供物品生成动作可视化选择。
     this.getPlacementOptions = typeof options.getPlacementOptions === 'function' ? options.getPlacementOptions : () => [];
+    this.onSaved = typeof options.onSaved === 'function' ? options.onSaved : null;
     this.projectPath = `example/${this.gameId}/game.project.json`;
     this.project = null;
     this.triggers = [];
@@ -129,6 +78,16 @@ export class TriggerEditor {
     if (!Array.isArray(this.project.tutorials)) this.project.tutorials = [];
     // 当前编辑目标数组
     this.triggers = this.project[this.target];
+    WHEN_TYPES = getTriggerEvents(this.project);
+    ACTION_TYPES = getTriggerActions(this.project);
+    this._refreshCatalogControls();
+  }
+
+  _refreshCatalogControls() {
+    const when = this.container.querySelector('#trg-filter-when');
+    const action = this.container.querySelector('#trg-filter-do');
+    if (when) when.innerHTML = '<option value="">全部时机</option>' + WHEN_TYPES.map(item => `<option value="${item.v}">${item.label}</option>`).join('');
+    if (action) action.innerHTML = '<option value="">全部动作</option>' + ACTION_TYPES.map(item => `<option value="${item.v}">${item.label}</option>`).join('');
   }
 
   /** 切换编辑目标（triggers ↔ tutorials 引导） */
@@ -163,6 +122,12 @@ export class TriggerEditor {
     }
     this._commitDetail(); // 先把当前编辑写回数据
     this.project[this.target] = this.triggers;
+    const definitionError = this._validateDefinitions();
+    if (definitionError) {
+      this._status('❌ ' + definitionError, 'err');
+      this._toast(definitionError, false);
+      return;
+    }
     console.log('[TriggerEditor] 准备保存:', this.projectPath, this.target, '数量:', this.triggers.length, JSON.parse(JSON.stringify(this.triggers)));
     try {
       const res = await fetch('/api/save-file', {
@@ -175,6 +140,7 @@ export class TriggerEditor {
       if (data && data.ok) {
         this._status('✅ 已保存到 ' + this.projectPath + '（触发器 ' + this.triggers.length + ' 条）', 'ok');
         this._toast('保存成功（触发器 ' + this.triggers.length + ' 条）', true);
+        await this.onSaved?.(this.project);
       } else {
         this._status('❌ 保存失败: ' + (data.error || '未知'), 'err');
         this._toast('保存失败: ' + (data.error || '未知'), false);
@@ -184,6 +150,39 @@ export class TriggerEditor {
       this._status('❌ 保存失败: ' + e.message, 'err');
       this._toast('保存失败: ' + e.message, false);
     }
+  }
+
+  _validateDefinitions() {
+    const all = [...(this.project.triggers || []), ...(this.project.tutorials || [])];
+    const ids = new Set();
+    for (const trigger of all) {
+      const errors = validateTriggerDefinition(trigger, this.project);
+      if (errors.length) return `${trigger?.id || '(未命名)'}: ${errors[0]}`;
+      if (ids.has(trigger.id)) return `重复 ID "${trigger.id}"（triggers/tutorials 共用命名空间）`;
+      ids.add(trigger.id);
+    }
+    return '';
+  }
+
+  getTriggers() { return this.project?.triggers || []; }
+  getTriggerById(id) { return this.getTriggers().find(trigger => trigger.id === id) || null; }
+
+  selectById(id) {
+    if (!id || !this.project) return false;
+    if (this.target !== 'triggers') this._switchTarget('triggers');
+    const index = this.triggers.findIndex(trigger => trigger.id === id);
+    if (index < 0) return false;
+    this.selectedIndex = index;
+    this._renderList();
+    this._renderDetail();
+    return true;
+  }
+
+  async refresh() {
+    await this._load();
+    this._renderList();
+    this._renderDetail();
+    return this;
   }
 
   /**

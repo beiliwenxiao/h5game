@@ -529,6 +529,9 @@ export class TutorialSystem {
       return;
     }
 
+    // 读档前清除可能由新游戏启动流程显示的旧步骤，完成事实只取存档。
+    if (this.currentTutorial) this.hideTutorial();
+
     if (progressData.completedTutorials) {
       this.completedTutorials = new Set(progressData.completedTutorials);
     }

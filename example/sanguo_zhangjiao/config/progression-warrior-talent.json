@@ -1,0 +1,14 @@
+{
+  "id": "warrior-talent", "mode": "classTalent", "version": 1, "pointPool": "talent",
+  "rules": { "requireConnected": false },
+  "nodes": [
+    { "id": "hardened_body", "name": "百战之躯", "description": "每级最大生命 +25", "kind": "passive", "maxRank": 3, "costs": { "talent": 1 }, "region": "frontline", "position": { "x": 0, "y": 0 }, "effects": [{ "type": "attribute.modify", "target": "maxHp", "operation": "add", "value": 25 }] },
+    { "id": "shield_drill", "name": "盾阵操练", "description": "每级防御 +2", "kind": "passive", "maxRank": 3, "costs": { "talent": 1 }, "prerequisites": ["hardened_body"], "region": "frontline", "position": { "x": 0, "y": 1 }, "effects": [{ "type": "attribute.modify", "target": "defense", "operation": "add", "value": 2 }] },
+    { "id": "battle_fury", "name": "战意", "description": "每级攻击 +3", "kind": "passive", "maxRank": 3, "costs": { "talent": 1 }, "prerequisites": ["hardened_body"], "region": "assault", "position": { "x": 2, "y": 1 }, "effects": [{ "type": "attribute.modify", "target": "attack", "operation": "add", "value": 3 }] },
+    { "id": "vanguard_step", "name": "先锋步", "description": "移动速度提高 8%", "kind": "specialization", "maxRank": 1, "costs": { "talent": 1 }, "prerequisites": { "mode": "any", "nodes": ["shield_drill", "battle_fury"] }, "region": "assault", "position": { "x": 1, "y": 2 }, "effects": [{ "type": "attribute.modify", "target": "speed", "operation": "addPercent", "value": 0.08 }] },
+    { "id": "steadfast", "name": "专精：坚守", "description": "减伤提高 10%，与狂战互斥", "kind": "specialization", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["vanguard_step"], "choiceGroup": "warrior_doctrine", "region": "doctrine", "position": { "x": 0, "y": 3 }, "effects": [{ "type": "combat.modify", "target": "damageReduction", "operation": "add", "value": 0.1 }] },
+    { "id": "berserker", "name": "专精：狂战", "description": "攻击提高 15%，与坚守互斥", "kind": "specialization", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["vanguard_step"], "choiceGroup": "warrior_doctrine", "region": "doctrine", "position": { "x": 2, "y": 3 }, "effects": [{ "type": "attribute.modify", "target": "attack", "operation": "addPercent", "value": 0.15 }] },
+    { "id": "iron_breath", "name": "铁息", "description": "最大体力 +20", "kind": "passive", "maxRank": 2, "costs": { "talent": 1 }, "prerequisites": { "mode": "any", "nodes": ["steadfast", "berserker"] }, "region": "mastery", "position": { "x": 1, "y": 4 }, "effects": [{ "type": "attribute.modify", "target": "maxStamina", "operation": "add", "value": 20 }] },
+    { "id": "unyielding_banner", "name": "不屈军旗", "description": "免疫击退", "kind": "keystone", "maxRank": 1, "costs": { "talent": 2 }, "prerequisites": ["iron_breath"], "region": "mastery", "position": { "x": 1, "y": 5 }, "effects": [{ "type": "rule.override", "target": "combat.knockbackImmune", "value": true }] }
+  ]
+}

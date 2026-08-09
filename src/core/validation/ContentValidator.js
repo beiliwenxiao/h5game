@@ -185,33 +185,42 @@ export class ContentValidator {
   }
 
   /**
-   * 校验内容版本
-   * @param {*} value - 含 version 字段的配置
-   * @param {string} [path]
+   * 校验内容版本。
+   * Canonical 模型使用 schemaVersion；旧成长配置仍可使用 version。
+   *
+   * @param {*} value - 含 schemaVersion 或 legacy version 的配置
+   * @param {string|null} [path] - 显式错误路径；默认跟随实际版本字段
    * @returns {{ok: boolean, errors: Array<Object>}}
    */
-  validateVersion(value, path = 'version') {
-    const version = value && value.version;
+  validateVersion(value, path = null) {
+    const hasSchemaVersion = Boolean(
+      value && Object.prototype.hasOwnProperty.call(value, 'schemaVersion')
+    );
+    const field = hasSchemaVersion ? 'schemaVersion' : 'version';
+    const version = value && value[field];
+    const versionPath = path || field;
+
     if (version === undefined) return { ok: true, errors: [] };
 
-    if (typeof version !== 'number') {
+    if (typeof version !== 'number' || !Number.isInteger(version)) {
       return {
         ok: false,
-        errors: [makeError(ValidationCode.TYPE_MISMATCH, path, '版本必须为数字', {
-          expected: 'number',
-          actual: typeof version
+        errors: [makeError(ValidationCode.TYPE_MISMATCH, versionPath, '版本必须为整数', {
+          expected: 'integer',
+          actual: version
         })]
       };
     }
 
-    if (version > this.supportedVersion) {
+    const minVersion = 1;
+    if (version < minVersion || version > this.supportedVersion) {
       return {
         ok: false,
         errors: [makeError(
           ValidationCode.VERSION_UNSUPPORTED,
-          path,
-          `内容版本 ${version} 高于支持版本，受支持范围为 1 至 ${this.supportedVersion}`,
-          { expected: `<= ${this.supportedVersion}`, actual: version }
+          versionPath,
+          `内容版本 ${version} 不受支持，受支持范围为 ${minVersion} 至 ${this.supportedVersion}`,
+          { expected: `${minVersion}-${this.supportedVersion}`, actual: version }
         )]
       };
     }
@@ -410,7 +419,11 @@ export class ContentValidator {
       return { committed: false, value: currentValue, errors: result.errors };
     }
 
-    return { committed: true, value: candidate, errors: [] };
+    return {
+      committed: true,
+      value: this.canonicalize(candidate, schemaId),
+      errors: []
+    };
   }
 
   /**
@@ -429,10 +442,32 @@ export class ContentValidator {
       candidate = parsed.value;
     }
 
+    if (!Array.isArray(candidate)) {
+      const result = this.validateList(candidate, schemaId);
+      return { committed: false, value: currentValue, errors: result.errors };
+    }
+
+    const versionErrors = [];
+    candidate.forEach((item, index) => {
+      const check = this.validateVersion(item, `[${index}].${
+        item && Object.prototype.hasOwnProperty.call(item, 'schemaVersion')
+          ? 'schemaVersion'
+          : 'version'
+      }`);
+      versionErrors.push(...check.errors);
+    });
+    if (versionErrors.length > 0) {
+      return { committed: false, value: currentValue, errors: versionErrors };
+    }
+
     const result = this.validateList(candidate, schemaId);
     if (!result.ok) return { committed: false, value: currentValue, errors: result.errors };
 
-    return { committed: true, value: candidate, errors: [] };
+    return {
+      committed: true,
+      value: candidate.map(item => this.canonicalize(item, schemaId)),
+      errors: []
+    };
   }
 
   /**

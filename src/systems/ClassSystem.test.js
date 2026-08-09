@@ -23,7 +23,7 @@ describe('ClassSystem', () => {
       const classTypes = allClasses.map(c => c.id);
       expect(classTypes).toContain(ClassType.WARRIOR);
       expect(classTypes).toContain(ClassType.ARCHER);
-      expect(classTypes).toContain(ClassType.MAGE);
+      expect(classTypes).toContain(ClassType.STRATEGIST);
     });
     
     it('应该能获取职业数据', () => {
@@ -62,7 +62,7 @@ describe('ClassSystem', () => {
       const characterId = 'player1';
       classSystem.selectClass(characterId, ClassType.WARRIOR);
       
-      const result = classSystem.selectClass(characterId, ClassType.MAGE);
+      const result = classSystem.selectClass(characterId, ClassType.STRATEGIST);
       expect(result).toBe(false);
       expect(classSystem.getCharacterClass(characterId)).toBe(ClassType.WARRIOR);
     });
@@ -315,9 +315,9 @@ describe('ClassSystem', () => {
       expect(archerData.baseAttributes.speed).toBeGreaterThan(100);
     });
     
-    it('法师应该有高法力值', () => {
-      const mageData = classSystem.getClassData(ClassType.MAGE);
-      expect(mageData.baseAttributes.mana).toBeGreaterThan(80);
+    it('军师应该有高法力值', () => {
+      const strategistData = classSystem.getClassData(ClassType.STRATEGIST);
+      expect(strategistData.baseAttributes.mana).toBeGreaterThan(80);
     });
     
     it('每个职业应该有两个特化选项', () => {

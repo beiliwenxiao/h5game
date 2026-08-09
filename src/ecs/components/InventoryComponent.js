@@ -120,7 +120,8 @@ export class InventoryComponent extends Component {
     if (item.maxStack > 1) {
       for (let i = 0; i < this.slots.length && remainingQuantity > 0; i++) {
         const slot = this.slots[i];
-        if (slot && slot.item.id === item.id && !slot.isFull()) {
+        if (slot && slot.item.id === item.id &&
+            !slot.item.instanceId && !item.instanceId && !slot.isFull()) {
           const added = slot.addToStack(remainingQuantity);
           remainingQuantity -= added;
         }

@@ -1,24 +1,27 @@
 {
   "version": 1,
-  "createdAt": 1786201655078,
+  "createdAt": 1786220081198,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
     "slot": 1,
     "characterName": "柔弱女子",
     "level": 1,
-    "currentAct": 1,
-    "location": "第 1 幕区域",
+    "currentSceneId": "S01",
+    "location": "S01 区域",
     "previewFile": "thumbnail.jpg"
   },
   "data": {
     "game": {
+      "campaignId": "sanguo-zhangjiao-s01-s14",
+      "schemaVersion": 1,
+      "currentSceneId": "S01",
       "player": {
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 592.54,
-          "y": 547.88,
+          "x": 1965.05,
+          "y": 1268.51,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -57,23 +60,10 @@
         "enabled": true
       },
       "dialogue": {
-        "currentDialogueId": "intro",
-        "currentNodeId": "node1",
+        "currentDialogueId": null,
+        "currentNodeId": null,
         "variables": {},
-        "history": [
-          {
-            "type": "node",
-            "nodeId": "node1",
-            "speaker": "旁白",
-            "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786201654644
-          },
-          {
-            "type": "start",
-            "dialogueId": "intro",
-            "timestamp": 1786201654644
-          }
-        ],
+        "history": [],
         "completedDialogues": []
       },
       "quests": {
@@ -83,20 +73,17 @@
       },
       "content": {
         "blackboard": {
-          "act": 0,
-          "killCount": 0,
-          "starvingKilled": 0,
-          "act5Kills": 0,
-          "hasSword": false,
-          "gold": 0,
-          "act2EquipCount": 0,
+          "storyState": {
+            "currentSceneId": "S01",
+            "month": 3,
+            "unlockedScenes": [
+              "S01"
+            ]
+          },
           "ddScene": true
         },
         "triggers": {
-          "firedOnce": [
-            "my_first_trigger",
-            "tut_wake"
-          ],
+          "firedOnce": [],
           "cooldowns": {}
         },
         "progression": {

@@ -35,7 +35,12 @@ export class SceneCombatActions {
     this.scene = scene;
   }
 
+  _isLocked() {
+    return this.scene.isPlayerActionLocked?.() === true;
+  }
+
   attackByFacing() {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !scene.combatSystem?.isInCombat?.()) return;
     const transform = scene.playerEntity.getComponent('transform');
@@ -47,13 +52,14 @@ export class SceneCombatActions {
     melee.setEntities(scene.entities);
     melee.sectorDirection = Math.atan2(direction.y, direction.x);
     melee.sectorIsRanged = melee.checkIsRangedWeapon();
-    melee.performSectorAttack(
+    return melee.performSectorAttack(
       { x: transform.position.x, y: transform.position.y - spriteHeight / 2 },
       performance.now() / 1000
     );
   }
 
   attackByDirection(dirX, dirY, distRatio) {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !scene.combatSystem?.isInCombat?.()) return;
     const transform = scene.playerEntity.getComponent('transform');
@@ -71,7 +77,7 @@ export class SceneCombatActions {
     const mainhand = scene.playerEntity.getComponent('equipment')?.getEquipment('mainhand');
     if (mainhand?.attackDistance != null) weaponDistance = mainhand.attackDistance;
     const ratio = distRatio !== undefined && distRatio > 0 ? Math.min(distRatio, 1) : 1;
-    melee.performSectorAttack(
+    return melee.performSectorAttack(
       { x: transform.position.x, y: transform.position.y - spriteHeight / 2 },
       performance.now() / 1000,
       Math.round(weaponDistance * ratio)
@@ -85,6 +91,7 @@ export class SceneCombatActions {
   }
 
   jumpByDirection(dirX = 0, dirY = 0) {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (scene.dialogueSystem?.isDialogueActive?.() || scene.itemGainedPopup?.visible ||
         scene.backpackPanel?.visible || scene.isTransitioning) return false;
@@ -95,6 +102,7 @@ export class SceneCombatActions {
   }
 
   flightByFacing() {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
     if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
@@ -110,6 +118,7 @@ export class SceneCombatActions {
   }
 
   flightByDirection(dirX, dirY, distRatio) {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
     if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
@@ -126,6 +135,7 @@ export class SceneCombatActions {
   }
 
   throwByFacing() {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.weaponRenderer || !scene.playerEntity || scene.weaponRenderer.isWeaponThrown?.()) return;
     const equipment = scene.playerEntity.getComponent('equipment');
@@ -142,6 +152,7 @@ export class SceneCombatActions {
   }
 
   throwByDirection(dirX, dirY, distRatio) {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.weaponRenderer || !scene.playerEntity || scene.weaponRenderer.isWeaponThrown?.()) return;
     const equipment = scene.playerEntity.getComponent('equipment');
@@ -159,6 +170,7 @@ export class SceneCombatActions {
   }
 
   activateBlock() {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     return !!(scene.combatSystem && scene.playerEntity && scene.combatSystem.activateBlock());
   }
@@ -187,6 +199,7 @@ export class SceneCombatActions {
   }
 
   handleWeaponThrow() {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     if (!scene.weaponRenderer || !scene.playerEntity || scene.weaponRenderer.isWeaponThrown?.()) return;
     if (!scene.playerEntity.getComponent('equipment')?.slots?.mainhand) return;
@@ -260,6 +273,15 @@ export class SceneCombatActions {
     if (controller.currentSkillIndex >= controller.skillCount) controller.currentSkillIndex = 0;
     controller.update(gamepad);
 
+    if (scene.isPlayerActionLocked?.()) {
+      controller.cancelSkillWheel();
+      scene.isSkillWheelWorldPaused = false;
+      scene.skillWheelOverlay?.close?.();
+      scene.cancelPCAimMode?.();
+      controller.consumeIntents();
+      return true;
+    }
+
     // 此状态不能使用 scene.isPaused：后者会在帧首阻断 poll，导致 LB 松开沿永远无法被读取。
     scene.isSkillWheelWorldPaused = controller.isWheelOpen;
     this._syncSkillWheel(controller, gamepadSkills);
@@ -304,6 +326,7 @@ export class SceneCombatActions {
   }
 
   handleAutoAttack(currentTime) {
+    if (this._isLocked()) return false;
     const scene = this.scene;
     const weapon = scene.weaponRenderer;
     if (!scene.combatSystem || !scene.playerEntity || !weapon || weapon.isWeaponThrown?.()) return;

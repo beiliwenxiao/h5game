@@ -80,6 +80,62 @@
         { "type": "rule.override", "target": "skill.cleave.variant", "value": "execute" }
       ]
     },
+    {
+      "id": "cleave_reach",
+      "name": "长势",
+      "description": "每级提高劈砍射程 12",
+      "kind": "skillModifier",
+      "maxRank": 2,
+      "costs": { "skill": 1 },
+      "prerequisites": ["cleave_damage"],
+      "region": "cleave",
+      "position": { "x": 0, "y": 2 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.range", "operation": "add", "value": 12 }
+      ]
+    },
+    {
+      "id": "cleave_arc",
+      "name": "阔刃",
+      "description": "每级提高劈砍范围 10",
+      "kind": "skillModifier",
+      "maxRank": 2,
+      "costs": { "skill": 1 },
+      "prerequisites": ["cleave_reach"],
+      "region": "cleave",
+      "position": { "x": 0, "y": 3 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.radius", "operation": "add", "value": 10 }
+      ]
+    },
+    {
+      "id": "cleave_efficiency",
+      "name": "收势",
+      "description": "每级降低劈砍体力消耗 1",
+      "kind": "skillModifier",
+      "maxRank": 3,
+      "costs": { "skill": 1 },
+      "prerequisites": ["cleave_cooldown"],
+      "region": "cleave",
+      "position": { "x": 4, "y": 2 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.cost.stamina", "operation": "add", "value": -1 }
+      ]
+    },
+    {
+      "id": "cleave_mastery",
+      "name": "开山势",
+      "description": "劈砍伤害提高 15%",
+      "kind": "mastery",
+      "maxRank": 1,
+      "costs": { "skill": 2 },
+      "prerequisites": { "mode": "any", "nodes": ["cleave_form_whirlwind", "cleave_form_execute"] },
+      "region": "cleave",
+      "position": { "x": 2, "y": 4 },
+      "effects": [
+        { "type": "skill.modify", "target": "skill.cleave.damage", "operation": "addPercent", "value": 0.15 }
+      ]
+    },
 
     {
       "id": "jump",

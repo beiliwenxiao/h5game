@@ -411,7 +411,7 @@ export class AssetManager {
         this.loadAnimatedSpriteImage('player_animated', this.resolveAssetPath('images/girl.png'));
 
         // 九宫格方向精灵（用于玩家）
-        const characterClasses = ['warrior', 'mage', 'archer', 'refugee'];
+        const characterClasses = ['warrior', 'strategist', 'archer', 'refugee'];
         characterClasses.forEach(className => {
             // 尝试加载真实图片，如果失败则使用占位符
             const realImagePath = this.resolveAssetPath(`images/${className}.png`);

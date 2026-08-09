@@ -28,7 +28,7 @@ describe('RemotePlayer', () => {
         position: { x: 100, y: 200 },
         hp: 80,
         maxHp: 120,
-        classType: 'mage'
+        classType: 'strategist'
       };
       
       const player = new RemotePlayer(data);
@@ -39,7 +39,7 @@ describe('RemotePlayer', () => {
       expect(player.position).toEqual({ x: 100, y: 200 });
       expect(player.hp).toBe(80);
       expect(player.maxHp).toBe(120);
-      expect(player.classType).toBe('mage');
+      expect(player.classType).toBe('strategist');
     });
   });
 

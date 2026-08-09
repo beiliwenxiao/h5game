@@ -9,7 +9,8 @@ const REGISTRY_KEYS = Object.freeze({
   enemy: 'enemies',
   npc: 'npcs',
   building: 'buildings',
-  vehicle: 'vehicles'
+  vehicle: 'vehicles',
+  resourceNode: 'resourceNodes'
 });
 
 function isPlainObject(value) {
@@ -89,7 +90,8 @@ export class PlacementSpawner {
     aiSystem = null,
     assetManager = null,
     onNpcImageError = null,
-    onSpawn = null
+    onSpawn = null,
+    shouldSpawn = null
   } = {}) {
     this.entityFactory = entityFactory;
     this.entityStore = entityStore;
@@ -97,6 +99,16 @@ export class PlacementSpawner {
     this.assetManager = assetManager;
     this.onNpcImageError = onNpcImageError;
     this.onSpawn = onSpawn;
+    this.shouldSpawn = typeof shouldSpawn === 'function' ? shouldSpawn : null;
+    this.spawnedPlacementIds = new Set();
+  }
+
+  forgetPlacements(ids = []) {
+    let removed = 0;
+    for (const id of ids || []) {
+      if (id && this.spawnedPlacementIds.delete(id)) removed++;
+    }
+    return removed;
   }
 
   /**
@@ -119,7 +131,7 @@ export class PlacementSpawner {
    */
   spawnMatching({ placements = [], registries = {}, selector = {} } = {}) {
     const normalized = normalizeSelector(selector);
-    const counts = { item: 0, equipment: 0, enemy: 0, npc: 0, building: 0, vehicle: 0, total: 0 };
+    const counts = { item: 0, equipment: 0, enemy: 0, npc: 0, building: 0, vehicle: 0, resourceNode: 0, total: 0 };
     const entities = [];
     const errors = [];
     const matchedPlacements = (placements || []).filter(placement => placementMatches(placement, normalized));
@@ -127,6 +139,15 @@ export class PlacementSpawner {
     for (const placement of matchedPlacements) {
       const kind = placement.kind;
       if (!REGISTRY_KEYS[kind]) continue;
+      if (placement.id && this.spawnedPlacementIds.has(placement.id)) continue;
+      if (this.shouldSpawn) {
+        try {
+          if (this.shouldSpawn({ placement, selector: normalized }) === false) continue;
+        } catch (error) {
+          errors.push({ kind, ref: placement.ref, placement, reason: 'spawnConditionFailed', error });
+          continue;
+        }
+      }
       const definition = registryGet(registries, kind, placement.ref);
       if (!definition) {
         errors.push({ kind, ref: placement.ref, placement, reason: 'definitionNotFound' });
@@ -141,17 +162,22 @@ export class PlacementSpawner {
           errors.push({ kind, ref: placement.ref, placement, reason: 'factoryUnavailable' });
           continue;
         }
-        entities.push(entity);
-        counts[kind]++;
-        counts.total++;
         if (kind === 'npc') this._preloadNpcImage(data, entity, placement);
         if (typeof this.onSpawn === 'function') {
           try {
             this.onSpawn({ entity, kind, group: placement.group || normalized.group || null, placement, definition: data });
           } catch (error) {
+            this.aiSystem?.unregisterAI?.(entity);
+            this.entityStore?.remove?.(entity);
+            try { entity?.destroy?.(); } catch (destroyError) { /* best-effort rollback */ }
             errors.push({ kind, ref: placement.ref, placement, reason: 'onSpawnFailed', error });
+            continue;
           }
         }
+        entities.push(entity);
+        if (placement.id) this.spawnedPlacementIds.add(placement.id);
+        counts[kind]++;
+        counts.total++;
       } catch (error) {
         errors.push({ kind, ref: placement.ref, placement, reason: 'spawnFailed', error });
       }
@@ -166,28 +192,49 @@ export class PlacementSpawner {
     if (kind === 'item') {
       if (data.worldProp) {
         const entity = factory?.createProp?.(data);
-        if (entity) store?.add?.(entity);
+        if (entity) {
+          entity.placementId = placement.id || entity.placementId || null;
+          store?.add?.(entity);
+        }
         return entity;
       }
-      const item = { ...data, x: data.position.x, y: data.position.y, picked: false };
+      const item = { ...data, placementId: placement.id, x: data.position.x, y: data.position.y, picked: false };
       store?.addPickup?.(item);
       return item;
     }
     if (kind === 'equipment') {
-      const equipment = { ...data, x: data.position.x, y: data.position.y, picked: false };
+      const equipment = { ...data, placementId: placement.id, x: data.position.x, y: data.position.y, picked: false };
       store?.addEquipmentItem?.(equipment);
       return equipment;
     }
     if (kind === 'enemy') {
-      const entity = factory?.createEnemy?.({ ...data, templateId: data.templateId || placement.ref });
+      const entity = factory?.createEnemy?.({
+        ...data,
+        id: placement.id || data.id,
+        contentId: data.id,
+        templateId: data.templateId || placement.ref
+      });
       if (!entity) return null;
       if (typeof store?.addEnemy === 'function') store.addEnemy(entity);
       else store?.add?.(entity);
-      this.aiSystem?.registerAI?.(entity, data.aiType || 'aggressive');
+      const aiType = data.aiType || 'aggressive';
+      if (data.aiActive === false) this.aiSystem?.deactivateAI?.(entity, aiType);
+      else this.aiSystem?.registerAI?.(entity, aiType);
+      return entity;
+    }
+    if (kind === 'resourceNode') {
+      const entity = factory?.createResourceNode?.({ ...data, id: placement.id });
+      if (entity) store?.add?.(entity);
       return entity;
     }
     const methods = { npc: 'createNPC', building: 'createBuilding', vehicle: 'createVehicle' };
-    const entity = factory?.[methods[kind]]?.(data);
+    const entityData = {
+      ...data,
+      id: placement.id || data.id,
+      contentId: data.id,
+      ...(kind === 'npc' ? { npcId: data.npcId || data.id } : {})
+    };
+    const entity = factory?.[methods[kind]]?.(entityData);
     if (entity) store?.add?.(entity);
     return entity;
   }

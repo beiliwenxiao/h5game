@@ -130,6 +130,11 @@ export class CombatSystem {
     // 战斗状态回调
     this.onEnterCombatCallback = null;
     this.onExitCombatCallback = null;
+    this.onDamageCallback = null;
+    this.onPlayerDeathCallback = null;
+    this.isPlayerInputLocked = typeof config.isPlayerInputLocked === 'function'
+      ? config.isPlayerInputLocked
+      : () => false;
     // 击杀回调（敌人死亡时触发，供数据驱动 kill 事件源 / 任务计数用）
     this.onKillCallback = null;
     
@@ -882,21 +887,34 @@ export class CombatSystem {
     const stats = target.getComponent('stats');
     const transform = target.getComponent('transform');
     
-    if (!stats) return;
+    if (!stats) return null;
     
-    // 扣除生命值
-    const wasDead = stats.hp <= 0;
+    // 扣除生命值，并只按实际生命变化发出受伤事件。
+    const hpBefore = Number(stats.hp) || 0;
+    const wasDead = hpBefore <= 0;
     stats.takeDamage(damage);
-    const isDead = stats.hp <= 0;
+    const hpAfter = Number(stats.hp) || 0;
+    const appliedDamage = Math.max(0, hpBefore - hpAfter);
+    const isDead = hpAfter <= 0;
+    if (appliedDamage > 0 && this.onDamageCallback) {
+      try {
+        this.onDamageCallback({
+          target, requestedDamage: Math.max(0, Number(damage) || 0), appliedDamage,
+          damageType, hpBefore, hpAfter, isDead
+        });
+      } catch (error) {
+        console.warn('CombatSystem: 受伤回调执行失败', error);
+      }
+    }
     
     // 显示伤害数字（包含类型信息）
     if (transform) {
-      this.showDamageNumber(transform.position, damage, damageType);
+      this.showDamageNumber(transform.position, appliedDamage, damageType);
     }
     
     // 播放受击动画（如果有）
     const sprite = target.getComponent('sprite');
-    if (sprite) {
+    if (sprite && appliedDamage > 0) {
       // 可以添加受击闪烁效果
       this.playHitEffect(target);
     }
@@ -906,14 +924,16 @@ export class CombatSystem {
     //   this.applyKnockback(target, knockbackDir);
     // }
     
-    // 如果刚刚死亡，先生成掉落物，再触发死亡特效
+    // 玩家死亡必须进入唯一失败结算入口；普通敌人沿用现有掉落与特效。
     if (!wasDead && isDead) {
-      // 立即生成掉落物（在死亡特效之前）
-      this.spawnLoot(target);
-      
-      // 然后触发死亡特效
-      this.triggerDeathEffect(target);
+      if (target.type === 'player') {
+        this.handleDeath(target);
+      } else {
+        this.spawnLoot(target);
+        this.triggerDeathEffect(target);
+      }
     }
+    return { target, requestedDamage: damage, appliedDamage, hpBefore, hpAfter, isDead };
   }
   
   /**
@@ -1191,7 +1211,7 @@ export class CombatSystem {
    * @param {Array<Entity>} entities - 实体列表
    */
   handleSkillInput(currentTime, entities) {
-    if (!this.inputManager || !this.playerEntity) return;
+    if (!this.inputManager || !this.playerEntity || this.isPlayerInputLocked()) return;
     
     const combat = this.playerEntity.getComponent('combat');
     if (!combat) return;
@@ -1683,21 +1703,29 @@ export class CombatSystem {
       }, skill.castTime * 1000 || 500);
     }
     
-    // 特殊处理：治疗技能
-    if (skill.id === 'heal') {
-      const stats = caster.getComponent('stats');
-      if (stats) {
-        const actualHeal = stats.heal(skill.healAmount);
-        
-        // 显示治疗数字（从玩家身上飘起）
-        if (casterTransform && actualHeal > 0) {
-          this.showHealNumber(casterTransform.position, actualHeal);
-        }
-        
-        // 创建治疗特效
-        if (this.skillEffects) {
-          this.skillEffects.createSkillEffect('mage_heal', casterTransform.position);
-        }
+    // 治疗类技能统一治疗施法者及半径内非敌对实体，不依赖具体技能 ID。
+    if (skill.type === 'heal' || skill.id === 'heal') {
+      const radius = Math.max(0, Number(skill.aoeRadius ?? skill.radius) || 0);
+      const recipients = [caster];
+      for (const entity of entities || []) {
+        if (!entity || entity === caster || entity.type === 'enemy' || entity.faction === 'enemy') continue;
+        const transform = entity.getComponent?.('transform');
+        if (!transform || !casterTransform) continue;
+        const distance = Math.hypot(
+          transform.position.x - casterTransform.position.x,
+          transform.position.y - casterTransform.position.y
+        );
+        if (distance <= radius) recipients.push(entity);
+      }
+      for (const recipient of recipients) {
+        const stats = recipient.getComponent?.('stats');
+        const transform = recipient.getComponent?.('transform');
+        if (!stats) continue;
+        const actualHeal = stats.heal(Number(skill.healAmount) || 0);
+        if (transform && actualHeal > 0) this.showHealNumber(transform.position, actualHeal);
+      }
+      if (this.skillEffects && casterTransform) {
+        this.skillEffects.createSkillEffect('strategist_talisman_water', casterTransform.position);
       }
       return;
     }
@@ -1871,8 +1899,11 @@ export class CombatSystem {
    * @param {Array<Entity>} entities - 实体列表
    */
   applyAOEDamage(caster, centerPos, skill, entities) {
-    // AOE范围（默认150像素）
-    const aoeRadius = skill.aoeRadius || 150;
+    // AOE 范围优先消费 canonical radius；旧内容仍可使用 aoeRadius。
+    const configuredRadius = Number(skill.aoeRadius ?? skill.radius);
+    const aoeRadius = Number.isFinite(configuredRadius) && configuredRadius >= 0
+      ? configuredRadius
+      : 150;
     
     // 查找范围内的所有敌人
     const enemies = entities.filter(e => {
@@ -2176,21 +2207,20 @@ export class CombatSystem {
    * @param {Entity} player - 玩家实体
    */
   handlePlayerDeath(player) {
-    console.log('玩家死亡，显示复活界面');
-    
-    // 清除选中的目标
+    console.log('玩家死亡，进入统一失败结算');
     this.clearTarget();
-    
-    // 这里应该显示复活界面
-    // 实际实现中应该通过事件系统通知UI层
-    // 暂时只是标记状态
     player.isDead = true;
-    
-    // 可以添加复活逻辑
-    // 例如：5秒后自动复活
-    setTimeout(() => {
-      this.revivePlayer(player);
-    }, 5000);
+    if (this.onPlayerDeathCallback) {
+      try {
+        const handled = this.onPlayerDeathCallback({ player });
+        if (handled === true || handled?.ok === true) return handled;
+      } catch (error) {
+        console.warn('CombatSystem: 玩家死亡回调执行失败，使用默认复活', error);
+      }
+    }
+    const deathId = `player-death-fallback-${Date.now()}`;
+    setTimeout(() => this.revivePlayer(player), 5000);
+    return { ok: true, fallback: true, deathId };
   }
 
   /**
@@ -3328,6 +3358,21 @@ export class CombatSystem {
    */
   getCombatExitTimer() {
     return this.combatState.combatExitTimer;
+  }
+
+  /** 设置玩家主动输入锁；不会冻结 AI、环境或战斗结算。 */
+  setPlayerInputLock(callback) {
+    this.isPlayerInputLocked = typeof callback === 'function' ? callback : () => false;
+  }
+
+  /** 设置实际受伤回调。 */
+  setOnDamageCallback(callback) {
+    this.onDamageCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  /** 设置玩家死亡的唯一领域结算回调。 */
+  setOnPlayerDeathCallback(callback) {
+    this.onPlayerDeathCallback = typeof callback === 'function' ? callback : null;
   }
 
   /**

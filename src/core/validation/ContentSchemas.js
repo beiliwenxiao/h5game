@@ -18,6 +18,9 @@
 
 import { FieldType, ContentValidator } from './ContentValidator.js';
 import { ValidationCode, makeError } from './ValidationError.js';
+import { CANONICAL_SCHEMAS } from '../../data/schema/CanonicalSchemas.js';
+import { ASSET_MANIFEST_SCHEMAS } from '../../data/schema/AssetManifestSchemas.js';
+import { PRESENTATION_PROFILE_SCHEMAS } from '../../data/schema/PresentationProfileSchemas.js';
 
 /** 效果 */
 export const EFFECT_SCHEMA = {
@@ -178,6 +181,44 @@ export const GRAPH_SCHEMA = {
   }
 };
 
+/** 熟练度配置：独立于成长点池，阈值从 0 开始并严格递增。 */
+export const PROFICIENCY_CONFIG_SCHEMA = {
+  id: 'proficiencyConfig',
+  fields: {
+    schemaVersion: { type: FieldType.INTEGER, required: true, min: 1, max: 1 },
+    maxCompletedOperations: { type: FieldType.INTEGER, min: 1 },
+    types: { type: FieldType.OBJECT, required: true }
+  },
+  validate(config) {
+    const errors = [];
+    const entries = Object.entries(config.types || {});
+    if (entries.length === 0) {
+      errors.push(makeError(ValidationCode.MISSING_FIELD, 'types', '至少需要一种熟练度定义'));
+    }
+    for (const [type, definition] of entries) {
+      const path = `types.${type}`;
+      const thresholds = definition?.thresholds;
+      const maxLevel = definition?.maxLevel;
+      const validThresholds = Array.isArray(thresholds)
+        && thresholds.length > 0
+        && thresholds[0] === 0
+        && thresholds.every((value, index) => Number.isInteger(value) && value >= 0
+          && (index === 0 || value > thresholds[index - 1]));
+      if (!validThresholds) {
+        errors.push(makeError(ValidationCode.OUT_OF_RANGE, `${path}.thresholds`, '阈值必须从 0 开始并严格递增'));
+      }
+      if (!Number.isInteger(maxLevel) || !Array.isArray(thresholds) || maxLevel !== thresholds.length) {
+        errors.push(makeError(ValidationCode.OUT_OF_RANGE, `${path}.maxLevel`, 'maxLevel 必须等于 thresholds 长度'));
+      }
+      if (definition?.experiencePerUnit !== undefined
+        && (!Number.isFinite(definition.experiencePerUnit) || definition.experiencePerUnit <= 0)) {
+        errors.push(makeError(ValidationCode.OUT_OF_RANGE, `${path}.experiencePerUnit`, '单位经验必须大于 0'));
+      }
+    }
+    return { ok: errors.length === 0, errors };
+  }
+};
+
 /** 成长 Profile */
 export const PROGRESSION_CONFIG_SCHEMA = {
   id: 'progressionConfig',
@@ -191,8 +232,10 @@ export const PROGRESSION_CONFIG_SCHEMA = {
     secondary: { type: FieldType.ARRAY, itemType: FieldType.STRING },
     pointPools: { type: FieldType.OBJECT, valueType: FieldType.STRING },
     unlock: { type: FieldType.OBJECT, valueType: FieldType.STRING },
+    graphIds: { type: FieldType.OBJECT, valueType: FieldType.STRING },
     graphs: { type: FieldType.ARRAY },
-    skills: {}
+    skills: {},
+    proficiency: { type: FieldType.OBJECT, schema: 'proficiencyConfig' }
   },
 
   /** primary 必须在 enabled 内 */
@@ -211,13 +254,17 @@ export const PROGRESSION_CONFIG_SCHEMA = {
   }
 };
 
-/** 全部内置 Schema */
+/** 全部内置 Schema：成长配置 + Canonical 业务模型 */
 export const CONTENT_SCHEMAS = [
   EFFECT_SCHEMA,
   SKILL_SCHEMA,
   NODE_SCHEMA,
   GRAPH_SCHEMA,
-  PROGRESSION_CONFIG_SCHEMA
+  PROFICIENCY_CONFIG_SCHEMA,
+  PROGRESSION_CONFIG_SCHEMA,
+  ...CANONICAL_SCHEMAS,
+  ...ASSET_MANIFEST_SCHEMAS,
+  ...PRESENTATION_PROFILE_SCHEMAS
 ];
 
 /**

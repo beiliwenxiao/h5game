@@ -4,7 +4,7 @@
     {
       "id": "tpl_blank",
       "name": "空白场景",
-      "description": "最基础的空场景：仅含标准图层，无任何预置内容。",
+      "description": "最基础的空场景，仅含标准图层。",
       "category": "basic",
       "thumbnail": "",
       "scene": {
@@ -13,237 +13,43 @@
         "backgroundColor": "#2a3a1a",
         "type": "terrain",
         "layers": [
-          {
-            "id": "layer_bg",
-            "name": "背景层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_fill",
-            "name": "背景填充层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_deco",
-            "name": "装饰层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_entity",
-            "name": "实体层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_placement",
-            "name": "放置层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_logic",
-            "name": "逻辑对象",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          }
+          { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_placement", "name": "放置层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_logic", "name": "逻辑对象", "visible": true, "locked": false, "objects": [] }
         ]
       }
     },
     {
       "id": "tpl_outdoor_basin",
       "name": "户外",
-      "description": "带盆地草地椭圆的户外场景，适合营地/野外区块。含放置层与逻辑层。",
+      "description": "无项目剧情和资源引用的通用户外场景骨架。",
       "category": "outdoor",
       "thumbnail": "",
       "scene": {
-        "name": "户外",
         "width": 1280,
         "height": 720,
-        "backgroundColor": "#1a2a1a",
-        "layers": [
-          {
-            "id": "layer_bg",
-            "name": "背景层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_fill",
-            "name": "背景填充层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_deco",
-            "name": "装饰层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_entity",
-            "name": "实体层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_placement",
-            "name": "放置层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_logic",
-            "name": "逻辑对象",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          }
-        ],
-        "decorations": [],
-        "colliders": [],
+        "backgroundColor": "#30452a",
         "type": "terrain",
         "sceneType": "worldChunk",
-        "centerX": 640,
-        "centerY": 360,
-        "basinRadius": 500,
-        "basinAspectY": 0.7,
-        "terrain": {
-          "type": "basin",
-          "tileSize": 64
-        },
-        "decoSprites": {
-          "tree1": {
-            "sx": 128,
-            "sy": 384,
-            "sw": 96,
-            "sh": 128,
-            "scale": 1,
-            "collide": true,
-            "colliderRadius": 22
-          },
-          "tree2": {
-            "sx": 224,
-            "sy": 416,
-            "sw": 64,
-            "sh": 96,
-            "scale": 1,
-            "collide": true,
-            "colliderRadius": 14
-          },
-          "grass1": {
-            "sx": 128,
-            "sy": 288,
-            "sw": 96,
-            "sh": 96,
-            "scale": 1,
-            "collide": false
-          },
-          "bush2": {
-            "sx": 224,
-            "sy": 288,
-            "sw": 32,
-            "sh": 32,
-            "scale": 1,
-            "collide": false
-          }
-        },
-        "atlases": [
-          {
-            "id": "mountain_landscape",
-            "name": "山地景观图集",
-            "path": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png",
-            "width": 512,
-            "height": 512,
-            "slices": {
-              "grassTile": {
-                "name": "草地",
-                "sx": 448,
-                "sy": 128,
-                "sw": 64,
-                "sh": 64
-              },
-              "tree1": {
-                "name": "大树",
-                "sx": 128,
-                "sy": 384,
-                "sw": 96,
-                "sh": 128,
-                "collide": true,
-                "colliderRadius": 22
-              },
-              "tree2": {
-                "name": "中树",
-                "sx": 224,
-                "sy": 416,
-                "sw": 64,
-                "sh": 96,
-                "collide": true,
-                "colliderRadius": 14
-              },
-              "tree3": {
-                "name": "小树",
-                "sx": 288,
-                "sy": 384,
-                "sw": 64,
-                "sh": 128,
-                "collide": true,
-                "colliderRadius": 16
-              },
-              "grass1": {
-                "name": "草地装饰",
-                "sx": 128,
-                "sy": 288,
-                "sw": 96,
-                "sh": 96,
-                "collide": false
-              },
-              "bush2": {
-                "name": "灌木1",
-                "sx": 224,
-                "sy": 288,
-                "sw": 32,
-                "sh": 32,
-                "collide": false
-              },
-              "bush3": {
-                "name": "草莓",
-                "sx": 224,
-                "sy": 320,
-                "sw": 32,
-                "sh": 32,
-                "collide": false
-              },
-              "bush4": {
-                "name": "灌木2",
-                "sx": 256,
-                "sy": 320,
-                "sw": 32,
-                "sh": 32,
-                "collide": false
-              }
-            }
-          }
+        "terrain": { "type": "outdoor", "tileSize": 64 },
+        "layers": [
+          { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_placement", "name": "放置层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_logic", "name": "逻辑对象", "visible": true, "locked": false, "objects": [] }
         ]
       }
-    },
+    }
+,
     {
       "id": "tpl_indoor",
       "name": "室内",
-      "description": "室内场景（营帐/厅堂/城内），瓦片较小，适合对话/剧情区块。",
+      "description": "适合营帐、厅堂和城内对话区块的通用骨架。",
       "category": "indoor",
       "thumbnail": "",
       "scene": {
@@ -251,86 +57,21 @@
         "height": 720,
         "backgroundColor": "#202030",
         "type": "terrain",
-        "terrain": {
-          "type": "indoor",
-          "tileSize": 48
-        },
+        "terrain": { "type": "indoor", "tileSize": 48 },
         "layers": [
-          {
-            "id": "layer_bg",
-            "name": "背景层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_fill",
-            "name": "背景填充层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_deco",
-            "name": "装饰层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_entity",
-            "name": "实体层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_placement",
-            "name": "放置层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_logic",
-            "name": "逻辑对象",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          }
-        ],
-        "decoSprites": {
-          "table": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 80,
-            "sh": 48,
-            "scale": 1,
-            "collide": true
-          },
-          "cushion": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 48,
-            "sh": 24,
-            "scale": 1,
-            "collide": false
-          },
-          "incense": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 32,
-            "sh": 48,
-            "scale": 1,
-            "collide": false
-          }
-        }
+          { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_placement", "name": "放置层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_logic", "name": "逻辑对象", "visible": true, "locked": false, "objects": [] }
+        ]
       }
     },
     {
       "id": "tpl_battlefield",
       "name": "战场",
-      "description": "开阔战场，适合大规模战斗区块（刷怪波次、多敌人）。",
+      "description": "适合大规模战斗区块的通用开阔场景骨架。",
       "category": "outdoor",
       "thumbnail": "",
       "scene": {
@@ -339,84 +80,15 @@
         "backgroundColor": "#301515",
         "type": "terrain",
         "sceneType": "worldChunk",
-        "centerX": 640,
-        "centerY": 360,
-        "basinRadius": 600,
-        "basinAspectY": 0.65,
-        "terrain": {
-          "type": "battlefield",
-          "tileSize": 64
-        },
+        "terrain": { "type": "battlefield", "tileSize": 64 },
         "layers": [
-          {
-            "id": "layer_bg",
-            "name": "背景层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_fill",
-            "name": "背景填充层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_deco",
-            "name": "装饰层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_entity",
-            "name": "实体层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_placement",
-            "name": "放置层",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          },
-          {
-            "id": "layer_logic",
-            "name": "逻辑对象",
-            "visible": true,
-            "locked": false,
-            "objects": []
-          }
-        ],
-        "decoSprites": {
-          "rock": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 48,
-            "sh": 48,
-            "scale": 1,
-            "collide": true
-          },
-          "broken_flag": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 32,
-            "sh": 48,
-            "scale": 1,
-            "collide": false
-          },
-          "ruins": {
-            "sx": 0,
-            "sy": 0,
-            "sw": 96,
-            "sh": 64,
-            "scale": 1,
-            "collide": true
-          }
-        }
+          { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_placement", "name": "放置层", "visible": true, "locked": false, "objects": [] },
+          { "id": "layer_logic", "name": "逻辑对象", "visible": true, "locked": false, "objects": [] }
+        ]
       }
     }
   ]

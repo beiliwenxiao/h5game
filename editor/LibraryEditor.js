@@ -53,6 +53,12 @@ const CATEGORIES = [
     ai: { type: 'melee', aggroRange: 200, attackRange: 50 },
     loot: []
   }},
+  { key: 'resourceNodes', label: '资源节点', tpl: {
+    name: '新资源节点', schemaVersion: 1, resourceType: 'wood', itemId: '',
+    remaining: 10, maxRemaining: 10, yieldPerGather: 2, gatherDuration: 1.5,
+    interactionRadius: 72, requiredToolType: null, refreshDays: 0,
+    guardUnitIds: [], damageRatio: 0
+  }},
   { key: 'shops', label: '商店', tpl: { name: '新商店', goods: [] } },
   { key: 'vehicles', label: '载具', tpl: {
     name: '新载具', vehicleType: 'horse', speed: 200, hp: 100,

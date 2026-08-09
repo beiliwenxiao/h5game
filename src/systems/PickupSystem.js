@@ -26,6 +26,7 @@ import { Entity } from '../ecs/Entity.js';
 import { TransformComponent } from '../ecs/components/TransformComponent.js';
 import { SpriteComponent } from '../ecs/components/SpriteComponent.js';
 import { NameComponent } from '../ecs/components/NameComponent.js';
+import { InventoryTransactionService } from './InventoryTransactionService.js';
 
 export class PickupSystem {
   /**
@@ -39,6 +40,8 @@ export class PickupSystem {
     this.pickupCooldown = config.pickupCooldown ?? 300;
     this.pickupKey = config.pickupKey ?? 'e';
     this.lastPickupTime = 0;
+    this.inventoryTransactions = config.inventoryTransactions || new InventoryTransactionService();
+    this._requestSequence = 0;
     
     // 外部引用（通过 init 注入）
     this.inputManager = null;
@@ -57,6 +60,7 @@ export class PickupSystem {
     this.inputManager = deps.inputManager || null;
     this.floatingTextManager = deps.floatingTextManager || null;
     this.weaponRenderer = deps.weaponRenderer || null;
+    this.inventoryTransactions = deps.inventoryTransactions || this.inventoryTransactions;
   }
 
   /**
@@ -93,16 +97,21 @@ export class PickupSystem {
    * @param {Array} equipmentItems - 装备/掉落物品列表
    * @returns {Object} { pickedItems, removedEntities }
    */
-  triggerPickup(playerEntity, pickupItems, equipmentItems) {
+  triggerPickup(playerEntity, pickupItems, equipmentItems, request = {}) {
     if (!playerEntity) return { pickedItems: [], removedEntities: [] };
-    return this._tryPickup(playerEntity, pickupItems, equipmentItems);
+    return this._tryPickup(playerEntity, pickupItems, equipmentItems, request);
+  }
+
+  /** 统一设备无关的拾取请求入口。 */
+  requestPickup({ playerEntity, pickupItems = [], equipmentItems = [], ...request } = {}) {
+    return this.triggerPickup(playerEntity, pickupItems, equipmentItems, request);
   }
 
   /**
    * 拾取核心逻辑：检测冷却并批量拾取范围内物品
    * @private
    */
-  _tryPickup(playerEntity, pickupItems, equipmentItems) {
+  _tryPickup(playerEntity, pickupItems, equipmentItems, request = {}) {
     const transform = playerEntity.getComponent('transform');
     if (!transform) return { pickedItems: [], removedEntities: [] };
     
@@ -126,9 +135,11 @@ export class PickupSystem {
       const distance = Math.sqrt(dx * dx + dy * dy);
       
       if (distance <= this.pickupRadius) {
-        this.pickupItem(item, playerEntity);
-        pickedItems.push(item);
-        pickedAny = true;
+        const result = this.pickupItem(item, playerEntity, request.operationId);
+        if (result.accepted > 0) {
+          pickedItems.push(item);
+          pickedAny = true;
+        }
       }
     }
     
@@ -146,15 +157,24 @@ export class PickupSystem {
       const distance = Math.sqrt(dx * dx + dy * dy);
       
       if (distance <= this.pickupRadius) {
-        if (item.tags && item.tags.includes('loot')) {
-          this.pickupLoot(item, playerEntity);
-          equipmentItems.splice(i, 1);
-          removedEntities.push(item);
+        let result;
+        if (item.getComponent?.('deathDrop')) {
+          result = this.pickupContainer(item, playerEntity, request.operationId);
+          if (result.complete) {
+            equipmentItems.splice(i, 1);
+            removedEntities.push(item);
+          }
+        } else if (item.tags && item.tags.includes('loot')) {
+          result = this.pickupLoot(item, playerEntity, request.operationId);
+          if (result.complete) {
+            equipmentItems.splice(i, 1);
+            removedEntities.push(item);
+          }
         } else {
-          this.pickupItem(item, playerEntity);
-          pickedItems.push(item);
+          result = this.pickupItem(item, playerEntity, request.operationId);
+          if (result.accepted > 0) pickedItems.push(item);
         }
-        pickedAny = true;
+        if (result.accepted > 0) pickedAny = true;
       }
     }
     
@@ -170,56 +190,96 @@ export class PickupSystem {
    * @param {Object} item - 物品对象
    * @param {Object} playerEntity - 玩家实体
    */
-  pickupItem(item, playerEntity) {
-    if (item.picked) return;
-    
-    item.picked = true;
-    
+  pickupItem(item, playerEntity, requestId = null) {
+    if (item.picked) return { accepted: 0, remainder: 0, complete: true };
+
     const inventory = playerEntity.getComponent('inventory');
-    if (inventory) {
-      const itemData = {
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        subType: item.subType,
-        description: item.description || '',
-        rarity: item.rarity || 0,
-        maxStack: item.maxStack || 1,
-        usable: item.usable || false,
-        effect: item.effect || null,
-        stats: item.stats || {}
-      };
-      
-      if (item.heal) itemData.heal = item.heal;
-      if (item.attackSpeed != null) itemData.attackSpeed = item.attackSpeed;
-      if (item.ranged) itemData.ranged = true;
-      if (item.quantity != null) itemData.quantity = item.quantity;
-      if (item.attackRange != null) itemData.attackRange = item.attackRange;
-      if (item.attackDistance != null) itemData.attackDistance = item.attackDistance;
-      if (item.pierce != null) itemData.pierce = item.pierce;
-      if (item.multishot != null) itemData.multishot = item.multishot;
-      
-      inventory.addItem(itemData, item.quantity || 1);
+    const requested = Math.max(1, Number(item.quantity) || 1);
+    if (!inventory) return { accepted: 0, remainder: requested, complete: false, code: 'missingInventory' };
+
+    const itemData = {
+      id: item.itemId || item.id,
+      instanceId: item.instanceId,
+      name: item.name,
+      type: item.type,
+      subType: item.subType,
+      description: item.description || '',
+      rarity: item.rarity || 0,
+      maxStack: item.instanceId ? 1 : (item.maxStack || 1),
+      usable: item.usable || false,
+      effect: item.effect || null,
+      stats: item.stats || {}
+    };
+    for (const key of ['heal', 'attackSpeed', 'ranged', 'attackRange', 'attackDistance', 'pierce', 'multishot', 'toolType', 'durability', 'maxDurability']) {
+      if (item[key] !== undefined) itemData[key] = item[key];
     }
 
-    // 拾取提示飘字：获得 xx物品 xxN
-    if (this.floatingTextManager) {
-      const transform = playerEntity.getComponent('transform');
-      if (transform) {
-        const qty = item.quantity || 1;
-        const text = qty > 1 ? `获得 ${item.name} ×${qty}` : `获得 ${item.name}`;
-        this.floatingTextManager.addText(
-          transform.position.x,
-          transform.position.y - 30,
-          text,
-          '#00ff00'
-        );
-      }
-    }
-    
+    const stableId = item.placementId || item.entityId || item.id || 'world-item';
+    const result = this.inventoryTransactions.commit({
+      type: 'add', inventory, item: itemData, quantity: requested, allowPartial: true,
+      operationId: requestId
+        ? `${requestId}:${stableId}:${requested}`
+        : `pickup:${stableId}:${requested}:${this._requestSequence++}`
+    });
+    const accepted = result.ok ? result.accepted : 0;
+    const remainder = requested - accepted;
+    item.quantity = remainder;
+    item.picked = remainder === 0;
+    if (accepted === 0) return { ...result, accepted, remainder, complete: false };
+
+    this._showPickupFeedback(item.name, accepted, playerEntity);
     if (this.onPickupCallback) {
-      this.onPickupCallback(item, playerEntity);
+      this.onPickupCallback({ ...item, quantity: accepted, picked: item.picked }, playerEntity);
     }
+    return { ...result, accepted, remainder, complete: item.picked };
+  }
+
+  _showPickupFeedback(name, quantity, playerEntity) {
+    if (!this.floatingTextManager) return;
+    const transform = playerEntity.getComponent('transform');
+    if (!transform) return;
+    const text = quantity > 1 ? `获得 ${name} ×${quantity}` : `获得 ${name}`;
+    this.floatingTextManager.addText(
+      transform.position.x,
+      transform.position.y - 30,
+      text,
+      '#00ff00'
+    );
+  }
+
+  /** DeathDrop 多物品容器支持逐项、部分拾取；溢出保留在世界。 */
+  pickupContainer(dropEntity, playerEntity, requestId = null) {
+    const container = dropEntity?.getComponent?.('deathDrop');
+    const inventory = playerEntity?.getComponent?.('inventory');
+    if (!container || !inventory || dropEntity.picked) {
+      return { accepted: 0, complete: !!dropEntity?.picked, code: 'invalidContainer' };
+    }
+    let accepted = 0;
+    const picked = [];
+    for (const stack of [...container.stacks]) {
+      const result = this.inventoryTransactions.commit({
+        type: 'add', inventory, item: stack.item, quantity: stack.quantity, allowPartial: true,
+        operationId: requestId
+          ? `${requestId}:${dropEntity.id}:${stack.id}:${stack.quantity}`
+          : `deathdrop:${dropEntity.id}:${stack.id}:${stack.quantity}:${this._requestSequence++}`
+      });
+      const quantity = result.ok ? result.accepted : 0;
+      if (quantity <= 0) continue;
+      container.take(stack.id, quantity);
+      accepted += quantity;
+      picked.push({ item: stack.item, quantity });
+      this._showPickupFeedback(stack.item.name || stack.item.id, quantity, playerEntity);
+      this.onPickupCallback?.({ ...stack.item, quantity }, playerEntity);
+    }
+    dropEntity.picked = container.isEmpty();
+    return {
+      ok: accepted > 0,
+      code: accepted > 0 ? null : 'inventoryFull',
+      accepted,
+      picked,
+      remainder: container.stacks.reduce((sum, stack) => sum + stack.quantity, 0),
+      complete: dropEntity.picked
+    };
   }
 
   /**
@@ -227,45 +287,39 @@ export class PickupSystem {
    * @param {Object} lootEntity - 掉落物实体
    * @param {Object} playerEntity - 玩家实体
    */
-  pickupLoot(lootEntity, playerEntity) {
+  pickupLoot(lootEntity, playerEntity, requestId = null) {
     const itemData = lootEntity.itemData;
-    if (!itemData) return;
+    if (!itemData || lootEntity.picked) return { accepted: 0, remainder: 0, complete: !!lootEntity.picked };
 
     const inventory = playerEntity.getComponent('inventory');
-    if (inventory) {
-      const item = {
-        id: itemData.id || itemData.type,
-        name: itemData.name,
-        type: 'consumable',
-        subType: itemData.type,
-        description: itemData.description || '',
-        rarity: itemData.rarity || 'common',
-        maxStack: itemData.maxStack || 20,
-        usable: true,
-        effect: itemData.effect || null,
-        stats: {}
-      };
-
-      if (!item.effect) {
-        if (itemData.type === 'health_potion') {
-          item.effect = { type: 'heal', value: itemData.value || 50 };
-        } else if (itemData.type === 'mana_potion') {
-          item.effect = { type: 'restore_mana', value: itemData.value || 30 };
-        }
-      }
-
-      inventory.addItem(item);
-
-      const transform = playerEntity.getComponent('transform');
-      if (transform && this.floatingTextManager) {
-        this.floatingTextManager.addText(
-          transform.position.x,
-          transform.position.y - 30,
-          `获得: ${item.name}`,
-          '#00ff00'
-        );
-      }
+    if (!inventory) return { accepted: 0, remainder: 1, complete: false, code: 'missingInventory' };
+    const item = {
+      id: itemData.id || itemData.type,
+      name: itemData.name,
+      type: 'consumable',
+      subType: itemData.type,
+      description: itemData.description || '',
+      rarity: itemData.rarity || 'common',
+      maxStack: itemData.maxStack || 20,
+      usable: true,
+      effect: itemData.effect || null,
+      stats: {}
+    };
+    if (!item.effect) {
+      if (itemData.type === 'health_potion') item.effect = { type: 'heal', value: itemData.value || 50 };
+      else if (itemData.type === 'mana_potion') item.effect = { type: 'restore_mana', value: itemData.value || 30 };
     }
+
+    const result = this.inventoryTransactions.commit({
+      type: 'add', inventory, item, quantity: 1, allowPartial: false,
+      operationId: requestId
+        ? `${requestId}:${lootEntity.id || item.id}`
+        : `pickup-loot:${lootEntity.id || item.id}:${this._requestSequence++}`
+    });
+    const accepted = result.ok ? result.accepted : 0;
+    lootEntity.picked = accepted === 1;
+    if (accepted) this._showPickupFeedback(item.name, accepted, playerEntity);
+    return { ...result, accepted, remainder: 1 - accepted, complete: lootEntity.picked };
   }
 
   /**

@@ -55,11 +55,11 @@ export class MockDataService {
                 spriteSheet: 'warrior_sprite',
                 startPosition: { x: 400, y: 300 }
             },
-            mage: {
-                id: 'mage',
-                name: '法师',
-                class: 'mage',
-                description: '远程魔法职业，拥有高魔法值和魔法攻击力',
+            strategist: {
+                id: 'strategist',
+                name: '军师',
+                class: 'strategist',
+                description: '战场谋略与符阵辅助职业，擅长范围控制和支援',
                 baseStats: {
                     hp: 80,
                     maxHp: 80,
@@ -69,12 +69,12 @@ export class MockDataService {
                     defense: 5,
                     speed: 90,
                     mainElement: 2, // 水元素
-                    elementAttack: { 2: 15, 5: 8 }, // 水攻击15，电攻击8
-                    elementDefense: { 2: 10, 5: 6 }, // 水防御10，电防御6
+                    elementAttack: { 2: 15, 5: 8 },
+                    elementDefense: { 2: 10, 5: 6 },
                     unitType: 3 // 弓弩兵
                 },
-                skills: ['basic_attack', 'mage_fireball', 'mage_ice_lance', 'mage_heal'],
-                spriteSheet: 'mage_sprite',
+                skills: ['basic_attack', 'strategist_fire_talisman', 'strategist_binding_talisman', 'strategist_talisman_water'],
+                spriteSheet: 'strategist_sprite',
                 startPosition: { x: 400, y: 300 }
             },
             archer: {
@@ -267,55 +267,55 @@ export class MockDataService {
                 particleEffect: 'shield_glow'
             },
             
-            // 法师技能
-            mage_fireball: {
-                id: 'mage_fireball',
-                name: '火球术',
-                description: '发射火球造成火元素魔法伤害',
-                icon: 'icon_mage_fireball',
+            // 军师技能
+            strategist_fire_talisman: {
+                id: 'strategist_fire_talisman',
+                name: '火攻符',
+                description: '投出火符造成火元素伤害并点燃目标',
+                icon: 'icon_strategist_fire_talisman',
                 type: 'magic',
                 cooldown: 3.0,
                 manaCost: 25,
                 castTime: 1.0,
                 range: 300,
                 damage: 2.0,
-                elementType: 0, // 火元素
+                elementType: 0,
                 effects: [
                     { type: 'burn', damage: 5, duration: 3.0 }
                 ],
                 animation: 'skill_1',
                 particleEffect: 'fireball'
             },
-            mage_ice_lance: {
-                id: 'mage_ice_lance',
-                name: '冰枪术',
-                description: '发射冰枪造成冰元素伤害并减速',
-                icon: 'icon_mage_ice_lance',
+            strategist_binding_talisman: {
+                id: 'strategist_binding_talisman',
+                name: '寒缚符',
+                description: '投出寒符造成冰元素伤害并减速',
+                icon: 'icon_strategist_binding_talisman',
                 type: 'magic',
                 cooldown: 4.0,
                 manaCost: 30,
                 castTime: 0.8,
                 range: 250,
                 damage: 1.8,
-                elementType: 3, // 冰元素
+                elementType: 3,
                 effects: [
                     { type: 'slow', value: 0.5, duration: 2.0 }
                 ],
                 animation: 'skill_2',
                 particleEffect: 'ice_lance'
             },
-            mage_heal: {
-                id: 'mage_heal',
-                name: '治疗术',
-                description: '恢复生命值',
-                icon: 'icon_mage_heal',
+            strategist_talisman_water: {
+                id: 'strategist_talisman_water',
+                name: '符水',
+                description: '以太平道符水恢复生命值',
+                icon: 'icon_strategist_talisman_water',
                 type: 'heal',
                 cooldown: 8.0,
                 manaCost: 40,
                 castTime: 1.5,
                 range: 0,
                 damage: 0,
-                elementType: null, // 无元素
+                elementType: null,
                 effects: [
                     { type: 'heal', value: 50 }
                 ],

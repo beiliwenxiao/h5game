@@ -7,16 +7,11 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 
 ## 现状
 
-所有幕已统一迁入 `DataDrivenPrologueScene` 大地图运行时。旧 `PrologueScene`、`Act1SceneRefactored`、`Act2Scene`～`Act6Scene` 及其入口注册均已删除；场景推进只使用 `_scene_order.json` 中的 chunk ID 和 `teleportToChunk()`。
+所有运行时场景统一由 `DataDrivenPrologueScene` 大地图运行时承载。当前新战役仅接受 canonical `S01`–`S14`（大战场附属 chunk 为 `SXX-CNN`），旧 `s0-0`、`s2-1`、Act 类名及其 alias 均已退出内容事实；场景推进只允许 `_scene_order.json` 中登记的 canonical ID 和 `teleportToChunk()`。
 
-## 已有触发器驱动的 Act3 流程
+## 旧 Act3 内容状态
 
-| 触发器 | 事件 | 动作 |
-|---|---|---|
-| `trg_enter_act3` | `sceneEnter{s2-1}` | setVar act=3 / act3Scene=true → spawnGroup{act3_npcs} → 开场对话 |
-| `trg_act3_give_coin_sword` | `dialogueEnd{coin_artifact_intro}` | giveReward 铜钱剑 + showTip |
-| `trg_act3_use_coin_sword` | `itemUsed{coin_sword}` | completeScene |
-| `trg_act3_complete_switch` | `sceneComplete{s2-1}` | promptSwitch → s3-1 |
+旧 `trg_enter_act3`、`coin_artifact_intro`、`s2-1` 等六幕剧情数据已从新战役事实中删除，不得作为实现参考或兼容目标。新内容触发器必须使用 `S01`–`S14`，并按“项目行为定义 + 场景空间 binding”统一模型重新制作。
 
 ## 放置点覆盖机制
 
@@ -48,4 +43,4 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 - 不再注册 `Act1Scene` 别名，也不允许回退到 `ActNScene` 类名。
 - `BaseGameScene` 直接继承框架 `Scene`，不再加载 `ActXData.json` 或提供按幕切场景逻辑。
 - `spawnGroup` 动作需要场景中有对应 group 的 ref 放置点。
-- 场景归属、触发器和传送目标统一使用 chunk ID（如 `s0-1`、`s2-1`）。
+- 场景归属、触发器和传送目标统一使用 canonical `S01`–`S14`；大型战场附属 chunk 仅使用 `SXX-CNN`。

@@ -23,6 +23,7 @@ export class SaveGameService {
     autoSlotCount = AUTO_SAVE_SLOT_COUNT,
     autoSlotPrefix = null,
     autoSlotId = 'autosave',
+    migrateLegacyAutoSlot = true,
     storage = null,
     now = null
   } = {}) {
@@ -33,7 +34,7 @@ export class SaveGameService {
     this.storage = storage || new LocalStorageAdapter({ prefix: `yijian18:${gameId}:save` });
     this.manager = new SnapshotManager({ storage: this.storage, now: now || (() => Date.now()) });
     this._providerOff = null;
-    this._migrateLegacyAutoSlot();
+    if (migrateLegacyAutoSlot) this._migrateLegacyAutoSlot();
   }
 
   /** 切换当前运行时状态提供者；同一时刻只允许一个游戏状态参与者。 */
@@ -121,6 +122,29 @@ export class SaveGameService {
 
   hasAny() {
     return this.getAutoSlots().some(slot => slot.exists) || this.listSlots().some(slot => slot.exists);
+  }
+
+  /** 只读检查手动栏位：执行迁移与校验，但不修改任何运行状态。 */
+  inspect(index) {
+    return this._inspectSlot(this.slotId(index));
+  }
+
+  /** 只读检查自动栏位：执行迁移与校验，但不修改任何运行状态。 */
+  inspectAuto(index = 1) {
+    return this._inspectSlot(this.autoSlotId(index));
+  }
+
+  _inspectSlot(slot) {
+    const loaded = this.storage.load(slot);
+    if (!loaded || loaded.ok === false) {
+      return { ok: false, errors: loaded?.errors || [{ code: 'loadFailed', path: slot, message: '读取存档失败' }] };
+    }
+    const raw = loaded.snapshot !== undefined ? loaded.snapshot : loaded;
+    const migrated = this.manager.migrate(raw);
+    if (!migrated.ok) return migrated;
+    const validation = this.manager.validate(migrated.snapshot);
+    if (!validation.ok) return validation;
+    return { ok: true, errors: [], snapshot: migrated.snapshot };
   }
 
   /** 写入手动栏位。 */

@@ -596,7 +596,7 @@ export class TalentPanel extends UIElement {
     
     const classNames = {
       'warrior': '战士',
-      'mage': '法师',
+      'strategist': '军师',
       'archer': '弓箭手'
     };
     const className = classNames[this.character?.class] || this.character?.class || '';

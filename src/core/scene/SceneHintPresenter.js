@@ -25,6 +25,7 @@ export class SceneHintPresenter {
     this._showCallback = null;
     this._hideCallback = null;
     this._currentHintText = null;
+    this._screenOwner = null;
     this._disposed = false;
   }
 
@@ -32,11 +33,13 @@ export class SceneHintPresenter {
     if (this._disposed) return false;
     const resolved = this.formatHtml(text);
     const title = opts.title || '提示';
+    const owner = opts.owner ?? null;
     this._clearScreenTimer();
+    this._screenOwner = owner;
 
     if (typeof this.window?.__ddShowTips === 'function') {
       this.window.__ddShowTips(title, resolved);
-      if (!opts.persist) this._scheduleScreenHide(3500);
+      if (!opts.persist) this._scheduleScreenHide(3500, owner);
       return true;
     }
 
@@ -44,15 +47,18 @@ export class SceneHintPresenter {
     if (!element) return false;
     element.textContent = resolved;
     element.style.opacity = '1';
-    if (!opts.persist) this._scheduleScreenHide(2500);
+    if (!opts.persist) this._scheduleScreenHide(2500, owner);
     return true;
   }
 
-  hideScreen() {
+  hideScreen(owner = null) {
+    if (owner !== null && this._screenOwner !== owner) return false;
     this._clearScreenTimer();
+    this._screenOwner = null;
     if (typeof this.window?.__ddHideTips === 'function') this.window.__ddHideTips();
     const element = this._getFallback(false);
     if (element) element.style.opacity = '0';
+    return true;
   }
 
   setCallbacks(showCallback, hideCallback) {
@@ -87,10 +93,10 @@ export class SceneHintPresenter {
     return true;
   }
 
-  _scheduleScreenHide(delay) {
+  _scheduleScreenHide(delay, owner = null) {
     this._screenTimer = this.resourceScope.setTimeout(() => {
       this._screenTimer = null;
-      this.hideScreen();
+      this.hideScreen(owner);
     }, delay);
   }
 

@@ -30,12 +30,31 @@ import { EffectSource, EffectSourceKind } from './effects/EffectSource.js';
 const SPECIALIZATION_STAT_TARGETS = ['maxHp', 'attack', 'defense', 'speed'];
 
 /**
+ * 职业固定规则只产出统一效果协议；具体系统通过 EffectResolver 消费。
+ * 数值属于职业基线，不写入场景或 UI。
+ */
+const CLASS_FIXED_EFFECTS = Object.freeze({
+  warrior: Object.freeze([
+    { type: 'gather.modify', target: 'gather.duration', operation: 'multiply', value: 0.8 },
+    { type: 'inventory.modify', target: 'resourceCapacity', operation: 'multiply', value: 0.75 }
+  ]),
+  archer: Object.freeze([
+    { type: 'gather.modify', target: 'gather.duration', operation: 'multiply', value: 1.2 },
+    { type: 'rule.override', target: 'gather.rangedGuardLure', value: true }
+  ]),
+  strategist: Object.freeze([
+    { type: 'skill.unlock', target: 'gathering_puppet', value: true },
+    { type: 'rule.override', target: 'gather.puppetCharges', value: 1 }
+  ])
+});
+
+/**
  * 职业类型枚举
  */
 export const ClassType = {
   WARRIOR: 'warrior',   // 战士
   ARCHER: 'archer',     // 弓箭手
-  MAGE: 'mage'          // 法师
+  STRATEGIST: 'strategist' // 军师
 };
 
 /**
@@ -44,7 +63,7 @@ export const ClassType = {
 export const ClassNames = {
   [ClassType.WARRIOR]: '战士',
   [ClassType.ARCHER]: '弓箭手',
-  [ClassType.MAGE]: '法师'
+  [ClassType.STRATEGIST]: '军师'
 };
 
 /**
@@ -63,11 +82,11 @@ export const ClassInstructors = {
     title: '人公将军',
     description: '张角的弟弟，擅长远程攻击和机动'
   },
-  [ClassType.MAGE]: {
+  [ClassType.STRATEGIST]: {
     id: 'zhang_jiao',
     name: '张角',
     title: '天公将军',
-    description: '太平道创始人，擅长法术和治疗'
+    description: '太平道创始人，擅长战场谋略、符法辅助与阵势控制'
   }
 };
 
@@ -291,19 +310,17 @@ export class ClassSystem {
       startingEquipment: [
         { id: 'short_bow', name: '短弓', type: 'weapon' },
         { id: 'leather_vest', name: '皮背心', type: 'armor' },
-        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 },
-        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 },
-        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 30 }
+        { id: 'wooden_arrow', name: '木箭', type: 'ammo', quantity: 90 }
       ]
     }));
     
-    // 法师职业
-    this.classes.set(ClassType.MAGE, new ClassData({
-      id: ClassType.MAGE,
-      name: 'mage',
-      displayName: '法师',
-      description: '魔法专家，拥有强大的法术伤害和控制能力',
-      instructor: ClassInstructors[ClassType.MAGE],
+    // 军师职业
+    this.classes.set(ClassType.STRATEGIST, new ClassData({
+      id: ClassType.STRATEGIST,
+      name: 'strategist',
+      displayName: '军师',
+      description: '战场谋略与符阵辅助专家，擅长火攻、控制和调度',
+      instructor: ClassInstructors[ClassType.STRATEGIST],
       baseAttributes: {
         health: 80,
         mana: 100,
@@ -323,12 +340,12 @@ export class ClassSystem {
         secondary: AttributeType.SPIRIT,
         tertiary: AttributeType.CONSTITUTION
       },
-      baseUnitType: UnitTypes.ARCHER_CROSSBOW, // 法师使用远程兵种作为基础
+      baseUnitType: UnitTypes.ARCHER_CROSSBOW,
       specializations: [
         new SpecializationData({
-          id: 'mage_fire',
-          name: '火系法师',
-          description: '专注于火系法术，拥有极高的爆发伤害',
+          id: 'strategist_tactician',
+          name: '战阵谋士',
+          description: '专注火攻与战场调度，以谋略制造范围压制',
           unitType: UnitTypes.REPEATING_CROSSBOW,
           requiredLevel: 10,
           bonuses: {
@@ -336,12 +353,12 @@ export class ClassSystem {
             fireElementBonus: 20,
             criticalChance: 0.2
           },
-          specialSkills: ['mage_meteor', 'mage_arcane_mastery']
+          specialSkills: ['strategist_fire_attack', 'strategist_grand_strategy']
         }),
         new SpecializationData({
-          id: 'mage_ice',
-          name: '冰系法师',
-          description: '专注于冰系法术，拥有强大的控制和持续伤害',
+          id: 'strategist_talismanist',
+          name: '符阵军师',
+          description: '专注符阵辅助与控制，牵制敌军并保护友军',
           unitType: UnitTypes.MOUNTED_ARCHER,
           requiredLevel: 10,
           bonuses: {
@@ -350,13 +367,13 @@ export class ClassSystem {
             slowEffect: 0.3,
             manaEfficiency: 0.2
           },
-          specialSkills: ['mage_blizzard', 'mage_time_stop']
+          specialSkills: ['strategist_wind_snow_formation', 'strategist_stasis_formation']
         })
       ],
       startingEquipment: [
-        { id: 'wooden_staff', name: '木杖', type: 'weapon' },
-        { id: 'cloth_robe', name: '布袍', type: 'armor' },
-        { id: 'spell_book', name: '法术书', type: 'accessory' }
+        { id: 'strategist_talisman_staff', name: '符杖', type: 'weapon' },
+        { id: 'strategist_robe', name: '军师道袍', type: 'armor' },
+        { id: 'strategist_talisman', name: '护身符', type: 'accessory' }
       ]
     }));
   }
@@ -386,32 +403,90 @@ export class ClassSystem {
    */
   selectClass(characterId, classType) {
     const classData = this.getClassData(classType);
-    if (!classData) {
-      console.warn(`职业 ${classType} 不存在`);
+    if (!characterId || !classData) {
+      console.warn(`职业 ${classType} 不存在或角色 ID 无效`);
       return false;
     }
-    
-    // 检查是否已经选择过职业
+
+    // 职业不可逆；相同职业由 restoreClass() 负责幂等重建，不在选择入口重复提交。
     if (this.characterClasses.has(characterId)) {
       console.warn(`角色 ${characterId} 已经选择过职业`);
       return false;
     }
-    
-    // 设置职业
+
     this.characterClasses.set(characterId, classType);
-    
-    // 初始化属性系统
     this.attributeSystem.initializeCharacterAttributes(characterId, {
       strength: 10,
       agility: 10,
       intelligence: 10,
       constitution: 10,
       spirit: 10,
-      availablePoints: 5 // 初始5点属性点
+      availablePoints: 5
     });
-    
+    this.syncClassSource(characterId);
+
     console.log(`角色 ${characterId} 选择了职业: ${classData.displayName}`);
     return true;
+  }
+
+  /**
+   * 从持久化职业事实重建运行时映射和固定效果来源；相同职业重复调用幂等。
+   * @param {string} characterId
+   * @param {string} classType
+   * @returns {boolean}
+   */
+  restoreClass(characterId, classType) {
+    const classData = this.getClassData(classType);
+    if (!characterId || !classData) return false;
+    const current = this.characterClasses.get(characterId);
+    if (current && current !== classType) this.clearClass(characterId);
+    if (this.characterClasses.get(characterId) !== classType) {
+      this.characterClasses.set(characterId, classType);
+      if (!this.attributeSystem.getCharacterAttributes(characterId)) {
+        this.attributeSystem.initializeCharacterAttributes(characterId, {
+          strength: 10, agility: 10, intelligence: 10,
+          constitution: 10, spirit: 10, availablePoints: 5
+        });
+      }
+    }
+    this.syncClassSource(characterId);
+    return true;
+  }
+
+  /**
+   * 回滚尚未持久化的职业选择；只清理由 ClassSystem 拥有的状态和来源。
+   * @param {string} characterId
+   * @returns {boolean}
+   */
+  clearClass(characterId) {
+    if (!characterId) return false;
+    const existed = this.characterClasses.delete(characterId);
+    this.characterSpecializations.delete(characterId);
+    this.effectResolver.removeSource(characterId, `class:${characterId}`);
+    for (const source of this.effectResolver.getSources(characterId)) {
+      if (String(source.id || '').startsWith('specialization:')) {
+        this.effectResolver.removeSource(characterId, source.id);
+      }
+    }
+    this.attributeSystem.attributeData?.delete?.(characterId);
+    return existed;
+  }
+
+  /** 将职业固定规则同步到共享 EffectResolver。 */
+  syncClassSource(characterId) {
+    const classType = this.characterClasses.get(characterId);
+    const sourceId = `class:${characterId}`;
+    if (!classType) {
+      this.effectResolver.removeSource(characterId, sourceId);
+      return sourceId;
+    }
+    this.effectResolver.addSource(characterId, new EffectSource({
+      id: sourceId,
+      kind: EffectSourceKind.CLASS,
+      priority: 10,
+      effects: CLASS_FIXED_EFFECTS[classType] || []
+    }));
+    return sourceId;
   }
   
   /**
@@ -636,8 +711,12 @@ export class ClassSystem {
   _syncSpecializationSource(characterId, specialization) {
     const sourceId = `specialization:${specialization.id}`;
 
-    // 同一角色只保留当前特化来源，切换特化时移除旧来源
-    this.effectResolver.removeSourcesByKind(characterId, EffectSourceKind.CLASS);
+    // 同一角色只保留当前特化来源；不得按 kind 删除职业固定来源。
+    for (const source of this.effectResolver.getSources(characterId)) {
+      if (String(source.id || '').startsWith('specialization:')) {
+        this.effectResolver.removeSource(characterId, source.id);
+      }
+    }
 
     this.effectResolver.addSource(characterId, EffectSource.fromLegacy(
       sourceId,

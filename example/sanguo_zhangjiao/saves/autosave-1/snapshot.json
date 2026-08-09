@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786200149954,
+  "createdAt": 1786208009951,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 471.4271520033462,
-          "y": 439.7277247919856,
+          "x": 592.54,
+          "y": 547.88,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -34,7 +34,7 @@
           "baseDefense": 5,
           "baseSpeed": 100,
           "maxHp": 100,
-          "hp": 30,
+          "hp": 10,
           "maxMp": 100,
           "mp": 10,
           "attack": 10,
@@ -57,8 +57,8 @@
         "enabled": true
       },
       "dialogue": {
-        "currentDialogueId": null,
-        "currentNodeId": null,
+        "currentDialogueId": "intro",
+        "currentNodeId": "node1",
         "variables": {},
         "history": [
           {
@@ -66,29 +66,15 @@
             "nodeId": "node1",
             "speaker": "旁白",
             "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786176139228
+            "timestamp": 1786201654644
           },
           {
             "type": "start",
             "dialogueId": "intro",
-            "timestamp": 1786176139228
-          },
-          {
-            "type": "node",
-            "nodeId": "node2",
-            "speaker": "旁白",
-            "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786176141132
-          },
-          {
-            "type": "end",
-            "dialogueId": "intro",
-            "timestamp": 1786176141821
+            "timestamp": 1786201654644
           }
         ],
-        "completedDialogues": [
-          "intro"
-        ]
+        "completedDialogues": []
       },
       "quests": {
         "activeQuests": [],
@@ -109,34 +95,14 @@
         "triggers": {
           "firedOnce": [
             "my_first_trigger",
-            "tut_wake",
-            "出现火堆",
-            "trg_spawn_pickup",
-            "tut_fire",
-            "tut_move",
-            "trg_pickup_food_drop_equip",
-            "tut_bag",
-            "tut_stats",
-            "tut_done",
-            "5秒后自动点燃火堆"
+            "tut_wake"
           ],
           "cooldowns": {}
         },
         "progression": {
           "state": {
             "characterId": "refugee",
-            "graphs": {
-              "warrior-skill": {
-                "version": 1,
-                "allocations": {},
-                "revision": 3
-              },
-              "global-passive": {
-                "version": 1,
-                "allocations": {},
-                "revision": 9
-              }
-            }
+            "graphs": {}
           },
           "ledger": {
             "pools": {
@@ -154,14 +120,10 @@
         }
       },
       "scene": {
-        "campfireLit": true,
-        "firedPickups": [
-          "leftover_food"
-        ],
+        "campfireLit": false,
+        "firedPickups": [],
         "clearedGroups": [],
-        "tutorialEvents": [
-          "moved"
-        ],
+        "tutorialEvents": [],
         "nextSceneTarget": null,
         "playerDiedTriggered": false
       }

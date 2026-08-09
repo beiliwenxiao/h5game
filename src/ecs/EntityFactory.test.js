@@ -49,7 +49,7 @@ describe('EntityFactory', () => {
     it('should set correct position from character data', () => {
       const characterData = {
         name: 'TestMage',
-        class: 'mage',
+        class: 'strategist',
         position: { x: 50, y: 75 }
       };
 

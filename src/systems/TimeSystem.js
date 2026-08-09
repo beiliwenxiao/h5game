@@ -40,8 +40,9 @@ export class TimeSystem {
     this.cycleDuration = 0;
     for (const p of TimeSystem.PERIODS) this.cycleDuration += this.periods[p].duration;
 
-    // 当前时间（秒，0 ~ cycleDuration）
-    this.elapsed = config.startTime || 0;
+    // 当前时间（秒，0 ~ cycleDuration）与从 1 开始的游戏日。
+    this.elapsed = Number.isFinite(config.startTime) ? Number(config.startTime) : 0;
+    this.currentDay = Math.max(1, Math.floor(Number(config.currentDay) || 1));
 
     // 过渡缓存
     this._currentBrightness = 1;
@@ -70,6 +71,24 @@ export class TimeSystem {
   /** 获取当前色调 */
   getTintColor() { return this._currentTintColor; }
 
+  /** 获取当前游戏日（从 1 开始）。 */
+  getCurrentDay() { return this.currentDay; }
+
+  /** 设置游戏日；用于从 StoryState/存档恢复。 */
+  setCurrentDay(day) {
+    const normalized = Math.max(1, Math.floor(Number(day) || 1));
+    const changed = normalized !== this.currentDay;
+    this.currentDay = normalized;
+    return changed;
+  }
+
+  /** 显式推进游戏日；休息、章节推进等玩法可复用。 */
+  advanceDays(days = 1) {
+    const amount = Math.max(0, Math.floor(Number(days) || 0));
+    this.currentDay += amount;
+    return this.currentDay;
+  }
+
   /** 手动跳转到某时间段开头 */
   setTimePeriod(period) {
     let offset = 0;
@@ -88,9 +107,12 @@ export class TimeSystem {
   }
 
   _update(deltaTime) {
-    this.elapsed += deltaTime;
-    if (this.elapsed >= this.cycleDuration) this.elapsed -= this.cycleDuration;
-    if (this.elapsed < 0) this.elapsed += this.cycleDuration;
+    const duration = Math.max(0.001, this.cycleDuration);
+    const total = this.elapsed + (Number(deltaTime) || 0);
+    const crossedDays = Math.floor(total / duration);
+    this.elapsed = ((total % duration) + duration) % duration;
+    if (crossedDays > 0) this.currentDay += crossedDays;
+    else if (crossedDays < 0) this.currentDay = Math.max(1, this.currentDay + crossedDays);
 
     // 当前时间段和下一个时间段的 lerp
     const info = this._getPeriodAt(this.elapsed);
@@ -138,6 +160,28 @@ export class TimeSystem {
     const m = (str || '').match(/[\d.]+/g);
     if (!m || m.length < 4) return [0, 0, 0, 0];
     return [parseFloat(m[0]), parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])];
+  }
+
+  serialize() {
+    return {
+      enabled: this.enabled,
+      paused: this.paused,
+      currentDay: this.currentDay,
+      elapsed: this.elapsed
+    };
+  }
+
+  deserialize(data = {}) {
+    if (!data || typeof data !== 'object') return false;
+    if (typeof data.enabled === 'boolean') this.enabled = data.enabled;
+    if (typeof data.paused === 'boolean') this.paused = data.paused;
+    if (Number.isFinite(data.currentDay)) this.setCurrentDay(data.currentDay);
+    if (Number.isFinite(data.elapsed)) {
+      const duration = Math.max(0.001, this.cycleDuration);
+      this.elapsed = ((Number(data.elapsed) % duration) + duration) % duration;
+    }
+    this._update(0);
+    return true;
   }
 
   /** 渲染时间系统的明暗/色调层（屏幕坐标，renderFogLayer 中调用） */

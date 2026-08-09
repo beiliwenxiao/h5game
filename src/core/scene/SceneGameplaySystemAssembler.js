@@ -10,6 +10,11 @@ import { EquipmentSystem } from '../../systems/EquipmentSystem.js';
 import { AISystem } from '../../systems/AISystem.js';
 import { CollisionSystem } from '../../systems/CollisionSystem.js';
 import { PickupSystem } from '../../systems/PickupSystem.js';
+import { InventoryTransactionService } from '../../systems/InventoryTransactionService.js';
+import { GatheringSystem } from '../../systems/GatheringSystem.js';
+import { GatheringPuppetSystem } from '../../systems/GatheringPuppetSystem.js';
+import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
+import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
 import { MeditationSystem } from '../../systems/MeditationSystem.js';
 import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
 import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
@@ -73,13 +78,74 @@ export class SceneGameplaySystemAssembler {
     scene.aiSystem = new AISystem();
     scene.collisionSystem = new CollisionSystem();
 
-    scene.pickupSystem = new PickupSystem();
+    scene.inventoryTransactions = scene.inventoryTransactions || new InventoryTransactionService();
+    scene.pickupSystem = new PickupSystem({ inventoryTransactions: scene.inventoryTransactions });
     scene.pickupSystem.init({
       inputManager: scene.inputManager,
       floatingTextManager: scene.floatingTextManager,
-      weaponRenderer: scene.weaponRenderer
+      weaponRenderer: scene.weaponRenderer,
+      inventoryTransactions: scene.inventoryTransactions
     });
-    scene.pickupSystem.onPickup((item, player) => scene.onItemGained(item, player));
+    scene.pickupSystem.onPickup((item, player) => {
+      scene.onItemGained(item, player);
+      scene.onWorldItemPicked?.(item, player);
+    });
+    scene.gatheringSystem = new GatheringSystem({
+      inventoryTransactions: scene.inventoryTransactions,
+      itemResolver: (itemId, resourceType) => scene.gameLoader?.registries?.items?.get?.(itemId) || {
+        id: itemId, name: itemId, type: 'material', subType: resourceType, maxStack: 99
+      },
+      settlementPolicy: context => scene.prepareGatheringSettlement?.(context) || null,
+      onEvent: (event, data) => scene.onGatheringEvent?.(event, data)
+    });
+    scene.gatheringPuppetSystem = new GatheringPuppetSystem({
+      gatheringSystem: scene.gatheringSystem,
+      createPuppet: ({ id, position }) => {
+        const puppet = scene.entityFactory?.createNPC?.({
+          id,
+          name: '采集傀儡',
+          faction: 'ally',
+          renderStyle: 'gathering_puppet',
+          position,
+          stats: { maxHp: 30, hp: 30, attack: 0, defense: 0, speed: 0 },
+          interaction: { radius: 0 }
+        });
+        if (puppet) {
+          puppet.type = 'summon';
+          puppet.faction = 'ally';
+          puppet.tags = ['summon', 'gatheringPuppet'];
+          puppet.lootTable = [];
+        }
+        return puppet;
+      },
+      addEntity: entity => scene.entityStore?.add?.(entity),
+      removeEntity: entity => scene.entityStore?.remove?.(entity),
+      damageOwner: damage => {
+        if (scene.playerEntity) scene.combatSystem?.applyDamage?.(scene.playerEntity, damage, null, '傀儡反噬');
+      },
+      onEvent: (event, data) => scene.onGatheringPuppetEvent?.(event, data)
+    });
+    scene.abilitySystem = null;
+    scene.combatSystem.setPlayerInputLock?.(() => scene.isPlayerActionLocked?.() === true);
+    scene.combatSystem.setOnDamageCallback?.(({ target, appliedDamage, isDead }) => {
+      if (appliedDamage <= 0) return;
+      if (scene.gatheringPuppetSystem?.handleDamage?.(target, { isDead })) return;
+      if (target === scene.playerEntity && scene.gatheringSystem.isActiveFor(target)) {
+        scene.gatheringSystem.interruptByDamage();
+      }
+    });
+    scene.playerDefeatService = new PlayerDefeatService({
+      inventoryTransactions: scene.inventoryTransactions,
+      entityFactory: scene.entityFactory,
+      entityStore: scene.entityStore,
+      revivePlayer: player => scene.combatSystem.revivePlayer(player),
+      respawnResolver: context => scene.resolvePlayerRespawnPosition?.(context) || null,
+      onResolved: result => scene.onPlayerDefeatResolved?.(result)
+    });
+    scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
+      const resolution = scene.resolvePlayerDefeatResolution?.({ player }) || { type: 'normalDeath' };
+      return scene.playerDefeatService.resolve({ player, resolution });
+    });
 
     scene.meditationSystem = new MeditationSystem();
 
@@ -100,15 +166,36 @@ export class SceneGameplaySystemAssembler {
     scene.meleeAttackSystem.init({
       inputManager: scene.inputManager,
       combatSystem: scene.combatSystem,
-      floatingTextManager: scene.floatingTextManager
+      floatingTextManager: scene.floatingTextManager,
+      onAttackPerformed: () => scene.onPlayerTutorialAction?.('attack')
     });
 
     this.initialized = true;
     return this;
   }
 
+  /** GameLoader 就绪后注入共享技能注册表与效果解析器。 */
+  configureAbilities({ skillRegistry = null, effectResolver = null } = {}) {
+    const scene = this.scene;
+    if (!skillRegistry) return false;
+    scene.abilitySystem = new AbilitySystem({
+      skillRegistry,
+      effectResolver,
+      executor: context => {
+        const handled = scene.executeAbility?.(context);
+        if (handled !== undefined && handled !== null) return handled;
+        return scene.combatSystem?.executeSkill?.(context) === true;
+      },
+      onEvent: (event, data) => scene.onAbilityEvent?.(event, data)
+    });
+    scene.gatheringPuppetSystem?.configure?.({ effectResolver, owner: scene.playerEntity });
+    return true;
+  }
+
   dispose() {
     const scene = this.scene;
+    scene.gatheringPuppetSystem?.dispose?.();
+    scene.abilitySystem = null;
     scene.jumpSystem?.cleanup?.();
     scene.flightSystem?.cleanup?.();
     scene.meleeAttackSystem?.cleanup?.();

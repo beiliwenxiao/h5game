@@ -20,6 +20,7 @@ export class SceneSkillActions {
 
   onSkillClicked(skill) {
     const scene = this.scene;
+    if (scene.isPlayerActionLocked?.()) return false;
     console.log('BaseGameScene: 技能点击', skill);
     if (!scene.playerEntity || !scene.combatSystem) return;
 
@@ -61,10 +62,12 @@ export class SceneSkillActions {
       }
     }
 
+    const targetPosition = scene.inputManager.getMouseWorldPosition(scene.camera);
+    if (this._useCanonicalAbility(skill, targetPosition)) return;
     scene.combatSystem.tryUseSkillAtPosition(
       scene.playerEntity,
       skill,
-      scene.inputManager.getMouseWorldPosition(scene.camera),
+      targetPosition,
       performance.now(),
       scene.entities
     );
@@ -72,11 +75,29 @@ export class SceneSkillActions {
 
   checkSkillUsable(skill) {
     const scene = this.scene;
+    if (scene.isPlayerActionLocked?.()) return false;
     if (!scene.playerEntity) return false;
+    const ability = scene.abilitySystem;
+    if (ability?.skillRegistry?.has?.(skill?.id)) {
+      const check = ability.canUse(scene.playerEntity, skill.id, {
+        currentTime: performance.now(),
+        skipTargeting: true,
+        context: { scene }
+      });
+      if (check.ok) return true;
+      const transform = scene.playerEntity.getComponent('transform');
+      scene.floatingTextManager?.addText?.(
+        transform?.position?.x || 0,
+        (transform?.position?.y || 0) - 50,
+        check.message || '技能不可用',
+        '#888888'
+      );
+      return false;
+    }
+
     const stats = scene.playerEntity.getComponent('stats');
     const combat = scene.playerEntity.getComponent('combat');
     if (!stats || !combat) return false;
-
     if (!combat.canUseSkill(skill.id, performance.now())) {
       const transform = scene.playerEntity.getComponent('transform');
       if (transform && scene.floatingTextManager) {
@@ -114,13 +135,15 @@ export class SceneSkillActions {
     if (!transform) return;
     const direction = scene.getPlayerFacingVector();
     const range = skill.range || 300;
+    const targetPosition = {
+      x: transform.position.x + direction.x * range,
+      y: transform.position.y + direction.y * range
+    };
+    if (this._useCanonicalAbility(skill, targetPosition)) return;
     scene.combatSystem.tryUseSkillAtPosition(
       scene.playerEntity,
       skill,
-      {
-        x: transform.position.x + direction.x * range,
-        y: transform.position.y + direction.y * range
-      },
+      targetPosition,
       performance.now(),
       scene.entities
     );
@@ -151,8 +174,31 @@ export class SceneSkillActions {
         y: transform.position.y + dy * distance
       };
     }
+    if (this._useCanonicalAbility(skill, target)) return;
     scene.combatSystem.tryUseSkillAtPosition(
       scene.playerEntity, skill, target, performance.now(), scene.entities);
+  }
+
+  _useCanonicalAbility(skill, targetPosition) {
+    const scene = this.scene;
+    const ability = scene.abilitySystem;
+    if (!ability?.skillRegistry?.has?.(skill?.id)) return false;
+    const result = ability.use(scene.playerEntity, skill.id, {
+      targetPosition,
+      currentTime: performance.now(),
+      context: { scene },
+      entities: scene.entities
+    });
+    if (!result.ok) {
+      const transform = scene.playerEntity?.getComponent?.('transform');
+      scene.floatingTextManager?.addText?.(
+        transform?.position?.x || 0,
+        (transform?.position?.y || 0) - 50,
+        result.message || '技能释放失败',
+        '#ff8888'
+      );
+    }
+    return true;
   }
 
   setAimPreview(index, dirX, dirY, distRatio, anchorPos) {
@@ -187,6 +233,7 @@ export class SceneSkillActions {
 
   enterPCAimMode(kind, index = -1) {
     const scene = this.scene;
+    if (scene.isPlayerActionLocked?.()) return false;
     if (scene.isMobileLayout || !scene.playerEntity) return;
     if (kind === 'skill') {
       const skill = scene.playerEntity.getComponent('combat')?.skills?.[index];

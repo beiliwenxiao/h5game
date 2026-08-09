@@ -487,7 +487,7 @@ export class SkillTreePanel extends UIElement {
     const className = this.character ? this.character.class : '';
     const classNameCN = {
       'warrior': '战士',
-      'mage': '法师',
+      'strategist': '军师',
       'archer': '弓箭手'
     }[className] || className;
     

@@ -62,6 +62,19 @@ CombatSystem      表现与伤害结算（作为执行器被调用）
 - `AbilitySystem.use()` 在执行器返回 `false` 或抛错时回滚消耗、冷却与施法状态。
 - 时间源通过 `config.now` 注入，测试使用固定时钟。
 - `requireUnlock: false` 用于尚未接入成长系统的场景。
+- 场景快捷栏执行 canonical 技能时必须先走 `AbilitySystem`；只有 SkillRegistry 中不存在的 legacy 技能才回退旧 `CombatSystem.tryUseSkillAtPosition()`。`AbilitySystem` 已拥有消耗和冷却，执行器不得重复扣除。
+- `SceneFramePipeline` 必须每帧调用 `AbilitySystem.update(deltaTime, entities)`，否则带 `castTime` 的技能会永久停留在施法状态。
+
+## 职业、库存与采集接线
+
+- `ClassSystem` 的职业效果来源固定为 `class:<characterId>`；`selectClass`、`restoreClass`、`clearClass` 和 `syncClassSource` 必须维护同一稳定来源，禁止使用会随实体重建变化的临时 ID。
+- `InventoryTransactionService.configureEffects({ effectResolver, getEntityId, baseResourceCapacity })` 是资源容量效果的统一入口；material/resource 的容量预检消费 `resourceCapacity`，不得在 Demo 另写职业容量分支。
+- `GatheringSystem` 区分 `owner` 与 `actor`：库存、工具和职业效果属于 owner，距离、移动中断和实际采集主体属于 actor。玩家本人采集时两者相同，傀儡采集时不得把产物写入傀儡。
+- 场景策略通过 `GatheringSystem.setSettlementPolicy()` 参与 `prepare → inventory/node/tool commit → policy commit`；策略前置失败必须零修改，策略提交失败必须回滚库存、节点、工具和策略状态并释放内部 operationId。
+- 采集成功 operationId 由 `GatheringSystem` 持久化为有界幂等记录；重放不得再次增加库存、扣节点/工具、触发风险或应用场景政策。
+- `GatheringPuppetSystem` 只管理 charge、傀儡生命周期和反噬，产物仍委托 `GatheringSystem`；恢复 active session 时不再次扣 charge，跨 Region 暂存/恢复必须同时保存 `gatheringState` 与 `puppetState`。
+- `ProficiencySystem` 是采集/营建熟练度的通用状态权威，稳定 API 为 `gainExperience({ characterId, type, amount, operationId })`、`getState(characterId, type?)`、`serialize()`、`validateSerialized()`、`deserialize()`。熟练度不消费成长点；配置阈值必须从 0 开始严格递增，`maxLevel` 等于阈值数量。
+- 熟练度写入必须先完整校验，再提交角色状态和有界 operationId 记录，最后发出 `experienceGained/levelUp`；同 operationId 同载荷返回 `idempotent: true`，不同载荷返回 `operationConflict`。`deserialize()` 失败不得改动既有角色状态或幂等记录。
 
 ## 成长图内核（S3、S4）
 
@@ -110,6 +123,8 @@ passiveBoard   天赋盘        pointPool: passive，requireConnected: true
 - 移动端 `requireConfirm`，首次点击只选中并提示，防止误耗点数。
 - 面板内任何点击都被消费，避免穿透到游戏世界。
 - 新面板不替换旧 `SkillTreePanel` / `TalentPanel`；两者通过节点投影并存。
+- `CityStateSummaryPanel` 只接收调用方生成的不可变快照并绘制，禁止持有 Blackboard 或直接修改 City/Story/Reputation；具体游戏负责决定显示场景和把领域状态投影为摘要。
+- 成长节点详情通过 `EffectResolver.explain()` 展示已提交数值效果的稳定 `sourceId`，UI 不自行推导或重复结算效果。
 
 ## 输入路由（S9）
 
@@ -138,6 +153,7 @@ MOVE     右键
 - `InputEvent.consume()` 只能成功一次，重复调用返回 `false`。
 - 指针事件被攻击之前的处理者消费时，自动调用 `markMouseClickHandled()`，桥接尚未迁移的 `MeleeAttackSystem`。攻击与移动消费时不标记。
 - `enqueueInteract()` 让 E 键、移动端按钮、触屏产生完全相同的事件。
+- `SceneInputFlow.onModalInput({ inputManager, gamepad })` 在弹窗和世界输入之前执行；职业确认等场景模态必须通过该入口统一消费键鼠、触屏和手柄输入，不能在场景 update 末尾再建第二条输入路径。
 - `describeLastFrame()` 输出每个事件的消费者，排查争抢不用加日志。
 
 ## 原子检查点（S9）
@@ -152,10 +168,11 @@ MOVE     右键
 要点：
 
 - `capture()` 一次遍历全部参与者，避免不同系统状态错位。
+- provider 的 `restore()` 可能在返回失败前已经部分写入；回滚集合必须包含“当前失败 provider”并按参与者逆序恢复，不能只回滚此前返回成功的 provider。
 - 参与者错误自动加段落前缀，如 `data.progression.value`。
 - 缺少迁移器时返回 `missingMigration`，不静默失败；有 32 次循环保护。
 - 存档 JSON 损坏时返回 `invalidJson`，**原样保留存档**，不删不覆盖。
-- `SaveGameService` 基于 `SnapshotManager + LocalStorageAdapter` 提供命名空间化存档；业务场景只注入 `capture/validate/restore`，不得绕过原子恢复直接逐段写状态。
+- `SaveGameService` 基于 `SnapshotManager + LocalStorageAdapter` 提供命名空间化存档；业务场景只注入 `capture/validate/restore`，不得绕过原子恢复直接逐段写状态。`inspect(index)` / `inspectAuto(index)` 只执行读取、迁移与校验，不调用 restore，供跨 Region 存档在正式恢复前准备目标运行时。
 - 存档位固定分为 `autosave-1`、`autosave-2`、`autosave-3` 三个轮换自动位与最多 100 个 `slot-1` 至 `slot-100` 手动位。自动保存只能调用 `saveAuto()`：优先填充空自动位，三个均存在时覆盖 `createdAt` 最早的一位；手动保存只能调用 `save(index)`，两者不得互相覆盖。
 - 张角 Demo 每 15 分钟、完成地图区块传送、以及内容触发器的 `autoSave` 动作都会请求自动保存。保存开始/成功/失败均通过 `NotificationSystem` 与菜单状态栏反馈；场景层只经 `BaseGameScene.requestAutoSave()` 请求，由宿主注入实际服务并用单一 in-flight Promise 防止并发选中同一自动位。
 - 张角 Demo 在 Vite 开发服务器下还必须把成功快照镜像到 `example/sanguo_zhangjiao/saves/{autosave-1|autosave-2|autosave-3|slot-N}/snapshot.json`，并将画面缩略图以二进制 `thumbnail.jpg` 同目录保存；JSON 用 `meta.previewFile` 引用图片，不重复内嵌 base64。浏览器 localStorage 仍是运行时同步读档缓存，文件写入失败必须向用户明确提示。
@@ -170,7 +187,11 @@ MOVE     右键
 - 所有错误必须能定位字段路径；JSON 语法错误还要给出行列（`locateJsonError` 优先用 position 反算）。
 - `loadCandidate` 实现「校验通过才替换」，失败时返回当前值，最近一次有效状态保持可运行。
 - `canonicalize` 按 Schema 字段声明顺序重排，其余键名排序，保证 `stringify → parse → stringify` 文本一致。
-- 内置五个 Schema：`effect`、`skill`、`progressionNode`、`progressionGraph`、`progressionConfig`。
+- 内置成长 Schema：`effect`、`skill`、`progressionNode`、`progressionGraph`、`progressionConfig`。
+- Canonical Schema 位于 `src/data/schema/`，统一使用 `schemaVersion`，当前覆盖 Unit、Hero、Formation、Army、ResourceNode、Inventory、City、BattleResult、Checkpoint 和 GameProject；数量字段必须是非负整数，损毁比例限制为 `[0,1]`。
+- `GameLoader` 先执行 GameProject、Asset Manifest、成长配置、触发器 ID 和内容库 ID 的完整预检，再替换 project/registries；JSON 文件按文本解析，以保留语法错误行列。失败抛出带 `errors` 的 `ContentValidationError`，旧运行对象不被配置错误替换。
+- 战斗集成统一从 `project.integration.battle.resultSource` 选择单一来源；当前正式可用来源为 `localMock`，通过 `BattleClient` 暴露 `createBattle/intervene/reportBattleResult`，重复 requestId 使用 `IdempotencyStore` 返回首次响应，同 ID 不同载荷拒绝。
+- Asset Manifest 位于游戏 `assets/manifests/assets.json`。按《三国张角传》已锁定资源决策，现有和后续资源视为项目原创或已获授权；当前校验只阻断稳定 `assetId/imageId`、文件引用、状态、尺寸、pivot、动画及 2D/3D 映射错误，不以授权/作者/来源字段阻断开发或发布。
 - Schema 校验与 `GraphDefinition.validate()` 是双层拦截，职责不同：前者在配置进入系统前，后者在构造后。
 - `GameLoader.assembleProgression` 三层校验：配置整体 → 技能列表 → 每张图；非法项不写入运行状态，错误累积到 `lastValidationErrors`。
 
@@ -203,8 +224,10 @@ MOVE     右键
 - `SceneHudUpdater`：统一冷却、面板、对话框、手柄面板和小地图更新；RenderPipeline 只绘制，不在 render 内修改 UI 状态。
 - `SceneLifecycleCoordinator`：为同步 Scene API 提供 `exitSync()`，Base 退出事务由协调器拥有；ResourceScope 先失效，随后按既有顺序释放输入、玩家、系统、UI 与实体。
 - `WorldMapLoadSession` + `WorldReadyGate`：项目/场景只加载一次，terrain 与 placements 共享 Promise；JSON 文件优先、localStorage 仅 fallback，3 秒超时仍开放渲染。
-- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。
-- `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话结束唯一订阅、上下文和 sceneEnter；具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
+- `RegionCoordinator`：跨 Region 必须使用独立 shadow session 执行 load/validate，目标提交成功后才释放旧 session；提交开始后的任何失败必须恢复旧 session 与完整状态草稿。卸载区的节点、敌人、掉落等放入按 `regionId` 隔离的 `regionStates`，不得因释放运行时实例而丢失。读档先通过 `SaveGameService.inspect/inspectAuto` 取得目标 `currentSceneId` 并准备对应 Region，再进入同步原子 restore。
+- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。`PlacementSpawner.shouldSpawn({ placement, selector })` 是条件化放置的唯一注入口；返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`，StoryState 解释仍留在具体游戏。
+- `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话事件、场景标记、上下文和 sceneEnter；`DialogueSystem.onEnd/onChoice` 都是可取消的多监听器，Bridge 分别发布 `dialogueEnd{id}` 与 `dialogueChoice{id,choiceId,index,nextNode}`，具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
+- `TimeSystem`：除昼夜段外统一拥有从 1 开始的 `currentDay`，支持 `advanceDays()` 与 `serialize/deserialize`。历史延迟后果描述保存在 StoryState（稳定 event id、dueDay、status），到期领域提交仍遵循草稿→提交→checkpoint，保存失败恢复草稿并保留 pending 供重试。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
 - `SceneCombatActions`：承接 PC、触屏和手柄的攻击、轻功、投掷、格挡、药水与自动攻击；不拥有系统或实体状态，也不再混入技能编排和世界拾取。
 - `SceneSkillActions`：统一技能可用性、特殊技能、按索引/方向释放、PC 瞄准控制与预览；`SceneAimController` 仍只负责几何和状态。

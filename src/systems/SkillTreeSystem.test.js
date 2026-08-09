@@ -313,23 +313,23 @@ export class SkillTreeSystemTest {
    */
   testSkillPointManagement() {
     const character = {
-      class: 'mage',
+      class: 'strategist',
       level: 20,
       skillPoints: 3
     };
 
     // 学习消耗不同技能点的技能
-    let success = this.skillTreeSystem.learnSkill(character, 'mage_mana_mastery');
+    let success = this.skillTreeSystem.learnSkill(character, 'strategist_planning_focus');
     this.assert(success === true, '学习1点技能成功');
     this.assert(character.skillPoints === 2, '技能点正确减少');
 
     // 尝试学习需要更多技能点的技能
-    success = this.skillTreeSystem.learnSkill(character, 'mage_fire_mastery');
+    success = this.skillTreeSystem.learnSkill(character, 'strategist_fire_tactics');
     this.assert(success === true, '学习前置技能成功');
     this.assert(character.skillPoints === 1, '技能点继续减少');
 
     // 技能点不足时无法学习
-    let canLearn = this.skillTreeSystem.canLearnSkill(character, 'mage_meteor');
+    let canLearn = this.skillTreeSystem.canLearnSkill(character, 'strategist_fire_attack');
     this.assert(canLearn === false, '技能点不足时不能学习高级技能');
   }
 

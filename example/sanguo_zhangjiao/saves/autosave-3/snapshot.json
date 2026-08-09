@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786199249943,
+  "createdAt": 1786208546724,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -17,8 +17,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 471.4271520033462,
-          "y": 439.7277247919856,
+          "x": 609.5905033348558,
+          "y": 479.3903769940838,
           "elevation": 0,
           "rotation": 0,
           "scale": {

@@ -26,6 +26,8 @@
  */
 
 import { Scene } from '../../../src/core/Scene.js';
+import { normalizePresentationProfile } from '../../../src/core/PresentationProfile.js';
+import presentationProfileData from '../config/presentation.json';
 import { EntityFactory } from '../../../src/ecs/EntityFactory.js';
 import { InputManager } from '../../../src/core/InputManager.js';
 import UIClickHandler from '../../../src/core/UIClickHandler.js';
@@ -74,6 +76,7 @@ import { SceneHintPresenter } from '../../../src/core/scene/SceneHintPresenter.j
 import { SceneLifecycleCoordinator } from '../../../src/core/scene/SceneLifecycleCoordinator.js';
 import { SceneInventoryFlow } from '../../../src/core/scene/SceneInventoryFlow.js';
 import { SceneHudUpdater } from '../../../src/core/scene/SceneHudUpdater.js';
+import { SceneTriggerBindingSystem } from '../../../src/core/scene/SceneTriggerBindingSystem.js';
 import { SceneInputFlow } from '../../../src/core/input/SceneInputFlow.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -88,6 +91,23 @@ import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
 import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 
 const ZONE_STAT_NAMES = Object.freeze({ hp: '生命', mp: '法力', attack: '攻击', defense: '防御', speed: '速度' });
+
+export const CAMPAIGN_ID = 'sanguo-zhangjiao-s01-s14';
+export const SAVE_SCHEMA_VERSION = 1;
+const CANONICAL_SCENE_ID = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
+const LEGACY_SCENE_ID = /^(?:s\d+-\d+|scene_Prologue)$/;
+
+function findLegacySavePath(value, path = '') {
+  if (value === 'mage' || (typeof value === 'string' && LEGACY_SCENE_ID.test(value))) return path;
+  if (!value || typeof value !== 'object') return null;
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = path ? `${path}.${key}` : key;
+    if (key === 'act' || key === 'currentAct' || /^act\d/i.test(key)) return childPath;
+    const legacyPath = findLegacySavePath(child, childPath);
+    if (legacyPath) return legacyPath;
+  }
+  return null;
+}
 const ZONE_STAT_SHORT = Object.freeze({ hp: 'HP', mp: 'MP', attack: 'ATK', defense: 'DEF', speed: 'SPD' });
 
 export class BaseGameScene extends Scene {
@@ -112,20 +132,22 @@ export class BaseGameScene extends Scene {
     this._lifecycleCoordinator = null;
     this._inputBindings = null;
     this._inputFlow = null;
+    this._sceneTriggerBindings = null;
     this._inventoryFlow = null;
     this._hudUpdater = null;
     this._hintPresenter = null;
     
-    // 逻辑尺寸（用于渲染计算，不受 devicePixelRatio 影响）
-    this.logicalWidth = 800;
-    this.logicalHeight = 600;
+    // 游戏级表现规格是相机、渲染、角色尺寸和编辑器预览的唯一事实源。
+    this.presentationProfile = normalizePresentationProfile(sceneData.presentationProfile || presentationProfileData);
+    this.logicalWidth = this.presentationProfile.logicalResolution.width;
+    this.logicalHeight = this.presentationProfile.logicalResolution.height;
     
     // 调试模式（开启后显示坐标标记和日志）
     this.debugMode = false;
 
-    // 编辑器场景渲染器（通用，默认使用数据驱动序章区块）
+    // 编辑器场景渲染器（通用，默认使用《三国张角传》S01 区块）
     this.terrain = null;
-    this.editorSceneId = sceneData.editorSceneId || 's0-1';
+    this.editorSceneId = sceneData.editorSceneId || 'S01';
     // Demo 保留场景标识和世界偏移配置；核心 binding 不认识任何 Demo 内容。
     this._terrainConfig = {
       gameId: 'sanguo_zhangjiao',
@@ -301,16 +323,20 @@ export class BaseGameScene extends Scene {
     const equipment = player?.getComponent?.('equipment');
     const name = player?.getComponent?.('name');
     const statsFields = [
-      'baseMaxHp', 'baseMaxMp', 'baseAttack', 'baseDefense', 'baseSpeed',
-      'maxHp', 'hp', 'maxMp', 'mp', 'attack', 'defense', 'speed', 'level', 'exp',
-      'mainElement', 'elementAttack', 'elementDefense', 'unitType', 'gold', 'attributeEffects'
+      'baseMaxHp', 'baseMaxMp', 'baseMaxStamina', 'baseStaminaRegen', 'baseAttack', 'baseDefense', 'baseSpeed',
+      'maxHp', 'hp', 'maxMp', 'mp', 'maxStamina', 'stamina', 'staminaRegen', 'attack', 'defense', 'speed', 'level', 'exp',
+      'mainElement', 'elementAttack', 'elementDefense', 'unitType', 'gold', 'attributeEffects',
+      'class', 'skillPoints'
     ];
     const statsData = {};
     for (const key of statsFields) {
       if (stats && stats[key] !== undefined) statsData[key] = stats[key];
     }
 
-    return JSON.parse(JSON.stringify({
+    const snapshot = JSON.parse(JSON.stringify({
+      campaignId: CAMPAIGN_ID,
+      schemaVersion: SAVE_SCHEMA_VERSION,
+      currentSceneId: this.currentSceneId || this.editorSceneId || 'S01',
       player: {
         id: player?.id || null,
         name: name ? { name: name.name, visible: name.visible, color: name.color } : null,
@@ -332,13 +358,37 @@ export class BaseGameScene extends Scene {
       content: this.gameLoader?.serialize?.(player?.id || null) || null,
       scene: this.captureSceneSaveState()
     }));
+    const validation = this.validateSaveState(snapshot);
+    if (!validation.ok) {
+      const error = new Error('拒绝生成包含旧剧情或非法 canonical 状态的新存档');
+      error.name = 'InvalidSaveStateError';
+      error.errors = validation.errors;
+      throw error;
+    }
+    return snapshot;
   }
 
   validateSaveState(data) {
     const errors = [];
-    if (!data || typeof data !== 'object') errors.push({ code: 'missingField', path: '', message: '游戏状态为空' });
-    else if (!data.player || typeof data.player !== 'object') errors.push({ code: 'missingField', path: 'player', message: '缺少玩家状态' });
-    else if (data.player.transform && (!Number.isFinite(data.player.transform.x) || !Number.isFinite(data.player.transform.y))) {
+    const incompatible = (path) => errors.push({
+      code: 'incompatibleSave',
+      path,
+      message: '版本不兼容，请开始新游戏'
+    });
+
+    if (!data || typeof data !== 'object') {
+      errors.push({ code: 'missingField', path: '', message: '游戏状态为空' });
+      return { ok: false, errors };
+    }
+    if (data.campaignId !== CAMPAIGN_ID) incompatible('campaignId');
+    if (data.schemaVersion !== SAVE_SCHEMA_VERSION) incompatible('schemaVersion');
+    if (!CANONICAL_SCENE_ID.test(data.currentSceneId || '')) incompatible('currentSceneId');
+    const legacyPath = findLegacySavePath(data);
+    if (legacyPath) incompatible(legacyPath);
+
+    if (!data.player || typeof data.player !== 'object') {
+      errors.push({ code: 'missingField', path: 'player', message: '缺少玩家状态' });
+    } else if (data.player.transform && (!Number.isFinite(data.player.transform.x) || !Number.isFinite(data.player.transform.y))) {
       errors.push({ code: 'invalidField', path: 'player.transform', message: '玩家坐标无效' });
     }
     return { ok: errors.length === 0, errors };
@@ -373,16 +423,44 @@ export class BaseGameScene extends Scene {
       for (const slot of Object.keys(equipment.slots)) equipment.slots[slot] = null;
       equipment.loadEquipment(savedPlayer.equipment);
     }
-    if (stats && savedPlayer.stats) Object.assign(stats, JSON.parse(JSON.stringify(savedPlayer.stats)));
+    if (stats && savedPlayer.stats) {
+      const hasSavedClass = Object.prototype.hasOwnProperty.call(savedPlayer.stats, 'class')
+        && savedPlayer.stats.class != null;
+      if (!hasSavedClass) {
+        delete stats.class;
+        delete player.class;
+      }
+      Object.assign(stats, JSON.parse(JSON.stringify(savedPlayer.stats)));
+      if (hasSavedClass) player.class = savedPlayer.stats.class;
+    }
     if (inventory && Array.isArray(savedPlayer.inventory)) inventory.loadItems(savedPlayer.inventory);
 
     this.tutorialSystem?.loadProgress?.(data.tutorial);
     this.questSystem?.reset?.();
     this.questSystem?.deserialize?.(data.quests || {});
-    this.gameLoader?.deserialize?.(data.content, player.id);
+    const contentResult = this.gameLoader?.deserialize?.(data.content, player.id);
+    if (contentResult && contentResult.ok === false) {
+      return {
+        ok: false,
+        errors: (contentResult.errors || []).map(error => ({
+          ...error,
+          path: `content.${error.path || ''}`.replace(/\.$/, '')
+        }))
+      };
+    }
     this.dialogueSystem?.reset?.();
     this.dialogueSystem?.loadState?.(data.dialogue, { player, scene: this });
-    this.restoreSceneSaveState(data.scene || {});
+    this.currentSceneId = data.currentSceneId;
+    const sceneResult = this.restoreSceneSaveState(data.scene || {});
+    if (sceneResult && sceneResult.ok === false) {
+      return {
+        ok: false,
+        errors: (sceneResult.errors || []).map(error => ({
+          ...error,
+          path: `scene.${error.path || ''}`.replace(/\.$/, '')
+        }))
+      };
+    }
     this.bindUIPanelsToPlayer(player, { syncCameraPosition: false, log: false });
     return { ok: true, errors: [] };
   }
@@ -436,18 +514,20 @@ export class BaseGameScene extends Scene {
     const ctx = canvas.getContext('2d');
     this.context.setCanvasRuntime(canvas, ctx);
 
-    // 用实际 canvas 尺寸覆盖默认逻辑尺寸
-    if (canvas.width > 0 && canvas.height > 0) {
-      this.logicalWidth = canvas.width;
-      this.logicalHeight = canvas.height;
-    }
+    // Canvas buffer 固定使用项目逻辑分辨率；CSS 负责适配物理显示尺寸。
+    const logical = this.presentationProfile.logicalResolution;
+    if (canvas.width !== logical.width) canvas.width = logical.width;
+    if (canvas.height !== logical.height) canvas.height = logical.height;
+    this.logicalWidth = logical.width;
+    this.logicalHeight = logical.height;
     this.context.runtime.width = this.logicalWidth;
     this.context.runtime.height = this.logicalHeight;
 
+    const worldProfile = this.presentationProfile.world;
     // 初始化统一渲染器（包含 Camera）
     this.isometricRenderer = new IsometricRenderer(ctx, {
-      tileWidth: 64,
-      tileHeight: 32,
+      tileWidth: worldProfile.tileWidth,
+      tileHeight: worldProfile.tileHeight,
       width: this.logicalWidth,
       height: this.logicalHeight,
       assetManager: this.assetManager || null,
@@ -457,8 +537,10 @@ export class BaseGameScene extends Scene {
     });
     this.context.presentation.renderer = this.isometricRenderer;
 
-    // 从渲染器获取相机
+    // 从渲染器获取相机，并应用项目统一跟随规格。
     this.camera = this.isometricRenderer.getCamera();
+    this.camera.followSpeed = Number(this.presentationProfile.camera.followSpeed);
+    this.camera.deadzone = { ...this.presentationProfile.camera.deadzone };
     this.context.camera.instance = this.camera;
     this.context.camera.renderer = this.isometricRenderer;
 
@@ -522,6 +604,15 @@ export class BaseGameScene extends Scene {
       onInherited: (player) => console.log('BaseGameScene: 继承玩家实体', player),
       onCreated: () => console.log('BaseGameScene: 创建新玩家实体')
     });
+    this._sceneTriggerBindings?.dispose();
+    this._sceneTriggerBindings = new SceneTriggerBindingSystem({
+      getPlayer: () => this.playerEntity,
+      logger: (reason, binding) => console.warn(`BaseGameScene: 场景触发器绑定 ${reason}`, binding?.id),
+      onPromptChange: prompt => {
+        if (prompt) this._hintPresenter?.showHint(prompt, '交互');
+        else this._hintPresenter?.hideHint();
+      }
+    });
 
     console.log(`BaseGameScene: 进入场景 ${this.name}`);
 
@@ -530,6 +621,7 @@ export class BaseGameScene extends Scene {
     // 将交互服务登记到显式 Context；帧/渲染管线可直接调度，Base 方法仅兼容旧调用方。
     Object.assign(this.context.services, {
       dialogue: this._ensureDialogueFlow(),
+      triggerBindings: this._sceneTriggerBindings,
       worldInteraction: this._ensureWorldInteraction(),
       skills: this._ensureSkillActions(),
       worldPresentation: this._ensureWorldPresentation(),
@@ -729,6 +821,7 @@ export class BaseGameScene extends Scene {
    * @param {Object} skill - 技能对象
    */
   onSkillClicked(skill) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureSkillActions().onSkillClicked(skill);
   }
 
@@ -774,15 +867,22 @@ export class BaseGameScene extends Scene {
         runtime: this.sceneRuntime,
         router: this.sceneRuntime?.inputRouter,
         gamepadCombat: this.gamepadCombatController,
+        onModalInput: context => this.handleModalInput(context),
         onPopupConfirm: () => this._handleGainedPopupGamepad(),
         onGamepadCombat: () => this._updateGamepadCombat(),
         onPromptSwitch: () => this._updatePromptSwitch(),
         dialogue: this._ensureDialogueFlow(),
         aiming: this._ensureSkillActions(),
+        triggerBindings: this._sceneTriggerBindings,
         worldInteraction: this._ensureWorldInteraction()
       });
     }
     return this._inputFlow;
+  }
+
+  /** 子场景可覆盖的模态输入出口；返回 true 时本帧所有世界输入均被消费。 */
+  handleModalInput(_context) {
+    return false;
   }
 
   /** 子场景在 super.update 前读取输入时调用；同帧重复调用由 flow 守卫跳过。 */
@@ -919,11 +1019,13 @@ export class BaseGameScene extends Scene {
 
   /** 按技能索引释放技能（用于触屏/虚拟按钮，无鼠标指向时按角色朝向放） */
   useSkillByIndex(index) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureSkillActions().useSkillByIndex(index);
   }
 
   /** 按指定方向和距离比例释放技能（触屏摇杆瞄准后释放） */
   useSkillByDirection(index, dirX, dirY, distRatio, targetWorldPos) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureSkillActions().useSkillByDirection(
       index, dirX, dirY, distRatio, targetWorldPos);
   }
@@ -953,6 +1055,7 @@ export class BaseGameScene extends Scene {
    * @param {number} [index] - 技能索引（kind==='skill' 时用）
    */
   enterPCAimMode(kind, index = -1) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureSkillActions().enterPCAimMode(kind, index);
   }
 
@@ -1010,46 +1113,59 @@ export class BaseGameScene extends Scene {
 
   /** 触屏：按角色朝向发起一次扇形攻击。 */
   attackByFacing() {
-    return this._ensureCombatActions().attackByFacing();
+    if (this.isPlayerActionLocked()) return false;
+    return this._ensureCombatActions().attackByFacing() === true;
   }
 
   /** 触屏：按指定方向发起扇形攻击。 */
   attackByDirection(dirX, dirY, distRatio) {
-    return this._ensureCombatActions().attackByDirection(dirX, dirY, distRatio);
+    if (this.isPlayerActionLocked()) return false;
+    return this._ensureCombatActions().attackByDirection(dirX, dirY, distRatio) === true;
   }
 
   /** PC/触屏/手柄：按当前移动输入跳跃；无方向时原地跳。 */
   jumpByInput() {
-    return this._ensureCombatActions().jumpByInput();
+    if (this.isPlayerActionLocked()) return false;
+    const started = this._ensureCombatActions().jumpByInput() === true;
+    if (started) this.onPlayerTutorialAction?.('jump');
+    return started;
   }
 
   /** 按指定方向短距离跳跃。 */
   jumpByDirection(dirX, dirY) {
-    return this._ensureCombatActions().jumpByDirection(dirX, dirY);
+    if (this.isPlayerActionLocked()) return false;
+    const started = this._ensureCombatActions().jumpByDirection(dirX, dirY) === true;
+    if (started) this.onPlayerTutorialAction?.('jump');
+    return started;
   }
 
   /** 触屏：按角色朝向施展轻功。 */
   flightByFacing() {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().flightByFacing();
   }
 
   /** 触屏：按指定方向施展轻功。 */
   flightByDirection(dirX, dirY, distRatio) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().flightByDirection(dirX, dirY, distRatio);
   }
 
   /** 触屏：按角色朝向投掷武器。 */
   throwByFacing() {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().throwByFacing();
   }
 
   /** 触屏：按指定方向投掷武器。 */
   throwByDirection(dirX, dirY, distRatio) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().throwByDirection(dirX, dirY, distRatio);
   }
 
   /** 触屏：激活主动格挡（挡住攻击1秒，冷却8秒）。 */
   activateBlock() {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().activateBlock();
   }
 
@@ -1073,8 +1189,9 @@ export class BaseGameScene extends Scene {
     return this._ensurePanelLayout().layoutPCFunctionButtons(width, height);
   }
 
-  /** 窗口大小变化时更新逻辑尺寸和相关系统。 */
-  onResize(width, height) {
+  /** 窗口大小变化时保持项目逻辑分辨率，仅重排相关系统。 */
+  onResize() {
+    const { width, height } = this.presentationProfile.logicalResolution;
     return this._ensurePanelLayout().onResize(width, height);
   }
 
@@ -1238,6 +1355,7 @@ export class BaseGameScene extends Scene {
 
   /** 处理武器投掷。 */
   handleWeaponThrow() {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().handleWeaponThrow();
   }
 
@@ -1248,6 +1366,7 @@ export class BaseGameScene extends Scene {
 
   /** 处理自动攻击（鼠标移动时）。 */
   handleAutoAttack(currentTime) {
+    if (this.isPlayerActionLocked()) return false;
     return this._ensureCombatActions().handleAutoAttack(currentTime);
   }
 
@@ -1295,9 +1414,9 @@ export class BaseGameScene extends Scene {
     return this._hintPresenter?.showScreen(text, opts);
   }
 
-  /** 隐藏提示面板 */
-  _hideScreenTip() {
-    return this._hintPresenter?.hideScreen();
+  /** 隐藏提示面板；指定 owner 时不会误删其他系统刚覆盖的提示。 */
+  _hideScreenTip(owner = null) {
+    return this._hintPresenter?.hideScreen(owner);
   }
 
   /**
@@ -1385,6 +1504,99 @@ export class BaseGameScene extends Scene {
   /** 处理 PC 左键点击地上物品的拾取。 */
   handlePickupClick() {
     return this._ensureWorldInteraction().handlePickupClick();
+  }
+
+  /** 移动端、手柄适配器和脚本统一交互入口。 */
+  enqueueInteract(device = 'virtual') {
+    return this.sceneRuntime?.inputRouter?.enqueueInteract?.(device) || null;
+  }
+
+  /** 从玩家附近选择最近资源节点并开始一次采集会话。 */
+  resolvePlayerDefeatResolution() {
+    return { type: 'normalDeath' };
+  }
+
+  resolvePlayerRespawnPosition() {
+    return null;
+  }
+
+  onPlayerDefeatResolved(result = {}) {
+    const position = result.respawnPosition;
+    const location = position?.label || (Number.isFinite(position?.x) && Number.isFinite(position?.y)
+      ? `安全点（${Math.round(position.x)}, ${Math.round(position.y)}）`
+      : '安全点');
+    if (result.type === 'specialFaint') {
+      this._showScreenTip(`你被救回并在${location}醒来，没有遗失物资`);
+      return;
+    }
+    const lost = (result.stacks || []).reduce((sum, stack) => sum + stack.quantity, 0);
+    this._showScreenTip(lost > 0
+      ? `死亡后遗失 ${lost} 份资源，已在${location}复苏，可返回原地拾取`
+      : `你在${location}重新醒来，没有遗失资源`);
+  }
+
+  isPlayerActionLocked() {
+    return this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true;
+  }
+
+  harvestByFacing({ silent = false } = {}) {
+    if (!this.playerEntity || !this.gatheringSystem) return false;
+    const playerPosition = this.playerEntity.getComponent('transform')?.position;
+    if (!playerPosition) return false;
+    const candidates = (this.entities || [])
+      .filter(entity => entity?.getComponent?.('resourceNode'))
+      .map(entity => {
+        const position = entity.getComponent('transform')?.position;
+        return { entity, distance: position ? Math.hypot(position.x - playerPosition.x, position.y - playerPosition.y) : Infinity };
+      })
+      .sort((left, right) => left.distance - right.distance);
+    const result = this.gatheringSystem.start({ player: this.playerEntity, nodeEntity: candidates[0]?.entity });
+    if (!result.ok && !silent) {
+      const messages = {
+        gatheringBusy: '正在采集中', nodeDepleted: '资源节点已经耗尽',
+        outOfRange: '附近没有可采集资源', toolRequired: '需要可用的采集工具', invalidTarget: '附近没有可采集资源'
+      };
+      this._showScreenTip(messages[result.code] || '暂时无法采集');
+    }
+    return result.ok;
+  }
+
+  onGatheringEvent(event, data = {}) {
+    if (event === 'started' || event === 'progress') {
+      const percent = Math.max(0, Math.min(100, Math.floor((Number(data.progress) || 0) * 100)));
+      if (event === 'progress' && this._lastGatheringProgressPercent === percent) return;
+      this._lastGatheringProgressPercent = percent;
+      const capacity = Number.isFinite(data.capacity) ? data.capacity : 0;
+      const expected = Number.isFinite(data.expectedYield) ? data.expectedYield : 0;
+      const tool = data.toolDurability == null
+        ? '无需工具'
+        : `工具 ${data.toolDurability}/${data.toolMaxDurability}`;
+      this._hintPresenter?.showScreen?.(
+        `采集中 ${percent}% · 预计获得 ${expected} · 背包可收 ${capacity} · ${tool} · {interact}取消`,
+        { title: '采集', persist: true, owner: 'gathering' }
+      );
+      return;
+    }
+
+    this._lastGatheringProgressPercent = null;
+    this._hintPresenter?.hideScreen?.('gathering');
+    if (event === 'riskTriggered') {
+      this._showScreenTip(data.message || '采集产生了意外动静', { title: '采集风险' });
+      return;
+    }
+    if (event === 'completed') {
+      this._showScreenTip(data.toolBroken ? `获得资源 ×${data.accepted}，工具已损毁` : `获得资源 ×${data.accepted}`);
+      return;
+    }
+    if (event !== 'interrupted') return;
+    const messages = {
+      moved: '位置变化导致采集中断',
+      damaged: data.accepted > 0 ? `受伤中断，获得资源 ×${data.accepted}` : '受伤导致采集中断',
+      cancelled: '已取消采集',
+      inventoryFull: '背包已满，采集未结算',
+      insufficientCapacity: '背包容量不足，采集未结算'
+    };
+    this._showScreenTip(messages[data.code || data.reason] || '采集已中断');
   }
 
   /** 左键点击地上物品的拾取检测。 */
@@ -1485,6 +1697,8 @@ export class BaseGameScene extends Scene {
     // 运行时先撤销阶段钩子和输入路由，再销毁底层输入/系统实例。
     this._inputFlow?.dispose();
     this._inputFlow = null;
+    this._sceneTriggerBindings?.dispose();
+    this._sceneTriggerBindings = null;
     this.sceneRuntime?.dispose();
     this.sceneRuntime = null;
 

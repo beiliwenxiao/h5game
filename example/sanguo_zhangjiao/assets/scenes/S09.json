@@ -1,0 +1,51 @@
+{
+  "id": "S09", "name": "S09·粥棚营地", "width": 1280, "height": 720, "backgroundColor": "#665842",
+  "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "playable", "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": { "complexity": "medium", "focalPoint": "S09-landmark-damaged-granary", "primaryRoute": ["S09-spawn-entry","S09-zone-porridge","S09-npc-zhangjiao","S09-spawn-exit"], "cameraFrame": { "width": 1280, "height": 720 } },
+  "assetBudget": { "environmentModules": 12, "actorVariants": 8, "interactiveProps": 6, "vfx": 4, "audioLayers": 3 },
+  "layers": [
+    { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [
+      { "id": "S09-bg-city-graybox", "type": "image", "imageId": "graybox.cityGround", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0 }
+    ] },
+    { "id": "layer_fill", "name": "背景填充层", "visible": true, "locked": false, "objects": [
+      { "id": "S09-ground", "type": "shape", "shapeType": "polygon", "name": "营地地面", "points": [[0,0],[1280,0],[1280,720],[0,720]], "fillMode": "color", "fill": "#665842", "opacity": 0.25, "strokeWidth": 0 },
+      { "id": "S09-primary-route", "type": "shape", "shapeType": "polygon", "name": "主通行动线", "points": [[70,620],[250,690],[1160,180],[1050,90]], "fillMode": "color", "fill": "#927b54", "opacity": 0.8, "stroke": "#c6ad78", "strokeWidth": 2, "walkable": true }
+    ] },
+    { "id": "layer_deco", "name": "构图地标与职业旗帜", "visible": true, "locked": false, "objects": [
+      { "id": "S09-landmark-damaged-granary", "type": "shape", "shapeType": "polygon", "name": "受损粮仓", "points": [[840,175],[1055,175],[1055,355],[840,355]], "fillMode": "color", "fill": "#4b3a2b", "opacity": 1, "stroke": "#d7b45a", "strokeWidth": 4, "collide": true },
+      { "id": "S09-zone-porridge", "type": "shape", "shapeType": "polygon", "name": "粥棚区", "points": [[430,400],[650,360],[700,520],[470,560]], "fillMode": "color", "fill": "#b99b61", "opacity": 0.72, "stroke": "#f0cf77", "strokeWidth": 3 },
+      { "id": "S09-zone-refugees", "type": "shape", "shapeType": "polygon", "name": "难民区", "points": [[120,170],[350,150],[400,320],[150,350]], "fillMode": "color", "fill": "#534d45", "opacity": 0.85, "stroke": "#8d877e", "strokeWidth": 2 },
+      { "id": "S09-flag-warrior", "type": "shape", "shapeType": "rect", "name": "战士军旗", "x": 360, "y": 205, "width": 90, "height": 110, "fillMode": "color", "fill": "#8f3b2f", "opacity": 0.9, "stroke": "#e6b35d", "strokeWidth": 3 },
+      { "id": "S09-flag-archer", "type": "shape", "shapeType": "rect", "name": "弓手军旗", "x": 535, "y": 175, "width": 90, "height": 110, "fillMode": "color", "fill": "#3c6f55", "opacity": 0.9, "stroke": "#e6b35d", "strokeWidth": 3 },
+      { "id": "S09-flag-strategist", "type": "shape", "shapeType": "rect", "name": "军师军旗", "x": 710, "y": 205, "width": 90, "height": 110, "fillMode": "color", "fill": "#4f5585", "opacity": 0.9, "stroke": "#e6b35d", "strokeWidth": 3 }
+    ] },
+    { "id": "layer_placement", "name": "实体锚点", "visible": true, "locked": false, "objects": [
+      { "id": "S09-spawn-entry", "type": "spawn", "name": "南侧入口", "ref": "player", "x": 125, "y": 625 },
+      { "id": "S09-spawn-exit", "type": "spawn", "name": "北侧出口", "ref": "exit", "x": 1090, "y": 135 },
+      { "id": "S09-npc-zhangjiao", "type": "ref", "kind": "npc", "ref": "npc.s09_zhangjiao", "group": "S09-initial", "tags": ["story","enlistment"], "x": 600, "y": 335 },
+      { "id": "S09-npc-zhangliang", "type": "ref", "kind": "npc", "ref": "npc.s09_zhangliang", "group": "S09-initial", "tags": ["instructor","warrior"], "x": 405, "y": 330 },
+      { "id": "S09-npc-zhangbao", "type": "ref", "kind": "npc", "ref": "npc.s09_zhangbao", "group": "S09-initial", "tags": ["instructor","archer"], "x": 755, "y": 330 },
+      { "id": "S09-node-granary-food", "type": "ref", "kind": "resourceNode", "ref": "node.s09_granary_food", "group": "S09-initial", "tags": ["resource","food","granary"], "x": 945, "y": 385, "overrides": { "guardUnitIds": ["S09-guard-granary-west","S09-guard-granary-east"] } },
+      { "id": "S09-guard-granary-west", "type": "ref", "kind": "enemy", "ref": "enemy.s09_granary_guard", "group": "S09-initial", "tags": ["guard","s09GranaryGuard"], "x": 825, "y": 395, "overrides": { "aiActive": false } },
+      { "id": "S09-guard-granary-east", "type": "ref", "kind": "enemy", "ref": "enemy.s09_granary_guard", "group": "S09-initial", "tags": ["guard","s09GranaryGuard"], "x": 1070, "y": 385, "overrides": { "aiActive": false } },
+      { "id": "S09-refugee-soldier", "type": "ref", "kind": "npc", "ref": "npc.s09_refugee_soldier", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","soldier"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 190, "y": 235 },
+      { "id": "S09-refugee-woman", "type": "ref", "kind": "npc", "ref": "npc.s09_refugee_woman", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","civilian"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 245, "y": 205 },
+      { "id": "S09-refugee-child", "type": "ref", "kind": "npc", "ref": "npc.s09_refugee_child", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","civilian"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 270, "y": 225 },
+      { "id": "S09-refugee-dead-west", "type": "ref", "kind": "npc", "ref": "npc.s09_refugee_dead", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","dead"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 170, "y": 285 },
+      { "id": "S09-refugee-dead-east", "type": "ref", "kind": "npc", "ref": "npc.s09_refugee_dead", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","dead"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 235, "y": 300 },
+      { "id": "S09-refugee-one-armed", "type": "ref", "kind": "npc", "ref": "npc.s09_one_armed_refugee", "group": "S09-refugee-conflict", "tags": ["story","refugeeConflict","oneArmed","bread"], "spawnWhen": { "path": "s09RefugeeConflict.status", "exists": true }, "x": 315, "y": 270 },
+      { "id": "S09-refugee-scout", "type": "ref", "kind": "enemy", "ref": "enemy.s09_refugee_scout", "group": "S09-refugee-scout", "tags": ["story","refugeeConflict","scout"], "spawnWhen": { "path": "s09RefugeeConflict.scoutTriggered", "equals": true }, "x": 390, "y": 165 }
+    ] },
+    { "id": "layer_logic", "name": "视觉化触发器", "visible": true, "locked": false, "objects": [
+      { "id": "S09-binding-zhangjiao-enlistment", "type": "trigger", "name": "加入黄巾", "triggerId": "trg_s09_zhangjiao_enlistment", "x": 575, "y": 310, "width": 50, "height": 50, "event": "interact", "targetMode": "id", "target": "S09-npc-zhangjiao", "radius": 100, "pointerRadius": 44, "prompt": "{interact}与张角交谈并加入黄巾" },
+      { "id": "S09-binding-class-warrior", "type": "trigger", "name": "选择战士", "triggerId": "trg_s09_class_warrior", "x": 350, "y": 195, "width": 110, "height": 130, "event": "interact", "targetMode": "id", "target": "S09-flag-warrior", "radius": 92, "pointerRadius": 55, "prompt": "{interact}查看战士职业" },
+      { "id": "S09-binding-class-archer", "type": "trigger", "name": "选择弓手", "triggerId": "trg_s09_class_archer", "x": 525, "y": 165, "width": 110, "height": 130, "event": "interact", "targetMode": "id", "target": "S09-flag-archer", "radius": 92, "pointerRadius": 55, "prompt": "{interact}查看弓手职业" },
+      { "id": "S09-binding-class-strategist", "type": "trigger", "name": "选择军师", "triggerId": "trg_s09_class_strategist", "x": 700, "y": 195, "width": 110, "height": 130, "event": "interact", "targetMode": "id", "target": "S09-flag-strategist", "radius": 92, "pointerRadius": 55, "prompt": "{interact}查看军师职业" },
+      { "id": "S09-binding-refugee-conflict", "type": "trigger", "name": "处理饥民争斗", "triggerId": "trg_s09_start_refugee_conflict", "x": 290, "y": 245, "width": 50, "height": 50, "event": "interact", "targetMode": "id", "target": "S09-refugee-one-armed", "radius": 96, "pointerRadius": 48, "prompt": "{interact}查看饥民争斗" }
+    ] }
+  ],
+  "decorations": [], "colliders": [],
+  "imageAssets": { "graybox.cityGround": { "src": "../example/sanguo_zhangjiao/assets/images/graybox/city-ground.svg", "name": "城市场地灰盒" } },
+  "updatedAt": "2026-08-09T00:00:00.000Z"
+}

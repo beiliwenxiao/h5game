@@ -77,7 +77,7 @@ export class PlayerInfoPanel extends UIElement {
     // 职业颜色映射
     this.classColors = {
       'warrior': '#ff6b6b',
-      'mage': '#4a9eff',
+      'strategist': '#4a9eff',
       'archer': '#51cf66',
       'refugee': '#888888'
     };
@@ -85,7 +85,7 @@ export class PlayerInfoPanel extends UIElement {
     // 职业中文名映射
     this.classNames = {
       'warrior': '战士',
-      'mage': '法师',
+      'strategist': '军师',
       'archer': '弓箭手',
       'refugee': '平民'
     };

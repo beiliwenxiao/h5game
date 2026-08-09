@@ -1,6 +1,6 @@
 {
   "appId": "com.sanguo.zhangjiao",
-  "appName": "三国张角",
+  "appName": "三国张角传",
   "webDir": "dist/sanguo_zhangjiao",
   "server": {
     "androidScheme": "https"

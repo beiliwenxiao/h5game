@@ -319,15 +319,17 @@ export class SceneEditorAssets {
       };
     } else if (kind === 'trigger') {
       const w = 36, h = 36;
+      const definition = (editor.getProjectTriggers?.() || [])
+        .find(trigger => ['approach', 'interact', 'enter', 'leave'].includes(trigger?.when?.type)) || null;
       obj = {
-        id: 'trigger_' + rnd, type: 'trigger', name: '触发器',
-        triggerId: 'trg_' + Math.floor(Math.random() * 10000),
+        id: 'trigger_' + rnd, type: 'trigger', name: definition?.id || '触发器',
+        triggerId: definition?.id || '',
         x: Math.round(x - w / 2), y: Math.round(y - h / 2), width: w, height: h,
-        event: 'approach',
+        event: definition?.when?.type || 'interact',
+        targetMode: 'id',
         target: '',
         radius: 60,
-        conditions: '',
-        actions: ''
+        prompt: ''
       };
     } else if (kind === 'playerSpawn') {
       obj = {
@@ -534,10 +536,29 @@ export class SceneEditorAssets {
       const game = window._editorCurrentGame;
       const gamePath = (game && game.path) ? game.path : '../example/sanguo_zhangjiao/';
       const relativeSrc = gamePath + 'assets/images/' + subPath.trim();
-      
+      const semanticPart = subPath.trim()
+        .replace(/\.[^.]+$/, '')
+        .replace(/[^A-Za-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'asset';
+      const requestedId = prompt(
+        '请输入稳定 imageId（后续替换图片文件时保持不变）：',
+        `img.${semanticPart}`
+      );
+      if (!requestedId || !requestedId.trim()) { reject(new Error('取消')); return; }
+      const id = requestedId.trim();
+      if (!/^[A-Za-z][A-Za-z0-9._-]*$/.test(id)) {
+        editor.ui.showToast?.('imageId 只能包含字母、数字、点、下划线和短横线，且必须以字母开头', 'error');
+        reject(new Error('imageId 格式无效'));
+        return;
+      }
+      if (editor.sceneData.imageAssets?.[id]) {
+        editor.ui.showToast?.(`imageId 已存在: ${id}`, 'error');
+        reject(new Error('imageId 重复'));
+        return;
+      }
+
       const img = new Image();
       img.onload = () => {
-        const id = 'img_' + Date.now();
         editor.loadedImages.set(id, img);
         
         if (!editor.sceneData.imageAssets) editor.sceneData.imageAssets = {};
@@ -572,6 +593,192 @@ export class SceneEditorAssets {
   updateAssetLibrary() {
     this._updateSpriteList();
     this._updateAtlasList();
+  }
+
+  /**
+   * 审计当前游戏的 Manifest、磁盘图片、场景引用、图集切片、授权和 3D fallback。
+   * 只生成报告，不自动登记或提升授权状态。
+   */
+  async runAssetAudit() {
+    const gameId = this._contentGameId();
+    const gameRoot = `example/${gameId}`;
+    const button = document.getElementById('editor-audit-assets');
+    if (button) button.disabled = true;
+    this.editor.ui.showToast?.('正在扫描磁盘资产与场景引用…');
+
+    try {
+      const [manifest, imageFiles, sceneFiles] = await Promise.all([
+        this._fetchJson(`/${gameRoot}/assets/manifests/assets.json`),
+        this._listFilesRecursive(`${gameRoot}/assets/images`, file => /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file)),
+        this._listFilesRecursive(`${gameRoot}/assets/scenes`, file => /\.json$/i.test(file) && !file.endsWith('/_scene_order.json'))
+      ]);
+      const scenes = await Promise.all(sceneFiles.map(file => this._fetchJson(`/${file}`)));
+      const report = this._buildAssetAuditReport({ gameRoot, manifest, imageFiles, scenes });
+      this._showAssetAuditModal(report);
+      this.editor.ui.showToast?.(report.blockingCount
+        ? `资产审计完成：${report.blockingCount} 个阻断项`
+        : '资产审计完成：未发现阻断项', report.blockingCount ? 'error' : 'success');
+    } catch (error) {
+      console.error('[AssetAudit] 审计失败:', error);
+      this.editor.ui.showToast?.(`资产审计失败：${error.message}`, 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  async _fetchJson(url) {
+    const safeUrl = url.split('/').map((part, index) => index === 0 ? part : encodeURIComponent(part)).join('/');
+    const response = await fetch(safeUrl);
+    if (!response.ok) throw new Error(`加载 ${url} 失败: HTTP ${response.status}`);
+    return response.json();
+  }
+
+  async _listFilesRecursive(root, accept) {
+    const result = [];
+    const visit = async dir => {
+      const response = await fetch(`/api/list-files?path=${encodeURIComponent(dir)}`);
+      if (!response.ok) throw new Error(`列出 ${dir} 失败: HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data.ok || !Array.isArray(data.files)) throw new Error(data.error || `列出 ${dir} 失败`);
+      await Promise.all(data.files.map(async entry => {
+        const path = `${dir}/${entry.name}`.replace(/\\/g, '/');
+        if (entry.isDir) await visit(path);
+        else if (!accept || accept(path)) result.push(path);
+      }));
+    };
+    await visit(root);
+    return result.sort();
+  }
+
+  _buildAssetAuditReport({ gameRoot, manifest, imageFiles, scenes }) {
+    const entries = Array.isArray(manifest?.assets) ? manifest.assets : [];
+    const diskPaths = new Set(imageFiles.map(path => path.slice(gameRoot.length + 1)));
+    const manifestPaths = new Set();
+    const assetIds = new Set();
+    const imageIds = new Set();
+    const duplicateIds = [];
+    const invalidEntries = [];
+    const placeholders = [];
+
+    for (const entry of entries) {
+      if (!entry?.assetId) invalidEntries.push('Manifest 条目缺少 assetId');
+      else if (assetIds.has(entry.assetId)) duplicateIds.push(`assetId: ${entry.assetId}`);
+      else assetIds.add(entry.assetId);
+      if (entry?.imageId) {
+        if (imageIds.has(entry.imageId)) duplicateIds.push(`imageId: ${entry.imageId}`);
+        imageIds.add(entry.imageId);
+      } else if (entry?.runtime2D?.mode === 'image') {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: 非 atlas/slice 图片缺少稳定 imageId`);
+      }
+      const sourcePath = String(entry?.sourceFile || entry?.runtime2D?.path || '').replace(/^\.\//, '');
+      if (sourcePath) manifestPaths.add(sourcePath);
+      else invalidEntries.push(`${entry?.assetId || '<unknown>'}: 缺少 sourceFile/runtime2D.path`);
+      if (!(Number(entry?.bounds?.width) > 0) || !(Number(entry?.bounds?.height) > 0)) {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: bounds.width/height 必须大于 0`);
+      }
+      if (![entry?.pivot?.x, entry?.pivot?.y].every(value => Number.isFinite(value) && value >= 0 && value <= 1)) {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: pivot.x/y 必须位于 [0,1]`);
+      }
+      if (entry?.runtime3D?.mode === 'model' && !entry?.runtime3D?.path) {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: model 模式缺少 path`);
+      } else if (entry?.runtime3D?.mode !== 'model' && entry?.runtime3D?.sourceAssetId !== entry?.assetId) {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: 3D fallback 未引用自身稳定 assetId`);
+      }
+      if (entry?.status === 'placeholder') placeholders.push(entry?.assetId || '<unknown>');
+    }
+
+    const missingFiles = [...manifestPaths].filter(path => !diskPaths.has(path));
+    const unregisteredFiles = [...diskPaths].filter(path => !manifestPaths.has(path));
+    const missingReferences = [];
+    const invalidSlices = [];
+    for (const scene of scenes.filter(Boolean)) {
+      const sceneId = scene.id || scene.name || '<unknown-scene>';
+      const sceneImages = scene.imageAssets || {};
+      const atlases = new Map((scene.atlases || []).map(atlas => [atlas.id, atlas]));
+      for (const [imageId, image] of Object.entries(sceneImages)) {
+        if (!imageIds.has(imageId) && !assetIds.has(imageId)) missingReferences.push(`${sceneId}: imageId ${imageId} 未登记 Manifest`);
+        const path = this._normalizeGameAssetPath(image?.src);
+        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: ${imageId} 指向缺失文件 ${path}`);
+      }
+      for (const atlas of atlases.values()) {
+        if (!assetIds.has(atlas.id)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 未登记 Manifest`);
+        const path = this._normalizeGameAssetPath(atlas.path);
+        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 指向缺失文件 ${path}`);
+      }
+      for (const layer of scene.layers || []) {
+        for (const object of layer?.objects || []) {
+          if (object?.type === 'image' && (!object.imageId || !sceneImages[object.imageId])) {
+            missingReferences.push(`${sceneId}/${object?.id || '<object>'}: 图片对象缺少有效 imageId`);
+          }
+          if (object?.sliceKey) {
+            const atlas = atlases.get(object.atlasId);
+            if (!atlas || !atlas.slices?.[object.sliceKey]) {
+              invalidSlices.push(`${sceneId}/${object?.id || '<object>'}: ${object.atlasId || '<atlas>'}/${object.sliceKey}`);
+            }
+          }
+        }
+      }
+    }
+
+    const blockingCount = duplicateIds.length + invalidEntries.length + missingFiles.length
+      + missingReferences.length + invalidSlices.length;
+    return {
+      summary: {
+        diskImages: diskPaths.size,
+        manifestEntries: entries.length,
+        scenes: scenes.length,
+        unregisteredFiles: unregisteredFiles.length,
+        placeholders: placeholders.length
+      },
+      blockingCount,
+      duplicateIds,
+      invalidEntries,
+      missingFiles,
+      missingReferences,
+      invalidSlices,
+      unregisteredFiles,
+      placeholders
+    };
+  }
+
+  _normalizeGameAssetPath(path) {
+    const value = String(path || '').replace(/\\/g, '/');
+    const assetsIndex = value.indexOf('assets/');
+    return assetsIndex >= 0 ? value.slice(assetsIndex) : value.replace(/^\.\//, '');
+  }
+
+  _showAssetAuditModal(report) {
+    const escape = value => String(value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+    const section = (title, items, blocking = false) => {
+      const values = items || [];
+      return `<details ${blocking && values.length ? 'open' : ''} style="margin:8px 0;">
+        <summary style="cursor:pointer;color:${blocking && values.length ? '#ff8a80' : '#d7c59a'};">${escape(title)} (${values.length})</summary>
+        <div style="max-height:180px;overflow:auto;margin:6px 0 0 14px;font:12px/1.5 monospace;white-space:pre-wrap;">${values.length ? values.map(escape).join('\n') : '无'}</div>
+      </details>`;
+    };
+    document.getElementById('asset-audit-modal')?.remove();
+    const modal = document.createElement('div');
+    modal.id = 'asset-audit-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;';
+    const summary = report.summary;
+    modal.innerHTML = `<div style="width:min(820px,92vw);max-height:88vh;overflow:auto;background:#20242b;color:#eee;border:1px solid #596273;border-radius:8px;padding:18px;box-shadow:0 12px 40px #000;">
+      <h3 style="margin:0 0 8px;">资产审计报告</h3>
+      <div style="font-size:13px;color:#b9c2d0;">磁盘图片 ${summary.diskImages} · Manifest ${summary.manifestEntries} · 场景 ${summary.scenes} · 阻断项 ${report.blockingCount}</div>
+      ${section('重复稳定 ID', report.duplicateIds, true)}
+      ${section('Manifest 结构 / 3D fallback', report.invalidEntries, true)}
+      ${section('Manifest 指向缺失文件', report.missingFiles, true)}
+      ${section('场景缺失引用', report.missingReferences, true)}
+      ${section('无效 slice 引用', report.invalidSlices, true)}
+      ${section('未登记图片（不得直接作为正式资产）', report.unregisteredFiles)}
+      ${section('占位资产', report.placeholders)}
+      <div style="display:flex;justify-content:flex-end;margin-top:14px;"><button id="asset-audit-close" style="padding:7px 18px;">关闭</button></div>
+    </div>`;
+    modal.addEventListener('click', event => {
+      if (event.target === modal || event.target.id === 'asset-audit-close') modal.remove();
+    });
+    document.body.appendChild(modal);
   }
 
   /**
@@ -672,9 +879,9 @@ export class SceneEditorAssets {
     const dim = img ? `${img.naturalWidth}×${img.naturalHeight}` : '未加载';
 
     propsPanel.innerHTML = `
-      <div class="slice-prop-row"><label>ID:</label><input value="${imageId}" disabled style="color:#FFD700;"></div>
+      <div class="slice-prop-row"><label>ID:</label><input value="${imageId}" disabled style="color:#FFD700;" title="稳定 imageId，替换文件时保持不变"></div>
       <div class="slice-prop-row"><label>名称:</label><input type="text" id="img-asset-name" value="${asset.name || ''}"></div>
-      <div class="slice-prop-row"><label>路径:</label><input type="text" id="img-asset-path" value="${asset.src || ''}" title="图片相对路径或 URL"></div>
+      <div class="slice-prop-row"><label>替换文件:</label><input type="text" id="img-asset-path" value="${asset.src || ''}" title="修改文件路径但保留当前 imageId 和全部场景引用"></div>
       <div class="slice-prop-row"><label>尺寸:</label><input value="${dim}" disabled style="color:#88ccff;"></div>
       <div class="slice-prop-row" style="margin-top:8px;">
         <button id="img-asset-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
@@ -685,10 +892,12 @@ export class SceneEditorAssets {
     // 名称修改
     document.getElementById('img-asset-name').addEventListener('change', (e) => {
       asset.name = e.target.value;
+      addGlobalImage(imageId, { ...asset });
     });
-    // 路径修改
+    // 替换文件：稳定 imageId 与所有对象引用保持不变。
     document.getElementById('img-asset-path').addEventListener('change', (e) => {
       asset.src = e.target.value.trim();
+      addGlobalImage(imageId, { ...asset });
       editor.loadedImages.delete(imageId);
       this.loadImageAssets();
       this._updateSpriteList();
@@ -800,6 +1009,7 @@ export class SceneEditorAssets {
         editor.loadedImages.delete(imageId);
         this.loadImageAssets();
       }
+      addGlobalImage(imageId, { ...asset });
       this._updateSpriteList();
       this._showImageAssetProperties(imageId);
       editor.render();
@@ -886,6 +1096,7 @@ export class SceneEditorAssets {
       { key: 'equipment', label: '装备', kind: 'equipment' },
       { key: 'npcs', label: 'NPC', kind: 'npc' },
       { key: 'enemies', label: '敌人', kind: 'enemy' },
+      { key: 'resourceNodes', label: '资源节点', kind: 'resourceNode' },
       { key: 'shops', label: '商店', kind: 'shop' },
       { key: 'vehicles', label: '载具', kind: 'vehicle' },
       { key: 'buildings', label: '建筑', kind: 'building' }

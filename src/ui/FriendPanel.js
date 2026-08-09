@@ -363,7 +363,7 @@ export class FriendPanel {
   renderFriendItem(friend) {
     const classIcons = {
       warrior: '⚔️',
-      mage: '🔮',
+      strategist: '📜',
       archer: '🏹',
       priest: '✨'
     };

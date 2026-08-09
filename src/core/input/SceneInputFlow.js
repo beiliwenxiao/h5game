@@ -21,11 +21,13 @@ export class SceneInputFlow {
     router = null,
     gamepadManager = null,
     gamepadCombat = null,
+    onModalInput = NOOP,
     onPopupConfirm = NOOP,
     onGamepadCombat = NOOP,
     onPromptSwitch = NOOP,
     dialogue = null,
     aiming = null,
+    triggerBindings = null,
     worldInteraction = null
   } = {}) {
     this.inputManager = inputManager;
@@ -33,16 +35,19 @@ export class SceneInputFlow {
     this.router = router || runtime?.inputRouter || null;
     this.gamepadManager = gamepadManager || inputManager?.gamepad || null;
     this.gamepadCombat = gamepadCombat;
+    this.onModalInput = typeof onModalInput === 'function' ? onModalInput : NOOP;
     this.onPopupConfirm = typeof onPopupConfirm === 'function' ? onPopupConfirm : NOOP;
     this.onGamepadCombat = typeof onGamepadCombat === 'function' ? onGamepadCombat : NOOP;
     this.onPromptSwitch = typeof onPromptSwitch === 'function' ? onPromptSwitch : NOOP;
     this.dialogue = dialogue;
     this.aiming = aiming;
+    this.triggerBindings = triggerBindings;
     this.worldInteraction = worldInteraction;
     this._disposers = [];
     this._registered = false;
     this._frameStarted = false;
     this._disposed = false;
+    this._modalConsumed = false;
     this._popupConsumed = false;
   }
 
@@ -55,7 +60,7 @@ export class SceneInputFlow {
       id: 'scene-input-modal',
       constraint: null,
       handle: event => {
-        if (this._popupConsumed) return true;
+        if (this._modalConsumed || this._popupConsumed) return true;
         return wasHandled(this.onPopupConfirm(event), this.inputManager);
       }
     }));
@@ -79,6 +84,14 @@ export class SceneInputFlow {
       )
     }));
     this._disposers.push(register(InputHandler.PICKUP, {
+      id: 'scene-gathering-cancel',
+      handle: event => this.worldInteraction?.handleGatheringCancel?.(event) === true
+    }));
+    this._disposers.push(register(InputHandler.PICKUP, {
+      id: 'scene-trigger-interact',
+      handle: event => this.triggerBindings?.handleInteract?.(event) === true
+    }));
+    this._disposers.push(register(InputHandler.PICKUP, {
       id: 'scene-input-pickup',
       handle: event => this._invokeHandled(
         this.worldInteraction,
@@ -93,6 +106,7 @@ export class SceneInputFlow {
   beforeFrame(dt = 0) {
     if (this._disposed || this._frameStarted) return [];
     this._frameStarted = true;
+    this._modalConsumed = false;
     this._popupConsumed = false;
 
     if (typeof this.inputManager?.pollGamepads === 'function') {
@@ -101,12 +115,18 @@ export class SceneInputFlow {
       this.gamepadManager?.poll?.();
     }
 
-    this._popupConsumed = wasHandled(
-      this.onPopupConfirm({ dt, inputManager: this.inputManager, gamepad: this.gamepadManager }),
+    this._modalConsumed = wasHandled(
+      this.onModalInput({ dt, inputManager: this.inputManager, gamepad: this.gamepadManager }),
       this.inputManager
     );
+    if (!this._modalConsumed) {
+      this._popupConsumed = wasHandled(
+        this.onPopupConfirm({ dt, inputManager: this.inputManager, gamepad: this.gamepadManager }),
+        this.inputManager
+      );
+    }
 
-    if (!this._popupConsumed) this._updateGamepadCombat(dt);
+    if (!this._modalConsumed && !this._popupConsumed) this._updateGamepadCombat(dt);
     this.onPromptSwitch(dt);
 
     if (!this.router?.update) return [];
@@ -133,6 +153,7 @@ export class SceneInputFlow {
   /** 结束本次编排但不清输入，供转场提前返回路径使用。 */
   releaseFrame() {
     this._frameStarted = false;
+    this._modalConsumed = false;
     this._popupConsumed = false;
   }
 

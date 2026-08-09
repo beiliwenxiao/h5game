@@ -29,7 +29,7 @@ export class CharacterScene extends Scene {
         // 角色创建表单
         this.createForm = {
             nameInput: '',
-            selectedClass: 'warrior', // 'warrior', 'mage', 'archer'
+            selectedClass: 'warrior', // 'warrior', 'strategist', 'archer'
             isInputActive: false,
             cursorBlink: 0
         };
@@ -41,9 +41,9 @@ export class CharacterScene extends Scene {
                 description: '近战物理攻击，高生命值和防御',
                 color: '#ff6b6b'
             },
-            mage: {
-                name: '法师',
-                description: '远程魔法攻击，高魔法伤害',
+            strategist: {
+                name: '军师',
+                description: '战场谋略与符阵辅助，擅长范围控制',
                 color: '#4a9eff'
             },
             archer: {
@@ -621,7 +621,7 @@ export class CharacterScene extends Scene {
     getClassStats(classKey) {
         const baseStats = {
             warrior: { hp: 150, maxHp: 150, mp: 50, maxMp: 50, attack: 15, defense: 10, speed: 150 },
-            mage: { hp: 80, maxHp: 80, mp: 150, maxMp: 150, attack: 25, defense: 5, speed: 180 },
+            strategist: { hp: 80, maxHp: 80, mp: 150, maxMp: 150, attack: 25, defense: 5, speed: 180 },
             archer: { hp: 100, maxHp: 100, mp: 80, maxMp: 80, attack: 18, defense: 7, speed: 200 }
         };
         return baseStats[classKey] || baseStats.warrior;
@@ -633,7 +633,7 @@ export class CharacterScene extends Scene {
     getClassSkills(classKey) {
         const classSkills = {
             warrior: ['basic_attack', 'power_strike', 'shield_bash'],
-            mage: ['basic_attack', 'fireball', 'ice_lance'],
+            strategist: ['basic_attack', 'strategist_fire_talisman', 'strategist_binding_talisman'],
             archer: ['basic_attack', 'multi_shot', 'poison_arrow']
         };
         return classSkills[classKey] || classSkills.warrior;

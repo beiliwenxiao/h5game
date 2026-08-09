@@ -509,7 +509,7 @@ VehicleSystem:
   - **Stage 1 可玩数据驱动场景（已交付）**：`scenes/DataDrivenPrologueScene.js` = **extends BaseGameScene + 迁移(复制) Act1 通用代码**（不继承 Act1，避免带入脚本）。迁移内容：相机限制 clampCameraToBasin、地形碰撞 checkTerrainCollision/checkCampfireCollision/_resolveShapeCollision/_pushOutOfPolygon/_closestOnSegment、火堆渲染 renderCampfireBottom/Top、火焰粒子 lightCampfire、火焰动画 updateCampfireAnimation、地形+装饰 Y-sort 渲染。**不含** Act1 脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）。`?ddscene=1` 进本场景（默认仍进旧 Act1）。当前：真实地形可自由走动（相机限盆地）+ 多边形/树/水池碰撞 + 火堆+火焰粒子 + sceneEnter 触发器（showTip）。
   - **关键架构决策**：数据驱动场景**继承 BaseGameScene 复用可玩管线**，只把脚本流程数据化，绝不重写玩家/相机/战斗/渲染。
   - **迁移进度**：
-    - [x] ② 点火交互：`DataDrivenPrologueScene._checkCampfireInteract()` 靠近火堆按 E/点击 → `fire('interact',{target:'campfire'})`；GameProject 触发器 `trg_campfire_interact`(interact→lightCampfire) + `trg_campfire_autolight`(timer 10s→lightCampfire，`if ddScene==true` 仅本场景生效)；场景注册 `lightCampfire` 动作调 `this.lightCampfire()`（含火焰粒子）。火堆初始熄灭，交互/超时点燃。
+    - [x] ② 点火交互：S01 场景 JSON 保存 `type:'trigger'` 空间 binding（`triggerId:'trg_s01_light_campfire'`，含位置/半径/目标/提示），`WorldMapLoadSession` 只投影一次后交给 `SceneTriggerBindingSystem`；E、触屏、Xbox A/X 与左键统一经 `SceneInputFlow/InputActionRouter` 调用 `TriggerSystem.fireById()`，再由 `game.project.json` 中唯一行为定义执行 `lightCampfire`。禁止恢复 `_checkCampfireInteract()` 专用扫描。
     - [x] 开场迷雾：迁移 fog（模糊黑雾 + 玩家周围 2.5D 椭圆透光，点火后淡出）——updateFog + render 叠加 + lightCampfire 触发 targetOpacity=0。
     - [x] ③ 拾取物（方案A：库定义 + 场景放置 + 组激活）：物品/装备**明细**移入内容库 `library.items/equipment`（残羹/破旧衣服/木剑，无坐标）；**位置**由场景编辑器「资源库·内容」拖入生成 `type:'ref'` 放置点（存 kind/ref/x/y/group）；触发器 `trg_spawn_pickup`(campfireLit→`spawnGroup{group:'act1_pickups'}`) 只给组名；运行时 `DataDrivenPrologueScene._spawnGroup` 按组找放置点 + 从 registries 取库定义 + 放置点坐标 → push 到 pickupItems/equipmentItems（继承 PickupSystem 拾取）。事件源 `campfireLit`。**三者解耦**：明细在库、位置在场景、触发器只引用组名。
     - [x] ④ 刷怪波次（对齐旧 Act1 双波流程）：`_spawnGroup` 支持 kind=enemy/npc/building/vehicle（经 EntityFactory + registries 实例化，敌人入 entities+enemyEntities，AI/战斗继承自 BaseGameScene）；`waveCleared`（某组敌人全灭，每组一次，逐渐生成波须全部生成完才判定）。**流程**：
@@ -522,7 +522,8 @@ VehicleSystem:
   - **P4-5 序章流程链路已全部数据化**（对齐旧 Act1）：醒来→移动→点火→拾残羹(掉装备)→拾木剑→**装备武器**→刷野狗(第一波)→清波按 N→饥民围困(第二波逐渐涌入)→全灭→20s 倒计时→死亡黑屏→切第二幕。全程 事件源→触发器→动作+组激活，零硬编码。
   - **新增事件源**：`interact`/`campfireLit`/`itemPickup`/`equipItem`/`nextWave`/`kill`/`waveCleared`/`playerMoved`/`panelOpen`；**系统级通用事件源**（GameLoader 桥接，见 §17.3）：`questComplete`/`questProgress`/`dialogueEnd`。
   - **新增场景动作**：`lightCampfire`/`spawnGroup`/`spawnStarvingWave`/`promptNextWave`/`sceneCountdown`/`promptSwitch`（均入 TriggerEditor 列表；when/action 下拉保留自定义值）。
-  - **编辑器健壮性修复**：TriggerEditor 的 when.type / action 下拉现在保留列表外的自定义值（显示"自定义: xxx"），避免编辑保存时把 campfireLit/lightCampfire/spawnGroup 等场景专属值重置丢失。
+  - **统一触发器架构**：`game.project.json.triggers[]` 是条件/动作/once/cooldown 的唯一行为源，场景 JSON 的 trigger 对象只保存空间 binding，并以稳定 `triggerId` 引用行为。编辑器不再双向复制或在 `(10,10)` 自动生成触发器；项目行为由 TriggerEditor 保存，场景 binding 由 SceneEditor 保存。共享 `TriggerCatalog` 同时驱动编辑器事件/动作选项、摘要和未知动作校验，Demo 专属动作通过 `project.triggerCatalog` 扩展。
+  - **编辑器可视化**：场景画布显示空间 binding 的范围、目标、事件和行为摘要，悬空 `triggerId` 标红；属性面板提供项目行为下拉、“编辑行为”和只读预演摘要。非空间触发器继续在 TriggerEditor 全局视图中编辑。
   - **拾取物图标**：暂由 BaseGameScene 按 item.id 硬编码绘制（leftover_food/ragged_clothes/wooden_sword/wooden_bow/wooden_arrow 有专属画法，其它画默认圆点）；后续可数据化为库 icon 字段。
 
 ### 18. 资源库 / 内容库 信息架构重构（已实施）

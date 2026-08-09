@@ -25,13 +25,13 @@ describe('FriendSystem', () => {
         id: 'friend1',
         name: '测试好友',
         level: 10,
-        class: 'mage'
+        class: 'strategist'
       });
 
       expect(friend.id).toBe('friend1');
       expect(friend.name).toBe('测试好友');
       expect(friend.level).toBe(10);
-      expect(friend.class).toBe('mage');
+      expect(friend.class).toBe('strategist');
       expect(friend.status).toBe(FriendStatus.OFFLINE);
     });
 
@@ -195,11 +195,11 @@ describe('FriendSystem', () => {
 
     it('应该能更新好友信息', () => {
       friendSystem.addFriend({ id: 'f1', name: '好友1', level: 10 });
-      friendSystem.updateFriendInfo('f1', { level: 15, class: 'mage' });
+      friendSystem.updateFriendInfo('f1', { level: 15, class: 'strategist' });
 
       const friend = friendSystem.getFriend('f1');
       expect(friend.level).toBe(15);
-      expect(friend.class).toBe('mage');
+      expect(friend.class).toBe('strategist');
     });
 
     it('应该能增加亲密度', () => {

@@ -26,6 +26,9 @@ export class StatsComponent extends Component {
    * @param {Object} stats - 属性配置
    * @param {number} stats.maxHp - 最大生命值
    * @param {number} stats.maxMp - 最大魔法值
+   * @param {number} stats.maxStamina - 最大体力值
+   * @param {number} stats.stamina - 当前体力值
+   * @param {number} stats.staminaRegen - 每秒体力恢复值
    * @param {number} stats.attack - 攻击力
    * @param {number} stats.defense - 防御力
    * @param {number} stats.speed - 移动速度
@@ -42,6 +45,8 @@ export class StatsComponent extends Component {
     // 基础属性（不受属性点影响的原始值）
     this.baseMaxHp = stats.maxHp || 100;
     this.baseMaxMp = stats.maxMp || 100;
+    this.baseMaxStamina = stats.maxStamina || 100;
+    this.baseStaminaRegen = stats.staminaRegen ?? 12;
     this.baseAttack = stats.attack || 10;
     this.baseDefense = stats.defense || 5;
     this.baseSpeed = stats.speed || 100;
@@ -51,6 +56,9 @@ export class StatsComponent extends Component {
     this.hp = stats.hp !== undefined ? stats.hp : this.maxHp;
     this.maxMp = this.baseMaxMp;
     this.mp = stats.mp !== undefined ? stats.mp : this.maxMp;
+    this.maxStamina = this.baseMaxStamina;
+    this.stamina = stats.stamina !== undefined ? stats.stamina : this.maxStamina;
+    this.staminaRegen = Math.max(0, Number(this.baseStaminaRegen) || 0);
     this.attack = this.baseAttack;
     this.defense = this.baseDefense;
     this.speed = this.baseSpeed;
@@ -72,6 +80,13 @@ export class StatsComponent extends Component {
     
     // 属性效果缓存
     this.attributeEffects = null;
+  }
+
+  /** 每帧恢复体力；deltaTime 使用引擎统一的秒单位。 */
+  update(deltaTime) {
+    const elapsed = Math.max(0, Number(deltaTime) || 0);
+    if (elapsed <= 0 || this.stamina >= this.maxStamina || this.staminaRegen <= 0) return;
+    this.stamina = Math.min(this.maxStamina, this.stamina + this.staminaRegen * elapsed);
   }
 
   /**
@@ -165,9 +180,10 @@ export class StatsComponent extends Component {
    */
   levelUp() {
     this.level++;
-    // 升级时恢复满血满蓝
+    // 升级时恢复满血、满蓝与满体力
     this.hp = this.maxHp;
     this.mp = this.maxMp;
+    this.stamina = this.maxStamina;
   }
 
   /**
@@ -176,6 +192,7 @@ export class StatsComponent extends Component {
   fullRestore() {
     this.hp = this.maxHp;
     this.mp = this.maxMp;
+    this.stamina = this.maxStamina;
   }
 
   /**

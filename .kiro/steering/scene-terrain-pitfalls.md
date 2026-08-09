@@ -1,3 +1,7 @@
+---
+inclusion: manual
+---
+
 # Scene1Terrain 常见陷阱
 
 ## 对象引用共享导致 worldOffset 双重偏移

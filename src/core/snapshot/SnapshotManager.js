@@ -261,7 +261,8 @@ export class SnapshotManager {
       }
 
       if (failure) {
-        this._rollback(rollback.snapshot, restored);
+        // 当前 provider 可能在返回失败前已部分写入；必须连同它一起回滚。
+        this._rollback(rollback.snapshot, [...restored, key]);
         return { ok: false, errors: failure };
       }
 
@@ -278,7 +279,7 @@ export class SnapshotManager {
    * @param {Array<string>} restoredKeys
    */
   _rollback(snapshot, restoredKeys) {
-    for (const key of restoredKeys) {
+    for (const key of [...restoredKeys].reverse()) {
       const provider = this.providers.get(key);
       const section = snapshot.data ? snapshot.data[key] : undefined;
       if (!provider || section === undefined) continue;

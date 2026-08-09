@@ -98,7 +98,8 @@ export function createStandardRegistries() {
     classes: new Registry('classes'),
     skills: new Registry('skills'),
     vehicles: new Registry('vehicles'),
-    buildings: new Registry('buildings')
+    buildings: new Registry('buildings'),
+    resourceNodes: new Registry('resourceNodes')
   };
 }
 

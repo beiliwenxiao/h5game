@@ -27,17 +27,31 @@ import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
+import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
 import { PlacementSpawner } from '../../../src/core/scene/PlacementSpawner.js';
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
+import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
+import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
+import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
+import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
+
+const S01_TUTORIAL_KEYS = Object.freeze([
+  'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
+]);
+const S01_TUTORIAL_IDS = Object.freeze(S01_TUTORIAL_KEYS.map(key => `s01.${key}`));
+const S09_CITY_ID = 'city.s09_guangzong_camp';
+const S09_REFUGEE_DIALOGUE_ID = 'dialogue.s09.refugeeConflict';
+const S09_REFUGEE_GROUP = 'S09-refugee-conflict';
+const S09_SILENCE_EVENT_TYPE = 's09.silenceFoodCollapse';
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -46,9 +60,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   constructor() {
     super({
       name: 'DataDrivenPrologueScene',
-      title: '数据驱动序章',
-      description: '数据驱动大地图场景'
+      title: '三国张角传',
+      description: 'S01 干旱平原'
     });
+    this.currentSceneId = 'S01';
 
     // 盆地火堆（含火焰帧动画字段，迁移自 Act1）
     // 局部坐标，enter() 中会加 worldOffset
@@ -98,11 +113,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.gameLoader = null;
     this.progressionViewModel = null;
     this.progressionPanel = null;
+    this.proficiencySystem = null;
+    this.cityStateSummaryPanel = null;
     this._progressionBootstrap = { isNewGame: false };
+    this.classSystem = null;
+    this._classSelected = false;
+    this.selectedClass = null;
+    this._classConfirm = null;
+    this._classSelectionBusy = false;
+    this._appliedGatheringPolicyOperations = new Set();
+    this._s09RefugeeChoiceBusy = false;
+    this._processingDelayedStoryEvents = false;
 
-    // 天气系统和时间系统（配置从 game.project.json 的 system 字段加载）
+    // 天气系统和时间系统；游戏日从 1 开始并随完整昼夜周期推进。
     this.weatherSystem = new WeatherSystem();
-    this.timeSystem = new TimeSystem({ enabled: false }); // 默认禁用，异步加载配置后启用
+    this.timeSystem = new TimeSystem({ enabled: true, currentDay: 1 });
   }
 
   /** 由宿主在 GameLoader 完成前标记本次启动是新档还是读档。 */
@@ -110,9 +135,56 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._progressionBootstrap = { isNewGame: isNewGame === true };
   }
 
+  /** 启动闸门：只接受位于 20×20 网格 (1,1) 的 canonical S01。 */
+  _validateWorldLoadResult(result) {
+    const region = result?.region;
+    const errors = Array.isArray(result?.errors) ? result.errors : [];
+    const grid = region?.grid;
+    const chunk = result?.chunks?.find(item => item.sceneId === 'S01');
+    const valid = errors.length === 0
+      && region?.cols === 20
+      && region?.rows === 20
+      && Array.isArray(grid)
+      && grid.length === 20
+      && grid[1]?.[1] === 'S01'
+      && chunk?.row === 1
+      && chunk?.col === 1
+      && chunk?.offset?.x === 1280
+      && chunk?.offset?.y === 720
+      && Array.isArray(chunk?.sceneData?.layers);
+    if (!valid) {
+      const detail = errors[0]?.message || 'S01 必须位于 20×20 网格 (1,1)，且场景 layers 必须有效';
+      throw new Error(`世界内容校验失败: ${detail}`);
+    }
+    return result;
+  }
+
+  _createWorldLoadSession(scope = this.resourceScope) {
+    const gameId = 'sanguo_zhangjiao';
+    return new WorldMapLoadSession({
+      scope,
+      loadProject: async projectUrl => {
+        const response = await fetch(projectUrl);
+        if (!response.ok) throw new Error(`加载 ${projectUrl} 失败: HTTP ${response.status}`);
+        return response.json();
+      },
+      loadScene: async sceneId => {
+        const scene = await loadSceneFromFile(sceneId);
+        if (!scene || !Array.isArray(scene.layers)) throw new Error(`场景 JSON 无有效 layers: ${sceneId}`);
+        return scene;
+      },
+      loadSceneFallback: sceneId => {
+        const scene = loadSceneFromStorage(gameId, sceneId);
+        if (!scene || !Array.isArray(scene.layers)) throw new Error(`场景缓存无有效 layers: ${sceneId}`);
+        return scene;
+      }
+    });
+  }
+
   enter(data = null) {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
+    this._configureS01Tutorial();
 
     this.resourceScope?.track(() => {
       for (const emitter of this.campfire.emitters) emitter.active = false;
@@ -127,14 +199,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.context.world.terrain = null;
       this.context.world.terrains = null;
       this.context.world.region = null;
+      this._pendingResourceNodeStates?.clear?.();
+      this._pendingPlacementStates?.clear?.();
+      this._regionDynamicStates?.clear?.();
       this.gameLoader = null;
+      this.classSystem = null;
+      this.proficiencySystem = null;
+      this.cityStateSummaryPanel = null;
+      this._classConfirm = null;
+      this._classSelectionBusy = false;
     });
 
     // 大地图 chunk 偏移：从 game.project.json worldMap 动态加载地形
     // 编辑器中每个 scene 的坐标是 0~chunkWidth 局部坐标，运行时加 worldOffset 转为世界坐标
     const chunkWidth = 1280;
     const chunkHeight = 720;
-    this._prologueOffset = { x: 1 * chunkWidth, y: 0 * chunkHeight };
+    this._prologueOffset = { x: 1 * chunkWidth, y: 1 * chunkHeight };
 
     // 同步先把火堆/玩家/相机放到正确的世界位置（默认序章 chunk 偏移），
     // 避免异步 _applySpawnPoints 完成前先渲染在局部坐标再"跳变"到目标位置。
@@ -159,30 +239,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._teleportFade = null;
 
     // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
-    const gameId = 'sanguo_zhangjiao';
     const scope = this.resourceScope;
-    this._worldLoadSession = new WorldMapLoadSession({
-      scope,
-      loadProject: async projectUrl => {
-        const response = await fetch(projectUrl);
-        if (!response.ok) throw new Error(`加载 ${projectUrl} 失败: HTTP ${response.status}`);
-        return response.json();
-      },
-      loadScene: async sceneId => {
-        const scene = await loadSceneFromFile(sceneId);
-        if (!scene || !Array.isArray(scene.layers)) {
-          throw new Error(`场景 JSON 无有效 layers: ${sceneId}`);
-        }
-        return scene;
-      },
-      loadSceneFallback: sceneId => {
-        const scene = loadSceneFromStorage(gameId, sceneId);
-        if (!scene || !Array.isArray(scene.layers)) {
-          throw new Error(`场景缓存无有效 layers: ${sceneId}`);
-        }
-        return scene;
-      }
-    });
+    this._worldLoadSession = this._createWorldLoadSession(scope);
     this._worldReadyGate = new WorldReadyGate({
       required: ['terrains', 'placements'],
       timeout: 3000,
@@ -195,6 +253,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._sceneReady = false;
     this._terrainsLoaded = false;
     this._spawnApplied = false;
+    this._pendingResourceNodeStates = new Map();
+    this._pendingPlacementStates = new Map();
+    this._regionDynamicStates = new Map();
+    this._currentRegionIndex = 0;
+    this._worldLoadResult = null;
+    this._regionCoordinator = new RegionCoordinator({
+      createSession: () => this._createWorldLoadSession(this.resourceScope),
+      getCurrentSession: () => this._worldLoadSession,
+      captureDraft: () => ({
+        saveState: this.captureSaveState(),
+        worldResult: this._worldLoadResult,
+        regionIndex: this._currentRegionIndex
+      }),
+      validateTarget: context => this._validateRegionTarget(context),
+      commitTarget: context => this._commitRegionTarget(context),
+      restoreDraft: context => this._restoreRegionDraft(context)
+    });
 
     this._fadeOverlayTransition = new FadeOverlayTransition({ duration: 0.3, scope });
     this._placementSpawner = new PlacementSpawner({
@@ -205,7 +280,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       onNpcImageError: scope?.guard(({ url }) => {
         console.warn('[DDScene] NPC 图集加载失败（将用占位）:', url);
       }),
-      onSpawn: scope?.guard(({ entity, kind, group }) => {
+      shouldSpawn: ({ placement }) => this._shouldSpawnPlacement(placement),
+      onSpawn: scope?.guard(({ entity, kind, group, placement }) => {
+        if (entity && Array.isArray(placement?.tags)) {
+          entity.tags = [...new Set([...(entity.tags || []), ...placement.tags])];
+        }
+        if (kind === 'resourceNode') this._applyPendingResourceNodeState(entity);
+        if (this._applyPendingPlacementState(entity, placement)) return;
         if (kind === 'npc') {
           this._npcEntities = this._npcEntities || [];
           this._npcEntities.push(entity);
@@ -222,7 +303,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getPlayer: () => this.playerEntity,
       getCamera: () => this.camera,
       onSceneEnter: async ({ sceneId, x, y }) => {
+        this.currentSceneId = sceneId;
         if (this.gameLoader?.triggerSystem) {
+          const blackboard = this.gameLoader.blackboard;
+          const storyState = blackboard?.get?.('storyState');
+          if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
         // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
@@ -239,7 +324,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       },
       transition: (type, commit) => type === 'fadeBlack' ? this._fadeTransition(commit) : commit()
     });
-    this._worldLoadPromise = this._worldLoadSession.load({ projectUrl: 'game.project.json', regionIndex: 0 });
+    this._worldLoadPromise = this._worldLoadSession
+      .load({ projectUrl: 'game.project.json', regionIndex: 0 })
+      .then(result => {
+        const validated = this._validateWorldLoadResult(result);
+        this._worldLoadResult = validated;
+        return validated;
+      });
     this._loadWorldTerrains();
 
     // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
@@ -299,26 +390,30 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 开场迷雾淡出
     this.updateFog(deltaTime);
 
-    // 天气和时间系统更新
+    // 天气和时间系统更新；跨日后只投影一次 StoryState 并处理到期事件。
     if (this.weatherSystem) this.weatherSystem.update(deltaTime);
-    if (this.timeSystem) this.timeSystem.update(deltaTime);
+    if (this.timeSystem) {
+      const previousDay = this.timeSystem.getCurrentDay();
+      this.timeSystem.update(deltaTime);
+      const currentDay = this.timeSystem.getCurrentDay();
+      if (currentDay !== previousDay) this._onGameDayChanged(currentDay);
+    }
+    this._processDueStoryEvents();
+    this._updateCityStateSummary();
 
     // 提示切幕已由 SceneInputFlow 在帧首统一处理，确保手柄/键鼠只消费一次。
 
     // 提示按 N 进入下一波（同样在 super.update 前检测按键）
     this._updatePromptNextWave();
 
-    // 事件源：靠近火堆按 E / 点击 → fire('interact', {target:'campfire'})（同样需要在 inputManager.update 之前检测按键）
-    this._checkCampfireInteract();
-
     // 职业确认窗口检测（第四幕，确认窗口打开时优先处理点击，阻止穿透到 NPC 交互）
     this._updateClassConfirmation();
 
-    // NPC 交互：靠近 NPC 按 E / 点击 → 触发其对话/商店
+    // NPC 交互候选尚未迁移，保留现有专用路径。
     this._checkNpcInteract();
 
-    // 事件源：场景触发器靠近检测（approach）
-    this._checkApproachTriggers();
+    // approach/enter/leave 统一由框架空间绑定系统处理。
+    this._sceneTriggerBindings?.update();
 
     // 调试面板快捷键：反引号 `
     if (debugPanelKeyPressed) {
@@ -402,6 +497,154 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
+  _configureS01Tutorial() {
+    const tutorials = [
+      ['move', '移动', '使用 {move} 移动，离开火堆附近。'],
+      ['attack', '攻击', '使用 {attack} 进行一次攻击。'],
+      ['pickup', '拾取', '靠近物资后使用 {pickup} 拾取。'],
+      ['jump', '跳跃', '使用 {jump} 越过障碍。'],
+      ['gather', '采集', '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。'],
+      ['durability', '工具耐久', '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。'],
+      ['capacity', '背包容量', '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。']
+    ];
+    for (const [key, title, text] of tutorials) {
+      this.tutorialSystem.registerTutorial(`s01.${key}`, {
+        title, steps: [{ text }], category: 's01-survival', canSkip: false, autoTrigger: false
+      });
+    }
+    this.tutorialSystem.onShow(data => {
+      this._showScreenTip(data?.step?.text || '', {
+        title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
+      });
+    });
+    this.tutorialSystem.onHide(() => this._hideScreenTip('tutorial'));
+    this.tutorialSystem.onComplete(() => {
+      this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
+    });
+  }
+
+  _showNextS01Tutorial() {
+    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isShowingTutorial()) return false;
+    const next = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
+    return next ? this.tutorialSystem.showTutorial(next) : false;
+  }
+
+  _completeS01TutorialStep(key) {
+    const id = `s01.${key}`;
+    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isTutorialCompleted(id)) return false;
+    this.tutorialSystem.completeTutorial(id);
+    if (!this.tutorialSystem.isShowingTutorial()) this._showNextS01Tutorial();
+    return true;
+  }
+
+  onPlayerTutorialAction(action) {
+    if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
+  }
+
+  /** S09 未许可采粮政策参与 GatheringSystem 提交，前置失败不会消耗节点或工具。 */
+  prepareGatheringSettlement(context = {}) {
+    const { operationId, node, owner } = context;
+    if (this.currentSceneId !== 'S09' || node?.resourceType !== 'food') return null;
+    if (this._appliedGatheringPolicyOperations.has(operationId)) {
+      return { ok: true, idempotent: true };
+    }
+    const blackboard = this.gameLoader?.blackboard;
+    const permissions = blackboard?.get?.('resourcePermissions') || {};
+    if (permissions.S09?.food === true) return null;
+
+    const cityStates = blackboard?.get?.('cityStates');
+    const cityIndex = Array.isArray(cityStates)
+      ? cityStates.findIndex(city => city?.id === 'city.s09_guangzong_camp')
+      : -1;
+    if (cityIndex < 0 || !owner?.id) return { ok: false, code: 'missingS09CityState' };
+    const cityValidation = this.gameLoader?.contentValidator?.validate?.(
+      cityStates[cityIndex], 'city', `variables.cityStates[${cityIndex}]`
+    );
+    if (cityValidation && !cityValidation.ok) return { ok: false, code: 'invalidS09CityState' };
+    const reputationBefore = Number(blackboard.get('reputation'));
+    if (!Number.isFinite(reputationBefore)) return { ok: false, code: 'invalidReputation' };
+
+    const storyBefore = JSON.parse(JSON.stringify(blackboard.get('storyState') || {}));
+    const guardIds = Array.isArray(node.guardUnitIds) ? node.guardUnitIds : [];
+    const guards = guardIds
+      .map(id => (this.enemies || []).find(enemy => enemy?.id === id))
+      .filter(Boolean);
+    if (guards.length !== guardIds.length) return { ok: false, code: 'missingS09GranaryGuards' };
+    const guardStates = guards.map(guard => ({
+      guard,
+      state: this.aiSystem?.getRuntimeState?.(guard)
+    }));
+
+    return {
+      ok: true,
+      commit: () => {
+        blackboard.set('reputation', Math.max(0, reputationBefore - 5));
+        blackboard.set('storyState', {
+          ...storyBefore,
+          s09UnauthorizedHarvests: Math.max(0, Number(storyBefore.s09UnauthorizedHarvests) || 0) + 1
+        });
+        for (const guard of guards) {
+          if (this._isEntityDead(guard)) continue;
+          if (!this.aiSystem?.activateAI?.(guard, guard.aiType || 'aggressive')) {
+            throw new Error(`无法激活粮仓哨兵: ${guard.id}`);
+          }
+        }
+        this._appliedGatheringPolicyOperations.add(operationId);
+        return { ok: true };
+      },
+      rollback: () => {
+        blackboard.set('reputation', reputationBefore);
+        blackboard.set('storyState', storyBefore);
+        for (const entry of guardStates) {
+          if (entry.state) this.aiSystem?.restoreRuntimeState?.(entry.guard, entry.state);
+        }
+        this._appliedGatheringPolicyOperations.delete(operationId);
+      }
+    };
+  }
+
+  onGatheringEvent(event, data = {}) {
+    if (event === 'completed' && data.idempotent === true) {
+      this._showScreenTip('该次采集已经结算，不会重复获得资源或扣除声望。');
+      return;
+    }
+    super.onGatheringEvent(event, data);
+    if (event === 'completed' && this._appliedGatheringPolicyOperations.has(data.operationId)) {
+      this._showScreenTip('未获许可取走粮食：声望 -5，粮仓哨兵已被惊动。');
+    }
+    if (event === 'completed' && Number(data.accepted) > 0 && data.operationId) {
+      const definition = this.proficiencySystem?.getDefinition?.('gathering');
+      const amount = Math.max(1, Math.floor(Number(data.accepted) * (definition?.experiencePerUnit || 1)));
+      const experienceResult = this.proficiencySystem?.gainExperience?.({
+        characterId: this.playerEntity?.id,
+        type: 'gathering',
+        amount,
+        operationId: `gathering:${data.operationId}`
+      });
+      if (experienceResult?.ok === false) {
+        console.warn('[DDScene] 采集熟练度提交失败:', experienceResult.code);
+      }
+    }
+    if (event === 'riskTriggered') {
+      this.gameLoader?.triggerSystem?.fire?.('gatheringRisk', {
+        riskId: data.id,
+        riskType: data.type,
+        nodeId: data.nodeId
+      });
+      return;
+    }
+    if (event !== 'completed') return;
+    if (!this.tutorialSystem.isTutorialCompleted('s01.gather')) {
+      this._completeS01TutorialStep('gather');
+      return;
+    }
+    if (!this.tutorialSystem.isTutorialCompleted('s01.durability')) {
+      if (data.toolInstanceId) this._completeS01TutorialStep('durability');
+      return;
+    }
+    this._completeS01TutorialStep('capacity');
+  }
+
   /**
    * ① 渐进提示事件源：
    *   - playerMoved：玩家离开出生点一定距离 → fire('playerMoved')（一次）
@@ -411,15 +654,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _checkTutorialEventSources() {
     if (!this.gameLoader) return;
     const trig = this.gameLoader.triggerSystem;
-    if (!this._tutFired) this._tutFired = new Set();
 
-    // playerMoved
+    // playerMoved：完成事实只存 TutorialSystem.completedTutorials。
     const t = this.playerEntity && this.playerEntity.getComponent('transform');
     if (t) {
       if (!this._startPos) this._startPos = { x: t.position.x, y: t.position.y };
-      if (!this._tutFired.has('moved')) {
+      if (!this.tutorialSystem.isTutorialCompleted('s01.move')) {
         const d = Math.hypot(t.position.x - this._startPos.x, t.position.y - this._startPos.y);
-        if (d > 60) { this._tutFired.add('moved'); trig.fire('playerMoved', {}); }
+        if (d > 60) {
+          this._completeS01TutorialStep('move');
+          trig.fire('playerMoved', {});
+        }
       }
     }
 
@@ -439,10 +684,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _startPromptSwitch(p = {}) {
+    const scene = p.scene || p.sceneId || null;
+    if (!scene) {
+      console.warn('[DDScene] promptSwitch: 缺少 canonical 目标场景');
+      return;
+    }
     this._promptSwitch = {
-      scene: p.scene || 's1-1',
+      scene,
       spawnRef: p.spawnRef || null,
-      text: p.text || '序章完成 — 按 N 或 交互键(E) 进入下一幕'
+      text: p.text || '当前区域目标已完成'
     };
   }
 
@@ -619,8 +869,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   _startSceneCountdown(p = {}) {
     if (this._countdown) return; // 已在倒计时
+    const scene = p.scene || p.sceneId || null;
+    if (!scene) {
+      console.warn('[DDScene] sceneCountdown: 缺少 canonical 目标场景');
+      return;
+    }
     this._countdown = {
-      scene: p.scene || 's1-1',
+      scene,
       remain: p.seconds != null ? p.seconds : 20,
       text: p.text || '战斗结束！可以拾取物品'
     };
@@ -666,9 +921,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * 覆盖 BaseGameScene.switchToNextScene：传送到数据指定的目标区块
    */
   switchToNextScene() {
-    const scene = this._nextSceneTarget || 's1-1';
+    const scene = this._nextSceneTarget;
+    if (!scene) {
+      console.warn('[DDScene] switchToNextScene: 没有已配置的 canonical 目标场景');
+      return false;
+    }
     console.log('[DDScene] switchToNextScene → teleportToChunk:', scene);
-    this.teleportToChunk({ scene, transition: 'fadeBlack' });
+    return this.teleportToChunk({ scene, transition: 'fadeBlack' });
   }
 
   /**
@@ -693,25 +952,489 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
+  _findRegionIndexForScene(sceneId) {
+    const regions = this._worldLoadResult?.project?.worldMap?.regions || [];
+    return regions.findIndex(region => {
+      if ((region.chunks || []).some(chunk => chunk?.sceneId === sceneId)) return true;
+      return (region.grid || []).some(row => (row || []).includes(sceneId));
+    });
+  }
+
+  async prepareRestoreRegion(saveState = {}) {
+    const sceneId = saveState?.currentSceneId;
+    const regionIndex = this._findRegionIndexForScene(sceneId);
+    if (regionIndex < 0) {
+      return { ok: false, errors: [{ code: 'missingTargetScene', path: 'currentSceneId', message: `存档场景 ${sceneId} 不在世界地图中` }] };
+    }
+    if (regionIndex === this._currentRegionIndex) return { ok: true, errors: [] };
+    return this._regionCoordinator.switchTo({
+      projectUrl: 'game.project.json', regionIndex, sceneId, spawnRef: 'player'
+    });
+  }
+
+  async travelToRegion({ regionIndex, sceneId, spawnRef = 'player' } = {}) {
+    const result = await this._regionCoordinator?.switchTo?.({
+      projectUrl: 'game.project.json', regionIndex, sceneId, spawnRef
+    });
+    if (!result?.ok) {
+      const message = result?.errors?.[0]?.message || `无法进入 ${sceneId || '目标区域'}`;
+      this._showScreenTip(message, { title: '大区切换失败' });
+      return result || { ok: false, errors: [{ code: 'regionCoordinatorUnavailable', path: 'region', message }] };
+    }
+    const saveResult = await this.requestAutoSave({ reason: 'region-change', sceneId });
+    if (!saveResult?.ok) this._showScreenTip('已进入目标区域，但自动存档失败', { title: '保存失败' });
+    return result;
+  }
+
+  _validateRegionTarget({ request, result, shadowSession }) {
+    const errors = [...(result?.errors || []).map((entry, index) => ({
+      code: 'regionLoadFailed', path: `region.errors[${index}]`, message: entry.message || String(entry.error || entry)
+    }))];
+    const region = result?.region;
+    if (!region) errors.push({ code: 'missingRegion', path: 'region', message: `未找到大区索引 ${request.regionIndex}` });
+    if (region?.previewOnly === true) errors.push({ code: 'previewRegion', path: 'region.previewOnly', message: '预览大区不能进入主流程' });
+    const chunk = result?.chunks?.find(entry => entry.sceneId === request.sceneId);
+    if (!chunk) errors.push({ code: 'missingTargetScene', path: 'region.chunks', message: `目标大区不包含 ${request.sceneId}` });
+    if (chunk?.sceneData?.previewOnly === true || chunk?.sceneData?.productionState === 'greybox') {
+      errors.push({ code: 'previewScene', path: `scenes.${request.sceneId}`, message: `${request.sceneId} 尚未达到可玩状态` });
+    }
+    if (!shadowSession?.findSpawn?.(request.sceneId, request.spawnRef || 'player')) {
+      errors.push({ code: 'missingSpawn', path: `scenes.${request.sceneId}.spawn`, message: `${request.sceneId} 缺少出生点 ${request.spawnRef || 'player'}` });
+    }
+    return { ok: errors.length === 0, errors };
+  }
+
+  _extractRegionDynamicState(sceneState = {}) {
+    const keys = [
+      'campfireLit', 'firedPickups', 'clearedGroups', 'resourceNodes',
+      'placementStates', 'deathDrops', 'gatheringState', 'puppetState', 'gatheringPolicyOperations',
+      'nextSceneTarget', 'playerDiedTriggered'
+    ];
+    const state = {};
+    for (const key of keys) {
+      if (sceneState[key] !== undefined) state[key] = JSON.parse(JSON.stringify(sceneState[key]));
+    }
+    return state;
+  }
+
+  _clearRegionRuntime(result = this._worldLoadResult) {
+    this.gatheringPuppetSystem?.cancelActive?.('regionUnload', { silent: true });
+    const placementIds = new Set((result?.placements || [])
+      .filter(placement => placement?.type === 'ref' && placement.id)
+      .map(placement => placement.id));
+    const values = new Set([
+      ...(this.entities || []).filter(entity => entity !== this.playerEntity),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ]);
+    for (const value of values) this.aiSystem?.unregisterAI?.(value);
+    this.entityStore?.removeMany?.(values);
+    for (const value of values) {
+      try { value?.destroy?.(); } catch (error) { /* best-effort region unload */ }
+    }
+    this._placementSpawner?.forgetPlacements?.(placementIds);
+    this._groupEnemies = {};
+    this._npcEntities = [];
+  }
+
+  async _commitRegionTarget({ request, result, shadowSession, draft }) {
+    const oldRegionId = this._worldLoadResult?.region?.id;
+    const oldSceneState = draft?.saveState?.scene;
+    if (oldRegionId && oldSceneState) {
+      this._regionDynamicStates.set(oldRegionId, this._extractRegionDynamicState(oldSceneState));
+    }
+    this._clearRegionRuntime(this._worldLoadResult);
+    this._pendingResourceNodeStates = new Map();
+    this._pendingPlacementStates = new Map();
+    this._restoreCampfireState(false);
+    this._worldLoadSession = shadowSession;
+    this._worldLoadResult = result;
+    this._currentRegionIndex = request.regionIndex;
+    this._worldLoadPromise = Promise.resolve(result);
+    this._loadWorldTerrains();
+    this._loadScenePlacements();
+    await this._worldLoadPromise;
+    await Promise.resolve();
+
+    if (this._worldRegion !== result.region || this._placements !== result.placements) {
+      return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区投影未完成' }] };
+    }
+    this.currentSceneId = request.sceneId;
+    const spawn = shadowSession.findSpawn(request.sceneId, request.spawnRef || 'player');
+    const transform = this.playerEntity?.getComponent?.('transform');
+    if (!spawn || !transform) {
+      return { ok: false, errors: [{ code: 'missingSpawn', path: `scenes.${request.sceneId}.spawn`, message: '目标出生点不可用' }] };
+    }
+    transform.position.x = spawn.x;
+    transform.position.y = spawn.y;
+    this.camera?.setPosition?.(spawn.x, spawn.y);
+
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (storyState) {
+      blackboard.set('storyState', {
+        ...storyState,
+        currentSceneId: request.sceneId,
+        unlockedScenes: [...new Set([...(storyState.unlockedScenes || []), request.sceneId])]
+      });
+    }
+    this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId: request.sceneId });
+    await this._spawnPlacements({ sceneId: request.sceneId });
+
+    const targetRegionId = result.region?.id;
+    const targetState = targetRegionId ? this._regionDynamicStates.get(targetRegionId) : null;
+    if (targetState) {
+      this._regionDynamicStates.delete(targetRegionId);
+      const restored = this.restoreSceneSaveState({
+        ...targetState,
+        regionStates: [...this._regionDynamicStates.entries()].map(([regionId, state]) => ({ regionId, state })),
+        defeatState: this.playerDefeatService?.serialize?.() || null,
+        gatheringState: targetState.gatheringState || this.gatheringSystem?.serialize?.() || null
+      });
+      if (restored?.ok === false) return restored;
+    }
+    return { ok: true, errors: [] };
+  }
+
+  async _restoreRegionDraft({ draft, oldSession }) {
+    if (!draft?.worldResult) return { ok: false, errors: [{ code: 'missingRegionDraft', path: 'region', message: '缺少旧大区回滚草稿' }] };
+    this._clearRegionRuntime(this._worldLoadResult);
+    this._worldLoadSession = oldSession || this._worldLoadSession;
+    this._worldLoadResult = draft.worldResult;
+    this._currentRegionIndex = draft.regionIndex;
+    this._worldLoadPromise = Promise.resolve(draft.worldResult);
+    this._loadWorldTerrains();
+    this._loadScenePlacements();
+    await this._worldLoadPromise;
+    await Promise.resolve();
+    return this.restoreSaveState(draft.saveState);
+  }
+
+  resolvePlayerDefeatResolution() {
+    const storyState = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    if (storyState.pendingDefeatResolution !== 'specialFaint') return { type: 'normalDeath' };
+    const allowed = ['passerby', 'patrol', 'temporaryCamp'];
+    return {
+      type: 'specialFaint',
+      rescueType: allowed.includes(storyState.specialFaintRescueType)
+        ? storyState.specialFaintRescueType
+        : 'passerby'
+    };
+  }
+
+  resolvePlayerRespawnPosition() {
+    if (this.currentSceneId === 'S01' && this.campfire?.lit) {
+      return { x: this.campfire.x + 48, y: this.campfire.y + 64, label: '已点燃的火堆旁' };
+    }
+    const spawnId = `${this.currentSceneId}-spawn-player`;
+    const spawn = (this._placements || []).find(placement => placement.id === spawnId);
+    return spawn ? { x: spawn.x, y: spawn.y, label: `${this.currentSceneId}入口` } : null;
+  }
+
+  onPlayerDefeatResolved(result = {}) {
+    if (result.type !== 'specialFaint') {
+      super.onPlayerDefeatResolved(result);
+      return;
+    }
+    const labels = { passerby: '路人救援', patrol: '小股官兵救援', temporaryCamp: '临时扎营' };
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (storyState) {
+      blackboard.set('storyState', {
+        ...storyState,
+        pendingDefeatResolution: null,
+        lastSpecialFaintRescueType: result.rescueType
+      });
+    }
+    const location = result.respawnPosition?.label || '安全处';
+    this._showScreenTip(`${labels[result.rescueType] || '路人救援'}：你在${location}醒来，未扣除资源，也未生成遗失物资`);
+  }
+
   /** Demo 专属运行状态；玩家/任务/黑板由 BaseGameScene 统一保存。 */
   captureSceneSaveState() {
+    const resourceNodeStates = new Map(this._pendingResourceNodeStates || []);
+    for (const entity of this.entities || []) {
+      const node = entity?.getComponent?.('resourceNode');
+      if (node) resourceNodeStates.set(entity.id, node.serialize());
+    }
+    const deathDrops = (this.equipmentItems || [])
+      .filter(entity => entity?.getComponent?.('deathDrop'))
+      .map(entity => ({
+        id: entity.id,
+        position: { ...entity.getComponent('transform').position },
+        state: entity.getComponent('deathDrop').serialize()
+      }));
+    const placementStates = new Map(this._pendingPlacementStates || []);
+    for (const item of this.pickupItems || []) {
+      const placementId = item?.placementId;
+      if (!placementId) continue;
+      placementStates.set(placementId, {
+        kind: 'item', removed: item.picked === true, quantity: Math.max(0, Math.floor(Number(item.quantity) || 0))
+      });
+    }
+    const seenEnemies = new Set();
+    for (const list of Object.values(this._groupEnemies || {})) {
+      for (const enemy of list || []) {
+        if (!enemy?.id || seenEnemies.has(enemy.id)) continue;
+        seenEnemies.add(enemy.id);
+        const stats = enemy.getComponent?.('stats');
+        const transform = enemy.getComponent?.('transform');
+        placementStates.set(enemy.id, {
+          kind: 'enemy', removed: this._isEntityDead(enemy),
+          hp: Math.max(0, Number(stats?.hp) || 0),
+          position: transform ? { x: transform.position.x, y: transform.position.y } : null,
+          ai: this.aiSystem?.getRuntimeState?.(enemy) || null
+        });
+      }
+    }
     return {
+      regionStates: [...(this._regionDynamicStates || new Map()).entries()].map(([regionId, state]) => ({
+        regionId,
+        state: JSON.parse(JSON.stringify(state))
+      })),
       campfireLit: !!this.campfire?.lit,
       firedPickups: [...(this._firedPickups || [])],
       clearedGroups: [...(this._clearedGroups || [])],
-      tutorialEvents: [...(this._tutFired || [])],
+      resourceNodes: [...resourceNodeStates.entries()].map(([id, state]) => ({ id, state })),
+      placementStates: [...placementStates.entries()].map(([id, state]) => ({ id, state })),
+      deathDrops,
+      defeatState: this.playerDefeatService?.serialize?.() || null,
+      gatheringState: this.gatheringSystem?.serialize?.() || null,
+      puppetState: this.gatheringPuppetSystem?.serialize?.() || null,
+      proficiencyState: this.proficiencySystem?.serialize?.() || null,
+      gatheringPolicyOperations: [...(this._appliedGatheringPolicyOperations || new Set())],
+      timeState: this.timeSystem?.serialize?.() || null,
       nextSceneTarget: this._nextSceneTarget || null,
       playerDiedTriggered: !!this._playerDiedTriggered
     };
   }
 
   restoreSceneSaveState(data = {}) {
+    if (data.proficiencyState && !this.proficiencySystem) {
+      return { ok: false, errors: [{
+        code: 'proficiencyRuntimeUnavailable', path: 'proficiencyState', message: '熟练度运行时尚未就绪'
+      }] };
+    }
+    const proficiencyCheck = this.proficiencySystem?.validateSerialized?.(data.proficiencyState || {});
+    if (proficiencyCheck?.ok === false) {
+      return {
+        ok: false,
+        errors: proficiencyCheck.errors.map(error => ({
+          ...error,
+          path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
+        }))
+      };
+    }
+    this._regionDynamicStates = new Map((data.regionStates || [])
+      .filter(entry => typeof entry?.regionId === 'string' && entry.state && typeof entry.state === 'object')
+      .map(entry => [entry.regionId, JSON.parse(JSON.stringify(entry.state))]));
     this._firedPickups = new Set(data.firedPickups || []);
     this._clearedGroups = new Set(data.clearedGroups || []);
-    this._tutFired = new Set(data.tutorialEvents || []);
+    this._appliedGatheringPolicyOperations = new Set(data.gatheringPolicyOperations || []);
     this._nextSceneTarget = data.nextSceneTarget || null;
     this._playerDiedTriggered = !!data.playerDiedTriggered;
-    if (data.campfireLit && !this.campfire?.lit) this.lightCampfire();
+    const restoredStoryDay = Math.max(1, Math.floor(Number(
+      this.gameLoader?.blackboard?.get?.('storyState')?.currentDay
+    ) || 1));
+    if (data.timeState) this.timeSystem?.deserialize?.(data.timeState);
+    this.timeSystem?.setCurrentDay?.(restoredStoryDay);
+    this._pendingResourceNodeStates = new Map((data.resourceNodes || [])
+      .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
+      .map(entry => [entry.id, entry.state]));
+    this._pendingPlacementStates = new Map((data.placementStates || [])
+      .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
+      .map(entry => [entry.id, entry.state]));
+
+    const rebuild = this._rebuildCurrentScenePlacements();
+    if (!rebuild.ok) return rebuild;
+    for (const entity of [...(this.entities || [])]) {
+      this._applyPendingResourceNodeState(entity);
+      this._applyPendingPlacementState(entity, { id: entity?.placementId || entity?.id });
+    }
+    for (const item of [...(this.pickupItems || []), ...(this.equipmentItems || [])]) {
+      this._applyPendingPlacementState(item, { id: item?.placementId });
+    }
+
+    this.playerDefeatService?.deserialize?.(data.defeatState || {});
+    this.gatheringSystem?.deserialize?.(data.gatheringState || {});
+    const proficiencyRestore = this.proficiencySystem?.deserialize?.(data.proficiencyState || {});
+    if (proficiencyRestore?.ok === false) {
+      return {
+        ok: false,
+        errors: proficiencyRestore.errors.map(error => ({
+          ...error,
+          path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
+        }))
+      };
+    }
+    const currentDrops = (this.equipmentItems || [])
+      .filter(entity => entity?.getComponent?.('deathDrop'));
+    this.entityStore?.removeMany?.(currentDrops);
+    for (const drop of currentDrops) {
+      try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
+    }
+    for (const entry of data.deathDrops || []) {
+      if (!entry?.id || !entry.state?.stacks?.length) continue;
+      const drop = this.entityFactory?.createDeathDrop?.({
+        id: entry.id,
+        deathId: entry.state.deathId,
+        stacks: entry.state.stacks,
+        position: entry.position
+      });
+      if (!drop) {
+        return { ok: false, errors: [{ code: 'deathDropRestoreFailed', path: `deathDrops.${entry.id}`, message: '死亡掉落重建失败' }] };
+      }
+      this.entityStore.add(drop);
+      this.entityStore.addEquipmentItem(drop);
+    }
+
+    const restoredClass = this.playerEntity?.getComponent?.('stats')?.class;
+    const restoredStory = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const supportedClasses = ['warrior', 'archer', 'strategist'];
+    if (restoredStory.classSelectionCommitted === true
+      && (!supportedClasses.includes(restoredClass) || restoredStory.selectedClass !== restoredClass)) {
+      return { ok: false, errors: [{
+        code: 'classStateMismatch', path: 'selectedClass', message: '职业存档事实与玩家属性不一致'
+      }] };
+    }
+    if (supportedClasses.includes(restoredClass)) {
+      const classSystem = this._ensureClassSystem();
+      if (!classSystem?.restoreClass?.(this.playerEntity.id, restoredClass)) {
+        return { ok: false, errors: [{
+          code: 'classRestoreFailed', path: 'selectedClass', message: `职业运行状态恢复失败: ${restoredClass}`
+        }] };
+      }
+      this._classSelected = true;
+      this.selectedClass = restoredClass;
+      this.playerEntity.class = restoredClass;
+    } else {
+      const classSystem = this._ensureClassSystem();
+      classSystem?.clearClass?.(this.playerEntity?.id);
+      if (this.playerEntity) delete this.playerEntity.class;
+      const stats = this.playerEntity?.getComponent?.('stats');
+      if (stats) delete stats.class;
+      this._classSelected = false;
+      this.selectedClass = null;
+    }
+    this._syncUnlockedClassSkills();
+    const puppetRestore = this.gatheringPuppetSystem?.deserialize?.(data.puppetState || {}, {
+      owner: this.playerEntity,
+      resolveNode: nodeId => (this.entities || []).find(entity => entity?.id === nodeId) || null
+    });
+    if (puppetRestore?.ok === false) {
+      return { ok: false, errors: [{
+        code: puppetRestore.code || 'puppetRestoreFailed',
+        path: 'puppetState',
+        message: `采集傀儡恢复失败: ${puppetRestore.code || 'unknown'}`
+      }] };
+    }
+    const refugeeConflict = restoredStory.s09RefugeeConflict;
+    if (refugeeConflict && this.dialogueSystem?.getCurrentDialogue?.()?.id === S09_REFUGEE_DIALOGUE_ID) {
+      if (refugeeConflict.branch) {
+        this._setRefugeeDialogueNode(this._refugeeBranchResultNode(refugeeConflict));
+      } else if (refugeeConflict.donationCommitted) {
+        this._setRefugeeDialogueNode('branchChoice');
+      } else if (refugeeConflict.status === 'started') {
+        this._setRefugeeDialogueNode('donationOffer');
+      }
+    }
+    this._classConfirm = null;
+    this._classSelectionBusy = false;
+    this._restoreCampfireState(data.campfireLit === true);
+    this._startPos = this.playerEntity?.getComponent?.('transform')?.position
+      ? { ...this.playerEntity.getComponent('transform').position }
+      : null;
+    this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
+    return { ok: true, errors: [] };
+  }
+
+  _rebuildCurrentScenePlacements() {
+    if (!this._placementSpawner || !this.gameLoader || !this.entityStore) {
+      return { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placementStates', message: '场景放置运行时尚未就绪' }] };
+    }
+    const restoreIds = new Set([
+      ...this._pendingPlacementStates.keys(),
+      ...this._pendingResourceNodeStates.keys()
+    ]);
+    for (const placement of this._placements || []) {
+      if (placement?.type === 'ref' && placement.sceneId === this.currentSceneId && placement.id) {
+        restoreIds.add(placement.id);
+      }
+    }
+    const placements = (this._placements || []).filter(placement =>
+      placement?.type === 'ref' && placement.id && restoreIds.has(placement.id)
+    );
+    const placementIds = new Set(placements.map(placement => placement.id));
+    const values = new Set([
+      ...(this.entities || []),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ].filter(value => placementIds.has(value?.placementId || value?.id)));
+
+    for (const value of values) this.aiSystem?.unregisterAI?.(value);
+    this.entityStore.removeMany(values);
+    for (const value of values) {
+      try { value?.destroy?.(); } catch (error) { /* best-effort rebuild cleanup */ }
+    }
+    this._npcEntities = (this._npcEntities || []).filter(entity => !values.has(entity));
+    for (const [group, enemies] of Object.entries(this._groupEnemies || {})) {
+      this._groupEnemies[group] = (enemies || []).filter(entity => !values.has(entity));
+    }
+
+    this._placementSpawner.forgetPlacements(placementIds);
+    const result = this._placementSpawner.spawnMatching({
+      selector: { placementIds: [...placementIds] },
+      placements: this._placements || [],
+      registries: this.gameLoader.registries
+    });
+    if (result.errors.length > 0) {
+      return {
+        ok: false,
+        errors: result.errors.map((entry, index) => ({
+          code: entry.reason || 'placementRestoreFailed',
+          path: `placementStates.${entry.placement?.id || index}`,
+          message: `放置对象重建失败: ${entry.ref || entry.placement?.id || index}`
+        }))
+      };
+    }
+    return { ok: true, errors: [] };
+  }
+
+  _applyPendingPlacementState(value, placement = {}) {
+    const placementId = placement?.id || value?.placementId || value?.id;
+    const state = this._pendingPlacementStates?.get(placementId);
+    if (!placementId || !state) return false;
+    if (state.removed === true) {
+      value.picked = state.kind === 'item' || value.picked === true;
+      value.isDead = state.kind === 'enemy' || value.isDead === true;
+      value.isDying = state.kind === 'enemy' || value.isDying === true;
+      this.entityStore?.remove?.(value);
+      return true;
+    }
+    if (state.kind === 'item' && Number.isFinite(state.quantity)) {
+      value.quantity = Math.max(0, Math.floor(state.quantity));
+    }
+    if (state.kind === 'enemy') {
+      const stats = value.getComponent?.('stats');
+      const transform = value.getComponent?.('transform');
+      if (stats && Number.isFinite(state.hp)) stats.hp = Math.min(stats.maxHp, Math.max(0, state.hp));
+      if (transform && Number.isFinite(state.position?.x) && Number.isFinite(state.position?.y)) {
+        transform.position.x = state.position.x;
+        transform.position.y = state.position.y;
+      }
+      if (state.ai) this.aiSystem?.restoreRuntimeState?.(value, state.ai);
+    }
+    this._pendingPlacementStates.delete(placementId);
+    return false;
+  }
+
+  _applyPendingResourceNodeState(entity) {
+    const node = entity?.getComponent?.('resourceNode');
+    const state = this._pendingResourceNodeStates?.get(entity?.id);
+    if (!node || !state) return false;
+    node.deserialize(state);
+    this._pendingResourceNodeStates.delete(entity.id);
+    return true;
   }
 
   /**
@@ -787,52 +1510,36 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return false;
   }
 
+  /** 实际拾取提交后的统一事件出口；教学和数据触发器不再依赖已被移除的世界对象。 */
+  onWorldItemPicked(item) {
+    if (!this.gameLoader || !item) return false;
+    if (!this._firedPickups) this._firedPickups = new Set();
+    const uid = item.placementId || item._pickUid || item.entityId || item.id;
+    if (item.placementId && item.picked === true) {
+      this._pendingPlacementStates?.set(item.placementId, { kind: 'item', removed: true, quantity: 0 });
+    }
+    if (!uid || this._firedPickups.has(uid)) return false;
+    this._firedPickups.add(uid);
+    const itemId = item.itemId || item.id;
+    this._completeS01TutorialStep('pickup');
+    this.gameLoader.triggerSystem.fire('itemPickup', { item: itemId, id: itemId });
+    console.log('[DDScene] itemPickup:', itemId);
+    return true;
+  }
+
   /**
-   * 拾取事件源：检测 pickupItems/equipmentItems 中新变为 picked 的物品，
-   * fire('itemPickup', {item:id})。供"拾取 X 后掉落/生成 Y"类触发器使用。
+   * 拾取事件源：兼容仍留在世界列表中的 picked 对象；正常路径由 onWorldItemPicked 即时处理。
    * @private
    */
   _checkItemPickupEvents() {
     if (!this.gameLoader) return;
-    if (!this._firedPickups) this._firedPickups = new Set();
     const scan = (list) => {
-      for (const it of (list || [])) {
-        if (it.picked && it.id && !this._firedPickups.has(it._pickUid || it.id)) {
-          const uid = it._pickUid || it.id;
-          this._firedPickups.add(uid);
-          this.gameLoader.triggerSystem.fire('itemPickup', { item: it.id, id: it.id });
-          console.log('[DDScene] itemPickup:', it.id);
-        }
+      for (const item of (list || [])) {
+        if (item.picked) this.onWorldItemPicked(item);
       }
     };
     scan(this.pickupItems);
     scan(this.equipmentItems);
-  }
-
-  /**
-   * 火堆交互事件源（数据驱动）：靠近火堆（≤60px）按 E 或点击火堆附近，
-   * 触发 interact 事件；由 GameProject 触发器 do:lightCampfire 点燃。
-   * @private
-   */
-  _checkCampfireInteract() {
-    if (this.campfire.lit || !this.gameLoader) return;
-    const transform = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (!transform) return;
-
-    const campfireCenterY = this.campfire.y - 15;
-    const dist = Math.hypot(this.campfire.x - transform.position.x, campfireCenterY - transform.position.y);
-
-    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
-    let clickedNear = false;
-    if (this.inputManager.isMouseClicked && this.inputManager.isMouseClicked() &&
-        !this.inputManager.isMouseClickHandled()) {
-      const m = this.inputManager.mouse;
-      if (Math.hypot(this.campfire.x - m.worldX, campfireCenterY - m.worldY) <= 80) clickedNear = true;
-    }
-
-    if ((ePressed || clickedNear) && dist <= 60) {
-      this.gameLoader.triggerSystem.fire('interact', { target: 'campfire' });
-    }
   }
 
   /**
@@ -968,76 +1675,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
-  /**
-   * 检测场景触发器的「靠近 approach」事件：
-   * 遍历放置点中 event==='approach' 的触发器，检测玩家是否在其 radius 范围内。
-   * 进入范围时 fire('approach', { target, triggerId })，离开时 fire('leave', { target, triggerId })。
-   * @private
-   */
-  _checkApproachTriggers() {
-    if (!this.gameLoader) return;
-    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (!pt) return;
-    const px = pt.position.x;
-    const py = pt.position.y;
-
-    // 从所有地形场景的逻辑层收集 approach 触发器
-    if (!this._approachTriggers) {
-      this._approachTriggers = [];
-      this._approachState = {}; // triggerId → boolean (是否在范围内)
-      // 从 _placements 中找 approach 类型触发器
-      for (const pl of (this._placements || [])) {
-        if (pl.type === 'trigger' && pl.event === 'approach') {
-          this._approachTriggers.push(pl);
-          this._approachState[pl.triggerId || pl.id] = false;
-        }
-      }
-      // 也从场景数据中直接收集（可能不在 placements 中）
-      for (const t of this._terrains || []) {
-        if (!t._sceneDataRaw) continue;
-        const scene = t._sceneDataRaw;
-        if (!Array.isArray(scene.layers)) continue;
-        for (const layer of scene.layers) {
-          for (const obj of (layer.objects || [])) {
-            if (obj.type === 'trigger' && obj.event === 'approach') {
-              // 加上该地形的 worldOffset
-              const wo = t.worldOffset || { x: 0, y: 0 };
-              const key = obj.triggerId || obj.id;
-              if (this._approachState[key] !== undefined) continue; // 已收集
-              this._approachTriggers.push({
-                ...obj,
-                x: obj.x + (obj.width || 0) / 2 + wo.x,
-                y: obj.y + (obj.height || 0) / 2 + wo.y
-              });
-              this._approachState[key] = false;
-            }
-          }
-        }
-      }
-    }
-
-    const trig = this.gameLoader.triggerSystem;
-    for (const at of this._approachTriggers) {
-      const key = at.triggerId || at.id;
-      const radius = at.radius || 60;
-      const tx = at.x + (at.width ? at.width / 2 : 0);
-      const ty = at.y + (at.height ? at.height / 2 : 0);
-      const dist = Math.hypot(px - tx, py - ty);
-      const inRange = dist <= radius;
-      const wasInRange = this._approachState[key];
-
-      if (inRange && !wasInRange) {
-        // 进入范围
-        this._approachState[key] = true;
-        trig.fire('approach', { target: at.target || '', triggerId: key });
-      } else if (!inRange && wasInRange) {
-        // 离开范围
-        this._approachState[key] = false;
-        trig.fire('leave', { target: at.target || '', triggerId: key });
-      }
-    }
-  }
-
   /** 相机后处理：限制在大地图边缘（被 BaseGameScene.update 调用） */
   postCameraUpdate() {
     this.clampCameraToWorldBounds();
@@ -1052,6 +1689,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const eng = window.gameEngine;
       const bridge = new SceneGameLoaderBridge({
         scope: this.resourceScope,
+        loaderConfig: { contentPolicy: SANGUO_ZHANGJIAO_CONTENT_POLICY },
         dialogueSystem: this.dialogueSystem,
         deps: {
           dialogueSystem: this.dialogueSystem,
@@ -1072,30 +1710,202 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const ready = bridge.initialize({
         projectUrl: 'game.project.json',
         sceneFlag: 'ddScene',
-        sceneId: 'scene_Prologue',
+        sceneId: 'S01',
         registerActions: (trig, gameLoader) => this._registerGameLoaderActions(trig, gameLoader),
         onReady: (gameLoader, trig) => {
           const offTriggerLog = trig.on((evt, t) => {
             if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
           });
           this.resourceScope?.track(offTriggerLog);
+          this._configureSharedClassEffects(gameLoader);
           this._installProgressionUI(gameLoader);
         }
       });
       // initialize() 在首次 await 前已创建 loader；立即保留旧字段投影。
       this.gameLoader = bridge.loader;
-      this._gameLoaderReady = ready.then(this.resourceScope.guard(gameLoader => {
+      this._gameLoaderReady = ready.then(this.resourceScope.guard(async gameLoader => {
         if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
+        await this._worldLoadPromise;
+        const placementValidation = gameLoader.validatePlacementReferences(this._placements || []);
+        if (!placementValidation.ok) {
+          gameLoader.lastValidationErrors = placementValidation.errors;
+          throw gameLoader.createValidationError(placementValidation.errors);
+        }
         this.gameLoader = gameLoader;
+        const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
+        this.timeSystem?.setCurrentDay?.(storyDay);
+        this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
+        if (this._progressionBootstrap?.isNewGame) this._showNextS01Tutorial();
         console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
         return gameLoader;
-      })).catch(this.resourceScope.guard(
-        e => console.error('[DDScene][GameLoader] 加载失败:', e)
-      ));
+      })).catch(this.resourceScope.guard(e => {
+        console.error('[DDScene][GameLoader] 加载失败:', e);
+        throw e;
+      }));
     } catch (e) {
       console.warn('[DDScene][GameLoader] 初始化失败:', e);
+      this._gameLoaderReady = Promise.reject(e);
+      this._gameLoaderReady.catch(() => {});
     }
   }
+
+  /** 将职业、成长、采集、资源容量与能力执行接到同一个 EffectResolver。 */
+  _configureSharedClassEffects(gameLoader) {
+    const resolver = gameLoader?.progressionSystem?.effectResolver;
+    if (!resolver) return false;
+    const proficiencyConfig = gameLoader?.project?.progression?.proficiency || {};
+    this.proficiencySystem = new ProficiencySystem({
+      ...proficiencyConfig,
+      onEvent: (event, data) => {
+        if (event !== 'levelUp') return;
+        const definition = this.proficiencySystem?.getDefinition?.(data.type);
+        this.notificationSystem?.addNotification?.(
+          `${definition?.name || data.type}熟练度提升至 ${data.level} 级`,
+          'success'
+        );
+      }
+    });
+    this.classSystem = new ClassSystem({ effectResolver: resolver });
+    this.gatheringSystem?.setEffectResolver?.(resolver);
+    this.gatheringSystem?.setSettlementPolicy?.(context => this.prepareGatheringSettlement(context));
+    this.inventoryTransactions?.configureEffects?.({
+      effectResolver: resolver,
+      getEntityId: () => this.playerEntity?.id || null,
+      baseResourceCapacity: 120
+    });
+    this._gameplaySystemAssembler?.configureAbilities?.({
+      skillRegistry: gameLoader.skillRegistry,
+      effectResolver: resolver
+    });
+    this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: this.playerEntity });
+    this._syncUnlockedClassSkills();
+    return true;
+  }
+
+  _ensureClassSystem() {
+    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
+    if (!resolver) return null;
+    if (!this.classSystem || this.classSystem.effectResolver !== resolver) {
+      this.classSystem = new ClassSystem({ effectResolver: resolver });
+    }
+    return this.classSystem;
+  }
+
+  /** 把 EffectResolver 的技能解锁投影到兼容快捷栏；定义本身仍由 SkillRegistry 拥有。 */
+  _syncUnlockedClassSkills() {
+    const player = this.playerEntity;
+    const combat = player?.getComponent?.('combat');
+    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
+    const registry = this.gameLoader?.skillRegistry;
+    if (!combat || !resolver || !registry || !player?.id) return false;
+    const canonicalIds = new Set(['cleave', 'arrow_shot', 'talisman_water', 'gathering_puppet']);
+    const removedLegacyIds = new Set(['flame_palm', 'ice_finger', 'inferno_palm', 'heal', 'meditation']);
+    const unlockedIds = new Set(resolver.getUnlockedSkills(player.id).filter(id => canonicalIds.has(id)));
+    const previousCooldowns = new Map(combat.skillCooldowns || []);
+    combat.skills = (combat.skills || []).filter(skill =>
+      !canonicalIds.has(skill?.id) && !removedLegacyIds.has(skill?.id)
+    );
+    for (const skillId of [...canonicalIds, ...removedLegacyIds]) {
+      combat.skillCooldowns.delete(skillId);
+    }
+    for (const skillId of unlockedIds) {
+      const definition = registry.get(skillId);
+      if (!definition) continue;
+      const view = definition.resolveVariant(null);
+      combat.addSkill({
+        id: view.id,
+        name: view.name,
+        description: view.description,
+        type: view.category,
+        category: view.category,
+        targeting: view.targeting,
+        ...view.params,
+        manaCost: view.costs.mp || 0,
+        staminaCost: view.costs.stamina || 0,
+        effectType: view.vfx?.effect || view.id
+      });
+      if (previousCooldowns.has(skillId)) {
+        combat.skillCooldowns.set(skillId, previousCooldowns.get(skillId));
+      }
+    }
+    this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: player });
+    this.gatheringPuppetSystem?.initializeCharges?.();
+    return true;
+  }
+
+  /** AbilitySystem 的 Demo 编排出口；未处理返回 null，由框架回退 CombatSystem。 */
+  executeAbility(context = {}) {
+    const { skillId, caster, targetPosition, params = {}, view = {} } = context;
+    if (skillId === 'gathering_puppet') {
+      const nodeEntity = this._findResourceNodeNear(targetPosition, 72);
+      const result = this.gatheringPuppetSystem?.summon?.({
+        nodeEntity,
+        duration: params.duration,
+        backlashDamage: params.backlashDamage || 15
+      });
+      if (!result?.ok) {
+        this._showScreenTip(`无法召唤采集傀儡：${result?.code || '目标无效'}`);
+        return false;
+      }
+      return true;
+    }
+
+    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
+    const isRangedLure = resolver?.hasRuleOverride?.(
+      caster?.id, 'gather.rangedGuardLure', { scene: this, targetPosition }
+    ) === true;
+    if (isRangedLure && view.tags?.includes?.('ranged') && this.currentSceneId === 'S09') {
+      const guard = this._findGuardNear(targetPosition, 180);
+      if (guard && this.aiSystem?.lureToPosition?.(guard, targetPosition, { duration: 8 })) {
+        this._showScreenTip('箭矢声响引开了粮仓哨兵，抓紧时间行动。');
+        return true;
+      }
+    }
+    return null;
+  }
+
+  _findResourceNodeNear(position, radius = 72) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
+    let nearest = null;
+    let nearestDistance = radius;
+    for (const entity of this.entities || []) {
+      if (!entity?.getComponent?.('resourceNode')) continue;
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
+      if (distance <= nearestDistance) {
+        nearest = entity;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  _findGuardNear(position, radius = 180) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
+    let nearest = null;
+    let nearestDistance = radius;
+    for (const enemy of this.enemies || []) {
+      if (!enemy?.tags?.includes?.('s09GranaryGuard') || this._isEntityDead(enemy)) continue;
+      const transform = enemy.getComponent?.('transform');
+      if (!transform) continue;
+      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
+      if (distance <= nearestDistance) {
+        nearest = enemy;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  }
+
+  onGatheringPuppetEvent(event, data = {}) {
+    if (event === 'summoned') this._showScreenTip('采集傀儡已开始工作，本检查点仅可召唤一次。');
+    else if (event === 'destroyed' || event === 'expired') {
+      this._showScreenTip('采集傀儡被摧毁，产物取消并受到反噬。');
+    }
+  }
+
+  onAbilityEvent(_event, _data = {}) {}
 
   /** 安装统一成长面板；UI 只经 ViewModel 调用成长领域命令。 */
   _installProgressionUI(gameLoader) {
@@ -1123,6 +1933,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const hotkeyId = 'progression-panel';
     const togglePanel = () => {
       if (this.dialogueSystem?.isDialogueActive() || this.itemGainedPopup?.visible || this._classConfirm) return;
+      const selectedClass = this.playerEntity?.getComponent?.('stats')?.class;
+      if (!['warrior', 'archer', 'strategist'].includes(selectedClass)) {
+        this._showScreenTip('加入黄巾并确认职业后才能打开角色成长');
+        return;
+      }
       if (panel.visible) {
         panel.hide();
       } else {
@@ -1138,6 +1953,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     Object.assign(this.context.ui, { progression: panel });
     this.progressionViewModel = viewModel;
     this.progressionPanel = panel;
+    this._installCityStateSummaryUI(gameLoader);
 
     this.resourceScope?.track(() => {
       this.inputManager?.unregisterHotkey?.(hotkeyId);
@@ -1149,11 +1965,78 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
-  /** 新档只在成长账本首次建立前给出 S11 验证点；读档永不发放。 */
+  /** 安装 S09 只读城市摘要；面板只接收快照，不读取或修改 Blackboard。 */
+  _installCityStateSummaryUI(gameLoader) {
+    if (!gameLoader?.blackboard || !this.uiSystem) return;
+    const compact = this.isMobileLayout === true;
+    const width = compact ? Math.min(224, this.logicalWidth - 24) : 270;
+    const height = compact ? 112 : 126;
+    const panel = new CityStateSummaryPanel({
+      x: compact ? 12 : this.logicalWidth - width - 16,
+      y: 12,
+      width,
+      height,
+      compact,
+      visible: false,
+      zIndex: 45
+    });
+    this.uiSystem.registerPanel('cityStateSummary', panel);
+    Object.assign(this.context.ui, { cityStateSummary: panel });
+    this.cityStateSummaryPanel = panel;
+    this._updateCityStateSummary();
+
+    this.resourceScope?.track(() => {
+      this.uiSystem?.unregisterPanel?.('cityStateSummary');
+      if (this.context.ui.cityStateSummary === panel) this.context.ui.cityStateSummary = null;
+      if (this.cityStateSummaryPanel === panel) this.cityStateSummaryPanel = null;
+    });
+  }
+
+  _updateCityStateSummary() {
+    const panel = this.cityStateSummaryPanel;
+    if (!panel) return;
+    if (this.currentSceneId !== 'S09') {
+      panel.hide();
+      return;
+    }
+    const context = this._getS09CityContext();
+    if (!context) {
+      panel.hide();
+      return;
+    }
+    const conflict = context.storyState.s09RefugeeConflict || {};
+    const silenceEvent = (context.storyState.delayedConsequences || [])
+      .find(event => event?.type === S09_SILENCE_EVENT_TYPE);
+    const branchLabels = {
+      hardline: '强硬控制',
+      appease: conflict.result === 'foodRestored' ? '安抚采集成功' : '安抚采集遇袭',
+      silence: silenceEvent?.status === 'completed' ? '沉默（粮食已归零）' : '沉默（后果待结算）'
+    };
+    let refugeeStatus = '尚未发生';
+    if (conflict.branch) refugeeStatus = branchLabels[conflict.branch] || conflict.branch;
+    else if (conflict.donationCommitted) refugeeStatus = '已捐粮，等待抉择';
+    else if (conflict.status === 'started') refugeeStatus = '争斗处理中';
+    else if (conflict.status === 'ready') refugeeStatus = '现场已出现';
+
+    panel.setSnapshot({
+      cityName: context.city.name,
+      resources: context.city.resources,
+      damageRatio: context.city.damageRatio,
+      morale: context.city.morale,
+      reputation: context.blackboard.get('reputation'),
+      currentDay: this.timeSystem?.getCurrentDay?.() || context.storyState.currentDay || 1,
+      refugeeStatus
+    });
+    panel.show();
+  }
+
+  /** 新档只在成长账本首次建立前发放四类独立起始点；读档永不发放。 */
   _grantStarterProgressionPoints(progressionSystem, characterId) {
     if (!this._progressionBootstrap?.isNewGame || !characterId) return;
     if (progressionSystem.states.has(characterId) || progressionSystem.ledgers.has(characterId)) return;
     progressionSystem.grantPoints(characterId, 'skill', 1);
+    progressionSystem.grantPoints(characterId, 'talent', 1);
+    progressionSystem.grantPoints(characterId, 'unit', 1);
     progressionSystem.grantPoints(characterId, 'passive', 1);
   }
 
@@ -1171,6 +2054,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
     // 大地图传送（直接传送到指定区块，不切换独立场景）
     trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
+    // S01 教学完成后的单一事务出口：一次性奖励、解锁 S02、传送。
+    trig.registerAction('completeS01AndTravel', (p) => this.completeS01AndTravel(p));
+    // S02 召见对话完成后创建可恢复检查点，再通过 RegionCoordinator 前往 S09。
+    trig.registerAction('acceptS02Summons', (p) => this.acceptS02Summons(p));
+    trig.registerAction('travelToS09', () => this.travelToS09());
+    trig.registerAction('acceptS09Enlistment', () => this.acceptS09Enlistment());
+    trig.registerAction('prepareS09RefugeeConflict', () => this.prepareS09RefugeeConflict());
+    trig.registerAction('startS09RefugeeConflict', () => this.startS09RefugeeConflict());
+    trig.registerAction('handleS09RefugeeChoice', (_params, _ctx, event) => (
+      this.handleS09RefugeeChoice(event?.params?.choiceId)
+    ));
+    trig.registerAction('advanceGameDay', (p = {}) => this.advanceGameDay(p.days));
+    trig.registerAction('prepareSpecialFaint', (p) => this.setPendingSpecialFaint(p));
+    trig.registerAction('clearSpecialFaint', () => this.clearPendingSpecialFaint());
     // 特殊剧情可显式请求自动存档；实际存储由宿主统一排队执行。
     trig.registerAction('autoSave', (p = {}) => this.requestAutoSave({ reason: p.reason || 'story-event' }));
     // 切换到显式注册的独立场景（副本/过场等）；大地图 Act 推进一律走 teleportToChunk。
@@ -1203,9 +2100,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
     // 场景专属动作：批量生成一波敌人（第五幕战役，小兵+名将）
     trig.registerAction('spawnWave', (p) => this._spawnWave(p));
-    // 场景专属动作：选择职业（第四幕，对话结束后由 dialogueEnd 触发器调用）
+    // S09 职业选择：空间 binding 打开确认框，确认后由单一事务提交职业。
     trig.registerAction('selectClass', (p) => this._selectClass(p));
-    // 场景专属动作：弹出职业确认窗口（第四幕，对话结束后调用；玩家点确认才真正选职业）
     trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
     // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
     trig.registerAction('completeScene', (p = {}) => {
@@ -1223,10 +2119,617 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
+  /**
+   * S01 完成事务：先校验教学、目标 chunk/spawn、奖励定义与容量，再一次提交奖励和 StoryState。
+   * 传送被取消时恢复提交前库存和黑板，保证失败不留下半完成状态。
+   */
+  async completeS01AndTravel(params = {}) {
+    if (this.currentSceneId !== 'S01') return false;
+    const incomplete = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
+    if (incomplete) {
+      this._showNextS01Tutorial();
+      if (!this.tutorialSystem.isShowingTutorial()) {
+        this._showScreenTip('请先完成当前生存教学', { title: '尚未完成' });
+      }
+      return false;
+    }
+
+    try {
+      await this._worldLoadPromise;
+    } catch (error) {
+      this._showScreenTip(`无法前往 S02：${error.message || error}`, { title: '场景加载失败' });
+      return false;
+    }
+    const targetSceneId = params.scene || params.sceneId || 'S02';
+    const spawnRef = params.spawnRef || 'player';
+    const targetChunk = this._worldLoadSession?.getChunk?.(targetSceneId);
+    const targetSpawn = this._worldLoadSession?.findSpawn?.(targetSceneId, spawnRef);
+    if (!targetChunk || !targetSpawn) {
+      this._showScreenTip(`无法前往 ${targetSceneId}：目标区块或出生点不存在`, { title: '场景配置错误' });
+      return false;
+    }
+
+    const blackboard = this.gameLoader?.blackboard;
+    const previousStoryState = blackboard?.get?.('storyState') || {};
+    const alreadyCompleted = previousStoryState.s01Completed === true;
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    let inventoryBefore = null;
+    if (!alreadyCompleted) {
+      if (!inventory || !blackboard) return false;
+      const rewardSpecs = Array.isArray(params.rewards) && params.rewards.length
+        ? params.rewards
+        : [{ itemId: 'resource.wood', quantity: 3 }, { itemId: 'resource.herb', quantity: 2 }];
+      const itemRegistry = this.gameLoader?.getRegistry?.('items');
+      const rewardEntries = rewardSpecs.map(spec => ({
+        item: itemRegistry?.get?.(spec.itemId),
+        quantity: Math.max(0, Math.floor(Number(spec.quantity) || 0))
+      }));
+      if (rewardEntries.some(entry => !entry.item?.id || entry.quantity <= 0)) {
+        this._showScreenTip('S01 完成奖励配置无效', { title: '内容配置错误' });
+        return false;
+      }
+      const preview = this.inventoryTransactions.previewBatchAdd(inventory, rewardEntries);
+      if (preview.remainder > 0) {
+        this._showScreenTip('背包空间不足，整理后再前往废弃营地', { title: '无法领取奖励' });
+        return false;
+      }
+      inventoryBefore = inventory.exportItems();
+      const rewardResult = this.inventoryTransactions.commit({
+        type: 'batchAdd', inventory, entries: rewardEntries, allowPartial: false
+      });
+      if (!rewardResult.ok) {
+        this._showScreenTip('完成奖励结算失败，库存未改变', { title: '结算失败' });
+        return false;
+      }
+      blackboard.set('storyState', {
+        ...previousStoryState,
+        s01Completed: true,
+        currentSceneId: targetSceneId,
+        pendingDefeatResolution: null,
+        specialFaintRescueType: null,
+        unlockedScenes: [...new Set([...(previousStoryState.unlockedScenes || []), targetSceneId])]
+      });
+    }
+
+    const result = await this.teleportToChunk({
+      scene: targetSceneId,
+      spawnRef,
+      transition: params.transition || 'fadeBlack'
+    });
+    if (result === false || result == null || result?.cancelled) {
+      if (!alreadyCompleted && inventoryBefore) {
+        inventory.loadItems(inventoryBefore);
+        blackboard.set('storyState', previousStoryState);
+      }
+      return false;
+    }
+    if (blackboard) {
+      const committedStoryState = blackboard.get('storyState') || previousStoryState;
+      blackboard.set('storyState', {
+        ...committedStoryState,
+        currentSceneId: targetSceneId,
+        pendingDefeatResolution: null,
+        specialFaintRescueType: null
+      });
+    }
+    if (!alreadyCompleted) this._showScreenTip('完成 S01：获得木材 ×3、草药 ×2，已开放 S02');
+    return true;
+  }
+
+  setPendingSpecialFaint(params = {}) {
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (!blackboard || !storyState || this.currentSceneId !== 'S01') return false;
+    const rescueType = ['passerby', 'patrol', 'temporaryCamp'].includes(params.rescueType)
+      ? params.rescueType
+      : 'passerby';
+    blackboard.set('storyState', {
+      ...storyState,
+      pendingDefeatResolution: 'specialFaint',
+      specialFaintRescueType: rescueType
+    });
+    this._showScreenTip('你选择不逃跑：若在这场抵抗中倒下，将进入特殊救援昏迷');
+    return true;
+  }
+
+  clearPendingSpecialFaint() {
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (!blackboard || !storyState || storyState.pendingDefeatResolution !== 'specialFaint') return false;
+    blackboard.set('storyState', {
+      ...storyState,
+      pendingDefeatResolution: null,
+      specialFaintRescueType: null
+    });
+    return true;
+  }
+
+  /** S02 接受召见：StoryState 与自动检查点共用一个可回滚提交入口。 */
+  async acceptS02Summons() {
+    if (this.currentSceneId !== 'S02') return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const previousStoryState = blackboard?.get?.('storyState');
+    if (!blackboard || !previousStoryState) return false;
+    if (previousStoryState.s02SummonsAccepted === true) {
+      this._showScreenTip('召见已接受，前往粥棚营地的路线正在准备中');
+      return true;
+    }
+    blackboard.set('storyState', {
+      ...previousStoryState,
+      s02SummonsAccepted: true,
+      lastCheckpointId: 'checkpoint.S02.summonsAccepted'
+    });
+    try {
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S02.summonsAccepted', sceneId: 'S02'
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '自动存档未提交');
+    } catch (error) {
+      blackboard.set('storyState', previousStoryState);
+      this.dialogueSystem?.clearCompleted?.('dialogue.s02.zhangjiaoSummons');
+      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s02_zhangjiao_summons');
+      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s02_accept_summons');
+      this._sceneTriggerBindings?.resetBinding?.('S02-binding-zhangjiao-summons');
+      this._showScreenTip('召见检查点保存失败，剧情状态未提交，可重新与信使交谈', { title: '保存失败' });
+      return false;
+    }
+    this._showScreenTip('已接受张角召见并创建检查点，正在前往粥棚营地');
+    const travel = await this.travelToS09();
+    if (!travel?.ok) {
+      this._showScreenTip('召见检查点已保留；可从东北出口重试前往粥棚营地', { title: '路线暂不可用' });
+      return false;
+    }
+    return true;
+  }
+
+  async travelToS09() {
+    if (this.currentSceneId !== 'S02') return { ok: false, errors: [{ code: 'wrongScene', path: 'currentSceneId', message: '只能从 S02 前往 S09' }] };
+    const storyState = this.gameLoader?.blackboard?.get?.('storyState');
+    if (storyState?.s02SummonsAccepted !== true) {
+      this._showScreenTip('先与黄巾信使交谈并接受召见', { title: '尚未获得路线' });
+      return { ok: false, errors: [{ code: 'summonsRequired', path: 'storyState.s02SummonsAccepted', message: '尚未接受张角召见' }] };
+    }
+    return this.travelToRegion({ regionIndex: 1, sceneId: 'S09', spawnRef: 'player' });
+  }
+
+  /** S09 入伍承诺：剧情事实与检查点共同提交，失败后可重新与张角交谈。 */
+  async acceptS09Enlistment() {
+    if (this.currentSceneId !== 'S09') return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (!blackboard || !storyState) return false;
+    if (storyState.joinedYellowTurban === true) {
+      this._showScreenTip('你已加入黄巾，请在三面军旗下确认职业');
+      return true;
+    }
+
+    const before = JSON.parse(JSON.stringify(blackboard.serialize()));
+    blackboard.set('storyState', {
+      ...storyState,
+      joinedYellowTurban: true,
+      lastCheckpointId: 'checkpoint.S09.enlisted'
+    });
+    blackboard.set('joinedYellowTurban', true);
+    try {
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S09.enlisted', sceneId: 'S09'
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '自动存档未提交');
+    } catch (error) {
+      blackboard.deserialize(before);
+      this.dialogueSystem?.clearCompleted?.('dialogue.s09.enlistment');
+      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s09_zhangjiao_enlistment');
+      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s09_accept_enlistment');
+      this._sceneTriggerBindings?.resetBinding?.('S09-binding-zhangjiao-enlistment');
+      this._showScreenTip('入伍检查点保存失败，状态未提交，可重新与张角交谈', { title: '保存失败' });
+      return false;
+    }
+    this._showScreenTip('你已加入黄巾。前往战士、弓手或军师旗帜确认职业。');
+    return true;
+  }
+
+  _getS09CityContext() {
+    const blackboard = this.gameLoader?.blackboard;
+    const cityStates = blackboard?.get?.('cityStates');
+    const cityIndex = Array.isArray(cityStates)
+      ? cityStates.findIndex(city => city?.id === S09_CITY_ID)
+      : -1;
+    if (!blackboard || cityIndex < 0) return null;
+    return {
+      blackboard,
+      cityStates,
+      cityIndex,
+      city: cityStates[cityIndex],
+      storyState: blackboard.get('storyState') || {}
+    };
+  }
+
+  _validateS09City(city, cityIndex) {
+    const result = this.gameLoader?.contentValidator?.validate?.(
+      city, 'city', `variables.cityStates[${cityIndex}]`
+    );
+    return !result || result.ok === true;
+  }
+
+  _setS09City(context, city) {
+    context.blackboard.set('cityStates', context.cityStates.map((entry, index) => (
+      index === context.cityIndex ? city : entry
+    )));
+  }
+
+  _setRefugeeDialogueNode(nodeId) {
+    if (this.dialogueSystem?.getCurrentDialogue?.()?.id !== S09_REFUGEE_DIALOGUE_ID) return false;
+    return this.dialogueSystem.goToNode(nodeId, { player: this.playerEntity, scene: this });
+  }
+
+  _refugeeBranchResultNode(conflict = {}) {
+    if (conflict.branch === 'hardline') return 'hardlineResult';
+    if (conflict.branch === 'appease') {
+      return conflict.result === 'foodRestored' ? 'appeaseSuccessResult' : 'appeaseScoutResult';
+    }
+    if (conflict.branch === 'silence') return 'silenceResult';
+    return 'branchChoice';
+  }
+
+  /** 城损与粮仓损毁达标后建立一次性剧情事实，并按 StoryState 恢复现场。 */
+  async prepareS09RefugeeConflict() {
+    if (this.currentSceneId !== 'S09') return false;
+    const context = this._getS09CityContext();
+    if (!context || Number(context.city.damageRatio) < 0.4
+      || Number(context.city.buildingDamage?.['granary.s09']) <= 0) return false;
+
+    const currentDay = Math.max(1, Math.floor(Number(context.storyState.currentDay)
+      || this.timeSystem?.getCurrentDay?.() || 1));
+    let conflict = context.storyState.s09RefugeeConflict;
+    const firstTrigger = !conflict;
+    if (!conflict) {
+      conflict = {
+        status: 'available',
+        triggeredDay: currentDay,
+        donationCommitted: false,
+        branch: null,
+        result: null,
+        presentationActive: true
+      };
+      context.blackboard.set('storyState', {
+        ...context.storyState,
+        currentDay,
+        delayedConsequences: Array.isArray(context.storyState.delayedConsequences)
+          ? context.storyState.delayedConsequences : [],
+        storyTags: Array.isArray(context.storyState.storyTags) ? context.storyState.storyTags : [],
+        hiddenClues: Array.isArray(context.storyState.hiddenClues) ? context.storyState.hiddenClues : [],
+        s09RefugeeConflict: conflict
+      });
+    }
+
+    await this._spawnPlacements({ group: S09_REFUGEE_GROUP });
+    if (firstTrigger) {
+      this._showScreenTip('粮仓损毁引发饥民争斗。难民区出现伤兵、妇孺与死者，请查看现场。', {
+        title: '饥民争斗'
+      });
+    }
+    return true;
+  }
+
+  /** 由 S09 磁盘场景中的可视化交互 binding 启动或恢复剧情。 */
+  async startS09RefugeeConflict() {
+    if (this.currentSceneId !== 'S09' || this.dialogueSystem?.isDialogueActive?.()) return false;
+    await this.prepareS09RefugeeConflict();
+    const context = this._getS09CityContext();
+    const conflict = context?.blackboard?.get?.('storyState')?.s09RefugeeConflict;
+    if (!context || !conflict) return false;
+    const oneArmed = (this._npcEntities || []).find(entity => entity?.id === 'S09-refugee-one-armed');
+    const playerPosition = this.playerEntity?.getComponent?.('transform')?.position;
+    const refugeePosition = oneArmed?.getComponent?.('transform')?.position;
+    if (!playerPosition || !refugeePosition
+      || Math.hypot(playerPosition.x - refugeePosition.x, playerPosition.y - refugeePosition.y) > 110) {
+      return false;
+    }
+    if (conflict.status === 'resolved') {
+      this._showScreenTip('饥民争斗已经作出选择，现场只留下选择后的沉默。');
+      return false;
+    }
+
+    const resumeStatus = conflict.status;
+    if (!this.dialogueSystem.startDialogue(S09_REFUGEE_DIALOGUE_ID, {
+      player: this.playerEntity, scene: this
+    })) return false;
+    if (conflict.donationCommitted) this._setRefugeeDialogueNode('branchChoice');
+    else if (resumeStatus === 'started') this._setRefugeeDialogueNode('donationOffer');
+
+    if (resumeStatus === 'available') {
+      const storyState = context.blackboard.get('storyState') || {};
+      context.blackboard.set('storyState', {
+        ...storyState,
+        s09RefugeeConflict: { ...conflict, status: 'started' }
+      });
+    }
+    return true;
+  }
+
+  async handleS09RefugeeChoice(choiceId) {
+    if (this._s09RefugeeChoiceBusy || this.currentSceneId !== 'S09') return false;
+    if (choiceId === 'defer') return true;
+    this._s09RefugeeChoiceBusy = true;
+    try {
+      if (choiceId === 'donate_food' || choiceId === 'retry_donation') {
+        const result = await this._commitS09RefugeeDonation();
+        const conflict = this._getS09CityContext()?.blackboard?.get?.('storyState')?.s09RefugeeConflict;
+        this._setRefugeeDialogueNode(conflict?.donationCommitted ? 'branchChoice' : 'donationFailed');
+        return result;
+      }
+      if (['hardline', 'appease', 'silence'].includes(choiceId)) {
+        const result = await this._commitS09RefugeeBranch(choiceId);
+        const conflict = this._getS09CityContext()?.blackboard?.get?.('storyState')?.s09RefugeeConflict;
+        this._setRefugeeDialogueNode(conflict?.branch
+          ? this._refugeeBranchResultNode(conflict)
+          : 'branchChoice');
+        return result;
+      }
+      return false;
+    } finally {
+      this._s09RefugeeChoiceBusy = false;
+    }
+  }
+
+  /** 扣粮、士气和暂停损毁作为一个可回滚检查点事务。 */
+  async _commitS09RefugeeDonation() {
+    const context = this._getS09CityContext();
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const conflict = context?.storyState?.s09RefugeeConflict;
+    if (!context || !inventory || !conflict) return false;
+    if (conflict.donationCommitted) {
+      this._setRefugeeDialogueNode('branchChoice');
+      return true;
+    }
+
+    const quantity = 20;
+    if (this.inventoryTransactions.previewRemove(inventory, 'resource.food', quantity).remainder > 0) {
+      this._setRefugeeDialogueNode('donationFailed');
+      this._showScreenTip('需要粮食 ×20 才能稳定现场；库存未改变。', { title: '粮食不足' });
+      return false;
+    }
+    const currentDay = Math.max(1, Math.floor(Number(context.storyState.currentDay)
+      || this.timeSystem?.getCurrentDay?.() || 1));
+    const cityDraft = JSON.parse(JSON.stringify(context.city));
+    cityDraft.morale = Math.max(0, Math.floor(Number(cityDraft.morale) || 0) + 5);
+    cityDraft.damagePausedUntilDay = Math.max(
+      Math.floor(Number(cityDraft.damagePausedUntilDay) || 0), currentDay + 1
+    );
+    if (!this._validateS09City(cityDraft, context.cityIndex)) {
+      this._setRefugeeDialogueNode('donationFailed');
+      return false;
+    }
+
+    const inventoryBefore = JSON.parse(JSON.stringify(inventory.exportItems()));
+    const blackboardBefore = JSON.parse(JSON.stringify(context.blackboard.serialize()));
+    const operationId = 'story:S09:refugee-donation';
+    const removed = this.inventoryTransactions.commit({
+      type: 'batchRemove', inventory,
+      entries: [{ itemId: 'resource.food', quantity }],
+      operationId
+    });
+    if (!removed.ok) {
+      this._setRefugeeDialogueNode('donationFailed');
+      return false;
+    }
+
+    this._setS09City(context, cityDraft);
+    const storyState = context.blackboard.get('storyState') || {};
+    context.blackboard.set('storyState', {
+      ...storyState,
+      s09RefugeeConflict: {
+        ...conflict,
+        status: 'donated',
+        donationCommitted: true,
+        donationOperationId: operationId,
+        donationDay: currentDay
+      }
+    });
+
+    try {
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S09.refugeeDonation', sceneId: 'S09'
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '捐粮检查点未提交');
+    } catch (error) {
+      inventory.loadItems(inventoryBefore);
+      this.inventoryTransactions.forgetOperation?.(operationId);
+      context.blackboard.deserialize(blackboardBefore);
+      this._setRefugeeDialogueNode('donationFailed');
+      this._showScreenTip('捐粮检查点保存失败，粮食、士气和损毁暂停均已回滚。', { title: '保存失败' });
+      return false;
+    }
+
+    this._setRefugeeDialogueNode('branchChoice');
+    this._showScreenTip('捐出粮食 ×20：城市士气 +5，损毁暂停一个游戏日。');
+    return true;
+  }
+
+  _findValidInventoryTool(inventory, toolType) {
+    return (inventory?.slots || [])
+      .map(stack => stack?.item)
+      .find(item => item?.toolType === toolType && Number(item.durability) > 0) || null;
+  }
+
+  async _commitS09RefugeeBranch(branch) {
+    const context = this._getS09CityContext();
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const conflict = context?.storyState?.s09RefugeeConflict;
+    if (!context || !inventory || !conflict?.donationCommitted) {
+      this._setRefugeeDialogueNode('donationFailed');
+      return false;
+    }
+    if (conflict.branch) {
+      this._setRefugeeDialogueNode(this._refugeeBranchResultNode(conflict));
+      return conflict.branch === branch;
+    }
+
+    const currentDay = Math.max(1, Math.floor(Number(context.storyState.currentDay)
+      || this.timeSystem?.getCurrentDay?.() || 1));
+    const blackboardBefore = JSON.parse(JSON.stringify(context.blackboard.serialize()));
+    const cityDraft = JSON.parse(JSON.stringify(context.city));
+    const tags = new Set(context.storyState.storyTags || []);
+    const delayedConsequences = [...(context.storyState.delayedConsequences || [])];
+    let result = 'committed';
+    let resultNode = 'hardlineResult';
+    let scoutTriggered = false;
+
+    if (branch === 'hardline') {
+      tags.add('s09.refugees.hardline');
+    } else if (branch === 'appease') {
+      const axe = this._findValidInventoryTool(inventory, 'axe');
+      if (axe) {
+        cityDraft.resources = { ...cityDraft.resources, food: Math.max(0, Math.floor(Number(cityDraft.resources?.food) || 0) + 30) };
+        result = 'foodRestored';
+        resultNode = 'appeaseSuccessResult';
+        tags.add('s09.refugees.appeasedWithGathering');
+      } else {
+        result = 'scoutTriggered';
+        resultNode = 'appeaseScoutResult';
+        scoutTriggered = true;
+        tags.add('s09.refugees.scoutTriggered');
+      }
+    } else if (branch === 'silence') {
+      const eventId = 'story:S09:silence-food-collapse';
+      if (!delayedConsequences.some(event => event?.id === eventId)) {
+        delayedConsequences.push({
+          id: eventId,
+          type: S09_SILENCE_EVENT_TYPE,
+          dueDay: currentDay + 1,
+          status: 'pending',
+          sourceSceneId: 'S09'
+        });
+      }
+      result = 'delayedFoodCollapse';
+      resultNode = 'silenceResult';
+      tags.add('s09.refugees.silence');
+    }
+
+    if (!this._validateS09City(cityDraft, context.cityIndex)) return false;
+    this._setS09City(context, cityDraft);
+    context.blackboard.set('storyState', {
+      ...context.storyState,
+      storyTags: [...tags],
+      delayedConsequences,
+      s09RefugeeConflict: {
+        ...conflict,
+        status: 'resolved',
+        branch,
+        result,
+        scoutTriggered,
+        branchOperationId: `story:S09:refugee-branch:${branch}`,
+        resolvedDay: currentDay
+      }
+    });
+
+    try {
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: `checkpoint.S09.refugeeBranch.${branch}`, sceneId: 'S09'
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '分支检查点未提交');
+    } catch (error) {
+      context.blackboard.deserialize(blackboardBefore);
+      this._setRefugeeDialogueNode('branchChoice');
+      this._showScreenTip('剧情分支保存失败，城市、标签与延迟事件均已回滚，可重新选择。', { title: '保存失败' });
+      return false;
+    }
+
+    this._setRefugeeDialogueNode(resultNode);
+    if (scoutTriggered) await this._spawnPlacements({ group: 'S09-refugee-scout' });
+    const messages = {
+      hardline: '你选择强硬压下争斗，这一决定已记录。',
+      appease: result === 'foodRestored' ? '有效斧头帮助收集燃料与散粮，城市粮食 +30。' : '没有有效斧头，安抚失败并引来了官军斥候。',
+      silence: '你选择沉默；下一游戏日将结算粮食耗尽的延迟后果。'
+    };
+    this._showScreenTip(messages[branch] || '剧情分支已提交。');
+    return true;
+  }
+
+  _onGameDayChanged(currentDay) {
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (!blackboard || !storyState) return false;
+    blackboard.set('storyState', { ...storyState, currentDay });
+    this._processDueStoryEvents();
+    return true;
+  }
+
+  advanceGameDay(days = 1) {
+    const currentDay = this.timeSystem?.advanceDays?.(Math.max(1, Math.floor(Number(days) || 1)));
+    if (!currentDay) return false;
+    this._onGameDayChanged(currentDay);
+    return currentDay;
+  }
+
+  /** 到期后果按 StoryState event id 幂等提交；保存失败恢复草稿并在下一帧重试。 */
+  async _processDueStoryEvents() {
+    if (this._processingDelayedStoryEvents || !this.gameLoader) return false;
+    const context = this._getS09CityContext();
+    const storyState = context?.storyState;
+    const currentDay = Math.max(1, Math.floor(Number(storyState?.currentDay)
+      || this.timeSystem?.getCurrentDay?.() || 1));
+    const dueEvent = (storyState?.delayedConsequences || []).find(event => (
+      event?.status === 'pending' && Number(event.dueDay) <= currentDay
+    ));
+    if (!context || !dueEvent) return false;
+    if (dueEvent.type !== S09_SILENCE_EVENT_TYPE) return false;
+
+    this._processingDelayedStoryEvents = true;
+    const blackboardBefore = JSON.parse(JSON.stringify(context.blackboard.serialize()));
+    try {
+      const cityDraft = JSON.parse(JSON.stringify(context.city));
+      cityDraft.resources = { ...cityDraft.resources, food: 0 };
+      if (!this._validateS09City(cityDraft, context.cityIndex)) throw new Error('延迟后果生成了非法 CityState');
+      this._setS09City(context, cityDraft);
+      const hiddenClues = new Set(storyState.hiddenClues || []);
+      hiddenClues.add('s09.refugees.breadArmClue');
+      context.blackboard.set('storyState', {
+        ...storyState,
+        hiddenClues: [...hiddenClues],
+        delayedConsequences: storyState.delayedConsequences.map(event => (
+          event?.id === dueEvent.id
+            ? { ...event, status: 'completed', completedDay: currentDay }
+            : event
+        ))
+      });
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: `checkpoint.${dueEvent.id}`, sceneId: this.currentSceneId
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '延迟后果检查点未提交');
+      this._showScreenTip('新的一日到来：营地粮食耗尽，断臂饥民手中的饼留下了一条隐藏线索。', {
+        title: '延迟后果'
+      });
+      return true;
+    } catch (error) {
+      context.blackboard.deserialize(blackboardBefore);
+      console.warn('[DDScene] 延迟剧情结算失败，已回滚并等待重试', error);
+      return false;
+    } finally {
+      this._processingDelayedStoryEvents = false;
+    }
+  }
+
   // ==================== 火堆（迁移自 Act1） ====================
 
+  _restoreCampfireState(lit) {
+    if (lit) {
+      if (!this.campfire.lit) this.lightCampfire({ emitEvent: false });
+      this.fog.opacity = 0;
+      this.fog.targetOpacity = 0;
+      return;
+    }
+    for (const emitter of this.campfire.emitters || []) emitter.active = false;
+    this.campfire.emitters = [];
+    if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
+    this.campfire.emitterSmoke = null;
+    this.campfire.lit = false;
+    this.fog.opacity = 0.85;
+    this.fog.targetOpacity = 0.85;
+  }
+
   /** 点燃火堆并创建火焰粒子（7 组发射器） */
-  lightCampfire() {
+  lightCampfire({ emitEvent = true } = {}) {
     if (this.campfire.lit) return;
     this.campfire.lit = true;
     this.campfire.emitters = [];
@@ -1259,8 +2762,24 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 点燃火堆后驱散开场薄雾
     this.fog.targetOpacity = 0;
 
-    // 当前火堆剧情归属 s0-0；与残羹触发器的 sceneId 精确匹配。
-    if (this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', { sceneId: 's0-0' });
+    // 当前火堆剧情归属 S01；存档恢复只重建表现，不重复发布剧情事件。
+    if (emitEvent && this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', { sceneId: 'S01' });
+  }
+
+  /** 通用放置条件：从 Blackboard 纯数据路径读取 exists/equals/in，不让 PlacementSpawner 依赖剧情。 */
+  _shouldSpawnPlacement(placement = {}) {
+    const condition = placement.spawnWhen;
+    if (!condition || typeof condition !== 'object') return true;
+    const root = this.gameLoader?.blackboard?.get?.(condition.blackboardKey || 'storyState');
+    let value = root;
+    for (const segment of String(condition.path || '').split('.').filter(Boolean)) {
+      value = value && typeof value === 'object' ? value[segment] : undefined;
+    }
+    if (condition.exists === true && value === undefined) return false;
+    if (condition.exists === false && value !== undefined) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'equals') && value !== condition.equals) return false;
+    if (Array.isArray(condition.in) && !condition.in.includes(value)) return false;
+    return true;
   }
 
   /**
@@ -1288,6 +2807,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return;
     }
     if (scope.disposed || this.resourceScope !== scope || !this.gameLoader || !this._placementSpawner) return;
+
+    const placementValidation = this.gameLoader.validatePlacementReferences(this._placements || []);
+    if (!placementValidation.ok) {
+      this.gameLoader.lastValidationErrors = placementValidation.errors;
+      console.error('[DDScene] 放置点引用校验失败', placementValidation.errors);
+      return { ok: false, errors: placementValidation.errors };
+    }
 
     const reg = this.gameLoader.registries;
     const result = this._placementSpawner.spawnMatching({
@@ -1345,189 +2871,305 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return ({ item: 'items', equipment: 'equipment', npc: 'npcs', enemy: 'enemies', shop: 'shops', vehicle: 'vehicles', building: 'buildings' })[kind] || null;
   }
 
-  /**
-   * 弹出职业确认窗口（Canvas 绘制）。玩家点"确认"后调用 _selectClass，点"取消"关闭。
-   * @param {Object} p - { classId }
-   * @private
-   */
+  /** 打开 S09 职业不可逆确认框。 */
   _showClassConfirmation(p = {}) {
-    const classId = p.classId || p.class || 'warrior';
-    if (this._classSelected) return;
+    const classId = p.classId || p.class || ClassType.WARRIOR;
+    const supported = [ClassType.WARRIOR, ClassType.ARCHER, ClassType.STRATEGIST];
+    if (!supported.includes(classId)) {
+      console.warn('[DDScene] confirmClass: 不支持的职业', classId);
+      return false;
+    }
+    const storyState = this.gameLoader?.blackboard?.get?.('storyState');
+    if (this.currentSceneId !== 'S09' || storyState?.joinedYellowTurban !== true) {
+      this._showScreenTip('先在 S09 与张角交谈并加入黄巾', { title: '尚未入伍' });
+      return false;
+    }
+    if (storyState.classSelectionCommitted === true || this._classSelected) {
+      this._showScreenTip(`职业已经固定为${ClassNames[storyState.selectedClass || this.selectedClass] || '当前职业'}`);
+      return false;
+    }
 
-    const classNames = { warrior: '战士', archer: '弓箭手', mage: '法师' };
-    const className = classNames[classId] || classId;
-
-    // 存到实例上，由 render 绘制、update 检测点击
+    const descriptions = {
+      warrior: '采集速度更快，但可携带的资源总量较低。',
+      archer: '采集速度较慢，可用远程攻击引开守卫。',
+      strategist: '可召唤一次采集傀儡协助获取资源。'
+    };
     this._classConfirm = {
       classId,
-      className,
+      className: ClassNames[classId] || classId,
+      description: descriptions[classId] || '',
       confirmHover: false,
       cancelHover: false
     };
-    console.log(`[DDScene] 显示职业确认窗口: ${className}`);
+    console.log(`[DDScene] 显示职业确认窗口: ${this._classConfirm.className}`);
+    return true;
   }
 
-  /**
-   * 每帧检测职业确认窗口的按钮点击（在 update 中调用）
-   * @private
-   */
-  _updateClassConfirmation() {
-    const cf = this._classConfirm;
-    if (!cf || !this.inputManager) return;
-
-    const w = 380, h = 180;
+  _classModalLayout() {
+    const w = 460, h = 220;
     const px = (this.logicalWidth - w) / 2;
     const py = (this.logicalHeight - h) / 2;
-    const btnW = 110, btnH = 38;
-    const btnY = py + h - 56;
-    const confirmX = px + w / 2 - btnW - 12;
-    const cancelX = px + w / 2 + 12;
+    const btnW = 140, btnH = 40;
+    const btnY = py + h - 58;
+    return {
+      w, h, px, py, btnW, btnH, btnY,
+      confirmX: px + w / 2 - btnW - 14,
+      cancelX: px + w / 2 + 14
+    };
+  }
 
+  _updateClassConfirmationHover() {
+    const cf = this._classConfirm;
+    if (!cf || !this.inputManager) return;
+    const layout = this._classModalLayout();
     const mouse = this.inputManager.getMousePosition();
-    cf.confirmHover = mouse.x >= confirmX && mouse.x <= confirmX + btnW && mouse.y >= btnY && mouse.y <= btnY + btnH;
-    cf.cancelHover = mouse.x >= cancelX && mouse.x <= cancelX + btnW && mouse.y >= btnY && mouse.y <= btnY + btnH;
+    cf.confirmHover = mouse.x >= layout.confirmX && mouse.x <= layout.confirmX + layout.btnW
+      && mouse.y >= layout.btnY && mouse.y <= layout.btnY + layout.btnH;
+    cf.cancelHover = mouse.x >= layout.cancelX && mouse.x <= layout.cancelX + layout.btnW
+      && mouse.y >= layout.btnY && mouse.y <= layout.btnY + layout.btnH;
+  }
 
-    if (!this.inputManager.isMouseClicked() || this.inputManager.isMouseClickHandled()) return;
+  /** SceneInputFlow 的 MODAL_UI 出口；弹窗存在时无条件吞掉世界输入。 */
+  handleModalInput({ inputManager, gamepad } = {}) {
+    const cf = this._classConfirm;
+    if (!cf || !inputManager) return false;
+    this._updateClassConfirmationHover();
 
-    if (cf.confirmHover) {
-      this.inputManager.markMouseClickHandled();
-      this._classConfirm = null;
-      this._selectClass({ classId: cf.classId });
-    } else if (cf.cancelHover) {
-      this.inputManager.markMouseClickHandled();
+    const clicked = inputManager.isMouseClicked?.() === true && !inputManager.isMouseClickHandled?.();
+    const confirmPressed = inputManager.isKeyPressed?.('e')
+      || inputManager.isKeyPressed?.('enter') || inputManager.isKeyPressed?.('Enter');
+    const cancelPressed = inputManager.isKeyPressed?.('escape')
+      || gamepad?.isButtonPressed?.(PadButton.B) === true;
+
+    if (clicked) inputManager.markMouseClickHandled?.();
+    if (!this._classSelectionBusy && (confirmPressed || (clicked && cf.confirmHover))) {
+      this._confirmClassSelection(cf.classId);
+    } else if (!this._classSelectionBusy && (cancelPressed || (clicked && cf.cancelHover))) {
       this._classConfirm = null;
       console.log('[DDScene] 取消职业选择');
     }
+    return true;
   }
 
-  /**
-   * 渲染职业确认窗口（在 render 中调用）
-   * @param {CanvasRenderingContext2D} ctx
-   * @private
-   */
+  /** 保留旧 update 调用点，只更新 hover；点击和键位统一由 SceneInputFlow 处理。 */
+  _updateClassConfirmation() {
+    this._updateClassConfirmationHover();
+  }
+
+  async _confirmClassSelection(classId) {
+    const success = await this._selectClass({ classId });
+    if (success) this._classConfirm = null;
+    return success;
+  }
+
+  /** 渲染职业确认窗口；提示文本始终由 InputHints 根据当前设备生成。 */
   _renderClassConfirmation(ctx) {
     const cf = this._classConfirm;
     if (!cf) return;
-
-    const w = 380, h = 180;
-    const px = (this.logicalWidth - w) / 2;
-    const py = (this.logicalHeight - h) / 2;
+    const { w, h, px, py, btnW, btnH, btnY, confirmX, cancelX } = this._classModalLayout();
 
     ctx.save();
-    // 半透明遮罩
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
     ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-    // 面板背景
-    ctx.fillStyle = 'rgba(16,24,40,0.95)';
-    ctx.strokeStyle = '#4CAF50';
+    ctx.fillStyle = 'rgba(16,24,40,0.97)';
+    ctx.strokeStyle = '#d6b85f';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.roundRect(px, py, w, h, 10);
     ctx.fill();
     ctx.stroke();
-    // 标题
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 20px Arial';
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 20px Arial';
     ctx.fillText('确认职业选择', px + w / 2, py + 18);
-    // 说明文字
     ctx.fillStyle = '#ffffff';
     ctx.font = '15px Arial';
-    ctx.fillText(`确定要选择「${cf.className}」吗？选择后不可更改。`, px + w / 2, py + 60);
-    // 按钮
-    const btnW = 110, btnH = 38;
-    const btnY = py + h - 56;
-    const confirmX = px + w / 2 - btnW - 12;
-    const cancelX = px + w / 2 + 12;
-    // 确认按钮
+    ctx.fillText(`确定选择「${cf.className}」吗？选择后不可更改。`, px + w / 2, py + 57);
+    ctx.fillStyle = '#d6d9df';
+    ctx.font = '14px Arial';
+    ctx.fillText(cf.description, px + w / 2, py + 88);
+    if (this._classSelectionBusy) {
+      ctx.fillStyle = '#f0cf77';
+      ctx.fillText('正在创建职业检查点……', px + w / 2, py + 116);
+    }
+
     ctx.fillStyle = cf.confirmHover ? '#5dba68' : '#4CAF50';
     ctx.beginPath();
     ctx.roundRect(confirmX, btnY, btnW, btnH, 6);
     ctx.fill();
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 15px Arial';
-    ctx.fillText('确认', confirmX + btnW / 2, btnY + 10);
-    // 取消按钮
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(`确认（${InputHints.key('confirm')}）`, confirmX + btnW / 2, btnY + 11);
+
     ctx.fillStyle = cf.cancelHover ? '#555' : '#3a3a3a';
     ctx.beginPath();
     ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
     ctx.fill();
     ctx.strokeStyle = '#888';
     ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.fillText('取消', cancelX + btnW / 2, btnY + 10);
+    ctx.fillText(`取消（${InputHints.key('modalCancel')}）`, cancelX + btnW / 2, btnY + 11);
     ctx.restore();
   }
 
   /**
-   * 数据驱动：选择职业（第四幕）。触发器 dialogueEnd{id:warrior_intro/archer_intro} → selectClass{classId}
-   * @private
+   * S09 职业事务：装备、职业来源、初始能力、StoryState 和 checkpoint 要么全部成功，要么全部回滚。
    */
-  _selectClass(p = {}) {
+  async _selectClass(p = {}) {
     const classType = p.classId || p.class || ClassType.WARRIOR;
-    if (this._classSelected) { console.log('[DDScene] 已选择过职业，忽略'); return; }
-    // 懒创建职业系统（复用框架 ClassSystem）
-    if (!this.classSystem) this.classSystem = new ClassSystem();
-    const ok = this.classSystem.selectClass('player', classType);
-    if (!ok) { console.warn('[DDScene] selectClass 失败:', classType); return; }
-    this._classSelected = true;
-    this.selectedClass = classType;
+    const supported = [ClassType.WARRIOR, ClassType.ARCHER, ClassType.STRATEGIST];
+    if (!supported.includes(classType) || this._classSelectionBusy) return false;
 
-    // 更新玩家实体职业/技能点
-    if (this.playerEntity) {
-      const stats = this.playerEntity.getComponent('stats');
-      if (stats) {
-        stats.class = classType;
-        stats.skillPoints = (stats.skillPoints || 0) + 5;
-        const classData = this.classSystem.getClassData(classType);
-        if (classData && typeof stats.setUnitType === 'function' && classData.baseUnitType != null) {
-          stats.setUnitType(classData.baseUnitType);
-        }
-      }
+    const player = this.playerEntity;
+    const playerId = player?.id;
+    const stats = player?.getComponent?.('stats');
+    const inventory = player?.getComponent?.('inventory');
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    const progression = this.gameLoader?.progressionSystem;
+    const classSystem = this._ensureClassSystem();
+    if (this.currentSceneId !== 'S09' || !playerId || !stats || !inventory || !blackboard
+      || !progression || !classSystem || storyState?.joinedYellowTurban !== true) {
+      this._showScreenTip('职业选择前置状态不完整', { title: '无法选择职业' });
+      return false;
     }
 
-    // 给予职业初始装备（放进背包）
-    try {
-      const startingEquipment = this.classSystem.getStartingEquipment(classType) || [];
-      const inventory = this.playerEntity && this.playerEntity.getComponent('inventory');
-      if (inventory) {
-        for (const eq of startingEquipment) {
-          const isAmmo = eq.type === 'ammo';
-          const item = {
-            id: eq.id,
-            name: eq.name,
-            type: isAmmo ? 'equipment' : 'equipment',
-            subType: isAmmo ? 'ammo' : eq.type,
-            rarity: 1,
-            maxStack: isAmmo ? 99 : 1,
-            stats: {}
-          };
-          inventory.addItem(item, isAmmo ? (eq.quantity || 30) : 1);
-        }
+    if (storyState.classSelectionCommitted === true) {
+      if (storyState.selectedClass !== classType) {
+        this._showScreenTip('职业已经固定，不能改选', { title: '不可更改' });
+        return false;
       }
-    } catch (e) { console.warn('[DDScene] 发放职业装备失败:', e); }
+      classSystem.restoreClass(playerId, classType);
+      this._classSelected = true;
+      this.selectedClass = classType;
+      this._syncUnlockedClassSkills();
+      return true;
+    }
+    if (classSystem.getCharacterClass(playerId)) {
+      this._showScreenTip('检测到未完成的职业运行状态，请重新读取检查点', { title: '状态冲突' });
+      return false;
+    }
+
+    const classData = classSystem.getClassData(classType);
+    const itemRegistry = this.gameLoader.getRegistry?.('items');
+    const equipmentEntries = classSystem.getStartingEquipment(classType).map(spec => ({
+      item: itemRegistry?.get?.(spec.id),
+      quantity: Math.max(1, Math.floor(Number(spec.quantity) || 1))
+    }));
+    if (!classData || equipmentEntries.length === 0 || equipmentEntries.some(entry => !entry.item?.id)) {
+      this._showScreenTip('职业初始装备定义缺失', { title: '内容配置错误' });
+      return false;
+    }
+    const inventoryPreview = this.inventoryTransactions.previewBatchAdd(inventory, equipmentEntries);
+    if (!inventoryPreview.valid || inventoryPreview.remainder > 0) {
+      this._showScreenTip('背包空间不足，整理后再确认职业', { title: '无法领取初始装备' });
+      return false;
+    }
+
+    const initialNodeByClass = {
+      warrior: { graphId: 'warrior-skill', nodeId: 'cleave', passiveStart: 'start_warrior' },
+      archer: { graphId: 'archer-skill', nodeId: 'arrow_shot', passiveStart: 'start_archer' },
+      strategist: { graphId: 'strategist-skill', nodeId: 'talisman_water', passiveStart: 'start_strategist' }
+    };
+    const initial = initialNodeByClass[classType];
+    if (!progression.getGraph(initial.graphId)?.getNode?.(initial.nodeId)
+      || !progression.getGraph('global-passive')?.getNode?.(initial.passiveStart)) {
+      this._showScreenTip(`职业初始能力或天赋盘起点不存在：${initial.nodeId}`, { title: '成长配置错误' });
+      return false;
+    }
+
+    const inventoryBefore = JSON.parse(JSON.stringify(inventory.exportItems()));
+    const blackboardBefore = JSON.parse(JSON.stringify(blackboard.serialize()));
+    const progressionBefore = JSON.parse(JSON.stringify(progression.serializeCharacter(playerId)));
+    const statsBefore = {
+      class: stats.class,
+      skillPoints: stats.skillPoints,
+      unitType: stats.unitType
+    };
+    const playerClassBefore = player.class;
+    const operationId = `class-select:${playerId}:${classType}`;
+    this._classSelectionBusy = true;
+
+    try {
+      const equipmentResult = this.inventoryTransactions.commit({
+        type: 'batchAdd', inventory, entries: equipmentEntries, allowPartial: false, operationId
+      });
+      if (!equipmentResult.ok) throw new Error(equipmentResult.code || '初始装备提交失败');
+      if (!classSystem.selectClass(playerId, classType)) throw new Error('职业系统拒绝选择');
+
+      player.class = classType;
+      stats.class = classType;
+      if (typeof stats.setUnitType === 'function') stats.setUnitType(classData.baseUnitType);
+      else stats.unitType = classData.baseUnitType;
+
+      const ledger = progression.getLedger(playerId);
+      const starterPointTotals = { skill: 8, talent: 4, unit: 4, passive: 4 };
+      for (const [pool, targetTotal] of Object.entries(starterPointTotals)) {
+        const currentTotal = ledger.getAvailable(pool) + ledger.getSpent(pool);
+        if (currentTotal < targetTotal) progression.grantPoints(playerId, pool, targetTotal - currentTotal);
+      }
+      if (progression.getRank(playerId, initial.graphId, initial.nodeId) === 0) {
+        const allocated = progression.allocateNode(playerId, initial.graphId, initial.nodeId, {
+          characterLevel: Number(stats.level) || 1
+        });
+        if (!allocated.ok) throw new Error(allocated.message || `无法解锁 ${initial.nodeId}`);
+      }
+      if (progression.getRank(playerId, 'global-passive', initial.passiveStart) === 0) {
+        const startAllocated = progression.allocateNode(playerId, 'global-passive', initial.passiveStart, {
+          characterLevel: Number(stats.level) || 1
+        });
+        if (!startAllocated.ok) throw new Error(startAllocated.message || `无法激活 ${initial.passiveStart}`);
+      }
+      stats.skillPoints = progression.getLedger(playerId).getAvailable('skill');
+
+      blackboard.set('storyState', {
+        ...storyState,
+        joinedYellowTurban: true,
+        classSelectionCommitted: true,
+        selectedClass: classType,
+        lastCheckpointId: 'checkpoint.S09.classSelected'
+      });
+      blackboard.set('joinedYellowTurban', true);
+      blackboard.set('selectedClass', classType);
+      blackboard.set('classSelected', true);
+      this._classSelected = true;
+      this.selectedClass = classType;
+      this._syncUnlockedClassSkills();
+
+      const saveResult = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S09.classSelected', sceneId: 'S09'
+      });
+      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '职业检查点未提交');
+    } catch (error) {
+      inventory.loadItems(inventoryBefore);
+      this.inventoryTransactions.forgetOperation?.(operationId);
+      progression.deserializeCharacter(playerId, progressionBefore);
+      classSystem.clearClass(playerId);
+      player.class = playerClassBefore;
+      for (const [key, value] of Object.entries(statsBefore)) {
+        if (value === undefined) delete stats[key];
+        else stats[key] = value;
+      }
+      blackboard.deserialize(blackboardBefore);
+      this._classSelected = false;
+      this.selectedClass = null;
+      this.gatheringPuppetSystem?.cancelActive?.('classRollback');
+      if (this.gatheringPuppetSystem) this.gatheringPuppetSystem.chargesRemaining = null;
+      this._syncUnlockedClassSkills();
+      this._showScreenTip(`职业提交失败：${error.message || error}。状态已回滚，可重试。`, { title: '检查点失败' });
+      return false;
+    } finally {
+      this._classSelectionBusy = false;
+    }
 
     const className = ClassNames[classType] || classType;
-    if (this.notificationSystem && this.notificationSystem.notify) {
-      this.notificationSystem.notify(`你选择了 ${className} 职业！`, 'success');
-    } else {
-      this._showScreenTip && this._showScreenTip(`你选择了 ${className} 职业！`);
-    }
-    console.log('%c[DDScene] 选择职业:', 'color:#4CAF50', className);
-
-    // 数据驱动事件源：可供 when:classSelected 触发器继续推进剧情
-    if (this.gameLoader && this.gameLoader.triggerSystem) {
-      this.gameLoader.triggerSystem.fire('classSelected', { class: classType, className });
-    }
-    // 同步黑板变量，供条件判定
-    if (this.gameLoader && this.gameLoader.blackboard) {
-      this.gameLoader.blackboard.set('selectedClass', classType);
-      this.gameLoader.blackboard.set('classSelected', true);
-    }
+    this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
+    this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });
+    console.log('%c[DDScene] S09 职业检查点已提交:', 'color:#4CAF50', className);
+    return true;
   }
 
   /**
@@ -1544,12 +3186,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
       const placements = result.placements || [];
       this._placements = placements;
+      this._sceneTriggerBindings?.setBindings(result.triggerBindings || [], result.sceneObjects || []);
       this._applySpawnPoints(placements);
       this._worldReadyGate?.resolve('placements', placements);
       this._syncWorldReadyProjection();
     })).catch(this.resourceScope.guard(e => {
       console.warn('[DDScene] 加载 game.project.json 失败:', e);
       this._placements = [];
+      this._sceneTriggerBindings?.setBindings([]);
       this._applySpawnPoints(this._placements);
       this._worldReadyGate?.resolve('placements', this._placements);
       this._syncWorldReadyProjection();
@@ -1564,7 +3208,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!scene || !Array.isArray(scene.layers)) return;
     for (const layer of scene.layers) {
       for (const o of (layer.objects || [])) {
-        if (o.type === 'ref' || o.type === 'spawn' || o.type === 'trigger') {
+        if (o.type === 'ref' || o.type === 'spawn') {
           placements.push({
             ...o,
             x: o.x + (offset ? offset.x : 0),

@@ -1,0 +1,311 @@
+{
+  "id": "S01",
+  "name": "S01",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#5a4a32",
+  "productionState": "greybox",
+  "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": {
+    "complexity": "low",
+    "focalPoint": "S01-spawn-campfire",
+    "primaryRoute": ["S01-spawn-player", "S01-zone-campfire", "S01-zone-north-exit"],
+    "cameraFrame": { "width": 1280, "height": 720 }
+  },
+  "assetBudget": { "environmentModules": 8, "actorVariants": 4, "interactiveProps": 5, "vfx": 3, "audioLayers": 2 },
+  "layers": [
+    {
+      "id": "layer_bg",
+      "name": "背景层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_fill",
+      "name": "背景填充层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S01-primary-route",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "营火主通行动线",
+          "points": [[690,720],[805,720],[665,450],[525,450]],
+          "fillMode": "color",
+          "fill": "#9a8054",
+          "opacity": 0.45,
+          "stroke": "#d0b56d",
+          "strokeWidth": 2,
+          "walkable": true
+        }
+      ]
+    },
+    {
+      "id": "layer_deco",
+      "name": "装饰层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S01-zone-campfire",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "营火安全区",
+          "points": [[500,430],[705,430],[740,585],[480,585]],
+          "fillMode": "color",
+          "fill": "#d58b35",
+          "opacity": 0.18,
+          "stroke": "#efaa4a",
+          "strokeWidth": 2
+        },
+        {
+          "id": "S01-zone-bandit-warning",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "盗匪警戒构图区",
+          "points": [[825,230],[1150,190],[1200,430],[875,460]],
+          "fillMode": "color",
+          "fill": "#7b3530",
+          "opacity": 0.18,
+          "stroke": "#d25a43",
+          "strokeWidth": 2
+        },
+        {
+          "id": "S01-zone-north-exit",
+          "type": "region",
+          "name": "北侧出口构图预留",
+          "regionId": "S01-north-exit",
+          "x": 535,
+          "y": 30,
+          "width": 210,
+          "height": 90
+        }
+      ]
+    },
+    {
+      "id": "layer_entity",
+      "name": "实体层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "S01-terrain",
+      "name": "干旱平原灰盒",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "obj_1786220039726",
+          "type": "image",
+          "imageId": "img_1784926747445",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0
+        }
+      ]
+    },
+    {
+      "id": "S01-spawns",
+      "name": "出生点",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S01-spawn-player",
+          "type": "spawn",
+          "ref": "player",
+          "x": 685.05,
+          "y": 548.51
+        },
+        {
+          "id": "S01-spawn-campfire",
+          "type": "spawn",
+          "ref": "campfire",
+          "x": 599.53,
+          "y": 522.81
+        },
+        {
+          "id": "S01-pickup-worn-axe",
+          "type": "ref",
+          "kind": "item",
+          "ref": "tool.worn_axe",
+          "group": "S01-initial",
+          "x": 640,
+          "y": 500,
+          "overrides": { "instanceId": "S01-tool-axe-1" }
+        },
+        { "id": "S01-node-wood-1", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 430, "y": 390 },
+        { "id": "S01-node-wood-2", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 335, "y": 285 },
+        { "id": "S01-node-wood-3", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-initial", "tags": ["resource", "wood"], "x": 775, "y": 340 },
+        { "id": "S01-node-herb-1", "type": "ref", "kind": "resourceNode", "ref": "node.wild_herb", "group": "S01-initial", "tags": ["resource", "herb"], "x": 515, "y": 315 },
+        { "id": "S01-node-herb-2", "type": "ref", "kind": "resourceNode", "ref": "node.wild_herb", "group": "S01-initial", "tags": ["resource", "herb"], "x": 725, "y": 260 },
+        { "id": "S01-bandit-1", "type": "ref", "kind": "enemy", "ref": "enemy.s01_bandit", "group": "S01-initial", "tags": ["bandit", "warning-zone"], "x": 930, "y": 300 },
+        { "id": "S01-bandit-2", "type": "ref", "kind": "enemy", "ref": "enemy.s01_bandit", "group": "S01-initial", "tags": ["bandit", "warning-zone"], "x": 1050, "y": 355 }
+      ]
+    },
+    {
+      "id": "S01-logic",
+      "name": "逻辑对象",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S01-binding-light-campfire",
+          "type": "trigger",
+          "name": "点燃火堆",
+          "triggerId": "trg_s01_light_campfire",
+          "x": 581.53,
+          "y": 504.81,
+          "width": 36,
+          "height": 36,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S01-spawn-campfire",
+          "radius": 100,
+          "pointerRadius": 36,
+          "prompt": "{interact}点燃火堆"
+        },
+        {
+          "id": "S01-binding-exit-s02",
+          "type": "trigger",
+          "name": "前往废弃营地",
+          "triggerId": "trg_s01_exit_s02",
+          "x": 535,
+          "y": 30,
+          "width": 210,
+          "height": 90,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S01-zone-north-exit",
+          "radius": 110,
+          "pointerRadius": 60,
+          "prompt": "{interact}前往废弃营地"
+        },
+        {
+          "id": "S01-binding-choose-not-flee",
+          "type": "trigger",
+          "name": "不逃跑，直面盗匪",
+          "triggerId": "trg_s01_choose_not_flee",
+          "x": 825,
+          "y": 190,
+          "width": 375,
+          "height": 270,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S01-zone-bandit-warning",
+          "pointerRadius": 72,
+          "prompt": "{interact}不逃跑，直面盗匪"
+        }
+      ]
+    }
+  ],
+  "decorations": [],
+  "colliders": [],
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "region-a",
+  "updatedAt": "2026-08-08T19:28:48.682Z",
+  "atlases": [
+    {
+      "id": "mountain_landscape",
+      "name": "山地景观图集",
+      "path": "../example/sanguo_zhangjiao/assets/images/scene1/mountain_landscape.png",
+      "width": 512,
+      "height": 512,
+      "slices": {
+        "grassTile": {
+          "name": "草地",
+          "sx": 448,
+          "sy": 128,
+          "sw": 64,
+          "sh": 64
+        },
+        "tree1": {
+          "name": "大树",
+          "sx": 128,
+          "sy": 384,
+          "sw": 96,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 22
+        },
+        "tree2": {
+          "name": "中树",
+          "sx": 224,
+          "sy": 417,
+          "sw": 64,
+          "sh": 96,
+          "collide": true,
+          "colliderRadius": 14
+        },
+        "tree3": {
+          "name": "小树",
+          "sx": 288,
+          "sy": 385,
+          "sw": 64,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 16
+        },
+        "grass1": {
+          "name": "草地装饰",
+          "sx": 128,
+          "sy": 288,
+          "sw": 96,
+          "sh": 96,
+          "collide": false
+        },
+        "bush2": {
+          "name": "灌木1",
+          "sx": 223,
+          "sy": 289,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush3": {
+          "name": "草莓",
+          "sx": 224,
+          "sy": 319,
+          "sw": 32,
+          "sh": 32,
+          "collide": false,
+          "colliderRadius": 16
+        },
+        "bush4": {
+          "name": "灌木2",
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
+          "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
+        }
+      }
+    }
+  ],
+  "imageAssets": {
+    "img_1783095863410": {
+      "src": "../example/sanguo_zhangjiao/assets/images/scene1/bg1.png",
+      "name": "bg1.png"
+    },
+    "img_1784926747445": {
+      "src": "../example/sanguo_zhangjiao/assets/images/bg_0_0.png",
+      "name": "bg_0_0.png"
+    }
+  }
+}

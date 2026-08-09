@@ -1,1994 +1,298 @@
 {
+  "schemaVersion": 1,
   "meta": {
     "id": "sanguo_zhangjiao",
-    "name": "三国张角序章",
-    "version": 1,
-    "schema": 2
+    "name": "三国张角传",
+    "version": 2,
+    "schema": 3,
+    "campaignId": "sanguo-zhangjiao-s01-s14"
+  },
+  "assetManifest": {
+    "$ref": "assets/manifests/assets.json"
+  },
+  "presentation": {
+    "$ref": "config/presentation.json"
   },
   "progression": {
     "profile": "arpg",
     "primary": "skillTree",
-    "enabled": [
-      "skillTree",
-      "passiveBoard"
-    ],
-    "secondary": [
-      "passiveBoard"
-    ],
+    "enabled": ["skillTree", "talentTree", "unitTalent", "passiveBoard"],
+    "secondary": ["talentTree", "unitTalent", "passiveBoard"],
     "graphIds": {
-      "skillTree": "warrior-skill",
+      "unitTalent": "unit-talent",
       "passiveBoard": "global-passive"
     },
     "pointPools": {
       "skill": "independent",
+      "talent": "independent",
+      "unit": "independent",
       "passive": "independent"
     },
     "unlock": {
-      "skillTree": "characterCreated",
-      "passiveBoard": "milestone"
+      "skillTree": "classSelected",
+      "talentTree": "classSelected",
+      "unitTalent": "classSelected",
+      "passiveBoard": "classSelected"
     },
     "graphs": [
-      {
-        "$ref": "config/progression-warrior-skill.json"
-      },
-      {
-        "$ref": "config/progression-passive-board.json"
-      }
+      { "$ref": "config/progression-warrior-skill.json" },
+      { "$ref": "config/progression-archer-skill.json" },
+      { "$ref": "config/progression-strategist-skill.json" },
+      { "$ref": "config/progression-warrior-talent.json" },
+      { "$ref": "config/progression-archer-talent.json" },
+      { "$ref": "config/progression-strategist-talent.json" },
+      { "$ref": "config/progression-unit-talent.json" },
+      { "$ref": "config/progression-passive-board.json" }
     ],
-    "skills": {
-      "$ref": "config/skills.json"
+    "skills": { "$ref": "config/skills.json" },
+    "proficiency": {
+      "schemaVersion": 1,
+      "maxCompletedOperations": 256,
+      "types": {
+        "gathering": {
+          "name": "采集",
+          "maxLevel": 5,
+          "thresholds": [0, 20, 55, 105, 170],
+          "experiencePerUnit": 2
+        },
+        "construction": {
+          "name": "营建",
+          "maxLevel": 5,
+          "thresholds": [0, 30, 80, 150, 240],
+          "experiencePerUnit": 1
+        }
+      }
     }
   },
   "variables": {
-    "act": 0,
-    "killCount": 0,
-    "starvingKilled": 0,
-    "act5Kills": 0,
-    "hasSword": false,
-    "gold": 0,
-    "act2EquipCount": 0
+    "storyState": {
+      "month": 3,
+      "currentDay": 1,
+      "currentSceneId": "S01",
+      "unlockedScenes": ["S01"],
+      "delayedConsequences": [],
+      "storyTags": [],
+      "hiddenClues": []
+    },
+    "cityStates": [{
+      "schemaVersion": 1,
+      "id": "city.s09_guangzong_camp",
+      "name": "广宗粥棚营地",
+      "factionId": "yellow_turban",
+      "buildingLevel": 1,
+      "resources": { "food": 60, "wood": 20, "iron": 0, "herb": 10 },
+      "damageRatio": 0.45,
+      "buildingDamage": { "granary.s09": 0.6 },
+      "morale": 35,
+      "damagePausedUntilDay": 0
+    }],
+    "reputation": 50,
+    "resourcePermissions": { "S09": { "food": false } }
   },
   "worldMap": {
-    "regions": [
-      {
-        "id": "prologue_world",
-        "name": "序章世界",
-        "chunkWidth": 1280,
-        "chunkHeight": 720,
-        "cols": 4,
-        "rows": 4,
-        "grid": [
-          [
-            "s0-0",
-            "s0-1",
-            null,
-            null
-          ],
-          [
-            null,
-            "s1-1",
-            null,
-            null
-          ],
-          [
-            null,
-            "s2-1",
-            null,
-            null
-          ],
-          [
-            null,
-            "s3-1",
-            "s3-2",
-            "s3-3"
-          ]
-        ]
-      },
-      {
-        "id": "region_1784660272883",
-        "name": "新地图",
-        "chunkWidth": 1280,
-        "chunkHeight": 720,
-        "cols": 2,
-        "rows": 2,
-        "grid": [
-          [
-            null,
-            null
-          ],
-          [
-            null,
-            null
-          ]
-        ]
-      }
-    ]
+    "regions": [{
+      "id": "region-a",
+      "name": "A区·干旱平原",
+      "chunkWidth": 1280,
+      "chunkHeight": 720,
+      "cols": 20,
+      "rows": 20,
+      "grid": [
+        [null,"S02",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,"S01",null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+        [null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null]
+      ]
+    }, {
+      "id": "region-b",
+      "name": "B区·冀州营地与战场（构图预览）",
+      "chunkWidth": 1280,
+      "chunkHeight": 720,
+      "cols": 20,
+      "rows": 20,
+      "chunks": [
+        { "sceneId": "S09", "row": 1, "col": 1 }
+      ]
+    }]
   },
-  "worldTerrains": {},
   "scenes": [],
   "dialogues": [
     {
-      "id": "intro",
-      "title": "序章开始",
-      "act": "act1",
-      "startNode": "node1",
+      "id": "dialogue.s02.zhangjiaoSummons",
+      "title": "张角召见",
+      "startNode": "start",
       "nodes": {
-        "node1": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "东汉末年，天下大乱，民不聊生...",
-          "nextNode": "node2"
+        "start": {
+          "speaker": "黄巾信使",
+          "text": "你终于到了。张角正在粥棚营地召集仍愿救民的人。",
+          "nextNode": "accept"
         },
-        "node2": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你是一名普通的流民，为了生存而挣扎...",
-          "nextNode": null
-        }
-      },
-      "scene": "s0-0"
-    },
-    {
-      "id": "tutorial_movement",
-      "title": "移动教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你从黑暗中醒来，饥寒交迫。{bag} 查看属性和背包",
-          "nextNode": null
-        }
-      },
-      "scene": "s0-0"
-    },
-    {
-      "id": "tutorial_after_attribute",
-      "title": "移动提示",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你四处走了走，看了看。按WASD移动",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "tutorial_pickup",
-      "title": "拾取教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你发现一些物品。按E键拾取",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "tutorial_inventory",
-      "title": "背包教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "按B键查看背包",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "tutorial_equip",
-      "title": "装备教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "点击物品装备",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "tutorial_equipment_panel",
-      "title": "装备面板教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "按V键查看装备",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "tutorial_combat",
-      "title": "战斗教程",
-      "act": "act1",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你现在可以战斗了。按空格键攻击",
-          "nextNode": null
+        "accept": {
+          "speaker": "你",
+          "text": "我会前去赴约。先把这里能用的物资收拾妥当。"
         }
       }
     },
     {
-      "id": "starving_mob",
-      "title": "饥民围困",
-      "act": "act1",
+      "id": "dialogue.s09.enlistment",
+      "title": "加入黄巾",
       "startNode": "start",
       "nodes": {
         "start": {
-          "speaker": "饥民",
-          "portrait": null,
-          "text": "把食物交出来！",
-          "nextNode": "player_response"
+          "speaker": "张角",
+          "text": "苍生困于饥疫，空有一人之勇救不了天下。你可愿留下，与我们一道护送粮药、救济流民？",
+          "nextNode": "answer"
         },
-        "player_response": {
+        "answer": {
           "speaker": "你",
-          "portrait": "player",
-          "text": "我...我也没有食物...",
-          "nextNode": "mob_attack"
+          "text": "我愿加入黄巾，但愿手中所学真能让百姓活下去。",
+          "nextNode": "choose"
         },
-        "mob_attack": {
-          "speaker": "饥民",
-          "portrait": null,
-          "text": "那就别怪我们不客气了！",
-          "nextNode": null
+        "choose": {
+          "speaker": "张角",
+          "text": "去看三面军旗。张梁授战士之法，张宝授弓手之法；若愿研习符法军略，便来承军师之责。职业一旦确认，不可更改。"
         }
       }
     },
     {
-      "id": "death",
-      "title": "死亡",
-      "act": "act1",
+      "id": "dialogue.s09.refugeeConflict",
+      "title": "饥民争斗",
       "startNode": "start",
       "nodes": {
         "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你死了...但这不是结局",
-          "nextNode": null
-        }
-      },
-      "scene": "act1"
-    },
-    {
-      "id": "awakening",
-      "title": "觉醒",
-      "act": "act2",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你醒了。你在荒野中昏倒了，我们把你救了回来。",
-          "nextNode": "player_response"
+          "speaker": "断臂饥民",
+          "text": "残兵护着最后几块饼，妇人抱紧孩子，地上两个人已经没了声息。断臂汉子把半块饼攥得发白。",
+          "nextNode": "donationOffer"
         },
-        "player_response": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "这里是...？",
-          "nextNode": "zhangjiao_explain"
-        },
-        "zhangjiao_explain": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "这里是我们的粥棚。乱世之中，百姓流离失所，我们在这里施粥救济灾民。",
-          "nextNode": null
-        },
-        "player_thanks": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "多谢救命之恩。",
-          "nextNode": "zhangjiao_invite"
-        },
-        "zhangjiao_invite": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "不必客气。如果你愿意，可以留下来帮忙。这乱世，需要更多有志之士。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "talisman_water",
-      "title": "符水的真相",
-      "act": "act2",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "来，喝碗符水吧。",
-          "nextNode": "player_question"
-        },
-        "player_question": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "符水？",
-          "nextNode": "zhangjiao_explain"
-        },
-        "zhangjiao_explain": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "官府不允许私人施粥，但如果说这是仙家符水，就合法了。",
-          "nextNode": "player_understand"
-        },
-        "player_understand": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "原来如此...这是智慧啊。",
-          "nextNode": "zhangjiao_smile"
-        },
-        "zhangjiao_smile": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "乱世求生，需要智慧。来，喝吧，这符水能恢复你的体力。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "equipment_upgrade",
-      "title": "装备升级",
-      "act": "act2",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你需要更好的装备来保护自己。这些给你。",
-          "nextNode": "player_receive"
-        },
-        "player_receive": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "这些装备...太好了！",
-          "nextNode": "zhangjiao_advice"
-        },
-        "zhangjiao_advice": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "装备只是外物，真正的力量来自于你自己。",
-          "nextNode": null
-        }
-      },
-      "scene": "act2"
-    },
-    {
-      "id": "skill_tutorial",
-      "title": "技能教程",
-      "act": "act2",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你可以学习技能了。技能能让你在战斗中更加强大。",
-          "nextNode": "player_interested"
-        },
-        "player_interested": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "请教我！",
-          "nextNode": "zhangjiao_teach"
-        },
-        "zhangjiao_teach": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "按Q使用技能。记住，技能需要消耗法力值。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "attribute_tutorial",
-      "title": "属性教程",
-      "act": "act2",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你可以提升属性了。力量增加攻击，敏捷增加速度，体质增加生命。",
-          "nextNode": "player_understand"
-        },
-        "player_understand": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "我明白了。",
-          "nextNode": "zhangjiao_encourage"
-        },
-        "zhangjiao_encourage": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "好好修炼，你会变得更强。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "coin_artifact_intro",
-      "title": "铜钱法器",
-      "act": "act3",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "官府不允许私人发钱，但铜钱剑就是法器，就合法了。",
-          "nextNode": "player_amazed"
-        },
-        "player_amazed": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "又是一个巧妙的办法！",
-          "nextNode": "zhangjiao_gift"
-        },
-        "zhangjiao_gift": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "这把铜钱剑送给你。虽然耐久度不高，但能帮助你度过难关。",
-          "nextNode": "player_thanks"
-        },
-        "player_thanks": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "多谢大人！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "shop_intro",
-      "title": "商店介绍",
-      "act": "act3",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你可以在商店购买物品。这些铜钱拿去用吧。",
-          "nextNode": "player_receive"
-        },
-        "player_receive": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "我会好好利用的。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "enhancement_intro",
-      "title": "强化介绍",
-      "act": "act3",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "装备可以强化。强化能提升装备属性，但也有失败的风险。",
-          "nextNode": "player_understand"
-        },
-        "player_understand": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "我明白了，我会谨慎使用。",
-          "nextNode": "zhangjiao_advice"
-        },
-        "zhangjiao_advice": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "记住，装备虽好，但不要过度依赖。真正的力量在于你自己。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "dismantle_intro",
-      "title": "拆解介绍",
-      "act": "act3",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "不需要的装备可以拆解，换取铜钱。",
-          "nextNode": "player_learn"
-        },
-        "player_learn": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "这样就不会浪费了。",
-          "nextNode": null
-        }
-      },
-      "scene": "act3"
-    },
-    {
-      "id": "class_selection_intro",
-      "title": "职业选择",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "你已经掌握了基本的生存技能。现在，是时候选择你的道路了。",
-          "nextNode": "zhangjiao_explain"
-        },
-        "zhangjiao_explain": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "我的两位兄弟和我，分别代表三种不同的战斗方式。选择适合你的职业吧。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "warrior_intro",
-      "title": "战士之道",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "战士，是战场的中流砥柱。我们用血肉之躯保护同伴。",
-          "nextNode": "zhangliang_teach"
-        },
-        "zhangliang_teach": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "如果你选择战士之道，我会教你如何成为一名真正的勇士。",
-          "nextNode": "zhangliang_detail"
-        },
-        "zhangliang_detail": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "战士拥有高生命值和防御力，能在战场上坚持到最后。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "archer_intro",
-      "title": "弓箭手之道",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "弓箭手，是战场的幽灵。我们在敌人察觉之前就已取其性命。",
-          "nextNode": "zhangbao_teach"
-        },
-        "zhangbao_teach": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "如果你选择弓箭手之道，我会教你如何百步穿杨。",
-          "nextNode": "zhangbao_detail"
-        },
-        "zhangbao_detail": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "弓箭手拥有高攻击力和暴击率，能在远处给予敌人致命一击。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "mage_intro",
-      "title": "法师之道",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "法师，是战场的主宰。我们掌控元素，呼风唤雨。",
-          "nextNode": "zhangjiao_teach"
-        },
-        "zhangjiao_teach": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "如果你选择法师之道，我会教你太平道的秘法。",
-          "nextNode": "zhangjiao_detail"
-        },
-        "zhangjiao_detail": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "法师拥有强大的范围伤害和控制能力，能改变战场的局势。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "class_selected_warrior",
-      "title": "选择战士",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "很好！从今天起，你就是我的弟子了。",
-          "nextNode": "zhangliang_gift"
-        },
-        "zhangliang_gift": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "这把剑和这套铠甲，是我送给你的礼物。",
-          "nextNode": "player_thanks"
-        },
-        "player_thanks": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "多谢师父！我一定不会让您失望！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "class_selected_archer",
-      "title": "选择弓箭手",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "很好！从今天起，你就是我的弟子了。",
-          "nextNode": "zhangbao_gift"
-        },
-        "zhangbao_gift": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "这把弓和这套皮甲，是我送给你的礼物。",
-          "nextNode": "player_thanks"
-        },
-        "player_thanks": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "多谢师父！我一定不会让您失望！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "class_selected_mage",
-      "title": "选择法师",
-      "act": "act4",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "很好！从今天起，你就是我的弟子了。",
-          "nextNode": "zhangjiao_gift"
-        },
-        "zhangjiao_gift": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "这根法杖和这件长袍，是我送给你的礼物。",
-          "nextNode": "player_thanks"
-        },
-        "player_thanks": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "多谢师父！我一定不会让您失望！",
-          "nextNode": null
-        }
-      },
-      "scene": "act4"
-    },
-    {
-      "id": "uprising_intro",
-      "title": "起义动员",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "苍天已死，黄天当立！",
-          "nextNode": "crowd_response"
-        },
-        "crowd_response": {
-          "speaker": "众人",
-          "portrait": null,
-          "text": "岁在甲子，天下大吉！",
-          "nextNode": "zhangjiao_order"
-        },
-        "zhangjiao_order": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "兄弟们，今天我们要占领县城，让天下人知道，黄巾军的力量！",
-          "nextNode": "player_ready"
-        },
-        "player_ready": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "为了黄天！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "uprising_victory",
-      "title": "起义胜利",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "我们胜利了！这只是开始，更大的战斗还在后面。",
-          "nextNode": "player_celebrate"
-        },
-        "player_celebrate": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "黄天万岁！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "guangzong_intro",
-      "title": "广宗之战",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "信使",
-          "portrait": null,
-          "text": "不好了！张梁将军在广宗被皇甫嵩围困！",
-          "nextNode": "zhangjiao_worry"
-        },
-        "zhangjiao_worry": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "二弟有危险！我们必须立刻前往救援！",
-          "nextNode": "player_volunteer"
-        },
-        "player_volunteer": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "师父，让我去！",
-          "nextNode": "zhangjiao_agree"
-        },
-        "zhangjiao_agree": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "好！小心曹操，他是顶级骑兵，非常危险。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "caocao_appears",
-      "title": "曹操登场",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "一骑绝尘而来，马上之人目光如炬。",
-          "nextNode": "caocao_intro"
-        },
-        "caocao_intro": {
-          "speaker": "曹操",
-          "portrait": "caocao",
-          "text": "吾乃曹操，字孟德。黄巾贼寇，纳命来！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "guangzong_rescue_choice",
-      "title": "救援选择",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "快走！不要管我！",
-          "nextNode": "choice"
-        },
-        "choice": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你要救援张梁吗？",
+        "donationOffer": {
+          "speaker": "断臂饥民",
+          "text": "再没有粮，今晚就会有人为这一口吃的拼命。你若拿得出二十份粮食，至少能让大家先停手。",
           "choices": [
-            {
-              "id": "ch_1",
-              "text": "救援张梁",
-              "nextNode": "rescue_success"
-            },
-            {
-              "id": "ch_2",
-              "text": "撤退",
-              "nextNode": "retreat"
-            }
+            { "id": "donate_food", "text": "捐出粮食 ×20", "nextNode": "donationProcessing" },
+            { "id": "defer", "text": "我还需要准备", "nextNode": "deferred" }
           ]
         },
-        "rescue_success": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "多谢相救！我欠你一条命！",
-          "nextNode": null
-        },
-        "retreat": {
+        "donationProcessing": {
           "speaker": "你",
-          "portrait": "player",
-          "text": "对不起...我无能为力...",
-          "nextNode": null
-        }
-      },
-      "scene": "act5"
-    },
-    {
-      "id": "guanhai_joins",
-      "title": "管亥加入",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "管亥",
-          "portrait": "guanhai",
-          "text": "你救了将军，我管亥愿意追随你！",
-          "nextNode": "player_accept"
+          "text": "先清点粮食，任何一项无法落实都不能让现场留下半笔账。",
+          "nextNode": "donationProcessing"
         },
-        "player_accept": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "欢迎加入！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "yangcheng_intro",
-      "title": "阳城之战",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "信使",
-          "portrait": null,
-          "text": "张宝将军在阳城遭遇刘备军！",
-          "nextNode": "zhangjiao_concern"
-        },
-        "zhangjiao_concern": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "三弟也有危险！你再去一趟！",
-          "nextNode": "player_go"
-        },
-        "player_go": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "是！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "liubei_appears",
-      "title": "刘关张登场",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "刘备",
-          "portrait": "liubei",
-          "text": "吾乃中山靖王之后，刘备刘玄德是也！",
-          "nextNode": "guanyu_intro"
-        },
-        "guanyu_intro": {
-          "speaker": "关羽",
-          "portrait": "guanyu",
-          "text": "关羽关云长在此！",
-          "nextNode": "zhangfei_intro"
-        },
-        "zhangfei_intro": {
-          "speaker": "张飞",
-          "portrait": "zhangfei",
-          "text": "俺是张飞张翼德！黄巾贼，受死！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "zhoucang_blocks_zhaoyun",
-      "title": "周仓拖住赵云",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "周仓",
-          "portrait": "zhoucang",
-          "text": "赵云！你的对手是我！",
-          "nextNode": "zhaoyun_response"
-        },
-        "zhaoyun_response": {
-          "speaker": "赵云",
-          "portrait": "zhaoyun",
-          "text": "好胆！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "yangcheng_rescue_choice",
-      "title": "救援张宝",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "快走！刘备三兄弟太强了！",
-          "nextNode": "choice"
-        },
-        "choice": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你要救援张宝吗？",
+        "donationFailed": {
+          "speaker": "断臂饥民",
+          "text": "粮食还不够，或检查点没能安全写入。刚才的粮食、士气和城市状态都没有改变。",
           "choices": [
-            {
-              "id": "rescue",
-              "text": "救援张宝",
-              "nextNode": "rescue_success"
-            },
-            {
-              "id": "retreat",
-              "text": "撤退",
-              "nextNode": "retreat"
-            }
+            { "id": "retry_donation", "text": "再次尝试捐出粮食 ×20", "nextNode": "donationProcessing" },
+            { "id": "defer", "text": "稍后再来", "nextNode": "deferred" }
           ]
         },
-        "rescue_success": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "多谢！你救了我一命！",
-          "nextNode": null
-        },
-        "retreat": {
+        "deferred": {
           "speaker": "你",
-          "portrait": "player",
-          "text": "敌人太强...我无法靠近...",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "zhoucang_joins",
-      "title": "周仓加入",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "周仓",
-          "portrait": "zhoucang",
-          "text": "你救了将军，我周仓愿意追随你！",
-          "nextNode": "player_accept"
+          "text": "我先去准备粮食。现场仍会保留，之后可以回来继续处理。"
         },
-        "player_accept": {
+        "branchChoice": {
+          "speaker": "断臂饥民",
+          "text": "众人暂时停手，却都等着你决定接下来怎么办。这个选择无法撤回。",
+          "choices": [
+            { "id": "hardline", "text": "强硬：命残兵控制人群", "nextNode": "branchProcessing" },
+            { "id": "appease", "text": "安抚采集：带人寻找燃料与散粮", "nextNode": "branchProcessing" },
+            { "id": "silence", "text": "沉默：不再介入", "nextNode": "branchProcessing" }
+          ]
+        },
+        "branchProcessing": {
           "speaker": "你",
-          "portrait": "player",
-          "text": "好兄弟！一起战斗！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "final_battle_intro",
-      "title": "黄巾终战",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "信使",
-          "portrait": null,
-          "text": "大事不好！张角将军病重，朝廷大军压境！",
-          "nextNode": "player_shock"
+          "text": "决定正在写入检查点……",
+          "nextNode": "branchProcessing"
         },
-        "player_shock": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "什么！师父他...！",
-          "nextNode": "zhangliang_order"
+        "hardlineResult": {
+          "speaker": "黄巾残兵",
+          "text": "残兵列成一线压住人群。争斗停了，但所有人都记住了这份强硬。"
         },
-        "zhangliang_order": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "快！我们必须保护大哥！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "generals_appear",
-      "title": "众将登场",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "朝廷大军如潮水般涌来，众多名将齐聚于此。",
-          "nextNode": "luzhi_intro"
+        "appeaseSuccessResult": {
+          "speaker": "妇人",
+          "text": "斧头还能用。众人带回燃料和散粮，营地粮食增加了三十份。"
         },
-        "luzhi_intro": {
-          "speaker": "卢植",
-          "portrait": "luzhi",
-          "text": "黄巾之乱，今日终结！",
-          "nextNode": "zhujun_intro"
+        "appeaseScoutResult": {
+          "speaker": "黄巾残兵",
+          "text": "没有可用的斧头，队伍在荒地拖延太久，官军斥候已经循声赶来！"
         },
-        "zhujun_intro": {
-          "speaker": "朱儁",
-          "portrait": "zhujun",
-          "text": "诸位，随我杀敌！",
-          "nextNode": "huangfusong_intro"
-        },
-        "huangfusong_intro": {
-          "speaker": "皇甫嵩",
-          "portrait": "huangfusong",
-          "text": "黄巾贼寇，今日必灭！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "final_rescue",
-      "title": "救援张角",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "咳咳...徒儿，快走...不要管我...",
-          "nextNode": "player_refuse"
-        },
-        "player_refuse": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "不！师父，我带你走！",
-          "nextNode": "zhangjiao_weak"
-        },
-        "zhangjiao_weak": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "好徒儿...为师没有看错你...",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "zhangjiao_death",
-      "title": "张角病逝",
-      "act": "act5",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "苍天��死...黄天当立...可惜...我看不到那一天了...",
-          "nextNode": "player_cry"
-        },
-        "player_cry": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "师父！不要！",
-          "nextNode": "zhangjiao_last_words"
-        },
-        "zhangjiao_last_words": {
-          "speaker": "张角",
-          "portrait": "zhangjiao",
-          "text": "徒儿...记住...真正的太平...不是靠战争...而是靠...人心...",
-          "nextNode": "zhangjiao_dies"
-        },
-        "zhangjiao_dies": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "张角闭上了眼睛，永远地离开了这个世界。",
-          "nextNode": null
-        }
-      },
-      "scene": "act5"
-    },
-    {
-      "id": "ending_intro",
-      "title": "结局",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "黄巾起义虽然失败了，但它的影响却深远地改变了历史的进程。",
-          "nextNode": "player_reflect"
-        },
-        "player_reflect": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "师父的理想...真的错了吗？",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "ending_savior",
-      "title": "拯救者结局",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你救下了张梁和张宝，保存了黄巾军的火种。",
-          "nextNode": "zhangliang_thanks"
-        },
-        "zhangliang_thanks": {
-          "speaker": "张梁",
-          "portrait": "zhangliang",
-          "text": "多亏了你，我们才能活下来。大哥的遗志，我们会继承下去。",
-          "nextNode": "zhangbao_agree"
-        },
-        "zhangbao_agree": {
-          "speaker": "张宝",
-          "portrait": "zhangbao",
-          "text": "是的，黄天的理想不会消亡。",
-          "nextNode": "player_vow"
-        },
-        "player_vow": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "我会继续战斗，为了师父的理想！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "ending_witness",
-      "title": "见证者结局",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你见证了黄巾起义的兴衰，但未能改变历史的走向。",
-          "nextNode": "player_regret"
-        },
-        "player_regret": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "如果我能更强一些...也许结局会不同...",
-          "nextNode": "narrator_comfort"
-        },
-        "narrator_comfort": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "但你学到了很多，成长了很多。这段经历将成为你未来的力量。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "ending_survivor",
-      "title": "幸存者结局",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你在乱世中艰难求生，虽然黄巾起义最终失败了，但你活了下来。",
-          "nextNode": "player_survive"
-        },
-        "player_survive": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "活着...就是胜利。师父，我会带着您的教诲继续走下去。",
-          "nextNode": "narrator_hope"
-        },
-        "narrator_hope": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "未来的路还很长。乱世之中，唯有坚韧者才能看到曙光。",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "ending_leader",
-      "title": "领袖结局",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "你不仅救下了张梁和张宝，还招募了管亥和周仓。",
-          "nextNode": "guanhai_pledge"
-        },
-        "guanhai_pledge": {
-          "speaker": "管亥",
-          "portrait": "guanhai",
-          "text": "我们愿意追随你，继续为黄天而战！",
-          "nextNode": "zhoucang_pledge"
-        },
-        "zhoucang_pledge": {
-          "speaker": "周仓",
-          "portrait": "zhoucang",
-          "text": "是的！你就是我们的新领袖！",
-          "nextNode": "player_accept_leadership"
-        },
-        "player_accept_leadership": {
-          "speaker": "你",
-          "portrait": "player",
-          "text": "好！我们一起，继承师父的遗志，创造真正的太平世道！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "epilogue",
-      "title": "尾声",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "黄巾起义虽然失败，但它揭开了三国乱世的序幕。",
-          "nextNode": "narrator_continue"
-        },
-        "narrator_continue": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "曹操、刘备、孙坚等人在平定黄巾的过程中崭露头角，开始了他们的传奇。",
-          "nextNode": "narrator_player"
-        },
-        "narrator_player": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "而你，也将在这个乱世中，书写属于自己的故事。",
-          "nextNode": "narrator_end"
-        },
-        "narrator_end": {
-          "speaker": "旁白",
-          "portrait": null,
-          "text": "序章完结。你的旅程，才刚刚开始...",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "progress_inherit",
-      "title": "进度继承",
-      "act": "act6",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "系统",
-          "portrait": null,
-          "text": "序章已完成！你的角色、装备、技能将继承到正式游戏。",
-          "nextNode": "rewards"
-        },
-        "rewards": {
-          "speaker": "系统",
-          "portrait": null,
-          "text": "根据你的表现，你获得了特殊称号和奖励！",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "dlg_ms0mnqzu",
-      "title": "新对话",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "",
-          "portrait": null,
-          "text": "",
-          "nextNode": null
-        }
-      }
-    },
-    {
-      "id": "dlg_ms0mny0c",
-      "title": "新对话",
-      "startNode": "start",
-      "nodes": {
-        "start": {
-          "speaker": "",
-          "portrait": null,
-          "text": "",
-          "nextNode": null
+        "silenceResult": {
+          "speaker": "断臂饥民",
+          "text": "你没有回答。汉子把饼藏回怀里；到下一游戏日，沉默的代价才会显现。"
         }
       }
     }
   ],
   "quests": [],
+  "triggerCatalog": {
+    "actions": [
+      { "value": "lightCampfire", "label": "点燃火堆 lightCampfire" },
+      { "value": "spawnGroup", "label": "激活放置组 spawnGroup" },
+      { "value": "spawnPlacements", "label": "放置场景物品 spawnPlacements" },
+      { "value": "sceneCountdown", "label": "场景倒计时 sceneCountdown" },
+      { "value": "promptSwitch", "label": "提示切换场景 promptSwitch" },
+      { "value": "teleportToChunk", "label": "区块传送 teleportToChunk" },
+      { "value": "completeS01AndTravel", "label": "完成 S01 并前往 S02 completeS01AndTravel" },
+      { "value": "acceptS02Summons", "label": "接受 S02 召见 acceptS02Summons" },
+      { "value": "travelToS09", "label": "前往 S09 粥棚营地 travelToS09" },
+      { "value": "acceptS09Enlistment", "label": "加入黄巾 acceptS09Enlistment" },
+      { "value": "prepareS09RefugeeConflict", "label": "准备饥民现场 prepareS09RefugeeConflict" },
+      { "value": "startS09RefugeeConflict", "label": "开始饥民争斗 startS09RefugeeConflict" },
+      { "value": "handleS09RefugeeChoice", "label": "提交饥民选择 handleS09RefugeeChoice" },
+      { "value": "advanceGameDay", "label": "推进游戏日 advanceGameDay" },
+      { "value": "prepareSpecialFaint", "label": "准备特殊昏迷 prepareSpecialFaint" },
+      { "value": "clearSpecialFaint", "label": "清除特殊昏迷 clearSpecialFaint" },
+      { "value": "autoSave", "label": "请求自动存档 autoSave" },
+      { "value": "toggleDebug", "label": "切换调试面板 toggleDebug" },
+      { "value": "setWeather", "label": "设置天气 setWeather" },
+      { "value": "setTime", "label": "设置时间 setTime" },
+      { "value": "promptNextWave", "label": "提示下一波 promptNextWave" },
+      { "value": "spawnStarvingWave", "label": "生成饥民波次 spawnStarvingWave" },
+      { "value": "selectClass", "label": "选择职业 selectClass" },
+      { "value": "confirmClass", "label": "确认职业 confirmClass" },
+      { "value": "completeScene", "label": "完成场景 completeScene" },
+      { "value": "dismissPopup", "label": "关闭物品弹窗 dismissPopup" }
+    ]
+  },
   "triggers": [
     {
-      "id": "trg_debug_panel",
-      "enabled": false,
-      "when": {
-        "type": "sceneEnter",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "toggleDebug",
-          "params": {}
-        }
-      ],
+      "id": "trg_s01_spawn_initial",
+      "when": { "type": "sceneEnter", "params": {} },
+      "do": [{ "action": "spawnPlacements", "params": { "selector": { "group": "S01-initial" } } }],
       "once": true
     },
     {
-      "id": "trg_demo_enter_scene1",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s0-1"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act"
-        },
-        "right": 0
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 1
-          }
-        }
-      ],
+      "id": "trg_s01_choose_not_flee",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "prepareSpecialFaint", "params": { "rescueType": "passerby" } }],
       "once": true
     },
     {
-      "id": "trg_enter_act2",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s1-1"
-        }
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 2
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act2Scene",
-            "value": true
-          }
-        },
-        {
-          "action": "spawnGroup",
-          "params": {
-            "group": "act2_npcs"
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "awakening"
-          }
-        }
-      ],
+      "id": "trg_s01_clear_special_faint",
+      "when": { "type": "waveCleared", "params": { "group": "S01-initial" } },
+      "do": [{ "action": "clearSpecialFaint", "params": {} }],
       "once": true
     },
     {
-      "id": "trg_enter_act3",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s2-1"
-        }
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 3
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act3Scene",
-            "value": true
-          }
-        },
-        {
-          "action": "spawnGroup",
-          "params": {
-            "group": "act3_npcs"
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "coin_artifact_intro"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_enter_act4",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s3-1"
-        }
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 4
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act4Scene",
-            "value": true
-          }
-        },
-        {
-          "action": "spawnGroup",
-          "params": {
-            "group": "act4_instructors"
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "class_selection_intro"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act4_select_warrior",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "warrior_intro"
-        }
-      },
-      "if": {
-        "op": "!=",
-        "left": {
-          "var": "classSelected"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "confirmClass",
-          "params": {
-            "classId": "warrior"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act4_select_archer",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "archer_intro"
-        }
-      },
-      "if": {
-        "op": "!=",
-        "left": {
-          "var": "classSelected"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "confirmClass",
-          "params": {
-            "classId": "archer"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act4_select_mage",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "mage_intro"
-        }
-      },
-      "if": {
-        "op": "!=",
-        "left": {
-          "var": "classSelected"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "confirmClass",
-          "params": {
-            "classId": "mage"
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "trg_enter_act5",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s3-2"
-        }
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 5
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act5Scene",
-            "value": true
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "uprising_intro"
-          }
-        },
-        {
-          "action": "spawnWave",
-          "params": {
-            "group": "act5_battle1",
-            "enemies": [
-              {
-                "name": "官府士兵",
-                "count": 40,
-                "templateId": "soldier",
-                "stats": {
-                  "maxHp": 60,
-                  "attack": 8,
-                  "defense": 5,
-                  "speed": 80
-                }
-              },
-              {
-                "name": "县令",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#FF5722",
-                "stats": {
-                  "maxHp": 150,
-                  "attack": 18,
-                  "defense": 12,
-                  "speed": 90
-                }
-              }
-            ]
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_battle2",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act5_battle1"
-        }
-      },
-      "do": [
-        {
-          "action": "heal",
-          "params": {
-            "hp": 9999
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "guangzong_intro"
-          },
-          "await": true
-        },
-        {
-          "action": "spawnWave",
-          "params": {
-            "group": "act5_battle2",
-            "enemies": [
-              {
-                "name": "官府士兵",
-                "count": 50,
-                "templateId": "soldier",
-                "stats": {
-                  "maxHp": 80,
-                  "attack": 10,
-                  "defense": 7,
-                  "speed": 85
-                }
-              },
-              {
-                "name": "曹操·孟德",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 300,
-                  "attack": 30,
-                  "defense": 20,
-                  "speed": 120
-                }
-              }
-            ]
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_battle3",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act5_battle2"
-        }
-      },
-      "do": [
-        {
-          "action": "heal",
-          "params": {
-            "hp": 9999
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "yangcheng_intro"
-          },
-          "await": true
-        },
-        {
-          "action": "spawnWave",
-          "params": {
-            "group": "act5_battle3",
-            "enemies": [
-              {
-                "name": "官府士兵",
-                "count": 40,
-                "templateId": "soldier",
-                "stats": {
-                  "maxHp": 90,
-                  "attack": 12,
-                  "defense": 8,
-                  "speed": 90
-                }
-              },
-              {
-                "name": "刘备·玄德",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 250,
-                  "attack": 25,
-                  "defense": 18,
-                  "speed": 110
-                }
-              },
-              {
-                "name": "关羽·云长",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 350,
-                  "attack": 35,
-                  "defense": 22,
-                  "speed": 130
-                }
-              },
-              {
-                "name": "张飞·翼德",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 380,
-                  "attack": 38,
-                  "defense": 20,
-                  "speed": 125
-                }
-              }
-            ]
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_battle4",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act5_battle3"
-        }
-      },
-      "do": [
-        {
-          "action": "heal",
-          "params": {
-            "hp": 9999
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "final_battle_intro"
-          },
-          "await": true
-        },
-        {
-          "action": "spawnWave",
-          "params": {
-            "group": "act5_battle4",
-            "enemies": [
-              {
-                "name": "官府精兵",
-                "count": 60,
-                "templateId": "soldier",
-                "stats": {
-                  "maxHp": 100,
-                  "attack": 14,
-                  "defense": 10,
-                  "speed": 95
-                }
-              },
-              {
-                "name": "卢植",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 280,
-                  "attack": 28,
-                  "defense": 19,
-                  "speed": 115
-                }
-              },
-              {
-                "name": "朱儁",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 300,
-                  "attack": 30,
-                  "defense": 20,
-                  "speed": 118
-                }
-              },
-              {
-                "name": "皇甫嵩",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 320,
-                  "attack": 32,
-                  "defense": 22,
-                  "speed": 120
-                }
-              },
-              {
-                "name": "孙坚",
-                "count": 1,
-                "templateId": "soldier",
-                "color": "#9C27B0",
-                "stats": {
-                  "maxHp": 340,
-                  "attack": 33,
-                  "defense": 23,
-                  "speed": 125
-                }
-              }
-            ]
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_final_cleared",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act5_battle4"
-        }
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "四场战役全部胜利！黄巾军势如破竹！"
-          }
-        },
-        {
-          "action": "completeScene",
-          "params": {
-            "sceneId": "s3-2"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_enter_act6",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s3-3"
-        }
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act",
-            "value": 6
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act6Scene",
-            "value": true
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "ending_intro"
-          },
-          "await": true
-        },
-        {
-          "action": "wait",
-          "params": {
-            "seconds": 1
-          }
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "ending_survivor"
-          },
-          "await": true
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "序章完成！感谢游玩《张角黄巾起义序章》。你的选择和战斗已记录在案。"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act6_ending_savior",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "s3-3"
-        }
-      },
-      "if": {
-        "op": ">=",
-        "left": {
-          "var": "act5Kills"
-        },
-        "right": 100
-      },
-      "do": [
-        {
-          "action": "setVar",
-          "params": {
-            "key": "endingType",
-            "value": "savior"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "my_first_trigger",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "scene_Prologue"
-        }
-      },
-      "do": [
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "intro"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "出现火堆",
+      "id": "trg_s01_light_campfire",
       "when": {
         "type": "interact",
-        "params": {
-          "target": "campfire"
-        }
+        "params": {}
       },
       "do": [
         {
@@ -1999,1595 +303,234 @@
       "once": true
     },
     {
-      "id": "5秒后自动点燃火堆",
-      "when": {
-        "type": "timer",
+      "id": "trg_s01_exit_s02",
+      "when": { "type": "interact", "params": {} },
+      "do": [{
+        "action": "completeS01AndTravel",
         "params": {
-          "seconds": 30
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
+          "scene": "S02",
+          "spawnRef": "player",
+          "transition": "fadeBlack",
+          "rewards": [
+            { "itemId": "resource.wood", "quantity": 3 },
+            { "itemId": "resource.herb", "quantity": 2 }
+          ]
         },
-        "right": true
-      },
+        "await": true
+      }],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s02_spawn_initial",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S02" } },
       "do": [
-        {
-          "action": "lightCampfire",
-          "params": {}
-        }
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S02-initial" } }, "await": true },
+        { "action": "showTip", "params": { "text": "废弃军需难以堆叠；背包装满时只会拾取可容纳部分，余量会留在原地。" } }
       ],
       "once": true
     },
     {
-      "id": "trg_spawn_pickup",
-      "when": {
-        "type": "campfireLit",
-        "params": {
-          "sceneId": "s0-0"
-        }
-      },
-      "do": [
-        {
-          "action": "spawnPlacements",
-          "params": {
-            "selector": {
-              "sceneId": "s0-0",
-              "kinds": [
-                "item"
-              ],
-              "placementIds": [
-                "ref_1786132771260_26"
-              ]
-            }
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_pickup_food_drop_equip",
-      "when": {
-        "type": "itemPickup",
-        "params": {
-          "item": "leftover_food"
-        }
-      },
-      "do": [
-        {
-          "action": "spawnGroup",
-          "params": {
-            "group": "act1_equipment"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_spawn_wave",
-      "when": {
-        "type": "equipItem",
-        "params": {
-          "slot": "weapon"
-        }
-      },
-      "do": [
-        {
-          "action": "spawnGroup",
-          "params": {
-            "group": "act1_wave1"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_wave_cleared_switch",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act1_wave1"
-        }
-      },
-      "do": [
-        {
-          "action": "promptNextWave",
-          "params": {
-            "text": "野狗被击退了！按 N 继续探索"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_next_wave_starving",
-      "when": {
-        "type": "nextWave",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "spawnStarvingWave",
-          "params": {
-            "group": "act1_wave2",
-            "count": 18,
-            "interval": 0.6
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_wave2_cleared_switch",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "act1_wave2"
-        }
-      },
-      "do": [
-        {
-          "action": "promptSwitch",
-          "params": {
-            "scene": "s1-1",
-            "text": "战斗结束！按 N 进入下一幕"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_kill_count",
-      "when": {
-        "type": "kill",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "addVar",
-          "params": {
-            "key": "killCount",
-            "delta": 1
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "trg_starving_kill_count",
-      "when": {
-        "type": "kill",
-        "params": {
-          "enemyType": "starving"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "addVar",
-          "params": {
-            "key": "starvingKilled",
-            "delta": 1
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "trg_starving_encourage",
-      "when": {
-        "type": "kill",
-        "params": {
-          "enemyType": "starving"
-        }
-      },
-      "if": {
-        "op": "and",
-        "args": [
-          {
-            "op": "==",
-            "left": {
-              "var": "ddScene"
-            },
-            "right": true
-          },
-          {
-            "op": ">=",
-            "left": {
-              "var": "starvingKilled"
-            },
-            "right": 9
-          }
-        ]
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "饥民快被击退了，坚持住！"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_slay_count",
-      "when": {
-        "type": "kill",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act5Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "addVar",
-          "params": {
-            "key": "act5Kills",
-            "delta": 1
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "trg_act5_kill_caocao",
-      "when": {
-        "type": "kill",
-        "params": {
-          "name": "曹操·孟德"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act5Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "曹操中箭败退！广宗之围暂解，张梁将军得救了！"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_kill_guanyu",
-      "when": {
-        "type": "kill",
-        "params": {
-          "name": "关羽·云长"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act5Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "���克关云长！阳城的黄巾弟兄士气大振！"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_bloodbath",
-      "when": {
-        "type": "kill",
-        "params": {}
-      },
-      "if": {
-        "op": "and",
-        "args": [
-          {
-            "op": "==",
-            "left": {
-              "var": "act5Scene"
-            },
-            "right": true
-          },
-          {
-            "op": ">=",
-            "left": {
-              "var": "act5Kills"
-            },
-            "right": 100
-          }
-        ]
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "百人斩！黄天之威，震慑朝廷大军！"
-          }
-        },
-        {
-          "action": "completeScene",
-          "params": {
-            "sceneId": "s3-2"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_awakening_heal",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "awakening"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "heal",
-          "params": {
-            "full": true
-          }
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "张角的符水让�������恢复了体力，你从濒死中活了过来。"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_give_talisman",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "talisman_water"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "giveReward",
-          "params": {
-            "items": [
-              {
-                "id": "talisman_water",
-                "quantity": 1
-              }
-            ]
-          }
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "得到 符水 x1"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_talisman_popup_closed",
-      "when": {
-        "type": "gainedPopupClosed",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "wait",
-          "params": {
-            "seconds": 1
-          },
-          "await": true
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "equipment_upgrade"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_start_talisman_dialogue",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "awakening"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "wait",
-          "params": {
-            "seconds": 1
-          },
-          "await": true
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "talisman_water"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_use_talisman_start_upgrade",
-      "enabled": false,
-      "when": {
-        "type": "itemUsed",
-        "params": {
-          "id": "talisman_water"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "wait",
-          "params": {
-            "seconds": 1
-          },
-          "await": true
-        },
-        {
-          "action": "startDialogue",
-          "params": {
-            "id": "equipment_upgrade"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_give_equipment",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "equipment_upgrade"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "giveReward",
-          "params": {
-            "items": [
-              {
-                "id": "cloth_belt",
-                "quantity": 1
-              },
-              {
-                "id": "straw_sandals",
-                "quantity": 1
-              }
-            ]
-          }
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "得到 布腰带 和 草鞋，按 B 打开背包，装备后继续"
-          }
-        },
-        {
-          "action": "setVar",
-          "params": {
-            "key": "act2WaitEquip",
-            "value": true
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_equip_done",
-      "when": {
-        "type": "equipItem",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2WaitEquip"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "addVar",
-          "params": {
-            "key": "act2EquipCount",
-            "delta": 1
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "trg_act2_equip_complete",
-      "when": {
-        "type": "equipItem",
-        "params": {}
-      },
-      "if": {
-        "op": ">=",
-        "left": {
-          "var": "act2EquipCount"
-        },
-        "right": 2
-      },
-      "do": [
-        {
-          "action": "completeScene",
-          "params": {
-            "sceneId": "s1-1"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act3_give_coin_sword",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "coin_artifact_intro"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act3Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "giveReward",
-          "params": {
-            "items": [
-              {
-                "id": "coin_sword",
-                "quantity": 1
-              }
-            ]
-          }
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "得到 铜钱剑 x1，按 B 打开背包，使用铜钱剑前往第四幕"
-          }
-        },
-        {
-          "action": "autoSave",
-          "params": {
-            "reason": "coin-sword-received"
-          },
-          "await": true
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act3_use_coin_sword",
-      "when": {
-        "type": "itemUsed",
-        "params": {
-          "id": "coin_sword"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act3Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "completeScene",
-          "params": {
-            "sceneId": "s2-1"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act4_class_selected",
-      "when": {
-        "type": "classSelected",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act4Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "giveReward",
-          "params": {
-            "exp": 200,
-            "gold": 100
-          }
-        },
-        {
-          "action": "showTip",
-          "params": {
-            "text": "拜师成功！获得经验 200、铜钱 100。按 T 打开技能树修炼。稍后可继续前往第五幕。"
-          }
-        },
-        {
-          "action": "completeScene",
-          "params": {
-            "sceneId": "s3-1"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act2_complete_switch",
-      "when": {
-        "type": "sceneComplete",
-        "params": {
-          "sceneId": "s1-1"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act2Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "promptSwitch",
-          "params": {
-            "scene": "s2-1",
-            "text": "第二幕完成！按 N 进入第三幕"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act3_complete_switch",
-      "when": {
-        "type": "sceneComplete",
-        "params": {
-          "sceneId": "s2-1"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act3Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "promptSwitch",
-          "params": {
-            "scene": "s3-1",
-            "text": "第三幕完成！按 N 进入第四幕"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act4_complete_switch",
-      "when": {
-        "type": "sceneComplete",
-        "params": {
-          "sceneId": "s3-1"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act4Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "promptSwitch",
-          "params": {
-            "scene": "s3-2",
-            "text": "第四幕完成！按 N 进入第五幕"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_act5_complete_switch",
-      "when": {
-        "type": "sceneComplete",
-        "params": {
-          "sceneId": "s3-2"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "act5Scene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "promptSwitch",
-          "params": {
-            "scene": "s3-3",
-            "text": "第五幕完成！按 N 进入第六幕"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_2658",
-      "when": {
-        "type": "approach",
-        "params": {
-          "target": "obj_1782936268755_872"
-        }
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "您好，您靠近了一颗树"
-          }
-        }
-      ],
-      "once": false
-    },
-    {
-      "id": "30秒后自动点燃火堆",
-      "when": {
-        "type": "timer",
-        "params": {}
-      },
-      "do": [],
+      "id": "trg_s02_zhangjiao_summons",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "startDialogue", "params": { "id": "dialogue.s02.zhangjiaoSummons" } }],
       "once": true,
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      }
-    }
-  ],
-  "tutorials": [
+      "cooldown": 1
+    },
     {
-      "id": "tut_wake",
-      "when": {
-        "type": "sceneEnter",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
+      "id": "trg_s02_accept_summons",
+      "when": { "type": "dialogueEnd", "params": { "id": "dialogue.s02.zhangjiaoSummons" } },
+      "do": [{ "action": "acceptS02Summons", "params": {}, "await": true }],
+      "once": true
+    },
+    {
+      "id": "trg_s02_travel_s09",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "travelToS09", "params": {}, "await": true }],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s09_spawn_initial",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S09" } },
       "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "你从黑暗中醒来，饥寒交迫。{move}四处走走看看"
-          }
-        }
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S09-initial" } }, "await": true },
+        { "action": "showTip", "params": { "text": "先与张角交谈加入黄巾，再到三面军旗下确认职业。" } }
       ],
       "once": true
     },
     {
-      "id": "tut_move",
-      "when": {
-        "type": "playerMoved",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "你发现一个熄灭的火堆，靠近它 {interact} 点燃"
-          }
-        }
-      ],
+      "id": "trg_s09_prepare_refugee_conflict",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S09" } },
+      "do": [{ "action": "prepareS09RefugeeConflict", "params": {}, "await": true }],
+      "once": false
+    },
+    {
+      "id": "trg_s09_start_refugee_conflict",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "startS09RefugeeConflict", "params": {}, "await": true }],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s09_refugee_choice",
+      "when": { "type": "dialogueChoice", "params": { "id": "dialogue.s09.refugeeConflict" } },
+      "do": [{ "action": "handleS09RefugeeChoice", "params": {}, "await": true }],
+      "once": false
+    },
+    {
+      "id": "trg_s09_zhangjiao_enlistment",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "startDialogue", "params": { "id": "dialogue.s09.enlistment" } }],
+      "once": true,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s09_accept_enlistment",
+      "when": { "type": "dialogueEnd", "params": { "id": "dialogue.s09.enlistment" } },
+      "do": [{ "action": "acceptS09Enlistment", "params": {}, "await": true }],
       "once": true
     },
     {
-      "id": "tut_fire",
-      "when": {
-        "type": "campfireLit",
-        "params": {}
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "点燃了篝火！靠近地上的物品，{pickup} 拾取"
-          }
-        }
-      ],
-      "once": true
+      "id": "trg_s09_class_warrior",
+      "when": { "type": "interact", "params": {} },
+      "if": { "flag": "joinedYellowTurban" },
+      "do": [{ "action": "confirmClass", "params": { "classId": "warrior" } }],
+      "once": false,
+      "cooldown": 0.5
     },
     {
-      "id": "tut_bag",
-      "when": {
-        "type": "itemPickup",
-        "params": {
-          "item": "leftover_food"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "物品进了背包，{bag} 查看背包"
-          }
-        }
-      ],
-      "once": true
+      "id": "trg_s09_class_archer",
+      "when": { "type": "interact", "params": {} },
+      "if": { "flag": "joinedYellowTurban" },
+      "do": [{ "action": "confirmClass", "params": { "classId": "archer" } }],
+      "once": false,
+      "cooldown": 0.5
     },
     {
-      "id": "tut_stats",
-      "when": {
-        "type": "panelOpen",
-        "params": {
-          "panel": "inventory"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "按{bag}查看角色属性"
-          }
-        }
-      ],
-      "once": true
+      "id": "trg_s09_class_strategist",
+      "when": { "type": "interact", "params": {} },
+      "if": { "flag": "joinedYellowTurban" },
+      "do": [{ "action": "confirmClass", "params": { "classId": "strategist" } }],
+      "once": false,
+      "cooldown": 0.5
     },
     {
-      "id": "tut_done",
-      "when": {
-        "type": "panelOpen",
-        "params": {
-          "panel": "stats"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "很好，你已掌握基本操作！"
-          }
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "tut_equip_weapon",
-      "when": {
-        "type": "itemPickup",
-        "params": {
-          "item": "wooden_sword"
-        }
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "ddScene"
-        },
-        "right": true
-      },
-      "do": [
-        {
-          "action": "showTip",
-          "params": {
-            "text": "捡到了木剑！{bag} 打开背包，点击木剑装备武器"
-          }
-        }
-      ],
+      "id": "trg_s09_class_selected_feedback",
+      "when": { "type": "classSelected", "params": {} },
+      "do": [{ "action": "showTip", "params": { "text": "职业已固定，初始装备和能力已发放。" } }],
       "once": true
     }
   ],
+  "tutorials": [],
   "library": {
-    "npcs": [
-      {
-        "id": "npc_mr9lh0l1",
-        "name": "新NPC",
-        "dialogueId": "",
-        "shopId": "",
-        "questId": "",
-        "spriteSheet": "npc_sprite"
-      },
-      {
-        "id": "zhangjiao",
-        "name": "张角",
-        "title": "太平道创始人",
-        "portrait": "zhangjiao",
-        "faction": "friendly",
-        "renderStyle": "zhangjiao",
-        "sprite": {
-          "src": "",
-          "frameWidth": 64,
-          "frameHeight": 112,
-          "cols": 4,
-          "rows": 1
-        },
-        "animations": {
-          "idle": {
-            "row": 0,
-            "frames": 2,
-            "speed": 0.4
-          }
-        },
-        "baseStats": {
-          "maxHp": 200
-        },
-        "dialogueId": "talisman_water",
-        "shopId": "",
-        "questId": "",
-        "interaction": {
-          "radius": 70,
-          "prompt": "按 E 与张角对话",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "cook",
-        "name": "粥棚伙夫",
-        "title": "",
-        "portrait": "",
-        "faction": "friendly",
-        "renderStyle": "cook",
-        "sprite": {
-          "src": "",
-          "frameWidth": 48,
-          "frameHeight": 72,
-          "cols": 4,
-          "rows": 1
-        },
-        "animations": {
-          "idle": {
-            "row": 0,
-            "frames": 2,
-            "speed": 0.5
-          }
-        },
-        "baseStats": {
-          "maxHp": 50
-        },
-        "dialogueId": "",
-        "shopId": "",
-        "questId": "",
-        "interaction": {
-          "radius": 50,
-          "prompt": "按 E 交谈",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "zhangliang",
-        "name": "张梁",
-        "title": "战士教官",
-        "portrait": "zhangliang",
-        "faction": "friendly",
-        "renderStyle": "zhangliang",
-        "sprite": {
-          "src": "",
-          "frameWidth": 64,
-          "frameHeight": 96,
-          "cols": 4,
-          "rows": 1
-        },
-        "animations": {
-          "idle": {
-            "row": 0,
-            "frames": 2,
-            "speed": 0.4
-          }
-        },
-        "baseStats": {
-          "maxHp": 300
-        },
-        "dialogueId": "warrior_intro",
-        "shopId": "",
-        "questId": "",
-        "interaction": {
-          "radius": 70,
-          "prompt": "按 E 选择战士之道",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "zhangbao",
-        "name": "张宝",
-        "title": "弓箭手教官",
-        "portrait": "zhangbao",
-        "faction": "friendly",
-        "renderStyle": "zhangbao",
-        "sprite": {
-          "src": "",
-          "frameWidth": 64,
-          "frameHeight": 96,
-          "cols": 4,
-          "rows": 1
-        },
-        "animations": {
-          "idle": {
-            "row": 0,
-            "frames": 2,
-            "speed": 0.4
-          }
-        },
-        "baseStats": {
-          "maxHp": 250
-        },
-        "dialogueId": "archer_intro",
-        "shopId": "",
-        "questId": "",
-        "interaction": {
-          "radius": 70,
-          "prompt": "按 E 选择弓箭手之道",
-          "trigger": "interact"
-        }
-      }
+    "items": [
+      { "id": "resource.wood", "name": "木材", "type": "material", "subType": "wood", "maxStack": 99 },
+      { "id": "resource.herb", "name": "草药", "type": "material", "subType": "herb", "maxStack": 99 },
+      { "id": "resource.food", "name": "粮食", "type": "material", "subType": "food", "maxStack": 99 },
+      { "id": "salvage.torn_cloth", "name": "破损帐布", "type": "material", "subType": "salvage", "maxStack": 1 },
+      { "id": "salvage.broken_utensil", "name": "破损军需器具", "type": "material", "subType": "salvage", "maxStack": 1 },
+      { "id": "tool.worn_axe", "name": "破旧斧头", "type": "tool", "toolType": "axe", "maxStack": 1, "durability": 8, "maxDurability": 8 },
+      { "id": "iron_sword", "name": "黄巾铁剑", "type": "equipment", "subType": "weapon", "maxStack": 1, "rarity": 1, "stats": { "attack": 5 } },
+      { "id": "leather_armor", "name": "黄巾皮甲", "type": "equipment", "subType": "armor", "maxStack": 1, "rarity": 1, "stats": { "defense": 3 } },
+      { "id": "wooden_shield", "name": "木盾", "type": "equipment", "subType": "shield", "maxStack": 1, "rarity": 1, "stats": { "defense": 2 } },
+      { "id": "short_bow", "name": "短弓", "type": "equipment", "subType": "weapon", "maxStack": 1, "rarity": 1, "stats": { "attack": 4, "range": 260 } },
+      { "id": "leather_vest", "name": "轻便皮背心", "type": "equipment", "subType": "armor", "maxStack": 1, "rarity": 1, "stats": { "defense": 2, "speed": 3 } },
+      { "id": "wooden_arrow", "name": "木箭", "type": "equipment", "subType": "ammo", "maxStack": 99, "rarity": 1, "stats": {} },
+      { "id": "strategist_talisman_staff", "name": "符杖", "type": "equipment", "subType": "weapon", "maxStack": 1, "rarity": 1, "stats": { "magicAttack": 5 } },
+      { "id": "strategist_robe", "name": "军师道袍", "type": "equipment", "subType": "armor", "maxStack": 1, "rarity": 1, "stats": { "maxMp": 20 } },
+      { "id": "strategist_talisman", "name": "护身符", "type": "equipment", "subType": "accessory", "maxStack": 1, "rarity": 1, "stats": { "defense": 1, "manaRegen": 1 } }
+    ],
+    "resourceNodes": [
+      { "id": "node.dry_wood", "schemaVersion": 1, "name": "枯木", "resourceType": "wood", "itemId": "resource.wood", "remaining": 12, "maxRemaining": 12, "yieldPerGather": 3, "gatherDuration": 1.8, "interactionRadius": 76, "requiredToolType": "axe", "refreshDays": 0, "guardUnitIds": [], "riskEvents": [{ "id": "risk.dry_wood_noise", "type": "noise", "chance": 0.3, "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。", "payload": { "alert": 1 } }], "damageRatio": 0 },
+      { "id": "node.wild_herb", "schemaVersion": 1, "name": "野生草药", "resourceType": "herb", "itemId": "resource.herb", "remaining": 8, "maxRemaining": 8, "yieldPerGather": 2, "gatherDuration": 1.2, "interactionRadius": 72, "requiredToolType": null, "refreshDays": 0, "guardUnitIds": [], "riskEvents": [{ "id": "risk.wild_herb_rustle", "type": "wildlife", "chance": 0.2, "message": "草丛突然剧烈晃动，你听见不远处传来异响。", "payload": { "alert": 1 } }], "damageRatio": 0 },
+      { "id": "node.s09_granary_food", "schemaVersion": 1, "name": "受损粮仓散粮", "resourceType": "food", "itemId": "resource.food", "remaining": 36, "maxRemaining": 36, "yieldPerGather": 6, "gatherDuration": 2.4, "interactionRadius": 78, "requiredToolType": null, "refreshDays": 0, "guardUnitIds": ["S09-guard-granary-west", "S09-guard-granary-east"], "riskEvents": [], "damageRatio": 0.6 }
     ],
     "enemies": [
-      {
-        "id": "enemie_mr9lh7ur",
-        "name": "新敌人",
-        "templateId": "bandit",
-        "level": 1,
-        "stats": {
-          "maxHp": 50,
-          "attack": 5,
-          "defense": 2,
-          "speed": 80
-        },
-        "aiType": "aggressive",
-        "lootTable": []
-      },
-      {
-        "id": "wild_dog",
-        "name": "野狗",
-        "templateId": "wild_dog",
-        "level": 1,
-        "stats": {
-          "maxHp": 40,
-          "attack": 6,
-          "defense": 1,
-          "speed": 90
-        },
-        "aiType": "aggressive",
-        "lootTable": []
-      }
+      { "id": "enemy.s01_bandit", "templateId": "bandit", "name": "荒野盗匪", "level": 1, "stats": { "maxHp": 45, "attack": 6, "defense": 1, "speed": 65 }, "aiType": "aggressive", "lootTable": [] },
+      { "id": "enemy.s02_scavenger", "templateId": "scavenger", "name": "营地拾荒者", "level": 1, "stats": { "maxHp": 38, "attack": 5, "defense": 1, "speed": 58 }, "aiType": "aggressive", "lootTable": [] },
+      { "id": "enemy.s09_granary_guard", "templateId": "yellow_turban_guard", "name": "粮仓哨兵", "level": 2, "stats": { "maxHp": 70, "attack": 8, "defense": 3, "speed": 62 }, "aiType": "aggressive", "aiActive": false, "lootTable": [] },
+      { "id": "enemy.s09_refugee_scout", "templateId": "government_scout", "name": "官军斥候", "level": 2, "stats": { "maxHp": 58, "attack": 9, "defense": 2, "speed": 82 }, "aiType": "aggressive", "lootTable": [] }
     ],
-    "items": [
+    "npcs": [
       {
-        "id": "item_mr9lh9ii",
-        "name": "新物品",
-        "type": "consumable",
-        "icon": "",
-        "stackable": true,
-        "maxStack": 99,
-        "effect": {}
+        "id": "npc.s02_messenger",
+        "name": "黄巾信使",
+        "title": "张角使者",
+        "faction": "friendly",
+        "idleText": "信使正在等待你整理行装。",
+        "interaction": { "radius": 84, "prompt": "{interact}接受张角召见", "trigger": "interact" }
       },
       {
-        "id": "cauldron",
-        "name": "煮粥大锅",
-        "type": "prop",
-        "worldProp": true,
-        "renderStyle": "cauldron",
-        "sprite": {
-          "src": "",
-          "frameWidth": 80,
-          "frameHeight": 80
-        },
-        "scale": 1,
-        "stackable": false
+        "id": "npc.s09_zhangjiao",
+        "name": "张角",
+        "title": "大贤良师",
+        "faction": "friendly",
+        "dialogueId": "dialogue.s09.enlistment",
+        "renderStyle": "zhangjiao",
+        "idleText": "张角正在粥棚旁查看伤民名册。",
+        "interaction": { "radius": 100, "prompt": "{interact}与张角交谈并加入黄巾", "trigger": "interact" }
       },
       {
-        "id": "talisman_water",
-        "name": "符水",
-        "type": "consumable",
-        "usable": true,
-        "stackable": true,
-        "maxStack": 10,
-        "rarity": 1,
-        "description": "张角的符水，可以恢复50点生命值",
-        "effect": {
-          "type": "heal",
-          "value": 50
-        }
+        "id": "npc.s09_zhangliang",
+        "name": "张梁",
+        "title": "战士教官",
+        "faction": "friendly",
+        "renderStyle": "zhangliang",
+        "idleText": "张梁守在战士军旗旁，等待新兵确认道路。",
+        "interaction": { "radius": 84, "prompt": "{interact}了解战士职业", "trigger": "interact" }
       },
       {
-        "id": "leftover_food",
-        "name": "残羹",
-        "type": "consumable",
-        "heal": 20,
-        "description": "剩余的食物，可以恢复少量生命值",
-        "rarity": 0,
-        "maxStack": 10,
-        "usable": true,
-        "effect": {
-          "type": "heal",
-          "value": 20
-        }
+        "id": "npc.s09_zhangbao",
+        "name": "张宝",
+        "title": "弓手教官",
+        "faction": "friendly",
+        "renderStyle": "zhangbao",
+        "idleText": "张宝正在弓手军旗旁整理短弓与木箭。",
+        "interaction": { "radius": 84, "prompt": "{interact}了解弓手职业", "trigger": "interact" }
       },
       {
-        "id": "coin_sword",
-        "name": "铜钱剑",
-        "type": "consumable",
-        "subType": "currency_item",
-        "usable": true,
-        "stackable": false,
-        "maxStack": 1,
-        "rarity": 2,
-        "description": "用铜钱串成的法器剑，使用后前往第四幕",
-        "effect": {
-          "type": "next_scene"
-        }
+        "id": "npc.s09_refugee_soldier",
+        "name": "黄巾残兵",
+        "title": "负伤残兵",
+        "faction": "friendly",
+        "renderStyle": "wounded_soldier"
+      },
+      {
+        "id": "npc.s09_refugee_woman",
+        "name": "逃难妇人",
+        "title": "饥民",
+        "faction": "friendly",
+        "renderStyle": "refugee_woman"
+      },
+      {
+        "id": "npc.s09_refugee_child",
+        "name": "饥饿孩童",
+        "title": "饥民",
+        "faction": "friendly",
+        "renderStyle": "refugee_child"
+      },
+      {
+        "id": "npc.s09_refugee_dead",
+        "name": "死去的饥民",
+        "title": "死者",
+        "faction": "neutral",
+        "renderStyle": "refugee_dead"
+      },
+      {
+        "id": "npc.s09_one_armed_refugee",
+        "name": "断臂饥民",
+        "title": "持饼饥民",
+        "faction": "friendly",
+        "renderStyle": "one_armed_refugee"
       }
-    ],
-    "equipment": [
-      {
-        "id": "equipment_mr9lhben",
-        "name": "新装备",
-        "slot": "weapon",
-        "icon": "",
-        "stats": {
-          "attack": 0,
-          "defense": 0
-        },
-        "element": 0
-      },
-      {
-        "id": "ragged_clothes",
-        "name": "破旧衣服",
-        "type": "equipment",
-        "subType": "armor",
-        "stats": {
-          "defense": 2
-        },
-        "description": "破旧的衣服，聊胜于无",
-        "rarity": 0,
-        "maxStack": 1
-      },
-      {
-        "id": "wooden_sword",
-        "name": "木剑",
-        "type": "equipment",
-        "subType": "mainhand",
-        "attackSpeed": 2,
-        "attackRange": 90,
-        "attackDistance": 100,
-        "stats": {
-          "attack": 5
-        },
-        "description": "简陋的木剑，可以用来防身",
-        "rarity": 0,
-        "maxStack": 1
-      },
-      {
-        "id": "wooden_bow",
-        "name": "木弓",
-        "type": "equipment",
-        "subType": "mainhand",
-        "ranged": true,
-        "attackSpeed": 1,
-        "attackRange": 15,
-        "attackDistance": 300,
-        "pierce": 2,
-        "multishot": 2,
-        "stats": {
-          "attack": 7
-        },
-        "description": "简陋的木弓，可以远程攻击",
-        "rarity": 0,
-        "maxStack": 1
-      },
-      {
-        "id": "wooden_arrow",
-        "name": "木箭",
-        "type": "equipment",
-        "subType": "ammo",
-        "stats": {},
-        "description": "粗糙的木箭，配合弓使用",
-        "rarity": 0,
-        "maxStack": 99,
-        "quantity": 99
-      },
-      {
-        "id": "cloth_belt",
-        "name": "布腰带",
-        "type": "equipment",
-        "subType": "belt",
-        "stats": {
-          "defense": 2,
-          "maxHp": 10
-        },
-        "description": "简单的布制腰带，聊胜于无",
-        "rarity": 0,
-        "maxStack": 1
-      },
-      {
-        "id": "straw_sandals",
-        "name": "草鞋",
-        "type": "equipment",
-        "subType": "boots",
-        "stats": {
-          "defense": 1,
-          "speed": 3
-        },
-        "description": "用稻草编织的鞋子，轻便耐穿",
-        "rarity": 0,
-        "maxStack": 1
-      }
-    ],
-    "shops": [
-      {
-        "id": "shop_mr9lhcr7",
-        "name": "新商店",
-        "goods": [
-          {
-            "itemId": "",
-            "price": 10
-          }
-        ]
-      }
-    ],
-    "classes": [
-      {
-        "id": "classe_mr9lhe11",
-        "name": "新职业",
-        "baseStats": {},
-        "skills": []
-      }
-    ],
-    "skills": [
-      {
-        "id": "skill_mr9lhflx",
-        "name": "新技能",
-        "cooldown": 3,
-        "castTime": 0,
-        "damage": 0,
-        "element": 0,
-        "range": 100
-      }
-    ],
-    "vehicles": [
-      {
-        "id": "vehicle_mr9lhh04",
-        "name": "战车",
-        "vehicleType": "chariot",
-        "speed": 140,
-        "turnRate": 3,
-        "maxHp": 500,
-        "seats": [
-          {
-            "id": "drv",
-            "role": "driver",
-            "offset": [
-              0,
-              0
-            ]
-          },
-          {
-            "id": "gun",
-            "role": "gunner",
-            "weapon": "ballista_bolt",
-            "offset": [
-              0,
-              6
-            ]
-          }
-        ],
-        "onDestroyed": "eject"
-      }
-    ],
-    "buildings": [
-      {
-        "id": "building_mr9lhkbb",
-        "name": "城门",
-        "buildingType": "gate",
-        "maxHp": 5000,
-        "colliderRadius": 60,
-        "controllable": false,
-        "onDestroyed": []
-      }
-    ],
-    "players": [],
-    "combatSkills": [],
-    "gatherSkills": [],
-    "craftSkills": [],
-    "talents": []
+    ]
   },
-  "system": {
-    "login": {
-      "title": "张角黄巾起义序章",
-      "subtitle": "苍天已死，黄天当立",
-      "description": "乱世将起，你的选择将改变众人的命运。",
-      "showDescription": false,
-      "backgroundImage": "assets/images/main_bg.jpg",
-      "backgroundColor": "#111111",
-      "panelColor": "rgba(15, 15, 18, 0.88)",
-      "titleColor": "#e7c778",
-      "textColor": "#dddddd",
-      "buttonColor": "#4b6728"
-    },
-    "loading": {
-      "title": "张角黄巾起义序章(闻箫工作室)",
-      "subtitle": "第一幕：绝望的开始",
-      "loadingText": "加载中...",
-      "icon": "",
-      "backgroundColor": "#1a1a1a",
-      "titleColor": "#4caf50",
-      "progressBarColor": "#4CAF50,#8BC34A",
-      "steps": [
-        {
-          "progress": 0,
-          "text": "初始化 ECS 系统...",
-          "delay": 100
-        },
-        {
-          "progress": 25,
-          "text": "加载核心系统...",
-          "delay": 100
-        },
-        {
-          "progress": 50,
-          "text": "创建场景管理器...",
-          "delay": 100
-        },
-        {
-          "progress": 60,
-          "text": "注册场景...",
-          "delay": 100
-        },
-        {
-          "progress": 75,
-          "text": "初始化玩家实体...",
-          "delay": 100
-        },
-        {
-          "progress": 90,
-          "text": "进入第一幕...",
-          "delay": 100
-        },
-        {
-          "progress": 100,
-          "text": "完成！",
-          "delay": 100
-        }
-      ]
-    },
-    "weather": {
-      "default": "lightRain",
-      "transitionSpeed": 0.5,
-      "particles": {
-        "clear": {
-          "fogAdd": 0,
-          "count": 0,
-          "windX": 0,
-          "windY": 0
-        },
-        "breeze": {
-          "fogAdd": 0,
-          "count": 15,
-          "windX": 30,
-          "windY": 5
-        },
-        "wind": {
-          "fogAdd": 0.05,
-          "count": 30,
-          "windX": 80,
-          "windY": 10
-        },
-        "lightRain": {
-          "fogAdd": 0.1,
-          "count": 60,
-          "windX": 10,
-          "windY": 300
-        },
-        "heavyRain": {
-          "fogAdd": 0.2,
-          "count": 150,
-          "windX": 30,
-          "windY": 500
-        },
-        "lightFog": {
-          "fogAdd": 0.25,
-          "count": 0,
-          "windX": 0,
-          "windY": 0
-        },
-        "heavyFog": {
-          "fogAdd": 0.5,
-          "count": 0,
-          "windX": 0,
-          "windY": 0
-        },
-        "storm": {
-          "fogAdd": 0.3,
-          "count": 120,
-          "windX": 60,
-          "windY": 450
-        }
-      }
-    },
-    "time": {
-      "enabled": false,
-      "startPeriod": "noon",
-      "periods": {
-        "dawn": {
-          "duration": 10,
-          "brightness": 0.4,
-          "fogOpacity": 0.6,
-          "tintColor": "rgba(80,60,120,0.2)"
-        },
-        "earlyMorning": {
-          "duration": 10,
-          "brightness": 0.6,
-          "fogOpacity": 0.3,
-          "tintColor": "rgba(255,200,100,0.1)"
-        },
-        "morning": {
-          "duration": 10,
-          "brightness": 0.9,
-          "fogOpacity": 0.1,
-          "tintColor": "rgba(0,0,0,0)"
-        },
-        "noon": {
-          "duration": 10,
-          "brightness": 1,
-          "fogOpacity": 0,
-          "tintColor": "rgba(0,0,0,0)"
-        },
-        "afternoon": {
-          "duration": 10,
-          "brightness": 0.85,
-          "fogOpacity": 0.1,
-          "tintColor": "rgba(255,180,50,0.05)"
-        },
-        "dusk": {
-          "duration": 10,
-          "brightness": 0.5,
-          "fogOpacity": 0.4,
-          "tintColor": "rgba(255,100,50,0.15)"
-        },
-        "night": {
-          "duration": 10,
-          "brightness": 0.25,
-          "fogOpacity": 0.7,
-          "tintColor": "rgba(20,20,80,0.3)"
-        },
-        "lateNight": {
-          "duration": 10,
-          "brightness": 0.15,
-          "fogOpacity": 0.8,
-          "tintColor": "rgba(10,10,40,0.4)"
-        }
+  "integration": {
+    "battle": {
+      "resultSource": "localMock",
+      "localMock": {
+        "schemaVersion": 1
       }
     }
   }

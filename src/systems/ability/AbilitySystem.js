@@ -231,9 +231,11 @@ export class AbilitySystem {
       }
     }
 
-    // 目标与距离：使用形态解析后的目标方式
-    const rangeCheck = this._checkTargeting(caster, view, params, options);
-    if (!rangeCheck.ok) return { ...rangeCheck, params, costs };
+    // 目标与距离：UI 预检查可显式跳过，正式 use() 始终执行完整校验。
+    if (options.skipTargeting !== true) {
+      const rangeCheck = this._checkTargeting(caster, view, params, options);
+      if (!rangeCheck.ok) return { ...rangeCheck, params, costs };
+    }
 
     return { ok: true, params, costs, definition: def, view };
   }
@@ -260,6 +262,10 @@ export class AbilitySystem {
 
     if (def.targeting === SkillTargeting.ENTITY && !options.target) {
       return { ok: false, reason: AbilityRejectReason.INVALID_TARGET, message: '需要选择目标' };
+    }
+    if ([SkillTargeting.POSITION, SkillTargeting.DIRECTION, SkillTargeting.AREA].includes(def.targeting)
+      && (!Number.isFinite(targetPos?.x) || !Number.isFinite(targetPos?.y))) {
+      return { ok: false, reason: AbilityRejectReason.INVALID_TARGET, message: '需要指定有效目标位置' };
     }
 
     const range = typeof params.range === 'number' ? params.range : 0;

@@ -31,3 +31,24 @@ export {
   PROGRESSION_CONFIG_SCHEMA,
   createContentValidator
 } from './ContentSchemas.js';
+
+export {
+  CANONICAL_SCHEMA_VERSION,
+  CANONICAL_SCHEMAS,
+  UNIT_SCHEMA,
+  HERO_SCHEMA,
+  FORMATION_SCHEMA,
+  ARMY_SCHEMA,
+  RESOURCE_NODE_SCHEMA,
+  INVENTORY_SCHEMA,
+  CITY_SCHEMA,
+  BATTLE_RESULT_SCHEMA,
+  CHECKPOINT_SCHEMA,
+  GAME_PROJECT_SCHEMA
+} from '../../data/schema/CanonicalSchemas.js';
+
+export {
+  ASSET_MANIFEST_ENTRY_SCHEMA,
+  ASSET_MANIFEST_SCHEMA,
+  ASSET_MANIFEST_SCHEMAS
+} from '../../data/schema/AssetManifestSchemas.js';

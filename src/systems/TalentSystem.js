@@ -412,8 +412,8 @@ export class TalentSystem {
     // 战士天赋树
     this.talentTrees.set('warrior', this.createWarriorTalentTree());
     
-    // 法师天赋树
-    this.talentTrees.set('mage', this.createMageTalentTree());
+    // 军师天赋树
+    this.talentTrees.set('strategist', this.createStrategistTalentTree());
     
     // 弓箭手天赋树
     this.talentTrees.set('archer', this.createArcherTalentTree());
@@ -552,16 +552,15 @@ export class TalentSystem {
   }
 
   /**
-   * 创建法师天赋树
+   * 创建军师天赋树
    * @returns {TalentTree}
    */
-  createMageTalentTree() {
+  createStrategistTalentTree() {
     const nodes = [
-      // 第一层
       new TalentNode({
-        id: 'mage_arcane_intellect',
-        name: '奥术智慧',
-        description: '提高最大法力值',
+        id: 'strategist_foresight',
+        name: '洞察先机',
+        description: '提高最大法力值，为连续谋划提供余裕',
         type: TalentType.UTILITY,
         maxLevel: 5,
         requiredCharacterLevel: 1,
@@ -570,9 +569,9 @@ export class TalentSystem {
         effects: { maxManaBonus: 30 }
       }),
       new TalentNode({
-        id: 'mage_spell_power',
-        name: '法术强化',
-        description: '提高法术伤害',
+        id: 'strategist_tactical_power',
+        name: '谋略强化',
+        description: '提高符法和谋略伤害',
         type: TalentType.COMBAT,
         maxLevel: 5,
         requiredCharacterLevel: 1,
@@ -581,8 +580,8 @@ export class TalentSystem {
         effects: { spellDamageBonus: 8 }
       }),
       new TalentNode({
-        id: 'mage_mana_flow',
-        name: '法力涌动',
+        id: 'strategist_breath_control',
+        name: '调息养神',
         description: '提高法力回复速度',
         type: TalentType.UTILITY,
         maxLevel: 5,
@@ -591,90 +590,81 @@ export class TalentSystem {
         position: { x: 2, y: 0 },
         effects: { manaRegenBonus: 2 }
       }),
-
-      // 第二层
       new TalentNode({
-        id: 'mage_fire_affinity',
-        name: '火焰亲和',
-        description: '提高火系法术伤害',
+        id: 'strategist_fire_planning',
+        name: '火攻推演',
+        description: '提高火攻与火系符法效果',
         type: TalentType.ELEMENT,
         maxLevel: 3,
-        prerequisites: ['mage_spell_power'],
+        prerequisites: ['strategist_tactical_power'],
         requiredCharacterLevel: 5,
         requiredTalentPoints: 2,
         position: { x: 0, y: 1 },
         effects: { fireElementBonus: 10 }
       }),
       new TalentNode({
-        id: 'mage_ice_affinity',
-        name: '冰霜亲和',
-        description: '提高冰系法术伤害',
+        id: 'strategist_binding_arts',
+        name: '寒阵符法',
+        description: '提高寒阵与控制符法效果',
         type: TalentType.ELEMENT,
         maxLevel: 3,
-        prerequisites: ['mage_spell_power'],
+        prerequisites: ['strategist_tactical_power'],
         requiredCharacterLevel: 5,
         requiredTalentPoints: 2,
         position: { x: 2, y: 1 },
         effects: { iceElementBonus: 10 }
       }),
       new TalentNode({
-        id: 'mage_meditation',
-        name: '冥想',
+        id: 'strategist_meditation',
+        name: '静思',
         description: '战斗外法力回复大幅提高',
         type: TalentType.UTILITY,
         maxLevel: 3,
-        prerequisites: ['mage_mana_flow'],
+        prerequisites: ['strategist_breath_control'],
         requiredCharacterLevel: 5,
         requiredTalentPoints: 2,
         position: { x: 1, y: 1 },
         effects: { outOfCombatManaRegen: [2, 3, 5] }
       }),
-
-      // 第三层
       new TalentNode({
-        id: 'mage_spell_penetration',
-        name: '法术穿透',
-        description: '法术无视部分魔法抗性',
+        id: 'strategist_exploit_weakness',
+        name: '洞敌破绽',
+        description: '谋略攻击无视部分抗性',
         type: TalentType.COMBAT,
         maxLevel: 3,
-        prerequisites: ['mage_fire_affinity', 'mage_ice_affinity'],
+        prerequisites: ['strategist_fire_planning', 'strategist_binding_arts'],
         requiredCharacterLevel: 10,
         requiredTalentPoints: 3,
         position: { x: 1, y: 2 },
         effects: { spellPenetration: 5 }
       }),
       new TalentNode({
-        id: 'mage_mana_shield',
-        name: '法力护盾',
-        description: '部分伤害由法力值承担',
+        id: 'strategist_guard_talisman',
+        name: '护身符阵',
+        description: '由法力承担部分伤害',
         type: TalentType.SURVIVAL,
         maxLevel: 3,
-        prerequisites: ['mage_arcane_intellect'],
+        prerequisites: ['strategist_foresight'],
         requiredCharacterLevel: 10,
         requiredTalentPoints: 3,
         position: { x: 0, y: 2 },
         effects: { manaShieldPercent: [0.1, 0.15, 0.2] }
       }),
-
-      // 第四层（终极天赋）
       new TalentNode({
-        id: 'mage_arcane_mastery',
-        name: '奥术大师',
-        description: '大幅提高所有法术效果，并减少法力消耗',
+        id: 'strategist_supreme_strategy',
+        name: '决胜千里',
+        description: '大幅提高全部谋略效果并减少法力消耗',
         type: TalentType.COMBAT,
         maxLevel: 1,
-        prerequisites: ['mage_spell_penetration', 'mage_mana_shield'],
+        prerequisites: ['strategist_exploit_weakness', 'strategist_guard_talisman'],
         requiredCharacterLevel: 15,
         requiredTalentPoints: 5,
         position: { x: 1, y: 3 },
-        effects: { 
-          spellDamageMultiplier: 0.2,
-          manaCostReduction: 0.15
-        }
+        effects: { spellDamageMultiplier: 0.2, manaCostReduction: 0.15 }
       })
     ];
 
-    return new TalentTree('mage', nodes);
+    return new TalentTree('strategist', nodes);
   }
 
   /**

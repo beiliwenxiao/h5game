@@ -174,6 +174,14 @@ export class ProgressionViewModel {
     const rank = this.progressionSystem.getRank(characterId, graphId, nodeId);
     const preview = this.progressionSystem.previewAllocate(characterId, graphId, nodeId, this._context());
 
+    const currentEffects = node.getEffectsAtRank(rank);
+    const numericTargets = [...new Set(currentEffects
+      .filter(effect => typeof effect.value === 'number')
+      .map(effect => effect.target))];
+    const effectExplanations = numericTargets.map(target => (
+      this.progressionSystem.effectResolver.explain(characterId, target, 0, this._context())
+    ));
+
     return {
       id: node.id,
       name: node.name,
@@ -183,8 +191,9 @@ export class ProgressionViewModel {
       rank,
       maxRank: node.maxRank,
       costs: node.getCostsAtRank(1),
-      currentEffects: node.getEffectsAtRank(rank),
+      currentEffects,
       nextEffects: rank < node.maxRank ? node.getEffectsAtRank(rank + 1) : null,
+      effectExplanations,
       canAllocate: preview.ok,
       rejectReason: preview.ok ? null : preview.reason,
       rejectMessage: preview.ok ? null : preview.message,

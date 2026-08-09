@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>张角黄巾起义序章 - 第一幕</title>
+    <title>三国张角传</title>
     <style>
         * {
             margin: 0;
@@ -650,8 +650,8 @@
         #login-footer a:hover, #login-footer a:focus-visible { color: #e7c778; text-decoration: underline; }
         #login-screen.in-game #login-footer { display: none; }
 
-        /* 新建角色资料、读档和手动存档均在独立小窗中执行。 */
-        #save-picker-modal, #new-game-profile-modal {
+        /* 新建角色资料、读档、手动存档和覆盖确认均在独立小窗中执行。 */
+        #save-picker-modal, #new-game-profile-modal, #overwrite-confirm-modal {
             position: absolute;
             inset: 0;
             z-index: 2;
@@ -660,6 +660,7 @@
             padding: 20px;
             background: rgba(0,0,0,.56);
         }
+        #overwrite-confirm-modal { z-index: 3; background: rgba(0,0,0,.72); }
         .save-picker-panel {
             position: relative;
             display: grid;
@@ -675,7 +676,8 @@
             color: #eee;
         }
         .new-game-profile-panel { width: min(380px, 94vw); }
-        #save-picker-title, #new-game-profile-title { margin: 0; padding-right: 28px; color: #e7c778; font-size: 21px; }
+        .overwrite-confirm-panel { width: min(420px, 92vw); }
+        #save-picker-title, #new-game-profile-title, #overwrite-confirm-title { margin: 0; padding-right: 28px; color: #e7c778; font-size: 21px; }
         #save-picker-close, #new-game-profile-close {
             position: absolute;
             top: 8px;
@@ -723,17 +725,23 @@
             cursor: pointer;
         }
         .save-picker-cancel { background: rgba(255,255,255,.12); }
+        #overwrite-confirm-accept { background: #8a342f; }
         .save-picker-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .login-action:disabled { cursor: not-allowed; opacity: .5; filter: grayscale(1); }
-        .login-action:not(:disabled):hover, .save-picker-confirm:hover, .save-picker-cancel:hover { filter: brightness(1.18); }
+        .login-action:disabled, .save-picker-confirm:disabled, .save-picker-cancel:disabled {
+            cursor: not-allowed;
+            opacity: .5;
+            filter: grayscale(1);
+        }
+        .login-action:not(:disabled):hover, .save-picker-confirm:not(:disabled):hover, .save-picker-cancel:not(:disabled):hover { filter: brightness(1.18); }
         #login-manual-save, #login-return-game { display: none; }
         #login-screen.in-game #login-manual-save, #login-screen.in-game #login-return-game { display: block; }
         #save-slots { display: none; gap: 9px; min-width: 0; text-align: left; }
         #save-slots.visible { display: grid; }
         #save-slot-browser-label { color: #e7c778; font-size: 14px; }
         #save-picker-message { min-height: 18px; margin: 0; color: #ffd166; font-size: 12px; line-height: 1.5; }
+        #overwrite-confirm-message { margin: 2px 0 6px; color: #ddd; font-size: 14px; line-height: 1.7; }
         @media (max-width: 540px) {
-            #save-picker-modal, #new-game-profile-modal { padding: 12px; }
+            #save-picker-modal, #new-game-profile-modal, #overwrite-confirm-modal { padding: 12px; }
             .save-picker-panel { padding: 20px 16px; max-height: 86vh; }
         }
         .save-slot-browser {
@@ -879,7 +887,7 @@
                 <button id="login-close" type="button" aria-label="返回游戏">×</button>
                 <div class="login-layout">
                     <div class="login-main-column">
-                        <h1 id="login-title">张角黄巾起义序章</h1>
+                        <h1 id="login-title">三国张角传</h1>
                         <h2 id="login-subtitle">苍天已死，黄天当立</h2>
                         <p id="login-description">乱世将起，你的选择将改变众人的命运。</p>
                         <div class="login-actions">
@@ -942,11 +950,21 @@
                     </div>
                 </section>
             </div>
+            <div id="overwrite-confirm-modal" class="hidden" role="presentation" aria-hidden="true">
+                <section class="save-picker-panel overwrite-confirm-panel" role="dialog" aria-modal="true" aria-labelledby="overwrite-confirm-title" aria-describedby="overwrite-confirm-message">
+                    <h2 id="overwrite-confirm-title">覆盖已有存档？</h2>
+                    <p id="overwrite-confirm-message">所选栏位已有游戏进度，覆盖后将无法恢复。</p>
+                    <div class="save-picker-actions">
+                        <button class="save-picker-confirm" id="overwrite-confirm-accept" type="button">确认覆盖</button>
+                        <button class="save-picker-cancel" id="overwrite-confirm-cancel" type="button">取消</button>
+                    </div>
+                </section>
+            </div>
         </div>
 
         <div id="loading-screen">
-            <h1>张角黄巾起义序章</h1>
-            <h2>第一幕：绝望的开始</h2>
+            <h1>三国张角传</h1>
+            <h2>S01：干旱平原</h2>
             <div class="progress-bar">
                 <div class="progress-fill" id="progress-fill"></div>
             </div>
@@ -968,8 +986,13 @@
         import { PlayerInfoPanel } from '../../src/ui/PlayerInfoPanel.js';
         import { ItemIconRenderer } from '../../src/ui/ItemIconRenderer.js';
         import { SaveGameService } from '../../src/core/snapshot/SaveGameService.js';
+        import { normalizePresentationProfile } from '../../src/core/PresentationProfile.js';
+        import presentationProfileData from './config/presentation.json';
         import { PortraitsConfig } from './data/PortraitsConfig.js';
         import { SelectedCharacterStore } from './data/SelectedCharacterStore.js';
+
+        const presentationProfile = normalizePresentationProfile(presentationProfileData);
+        const logicalResolution = presentationProfile.logicalResolution;
         
         // 场景管理器
         let sceneManager = null;
@@ -994,7 +1017,11 @@
         let activeSaveSlot = 1; // 当前选择的手动栏位；自动存档使用三个独立轮换栏位。
         let autosaveTimer = null;
         const AUTO_SAVE_INTERVAL_MS = 15 * 60 * 1000;
-        const saveGames = new SaveGameService({ gameId: 'sanguo_zhangjiao', slotCount: 100 });
+        const saveGames = new SaveGameService({
+            gameId: 'sanguo_zhangjiao',
+            slotCount: 100,
+            migrateLegacyAutoSlot: false
+        });
         const SAVE_FILES_ROOT = 'example/sanguo_zhangjiao/saves';
         const SAVE_SLOT_ID_PATTERN = /^(?:autosave-[1-3]|slot-(?:[1-9]\d?|100))$/;
         let lastRenderedSavePreview = null;
@@ -1004,28 +1031,18 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
-        // Canvas 自适应容器大小
+        // Canvas buffer 使用项目固定逻辑分辨率，CSS 继续负责物理窗口和横竖屏适配。
         function resizeCanvas() {
-            const rotate = document.body.classList.contains('force-landscape');
-            let cw, ch;
-            if (rotate) {
-                // 旋转模式：容器 CSS 宽=100vh，高=100vw，即逻辑宽为屏幕高，逻辑高为屏幕宽
-                cw = window.innerHeight;
-                ch = window.innerWidth;
-            } else {
-                const container = canvas.parentElement;
-                cw = container ? container.clientWidth : window.innerWidth;
-                ch = container ? container.clientHeight : window.innerHeight;
-            }
-            canvas.width = cw;
-            canvas.height = ch;
+            const width = logicalResolution.width;
+            const height = logicalResolution.height;
+            if (canvas.width !== width) canvas.width = width;
+            if (canvas.height !== height) canvas.height = height;
             
-            // 通知当前场景更新尺寸
             if (sceneManager) {
-                sceneManager.setRenderSize(cw, ch);
+                sceneManager.setRenderSize(width, height);
                 const currentScene = sceneManager.getCurrentScene();
                 if (currentScene && currentScene.onResize) {
-                    currentScene.onResize(cw, ch);
+                    currentScene.onResize(width, height);
                 }
             }
         }
@@ -1061,6 +1078,7 @@
         const loginDescription = document.getElementById('login-description');
         const loginMessage = document.getElementById('login-message');
         const savePickerModal = document.getElementById('save-picker-modal');
+        const savePickerPanel = savePickerModal.querySelector('.save-picker-panel');
         const savePickerTitle = document.getElementById('save-picker-title');
         const savePickerMessage = document.getElementById('save-picker-message');
         const savePickerCancel = document.getElementById('save-picker-cancel');
@@ -1077,6 +1095,12 @@
         const newGameGenderFemale = document.getElementById('new-game-gender-female');
         const newGameGenderMale = document.getElementById('new-game-gender-male');
         const newGameGenderNote = document.getElementById('new-game-gender-note');
+        const overwriteConfirmModal = document.getElementById('overwrite-confirm-modal');
+        const overwriteConfirmMessage = document.getElementById('overwrite-confirm-message');
+        const overwriteConfirmAccept = document.getElementById('overwrite-confirm-accept');
+        const overwriteConfirmCancel = document.getElementById('overwrite-confirm-cancel');
+        let pendingOverwriteConfirmation = null;
+        let overwriteConfirmOpener = null;
 
         function applyNewGameProfile() {
             const nickname = newGameNickname.value.trim().slice(0, 16) || NEW_GAME_DEFAULT_NICKNAME;
@@ -1292,6 +1316,7 @@
         let savePickerMode = null;
         let selectedSaveValue = '';
         let savePickerEntries = [];
+        let savePickerConfirmInFlight = false;
         let autoSaveInFlight = null;
         const saveSlotSelected = document.getElementById('save-slot-selected');
         const saveSlotList = document.getElementById('save-slot-list');
@@ -1435,7 +1460,7 @@
                 const location = document.createElement('div');
                 location.className = 'save-slot-location';
                 location.textContent = entry.exists
-                    ? (meta.location || `第 ${meta.currentAct || 1} 幕区域`)
+                    ? (meta.location || meta.currentSceneId || 'S01')
                     : (mode === 'continue' ? '没有可读取的进度' : '在此开始新的旅程');
                 const cardMeta = document.createElement('div');
                 cardMeta.className = 'save-slot-meta';
@@ -1501,7 +1526,50 @@
             return !savePickerModal.classList.contains('hidden');
         }
 
+        function isOverwriteConfirmationOpen() {
+            return !overwriteConfirmModal.classList.contains('hidden');
+        }
+
+        function requestOverwriteConfirmation(index) {
+            if (pendingOverwriteConfirmation) return pendingOverwriteConfirmation.promise;
+
+            let resolveConfirmation;
+            const promise = new Promise(resolve => { resolveConfirmation = resolve; });
+            pendingOverwriteConfirmation = { promise, resolve: resolveConfirmation };
+            overwriteConfirmOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            overwriteConfirmMessage.textContent = `手动存档 ${index} 已有进度，覆盖后将无法恢复。`;
+            savePickerPanel.setAttribute('inert', '');
+            overwriteConfirmModal.classList.remove('hidden');
+            overwriteConfirmModal.setAttribute('aria-hidden', 'false');
+            menuPadIndex = 0;
+            requestAnimationFrame(() => {
+                if (isOverwriteConfirmationOpen()) overwriteConfirmAccept.focus();
+            });
+            return promise;
+        }
+
+        function settleOverwriteConfirmation(result, { restoreFocus = !result } = {}) {
+            const pending = pendingOverwriteConfirmation;
+            if (!pending && !isOverwriteConfirmationOpen()) return;
+
+            const opener = overwriteConfirmOpener;
+            pendingOverwriteConfirmation = null;
+            overwriteConfirmOpener = null;
+            if (overwriteConfirmModal.contains(document.activeElement)) document.activeElement.blur();
+            overwriteConfirmModal.classList.add('hidden');
+            overwriteConfirmModal.setAttribute('aria-hidden', 'true');
+            savePickerPanel.removeAttribute('inert');
+            menuPadIndex = 0;
+            pending?.resolve(Boolean(result));
+            if (restoreFocus && opener?.isConnected && isSavePickerOpen()) {
+                requestAnimationFrame(() => opener.focus());
+            }
+        }
+
         function closeSavePicker({ restoreFocus = true } = {}) {
+            if (isOverwriteConfirmationOpen()) {
+                settleOverwriteConfirmation(false, { restoreFocus: false });
+            }
             const opener = savePickerOpener;
             savePickerModal.classList.add('hidden');
             savePickerModal.setAttribute('aria-hidden', 'true');
@@ -1531,7 +1599,7 @@
             previewContext.fillRect(0, 0, preview.width, preview.height);
             previewContext.fillStyle = 'rgba(255,255,255,.72)';
             previewContext.font = 'bold 18px sans-serif';
-            previewContext.fillText('张角黄巾起义序章', 18, 65);
+            previewContext.fillText('三国张角传', 18, 65);
             previewContext.font = '12px sans-serif';
             previewContext.fillText('存档缩略图', 18, 88);
             return preview.toDataURL('image/jpeg', 0.45);
@@ -1595,12 +1663,13 @@
             const player = current?.playerEntity;
             const stats = player?.getComponent?.('stats');
             const name = player?.getComponent?.('name');
-            const currentAct = current?.gameLoader?.blackboard?.get?.('act') || 1;
+            const storySceneId = current?.gameLoader?.blackboard?.get?.('storyState')?.currentSceneId;
+            const currentSceneId = current?.currentSceneId || storySceneId || 'S01';
             return {
                 characterName: name?.name || name?.displayName || player?.name || '张角',
                 level: stats?.level || 1,
-                currentAct,
-                location: current?.locationName || `第 ${currentAct} 幕区域`,
+                currentSceneId,
+                location: current?.locationName || `${currentSceneId} 区域`,
                 preview: captureSavePreview()
             };
         }
@@ -1721,35 +1790,48 @@
         }
 
         async function confirmSavePicker() {
+            if (savePickerConfirmInFlight || isOverwriteConfirmationOpen()) return;
             const selection = parseSaveSelection(selectedSaveValue);
             if (!selection) return;
             const selected = getSavePickerEntry();
             const entry = selected?.entry;
             if (!entry) return;
 
-            if (savePickerMode === 'continue') {
-                if (!entry.exists) {
-                    setLoginMessage('存档为空，请选择 开始游戏。');
+            const mode = savePickerMode;
+            savePickerConfirmInFlight = true;
+            saveSlotConfirm.disabled = true;
+            try {
+                if (mode === 'continue') {
+                    if (!entry.exists) {
+                        setLoginMessage('存档为空，请选择 开始游戏。');
+                        return;
+                    }
+                    startGameFromSelection('continue', selection);
                     return;
                 }
-                startGameFromSelection('continue', selection);
-                return;
-            }
 
-            // 开始游戏与手动保存只能写入手动栏位，自动位绝不允许被覆盖。
-            if (selection.kind !== 'manual') return;
-            if (entry.exists && !confirm(`手动存档 ${selection.index} 已有进度，是否覆盖？`)) return;
+                // 开始游戏与手动保存只能写入手动栏位，自动位绝不允许被覆盖。
+                if (selection.kind !== 'manual') return;
+                if (entry.exists) {
+                    const confirmed = await requestOverwriteConfirmation(selection.index);
+                    if (!confirmed || !isSavePickerOpen()) return;
+                }
 
-            if (savePickerMode === 'manualSave') {
-                activeSaveSlot = selection.index;
-                const saved = await saveCurrentGame({ silent: true });
-                setLoginMessage(saved?.ok ? `已手动保存到栏位 ${selection.index}`
-                    : saved?.snapshot ? '手动存档已写入浏览器缓存，但存档文件或缩略图保存失败。'
-                    : '手动保存失败，请稍后重试。');
-                renderSaveSlots('manualSave');
-                return;
+                if (mode === 'manualSave') {
+                    activeSaveSlot = selection.index;
+                    const saved = await saveCurrentGame({ silent: true });
+                    const message = saved?.ok ? `已手动保存到栏位 ${selection.index}`
+                        : saved?.snapshot ? '手动存档已写入浏览器缓存，但存档文件或缩略图保存失败。'
+                        : '手动保存失败，请稍后重试。';
+                    setLoginMessage(message);
+                    if (isSavePickerOpen()) renderSaveSlots('manualSave');
+                    return;
+                }
+                startGameFromSelection('new', selection);
+            } finally {
+                savePickerConfirmInFlight = false;
+                if (isSavePickerOpen() && !isOverwriteConfirmationOpen()) updateSavePickerInfo();
             }
-            startGameFromSelection('new', selection);
         }
 
         function startGameFromSelection(mode, selection) {
@@ -1852,10 +1934,30 @@
         savePickerModal.addEventListener('click', event => {
             if (event.target === savePickerModal) closeSavePicker();
         });
+        overwriteConfirmAccept.addEventListener('click', () => settleOverwriteConfirmation(true));
+        overwriteConfirmCancel.addEventListener('click', () => settleOverwriteConfirmation(false));
+        overwriteConfirmModal.addEventListener('click', event => {
+            if (event.target === overwriteConfirmModal) settleOverwriteConfirmation(false);
+        });
         document.getElementById('login-exit').addEventListener('click', exitGame);
         document.getElementById('login-close').addEventListener('click', closeSystemMenu);
         window.addEventListener('keydown', event => {
-            if (event.key !== 'Escape' || loginScreen.classList.contains('hidden')) return;
+            if (loginScreen.classList.contains('hidden')) return;
+            if (isOverwriteConfirmationOpen()) {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    settleOverwriteConfirmation(false);
+                } else if (event.key === 'Tab') {
+                    event.preventDefault();
+                    const buttons = [overwriteConfirmAccept, overwriteConfirmCancel];
+                    const currentIndex = buttons.indexOf(document.activeElement);
+                    const step = event.shiftKey ? -1 : 1;
+                    const nextIndex = (currentIndex + step + buttons.length) % buttons.length;
+                    buttons[nextIndex].focus();
+                }
+                return;
+            }
+            if (event.key !== 'Escape') return;
             if (isNewGameProfileOpen()) {
                 event.preventDefault();
                 closeNewGameProfile();
@@ -1883,14 +1985,17 @@
                     const pressed = index => !!pad.buttons[index]?.pressed;
                     const direction = pressed(12) || (pad.axes[1] || 0) < -0.55 ? -1
                         : (pressed(13) || (pad.axes[1] || 0) > 0.55 ? 1 : 0);
-                    const isEditingProfile = isNewGameProfileOpen();
-                    const isPickingSave = saveSlotsElement.classList.contains('visible');
-                    const active = isPickingSave
-                        ? [saveSlotConfirm]
-                        : isEditingProfile
-                            ? [newGameProfileConfirm, newGameProfileCancel]
-                            : Array.from(loginScreen.querySelectorAll('.login-action'))
-                                .filter(button => button.offsetParent !== null && !button.disabled);
+                    const isConfirmingOverwrite = isOverwriteConfirmationOpen();
+                    const isEditingProfile = !isConfirmingOverwrite && isNewGameProfileOpen();
+                    const isPickingSave = !isConfirmingOverwrite && saveSlotsElement.classList.contains('visible');
+                    const active = isConfirmingOverwrite
+                        ? [overwriteConfirmAccept, overwriteConfirmCancel]
+                        : isPickingSave
+                            ? [saveSlotConfirm]
+                            : isEditingProfile
+                                ? [newGameProfileConfirm, newGameProfileCancel]
+                                : Array.from(loginScreen.querySelectorAll('.login-action'))
+                                    .filter(button => button.offsetParent !== null && !button.disabled);
                     if (!menuPadArmed) {
                         menuPadArmed = !pressed(0) && !pressed(1) && !pressed(9) && direction === 0;
                     } else {
@@ -1904,11 +2009,13 @@
                             active[menuPadIndex].focus();
                         }
                         if (pressed(0) && !pollLoginGamepad.aWasDown) {
-                            if (isPickingSave) void confirmSavePicker();
+                            if (isConfirmingOverwrite) active[menuPadIndex]?.click();
+                            else if (isPickingSave) void confirmSavePicker();
                             else active[menuPadIndex]?.click();
                         }
                         if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown) {
-                            if (isPickingSave) closeSavePicker();
+                            if (isConfirmingOverwrite) settleOverwriteConfirmation(false);
+                            else if (isPickingSave) closeSavePicker();
                             else if (isEditingProfile) closeNewGameProfile();
                             else if (loginScreen.classList.contains('in-game')) closeSystemMenu();
                         }
@@ -2125,7 +2232,7 @@
                     { progress: 50, text: '创建场景管理器...', delay: 300 },
                     { progress: 60, text: '注册场景...', delay: 500 },
                     { progress: 75, text: '初始化玩家实体...', delay: 0 },
-                    { progress: 90, text: '进入第一幕...', delay: 500 },
+                    { progress: 90, text: '进入 S01...', delay: 500 },
                     { progress: 100, text: '完成！', delay: 500 }
                 ];
                 let stepIndex = 0;
@@ -2165,7 +2272,7 @@
                     const dd = new DataDrivenScene('DataDrivenScene', { sceneManager });
                     try {
                         await dd.loadProjectUrl('game.project.json');
-                        await dd.loadEditorScene('sanguo_zhangjiao', 'scene_Prologue', 'assets/scenes/');
+                        await dd.loadEditorScene('sanguo_zhangjiao', 'S01', 'assets/scenes/');
                     } catch (e) {
                         console.warn('DataDrivenScene 预览加载失败', e);
                     }
@@ -2188,9 +2295,9 @@
                     // 场景须明确区分新档和读档：成长初始点只在新档 GameLoader 就绪时授予。
                     scene.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
 
-                    // 读档必须等世界、放置点和 GameLoader 都完成，避免恢复状态被异步初始化覆盖。
+                    // 启动必须等待世界和 GameLoader 成功；任何失败都不能进入可运行或可写档状态。
                     const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);
-                    if (readyTasks.length) await Promise.allSettled(readyTasks);
+                    if (readyTasks.length) await Promise.all(readyTasks);
                     saveGames.setStateProvider({
                         capture: () => scene.captureSaveState(),
                         validate: data => scene.validateSaveState(data),
@@ -2199,12 +2306,26 @@
                     const selection = options.saveSelection || { kind: 'manual', index: activeSaveSlot };
                     if (selection.kind === 'manual') activeSaveSlot = selection.index;
                     if (options.loadSave) {
+                        const inspected = selection.kind === 'auto'
+                            ? saveGames.inspectAuto(selection.index)
+                            : saveGames.inspect(selection.index);
+                        if (inspected.ok) {
+                            const savedState = inspected.snapshot?.data?.game;
+                            const prepared = await scene.prepareRestoreRegion?.(savedState);
+                            if (prepared?.ok === false) {
+                                throw new Error(prepared.errors?.[0]?.message || '无法准备存档所在区域');
+                            }
+                        }
                         const loaded = selection.kind === 'auto'
                             ? saveGames.loadAuto(selection.index)
                             : saveGames.load(selection.index);
                         if (!loaded.ok) {
                             console.warn('读取存档失败', loaded.errors);
-                            throw new Error('存档读取失败，存档数据可能已损坏。');
+                            const incompatible = loaded.errors?.some(error => error.code === 'incompatibleSave');
+                            const message = incompatible
+                                ? '版本不兼容，请开始新游戏'
+                                : (loaded.errors?.[0]?.message || '存档读取失败，存档数据可能已损坏。');
+                            throw new Error(message);
                         }
                     } else {
                         // 新游戏只清理所选手动栏位，绝不影响自动存档位。
@@ -3110,9 +3231,8 @@
                     // 格挡按钮
                     if (currentScene.activateBlock) currentScene.activateBlock();
                 } else if (btn.dataset.act === 'interact') {
-                    // 交互按钮：派发交互键
-                    tapKey('e');
-                    tapKey('n');
+                    // 交互按钮直接进入统一 InputActionRouter；不再夹带旧 N 场景推进。
+                    enqueueSceneInteract();
                 } else if (btn.dataset.act === 'axe') {
                     // 斧头/采集按钮
                     if (currentScene.harvestByFacing) currentScene.harvestByFacing();
@@ -3133,8 +3253,15 @@
                 }
             }
             
-            // 点按型按键（交互 E / 前进 N）：派发一次完整的 keydown+keyup
-            const keyMap = { e: 'e', n: 'n' };
+            // 移动端交互优先直接入队；旧场景没有公开入口时才回退合成 E。
+            function enqueueSceneInteract() {
+                const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                if (currentScene?.enqueueInteract) currentScene.enqueueInteract('touch');
+                else tapKey('e');
+            }
+
+            // 兼容旧控件的点按型虚拟按键。
+            const keyMap = { e: 'e' };
             function tapKey(key) {
                 window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
                 // 稍后释放，确保 isKeyDown 在至少一帧内为 true
@@ -3449,9 +3576,8 @@
                         // 轻功按钮进入瞄准模式
                         startSkillAim(btn, FLIGHT_AIM_INDEX, clientX, clientY, touchId);
                     } else if (btn.dataset.act === 'interact') {
-                        // 交互按钮：派发交互键
-                        tapKey('e');
-                        tapKey('n');
+                        // 交互按钮直接进入统一 InputActionRouter。
+                        enqueueSceneInteract();
                     } else if (btn.dataset.act === 'axe') {
                         // 斧头/采集按钮
                         const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;

@@ -37,6 +37,7 @@ export class SceneFramePipeline {
     // 顶层输入流程保证手柄帧首 poll、弹窗优先于战斗，并统一路由输入。
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
     inputFlow?.beforeFrame(deltaTime);
+    const playerActionLocked = scene.isPlayerActionLocked?.() === true;
 
     // 技能轮盘只冻结世界模拟，不能使用 isPaused，否则下一帧无法读取 LB 松开沿。
     if (scene.isSkillWheelWorldPaused) {
@@ -47,7 +48,9 @@ export class SceneFramePipeline {
     }
 
     // 空格或可重绑手柄 jump 动作按下时起跳；对话/模态状态由统一动作出口拦截。
-    if (scene.inputManager?.isKeyPressed?.('space') || scene.inputManager?.isKeyPressed?.('jump')) {
+    if (!playerActionLocked && (
+      scene.inputManager?.isKeyPressed?.('space') || scene.inputManager?.isKeyPressed?.('jump')
+    )) {
       scene.jumpByInput?.();
     }
 
@@ -101,7 +104,7 @@ export class SceneFramePipeline {
         scene.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
 
         // PC：按下 Ctrl 进入轻功瞄准、Shift 进入投掷瞄准（随后左键确认）
-        if (!scene.isMobileLayout) {
+        if (!playerActionLocked && !scene.isMobileLayout) {
           if (scene.inputManager.isKeyPressed('ctrl')) {
             scene.enterPCAimMode('flight');
           } else if (scene.inputManager.isKeyPressed('shift')) {
@@ -109,25 +112,27 @@ export class SceneFramePipeline {
           }
         }
 
-        // PC 瞄准模式：技能3/4/5、轻功、投掷按下后进入瞄准，左键确认/取消
-        // （须在拾取/攻击判定之前，命中时消费本次点击，避免误触发攻击/拾取）
-        if (services.skills) services.skills.updatePCAimMode();
-        else scene.updatePCAimMode();
+        // PC 瞄准模式：采集中取消既有瞄准并禁止攻击，其余世界系统继续更新。
+        if (playerActionLocked) {
+          scene.cancelPCAimMode?.();
+        } else {
+          if (services.skills) services.skills.updatePCAimMode();
+          else scene.updatePCAimMode();
 
-        // PC 左键点击地上物品：优先拾取（须在攻击判定之前，避免误触发攻击）
-        if (services.worldInteraction) services.worldInteraction.handlePickupClick();
-        else scene.handlePickupClick();
-
-        // 水果忍者式滑动攻击检测（通过 MeleeAttackSystem）
-        scene.meleeAttackSystem.setPlayerEntity(scene.playerEntity);
-        scene.meleeAttackSystem.setEntities(scene.entities);
-        scene.meleeAttackSystem.update(mouseWorldPos, playerCenter, currentTime);
+          // 拾取已由 SceneInputFlow/InputActionRouter 在攻击优先级之前统一分发。
+          scene.meleeAttackSystem.setPlayerEntity(scene.playerEntity);
+          scene.meleeAttackSystem.setEntities(scene.entities);
+          scene.meleeAttackSystem.update(mouseWorldPos, playerCenter, currentTime);
+        }
       }
     }
 
     // 更新所有实体
     // 运行时系统阶段：迁移期默认只执行阶段钩子，旧 ECS 更新顺序保持在下方。
     scene._runRuntimePhase?.('systems', deltaTime);
+    scene.abilitySystem?.update?.(deltaTime, scene.entities);
+    scene.gatheringSystem?.update?.(deltaTime);
+    scene.gatheringPuppetSystem?.update?.(deltaTime);
     for (const entity of scene.entities) {
       entity.update(deltaTime);
     }
@@ -160,9 +165,9 @@ export class SceneFramePipeline {
       scene.flightSystem.update(deltaTime, scene.playerEntity);
     }
 
-    // 更新移动系统（打坐时禁止玩家移动）
-    if (scene.meditationSystem.isActive() && scene.playerEntity) {
-      // 打坐期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
+    // 更新移动系统：打坐或采集只锁玩家，AI/其他实体继续移动。
+    if ((scene.meditationSystem.isActive() || playerActionLocked) && scene.playerEntity) {
+      // 锁定期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
       if (scene._meditationEntitySource !== scene.entities ||
           scene._meditationEntityCount !== scene.entities.length ||
           scene._meditationPlayer !== scene.playerEntity) {
@@ -262,21 +267,8 @@ export class SceneFramePipeline {
     hudUpdater?.updatePanels(deltaTime);
     hudUpdater?.updateDialogue(deltaTime);
 
-    // 检查拾取（使用拾取系统）
-    const pickupResult = scene.pickupSystem.update(
-      scene.playerEntity, scene.pickupItems, scene.equipmentItems, scene.entities
-    );
-    // 移除已拾取的掉落物实体——批量移除避免反复 filter 整个数组
-    if (pickupResult.removedEntities.length > 0) {
-      if (scene.entityStore) {
-        scene.entityStore.removeMany(pickupResult.removedEntities);
-      } else {
-        const removedSet = new Set(pickupResult.removedEntities);
-        for (let index = scene.entities.length - 1; index >= 0; index--) {
-          if (removedSet.has(scene.entities[index])) scene.entities.splice(index, 1);
-        }
-      }
-    }
+    // 普通拾取已由 SceneInputFlow 的 PICKUP 处理者完成；这里不再轮询 E，
+    // 避免同一输入在路由和旧系统路径中重复结算。
 
     // 移除死亡实体
     scene.removeDeadEntities();

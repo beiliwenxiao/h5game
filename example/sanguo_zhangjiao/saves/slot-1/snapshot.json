@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786220081198,
+  "createdAt": 1786264346649,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -20,8 +20,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1965.05,
-          "y": 1268.51,
+          "x": 1920,
+          "y": 610,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -33,6 +33,8 @@
         "stats": {
           "baseMaxHp": 100,
           "baseMaxMp": 100,
+          "baseMaxStamina": 100,
+          "baseStaminaRegen": 12,
           "baseAttack": 10,
           "baseDefense": 5,
           "baseSpeed": 100,
@@ -40,6 +42,9 @@
           "hp": 10,
           "maxMp": 100,
           "mp": 10,
+          "maxStamina": 100,
+          "stamina": 100,
+          "staminaRegen": 12,
           "attack": 10,
           "defense": 5,
           "speed": 100,
@@ -73,9 +78,40 @@
       },
       "content": {
         "blackboard": {
+          "cityStates": [
+            {
+              "buildingDamage": {
+                "granary.s09": 0.6
+              },
+              "buildingLevel": 1,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.45,
+              "factionId": "yellow_turban",
+              "id": "city.s09_guangzong_camp",
+              "morale": 35,
+              "name": "广宗粥棚营地",
+              "resources": {
+                "food": 60,
+                "herb": 10,
+                "iron": 0,
+                "wood": 20
+              },
+              "schemaVersion": 1
+            }
+          ],
+          "reputation": 50,
+          "resourcePermissions": {
+            "S09": {
+              "food": false
+            }
+          },
           "storyState": {
+            "currentDay": 1,
             "currentSceneId": "S01",
+            "delayedConsequences": [],
+            "hiddenClues": [],
             "month": 3,
+            "storyTags": [],
             "unlockedScenes": [
               "S01"
             ]
@@ -83,7 +119,9 @@
           "ddScene": true
         },
         "triggers": {
-          "firedOnce": [],
+          "firedOnce": [
+            "trg_s01_spawn_initial"
+          ],
           "cooldowns": {}
         },
         "progression": {
@@ -97,6 +135,14 @@
                 "available": 1,
                 "spent": 0
               },
+              "talent": {
+                "available": 1,
+                "spent": 0
+              },
+              "unit": {
+                "available": 1,
+                "spent": 0
+              },
               "passive": {
                 "available": 1,
                 "spent": 0
@@ -107,10 +153,230 @@
         }
       },
       "scene": {
+        "regionStates": [],
         "campfireLit": false,
         "firedPickups": [],
         "clearedGroups": [],
-        "tutorialEvents": [],
+        "resourceNodes": [
+          {
+            "id": "S01-node-wood-1",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-wood-2",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-wood-3",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-herb-1",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "herb",
+              "itemId": "resource.herb",
+              "remaining": 8,
+              "maxRemaining": 8,
+              "yieldPerGather": 2,
+              "gatherDuration": 1.2,
+              "requiredToolType": null,
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.wild_herb_rustle",
+                  "type": "wildlife",
+                  "chance": 0.2,
+                  "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-herb-2",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "herb",
+              "itemId": "resource.herb",
+              "remaining": 8,
+              "maxRemaining": 8,
+              "yieldPerGather": 2,
+              "gatherDuration": 1.2,
+              "requiredToolType": null,
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.wild_herb_rustle",
+                  "type": "wildlife",
+                  "chance": 0.2,
+                  "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          }
+        ],
+        "placementStates": [
+          {
+            "id": "S01-pickup-worn-axe",
+            "state": {
+              "kind": "item",
+              "removed": false,
+              "quantity": 0
+            }
+          },
+          {
+            "id": "S01-bandit-1",
+            "state": {
+              "kind": "enemy",
+              "removed": false,
+              "hp": 45,
+              "position": {
+                "x": 2210,
+                "y": 1020
+              },
+              "ai": {
+                "active": true,
+                "aiType": "aggressive",
+                "lure": null
+              }
+            }
+          },
+          {
+            "id": "S01-bandit-2",
+            "state": {
+              "kind": "enemy",
+              "removed": false,
+              "hp": 45,
+              "position": {
+                "x": 2330,
+                "y": 1075
+              },
+              "ai": {
+                "active": true,
+                "aiType": "aggressive",
+                "lure": null
+              }
+            }
+          }
+        ],
+        "deathDrops": [],
+        "defeatState": {
+          "schemaVersion": 2,
+          "nextDeathSequence": 1,
+          "resolvedDeathIds": []
+        },
+        "gatheringState": {
+          "schemaVersion": 1,
+          "nextOperationSequence": 1,
+          "completedOperations": []
+        },
+        "puppetState": {
+          "schemaVersion": 1,
+          "chargesRemaining": null,
+          "nextSequence": 1,
+          "active": null
+        },
+        "proficiencyState": {
+          "schemaVersion": 1,
+          "characters": [],
+          "completedOperations": []
+        },
+        "gatheringPolicyOperations": [],
+        "timeState": {
+          "enabled": true,
+          "paused": false,
+          "currentDay": 1,
+          "elapsed": 249.62920000000304
+        },
         "nextSceneTarget": null,
         "playerDiedTriggered": false
       }

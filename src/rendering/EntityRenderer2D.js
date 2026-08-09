@@ -43,6 +43,7 @@ export class EntityRenderer2D {
       ctx.save();
       if (sprite?.alpha !== undefined) ctx.globalAlpha *= sprite.alpha;
       this._renderSprite(ctx, entity, sprite, npc, x, y, width, height);
+      this._renderAppearanceLayers(ctx, sprite, x, y);
       ctx.restore();
     }
 
@@ -123,6 +124,29 @@ export class EntityRenderer2D {
       ctx.strokeStyle = entity.type === 'player' ? '#4CAF50' : '#ff4444';
       ctx.lineWidth = 2;
       ctx.strokeRect(x - width / 2, y - height, width, height);
+    }
+  }
+
+  _renderAppearanceLayers(ctx, sprite, x, y) {
+    const layers = sprite?.appearanceLayers;
+    if (!Array.isArray(layers) || layers.length === 0) return;
+
+    for (const layer of layers) {
+      if (!layer?.visible || !layer.assetId) continue;
+      const image = this._getReadyImage(layer.assetId);
+      if (!image) continue;
+      const width = layer.width || sprite.width || 32;
+      const height = layer.height || sprite.height || 32;
+      ctx.save();
+      ctx.globalAlpha *= layer.alpha ?? 1;
+      ctx.drawImage(
+        image,
+        x - width / 2 + (layer.offsetX || 0),
+        y - height + (layer.offsetY || 0),
+        width,
+        height
+      );
+      ctx.restore();
     }
   }
 

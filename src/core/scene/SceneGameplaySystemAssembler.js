@@ -105,6 +105,8 @@ export class SceneGameplaySystemAssembler {
           id,
           name: '采集傀儡',
           faction: 'ally',
+          imageId: 's09.summon.gatheringPuppet',
+          sprite: { width: 58, height: 72, isStatic: true },
           renderStyle: 'gathering_puppet',
           position,
           stats: { maxHp: 30, hp: 30, attack: 0, defense: 0, speed: 0 },

@@ -21,11 +21,24 @@ export class CityStateSummaryPanel extends UIElement {
       zIndex: options.zIndex || 45
     });
     this.compact = options.compact === true;
+    this.resolveImage = typeof options.resolveImage === 'function'
+      ? options.resolveImage
+      : () => null;
     this.snapshot = null;
   }
 
   setSnapshot(snapshot) {
     this.snapshot = cloneSnapshot(snapshot);
+  }
+
+  _drawIcon(ctx, imageId, x, y, size) {
+    if (!imageId) return false;
+    const image = this.resolveImage(imageId);
+    if (!image) return false;
+    const isCanvas = typeof HTMLCanvasElement !== 'undefined' && image instanceof HTMLCanvasElement;
+    if (!isCanvas && (image.complete === false || (image.naturalWidth || image.width || 0) <= 0)) return false;
+    ctx.drawImage(image, x, y, size, size);
+    return true;
   }
 
   render(ctx) {
@@ -54,15 +67,31 @@ export class CityStateSummaryPanel extends UIElement {
     ctx.fillStyle = '#eee4cf';
     ctx.font = `${fontSize}px Arial`;
     const resources = data.resources || {};
-    const lines = [
+    ctx.fillText(
       `粮 ${resources.food || 0}  木 ${resources.wood || 0}  药 ${resources.herb || 0}  铁 ${resources.iron || 0}`,
-      `损毁 ${Math.round((data.damageRatio || 0) * 100)}%  士气 ${data.morale || 0}  声望 ${data.reputation || 0}`,
-      `饥民事件：${data.refugeeStatus || '尚未发生'}`
-    ];
-    for (const line of lines) {
-      ctx.fillText(line, this.x + pad, y);
-      y += lineHeight;
-    }
+      this.x + pad,
+      y
+    );
+    y += lineHeight;
+
+    const icons = data.icons || {};
+    const iconSize = this.compact ? 12 : 14;
+    const damageX = this.x + pad;
+    const moraleX = this.x + (this.compact ? 82 : 101);
+    const reputationX = this.x + (this.compact ? 150 : 184);
+    ctx.fillText(`损毁 ${Math.round((data.damageRatio || 0) * 100)}%`, damageX, y);
+    const moraleHasIcon = this._drawIcon(ctx, icons.morale, moraleX, y - 1, iconSize);
+    ctx.fillText(`士气 ${data.morale || 0}`, moraleX + (moraleHasIcon ? iconSize + 3 : 0), y);
+    const reputationHasIcon = this._drawIcon(ctx, icons.reputation, reputationX, y - 1, iconSize);
+    ctx.fillText(`声望 ${data.reputation || 0}`, reputationX + (reputationHasIcon ? iconSize + 3 : 0), y);
+    y += lineHeight;
+
+    const storyHasIcon = this._drawIcon(ctx, icons.story, this.x + pad, y - 1, iconSize);
+    ctx.fillText(
+      `饥民事件：${data.refugeeStatus || '尚未发生'}`,
+      this.x + pad + (storyHasIcon ? iconSize + 3 : 0),
+      y
+    );
     ctx.restore();
   }
 }

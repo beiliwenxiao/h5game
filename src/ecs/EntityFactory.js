@@ -202,12 +202,18 @@ export class EntityFactory {
       unitType: stats.unitType || 0
     }));
     
-    // 添加精灵组件
-    const spriteSheet = this.getSpriteSheetForEnemy(enemyData.templateId);
-    const isAnimated = spriteSheet.startsWith('enemy_animated_');
+    // 添加精灵组件：稳定 imageId/assetId 优先，模板图集仅作兼容回退。
+    const spriteCfg = enemyData.sprite || {};
+    const stableSpriteId = enemyData.imageId || enemyData.assetId
+      || spriteCfg.imageId || spriteCfg.assetId || '';
+    const spriteSheet = stableSpriteId || spriteCfg.sheet || spriteCfg.src
+      || enemyData.spriteSheet || this.getSpriteSheetForEnemy(enemyData.templateId);
+    const isStatic = Boolean(stableSpriteId) ? spriteCfg.isStatic !== false : !!spriteCfg.isStatic;
+    const isAnimated = !isStatic && spriteSheet.startsWith('enemy_animated_');
     const sprite = new SpriteComponent(spriteSheet, {
-      width: isAnimated ? 64 : 32,
-      height: isAnimated ? 64 : 32,
+      width: spriteCfg.width || spriteCfg.frameWidth || enemyData.width || (isAnimated ? 64 : 32),
+      height: spriteCfg.height || spriteCfg.frameHeight || enemyData.height || (isAnimated ? 64 : 32),
+      isStatic,
       defaultAnimation: 'idle',
       useAnimatedSprite: isAnimated,
       spriteColumns: isAnimated ? 4 : undefined,
@@ -253,6 +259,7 @@ export class EntityFactory {
     // 存储敌人信息
     entity.name = enemyData.name;
     entity.templateId = enemyData.templateId;
+    entity.renderStyle = enemyData.renderStyle || null;
     entity.aiType = enemyData.aiType || 'passive';
     entity.lootTable = enemyData.lootTable || [];
     
@@ -368,19 +375,19 @@ export class EntityFactory {
     const position = npcData.position || { x: 0, y: 0 };
     entity.addComponent(new TransformComponent(position.x, position.y));
 
-    // ---- 精灵组件（序列帧配置）----
-    // 兼容两种格式：编辑器格式 sprite.src + 行式动画{row,frames,speed}；简写格式 sprite.sheet + 帧数组{frames:[],frameRate}
+    // ---- 精灵组件（稳定图片 ID / 序列帧配置）----
+    // imageId/assetId 由 AssetManager Manifest 解析；旧 sprite.src/sheet 继续兼容。
     const spriteCfg = npcData.sprite || {};
-    // 无真实图片来源时留空（不再默认 'npc_sprite'）：renderEntity 图片分支会因 spriteSheet 为空跳过，
-    // 直接走 renderStyle 代码立绘 / 占位，避免每帧 getAsset('npc_sprite') 刷警告。
-    const sheet = spriteCfg.sheet || spriteCfg.src || npcData.spriteSheet || '';
-    const frameW = spriteCfg.frameWidth || 32;
-    const frameH = spriteCfg.frameHeight || 32;
+    const stableSpriteId = npcData.imageId || npcData.assetId
+      || spriteCfg.imageId || spriteCfg.assetId || '';
+    const sheet = stableSpriteId || spriteCfg.sheet || spriteCfg.src || npcData.spriteSheet || '';
+    const frameW = spriteCfg.frameWidth || spriteCfg.width || npcData.width || 32;
+    const frameH = spriteCfg.frameHeight || spriteCfg.height || npcData.height || 32;
     const cols = spriteCfg.cols || 1;
     const sprite = new SpriteComponent(sheet, {
       width: frameW,
       height: frameH,
-      isStatic: !!spriteCfg.isStatic,
+      isStatic: stableSpriteId ? spriteCfg.isStatic !== false : !!spriteCfg.isStatic,
       defaultAnimation: spriteCfg.defaultAnimation || 'idle'
     });
     sprite.scale = spriteCfg.scale || 1;
@@ -453,13 +460,15 @@ export class EntityFactory {
     // 代码渲染样式（无图时用内置绘制）
     if (data.renderStyle) entity.renderStyle = data.renderStyle;
 
-    // 精灵（序列帧图片或占位；有 renderStyle 也需要 sprite 进入渲染流程）
+    // 精灵（稳定静态图片、序列帧图片或占位；有 renderStyle 也需要 sprite 进入渲染流程）
     const spCfg = data.sprite || {};
-    const sheet = spCfg.sheet || spCfg.src || data.spriteSheet || '';
+    const stableId = data.imageId || data.assetId || spCfg.imageId || spCfg.assetId || '';
+    const sheet = stableId || spCfg.sheet || spCfg.src || data.spriteSheet || '';
     const sprite = new SpriteComponent(sheet, {
-      width: spCfg.frameWidth || data.width || 64,
-      height: spCfg.frameHeight || data.height || 64,
-      defaultAnimation: 'idle'
+      width: spCfg.width || spCfg.frameWidth || data.width || 64,
+      height: spCfg.height || spCfg.frameHeight || data.height || 64,
+      defaultAnimation: 'idle',
+      isStatic: spCfg.isStatic === true || Boolean(stableId)
     });
     sprite.scale = spCfg.scale || data.scale || 1;
     sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
@@ -477,12 +486,19 @@ export class EntityFactory {
     entity.addComponent(new TransformComponent(position.x, position.y));
     entity.addComponent(new ResourceNodeComponent(data));
 
-    const sprite = new SpriteComponent(data.spriteSheet || '', {
-      width: data.width || 48,
-      height: data.height || 48,
-      color: data.resourceType === 'herb' ? '#69a83c' : '#8b6238',
-      defaultAnimation: 'idle'
-    });
+    const spriteCfg = data.sprite || {};
+    const stableSpriteId = data.imageId || data.assetId
+      || spriteCfg.imageId || spriteCfg.assetId || '';
+    const sprite = new SpriteComponent(
+      stableSpriteId || spriteCfg.sheet || spriteCfg.src || data.spriteSheet || '',
+      {
+        width: spriteCfg.width || spriteCfg.frameWidth || data.width || 48,
+        height: spriteCfg.height || spriteCfg.frameHeight || data.height || 48,
+        isStatic: stableSpriteId ? spriteCfg.isStatic !== false : !!spriteCfg.isStatic,
+        color: data.resourceType === 'herb' ? '#69a83c' : '#8b6238',
+        defaultAnimation: 'idle'
+      }
+    );
     sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
     entity.addComponent(sprite);
     entity.addComponent(new NameComponent(data.name || data.resourceType || '资源节点', {

@@ -333,6 +333,294 @@
       "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.battlefieldUnit" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
       "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.campGround", "imageId": "s09.environment.campGround",
+      "category": "environment-background", "usage": ["S09", "camp", "ground"],
+      "sourceFile": "assets/images/s09/camp-ground.svg",
+      "runtime2D": { "path": "assets/images/s09/camp-ground.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.campGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.damagedGranary", "imageId": "s09.environment.damagedGranary",
+      "category": "environment-building", "usage": ["S09", "granary", "damaged"],
+      "sourceFile": "assets/images/s09/damaged-granary.svg",
+      "runtime2D": { "path": "assets/images/s09/damaged-granary.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.damagedGranary" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 240, "height": 210 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.porridgeShelter", "imageId": "s09.environment.porridgeShelter",
+      "category": "environment-building", "usage": ["S09", "porridge", "shelter"],
+      "sourceFile": "assets/images/s09/porridge-shelter.svg",
+      "runtime2D": { "path": "assets/images/s09/porridge-shelter.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.porridgeShelter" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 260, "height": 180 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.flag.warrior", "imageId": "s09.flag.warrior",
+      "category": "faction-flag", "usage": ["S09", "class", "warrior"],
+      "sourceFile": "assets/images/s09/flag-warrior.svg",
+      "runtime2D": { "path": "assets/images/s09/flag-warrior.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.warrior" },
+      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.flag.archer", "imageId": "s09.flag.archer",
+      "category": "faction-flag", "usage": ["S09", "class", "archer"],
+      "sourceFile": "assets/images/s09/flag-archer.svg",
+      "runtime2D": { "path": "assets/images/s09/flag-archer.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.archer" },
+      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.flag.strategist", "imageId": "s09.flag.strategist",
+      "category": "faction-flag", "usage": ["S09", "class", "strategist"],
+      "sourceFile": "assets/images/s09/flag-strategist.svg",
+      "runtime2D": { "path": "assets/images/s09/flag-strategist.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.strategist" },
+      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.zhangjiao", "imageId": "s09.character.zhangjiao",
+      "category": "character-static", "usage": ["S09", "story", "zhangjiao"],
+      "sourceFile": "assets/images/s09/zhangjiao.svg",
+      "runtime2D": { "path": "assets/images/s09/zhangjiao.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangjiao" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 88 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.oneArmedRefugee", "imageId": "s09.character.oneArmedRefugee",
+      "category": "character-static", "usage": ["S09", "story", "refugee"],
+      "sourceFile": "assets/images/s09/one-armed-refugee.svg",
+      "runtime2D": { "path": "assets/images/s09/one-armed-refugee.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.oneArmedRefugee" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 56, "height": 72 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.granaryGuard", "imageId": "s09.character.granaryGuard",
+      "category": "character-static", "usage": ["S09", "enemy", "guard"],
+      "sourceFile": "assets/images/s09/granary-guard.svg",
+      "runtime2D": { "path": "assets/images/s09/granary-guard.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.granaryGuard" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 56, "height": 76 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.resource.foodNode", "imageId": "s09.resource.foodNode",
+      "category": "resource-node", "usage": ["S09", "food", "granary"],
+      "sourceFile": "assets/images/s09/food-node.svg",
+      "runtime2D": { "path": "assets/images/s09/food-node.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.resource.foodNode" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 58 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.zhangliang", "imageId": "s09.character.zhangliang",
+      "category": "character-static", "usage": ["S09", "instructor", "warrior"],
+      "sourceFile": "assets/images/s09/zhangliang.svg",
+      "runtime2D": { "path": "assets/images/s09/zhangliang.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangliang" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.zhangbao", "imageId": "s09.character.zhangbao",
+      "category": "character-static", "usage": ["S09", "instructor", "archer"],
+      "sourceFile": "assets/images/s09/zhangbao.svg",
+      "runtime2D": { "path": "assets/images/s09/zhangbao.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangbao" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.woundedSoldier", "imageId": "s09.character.woundedSoldier",
+      "category": "character-static", "usage": ["S09", "refugee", "wounded"],
+      "sourceFile": "assets/images/s09/wounded-soldier.svg",
+      "runtime2D": { "path": "assets/images/s09/wounded-soldier.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.woundedSoldier" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 70 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.refugeeWoman", "imageId": "s09.character.refugeeWoman",
+      "category": "character-static", "usage": ["S09", "refugee", "civilian"],
+      "sourceFile": "assets/images/s09/refugee-woman.svg",
+      "runtime2D": { "path": "assets/images/s09/refugee-woman.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeWoman" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 54, "height": 70 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.refugeeChild", "imageId": "s09.character.refugeeChild",
+      "category": "character-static", "usage": ["S09", "refugee", "child"],
+      "sourceFile": "assets/images/s09/refugee-child.svg",
+      "runtime2D": { "path": "assets/images/s09/refugee-child.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeChild" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 42, "height": 54 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.refugeeDead", "imageId": "s09.character.refugeeDead",
+      "category": "character-static", "usage": ["S09", "refugee", "dead"],
+      "sourceFile": "assets/images/s09/refugee-dead.svg",
+      "runtime2D": { "path": "assets/images/s09/refugee-dead.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeDead" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 82, "height": 34 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.character.governmentScout", "imageId": "s09.character.governmentScout",
+      "category": "character-static", "usage": ["S09", "enemy", "scout"],
+      "sourceFile": "assets/images/s09/government-scout.svg",
+      "runtime2D": { "path": "assets/images/s09/government-scout.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.governmentScout" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 76 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.summon.gatheringPuppet", "imageId": "s09.summon.gatheringPuppet",
+      "category": "summon-static", "usage": ["S09", "strategist", "gathering"],
+      "sourceFile": "assets/images/s09/gathering-puppet.svg",
+      "runtime2D": { "path": "assets/images/s09/gathering-puppet.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.summon.gatheringPuppet" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 72 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "player.appearance.class.warrior", "imageId": "player.appearance.class.warrior",
+      "category": "character-overlay", "usage": ["player", "class", "warrior"],
+      "sourceFile": "assets/images/player/class-warrior-overlay.svg",
+      "runtime2D": { "path": "assets/images/player/class-warrior-overlay.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.warrior" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 72 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "player.appearance.class.archer", "imageId": "player.appearance.class.archer",
+      "category": "character-overlay", "usage": ["player", "class", "archer"],
+      "sourceFile": "assets/images/player/class-archer-overlay.svg",
+      "runtime2D": { "path": "assets/images/player/class-archer-overlay.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.archer" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 76, "height": 72 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "player.appearance.class.strategist", "imageId": "player.appearance.class.strategist",
+      "category": "character-overlay", "usage": ["player", "class", "strategist"],
+      "sourceFile": "assets/images/player/class-strategist-overlay.svg",
+      "runtime2D": { "path": "assets/images/player/class-strategist-overlay.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.strategist" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 78 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.class.warrior", "imageId": "s09.ui.class.warrior",
+      "category": "ui-icon", "usage": ["S09", "class", "warrior"],
+      "sourceFile": "assets/images/s09/icon-class-warrior.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-class-warrior.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.warrior" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.class.archer", "imageId": "s09.ui.class.archer",
+      "category": "ui-icon", "usage": ["S09", "class", "archer"],
+      "sourceFile": "assets/images/s09/icon-class-archer.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-class-archer.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.archer" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.class.strategist", "imageId": "s09.ui.class.strategist",
+      "category": "ui-icon", "usage": ["S09", "class", "strategist"],
+      "sourceFile": "assets/images/s09/icon-class-strategist.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-class-strategist.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.strategist" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.morale", "imageId": "s09.ui.morale",
+      "category": "ui-icon", "usage": ["S09", "city-state", "morale"],
+      "sourceFile": "assets/images/s09/icon-morale.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-morale.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.morale" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.reputation", "imageId": "s09.ui.reputation",
+      "category": "ui-icon", "usage": ["S09", "city-state", "reputation"],
+      "sourceFile": "assets/images/s09/icon-reputation.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-reputation.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.reputation" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.ui.storyChoice", "imageId": "s09.ui.storyChoice",
+      "category": "ui-icon", "usage": ["S09", "story", "choice"],
+      "sourceFile": "assets/images/s09/icon-story-choice.svg",
+      "runtime2D": { "path": "assets/images/s09/icon-story-choice.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.storyChoice" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.story.bread", "imageId": "s09.story.bread",
+      "category": "story-item", "usage": ["S09", "refugee", "bread"],
+      "sourceFile": "assets/images/s09/bread.svg",
+      "runtime2D": { "path": "assets/images/s09/bread.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.story.bread" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 36 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.yellowTurbanTent", "imageId": "s09.environment.yellowTurbanTent",
+      "category": "environment-module", "usage": ["S09", "yellow-turban", "tent"],
+      "sourceFile": "assets/images/s09/yellow-turban-tent.svg",
+      "runtime2D": { "path": "assets/images/s09/yellow-turban-tent.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.yellowTurbanTent" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 120 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.woundedShelter", "imageId": "s09.environment.woundedShelter",
+      "category": "environment-module", "usage": ["S09", "wounded", "shelter"],
+      "sourceFile": "assets/images/s09/wounded-shelter.svg",
+      "runtime2D": { "path": "assets/images/s09/wounded-shelter.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.woundedShelter" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 125 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.refugeeShelter", "imageId": "s09.environment.refugeeShelter",
+      "category": "environment-module", "usage": ["S09", "refugee", "shelter"],
+      "sourceFile": "assets/images/s09/refugee-shelter.svg",
+      "runtime2D": { "path": "assets/images/s09/refugee-shelter.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.refugeeShelter" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 130 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s09.environment.brokenSupplyCart", "imageId": "s09.environment.brokenSupplyCart",
+      "category": "environment-prop", "usage": ["S09", "supply", "damaged"],
+      "sourceFile": "assets/images/s09/broken-supply-cart.svg",
+      "runtime2D": { "path": "assets/images/s09/broken-supply-cart.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.brokenSupplyCart" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 130, "height": 82 },
+      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
     }
   ]
 }

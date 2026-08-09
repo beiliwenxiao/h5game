@@ -132,8 +132,14 @@ export function registerDefaultActions(triggerSystem) {
     },
 
     // ---- 音频 ----
-    playSound: (p, ctx) => { ctx.audioManager?.playSfx?.(p.id); },
-    playBgm: (p, ctx) => { ctx.audioManager?.playMusic?.(p.id, p.loop !== false); },
+    playSound: (p, ctx) => {
+      const { id, options: nestedOptions, ...inlineOptions } = p || {};
+      const options = nestedOptions && typeof nestedOptions === 'object'
+        ? { ...inlineOptions, ...nestedOptions }
+        : inlineOptions;
+      return ctx.audioManager?.playSound?.(id, options);
+    },
+    playBgm: (p, ctx) => ctx.audioManager?.playMusic?.(p.id, p.fadeIn === true),
 
     // ---- 生成 ----
     spawnEnemy: (p, ctx) => { ctx.world?.spawnEnemy?.(p); },

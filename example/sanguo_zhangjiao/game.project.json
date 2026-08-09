@@ -428,6 +428,7 @@
       { "id": "resource.wood", "name": "木材", "type": "material", "subType": "wood", "maxStack": 99 },
       { "id": "resource.herb", "name": "草药", "type": "material", "subType": "herb", "maxStack": 99 },
       { "id": "resource.food", "name": "粮食", "type": "material", "subType": "food", "maxStack": 99 },
+      { "id": "story.s09.bread", "name": "断臂饥民的半块饼", "type": "story", "subType": "worldProp", "maxStack": 1, "worldProp": true, "imageId": "s09.story.bread", "width": 48, "height": 36, "showName": false, "sprite": { "width": 48, "height": 36, "isStatic": true } },
       { "id": "salvage.torn_cloth", "name": "破损帐布", "type": "material", "subType": "salvage", "maxStack": 1 },
       { "id": "salvage.broken_utensil", "name": "破损军需器具", "type": "material", "subType": "salvage", "maxStack": 1 },
       { "id": "tool.worn_axe", "name": "破旧斧头", "type": "tool", "toolType": "axe", "maxStack": 1, "durability": 8, "maxDurability": 8 },
@@ -444,13 +445,13 @@
     "resourceNodes": [
       { "id": "node.dry_wood", "schemaVersion": 1, "name": "枯木", "resourceType": "wood", "itemId": "resource.wood", "remaining": 12, "maxRemaining": 12, "yieldPerGather": 3, "gatherDuration": 1.8, "interactionRadius": 76, "requiredToolType": "axe", "refreshDays": 0, "guardUnitIds": [], "riskEvents": [{ "id": "risk.dry_wood_noise", "type": "noise", "chance": 0.3, "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。", "payload": { "alert": 1 } }], "damageRatio": 0 },
       { "id": "node.wild_herb", "schemaVersion": 1, "name": "野生草药", "resourceType": "herb", "itemId": "resource.herb", "remaining": 8, "maxRemaining": 8, "yieldPerGather": 2, "gatherDuration": 1.2, "interactionRadius": 72, "requiredToolType": null, "refreshDays": 0, "guardUnitIds": [], "riskEvents": [{ "id": "risk.wild_herb_rustle", "type": "wildlife", "chance": 0.2, "message": "草丛突然剧烈晃动，你听见不远处传来异响。", "payload": { "alert": 1 } }], "damageRatio": 0 },
-      { "id": "node.s09_granary_food", "schemaVersion": 1, "name": "受损粮仓散粮", "resourceType": "food", "itemId": "resource.food", "remaining": 36, "maxRemaining": 36, "yieldPerGather": 6, "gatherDuration": 2.4, "interactionRadius": 78, "requiredToolType": null, "refreshDays": 0, "guardUnitIds": ["S09-guard-granary-west", "S09-guard-granary-east"], "riskEvents": [], "damageRatio": 0.6 }
+      { "id": "node.s09_granary_food", "schemaVersion": 1, "name": "受损粮仓散粮", "resourceType": "food", "itemId": "resource.food", "remaining": 36, "maxRemaining": 36, "yieldPerGather": 6, "gatherDuration": 2.4, "interactionRadius": 78, "requiredToolType": null, "refreshDays": 0, "guardUnitIds": ["S09-guard-granary-west", "S09-guard-granary-east"], "riskEvents": [], "damageRatio": 0.6, "imageId": "s09.resource.foodNode", "sprite": { "width": 72, "height": 58, "isStatic": true } }
     ],
     "enemies": [
       { "id": "enemy.s01_bandit", "templateId": "bandit", "name": "荒野盗匪", "level": 1, "stats": { "maxHp": 45, "attack": 6, "defense": 1, "speed": 65 }, "aiType": "aggressive", "lootTable": [] },
       { "id": "enemy.s02_scavenger", "templateId": "scavenger", "name": "营地拾荒者", "level": 1, "stats": { "maxHp": 38, "attack": 5, "defense": 1, "speed": 58 }, "aiType": "aggressive", "lootTable": [] },
-      { "id": "enemy.s09_granary_guard", "templateId": "yellow_turban_guard", "name": "粮仓哨兵", "level": 2, "stats": { "maxHp": 70, "attack": 8, "defense": 3, "speed": 62 }, "aiType": "aggressive", "aiActive": false, "lootTable": [] },
-      { "id": "enemy.s09_refugee_scout", "templateId": "government_scout", "name": "官军斥候", "level": 2, "stats": { "maxHp": 58, "attack": 9, "defense": 2, "speed": 82 }, "aiType": "aggressive", "lootTable": [] }
+      { "id": "enemy.s09_granary_guard", "templateId": "yellow_turban_guard", "name": "粮仓哨兵", "level": 2, "stats": { "maxHp": 70, "attack": 8, "defense": 3, "speed": 62 }, "aiType": "aggressive", "aiActive": false, "lootTable": [], "imageId": "s09.character.granaryGuard", "sprite": { "width": 56, "height": 76, "isStatic": true } },
+      { "id": "enemy.s09_refugee_scout", "templateId": "government_scout", "name": "官军斥候", "level": 2, "stats": { "maxHp": 58, "attack": 9, "defense": 2, "speed": 82 }, "aiType": "aggressive", "lootTable": [], "imageId": "s09.character.governmentScout", "sprite": { "width": 58, "height": 76, "isStatic": true } }
     ],
     "npcs": [
       {
@@ -467,6 +468,8 @@
         "title": "大贤良师",
         "faction": "friendly",
         "dialogueId": "dialogue.s09.enlistment",
+        "imageId": "s09.character.zhangjiao",
+        "sprite": { "width": 64, "height": 88, "isStatic": true },
         "renderStyle": "zhangjiao",
         "idleText": "张角正在粥棚旁查看伤民名册。",
         "interaction": { "radius": 100, "prompt": "{interact}与张角交谈并加入黄巾", "trigger": "interact" }
@@ -476,6 +479,8 @@
         "name": "张梁",
         "title": "战士教官",
         "faction": "friendly",
+        "imageId": "s09.character.zhangliang",
+        "sprite": { "width": 60, "height": 82, "isStatic": true },
         "renderStyle": "zhangliang",
         "idleText": "张梁守在战士军旗旁，等待新兵确认道路。",
         "interaction": { "radius": 84, "prompt": "{interact}了解战士职业", "trigger": "interact" }
@@ -485,6 +490,8 @@
         "name": "张宝",
         "title": "弓手教官",
         "faction": "friendly",
+        "imageId": "s09.character.zhangbao",
+        "sprite": { "width": 60, "height": 82, "isStatic": true },
         "renderStyle": "zhangbao",
         "idleText": "张宝正在弓手军旗旁整理短弓与木箭。",
         "interaction": { "radius": 84, "prompt": "{interact}了解弓手职业", "trigger": "interact" }
@@ -494,6 +501,8 @@
         "name": "黄巾残兵",
         "title": "负伤残兵",
         "faction": "friendly",
+        "imageId": "s09.character.woundedSoldier",
+        "sprite": { "width": 58, "height": 70, "isStatic": true },
         "renderStyle": "wounded_soldier"
       },
       {
@@ -501,6 +510,8 @@
         "name": "逃难妇人",
         "title": "饥民",
         "faction": "friendly",
+        "imageId": "s09.character.refugeeWoman",
+        "sprite": { "width": 54, "height": 70, "isStatic": true },
         "renderStyle": "refugee_woman"
       },
       {
@@ -508,6 +519,8 @@
         "name": "饥饿孩童",
         "title": "饥民",
         "faction": "friendly",
+        "imageId": "s09.character.refugeeChild",
+        "sprite": { "width": 42, "height": 54, "isStatic": true },
         "renderStyle": "refugee_child"
       },
       {
@@ -515,6 +528,8 @@
         "name": "死去的饥民",
         "title": "死者",
         "faction": "neutral",
+        "imageId": "s09.character.refugeeDead",
+        "sprite": { "width": 82, "height": 34, "isStatic": true },
         "renderStyle": "refugee_dead"
       },
       {
@@ -522,6 +537,8 @@
         "name": "断臂饥民",
         "title": "持饼饥民",
         "faction": "friendly",
+        "imageId": "s09.character.oneArmedRefugee",
+        "sprite": { "width": 56, "height": 72, "isStatic": true },
         "renderStyle": "one_armed_refugee"
       }
     ]

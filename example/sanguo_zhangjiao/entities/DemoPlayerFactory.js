@@ -6,6 +6,12 @@ function createDefaultSkills() {
   return [];
 }
 
+const CLASS_APPEARANCE_LAYERS = Object.freeze({
+  warrior: Object.freeze([{ assetId: 'player.appearance.class.warrior', width: 72, height: 72, offsetY: 2 }]),
+  archer: Object.freeze([{ assetId: 'player.appearance.class.archer', width: 76, height: 72, offsetY: 2 }]),
+  strategist: Object.freeze([{ assetId: 'player.appearance.class.strategist', width: 72, height: 78, offsetY: 2 }])
+});
+
 /** 张角 Demo 玩家内容工厂；底层 ECS 创建仍委托框架 EntityFactory。 */
 export class DemoPlayerFactory {
   create(scene, { x = 420, y = 330 } = {}) {
@@ -61,6 +67,18 @@ export class DemoPlayerFactory {
     return player;
   }
 
+  /**
+   * 将 canonical 职业投影为玩家基础动画之上的可替换外观叠层。
+   * 领域事实仍由 ClassSystem/StoryState 持有，SpriteComponent 只持表现引用。
+   */
+  applyClassAppearance(scene, player, classId) {
+    const sprite = player?.getComponent?.('sprite');
+    if (!sprite?.setAppearanceLayers) return false;
+    const layers = CLASS_APPEARANCE_LAYERS[classId] || [];
+    sprite.setAppearanceLayers(layers);
+    scene?.entityRenderer2D?.clearCaches?.();
+    return layers.length > 0;
+  }
 
   _loadSelectedAsset(scene, selected) {
     if (!selected?.assetImage || !scene.assetManager) return;

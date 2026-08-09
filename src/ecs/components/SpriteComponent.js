@@ -91,8 +91,36 @@ export class SpriteComponent extends Component {
     this.walkFrameTime = 0;
     this.walkFrameDuration = config.walkFrameDuration || 150; // 每帧150ms
     
+    // 可组合外观叠层（装备、职业轮廓等）；只保存稳定资源 ID 和相对脚底锚点。
+    this.appearanceLayers = [];
+    this.setAppearanceLayers(config.appearanceLayers || []);
+
     // 可见性
     this.visible = true;
+  }
+
+  /**
+   * 替换外观叠层。叠层不拥有业务状态，只是实体外观的运行时投影。
+   * @param {Array<Object>} layers
+   */
+  setAppearanceLayers(layers = []) {
+    if (!Array.isArray(layers)) throw new TypeError('SpriteComponent.setAppearanceLayers: layers 必须是数组');
+    this.appearanceLayers = layers
+      .filter(layer => layer && typeof (layer.assetId || layer.imageId) === 'string')
+      .map(layer => ({
+        assetId: layer.assetId || layer.imageId,
+        width: Number.isFinite(layer.width) && layer.width > 0 ? layer.width : this.width,
+        height: Number.isFinite(layer.height) && layer.height > 0 ? layer.height : this.height,
+        offsetX: Number.isFinite(layer.offsetX) ? layer.offsetX : 0,
+        offsetY: Number.isFinite(layer.offsetY) ? layer.offsetY : 0,
+        alpha: Number.isFinite(layer.alpha) ? Math.max(0, Math.min(1, layer.alpha)) : 1,
+        visible: layer.visible !== false
+      }));
+    return this.appearanceLayers;
+  }
+
+  clearAppearanceLayers() {
+    this.appearanceLayers = [];
   }
 
   /**

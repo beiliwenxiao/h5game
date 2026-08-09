@@ -82,13 +82,13 @@ export class AudioManager {
      */
     addMusic(key, url, options = {}) {
         const audio = new Audio(url);
-        audio.volume = (options.volume || this.musicVolume) * this.masterVolume;
-        audio.loop = true;
+        audio.volume = (options.volume ?? this.musicVolume) * this.masterVolume;
+        audio.loop = options.loop !== false;
         audio.preload = 'auto';
         
         this.music.set(key, {
             audio,
-            baseVolume: options.volume || this.musicVolume
+            baseVolume: options.volume ?? this.musicVolume
         });
         
         console.log(`AudioManager: Music '${key}' added`);

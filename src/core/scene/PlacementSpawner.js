@@ -89,6 +89,7 @@ export class PlacementSpawner {
     entityStore = null,
     aiSystem = null,
     assetManager = null,
+    onEntityImageError = null,
     onNpcImageError = null,
     onSpawn = null,
     shouldSpawn = null
@@ -97,6 +98,7 @@ export class PlacementSpawner {
     this.entityStore = entityStore;
     this.aiSystem = aiSystem;
     this.assetManager = assetManager;
+    this.onEntityImageError = typeof onEntityImageError === 'function' ? onEntityImageError : null;
     this.onNpcImageError = onNpcImageError;
     this.onSpawn = onSpawn;
     this.shouldSpawn = typeof shouldSpawn === 'function' ? shouldSpawn : null;
@@ -162,7 +164,9 @@ export class PlacementSpawner {
           errors.push({ kind, ref: placement.ref, placement, reason: 'factoryUnavailable' });
           continue;
         }
-        if (kind === 'npc') this._preloadNpcImage(data, entity, placement);
+        if (['npc', 'enemy', 'resourceNode'].includes(kind) || (kind === 'item' && data.worldProp)) {
+          this._preloadEntityImage(kind, data, entity, placement);
+        }
         if (typeof this.onSpawn === 'function') {
           try {
             this.onSpawn({ entity, kind, group: placement.group || normalized.group || null, placement, definition: data });
@@ -239,23 +243,36 @@ export class PlacementSpawner {
     return entity;
   }
 
-  _preloadNpcImage(data, entity, placement) {
+  _preloadEntityImage(kind, data, entity, placement) {
     const sprite = data.sprite || {};
-    const key = sprite.sheet || sprite.src || data.spriteSheet;
-    if (!key || typeof this.assetManager?.loadImage !== 'function') return;
+    const stableId = data.imageId || data.assetId || sprite.imageId || sprite.assetId || null;
+    const legacyKey = sprite.sheet || sprite.src || data.spriteSheet || null;
+    const resolved = stableId
+      ? this.assetManager?.resolveManifestAsset?.(stableId, '2d')
+      : null;
+    const key = resolved?.key || stableId || legacyKey;
+    const source = resolved?.url || sprite.url || sprite.src || sprite.sheet || data.spriteSheet;
+    if (!key || !source || typeof this.assetManager?.loadImage !== 'function') return;
+
     const present = typeof this.assetManager.hasImage === 'function'
       ? this.assetManager.hasImage(key)
       : this.assetManager.getAsset?.(key);
     if (present) return;
-    const source = sprite.url || sprite.src || sprite.sheet || data.spriteSheet;
-    const url = typeof this.assetManager.resolveAssetPath === 'function'
+    const url = resolved?.url || (typeof this.assetManager.resolveAssetPath === 'function'
       ? this.assetManager.resolveAssetPath(source)
-      : source;
+      : source);
     Promise.resolve(this.assetManager.loadImage(key, url)).catch(error => {
-      if (typeof this.onNpcImageError === 'function') {
-        this.onNpcImageError({ error, key, url, entity, placement, definition: data });
+      const detail = { error, kind, key, url, entity, placement, definition: data };
+      if (this.onEntityImageError) this.onEntityImageError(detail);
+      if (kind === 'npc' && typeof this.onNpcImageError === 'function') {
+        this.onNpcImageError(detail);
       }
     });
+  }
+
+  // 保留旧私有入口，供尚未迁移的扩展调用。
+  _preloadNpcImage(data, entity, placement) {
+    return this._preloadEntityImage('npc', data, entity, placement);
   }
 }
 

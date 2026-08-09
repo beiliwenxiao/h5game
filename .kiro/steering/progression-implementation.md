@@ -192,6 +192,9 @@ MOVE     右键
 - `GameLoader` 先执行 GameProject、Asset Manifest、成长配置、触发器 ID 和内容库 ID 的完整预检，再替换 project/registries；JSON 文件按文本解析，以保留语法错误行列。失败抛出带 `errors` 的 `ContentValidationError`，旧运行对象不被配置错误替换。
 - 战斗集成统一从 `project.integration.battle.resultSource` 选择单一来源；当前正式可用来源为 `localMock`，通过 `BattleClient` 暴露 `createBattle/intervene/reportBattleResult`，重复 requestId 使用 `IdempotencyStore` 返回首次响应，同 ID 不同载荷拒绝。
 - Asset Manifest 位于游戏 `assets/manifests/assets.json`。按《三国张角传》已锁定资源决策，现有和后续资源视为项目原创或已获授权；当前校验只阻断稳定 `assetId/imageId`、文件引用、状态、尺寸、pivot、动画及 2D/3D 映射错误，不以授权/作者/来源字段阻断开发或发布。
+- Manifest 进入运行时后必须注册到场景已有的 `AssetManager`，不得创建第二实例。稳定 API 为 `registerManifest(manifest)`、`getManifestEntry(assetIdOrImageId)`、`resolveManifestAsset(assetIdOrImageId, mode)`；Manifest 中已经以 `assets/` 开头的工程路径不得再次拼接 `assetBasePath`。`SceneGameLoaderBridge.onReady` 支持异步等待，资源注册/加载完成后才允许 `sceneEnter`；`EntityFactory` 与 `PlacementSpawner` 对 NPC、敌人和资源节点统一优先消费 `imageId/assetId`，原 `spriteSheet/renderStyle` 仅作兼容降级。`item.worldProp` 同样通过 `EntityFactory.createProp()` 消费稳定 `imageId/assetId` 并由 PlacementSpawner 预载，剧情摆件不得退回硬编码图片路径或可拾取物列表。
+- 玩家职业和装备轮廓复用 `SpriteComponent.appearanceLayers` 叠加在基础动画之上；每层只保存稳定 `assetId`、尺寸、脚底相对偏移和透明度，领域职业仍由 ClassSystem/StoryState 持有。确认失败不得提前切换叠层，读档和跨场景继承必须从 canonical 职业重新投影；禁止为职业外观另建第二套玩家实体或渲染器。
+- `AssetManager.getAudioManager()` 返回该资源管理器唯一拥有的 `AudioManager`；宿主必须把同一实例注入场景、Trigger 和 DialogueBox，禁止各自创建音频管理器。音频文件不存在时不得注册虚假 cue 或空文件。`S09AudioDirector` 只消费已注册的 `s09.music.low`、`s09.ambient.*`、`s09.sfx.*`，不加载或拥有资源；进入/离开 S09 负责启动和停止循环音，职业、捐粮和分支反馈只能在对应 checkpoint 成功后调用。`CityStateSummaryPanel` 仍只接收领域快照；表现图标由快照携带稳定 imageId，并通过注入的只读图片解析函数绘制，面板不得读取 Blackboard。
 - Schema 校验与 `GraphDefinition.validate()` 是双层拦截，职责不同：前者在配置进入系统前，后者在构造后。
 - `GameLoader.assembleProgression` 三层校验：配置整体 → 技能列表 → 每张图；非法项不写入运行状态，错误累积到 `lastValidationErrors`。
 
@@ -214,7 +217,7 @@ MOVE     右键
 
 `BaseGameScene` 已采用这些模块，场景本体只保留场景编排、游戏内容钩子与兼容转发入口：
 
-- `SceneTerrainCollision`：集中处理水池、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。椭圆盆地只负责视觉与装饰布局，**不得**作为物理边界；walkable 优先于 collide，区块接缝不会被 terrain 自动推出。
+- `SceneTerrainCollision`：集中处理水池、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。椭圆盆地只负责视觉与装饰布局，**不得**作为物理边界；walkable 优先于 collide，区块接缝不会被 terrain 自动推出。主路 walkable 与建筑 collide 不得重叠，除非该区域明确是桥、门或可穿越入口；否则优先规则会让建筑变成可穿越。
 - `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；所有 terrain 均处理水池、树与 shape，具体 Terrain 类型通过依赖注入。
 - `SceneAimController` + `SceneAimPresentation` + `AimPreviewRenderer`：统一 PC/触屏/手柄的瞄准控制、状态与 5px 虚线预览；场景通过回调注入射程和确认动作。
 - `SceneEquipmentFlow`：统一装备槽位映射、属性差值和装备/卸下事务；变更结果仍必须由 `BaseGameScene.onEquipmentChanged(messages, info)` 派发。

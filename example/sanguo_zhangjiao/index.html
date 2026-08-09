@@ -2147,10 +2147,12 @@
                         height: 200,
                         visible: false,
                         dialogueSystem: sceneInstance.dialogueSystem,
+                        audioManager: sceneInstance.audioManager || assetManager?.getAudioManager?.() || null,
                         portraits: PortraitsConfig
                     });
                 } else {
                     dialogueBox.setDialogueSystem(sceneInstance.dialogueSystem);
+                    dialogueBox.setAudioManager?.(sceneInstance.audioManager || assetManager?.getAudioManager?.() || null);
                 }
                 
                 // 当对话开始时显示对话框
@@ -2282,6 +2284,7 @@
                 } else {
                     const dd = new DataDrivenPrologueScene();
                     dd.assetManager = assetManager;
+                    dd.audioManager = assetManager.getAudioManager();
                     sceneManager.registerScene('DataDrivenPrologueScene', dd);
                     dd.setSceneManager(sceneManager);
                     scene = dd;

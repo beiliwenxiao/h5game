@@ -18,33 +18,39 @@ import { AudioManager } from './AudioManager.js';
  * 负责加载和管理游戏资源（图片、音频等）
  */
 export class AssetManager {
-    constructor() {
+    constructor(config = {}) {
         // 资源缓存
         this.images = new Map();
         this.audio = new Map();
-        
+
         // 加载队列
         this.loadQueue = [];
         this.loadedCount = 0;
         this.totalCount = 0;
-        
+
         // 加载状态
         this.isLoading = false;
         this.loadProgress = 0;
-        
+
         // 精灵图集数据
         this.spriteSheets = new Map();
-        
+
+        // 稳定资源 Manifest：条目可同时由 assetId 和 imageId 查询。
+        this.manifestEntries = new Map();
+        this.manifestAliases = new Map();
+        this._manifestQueuedKeys = new Set();
+
         // 占位符资源生成器
         this.placeholderAssets = new PlaceholderAssets();
-        
+
         // 音频管理器
         this.audioManager = new AudioManager();
-        
+
         // 资源基础路径（默认空字符串，所有路径相对于 HTML 页面）
         this.assetBasePath = '';
+        this.setAssetBasePath(config.assetBasePath || '');
     }
-    
+
     /**
      * 设置资源基础路径
      * 用于 demo/示例项目隔离引擎代码中的硬编码路径
@@ -57,19 +63,97 @@ export class AssetManager {
         }
         this.assetBasePath = basePath || '';
     }
-    
+
     /**
-     * 拼接资源完整路径
+     * 拼接资源完整路径。若 Manifest 已给出带基础目录的工程路径，不重复拼接。
      * @param {string} relativePath - 相对路径
      * @returns {string} 完整路径
      */
     resolveAssetPath(relativePath) {
         if (!relativePath) return relativePath;
-        // 绝对 URL 或以 / 开头的路径直接返回
-        if (/^(https?:|data:|\/)/.test(relativePath)) {
-            return relativePath;
-        }
+        if (/^(https?:|data:|blob:|\/)/.test(relativePath)) return relativePath;
+        if (this.assetBasePath && relativePath.startsWith(this.assetBasePath)) return relativePath;
         return this.assetBasePath + relativePath;
+    }
+
+    /**
+     * 注册经过内容校验的 Asset Manifest，并为 image 模式建立稳定 ID 加载队列。
+     * 重复注册同一 Manifest 不会重复排队。
+     * @param {{assets:Array<Object>}} manifest
+     * @param {{basePath?:string}} options
+     * @returns {{registered:number, queued:number}}
+     */
+    registerManifest(manifest, { basePath = '' } = {}) {
+        if (!manifest || !Array.isArray(manifest.assets)) {
+            throw new TypeError('AssetManager.registerManifest: manifest.assets 必须是数组');
+        }
+        if (!this._multiBackendAssets) this._multiBackendAssets = new Map();
+
+        let registered = 0;
+        let queued = 0;
+        for (const entry of manifest.assets) {
+            if (!entry?.assetId) continue;
+            const ids = [entry.assetId, entry.imageId].filter(Boolean);
+            const key = entry.imageId || entry.assetId;
+            for (const id of ids) {
+                this.manifestEntries.set(id, entry);
+                this.manifestAliases.set(id, key);
+            }
+            registered++;
+
+            if (entry.runtime2D?.mode !== 'image' || !entry.runtime2D.path) continue;
+            const rawPath = `${basePath || ''}${entry.runtime2D.path}`;
+            const url = this.resolveAssetPath(rawPath);
+            const descriptor = { name: key, type: 'image', url, backends: ['2d', '3d'], manifestEntry: entry };
+            for (const id of ids) this._multiBackendAssets.set(id, [descriptor]);
+
+            const alreadyQueued = this._manifestQueuedKeys.has(key)
+                || this.loadQueue.some(asset => asset.type === 'image' && asset.key === key);
+            if (!this.images.has(key) && !alreadyQueued) {
+                this.addImage(key, url);
+                this._manifestQueuedKeys.add(key);
+                queued++;
+            }
+        }
+        return { registered, queued };
+    }
+
+    /** @returns {Object|null} */
+    getManifestEntry(assetIdOrImageId) {
+        return this.manifestEntries.get(assetIdOrImageId) || null;
+    }
+
+    /**
+     * 将稳定 ID 解析为可加载的运行时描述符，不把 ID 当作 URL。
+     * @param {string} assetIdOrImageId
+     * @param {'2d'|'3d'} mode
+     * @returns {Object|null}
+     */
+    resolveManifestAsset(assetIdOrImageId, mode = '2d') {
+        const entry = this.getManifestEntry(assetIdOrImageId);
+        if (!entry) return null;
+        if (mode === '3d' && entry.runtime3D?.mode === 'model' && entry.runtime3D.path) {
+            return {
+                key: entry.assetId,
+                assetId: entry.assetId,
+                imageId: entry.imageId || null,
+                type: 'gltf',
+                mode: '3d',
+                url: this.resolveAssetPath(entry.runtime3D.path),
+                entry
+            };
+        }
+        const runtime = entry.runtime2D;
+        if (!runtime?.path) return null;
+        return {
+            key: entry.imageId || entry.assetId,
+            assetId: entry.assetId,
+            imageId: entry.imageId || null,
+            type: runtime.mode,
+            mode: '2d',
+            url: this.resolveAssetPath(runtime.path),
+            entry
+        };
     }
 
     /**
@@ -263,11 +347,12 @@ export class AssetManager {
      * @returns {HTMLImageElement|null}
      */
     getImage(key) {
-        if (!this.images.has(key)) {
+        const resolvedKey = this.manifestAliases.get(key) || key;
+        if (!this.images.has(resolvedKey)) {
             console.warn(`AssetManager: Image '${key}' not found`);
             return null;
         }
-        return this.images.get(key);
+        return this.images.get(resolvedKey);
     }
 
     /**
@@ -298,7 +383,7 @@ export class AssetManager {
         if (!desc) return;
         if (!this._multiBackendAssets) this._multiBackendAssets = new Map();
         const arr = this._multiBackendAssets.get(name) || [];
-        arr.push({ ...desc, backends: desc.backends || ['2d', '3d'] });
+        arr.push({ ...desc, name, backends: desc.backends || ['2d', '3d'] });
         this._multiBackendAssets.set(name, arr);
 
         // 约定：image/texture 类型会在 loadAll 时加载到 this.images
@@ -364,7 +449,7 @@ export class AssetManager {
      * @returns {boolean}
      */
     hasImage(key) {
-        return this.images.has(key);
+        return this.images.has(this.manifestAliases.get(key) || key);
     }
 
     /**
@@ -383,6 +468,10 @@ export class AssetManager {
         this.images.clear();
         this.audio.clear();
         this.spriteSheets.clear();
+        this.manifestEntries.clear();
+        this.manifestAliases.clear();
+        this._manifestQueuedKeys.clear();
+        this._multiBackendAssets?.clear?.();
         this.loadQueue = [];
         this.loadedCount = 0;
         this.totalCount = 0;
@@ -395,9 +484,11 @@ export class AssetManager {
      * @param {string} key - 资源键名
      */
     remove(key) {
-        this.images.delete(key);
+        const resolvedKey = this.manifestAliases.get(key) || key;
+        this.images.delete(resolvedKey);
         this.audio.delete(key);
         this.spriteSheets.delete(key);
+        this._manifestQueuedKeys.delete(resolvedKey);
     }
 
     /**

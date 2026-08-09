@@ -43,6 +43,7 @@ import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionVie
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
 import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
 import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
+import { S09AudioDirector } from '../systems/S09AudioDirector.js';
 
 const S01_TUTORIAL_KEYS = Object.freeze([
   'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
@@ -121,6 +122,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.selectedClass = null;
     this._classConfirm = null;
     this._classSelectionBusy = false;
+    this._s09AudioDirector = null;
     this._appliedGatheringPolicyOperations = new Set();
     this._s09RefugeeChoiceBusy = false;
     this._processingDelayedStoryEvents = false;
@@ -185,6 +187,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
     this._configureS01Tutorial();
+
+    this._s09AudioDirector?.dispose?.();
+    const s09AudioDirector = new S09AudioDirector({ audioManager: this.audioManager });
+    this._s09AudioDirector = s09AudioDirector;
+    s09AudioDirector.syncScene(this.currentSceneId);
+    this.resourceScope?.track(() => {
+      s09AudioDirector.dispose();
+      if (this._s09AudioDirector === s09AudioDirector) this._s09AudioDirector = null;
+    });
 
     this.resourceScope?.track(() => {
       for (const emitter of this.campfire.emitters) emitter.active = false;
@@ -304,6 +315,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getCamera: () => this.camera,
       onSceneEnter: async ({ sceneId, x, y }) => {
         this.currentSceneId = sceneId;
+        this._s09AudioDirector?.syncScene?.(sceneId);
         if (this.gameLoader?.triggerSystem) {
           const blackboard = this.gameLoader.blackboard;
           const storyState = blackboard?.get?.('storyState');
@@ -981,6 +993,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._showScreenTip(message, { title: '大区切换失败' });
       return result || { ok: false, errors: [{ code: 'regionCoordinatorUnavailable', path: 'region', message }] };
     }
+    this._s09AudioDirector?.syncScene?.(sceneId);
     const saveResult = await this.requestAutoSave({ reason: 'region-change', sceneId });
     if (!saveResult?.ok) this._showScreenTip('已进入目标区域，但自动存档失败', { title: '保存失败' });
     return result;
@@ -1316,6 +1329,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._classSelected = false;
       this.selectedClass = null;
     }
+    this._syncPlayerClassAppearance(this.selectedClass);
     this._syncUnlockedClassSkills();
     const puppetRestore = this.gatheringPuppetSystem?.deserialize?.(data.puppetState || {}, {
       owner: this.playerEntity,
@@ -1344,6 +1358,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._startPos = this.playerEntity?.getComponent?.('transform')?.position
       ? { ...this.playerEntity.getComponent('transform').position }
       : null;
+    this._s09AudioDirector?.syncScene?.(this.currentSceneId);
     this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
     return { ok: true, errors: [] };
   }
@@ -1712,11 +1727,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         sceneFlag: 'ddScene',
         sceneId: 'S01',
         registerActions: (trig, gameLoader) => this._registerGameLoaderActions(trig, gameLoader),
-        onReady: (gameLoader, trig) => {
+        onReady: async (gameLoader, trig) => {
           const offTriggerLog = trig.on((evt, t) => {
             if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
           });
           this.resourceScope?.track(offTriggerLog);
+
+          if (!this.assetManager?.registerManifest) {
+            throw new Error('场景 AssetManager 不支持稳定资源 Manifest');
+          }
+          const manifestResult = this.assetManager.registerManifest(gameLoader.project.assetManifest);
+          if (manifestResult.queued > 0) await this.assetManager.loadAll();
+          this.entityRenderer2D?.clearCaches?.();
+          const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
+          this._syncPlayerClassAppearance(currentClass);
+
           this._configureSharedClassEffects(gameLoader);
           this._installProgressionUI(gameLoader);
         }
@@ -1978,7 +2003,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       height,
       compact,
       visible: false,
-      zIndex: 45
+      zIndex: 45,
+      resolveImage: imageId => this.assetManager?.getAsset?.(imageId) || null
     });
     this.uiSystem.registerPanel('cityStateSummary', panel);
     Object.assign(this.context.ui, { cityStateSummary: panel });
@@ -2025,7 +2051,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       morale: context.city.morale,
       reputation: context.blackboard.get('reputation'),
       currentDay: this.timeSystem?.getCurrentDay?.() || context.storyState.currentDay || 1,
-      refugeeStatus
+      refugeeStatus,
+      icons: {
+        morale: 's09.ui.morale',
+        reputation: 's09.ui.reputation',
+        story: 's09.ui.storyChoice'
+      }
     });
     panel.show();
   }
@@ -2404,6 +2435,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     await this._spawnPlacements({ group: S09_REFUGEE_GROUP });
     if (firstTrigger) {
+      this._s09AudioDirector?.playFeedback?.('conflict');
       this._showScreenTip('粮仓损毁引发饥民争斗。难民区出现伤兵、妇孺与死者，请查看现场。', {
         title: '饥民争斗'
       });
@@ -2541,6 +2573,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return false;
     }
 
+    this._s09AudioDirector?.playFeedback?.('donation');
     this._setRefugeeDialogueNode('branchChoice');
     this._showScreenTip('捐出粮食 ×20：城市士气 +5，损毁暂停一个游戏日。');
     return true;
@@ -2635,6 +2668,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return false;
     }
 
+    this._s09AudioDirector?.playFeedback?.(branch);
     this._setRefugeeDialogueNode(resultNode);
     if (scoutTriggered) await this._spawnPlacements({ group: 'S09-refugee-scout' });
     const messages = {
@@ -2871,6 +2905,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return ({ item: 'items', equipment: 'equipment', npc: 'npcs', enemy: 'enemies', shop: 'shops', vehicle: 'vehicles', building: 'buildings' })[kind] || null;
   }
 
+  /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */
+  _syncPlayerClassAppearance(classId = null) {
+    return this._playerFactory?.applyClassAppearance?.(this, this.playerEntity, classId) === true;
+  }
+
   /** 打开 S09 职业不可逆确认框。 */
   _showClassConfirmation(p = {}) {
     const classId = p.classId || p.class || ClassType.WARRIOR;
@@ -2979,6 +3018,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     ctx.fill();
     ctx.stroke();
 
+    const classIcon = this.assetManager?.getAsset?.(`s09.ui.class.${cf.classId}`);
+    const classIconReady = classIcon && (classIcon.complete !== false)
+      && (classIcon.naturalWidth || classIcon.width || 0) > 0;
+    if (classIconReady) ctx.drawImage(classIcon, px + 16, py + 12, 38, 38);
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillStyle = '#FFD700';
@@ -3045,6 +3089,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       classSystem.restoreClass(playerId, classType);
       this._classSelected = true;
       this.selectedClass = classType;
+      this._syncPlayerClassAppearance(classType);
       this._syncUnlockedClassSkills();
       return true;
     }
@@ -3165,6 +3210,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._classSelectionBusy = false;
     }
 
+    this._syncPlayerClassAppearance(classType);
+    this._s09AudioDirector?.playFeedback?.('classSelected');
     const className = ClassNames[classType] || classType;
     this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
     this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });

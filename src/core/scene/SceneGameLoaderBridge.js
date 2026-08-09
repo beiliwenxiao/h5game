@@ -77,7 +77,8 @@ export class SceneGameLoaderBridge {
     if (!this._isActive(token, loader)) return loader;
 
     // 保持旧 onReady 顺序：自定义动作先注册，再由通用动作定义最终默认实现。
-    if (typeof onReady === 'function') onReady(loader, triggerSystem);
+    // 允许宿主异步准备 Manifest 等 sceneEnter 前置资源。
+    if (typeof onReady === 'function') await onReady(loader, triggerSystem);
     if (!this._isActive(token, loader)) return loader;
 
     this._registerScopeActions(triggerSystem);

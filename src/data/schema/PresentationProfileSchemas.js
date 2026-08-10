@@ -13,7 +13,8 @@ export const PRESENTATION_LOGICAL_RESOLUTION_SCHEMA = {
   id: 'presentationLogicalResolution', allowUnknown: false,
   fields: {
     width: positive(), height: positive(),
-    scaleMode: { type: FieldType.STRING, required: true, enum: ['fit', 'stretch'] }
+    // window：逻辑视口跟随窗口尺寸，世界 1:1 不缩放；fit/stretch 保持固定参考分辨率。
+    scaleMode: { type: FieldType.STRING, required: true, enum: ['fit', 'stretch', 'window'] }
   }
 };
 

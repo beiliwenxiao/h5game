@@ -48,7 +48,9 @@ export class DemoPlayerFactory {
         mp: 10,
         attack: 0,
         defense: 0,
-        speed: 0
+        // 显式基础移动速度（世界单位/秒）。旧值 0 会被 EntityFactory 的 `|| 100` 兜底，
+        // 视口改为跟随窗口后视野更大，需要更高速度才不显得拖沓。
+        speed: 100
       },
       skills: createDefaultSkills(),
       equipment: {},

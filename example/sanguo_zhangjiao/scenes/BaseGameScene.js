@@ -514,17 +514,18 @@ export class BaseGameScene extends Scene {
     const ctx = canvas.getContext('2d');
     this.context.setCanvasRuntime(canvas, ctx);
 
-    // 逻辑分辨率与物理 backing 分离：宿主有 DPR scaler 时不得把高清 backing 重置为 1280×720。
+    // 逻辑视口与物理 backing 分离：宿主有 display scaler 时由它拥有逻辑尺寸（window 模式跟随窗口），
+    // 场景不得把高清 backing 或窗口视口重置回参考分辨率。
     const logical = this.presentationProfile.logicalResolution;
     const displayManaged = Number(canvas.logicalWidth) > 0 && Number(canvas.logicalHeight) > 0;
     if (!displayManaged) {
       if (canvas.width !== logical.width) canvas.width = logical.width;
       if (canvas.height !== logical.height) canvas.height = logical.height;
+      canvas.logicalWidth = logical.width;
+      canvas.logicalHeight = logical.height;
     }
-    canvas.logicalWidth = logical.width;
-    canvas.logicalHeight = logical.height;
-    this.logicalWidth = logical.width;
-    this.logicalHeight = logical.height;
+    this.logicalWidth = Number(canvas.logicalWidth) || logical.width;
+    this.logicalHeight = Number(canvas.logicalHeight) || logical.height;
     this.context.runtime.width = this.logicalWidth;
     this.context.runtime.height = this.logicalHeight;
 
@@ -1194,10 +1195,12 @@ export class BaseGameScene extends Scene {
     return this._ensurePanelLayout().layoutPCFunctionButtons(width, height);
   }
 
-  /** 窗口大小变化时保持项目逻辑分辨率，仅重排相关系统。 */
-  onResize() {
-    const { width, height } = this.presentationProfile.logicalResolution;
-    return this._ensurePanelLayout().onResize(width, height);
+  /** 窗口大小变化：采用宿主给出的运行时逻辑视口，缺省时回退参考分辨率。 */
+  onResize(width, height) {
+    const fallback = this.presentationProfile.logicalResolution;
+    const nextWidth = Number(width) > 0 ? Math.floor(width) : fallback.width;
+    const nextHeight = Number(height) > 0 ? Math.floor(height) : fallback.height;
+    return this._ensurePanelLayout().onResize(nextWidth, nextHeight);
   }
 
   generateIsometricMap() {

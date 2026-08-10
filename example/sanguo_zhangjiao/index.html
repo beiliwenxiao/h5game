@@ -950,17 +950,17 @@
             maxDpr: 2
         });
         
-        // 世界、相机和编辑器继续使用固定逻辑坐标；仅 Canvas backing 按显示尺寸与 DPR 提升。
+        // window 模式：逻辑视口跟随窗口尺寸，世界 1 单位 = 1 CSS 像素，不做缩放；backing 仍按 DPR 提升清晰度。
         function resizeCanvas() {
             const display = displayScaler.resize();
             gameContainer.style.setProperty('--game-display-width', `${display.cssWidth}px`);
             gameContainer.style.setProperty('--game-display-height', `${display.cssHeight}px`);
             
             if (sceneManager) {
-                sceneManager.setRenderSize(logicalResolution.width, logicalResolution.height);
+                sceneManager.setRenderSize(display.logicalWidth, display.logicalHeight);
                 const currentScene = sceneManager.getCurrentScene();
                 if (currentScene && currentScene.onResize) {
-                    currentScene.onResize(logicalResolution.width, logicalResolution.height);
+                    currentScene.onResize(display.logicalWidth, display.logicalHeight);
                 }
             }
         }
@@ -2100,7 +2100,7 @@
 
                 await nextStep(); // 步骤 2
                 sceneManager = new SceneManager();
-                sceneManager.setRenderSize(logicalResolution.width, logicalResolution.height);
+                sceneManager.setRenderSize(displayScaler.logicalWidth, displayScaler.logicalHeight);
 
                 await nextStep(); // 步骤 3
                 notificationSystem = new NotificationSystem({ x: 10, y: 100, maxNotifications: 5 });

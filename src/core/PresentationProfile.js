@@ -35,7 +35,7 @@ export function normalizePresentationProfile(profile = {}) {
   return {
     schemaVersion: positive(profile.schemaVersion, base.schemaVersion), id: String(profile.id || base.id),
     visualStyle: { ...(profile.visualStyle || {}) },
-    logicalResolution: { ...logical, scaleMode: ['fit', 'stretch'].includes(profile.logicalResolution?.scaleMode) ? profile.logicalResolution.scaleMode : base.logicalResolution.scaleMode },
+    logicalResolution: { ...logical, scaleMode: ['fit', 'stretch', 'window'].includes(profile.logicalResolution?.scaleMode) ? profile.logicalResolution.scaleMode : base.logicalResolution.scaleMode },
     world: { ...base.world, ...(profile.world || {}), pixelsPerWorldUnit: positive(profile.world?.pixelsPerWorldUnit, base.world.pixelsPerWorldUnit) },
     camera: { ...base.camera, ...(profile.camera || {}), deadzone: { ...base.camera.deadzone, ...(profile.camera?.deadzone || {}) } },
     actors: { directionMode: profile.actors?.directionMode === 4 ? 4 : 8, player: actor('player'), unit: actor('unit') },

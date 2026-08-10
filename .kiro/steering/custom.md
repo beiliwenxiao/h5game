@@ -78,6 +78,19 @@ inclusion: always
 - fsWrite: parameters required: ["path", "text"]
 - fsAppend: parameters required: ["path", "text"]
 
+## 美术资源
+
+- 缺图时默认自动生成并接入，不要询问、不要留代码色块或兜底圆点、不要以"美术待补"跳过。
+- 先复用：已在 `assets/manifests/assets.json` 或 `assets/images/` 中的资源直接引用其稳定 ID，同一内容不重复建 ID、不重复生成。
+- 生成格式优先手写 SVG，放 `assets/images/<场景或分类>/`，文件名 kebab-case；不放大低分辨率图冒充高清。
+- 世界物件 pivot 用脚底中心 `{x:0.5,y:1}`，UI 图标用居中；尺寸和配色对齐同类已有资源与 `config/presentation.json` 的 `palette`。
+- 必须在 Manifest 登记：`assetId` 与 `imageId` 同值，命名 `<场景或域>.<类别>.<名称>`，生成图 `status: ai-generated`。
+- 内容定义（items / resourceNodes / enemies / npcs 等）写稳定 `imageId` 加 sprite 尺寸；场景 JSON 只引用 ID，禁止硬编码图片路径。
+- 若某类对象的渲染路径还不消费稳定 ID，先把"稳定 imageId 优先 → 已有手绘或代码样式 → 通用兜底"补进框架渲染器并让放置点预载图片，再接内容；不在 Demo 另写图片解析。
+- 稳定 ID 必须贯穿整条链路：拾取、奖励、装备和存档在复制物品字段时都要带上 `imageId/assetId`，否则同一物品在地面有图、进背包却退回手绘或首字占位。
+- 生成图是可替换的临时资产：换正式美术时保留原 ID 和场景引用，只替换文件；图片只属表现层，不作业务事实源。
+- 完整流程见 `yijian18-game-demo-development-plan.md` 第 15.1 节。
+
 ## 用户约束
 - 用中文回答
 - 执行task时，当完成一个小任务后，继续往后执行，拥有所有权限。

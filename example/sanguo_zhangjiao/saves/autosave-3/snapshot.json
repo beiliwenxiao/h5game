@@ -1,24 +1,27 @@
 {
   "version": 1,
-  "createdAt": 1786208546724,
+  "createdAt": 1786402814992,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
     "autoSlot": 3,
     "characterName": "柔弱女子",
     "level": 1,
-    "currentAct": 1,
-    "location": "第 1 幕区域",
+    "currentSceneId": "S01",
+    "location": "S01 区域",
     "previewFile": "thumbnail.jpg"
   },
   "data": {
     "game": {
+      "campaignId": "sanguo-zhangjiao-s01-s14",
+      "schemaVersion": 1,
+      "currentSceneId": "S01",
       "player": {
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 609.5905033348558,
-          "y": 479.3903769940838,
+          "x": 1814.3959909202597,
+          "y": 1255.8958578316008,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -30,13 +33,18 @@
         "stats": {
           "baseMaxHp": 100,
           "baseMaxMp": 100,
+          "baseMaxStamina": 100,
+          "baseStaminaRegen": 12,
           "baseAttack": 10,
           "baseDefense": 5,
           "baseSpeed": 100,
           "maxHp": 100,
-          "hp": 30,
+          "hp": 10,
           "maxMp": 100,
           "mp": 10,
+          "maxStamina": 100,
+          "stamina": 100,
+          "staminaRegen": 12,
           "attack": 10,
           "defense": 5,
           "speed": 100,
@@ -53,42 +61,17 @@
         "equipment": {}
       },
       "tutorial": {
-        "completedTutorials": [],
+        "completedTutorials": [
+          "s01.move"
+        ],
         "enabled": true
       },
       "dialogue": {
         "currentDialogueId": null,
         "currentNodeId": null,
         "variables": {},
-        "history": [
-          {
-            "type": "node",
-            "nodeId": "node1",
-            "speaker": "旁白",
-            "text": "东汉末年，天下大乱，民不聊生...",
-            "timestamp": 1786176139228
-          },
-          {
-            "type": "start",
-            "dialogueId": "intro",
-            "timestamp": 1786176139228
-          },
-          {
-            "type": "node",
-            "nodeId": "node2",
-            "speaker": "旁白",
-            "text": "你是一名普通的流民，为了生存而挣扎...",
-            "timestamp": 1786176141132
-          },
-          {
-            "type": "end",
-            "dialogueId": "intro",
-            "timestamp": 1786176141821
-          }
-        ],
-        "completedDialogues": [
-          "intro"
-        ]
+        "history": [],
+        "completedDialogues": []
       },
       "quests": {
         "activeQuests": [],
@@ -97,50 +80,111 @@
       },
       "content": {
         "blackboard": {
-          "act": 0,
-          "killCount": 0,
-          "starvingKilled": 0,
-          "act5Kills": 0,
-          "hasSword": false,
-          "gold": 0,
-          "act2EquipCount": 0,
+          "appliedBattleResultIds": [],
+          "cityStates": [
+            {
+              "buildingDamage": {
+                "granary.s09": 0.6
+              },
+              "buildingLevel": 1,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.45,
+              "factionId": "yellow_turban",
+              "id": "city.s09_guangzong_camp",
+              "morale": 35,
+              "name": "广宗粥棚营地",
+              "resources": {
+                "food": 60,
+                "herb": 10,
+                "iron": 0,
+                "wood": 20
+              },
+              "schemaVersion": 1
+            },
+            {
+              "buildingDamage": {},
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0,
+              "factionId": "han_government",
+              "id": "city.s03_yingchuan",
+              "morale": 40,
+              "name": "颍川官军屯城",
+              "resources": {
+                "food": 80,
+                "herb": 30,
+                "iron": 40,
+                "wood": 50
+              },
+              "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {
+                "palisade.s04": 0.45
+              },
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.3,
+              "factionId": "han_government",
+              "id": "city.s04_changshe",
+              "morale": 48,
+              "name": "长社官军营垒",
+              "resources": {
+                "food": 45,
+                "herb": 16,
+                "iron": 18,
+                "wood": 20
+              },
+              "schemaVersion": 2
+            }
+          ],
+          "reputation": 50,
+          "resourcePermissions": {
+            "S09": {
+              "food": false
+            }
+          },
+          "storyState": {
+            "currentDay": 1,
+            "currentSceneId": "S01",
+            "delayedConsequences": [],
+            "hiddenClues": [],
+            "month": 3,
+            "storyTags": [],
+            "unlockedScenes": [
+              "S01"
+            ]
+          },
+          "warResourceNodeStates": [],
+          "warState": {
+            "battles": {},
+            "casualties": {}
+          },
           "ddScene": true
         },
         "triggers": {
           "firedOnce": [
-            "my_first_trigger",
-            "tut_wake",
-            "出现火堆",
-            "trg_spawn_pickup",
-            "tut_fire",
-            "tut_move",
-            "trg_pickup_food_drop_equip",
-            "tut_bag",
-            "tut_stats",
-            "tut_done",
-            "5秒后自动点燃火堆"
+            "trg_s01_spawn_initial",
+            "trg_s01_light_campfire"
           ],
           "cooldowns": {}
         },
         "progression": {
           "state": {
             "characterId": "refugee",
-            "graphs": {
-              "warrior-skill": {
-                "version": 1,
-                "allocations": {},
-                "revision": 3
-              },
-              "global-passive": {
-                "version": 1,
-                "allocations": {},
-                "revision": 9
-              }
-            }
+            "graphs": {}
           },
           "ledger": {
             "pools": {
               "skill": {
+                "available": 1,
+                "spent": 0
+              },
+              "talent": {
+                "available": 1,
+                "spent": 0
+              },
+              "unit": {
                 "available": 1,
                 "spent": 0
               },
@@ -154,14 +198,231 @@
         }
       },
       "scene": {
+        "regionStates": [],
         "campfireLit": true,
-        "firedPickups": [
-          "leftover_food"
-        ],
+        "firedPickups": [],
         "clearedGroups": [],
-        "tutorialEvents": [
-          "moved"
+        "resourceNodes": [
+          {
+            "id": "S01-node-wood-1",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-wood-2",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-wood-3",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "wood",
+              "itemId": "resource.wood",
+              "remaining": 12,
+              "maxRemaining": 12,
+              "yieldPerGather": 3,
+              "gatherDuration": 1.8,
+              "requiredToolType": "axe",
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "chance": 0.3,
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-herb-1",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "herb",
+              "itemId": "resource.herb",
+              "remaining": 8,
+              "maxRemaining": 8,
+              "yieldPerGather": 2,
+              "gatherDuration": 1.2,
+              "requiredToolType": null,
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.wild_herb_rustle",
+                  "type": "wildlife",
+                  "chance": 0.2,
+                  "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          },
+          {
+            "id": "S01-node-herb-2",
+            "state": {
+              "schemaVersion": 1,
+              "resourceType": "herb",
+              "itemId": "resource.herb",
+              "remaining": 8,
+              "maxRemaining": 8,
+              "yieldPerGather": 2,
+              "gatherDuration": 1.2,
+              "requiredToolType": null,
+              "refreshDays": 0,
+              "refreshProgressDays": 0,
+              "guardUnitIds": [],
+              "riskEvents": [
+                {
+                  "id": "risk.wild_herb_rustle",
+                  "type": "wildlife",
+                  "chance": 0.2,
+                  "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
+                  "payload": {
+                    "alert": 1
+                  }
+                }
+              ],
+              "damageRatio": 0,
+              "depleted": false
+            }
+          }
         ],
+        "placementStates": [
+          {
+            "id": "S01-pickup-worn-axe",
+            "state": {
+              "kind": "item",
+              "removed": false,
+              "quantity": 0
+            }
+          }
+        ],
+        "deathDrops": [],
+        "defeatState": {
+          "schemaVersion": 2,
+          "nextDeathSequence": 1,
+          "resolvedDeathIds": []
+        },
+        "gatheringState": {
+          "schemaVersion": 1,
+          "nextOperationSequence": 1,
+          "completedOperations": []
+        },
+        "puppetState": {
+          "schemaVersion": 1,
+          "chargesRemaining": null,
+          "nextSequence": 1,
+          "active": null
+        },
+        "proficiencyState": {
+          "schemaVersion": 1,
+          "characters": [],
+          "completedOperations": []
+        },
+        "battleState": {
+          "schemaVersion": 1,
+          "state": "idle",
+          "definition": null,
+          "mode": null,
+          "frozenResult": null,
+          "operations": []
+        },
+        "battlefieldRuntimeState": {
+          "schemaVersion": 1,
+          "active": false,
+          "elapsed": 0,
+          "participants": [],
+          "initialFactions": {},
+          "playerRestore": null,
+          "lastSnapshot": null
+        },
+        "cityWarState": {
+          "schemaVersion": 1,
+          "operations": []
+        },
+        "rescueState": {
+          "schemaVersion": 1,
+          "definition": null,
+          "status": "idle",
+          "stageIndex": -1,
+          "startedAt": null,
+          "deadline": null,
+          "remaining": 0,
+          "result": null,
+          "failureReason": null,
+          "costs": {},
+          "completedStageIds": [],
+          "operations": []
+        },
+        "gatheringPolicyOperations": [],
+        "timeState": {
+          "enabled": true,
+          "paused": false,
+          "currentDay": 1,
+          "elapsed": 141.40370000001622
+        },
         "nextSceneTarget": null,
         "playerDiedTriggered": false
       }

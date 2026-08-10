@@ -27,12 +27,37 @@ fileMatchPattern: "{.kiro/specs/yijian18-game-demo,example/sanguo_zhangjiao,src/
 - **职业（5C）**：删除 `mage`，第三职业 canonical ID 只使用 `strategist`，显示名“军师”，不提供旧职业兼容。
 - **流式加载（6A）**：`src/core/WorldStreamingManager.js` 为唯一管理器；`WorldMapLoadSession`、`ChunkNavigator`、`PlacementSpawner` 作为现有加载/传送适配器接入，`src/systems/WorldStreamingManager.js` 完成调用方迁移后淘汰，禁止机械替换 API。
 - **Android（7A）**：根 `capacitor.config.json` 和根 `android/` 是唯一发布权威，目标为 `appId: com.sanguo.zhangjiao`、`appName: 三国张角传`、`webDir: dist/sanguo_zhangjiao`；Demo 内 mobile 工程仅作 legacy，禁止长期双写。
-- **美术与资源（8A，最新决定）**：现有及后续使用的图片、音频、模型和其他资源均按“项目原创或已获授权”处理，当前开发不执行逐项授权、版权、作者或来源核验，也不把这些字段作为阶段或发布阻断项；本计划其他章节中关于授权/版权/来源审计的旧文字均由本条覆盖。资源工作只检查稳定 `imageId/assetId`、文件与引用完整性、替换能力、状态、尺寸、pivot、动画及 2D/3D 映射。缺图时可用图标或 AI 生成图临时替代。除图片切割后生成的 slice 对象外，所有图片必须具有稳定 `imageId/assetId`，并在编辑器提供“更换资源 ID”和“替换图片文件且保留 ID”两种方式；slice 使用稳定源图片/图集 ID 加裁剪区域、索引或 `sliceKey`，不强制独立 ID。
+- **美术与资源（8A，最新决定）**：现有及后续使用的图片、音频、模型和其他资源均按“项目原创或已获授权”处理，当前开发不执行逐项授权、版权、作者或来源核验，也不把这些字段作为阶段或发布阻断项；本计划其他章节中关于授权/版权/来源审计的旧文字均由本条覆盖。资源工作只检查稳定 `imageId/assetId`、文件与引用完整性、替换能力、状态、尺寸、pivot、动画及 2D/3D 映射。缺图时**默认自动生成**图片并登记接入，不询问、不保留代码色块或兜底圆点，具体流程见第 15.1 节。除图片切割后生成的 slice 对象外，所有图片必须具有稳定 `imageId/assetId`，并在编辑器提供“更换资源 ID”和“替换图片文件且保留 ID”两种方式；slice 使用稳定源图片/图集 ID 加裁剪区域、索引或 `sliceKey`，不强制独立 ID。
 - **3D（9A）**：2D 是正式发布主表现；3D 前期使用相同 2D 图片的 billboard/sprite，并直接复用 2D 编辑器位置、尺寸、pivot 和 elevation，业务状态完全一致；后续替换 3D 模型不得改变业务 ID 或场景坐标。
 - **测试（10B）**：允许在每个 P 阶段出口运行相关的针对性 Vitest 和必要 diagnostics；不自动运行全量测试或生产构建，除非用户另行要求。
 - **成长系统**：传统职业树 + 暗黑式分支 + 30–60 节点小型 Passive Board；复用 ProgressionGraphSystem、EffectResolver 和旧 API 适配层。
 - **分层边界**：Schema、事务、状态机、成长图、Checkpoint、契约进入引擎；历史人物、S01–S14 场景、对白和结局留在《三国张角传》。
 - **战斗服务**：当前只实现同契约 LocalMockTransport，外部 transport 留接口。
+
+## 2.1 与原始策划案的差异裁决
+
+事实源顺序为「本计划 > `元宝设计补充1.txt` > `元宝设计.txt`」。以下差异已裁决，实施时不再回退到旧策划文字：
+
+| 项目 | 策划案 | 本项目裁决 |
+|---|---|---|
+| 作品名 | 《一剑十八年》 | 《三国张角传》，`yijian18-engine` 只是引擎名 |
+| 仓库结构 | engine + server(Go) + slg(Go) 三仓 | Demo 为单机，只保留 `BattleClient` 契约与 LocalMockTransport；不建 server/slg 仓库 |
+| 语言与 Schema | TypeScript + `src/schema/` + protobuf | ES6 JS + `src/data/schema/`，无 TS 生成与 proto；字段语义保持一致以便后续接外部服务 |
+| 第三职业 | `mage` | `strategist`／军师，无旧职业兼容 |
+| 结局数量 | 主案 5 结局 | 6 结局，补充案的隐藏「焦土」升为正式结局，并固定优先级：焦土 → 旁观者 → 火种 → 余烬 → 流星 → 尘埃 |
+| 地图事实源 | 20×20 ASCII 网格与 `(row,col)` | Region + chunk worldOffset 为运行时事实源；ASCII 网格只作构图参考，坐标冲突时以磁盘场景 JSON 与 `WorldMapLoadSession` 投影为准 |
+| 建造耗时 | 补充案 4.1 说资源够即「瞬间完成」，二.1 说「不能瞬间完成，除非 damage>0.5」 | 采用后者：普通施工必须走工期，仅城损 >0.5 的抢修缩短工期并以 50% 初始耐久完成 |
+| 捐粮士气 | 补充案写「士气 +5%」 | 实现为绝对值 `morale + 5`，CityState 士气为 0–100 整数，不使用百分比叠加 |
+| 采集工具耐久 | 示例「铁斧 30」 | S01 开局为「破旧斧头」耐久 8，体现开局窘迫；后续工具可按 30 量级配置 |
+
+补充案中以下设计点必须落地，之前未在阶段条目中写明：
+
+1. **工具损毁的处境后果**（补充案 一.2）：斧断=被困林中无法继续伐木撤离、镐断=矿坑内无法开路撤退、铲断=在建临时工事作废。每类损毁必须给出明确处境反馈与可行退路，不能只弹「工具损坏」。
+2. **S05–S06 第一次失去工具**（补充案 五）：在南阳线安排一次「工具在战斗中损毁、被迫徒手撤退」的强制体验，作为工具压力的叙事高点。
+3. **强硬分支的后续代价**（补充案 四.3.A）：强硬路线除士气提升外，必须写入「严苛统领」标签，并在当日夜晚有概率触发逃亡事件；标签与事件都进 StoryState，且只结算一次。
+4. **采集与营建作为结局隐藏输入**（补充案 五、结局联动）：全程采集与城市维护水平、是否只采集不参战、是否放任城市损毁，必须作为 EndingSystem 的显式输入字段参与优先级判定，而不是只看四武将生死。
+5. **最终战的资源收束**（补充案 五）：终局必须出现「带最后的马车突围」与「投石车因缺木料无法组装」两种由资源状态决定的实际分歧。
+6. **昏迷后扎营与沿溪筑城**（补充案 22、23）：特殊昏迷后的被救、临时扎营、「离水源远、只能住几天、不惧小股官兵、不适合筑城」的说明、拔营，以及顺溪而下寻找筑城地并筑城，属于 P4 必做内容而非可选风味。
 
 ## 3. 执行纪律
 
@@ -359,7 +384,7 @@ example/sanguo_zhangjiao/
 
 ### P5.2 S14 和 EndingSystem
 
-1. 进入 S14 时冻结 StoryState、CityState、WarState、四武将、BattleMode 统计和 RetreatReadiness，生成稳定 endingSnapshotId。
+1. 进入 S14 时冻结 StoryState、CityState、WarState、四武将、BattleMode 统计、RetreatReadiness，以及采集/营建隐藏输入（累计采集量、城市维护水平、是否全程观战、是否放任城市损毁），生成稳定 endingSnapshotId。
 2. 严格按焦土→旁观者→火种→余烬→流星→尘埃选择第一个满足条件的结局。
 3. 缺字段时不改现有结局并报告路径；相同快照重复提交保持唯一结局。
 4. 六种演出必须呈现 requirements 中的叙事结果，并展示关键选择回顾，而非只弹出结局名称。
@@ -467,6 +492,19 @@ example/sanguo_zhangjiao/
 10. **3D fallback**：EntityView3D 优先使用同 assetId 的 2D 图片创建 billboard/sprite；Transform3DAdapter 统一执行 `2D x → three.x`、`2D y/z → three.z`、`elevation → three.y`。禁止在 3D 配置中复制一套位置。
 11. **双后端检查**：同一实体共享图片/模型语义状态、尺寸、pivot、动画状态和业务 ID；缺 3D 专属资产时使用 runtime2D fallback，不允许静默消失。
 12. **验收与冻结**：场景负责人、程序和美术共同检查遮挡、层级、交互、动画、音量、移动端可读性、反复加载和资源释放；通过后锁 revision。
+
+## 15.1 缺图自动生成（默认行为，无需询问）
+
+发现任何内容缺少图片时，默认立即生成并接入，不停下询问、不保留代码色块或兜底圆点、不以“美术待补”为由跳过：
+
+1. **先复用**：查 `assets/manifests/assets.json` 和 `assets/images/`，已有可用资源直接引用其稳定 ID，禁止为同一内容重复建 ID 或重复生成图片。
+2. **生成格式**：优先手写 SVG 放入 `assets/images/<场景或分类>/`，文件名用 kebab-case。位图仅在 SVG 明显不合适时使用，且不得放大低分辨率图冒充高清。
+3. **规格**：世界物件（资源节点、道具、建筑、角色）pivot 为脚底中心 `{x:0.5,y:1}`，UI 图标为居中 `{x:0.5,y:0.5}`；尺寸与同类已有资源对齐（资源节点约 64×56，角色 54–82 高，掉落道具 32–48）；配色取 `config/presentation.json` 的 `palette`，保持低饱和土黄灰褐主调与阵营色区分。
+4. **登记**：在 Manifest 追加条目，`assetId` 与 `imageId` 同值，命名 `<场景或域>.<类别>.<名称>`（如 `s01.resource.dryWoodNode`）；填写 `category/usage/sourceFile/runtime2D/runtime3D/pivot/bounds/animations/targetPhase/revision`，生成图 `status` 记 `ai-generated`，复用第三方图记 `third-party-approved`。
+5. **接线**：把稳定 `imageId` 和 sprite 尺寸写进内容定义（`library.items`、`resourceNodes`、`enemies`、`npcs` 等）；场景 JSON 只引用 ID。禁止在场景、实体或 UI 中硬编码图片路径。
+6. **框架缺口自己补**：某类对象的渲染路径还不消费稳定 ID（历史上地面拾取物只有硬编码手绘表）时，先把“稳定 imageId 优先 → 已有手绘/代码样式 → 通用兜底”的解析补进框架渲染器，并让放置点预载图片，再接内容；不要在 Demo 里另写一套图片解析。
+7. **替换友好**：生成图是临时资产，不阻断流程；后续换正式美术必须保留原 ID 与场景引用，只替换文件或 Manifest 路径。
+8. **边界**：生成的图片只是表现层，不得成为任务、战果、库存或存档的事实源；不得用生成图替代已明确要求的正式演出内容而跳过验收。
 
 ## 16. 内容生产顺序
 

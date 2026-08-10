@@ -738,7 +738,10 @@ export class BaseGameScene extends Scene {
    * 初始化 UI 面板（兼容入口，委托给场景 HUD 组合器）
    */
   initializeUIPanels() {
-    return this._ensurePanelLayout().composeHud();
+    const panelLayout = this._ensurePanelLayout();
+    // 物品图标优先使用内容定义的稳定 imageId；退出场景时解除注入。
+    this.resourceScope?.track(panelLayout.installItemIconResolver());
+    return panelLayout.composeHud();
   }
 
   /** 加载并应用 UI 编辑器布局（Canvas 面板部分）。 */

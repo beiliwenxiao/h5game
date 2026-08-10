@@ -6,6 +6,7 @@
 
 import { UILayoutLoader } from '../../ui/UILayoutLoader.js';
 import { PanelLayoutLoader } from '../../ui/PanelLayoutLoader.js';
+import { ItemIconRenderer } from '../../ui/ItemIconRenderer.js';
 import { InputHints } from '../input/InputHints.js';
 
 /**
@@ -22,6 +23,34 @@ export class ScenePanelLayout {
   constructor(scene, hudDependencies = {}) {
     this.scene = scene;
     this.hudDependencies = hudDependencies;
+    this._requestedIconKeys = new Set();
+  }
+
+  /**
+   * 让所有物品图标（背包、装备槽、拾取弹窗、快捷栏）能使用内容定义的稳定资源 ID。
+   * 图片缺失时按需加载一次，本帧仍回退到既有手绘画法，避免闪烁或重复请求。
+   */
+  installItemIconResolver() {
+    const scene = this.scene;
+    const requested = this._requestedIconKeys;
+    ItemIconRenderer.setImageResolver(stableId => {
+      const manager = scene.assetManager;
+      if (!manager || !stableId) return null;
+      const resolved = manager.resolveManifestAsset?.(stableId, '2d') || null;
+      const key = resolved?.key || stableId;
+      const asset = manager.getAsset?.(key);
+      if (asset) return asset;
+      const url = resolved?.url;
+      if (url && !requested.has(key) && typeof manager.loadImage === 'function') {
+        requested.add(key);
+        Promise.resolve(manager.loadImage(key, url)).catch(() => requested.delete(key));
+      }
+      return null;
+    });
+    return () => {
+      ItemIconRenderer.setImageResolver(null);
+      requested.clear();
+    };
   }
 
   /**

@@ -1695,7 +1695,12 @@
         "toolType": "axe",
         "maxStack": 1,
         "durability": 8,
-        "maxDurability": 8
+        "maxDurability": 8,
+        "imageId": "s01.tool.wornAxe",
+        "sprite": {
+          "width": 40,
+          "height": 40
+        }
       },
       {
         "id": "iron_sword",
@@ -1824,7 +1829,13 @@
             }
           }
         ],
-        "damageRatio": 0
+        "damageRatio": 0,
+        "imageId": "s01.resource.dryWoodNode",
+        "sprite": {
+          "width": 64,
+          "height": 56,
+          "isStatic": true
+        }
       },
       {
         "id": "node.wild_herb",

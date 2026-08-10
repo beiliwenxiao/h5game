@@ -11,6 +11,7 @@ export class SceneWorldPresentation {
     if (!scene) throw new TypeError('SceneWorldPresentation requires scene');
     this.scene = scene;
     this.itemRenderer = options.itemRenderer || ItemSpriteRenderer;
+    this.getAssetManager = options.getAssetManager || (() => this.scene.assetManager || null);
   }
 
   renderBackground(ctx) {
@@ -42,7 +43,9 @@ export class SceneWorldPresentation {
       if (item.picked) continue;
       const x = item.x;
       const y = item.y;
-      if (!this.itemRenderer.draw(ctx, item.id, x, y)) {
+      // 优先使用内容定义的稳定 imageId/assetId；其次手绘画法；最后通用兜底圆点。
+      if (!this._drawPickupImage(ctx, item, x, y)
+        && !this.itemRenderer.draw(ctx, item.id, x, y)) {
         ctx.fillStyle = '#ffaa00';
         ctx.beginPath();
         ctx.arc(x, y - 5, 10, 0, Math.PI * 2);
@@ -53,6 +56,33 @@ export class SceneWorldPresentation {
       ctx.textAlign = 'center';
       ctx.fillText(item.name, x, y - 20);
     }
+  }
+
+  /**
+   * 用稳定 imageId/assetId 绘制地面物品；资源未就绪时返回 false 交给后续兜底。
+   * 坐标语义与手绘画法一致：(x, y) 是落地点，图片按底部中心对齐。
+   */
+  _drawPickupImage(ctx, item, x, y) {
+    const sprite = item.sprite || {};
+    const stableId = item.imageId || item.assetId || sprite.imageId || sprite.assetId;
+    if (!stableId) return false;
+    const manager = this.getAssetManager();
+    if (!manager) return false;
+    const key = manager.resolveManifestAsset?.(stableId, '2d')?.key || stableId;
+    const image = manager.getAsset?.(key);
+    if (!image) return false;
+    const naturalWidth = image.naturalWidth || image.width || 0;
+    const naturalHeight = image.naturalHeight || image.height || 0;
+    if (naturalWidth <= 0 || naturalHeight <= 0) return false;
+    if (image.complete === false) return false;
+
+    const width = sprite.width || item.width || 32;
+    const height = sprite.height || item.height || Math.round(width * naturalHeight / naturalWidth);
+    ctx.save();
+    if (sprite.alpha !== undefined) ctx.globalAlpha = sprite.alpha;
+    ctx.drawImage(image, x - width / 2, y - height, width, height);
+    ctx.restore();
+    return true;
   }
 
   renderFlightShadow(ctx) {

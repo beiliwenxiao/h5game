@@ -138,18 +138,7 @@
       "name": "干旱平原灰盒",
       "visible": true,
       "locked": false,
-      "objects": [
-        {
-          "id": "obj_1786220039726",
-          "type": "image",
-          "imageId": "img_1784926747445",
-          "x": 0,
-          "y": 0,
-          "width": 1280,
-          "height": 720,
-          "rotation": 0
-        }
-      ]
+      "objects": []
     },
     {
       "id": "S01-spawns",

@@ -455,6 +455,24 @@
       "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
     },
     {
+      "assetId": "s01.resource.dryWoodNode", "imageId": "s01.resource.dryWoodNode",
+      "category": "resource-node", "usage": ["S01", "wood", "gathering"],
+      "sourceFile": "assets/images/s01/dry-wood-node.svg",
+      "runtime2D": { "path": "assets/images/s01/dry-wood-node.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.resource.dryWoodNode" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
+      "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.tool.wornAxe", "imageId": "s01.tool.wornAxe",
+      "category": "item-world", "usage": ["S01", "tool", "pickup"],
+      "sourceFile": "assets/images/scene1/RavenmoreIconPack.02.2014/128/axe.png",
+      "runtime2D": { "path": "assets/images/scene1/RavenmoreIconPack.02.2014/128/axe.png", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.tool.wornAxe" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 128, "height": 128 },
+      "animations": [], "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+    },
+    {
       "assetId": "s04.resource.herbNode", "imageId": "s04.resource.herbNode",
       "category": "resource-node", "usage": ["S04", "herb", "poison-zone"],
       "sourceFile": "assets/images/s04/herb-node.svg",

@@ -194,6 +194,19 @@ export class EntityRenderer2D {
   _renderLootFallback(ctx, entity, x, y) {
     const item = entity.itemData || {};
     const itemId = item.id || item.type || entity.itemId || entity.id;
+    // 内容定义的稳定 imageId/assetId 优先于硬编码手绘画法。
+    const stableId = item.imageId || item.assetId || item.sprite?.imageId || item.sprite?.assetId;
+    if (stableId) {
+      const key = this.assetManager?.resolveManifestAsset?.(stableId, '2d')?.key || stableId;
+      const image = this._getReadyImage(key);
+      if (image) {
+        const width = item.sprite?.width || item.width || 32;
+        const height = item.sprite?.height || item.height
+          || Math.round(width * this._imageHeight(image) / this._imageWidth(image));
+        ctx.drawImage(image, x - width / 2, y - height, width, height);
+        return;
+      }
+    }
     if (itemId && ItemSpriteRenderer.draw(ctx, itemId, x, y)) return;
 
     ctx.fillStyle = '#ffaa00';

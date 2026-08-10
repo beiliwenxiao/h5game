@@ -164,7 +164,8 @@ export class PlacementSpawner {
           errors.push({ kind, ref: placement.ref, placement, reason: 'factoryUnavailable' });
           continue;
         }
-        if (['npc', 'enemy', 'resourceNode'].includes(kind) || (kind === 'item' && data.worldProp)) {
+        // 地面可拾取物与装备同样可以声明稳定 imageId，需要一起预载图片。
+        if (['npc', 'enemy', 'resourceNode', 'item', 'equipment'].includes(kind)) {
           this._preloadEntityImage(kind, data, entity, placement);
         }
         if (typeof this.onSpawn === 'function') {

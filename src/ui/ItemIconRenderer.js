@@ -18,6 +18,41 @@
 
 export class ItemIconRenderer {
 
+  /** 稳定 imageId/assetId → 已就绪图片的解析器，由宿主注入（表现层，无业务状态）。 */
+  static _imageResolver = null;
+
+  /**
+   * 注入稳定资源 ID 的图片解析器；传入非函数即关闭图片图标，回到手绘画法。
+   * @param {?function(string, Object): (HTMLImageElement|HTMLCanvasElement|null)} resolver
+   */
+  static setImageResolver(resolver) {
+    ItemIconRenderer._imageResolver = typeof resolver === 'function' ? resolver : null;
+    return ItemIconRenderer._imageResolver;
+  }
+
+  /**
+   * 用内容定义的稳定资源 ID 绘制图标，等比缩放并在格子内居中。
+   * 资源未登记或尚未就绪时返回 false，交给既有手绘画法兜底。
+   */
+  static drawStableImage(ctx, item, cx, cy, slotSize) {
+    const resolver = ItemIconRenderer._imageResolver;
+    if (!resolver || !item) return false;
+    const sprite = item.sprite || {};
+    const stableId = item.iconImageId || item.imageId || item.assetId || sprite.imageId || sprite.assetId;
+    if (!stableId) return false;
+    const image = resolver(stableId, item);
+    if (!image || image.complete === false) return false;
+    const width = image.naturalWidth || image.width || 0;
+    const height = image.naturalHeight || image.height || 0;
+    if (width <= 0 || height <= 0) return false;
+
+    const scale = Math.min(slotSize / width, slotSize / height);
+    const drawWidth = width * scale;
+    const drawHeight = height * scale;
+    ctx.drawImage(image, cx - drawWidth / 2, cy - drawHeight / 2, drawWidth, drawHeight);
+    return true;
+  }
+
   /**
    * 绘制物品图标（通用入口）
    * @param {CanvasRenderingContext2D} ctx
@@ -31,6 +66,9 @@ export class ItemIconRenderer {
     const id = item.id || '';
     const effectType = item.effect?.type || '';
     const scale = slotSize / 32;
+
+    // 内容定义的稳定 imageId/assetId 优先于硬编码手绘画法。
+    if (ItemIconRenderer.drawStableImage(ctx, item, cx, cy, slotSize)) return true;
 
     if (id === 'leftover_food') {
       return ItemIconRenderer._drawScaled(ctx, cx, cy, scale, ItemIconRenderer.drawLeftoverFood);

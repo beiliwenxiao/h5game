@@ -210,7 +210,9 @@ export class PickupSystem {
       effect: item.effect || null,
       stats: item.stats || {}
     };
-    for (const key of ['heal', 'attackSpeed', 'ranged', 'attackRange', 'attackDistance', 'pierce', 'multishot', 'toolType', 'durability', 'maxDurability']) {
+    // 稳定资源 ID 必须随物品进入背包，否则 UI 图标会退回硬编码手绘或首字占位。
+    for (const key of ['heal', 'attackSpeed', 'ranged', 'attackRange', 'attackDistance', 'pierce', 'multishot',
+      'toolType', 'durability', 'maxDurability', 'imageId', 'assetId', 'iconImageId']) {
       if (item[key] !== undefined) itemData[key] = item[key];
     }
 

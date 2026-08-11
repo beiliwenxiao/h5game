@@ -215,6 +215,11 @@ export class EndingSystem {
         actual: hidden.cityMaintenanceLevel
       });
     }
+    const constructionScore = validateNonNegativeInteger(
+      hidden.resourceConstructionScore,
+      'input.hiddenInputs.resourceConstructionScore'
+    );
+    if (!constructionScore.ok) return constructionScore;
     for (const key of ['allOptionalBattlesObserved', 'cityDamageNeglected', 'scorchedEarthChosen']) {
       if (typeof hidden[key] !== 'boolean') return failure('invalidBoolean', `input.hiddenInputs.${key}`);
     }
@@ -391,11 +396,14 @@ export class EndingSystem {
     const conditions = {
       scorchedEarth: {
         matched: hidden.scorchedEarthChosen
-          && input.cityState.coreDamageRatio >= this.scorchedDamageThreshold,
+          && input.cityState.coreDamageRatio >= this.scorchedDamageThreshold
+          && hidden.resourceConstructionScore >= 3,
         explicitChoice: hidden.scorchedEarthChosen,
         coreDamageRatio: input.cityState.coreDamageRatio,
         threshold: this.scorchedDamageThreshold,
-        cityDamageNeglected: hidden.cityDamageNeglected
+        cityDamageNeglected: hidden.cityDamageNeglected,
+        resourceConstructionScore: hidden.resourceConstructionScore,
+        requiredResourceConstructionScore: 3
       },
       observer: {
         matched: hidden.allOptionalBattlesObserved,
@@ -418,10 +426,11 @@ export class EndingSystem {
         supportAlive
       },
       dust: {
-        matched: primaryAlive === 0 && supportAlive === 0 && stats.intervened > 0,
+        matched: true,
         primaryAlive,
         supportAlive,
-        intervened: stats.intervened
+        intervened: stats.intervened,
+        fallback: true
       }
     };
 

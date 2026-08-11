@@ -34,10 +34,13 @@ https://opengameart.org/content/2d-lost-garden-zelda-style-tiles-resized-to-32x3
 ### 快速启动
 
 1. 克隆项目
+当前可用版本是v0.0.2
    ```bash
-   git clone https://gitee.com/coderaaa/yijian18-engine.git 
+   git clone -b v0.0.2 --single-branch --depth 1 https://gitee.com/coderaaa/yijian18-engine.git
+
    或 
-   git clone https://github.com/beiliwenxiao/yijian18-engine.git
+   
+   git clone -b v0.0.2 --single-branch --depth 1 https://github.com/beiliwenxiao/yijian18-engine.git
 
    cd yijian18-engine
    ```
@@ -442,4 +445,4 @@ npm test             # 运行单元测试（Vitest）
 ---
 
 项目状态: 活跃开发中
-当前版本: 0.0.1
+当前版本: 0.0.2

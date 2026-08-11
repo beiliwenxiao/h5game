@@ -83,7 +83,12 @@ export class S13S14Coordinator {
     const story = this.readState()?.storyState || {};
     if (story.s12Resolved !== true) return { ok: false, code: 's12NotResolved' };
     const visited = Array.isArray(story.visitedScenes) ? story.visitedScenes : [];
-    const eligible = story.nanyangIntervened === true && (visited.includes('S05') || visited.includes('S06'));
+    const routeId = story.yuzhouRoute?.routeId || story.routeId || null;
+    const nanyangRoute = routeId === 'nanyang' || story.nanyangIntervened === true;
+    const s05Intervened = story.battleModes?.['battle.s05_wancheng_outskirts'] === 'intervene'
+      || (story.nanyangIntervened === true && story.battleModes?.['battle.s05_wancheng_outskirts'] == null);
+    const eligible = nanyangRoute && s05Intervened
+      && (visited.includes('S05') || visited.includes('S06'));
     const sceneId = eligible ? 'S13' : 'S14';
     if (!this.hasTarget(sceneId)) return { ok: false, code: 'targetMissing', sceneId };
     return { ok: true, sceneId, s13Eligible: eligible };

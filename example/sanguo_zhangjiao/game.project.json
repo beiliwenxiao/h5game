@@ -422,6 +422,42 @@
         },
         "morale": 58,
         "damagePausedUntilDay": 0
+      },
+      {
+        "schemaVersion": 2,
+        "id": "city.s10_guangcheng_camp",
+        "name": "广城溪畔营地",
+        "factionId": "yellow_turban",
+        "buildingLevel": 1,
+        "resources": { "food": 42, "wood": 46, "iron": 14, "herb": 16 },
+        "damageRatio": 0.22,
+        "buildingDamage": {},
+        "morale": 54,
+        "damagePausedUntilDay": 0
+      },
+      {
+        "schemaVersion": 2,
+        "id": "city.s11_guangzong",
+        "name": "广宗",
+        "factionId": "yellow_turban",
+        "buildingLevel": 2,
+        "resources": { "food": 48, "wood": 20, "iron": 8, "herb": 14 },
+        "damageRatio": 0.35,
+        "buildingDamage": { "gate.s11.west": 0.3 },
+        "morale": 72,
+        "damagePausedUntilDay": 0
+      },
+      {
+        "schemaVersion": 2,
+        "id": "city.s12_xiaquyang",
+        "name": "下曲阳",
+        "factionId": "yellow_turban",
+        "buildingLevel": 2,
+        "resources": { "food": 32, "wood": 18, "iron": 12, "herb": 10 },
+        "damageRatio": 0.28,
+        "buildingDamage": { "gate.s12.yamen": 0 },
+        "morale": 55,
+        "damagePausedUntilDay": 0
       }
     ],
     "warState": {
@@ -3882,19 +3918,19 @@
     },
     {
       "id": "trg_s11_assassin_wave_1_defeated",
-      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-1" } },
+      "when": { "type": "waveCleared", "params": { "group": "S11-assassin-wave-1" } },
       "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 1 }, "await": true }],
       "once": true
     },
     {
       "id": "trg_s11_assassin_wave_2_defeated",
-      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-2" } },
+      "when": { "type": "waveCleared", "params": { "group": "S11-assassin-wave-2" } },
       "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 2 }, "await": true }],
       "once": true
     },
     {
       "id": "trg_s11_assassin_wave_3_defeated",
-      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-3" } },
+      "when": { "type": "waveCleared", "params": { "group": "S11-assassin-wave-3" } },
       "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 3 }, "await": true }],
       "once": true
     },

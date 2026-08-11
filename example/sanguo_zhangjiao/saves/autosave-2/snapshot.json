@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786401915004,
+  "createdAt": 1786476098718,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -20,8 +20,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1814.3959909202597,
-          "y": 1255.8958578316008,
+          "x": 2003.4492868839798,
+          "y": 409.16884530815975,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -39,7 +39,7 @@
           "baseDefense": 5,
           "baseSpeed": 100,
           "maxHp": 100,
-          "hp": 10,
+          "hp": 100,
           "maxMp": 100,
           "mp": 10,
           "maxStamina": 100,
@@ -57,12 +57,58 @@
           "gold": 0,
           "attributeEffects": null
         },
-        "inventory": [],
+        "inventory": [
+          {
+            "item": {
+              "id": "tool.worn_axe",
+              "instanceId": "S01-tool-axe-1",
+              "name": "破旧斧头",
+              "type": "tool",
+              "description": "",
+              "rarity": 0,
+              "maxStack": 1,
+              "usable": false,
+              "effect": null,
+              "stats": {},
+              "toolType": "axe",
+              "durability": 6,
+              "maxDurability": 8,
+              "imageId": "s01.tool.wornAxe"
+            },
+            "quantity": 1
+          },
+          {
+            "item": {
+              "id": "resource.herb",
+              "maxStack": 99,
+              "name": "草药",
+              "subType": "herb",
+              "type": "material"
+            },
+            "quantity": 4
+          },
+          {
+            "item": {
+              "id": "resource.wood",
+              "maxStack": 99,
+              "name": "木材",
+              "subType": "wood",
+              "type": "material"
+            },
+            "quantity": 6
+          }
+        ],
         "equipment": {}
       },
       "tutorial": {
         "completedTutorials": [
-          "s01.move"
+          "s01.pickup",
+          "s01.move",
+          "s01.attack",
+          "s01.jump",
+          "s01.gather",
+          "s01.durability",
+          "s01.capacity"
         ],
         "enabled": true
       },
@@ -136,6 +182,42 @@
                 "wood": 20
               },
               "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {},
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.18,
+              "factionId": "han_government",
+              "id": "city.s05_wancheng",
+              "morale": 52,
+              "name": "宛城",
+              "resources": {
+                "food": 55,
+                "herb": 12,
+                "iron": 48,
+                "wood": 24
+              },
+              "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {
+                "palisade.s07": 0.2
+              },
+              "buildingLevel": 1,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.12,
+              "factionId": "han_government",
+              "id": "city.s07_xihua",
+              "morale": 58,
+              "name": "西华",
+              "resources": {
+                "food": 38,
+                "herb": 9,
+                "iron": 16,
+                "wood": 22
+              },
+              "schemaVersion": 2
             }
           ],
           "reputation": 50,
@@ -153,7 +235,9 @@
             "storyTags": [],
             "unlockedScenes": [
               "S01"
-            ]
+            ],
+            "pendingDefeatResolution": null,
+            "specialFaintRescueType": null
           },
           "warResourceNodeStates": [],
           "warState": {
@@ -165,7 +249,9 @@
         "triggers": {
           "firedOnce": [
             "trg_s01_spawn_initial",
-            "trg_s01_light_campfire"
+            "trg_s01_light_campfire",
+            "trg_s01_choose_not_flee",
+            "trg_s01_clear_special_faint"
           ],
           "cooldowns": {}
         },
@@ -200,8 +286,12 @@
       "scene": {
         "regionStates": [],
         "campfireLit": true,
-        "firedPickups": [],
-        "clearedGroups": [],
+        "firedPickups": [
+          "S01-pickup-worn-axe"
+        ],
+        "clearedGroups": [
+          "S01-bandits"
+        ],
         "resourceNodes": [
           {
             "id": "S01-node-wood-1",
@@ -209,7 +299,7 @@
               "schemaVersion": 1,
               "resourceType": "wood",
               "itemId": "resource.wood",
-              "remaining": 12,
+              "remaining": 6,
               "maxRemaining": 12,
               "yieldPerGather": 3,
               "gatherDuration": 1.8,
@@ -296,7 +386,7 @@
               "schemaVersion": 1,
               "resourceType": "herb",
               "itemId": "resource.herb",
-              "remaining": 8,
+              "remaining": 4,
               "maxRemaining": 8,
               "yieldPerGather": 2,
               "gatherDuration": 1.2,
@@ -354,8 +444,42 @@
             "id": "S01-pickup-worn-axe",
             "state": {
               "kind": "item",
-              "removed": false,
+              "removed": true,
               "quantity": 0
+            }
+          },
+          {
+            "id": "S01-bandit-1",
+            "state": {
+              "kind": "enemy",
+              "removed": true,
+              "hp": 0,
+              "position": {
+                "x": 2043.559482000836,
+                "y": 1246.0645231825913
+              },
+              "ai": {
+                "active": false,
+                "aiType": "aggressive",
+                "lure": null
+              }
+            }
+          },
+          {
+            "id": "S01-bandit-2",
+            "state": {
+              "kind": "enemy",
+              "removed": true,
+              "hp": 0,
+              "position": {
+                "x": 1965.2612575050448,
+                "y": 1179.9199626772697
+              },
+              "ai": {
+                "active": false,
+                "aiType": "aggressive",
+                "lure": null
+              }
             }
           }
         ],
@@ -367,8 +491,83 @@
         },
         "gatheringState": {
           "schemaVersion": 1,
-          "nextOperationSequence": 1,
-          "completedOperations": []
+          "nextOperationSequence": 5,
+          "completedOperations": [
+            {
+              "operationId": "gather-1",
+              "result": {
+                "ok": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-1",
+                "accepted": 2,
+                "remainder": 0,
+                "nodeRemaining": 6,
+                "toolBroken": false,
+                "toolInstanceId": null,
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-2",
+              "result": {
+                "ok": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-2",
+                "accepted": 2,
+                "remainder": 0,
+                "nodeRemaining": 4,
+                "toolBroken": false,
+                "toolInstanceId": null,
+                "risk": {
+                  "triggered": true,
+                  "id": "risk.wild_herb_rustle",
+                  "type": "wildlife",
+                  "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
+                  "payload": {
+                    "alert": 1
+                  },
+                  "nodeId": "S01-node-herb-1",
+                  "operationId": "gather-2"
+                }
+              }
+            },
+            {
+              "operationId": "gather-3",
+              "result": {
+                "ok": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-3",
+                "accepted": 3,
+                "remainder": 0,
+                "nodeRemaining": 9,
+                "toolBroken": false,
+                "toolInstanceId": "S01-tool-axe-1",
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-4",
+              "result": {
+                "ok": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-4",
+                "accepted": 3,
+                "remainder": 0,
+                "nodeRemaining": 6,
+                "toolBroken": false,
+                "toolInstanceId": "S01-tool-axe-1",
+                "risk": null
+              }
+            }
+          ]
         },
         "puppetState": {
           "schemaVersion": 1,
@@ -378,8 +577,93 @@
         },
         "proficiencyState": {
           "schemaVersion": 1,
-          "characters": [],
-          "completedOperations": []
+          "characters": [
+            {
+              "characterId": "refugee",
+              "proficiencies": {
+                "gathering": {
+                  "level": 2,
+                  "experience": 20
+                }
+              }
+            }
+          ],
+          "completedOperations": [
+            {
+              "operationId": "gathering:gather-1",
+              "fingerprint": "[\"refugee\",\"gathering\",4]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-1",
+                "amountRequested": 4,
+                "amountApplied": 4,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 4,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-2",
+              "fingerprint": "[\"refugee\",\"gathering\",4]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-2",
+                "amountRequested": 4,
+                "amountApplied": 4,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 8,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-3",
+              "fingerprint": "[\"refugee\",\"gathering\",6]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-3",
+                "amountRequested": 6,
+                "amountApplied": 6,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 14,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-4",
+              "fingerprint": "[\"refugee\",\"gathering\",6]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-4",
+                "amountRequested": 6,
+                "amountApplied": 6,
+                "previousLevel": 1,
+                "level": 2,
+                "experience": 20,
+                "leveledUp": true,
+                "idempotent": false
+              }
+            }
+          ]
+        },
+        "constructionState": {
+          "schemaVersion": 1,
+          "structures": [],
+          "pending": [],
+          "operations": []
         },
         "battleState": {
           "schemaVersion": 1,
@@ -421,7 +705,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 138.169500000016
+          "elapsed": 199.44919999992817
         },
         "nextSceneTarget": null,
         "playerDiedTriggered": false

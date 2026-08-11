@@ -68,6 +68,7 @@ export class MeleeAttackSystem {
     this.floatingTextManager = null;
     this.playerEntity = null;
     this.entities = [];
+    this.canAttack = null;
     this.onAttackPerformed = null;
   }
 
@@ -77,11 +78,14 @@ export class MeleeAttackSystem {
    * @param {Object} deps.inputManager - 输入管理器
    * @param {Object} deps.combatSystem - 战斗系统
    * @param {Object} [deps.floatingTextManager] - 飘动文字管理器
+   * @param {Function} [deps.canAttack] - 当前场景是否允许发起基础攻击
+   * @param {Function} [deps.onAttackPerformed] - 攻击实际启动后的回调
    */
   init(deps) {
     this.inputManager = deps.inputManager;
     this.combatSystem = deps.combatSystem;
     this.floatingTextManager = deps.floatingTextManager || null;
+    this.canAttack = typeof deps.canAttack === 'function' ? deps.canAttack : null;
     this.onAttackPerformed = typeof deps.onAttackPerformed === 'function'
       ? deps.onAttackPerformed
       : null;
@@ -133,9 +137,11 @@ export class MeleeAttackSystem {
     // 判断近战/远程
     this.sectorIsRanged = this.checkIsRangedWeapon();
 
-    // 战斗状态下才能攻击
-    const inCombat = this.combatSystem && this.combatSystem.isInCombat();
-    if (!inCombat) {
+    // 默认只允许战斗状态攻击；场景可注入许可回调用于训练、破坏物等非战斗动作。
+    const canAttack = this.canAttack
+      ? this.canAttack() === true
+      : this.combatSystem?.isInCombat?.() === true;
+    if (!canAttack) {
       this.isSlicing = false;
       return;
     }

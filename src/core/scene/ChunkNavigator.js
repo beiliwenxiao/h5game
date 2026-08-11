@@ -3,13 +3,15 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+import { getWorldMapCellSceneId } from '../WorldMapCell.js';
+
 function findChunkInRegion(region, sceneId) {
   if (!region || !Array.isArray(region.grid)) return null;
   for (let row = 0; row < region.grid.length; row++) {
     const cells = region.grid[row] || [];
     for (let col = 0; col < cells.length; col++) {
       const cell = cells[col];
-      const id = typeof cell === 'string' ? cell : cell?.sceneId ?? cell?.scene ?? cell?.id;
+      const id = getWorldMapCellSceneId(cell);
       if (id === sceneId) {
         const width = Number(region.chunkWidth) || 1280;
         const height = Number(region.chunkHeight) || 720;

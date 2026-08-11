@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "rescue.s12.zhangBao",
+  "battleId": "battle.s12.xiaquyang",
+  "duration": 60,
+  "postGateDuration": 180,
+  "allowedModes": ["intervene"],
+  "targetEntityId": "S12-zhang-bao",
+  "gateEntityId": "S12-yamen-gate",
+  "secretPassageRef": "zhang-bao-secret-passage",
+  "evacuationRef": "zhang-bao-evacuation",
+  "stages": [
+    { "id": "defend-yamen-gate", "objective": "坚守府衙大门 60 秒；提前破门则张宝死亡" },
+    { "id": "open-secret-passage", "objective": "守满 60 秒后开启府衙密道" },
+    { "id": "escort-zhang-bao", "objective": "护送张宝穿过密道抵达撤离点" }
+  ],
+  "conditionalAllies": {
+    "bocai": { "storyPath": "bocaiSurvived", "factionId": "yellow_turban" },
+    "zhangLiangDefense": { "storyPath": "zhangLiangSurvived", "effectPath": "s12DefenseBoost" }
+  },
+  "costs": { "resource.food": 20, "resource.herb": 10 }
+}

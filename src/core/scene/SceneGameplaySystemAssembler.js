@@ -169,6 +169,7 @@ export class SceneGameplaySystemAssembler {
       inputManager: scene.inputManager,
       combatSystem: scene.combatSystem,
       floatingTextManager: scene.floatingTextManager,
+      canAttack: () => scene.canPerformBasicAttack?.() ?? scene.combatSystem?.isInCombat?.() === true,
       onAttackPerformed: () => scene.onPlayerTutorialAction?.('attack')
     });
 

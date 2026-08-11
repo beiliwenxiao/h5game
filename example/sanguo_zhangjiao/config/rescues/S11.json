@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "rescue.s11.zhangLiang",
+  "battleId": "battle.s11.guangzong",
+  "duration": 120,
+  "allowedModes": ["intervene"],
+  "targetEntityId": "S11-zhang-liang",
+  "requiredGuardCount": 6,
+  "assassinWaveCount": 3,
+  "evacuationRef": "zhang-liang-west-gate",
+  "stages": [
+    { "id": "light-beacon", "objective": "点燃广宗烽火，召集失散卫兵" },
+    { "id": "rally-guards", "objective": "在集合区集结至少 6 名卫兵" },
+    { "id": "repel-assassins", "objective": "依次击退三波刺客" },
+    { "id": "breakout-west-gate", "objective": "护送张梁从西门突围" }
+  ],
+  "successEffects": {
+    "yellowTurbanEvacuatedToXiaquyang": 20000,
+    "s12DefenseBoost": { "morale": 15, "gateMaxHpMultiplier": 1.25, "friendlyReinforcements": 20 }
+  },
+  "costs": {}
+}

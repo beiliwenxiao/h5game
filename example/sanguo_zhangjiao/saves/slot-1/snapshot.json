@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786471187918,
+  "createdAt": 1786490696550,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -14,7 +14,7 @@
   "data": {
     "game": {
       "campaignId": "sanguo-zhangjiao-s01-s14",
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "currentSceneId": "S01",
       "player": {
         "id": "refugee",

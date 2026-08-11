@@ -1,3 +1,5 @@
+import { getWorldMapCellSceneId } from '../../../src/core/WorldMapCell.js';
+
 const CAMPAIGN_ID = 'sanguo-zhangjiao-s01-s14';
 const CANONICAL_SCENE_ID = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
 const LEGACY_SCENE_ID = /^(?:s\d+-\d+|scene_Prologue)$/i;
@@ -30,7 +32,8 @@ function collectWorldScenes(project, errors) {
   for (const [regionIndex, region] of (project.worldMap?.regions || []).entries()) {
     const entries = [];
     for (const [rowIndex, row] of (region.grid || []).entries()) {
-      for (const [colIndex, sceneId] of (row || []).entries()) {
+      for (const [colIndex, cell] of (row || []).entries()) {
+        const sceneId = getWorldMapCellSceneId(cell, { includeReserved: true });
         if (sceneId) entries.push({ sceneId, path: `worldMap.regions[${regionIndex}].grid[${rowIndex}][${colIndex}]` });
       }
     }

@@ -39,10 +39,17 @@ export class SceneCombatActions {
     return this.scene.isPlayerActionLocked?.() === true;
   }
 
+  _canAttack() {
+    const sceneDecision = this.scene.canPerformBasicAttack?.();
+    return sceneDecision == null
+      ? this.scene.combatSystem?.isInCombat?.() === true
+      : sceneDecision === true;
+  }
+
   attackByFacing() {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    if (!scene.playerEntity || !scene.meleeAttackSystem || !scene.combatSystem?.isInCombat?.()) return;
+    if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const spriteHeight = scene.playerEntity.getComponent('sprite')?.height || 64;
@@ -61,7 +68,7 @@ export class SceneCombatActions {
   attackByDirection(dirX, dirY, distRatio) {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    if (!scene.playerEntity || !scene.meleeAttackSystem || !scene.combatSystem?.isInCombat?.()) return;
+    if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const melee = scene.meleeAttackSystem;

@@ -3435,6 +3435,85 @@
         "replacesPlaceholderId": "graybox.naturalTerrain"
       },
       "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s13.environment.jingshanBattlefieldGround", "imageId": "s13.environment.jingshanBattlefieldGround", "category": "environment-background",
+      "usage": ["S13", "scene-background", "terminal-battlefield"], "sourceFile": "assets/images/s13/jingshan-battlefield-ground.svg",
+      "runtime2D": { "path": "assets/images/s13/jingshan-battlefield-ground.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s13.environment.jingshanBattlefieldGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1,
+      "displayName": "S13 精山终局战场", "replacesPlaceholderId": "graybox.naturalTerrain",
+      "replacementBrief": { "sceneIds": ["S13"], "subject": "暮雨精山狭长终局战场", "mustShow": ["西南入口", "中央军令台", "东北撤离山口", "暮雨与山雾"], "mustPreserve": ["1280×720 坐标对齐", "主路线和交互锚点", "碰撞由场景定义"], "camera": "top-down-oblique-2d", "palette": ["#30383a", "#6b6760", "#d8aa32", "#7d3030"], "textPolicy": "no-baked-text" }
+    },
+    {
+      "assetId": "s13.story.finalCommandBanner", "imageId": "s13.story.finalCommandBanner", "category": "story-prop", "usage": ["S13", "S14", "battle-choice", "ending-review"],
+      "sourceFile": "assets/images/s13/final-command-banner.svg", "runtime2D": { "path": "assets/images/s13/final-command-banner.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s13.story.finalCommandBanner" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 96, "height": 128 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s14.environment.endingGround", "imageId": "s14.environment.endingGround", "category": "environment-background", "usage": ["S14", "scene-background", "ending-stage"],
+      "sourceFile": "assets/images/s14/ending-ground.svg", "runtime2D": { "path": "assets/images/s14/ending-ground.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s14.environment.endingGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1,
+      "displayName": "S14 结局之地", "replacesPlaceholderId": "graybox.naturalTerrain",
+      "replacementBrief": { "sceneIds": ["S14"], "subject": "雪后将明的终局山口", "mustShow": ["前景残营", "最后马车", "缺梁投石车", "远景退路"], "mustPreserve": ["1280×720 坐标对齐", "终局交互锚点", "碰撞由场景定义"], "camera": "top-down-oblique-2d", "palette": ["#24282a", "#6b6760", "#c8d0d8", "#d8aa32"], "textPolicy": "no-baked-text" }
+    },
+    {
+      "assetId": "s14.vehicle.lastRetreatCart", "imageId": "s14.vehicle.lastRetreatCart", "category": "vehicle", "usage": ["S14", "final-retreat", "cart-breakout"],
+      "sourceFile": "assets/images/s14/last-retreat-cart.svg", "runtime2D": { "path": "assets/images/s14/last-retreat-cart.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s14.vehicle.lastRetreatCart" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 128 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s14.vehicle.unassembledCatapult", "imageId": "s14.vehicle.unassembledCatapult", "category": "vehicle", "usage": ["S14", "siege", "missing-wood"],
+      "sourceFile": "assets/images/s14/unassembled-catapult.svg", "runtime2D": { "path": "assets/images/s14/unassembled-catapult.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s14.vehicle.unassembledCatapult" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 150 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.scorchedEarth", "imageId": "ending.art.scorchedEarth", "category": "narrative-key-art", "usage": ["S14", "ending", "scorched-earth"],
+      "sourceFile": "assets/images/endings/scorched-earth.svg", "runtime2D": { "path": "assets/images/endings/scorched-earth.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.scorchedEarth" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.observer", "imageId": "ending.art.observer", "category": "narrative-key-art", "usage": ["S14", "ending", "observer"],
+      "sourceFile": "assets/images/endings/observer.svg", "runtime2D": { "path": "assets/images/endings/observer.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.observer" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.spark", "imageId": "ending.art.spark", "category": "narrative-key-art", "usage": ["S14", "ending", "spark"],
+      "sourceFile": "assets/images/endings/spark.svg", "runtime2D": { "path": "assets/images/endings/spark.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.spark" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.embers", "imageId": "ending.art.embers", "category": "narrative-key-art", "usage": ["S14", "ending", "embers"],
+      "sourceFile": "assets/images/endings/embers.svg", "runtime2D": { "path": "assets/images/endings/embers.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.embers" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.meteor", "imageId": "ending.art.meteor", "category": "narrative-key-art", "usage": ["S14", "ending", "meteor"],
+      "sourceFile": "assets/images/endings/meteor.svg", "runtime2D": { "path": "assets/images/endings/meteor.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.meteor" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "ending.art.dust", "imageId": "ending.art.dust", "category": "narrative-key-art", "usage": ["S14", "ending", "dust"],
+      "sourceFile": "assets/images/endings/dust.svg", "runtime2D": { "path": "assets/images/endings/dust.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "ending.art.dust" }, "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s11.prop.beaconTower", "imageId": "s11.prop.beaconTower", "category": "battle-prop", "usage": ["S11", "rescue", "beacon"],
+      "sourceFile": "assets/images/s11/beacon-tower.svg", "runtime2D": { "path": "assets/images/s11/beacon-tower.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s11.prop.beaconTower" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 96 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s11.unit.assassin", "imageId": "s11.unit.assassin", "category": "character-static", "usage": ["S11", "enemy", "assassin-wave"],
+      "sourceFile": "assets/images/s11/assassin.svg", "runtime2D": { "path": "assets/images/s11/assassin.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s11.unit.assassin" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 64 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s12.environment.xiaquyangYamenGround", "imageId": "s12.environment.xiaquyangYamenGround", "category": "environment-background", "usage": ["S12", "scene-background", "city-defense"],
+      "sourceFile": "assets/images/s12/xiaquyang-yamen-ground.svg", "runtime2D": { "path": "assets/images/s12/xiaquyang-yamen-ground.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s12.environment.xiaquyangYamenGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s12.structure.yamenGate", "imageId": "s12.structure.yamenGate", "category": "city-structure", "usage": ["S12", "gate-defense", "destructible"],
+      "sourceFile": "assets/images/s12/yamen-gate.svg", "runtime2D": { "path": "assets/images/s12/yamen-gate.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s12.structure.yamenGate" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 110 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s12.structure.secretPassage", "imageId": "s12.structure.secretPassage", "category": "city-structure", "usage": ["S12", "rescue", "secret-passage"],
+      "sourceFile": "assets/images/s12/secret-passage.svg", "runtime2D": { "path": "assets/images/s12/secret-passage.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s12.structure.secretPassage" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 120, "height": 80 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
     }
   ]
 }

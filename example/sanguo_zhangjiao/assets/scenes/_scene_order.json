@@ -1,6 +1,6 @@
 {
   "gameId": "sanguo_zhangjiao",
-  "order": ["S01", "S02", "S09", "S03", "S04", "S05", "S06", "S07", "S08", "S10"],
+  "order": ["S01", "S02", "S09", "S03", "S04", "S05", "S06", "S07", "S08", "S10", "S11", "S12", "S13", "S14"],
   "scenes": {
     "S01": { "name": "S01", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-a" },
     "S02": { "name": "S02·废弃营地", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-a", "productionState": "playable" },
@@ -12,6 +12,9 @@
     "S07": { "name": "S07·西华三线阻滞", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "playable", "previewOnly": false },
     "S08": { "name": "S08·西华余部", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c", "productionState": "playable", "previewOnly": false },
     "S10": { "name": "S10·广城外围", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "playable", "previewOnly": false },
-    "S11": { "name": "S11·广宗战场构图样板", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "greybox", "previewOnly": true }
+    "S11": { "name": "S11·广宗战场", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "playable", "previewOnly": false },
+    "S12": { "name": "S12·下曲阳战场", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-b", "productionState": "playable", "previewOnly": false },
+    "S13": { "name": "S13·精山战场", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-d", "productionState": "playable", "previewOnly": false },
+    "S14": { "name": "S14·结局之地", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-d", "productionState": "playable", "previewOnly": false }
   }
 }

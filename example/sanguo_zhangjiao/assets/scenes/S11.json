@@ -1,427 +1,203 @@
 {
   "id": "S11",
-  "name": "S11·广宗战场构图样板",
+  "name": "S11·广宗战场",
   "width": 1280,
   "height": 720,
   "backgroundColor": "#51483f",
   "type": "terrain",
   "sceneType": "worldChunk",
   "worldMap": "region-b",
-  "productionState": "greybox",
-  "previewOnly": true,
+  "productionState": "playable",
+  "previewOnly": false,
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
-  "composition": {
-    "complexity": "high",
-    "focalPoint": "S11-landmark-west-gate",
-    "primaryRoute": [
-      "S11-spawn-entry",
-      "S11-zone-rally",
-      "S11-landmark-beacon",
-      "S11-landmark-west-gate"
-    ],
-    "cameraFrame": {
-      "width": 1280,
-      "height": 720
-    },
-    "activityBudget": {
-      "activeEntities": 100,
-      "combatLanes": 3
+  "gameplay": {
+    "battleId": "battle.s11.guangzong",
+    "rescueId": "rescue.s11.zhangLiang",
+    "nextSceneId": "S12",
+    "rescueSpawnGroups": {
+      "rally-guards": "S11-rescue-guards",
+      "assassin-wave-1": "S11-assassin-wave-1",
+      "assassin-wave-2": "S11-assassin-wave-2",
+      "assassin-wave-3": "S11-assassin-wave-3"
     }
   },
-  "assetBudget": {
-    "environmentModules": 20,
-    "actorVariants": 14,
-    "interactiveProps": 10,
-    "vfx": 8,
-    "audioLayers": 5
+  "composition": {
+    "complexity": "high",
+    "focalPoint": "S11-west-gate-zone",
+    "primaryRoute": ["S11-spawn-entry", "S11-beacon", "S11-rally-zone", "S11-assassin-zone", "S11-west-gate-zone", "S11-exit-marker"],
+    "cameraFrame": { "width": 1280, "height": 720 },
+    "activityBudget": { "activeEntities": 100, "combatLanes": 3 }
   },
   "layers": [
     {
-      "id": "layer_bg",
-      "name": "背景层",
-      "visible": true,
-      "locked": false,
+      "id": "layer_bg", "name": "广宗战场背景", "visible": true, "locked": false,
       "objects": [
-        {
-          "id": "S11-bg-natural-graybox",
-          "type": "image",
-          "imageId": "s11.environment.guangzongBattlefieldGround",
-          "x": 0,
-          "y": 0,
-          "width": 1280,
-          "height": 720,
-          "rotation": 0,
-          "name": "S11 广宗百人战地貌",
-          "semanticRole": "sceneBackground",
-          "state": "greybox-detailed",
-          "visualDescription": "广宗城外三线百人战场；必须表现：西门城垣、烽火台、西中东三条战线、卫兵集合区、刺客压力区。正式替换图不得烘焙文字或业务碰撞。"
-        }
+        { "id": "S11-background", "type": "image", "imageId": "s11.environment.guangzongBattlefieldGround", "name": "广宗百人战地貌", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0, "semanticRole": "sceneBackground" }
       ]
     },
     {
-      "id": "layer_fill",
-      "name": "战场阅读区",
-      "visible": true,
-      "locked": false,
+      "id": "layer_gameplay", "name": "救援地标与区域", "visible": true, "locked": false,
       "objects": [
-        {
-          "id": "S11-ground",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "广宗战场地面",
-          "points": [
-            [
-              0,
-              0
-            ],
-            [
-              1280,
-              0
-            ],
-            [
-              1280,
-              720
-            ],
-            [
-              0,
-              720
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#51483f",
-          "opacity": 0.25,
-          "strokeWidth": 0,
-          "semanticRole": "terrainSurface",
-          "visualDescription": "广宗战场地面；代表编辑器中的地貌、建筑占地或玩法构图区。"
-        },
-        {
-          "id": "S11-lane-west",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "西线突围道",
-          "points": [
-            [
-              70,
-              600
-            ],
-            [
-              250,
-              690
-            ],
-            [
-              650,
-              170
-            ],
-            [
-              525,
-              90
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#8c7658",
-          "opacity": 0.75,
-          "stroke": "#d7b35b",
-          "strokeWidth": 3,
-          "walkable": true,
-          "semanticRole": "travelRoute",
-          "visualDescription": "西线突围道；代表玩家可通行的地貌动线。"
-        },
-        {
-          "id": "S11-lane-center",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "中央交战道",
-          "points": [
-            [
-              420,
-              720
-            ],
-            [
-              590,
-              720
-            ],
-            [
-              850,
-              0
-            ],
-            [
-              700,
-              0
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#765b48",
-          "opacity": 0.72,
-          "stroke": "#c96b45",
-          "strokeWidth": 3,
-          "walkable": true,
-          "semanticRole": "travelRoute",
-          "visualDescription": "中央交战道；代表玩家可通行的地貌动线。"
-        },
-        {
-          "id": "S11-lane-east",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "东线增援道",
-          "points": [
-            [
-              860,
-              720
-            ],
-            [
-              1035,
-              720
-            ],
-            [
-              1210,
-              120
-            ],
-            [
-              1080,
-              65
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#6e675b",
-          "opacity": 0.72,
-          "stroke": "#aeb8c2",
-          "strokeWidth": 3,
-          "walkable": true,
-          "semanticRole": "travelRoute",
-          "visualDescription": "东线增援道；代表玩家可通行的地貌动线。"
-        }
+        { "id": "S11-command-banner", "type": "image", "imageId": "s13.story.finalCommandBanner", "name": "广宗军令旗", "x": 105, "y": 555, "width": 72, "height": 96, "depthSort": true, "sortY": 651, "semanticRole": "battleMarker" },
+        { "id": "S11-beacon", "type": "image", "imageId": "s11.prop.beaconTower", "name": "广宗烽火台", "x": 610, "y": 235, "width": 72, "height": 96, "depthSort": true, "sortY": 331, "semanticRole": "rescueObjective" },
+        { "id": "S11-rally-zone", "type": "region", "name": "卫兵集合区", "regionId": "S11-rally-zone", "x": 220, "y": 420, "width": 285, "height": 195 },
+        { "id": "S11-assassin-zone", "type": "region", "name": "三波刺客压力区", "regionId": "S11-assassin-zone", "x": 770, "y": 230, "width": 390, "height": 310 },
+        { "id": "S11-west-gate-zone", "type": "region", "name": "西门突围区", "regionId": "S11-west-gate-zone", "x": 430, "y": 35, "width": 220, "height": 115 },
+        { "id": "S11-exit-marker", "type": "image", "imageId": "story.messengerRecallBanner", "name": "前往下曲阳的军令旗", "x": 735, "y": 70, "width": 80, "height": 112, "depthSort": true, "sortY": 182, "semanticRole": "travelMarker" },
+        { "id": "S11-west-gate-boundary", "type": "shape", "shapeType": "polygon", "name": "西门城垣", "points": [[420,35],[660,35],[660,85],[420,85]], "fillMode": "color", "fill": "#382f2a", "opacity": 0.85, "stroke": "#d7b35b", "strokeWidth": 5, "collide": true, "semanticRole": "collisionBoundary" }
       ]
     },
     {
-      "id": "layer_deco",
-      "name": "战场地标",
-      "visible": true,
-      "locked": false,
+      "id": "layer_placement", "name": "百人战、张梁与刺客波次", "visible": true, "locked": false,
       "objects": [
-        {
-          "id": "S11-landmark-west-gate",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "西门突围口",
-          "points": [
-            [
-              430,
-              40
-            ],
-            [
-              650,
-              40
-            ],
-            [
-              650,
-              125
-            ],
-            [
-              430,
-              125
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#382f2a",
-          "opacity": 1,
-          "stroke": "#d7b35b",
-          "strokeWidth": 5,
-          "collide": true,
-          "semanticRole": "collisionBoundary",
-          "visualDescription": "西门突围口；代表不可通行的建筑或地貌边界。"
-        },
-        {
-          "id": "S11-landmark-beacon",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "烽火台",
-          "points": [
-            [
-              605,
-              235
-            ],
-            [
-              690,
-              235
-            ],
-            [
-              710,
-              345
-            ],
-            [
-              585,
-              345
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#d6652d",
-          "opacity": 0.92,
-          "stroke": "#ffb24a",
-          "strokeWidth": 4,
-          "collide": true,
-          "semanticRole": "collisionBoundary",
-          "visualDescription": "烽火台；代表不可通行的建筑或地貌边界。"
-        },
-        {
-          "id": "S11-zone-rally",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "卫兵集合区",
-          "points": [
-            [
-              220,
-              440
-            ],
-            [
-              460,
-              400
-            ],
-            [
-              505,
-              570
-            ],
-            [
-              260,
-              610
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#b6973f",
-          "opacity": 0.55,
-          "stroke": "#e3c65d",
-          "strokeWidth": 3,
-          "semanticRole": "gameplayZone",
-          "visualDescription": "卫兵集合区；代表编辑器中的地貌、建筑占地或玩法构图区。"
-        },
-        {
-          "id": "S11-zone-assassins",
-          "type": "shape",
-          "shapeType": "polygon",
-          "name": "刺客三波压力区",
-          "points": [
-            [
-              770,
-              260
-            ],
-            [
-              1105,
-              230
-            ],
-            [
-              1160,
-              505
-            ],
-            [
-              815,
-              540
-            ]
-          ],
-          "fillMode": "color",
-          "fill": "#783a36",
-          "opacity": 0.5,
-          "stroke": "#d35f50",
-          "strokeWidth": 3,
-          "semanticRole": "gameplayZone",
-          "visualDescription": "刺客三波压力区；代表编辑器中的地貌、建筑占地或玩法构图区。"
-        }
+        { "id": "S11-spawn-entry", "type": "spawn", "name": "南侧入口", "ref": "player", "x": 110, "y": 650 },
+        { "id": "S11-spawn-intervention", "type": "spawn", "name": "介入阵线入口", "ref": "battle-intervention", "x": 260, "y": 610 },
+        { "id": "S11-spawn-west-gate", "type": "spawn", "name": "张梁西门撤离点", "ref": "zhang-liang-west-gate", "x": 540, "y": 105 },
+        { "id": "S11-zhang-liang", "type": "ref", "kind": "npc", "ref": "npc.s09_zhangliang", "group": "S11-zhang-liang-rescue", "tags": ["rescueTarget", "yellow_turban"], "x": 365, "y": 510, "overrides": { "imageId": "s09.character.zhangliang", "interaction": { "radius": 92, "prompt": "{interact}启动张梁限时救援", "trigger": "interact" } } },
+
+        { "id": "S11-yellow-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 180, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 235, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 290, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-04", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 345, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-05", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 400, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-06", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 455, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-07", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-08", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 565, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-09", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 620, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-10", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 675, "y": 390, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-11", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 180, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-12", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 235, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-13", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 290, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-14", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 345, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-15", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 400, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-16", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 455, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-17", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-18", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 565, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-19", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 620, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-20", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 675, "y": 445, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-21", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 180, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-22", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 235, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-23", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 290, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-24", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 345, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-25", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 400, "y": 500, "overrides": { "aiActive": false } },
+
+        { "id": "S11-yellow-26", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 455, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-27", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-28", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 565, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-29", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 620, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-30", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 675, "y": 500, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-31", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 180, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-32", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 235, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-33", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 290, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-34", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 345, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-35", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 400, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-36", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 455, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-37", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-38", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 565, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-39", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 620, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-40", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 675, "y": 555, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-41", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 180, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-42", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 235, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-43", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 290, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-44", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 345, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-45", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 400, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-46", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 455, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-47", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-48", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 565, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-49", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 620, "y": 610, "overrides": { "aiActive": false } },
+        { "id": "S11-yellow-50", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 675, "y": 610, "overrides": { "aiActive": false } },
+
+        { "id": "S11-han-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 775, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 830, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-04", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-05", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 940, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-06", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 995, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-07", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1050, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-08", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1105, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-09", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1160, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-10", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1215, "y": 160, "overrides": { "aiActive": false } },
+        { "id": "S11-han-11", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-12", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 775, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-13", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 830, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-14", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-15", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 940, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-16", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 995, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-17", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1050, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-18", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1105, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-19", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1160, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-20", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1215, "y": 215, "overrides": { "aiActive": false } },
+        { "id": "S11-han-21", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-22", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 775, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-23", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 830, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-24", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-25", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 940, "y": 270, "overrides": { "aiActive": false } },
+
+        { "id": "S11-han-26", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 995, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-27", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1050, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-28", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1105, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-29", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1160, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-30", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1215, "y": 270, "overrides": { "aiActive": false } },
+        { "id": "S11-han-31", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-32", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 775, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-33", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 830, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-34", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-35", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 940, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-36", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 995, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-37", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1050, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-38", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1105, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-39", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1160, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-40", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1215, "y": 325, "overrides": { "aiActive": false } },
+        { "id": "S11-han-41", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-42", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 775, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-43", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 830, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-44", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-45", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 940, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-46", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 995, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-47", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1050, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-48", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1105, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-49", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1160, "y": 380, "overrides": { "aiActive": false } },
+        { "id": "S11-han-50", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-han-army", "tags": ["battleParticipant","han_government"], "x": 1215, "y": 380, "overrides": { "aiActive": false } },
+
+        { "id": "S11-guard-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 255, "y": 470, "overrides": { "aiActive": false } },
+        { "id": "S11-guard-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 305, "y": 470, "overrides": { "aiActive": false } },
+        { "id": "S11-guard-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 355, "y": 470, "overrides": { "aiActive": false } },
+        { "id": "S11-guard-04", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 280, "y": 525, "overrides": { "aiActive": false } },
+        { "id": "S11-guard-05", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 335, "y": 525, "overrides": { "aiActive": false } },
+        { "id": "S11-guard-06", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S11-rescue-guards", "tags": ["rescueGuard","yellow_turban"], "x": 390, "y": 525, "overrides": { "aiActive": false } },
+
+        { "id": "S11-assassin-w1-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-1", "tags": ["assassin","han_government"], "x": 860, "y": 455, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w1-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-1", "tags": ["assassin","han_government"], "x": 920, "y": 485, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w1-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-1", "tags": ["assassin","han_government"], "x": 980, "y": 455, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w2-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-2", "tags": ["assassin","han_government"], "x": 885, "y": 520, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w2-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-2", "tags": ["assassin","han_government"], "x": 950, "y": 540, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w2-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-2", "tags": ["assassin","han_government"], "x": 1015, "y": 515, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w3-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-3", "tags": ["assassin","han_government"], "x": 1030, "y": 440, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w3-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-3", "tags": ["assassin","han_government"], "x": 1090, "y": 480, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } },
+        { "id": "S11-assassin-w3-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S11-assassin-wave-3", "tags": ["assassin","han_government"], "x": 1145, "y": 445, "overrides": { "aiActive": false, "imageId": "s11.unit.assassin" } }
       ]
     },
     {
-      "id": "layer_entity",
-      "name": "实体锚点",
-      "visible": true,
-      "locked": false,
+      "id": "layer_logic", "name": "S11 战役与救援触发器", "visible": true, "locked": false,
       "objects": [
-        {
-          "id": "S11-spawn-entry",
-          "type": "spawn",
-          "name": "南侧战场入口",
-          "ref": "player",
-          "x": 135,
-          "y": 630
-        },
-        {
-          "id": "S11-spawn-yellow-turban",
-          "type": "spawn",
-          "name": "黄巾军阵列锚点",
-          "ref": "yellow-turban-formation",
-          "group": "S11-yellow-turban",
-          "x": 390,
-          "y": 520
-        },
-        {
-          "id": "S11-spawn-han-army",
-          "type": "spawn",
-          "name": "官军阵列锚点",
-          "ref": "han-army-formation",
-          "group": "S11-han-army",
-          "x": 970,
-          "y": 410
-        },
-        {
-          "id": "S11-marker-yellow-1",
-          "type": "image",
-          "imageId": "graybox.battlefieldUnit",
-          "x": 335,
-          "y": 475,
-          "width": 48,
-          "height": 48,
-          "rotation": 0,
-          "name": "黄巾军西侧阵列标记",
-          "semanticRole": "battleMarker",
-          "visualDescription": "黄巾军西侧阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
-        },
-        {
-          "id": "S11-marker-yellow-2",
-          "type": "image",
-          "imageId": "graybox.battlefieldUnit",
-          "x": 395,
-          "y": 505,
-          "width": 48,
-          "height": 48,
-          "rotation": 0,
-          "name": "黄巾军中央阵列标记",
-          "semanticRole": "battleMarker",
-          "visualDescription": "黄巾军中央阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
-        },
-        {
-          "id": "S11-marker-han-placeholder",
-          "type": "image",
-          "imageId": "graybox.battlefieldUnit",
-          "x": 945,
-          "y": 365,
-          "width": 48,
-          "height": 48,
-          "rotation": 0,
-          "name": "官军东侧阵列标记",
-          "semanticRole": "battleMarker",
-          "visualDescription": "官军东侧阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
-        }
+        { "id": "S11-trigger-battle-mode", "type": "trigger", "name": "选择广宗参战方式", "triggerId": "trg_s11_choose_battle_mode", "command": "openS11BattleMode", "x": 70, "y": 520, "width": 150, "height": 150, "event": "interact", "targetMode": "id", "target": "S11-command-banner", "radius": 115, "pointerRadius": 64, "prompt": "{interact}选择广宗参战方式" },
+        { "id": "S11-trigger-start-rescue", "type": "trigger", "name": "启动张梁救援", "triggerId": "trg_s11_start_zhang_liang_rescue", "command": "startS11Rescue", "x": 310, "y": 440, "width": 120, "height": 130, "event": "interact", "targetMode": "id", "target": "S11-zhang-liang", "radius": 100, "pointerRadius": 60, "prompt": "{interact}启动张梁 120 秒救援" },
+        { "id": "S11-trigger-beacon", "type": "trigger", "name": "点燃烽火", "triggerId": "trg_s11_light_beacon", "command": "completeS11Beacon", "x": 575, "y": 205, "width": 140, "height": 150, "event": "interact", "targetMode": "id", "target": "S11-beacon", "radius": 100, "pointerRadius": 60, "prompt": "{interact}点燃烽火" },
+        { "id": "S11-trigger-rally", "type": "trigger", "name": "集合卫兵", "triggerId": "trg_s11_rally_guards", "command": "completeS11GuardRally", "x": 220, "y": 420, "width": 285, "height": 195, "event": "enter", "targetMode": "id", "target": "S11-rally-zone", "radius": 110, "pointerRadius": 60, "prompt": "集合 6 名卫兵" },
+        { "id": "S11-trigger-west-gate", "type": "trigger", "name": "张梁西门突围", "triggerId": "trg_s11_west_gate_breakout", "command": "completeS11WestGateBreakout", "x": 430, "y": 35, "width": 220, "height": 115, "event": "enter", "targetMode": "id", "target": "S11-west-gate-zone", "radius": 85, "pointerRadius": 60, "prompt": "西门突围点" },
+        { "id": "S11-binding-s12-exit", "type": "trigger", "name": "前往下曲阳战场", "triggerId": "trg_s11_exit_s12", "command": "checkS11Exit", "x": 700, "y": 35, "width": 150, "height": 180, "event": "interact", "targetMode": "id", "target": "S11-exit-marker", "radius": 115, "pointerRadius": 64, "prompt": "{interact}确认广宗战果并前往下曲阳" }
       ]
-    },
-    {
-      "id": "layer_logic",
-      "name": "逻辑预留",
-      "visible": true,
-      "locked": false,
-      "objects": []
     }
   ],
   "decorations": [],
   "colliders": [],
   "imageAssets": {
-    "graybox.naturalTerrain": {
-      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
-      "name": "自然地形灰盒"
-    },
-    "graybox.battlefieldUnit": {
-      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
-      "name": "战场单位灰盒"
-    },
-    "s11.environment.guangzongBattlefieldGround": {
-      "src": "../example/sanguo_zhangjiao/assets/images/s11/guangzong-battlefield-ground.svg",
-      "name": "S11 广宗百人战地貌"
-    }
+    "s11.environment.guangzongBattlefieldGround": { "src": "../example/sanguo_zhangjiao/assets/images/s11/guangzong-battlefield-ground.svg", "name": "广宗百人战地貌" },
+    "s11.prop.beaconTower": { "src": "../example/sanguo_zhangjiao/assets/images/s11/beacon-tower.svg", "name": "广宗烽火台" },
+    "s11.unit.assassin": { "src": "../example/sanguo_zhangjiao/assets/images/s11/assassin.svg", "name": "广宗刺客" },
+    "s09.character.zhangliang": { "src": "../example/sanguo_zhangjiao/assets/images/s09/zhangliang.svg", "name": "张梁" },
+    "s13.story.finalCommandBanner": { "src": "../example/sanguo_zhangjiao/assets/images/s13/final-command-banner.svg", "name": "军令旗" },
+    "story.messengerRecallBanner": { "src": "../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg", "name": "下曲阳军令旗" }
   },
   "updatedAt": "2026-08-12T00:00:00.000Z"
 }

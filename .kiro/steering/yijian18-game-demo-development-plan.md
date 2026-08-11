@@ -47,7 +47,7 @@ fileMatchPattern: "{.kiro/specs/yijian18-game-demo,example/sanguo_zhangjiao,src/
 | 语言与 Schema | TypeScript + `src/schema/` + protobuf | ES6 JS + `src/data/schema/`，无 TS 生成与 proto；字段语义保持一致以便后续接外部服务 |
 | 第三职业 | `mage` | `strategist`／军师，无旧职业兼容 |
 | 结局数量 | 主案 5 结局 | 6 结局，补充案的隐藏「焦土」升为正式结局，并固定优先级：焦土 → 旁观者 → 火种 → 余烬 → 流星 → 尘埃 |
-| 地图事实源 | 20×20 ASCII 网格与 `(row,col)` | Region + chunk worldOffset 为运行时事实源；ASCII 网格只作构图参考，坐标冲突时以磁盘场景 JSON 与 `WorldMapLoadSession` 投影为准 |
+| 地图事实源 | 20×20 ASCII 网格与 `(row,col)` | 用户确认的 20×20 `(row,col)` 是世界布局事实；唯一实际配置保存在 `game.project.json -> worldMap.regions[].grid`。各 Region 使用同一全局 20×20 坐标，场景 JSON 只保存 chunk 局部坐标，`worldOffset = (col×1280,row×720)` 由运行时派生且只应用一次；未完成场景用 `reserved:true` 单元保留规划位置但禁止加载 |
 | 建造耗时 | 补充案 4.1 说资源够即「瞬间完成」，二.1 说「不能瞬间完成，除非 damage>0.5」 | 采用后者：普通施工必须走工期，仅城损 >0.5 的抢修缩短工期并以 50% 初始耐久完成 |
 | 捐粮士气 | 补充案写「士气 +5%」 | 实现为绝对值 `morale + 5`，CityState 士气为 0–100 整数，不使用百分比叠加 |
 | 采集工具耐久 | 示例「铁斧 30」 | S01 开局为「破旧斧头」耐久 8，体现开局窘迫；后续工具可按 30 量级配置 |
@@ -144,7 +144,7 @@ example/sanguo_zhangjiao/
 
 | 阶段 | 状态 | 当前已落地 | 尚未完成/出口阻断 |
 |---|---|---|---|
-| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入；GameProject 已提供受控 `extensions`，S01 教学、S09 饥民数值和 S03/S04/S05/S07 战役 flow 已改为配置优先；六个通用 trigger action 已下沉至 `SceneTriggerActionProvider`；编辑器已支持 image/shape/effectZone 名称、语义角色、状态和视觉说明，背景 Manifest 已支持结构化 replacement brief | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 与 `extensions` 对外部调用方的影响；继续把 Demo 事务编排按领域拆入 coordinator，但不把回滚/checkpoint 直接 JSON 化 |
+| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入；GameProject 已提供受控 `extensions`，S01 教学、S09 饥民数值和 S03/S04/S05/S07 战役 flow 已改为配置优先；六个通用 trigger action 已下沉至 `SceneTriggerActionProvider`；编辑器已支持 image/shape/effectZone 名称、语义角色、状态和视觉说明，背景 Manifest 已支持结构化 replacement brief；A–D Region 已统一为用户确认的全局 20×20 grid，S01–S14 规划坐标已落盘，未完成的 S12–S14 使用不可加载 reserved 单元 | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 与 `extensions` 对外部调用方的影响；继续把 Demo 事务编排按领域拆入 coordinator，但不把回滚/checkpoint 直接 JSON 化 |
 | P1 | inProgress | 原子库存、设备无关拾取、采集与工具回滚、S01 七项教学和一次性收益、普通死亡/DeathDrop、Placement 动态恢复、跨 Region 两阶段切换已实现；S01 干旱荒原与 S02 废弃营地已接入独立 1280×720 细节背景、稳定 ID 和替换 brief | 浏览器验证攻击教学、采集中断、受伤半产量、owner 隔离、奖励幂等、DeathDrop 和两轮 save/load；S02 完整体验与音画仍需验收，当前生成背景仍是可替换临时资产 |
 | P2 | inProgress | S09 三职业与不可逆确认、职业装备/技能事务、军师采集傀儡、未许可采粮、饥民三分支与延迟后果、四成长池、ProficiencySystem、CityStateSummaryPanel、稳定资产链与通用 Y-sort 已接入；S09 专属背景已有地貌语义与替换 brief | 浏览器验证三输入、三剧情分支、跨日/读档、城市摘要、熟练度反馈和 S09 动线；真实音频及最终美术审核未完成，S09 不得提升为 `contentComplete` |
 | P3 | inProgress | BattleSystem、CityWarSystem、BattlefieldRuntimeSystem、战役 HUD/战果 UI、S03/S04/S05/S07 实时战役、波才/张曼成救援、S05 矿坑工具损毁与撤退、S06 铲损工事作废及守撤选择、S07 三线资源阻滞、S08 残部撤退与 S10 召回接续均已接入；S03–S08 已分别接入颍川旷野、长社焦土、宛城外郭/围攻、西华阻滞/残营独立背景和对象语义，S04 毒烟表现统一使用 smoke 预设与 poisonSmoke 语义 | 浏览器实际战斗、观战/介入、AI/Collision、战中存读档、两次救援、两条路线和三输入仍待验收；S06 木铁采集修补的完整采集表现与 P3 全量音画尚未完成，生成背景仍需最终美术审核，不能称为 Main Alpha |
@@ -165,7 +165,7 @@ example/sanguo_zhangjiao/
 
 - `S04RouteCoordinator` 领域 one-off 已覆盖：南阳只解锁 S05、同路线不重复 checkpoint、异路线返回 `routeLocked`、checkpoint 失败完整恢复 StoryState、active 救援阻断、目标缺失拒绝、checkpoint 后事件异常不回滚已持久化路线。
 - 真实 `GameLoader.load()` 已完成全部 `$ref` 解析、内容策略和注册表预检；初始解锁仍只有 S01，S05/S07 只通过路线事务动态解锁。
-- `WorldMapLoadSession` 已验证 S05 offset `{3840,0}`、S07 offset `{3840,1440}`；当前磁盘 S07 玩家出生点局部坐标 `{125,635}`，投影世界坐标 `{3965,2075}`，局部坐标保持不变。
+- `WorldMapLoadSession` 已按用户确认的全局 20×20 坐标投影：S05 offset `{16640,11520}`、S07 offset `{19200,12240}`；当前磁盘 S07 玩家出生点局部坐标 `{125,635}`，投影世界坐标 `{19325,12875}`，局部坐标保持不变。S12–S14 仅以 `reserved:true` 保存规划位置，不进入加载、传送或存档恢复目标。
 - 当前相关 JS/JSON diagnostics 均通过；ConstructionSystem、S06/S10 场景、GameProject、Manifest 与新增 SVG 最近一次 diagnostics 无问题。尚无浏览器 playthrough 证据，因此 P0–P4 均不得整体标记 `done`。
 
 每阶段同时推进四条轨道：A 引擎与领域系统、B 场景和叙事内容、C 美术音频和 UI、D 集成与质量。任何阶段不能只关闭 A 轨道。

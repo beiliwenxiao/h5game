@@ -23,6 +23,7 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
+import { getWorldMapCellSceneId } from '../../../src/core/WorldMapCell.js';
 import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
@@ -764,6 +765,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
   }
 
+  /** S01 攻击教学允许无敌人空挥；其余场景仍遵守正式战斗状态。 */
+  canPerformBasicAttack() {
+    if (super.canPerformBasicAttack()) return true;
+    if (this.currentSceneId !== 'S01') return false;
+    const nextTutorial = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
+    return nextTutorial === 's01.attack';
+  }
+
   /** 场景采集政策统一入口：S05 处理强制工具损毁，S09 处理未许可采粮。 */
   prepareGatheringSettlement(context = {}) {
     const { operationId, node, owner } = context;
@@ -1277,7 +1286,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const regions = this._worldLoadResult?.project?.worldMap?.regions || [];
     return regions.findIndex(region => {
       if ((region.chunks || []).some(chunk => chunk?.sceneId === sceneId)) return true;
-      return (region.grid || []).some(row => (row || []).includes(sceneId));
+      return (region.grid || []).some(row => (row || []).some(cell => getWorldMapCellSceneId(cell) === sceneId));
     });
   }
 
@@ -1926,7 +1935,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const rowArr = region.grid[row];
       if (!rowArr) continue;
       for (let col = 0; col < rowArr.length; col++) {
-        if (rowArr[col] === sceneId) return { col, row };
+        if (getWorldMapCellSceneId(rowArr[col]) === sceneId) return { col, row };
       }
     }
     return null;
@@ -5147,7 +5156,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._showScreenTip('先与黄巾信使交谈并接受召见', { title: '尚未获得路线' });
       return { ok: false, errors: [{ code: 'summonsRequired', path: 'storyState.s02SummonsAccepted', message: '尚未接受张角召见' }] };
     }
-    return this.travelToRegion({ regionIndex: 1, sceneId: 'S09', spawnRef: 'player' });
+    const regionIndex = this._findRegionIndexForScene('S09');
+    if (regionIndex < 0) {
+      return { ok: false, errors: [{ code: 'missingTargetScene', path: 'worldMap', message: '世界地图未登记 S09' }] };
+    }
+    return this.travelToRegion({ regionIndex, sceneId: 'S09', spawnRef: 'player' });
   }
 
   /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */

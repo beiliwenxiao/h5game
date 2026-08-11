@@ -319,6 +319,14 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - `renderSceneList()` 在场景创建、删除、改名、切换游戏及排序回填后，会刷新已打开的触发器属性和事件编辑器筛选下拉。
 - 列表中保留已删除场景的旧引用，标记为“旧引用”，避免历史触发器配置被静默丢失。
 
+## 世界地图网格与规划单元
+
+- 《三国张角传》的 A–D Region 都使用同一全局 20×20 `(row,col)` 坐标；唯一配置事实源是 `game.project.json -> worldMap.regions[].grid`。场景 JSON 只保存 chunk 局部坐标，运行时按 `worldOffset = { x: col * chunkWidth, y: row * chunkHeight }` 派生且只应用一次。
+- 普通字符串单元表示可加载场景；`{ sceneId, reserved: true }` 只表示尚未完成场景的规划位置。reserved 单元必须在世界地图编辑器中可见，但不得进入加载、九宫格流式、传送、调试跳转或存档恢复目标。
+- 所有调用方通过 `src/core/WorldMapCell.js` 解析单元，禁止直接把 `grid[row][col]` 当 sceneId。编辑器需要展示规划位置时显式使用 `includeReserved:true`。
+- 大地图网格和场景缩略图都必须磁盘优先：网格读取当前游戏 `game.project.json`，缩略图读取同项目 `assets/scenes/<sceneId>.json`；localStorage 只在磁盘场景读取失败时 fallback。切换游戏时必须同时更新 `gameId/projectPath`，不能复用旧实例路径。20×20 稀疏网格渲染后应自动定位当前 Region 的有效单元包围盒。
+- 场景实现完成后，先确保磁盘场景文件与 `game.project.json.scenes[]` 元数据可加载，再把 reserved 对象替换为同 ID 字符串；不得用空场景文件冒充内容完成。
+
 ## 游戏级表现规格
 
 - `game.project.json.presentation.$ref` 指向当前游戏唯一的 presentation profile；《三国张角传》使用 `config/presentation.json`。禁止把目标逻辑分辨率、像素比例、网格、角色视觉/占地尺寸、方向数和移动端最小字号再复制到 `editor-defaults.json` 或场景类常量。

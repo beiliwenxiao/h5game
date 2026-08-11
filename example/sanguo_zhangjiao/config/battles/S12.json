@@ -1,0 +1,50 @@
+{
+  "id": "battle.s12.xiaquyang",
+  "battleId": "battle.s12.xiaquyang",
+  "title": "S12·下曲阳守城战",
+  "description": "先守府衙门 60 秒，再开启密道护送张宝；波才与张梁存活会改变友军和城防。",
+  "sceneFlow": {
+    "sceneId": "S12", "locationName": "下曲阳",
+    "unavailableMessage": "下曲阳战役运行时尚未就绪", "conflictMessage": "上一场战役尚未完成结算。",
+    "activeMessage": "下曲阳战役正在进行，参战方式不可更改。", "appliedTitle": "下曲阳·已结算战果",
+    "resultTitle": "下曲阳·战果", "resultMessage": "守城战果与张宝救援结果已经冻结。",
+    "settlementMessage": "下曲阳战果已写入城市与战争状态。", "interventionMessage": "已进入府衙防线，可确认消耗粮药的张宝救援路线。",
+    "worldChanges": {}, "resolvedKey": "s12BattleResolved", "winnerKey": "s12WinnerFactionId", "checkpointId": "checkpoint.S12.battleResolved"
+  },
+  "participantFactionIds": ["yellow_turban", "han_government"], "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s12.xiaquyang", "terrainId": "terrain.s12.xiaquyang",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s12.han", "name": "下曲阳官军", "factionId": "han_government", "formationIds": ["formation.s12.han.siege"], "commanderHeroId": "hero.s12.han_commander", "morale": 82, "resources": { "food": 76, "wood": 30, "iron": 28, "herb": 16 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s12.yellow_turban", "name": "下曲阳黄巾守军", "factionId": "yellow_turban", "formationIds": ["formation.s12.yellow_turban.yamen"], "commanderHeroId": "hero.zhang_bao", "morale": 55, "resources": { "food": 32, "wood": 18, "iron": 12, "herb": 10 } },
+    "attackerMorale": 82, "defenderMorale": 55, "attackerCommanderId": "hero.s12.han_commander", "defenderCommanderId": "hero.zhang_bao",
+    "weather": "dust", "seed": 31201, "logicalTime": 360, "affectedCityId": "city.s12_xiaquyang",
+    "resourceSourceCityId": "city.s12_xiaquyang", "resourceDestinationCityId": "city.s10_guangcheng_camp", "resourceNodeIds": ["node.s05_iron_ore"]
+  },
+  "preBattleRules": { "friendlyMoraleZero": { "winnerFactionId": "han_government", "reason": "friendlyMoraleZero", "skipRealtimeBattle": true } },
+  "conditionalSupport": {
+    "bocai": { "whenStoryPath": "bocaiSurvived", "placementGroup": "S12-bocai-allies" },
+    "zhangLiang": { "whenStoryPath": "zhangLiangSurvived", "effectPath": "s12DefenseBoost" }
+  },
+  "outcomePriority": [
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" }, "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" }, "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "守住府衙防线并为张宝密道撤离争取时间", "playerInterventionFactionId": "yellow_turban",
+  "realtimeMorale": { "yellow_turban": 55, "han_government": 82 },
+  "realtimeResult": { "byWinner": {
+    "yellow_turban": { "capturedResources": { "wood": 4, "iron": 8, "food": 10, "herb": 3 }, "cityDamage": 0.38, "damagedResourceNodeIds": [] },
+    "han_government": { "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 }, "cityDamage": 0.75, "damagedResourceNodeIds": ["node.s05_iron_ore"] }
+  } },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "下曲阳·选择参战方式", "description": "士气为 0 将直接敌胜；观战禁用救援，介入并确认路线会原子扣除粮食 20、草药 10。", "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能启动张宝救援", "不能影响府衙守军", "等待下曲阳战果冻结"] },
+    "intervene": { "label": "介入", "consequences": ["消耗粮食 20 与草药 10", "守门 60 秒后开放密道", "护送失败会冻结张宝死亡结果"] }
+  }
+}

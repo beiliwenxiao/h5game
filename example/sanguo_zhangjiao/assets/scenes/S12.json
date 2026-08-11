@@ -1,0 +1,107 @@
+{
+  "id": "S12",
+  "name": "S12·下曲阳战场",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#4b443c",
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "region-b",
+  "productionState": "playable",
+  "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": {
+    "complexity": "high", "focalPoint": "S12-yamen-gate",
+    "primaryRoute": ["S12-spawn-entry", "S12-yamen-gate", "S12-secret-passage", "S12-evacuation-zone", "S12-exit-marker"],
+    "cameraFrame": { "width": 1280, "height": 720 }, "activityBudget": { "activeEntities": 40, "combatLanes": 2 }
+  },
+  "layers": [
+    {
+      "id": "layer_bg", "name": "下曲阳府衙背景", "visible": true, "locked": false,
+      "objects": [
+        { "id": "S12-background", "type": "image", "imageId": "s12.environment.xiaquyangYamenGround", "name": "下曲阳府衙战场", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0, "semanticRole": "sceneBackground" }
+      ]
+    },
+    {
+      "id": "layer_gameplay", "name": "府衙、密道与撤离点", "visible": true, "locked": false,
+      "objects": [
+        { "id": "S12-command-banner", "type": "image", "imageId": "s13.story.finalCommandBanner", "name": "下曲阳军令旗", "x": 100, "y": 555, "width": 72, "height": 96, "depthSort": true, "sortY": 651, "semanticRole": "battleMarker" },
+        { "id": "S12-yamen-gate", "type": "image", "imageId": "s12.structure.yamenGate", "name": "府衙大门", "x": 425, "y": 345, "width": 180, "height": 110, "depthSort": true, "sortY": 455, "semanticRole": "destructibleGate", "state": "closed", "maxHp": 1000 },
+        { "id": "S12-secret-passage", "type": "image", "imageId": "s12.structure.secretPassage", "name": "府衙密道", "x": 980, "y": 300, "width": 120, "height": 80, "depthSort": true, "sortY": 380, "semanticRole": "rescueObjective", "state": "locked" },
+        { "id": "S12-evacuation-zone", "type": "region", "name": "张宝撤离点", "regionId": "S12-evacuation-zone", "x": 1100, "y": 505, "width": 135, "height": 155 },
+        { "id": "S12-exit-marker", "type": "image", "imageId": "story.messengerRecallBanner", "name": "终局路线军令旗", "x": 1115, "y": 85, "width": 80, "height": 112, "depthSort": true, "sortY": 197, "semanticRole": "travelMarker" },
+        { "id": "S12-yamen-collider", "type": "shape", "shapeType": "polygon", "name": "府衙门阻挡", "points": [[420,350],[610,350],[610,410],[420,410]], "fillMode": "color", "fill": "#4a332b", "opacity": 0.2, "strokeWidth": 0, "collide": true, "semanticRole": "collisionBoundary" }
+      ]
+    },
+    {
+      "id": "layer_placement", "name": "守军、攻城军与救援角色", "visible": true, "locked": false,
+      "objects": [
+        { "id": "S12-spawn-entry", "type": "spawn", "name": "西南入口", "ref": "player", "x": 105, "y": 650 },
+        { "id": "S12-spawn-intervention", "type": "spawn", "name": "府衙守军介入点", "ref": "battle-intervention", "x": 330, "y": 535 },
+        { "id": "S12-spawn-secret-passage", "type": "spawn", "name": "张宝密道入口", "ref": "zhang-bao-secret-passage", "x": 1035, "y": 370 },
+        { "id": "S12-spawn-evacuation", "type": "spawn", "name": "张宝撤离点", "ref": "zhang-bao-evacuation", "x": 1165, "y": 585 },
+        { "id": "S12-zhang-bao", "type": "ref", "kind": "npc", "ref": "npc.s09_zhangbao", "group": "S12-zhang-bao-rescue", "tags": ["rescueTarget","yellow_turban"], "x": 330, "y": 285, "overrides": { "imageId": "s09.character.zhangbao", "interaction": { "radius": 92, "prompt": "{interact}确认张宝救援路线", "trigger": "interact" } } },
+
+        { "id": "S12-yellow-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 250, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 315, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 380, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-04", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 445, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-05", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 510, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-06", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 575, "y": 430, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-07", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 285, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-08", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 350, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-09", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 415, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-10", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 480, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-11", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 545, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-yellow-12", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 610, "y": 495, "overrides": { "aiActive": false } },
+        { "id": "S12-han-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 690, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 755, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 820, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-04", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 885, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-05", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 950, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-06", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1015, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-07", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1080, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-08", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1145, "y": 405, "overrides": { "aiActive": false } },
+        { "id": "S12-han-09", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 720, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-10", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 785, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-11", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 850, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-12", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 915, "y": 475, "overrides": { "aiActive": false } },
+
+        { "id": "S12-han-13", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 980, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-14", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1045, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-15", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1110, "y": 475, "overrides": { "aiActive": false } },
+        { "id": "S12-han-16", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 770, "y": 545, "overrides": { "aiActive": false } },
+        { "id": "S12-han-17", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 900, "y": 545, "overrides": { "aiActive": false } },
+        { "id": "S12-han-18", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S12-han-army", "tags": ["battleParticipant","han_government"], "x": 1030, "y": 545, "overrides": { "aiActive": false } },
+        { "id": "S12-bocai", "type": "ref", "kind": "enemy", "ref": "enemy.s04_bocai", "group": "S12-bocai-allies", "tags": ["battleParticipant","yellow_turban","conditionalAlly"], "spawnWhen": { "blackboardKey": "storyState", "path": "bocaiSurvived", "equals": true }, "x": 350, "y": 365, "overrides": { "aiActive": false } },
+        { "id": "S12-zhang-liang-reinforcement-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-zhang-liang-reinforcements", "tags": ["battleParticipant","yellow_turban","defenseBoost"], "spawnWhen": { "blackboardKey": "storyState", "path": "zhangLiangSurvived", "equals": true }, "x": 215, "y": 355, "overrides": { "aiActive": false } },
+        { "id": "S12-zhang-liang-reinforcement-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-zhang-liang-reinforcements", "tags": ["battleParticipant","yellow_turban","defenseBoost"], "spawnWhen": { "blackboardKey": "storyState", "path": "zhangLiangSurvived", "equals": true }, "x": 270, "y": 340, "overrides": { "aiActive": false } },
+        { "id": "S12-zhang-liang-reinforcement-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-zhang-liang-reinforcements", "tags": ["battleParticipant","yellow_turban","defenseBoost"], "spawnWhen": { "blackboardKey": "storyState", "path": "zhangLiangSurvived", "equals": true }, "x": 325, "y": 350, "overrides": { "aiActive": false } },
+        { "id": "S12-zhang-liang-reinforcement-4", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S12-zhang-liang-reinforcements", "tags": ["battleParticipant","yellow_turban","defenseBoost"], "spawnWhen": { "blackboardKey": "storyState", "path": "zhangLiangSurvived", "equals": true }, "x": 380, "y": 340, "overrides": { "aiActive": false } },
+        { "id": "S12-iron-ore", "type": "ref", "kind": "resourceNode", "ref": "node.s05_iron_ore", "group": "S12-iron-mine", "x": 1160, "y": 205, "overrides": { "imageId": "s05.resource.ironOre" } }
+      ]
+    },
+    {
+      "id": "layer_logic", "name": "S12 战役与张宝救援触发器", "visible": true, "locked": false,
+      "objects": [
+        { "id": "S12-trigger-battle-mode", "type": "trigger", "name": "选择下曲阳参战方式", "triggerId": "trg_s12_choose_battle_mode", "command": "openS12BattleMode", "x": 65, "y": 520, "width": 160, "height": 150, "event": "interact", "targetMode": "id", "target": "S12-command-banner", "radius": 115, "pointerRadius": 64, "prompt": "{interact}选择下曲阳参战方式" },
+        { "id": "S12-trigger-start-rescue", "type": "trigger", "name": "确认张宝救援路线", "triggerId": "trg_s12_start_zhang_bao_rescue", "command": "startS12Rescue", "x": 270, "y": 225, "width": 130, "height": 130, "event": "interact", "targetMode": "id", "target": "S12-zhang-bao", "radius": 100, "pointerRadius": 60, "prompt": "{interact}消耗粮食 20、草药 10 确认救援" },
+        { "id": "S12-trigger-secret-passage", "type": "trigger", "name": "开启府衙密道", "triggerId": "trg_s12_open_secret_passage", "command": "completeS12SecretPassage", "x": 950, "y": 270, "width": 180, "height": 140, "event": "interact", "targetMode": "id", "target": "S12-secret-passage", "radius": 105, "pointerRadius": 62, "prompt": "{interact}开启密道" },
+        { "id": "S12-trigger-evacuation", "type": "trigger", "name": "张宝撤离检查", "triggerId": "trg_s12_zhang_bao_evacuation", "command": "completeS12Evacuation", "x": 1100, "y": 505, "width": 135, "height": 155, "event": "enter", "targetMode": "id", "target": "S12-evacuation-zone", "radius": 80, "pointerRadius": 60, "prompt": "张宝撤离点" },
+        { "id": "S12-binding-exit", "type": "trigger", "name": "前往精山或结局之地", "triggerId": "trg_s12_exit_final_route", "command": "checkS12Exit", "x": 1075, "y": 50, "width": 160, "height": 180, "event": "interact", "targetMode": "id", "target": "S12-exit-marker", "radius": 115, "pointerRadius": 64, "prompt": "{interact}根据南阳战果确认终局路线" }
+      ]
+    }
+  ],
+  "decorations": [],
+  "colliders": [],
+  "imageAssets": {
+    "s12.environment.xiaquyangYamenGround": { "src": "../example/sanguo_zhangjiao/assets/images/s12/xiaquyang-yamen-ground.svg", "name": "下曲阳府衙战场" },
+    "s12.structure.yamenGate": { "src": "../example/sanguo_zhangjiao/assets/images/s12/yamen-gate.svg", "name": "府衙大门" },
+    "s12.structure.secretPassage": { "src": "../example/sanguo_zhangjiao/assets/images/s12/secret-passage.svg", "name": "府衙密道" },
+    "s09.character.zhangbao": { "src": "../example/sanguo_zhangjiao/assets/images/s09/zhangbao.svg", "name": "张宝" },
+    "s05.resource.ironOre": { "src": "../example/sanguo_zhangjiao/assets/images/s05/iron-ore.svg", "name": "铁矿" },
+    "s13.story.finalCommandBanner": { "src": "../example/sanguo_zhangjiao/assets/images/s13/final-command-banner.svg", "name": "军令旗" },
+    "story.messengerRecallBanner": { "src": "../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg", "name": "终局路线军令旗" }
+  },
+  "updatedAt": "2026-08-12T00:00:00.000Z"
+}

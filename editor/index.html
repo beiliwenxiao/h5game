@@ -1780,14 +1780,21 @@
                 } else if (page === 'world-map-editor') {
                     document.getElementById('world-map-editor-page').classList.add('active');
                     if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
+                    const gameId = this.currentGameId || 'sanguo_zhangjiao';
+                    const game = this.dataManager.getCurrentGame()
+                        || this.dataManager.getAllGames().find(item => item.id === gameId);
+                    const gamePath = (game?.path || `../example/${gameId}/`)
+                        .replace(/\\/g, '/').replace(/^(?:\.\.\/)+/, '').replace(/\/?$/, '/');
+                    const mapContext = { gameId, projectPath: `${gamePath}game.project.json` };
                     if (!this.worldMapEditor) {
                         this.worldMapEditor = new WorldMapEditor(
                             document.getElementById('world-map-editor-container'),
-                            { gameId: this.currentGameId || 'sanguo_zhangjiao' }
+                            mapContext
                         );
-                        this.worldMapEditor.init();
+                        void this.worldMapEditor.init();
                     } else {
-                        this.worldMapEditor.loadFromProject();
+                        this.worldMapEditor.setProjectContext(mapContext);
+                        void this.worldMapEditor.loadFromProject();
                     }
                 } else if (page === 'panel-editor') {
                     document.getElementById('panel-editor-page').classList.add('active');

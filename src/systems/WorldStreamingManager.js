@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  ************************************************************/
 
+import { getWorldMapCellSceneId } from '../core/WorldMapCell.js';
+
 /**
  * WorldStreamingManager - 无缝大地图九宫格流式加载（P5-2）
  *
@@ -48,7 +50,7 @@ export class WorldStreamingManager {
     this.chunkHeight = 720;
     this.cols = 1;
     this.rows = 1;
-    this.grid = [];       // grid[row][col] = sceneId | null
+    this.grid = [];       // 字符串为可加载 sceneId；reserved 对象由统一解析器跳过
 
     // 外部依赖
     this.project = null;
@@ -211,7 +213,7 @@ export class WorldStreamingManager {
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null;
     const gridRow = this.grid[row];
     if (!gridRow) return null;
-    return gridRow[col] || null;
+    return getWorldMapCellSceneId(gridRow[col]);
   }
 
   /** @private 从 project.scenes 找 scene 数据 */

@@ -3,6 +3,8 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+import { getWorldMapCellSceneId } from '../WorldMapCell.js';
+
 function abortError() {
   const error = new Error('World map load session is no longer active');
   error.name = 'AbortError';
@@ -193,7 +195,7 @@ export class WorldMapLoadSession {
         const cells = region.grid[row] || [];
         for (let col = 0; col < cells.length; col++) {
           const cell = cells[col];
-          const sceneId = typeof cell === 'string' ? cell : cell?.sceneId ?? cell?.scene ?? cell?.id;
+          const sceneId = getWorldMapCellSceneId(cell);
           if (sceneId) chunks.push({ sceneId, row, col, offset: { x: col * width, y: row * height } });
         }
       }

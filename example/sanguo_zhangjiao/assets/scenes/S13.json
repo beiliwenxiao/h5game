@@ -1,0 +1,44 @@
+{
+  "id": "S13", "name": "S13·精山战场", "width": 1280, "height": 720, "backgroundColor": "#30383a",
+  "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-d", "productionState": "playable", "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "availability": { "optional": true, "afterSceneId": "S12", "all": [{ "path": "storyState.nanyangIntervened", "equals": true }, { "path": "storyState.s12Resolved", "equals": true }], "visitedAny": ["S05", "S06"], "otherwiseSceneId": "S14" },
+  "gameplay": {
+    "battleId": "battle.s13.jingshan", "settlementId": "settlement.s13.jingshan", "nextSceneId": "S14", "confirmIrreversible": true,
+    "intro": "精山离最后的退路很近。这里花掉的每一份粮、药和木料，都不会带到结局之地。",
+    "choices": [
+      { "id": "observe", "label": "观战", "description": "保留物资，让孙夏按历史结果作战。", "resourceCost": {}, "result": { "battleMode": "observe", "cityDamageDelta": 0.08, "warStrengthDelta": -6 } },
+      { "id": "intervene", "label": "介入", "description": "投入最后的资源，试着为残部多争一条退路。", "resourceCost": { "food": 12, "herb": 6, "wood": 10 }, "result": { "battleMode": "intervene", "cityDamageDelta": -0.05, "warStrengthDelta": 10 } }
+    ],
+    "confirmation": "本场消耗将进入结局快照，不可撤回。", "checkpointId": "checkpoint.S13.resolved"
+  },
+  "composition": { "complexity": "high", "focalPoint": "S13-command-banner", "primaryRoute": ["S13-spawn-entry", "S13-command-banner", "S13-exit-marker"], "cameraFrame": { "width": 1280, "height": 720 } },
+  "assetBudget": { "environmentModules": 8, "actorVariants": 4, "interactiveProps": 3, "vfx": 3, "audioLayers": 3 },
+  "layers": [
+    { "id": "layer_bg", "name": "精山暮雨背景", "visible": true, "locked": false, "objects": [{ "id": "S13-bg", "type": "image", "imageId": "s13.environment.jingshanBattlefieldGround", "x": 0, "y": 0, "width": 1280, "height": 720, "name": "精山终局战场", "semanticRole": "sceneBackground", "state": "content", "visualDescription": "暮雨压山的狭长终局战场，保留西南入口、中央军令台与东北撤离口。" }] },
+    { "id": "layer_deco", "name": "军令与出口", "visible": true, "locked": false, "objects": [
+      { "id": "S13-command-banner", "type": "image", "imageId": "s13.story.finalCommandBanner", "name": "精山最后军令旗", "x": 545, "y": 292, "width": 96, "height": 128, "depthSort": true, "sortY": 420, "semanticRole": "battleMarker" },
+      { "id": "S13-exit-marker", "type": "image", "imageId": "story.messengerRecallBanner", "name": "通往结局之地的撤离旗", "x": 1090, "y": 90, "width": 80, "height": 112, "depthSort": true, "sortY": 202, "semanticRole": "travelMarker" }
+    ] },
+    { "id": "layer_placement", "name": "出生点与双方战役单位", "visible": true, "locked": false, "objects": [
+      { "id": "S13-spawn-entry", "type": "spawn", "name": "精山西南入口", "ref": "player", "x": 105, "y": 625 },
+      { "id": "S13-spawn-intervention", "type": "spawn", "name": "精山介入阵线入口", "ref": "battle-intervention", "x": 345, "y": 555 },
+      { "id": "S13-yellow-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S13-yellow-turban", "tags": ["battleParticipant", "yellow_turban"], "x": 350, "y": 430, "overrides": { "aiActive": false } },
+      { "id": "S13-yellow-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S13-yellow-turban", "tags": ["battleParticipant", "yellow_turban"], "x": 430, "y": 485, "overrides": { "aiActive": false } },
+      { "id": "S13-yellow-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S13-yellow-turban", "tags": ["battleParticipant", "yellow_turban"], "x": 500, "y": 535, "overrides": { "aiActive": false } },
+      { "id": "S13-han-01", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S13-han-army", "tags": ["battleParticipant", "han_government"], "x": 760, "y": 245, "overrides": { "aiActive": false } },
+      { "id": "S13-han-02", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S13-han-army", "tags": ["battleParticipant", "han_government"], "x": 845, "y": 300, "overrides": { "aiActive": false } },
+      { "id": "S13-han-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S13-han-army", "tags": ["battleParticipant", "han_government"], "x": 925, "y": 355, "overrides": { "aiActive": false } }
+    ] },
+    { "id": "layer_logic", "name": "终局战役交互", "visible": true, "locked": false, "objects": [
+      { "id": "S13-binding-choice", "type": "trigger", "name": "选择精山参战方式", "triggerId": "trg_s13_choose_final_battle_mode", "command": "openS13BattleMode", "x": 510, "y": 265, "width": 170, "height": 180, "event": "interact", "targetMode": "id", "target": "S13-command-banner", "radius": 125, "pointerRadius": 68, "prompt": "{interact}决定是否消耗最后资源介入精山" },
+      { "id": "S13-binding-exit", "type": "trigger", "name": "前往结局之地", "triggerId": "trg_s13_exit_s14", "command": "checkS13Exit", "x": 1050, "y": 55, "width": 160, "height": 180, "event": "interact", "targetMode": "id", "target": "S13-exit-marker", "radius": 115, "pointerRadius": 64, "prompt": "{interact}确认精山战果并前往结局之地" }
+    ] }
+  ],
+  "decorations": [], "colliders": [],
+  "imageAssets": {
+    "s13.environment.jingshanBattlefieldGround": { "src": "../example/sanguo_zhangjiao/assets/images/s13/jingshan-battlefield-ground.svg", "name": "精山终局战场" },
+    "s13.story.finalCommandBanner": { "src": "../example/sanguo_zhangjiao/assets/images/s13/final-command-banner.svg", "name": "精山最后军令旗" },
+    "story.messengerRecallBanner": { "src": "../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg", "name": "终局撤离旗" }
+  }, "updatedAt": "2026-08-13T00:00:00.000Z"
+}

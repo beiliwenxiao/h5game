@@ -235,7 +235,7 @@ MOVE     右键
 - `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话事件、场景标记、上下文和 sceneEnter；`DialogueSystem.onEnd/onChoice` 都是可取消的多监听器，Bridge 分别发布 `dialogueEnd{id}` 与 `dialogueChoice{id,choiceId,index,nextNode}`，具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
 - `TimeSystem`：除昼夜段外统一拥有从 1 开始的 `currentDay`，支持 `advanceDays()` 与 `serialize/deserialize`。历史延迟后果描述保存在 StoryState（稳定 event id、dueDay、status），到期领域提交仍遵循草稿→提交→checkpoint，保存失败恢复草稿并保留 pending 供重试。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
-- `SceneCombatActions`：承接 PC、触屏和手柄的攻击、轻功、投掷、格挡、药水与自动攻击；不拥有系统或实体状态，也不再混入技能编排和世界拾取。
+- `SceneCombatActions`：承接 PC、触屏和手柄的攻击、轻功、投掷、格挡、药水与自动攻击；不拥有系统或实体状态，也不再混入技能编排和世界拾取。基础攻击许可统一查询 `BaseGameScene.canPerformBasicAttack()`，默认只在 `CombatSystem.isInCombat()` 时开放；训练、教学或可破坏物场景可按当前流程覆盖。PC 每帧攻击由 `MeleeAttackSystem.init({ canAttack })` 消费同一许可，触屏/手柄方向攻击由 `SceneCombatActions` 消费，禁止只放开某一种输入。攻击教学只能在 `onAttackPerformed`（冷却、弹药等前置均通过且攻击实际启动）后完成，不能在原始按键按下时提前完成。
 - `SceneSkillActions`：统一技能可用性、特殊技能、按索引/方向释放、PC 瞄准控制与预览；`SceneAimController` 仍只负责几何和状态。
 - `SceneWorldInteraction`：统一 UI 点击优先级、点击拾取、保留的 `handleTeleport` 入口与右键正式反馈/调试标记；拾取删除必须经过 `SceneEntityStore.removeMany()`。
 - `SceneDialogueFlow`：统一继续对话、跳过打字机、选项节点保护和点击消费；`lastSpacePressed` 继续作为兼容字段保留。

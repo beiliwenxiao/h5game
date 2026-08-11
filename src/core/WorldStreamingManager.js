@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  ************************************************************/
 
+import { getWorldMapCellSceneId } from './WorldMapCell.js';
+
 /**
  * WorldStreamingManager - 九宫格流式加载管理器
  *
@@ -32,7 +34,7 @@ export class WorldStreamingManager {
    * @param {number} options.chunkHeight - 每个 chunk 的高度（像素）
    * @param {number} options.cols - 世界网格列数
    * @param {number} options.rows - 世界网格行数
-   * @param {Array<Array<string|null>>} options.grid - grid[row][col] = sceneId | null
+   * @param {Array<Array<string|Object|null>>} options.grid - 字符串为可加载场景；reserved 对象仅保留规划位置
    * @param {Function} [options.onChunkLoad] - chunk 加载时的回调 (col, row, sceneId) => LoadedChunk
    * @param {Function} [options.onChunkUnload] - chunk 卸载时的回调 (col, row, chunk) => void
    */
@@ -107,7 +109,7 @@ export class WorldStreamingManager {
     if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null;
     const rowData = this.grid[row];
     if (!rowData) return null;
-    return rowData[col] || null;
+    return getWorldMapCellSceneId(rowData[col]);
   }
 
   /**

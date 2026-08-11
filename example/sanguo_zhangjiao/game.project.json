@@ -3,7 +3,7 @@
   "meta": {
     "id": "sanguo_zhangjiao",
     "name": "三国张角传",
-    "version": 2,
+    "version": 3,
     "schema": 3,
     "campaignId": "sanguo-zhangjiao-s01-s14"
   },
@@ -110,7 +110,12 @@
       {
         "id": "construction.campfire",
         "name": "营地火堆",
-        "costs": [{ "itemId": "resource.wood", "quantity": 8 }],
+        "costs": [
+          {
+            "itemId": "resource.wood",
+            "quantity": 8
+          }
+        ],
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
         "duration": 30,
@@ -122,7 +127,16 @@
       {
         "id": "construction.barricade",
         "name": "拒马",
-        "costs": [{ "itemId": "resource.wood", "quantity": 15 }, { "itemId": "resource.iron", "quantity": 2 }],
+        "costs": [
+          {
+            "itemId": "resource.wood",
+            "quantity": 15
+          },
+          {
+            "itemId": "resource.iron",
+            "quantity": 2
+          }
+        ],
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
         "duration": 60,
@@ -134,7 +148,16 @@
       {
         "id": "construction.simple_wall",
         "name": "简易壁垒",
-        "costs": [{ "itemId": "resource.wood", "quantity": 24 }, { "itemId": "resource.iron", "quantity": 6 }],
+        "costs": [
+          {
+            "itemId": "resource.wood",
+            "quantity": 24
+          },
+          {
+            "itemId": "resource.iron",
+            "quantity": 6
+          }
+        ],
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
         "duration": 90,
@@ -146,7 +169,16 @@
       {
         "id": "construction.arrow_tower",
         "name": "箭楼",
-        "costs": [{ "itemId": "resource.wood", "quantity": 40 }, { "itemId": "resource.iron", "quantity": 10 }],
+        "costs": [
+          {
+            "itemId": "resource.wood",
+            "quantity": 40
+          },
+          {
+            "itemId": "resource.iron",
+            "quantity": 10
+          }
+        ],
         "requiredProficiency": 2,
         "requiredToolType": "shovel",
         "duration": 180,
@@ -157,23 +189,123 @@
       }
     ],
     "sites": [
-      { "id": "site.s06.field_barricade", "sceneId": "S06", "definitionId": "construction.barricade" },
-      { "id": "site.s10.campfire", "sceneId": "S10", "definitionId": "construction.campfire" },
-      { "id": "site.s10.barricade", "sceneId": "S10", "definitionId": "construction.barricade" },
-      { "id": "site.s10.simple_wall", "sceneId": "S10", "definitionId": "construction.simple_wall" },
-      { "id": "site.s10.arrow_tower", "sceneId": "S10", "definitionId": "construction.arrow_tower" }
+      {
+        "id": "site.s06.field_barricade",
+        "sceneId": "S06",
+        "definitionId": "construction.barricade"
+      },
+      {
+        "id": "site.s10.campfire",
+        "sceneId": "S10",
+        "definitionId": "construction.campfire"
+      },
+      {
+        "id": "site.s10.barricade",
+        "sceneId": "S10",
+        "definitionId": "construction.barricade"
+      },
+      {
+        "id": "site.s10.simple_wall",
+        "sceneId": "S10",
+        "definitionId": "construction.simple_wall"
+      },
+      {
+        "id": "site.s10.arrow_tower",
+        "sceneId": "S10",
+        "definitionId": "construction.arrow_tower"
+      }
     ]
   },
   "extensions": {
+    "endings": {
+      "$ref": "config/endings.json"
+    },
     "sanguoZhangjiao": {
       "s01Tutorials": [
-        { "id": "s01.move", "title": "移动", "steps": [{ "text": "使用 {move} 移动，离开火堆附近。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.attack", "title": "攻击", "steps": [{ "text": "使用 {attack} 进行一次攻击。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.pickup", "title": "拾取", "steps": [{ "text": "靠近物资后使用 {pickup} 拾取。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.jump", "title": "跳跃", "steps": [{ "text": "使用 {jump} 越过障碍。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.gather", "title": "采集", "steps": [{ "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.durability", "title": "工具耐久", "steps": [{ "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
-        { "id": "s01.capacity", "title": "背包容量", "steps": [{ "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false }
+        {
+          "id": "s01.move",
+          "title": "移动",
+          "steps": [
+            {
+              "text": "使用 {move} 移动，离开火堆附近。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.attack",
+          "title": "攻击",
+          "steps": [
+            {
+              "text": "使用 {attack} 进行一次攻击。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.pickup",
+          "title": "拾取",
+          "steps": [
+            {
+              "text": "靠近物资后使用 {pickup} 拾取。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.jump",
+          "title": "跳跃",
+          "steps": [
+            {
+              "text": "使用 {jump} 越过障碍。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.gather",
+          "title": "采集",
+          "steps": [
+            {
+              "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.durability",
+          "title": "工具耐久",
+          "steps": [
+            {
+              "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        },
+        {
+          "id": "s01.capacity",
+          "title": "背包容量",
+          "steps": [
+            {
+              "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。"
+            }
+          ],
+          "category": "s01-survival",
+          "canSkip": false,
+          "autoTrigger": false
+        }
       ],
       "s09RefugeeConflict": {
         "minimumCityDamageRatio": 0.4,
@@ -387,7 +519,7 @@
         "grid": [
           [
             null,
-            "S02",
+            null,
             null,
             null,
             null,
@@ -455,7 +587,7 @@
             null,
             null,
             null,
-            null,
+            "S02",
             null,
             null,
             null,
@@ -829,22 +961,452 @@
       },
       {
         "id": "region-b",
-        "name": "B区·冀州营地与战场（构图预览）",
+        "name": "B区·冀州营地与战场",
         "chunkWidth": 1280,
         "chunkHeight": 720,
         "cols": 20,
         "rows": 20,
-        "chunks": [
-          {
-            "sceneId": "S09",
-            "row": 1,
-            "col": 1
-          },
-          {
-            "sceneId": "S10",
-            "row": 1,
-            "col": 2
-          }
+        "grid": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S09",
+            "S10",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S11",
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S12",
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
         ]
       },
       {
@@ -854,37 +1416,897 @@
         "chunkHeight": 720,
         "cols": 20,
         "rows": 20,
-        "chunks": [
-          {
-            "sceneId": "S03",
-            "row": 1,
-            "col": 1
-          },
-          {
-            "sceneId": "S04",
-            "row": 1,
-            "col": 2
-          },
-          {
-            "sceneId": "S05",
-            "row": 0,
-            "col": 3
-          },
-          {
-            "sceneId": "S06",
-            "row": 0,
-            "col": 4
-          },
-          {
-            "sceneId": "S07",
-            "row": 2,
-            "col": 3
-          },
-          {
-            "sceneId": "S08",
-            "row": 2,
-            "col": 4
-          }
+        "grid": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S03",
+            "S04",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S05",
+            "S06",
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S07",
+            "S08",
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
+        ]
+      },
+      {
+        "id": "region-d",
+        "name": "D区·精山与结局之地",
+        "chunkWidth": 1280,
+        "chunkHeight": 720,
+        "cols": 20,
+        "rows": 20,
+        "grid": [
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            "S13",
+            "S14",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ],
+          [
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+          ]
         ]
       }
     ]
@@ -949,6 +2371,30 @@
       "worldMap": "region-b",
       "productionState": "playable",
       "previewOnly": false
+    },
+    {
+      "id": "S11",
+      "worldMap": "region-b",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S12",
+      "worldMap": "region-b",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S13",
+      "worldMap": "region-d",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S14",
+      "worldMap": "region-d",
+      "productionState": "playable",
+      "previewOnly": false
     }
   ],
   "battles": [
@@ -963,6 +2409,15 @@
     },
     {
       "$ref": "config/battles/S07.json"
+    },
+    {
+      "$ref": "config/battles/S11.json"
+    },
+    {
+      "$ref": "config/battles/S12.json"
+    },
+    {
+      "$ref": "config/battles/S13.json"
     }
   ],
   "rescues": [
@@ -971,6 +2426,12 @@
     },
     {
       "$ref": "config/rescues/S05.json"
+    },
+    {
+      "$ref": "config/rescues/S11.json"
+    },
+    {
+      "$ref": "config/rescues/S12.json"
     }
   ],
   "dialogues": [
@@ -1325,7 +2786,24 @@
       {
         "value": "dismissPopup",
         "label": "关闭物品弹窗 dismissPopup"
-      }
+      },
+      { "value": "openS11BattleMode", "label": "打开 S11 战役模式 openS11BattleMode" },
+      { "value": "startS11Rescue", "label": "启动 S11 张梁救援 startS11Rescue" },
+      { "value": "completeS11Beacon", "label": "完成 S11 烽火阶段 completeS11Beacon" },
+      { "value": "completeS11GuardRally", "label": "完成 S11 卫兵集合 completeS11GuardRally" },
+      { "value": "reportS11AssassinWaveDefeated", "label": "提交 S11 刺客波次 reportS11AssassinWaveDefeated" },
+      { "value": "completeS11WestGateBreakout", "label": "完成 S11 西门突围 completeS11WestGateBreakout" },
+      { "value": "checkS11Exit", "label": "完成 S11 并前往 S12 checkS11Exit" },
+      { "value": "openS12BattleMode", "label": "打开 S12 战役模式 openS12BattleMode" },
+      { "value": "startS12Rescue", "label": "启动 S12 张宝救援 startS12Rescue" },
+      { "value": "completeS12SecretPassage", "label": "完成 S12 密道阶段 completeS12SecretPassage" },
+      { "value": "completeS12Evacuation", "label": "完成 S12 张宝撤离 completeS12Evacuation" },
+      { "value": "checkS12Exit", "label": "根据 S12 后状态进入 S13 或 S14 checkS12Exit" },
+      { "value": "openS13BattleMode", "label": "打开 S13 战役模式 openS13BattleMode" },
+      { "value": "checkS13Exit", "label": "完成 S13 并前往 S14 checkS13Exit" },
+      { "value": "resolveS14LastCart", "label": "结算 S14 最后马车 resolveS14LastCart" },
+      { "value": "resolveS14Catapult", "label": "结算 S14 投石车 resolveS14Catapult" },
+      { "value": "commitS14Ending", "label": "通过 EndingSystem 提交 S14 结局 commitS14Ending" }
     ]
   },
   "triggers": [
@@ -2007,15 +3485,33 @@
     },
     {
       "id": "trg_s06_field_construction",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "startS06FieldConstruction", "params": {}, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS06FieldConstruction",
+          "params": {},
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s06_complete_recall",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "completeS06Recall", "params": {}, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "completeS06Recall",
+          "params": {},
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
@@ -2205,60 +3701,297 @@
     },
     {
       "id": "trg_s10_enter",
-      "when": { "type": "sceneEnter", "params": { "sceneId": "S10" } },
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "S10"
+        }
+      },
       "do": [
-        { "action": "showTip", "params": { "text": "先进入病帐确认张角病逝，再检查临时营地，最后沿溪拔营。" } }
+        {
+          "action": "showTip",
+          "params": {
+            "text": "先进入病帐确认张角病逝，再检查临时营地，最后沿溪拔营。"
+          }
+        }
       ],
       "once": true
     },
     {
       "id": "trg_s10_zhangjiao_death",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "commitS10ZhangJiaoDeath", "params": {}, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "commitS10ZhangJiaoDeath",
+          "params": {},
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_acknowledge_temporary_camp",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "acknowledgeS10TemporaryCamp", "params": {}, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "acknowledgeS10TemporaryCamp",
+          "params": {},
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_complete_relocation",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "completeS10CampRelocation", "params": {}, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "completeS10CampRelocation",
+          "params": {},
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_build_campfire",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.campfire", "siteId": "site.s10.campfire", "siteKey": "campfire" }, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS10Construction",
+          "params": {
+            "definitionId": "construction.campfire",
+            "siteId": "site.s10.campfire",
+            "siteKey": "campfire"
+          },
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_build_barricade",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.barricade", "siteId": "site.s10.barricade", "siteKey": "barricade" }, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS10Construction",
+          "params": {
+            "definitionId": "construction.barricade",
+            "siteId": "site.s10.barricade",
+            "siteKey": "barricade"
+          },
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_build_simple_wall",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.simple_wall", "siteId": "site.s10.simple_wall", "siteKey": "simpleWall" }, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS10Construction",
+          "params": {
+            "definitionId": "construction.simple_wall",
+            "siteId": "site.s10.simple_wall",
+            "siteKey": "simpleWall"
+          },
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
     },
     {
       "id": "trg_s10_build_arrow_tower",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.arrow_tower", "siteId": "site.s10.arrow_tower", "siteKey": "arrowTower" }, "await": true } ],
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS10Construction",
+          "params": {
+            "definitionId": "construction.arrow_tower",
+            "siteId": "site.s10.arrow_tower",
+            "siteKey": "arrowTower"
+          },
+          "await": true
+        }
+      ],
       "once": false,
       "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_spawn_initial",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S11" } },
+      "do": [
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S11-yellow-turban" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S11-han-army" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S11-zhang-liang-rescue" } }, "await": true },
+        { "action": "showTip", "params": { "text": "先在军令旗选择观战或介入；介入后按烽火、六名卫兵、三波刺客、西门突围的顺序救援张梁。" } }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s11_choose_battle_mode",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "openS11BattleMode", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_start_zhang_liang_rescue",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "startS11Rescue", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_light_beacon",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "completeS11Beacon", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_rally_guards",
+      "when": { "type": "enter", "params": {} },
+      "do": [{ "action": "completeS11GuardRally", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_assassin_wave_1_defeated",
+      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-1" } },
+      "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 1 }, "await": true }],
+      "once": true
+    },
+    {
+      "id": "trg_s11_assassin_wave_2_defeated",
+      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-2" } },
+      "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 2 }, "await": true }],
+      "once": true
+    },
+    {
+      "id": "trg_s11_assassin_wave_3_defeated",
+      "when": { "type": "groupDefeated", "params": { "group": "S11-assassin-wave-3" } },
+      "do": [{ "action": "reportS11AssassinWaveDefeated", "params": { "waveNumber": 3 }, "await": true }],
+      "once": true
+    },
+    {
+      "id": "trg_s11_west_gate_breakout",
+      "when": { "type": "enter", "params": {} },
+      "do": [{ "action": "completeS11WestGateBreakout", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s11_exit_s12",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "checkS11Exit", "params": { "sceneId": "S12" }, "await": true }],
+      "once": false, "cooldown": 1
+    },
+    {
+      "id": "trg_s12_spawn_initial",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S12" } },
+      "do": [
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S12-yellow-turban" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S12-han-army" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S12-zhang-bao-rescue" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S12-bocai-allies" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S12-zhang-liang-reinforcements" } }, "await": true },
+        { "action": "showTip", "params": { "text": "先选择下曲阳战役模式；介入后确认救援路线，守门六十秒，再开启密道并护送张宝撤离。" } }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s12_choose_battle_mode",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "openS12BattleMode", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s12_start_zhang_bao_rescue",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "startS12Rescue", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s12_open_secret_passage",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "completeS12SecretPassage", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s12_zhang_bao_evacuation",
+      "when": { "type": "enter", "params": {} },
+      "do": [{ "action": "completeS12Evacuation", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s12_exit_final_route",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "checkS12Exit", "params": { "eligibleSceneId": "S13", "fallbackSceneId": "S14" }, "await": true }],
+      "once": false, "cooldown": 1
+    },
+    {
+      "id": "trg_s13_spawn_initial",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S13" } },
+      "do": [
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S13-yellow-turban" } }, "await": true },
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S13-han-army" } }, "await": true },
+        { "action": "showTip", "params": { "text": "在军令旗下选择观战或投入最后资源介入精山；战果冻结后从东北撤离旗进入结局之地。" } }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s13_choose_final_battle_mode",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "openS13BattleMode", "params": { "battleId": "battle.s13.jingshan" }, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s13_exit_s14",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "checkS13Exit", "params": { "sceneId": "S14" }, "await": true }],
+      "once": false, "cooldown": 1
+    },
+    {
+      "id": "trg_s14_resolve_last_cart",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "resolveS14LastCart", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s14_resolve_catapult",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "resolveS14Catapult", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s14_commit_ending",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "commitS14Ending", "params": { "checkpointId": "checkpoint.S14.preEnding" }, "await": true }],
+      "once": false, "cooldown": 1
     }
   ],
   "tutorials": [],
@@ -2377,7 +4110,10 @@
         "durability": 1,
         "maxDurability": 1,
         "imageId": "tool.wornShovel",
-        "sprite": { "width": 48, "height": 48 }
+        "sprite": {
+          "width": 48,
+          "height": 48
+        }
       },
       {
         "id": "tool.shovel",
@@ -2388,7 +4124,10 @@
         "durability": 12,
         "maxDurability": 12,
         "imageId": "tool.shovel",
-        "sprite": { "width": 48, "height": 48 }
+        "sprite": {
+          "width": 48,
+          "height": 48
+        }
       },
       {
         "id": "construction.s10.campfire",
@@ -2401,7 +4140,11 @@
         "width": 80,
         "height": 72,
         "showName": false,
-        "sprite": { "width": 80, "height": 72, "isStatic": true }
+        "sprite": {
+          "width": 80,
+          "height": 72,
+          "isStatic": true
+        }
       },
       {
         "id": "construction.s10.barricade",
@@ -2414,7 +4157,11 @@
         "width": 128,
         "height": 84,
         "showName": false,
-        "sprite": { "width": 128, "height": 84, "isStatic": true }
+        "sprite": {
+          "width": 128,
+          "height": 84,
+          "isStatic": true
+        }
       },
       {
         "id": "construction.s10.simple_wall",
@@ -2427,7 +4174,11 @@
         "width": 150,
         "height": 100,
         "showName": false,
-        "sprite": { "width": 150, "height": 100, "isStatic": true }
+        "sprite": {
+          "width": 150,
+          "height": 100,
+          "isStatic": true
+        }
       },
       {
         "id": "construction.s10.arrow_tower",
@@ -2440,7 +4191,11 @@
         "width": 140,
         "height": 180,
         "showName": false,
-        "sprite": { "width": 140, "height": 180, "isStatic": true }
+        "sprite": {
+          "width": 140,
+          "height": 180,
+          "isStatic": true
+        }
       },
       {
         "id": "iron_sword",

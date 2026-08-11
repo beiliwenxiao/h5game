@@ -1,0 +1,47 @@
+{
+  "id": "battle.s11.guangzong",
+  "battleId": "battle.s11.guangzong",
+  "title": "S11·广宗突围战",
+  "description": "广宗三线混战中，介入者可在 120 秒内完成烽火、卫兵、刺客与西门突围四阶段张梁救援。",
+  "sceneFlow": {
+    "sceneId": "S11", "locationName": "广宗战场",
+    "unavailableMessage": "广宗战役运行时尚未就绪", "conflictMessage": "上一场战役尚未完成结算。",
+    "activeMessage": "广宗战役正在进行，参战方式不可更改。", "appliedTitle": "广宗战场·已结算战果",
+    "resultTitle": "广宗战场·战果", "resultMessage": "广宗战果与张梁救援分别冻结并保存。",
+    "settlementMessage": "广宗战果已写入战争状态。", "interventionMessage": "已进入黄巾阵线，可启动张梁四阶段救援。",
+    "worldChanges": { "month": 11 }, "resolvedKey": "s11BattleResolved", "winnerKey": "s11WinnerFactionId",
+    "checkpointId": "checkpoint.S11.battleResolved"
+  },
+  "participantFactionIds": ["yellow_turban", "han_government"],
+  "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s11.guangzong", "terrainId": "terrain.s11.guangzong",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s11.yellow_turban", "name": "广宗黄巾军", "factionId": "yellow_turban", "formationIds": ["formation.s11.yellow_turban.three_lanes"], "commanderHeroId": "hero.zhang_liang", "morale": 72, "resources": { "food": 48, "wood": 20, "iron": 8, "herb": 14 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s11.han", "name": "广宗官军", "factionId": "han_government", "formationIds": ["formation.s11.han.three_lanes"], "commanderHeroId": "hero.s11.han_commander", "morale": 78, "resources": { "food": 70, "wood": 28, "iron": 24, "herb": 18 } },
+    "attackerMorale": 72, "defenderMorale": 78, "attackerCommanderId": "hero.zhang_liang", "defenderCommanderId": "hero.s11.han_commander",
+    "weather": "smoke", "seed": 31101, "logicalTime": 330, "affectedCityId": "city.s11_guangzong",
+    "resourceSourceCityId": "city.s11_guangzong", "resourceDestinationCityId": "city.s12_xiaquyang", "resourceNodeIds": []
+  },
+  "outcomePriority": [
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" },
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" }, "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" }, "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "维持三条战线并从西门护送张梁突围",
+  "playerInterventionFactionId": "yellow_turban", "realtimeMorale": { "yellow_turban": 72, "han_government": 78 },
+  "realtimeResult": { "byWinner": {
+    "yellow_turban": { "capturedResources": { "wood": 6, "iron": 5, "food": 12, "herb": 4 }, "cityDamage": 0.35, "damagedResourceNodeIds": [] },
+    "han_government": { "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 }, "cityDamage": 0.62, "damagedResourceNodeIds": [] }
+  } },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "广宗战场·选择参战方式", "description": "观战会禁用张梁救援；介入后有 120 秒完成四阶段突围。", "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能影响交战单位", "不能启动张梁救援", "等待广宗战果冻结"] },
+    "intervene": { "label": "介入", "consequences": ["进入黄巾阵线", "可启动张梁 120 秒救援", "承担百人战与三波刺客压力"] }
+  }
+}

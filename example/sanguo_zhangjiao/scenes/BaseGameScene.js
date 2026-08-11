@@ -93,7 +93,7 @@ import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 const ZONE_STAT_NAMES = Object.freeze({ hp: '生命', mp: '法力', attack: '攻击', defense: '防御', speed: '速度' });
 
 export const CAMPAIGN_ID = 'sanguo-zhangjiao-s01-s14';
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 const CANONICAL_SCENE_ID = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
 const LEGACY_SCENE_ID = /^(?:s\d+-\d+|scene_Prologue)$/;
 
@@ -1548,6 +1548,11 @@ export class BaseGameScene extends Scene {
 
   isPlayerActionLocked() {
     return this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true;
+  }
+
+  /** 基础攻击默认只在战斗状态开放；具体场景可覆盖以支持训练或可破坏物。 */
+  canPerformBasicAttack() {
+    return this.combatSystem?.isInCombat?.() === true;
   }
 
   harvestByFacing({ silent = false } = {}) {

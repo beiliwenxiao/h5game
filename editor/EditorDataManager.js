@@ -21,6 +21,8 @@
  * - 所有默认值从 config/ 目录下的 JSON 文件加载
  */
 
+import { getWorldMapCellSceneId } from '../src/core/WorldMapCell.js';
+
 // 运行时配置缓存
 let _builtinGamesConfig = null;
 let _scenePresetsConfig = null;
@@ -370,7 +372,8 @@ export class EditorDataManager {
               if (!region.grid) continue;
               for (const row of region.grid) {
                 if (!row) continue;
-                for (const sceneId of row) {
+                for (const cell of row) {
+                  const sceneId = getWorldMapCellSceneId(cell);
                   if (sceneId) {
                     worldChunkIds.add(sceneId);
                     worldMapForScene[sceneId] = region.id;

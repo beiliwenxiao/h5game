@@ -8,12 +8,13 @@ const normalizeId = value => typeof value === 'string' ? value.trim() : '';
 
 export class ConstructionSystem {
   constructor({ inventoryTransactions, proficiencySystem = null, itemResolver = null,
-    validateSite = null, onEvent = null, maxOperations = 256 } = {}) {
+    validateSite = null, createCheckpoint = null, onEvent = null, maxOperations = 256 } = {}) {
     if (!inventoryTransactions) throw new TypeError('ConstructionSystem requires inventoryTransactions');
     this.inventoryTransactions = inventoryTransactions;
     this.proficiencySystem = proficiencySystem;
     this.itemResolver = typeof itemResolver === 'function' ? itemResolver : () => null;
     this.validateSite = typeof validateSite === 'function' ? validateSite : () => ({ ok: true });
+    this.createCheckpoint = typeof createCheckpoint === 'function' ? createCheckpoint : null;
     this.onEvent = typeof onEvent === 'function' ? onEvent : () => {};
     this.maxOperations = Math.max(16, Math.floor(Number(maxOperations) || 256));
     this.definitions = new Map();
@@ -21,6 +22,7 @@ export class ConstructionSystem {
     this.structures = new Map();
     this.operations = new Map();
     this.toolReservations = new Map();
+    this.repairLocks = new Set();
   }
 
   registerDefinitions(definitions = []) {
@@ -44,6 +46,108 @@ export class ConstructionSystem {
   getStructure(siteId) { return clone(this.structures.get(siteId) || null); }
   getPending(siteId) { return this._describePending(this.pending.get(siteId)); }
   getStructures() { return [...this.structures.values()].map(clone); }
+
+  /**
+   * 只校验并生成维修草稿，不修改运行时状态。
+   * @param {{siteId:string, amount:number}} request
+   */
+  prepareRepairDraft({ siteId, amount } = {}) {
+    const siteKey = normalizeId(siteId);
+    const requested = Math.floor(Number(amount));
+    if (!siteKey || !Number.isFinite(requested) || requested <= 0) {
+      return { ok: false, code: 'invalidRepairInput' };
+    }
+    const structure = this.structures.get(siteKey);
+    if (!structure) return { ok: false, code: 'structureMissing', siteId: siteKey };
+
+    const maxDurability = Math.floor(Number(structure.maxDurability));
+    const durability = Math.floor(Number(structure.durability));
+    if (!Number.isFinite(maxDurability) || maxDurability <= 0
+      || !Number.isFinite(durability) || durability < 0 || durability > maxDurability) {
+      return { ok: false, code: 'invalidStructureDurability', siteId: siteKey };
+    }
+    if (durability >= maxDurability) {
+      return { ok: false, code: 'repairNotNeeded', siteId: siteKey, durability, maxDurability };
+    }
+
+    const appliedAmount = Math.min(requested, maxDurability - durability);
+    const draft = clone(structure);
+    draft.durability = durability + appliedAmount;
+    return {
+      ok: true,
+      siteId: siteKey,
+      requestedAmount: requested,
+      appliedAmount,
+      before: clone(structure),
+      draft
+    };
+  }
+
+  /**
+   * 建筑维修事务：validate → draft → commit → emit → checkpoint。
+   * checkpoint 失败时恢复提交前状态；相同 operationId 与参数重复调用返回幂等结果。
+   */
+  async repair({ siteId, amount, operationId, checkpointId = null, context = null } = {}) {
+    const siteKey = normalizeId(siteId);
+    const opId = normalizeId(operationId);
+    const requested = Math.floor(Number(amount));
+    if (!siteKey || !opId || !Number.isFinite(requested) || requested <= 0) {
+      return { ok: false, code: 'invalidRepairInput' };
+    }
+
+    const fingerprint = JSON.stringify([siteKey, requested]);
+    const known = this.operations.get(opId);
+    if (known) {
+      return known.fingerprint === fingerprint
+        ? { ...clone(known.result), idempotent: true }
+        : { ok: false, code: 'operationIdConflict', operationId: opId };
+    }
+    if (!this.createCheckpoint) return { ok: false, code: 'checkpointAdapterMissing' };
+    if (this.repairLocks.has(siteKey)) return { ok: false, code: 'structureBusy', siteId: siteKey };
+
+    const prepared = this.prepareRepairDraft({ siteId: siteKey, amount: requested });
+    if (!prepared.ok) return prepared;
+
+    this.repairLocks.add(siteKey);
+    this.structures.set(siteKey, clone(prepared.draft));
+    const result = {
+      ok: true,
+      status: 'repaired',
+      operationId: opId,
+      siteId: siteKey,
+      requestedAmount: prepared.requestedAmount,
+      appliedAmount: prepared.appliedAmount,
+      structure: clone(prepared.draft)
+    };
+    this._emit('constructionRepaired', { ...result, context: clone(context) });
+
+    try {
+      const checkpoint = await this.createCheckpoint({
+        checkpointId: normalizeId(checkpointId) || `checkpoint.construction.${siteKey}.repair`,
+        operationId: opId,
+        structure: clone(prepared.draft),
+        context: clone(context)
+      });
+      if (checkpoint === false || checkpoint?.ok === false) {
+        throw new Error(checkpoint?.message || checkpoint?.errors?.[0]?.message || 'checkpointRejected');
+      }
+    } catch (error) {
+      this.structures.set(siteKey, clone(prepared.before));
+      const message = String(error?.message || error);
+      this._emit('constructionRepairRolledBack', {
+        operationId: opId,
+        siteId: siteKey,
+        reason: message,
+        structure: clone(prepared.before)
+      });
+      return { ok: false, code: 'repairRolledBack', operationId: opId, siteId: siteKey, message };
+    } finally {
+      this.repairLocks.delete(siteKey);
+    }
+
+    this._remember(opId, fingerprint, result);
+    return clone(result);
+  }
 
   start({ characterId, inventory, definitionId, siteId, operationId,
     cityDamageRatio = 0, context = null } = {}) {

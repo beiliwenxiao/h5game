@@ -1,0 +1,70 @@
+{
+  "id": "battle.s13.jingshan",
+  "battleId": "battle.s13.jingshan",
+  "title": "S13·精山终局战",
+  "description": "精山暮雨中的最后一场可选战役。观战保留终局物资；介入会投入粮、药与木料，为残部争取退路。",
+  "sceneFlow": {
+    "sceneId": "S13",
+    "locationName": "精山",
+    "unavailableMessage": "精山战役运行时尚未就绪",
+    "conflictMessage": "上一场战役尚未完成结算。",
+    "activeMessage": "精山战役正在进行，最终选择不可更改。",
+    "appliedTitle": "精山战场·已结算战果",
+    "resultTitle": "精山战场·战果",
+    "resultMessage": "精山战果与最终资源投入已经冻结。",
+    "settlementMessage": "精山战果已写入战争状态与结局输入。",
+    "interventionMessage": "已投入最后资源进入孙夏阵线。",
+    "worldChanges": {},
+    "resolvedKey": "s13Resolved",
+    "winnerKey": "s13WinnerFactionId",
+    "checkpointId": "checkpoint.S13.resolved"
+  },
+  "participantFactionIds": ["yellow_turban", "han_government"],
+  "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s13.jingshan",
+    "terrainId": "terrain.s13.jingshan",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s13.yellow_turban", "name": "精山黄巾残部", "factionId": "yellow_turban", "formationIds": ["formation.s13.yellow_turban.retreat"], "commanderHeroId": "hero.sun_xia", "morale": 52, "resources": { "food": 12, "wood": 10, "iron": 2, "herb": 6 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s13.han", "name": "精山官军追兵", "factionId": "han_government", "formationIds": ["formation.s13.han.pursuit"], "commanderHeroId": "hero.s13.han_commander", "morale": 76, "resources": { "food": 40, "wood": 18, "iron": 16, "herb": 10 } },
+    "attackerMorale": 52,
+    "defenderMorale": 76,
+    "attackerCommanderId": "hero.sun_xia",
+    "defenderCommanderId": "hero.s13.han_commander",
+    "weather": "rain",
+    "seed": 31301,
+    "logicalTime": 390,
+    "affectedCityId": "city.s09_guangzong_camp",
+    "resourceSourceCityId": "city.s09_guangzong_camp",
+    "resourceDestinationCityId": "city.s09_guangzong_camp",
+    "resourceNodeIds": []
+  },
+  "outcomePriority": [
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" },
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" },
+    "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" },
+    "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "击退精山追兵并为残部争取最后退路",
+  "playerInterventionFactionId": "yellow_turban",
+  "realtimeMorale": { "yellow_turban": 52, "han_government": 76 },
+  "realtimeResult": {
+    "byWinner": {
+      "yellow_turban": { "capturedResources": { "wood": 0, "iron": 2, "food": 4, "herb": 1 }, "cityDamage": 0.04, "damagedResourceNodeIds": [] },
+      "han_government": { "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 }, "cityDamage": 0.12, "damagedResourceNodeIds": [] }
+    }
+  },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "精山终局战·选择参战方式",
+    "description": "使用统一战役系统冻结战果；介入会提交最终资源消耗，观战则保留物资进入 S14。",
+    "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能影响交战单位", "保留粮、药与木料", "等待精山战果冻结"] },
+    "intervene": { "label": "介入", "consequences": ["消耗粮食 12、草药 6、木材 10", "进入黄巾残部阵线", "承担终局战伤亡风险"] }
+  }
+}

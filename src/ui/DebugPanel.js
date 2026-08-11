@@ -21,6 +21,7 @@
  */
 
 import { InputHints } from '../core/input/InputHints.js';
+import { getWorldMapCellSceneId } from '../core/WorldMapCell.js';
 
 export class DebugPanel {
   /**
@@ -298,7 +299,8 @@ export class DebugPanel {
           if (!region.grid) continue;
           for (const row of region.grid) {
             if (!row) continue;
-            for (const sceneId of row) {
+            for (const cell of row) {
+              const sceneId = getWorldMapCellSceneId(cell);
               if (sceneId && !seen.has(sceneId)) {
                 seen.add(sceneId);
                 const opt = document.createElement('option');

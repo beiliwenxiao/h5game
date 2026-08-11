@@ -11,12 +11,14 @@
  ************************************************************/
 
 import { SceneEditorCanvas } from './SceneEditorCanvas.js';
+import { getWorldMapCellSceneId, isReservedWorldMapCell } from '../src/core/WorldMapCell.js';
 
 /**
  * WorldMapEditor - 大地图块编辑器 Tab（P5-5）
  *
  * 功能：
- *   - 网格视图（cols×rows）编辑 worldMap.regions[0].grid
+ *   - 网格视图（cols×rows）编辑 worldMap.regions[].grid
+ *   - 支持切换多个 Region，并显示 reserved 规划单元
  *   - 每格可分配一个已有 scene（下拉选择）或置空
  *   - 设置 chunkWidth/chunkHeight、region id
  *   - 增减行列
@@ -28,13 +30,14 @@ import { SceneEditorCanvas } from './SceneEditorCanvas.js';
 export class WorldMapEditor {
   /**
    * @param {HTMLElement} container - 编辑器挂载容器
-   * @param {Object} opts - { dataManager, onSave }
+   * @param {Object} opts - { gameId, projectPath }
    */
   constructor(container, opts = {}) {
     this.container = container;
     this.gameId = opts.gameId || 'sanguo_zhangjiao';
-    this.projectPath = `example/${this.gameId}/game.project.json`;
+    this.projectPath = this._normalizeProjectPath(opts.projectPath || `example/${this.gameId}/game.project.json`);
     this.project = null;
+    this._sceneDataById = new Map();
 
     // 当前编辑的 region 数据
     this.region = {
@@ -53,6 +56,28 @@ export class WorldMapEditor {
     this.availableScenes = [];
 
     this._el = null;
+  }
+
+  _normalizeProjectPath(projectPath) {
+    return String(projectPath || '')
+      .replace(/\\/g, '/')
+      .replace(/^(?:\.\.\/)+/, '')
+      .replace(/^\//, '');
+  }
+
+  /** 切换当前游戏时同步项目上下文，防止复用旧实例继续读取上一个项目。 */
+  setProjectContext({ gameId, projectPath } = {}) {
+    const nextGameId = gameId || this.gameId;
+    const nextProjectPath = this._normalizeProjectPath(projectPath || `example/${nextGameId}/game.project.json`);
+    const changed = nextGameId !== this.gameId || nextProjectPath !== this.projectPath;
+    this.gameId = nextGameId;
+    this.projectPath = nextProjectPath;
+    if (changed) {
+      this.project = null;
+      this._sceneDataById.clear();
+      this._loadedImages?.clear?.();
+    }
+    return changed;
   }
 
   /**
@@ -121,10 +146,52 @@ export class WorldMapEditor {
       this._normalizeGrid();
     }
 
+    await this._loadSceneDataFromDisk();
     this._populateRegionSelect();
     // 更新输入框
     this._el.querySelector('.wme-region-name').value = this.region.name || '';
     this._render();
+  }
+
+  _collectLoadableSceneIds() {
+    const ids = new Set(this.availableScenes);
+    for (const region of this.project?.worldMap?.regions || []) {
+      for (const row of region.grid || []) {
+        for (const cell of row || []) {
+          const sceneId = getWorldMapCellSceneId(cell);
+          if (sceneId) ids.add(sceneId);
+        }
+      }
+    }
+    return [...ids];
+  }
+
+  async _readJsonFile(filePath) {
+    try {
+      const response = await fetch('/api/read-file?path=' + encodeURIComponent(filePath));
+      if (response.ok) {
+        const payload = await response.json();
+        const content = typeof payload.content === 'string' ? payload.content : payload;
+        return typeof content === 'string' ? JSON.parse(content) : content;
+      }
+    } catch (error) { /* 回退到静态文件 */ }
+
+    try {
+      const response = await fetch('/' + filePath.replace(/^\/+/, ''));
+      return response.ok ? await response.json() : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /** 磁盘场景 JSON 是缩略图事实源；localStorage 仅作为读取失败时的 fallback。 */
+  async _loadSceneDataFromDisk() {
+    this._sceneDataById.clear();
+    const basePath = this.projectPath.slice(0, this.projectPath.lastIndexOf('/') + 1);
+    await Promise.all(this._collectLoadableSceneIds().map(async sceneId => {
+      const scene = await this._readJsonFile(`${basePath}assets/scenes/${sceneId}.json`);
+      if (scene && typeof scene === 'object') this._sceneDataById.set(sceneId, scene);
+    }));
   }
 
   /**
@@ -184,6 +251,7 @@ export class WorldMapEditor {
         <label>列数: <input type="number" class="wme-cols" value="${this.region.cols}" min="1" max="100" style="width:50px;" /></label>
         <label>行数: <input type="number" class="wme-rows" value="${this.region.rows}" min="1" max="100" style="width:50px;" /></label>
         <button class="wme-apply-size">应用尺寸</button>
+        <button class="wme-focus-used">◎ 定位已配置场景</button>
         <button class="wme-save">💾 保存</button>
       </div>
       <div class="wme-grid-container" style="position:relative;"></div>
@@ -194,6 +262,7 @@ export class WorldMapEditor {
   _bindEvents() {
     this._el.querySelector('.wme-save').onclick = () => this.save();
     this._el.querySelector('.wme-apply-size').onclick = () => this._applySize();
+    this._el.querySelector('.wme-focus-used').onclick = () => this._focusUsedArea({ smooth: true });
 
     this._el.querySelector('.wme-region-id').oninput = (e) => { this.region.id = e.target.value; };
     this._el.querySelector('.wme-region-name').oninput = (e) => { this.region.name = e.target.value; };
@@ -344,7 +413,13 @@ export class WorldMapEditor {
     let html = `<div class="wme-grid" style="display:grid;grid-template-columns:repeat(${this.region.cols},${thumbW}px);gap:4px;width:max-content;">`;
     for (let r = 0; r < this.region.rows; r++) {
       for (let c = 0; c < this.region.cols; c++) {
-        const val = (this.region.grid[r] && this.region.grid[r][c]) || '';
+        const cellValue = (this.region.grid[r] && this.region.grid[r][c]) || null;
+        const sceneId = getWorldMapCellSceneId(cellValue, { includeReserved: true });
+        const reserved = isReservedWorldMapCell(cellValue);
+        const cellLabel = sceneId ? `${sceneId}${reserved ? '（预留）' : ''}` : '(空)';
+        const cellSceneOpts = reserved && sceneId && !this.availableScenes.includes(sceneId)
+          ? `${sceneOpts}<option value="${sceneId}">${sceneId}（预留，未加载）</option>`
+          : sceneOpts;
         html += `
           <div class="wme-cell" data-r="${r}" data-c="${c}"
                style="width:${thumbW}px;height:${thumbH}px;
@@ -356,7 +431,7 @@ export class WorldMapEditor {
                   font-size:10px;color:#ccc;background:rgba(0,0,0,0.6);
                   text-align:center;padding:2px 0;pointer-events:none;
                   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              ${val || '(空)'}
+              ${cellLabel}
             </span>
             <div class="wme-cell-overlay" style="display:none;position:absolute;inset:0;
                  background:rgba(0,0,0,0.7);flex-direction:column;align-items:center;
@@ -365,7 +440,7 @@ export class WorldMapEditor {
               <select class="wme-cell-select" data-r="${r}" data-c="${c}"
                       style="width:92%;font-size:11px;background:#222;color:#eee;border:1px solid #666;
                              border-radius:3px;padding:3px;">
-                ${sceneOpts.replace(`value="${val}"`, `value="${val}" selected`)}
+                ${cellSceneOpts.replace(`value="${sceneId}"`, `value="${sceneId}" selected`)}
               </select>
             </div>
           </div>`;
@@ -425,12 +500,38 @@ export class WorldMapEditor {
     gc.querySelectorAll('.wme-cell').forEach(cell => {
       const r = parseInt(cell.dataset.r);
       const c = parseInt(cell.dataset.c);
-      const sceneId = (this.region.grid[r] && this.region.grid[r][c]) || null;
-      this._renderCellThumbnail(cell, sceneId, thumbW, thumbH);
+      const cellValue = (this.region.grid[r] && this.region.grid[r][c]) || null;
+      this._renderCellThumbnail(cell, cellValue, thumbW, thumbH);
     });
 
     // 绘制右上角小地图（延迟，等缩略图绘制完成）
     setTimeout(() => this._renderMinimap(gc, thumbW, thumbH), 300);
+    requestAnimationFrame(() => this._focusUsedArea());
+  }
+
+  /** 将滚动视口定位到当前 Region 已配置单元的包围盒中心。 */
+  _focusUsedArea({ smooth = false } = {}) {
+    const page = this.container.closest('#world-map-editor-page');
+    if (!page) return false;
+    const cells = [...this._el.querySelectorAll('.wme-cell')].filter(cell => {
+      const row = Number(cell.dataset.r);
+      const col = Number(cell.dataset.c);
+      return Boolean(this.region.grid[row]?.[col]);
+    });
+    if (cells.length === 0) return false;
+
+    const pageRect = page.getBoundingClientRect();
+    const rects = cells.map(cell => cell.getBoundingClientRect());
+    const left = Math.min(...rects.map(rect => rect.left));
+    const right = Math.max(...rects.map(rect => rect.right));
+    const top = Math.min(...rects.map(rect => rect.top));
+    const bottom = Math.max(...rects.map(rect => rect.bottom));
+    page.scrollTo({
+      left: Math.max(0, page.scrollLeft + (left + right) / 2 - pageRect.left - page.clientWidth / 2),
+      top: Math.max(0, page.scrollTop + (top + bottom) / 2 - pageRect.top - page.clientHeight / 2),
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+    return true;
   }
 
   /**
@@ -520,12 +621,13 @@ export class WorldMapEditor {
    * 绘制单格缩略图：直接当真实游戏场景来画（缩小 20%），复用场景编辑器渲染
    * @private
    */
-  _renderCellThumbnail(cell, sceneId, thumbW, thumbH) {
+  _renderCellThumbnail(cell, cellValue, thumbW, thumbH) {
     const canvas = cell.querySelector('.wme-cell-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, thumbW, thumbH);
 
+    const sceneId = getWorldMapCellSceneId(cellValue, { includeReserved: true });
     if (!sceneId) {
       ctx.strokeStyle = '#333';
       ctx.setLineDash([4, 4]);
@@ -534,6 +636,20 @@ export class WorldMapEditor {
       ctx.moveTo(thumbW, 0); ctx.lineTo(0, thumbH);
       ctx.stroke();
       ctx.setLineDash([]);
+      return;
+    }
+
+    if (isReservedWorldMapCell(cellValue)) {
+      ctx.fillStyle = '#171717';
+      ctx.fillRect(0, 0, thumbW, thumbH);
+      ctx.strokeStyle = '#8B7355';
+      ctx.setLineDash([8, 5]);
+      ctx.strokeRect(4, 4, thumbW - 8, thumbH - 8);
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#c9ad7a';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${sceneId} · 规划位置`, thumbW / 2, thumbH / 2);
       return;
     }
 
@@ -724,10 +840,12 @@ export class WorldMapEditor {
   }
 
   /**
-   * 从 localStorage 获取场景数据
+   * 磁盘场景优先；仅在磁盘读取失败时使用 localStorage 缓存。
    * @private
    */
   _getSceneData(sceneId) {
+    const diskScene = this._sceneDataById.get(sceneId);
+    if (diskScene) return diskScene;
     try {
       const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + this.gameId);
       if (!raw) return null;

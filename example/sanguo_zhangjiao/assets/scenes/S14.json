@@ -1,0 +1,29 @@
+{
+  "id": "S14", "name": "S14·结局之地", "width": 1280, "height": 720, "backgroundColor": "#24282a",
+  "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-d", "productionState": "playable", "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "gameplay": { "endingConfigId": "sanguo-zhangjiao-endings-v1", "resourceDivergenceId": "final-retreat-resources", "freezeOnEnter": true, "checkpointBeforeEnding": "checkpoint.S14.preEnding", "postEndingActions": ["returnTitle", "loadPreEndingSave", "viewUnlockedEndings"] },
+  "composition": { "complexity": "medium", "focalPoint": "S14-last-cart", "primaryRoute": ["S14-spawn-entry", "S14-last-cart", "S14-unassembled-catapult", "S14-ending-marker"], "cameraFrame": { "width": 1280, "height": 720 } },
+  "assetBudget": { "environmentModules": 6, "actorVariants": 0, "interactiveProps": 4, "vfx": 4, "audioLayers": 3 },
+  "layers": [
+    { "id": "layer_bg", "name": "雪后山口背景", "visible": true, "locked": false, "objects": [{ "id": "S14-bg", "type": "image", "imageId": "s14.environment.endingGround", "x": 0, "y": 0, "width": 1280, "height": 720, "name": "结局之地山口", "semanticRole": "sceneBackground", "state": "content", "visualDescription": "雪后将明的山口终局舞台，前景残营、中景马车与投石车、远景退路分层清晰。" }] },
+    { "id": "layer_deco", "name": "最后的载具与结局火堆", "visible": true, "locked": false, "objects": [
+      { "id": "S14-last-cart", "type": "image", "imageId": "s14.vehicle.lastRetreatCart", "name": "最后的伤员马车", "x": 315, "y": 400, "width": 220, "height": 128, "depthSort": true, "sortY": 528, "semanticRole": "vehicle" },
+      { "id": "S14-unassembled-catapult", "type": "image", "imageId": "s14.vehicle.unassembledCatapult", "name": "缺少主梁的投石车", "x": 710, "y": 320, "width": 220, "height": 150, "depthSort": true, "sortY": 470, "semanticRole": "siegeVehicle" },
+      { "id": "S14-ending-marker", "type": "image", "imageId": "s13.story.finalCommandBanner", "name": "旅程回顾旗", "x": 1030, "y": 420, "width": 96, "height": 128, "depthSort": true, "sortY": 548, "semanticRole": "storyMarker" }
+    ] },
+    { "id": "layer_placement", "name": "出生点", "visible": true, "locked": false, "objects": [{ "id": "S14-spawn-entry", "type": "spawn", "name": "结局之地入口", "ref": "player", "x": 105, "y": 625 }] },
+    { "id": "layer_logic", "name": "终局资源与结局交互", "visible": true, "locked": false, "objects": [
+      { "id": "S14-binding-cart", "type": "trigger", "name": "检查最后马车突围", "triggerId": "trg_s14_resolve_last_cart", "command": "resolveS14LastCart", "x": 285, "y": 365, "width": 280, "height": 195, "event": "interact", "targetMode": "id", "target": "S14-last-cart", "radius": 130, "pointerRadius": 72, "prompt": "{interact}检查最后的粮、伤员与马车" },
+      { "id": "S14-binding-catapult", "type": "trigger", "name": "检查投石车组装", "triggerId": "trg_s14_resolve_catapult", "command": "resolveS14Catapult", "x": 680, "y": 285, "width": 280, "height": 215, "event": "interact", "targetMode": "id", "target": "S14-unassembled-catapult", "radius": 130, "pointerRadius": 72, "prompt": "{interact}检查投石车是否有足够木料组装" },
+      { "id": "S14-binding-ending", "type": "trigger", "name": "冻结旅程并播放结局", "triggerId": "trg_s14_commit_ending", "command": "commitS14Ending", "x": 995, "y": 390, "width": 170, "height": 190, "event": "interact", "targetMode": "id", "target": "S14-ending-marker", "radius": 125, "pointerRadius": 68, "prompt": "{interact}冻结旅程状态并回看最后结局" }
+    ] }
+  ],
+  "decorations": [], "colliders": [],
+  "imageAssets": {
+    "s14.environment.endingGround": { "src": "../example/sanguo_zhangjiao/assets/images/s14/ending-ground.svg", "name": "结局之地山口" },
+    "s14.vehicle.lastRetreatCart": { "src": "../example/sanguo_zhangjiao/assets/images/s14/last-retreat-cart.svg", "name": "最后的伤员马车" },
+    "s14.vehicle.unassembledCatapult": { "src": "../example/sanguo_zhangjiao/assets/images/s14/unassembled-catapult.svg", "name": "缺梁投石车" },
+    "s13.story.finalCommandBanner": { "src": "../example/sanguo_zhangjiao/assets/images/s13/final-command-banner.svg", "name": "旅程回顾旗" }
+  }, "updatedAt": "2026-08-13T00:00:00.000Z"
+}

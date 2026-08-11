@@ -10,75 +10,382 @@
   "composition": {
     "complexity": "low",
     "focalPoint": "S02-camp-center",
-    "primaryRoute": ["S02-spawn-player", "S02-supply-zone", "S02-npc-messenger"],
-    "cameraFrame": { "width": 1280, "height": 720 }
+    "primaryRoute": [
+      "S02-spawn-player",
+      "S02-supply-zone",
+      "S02-npc-messenger"
+    ],
+    "cameraFrame": {
+      "width": 1280,
+      "height": 720
+    }
   },
-  "assetBudget": { "environmentModules": 8, "actorVariants": 3, "interactiveProps": 6, "vfx": 2, "audioLayers": 2 },
+  "assetBudget": {
+    "environmentModules": 8,
+    "actorVariants": 3,
+    "interactiveProps": 6,
+    "vfx": 2,
+    "audioLayers": 2
+  },
   "layers": [
-    { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [] },
     {
-      "id": "layer_fill", "name": "废弃营地主路", "visible": true, "locked": false,
+      "id": "layer_bg",
+      "name": "背景层",
+      "visible": true,
+      "locked": false,
       "objects": [
         {
-          "id": "S02-camp-center", "type": "shape", "shapeType": "polygon", "name": "营地中心",
-          "points": [[300,180],[980,180],[1100,600],[220,600]], "fillMode": "color",
-          "fill": "#75634c", "opacity": 0.5, "stroke": "#a78d64", "strokeWidth": 2, "walkable": true
-        },
-        {
-          "id": "S02-primary-route", "type": "shape", "shapeType": "polygon", "name": "物资搜寻动线",
-          "points": [[560,720],[720,720],[860,260],[730,210],[520,430]], "fillMode": "color",
-          "fill": "#8a7657", "opacity": 0.35, "stroke": "#b59b70", "strokeWidth": 2, "walkable": true
+          "id": "S02-bg-environment",
+          "type": "image",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "imageId": "s02.environment.abandonedCampGround",
+          "name": "S02 废弃营地地貌",
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "visualDescription": "废弃黄巾营地与物资搜寻区；必须表现：破帐、散落物资、倒旗、拾荒者警戒区、东北出口。正式替换图不得烘焙文字或业务碰撞。"
         }
       ]
     },
     {
-      "id": "layer_deco", "name": "装饰层", "visible": true, "locked": false,
+      "id": "layer_fill",
+      "name": "废弃营地主路",
+      "visible": true,
+      "locked": false,
       "objects": [
         {
-          "id": "S02-supply-zone", "type": "shape", "shapeType": "polygon", "name": "废弃物资区",
-          "points": [[350,290],[585,260],[620,435],[330,455]], "fillMode": "color",
-          "fill": "#8b6b3f", "opacity": 0.25, "stroke": "#d1a45c", "strokeWidth": 2
+          "id": "S02-camp-center",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "营地中心",
+          "points": [
+            [
+              300,
+              180
+            ],
+            [
+              980,
+              180
+            ],
+            [
+              1100,
+              600
+            ],
+            [
+              220,
+              600
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#75634c",
+          "opacity": 0.5,
+          "stroke": "#a78d64",
+          "strokeWidth": 2,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "营地中心；代表玩家可通行的地貌动线。"
         },
         {
-          "id": "S02-danger-zone", "type": "shape", "shapeType": "polygon", "name": "拾荒者警戒区",
-          "points": [[760,250],[1050,230],[1080,470],[790,490]], "fillMode": "color",
-          "fill": "#6d3630", "opacity": 0.2, "stroke": "#b95748", "strokeWidth": 2
-        },
-        {
-          "id": "S02-zone-s09-exit", "type": "region", "name": "前往粥棚营地出口",
-          "regionId": "S02-s09-exit", "x": 1020, "y": 60, "width": 180, "height": 110
+          "id": "S02-primary-route",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "物资搜寻动线",
+          "points": [
+            [
+              560,
+              720
+            ],
+            [
+              720,
+              720
+            ],
+            [
+              860,
+              260
+            ],
+            [
+              730,
+              210
+            ],
+            [
+              520,
+              430
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#8a7657",
+          "opacity": 0.35,
+          "stroke": "#b59b70",
+          "strokeWidth": 2,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "物资搜寻动线；代表玩家可通行的地貌动线。"
         }
       ]
     },
-    { "id": "layer_entity", "name": "实体层", "visible": true, "locked": false, "objects": [] },
     {
-      "id": "layer_placement", "name": "放置层", "visible": true, "locked": false,
+      "id": "layer_deco",
+      "name": "装饰层",
+      "visible": true,
+      "locked": false,
       "objects": [
-        { "id": "S02-spawn-player", "type": "spawn", "ref": "player", "x": 640, "y": 610 },
-        { "id": "S02-supply-wood", "type": "ref", "kind": "item", "ref": "resource.wood", "group": "S02-initial", "tags": ["supply", "abandoned"], "x": 405, "y": 380, "overrides": { "quantity": 18 } },
-        { "id": "S02-supply-herb", "type": "ref", "kind": "item", "ref": "resource.herb", "group": "S02-initial", "tags": ["supply", "abandoned"], "x": 485, "y": 350, "overrides": { "quantity": 12 } },
-        { "id": "S02-salvage-cloth", "type": "ref", "kind": "item", "ref": "salvage.torn_cloth", "group": "S02-initial", "tags": ["supply", "capacity-pressure"], "x": 445, "y": 415, "overrides": { "quantity": 8 } },
-        { "id": "S02-salvage-utensil", "type": "ref", "kind": "item", "ref": "salvage.broken_utensil", "group": "S02-initial", "tags": ["supply", "capacity-pressure"], "x": 520, "y": 430, "overrides": { "quantity": 8 } },
-        { "id": "S02-tool-axe", "type": "ref", "kind": "item", "ref": "tool.worn_axe", "group": "S02-initial", "tags": ["supply", "tool"], "x": 555, "y": 395, "overrides": { "instanceId": "S02-tool-axe-1", "durability": 5, "maxDurability": 8 } },
-        { "id": "S02-scavenger-1", "type": "ref", "kind": "enemy", "ref": "enemy.s02_scavenger", "group": "S02-initial", "tags": ["scavenger", "danger-zone"], "x": 850, "y": 340 },
-        { "id": "S02-scavenger-2", "type": "ref", "kind": "enemy", "ref": "enemy.s02_scavenger", "group": "S02-initial", "tags": ["scavenger", "danger-zone"], "x": 970, "y": 390 },
-        { "id": "S02-npc-messenger", "type": "ref", "kind": "npc", "ref": "npc.s02_messenger", "group": "S02-initial", "tags": ["story", "summons"], "x": 710, "y": 235 }
+        {
+          "id": "S02-supply-zone",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "废弃物资区",
+          "points": [
+            [
+              350,
+              290
+            ],
+            [
+              585,
+              260
+            ],
+            [
+              620,
+              435
+            ],
+            [
+              330,
+              455
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#8b6b3f",
+          "opacity": 0.25,
+          "stroke": "#d1a45c",
+          "strokeWidth": 2,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "废弃物资区；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S02-danger-zone",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "拾荒者警戒区",
+          "points": [
+            [
+              760,
+              250
+            ],
+            [
+              1050,
+              230
+            ],
+            [
+              1080,
+              470
+            ],
+            [
+              790,
+              490
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#6d3630",
+          "opacity": 0.2,
+          "stroke": "#b95748",
+          "strokeWidth": 2,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "拾荒者警戒区；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S02-zone-s09-exit",
+          "type": "region",
+          "name": "前往粥棚营地出口",
+          "regionId": "S02-s09-exit",
+          "x": 1020,
+          "y": 60,
+          "width": 180,
+          "height": 110
+        }
       ]
     },
     {
-      "id": "layer_logic", "name": "逻辑对象", "visible": true, "locked": false,
+      "id": "layer_entity",
+      "name": "实体层",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    },
+    {
+      "id": "layer_placement",
+      "name": "放置层",
+      "visible": true,
+      "locked": false,
       "objects": [
         {
-          "id": "S02-binding-zhangjiao-summons", "type": "trigger", "name": "接受张角召见",
-          "triggerId": "trg_s02_zhangjiao_summons", "x": 690, "y": 215, "width": 40, "height": 40,
-          "event": "interact", "targetMode": "id", "target": "S02-npc-messenger",
-          "radius": 96, "pointerRadius": 42, "prompt": "{interact}接受张角召见"
+          "id": "S02-spawn-player",
+          "type": "spawn",
+          "ref": "player",
+          "x": 640,
+          "y": 610
         },
         {
-          "id": "S02-binding-travel-s09", "type": "trigger", "name": "前往粥棚营地",
-          "triggerId": "trg_s02_travel_s09", "x": 1020, "y": 60, "width": 180, "height": 110,
-          "event": "interact", "targetMode": "id", "target": "S02-zone-s09-exit",
-          "radius": 110, "pointerRadius": 60, "prompt": "{interact}前往粥棚营地"
+          "id": "S02-supply-wood",
+          "type": "ref",
+          "kind": "item",
+          "ref": "resource.wood",
+          "group": "S02-initial",
+          "tags": [
+            "supply",
+            "abandoned"
+          ],
+          "x": 405,
+          "y": 380,
+          "overrides": {
+            "quantity": 18
+          }
+        },
+        {
+          "id": "S02-supply-herb",
+          "type": "ref",
+          "kind": "item",
+          "ref": "resource.herb",
+          "group": "S02-initial",
+          "tags": [
+            "supply",
+            "abandoned"
+          ],
+          "x": 485,
+          "y": 350,
+          "overrides": {
+            "quantity": 12
+          }
+        },
+        {
+          "id": "S02-salvage-cloth",
+          "type": "ref",
+          "kind": "item",
+          "ref": "salvage.torn_cloth",
+          "group": "S02-initial",
+          "tags": [
+            "supply",
+            "capacity-pressure"
+          ],
+          "x": 445,
+          "y": 415,
+          "overrides": {
+            "quantity": 8
+          }
+        },
+        {
+          "id": "S02-salvage-utensil",
+          "type": "ref",
+          "kind": "item",
+          "ref": "salvage.broken_utensil",
+          "group": "S02-initial",
+          "tags": [
+            "supply",
+            "capacity-pressure"
+          ],
+          "x": 520,
+          "y": 430,
+          "overrides": {
+            "quantity": 8
+          }
+        },
+        {
+          "id": "S02-tool-axe",
+          "type": "ref",
+          "kind": "item",
+          "ref": "tool.worn_axe",
+          "group": "S02-initial",
+          "tags": [
+            "supply",
+            "tool"
+          ],
+          "x": 555,
+          "y": 395,
+          "overrides": {
+            "instanceId": "S02-tool-axe-1",
+            "durability": 5,
+            "maxDurability": 8
+          }
+        },
+        {
+          "id": "S02-scavenger-1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s02_scavenger",
+          "group": "S02-initial",
+          "tags": [
+            "scavenger",
+            "danger-zone"
+          ],
+          "x": 850,
+          "y": 340
+        },
+        {
+          "id": "S02-scavenger-2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s02_scavenger",
+          "group": "S02-initial",
+          "tags": [
+            "scavenger",
+            "danger-zone"
+          ],
+          "x": 970,
+          "y": 390
+        },
+        {
+          "id": "S02-npc-messenger",
+          "type": "ref",
+          "kind": "npc",
+          "ref": "npc.s02_messenger",
+          "group": "S02-initial",
+          "tags": [
+            "story",
+            "summons"
+          ],
+          "x": 710,
+          "y": 235
+        }
+      ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "逻辑对象",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S02-binding-zhangjiao-summons",
+          "type": "trigger",
+          "name": "接受张角召见",
+          "triggerId": "trg_s02_zhangjiao_summons",
+          "x": 690,
+          "y": 215,
+          "width": 40,
+          "height": 40,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S02-npc-messenger",
+          "radius": 96,
+          "pointerRadius": 42,
+          "prompt": "{interact}接受张角召见"
+        },
+        {
+          "id": "S02-binding-travel-s09",
+          "type": "trigger",
+          "name": "前往粥棚营地",
+          "triggerId": "trg_s02_travel_s09",
+          "x": 1020,
+          "y": 60,
+          "width": 180,
+          "height": 110,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S02-zone-s09-exit",
+          "radius": 110,
+          "pointerRadius": 60,
+          "prompt": "{interact}前往粥棚营地"
         }
       ]
     }
@@ -87,5 +394,12 @@
   "colliders": [],
   "type": "terrain",
   "sceneType": "worldChunk",
-  "worldMap": "region-a"
+  "worldMap": "region-a",
+  "imageAssets": {
+    "s02.environment.abandonedCampGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s02/abandoned-camp-ground.svg",
+      "name": "S02 废弃营地地貌"
+    }
+  },
+  "updatedAt": "2026-08-12T00:00:00.000Z"
 }

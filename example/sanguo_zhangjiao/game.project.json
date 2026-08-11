@@ -164,6 +164,29 @@
       { "id": "site.s10.arrow_tower", "sceneId": "S10", "definitionId": "construction.arrow_tower" }
     ]
   },
+  "extensions": {
+    "sanguoZhangjiao": {
+      "s01Tutorials": [
+        { "id": "s01.move", "title": "移动", "steps": [{ "text": "使用 {move} 移动，离开火堆附近。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.attack", "title": "攻击", "steps": [{ "text": "使用 {attack} 进行一次攻击。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.pickup", "title": "拾取", "steps": [{ "text": "靠近物资后使用 {pickup} 拾取。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.jump", "title": "跳跃", "steps": [{ "text": "使用 {jump} 越过障碍。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.gather", "title": "采集", "steps": [{ "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.durability", "title": "工具耐久", "steps": [{ "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false },
+        { "id": "s01.capacity", "title": "背包容量", "steps": [{ "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。" }], "category": "s01-survival", "canSkip": false, "autoTrigger": false }
+      ],
+      "s09RefugeeConflict": {
+        "minimumCityDamageRatio": 0.4,
+        "donationFood": 20,
+        "donationMorale": 5,
+        "damagePauseDays": 1,
+        "hardlineMorale": 10,
+        "hardlineEscapeChance": 0.35,
+        "appeaseFood": 30,
+        "consequenceDelayDays": 1
+      }
+    }
+  },
   "variables": {
     "storyState": {
       "month": 3,
@@ -868,6 +891,18 @@
   },
   "scenes": [
     {
+      "id": "S01",
+      "worldMap": "region-a",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S02",
+      "worldMap": "region-a",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
       "id": "S03",
       "worldMap": "region-c",
       "productionState": "playable",
@@ -900,6 +935,12 @@
     {
       "id": "S08",
       "worldMap": "region-c",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S09",
+      "worldMap": "region-b",
       "productionState": "playable",
       "previewOnly": false
     },
@@ -1242,6 +1283,10 @@
         "label": "请求自动存档 autoSave"
       },
       {
+        "value": "switchScene",
+        "label": "切换独立场景 switchScene"
+      },
+      {
         "value": "toggleDebug",
         "label": "切换调试面板 toggleDebug"
       },
@@ -1260,6 +1305,10 @@
       {
         "value": "spawnStarvingWave",
         "label": "生成饥民波次 spawnStarvingWave"
+      },
+      {
+        "value": "spawnWave",
+        "label": "批量生成敌军波次 spawnWave"
       },
       {
         "value": "selectClass",

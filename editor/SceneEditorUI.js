@@ -898,6 +898,8 @@ export class SceneEditorUI {
   _buildEffectZoneProperties(obj) {
     let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"><label style="color:#ff9944;font-weight:bold;">特效区域</label></div>';
     html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name"></div>`;
+    html += `<div class="property-row"><label>语义角色:</label><input type="text" value="${obj.semanticRole || ''}" data-prop="semanticRole" placeholder="如 battlefieldFire / poisonSmoke"></div>`;
+    html += `<div class="property-row"><label>视觉说明:</label><textarea data-prop="visualDescription" rows="3" placeholder="说明特效在场景中代表什么">${obj.visualDescription || ''}</textarea></div>`;
     html += `<div class="property-row"><label>顶点数:</label><input type="number" value="${(obj.points || []).length}" min="3" max="100" data-prop="_vertexCount" title="修改后重新生成正多边形"></div>`;
     html += `<div class="property-row"><label>特效类型:</label><select data-prop="effectType">
       <option value="fire" ${obj.effectType === 'fire' ? 'selected' : ''}>🔥 火焰</option>
@@ -1175,6 +1177,8 @@ export class SceneEditorUI {
     const mode = obj.fillMode || 'color';
     let html = '';
     html += `<div class="property-row"><label>名称:</label><input type="text" value="${obj.name || ''}" data-prop="name" placeholder="形状名称"></div>`;
+    html += `<div class="property-row"><label>语义角色:</label><input type="text" value="${obj.semanticRole || ''}" data-prop="semanticRole" placeholder="如 travelRoute / collisionBoundary"></div>`;
+    html += `<div class="property-row"><label>视觉说明:</label><textarea data-prop="visualDescription" rows="3" placeholder="说明此图形代表的地貌、建筑或玩法区域">${obj.visualDescription || ''}</textarea></div>`;
     html += `<div class="property-row"><label>填充模式:</label><select data-prop="fillMode">
       <option value="color" ${mode === 'color' ? 'selected' : ''}>纯色</option>
       <option value="gradient" ${mode === 'gradient' ? 'selected' : ''}>渐变</option>
@@ -1256,6 +1260,10 @@ export class SceneEditorUI {
     }).join('');
 
     let html = '';
+    html += `<div class="property-row"><label>对象名称:</label><input type="text" value="${escapeHtml(obj.name || asset?.name || obj.imageId || '')}" data-prop="name" placeholder="画布与图层中显示的名称"></div>`;
+    html += `<div class="property-row"><label>语义角色:</label><input type="text" value="${escapeHtml(obj.semanticRole || '')}" data-prop="semanticRole" placeholder="如 sceneBackground / cityGate"></div>`;
+    html += `<div class="property-row"><label>表现状态:</label><input type="text" value="${escapeHtml(obj.state || '')}" data-prop="state" placeholder="如 intact / damaged / burning"></div>`;
+    html += `<div class="property-row"><label>视觉说明:</label><textarea data-prop="visualDescription" rows="3" placeholder="说明地貌、建筑、朝向和替换时必须保留的构图">${escapeHtml(obj.visualDescription || '')}</textarea></div>`;
     html += `<div class="property-row"><label title="切换到另一个已登记的稳定图片资源">图片ID:</label><select id="editor-image-id" style="flex:1;">${imageOptions}</select></div>`;
     html += `<div class="property-row"><label title="替换当前 ID 对应的图片文件，所有引用保持不变">替换文件:</label><input type="text" id="editor-image-src" value="${escapeHtml(src)}" style="flex:1;"></div>`;
     html += `<div class="property-row"><label>图片尺寸:</label><input id="editor-image-dim" value="${dim}" disabled style="color:#88ccff;"></div>`;

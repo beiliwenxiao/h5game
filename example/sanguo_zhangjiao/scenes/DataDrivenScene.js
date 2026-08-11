@@ -115,19 +115,17 @@ export class DataDrivenScene extends Scene {
   }
 
   /**
-   * 加载编辑器保存的场景数据作为视觉（与旧 Scene1Terrain 同一份数据源）：
-   *   优先 localStorage 'yijian18-engine_editor_data_scenes_<gameId>'，回退 assets/scenes/*.json
+   * 加载磁盘场景 JSON 作为预览视觉；磁盘文件是事实源，localStorage 仅在文件不可用时回退。
    * @param {string} gameId
-   * @param {string} sceneId - 如 'scene_Prologue'
+   * @param {string} sceneId - canonical S01-S14
    * @param {string} assetBase - 如 'assets/scenes/'
-   * @param {string} [exportFile] - 回退文件名
+   * @param {string} [exportFile] - 可选回退文件名
    */
-  async loadEditorScene(gameId = 'sanguo_zhangjiao', sceneId = 'scene_Prologue', assetBase = 'assets/scenes/', exportFile = '序章 - 盆地营地.json') {
-    // 优先 localStorage，回退到文件
-    let scene = loadSceneFromStorage(gameId, sceneId);
-
-    if (!scene) {
-      scene = await loadSceneFromFile(sceneId, assetBase, exportFile);
+  async loadEditorScene(gameId = 'sanguo_zhangjiao', sceneId = 'S01', assetBase = 'assets/scenes/', exportFile = 'S01.json') {
+    let scene = await loadSceneFromFile(sceneId, assetBase, exportFile);
+    if (!scene || !Array.isArray(scene.layers)) {
+      const cached = loadSceneFromStorage(gameId, sceneId);
+      if (cached && Array.isArray(cached.layers)) scene = cached;
     }
 
     if (scene) {

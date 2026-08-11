@@ -13,42 +13,415 @@
   "composition": {
     "complexity": "high",
     "focalPoint": "S11-landmark-west-gate",
-    "primaryRoute": ["S11-spawn-entry", "S11-zone-rally", "S11-landmark-beacon", "S11-landmark-west-gate"],
-    "cameraFrame": { "width": 1280, "height": 720 },
-    "activityBudget": { "activeEntities": 100, "combatLanes": 3 }
+    "primaryRoute": [
+      "S11-spawn-entry",
+      "S11-zone-rally",
+      "S11-landmark-beacon",
+      "S11-landmark-west-gate"
+    ],
+    "cameraFrame": {
+      "width": 1280,
+      "height": 720
+    },
+    "activityBudget": {
+      "activeEntities": 100,
+      "combatLanes": 3
+    }
   },
-  "assetBudget": { "environmentModules": 20, "actorVariants": 14, "interactiveProps": 10, "vfx": 8, "audioLayers": 5 },
+  "assetBudget": {
+    "environmentModules": 20,
+    "actorVariants": 14,
+    "interactiveProps": 10,
+    "vfx": 8,
+    "audioLayers": 5
+  },
   "layers": [
-    { "id": "layer_bg", "name": "背景层", "visible": true, "locked": false, "objects": [
-      { "id": "S11-bg-natural-graybox", "type": "image", "imageId": "graybox.naturalTerrain", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0 }
-    ] },
-    { "id": "layer_fill", "name": "战场阅读区", "visible": true, "locked": false, "objects": [
-      { "id": "S11-ground", "type": "shape", "shapeType": "polygon", "name": "广宗战场地面", "points": [[0,0],[1280,0],[1280,720],[0,720]], "fillMode": "color", "fill": "#51483f", "opacity": 0.25, "strokeWidth": 0 },
-      { "id": "S11-lane-west", "type": "shape", "shapeType": "polygon", "name": "西线突围道", "points": [[70,600],[250,690],[650,170],[525,90]], "fillMode": "color", "fill": "#8c7658", "opacity": 0.75, "stroke": "#d7b35b", "strokeWidth": 3, "walkable": true },
-      { "id": "S11-lane-center", "type": "shape", "shapeType": "polygon", "name": "中央交战道", "points": [[420,720],[590,720],[850,0],[700,0]], "fillMode": "color", "fill": "#765b48", "opacity": 0.72, "stroke": "#c96b45", "strokeWidth": 3, "walkable": true },
-      { "id": "S11-lane-east", "type": "shape", "shapeType": "polygon", "name": "东线增援道", "points": [[860,720],[1035,720],[1210,120],[1080,65]], "fillMode": "color", "fill": "#6e675b", "opacity": 0.72, "stroke": "#aeb8c2", "strokeWidth": 3, "walkable": true }
-    ] },
-    { "id": "layer_deco", "name": "战场地标", "visible": true, "locked": false, "objects": [
-      { "id": "S11-landmark-west-gate", "type": "shape", "shapeType": "polygon", "name": "西门突围口", "points": [[430,40],[650,40],[650,125],[430,125]], "fillMode": "color", "fill": "#382f2a", "opacity": 1, "stroke": "#d7b35b", "strokeWidth": 5, "collide": true },
-      { "id": "S11-landmark-beacon", "type": "shape", "shapeType": "polygon", "name": "烽火台", "points": [[605,235],[690,235],[710,345],[585,345]], "fillMode": "color", "fill": "#d6652d", "opacity": 0.92, "stroke": "#ffb24a", "strokeWidth": 4, "collide": true },
-      { "id": "S11-zone-rally", "type": "shape", "shapeType": "polygon", "name": "卫兵集合区", "points": [[220,440],[460,400],[505,570],[260,610]], "fillMode": "color", "fill": "#b6973f", "opacity": 0.55, "stroke": "#e3c65d", "strokeWidth": 3 },
-      { "id": "S11-zone-assassins", "type": "shape", "shapeType": "polygon", "name": "刺客三波压力区", "points": [[770,260],[1105,230],[1160,505],[815,540]], "fillMode": "color", "fill": "#783a36", "opacity": 0.5, "stroke": "#d35f50", "strokeWidth": 3 }
-    ] },
-    { "id": "layer_entity", "name": "实体锚点", "visible": true, "locked": false, "objects": [
-      { "id": "S11-spawn-entry", "type": "spawn", "name": "南侧战场入口", "ref": "player", "x": 135, "y": 630 },
-      { "id": "S11-spawn-yellow-turban", "type": "spawn", "name": "黄巾军阵列锚点", "ref": "yellow-turban-formation", "group": "S11-yellow-turban", "x": 390, "y": 520 },
-      { "id": "S11-spawn-han-army", "type": "spawn", "name": "官军阵列锚点", "ref": "han-army-formation", "group": "S11-han-army", "x": 970, "y": 410 },
-      { "id": "S11-marker-yellow-1", "type": "image", "imageId": "graybox.battlefieldUnit", "x": 335, "y": 475, "width": 48, "height": 48, "rotation": 0 },
-      { "id": "S11-marker-yellow-2", "type": "image", "imageId": "graybox.battlefieldUnit", "x": 395, "y": 505, "width": 48, "height": 48, "rotation": 0 },
-      { "id": "S11-marker-han-placeholder", "type": "image", "imageId": "graybox.battlefieldUnit", "x": 945, "y": 365, "width": 48, "height": 48, "rotation": 0 }
-    ] },
-    { "id": "layer_logic", "name": "逻辑预留", "visible": true, "locked": false, "objects": [] }
+    {
+      "id": "layer_bg",
+      "name": "背景层",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S11-bg-natural-graybox",
+          "type": "image",
+          "imageId": "s11.environment.guangzongBattlefieldGround",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "name": "S11 广宗百人战地貌",
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "visualDescription": "广宗城外三线百人战场；必须表现：西门城垣、烽火台、西中东三条战线、卫兵集合区、刺客压力区。正式替换图不得烘焙文字或业务碰撞。"
+        }
+      ]
+    },
+    {
+      "id": "layer_fill",
+      "name": "战场阅读区",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S11-ground",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "广宗战场地面",
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              1280,
+              0
+            ],
+            [
+              1280,
+              720
+            ],
+            [
+              0,
+              720
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#51483f",
+          "opacity": 0.25,
+          "strokeWidth": 0,
+          "semanticRole": "terrainSurface",
+          "visualDescription": "广宗战场地面；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S11-lane-west",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "西线突围道",
+          "points": [
+            [
+              70,
+              600
+            ],
+            [
+              250,
+              690
+            ],
+            [
+              650,
+              170
+            ],
+            [
+              525,
+              90
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#8c7658",
+          "opacity": 0.75,
+          "stroke": "#d7b35b",
+          "strokeWidth": 3,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "西线突围道；代表玩家可通行的地貌动线。"
+        },
+        {
+          "id": "S11-lane-center",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "中央交战道",
+          "points": [
+            [
+              420,
+              720
+            ],
+            [
+              590,
+              720
+            ],
+            [
+              850,
+              0
+            ],
+            [
+              700,
+              0
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#765b48",
+          "opacity": 0.72,
+          "stroke": "#c96b45",
+          "strokeWidth": 3,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "中央交战道；代表玩家可通行的地貌动线。"
+        },
+        {
+          "id": "S11-lane-east",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "东线增援道",
+          "points": [
+            [
+              860,
+              720
+            ],
+            [
+              1035,
+              720
+            ],
+            [
+              1210,
+              120
+            ],
+            [
+              1080,
+              65
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#6e675b",
+          "opacity": 0.72,
+          "stroke": "#aeb8c2",
+          "strokeWidth": 3,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "东线增援道；代表玩家可通行的地貌动线。"
+        }
+      ]
+    },
+    {
+      "id": "layer_deco",
+      "name": "战场地标",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S11-landmark-west-gate",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "西门突围口",
+          "points": [
+            [
+              430,
+              40
+            ],
+            [
+              650,
+              40
+            ],
+            [
+              650,
+              125
+            ],
+            [
+              430,
+              125
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#382f2a",
+          "opacity": 1,
+          "stroke": "#d7b35b",
+          "strokeWidth": 5,
+          "collide": true,
+          "semanticRole": "collisionBoundary",
+          "visualDescription": "西门突围口；代表不可通行的建筑或地貌边界。"
+        },
+        {
+          "id": "S11-landmark-beacon",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "烽火台",
+          "points": [
+            [
+              605,
+              235
+            ],
+            [
+              690,
+              235
+            ],
+            [
+              710,
+              345
+            ],
+            [
+              585,
+              345
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#d6652d",
+          "opacity": 0.92,
+          "stroke": "#ffb24a",
+          "strokeWidth": 4,
+          "collide": true,
+          "semanticRole": "collisionBoundary",
+          "visualDescription": "烽火台；代表不可通行的建筑或地貌边界。"
+        },
+        {
+          "id": "S11-zone-rally",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "卫兵集合区",
+          "points": [
+            [
+              220,
+              440
+            ],
+            [
+              460,
+              400
+            ],
+            [
+              505,
+              570
+            ],
+            [
+              260,
+              610
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#b6973f",
+          "opacity": 0.55,
+          "stroke": "#e3c65d",
+          "strokeWidth": 3,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "卫兵集合区；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S11-zone-assassins",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "刺客三波压力区",
+          "points": [
+            [
+              770,
+              260
+            ],
+            [
+              1105,
+              230
+            ],
+            [
+              1160,
+              505
+            ],
+            [
+              815,
+              540
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#783a36",
+          "opacity": 0.5,
+          "stroke": "#d35f50",
+          "strokeWidth": 3,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "刺客三波压力区；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        }
+      ]
+    },
+    {
+      "id": "layer_entity",
+      "name": "实体锚点",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S11-spawn-entry",
+          "type": "spawn",
+          "name": "南侧战场入口",
+          "ref": "player",
+          "x": 135,
+          "y": 630
+        },
+        {
+          "id": "S11-spawn-yellow-turban",
+          "type": "spawn",
+          "name": "黄巾军阵列锚点",
+          "ref": "yellow-turban-formation",
+          "group": "S11-yellow-turban",
+          "x": 390,
+          "y": 520
+        },
+        {
+          "id": "S11-spawn-han-army",
+          "type": "spawn",
+          "name": "官军阵列锚点",
+          "ref": "han-army-formation",
+          "group": "S11-han-army",
+          "x": 970,
+          "y": 410
+        },
+        {
+          "id": "S11-marker-yellow-1",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "x": 335,
+          "y": 475,
+          "width": 48,
+          "height": 48,
+          "rotation": 0,
+          "name": "黄巾军西侧阵列标记",
+          "semanticRole": "battleMarker",
+          "visualDescription": "黄巾军西侧阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S11-marker-yellow-2",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "x": 395,
+          "y": 505,
+          "width": 48,
+          "height": 48,
+          "rotation": 0,
+          "name": "黄巾军中央阵列标记",
+          "semanticRole": "battleMarker",
+          "visualDescription": "黄巾军中央阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S11-marker-han-placeholder",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "x": 945,
+          "y": 365,
+          "width": 48,
+          "height": 48,
+          "rotation": 0,
+          "name": "官军东侧阵列标记",
+          "semanticRole": "battleMarker",
+          "visualDescription": "官军东侧阵列标记；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        }
+      ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "逻辑预留",
+      "visible": true,
+      "locked": false,
+      "objects": []
+    }
   ],
   "decorations": [],
   "colliders": [],
   "imageAssets": {
-    "graybox.naturalTerrain": { "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg", "name": "自然地形灰盒" },
-    "graybox.battlefieldUnit": { "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg", "name": "战场单位灰盒" }
+    "graybox.naturalTerrain": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
+      "name": "自然地形灰盒"
+    },
+    "graybox.battlefieldUnit": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
+      "name": "战场单位灰盒"
+    },
+    "s11.environment.guangzongBattlefieldGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s11/guangzong-battlefield-ground.svg",
+      "name": "S11 广宗百人战地貌"
+    }
   },
-  "updatedAt": "2026-08-09T00:00:00.000Z"
+  "updatedAt": "2026-08-12T00:00:00.000Z"
 }

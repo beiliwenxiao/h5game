@@ -144,11 +144,11 @@ example/sanguo_zhangjiao/
 
 | 阶段 | 状态 | 当前已落地 | 尚未完成/出口阻断 |
 |---|---|---|---|
-| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入 | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 对外部调用方的影响 |
-| P1 | inProgress | 原子库存、设备无关拾取、采集与工具回滚、S01 七项教学和一次性收益、普通死亡/DeathDrop、Placement 动态恢复、跨 Region 两阶段切换已实现 | 浏览器验证攻击教学、采集中断、受伤半产量、owner 隔离、奖励幂等、DeathDrop 和两轮 save/load；S02 完整体验与音画仍需验收 |
-| P2 | inProgress | S09 三职业与不可逆确认、职业装备/技能事务、军师采集傀儡、未许可采粮、饥民三分支与延迟后果、四成长池、ProficiencySystem、CityStateSummaryPanel、稳定资产链与通用 Y-sort 已接入 | 浏览器验证三输入、三剧情分支、跨日/读档、城市摘要、熟练度反馈和 S09 动线；真实音频及最终美术审核未完成，S09 不得提升为 `contentComplete` |
-| P3 | inProgress | BattleSystem、CityWarSystem、BattlefieldRuntimeSystem、战役 HUD/战果 UI、S03/S04/S05/S07 实时战役、波才/张曼成救援、S05 矿坑工具损毁与撤退、S06 铲损工事作废及守撤选择、S07 三线资源阻滞、S08 残部撤退与 S10 召回接续均已接入 | 浏览器实际战斗、观战/介入、AI/Collision、战中存读档、两次救援、两条路线和三输入仍待验收；S06 木铁采集修补的完整采集表现与 P3 全量音画尚未完成，不能称为 Main Alpha |
-| P4 | inProgress | S10 已登记为 B Region 可玩场景；张角病逝、临时营地评估、沿溪迁营、ConstructionSystem、S06 铲损退料体验、S10 四类工事与施工中存档恢复已接入 | S10 完整对白/音画、维修和箭楼乘员适配、S09 饥民剧情兜底、S11–S12、张梁/张宝救援、载具与百人战尚未完成 |
+| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入；GameProject 已提供受控 `extensions`，S01 教学、S09 饥民数值和 S03/S04/S05/S07 战役 flow 已改为配置优先；六个通用 trigger action 已下沉至 `SceneTriggerActionProvider`；编辑器已支持 image/shape/effectZone 名称、语义角色、状态和视觉说明，背景 Manifest 已支持结构化 replacement brief | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 与 `extensions` 对外部调用方的影响；继续把 Demo 事务编排按领域拆入 coordinator，但不把回滚/checkpoint 直接 JSON 化 |
+| P1 | inProgress | 原子库存、设备无关拾取、采集与工具回滚、S01 七项教学和一次性收益、普通死亡/DeathDrop、Placement 动态恢复、跨 Region 两阶段切换已实现；S01 干旱荒原与 S02 废弃营地已接入独立 1280×720 细节背景、稳定 ID 和替换 brief | 浏览器验证攻击教学、采集中断、受伤半产量、owner 隔离、奖励幂等、DeathDrop 和两轮 save/load；S02 完整体验与音画仍需验收，当前生成背景仍是可替换临时资产 |
+| P2 | inProgress | S09 三职业与不可逆确认、职业装备/技能事务、军师采集傀儡、未许可采粮、饥民三分支与延迟后果、四成长池、ProficiencySystem、CityStateSummaryPanel、稳定资产链与通用 Y-sort 已接入；S09 专属背景已有地貌语义与替换 brief | 浏览器验证三输入、三剧情分支、跨日/读档、城市摘要、熟练度反馈和 S09 动线；真实音频及最终美术审核未完成，S09 不得提升为 `contentComplete` |
+| P3 | inProgress | BattleSystem、CityWarSystem、BattlefieldRuntimeSystem、战役 HUD/战果 UI、S03/S04/S05/S07 实时战役、波才/张曼成救援、S05 矿坑工具损毁与撤退、S06 铲损工事作废及守撤选择、S07 三线资源阻滞、S08 残部撤退与 S10 召回接续均已接入；S03–S08 已分别接入颍川旷野、长社焦土、宛城外郭/围攻、西华阻滞/残营独立背景和对象语义，S04 毒烟表现统一使用 smoke 预设与 poisonSmoke 语义 | 浏览器实际战斗、观战/介入、AI/Collision、战中存读档、两次救援、两条路线和三输入仍待验收；S06 木铁采集修补的完整采集表现与 P3 全量音画尚未完成，生成背景仍需最终美术审核，不能称为 Main Alpha |
+| P4 | inProgress | S10 已登记为 B Region 可玩场景；张角病逝、临时营地评估、沿溪迁营、ConstructionSystem、S06 铲损退料体验、S10 四类工事与施工中存档恢复已接入；S10 溪畔营地和 S11 广宗百人战均已有独立背景语义与替换 brief，S11 单位标记已补可见名称 | S10 完整对白/音画、维修和箭楼乘员适配、S09 饥民剧情兜底、S11–S12、张梁/张宝救援、载具与百人战尚未完成；S11 仍为 previewOnly/greybox，不因背景完成而视为可玩 |
 | P5 | notStarted | 结局所需的 Story/City/War 状态基础正在前序阶段积累 | S13、S14、EndingSystem、六结局演出和成长收口尚未实施 |
 | P6 | notStarted | worldOffset 单次投影、RegionCoordinator 和双渲染基础已建立 | 全图九宫格流式、性能硬门槛、2D/3D 业务一致性、全量资产审计和 Android Release Candidate 尚未执行 |
 

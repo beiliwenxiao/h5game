@@ -1,29 +1,336 @@
 {
-  "id":"S08","name":"S08·西华余部","width":1280,"height":720,"backgroundColor":"#555447","type":"terrain","sceneType":"worldChunk","worldMap":"region-c","productionState":"playable","previewOnly":false,"presentationProfile":"sanguo-zhangjiao-presentation-v1",
-  "composition":{"complexity":"medium","focalPoint":"S08-retreat-cart","primaryRoute":["S08-spawn-entry","S08-choice-marker","S08-zone-recall-exit"],"cameraFrame":{"width":1280,"height":720}},
-  "assetBudget":{"environmentModules":5,"actorVariants":0,"interactiveProps":3,"vfx":0,"audioLayers":0},
-  "layers":[
-    {"id":"layer_bg","name":"西华余部泥地","visible":true,"locked":false,"objects":[{"id":"S08-bg","type":"image","imageId":"graybox.naturalTerrain","x":0,"y":0,"width":1280,"height":720,"rotation":0}]},
-    {"id":"layer_ground","name":"残部营地与泥泞车辙","visible":true,"locked":false,"objects":[
-      {"id":"S08-ground","type":"shape","shapeType":"polygon","name":"余部营地地面","points":[[0,0],[1280,0],[1280,720],[0,720]],"fillMode":"color","fill":"#555447","opacity":0.4,"strokeWidth":0},
-      {"id":"S08-muddy-road","type":"shape","shapeType":"polygon","name":"泥泞马车撤退道","points":[[0,560],[0,710],[1280,430],[1280,290]],"fillMode":"color","fill":"#65533f","opacity":0.8,"stroke":"#8b7557","strokeWidth":4,"walkable":true},
-      {"id":"S08-camp-yard","type":"shape","shapeType":"polygon","name":"黄巾残部营地","points":[[150,110],[620,80],[700,390],[180,430]],"fillMode":"color","fill":"#75683e","opacity":0.32,"stroke":"#d8aa32","strokeWidth":3}
-    ]},
-    {"id":"layer_landmark","name":"残营、马车与军令出口","visible":true,"locked":false,"objects":[
-      {"id":"S08-camp-tent-west","type":"image","imageId":"s09.environment.yellowTurbanTent","name":"西华残部营帐一","x":190,"y":135,"width":180,"height":120,"rotation":0,"depthSort":true,"sortY":255},
-      {"id":"S08-camp-tent-east","type":"image","imageId":"s09.environment.yellowTurbanTent","name":"西华残部营帐二","x":405,"y":180,"width":180,"height":120,"rotation":0,"depthSort":true,"sortY":300},
-      {"id":"S08-retreat-cart","type":"image","imageId":"s08.vehicle.retreatCart","name":"陷入泥泞的残部马车","x":585,"y":400,"width":180,"height":110,"rotation":-4,"depthSort":true,"sortY":510},
-      {"id":"S08-choice-marker","type":"image","imageId":"graybox.battlefieldUnit","name":"残部去留决策军令旗","x":785,"y":425,"width":72,"height":72,"rotation":0,"depthSort":true,"sortY":497},
-      {"id":"S08-zone-recall-exit","type":"region","name":"信使召回出口","regionId":"S08-recall-exit","x":1080,"y":235,"width":160,"height":155},
-      {"id":"S08-recall-marker","type":"image","imageId":"story.messengerRecallBanner","name":"冀州召回信使旗","x":1121,"y":244,"width":80,"height":112,"rotation":0,"depthSort":true,"sortY":356}
-    ]},
-    {"id":"layer_placement","name":"玩家出生点","visible":true,"locked":false,"objects":[{"id":"S08-spawn-entry","type":"spawn","name":"西华余部西侧入口","ref":"player","x":105,"y":625}]},
-    {"id":"layer_logic","name":"视觉化触发器","visible":true,"locked":false,"objects":[
-      {"id":"S08-binding-retreat-choice","type":"trigger","name":"打开西华余部撤退决策","triggerId":"trg_s08_retreat_choice","x":740,"y":390,"width":165,"height":145,"event":"interact","targetMode":"id","target":"S08-choice-marker","radius":115,"pointerRadius":64,"prompt":"{interact}决定残部与马车如何撤退"},
-      {"id":"S08-binding-recall-exit","type":"trigger","name":"完成信使召回","triggerId":"trg_s08_complete_recall","x":1080,"y":235,"width":160,"height":155,"event":"interact","targetMode":"id","target":"S08-recall-marker","radius":110,"pointerRadius":62,"prompt":"{interact}响应信使召回并结束西华路线"}
-    ]}
+  "id": "S08",
+  "name": "S08·西华余部",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#555447",
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "region-c",
+  "productionState": "playable",
+  "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": {
+    "complexity": "medium",
+    "focalPoint": "S08-retreat-cart",
+    "primaryRoute": [
+      "S08-spawn-entry",
+      "S08-choice-marker",
+      "S08-zone-recall-exit"
+    ],
+    "cameraFrame": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "assetBudget": {
+    "environmentModules": 5,
+    "actorVariants": 0,
+    "interactiveProps": 3,
+    "vfx": 0,
+    "audioLayers": 0
+  },
+  "layers": [
+    {
+      "id": "layer_bg",
+      "name": "西华余部泥地",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S08-bg",
+          "type": "image",
+          "imageId": "s08.environment.remnantCampGround",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "name": "S08 西华残部营地地貌",
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "visualDescription": "西华残部撤退营地；必须表现：泥泞车辙、破帐区、陷车位置、残部集结地、召回出口。正式替换图不得烘焙文字或业务碰撞。"
+        }
+      ]
+    },
+    {
+      "id": "layer_ground",
+      "name": "残部营地与泥泞车辙",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S08-ground",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "余部营地地面",
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              1280,
+              0
+            ],
+            [
+              1280,
+              720
+            ],
+            [
+              0,
+              720
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#555447",
+          "opacity": 0.4,
+          "strokeWidth": 0,
+          "semanticRole": "terrainSurface",
+          "visualDescription": "余部营地地面；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S08-muddy-road",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "泥泞马车撤退道",
+          "points": [
+            [
+              0,
+              560
+            ],
+            [
+              0,
+              710
+            ],
+            [
+              1280,
+              430
+            ],
+            [
+              1280,
+              290
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#65533f",
+          "opacity": 0.8,
+          "stroke": "#8b7557",
+          "strokeWidth": 4,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "泥泞马车撤退道；代表玩家可通行的地貌动线。"
+        },
+        {
+          "id": "S08-camp-yard",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "黄巾残部营地",
+          "points": [
+            [
+              150,
+              110
+            ],
+            [
+              620,
+              80
+            ],
+            [
+              700,
+              390
+            ],
+            [
+              180,
+              430
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#75683e",
+          "opacity": 0.32,
+          "stroke": "#d8aa32",
+          "strokeWidth": 3,
+          "semanticRole": "sceneGeometry",
+          "visualDescription": "黄巾残部营地；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        }
+      ]
+    },
+    {
+      "id": "layer_landmark",
+      "name": "残营、马车与军令出口",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S08-camp-tent-west",
+          "type": "image",
+          "imageId": "s09.environment.yellowTurbanTent",
+          "name": "西华残部营帐一",
+          "x": 190,
+          "y": 135,
+          "width": 180,
+          "height": 120,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 255,
+          "semanticRole": "landmarkBuilding",
+          "visualDescription": "西华残部营帐一；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S08-camp-tent-east",
+          "type": "image",
+          "imageId": "s09.environment.yellowTurbanTent",
+          "name": "西华残部营帐二",
+          "x": 405,
+          "y": 180,
+          "width": 180,
+          "height": 120,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 300,
+          "semanticRole": "landmarkBuilding",
+          "visualDescription": "西华残部营帐二；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S08-retreat-cart",
+          "type": "image",
+          "imageId": "s08.vehicle.retreatCart",
+          "name": "陷入泥泞的残部马车",
+          "x": 585,
+          "y": 400,
+          "width": 180,
+          "height": 110,
+          "rotation": -4,
+          "depthSort": true,
+          "sortY": 510,
+          "semanticRole": "vehicle",
+          "visualDescription": "陷入泥泞的残部马车；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S08-choice-marker",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "name": "残部去留决策军令旗",
+          "x": 785,
+          "y": 425,
+          "width": 72,
+          "height": 72,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 497,
+          "semanticRole": "battleMarker",
+          "visualDescription": "残部去留决策军令旗；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S08-zone-recall-exit",
+          "type": "region",
+          "name": "信使召回出口",
+          "regionId": "S08-recall-exit",
+          "x": 1080,
+          "y": 235,
+          "width": 160,
+          "height": 155
+        },
+        {
+          "id": "S08-recall-marker",
+          "type": "image",
+          "imageId": "story.messengerRecallBanner",
+          "name": "冀州召回信使旗",
+          "x": 1121,
+          "y": 244,
+          "width": 80,
+          "height": 112,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 356,
+          "semanticRole": "battleMarker",
+          "visualDescription": "冀州召回信使旗；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        }
+      ]
+    },
+    {
+      "id": "layer_placement",
+      "name": "玩家出生点",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S08-spawn-entry",
+          "type": "spawn",
+          "name": "西华余部西侧入口",
+          "ref": "player",
+          "x": 105,
+          "y": 625
+        }
+      ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "视觉化触发器",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S08-binding-retreat-choice",
+          "type": "trigger",
+          "name": "打开西华余部撤退决策",
+          "triggerId": "trg_s08_retreat_choice",
+          "x": 740,
+          "y": 390,
+          "width": 165,
+          "height": 145,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S08-choice-marker",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}决定残部与马车如何撤退"
+        },
+        {
+          "id": "S08-binding-recall-exit",
+          "type": "trigger",
+          "name": "完成信使召回",
+          "triggerId": "trg_s08_complete_recall",
+          "x": 1080,
+          "y": 235,
+          "width": 160,
+          "height": 155,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S08-recall-marker",
+          "radius": 110,
+          "pointerRadius": 62,
+          "prompt": "{interact}响应信使召回并结束西华路线"
+        }
+      ]
+    }
   ],
-  "decorations":[],"colliders":[],
-  "imageAssets":{"graybox.naturalTerrain":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg","name":"自然地形稳定资源"},"graybox.battlefieldUnit":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg","name":"军令旗稳定资源"},"s09.environment.yellowTurbanTent":{"src":"../example/sanguo_zhangjiao/assets/images/s09/yellow-turban-tent.svg","name":"黄巾营帐稳定资源"},"s08.vehicle.retreatCart":{"src":"../example/sanguo_zhangjiao/assets/images/s08/retreat-cart.svg","name":"西华撤退马车"},"story.messengerRecallBanner":{"src":"../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg","name":"冀州召回信使旗"}},
-  "updatedAt":"2026-08-12T00:00:00.000Z"
+  "decorations": [],
+  "colliders": [],
+  "imageAssets": {
+    "graybox.naturalTerrain": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
+      "name": "自然地形稳定资源"
+    },
+    "graybox.battlefieldUnit": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
+      "name": "军令旗稳定资源"
+    },
+    "s09.environment.yellowTurbanTent": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s09/yellow-turban-tent.svg",
+      "name": "黄巾营帐稳定资源"
+    },
+    "s08.vehicle.retreatCart": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s08/retreat-cart.svg",
+      "name": "西华撤退马车"
+    },
+    "story.messengerRecallBanner": {
+      "src": "../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg",
+      "name": "冀州召回信使旗"
+    },
+    "s08.environment.remnantCampGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s08/remnant-camp-ground.svg",
+      "name": "S08 西华残部营地地貌"
+    }
+  },
+  "updatedAt": "2026-08-12T00:00:00.000Z"
 }

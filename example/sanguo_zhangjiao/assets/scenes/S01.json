@@ -10,7 +10,22 @@
       "name": "背景层",
       "visible": true,
       "locked": false,
-      "objects": []
+      "objects": [
+        {
+          "id": "S01-bg-environment",
+          "type": "image",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "imageId": "s01.environment.droughtWildernessGround",
+          "name": "S01 干旱荒原地貌",
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "visualDescription": "干旱荒原与求生营火地；必须表现：干裂旱地、冷灰营火地、西侧枯木草药带、东侧盗匪警戒坡、北侧出口。正式替换图不得烘焙文字或业务碰撞。"
+        }
+      ]
     },
     {
       "id": "layer_fill",
@@ -46,7 +61,9 @@
           "opacity": 0.45,
           "stroke": "#d0b56d",
           "strokeWidth": 2,
-          "walkable": true
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "营火主通行动线；代表玩家可通行的地貌动线。"
         }
       ]
     },
@@ -83,7 +100,9 @@
           "fill": "#d58b35",
           "opacity": 0.18,
           "stroke": "#efaa4a",
-          "strokeWidth": 2
+          "strokeWidth": 2,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "营火安全区；代表编辑器中的地貌、建筑占地或玩法构图区。"
         },
         {
           "id": "S01-zone-bandit-warning",
@@ -112,7 +131,9 @@
           "fill": "#7b3530",
           "opacity": 0.18,
           "stroke": "#d25a43",
-          "strokeWidth": 2
+          "strokeWidth": 2,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "盗匪警戒构图区；代表编辑器中的地貌、建筑占地或玩法构图区。"
         },
         {
           "id": "S01-zone-north-exit",
@@ -359,7 +380,7 @@
   "type": "terrain",
   "sceneType": "worldChunk",
   "worldMap": "region-a",
-  "updatedAt": "2026-08-08T19:28:48.682Z",
+  "updatedAt": "2026-08-12T00:00:00.000Z",
   "atlases": [
     {
       "id": "mountain_landscape",
@@ -467,6 +488,10 @@
     "graybox.battlefieldUnit": {
       "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
       "name": "战场单位灰盒"
+    },
+    "s01.environment.droughtWildernessGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s01/drought-wilderness-ground.svg",
+      "name": "S01 干旱荒原地貌"
     }
   }
 }

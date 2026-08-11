@@ -1,251 +1,29 @@
-# Prologue 场景说明
+# 《三国张角传》场景运行时
 
-## 概述
+本目录承载 canonical `S01`–`S14` 大地图运行时。旧 Act1–6 独立场景已退出，不提供旧场景 ID 或旧存档兼容。
 
-本目录包含序章（Prologue）的所有场景类。重构后的场景采用配置驱动的方式，所有功能性代码都在核心系统中实现。
+## 当前文件职责
 
-## 场景文件
+- `DataDrivenPrologueScene.js`：正式 Web/小游戏入口使用的 Demo 组合根；负责把剧情 coordinator、领域系统、UI 和配置接到统一大地图运行时。
+- `BaseGameScene.js`：通用可玩场景父类；装配 ECS、输入、UI、存档、帧管线和场景通用能力。
+- `Scene1Terrain.js`：名称沿用历史，但当前是正式的多 chunk 地形、碰撞、`worldOffset` 与 Y-sort 适配器，不能按文件名删除。
+- `DataDrivenScene.js`：`?ddscene=preview` 使用的单场景编辑器预览器；不是正式玩法入口。预览同样以磁盘 JSON 为事实源，localStorage 仅作 fallback。
 
-### Act1SceneRefactored.js ✅ 推荐使用
-- **状态**: 重构完成，配置驱动
-- **特点**: 
-  - 继承自 `Scene` 基类
-  - 使用配置文件驱动
-  - 所有功能通过核心系统实现
-  - 代码简洁，易于维护
+## 入口与数据源
 
-### Act1Scene.js ⚠️ 待废弃
-- **状态**: 旧版本，包含功能性代码
-- **问题**: 
-  - 导入了已删除的系统
-  - 包含大量功能性代码
-  - 不符合配置驱动原则
+正式入口由 `../index.html` 注册 `DataDrivenPrologueScene`。各幕不是独立 Scene 类，而是通过 `game.project.json`、`assets/scenes/SXX.json`、战役/救援配置和 `teleportToChunk()` 推进。
 
-### Act1SceneECS.js ⚠️ 待废弃
-- **状态**: 旧版本，ECS实现但包含功能性代码
-- **问题**: 
-  - 导入了已删除的系统
-  - 包含大量功能性代码
-  - 不符合配置驱动原则
+场景磁盘 JSON 是唯一真实源。运行时坐标由局部对象投影得到，`worldOffset` 只能应用一次；普通场景使用同名 SXX chunk，大战场附属 chunk 使用 `SXX-CNN`。
 
-### PrologueScene.js
-- **状态**: 基类，需要简化
-- **用途**: 所有序章场景的基类
+## 配置化边界
 
-## 使用方法
+- 文案、提示、数值、空间 trigger binding、战役/救援定义和静态内容放配置。
+- `SceneTriggerBindingSystem` 只解释空间事件和目标选择器，再调用 TriggerSystem action。
+- 原子事务、回滚、幂等和 checkpoint 放通用 system 或 Demo coordinator，不把可执行事务直接塞进 JSON。
+- 顶层 `update()` 仅保留有顺序约束的帧编排；可独立更新的领域流程应逐步下沉到 coordinator/system。
 
-### 1. 创建新场景
+## 当前状态
 
-```javascript
-import { Scene } from '../../core/Scene.js';
-import MySceneConfig from '../config/MySceneConfig.js';
+S01–S10 已有不同程度的可玩纵向切片，但浏览器完整通玩、音画验收和边界回归尚未完成；S11–S14 仍待实施。不得因类名或静态 diagnostics 存在而把阶段标为完成。
 
-export class MyScene extends Scene {
-  constructor(engine) {
-    super(engine);
-    this.config = MySceneConfig;
-  }
-  
-  async init() {
-    // 获取系统
-    this.dialogueSystem = this.engine.getSystem('dialogue');
-    this.tutorialSystem = this.engine.getSystem('tutorial');
-    
-    // 加载配置
-    this.loadConfigurations();
-    
-    // 设置场景
-    this.setupScene();
-  }
-  
-  loadConfigurations() {
-    // 加载对话
-    for (const [id, data] of Object.entries(this.config.dialogues)) {
-      this.dialogueSystem.registerDialogue(id, data);
-    }
-    
-    // 加载教程
-    for (const [id, data] of Object.entries(this.config.tutorials)) {
-      this.tutorialSystem.registerTutorial(id, data);
-    }
-  }
-  
-  setupScene() {
-    // 设置场景属性
-    this.width = this.config.scene.width;
-    this.height = this.config.scene.height;
-    this.backgroundColor = this.config.scene.background.color;
-  }
-}
-```
-
-### 2. 配置文件结构
-
-```javascript
-// config/MySceneConfig.js
-export default {
-  scene: {
-    width: 1600,
-    height: 1200,
-    background: {
-      color: '#2a4a2a',
-      image: null
-    },
-    playerSpawn: { x: 400, y: 300 }
-  },
-  
-  npcs: [
-    {
-      id: 'npc_1',
-      name: 'NPC名称',
-      position: { x: 800, y: 400 },
-      dialogueId: 'npc_1_intro'
-    }
-  ],
-  
-  dialogues: {
-    'npc_1_intro': {
-      startNode: 'start',
-      nodes: {
-        'start': {
-          speaker: 'NPC名称',
-          text: '对话内容',
-          choices: [...]
-        }
-      }
-    }
-  },
-  
-  tutorials: {
-    'tutorial_1': {
-      id: 'tutorial_1',
-      title: '教程标题',
-      steps: [...]
-    }
-  },
-  
-  quests: [
-    {
-      id: 'quest_1',
-      name: '任务名称',
-      objectives: [...]
-    }
-  ]
-};
-```
-
-### 3. 在引擎中注册场景
-
-```javascript
-// main.js
-import { Act1Scene } from './prologue/scenes/Act1SceneRefactored.js';
-
-const engine = new GameEngine();
-const sceneManager = engine.sceneManager;
-
-// 注册场景
-sceneManager.registerScene('act1', new Act1Scene(engine));
-
-// 切换到场景
-sceneManager.switchTo('act1');
-```
-
-## 重构原则
-
-### 1. 配置驱动
-- 所有数据都在配置文件中
-- 场景类只负责加载和协调
-
-### 2. 系统复用
-- 使用引擎提供的核心系统
-- 不在场景中创建系统实例
-
-### 3. 简洁代码
-- 场景类应该简短（< 300行）
-- 复杂逻辑在系统中实现
-
-### 4. 清晰职责
-- 场景：配置加载、实体创建、系统协调
-- 系统：功能实现、状态管理、业务逻辑
-- 配置：数据定义、参数设置
-
-## 迁移指南
-
-### 从旧场景迁移到新场景
-
-1. **提取配置数据**
-   - 将硬编码的数据移到配置文件
-   - 包括对话、教程、任务、NPC等
-
-2. **移除功能性代码**
-   - 删除系统实现代码
-   - 使用引擎提供的系统
-
-3. **简化场景类**
-   - 只保留初始化和协调代码
-   - 删除业务逻辑
-
-4. **更新导入**
-   - 从核心目录导入系统
-   - 导入配置文件
-
-### 示例对比
-
-**旧版本（不推荐）：**
-```javascript
-class OldScene {
-  constructor() {
-    // 创建系统实例
-    this.dialogueSystem = new DialogueSystem();
-    
-    // 硬编码数据
-    this.dialogues = {
-      'intro': {
-        text: '欢迎...'
-      }
-    };
-    
-    // 大量功能性代码
-    this.handleDialogue() { ... }
-    this.updateTutorial() { ... }
-  }
-}
-```
-
-**新版本（推荐）：**
-```javascript
-class NewScene extends Scene {
-  constructor(engine) {
-    super(engine);
-    this.config = SceneConfig; // 配置文件
-  }
-  
-  async init() {
-    // 获取系统
-    this.dialogueSystem = this.engine.getSystem('dialogue');
-    
-    // 加载配置
-    this.loadDialogues();
-  }
-  
-  loadDialogues() {
-    for (const [id, data] of Object.entries(this.config.dialogues)) {
-      this.dialogueSystem.registerDialogue(id, data);
-    }
-  }
-}
-```
-
-## 注意事项
-
-1. **向后兼容**: 重构后的场景提供了向后兼容支持，如果引擎中没有注册系统，会创建临时实例
-2. **渐进式迁移**: 可以逐步迁移旧场景，不需要一次性全部重构
-3. **测试验证**: 每次迁移后都要测试功能是否正常
-4. **文档更新**: 及时更新相关文档
-
-## 相关文档
-
-- [重构计划](../../../docs/PROLOGUE_REFACTOR_PLAN.md)
-- [重构指南](../../../docs/PROLOGUE_REFACTOR_GUIDE.md)
-- [配置文件说明](../config/README.md)
-- [ECS架构](../../../docs/QUICK_START_ECS.md)
+`DataDrivenScene.js` 与正式装配仍有部分重复。删除它之前必须先让 `?ddscene=preview` 复用正式装配并同步修改入口；`Scene1Terrain.js` 当前仍是正式依赖，不得直接删除。

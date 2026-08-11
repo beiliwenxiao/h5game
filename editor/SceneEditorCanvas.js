@@ -223,6 +223,9 @@ export class SceneEditorCanvas {
         ctx.drawImage(img, -obj.width / 2, -obj.height / 2, obj.width, obj.height);
         ctx.restore();
       }
+      const asset = this.editor.sceneData.imageAssets?.[obj.imageId];
+      const imageLabel = obj.name || asset?.name || obj.imageId || '未命名图片';
+      this._drawLogicLabel(ctx, imageLabel, obj.x + 6, obj.y + 16, '#f4d35e');
       if (obj.depthSort === true) {
         const sortY = Number.isFinite(obj.sortY) ? obj.sortY : obj.y + obj.height;
         ctx.save();

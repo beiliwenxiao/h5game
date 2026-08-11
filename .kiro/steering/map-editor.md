@@ -206,6 +206,8 @@ const sceneEditor = new SceneEditor(containerElement);
 - **非碰撞装饰物**（`sprite.collide === false`，如 grass1、bush2/3/4）：预渲染到离屏缓存 `_groundDecoCache`，作为整体一次绘制，始终在最底层
 - **碰撞装饰物**（`sprite.collide === true`，如 tree1/2/3）：参与 Y-sort，互相之间和与实体之间正确遮挡
 - **场景图片**：普通 `type:'image'` 继续进入 `_bgImageCache` 地面层；需要与角色互相遮挡的建筑、棚屋、车辆或旗帜必须设置 `depthSort:true`，并可用 `sortY` 指定世界脚底基线（省略时为 `y + height`）。编辑器图片属性面板提供“实体遮挡/排序基线Y”，画布以青色虚线显示基线，运行时由 `Scene1Terrain.collectDecorations()` 加入同一队列。
+- 所有 `type:'image'` 对象必须填写 `name` 与 `semanticRole`，并用 `visualDescription` 说明它代表的地貌、建筑、物件或构图用途；有完整/受损/燃烧等表现差异时再填写 `state`。编辑器画布按“对象 name → imageAssets 资源 name → imageId”的优先级显示黄色标签，属性面板可直接编辑上述语义字段。`shape` 与 `effectZone` 同样填写 `semanticRole/visualDescription`，从而让透明碰撞区、通路和粒子区不再成为无法辨认的色块。
+- 场景级背景使用独立稳定 ID，标准尺寸为 `1280×720`。Manifest 的背景条目除基础字段外还应提供 `displayName` 和结构化 `replacementBrief`（`sceneIds/subject/mustShow/mustPreserve/camera/palette/textPolicy/replacesPlaceholderId`）；正式背景禁止烘焙操作文字，地貌和建筑名称由编辑器标签与 brief 表达。
 - 图片 `rotation` 的场景数据单位统一为**度**，编辑器与 Canvas 运行时均在绘制时转换为弧度；禁止一端按度、一端直接传给 `ctx.rotate()`。拖动、对齐、方向键、属性面板直接修改 Y、图层批量偏移或带偏移粘贴带显式 `sortY` 的图片时，基线必须同步相同 Y 位移；只调整 width/height 时显式 `sortY` 保持用户指定的世界脚底线，不随外框拉伸。
 - `sortY` 属于 Y 坐标，跨 chunk 时与对象 `y/points` 一起且只应用一次 worldOffset；图片碰撞仍由独立 shape 持有，禁止从透明像素或图片 bounds 推导业务碰撞。
 

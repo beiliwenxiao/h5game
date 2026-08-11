@@ -499,6 +499,8 @@ export const GAME_PROJECT_SCHEMA = {
     meta: { type: FieldType.OBJECT, required: true, schema: 'gameProjectMeta' },
     assetManifest: { type: FieldType.OBJECT, required: true },
     presentation: { type: FieldType.OBJECT, required: true },
+    // 游戏专属的纯数据扩展；复杂事务仍由具体游戏 coordinator/system 消费。
+    extensions: { type: FieldType.OBJECT },
     progression: { type: FieldType.OBJECT },
     construction: { type: FieldType.OBJECT },
     variables: { type: FieldType.OBJECT, required: true },

@@ -1,6 +1,19 @@
 {
   "id": "battle.s07_xihua_delay", "battleId": "battle.s07_xihua_delay", "title": "S07·西华三线阻滞战",
   "description": "黄巾余部在西华平原依托北、中、南三道临时障碍迟滞追兵，完成阻滞后保存残部；本战不设置历史武将救援。",
+  "sceneFlow": {
+    "sceneId": "S07", "locationName": "西华",
+    "unavailableMessage": "西华三线阻滞战运行时尚未就绪",
+    "conflictMessage": "上一场战役尚未完成结算，不能进入西华阻滞战。",
+    "activeMessage": "西华阻滞战正在进行，当前参战方式不可更改。",
+    "appliedTitle": "西华阻滞战·已结算战果", "resultTitle": "西华阻滞战·战果",
+    "resultMessage": "西华战果已冻结并保存；介入者还需提交三线阻滞点才能保存残部。",
+    "settlementMessage": "西华战果已写入城市与战争状态。",
+    "interventionMessage": "你已进入黄巾残部阵线。依次投入资源完成 north、center、south 三线阻滞。",
+    "worldChanges": { "month": 6 },
+    "resolvedKey": "s07BattleResolved", "winnerKey": "s07WinnerFactionId",
+    "checkpointId": "checkpoint.S07.battleResolved"
+  },
   "participantFactionIds": ["yellow_turban", "han_government"], "playerEntityId": "$runtime.player",
   "createParams": {
     "battleId": "battle.s07_xihua_delay", "terrainId": "terrain.s07.xihua_delay",

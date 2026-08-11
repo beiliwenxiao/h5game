@@ -33,6 +33,7 @@ import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
 import { PlacementSpawner } from '../../../src/core/scene/PlacementSpawner.js';
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
+import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
 import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
@@ -258,6 +259,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._s04BocaiRescueConfig = null;
     this._s05ZhangManchengRescueConfig = null;
     this._activeBattleConfig = null;
+    this._battleFlowsByScene = null;
+    this._battleFlowsById = null;
     this._s03BattleBusy = false;
     this._s04RescueBusy = false;
     this._s05RescueBusy = false;
@@ -401,9 +404,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._s03BattleConfig = null;
       this._s04BattleConfig = null;
       this._s05BattleConfig = null;
+      this._s07BattleConfig = null;
       this._s04BocaiRescueConfig = null;
       this._s05ZhangManchengRescueConfig = null;
       this._activeBattleConfig = null;
+      this._battleFlowsByScene = null;
+      this._battleFlowsById = null;
       this._s03BattleBusy = false;
       this._s04RescueBusy = false;
       this._s05RescueBusy = false;
@@ -699,21 +705,36 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  _configureS01Tutorial() {
-    const tutorials = [
-      ['move', '移动', '使用 {move} 移动，离开火堆附近。'],
-      ['attack', '攻击', '使用 {attack} 进行一次攻击。'],
-      ['pickup', '拾取', '靠近物资后使用 {pickup} 拾取。'],
-      ['jump', '跳跃', '使用 {jump} 越过障碍。'],
-      ['gather', '采集', '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。'],
-      ['durability', '工具耐久', '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。'],
-      ['capacity', '背包容量', '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。']
+  _configureS01Tutorial(project = null) {
+    const fallbackTutorials = [
+      { id: 's01.move', title: '移动', steps: [{ text: '使用 {move} 移动，离开火堆附近。' }] },
+      { id: 's01.attack', title: '攻击', steps: [{ text: '使用 {attack} 进行一次攻击。' }] },
+      { id: 's01.pickup', title: '拾取', steps: [{ text: '靠近物资后使用 {pickup} 拾取。' }] },
+      { id: 's01.jump', title: '跳跃', steps: [{ text: '使用 {jump} 越过障碍。' }] },
+      { id: 's01.gather', title: '采集', steps: [{ text: '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。' }] },
+      { id: 's01.durability', title: '工具耐久', steps: [{ text: '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。' }] },
+      { id: 's01.capacity', title: '背包容量', steps: [{ text: '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。' }] }
     ];
-    for (const [key, title, text] of tutorials) {
-      this.tutorialSystem.registerTutorial(`s01.${key}`, {
-        title, steps: [{ text }], category: 's01-survival', canSkip: false, autoTrigger: false
+    const configured = project?.extensions?.sanguoZhangjiao?.s01Tutorials;
+    const configuredById = new Map((Array.isArray(configured) ? configured : [])
+      .filter(definition => S01_TUTORIAL_IDS.includes(definition?.id))
+      .map(definition => [definition.id, definition]));
+    const definitions = fallbackTutorials.map(fallback => {
+      const override = configuredById.get(fallback.id);
+      return override && Array.isArray(override.steps)
+        ? { ...fallback, ...cloneData(override) }
+        : fallback;
+    });
+    for (const definition of definitions) {
+      this.tutorialSystem.registerTutorial(definition.id, {
+        ...cloneData(definition),
+        category: definition.category || 's01-survival',
+        canSkip: definition.canSkip === true,
+        autoTrigger: definition.autoTrigger === true
       });
     }
+    if (project || this._s01TutorialCallbacksBound) return;
+    this._s01TutorialCallbacksBound = true;
     this.tutorialSystem.onShow(data => {
       this._showScreenTip(data?.step?.text || '', {
         title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
@@ -1361,7 +1382,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区投影未完成' }] };
     }
     this.currentSceneId = request.sceneId;
-    if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_SCENE, request.sceneId)) {
+    if (!this._getBattleFlowByScene(request.sceneId)) {
       this.battleModeView?.close?.();
       this.battleResultView?.close?.();
       this.battleHudView?.clear?.();
@@ -1534,7 +1555,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return { ok: false, errors: [{ code: check.code, path: 'battleState', message: `战役状态校验失败: ${check.code}` }] };
       }
       const battleId = data.battleState.definition?.battleId;
-      if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_ID, battleId)
+      if (!this._getBattleFlowById(battleId)
         || !this._getBattleConfigById(battleId)) {
         return { ok: false, errors: [{
           code: 'unknownBattleId', path: 'battleState.definition.battleId', message: `未知战役配置: ${battleId || 'missing'}`
@@ -2159,6 +2180,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
           this._syncPlayerClassAppearance(currentClass);
 
+          // 项目扩展配置覆盖启动期兼容定义；新游戏首条教学只会在 GameLoader ready 后显示。
+          this._configureS01Tutorial(gameLoader.project);
           this._configureSharedClassEffects(gameLoader);
           this._installBattleFlow(gameLoader);
           this._installProgressionUI(gameLoader);
@@ -2257,6 +2280,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /** 安装 S03/S04/S05/S07 战役与通用救援领域系统；UI 只发命令，Blackboard 由事务 adapter 提交。 */
+  _getBattleFlowByScene(sceneId) {
+    return this._battleFlowsByScene?.get?.(sceneId) || BATTLE_FLOW_BY_SCENE[sceneId] || null;
+  }
+
+  _getBattleFlowById(battleId) {
+    return this._battleFlowsById?.get?.(battleId) || BATTLE_FLOW_BY_ID[battleId] || null;
+  }
+
+  _getBattleFlows() {
+    return this._battleFlowsByScene?.size
+      ? [...this._battleFlowsByScene.values()]
+      : Object.values(BATTLE_FLOW_BY_SCENE);
+  }
+
   _installBattleFlow(gameLoader) {
     const s03Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S03_BATTLE_ID);
     const s04Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S04_BATTLE_ID);
@@ -2279,6 +2316,27 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const s07Definition = cloneData(s07Source);
     const s04RescueDefinition = cloneData(s04RescueSource);
     const s05RescueDefinition = cloneData(s05RescueSource);
+    const battleFlowSources = [
+      ['S03', s03Source], ['S04', s04Source], ['S05', s05Source], ['S07', s07Source]
+    ];
+    this._battleFlowsByScene = new Map();
+    this._battleFlowsById = new Map();
+    for (const [sceneId, source] of battleFlowSources) {
+      const configured = cloneData(source.sceneFlow || {});
+      if (configured.sceneId && configured.sceneId !== sceneId) {
+        throw new Error(`战役 ${source.battleId} 的 sceneFlow.sceneId 与 ${sceneId} 不一致`);
+      }
+      const flow = Object.freeze({
+        ...BATTLE_FLOW_BY_SCENE[sceneId],
+        ...configured,
+        sceneId,
+        battleId: source.battleId,
+        worldChanges: Object.freeze(cloneData(configured.worldChanges
+          ?? BATTLE_FLOW_BY_SCENE[sceneId].worldChanges ?? {}))
+      });
+      this._battleFlowsByScene.set(sceneId, flow);
+      this._battleFlowsById.set(source.battleId, flow);
+    }
     definition.playerEntityId = this.playerEntity?.id || definition.playerEntityId;
     s04Definition.playerEntityId = this.playerEntity?.id || s04Definition.playerEntityId;
     s05Definition.playerEntityId = this.playerEntity?.id || s05Definition.playerEntityId;
@@ -2425,6 +2483,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this._s05ZhangManchengRescueConfig = null;
       }
       this._activeBattleConfig = null;
+      this._battleFlowsByScene = null;
+      this._battleFlowsById = null;
       this._s03BattleBusy = false;
       this._s04RescueBusy = false;
       this._s05RescueBusy = false;
@@ -2457,13 +2517,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _projectBattleStoryState(state) {
     const projected = cloneData(state);
     const activeBattleId = this.battleSystem?.definition?.battleId;
-    if (activeBattleId && !Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_ID, activeBattleId)) {
+    if (activeBattleId && !this._getBattleFlowById(activeBattleId)) {
       throw new Error(`unknownBattleId:${activeBattleId}`);
     }
     const battleModes = { ...(projected.storyState?.battleModes || {}) };
     if (activeBattleId && this.battleSystem?.mode) battleModes[activeBattleId] = this.battleSystem.mode;
     projected.storyState = { ...(projected.storyState || {}), battleModes };
-    for (const flow of Object.values(BATTLE_FLOW_BY_SCENE)) {
+    for (const flow of this._getBattleFlows()) {
       const result = projected.warState?.battles?.[flow.battleId];
       if (!result) continue;
       projected.storyState = {
@@ -2582,7 +2642,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _openBattleMode(sceneId) {
-    const flow = BATTLE_FLOW_BY_SCENE[sceneId];
+    const flow = this._getBattleFlowByScene(sceneId);
     const config = flow ? this._getBattleConfigById(flow.battleId) : null;
     if (!flow || this.currentSceneId !== sceneId || !this.battleSystem || !config) {
       this._showScreenTip(flow?.unavailableMessage || '未知战役不能选择参战模式', { title: '无法选择战役模式' });
@@ -2667,7 +2727,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _selectBattleMode(mode, config, sceneId) {
-    const flow = BATTLE_FLOW_BY_SCENE[sceneId];
+    const flow = this._getBattleFlowByScene(sceneId);
     if (this._s03BattleBusy || !flow || this.currentSceneId !== sceneId
       || !config || config.battleId !== flow.battleId
       || !this.battleSystem || !this.cityWarSystem || !this.battlefieldRuntime) return false;
@@ -2733,7 +2793,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   _updateS03BattleRuntime(deltaTime) {
-    if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_SCENE, this.currentSceneId)
+    if (!this._getBattleFlowByScene(this.currentSceneId)
       || !this.battlefieldRuntime?.active || this._s03BattleBusy) return;
     const updated = this.battlefieldRuntime.update(deltaTime, this.entities || []);
     if (updated?.snapshot) this.battleHudView?.setSnapshot?.(updated.snapshot);
@@ -2747,7 +2807,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _settleBattleResult(result, battleSnapshot = null) {
-    const flow = BATTLE_FLOW_BY_ID[result?.battleId];
+    const flow = this._getBattleFlowById(result?.battleId);
     if (!flow) throw new Error(`unknownBattleId:${result?.battleId || 'missing'}`);
     const settled = await this.cityWarSystem.applyBattleResult({
       result,
@@ -4827,18 +4887,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 将本场景现有触发动作注册到 SceneGameLoaderBridge 创建的 loader。 */
   _registerGameLoaderActions(trig, gameLoader) {
+    registerSceneTriggerActions(trig, {
+      spawnPlacements: selector => this._spawnPlacements(selector),
+      teleportToChunk: params => this.teleportToChunk(params),
+      requestAutoSave: params => this.requestAutoSave(params),
+      weatherSystem: this.weatherSystem,
+      timeSystem: this.timeSystem,
+      logger: console
+    });
     // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
     trig.registerAction('lightCampfire', () => this.lightCampfire());
     // 场景专属动作：按组激活场景放置点（兼容既有触发器）。
     trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
-    // 场景专属动作：按指定物品、组名或标签放置场景物品。
-    trig.registerAction('spawnPlacements', (p) => this._spawnPlacements(p?.selector || p));
     // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
     trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
     // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
     trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
-    // 大地图传送（直接传送到指定区块，不切换独立场景）
-    trig.registerAction('teleportToChunk', (p) => this.teleportToChunk(p));
     // S01 教学完成后的单一事务出口：一次性奖励、解锁 S02、传送。
     trig.registerAction('completeS01AndTravel', (p) => this.completeS01AndTravel(p));
     // S02 召见对话完成后创建可恢复检查点，再通过 RegionCoordinator 前往 S09。
@@ -4879,9 +4943,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('advanceGameDay', (p = {}) => this.advanceGameDay(p.days));
     trig.registerAction('prepareSpecialFaint', (p) => this.setPendingSpecialFaint(p));
     trig.registerAction('clearSpecialFaint', () => this.clearPendingSpecialFaint());
-    // 特殊剧情可显式请求自动存档；实际存储由宿主统一排队执行。
-    trig.registerAction('autoSave', (p = {}) => this.requestAutoSave({ reason: p.reason || 'story-event' }));
-    // 切换到显式注册的独立场景（副本/过场等）；大地图 Act 推进一律走 teleportToChunk。
+    // 切换到显式注册的独立场景（副本/过场等）；大地图推进一律走 teleportToChunk。
     trig.registerAction('switchScene', async (p) => {
       const scene = p.scene || p.target;
       if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return null; }
@@ -4897,14 +4959,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     // 通用动作：切换调试面板
     trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
-    // 天气系统动作
-    trig.registerAction('setWeather', (p) => {
-      if (this.weatherSystem && p.type) this.weatherSystem.setWeather(p.type, p);
-    });
-    // 时间系统动作
-    trig.registerAction('setTime', (p) => {
-      if (this.timeSystem && p.period) this.timeSystem.setTimePeriod(p.period);
-    });
     // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
     trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
     // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
@@ -4914,13 +4968,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // S09 职业选择：空间 binding 打开确认框，确认后由单一事务提交职业。
     trig.registerAction('selectClass', (p) => this._selectClass(p));
     trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
-    // 通用动作：标记当前幕完成 → fire('sceneComplete') 供 promptSwitch 切幕触发器响应
-    trig.registerAction('completeScene', (p = {}) => {
-      const sceneId = p.sceneId || p.scene;
-      if (!sceneId) { console.warn('[DDScene] completeScene: 缺少 sceneId'); return; }
-      console.log('[DDScene] completeScene →', sceneId);
-      trig.fire('sceneComplete', { sceneId });
-    });
     // 通用动作：关闭获得物品弹窗（剧情自动推进前调用，避免弹窗与对话冲突）
     trig.registerAction('dismissPopup', () => {
       if (this.itemGainedPopup && this.itemGainedPopup.visible) {
@@ -5202,10 +5249,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /** 城损与粮仓损毁达标后建立一次性剧情事实，并按 StoryState 恢复现场。 */
+  _getS09RefugeeConfig() {
+    const configured = this.gameLoader?.project?.extensions?.sanguoZhangjiao?.s09RefugeeConflict || {};
+    const positiveInteger = (value, fallback) => {
+      const number = Math.floor(Number(value));
+      return Number.isFinite(number) && number > 0 ? number : fallback;
+    };
+    const ratio = Number(configured.minimumCityDamageRatio);
+    const chance = Number(configured.hardlineEscapeChance);
+    return {
+      minimumCityDamageRatio: Number.isFinite(ratio) && ratio >= 0 && ratio <= 1 ? ratio : 0.4,
+      donationFood: positiveInteger(configured.donationFood, 20),
+      donationMorale: positiveInteger(configured.donationMorale, 5),
+      damagePauseDays: positiveInteger(configured.damagePauseDays, 1),
+      hardlineMorale: positiveInteger(configured.hardlineMorale, 10),
+      hardlineEscapeChance: Number.isFinite(chance) && chance >= 0 && chance <= 1
+        ? chance : S09_HARDLINE_ESCAPE_CHANCE,
+      appeaseFood: positiveInteger(configured.appeaseFood, 30),
+      consequenceDelayDays: positiveInteger(configured.consequenceDelayDays, 1)
+    };
+  }
+
   async prepareS09RefugeeConflict() {
     if (this.currentSceneId !== 'S09') return false;
+    const rules = this._getS09RefugeeConfig();
     const context = this._getS09CityContext();
-    if (!context || Number(context.city.damageRatio) < 0.4
+    if (!context || Number(context.city.damageRatio) < rules.minimumCityDamageRatio
       || Number(context.city.buildingDamage?.['granary.s09']) <= 0) return false;
 
     const currentDay = Math.max(1, Math.floor(Number(context.storyState.currentDay)
@@ -5305,6 +5374,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 扣粮、士气和暂停损毁作为一个可回滚检查点事务。 */
   async _commitS09RefugeeDonation() {
+    const rules = this._getS09RefugeeConfig();
     const context = this._getS09CityContext();
     const inventory = this.playerEntity?.getComponent?.('inventory');
     const conflict = context?.storyState?.s09RefugeeConflict;
@@ -5314,18 +5384,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return true;
     }
 
-    const quantity = 20;
+    const quantity = rules.donationFood;
     if (this.inventoryTransactions.previewRemove(inventory, 'resource.food', quantity).remainder > 0) {
       this._setRefugeeDialogueNode('donationFailed');
-      this._showScreenTip('需要粮食 ×20 才能稳定现场；库存未改变。', { title: '粮食不足' });
+      this._showScreenTip(`需要粮食 ×${quantity} 才能稳定现场；库存未改变。`, { title: '粮食不足' });
       return false;
     }
     const currentDay = Math.max(1, Math.floor(Number(context.storyState.currentDay)
       || this.timeSystem?.getCurrentDay?.() || 1));
     const cityDraft = JSON.parse(JSON.stringify(context.city));
-    cityDraft.morale = Math.max(0, Math.floor(Number(cityDraft.morale) || 0) + 5);
+    cityDraft.morale = Math.max(0,
+      Math.floor(Number(cityDraft.morale) || 0) + rules.donationMorale);
     cityDraft.damagePausedUntilDay = Math.max(
-      Math.floor(Number(cityDraft.damagePausedUntilDay) || 0), currentDay + 1
+      Math.floor(Number(cityDraft.damagePausedUntilDay) || 0), currentDay + rules.damagePauseDays
     );
     if (!this._validateS09City(cityDraft, context.cityIndex)) {
       this._setRefugeeDialogueNode('donationFailed');
@@ -5374,7 +5445,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     this._s09AudioDirector?.playFeedback?.('donation');
     this._setRefugeeDialogueNode('branchChoice');
-    this._showScreenTip('捐出粮食 ×20：城市士气 +5，损毁暂停一个游戏日。');
+    this._showScreenTip(
+      `捐出粮食 ×${quantity}：城市士气 +${rules.donationMorale}，损毁暂停 ${rules.damagePauseDays} 个游戏日。`
+    );
     return true;
   }
 
@@ -5385,6 +5458,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _commitS09RefugeeBranch(branch) {
+    const rules = this._getS09RefugeeConfig();
     const context = this._getS09CityContext();
     const inventory = this.playerEntity?.getComponent?.('inventory');
     const conflict = context?.storyState?.s09RefugeeConflict;
@@ -5412,7 +5486,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (branch === 'hardline') {
       delayedEventId = 'story:S09:hardline-escape';
       cityDraft.morale = Math.min(100, Math.max(0,
-        Math.floor(Number(cityDraft.morale) || 0) + 10));
+        Math.floor(Number(cityDraft.morale) || 0) + rules.hardlineMorale));
       tags.add('s09.refugees.hardline');
       tags.add('s09.refugees.strictCommander');
       if (!delayedConsequences.some(event => event?.id === delayedEventId)) {
@@ -5421,13 +5495,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         delayedConsequences.push({
           id: delayedEventId,
           type: S09_HARDLINE_ESCAPE_EVENT_TYPE,
-          dueDay: currentDay + 1,
+          dueDay: currentDay + rules.consequenceDelayDays,
           status: 'pending',
           sourceSceneId: 'S09',
           payload: {
-            chance: S09_HARDLINE_ESCAPE_CHANCE,
+            chance: rules.hardlineEscapeChance,
             willEscape: stableStoryRoll(delayedEventId, currentDay, playerId, classId)
-              < S09_HARDLINE_ESCAPE_CHANCE
+              < rules.hardlineEscapeChance
           }
         });
       }
@@ -5435,7 +5509,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     } else if (branch === 'appease') {
       const axe = this._findValidInventoryTool(inventory, 'axe');
       if (axe) {
-        cityDraft.resources = { ...cityDraft.resources, food: Math.max(0, Math.floor(Number(cityDraft.resources?.food) || 0) + 30) };
+        cityDraft.resources = {
+          ...cityDraft.resources,
+          food: Math.max(0, Math.floor(Number(cityDraft.resources?.food) || 0) + rules.appeaseFood)
+        };
         result = 'foodRestored';
         resultNode = 'appeaseSuccessResult';
         tags.add('s09.refugees.appeasedWithGathering');
@@ -5451,7 +5528,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         delayedConsequences.push({
           id: delayedEventId,
           type: S09_SILENCE_EVENT_TYPE,
-          dueDay: currentDay + 1,
+          dueDay: currentDay + rules.consequenceDelayDays,
           status: 'pending',
           sourceSceneId: 'S09'
         });

@@ -6,7 +6,11 @@
       "assetId": "ui.login.mainBackground",
       "imageId": "ui.login.mainBackground",
       "category": "ui-background",
-      "usage": ["login", "title-screen", "background"],
+      "usage": [
+        "login",
+        "title-screen",
+        "background"
+      ],
       "sourceFile": "assets/images/main_bg.jpg",
       "runtime2D": {
         "path": "assets/images/main_bg.jpg",
@@ -16,8 +20,14 @@
         "mode": "billboard",
         "sourceAssetId": "ui.login.mainBackground"
       },
-      "pivot": { "x": 0.5, "y": 0.5 },
-      "bounds": { "width": 13393, "height": 7288 },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 13393,
+        "height": 7288
+      },
       "animations": [],
       "targetPhase": "P0",
       "status": "final",
@@ -26,7 +36,10 @@
     {
       "assetId": "mountain_landscape",
       "category": "environment-atlas",
-      "usage": ["legacy-candidate", "environment"],
+      "usage": [
+        "legacy-candidate",
+        "environment"
+      ],
       "sourceFile": "assets/images/scene1/mountain_landscape.png",
       "runtime2D": {
         "path": "assets/images/scene1/mountain_landscape.png",
@@ -36,8 +49,14 @@
         "mode": "billboard",
         "sourceAssetId": "mountain_landscape"
       },
-      "pivot": { "x": 0.5, "y": 1 },
-      "bounds": { "width": 512, "height": 512 },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 512,
+        "height": 512
+      },
       "animations": [],
       "license": {
         "status": "unverified",
@@ -49,13 +68,15 @@
       "targetPhase": "P1",
       "status": "placeholder",
       "revision": 1
-    }
-,
+    },
     {
       "assetId": "img_1783095863410",
       "imageId": "img_1783095863410",
       "category": "environment-background",
-      "usage": ["legacy-candidate", "background"],
+      "usage": [
+        "legacy-candidate",
+        "background"
+      ],
       "sourceFile": "assets/images/scene1/bg1.png",
       "runtime2D": {
         "path": "assets/images/scene1/bg1.png",
@@ -65,8 +86,14 @@
         "mode": "billboard",
         "sourceAssetId": "img_1783095863410"
       },
-      "pivot": { "x": 0, "y": 0 },
-      "bounds": { "width": 1280, "height": 720 },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
       "animations": [],
       "license": {
         "status": "unverified",
@@ -78,13 +105,15 @@
       "targetPhase": "P1",
       "status": "placeholder",
       "revision": 1
-    }
-,
+    },
     {
       "assetId": "img_1784926747445",
       "imageId": "img_1784926747445",
       "category": "environment-background",
-      "usage": ["legacy-candidate", "background"],
+      "usage": [
+        "legacy-candidate",
+        "background"
+      ],
       "sourceFile": "assets/images/bg_0_0.png",
       "runtime2D": {
         "path": "assets/images/bg_0_0.png",
@@ -94,8 +123,14 @@
         "mode": "billboard",
         "sourceAssetId": "img_1784926747445"
       },
-      "pivot": { "x": 0, "y": 0 },
-      "bounds": { "width": 1280, "height": 720 },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
       "animations": [],
       "license": {
         "status": "unverified",
@@ -109,755 +144,3297 @@
       "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.magicSpell", "imageId": "vfx.freePixel.magicSpell",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.magicSpell",
+      "imageId": "vfx.freePixel.magicSpell",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/1_magicspell_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/1_magicspell_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magicSpell" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 900, "height": 900 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/1_magicspell_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.magicSpell"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 900,
+        "height": 900
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P2",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.magic8", "imageId": "vfx.freePixel.magic8",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.magic8",
+      "imageId": "vfx.freePixel.magic8",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/2_magic8_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/2_magic8_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magic8" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/2_magic8_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.magic8"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P2",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.blueFire", "imageId": "vfx.freePixel.blueFire",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.blueFire",
+      "imageId": "vfx.freePixel.blueFire",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/3_bluefire_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/3_bluefire_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.blueFire" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/3_bluefire_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.blueFire"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.casting", "imageId": "vfx.freePixel.casting",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.casting",
+      "imageId": "vfx.freePixel.casting",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/4_casting_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/4_casting_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.casting" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 900, "height": 900 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/4_casting_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.casting"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 900,
+        "height": 900
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P2",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.magickaHit", "imageId": "vfx.freePixel.magickaHit",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.magickaHit",
+      "imageId": "vfx.freePixel.magickaHit",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/5_magickahit_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/5_magickahit_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magickaHit" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 700, "height": 700 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P2", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/5_magickahit_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.magickaHit"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 700,
+        "height": 700
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P2",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.flameLash", "imageId": "vfx.freePixel.flameLash",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.flameLash",
+      "imageId": "vfx.freePixel.flameLash",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/6_flamelash_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/6_flamelash_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.flameLash" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 700, "height": 700 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/6_flamelash_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.flameLash"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 700,
+        "height": 700
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.fireSpin", "imageId": "vfx.freePixel.fireSpin",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.fireSpin",
+      "imageId": "vfx.freePixel.fireSpin",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/7_firespin_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/7_firespin_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.fireSpin" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/7_firespin_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.fireSpin"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.protectionCircle", "imageId": "vfx.freePixel.protectionCircle",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.protectionCircle",
+      "imageId": "vfx.freePixel.protectionCircle",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/8_protectioncircle_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/8_protectioncircle_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.protectionCircle" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/8_protectioncircle_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.protectionCircle"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.brightFire", "imageId": "vfx.freePixel.brightFire",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.brightFire",
+      "imageId": "vfx.freePixel.brightFire",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/9_brightfire_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/9_brightfire_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.brightFire" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/9_brightfire_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.brightFire"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.weaponHit", "imageId": "vfx.freePixel.weaponHit",
-      "category": "vfx-spritesheet", "usage": ["vfx", "combat", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.weaponHit",
+      "imageId": "vfx.freePixel.weaponHit",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "combat",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/10_weaponhit_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/10_weaponhit_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.weaponHit" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 600, "height": 600 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/10_weaponhit_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.weaponHit"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 600,
+        "height": 600
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P1",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.fire", "imageId": "vfx.freePixel.fire",
-      "category": "vfx-spritesheet", "usage": ["vfx", "fire", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.fire",
+      "imageId": "vfx.freePixel.fire",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "fire",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/11_fire_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/11_fire_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.fire" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/11_fire_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.fire"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P1",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.nebula", "imageId": "vfx.freePixel.nebula",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.nebula",
+      "imageId": "vfx.freePixel.nebula",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/12_nebula_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/12_nebula_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.nebula" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/12_nebula_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.nebula"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.vortex", "imageId": "vfx.freePixel.vortex",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.vortex",
+      "imageId": "vfx.freePixel.vortex",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/13_vortex_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/13_vortex_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.vortex" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/13_vortex_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.vortex"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.phantom", "imageId": "vfx.freePixel.phantom",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.phantom",
+      "imageId": "vfx.freePixel.phantom",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/14_phantom_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/14_phantom_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.phantom" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/14_phantom_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.phantom"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.loading", "imageId": "vfx.freePixel.loading",
-      "category": "vfx-spritesheet", "usage": ["vfx", "ui", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.loading",
+      "imageId": "vfx.freePixel.loading",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "ui",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/15_loading_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/15_loading_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.loading" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1100, "height": 1100 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P6", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/15_loading_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.loading"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 1100,
+        "height": 1100
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P6",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.sunburn", "imageId": "vfx.freePixel.sunburn",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.sunburn",
+      "imageId": "vfx.freePixel.sunburn",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/16_sunburn_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/16_sunburn_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.sunburn" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/16_sunburn_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.sunburn"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P4",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.felSpell", "imageId": "vfx.freePixel.felSpell",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.felSpell",
+      "imageId": "vfx.freePixel.felSpell",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/17_felspell_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/17_felspell_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.felSpell" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1000, "height": 1000 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P3", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/17_felspell_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.felSpell"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 1000,
+        "height": 1000
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P3",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.midnight", "imageId": "vfx.freePixel.midnight",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.midnight",
+      "imageId": "vfx.freePixel.midnight",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/18_midnight_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/18_midnight_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.midnight" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P5", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/18_midnight_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.midnight"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P5",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.freezing", "imageId": "vfx.freePixel.freezing",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.freezing",
+      "imageId": "vfx.freePixel.freezing",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/19_freezing_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/19_freezing_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.freezing" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 1000, "height": 1000 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/19_freezing_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.freezing"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 1000,
+        "height": 1000
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P4",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "vfx.freePixel.magicBubbles", "imageId": "vfx.freePixel.magicBubbles",
-      "category": "vfx-spritesheet", "usage": ["vfx", "spritesheet", "public-domain"],
+      "assetId": "vfx.freePixel.magicBubbles",
+      "imageId": "vfx.freePixel.magicBubbles",
+      "category": "vfx-spritesheet",
+      "usage": [
+        "vfx",
+        "spritesheet",
+        "public-domain"
+      ],
       "sourceFile": "assets/images/scene1/Free Pixel Effects Pack/20_magicbubbles_spritesheet.png",
-      "runtime2D": { "path": "assets/images/scene1/Free Pixel Effects Pack/20_magicbubbles_spritesheet.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "vfx.freePixel.magicBubbles" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 800, "height": 800 },
-      "animations": ["100x100-frames"],
-      "license": { "status": "approved", "name": "Public Domain", "sourceUrl": "https://codemanu.itch.io/particle-fx-designer", "attribution": "No credit required; creators @DavitMasia and @CodeManuPro", "commercialUse": true },
-      "author": "@DavitMasia, @CodeManuPro", "owner": "public-domain", "targetPhase": "P4", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/Free Pixel Effects Pack/20_magicbubbles_spritesheet.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "vfx.freePixel.magicBubbles"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 800,
+        "height": 800
+      },
+      "animations": [
+        "100x100-frames"
+      ],
+      "license": {
+        "status": "approved",
+        "name": "Public Domain",
+        "sourceUrl": "https://codemanu.itch.io/particle-fx-designer",
+        "attribution": "No credit required; creators @DavitMasia and @CodeManuPro",
+        "commercialUse": true
+      },
+      "author": "@DavitMasia, @CodeManuPro",
+      "owner": "public-domain",
+      "targetPhase": "P4",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "graybox.naturalTerrain", "imageId": "graybox.naturalTerrain",
-      "category": "environment-background", "usage": ["graybox", "natural-terrain", "composition"],
+      "assetId": "graybox.naturalTerrain",
+      "imageId": "graybox.naturalTerrain",
+      "category": "environment-background",
+      "usage": [
+        "graybox",
+        "natural-terrain",
+        "composition"
+      ],
       "sourceFile": "assets/images/graybox/natural-terrain.svg",
-      "runtime2D": { "path": "assets/images/graybox/natural-terrain.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.naturalTerrain" },
-      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
-      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/graybox/natural-terrain.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "graybox.naturalTerrain"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "placeholder",
+      "revision": 1
     },
     {
-      "assetId": "graybox.cityGround", "imageId": "graybox.cityGround",
-      "category": "environment-background", "usage": ["graybox", "city", "composition"],
+      "assetId": "graybox.cityGround",
+      "imageId": "graybox.cityGround",
+      "category": "environment-background",
+      "usage": [
+        "graybox",
+        "city",
+        "composition"
+      ],
       "sourceFile": "assets/images/graybox/city-ground.svg",
-      "runtime2D": { "path": "assets/images/graybox/city-ground.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.cityGround" },
-      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
-      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/graybox/city-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "graybox.cityGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "placeholder",
+      "revision": 1
     },
     {
-      "assetId": "graybox.battlefieldUnit", "imageId": "graybox.battlefieldUnit",
-      "category": "unit-placeholder", "usage": ["graybox", "battlefield-unit", "formation-readability"],
+      "assetId": "graybox.battlefieldUnit",
+      "imageId": "graybox.battlefieldUnit",
+      "category": "unit-placeholder",
+      "usage": [
+        "graybox",
+        "battlefield-unit",
+        "formation-readability"
+      ],
       "sourceFile": "assets/images/graybox/battlefield-unit.svg",
-      "runtime2D": { "path": "assets/images/graybox/battlefield-unit.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "graybox.battlefieldUnit" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P0", "status": "placeholder", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/graybox/battlefield-unit.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "graybox.battlefieldUnit"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "placeholder",
+      "revision": 1
     },
     {
-      "assetId": "s03.unit.yellowTurbanSoldier", "imageId": "s03.unit.yellowTurbanSoldier",
-      "category": "unit-placeholder", "usage": ["S03", "yellow_turban", "battlefield-unit"],
+      "assetId": "s03.unit.yellowTurbanSoldier",
+      "imageId": "s03.unit.yellowTurbanSoldier",
+      "category": "unit-placeholder",
+      "usage": [
+        "S03",
+        "yellow_turban",
+        "battlefield-unit"
+      ],
       "sourceFile": "assets/images/s03/yellow-turban-soldier.svg",
-      "runtime2D": { "path": "assets/images/s03/yellow-turban-soldier.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s03.unit.yellowTurbanSoldier" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 64 },
-      "animations": [], "targetPhase": "P3", "status": "placeholder", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s03/yellow-turban-soldier.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s03.unit.yellowTurbanSoldier"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 64
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "placeholder",
+      "revision": 1
     },
     {
-      "assetId": "s03.unit.hanSoldier", "imageId": "s03.unit.hanSoldier",
-      "category": "unit-placeholder", "usage": ["S03", "han_government", "battlefield-unit"],
+      "assetId": "s03.unit.hanSoldier",
+      "imageId": "s03.unit.hanSoldier",
+      "category": "unit-placeholder",
+      "usage": [
+        "S03",
+        "han_government",
+        "battlefield-unit"
+      ],
       "sourceFile": "assets/images/s03/han-soldier.svg",
-      "runtime2D": { "path": "assets/images/s03/han-soldier.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s03.unit.hanSoldier" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 64 },
-      "animations": [], "targetPhase": "P3", "status": "placeholder", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s03/han-soldier.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s03.unit.hanSoldier"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 64
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "placeholder",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.campGround", "imageId": "s09.environment.campGround",
-      "category": "environment-background", "usage": ["S09", "camp", "ground"],
+      "assetId": "s09.environment.campGround",
+      "imageId": "s09.environment.campGround",
+      "category": "environment-background",
+      "usage": [
+        "S09",
+        "camp",
+        "ground"
+      ],
       "sourceFile": "assets/images/s09/camp-ground.svg",
-      "runtime2D": { "path": "assets/images/s09/camp-ground.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.campGround" },
-      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/camp-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.campGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S09 粥棚营地地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S09"
+        ],
+        "subject": "受损粮仓旁的黄巾粥棚营地",
+        "mustShow": [
+          "营地道路",
+          "粥棚区",
+          "受损粮仓区",
+          "难民区",
+          "职业旗位置",
+          "东侧出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
     },
     {
-      "assetId": "s09.environment.damagedGranary", "imageId": "s09.environment.damagedGranary",
-      "category": "environment-building", "usage": ["S09", "granary", "damaged"],
+      "assetId": "s09.environment.damagedGranary",
+      "imageId": "s09.environment.damagedGranary",
+      "category": "environment-building",
+      "usage": [
+        "S09",
+        "granary",
+        "damaged"
+      ],
       "sourceFile": "assets/images/s09/damaged-granary.svg",
-      "runtime2D": { "path": "assets/images/s09/damaged-granary.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.damagedGranary" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 240, "height": 210 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/damaged-granary.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.damagedGranary"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 240,
+        "height": 210
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.porridgeShelter", "imageId": "s09.environment.porridgeShelter",
-      "category": "environment-building", "usage": ["S09", "porridge", "shelter"],
+      "assetId": "s09.environment.porridgeShelter",
+      "imageId": "s09.environment.porridgeShelter",
+      "category": "environment-building",
+      "usage": [
+        "S09",
+        "porridge",
+        "shelter"
+      ],
       "sourceFile": "assets/images/s09/porridge-shelter.svg",
-      "runtime2D": { "path": "assets/images/s09/porridge-shelter.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.porridgeShelter" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 260, "height": 180 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/porridge-shelter.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.porridgeShelter"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 260,
+        "height": 180
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.flag.warrior", "imageId": "s09.flag.warrior",
-      "category": "faction-flag", "usage": ["S09", "class", "warrior"],
+      "assetId": "s09.flag.warrior",
+      "imageId": "s09.flag.warrior",
+      "category": "faction-flag",
+      "usage": [
+        "S09",
+        "class",
+        "warrior"
+      ],
       "sourceFile": "assets/images/s09/flag-warrior.svg",
-      "runtime2D": { "path": "assets/images/s09/flag-warrior.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.warrior" },
-      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/flag-warrior.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.flag.warrior"
+      },
+      "pivot": {
+        "x": 0.2,
+        "y": 1
+      },
+      "bounds": {
+        "width": 96,
+        "height": 128
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.flag.archer", "imageId": "s09.flag.archer",
-      "category": "faction-flag", "usage": ["S09", "class", "archer"],
+      "assetId": "s09.flag.archer",
+      "imageId": "s09.flag.archer",
+      "category": "faction-flag",
+      "usage": [
+        "S09",
+        "class",
+        "archer"
+      ],
       "sourceFile": "assets/images/s09/flag-archer.svg",
-      "runtime2D": { "path": "assets/images/s09/flag-archer.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.archer" },
-      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/flag-archer.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.flag.archer"
+      },
+      "pivot": {
+        "x": 0.2,
+        "y": 1
+      },
+      "bounds": {
+        "width": 96,
+        "height": 128
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.flag.strategist", "imageId": "s09.flag.strategist",
-      "category": "faction-flag", "usage": ["S09", "class", "strategist"],
+      "assetId": "s09.flag.strategist",
+      "imageId": "s09.flag.strategist",
+      "category": "faction-flag",
+      "usage": [
+        "S09",
+        "class",
+        "strategist"
+      ],
       "sourceFile": "assets/images/s09/flag-strategist.svg",
-      "runtime2D": { "path": "assets/images/s09/flag-strategist.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.flag.strategist" },
-      "pivot": { "x": 0.2, "y": 1 }, "bounds": { "width": 96, "height": 128 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/flag-strategist.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.flag.strategist"
+      },
+      "pivot": {
+        "x": 0.2,
+        "y": 1
+      },
+      "bounds": {
+        "width": 96,
+        "height": 128
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.zhangjiao", "imageId": "s09.character.zhangjiao",
-      "category": "character-static", "usage": ["S09", "story", "zhangjiao"],
+      "assetId": "s09.character.zhangjiao",
+      "imageId": "s09.character.zhangjiao",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "story",
+        "zhangjiao"
+      ],
       "sourceFile": "assets/images/s09/zhangjiao.svg",
-      "runtime2D": { "path": "assets/images/s09/zhangjiao.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangjiao" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 88 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/zhangjiao.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.zhangjiao"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 64,
+        "height": 88
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.oneArmedRefugee", "imageId": "s09.character.oneArmedRefugee",
-      "category": "character-static", "usage": ["S09", "story", "refugee"],
+      "assetId": "s09.character.oneArmedRefugee",
+      "imageId": "s09.character.oneArmedRefugee",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "story",
+        "refugee"
+      ],
       "sourceFile": "assets/images/s09/one-armed-refugee.svg",
-      "runtime2D": { "path": "assets/images/s09/one-armed-refugee.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.oneArmedRefugee" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 56, "height": 72 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/one-armed-refugee.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.oneArmedRefugee"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 56,
+        "height": 72
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.granaryGuard", "imageId": "s09.character.granaryGuard",
-      "category": "character-static", "usage": ["S09", "enemy", "guard"],
+      "assetId": "s09.character.granaryGuard",
+      "imageId": "s09.character.granaryGuard",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "enemy",
+        "guard"
+      ],
       "sourceFile": "assets/images/s09/granary-guard.svg",
-      "runtime2D": { "path": "assets/images/s09/granary-guard.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.granaryGuard" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 56, "height": 76 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/granary-guard.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.granaryGuard"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 56,
+        "height": 76
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s01.resource.dryWoodNode", "imageId": "s01.resource.dryWoodNode",
-      "category": "resource-node", "usage": ["S01", "wood", "gathering"],
+      "assetId": "s01.resource.dryWoodNode",
+      "imageId": "s01.resource.dryWoodNode",
+      "category": "resource-node",
+      "usage": [
+        "S01",
+        "wood",
+        "gathering"
+      ],
       "sourceFile": "assets/images/s01/dry-wood-node.svg",
-      "runtime2D": { "path": "assets/images/s01/dry-wood-node.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.resource.dryWoodNode" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
-      "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s01/dry-wood-node.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s01.resource.dryWoodNode"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 64,
+        "height": 56
+      },
+      "animations": [],
+      "targetPhase": "P1",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s01.tool.wornAxe", "imageId": "s01.tool.wornAxe",
-      "category": "item-world", "usage": ["S01", "tool", "pickup"],
+      "assetId": "s01.tool.wornAxe",
+      "imageId": "s01.tool.wornAxe",
+      "category": "item-world",
+      "usage": [
+        "S01",
+        "tool",
+        "pickup"
+      ],
       "sourceFile": "assets/images/scene1/RavenmoreIconPack.02.2014/128/axe.png",
-      "runtime2D": { "path": "assets/images/scene1/RavenmoreIconPack.02.2014/128/axe.png", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.tool.wornAxe" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 128, "height": 128 },
-      "animations": [], "targetPhase": "P1", "status": "third-party-approved", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/scene1/RavenmoreIconPack.02.2014/128/axe.png",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s01.tool.wornAxe"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 128,
+        "height": 128
+      },
+      "animations": [],
+      "targetPhase": "P1",
+      "status": "third-party-approved",
+      "revision": 1
     },
     {
-      "assetId": "s04.resource.herbNode", "imageId": "s04.resource.herbNode",
-      "category": "resource-node", "usage": ["S04", "herb", "poison-zone"],
+      "assetId": "s04.resource.herbNode",
+      "imageId": "s04.resource.herbNode",
+      "category": "resource-node",
+      "usage": [
+        "S04",
+        "herb",
+        "poison-zone"
+      ],
       "sourceFile": "assets/images/s04/herb-node.svg",
-      "runtime2D": { "path": "assets/images/s04/herb-node.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s04.resource.herbNode" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s04/herb-node.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s04.resource.herbNode"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 64,
+        "height": 56
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.resource.foodNode", "imageId": "s09.resource.foodNode",
-      "category": "resource-node", "usage": ["S09", "food", "granary"],
+      "assetId": "s09.resource.foodNode",
+      "imageId": "s09.resource.foodNode",
+      "category": "resource-node",
+      "usage": [
+        "S09",
+        "food",
+        "granary"
+      ],
       "sourceFile": "assets/images/s09/food-node.svg",
-      "runtime2D": { "path": "assets/images/s09/food-node.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.resource.foodNode" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 58 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/food-node.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.resource.foodNode"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 72,
+        "height": 58
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.zhangliang", "imageId": "s09.character.zhangliang",
-      "category": "character-static", "usage": ["S09", "instructor", "warrior"],
+      "assetId": "s09.character.zhangliang",
+      "imageId": "s09.character.zhangliang",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "instructor",
+        "warrior"
+      ],
       "sourceFile": "assets/images/s09/zhangliang.svg",
-      "runtime2D": { "path": "assets/images/s09/zhangliang.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangliang" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/zhangliang.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.zhangliang"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 60,
+        "height": 82
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.zhangbao", "imageId": "s09.character.zhangbao",
-      "category": "character-static", "usage": ["S09", "instructor", "archer"],
+      "assetId": "s09.character.zhangbao",
+      "imageId": "s09.character.zhangbao",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "instructor",
+        "archer"
+      ],
       "sourceFile": "assets/images/s09/zhangbao.svg",
-      "runtime2D": { "path": "assets/images/s09/zhangbao.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.zhangbao" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/zhangbao.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.zhangbao"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 60,
+        "height": 82
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.woundedSoldier", "imageId": "s09.character.woundedSoldier",
-      "category": "character-static", "usage": ["S09", "refugee", "wounded"],
+      "assetId": "s09.character.woundedSoldier",
+      "imageId": "s09.character.woundedSoldier",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "refugee",
+        "wounded"
+      ],
       "sourceFile": "assets/images/s09/wounded-soldier.svg",
-      "runtime2D": { "path": "assets/images/s09/wounded-soldier.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.woundedSoldier" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 70 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/wounded-soldier.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.woundedSoldier"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 58,
+        "height": 70
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.refugeeWoman", "imageId": "s09.character.refugeeWoman",
-      "category": "character-static", "usage": ["S09", "refugee", "civilian"],
+      "assetId": "s09.character.refugeeWoman",
+      "imageId": "s09.character.refugeeWoman",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "refugee",
+        "civilian"
+      ],
       "sourceFile": "assets/images/s09/refugee-woman.svg",
-      "runtime2D": { "path": "assets/images/s09/refugee-woman.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeWoman" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 54, "height": 70 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/refugee-woman.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.refugeeWoman"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 54,
+        "height": 70
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.refugeeChild", "imageId": "s09.character.refugeeChild",
-      "category": "character-static", "usage": ["S09", "refugee", "child"],
+      "assetId": "s09.character.refugeeChild",
+      "imageId": "s09.character.refugeeChild",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "refugee",
+        "child"
+      ],
       "sourceFile": "assets/images/s09/refugee-child.svg",
-      "runtime2D": { "path": "assets/images/s09/refugee-child.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeChild" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 42, "height": 54 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/refugee-child.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.refugeeChild"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 42,
+        "height": 54
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.refugeeDead", "imageId": "s09.character.refugeeDead",
-      "category": "character-static", "usage": ["S09", "refugee", "dead"],
+      "assetId": "s09.character.refugeeDead",
+      "imageId": "s09.character.refugeeDead",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "refugee",
+        "dead"
+      ],
       "sourceFile": "assets/images/s09/refugee-dead.svg",
-      "runtime2D": { "path": "assets/images/s09/refugee-dead.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.refugeeDead" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 82, "height": 34 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/refugee-dead.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.refugeeDead"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 82,
+        "height": 34
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.character.governmentScout", "imageId": "s09.character.governmentScout",
-      "category": "character-static", "usage": ["S09", "enemy", "scout"],
+      "assetId": "s09.character.governmentScout",
+      "imageId": "s09.character.governmentScout",
+      "category": "character-static",
+      "usage": [
+        "S09",
+        "enemy",
+        "scout"
+      ],
       "sourceFile": "assets/images/s09/government-scout.svg",
-      "runtime2D": { "path": "assets/images/s09/government-scout.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.character.governmentScout" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 76 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/government-scout.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.character.governmentScout"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 58,
+        "height": 76
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.summon.gatheringPuppet", "imageId": "s09.summon.gatheringPuppet",
-      "category": "summon-static", "usage": ["S09", "strategist", "gathering"],
+      "assetId": "s09.summon.gatheringPuppet",
+      "imageId": "s09.summon.gatheringPuppet",
+      "category": "summon-static",
+      "usage": [
+        "S09",
+        "strategist",
+        "gathering"
+      ],
       "sourceFile": "assets/images/s09/gathering-puppet.svg",
-      "runtime2D": { "path": "assets/images/s09/gathering-puppet.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.summon.gatheringPuppet" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 58, "height": 72 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/gathering-puppet.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.summon.gatheringPuppet"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 58,
+        "height": 72
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "player.appearance.class.warrior", "imageId": "player.appearance.class.warrior",
-      "category": "character-overlay", "usage": ["player", "class", "warrior"],
+      "assetId": "player.appearance.class.warrior",
+      "imageId": "player.appearance.class.warrior",
+      "category": "character-overlay",
+      "usage": [
+        "player",
+        "class",
+        "warrior"
+      ],
       "sourceFile": "assets/images/player/class-warrior-overlay.svg",
-      "runtime2D": { "path": "assets/images/player/class-warrior-overlay.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.warrior" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 72 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/player/class-warrior-overlay.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "player.appearance.class.warrior"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 72,
+        "height": 72
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "player.appearance.class.archer", "imageId": "player.appearance.class.archer",
-      "category": "character-overlay", "usage": ["player", "class", "archer"],
+      "assetId": "player.appearance.class.archer",
+      "imageId": "player.appearance.class.archer",
+      "category": "character-overlay",
+      "usage": [
+        "player",
+        "class",
+        "archer"
+      ],
       "sourceFile": "assets/images/player/class-archer-overlay.svg",
-      "runtime2D": { "path": "assets/images/player/class-archer-overlay.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.archer" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 76, "height": 72 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/player/class-archer-overlay.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "player.appearance.class.archer"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 76,
+        "height": 72
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "player.appearance.class.strategist", "imageId": "player.appearance.class.strategist",
-      "category": "character-overlay", "usage": ["player", "class", "strategist"],
+      "assetId": "player.appearance.class.strategist",
+      "imageId": "player.appearance.class.strategist",
+      "category": "character-overlay",
+      "usage": [
+        "player",
+        "class",
+        "strategist"
+      ],
       "sourceFile": "assets/images/player/class-strategist-overlay.svg",
-      "runtime2D": { "path": "assets/images/player/class-strategist-overlay.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "player.appearance.class.strategist" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 78 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/player/class-strategist-overlay.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "player.appearance.class.strategist"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 72,
+        "height": 78
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.class.warrior", "imageId": "s09.ui.class.warrior",
-      "category": "ui-icon", "usage": ["S09", "class", "warrior"],
+      "assetId": "s09.ui.class.warrior",
+      "imageId": "s09.ui.class.warrior",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "class",
+        "warrior"
+      ],
       "sourceFile": "assets/images/s09/icon-class-warrior.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-class-warrior.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.warrior" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-class-warrior.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.class.warrior"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.class.archer", "imageId": "s09.ui.class.archer",
-      "category": "ui-icon", "usage": ["S09", "class", "archer"],
+      "assetId": "s09.ui.class.archer",
+      "imageId": "s09.ui.class.archer",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "class",
+        "archer"
+      ],
       "sourceFile": "assets/images/s09/icon-class-archer.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-class-archer.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.archer" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-class-archer.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.class.archer"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.class.strategist", "imageId": "s09.ui.class.strategist",
-      "category": "ui-icon", "usage": ["S09", "class", "strategist"],
+      "assetId": "s09.ui.class.strategist",
+      "imageId": "s09.ui.class.strategist",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "class",
+        "strategist"
+      ],
       "sourceFile": "assets/images/s09/icon-class-strategist.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-class-strategist.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.class.strategist" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-class-strategist.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.class.strategist"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.morale", "imageId": "s09.ui.morale",
-      "category": "ui-icon", "usage": ["S09", "city-state", "morale"],
+      "assetId": "s09.ui.morale",
+      "imageId": "s09.ui.morale",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "city-state",
+        "morale"
+      ],
       "sourceFile": "assets/images/s09/icon-morale.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-morale.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.morale" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-morale.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.morale"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 32,
+        "height": 32
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.reputation", "imageId": "s09.ui.reputation",
-      "category": "ui-icon", "usage": ["S09", "city-state", "reputation"],
+      "assetId": "s09.ui.reputation",
+      "imageId": "s09.ui.reputation",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "city-state",
+        "reputation"
+      ],
       "sourceFile": "assets/images/s09/icon-reputation.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-reputation.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.reputation" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-reputation.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.reputation"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 32,
+        "height": 32
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.ui.storyChoice", "imageId": "s09.ui.storyChoice",
-      "category": "ui-icon", "usage": ["S09", "story", "choice"],
+      "assetId": "s09.ui.storyChoice",
+      "imageId": "s09.ui.storyChoice",
+      "category": "ui-icon",
+      "usage": [
+        "S09",
+        "story",
+        "choice"
+      ],
       "sourceFile": "assets/images/s09/icon-story-choice.svg",
-      "runtime2D": { "path": "assets/images/s09/icon-story-choice.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.ui.storyChoice" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 32, "height": 32 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/icon-story-choice.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.ui.storyChoice"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 32,
+        "height": 32
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.story.bread", "imageId": "s09.story.bread",
-      "category": "story-item", "usage": ["S09", "refugee", "bread"],
+      "assetId": "s09.story.bread",
+      "imageId": "s09.story.bread",
+      "category": "story-item",
+      "usage": [
+        "S09",
+        "refugee",
+        "bread"
+      ],
       "sourceFile": "assets/images/s09/bread.svg",
-      "runtime2D": { "path": "assets/images/s09/bread.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.story.bread" },
-      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 36 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/bread.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.story.bread"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "bounds": {
+        "width": 48,
+        "height": 36
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.yellowTurbanTent", "imageId": "s09.environment.yellowTurbanTent",
-      "category": "environment-module", "usage": ["S09", "yellow-turban", "tent"],
+      "assetId": "s09.environment.yellowTurbanTent",
+      "imageId": "s09.environment.yellowTurbanTent",
+      "category": "environment-module",
+      "usage": [
+        "S09",
+        "yellow-turban",
+        "tent"
+      ],
       "sourceFile": "assets/images/s09/yellow-turban-tent.svg",
-      "runtime2D": { "path": "assets/images/s09/yellow-turban-tent.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.yellowTurbanTent" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 120 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/yellow-turban-tent.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.yellowTurbanTent"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 180,
+        "height": 120
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.woundedShelter", "imageId": "s09.environment.woundedShelter",
-      "category": "environment-module", "usage": ["S09", "wounded", "shelter"],
+      "assetId": "s09.environment.woundedShelter",
+      "imageId": "s09.environment.woundedShelter",
+      "category": "environment-module",
+      "usage": [
+        "S09",
+        "wounded",
+        "shelter"
+      ],
       "sourceFile": "assets/images/s09/wounded-shelter.svg",
-      "runtime2D": { "path": "assets/images/s09/wounded-shelter.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.woundedShelter" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 125 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/wounded-shelter.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.woundedShelter"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 220,
+        "height": 125
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.refugeeShelter", "imageId": "s09.environment.refugeeShelter",
-      "category": "environment-module", "usage": ["S09", "refugee", "shelter"],
+      "assetId": "s09.environment.refugeeShelter",
+      "imageId": "s09.environment.refugeeShelter",
+      "category": "environment-module",
+      "usage": [
+        "S09",
+        "refugee",
+        "shelter"
+      ],
       "sourceFile": "assets/images/s09/refugee-shelter.svg",
-      "runtime2D": { "path": "assets/images/s09/refugee-shelter.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.refugeeShelter" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 130 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/refugee-shelter.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.refugeeShelter"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 220,
+        "height": 130
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s09.environment.brokenSupplyCart", "imageId": "s09.environment.brokenSupplyCart",
-      "category": "environment-prop", "usage": ["S09", "supply", "damaged"],
+      "assetId": "s09.environment.brokenSupplyCart",
+      "imageId": "s09.environment.brokenSupplyCart",
+      "category": "environment-prop",
+      "usage": [
+        "S09",
+        "supply",
+        "damaged"
+      ],
       "sourceFile": "assets/images/s09/broken-supply-cart.svg",
-      "runtime2D": { "path": "assets/images/s09/broken-supply-cart.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.brokenSupplyCart" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 130, "height": 82 },
-      "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s09/broken-supply-cart.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s09.environment.brokenSupplyCart"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 130,
+        "height": 82
+      },
+      "animations": [],
+      "targetPhase": "P2",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s05.resource.ironOre", "imageId": "s05.resource.ironOre",
-      "category": "resource-node", "usage": ["S05", "iron", "mine"],
+      "assetId": "s05.resource.ironOre",
+      "imageId": "s05.resource.ironOre",
+      "category": "resource-node",
+      "usage": [
+        "S05",
+        "iron",
+        "mine"
+      ],
       "sourceFile": "assets/images/s05/iron-ore.svg",
-      "runtime2D": { "path": "assets/images/s05/iron-ore.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.resource.ironOre" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s05/iron-ore.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.resource.ironOre"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 64,
+        "height": 56
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s05.tool.wornPickaxe", "imageId": "s05.tool.wornPickaxe",
-      "category": "tool-world", "usage": ["S05", "tool", "pickaxe", "pickup"],
+      "assetId": "s05.tool.wornPickaxe",
+      "imageId": "s05.tool.wornPickaxe",
+      "category": "tool-world",
+      "usage": [
+        "S05",
+        "tool",
+        "pickaxe",
+        "pickup"
+      ],
       "sourceFile": "assets/images/s05/worn-pickaxe.svg",
-      "runtime2D": { "path": "assets/images/s05/worn-pickaxe.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.tool.wornPickaxe" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s05/worn-pickaxe.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.tool.wornPickaxe"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s05.environment.mineCollapse", "imageId": "s05.environment.mineCollapse",
-      "category": "environment-prop", "usage": ["S05", "mine", "collapse", "blocked-route"],
+      "assetId": "s05.environment.mineCollapse",
+      "imageId": "s05.environment.mineCollapse",
+      "category": "environment-prop",
+      "usage": [
+        "S05",
+        "mine",
+        "collapse",
+        "blocked-route"
+      ],
       "sourceFile": "assets/images/s05/mine-collapse.svg",
-      "runtime2D": { "path": "assets/images/s05/mine-collapse.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.environment.mineCollapse" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 170, "height": 95 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s05/mine-collapse.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.environment.mineCollapse"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 170,
+        "height": 95
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s05.character.zhangMancheng", "imageId": "s05.character.zhangMancheng",
-      "category": "character-static", "usage": ["S05", "rescue-target", "yellow_turban"],
+      "assetId": "s05.character.zhangMancheng",
+      "imageId": "s05.character.zhangMancheng",
+      "category": "character-static",
+      "usage": [
+        "S05",
+        "rescue-target",
+        "yellow_turban"
+      ],
       "sourceFile": "assets/images/s05/zhang-mancheng.svg",
-      "runtime2D": { "path": "assets/images/s05/zhang-mancheng.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.character.zhangMancheng" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s05/zhang-mancheng.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.character.zhangMancheng"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 60,
+        "height": 82
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s05.character.qinJie", "imageId": "s05.character.qinJie",
-      "category": "character-static", "usage": ["S05", "enemy", "han_government"],
+      "assetId": "s05.character.qinJie",
+      "imageId": "s05.character.qinJie",
+      "category": "character-static",
+      "usage": [
+        "S05",
+        "enemy",
+        "han_government"
+      ],
       "sourceFile": "assets/images/s05/qin-jie.svg",
-      "runtime2D": { "path": "assets/images/s05/qin-jie.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.character.qinJie" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s05/qin-jie.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.character.qinJie"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 60,
+        "height": 82
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s06.landmark.wanchengWall", "imageId": "s06.landmark.wanchengWall",
-      "category": "environment-landmark", "usage": ["S06", "wancheng", "city-wall"],
+      "assetId": "s06.landmark.wanchengWall",
+      "imageId": "s06.landmark.wanchengWall",
+      "category": "environment-landmark",
+      "usage": [
+        "S06",
+        "wancheng",
+        "city-wall"
+      ],
       "sourceFile": "assets/images/s06/wancheng-wall.svg",
-      "runtime2D": { "path": "assets/images/s06/wancheng-wall.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s06.landmark.wanchengWall" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 460, "height": 250 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s06/wancheng-wall.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s06.landmark.wanchengWall"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 460,
+        "height": 250
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s07.environment.delayBarricade", "imageId": "s07.environment.delayBarricade",
-      "category": "environment-prop", "usage": ["S07", "delay-line", "barricade"],
+      "assetId": "s07.environment.delayBarricade",
+      "imageId": "s07.environment.delayBarricade",
+      "category": "environment-prop",
+      "usage": [
+        "S07",
+        "delay-line",
+        "barricade"
+      ],
       "sourceFile": "assets/images/s07/delay-barricade.svg",
-      "runtime2D": { "path": "assets/images/s07/delay-barricade.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s07.environment.delayBarricade" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 110 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s07/delay-barricade.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s07.environment.delayBarricade"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 220,
+        "height": 110
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s08.vehicle.retreatCart", "imageId": "s08.vehicle.retreatCart",
-      "category": "vehicle-static", "usage": ["S08", "retreat", "cart", "mud"],
+      "assetId": "s08.vehicle.retreatCart",
+      "imageId": "s08.vehicle.retreatCart",
+      "category": "vehicle-static",
+      "usage": [
+        "S08",
+        "retreat",
+        "cart",
+        "mud"
+      ],
       "sourceFile": "assets/images/s08/retreat-cart.svg",
-      "runtime2D": { "path": "assets/images/s08/retreat-cart.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s08.vehicle.retreatCart" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 110 },
-      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s08/retreat-cart.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s08.vehicle.retreatCart"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 180,
+        "height": 110
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.environment.creekCampGround", "imageId": "s10.environment.creekCampGround",
-      "category": "environment-background", "usage": ["S10", "creek", "temporary-camp"],
+      "assetId": "s10.environment.creekCampGround",
+      "imageId": "s10.environment.creekCampGround",
+      "category": "environment-background",
+      "usage": [
+        "S10",
+        "creek",
+        "temporary-camp"
+      ],
       "sourceFile": "assets/images/s10/creek-camp-ground.svg",
-      "runtime2D": { "path": "assets/images/s10/creek-camp-ground.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.environment.creekCampGround" },
-      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/creek-camp-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.environment.creekCampGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S10 溪畔迁营地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S10"
+        ],
+        "subject": "沿溪迁营与营建选址",
+        "mustShow": [
+          "溪流",
+          "临时营地",
+          "迁营路线",
+          "四类工事规划区",
+          "后续出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
     },
     {
-      "assetId": "s10.story.zhangjiaoDeathbed", "imageId": "s10.story.zhangjiaoDeathbed",
-      "category": "story-prop", "usage": ["S10", "zhangjiao", "historical-death"],
+      "assetId": "s10.story.zhangjiaoDeathbed",
+      "imageId": "s10.story.zhangjiaoDeathbed",
+      "category": "story-prop",
+      "usage": [
+        "S10",
+        "zhangjiao",
+        "historical-death"
+      ],
       "sourceFile": "assets/images/s10/zhangjiao-deathbed.svg",
-      "runtime2D": { "path": "assets/images/s10/zhangjiao-deathbed.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.story.zhangjiaoDeathbed" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 120 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/zhangjiao-deathbed.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.story.zhangjiaoDeathbed"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 180,
+        "height": 120
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.environment.relocationSign", "imageId": "s10.environment.relocationSign",
-      "category": "environment-prop", "usage": ["S10", "creek", "relocation"],
+      "assetId": "s10.environment.relocationSign",
+      "imageId": "s10.environment.relocationSign",
+      "category": "environment-prop",
+      "usage": [
+        "S10",
+        "creek",
+        "relocation"
+      ],
       "sourceFile": "assets/images/s10/relocation-sign.svg",
-      "runtime2D": { "path": "assets/images/s10/relocation-sign.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.environment.relocationSign" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 96 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/relocation-sign.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.environment.relocationSign"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 72,
+        "height": 96
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "tool.wornShovel", "imageId": "tool.wornShovel",
-      "category": "tool", "usage": ["S06", "S10", "construction", "shovel", "worn"],
+      "assetId": "tool.wornShovel",
+      "imageId": "tool.wornShovel",
+      "category": "tool",
+      "usage": [
+        "S06",
+        "S10",
+        "construction",
+        "shovel",
+        "worn"
+      ],
       "sourceFile": "assets/images/tools/worn-shovel.svg",
-      "runtime2D": { "path": "assets/images/tools/worn-shovel.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "tool.wornShovel" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/tools/worn-shovel.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "tool.wornShovel"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "tool.shovel", "imageId": "tool.shovel",
-      "category": "tool", "usage": ["S06", "S10", "construction", "shovel"],
+      "assetId": "tool.shovel",
+      "imageId": "tool.shovel",
+      "category": "tool",
+      "usage": [
+        "S06",
+        "S10",
+        "construction",
+        "shovel"
+      ],
       "sourceFile": "assets/images/tools/shovel.svg",
-      "runtime2D": { "path": "assets/images/tools/shovel.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "tool.shovel" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/tools/shovel.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "tool.shovel"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 48,
+        "height": 48
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.construction.siteMarker", "imageId": "s10.construction.siteMarker",
-      "category": "construction-marker", "usage": ["S06", "S10", "construction", "site"],
+      "assetId": "s10.construction.siteMarker",
+      "imageId": "s10.construction.siteMarker",
+      "category": "construction-marker",
+      "usage": [
+        "S06",
+        "S10",
+        "construction",
+        "site"
+      ],
       "sourceFile": "assets/images/s10/construction-site-marker.svg",
-      "runtime2D": { "path": "assets/images/s10/construction-site-marker.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.siteMarker" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 56 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/construction-site-marker.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.construction.siteMarker"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 72,
+        "height": 56
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.construction.campfire", "imageId": "s10.construction.campfire",
-      "category": "construction-structure", "usage": ["S10", "construction", "campfire"],
+      "assetId": "s10.construction.campfire",
+      "imageId": "s10.construction.campfire",
+      "category": "construction-structure",
+      "usage": [
+        "S10",
+        "construction",
+        "campfire"
+      ],
       "sourceFile": "assets/images/s10/campfire-structure.svg",
-      "runtime2D": { "path": "assets/images/s10/campfire-structure.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.campfire" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 80, "height": 72 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/campfire-structure.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.construction.campfire"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 80,
+        "height": 72
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.construction.barricade", "imageId": "s10.construction.barricade",
-      "category": "construction-structure", "usage": ["S06", "S10", "construction", "barricade"],
+      "assetId": "s10.construction.barricade",
+      "imageId": "s10.construction.barricade",
+      "category": "construction-structure",
+      "usage": [
+        "S06",
+        "S10",
+        "construction",
+        "barricade"
+      ],
       "sourceFile": "assets/images/s10/barricade-structure.svg",
-      "runtime2D": { "path": "assets/images/s10/barricade-structure.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.barricade" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 128, "height": 84 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/barricade-structure.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.construction.barricade"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 128,
+        "height": 84
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.construction.simpleWall", "imageId": "s10.construction.simpleWall",
-      "category": "construction-structure", "usage": ["S10", "construction", "simple-wall"],
+      "assetId": "s10.construction.simpleWall",
+      "imageId": "s10.construction.simpleWall",
+      "category": "construction-structure",
+      "usage": [
+        "S10",
+        "construction",
+        "simple-wall"
+      ],
       "sourceFile": "assets/images/s10/simple-wall-structure.svg",
-      "runtime2D": { "path": "assets/images/s10/simple-wall-structure.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.simpleWall" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 150, "height": 100 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/simple-wall-structure.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.construction.simpleWall"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 150,
+        "height": 100
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "s10.construction.arrowTower", "imageId": "s10.construction.arrowTower",
-      "category": "construction-structure", "usage": ["S10", "construction", "arrow-tower", "manned"],
+      "assetId": "s10.construction.arrowTower",
+      "imageId": "s10.construction.arrowTower",
+      "category": "construction-structure",
+      "usage": [
+        "S10",
+        "construction",
+        "arrow-tower",
+        "manned"
+      ],
       "sourceFile": "assets/images/s10/arrow-tower-structure.svg",
-      "runtime2D": { "path": "assets/images/s10/arrow-tower-structure.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.arrowTower" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 140, "height": 180 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/s10/arrow-tower-structure.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s10.construction.arrowTower"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 140,
+        "height": 180
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
     },
     {
-      "assetId": "story.messengerRecallBanner", "imageId": "story.messengerRecallBanner",
-      "category": "story-prop", "usage": ["S06", "S08", "messenger", "recall"],
+      "assetId": "story.messengerRecallBanner",
+      "imageId": "story.messengerRecallBanner",
+      "category": "story-prop",
+      "usage": [
+        "S06",
+        "S08",
+        "messenger",
+        "recall"
+      ],
       "sourceFile": "assets/images/story/messenger-recall-banner.svg",
-      "runtime2D": { "path": "assets/images/story/messenger-recall-banner.svg", "mode": "image" },
-      "runtime3D": { "mode": "billboard", "sourceAssetId": "story.messengerRecallBanner" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 80, "height": 112 },
-      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+      "runtime2D": {
+        "path": "assets/images/story/messenger-recall-banner.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "story.messengerRecallBanner"
+      },
+      "pivot": {
+        "x": 0.5,
+        "y": 1
+      },
+      "bounds": {
+        "width": 80,
+        "height": 112
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1
+    },
+    {
+      "assetId": "s01.environment.droughtWildernessGround",
+      "imageId": "s01.environment.droughtWildernessGround",
+      "category": "environment-background",
+      "usage": [
+        "S01",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s01/drought-wilderness-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s01/drought-wilderness-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s01.environment.droughtWildernessGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P1",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S01 干旱荒原地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S01"
+        ],
+        "subject": "干旱荒原与求生营火地",
+        "mustShow": [
+          "干裂旱地",
+          "冷灰营火地",
+          "西侧枯木草药带",
+          "东侧盗匪警戒坡",
+          "北侧出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s02.environment.abandonedCampGround",
+      "imageId": "s02.environment.abandonedCampGround",
+      "category": "environment-background",
+      "usage": [
+        "S02",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s02/abandoned-camp-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s02/abandoned-camp-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s02.environment.abandonedCampGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P1",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S02 废弃营地地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S02"
+        ],
+        "subject": "废弃黄巾营地与物资搜寻区",
+        "mustShow": [
+          "破帐",
+          "散落物资",
+          "倒旗",
+          "拾荒者警戒区",
+          "东北出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s03.environment.yingchuanBattlefieldGround",
+      "imageId": "s03.environment.yingchuanBattlefieldGround",
+      "category": "environment-background",
+      "usage": [
+        "S03",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s03/yingchuan-battlefield-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s03/yingchuan-battlefield-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s03.environment.yingchuanBattlefieldGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S03 颍川战场地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S03"
+        ],
+        "subject": "颍川旷野首战战场",
+        "mustShow": [
+          "南北官道",
+          "东侧支路",
+          "黄巾阵线",
+          "官军阵线",
+          "军令台",
+          "北侧出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s04.environment.changsheBurnedGround",
+      "imageId": "s04.environment.changsheBurnedGround",
+      "category": "environment-background",
+      "usage": [
+        "S04",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s04/changshe-burned-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s04/changshe-burned-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s04.environment.changsheBurnedGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S04 长社焦土地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S04"
+        ],
+        "subject": "火攻后的长社焦土战场",
+        "mustShow": [
+          "火痕焦土",
+          "南北余火",
+          "草药毒烟地",
+          "东西突围道",
+          "东侧撤离点"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s05.environment.wanchengOutskirtsGround",
+      "imageId": "s05.environment.wanchengOutskirtsGround",
+      "category": "environment-background",
+      "usage": [
+        "S05",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s05/wancheng-outskirts-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s05/wancheng-outskirts-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s05.environment.wanchengOutskirtsGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S05 宛城外郭地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S05"
+        ],
+        "subject": "宛城外围矿坑伏兵战场",
+        "mustShow": [
+          "废弃矿坑",
+          "塌方碎石",
+          "伏兵高地",
+          "南阳军道",
+          "城下出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s06.environment.wanchengSiegeGround",
+      "imageId": "s06.environment.wanchengSiegeGround",
+      "category": "environment-background",
+      "usage": [
+        "S06",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s06/wancheng-siege-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s06/wancheng-siege-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s06.environment.wanchengSiegeGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S06 宛城围攻地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S06"
+        ],
+        "subject": "宛城城下围攻区域",
+        "mustShow": [
+          "北侧城墙",
+          "东西缺口",
+          "壕沟",
+          "攻城接近路",
+          "工事准备区"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.cityGround"
+      },
+      "replacesPlaceholderId": "graybox.cityGround"
+    },
+    {
+      "assetId": "s07.environment.xihuaDelayGround",
+      "imageId": "s07.environment.xihuaDelayGround",
+      "category": "environment-background",
+      "usage": [
+        "S07",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s07/xihua-delay-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s07/xihua-delay-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s07.environment.xihuaDelayGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S07 西华阻滞战地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S07"
+        ],
+        "subject": "西华泥草平原阻滞战场",
+        "mustShow": [
+          "南北撤退军道",
+          "北中南三道阻滞带",
+          "两侧湿地",
+          "拒障位置",
+          "北部出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s08.environment.remnantCampGround",
+      "imageId": "s08.environment.remnantCampGround",
+      "category": "environment-background",
+      "usage": [
+        "S08",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s08/remnant-camp-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s08/remnant-camp-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s08.environment.remnantCampGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S08 西华残部营地地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S08"
+        ],
+        "subject": "西华残部撤退营地",
+        "mustShow": [
+          "泥泞车辙",
+          "破帐区",
+          "陷车位置",
+          "残部集结地",
+          "召回出口"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
+    },
+    {
+      "assetId": "s11.environment.guangzongBattlefieldGround",
+      "imageId": "s11.environment.guangzongBattlefieldGround",
+      "category": "environment-background",
+      "usage": [
+        "S11",
+        "scene-background",
+        "terrain"
+      ],
+      "sourceFile": "assets/images/s11/guangzong-battlefield-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/s11/guangzong-battlefield-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "s11.environment.guangzongBattlefieldGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P4",
+      "status": "ai-generated",
+      "revision": 1,
+      "displayName": "S11 广宗百人战地貌",
+      "replacementBrief": {
+        "sceneIds": [
+          "S11"
+        ],
+        "subject": "广宗城外三线百人战场",
+        "mustShow": [
+          "西门城垣",
+          "烽火台",
+          "西中东三条战线",
+          "卫兵集合区",
+          "刺客压力区"
+        ],
+        "mustPreserve": [
+          "1280×720 场景坐标对齐",
+          "现有入口、出口和主要玩法动线",
+          "地貌与建筑轮廓可读性",
+          "碰撞与业务状态继续由场景对象定义"
+        ],
+        "camera": "top-down-oblique-2d, full 1280×720 chunk",
+        "palette": [
+          "#6f6048",
+          "#6b6760",
+          "#d8aa32",
+          "#7d3030"
+        ],
+        "textPolicy": "no-baked-text",
+        "replacesPlaceholderId": "graybox.naturalTerrain"
+      },
+      "replacesPlaceholderId": "graybox.naturalTerrain"
     }
   ]
 }

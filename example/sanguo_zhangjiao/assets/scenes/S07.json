@@ -1,42 +1,502 @@
 {
-  "id":"S07","name":"S07·西华三线阻滞","width":1280,"height":720,"backgroundColor":"#4f5745","type":"terrain","sceneType":"worldChunk","worldMap":"region-c","productionState":"playable","previewOnly":false,"presentationProfile":"sanguo-zhangjiao-presentation-v1",
-  "composition":{"complexity":"medium","focalPoint":"S07-command-marker","primaryRoute":["S07-spawn-entry","S07-delay-south","S07-delay-center","S07-delay-north","S07-zone-s08-exit"],"cameraFrame":{"width":1280,"height":720}},
-  "assetBudget":{"environmentModules":6,"actorVariants":2,"interactiveProps":5,"vfx":1,"audioLayers":0},
-  "layers":[
-    {"id":"layer_bg","name":"西华阴沉平原","visible":true,"locked":false,"objects":[{"id":"S07-bg","type":"image","imageId":"graybox.naturalTerrain","x":0,"y":0,"width":1280,"height":720,"rotation":0}]},
-    {"id":"layer_ground","name":"三线阻滞地形","visible":true,"locked":false,"objects":[
-      {"id":"S07-ground","type":"shape","shapeType":"polygon","name":"西华泥草地","points":[[0,0],[1280,0],[1280,720],[0,720]],"fillMode":"color","fill":"#4f5745","opacity":0.38,"strokeWidth":0},
-      {"id":"S07-main-route","type":"shape","shapeType":"polygon","name":"南北撤退军道","points":[[465,720],[810,720],[790,0],[470,0]],"fillMode":"color","fill":"#81765c","opacity":0.72,"stroke":"#b3a270","strokeWidth":3,"walkable":true},
-      {"id":"S07-north-line","type":"shape","shapeType":"rect","name":"north 北线阻滞带","x":360,"y":130,"width":555,"height":70,"fillMode":"color","fill":"#8d743f","opacity":0.3,"stroke":"#d8aa32","strokeWidth":3},
-      {"id":"S07-center-line","type":"shape","shapeType":"rect","name":"center 中线阻滞带","x":300,"y":315,"width":680,"height":70,"fillMode":"color","fill":"#8d743f","opacity":0.3,"stroke":"#d8aa32","strokeWidth":3},
-      {"id":"S07-south-line","type":"shape","shapeType":"rect","name":"south 南线阻滞带","x":355,"y":500,"width":565,"height":70,"fillMode":"color","fill":"#8d743f","opacity":0.3,"stroke":"#d8aa32","strokeWidth":3}
-    ]},
-    {"id":"layer_landmark","name":"阻滞地标与军令出口","visible":true,"locked":false,"objects":[
-      {"id":"S07-delay-north","type":"image","imageId":"s07.environment.delayBarricade","name":"north 北线拒障","x":505,"y":105,"width":220,"height":110,"rotation":0,"depthSort":true,"sortY":215},
-      {"id":"S07-delay-center","type":"image","imageId":"s07.environment.delayBarricade","name":"center 中线拒障","x":530,"y":290,"width":220,"height":110,"rotation":0,"depthSort":true,"sortY":400},
-      {"id":"S07-delay-south","type":"image","imageId":"s07.environment.delayBarricade","name":"south 南线拒障","x":505,"y":475,"width":220,"height":110,"rotation":0,"depthSort":true,"sortY":585},
-      {"id":"S07-command-marker","type":"image","imageId":"graybox.battlefieldUnit","name":"西华战役军令旗","x":190,"y":545,"width":72,"height":72,"rotation":0,"depthSort":true,"sortY":617},
-      {"id":"S07-zone-s08-exit","type":"region","name":"通往西华余部营地","regionId":"S07-s08-exit","x":1040,"y":50,"width":170,"height":135},
-      {"id":"S07-exit-marker","type":"image","imageId":"graybox.battlefieldUnit","name":"S08 残部出口旗","x":1090,"y":75,"width":72,"height":72,"rotation":0,"depthSort":true,"sortY":147}
-    ]},
-    {"id":"layer_placement","name":"参战单位与出生点","visible":true,"locked":false,"objects":[
-      {"id":"S07-spawn-entry","type":"spawn","name":"西华南侧入口","ref":"player","x":125,"y":635},{"id":"S07-spawn-intervention","type":"spawn","name":"介入战线入口","ref":"battle-intervention","x":380,"y":610},
-      {"id":"S07-yellow-1","type":"ref","kind":"enemy","ref":"enemy.s03_yellow_turban_soldier","group":"S07-yellow-turban","tags":["battleParticipant","yellow_turban"],"x":420,"y":600,"overrides":{"aiActive":false}},
-      {"id":"S07-yellow-2","type":"ref","kind":"enemy","ref":"enemy.s03_yellow_turban_soldier","group":"S07-yellow-turban","tags":["battleParticipant","yellow_turban"],"x":500,"y":625,"overrides":{"aiActive":false}},
-      {"id":"S07-yellow-3","type":"ref","kind":"enemy","ref":"enemy.s03_yellow_turban_soldier","group":"S07-yellow-turban","tags":["battleParticipant","yellow_turban"],"x":575,"y":595,"overrides":{"aiActive":false}},
-      {"id":"S07-han-1","type":"ref","kind":"enemy","ref":"enemy.s03_han_soldier","group":"S07-han-army","tags":["battleParticipant","han_government"],"x":690,"y":90,"overrides":{"aiActive":false}},
-      {"id":"S07-han-2","type":"ref","kind":"enemy","ref":"enemy.s03_han_soldier","group":"S07-han-army","tags":["battleParticipant","han_government"],"x":770,"y":115,"overrides":{"aiActive":false}},
-      {"id":"S07-han-3","type":"ref","kind":"enemy","ref":"enemy.s03_han_soldier","group":"S07-han-army","tags":["battleParticipant","han_government"],"x":845,"y":85,"overrides":{"aiActive":false}}
-    ]},
-    {"id":"layer_logic","name":"视觉化触发器","visible":true,"locked":false,"objects":[
-      {"id":"S07-binding-battle-mode","type":"trigger","name":"选择西华战役模式","triggerId":"trg_s07_choose_battle_mode","x":145,"y":510,"width":165,"height":145,"event":"interact","targetMode":"id","target":"S07-command-marker","radius":115,"pointerRadius":64,"prompt":"{interact}选择西华三线阻滞参战方式"},
-      {"id":"S07-binding-delay-north","type":"trigger","name":"提交 north 北线阻滞","triggerId":"trg_s07_commit_delay_north","x":490,"y":105,"width":250,"height":115,"event":"interact","targetMode":"id","target":"S07-delay-north","radius":115,"pointerRadius":64,"prompt":"{interact}提交 north 北线阻滞点"},
-      {"id":"S07-binding-delay-center","type":"trigger","name":"提交 center 中线阻滞","triggerId":"trg_s07_commit_delay_center","x":515,"y":290,"width":250,"height":115,"event":"interact","targetMode":"id","target":"S07-delay-center","radius":115,"pointerRadius":64,"prompt":"{interact}提交 center 中线阻滞点"},
-      {"id":"S07-binding-delay-south","type":"trigger","name":"提交 south 南线阻滞","triggerId":"trg_s07_commit_delay_south","x":490,"y":475,"width":250,"height":115,"event":"interact","targetMode":"id","target":"S07-delay-south","radius":115,"pointerRadius":64,"prompt":"{interact}提交 south 南线阻滞点"},
-      {"id":"S07-binding-s08-exit","type":"trigger","name":"检查并前往 S08","triggerId":"trg_s07_exit_s08","x":1040,"y":50,"width":170,"height":135,"event":"interact","targetMode":"id","target":"S07-exit-marker","radius":110,"pointerRadius":62,"prompt":"{interact}保存残部并前往西华余部营地"}
-    ]}
+  "id": "S07",
+  "name": "S07·西华三线阻滞",
+  "width": 1280,
+  "height": 720,
+  "backgroundColor": "#4f5745",
+  "type": "terrain",
+  "sceneType": "worldChunk",
+  "worldMap": "region-c",
+  "productionState": "playable",
+  "previewOnly": false,
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": {
+    "complexity": "medium",
+    "focalPoint": "S07-command-marker",
+    "primaryRoute": [
+      "S07-spawn-entry",
+      "S07-delay-south",
+      "S07-delay-center",
+      "S07-delay-north",
+      "S07-zone-s08-exit"
+    ],
+    "cameraFrame": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "assetBudget": {
+    "environmentModules": 6,
+    "actorVariants": 2,
+    "interactiveProps": 5,
+    "vfx": 1,
+    "audioLayers": 0
+  },
+  "layers": [
+    {
+      "id": "layer_bg",
+      "name": "西华阴沉平原",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S07-bg",
+          "type": "image",
+          "imageId": "s07.environment.xihuaDelayGround",
+          "x": 0,
+          "y": 0,
+          "width": 1280,
+          "height": 720,
+          "rotation": 0,
+          "name": "S07 西华阻滞战地貌",
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "visualDescription": "西华泥草平原阻滞战场；必须表现：南北撤退军道、北中南三道阻滞带、两侧湿地、拒障位置、北部出口。正式替换图不得烘焙文字或业务碰撞。"
+        }
+      ]
+    },
+    {
+      "id": "layer_ground",
+      "name": "三线阻滞地形",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S07-ground",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "西华泥草地",
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              1280,
+              0
+            ],
+            [
+              1280,
+              720
+            ],
+            [
+              0,
+              720
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#4f5745",
+          "opacity": 0.38,
+          "strokeWidth": 0,
+          "semanticRole": "sceneGeometry",
+          "visualDescription": "西华泥草地；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S07-main-route",
+          "type": "shape",
+          "shapeType": "polygon",
+          "name": "南北撤退军道",
+          "points": [
+            [
+              465,
+              720
+            ],
+            [
+              810,
+              720
+            ],
+            [
+              790,
+              0
+            ],
+            [
+              470,
+              0
+            ]
+          ],
+          "fillMode": "color",
+          "fill": "#81765c",
+          "opacity": 0.72,
+          "stroke": "#b3a270",
+          "strokeWidth": 3,
+          "walkable": true,
+          "semanticRole": "travelRoute",
+          "visualDescription": "南北撤退军道；代表玩家可通行的地貌动线。"
+        },
+        {
+          "id": "S07-north-line",
+          "type": "shape",
+          "shapeType": "rect",
+          "name": "北线阻滞带",
+          "x": 360,
+          "y": 130,
+          "width": 555,
+          "height": 70,
+          "fillMode": "color",
+          "fill": "#8d743f",
+          "opacity": 0.3,
+          "stroke": "#d8aa32",
+          "strokeWidth": 3,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "north 北线阻滞带；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S07-center-line",
+          "type": "shape",
+          "shapeType": "rect",
+          "name": "中线阻滞带",
+          "x": 300,
+          "y": 315,
+          "width": 680,
+          "height": 70,
+          "fillMode": "color",
+          "fill": "#8d743f",
+          "opacity": 0.3,
+          "stroke": "#d8aa32",
+          "strokeWidth": 3,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "center 中线阻滞带；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        },
+        {
+          "id": "S07-south-line",
+          "type": "shape",
+          "shapeType": "rect",
+          "name": "南线阻滞带",
+          "x": 355,
+          "y": 500,
+          "width": 565,
+          "height": 70,
+          "fillMode": "color",
+          "fill": "#8d743f",
+          "opacity": 0.3,
+          "stroke": "#d8aa32",
+          "strokeWidth": 3,
+          "semanticRole": "gameplayZone",
+          "visualDescription": "south 南线阻滞带；代表编辑器中的地貌、建筑占地或玩法构图区。"
+        }
+      ]
+    },
+    {
+      "id": "layer_landmark",
+      "name": "阻滞地标与军令出口",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S07-delay-north",
+          "type": "image",
+          "imageId": "s07.environment.delayBarricade",
+          "name": "北线拒障",
+          "x": 505,
+          "y": 105,
+          "width": 220,
+          "height": 110,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 215,
+          "semanticRole": "sceneProp",
+          "visualDescription": "north 北线拒障；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S07-delay-center",
+          "type": "image",
+          "imageId": "s07.environment.delayBarricade",
+          "name": "中线拒障",
+          "x": 530,
+          "y": 290,
+          "width": 220,
+          "height": 110,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 400,
+          "semanticRole": "sceneProp",
+          "visualDescription": "center 中线拒障；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S07-delay-south",
+          "type": "image",
+          "imageId": "s07.environment.delayBarricade",
+          "name": "南线拒障",
+          "x": 505,
+          "y": 475,
+          "width": 220,
+          "height": 110,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 585,
+          "semanticRole": "sceneProp",
+          "visualDescription": "south 南线拒障；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S07-command-marker",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "name": "西华战役军令旗",
+          "x": 190,
+          "y": 545,
+          "width": 72,
+          "height": 72,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 617,
+          "semanticRole": "battleMarker",
+          "visualDescription": "西华战役军令旗；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S07-zone-s08-exit",
+          "type": "region",
+          "name": "通往西华余部营地",
+          "regionId": "S07-s08-exit",
+          "x": 1040,
+          "y": 50,
+          "width": 170,
+          "height": 135
+        },
+        {
+          "id": "S07-exit-marker",
+          "type": "image",
+          "imageId": "graybox.battlefieldUnit",
+          "name": "S08 残部出口旗",
+          "x": 1090,
+          "y": 75,
+          "width": 72,
+          "height": 72,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 147,
+          "semanticRole": "battleMarker",
+          "visualDescription": "S08 残部出口旗；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        }
+      ]
+    },
+    {
+      "id": "layer_placement",
+      "name": "参战单位与出生点",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S07-spawn-entry",
+          "type": "spawn",
+          "name": "西华南侧入口",
+          "ref": "player",
+          "x": 125,
+          "y": 635
+        },
+        {
+          "id": "S07-spawn-intervention",
+          "type": "spawn",
+          "name": "介入战线入口",
+          "ref": "battle-intervention",
+          "x": 380,
+          "y": 610
+        },
+        {
+          "id": "S07-yellow-1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_yellow_turban_soldier",
+          "group": "S07-yellow-turban",
+          "tags": [
+            "battleParticipant",
+            "yellow_turban"
+          ],
+          "x": 420,
+          "y": 600,
+          "overrides": {
+            "aiActive": false
+          }
+        },
+        {
+          "id": "S07-yellow-2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_yellow_turban_soldier",
+          "group": "S07-yellow-turban",
+          "tags": [
+            "battleParticipant",
+            "yellow_turban"
+          ],
+          "x": 500,
+          "y": 625,
+          "overrides": {
+            "aiActive": false
+          }
+        },
+        {
+          "id": "S07-yellow-3",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_yellow_turban_soldier",
+          "group": "S07-yellow-turban",
+          "tags": [
+            "battleParticipant",
+            "yellow_turban"
+          ],
+          "x": 575,
+          "y": 595,
+          "overrides": {
+            "aiActive": false
+          }
+        },
+        {
+          "id": "S07-han-1",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_han_soldier",
+          "group": "S07-han-army",
+          "tags": [
+            "battleParticipant",
+            "han_government"
+          ],
+          "x": 690,
+          "y": 90,
+          "overrides": {
+            "aiActive": false
+          }
+        },
+        {
+          "id": "S07-han-2",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_han_soldier",
+          "group": "S07-han-army",
+          "tags": [
+            "battleParticipant",
+            "han_government"
+          ],
+          "x": 770,
+          "y": 115,
+          "overrides": {
+            "aiActive": false
+          }
+        },
+        {
+          "id": "S07-han-3",
+          "type": "ref",
+          "kind": "enemy",
+          "ref": "enemy.s03_han_soldier",
+          "group": "S07-han-army",
+          "tags": [
+            "battleParticipant",
+            "han_government"
+          ],
+          "x": 845,
+          "y": 85,
+          "overrides": {
+            "aiActive": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "layer_logic",
+      "name": "视觉化触发器",
+      "visible": true,
+      "locked": false,
+      "objects": [
+        {
+          "id": "S07-binding-battle-mode",
+          "type": "trigger",
+          "name": "选择西华战役模式",
+          "triggerId": "trg_s07_choose_battle_mode",
+          "x": 145,
+          "y": 510,
+          "width": 165,
+          "height": 145,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S07-command-marker",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}选择西华三线阻滞参战方式"
+        },
+        {
+          "id": "S07-binding-delay-north",
+          "type": "trigger",
+          "name": "提交 north 北线阻滞",
+          "triggerId": "trg_s07_commit_delay_north",
+          "x": 490,
+          "y": 105,
+          "width": 250,
+          "height": 115,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S07-delay-north",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}提交 north 北线阻滞点"
+        },
+        {
+          "id": "S07-binding-delay-center",
+          "type": "trigger",
+          "name": "提交 center 中线阻滞",
+          "triggerId": "trg_s07_commit_delay_center",
+          "x": 515,
+          "y": 290,
+          "width": 250,
+          "height": 115,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S07-delay-center",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}提交 center 中线阻滞点"
+        },
+        {
+          "id": "S07-binding-delay-south",
+          "type": "trigger",
+          "name": "提交 south 南线阻滞",
+          "triggerId": "trg_s07_commit_delay_south",
+          "x": 490,
+          "y": 475,
+          "width": 250,
+          "height": 115,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S07-delay-south",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}提交 south 南线阻滞点"
+        },
+        {
+          "id": "S07-binding-s08-exit",
+          "type": "trigger",
+          "name": "检查并前往 S08",
+          "triggerId": "trg_s07_exit_s08",
+          "x": 1040,
+          "y": 50,
+          "width": 170,
+          "height": 135,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S07-exit-marker",
+          "radius": 110,
+          "pointerRadius": 62,
+          "prompt": "{interact}保存残部并前往西华余部营地"
+        }
+      ]
+    }
   ],
-  "decorations":[],"colliders":[],
-  "imageAssets":{"graybox.naturalTerrain":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg","name":"自然地形稳定资源"},"graybox.battlefieldUnit":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg","name":"战役军令旗稳定资源"},"s07.environment.delayBarricade":{"src":"../example/sanguo_zhangjiao/assets/images/s07/delay-barricade.svg","name":"西华阻滞拒障"}},
-  "updatedAt":"2026-08-12T00:00:00.000Z"
+  "decorations": [],
+  "colliders": [],
+  "imageAssets": {
+    "graybox.naturalTerrain": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg",
+      "name": "自然地形稳定资源"
+    },
+    "graybox.battlefieldUnit": {
+      "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg",
+      "name": "战役军令旗稳定资源"
+    },
+    "s07.environment.delayBarricade": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s07/delay-barricade.svg",
+      "name": "西华阻滞拒障"
+    },
+    "s07.environment.xihuaDelayGround": {
+      "src": "../example/sanguo_zhangjiao/assets/images/s07/xihua-delay-ground.svg",
+      "name": "S07 西华阻滞战地貌"
+    }
+  },
+  "updatedAt": "2026-08-12T00:00:00.000Z"
 }

@@ -269,8 +269,12 @@ export class SceneEditorAssets {
         editor.render();
       } else if (editor.loadedImages.has(id)) {
         const img = editor.loadedImages.get(id);
+        const assetName = editor.sceneData.imageAssets?.[id]?.name;
         editor.ui.addObject({
           type: 'image', imageId: id,
+          name: assetName || id,
+          semanticRole: 'sceneImage',
+          visualDescription: assetName ? `${assetName}；请按场景用途补充地貌、建筑或道具说明。` : '请补充该图片在场景中的具体用途。',
           x: pos.x - img.width / 2, y: pos.y - img.height / 2,
           width: img.width, height: img.height, rotation: 0
         });

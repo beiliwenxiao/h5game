@@ -42,6 +42,7 @@ import { BattleSystem, BattleMode, BattleState } from '../../../src/systems/Batt
 import { BattlefieldRuntimeSystem } from '../../../src/systems/BattlefieldRuntimeSystem.js';
 import { CityWarSystem } from '../../../src/systems/CityWarSystem.js';
 import { RescueSystem, RescueStatus } from '../../../src/systems/RescueSystem.js';
+import { ConstructionSystem } from '../../../src/systems/ConstructionSystem.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
@@ -67,9 +68,95 @@ const S09_HARDLINE_ESCAPE_EVENT_TYPE = 's09.hardlineEscape';
 const S09_HARDLINE_ESCAPE_CHANCE = 0.35;
 const S03_BATTLE_ID = 'battle.s03.yingchuan';
 const S04_BATTLE_ID = 'battle.s04.changshe';
+const S05_BATTLE_ID = 'battle.s05_wancheng_outskirts';
+const S07_BATTLE_ID = 'battle.s07_xihua_delay';
 const S04_BOCAI_RESCUE_ID = 'rescue.s04.bocai';
+const S05_ZHANG_MANCHENG_RESCUE_ID = 'rescue.s05.zhangMancheng';
 const S01_INITIAL_FOG_OPACITY = 1.0;
+const BATTLE_FLOW_BY_SCENE = Object.freeze({
+  S03: Object.freeze({
+    battleId: S03_BATTLE_ID,
+    locationName: '颍川',
+    unavailableMessage: '颍川战役运行时尚未就绪',
+    conflictMessage: '另一场战役尚未完成结算，不能切换到颍川战役。',
+    activeMessage: '颍川战役正在进行，当前参战方式不可更改。',
+    appliedTitle: '颍川首战·已结算战果',
+    resultTitle: '颍川首战·战果',
+    resultMessage: '战果已冻结并保存；北侧出口现可前往长社战场。',
+    settlementMessage: '颍川战果已写入城市与战争状态，时间推进至五月。',
+    interventionMessage: '你已进入黄巾前线。击溃官军或使其士气崩溃。',
+    worldChanges: Object.freeze({ month: 5 }),
+    resolvedKey: 's03BattleResolved',
+    winnerKey: 's03WinnerFactionId',
+    checkpointId: 'checkpoint.S03.battleResolved'
+  }),
+  S04: Object.freeze({
+    battleId: S04_BATTLE_ID,
+    locationName: '长社',
+    unavailableMessage: '长社战役运行时尚未就绪',
+    conflictMessage: '上一场战役尚未完成结算，不能进入长社战役。',
+    activeMessage: '长社战役正在进行，当前参战方式不可更改。',
+    appliedTitle: '长社战场·已结算战果',
+    resultTitle: '长社战场·战果',
+    resultMessage: '长社战果已冻结并保存；若已介入，仍可完成进行中的波才救援。',
+    settlementMessage: '长社战果已写入城市与战争状态。',
+    interventionMessage: '你已进入长社黄巾阵线，可在西侧残旗下启动波才救援。',
+    worldChanges: Object.freeze({ month: 5 }),
+    resolvedKey: 's04BattleResolved',
+    winnerKey: 's04WinnerFactionId',
+    checkpointId: 'checkpoint.S04.battleResolved'
+  }),
+  S05: Object.freeze({
+    battleId: S05_BATTLE_ID,
+    locationName: '宛城外围',
+    unavailableMessage: '宛城外围战役运行时尚未就绪',
+    conflictMessage: '上一场战役尚未完成结算，不能进入宛城外围战役。',
+    activeMessage: '宛城外围战役正在进行，当前参战方式不可更改。',
+    appliedTitle: '宛城外围·已结算战果',
+    resultTitle: '宛城外围·战果',
+    resultMessage: '宛城外围战果已冻结并保存；张曼成存活后方可前往宛城围攻。',
+    settlementMessage: '宛城外围战果已写入城市与战争状态。',
+    interventionMessage: '你已进入宛城外围黄巾阵线，可启动 60 秒张曼成救援并以远程攻击打断秦颉。',
+    worldChanges: Object.freeze({}),
+    resolvedKey: 's05BattleResolved',
+    winnerKey: 's05WinnerFactionId',
+    checkpointId: 'checkpoint.S05.battleResolved'
+  }),
+  S07: Object.freeze({
+    battleId: S07_BATTLE_ID,
+    locationName: '西华',
+    unavailableMessage: '西华三线阻滞战运行时尚未就绪',
+    conflictMessage: '上一场战役尚未完成结算，不能进入西华阻滞战。',
+    activeMessage: '西华阻滞战正在进行，当前参战方式不可更改。',
+    appliedTitle: '西华阻滞战·已结算战果',
+    resultTitle: '西华阻滞战·战果',
+    resultMessage: '西华战果已冻结并保存；介入者还需提交三线阻滞点才能保存残部。',
+    settlementMessage: '西华战果已写入城市与战争状态。',
+    interventionMessage: '你已进入黄巾残部阵线。依次投入资源完成 north、center、south 三线阻滞。',
+    worldChanges: Object.freeze({ month: 6 }),
+    resolvedKey: 's07BattleResolved',
+    winnerKey: 's07WinnerFactionId',
+    checkpointId: 'checkpoint.S07.battleResolved'
+  })
+});
+const BATTLE_FLOW_BY_ID = Object.freeze({
+  [S03_BATTLE_ID]: BATTLE_FLOW_BY_SCENE.S03,
+  [S04_BATTLE_ID]: BATTLE_FLOW_BY_SCENE.S04,
+  [S05_BATTLE_ID]: BATTLE_FLOW_BY_SCENE.S05,
+  [S07_BATTLE_ID]: BATTLE_FLOW_BY_SCENE.S07
+});
+const RESCUE_TITLE_BY_ID = Object.freeze({
+  [S04_BOCAI_RESCUE_ID]: '波才限时救援',
+  [S05_ZHANG_MANCHENG_RESCUE_ID]: '张曼成限时救援'
+});
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+const S10_CONSTRUCTION_SITE_KEYS = Object.freeze({
+  'site.s10.campfire': 'campfire',
+  'site.s10.barricade': 'barricade',
+  'site.s10.simple_wall': 'simpleWall',
+  'site.s10.arrow_tower': 'arrowTower'
+});
+const S06_FIELD_CONSTRUCTION_SITE_ID = 'site.s06.field_barricade';
 
 /** 同一剧情操作和逻辑日始终得到同一结果，checkpoint 失败重试不会重新掷骰。 */
 const stableStoryRoll = (...parts) => {
@@ -160,17 +247,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.battleHudView = null;
     this.battleResultView = null;
     this.rescueSystem = null;
+    this.constructionSystem = null;
     this.rescueObjectiveView = null;
     this.irreversibleChoiceView = null;
     this.s04RouteCoordinator = null;
     this._s03BattleConfig = null;
     this._s04BattleConfig = null;
+    this._s05BattleConfig = null;
+    this._s07BattleConfig = null;
     this._s04BocaiRescueConfig = null;
+    this._s05ZhangManchengRescueConfig = null;
     this._activeBattleConfig = null;
     this._s03BattleBusy = false;
     this._s04RescueBusy = false;
+    this._s05RescueBusy = false;
     this._s04RouteBusy = false;
+    this._s07PointBusy = false;
+    this._s07ExitBusy = false;
+    this._s08DecisionBusy = false;
+    this._s08RecallBusy = false;
+    this._s10StoryBusy = false;
+    this._constructionCheckpointBusy = false;
     this._appliedGatheringPolicyOperations = new Set();
+    this._s05MinePendingSettlements = new Map();
+    this._s05MineBusy = false;
+    this._s06DecisionBusy = false;
+    this._s06RecallBusy = false;
     this._s09RefugeeChoiceBusy = false;
     this._processingDelayedStoryEvents = false;
 
@@ -238,6 +340,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   enter(data = null) {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
+    this._s05MinePendingSettlements.clear();
+    this._s05MineBusy = false;
+    this._s06DecisionBusy = false;
     const inheritedPlayer = this.context?.player?.inherited === true;
     this._playerStartMode = inheritedPlayer
       ? 'inherit'
@@ -288,15 +393,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.rescueObjectiveView?.clear?.();
       this.irreversibleChoiceView?.close?.();
       this.rescueSystem = null;
+      this.constructionSystem = null;
+      this._constructionCheckpointBusy = false;
       this.rescueObjectiveView = null;
       this.irreversibleChoiceView = null;
       this.s04RouteCoordinator = null;
       this._s03BattleConfig = null;
       this._s04BattleConfig = null;
+      this._s05BattleConfig = null;
       this._s04BocaiRescueConfig = null;
+      this._s05ZhangManchengRescueConfig = null;
       this._activeBattleConfig = null;
       this._s03BattleBusy = false;
       this._s04RescueBusy = false;
+      this._s05RescueBusy = false;
       this._s04RouteBusy = false;
     });
 
@@ -391,6 +501,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
+        if (sceneId === 'S05') void this._syncS05MineWorldState();
+        if (sceneId === 'S07') this._syncS07DelayWorldState();
         // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
@@ -514,10 +626,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
     super.update(deltaTime);
 
+    // 营建工期随正常游戏帧推进；终态在异步 checkpoint 完成前暂停继续计时。
+    this._updateConstructionRuntime(deltaTime);
+
     // Combat/AI/Collision 已在父类帧管线完成；随后按配置优先级判断实时战役结果。
     this._updateS03BattleRuntime(deltaTime);
     // 救援计时与护送跟随复用同一帧的实体状态；deadline 仅由 RescueSystem 判定。
     this._updateS04BocaiRescue(deltaTime);
+    this._updateS05ZhangManchengRescue(deltaTime);
 
     // 饥民逐渐生成器（第二波）
     this._updateStarvingSpawner(deltaTime);
@@ -627,9 +743,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
   }
 
-  /** S09 未许可采粮政策参与 GatheringSystem 提交，前置失败不会消耗节点或工具。 */
+  /** 场景采集政策统一入口：S05 处理强制工具损毁，S09 处理未许可采粮。 */
   prepareGatheringSettlement(context = {}) {
     const { operationId, node, owner } = context;
+    if (this.currentSceneId === 'S05' && node?.resourceType === 'iron') {
+      return this._prepareS05MineGatheringSettlement(context);
+    }
     if (this.currentSceneId !== 'S09' || node?.resourceType !== 'food') return null;
     if (this._appliedGatheringPolicyOperations.has(operationId)) {
       return { ok: true, idempotent: true };
@@ -689,28 +808,123 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     };
   }
 
+  _prepareS05MineGatheringSettlement(context = {}) {
+    const { operationId, nodeEntity, node, inventory, tool } = context;
+    const blackboard = this.gameLoader?.blackboard;
+    const storyBefore = cloneData(blackboard?.get?.('storyState') || {});
+    const mineState = storyBefore.s05Mine || {};
+    if (!blackboard || nodeEntity?.id !== 'S05-iron-ore') return { ok: false, code: 'invalidS05MineNode' };
+    if (mineState.prepared !== true) return { ok: false, code: 's05MineNotPrepared' };
+    if (mineState.collapseCommitted === true) return { ok: false, code: 's05MineCollapsed' };
+    if (!tool || tool.toolType !== 'pickaxe' || Number(tool.durability) !== 1) {
+      return { ok: false, code: 's05WornPickaxeRequired' };
+    }
+    if (!operationId || this._s05MinePendingSettlements.has(operationId)) {
+      return { ok: false, code: 's05MineSettlementBusy' };
+    }
+
+    const inventoryBefore = inventory?.exportItems?.();
+    const nodeBefore = node.serialize?.();
+    if (!inventoryBefore || !nodeBefore) return { ok: false, code: 's05MineSnapshotUnavailable' };
+    return {
+      ok: true,
+      commit: ({ accepted }) => {
+        if (Number(tool.durability) !== 0 || Number(accepted) <= 0) {
+          throw new Error('s05PickaxeDidNotBreak');
+        }
+        const draftStory = {
+          ...storyBefore,
+          s05Mine: {
+            ...mineState,
+            prepared: true,
+            status: 'collapsed',
+            toolBroken: true,
+            collapseCommitted: true,
+            ambushActivated: true,
+            retreatCompleted: false,
+            gatheredIron: Math.max(0, Number(mineState.gatheredIron) || 0) + Number(accepted),
+            settlementOperationId: operationId
+          },
+          lastCheckpointId: 'checkpoint.S05.mineCollapse'
+        };
+        blackboard.set('storyState', draftStory);
+        this._s05MinePendingSettlements.set(operationId, {
+          storyBefore, inventory, inventoryBefore, node, nodeBefore,
+          inventoryOperationId: `${operationId}:settle`
+        });
+        return { ok: true };
+      },
+      rollback: () => {
+        blackboard.set('storyState', storyBefore);
+        this._s05MinePendingSettlements.delete(operationId);
+      }
+    };
+  }
+
+  async _finalizeS05MineCollapse(data = {}) {
+    const operationId = data.operationId;
+    const pending = this._s05MinePendingSettlements.get(operationId);
+    if (!pending || this._s05MineBusy) return false;
+    this._s05MineBusy = true;
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S05.mineCollapse', sceneId: 'S05'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this._s05MinePendingSettlements.delete(operationId);
+      await this._syncS05MineWorldState();
+      this._grantGatheringProficiency(data);
+      this._showScreenTip(
+        '鹤嘴镐已经折断，碎石封住近路，官军伏兵同时现身。带着铁矿无法开路，只能前往西侧撤退区徒手突围。',
+        { title: '矿坑塌方' }
+      );
+      return true;
+    } catch (error) {
+      this.gameLoader?.blackboard?.set?.('storyState', pending.storyBefore);
+      pending.inventory?.loadItems?.(pending.inventoryBefore);
+      pending.node?.deserialize?.(pending.nodeBefore);
+      this.gatheringSystem?.completedOperations?.delete?.(operationId);
+      this.inventoryTransactions?.forgetOperation?.(pending.inventoryOperationId);
+      this._s05MinePendingSettlements.delete(operationId);
+      this._showScreenTip(`矿坑检查点失败：${error?.message || error}。铁矿、工具、节点与剧情状态已回滚，可重新尝试。`, {
+        title: '保存失败'
+      });
+      return false;
+    } finally {
+      this._s05MineBusy = false;
+    }
+  }
+
+  _grantGatheringProficiency(data = {}) {
+    if (Number(data.accepted) <= 0 || !data.operationId) return false;
+    const definition = this.proficiencySystem?.getDefinition?.('gathering');
+    const amount = Math.max(1, Math.floor(Number(data.accepted) * (definition?.experiencePerUnit || 1)));
+    const result = this.proficiencySystem?.gainExperience?.({
+      characterId: this.playerEntity?.id,
+      type: 'gathering',
+      amount,
+      operationId: `gathering:${data.operationId}`
+    });
+    if (result?.ok === false) console.warn('[DDScene] 采集熟练度提交失败:', result.code);
+    return result?.ok !== false;
+  }
+
   onGatheringEvent(event, data = {}) {
     if (event === 'completed' && data.idempotent === true) {
       this._showScreenTip('该次采集已经结算，不会重复获得资源或扣除声望。');
       return;
     }
     super.onGatheringEvent(event, data);
+    if ((event === 'completed' || event === 'interrupted')
+      && data.toolBroken === true
+      && this._s05MinePendingSettlements.has(data.operationId)) {
+      void this._finalizeS05MineCollapse(data);
+      return;
+    }
     if (event === 'completed' && this._appliedGatheringPolicyOperations.has(data.operationId)) {
       this._showScreenTip('未获许可取走粮食：声望 -5，粮仓哨兵已被惊动。');
     }
-    if (event === 'completed' && Number(data.accepted) > 0 && data.operationId) {
-      const definition = this.proficiencySystem?.getDefinition?.('gathering');
-      const amount = Math.max(1, Math.floor(Number(data.accepted) * (definition?.experiencePerUnit || 1)));
-      const experienceResult = this.proficiencySystem?.gainExperience?.({
-        characterId: this.playerEntity?.id,
-        type: 'gathering',
-        amount,
-        operationId: `gathering:${data.operationId}`
-      });
-      if (experienceResult?.ok === false) {
-        console.warn('[DDScene] 采集熟练度提交失败:', experienceResult.code);
-      }
-    }
+    if (event === 'completed') this._grantGatheringProficiency(data);
     if (event === 'riskTriggered') {
       this.gameLoader?.triggerSystem?.fire?.('gatheringRisk', {
         riskId: data.id,
@@ -1147,7 +1361,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区投影未完成' }] };
     }
     this.currentSceneId = request.sceneId;
-    if (!['S03', 'S04'].includes(request.sceneId)) {
+    if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_SCENE, request.sceneId)) {
       this.battleModeView?.close?.();
       this.battleResultView?.close?.();
       this.battleHudView?.clear?.();
@@ -1297,6 +1511,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       gatheringState: this.gatheringSystem?.serialize?.() || null,
       puppetState: this.gatheringPuppetSystem?.serialize?.() || null,
       proficiencyState: this.proficiencySystem?.serialize?.() || null,
+      constructionState: this.constructionSystem?.serialize?.() || null,
       battleState: this.battleSystem?.serialize?.() || null,
       battlefieldRuntimeState: this.battlefieldRuntime?.serialize?.() || null,
       cityWarState: this.cityWarSystem?.serialize?.() || null,
@@ -1317,6 +1532,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const check = probe.deserialize(data.battleState);
       if (!check.ok) {
         return { ok: false, errors: [{ code: check.code, path: 'battleState', message: `战役状态校验失败: ${check.code}` }] };
+      }
+      const battleId = data.battleState.definition?.battleId;
+      if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_ID, battleId)
+        || !this._getBattleConfigById(battleId)) {
+        return { ok: false, errors: [{
+          code: 'unknownBattleId', path: 'battleState.definition.battleId', message: `未知战役配置: ${battleId || 'missing'}`
+        }] };
       }
     }
     if (data.battlefieldRuntimeState) {
@@ -1346,6 +1568,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (!check.ok) {
         return { ok: false, errors: [{ code: check.code, path: 'rescueState', message: `救援状态校验失败: ${check.code}` }] };
       }
+      const rescueId = data.rescueState.definition?.id || null;
+      if (rescueId && !Object.prototype.hasOwnProperty.call(RESCUE_TITLE_BY_ID, rescueId)) {
+        return { ok: false, errors: [{
+          code: 'unknownRescueId', path: 'rescueState.definition.id', message: `未知救援配置: ${rescueId}`
+        }] };
+      }
     }
     if (data.proficiencyState && !this.proficiencySystem) {
       return { ok: false, errors: [{
@@ -1361,6 +1589,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
         }))
       };
+    }
+    if (data.constructionState) {
+      if (!this.constructionSystem) {
+        return { ok: false, errors: [{
+          code: 'constructionRuntimeUnavailable', path: 'constructionState', message: '营建运行时尚未就绪'
+        }] };
+      }
+      const inventory = this.playerEntity?.getComponent?.('inventory');
+      const constructionCheck = this.constructionSystem.validateSerialized(data.constructionState, {
+        resolveInventory: characterId => characterId === this.playerEntity?.id ? inventory : null
+      });
+      if (!constructionCheck.ok) {
+        return { ok: false, errors: constructionCheck.errors.map(error => ({
+          ...error,
+          path: error.path ? `constructionState.${error.path}` : 'constructionState'
+        })) };
+      }
     }
     this._regionDynamicStates = new Map((data.regionStates || [])
       .filter(entry => typeof entry?.regionId === 'string' && entry.state && typeof entry.state === 'object')
@@ -1405,12 +1650,27 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }))
       };
     }
+    if (data.constructionState) {
+      const inventory = this.playerEntity?.getComponent?.('inventory');
+      const constructionRestore = this.constructionSystem.deserialize(data.constructionState, {
+        resolveInventory: characterId => characterId === this.playerEntity?.id ? inventory : null
+      });
+      if (!constructionRestore.ok) {
+        return { ok: false, errors: constructionRestore.errors.map(error => ({
+          ...error,
+          path: error.path ? `constructionState.${error.path}` : 'constructionState'
+        })) };
+      }
+    }
     if (data.battleState) {
       const restored = this.battleSystem.deserialize(data.battleState);
       if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'battleState', message: '战役状态恢复失败' }] };
-      this._activeBattleConfig = data.battleState.definition?.battleId === S04_BATTLE_ID
-        ? this._s04BattleConfig
-        : this._s03BattleConfig;
+      const battleId = data.battleState.definition?.battleId;
+      const config = this._getBattleConfigById(battleId);
+      if (!config) {
+        return { ok: false, errors: [{ code: 'unknownBattleId', path: 'battleState.definition.battleId', message: `未知战役配置: ${battleId}` }] };
+      }
+      this._activeBattleConfig = config;
     }
     if (data.battlefieldRuntimeState) {
       const restored = this.battlefieldRuntime.deserialize(data.battlefieldRuntimeState, {
@@ -1432,6 +1692,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (data.rescueState) {
       const restored = this.rescueSystem.deserialize(data.rescueState);
       if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'rescueState', message: '救援状态恢复失败' }] };
+      if (restored.state?.definitionId) this._setRescueObjectiveTitle(restored.state.definitionId);
       this.rescueObjectiveView?.setSnapshot?.(restored.state);
     }
     const currentDrops = (this.equipmentItems || [])
@@ -1513,6 +1774,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ? { ...this.playerEntity.getComponent('transform').position }
       : null;
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
+    if (this.currentSceneId === 'S05') void this._syncS05MineWorldState();
+    if (this.currentSceneId === 'S07') this._syncS07DelayWorldState();
     this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
     return { ok: true, errors: [] };
   }
@@ -1953,6 +2216,37 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getEntityId: () => this.playerEntity?.id || null,
       baseResourceCapacity: 120
     });
+    const constructionConfig = gameLoader?.project?.construction || {};
+    const constructionSites = new Map((constructionConfig.sites || []).map(site => [site.id, site]));
+    const itemRegistry = gameLoader?.getRegistry?.('items');
+    this.constructionSystem = new ConstructionSystem({
+      inventoryTransactions: this.inventoryTransactions,
+      proficiencySystem: this.proficiencySystem,
+      maxOperations: constructionConfig.maxOperations,
+      itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
+      validateSite: ({ siteId, definition }) => {
+        const site = constructionSites.get(siteId);
+        if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
+          return { ok: false, code: 'invalidSite' };
+        }
+        const story = gameLoader.blackboard?.get?.('storyState') || {};
+        if (site.sceneId === 'S06') {
+          const rescueSucceeded = story.zhangManchengSurvived === true
+            && story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived === true;
+          return rescueSucceeded && story.s06Decision?.committed !== true
+            ? { ok: true }
+            : { ok: false, code: 'constructionSiteLocked' };
+        }
+        if (story.constructionSiteUnlocked !== true || story.s10CampRelocation?.completed !== true) {
+          return { ok: false, code: 'constructionSiteLocked' };
+        }
+        return { ok: true };
+      }
+    });
+    const registered = this.constructionSystem.registerDefinitions(constructionConfig.definitions || []);
+    if (!registered.ok || !this.proficiencySystem.getDefinition?.('construction')) {
+      throw new Error(`营建配置无效: ${registered.code || 'missingConstructionProficiency'}`);
+    }
     this._gameplaySystemAssembler?.configureAbilities?.({
       skillRegistry: gameLoader.skillRegistry,
       effectResolver: resolver
@@ -1962,20 +2256,33 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return true;
   }
 
-  /** 安装 S03/S04 战役与通用救援领域系统；UI 只发命令，Blackboard 由事务 adapter 提交。 */
+  /** 安装 S03/S04/S05/S07 战役与通用救援领域系统；UI 只发命令，Blackboard 由事务 adapter 提交。 */
   _installBattleFlow(gameLoader) {
     const s03Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S03_BATTLE_ID);
     const s04Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S04_BATTLE_ID);
-    const rescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S04_BOCAI_RESCUE_ID);
+    const s05Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S05_BATTLE_ID);
+    const s07Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S07_BATTLE_ID);
+    const s04RescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S04_BOCAI_RESCUE_ID);
+    const s05RescueSource = (gameLoader?.project?.rescues || []).find(
+      entry => entry?.id === S05_ZHANG_MANCHENG_RESCUE_ID
+    );
     if (!s03Source) throw new Error(`缺少战役配置 ${S03_BATTLE_ID}`);
     if (!s04Source) throw new Error(`缺少战役配置 ${S04_BATTLE_ID}`);
-    if (!rescueSource) throw new Error(`缺少救援配置 ${S04_BOCAI_RESCUE_ID}`);
+    if (!s05Source) throw new Error(`缺少战役配置 ${S05_BATTLE_ID}`);
+    if (!s07Source) throw new Error(`缺少战役配置 ${S07_BATTLE_ID}`);
+    if (!s04RescueSource) throw new Error(`缺少救援配置 ${S04_BOCAI_RESCUE_ID}`);
+    if (!s05RescueSource) throw new Error(`缺少救援配置 ${S05_ZHANG_MANCHENG_RESCUE_ID}`);
 
     const definition = cloneData(s03Source);
     const s04Definition = cloneData(s04Source);
-    const rescueDefinition = cloneData(rescueSource);
+    const s05Definition = cloneData(s05Source);
+    const s07Definition = cloneData(s07Source);
+    const s04RescueDefinition = cloneData(s04RescueSource);
+    const s05RescueDefinition = cloneData(s05RescueSource);
     definition.playerEntityId = this.playerEntity?.id || definition.playerEntityId;
     s04Definition.playerEntityId = this.playerEntity?.id || s04Definition.playerEntityId;
+    s05Definition.playerEntityId = this.playerEntity?.id || s05Definition.playerEntityId;
+    s07Definition.playerEntityId = this.playerEntity?.id || s07Definition.playerEntityId;
     const battleSystem = new BattleSystem({
       battleClient: gameLoader.battleClient,
       validator: gameLoader.contentValidator,
@@ -2030,7 +2337,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     const irreversibleChoiceView = new IrreversibleChoiceView({
       width: Math.min(600, this.logicalWidth - 32),
-      onCommand: command => { void this._handleS04RouteChoiceCommand(command); }
+      onCommand: command => { void this._handleIrreversibleChoiceCommand(command); }
     });
     const rescueSystem = new RescueSystem({
       onEvent: (event, data) => {
@@ -2039,6 +2346,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       }
     });
+    const offS05CombatDamage = this.combatSystem?.addDamageListener?.(
+      event => this._handleS05CombatDamage(event)
+    ) || (() => {});
+    this.resourceScope?.track(offS05CombatDamage);
     const s04RouteCoordinator = new S04RouteCoordinator({
       readState: () => ({
         storyState: cloneData(gameLoader.blackboard?.get?.('storyState') || {}),
@@ -2072,11 +2383,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s04RouteCoordinator = s04RouteCoordinator;
     this._s03BattleConfig = definition;
     this._s04BattleConfig = s04Definition;
-    this._s04BocaiRescueConfig = rescueDefinition;
+    this._s05BattleConfig = s05Definition;
+    this._s07BattleConfig = s07Definition;
+    this._s04BocaiRescueConfig = s04RescueDefinition;
+    this._s05ZhangManchengRescueConfig = s05RescueDefinition;
     this._activeBattleConfig = definition;
     this._s03BattleBusy = false;
     this._s04RescueBusy = false;
+    this._s05RescueBusy = false;
     this._s04RouteBusy = false;
+    this._s07PointBusy = false;
+    this._s07ExitBusy = false;
+    this._s08DecisionBusy = false;
+    this._s08RecallBusy = false;
     this.resourceScope?.track(() => {
       battleModeView.close();
       battleResultView.close();
@@ -2099,11 +2418,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (this.s04RouteCoordinator === s04RouteCoordinator) this.s04RouteCoordinator = null;
       if (this._s03BattleConfig === definition) this._s03BattleConfig = null;
       if (this._s04BattleConfig === s04Definition) this._s04BattleConfig = null;
-      if (this._s04BocaiRescueConfig === rescueDefinition) this._s04BocaiRescueConfig = null;
+      if (this._s05BattleConfig === s05Definition) this._s05BattleConfig = null;
+      if (this._s07BattleConfig === s07Definition) this._s07BattleConfig = null;
+      if (this._s04BocaiRescueConfig === s04RescueDefinition) this._s04BocaiRescueConfig = null;
+      if (this._s05ZhangManchengRescueConfig === s05RescueDefinition) {
+        this._s05ZhangManchengRescueConfig = null;
+      }
       this._activeBattleConfig = null;
       this._s03BattleBusy = false;
       this._s04RescueBusy = false;
+      this._s05RescueBusy = false;
       this._s04RouteBusy = false;
+      this._s07PointBusy = false;
+      this._s07ExitBusy = false;
+      this._s08DecisionBusy = false;
+      this._s08RecallBusy = false;
+      this._s10StoryBusy = false;
     });
     return true;
   }
@@ -2126,28 +2456,28 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   _projectBattleStoryState(state) {
     const projected = cloneData(state);
-    const s03Result = projected.warState?.battles?.[S03_BATTLE_ID];
-    const s04Result = projected.warState?.battles?.[S04_BATTLE_ID];
     const activeBattleId = this.battleSystem?.definition?.battleId;
+    if (activeBattleId && !Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_ID, activeBattleId)) {
+      throw new Error(`unknownBattleId:${activeBattleId}`);
+    }
     const battleModes = { ...(projected.storyState?.battleModes || {}) };
     if (activeBattleId && this.battleSystem?.mode) battleModes[activeBattleId] = this.battleSystem.mode;
     projected.storyState = { ...(projected.storyState || {}), battleModes };
-    if (s03Result) {
+    for (const flow of Object.values(BATTLE_FLOW_BY_SCENE)) {
+      const result = projected.warState?.battles?.[flow.battleId];
+      if (!result) continue;
       projected.storyState = {
         ...projected.storyState,
-        month: Math.max(5, Math.floor(Number(projected.storyState?.month) || 0)),
-        s03BattleResolved: true,
-        s03WinnerFactionId: s03Result.winnerFactionId,
-        lastCheckpointId: 'checkpoint.S03.battleResolved'
+        [flow.resolvedKey]: true,
+        [flow.winnerKey]: result.winnerFactionId,
+        lastCheckpointId: flow.checkpointId
       };
-    }
-    if (s04Result) {
-      projected.storyState = {
-        ...projected.storyState,
-        s04BattleResolved: true,
-        s04WinnerFactionId: s04Result.winnerFactionId,
-        lastCheckpointId: 'checkpoint.S04.battleResolved'
-      };
+      if (flow.battleId === S03_BATTLE_ID) {
+        projected.storyState.month = Math.max(5, Math.floor(Number(projected.storyState.month) || 0));
+      }
+      if (flow.battleId === S07_BATTLE_ID) {
+        projected.storyState.month = Math.max(6, Math.floor(Number(projected.storyState.month) || 0));
+      }
     }
     return projected;
   }
@@ -2156,8 +2486,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const blackboard = this.gameLoader?.blackboard;
     if (!blackboard) return false;
     const before = cloneData(blackboard.serialize());
-    const committed = this._projectBattleStoryState(draft);
     try {
+      const committed = this._projectBattleStoryState(draft);
       blackboard.set('storyState', cloneData(committed.storyState));
       blackboard.set('cityStates', cloneData(committed.cityStates));
       blackboard.set('warState', cloneData(committed.warState));
@@ -2188,6 +2518,34 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
+  _getBattleConfigById(battleId) {
+    const configs = {
+      [S03_BATTLE_ID]: this._s03BattleConfig,
+      [S04_BATTLE_ID]: this._s04BattleConfig,
+      [S05_BATTLE_ID]: this._s05BattleConfig,
+      [S07_BATTLE_ID]: this._s07BattleConfig
+    };
+    return Object.prototype.hasOwnProperty.call(configs, battleId) ? configs[battleId] : null;
+  }
+
+  _setRescueObjectiveTitle(definitionId) {
+    const title = RESCUE_TITLE_BY_ID[definitionId];
+    if (!title || !this.rescueObjectiveView) return false;
+    this.rescueObjectiveView.title = title;
+    return true;
+  }
+
+  _markS05Visited() {
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = blackboard?.get?.('storyState');
+    if (!beforeStory || (beforeStory.visitedScenes || []).includes('S05')) return true;
+    blackboard.set('storyState', {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S05'])]
+    });
+    return true;
+  }
+
   _activateBattleConfig(definition) {
     if (!definition || !this.battleSystem || !this.battlefieldRuntime) return false;
     const currentBattleId = this.battleSystem.definition?.battleId;
@@ -2208,95 +2566,69 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async openS03BattleMode() {
-    if (this.currentSceneId !== 'S03' || !this.battleSystem || !this._s03BattleConfig) {
-      this._showScreenTip('颍川战役运行时尚未就绪', { title: '无法选择战役模式' });
-      return false;
-    }
-    if (!this._activateBattleConfig(this._s03BattleConfig)) {
-      this._showScreenTip('另一场战役尚未完成结算，不能切换到颍川战役。', { title: '战役状态冲突' });
-      return false;
-    }
-    const frozenResult = this.battleSystem.getState().result;
-    const resultApplied = frozenResult
-      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
-    if (this.battleSystem.state === BattleState.RESOLVED && resultApplied) {
-      this.battleResultView?.open?.({
-        title: '颍川首战·已结算战果',
-        result: frozenResult,
-        mode: this.battleSystem.mode,
-        winnerName: frozenResult?.winnerFactionId,
-        worldChanges: { month: 5 },
-        message: '该战果已经冻结并写入检查点，不能重新选择参战模式。'
-      });
-      return true;
-    }
-    if (this.battleSystem.state === BattleState.ACTIVE && this.battlefieldRuntime?.active) {
-      this._showScreenTip('颍川战役正在进行，当前参战方式不可更改。', { title: '战役进行中' });
-      return true;
-    }
-    try {
-      if (this.battleSystem.state === BattleState.IDLE) {
-        const started = await this.battleSystem.start(this._s03BattleConfig, {
-          requestId: `create:${S03_BATTLE_ID}`
-        });
-        if (!started?.ok) throw new Error(started?.code || 'battleStartRejected');
-      } else {
-        const restored = await this.battleSystem.rehydrate({ requestId: `create:${S03_BATTLE_ID}` });
-        if (!restored?.ok) throw new Error(restored?.code || 'battleRehydrateRejected');
-      }
-      this.battleModeView?.open?.({
-        ...cloneData(this._s03BattleConfig.modeView || {}),
-        description: frozenResult
-          ? '战果已冻结，但上次检查点未提交。确认原模式以重试城市与战争结算。'
-          : this._s03BattleConfig.modeView?.description,
-        selectedMode: this.battleSystem.mode || BattleMode.OBSERVE
-      });
-      return true;
-    } catch (error) {
-      this._showScreenTip(`创建颍川战役失败：${error?.message || error}`, { title: '战役服务错误' });
-      return false;
-    }
+    return this._openBattleMode('S03');
   }
 
   async openS04BattleMode() {
-    if (this.currentSceneId !== 'S04' || !this.battleSystem || !this._s04BattleConfig) {
-      this._showScreenTip('长社战役运行时尚未就绪', { title: '无法选择战役模式' });
+    return this._openBattleMode('S04');
+  }
+
+  async openS05BattleMode() {
+    return this._openBattleMode('S05');
+  }
+
+  async openS07BattleMode() {
+    return this._openBattleMode('S07');
+  }
+
+  async _openBattleMode(sceneId) {
+    const flow = BATTLE_FLOW_BY_SCENE[sceneId];
+    const config = flow ? this._getBattleConfigById(flow.battleId) : null;
+    if (!flow || this.currentSceneId !== sceneId || !this.battleSystem || !config) {
+      this._showScreenTip(flow?.unavailableMessage || '未知战役不能选择参战模式', { title: '无法选择战役模式' });
       return false;
     }
-    if (!this._activateBattleConfig(this._s04BattleConfig)) {
-      this._showScreenTip('上一场战役尚未完成结算，不能进入长社战役。', { title: '战役状态冲突' });
+    if (!this._activateBattleConfig(config)) {
+      this._showScreenTip(flow.conflictMessage, { title: '战役状态冲突' });
       return false;
     }
+    if (sceneId === 'S05') this._markS05Visited();
     const frozenResult = this.battleSystem.getState().result;
     const resultApplied = frozenResult
       && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
     if (this.battleSystem.state === BattleState.RESOLVED && resultApplied) {
       this.battleResultView?.open?.({
-        title: '长社战场·已结算战果', result: frozenResult, mode: this.battleSystem.mode,
-        winnerName: frozenResult?.winnerFactionId, worldChanges: { month: 5 },
+        title: flow.appliedTitle,
+        result: frozenResult,
+        mode: this.battleSystem.mode,
+        winnerName: frozenResult?.winnerFactionId,
+        worldChanges: cloneData(flow.worldChanges),
         message: '该战果已经冻结并写入检查点，不能重新选择参战模式。'
       });
       return true;
     }
     if (this.battleSystem.state === BattleState.ACTIVE && this.battlefieldRuntime?.active) {
-      this._showScreenTip('长社战役正在进行，当前参战方式不可更改。', { title: '战役进行中' });
+      this._showScreenTip(flow.activeMessage, { title: '战役进行中' });
       return true;
     }
     try {
       if (this.battleSystem.state === BattleState.IDLE) {
-        const started = await this.battleSystem.start(this._s04BattleConfig, { requestId: `create:${S04_BATTLE_ID}` });
+        const started = await this.battleSystem.start(config, { requestId: `create:${flow.battleId}` });
         if (!started?.ok) throw new Error(started?.code || 'battleStartRejected');
       } else {
-        const restored = await this.battleSystem.rehydrate({ requestId: `create:${S04_BATTLE_ID}` });
+        const restored = await this.battleSystem.rehydrate({ requestId: `create:${flow.battleId}` });
         if (!restored?.ok) throw new Error(restored?.code || 'battleRehydrateRejected');
       }
       this.battleModeView?.open?.({
-        ...cloneData(this._s04BattleConfig.modeView || {}),
+        ...cloneData(config.modeView || {}),
+        description: sceneId === 'S03' && frozenResult
+          ? '战果已冻结，但上次检查点未提交。确认原模式以重试城市与战争结算。'
+          : config.modeView?.description,
         selectedMode: this.battleSystem.mode || BattleMode.OBSERVE
       });
       return true;
     } catch (error) {
-      this._showScreenTip(`创建长社战役失败：${error?.message || error}`, { title: '战役服务错误' });
+      this._showScreenTip(`创建${flow.locationName}战役失败：${error?.message || error}`, { title: '战役服务错误' });
       return false;
     }
   }
@@ -2307,9 +2639,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return true;
     }
     if (command.type !== 'selectMode') return false;
-    return this.currentSceneId === 'S04'
-      ? this.selectS04BattleMode(command.mode)
-      : this.selectS03BattleMode(command.mode);
+    const handlers = {
+      S03: () => this.selectS03BattleMode(command.mode),
+      S04: () => this.selectS04BattleMode(command.mode),
+      S05: () => this.selectS05BattleMode(command.mode),
+      S07: () => this.selectS07BattleMode(command.mode)
+    };
+    return handlers[this.currentSceneId]?.() ?? false;
   }
 
   async selectS03BattleMode(mode) {
@@ -2320,8 +2656,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this._selectBattleMode(mode, this._s04BattleConfig, 'S04');
   }
 
+  async selectS05BattleMode(mode) {
+    if (this.currentSceneId !== 'S05') return false;
+    this._markS05Visited();
+    return this._selectBattleMode(mode, this._s05BattleConfig, 'S05');
+  }
+
+  async selectS07BattleMode(mode) {
+    return this._selectBattleMode(mode, this._s07BattleConfig, 'S07');
+  }
+
   async _selectBattleMode(mode, config, sceneId) {
-    if (this._s03BattleBusy || !config || !this.battleSystem || !this.cityWarSystem || !this.battlefieldRuntime) return false;
+    const flow = BATTLE_FLOW_BY_SCENE[sceneId];
+    if (this._s03BattleBusy || !flow || this.currentSceneId !== sceneId
+      || !config || config.battleId !== flow.battleId
+      || !this.battleSystem || !this.cityWarSystem || !this.battlefieldRuntime) return false;
     if (!this._activateBattleConfig(config)) return false;
     this._s03BattleBusy = true;
     this.battleModeView?.setBusy?.(true);
@@ -2369,10 +2718,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const observing = this.battleSystem.mode === BattleMode.OBSERVE;
       this._showScreenTip(
         observing
-          ? `${sceneId === 'S04' ? '长社' : '颍川'}两军开始交战。观战期间不能影响参战单位。`
-          : (sceneId === 'S04'
-            ? '你已进入长社黄巾阵线，可在西侧残旗下启动波才救援。'
-            : '你已进入黄巾前线。击溃官军或使其士气崩溃。'),
+          ? `${flow.locationName}两军开始交战。观战期间不能影响参战单位。`
+          : flow.interventionMessage,
         { title: '战役开始' }
       );
       return true;
@@ -2386,7 +2733,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   _updateS03BattleRuntime(deltaTime) {
-    if (!['S03', 'S04'].includes(this.currentSceneId)
+    if (!Object.prototype.hasOwnProperty.call(BATTLE_FLOW_BY_SCENE, this.currentSceneId)
       || !this.battlefieldRuntime?.active || this._s03BattleBusy) return;
     const updated = this.battlefieldRuntime.update(deltaTime, this.entities || []);
     if (updated?.snapshot) this.battleHudView?.setSnapshot?.(updated.snapshot);
@@ -2400,31 +2747,26 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _settleBattleResult(result, battleSnapshot = null) {
-    const sceneId = result?.battleId === S04_BATTLE_ID ? 'S04' : 'S03';
-    const checkpointId = `checkpoint.${sceneId}.battleResolved`;
+    const flow = BATTLE_FLOW_BY_ID[result?.battleId];
+    if (!flow) throw new Error(`unknownBattleId:${result?.battleId || 'missing'}`);
     const settled = await this.cityWarSystem.applyBattleResult({
       result,
       operationId: `settle:${result.resultId}`,
-      context: { mode: this.battleSystem.mode, checkpointId }
+      context: { mode: this.battleSystem.mode, checkpointId: flow.checkpointId }
     });
     if (!settled?.ok) throw new Error(settled?.message || settled?.code || 'battleSettlementRejected');
 
     const faction = battleSnapshot?.factions?.[result.winnerFactionId];
     this.battleHudView?.clear?.();
     this.battleResultView?.open?.({
-      title: sceneId === 'S04' ? '长社战场·战果' : '颍川首战·战果',
+      title: flow.resultTitle,
       result,
       mode: this.battleSystem.mode,
       winnerName: faction?.name || result.winnerFactionId,
-      worldChanges: { month: 5 },
-      message: sceneId === 'S04'
-        ? '长社战果已冻结并保存；若已介入，仍可完成进行中的波才救援。'
-        : '战果已冻结并保存；北侧出口现可前往长社战场。'
+      worldChanges: cloneData(flow.worldChanges),
+      message: flow.resultMessage
     });
-    this._showScreenTip(
-      sceneId === 'S04' ? '长社战果已写入城市与战争状态。' : '颍川战果已写入城市与战争状态，时间推进至五月。',
-      { title: '战役结算完成' }
-    );
+    this._showScreenTip(flow.settlementMessage, { title: '战役结算完成' });
     return settled;
   }
 
@@ -2468,6 +2810,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   startS04BocaiRescue() {
     if (this.currentSceneId !== 'S04' || !this.rescueSystem || !this._s04BocaiRescueConfig) return false;
+    this._setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
     if (this.battleSystem?.mode !== BattleMode.INTERVENE) {
       this._showScreenTip('只有在长社战役选择介入后才能启动波才救援。', { title: '救援不可用' });
       return false;
@@ -2588,11 +2931,1499 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     } catch (error) {
       blackboard?.set?.('storyState', beforeStory);
       const restored = this.rescueSystem.deserialize(beforeRescueState);
+      this._setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
       this.rescueObjectiveView?.setSnapshot?.(restored?.state || this.rescueSystem.getState());
       this._showScreenTip(`救援检查点失败：${error?.message || error}，结果已回滚。`, { title: '保存失败' });
       return false;
     } finally {
       this._s04RescueBusy = false;
+    }
+  }
+
+  async prepareS05Mine() {
+    if (this.currentSceneId !== 'S05' || this._s05MineBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const existing = beforeStory.s05Mine || {};
+    if (existing.prepared === true) {
+      this.showS05MineStatus();
+      return true;
+    }
+    const nodePlacement = (this._placements || []).find(entry => entry.id === 'S05-iron-ore');
+    const toolPlacement = (this._placements || []).find(entry => entry.id === 'S05-worn-pickaxe');
+    if (!blackboard || !nodePlacement || !toolPlacement) {
+      this._showScreenTip('矿坑铁矿或破旧铁镐配置缺失。', { title: '矿坑不可用' });
+      return false;
+    }
+    this._s05MineBusy = true;
+    blackboard.set('storyState', {
+      ...beforeStory,
+      s05Mine: {
+        ...existing,
+        prepared: true,
+        status: 'prepared',
+        toolBroken: false,
+        collapseCommitted: false,
+        ambushActivated: false,
+        retreatCompleted: false,
+        gatheredIron: 0,
+        ironDiscarded: 0
+      },
+      lastCheckpointId: 'checkpoint.S05.minePrepared'
+    });
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S05.minePrepared', sceneId: 'S05'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      await this._spawnPlacements({ placementIds: ['S05-worn-pickaxe', 'S05-iron-ore'] });
+      this._showScreenTip('矿坑边只剩一把耐久 1 的破旧铁镐。拾取后采下一批铁矿；镐一旦折断，近路会被塌方封死。', {
+        title: '矿坑准备完成'
+      });
+      return true;
+    } catch (error) {
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`矿坑准备失败：${error?.message || error}，剧情状态已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._s05MineBusy = false;
+    }
+  }
+
+  showS05MineStatus() {
+    if (this.currentSceneId !== 'S05') return false;
+    const mine = this.gameLoader?.blackboard?.get?.('storyState')?.s05Mine || {};
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const hasPickaxe = (inventory?.slots || []).some(stack => (
+      stack?.item?.id === 'tool.worn_pickaxe' && Number(stack.item.durability) > 0
+    ));
+    if (mine.prepared !== true) {
+      this._showScreenTip('先检查矿坑入口，确认铁镐、塌方风险与撤退路线。', { title: '矿坑尚未准备' });
+    } else if (mine.collapseCommitted !== true) {
+      this._showScreenTip(
+        hasPickaxe ? '靠近铁矿使用 {harvest} 开采。破旧铁镐只够完成一次结算。' : '先拾取矿坑边的破旧铁镐。',
+        { title: '矿坑开采' }
+      );
+    } else if (mine.retreatCompleted !== true) {
+      this._showScreenTip('近路已被碎石封死，官军伏兵已激活。前往西侧撤退区，丢下本次铁矿后徒手撤退。', {
+        title: '必须撤退'
+      });
+    } else {
+      this._showScreenTip('矿坑撤退已完成。现在可以介入宛城外围战役并救援张曼成。', { title: '矿坑事件完成' });
+    }
+    return true;
+  }
+
+  async completeS05MineRetreat() {
+    if (this.currentSceneId !== 'S05' || this._s05MineBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const mine = beforeStory.s05Mine || {};
+    if (mine.retreatCompleted === true) {
+      this._showScreenTip('你已经从塌方矿坑撤出，本次铁矿不会重复丢弃。', { title: '撤退已完成' });
+      return true;
+    }
+    if (mine.collapseCommitted !== true || mine.ambushActivated !== true) {
+      this._showScreenTip('铁镐尚未损毁，当前不需要从矿坑徒手撤退。', { title: '撤退条件未满足' });
+      return false;
+    }
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    if (!blackboard || !inventory || this.gatheringSystem?.isActive?.()) return false;
+    const inventoryBefore = inventory.exportItems?.();
+    const discardRequested = Math.max(0, Math.floor(Number(mine.gatheredIron) || 0));
+    const discardQuantity = discardRequested > 0
+      ? this.inventoryTransactions.previewRemove(inventory, 'resource.iron', discardRequested).accepted
+      : 0;
+    const operationId = 'story:S05:mine-retreat';
+    let removal = { ok: true, accepted: 0 };
+    if (discardQuantity > 0) {
+      removal = this.inventoryTransactions.commit({
+        type: 'remove', inventory, itemId: 'resource.iron', quantity: discardQuantity,
+        allowPartial: false, operationId
+      });
+      if (!removal.ok) return false;
+    }
+    blackboard.set('storyState', {
+      ...beforeStory,
+      s05Mine: {
+        ...mine,
+        status: 'retreated',
+        retreatCompleted: true,
+        ironDiscarded: removal.accepted || 0,
+        retreatOperationId: operationId
+      },
+      lastCheckpointId: 'checkpoint.S05.mineRetreat'
+    });
+    this._s05MineBusy = true;
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S05.mineRetreat', sceneId: 'S05'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this._showScreenTip(
+        `你丢下 ${removal.accepted || 0} 份铁矿，从伏兵夹缝中徒手撤出。矿坑近路永久关闭，张曼成救援入口已经开放。`,
+        { title: '徒手撤退完成' }
+      );
+      return true;
+    } catch (error) {
+      inventory.loadItems?.(inventoryBefore);
+      blackboard.set('storyState', beforeStory);
+      if (discardQuantity > 0) this.inventoryTransactions.forgetOperation?.(operationId);
+      this._showScreenTip(`撤退检查点失败：${error?.message || error}，库存与剧情状态已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._s05MineBusy = false;
+    }
+  }
+
+  async _syncS05MineWorldState() {
+    const mine = this.gameLoader?.blackboard?.get?.('storyState')?.s05Mine || {};
+    const collapsed = mine.collapseCommitted === true;
+    const placement = (this._placements || []).find(entry => entry.id === 'S05-mine-collapse');
+    const collider = placement?.overrides?.collision;
+    if (placement && collider) {
+      this._terrainBinding?.setDynamicCollider?.({
+        sceneId: 'S05', id: 'S05-mine-collapse', enabled: collapsed,
+        shape: {
+          type: 'rect',
+          x: Number(placement.x) + Number(collider.x),
+          y: Number(placement.y) + Number(collider.y),
+          width: Number(collider.width),
+          height: Number(collider.height)
+        }
+      });
+    }
+    if (!collapsed || this.currentSceneId !== 'S05') return collapsed;
+    await this._spawnPlacements({ group: 'S05-mine-collapse' });
+    await this._spawnPlacements({ group: 'S05-mine-ambush' });
+    for (const enemy of this._groupEnemies?.['S05-mine-ambush'] || []) {
+      if (!this._isEntityDead(enemy)) this.aiSystem?.activateAI?.(enemy, enemy.aiType || 'aggressive');
+    }
+    return true;
+  }
+
+  startS05ZhangManchengRescue() {
+    if (this.currentSceneId !== 'S05' || !this.rescueSystem || !this._s05ZhangManchengRescueConfig) {
+      this._showScreenTip('张曼成救援只可在 S05 宛城外围启动。', { title: '救援不可用' });
+      return false;
+    }
+    const activeBattleId = this.battleSystem?.definition?.battleId;
+    if (this.battleSystem?.mode !== BattleMode.INTERVENE
+      || activeBattleId !== S05_BATTLE_ID
+      || this.battleSystem?.state !== BattleState.ACTIVE
+      || this.battlefieldRuntime?.active !== true) {
+      this._showScreenTip('先在宛城外围战役选择介入并让实时战场进入进行中状态。', { title: '救援不可用' });
+      return false;
+    }
+    const mineState = this.gameLoader?.blackboard?.get?.('storyState')?.s05Mine || {};
+    if (mineState.retreatCompleted !== true) {
+      this._showScreenTip('必须先经历铁镐损毁、矿坑塌方与徒手撤退，才能赶到张曼成身边。', { title: '救援路线尚未打通' });
+      return false;
+    }
+    const zhangMancheng = (this.entities || []).find(entity => entity?.id === 'S05-zhang-mancheng');
+    const qinJie = (this.entities || []).find(entity => entity?.id === 'S05-qin-jie');
+    if (!zhangMancheng || !qinJie) {
+      this._showScreenTip('张曼成或秦颉实体尚未生成，无法启动致命一击事件。', { title: '救援配置错误' });
+      return false;
+    }
+
+    const existing = this.rescueSystem.getState();
+    if (existing.status !== RescueStatus.IDLE) {
+      if (existing.definitionId === S05_ZHANG_MANCHENG_RESCUE_ID) {
+        this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+        this.rescueObjectiveView?.setSnapshot?.(existing);
+        this._showScreenTip(
+          existing.status === RescueStatus.ACTIVE ? '张曼成救援正在进行。' : '张曼成救援结果已经冻结。',
+          { title: '救援状态' }
+        );
+        return true;
+      }
+      const storyState = this.gameLoader?.blackboard?.get?.('storyState') || {};
+      const s04Persisted = !!storyState.rescueResults?.[S04_BOCAI_RESCUE_ID];
+      const s04Terminal = existing.definitionId === S04_BOCAI_RESCUE_ID
+        && [RescueStatus.SUCCEEDED, RescueStatus.FAILED].includes(existing.status);
+      if (s04Terminal && s04Persisted) {
+        this.rescueSystem.reset();
+      } else {
+        this._showScreenTip(
+          existing.status === RescueStatus.ACTIVE
+            ? '上一项救援仍在进行，不能启动张曼成救援。'
+            : '上一项救援结果尚未写入检查点，不能切换救援目标。',
+          { title: '救援状态冲突' }
+        );
+        return false;
+      }
+    }
+
+    const started = this.rescueSystem.start(this._s05ZhangManchengRescueConfig, {
+      mode: this.battleSystem.mode,
+      operationId: `start:${S05_ZHANG_MANCHENG_RESCUE_ID}`
+    });
+    if (!started.ok) {
+      this._showScreenTip(`救援未启动：${started.message || started.code}`, { title: '救援失败' });
+      return false;
+    }
+    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    this.rescueObjectiveView?.setSnapshot?.(started.state);
+    this._showScreenTip('60 秒内以远程攻击、远程技能或投掷命中秦颉，打断对张曼成的致命一击。', {
+      title: '张曼成限时救援'
+    });
+    return true;
+  }
+
+  _handleS05CombatDamage(event = {}) {
+    const rescueState = this.rescueSystem?.getState?.();
+    if (this.currentSceneId !== 'S05'
+      || rescueState?.definitionId !== S05_ZHANG_MANCHENG_RESCUE_ID
+      || rescueState.status !== RescueStatus.ACTIVE
+      || event.target?.id !== 'S05-qin-jie'
+      || event.sourceEntityId !== this.playerEntity?.id
+      || !['ranged', 'skill-ranged', 'throw'].includes(event.attackKind)) return false;
+    const beforeRescueState = this.rescueSystem.serialize();
+    const outcome = this.rescueSystem.completeStage('interrupt-lethal-strike', {
+      operationId: `complete:${S05_ZHANG_MANCHENG_RESCUE_ID}:interrupt-lethal-strike`
+    });
+    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
+    if (!outcome?.completed || !outcome.result) return false;
+    void this._settleS05ZhangManchengRescue(outcome.result, beforeRescueState);
+    return true;
+  }
+
+  _updateS05ZhangManchengRescue(deltaTime) {
+    const rescueState = this.rescueSystem?.getState?.();
+    if (this.currentSceneId !== 'S05'
+      || rescueState?.definitionId !== S05_ZHANG_MANCHENG_RESCUE_ID
+      || rescueState.status !== RescueStatus.ACTIVE
+      || this._s05RescueBusy) return;
+    const targetId = this._s05ZhangManchengRescueConfig?.targetEntityId;
+    const target = (this.entities || []).find(entity => entity?.id === targetId);
+    const stats = target?.getComponent?.('stats');
+    const beforeRescueState = this.rescueSystem.serialize();
+    let outcome;
+    let targetHpRollback = null;
+    if (!target || !stats || Number(stats.hp) <= 0) {
+      outcome = this.rescueSystem.fail('targetDefeated', {
+        operationId: `fail:${S05_ZHANG_MANCHENG_RESCUE_ID}:target`
+      });
+    } else {
+      outcome = this.rescueSystem.update();
+      if (outcome?.completed && outcome.result?.failureReason === 'deadlineExceeded') {
+        targetHpRollback = { targetId, hp: Number(stats.hp) };
+        const qinJie = (this.entities || []).find(entity => entity?.id === 'S05-qin-jie');
+        this.combatSystem?.applyDamage?.(
+          target,
+          Math.max(1, Number(stats.hp)),
+          null,
+          '致命一击',
+          { sourceEntity: qinJie || null, attackKind: 'scripted-lethal', deferDeathEffects: true }
+        );
+      }
+    }
+    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
+    if (outcome?.completed && outcome.result) {
+      void this._settleS05ZhangManchengRescue(outcome.result, beforeRescueState, targetHpRollback);
+    }
+  }
+
+  async _settleS05ZhangManchengRescue(result, beforeRescueState, targetHpRollback = null) {
+    if (this._s05RescueBusy || result?.rescueId !== S05_ZHANG_MANCHENG_RESCUE_ID) return false;
+    this._s05RescueBusy = true;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const survived = result.survived === true;
+    const storyTags = new Set(beforeStory.storyTags || []);
+    storyTags.delete(survived ? 'rescue.zhangMancheng.failed' : 'rescue.zhangMancheng.survived');
+    storyTags.add(survived ? 'rescue.zhangMancheng.survived' : 'rescue.zhangMancheng.failed');
+    const draftStory = {
+      ...beforeStory,
+      rescueResults: {
+        ...(beforeStory.rescueResults || {}),
+        [S05_ZHANG_MANCHENG_RESCUE_ID]: cloneData(result)
+      },
+      zhangManchengSurvived: survived,
+      wanchengDefenseExtendedMonths: survived
+        ? Math.max(1, Number(beforeStory.wanchengDefenseExtendedMonths) || 0)
+        : Math.max(0, Number(beforeStory.wanchengDefenseExtendedMonths) || 0),
+      s06AvailableUntilMonth: survived ? 9 : (beforeStory.s06AvailableUntilMonth || null),
+      unlockedScenes: survived
+        ? [...new Set([...(beforeStory.unlockedScenes || []), 'S06'])]
+        : [...(beforeStory.unlockedScenes || [])],
+      storyTags: [...storyTags],
+      lastCheckpointId: 'checkpoint.S05.zhangManchengRescue'
+    };
+    try {
+      if (!blackboard) throw new Error('storyStateUnavailable');
+      blackboard.set('storyState', draftStory);
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S05.zhangManchengRescue', sceneId: 'S05'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      if (!survived && targetHpRollback) {
+        const defeatedTarget = (this.entities || []).find(entity => entity?.id === targetHpRollback.targetId);
+        if (defeatedTarget && !defeatedTarget.isDying && !defeatedTarget.isDead) {
+          this.combatSystem?.spawnLoot?.(defeatedTarget);
+          this.combatSystem?.triggerDeathEffect?.(defeatedTarget);
+        }
+      }
+      this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+      this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
+      this._showScreenTip(
+        survived
+          ? '你远程打断了秦颉的致命一击，张曼成存活，S06 宛城围攻已经开放。'
+          : '张曼成未能撑过 60 秒，宛城围攻路线未开放。',
+        { title: survived ? '救援成功' : '救援失败' }
+      );
+      return true;
+    } catch (error) {
+      blackboard?.set?.('storyState', beforeStory);
+      const restored = this.rescueSystem.deserialize(beforeRescueState);
+      if (targetHpRollback && Number.isFinite(targetHpRollback.hp)) {
+        const target = (this.entities || []).find(entity => entity?.id === targetHpRollback.targetId);
+        const stats = target?.getComponent?.('stats');
+        if (stats) stats.hp = targetHpRollback.hp;
+      }
+      this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+      this.rescueObjectiveView?.setSnapshot?.(restored?.state || this.rescueSystem.getState());
+      this._showScreenTip(`张曼成救援检查点失败：${error?.message || error}，剧情、救援与生命值已回滚。`, {
+        title: '保存失败'
+      });
+      return false;
+    } finally {
+      this._s05RescueBusy = false;
+    }
+  }
+
+  async checkS05Exit() {
+    if (this.currentSceneId !== 'S05') {
+      this._showScreenTip('只有在 S05 宛城外围才能前往宛城围攻。', { title: '出口不可用' });
+      return false;
+    }
+    const blackboard = this.gameLoader?.blackboard;
+    const battleResult = blackboard?.get?.('warState')?.battles?.[S05_BATTLE_ID];
+    if (!battleResult) {
+      this._showScreenTip('先完成宛城外围战役并冻结战果。', { title: '战役尚未完成' });
+      return false;
+    }
+    const appliedResultIds = blackboard?.get?.('appliedBattleResultIds') || [];
+    if (!battleResult.resultId || !appliedResultIds.includes(battleResult.resultId)) {
+      this._showScreenTip('宛城外围战果尚未成功写入检查点，请在军令旗处重试结算。', { title: '战果尚未应用' });
+      return false;
+    }
+    const rescueResult = blackboard?.get?.('storyState')?.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID];
+    if (rescueResult?.survived !== true) {
+      this._showScreenTip('只有张曼成救援成功并保存后，才能延长战线进入 S06。', { title: '宛城围攻未开放' });
+      return false;
+    }
+    const targetChunk = this._worldLoadSession?.getChunk?.('S06');
+    const targetSpawn = this._worldLoadSession?.findSpawn?.('S06', 'player');
+    if (!targetChunk || !targetSpawn) {
+      this._showScreenTip('S06 区块或玩家出生点缺失。', { title: '宛城围攻路线不可用' });
+      return false;
+    }
+    try {
+      const transition = await this.teleportToChunk({ scene: 'S06', spawnRef: 'player', transition: 'fadeBlack' });
+      if (transition === false || transition?.cancelled) throw new Error('sceneTransitionCancelled');
+      this.battleModeView?.close?.();
+      this.battleResultView?.close?.();
+      this.battleHudView?.clear?.();
+      this.rescueObjectiveView?.clear?.();
+      this._showScreenTip('张曼成率余部延长战线，你已抵达宛城城下。', { title: 'S06·宛城围攻' });
+      return true;
+    } catch (error) {
+      this._showScreenTip(`前往宛城围攻失败：${error?.message || error}`, { title: '场景切换失败' });
+      return false;
+    }
+  }
+
+  async startS06FieldConstruction() {
+    if (this.currentSceneId !== 'S06' || !this.constructionSystem || this._constructionCheckpointBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const story = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || story.s06Decision?.committed === true) {
+      this._showScreenTip('守撤决策已经锁定，不能再开始临时工事。', { title: '施工已关闭' });
+      return false;
+    }
+    if (story.s06Construction?.toolBreakExperienced === true) {
+      this._showScreenTip('旧铲损毁和材料退回已经结算，请到军令旗决定守撤。', { title: '临时工事已作废' });
+      return true;
+    }
+    const pending = this.constructionSystem.getPending(S06_FIELD_CONSTRUCTION_SITE_ID);
+    if (pending?.status === 'refundPending') {
+      const refundRollback = this._captureConstructionRollback();
+      const retried = this.constructionSystem.retryRefund(S06_FIELD_CONSTRUCTION_SITE_ID);
+      if (retried.status !== 'cancelled') {
+        this._showScreenTip('清理背包空间后才能退回工事材料。', { title: '退款等待中' });
+        return false;
+      }
+      this._constructionCheckpointBusy = true;
+      try {
+        return await this._checkpointS06ConstructionTerminal([retried], refundRollback);
+      } finally {
+        this._constructionCheckpointBusy = false;
+      }
+    } else if (pending) {
+      this._showScreenTip(`拒马施工进度 ${Math.floor(pending.progress * 100)}%。旧铲只剩最后一点耐久。`, {
+        title: '临时工事施工中'
+      });
+      return true;
+    }
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    if (!inventory || !this.playerEntity?.id) return false;
+    const attempt = Math.max(0, Math.floor(Number(story.s06Construction?.attempt) || 0)) + 1;
+    const operationId = `construction:S06:fieldBarricade:${attempt}`;
+    const rollback = this._captureConstructionRollback();
+    const cityDamageRatio = Number((blackboard.get('cityStates') || [])
+      .find(city => city?.id === 'city.s05_wancheng')?.damageRatio) || 0;
+    const started = this.constructionSystem.start({
+      characterId: this.playerEntity.id,
+      inventory,
+      definitionId: 'construction.barricade',
+      siteId: S06_FIELD_CONSTRUCTION_SITE_ID,
+      operationId,
+      cityDamageRatio,
+      context: { sceneId: 'S06' }
+    });
+    if (!started.ok) {
+      const message = started.code === 'materialsRequired'
+        ? `缺少 ${started.itemId} × ${started.quantity}，材料未扣除。先拾取缺口旁的木铁。`
+        : started.code === 'toolRequired'
+          ? '缺少可用铲子，材料未扣除。先拾取缺口旁开裂的旧铲。'
+          : `临时工事未开始：${started.code || 'unknown'}。材料未扣除。`;
+      this._showScreenTip(message, { title: '施工前置不足' });
+      return false;
+    }
+    blackboard.set('storyState', {
+      ...story,
+      s06Construction: {
+        ...(story.s06Construction || {}),
+        pending: true,
+        attempt,
+        siteId: S06_FIELD_CONSTRUCTION_SITE_ID,
+        operationId
+      },
+      lastCheckpointId: 'checkpoint.S06.fieldConstructionStart'
+    });
+    this._constructionCheckpointBusy = true;
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S06.fieldConstructionStart', sceneId: 'S06'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this._showScreenTip(`拒马开始施工，预计 ${Math.ceil(started.duration)} 秒；这把旧铲只剩 1 点耐久。`, {
+        title: '宛城缺口抢修'
+      });
+      return true;
+    } catch (error) {
+      this._restoreConstructionRollback(rollback, [`${operationId}:materials`]);
+      this._showScreenTip(`临时工事保存失败：${error?.message || error}，材料和施工状态已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._constructionCheckpointBusy = false;
+    }
+  }
+
+  openS06DefenseChoice() {
+    if (this.currentSceneId !== 'S06' || !this.irreversibleChoiceView) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const story = blackboard?.get?.('storyState') || {};
+    if (story.zhangManchengSurvived !== true
+      || story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived !== true) {
+      this._showScreenTip('张曼成未能从 S05 存活，宛城延长战线无效。', { title: 'S06 不可用' });
+      return false;
+    }
+    if (story.s06Construction?.toolBreakExperienced !== true) {
+      this._showScreenTip('先到城墙缺口尝试修筑拒马，经历旧铲损毁与材料退回后再决定守撤。', {
+        title: '先处理临时工事'
+      });
+      return false;
+    }
+    if (story.s06Decision?.committed === true) {
+      const label = story.s06Decision.choiceId === 'hold' ? '继续坚守' : '主动撤离';
+      this._showScreenTip(`宛城决策已锁定为“${label}”，不能重复扣除资源或改变城损。`, { title: '决策已完成' });
+      return true;
+    }
+    const city = (blackboard?.get?.('cityStates') || []).find(entry => entry?.id === 'city.s05_wancheng');
+    if (!city) {
+      this._showScreenTip('宛城 CityState 缺失，不能评估防线。', { title: '城市状态错误' });
+      return false;
+    }
+    this.irreversibleChoiceView.open({
+      title: '宛城围攻·延长战线',
+      description: `当前城损 ${Math.round(Number(city.damageRatio) * 100)}%，木材 ${city.resources?.wood || 0}，铁料 ${city.resources?.iron || 0}。`,
+      allowCancel: true,
+      selectedId: 'hold',
+      choices: [
+        {
+          id: 'hold', label: '继续坚守',
+          consequences: ['消耗城市木材 12', '消耗城市铁料 8', '城损 -5%', '士气 +8']
+        },
+        {
+          id: 'withdraw', label: '主动撤离',
+          consequences: ['不消耗修补资源', '城损 +12%', '士气 -10', '保存南阳战果后撤出']
+        }
+      ]
+    });
+    return true;
+  }
+
+  async _handleS06DefenseChoiceCommand(command = {}) {
+    if (command.type === 'cancel') {
+      if (!this._s06DecisionBusy) this.irreversibleChoiceView?.close?.();
+      return true;
+    }
+    if (command.type !== 'selectChoice') return false;
+    return this._commitS06DefenseChoice(command.choiceId);
+  }
+
+  async _commitS06DefenseChoice(choiceId) {
+    if (this.currentSceneId !== 'S06' || this._s06DecisionBusy
+      || !['hold', 'withdraw'].includes(choiceId)) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const beforeCities = cloneData(blackboard?.get?.('cityStates') || []);
+    if (beforeStory.s06Decision?.committed === true) return this.openS06DefenseChoice();
+    const cityIndex = beforeCities.findIndex(entry => entry?.id === 'city.s05_wancheng');
+    if (!blackboard || cityIndex < 0) return false;
+    const city = cloneData(beforeCities[cityIndex]);
+    const resources = { ...(city.resources || {}) };
+    if (choiceId === 'hold' && (Number(resources.wood) < 12 || Number(resources.iron) < 8)) {
+      this._showScreenTip('继续坚守至少需要城市木材 12、铁料 8；资源不足时只能撤离。', { title: '修补资源不足' });
+      return false;
+    }
+    if (choiceId === 'hold') {
+      resources.wood -= 12;
+      resources.iron -= 8;
+      city.damageRatio = Math.max(0, Number(city.damageRatio) - 0.05);
+      city.morale = Math.min(100, Math.max(0, Number(city.morale) + 8));
+    } else {
+      city.damageRatio = Math.min(1, Number(city.damageRatio) + 0.12);
+      city.morale = Math.min(100, Math.max(0, Number(city.morale) - 10));
+    }
+    city.resources = resources;
+    const cityCheck = this.gameLoader?.contentValidator?.validate?.(city, 'city', `variables.cityStates[${cityIndex}]`);
+    if (cityCheck && !cityCheck.ok) {
+      this._showScreenTip('宛城决策会产生非法 CityState，提交已拒绝。', { title: '状态校验失败' });
+      return false;
+    }
+    const draftCities = cloneData(beforeCities);
+    draftCities[cityIndex] = city;
+    const nanyangIntervened = beforeStory.nanyangIntervened === true
+      || (this.battleSystem?.definition?.battleId === S05_BATTLE_ID
+        && this.battleSystem?.mode === BattleMode.INTERVENE);
+    const draftStory = {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S06'])],
+      nanyangIntervened,
+      s06Resolved: true,
+      s06Decision: {
+        committed: true,
+        choiceId,
+        cityId: city.id,
+        resourceCost: choiceId === 'hold' ? { wood: 12, iron: 8 } : { wood: 0, iron: 0 },
+        damageRatioAfter: city.damageRatio,
+        moraleAfter: city.morale,
+        operationId: `story:S06:defense:${choiceId}`
+      },
+      lastCheckpointId: 'checkpoint.S06.defenseDecision'
+    };
+
+    this._s06DecisionBusy = true;
+    this.irreversibleChoiceView?.setBusy?.(true);
+    blackboard.set('cityStates', draftCities);
+    blackboard.set('storyState', draftStory);
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S06.defenseDecision', sceneId: 'S06'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this.irreversibleChoiceView?.close?.();
+      this._showScreenTip(
+        choiceId === 'hold'
+          ? '木铁被投入缺口，张曼成争来的一个月得以延续；南阳介入标志与城市状态已经保存。'
+          : '你下令保存余部主动撤离，宛城损毁继续扩大；南阳战果已经保存。',
+        { title: choiceId === 'hold' ? '宛城继续坚守' : '宛城主动撤离' }
+      );
+      return true;
+    } catch (error) {
+      blackboard.set('cityStates', beforeCities);
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`宛城决策保存失败：${error?.message || error}，城市与剧情状态已回滚。`, { title: '提交失败' });
+      return false;
+    } finally {
+      this._s06DecisionBusy = false;
+      this.irreversibleChoiceView?.setBusy?.(false);
+    }
+  }
+
+  async completeS06Recall() {
+    if (this.currentSceneId !== 'S06' || this._s06RecallBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || beforeStory.s06Decision?.committed !== true) {
+      this._showScreenTip('先在宛城军令旗完成继续坚守或主动撤离决策。', { title: '尚不能响应召回' });
+      return false;
+    }
+    if (beforeStory.yuzhouRoute?.routeId !== 'nanyang') return false;
+
+    if (beforeStory.messengerRecallReceived !== true) {
+      const draftStory = {
+        ...beforeStory,
+        messengerRecallReceived: true,
+        s06Resolved: true,
+        month: Math.max(8, Math.floor(Number(beforeStory.month) || 0)),
+        pendingSceneId: 'S10',
+        s06RecallOperationId: 'story:S06:messengerRecall',
+        lastCheckpointId: 'checkpoint.S06.messengerRecall'
+      };
+      this._s06RecallBusy = true;
+      blackboard.set('storyState', draftStory);
+      try {
+        const saved = await this.requestAutoSave({
+          reason: 'checkpoint', checkpointId: 'checkpoint.S06.messengerRecall', sceneId: 'S06'
+        });
+        if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      } catch (error) {
+        blackboard.set('storyState', beforeStory);
+        this._showScreenTip(`南阳召回保存失败：${error?.message || error}，状态已回滚。`, { title: '提交失败' });
+        this._s06RecallBusy = false;
+        return false;
+      }
+      this._s06RecallBusy = false;
+    }
+
+    const regionIndex = this._findRegionIndexForScene('S10');
+    if (regionIndex < 0) {
+      this._showScreenTip('南阳战果与召回检查点已保存，但 S10 尚未登记。', { title: '冀州急召' });
+      return true;
+    }
+    this._s06RecallBusy = true;
+    try {
+      const traveled = await this.travelToRegion({ regionIndex, sceneId: 'S10', spawnRef: 'player' });
+      return traveled?.ok === true;
+    } finally {
+      this._s06RecallBusy = false;
+    }
+  }
+
+  _getS07DelayPointDefinition(pointId) {
+    return (this._s07BattleConfig?.delayPoints || []).find(point => point?.id === pointId) || null;
+  }
+
+  _syncS07DelayWorldState() {
+    const committed = this.gameLoader?.blackboard?.get?.('storyState')?.s07DelayPoints || {};
+    for (const point of this._s07BattleConfig?.delayPoints || []) {
+      if (!point?.id || !point.collider) continue;
+      this._terrainBinding?.setDynamicCollider?.({
+        sceneId: 'S07',
+        id: `S07-delay-${point.id}`,
+        enabled: committed[point.id]?.committed === true,
+        shape: cloneData(point.collider)
+      });
+    }
+    return committed;
+  }
+
+  async commitS07DelayPoint({ pointId } = {}) {
+    const point = this._getS07DelayPointDefinition(pointId);
+    if (this.currentSceneId !== 'S07' || !point || this._s07PointBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    const beforeCities = cloneData(blackboard?.get?.('cityStates') || []);
+    if (!blackboard || beforeStory.yuzhouRoute?.routeId !== 'xihua') {
+      this._showScreenTip('只有已锁定西华路线的队伍才能提交阻滞点。', { title: '路线状态不符' });
+      return false;
+    }
+    if (beforeStory.s07DelayPoints?.[pointId]?.committed === true) {
+      this._showScreenTip(`${point.label}已经完成，资源不会重复扣除。`, { title: '阻滞点已提交' });
+      return true;
+    }
+    if (this.battleSystem?.definition?.battleId !== S07_BATTLE_ID
+      || this.battleSystem?.mode !== BattleMode.INTERVENE
+      || ![BattleState.ACTIVE, BattleState.RESOLVED].includes(this.battleSystem?.state)) {
+      this._showScreenTip('先在军令旗选择介入并启动西华战役；观战不能亲自布置阻滞。', { title: '无法提交阻滞点' });
+      return false;
+    }
+    if (this.battleSystem.state === BattleState.RESOLVED) {
+      const frozen = this.battleSystem.getState().result;
+      const applied = frozen?.resultId
+        && (blackboard.get('appliedBattleResultIds') || []).includes(frozen.resultId);
+      if (!applied) {
+        this._showScreenTip('西华战果仍未写入检查点，请先在军令旗重试结算。', { title: '战果未保存' });
+        return false;
+      }
+    }
+
+    const cityIndex = beforeCities.findIndex(city => city?.id === 'city.s07_xihua');
+    if (cityIndex < 0) {
+      this._showScreenTip('西华 CityState 缺失，不能结算阻滞资源。', { title: '城市状态错误' });
+      return false;
+    }
+    const city = cloneData(beforeCities[cityIndex]);
+    const resources = { ...(city.resources || {}) };
+    const cost = cloneData(point.cost || {});
+    const missing = Object.entries(cost).find(([resource, amount]) => (
+      !Number.isInteger(amount) || amount < 0 || Number(resources[resource] || 0) < amount
+    ));
+    if (missing) {
+      this._showScreenTip(`${point.label}需要 ${missing[0]} ${missing[1]}，西华战略资源不足。`, { title: '阻滞资源不足' });
+      return false;
+    }
+    for (const [resource, amount] of Object.entries(cost)) resources[resource] -= amount;
+    city.resources = resources;
+    const cityCheck = this.gameLoader?.contentValidator?.validate?.(
+      city, 'city', `variables.cityStates[${cityIndex}]`
+    );
+    if (cityCheck && !cityCheck.ok) {
+      this._showScreenTip(`${point.label}会产生非法 CityState，提交已拒绝。`, { title: '状态校验失败' });
+      return false;
+    }
+
+    const draftCities = cloneData(beforeCities);
+    draftCities[cityIndex] = city;
+    const operationId = `story:S07:delay:${pointId}`;
+    const draftStory = {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S07'])],
+      s07DelayPoints: {
+        ...(beforeStory.s07DelayPoints || {}),
+        [pointId]: { committed: true, pointId, cost, operationId }
+      },
+      lastCheckpointId: `checkpoint.S07.delay.${pointId}`
+    };
+
+    this._s07PointBusy = true;
+    blackboard.set('cityStates', draftCities);
+    blackboard.set('storyState', draftStory);
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: draftStory.lastCheckpointId, sceneId: 'S07'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      this._syncS07DelayWorldState();
+      const committedCount = Object.values(draftStory.s07DelayPoints)
+        .filter(entry => entry?.committed === true).length;
+      this._showScreenTip(
+        `${point.label}已锁定，消耗 ${Object.entries(cost).map(([key, value]) => `${key} ${value}`).join('、')}。当前 ${committedCount}/3。`,
+        { title: '阻滞点完成' }
+      );
+      return true;
+    } catch (error) {
+      blackboard.set('cityStates', beforeCities);
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`阻滞点保存失败：${error?.message || error}，资源与剧情状态已回滚。`, { title: '提交失败' });
+      return false;
+    } finally {
+      this._s07PointBusy = false;
+    }
+  }
+
+  _getAppliedS07BattleResult() {
+    const blackboard = this.gameLoader?.blackboard;
+    const result = blackboard?.get?.('warState')?.battles?.[S07_BATTLE_ID] || null;
+    return result?.resultId && (blackboard?.get?.('appliedBattleResultIds') || []).includes(result.resultId)
+      ? result
+      : null;
+  }
+
+  _buildS07RouteResult({ story, city, battleResult, battleMode }) {
+    const delayPointCount = (this._s07BattleConfig?.delayPoints || [])
+      .filter(point => story.s07DelayPoints?.[point.id]?.committed === true).length;
+    const yellowTurbanWon = battleResult.winnerFactionId === 'yellow_turban';
+    const survivorCount = Math.min(60, Math.max(0,
+      (battleMode === BattleMode.INTERVENE ? 28 : 18)
+      + delayPointCount * 6
+      + (yellowTurbanWon ? 8 : 0)
+    ));
+    const resources = city?.resources || {};
+    const carriedResources = {
+      food: Math.min(18, Math.floor(Math.max(0, Number(resources.food) || 0) * 0.4)),
+      wood: Math.min(12, Math.floor(Math.max(0, Number(resources.wood) || 0) * 0.5)),
+      iron: Math.min(8, Math.floor(Math.max(0, Number(resources.iron) || 0) * 0.5)),
+      herb: Math.min(6, Math.floor(Math.max(0, Number(resources.herb) || 0) * 0.5))
+    };
+    const pursuitIntensity = Math.min(5, Math.max(1,
+      4 - delayPointCount + (yellowTurbanWon ? 0 : 1) + (battleMode === BattleMode.OBSERVE ? 1 : 0)
+    ));
+    return {
+      schemaVersion: 1,
+      battleResultId: battleResult.resultId,
+      battleMode,
+      winnerFactionId: battleResult.winnerFactionId,
+      delayPointCount,
+      survivorCount,
+      carriedResources,
+      pursuitIntensity,
+      frozenAtCheckpointId: 'checkpoint.S07.routeResult'
+    };
+  }
+
+  async checkS07Exit({ sceneId = 'S08', spawnRef = 'player', transition = 'fadeBlack' } = {}) {
+    if (this.currentSceneId !== 'S07' || this._s07ExitBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || beforeStory.yuzhouRoute?.routeId !== 'xihua') return false;
+    const battleResult = this._getAppliedS07BattleResult();
+    if (!battleResult) {
+      this._showScreenTip('先完成西华战役并让战果成功写入检查点。', { title: '尚不能撤离' });
+      return false;
+    }
+    const battleMode = beforeStory.battleModes?.[S07_BATTLE_ID]
+      || (this.battleSystem?.definition?.battleId === S07_BATTLE_ID ? this.battleSystem.mode : null);
+    const pointDefinitions = this._s07BattleConfig?.delayPoints || [];
+    const committedCount = pointDefinitions
+      .filter(point => beforeStory.s07DelayPoints?.[point.id]?.committed === true).length;
+    if (battleMode === BattleMode.INTERVENE && committedCount !== pointDefinitions.length) {
+      this._showScreenTip(`介入路线还需完成 ${pointDefinitions.length - committedCount} 处阻滞点。`, { title: '三线尚未完成' });
+      return false;
+    }
+    if (![BattleMode.OBSERVE, BattleMode.INTERVENE].includes(battleMode)) {
+      this._showScreenTip('西华参战方式缺失，不能冻结残部结果。', { title: '战役状态错误' });
+      return false;
+    }
+    if (!this._worldLoadSession?.getChunk?.(sceneId)
+      || !this._worldLoadSession?.findSpawn?.(sceneId, spawnRef)) {
+      this._showScreenTip(`${sceneId} 区块或玩家出生点缺失。`, { title: '西华余部路线不可用' });
+      return false;
+    }
+
+    if (beforeStory.s07RouteResult?.battleResultId === battleResult.resultId) {
+      const traveled = await this.teleportToChunk({ scene: sceneId, spawnRef, transition });
+      return traveled !== false && !traveled?.cancelled;
+    }
+    const city = (blackboard.get('cityStates') || []).find(entry => entry?.id === 'city.s07_xihua');
+    if (!city) return false;
+    const routeResult = this._buildS07RouteResult({ story: beforeStory, city, battleResult, battleMode });
+    const draftStory = {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S07'])],
+      unlockedScenes: [...new Set([...(beforeStory.unlockedScenes || []), sceneId])],
+      s07RouteResult: routeResult,
+      s07Resolved: true,
+      lastCheckpointId: 'checkpoint.S07.routeResult'
+    };
+
+    this._s07ExitBusy = true;
+    blackboard.set('storyState', draftStory);
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S07.routeResult', sceneId: 'S07'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+    } catch (error) {
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`残部结果保存失败：${error?.message || error}，可在出口重试。`, { title: '撤离失败' });
+      this._s07ExitBusy = false;
+      return false;
+    }
+    try {
+      const traveled = await this.teleportToChunk({ scene: sceneId, spawnRef, transition });
+      if (traveled === false || traveled?.cancelled) throw new Error('sceneTransitionCancelled');
+      this.battleModeView?.close?.();
+      this.battleResultView?.close?.();
+      this.battleHudView?.clear?.();
+      this._showScreenTip(
+        `西华残部 ${routeResult.survivorCount} 人、追兵强度 ${routeResult.pursuitIntensity} 已冻结。`,
+        { title: 'S08·西华余部' }
+      );
+      return true;
+    } catch (error) {
+      this._showScreenTip(`残部结果已保存，但前往 S08 失败：${error?.message || error}。可在出口重试。`, { title: '场景切换失败' });
+      return false;
+    } finally {
+      this._s07ExitBusy = false;
+    }
+  }
+
+  openS08RetreatChoice() {
+    if (this.currentSceneId !== 'S08' || !this.irreversibleChoiceView) return false;
+    const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const routeResult = story.s07RouteResult;
+    if (!routeResult) {
+      this._showScreenTip('缺少 S07 残部结果，不能决定马车撤退方式。', { title: '前置状态缺失' });
+      return false;
+    }
+    if (story.s08RetreatDecision?.committed === true) {
+      const label = story.s08RetreatDecision.choiceId === 'discard' ? '丢弃物资' : '保留物资';
+      this._showScreenTip(`西华撤退决策已锁定为“${label}”，不能重复改变残部。`, { title: '决策已完成' });
+      return true;
+    }
+    const resourceText = Object.entries(routeResult.carriedResources || {})
+      .map(([key, value]) => `${key} ${value}`).join('、');
+    this.irreversibleChoiceView.open({
+      title: '西华余部·泥泞马车',
+      description: `现有残部 ${routeResult.survivorCount} 人，追兵强度 ${routeResult.pursuitIntensity}；马车装有 ${resourceText || '无物资'}。`,
+      allowCancel: true,
+      selectedId: 'discard',
+      choices: [
+        { id: 'discard', label: '丢弃物资', consequences: ['放弃全部木铁与一半粮药', '残部 +8', '追兵强度 -2'] },
+        { id: 'preserve', label: '保留物资', consequences: ['保留全部战略物资', '残部 -4', '追兵强度 +1'] }
+      ]
+    });
+    return true;
+  }
+
+  async _handleS08RetreatChoiceCommand(command = {}) {
+    if (command.type === 'cancel') {
+      if (!this._s08DecisionBusy) this.irreversibleChoiceView?.close?.();
+      return true;
+    }
+    if (command.type !== 'selectChoice') return false;
+    return this._commitS08RetreatChoice(command.choiceId);
+  }
+
+  async _commitS08RetreatChoice(choiceId) {
+    if (this.currentSceneId !== 'S08' || this._s08DecisionBusy
+      || !['discard', 'preserve'].includes(choiceId)) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || !beforeStory.s07RouteResult) return false;
+    if (beforeStory.s08RetreatDecision?.committed === true) return this.openS08RetreatChoice();
+
+    const routeResult = beforeStory.s07RouteResult;
+    const originalResources = cloneData(routeResult.carriedResources || {});
+    const finalResources = choiceId === 'discard'
+      ? {
+          food: Math.floor(Number(originalResources.food) / 2),
+          wood: 0,
+          iron: 0,
+          herb: Math.floor(Number(originalResources.herb) / 2)
+        }
+      : originalResources;
+    const finalResult = {
+      ...cloneData(routeResult),
+      survivorCount: Math.max(0, Number(routeResult.survivorCount) + (choiceId === 'discard' ? 8 : -4)),
+      carriedResources: finalResources,
+      pursuitIntensity: Math.min(5, Math.max(0,
+        Number(routeResult.pursuitIntensity) + (choiceId === 'discard' ? -2 : 1)
+      )),
+      retreatChoiceId: choiceId,
+      frozenAtCheckpointId: 'checkpoint.S08.retreatDecision'
+    };
+    const operationId = `story:S08:retreat:${choiceId}`;
+    const draftStory = {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S08'])],
+      s08RetreatDecision: { committed: true, choiceId, operationId },
+      s08RouteResult: finalResult,
+      s08Resolved: true,
+      lastCheckpointId: 'checkpoint.S08.retreatDecision'
+    };
+
+    this._s08DecisionBusy = true;
+    this.irreversibleChoiceView?.setBusy?.(true);
+    blackboard.set('storyState', draftStory);
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S08.retreatDecision', sceneId: 'S08'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      this.irreversibleChoiceView?.close?.();
+      this._showScreenTip(
+        choiceId === 'discard'
+          ? '绳索被割断，木铁陷在泥里；更多人甩开了追兵。'
+          : '众人推着马车继续前进，物资保住了，但队伍付出了伤亡。',
+        { title: choiceId === 'discard' ? '丢车保人' : '保留物资' }
+      );
+      return true;
+    } catch (error) {
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`撤退决策保存失败：${error?.message || error}，残部状态已回滚。`, { title: '提交失败' });
+      return false;
+    } finally {
+      this._s08DecisionBusy = false;
+      this.irreversibleChoiceView?.setBusy?.(false);
+    }
+  }
+
+  async completeS08Recall() {
+    if (this.currentSceneId !== 'S08' || this._s08RecallBusy) return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || beforeStory.s08RetreatDecision?.committed !== true || !beforeStory.s08RouteResult) {
+      this._showScreenTip('先在泥泞马车旁完成残部撤退决策。', { title: '尚不能响应召回' });
+      return false;
+    }
+
+    if (beforeStory.messengerRecallReceived !== true) {
+      const draftStory = {
+        ...beforeStory,
+        visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S08'])],
+        messengerRecallReceived: true,
+        s08Resolved: true,
+        month: Math.max(8, Math.floor(Number(beforeStory.month) || 0)),
+        pendingSceneId: 'S10',
+        s08RecallOperationId: 'story:S08:messengerRecall',
+        lastCheckpointId: 'checkpoint.S08.messengerRecall'
+      };
+      this._s08RecallBusy = true;
+      blackboard.set('storyState', draftStory);
+      try {
+        const saved = await this.requestAutoSave({
+          reason: 'checkpoint', checkpointId: 'checkpoint.S08.messengerRecall', sceneId: 'S08'
+        });
+        if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      } catch (error) {
+        blackboard.set('storyState', beforeStory);
+        this._showScreenTip(`信使召回保存失败：${error?.message || error}，召回状态已回滚。`, { title: '提交失败' });
+        this._s08RecallBusy = false;
+        return false;
+      }
+      this._s08RecallBusy = false;
+    }
+
+    const regionIndex = this._findRegionIndexForScene('S10');
+    if (regionIndex < 0) {
+      this._showScreenTip('大贤良师病重，召回检查点已保存；S10 广城外围尚未登记，完成内容后可从此处继续。', {
+        title: '冀州急召'
+      });
+      return true;
+    }
+    this._s08RecallBusy = true;
+    try {
+      const traveled = await this.travelToRegion({ regionIndex, sceneId: 'S10', spawnRef: 'player' });
+      return traveled?.ok === true;
+    } finally {
+      this._s08RecallBusy = false;
+    }
+  }
+
+  async _commitS10StoryCheckpoint({ checkpointId, prepare, successTitle, successMessage }) {
+    if (this.currentSceneId !== 'S10' || this._s10StoryBusy || typeof prepare !== 'function') return false;
+    const blackboard = this.gameLoader?.blackboard;
+    const beforeStory = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard) return false;
+    const prepared = prepare(beforeStory);
+    if (prepared?.idempotent) {
+      this._showScreenTip(prepared.message || successMessage, { title: successTitle });
+      return true;
+    }
+    if (!prepared?.ok || !prepared.storyState) {
+      this._showScreenTip(prepared?.message || '当前剧情条件不足。', { title: prepared?.title || '尚不能继续' });
+      return false;
+    }
+
+    this._s10StoryBusy = true;
+    blackboard.set('storyState', prepared.storyState);
+    try {
+      const saved = await this.requestAutoSave({ reason: 'checkpoint', checkpointId, sceneId: 'S10' });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      this._showScreenTip(successMessage, { title: successTitle });
+      return true;
+    } catch (error) {
+      blackboard.set('storyState', beforeStory);
+      this._showScreenTip(`剧情检查点保存失败：${error?.message || error}，状态已回滚。`, { title: '提交失败' });
+      return false;
+    } finally {
+      this._s10StoryBusy = false;
+    }
+  }
+
+  async commitS10ZhangJiaoDeath() {
+    return this._commitS10StoryCheckpoint({
+      checkpointId: 'checkpoint.S10.zhangJiaoDeath',
+      successTitle: '八月·张角病逝',
+      successMessage: '帐中没有军令，只有药味。张角已经病逝；这是不可救援、不可逆转的历史事件。',
+      prepare: before => {
+        const existing = before.historicalEvents?.['history.zhangjiao.death'];
+        if (existing?.committed === true) {
+          return { idempotent: true, message: '张角病逝已经写入历史，不存在救援倒计时，也不能重复改写。' };
+        }
+        if (before.messengerRecallReceived !== true) {
+          return { ok: false, message: '尚未收到冀州急召，不能提前进入张角病逝事件。' };
+        }
+        const event = {
+          id: 'history.zhangjiao.death',
+          committed: true,
+          sceneId: 'S10',
+          month: 8,
+          rescuable: false,
+          operationId: 'story:S10:zhangJiaoDeath'
+        };
+        return {
+          ok: true,
+          storyState: {
+            ...before,
+            month: Math.max(8, Math.floor(Number(before.month) || 0)),
+            visitedScenes: [...new Set([...(before.visitedScenes || []), 'S10'])],
+            historicalEvents: { ...(before.historicalEvents || {}), [event.id]: event },
+            zhangJiaoDied: true,
+            zhangJiaoRescueAvailable: false,
+            pendingSceneId: null,
+            lastCheckpointId: 'checkpoint.S10.zhangJiaoDeath'
+          }
+        };
+      }
+    });
+  }
+
+  async acknowledgeS10TemporaryCamp() {
+    return this._commitS10StoryCheckpoint({
+      checkpointId: 'checkpoint.S10.temporaryCamp',
+      successTitle: '临时营地评估',
+      successMessage: '这里能挡住小股官兵，但离水源远、只能住几天，也不适合筑城。必须拔营沿溪寻找新址。',
+      prepare: before => {
+        if (before.s10TemporaryCamp?.evaluated === true) {
+          return { idempotent: true, message: '临时营地已经评估：可短住、可挡小股官兵，但缺水且不可筑城。' };
+        }
+        if (before.historicalEvents?.['history.zhangjiao.death']?.committed !== true) {
+          return { ok: false, message: '先进入病帐，完成张角病逝事件。' };
+        }
+        return {
+          ok: true,
+          storyState: {
+            ...before,
+            s10TemporaryCamp: {
+              evaluated: true,
+              active: true,
+              canResistSmallRaid: true,
+              nearWater: false,
+              suitableForConstruction: false,
+              maxStayDays: 3,
+              continuedFromSpecialFaint: !!before.lastSpecialFaintRescueType,
+              rescueType: before.lastSpecialFaintRescueType || null,
+              operationId: 'story:S10:temporaryCamp'
+            },
+            lastCheckpointId: 'checkpoint.S10.temporaryCamp'
+          }
+        };
+      }
+    });
+  }
+
+  async completeS10CampRelocation() {
+    return this._commitS10StoryCheckpoint({
+      checkpointId: 'checkpoint.S10.campRelocation',
+      successTitle: '沿溪新址',
+      successMessage: '临时营地已经拔除。队伍沿溪找到可长期取水的新址，营建阶段现已开放。',
+      prepare: before => {
+        if (before.s10CampRelocation?.completed === true) {
+          return { idempotent: true, message: '队伍已经沿溪迁至新址，重复交互不会再次推进月份或改变状态。' };
+        }
+        if (before.s10TemporaryCamp?.evaluated !== true) {
+          return { ok: false, message: '先检查临时营地，确认缺水与不可筑城的限制。' };
+        }
+        return {
+          ok: true,
+          storyState: {
+            ...before,
+            s10TemporaryCamp: { ...before.s10TemporaryCamp, active: false },
+            s10CampRelocation: {
+              completed: true,
+              fromSiteId: 'site.s10.temporaryCamp',
+              toSiteId: 'site.s10.creekConstruction',
+              waterAccess: true,
+              suitableForConstruction: true,
+              operationId: 'story:S10:campRelocation'
+            },
+            constructionSiteUnlocked: true,
+            constructionSiteId: 'site.s10.creekConstruction',
+            lastCheckpointId: 'checkpoint.S10.campRelocation'
+          }
+        };
+      }
+    });
+  }
+
+  _captureConstructionRollback() {
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    return {
+      inventory,
+      inventoryState: cloneData(inventory?.exportItems?.() || []),
+      constructionRuntime: this.constructionSystem?.captureRuntime?.() || null,
+      proficiencyState: cloneData(this.proficiencySystem?.serialize?.() || null),
+      storyState: cloneData(this.gameLoader?.blackboard?.get?.('storyState') || {})
+    };
+  }
+
+  _restoreConstructionRollback(snapshot, operationIds = []) {
+    if (!snapshot) return false;
+    snapshot.inventory?.loadItems?.(snapshot.inventoryState || []);
+    this.constructionSystem?.restoreRuntime?.(snapshot.constructionRuntime);
+    if (snapshot.proficiencyState) this.proficiencySystem?.deserialize?.(snapshot.proficiencyState);
+    this.gameLoader?.blackboard?.set?.('storyState', snapshot.storyState || {});
+    for (const operationId of operationIds.filter(Boolean)) {
+      this.inventoryTransactions?.forgetOperation?.(operationId);
+    }
+    return true;
+  }
+
+  _updateConstructionRuntime(deltaTime) {
+    if (!this.constructionSystem || this._constructionCheckpointBusy) return;
+    const pending = this.constructionSystem.serialize().pending;
+    const willReachTerminal = pending.some(entry => (
+      entry.status === 'active' && entry.elapsed + Math.max(0, Number(deltaTime) || 0) >= entry.duration
+    ));
+    const rollback = willReachTerminal ? this._captureConstructionRollback() : null;
+    const terminal = this.constructionSystem.update(deltaTime);
+    if (terminal.length === 0) return;
+    if (terminal.some(result => result?.status === 'refundPending')) {
+      this._showScreenTip('施工已取消，但背包暂时无法容纳退回材料。清理空间后再次与施工点交互。', {
+        title: '材料等待退回'
+      });
+      return;
+    }
+    this._constructionCheckpointBusy = true;
+    void this._checkpointS10ConstructionTerminal(terminal, rollback).finally(() => {
+      this._constructionCheckpointBusy = false;
+    });
+  }
+
+  async startS10Construction(params = {}) {
+    if (this.currentSceneId !== 'S10' || !this.constructionSystem || this._constructionCheckpointBusy) return false;
+    const siteId = String(params.siteId || '');
+    const definitionId = String(params.definitionId || '');
+    const siteKey = S10_CONSTRUCTION_SITE_KEYS[siteId];
+    const blackboard = this.gameLoader?.blackboard;
+    const story = cloneData(blackboard?.get?.('storyState') || {});
+    if (!blackboard || !siteKey || !definitionId) {
+      this._showScreenTip('施工点或工事定义无效。', { title: '营建配置错误' });
+      return false;
+    }
+    if (story.constructionSiteUnlocked !== true || story.s10CampRelocation?.completed !== true) {
+      this._showScreenTip('先评估临时营地并沿溪迁至新址，才能开始施工。', { title: '施工点未开放' });
+      return false;
+    }
+    const completed = this.constructionSystem.getStructure(siteId);
+    if (completed) {
+      this._showScreenTip(`${this.constructionSystem.getDefinition(definitionId)?.name || '工事'}已经完成，耐久 ${completed.durability}/${completed.maxDurability}。`, {
+        title: '工事状态'
+      });
+      return true;
+    }
+    const existing = this.constructionSystem.getPending(siteId);
+    if (existing?.status === 'refundPending') return this.cancelS10Construction({ siteId });
+    if (existing) {
+      this._showScreenTip(`施工进度 ${Math.floor(existing.progress * 100)}%，材料已托管，不会重复扣除。`, {
+        title: '正在施工'
+      });
+      return true;
+    }
+
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    if (!inventory || !this.playerEntity?.id) return false;
+    const rollback = this._captureConstructionRollback();
+    const attempt = Math.max(0, Math.floor(Number(story.s10Construction?.attempts?.[siteKey]) || 0)) + 1;
+    const operationId = `construction:S10:${siteKey}:${attempt}`;
+    const cityStates = blackboard.get('cityStates') || [];
+    const cityDamageRatio = Number(cityStates.find(city => city?.id === 'city.s09_guangzong_camp')?.damageRatio) || 0;
+    const result = this.constructionSystem.start({
+      characterId: this.playerEntity.id,
+      inventory,
+      definitionId,
+      siteId,
+      operationId,
+      cityDamageRatio,
+      context: { sceneId: 'S10' }
+    });
+    if (!result.ok) {
+      const messages = {
+        proficiencyRequired: `营建熟练度不足：需要 ${result.required} 级，当前 ${result.actual} 级。材料未扣除。`,
+        materialsRequired: `材料不足：缺少 ${result.itemId} × ${result.quantity}。材料未扣除。`,
+        toolRequired: '缺少可用铲子。材料未扣除。',
+        toolInstanceRequired: '铲子缺少稳定实例 ID，无法安全预留。材料未扣除。',
+        toolReserved: '这把铲子正在另一处施工中。材料未扣除。',
+        constructionSiteLocked: '沿溪施工地尚未开放。材料未扣除。',
+        invalidSite: '此处不允许修筑该工事。材料未扣除。'
+      };
+      this._showScreenTip(messages[result.code] || `施工未开始：${result.code || 'unknown'}。材料未扣除。`, {
+        title: '前置不足'
+      });
+      return false;
+    }
+
+    const beforeConstruction = story.s10Construction || {};
+    blackboard.set('storyState', {
+      ...story,
+      s10Construction: {
+        ...beforeConstruction,
+        attempts: { ...(beforeConstruction.attempts || {}), [siteKey]: attempt },
+        pendingSites: {
+          ...(beforeConstruction.pendingSites || {}),
+          [siteKey]: { siteId, definitionId, operationId, status: 'active' }
+        }
+      },
+      lastCheckpointId: `checkpoint.S10.constructionStart.${siteKey}`
+    });
+    this._constructionCheckpointBusy = true;
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: `checkpoint.S10.constructionStart.${siteKey}`, sceneId: 'S10'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      const definition = this.constructionSystem.getDefinition(definitionId);
+      this._showScreenTip(`${definition?.name || '工事'}开始施工，预计 ${Math.ceil(result.duration)} 秒。`, {
+        title: result.emergency ? '抢修开始（完成时仅 50% 耐久）' : '施工开始'
+      });
+      return true;
+    } catch (error) {
+      this._restoreConstructionRollback(rollback, [`${operationId}:materials`]);
+      this._showScreenTip(`施工检查点失败：${error?.message || error}，材料与施工状态已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._constructionCheckpointBusy = false;
+    }
+  }
+
+  async cancelS10Construction({ siteId } = {}) {
+    if (this.currentSceneId !== 'S10' || !this.constructionSystem || this._constructionCheckpointBusy) return false;
+    const siteKey = S10_CONSTRUCTION_SITE_KEYS[siteId];
+    const pending = this.constructionSystem.getPending(siteId);
+    if (!siteKey || !pending) {
+      this._showScreenTip('此施工点没有可取消的在建工事。', { title: '无在建工事' });
+      return false;
+    }
+    const rollback = this._captureConstructionRollback();
+    const result = this.constructionSystem.cancel(siteId, 'cancelledByPlayer');
+    if (result.status === 'refundPending') {
+      this._showScreenTip('背包空间不足，材料尚未退回；清理空间后再次交互重试。', { title: '退款等待中' });
+      return false;
+    }
+    const blackboard = this.gameLoader.blackboard;
+    const story = cloneData(blackboard.get('storyState') || {});
+    const pendingSites = { ...(story.s10Construction?.pendingSites || {}) };
+    delete pendingSites[siteKey];
+    blackboard.set('storyState', {
+      ...story,
+      s10Construction: { ...(story.s10Construction || {}), pendingSites },
+      lastCheckpointId: `checkpoint.S10.constructionCancelled.${siteKey}`
+    });
+    this._constructionCheckpointBusy = true;
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: `checkpoint.S10.constructionCancelled.${siteKey}`, sceneId: 'S10'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      this._showScreenTip('施工已取消，托管材料已全部退回。', { title: '施工取消' });
+      return true;
+    } catch (error) {
+      this._restoreConstructionRollback(rollback, [`${pending.operationId}:refund`]);
+      this._showScreenTip(`取消施工保存失败：${error?.message || error}，状态已回滚。`, { title: '保存失败' });
+      return false;
+    } finally {
+      this._constructionCheckpointBusy = false;
+    }
+  }
+
+  async _checkpointS10ConstructionTerminal(results, rollback) {
+    if (results.some(result => (result?.structure?.siteId || result?.siteId) === S06_FIELD_CONSTRUCTION_SITE_ID)) {
+      return this._checkpointS06ConstructionTerminal(results, rollback);
+    }
+    const blackboard = this.gameLoader?.blackboard;
+    if (!blackboard || !rollback) return false;
+    const beforeStory = cloneData(blackboard.get('storyState') || {});
+    const construction = cloneData(beforeStory.s10Construction || {});
+    construction.pendingSites = { ...(construction.pendingSites || {}) };
+    construction.completedSites = { ...(construction.completedSites || {}) };
+    construction.cancelledSites = { ...(construction.cancelledSites || {}) };
+    const completedKeys = [];
+    const rollbackOperationIds = [];
+
+    for (const result of results) {
+      const siteId = result?.structure?.siteId || result?.siteId;
+      const siteKey = S10_CONSTRUCTION_SITE_KEYS[siteId];
+      if (!siteKey) continue;
+      delete construction.pendingSites[siteKey];
+      if (result.status === 'completed') {
+        construction.completedSites[siteKey] = true;
+        completedKeys.push(siteKey);
+      } else {
+        construction.cancelledSites[siteKey] = result.code || 'cancelled';
+        if (result.code === 'toolBroken') {
+          construction.toolBreakExperienced = true;
+          construction.toolBreakSiteKey = siteKey;
+        }
+        rollbackOperationIds.push(`${result.operationId}:refund`);
+      }
+    }
+
+    const allCompleted = ['campfire', 'barricade', 'simpleWall', 'arrowTower']
+      .every(key => construction.completedSites[key] === true);
+    construction.completed = allCompleted;
+    construction.lastTerminalAtScene = 'S10';
+    const nextStory = {
+      ...beforeStory,
+      s10Construction: construction,
+      month: allCompleted ? Math.max(10, Math.floor(Number(beforeStory.month) || 0)) : beforeStory.month,
+      unlockedScenes: allCompleted
+        ? [...new Set([...(beforeStory.unlockedScenes || []), 'S11'])]
+        : beforeStory.unlockedScenes,
+      pendingSceneId: allCompleted ? 'S11' : beforeStory.pendingSceneId,
+      lastCheckpointId: allCompleted
+        ? 'checkpoint.S10.constructionComplete'
+        : 'checkpoint.S10.constructionTerminal'
+    };
+    blackboard.set('storyState', nextStory);
+
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: nextStory.lastCheckpointId, sceneId: 'S10'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
+      for (const siteKey of completedKeys) {
+        await this._spawnPlacements({ group: `S10-built-${siteKey === 'simpleWall' ? 'simple-wall' : siteKey === 'arrowTower' ? 'arrow-tower' : siteKey}` });
+      }
+      if (allCompleted) {
+        this._showScreenTip('四类工事已全部完成，时间推进至十月，S11 广宗战场已经开放。', { title: '溪畔营地建成' });
+      } else if (results.some(result => result.code === 'toolBroken')) {
+        this._showScreenTip('旧铲在施工完成前折断，本次工事作废，全部材料已恢复。请换用完好的营建铁铲。', {
+          title: '铲子损毁'
+        });
+      } else {
+        const names = results.filter(result => result.status === 'completed')
+          .map(result => this.constructionSystem.getDefinition(result.structure.definitionId)?.name)
+          .filter(Boolean);
+        this._showScreenTip(`${names.join('、') || '工事'}已完成并写入检查点。`, { title: '施工完成' });
+      }
+      return true;
+    } catch (error) {
+      this._restoreConstructionRollback(rollback, rollbackOperationIds);
+      this._showScreenTip(`施工终态保存失败：${error?.message || error}，工具、熟练度、工事与材料已回滚。`, {
+        title: '保存失败'
+      });
+      return false;
+    }
+  }
+
+  async _checkpointS06ConstructionTerminal(results, rollback) {
+    const blackboard = this.gameLoader?.blackboard;
+    if (!blackboard || !rollback) return false;
+    const result = results.find(entry => (entry?.structure?.siteId || entry?.siteId) === S06_FIELD_CONSTRUCTION_SITE_ID);
+    const beforeStory = cloneData(blackboard.get('storyState') || {});
+    const completed = result?.status === 'completed';
+    blackboard.set('storyState', {
+      ...beforeStory,
+      s06Construction: {
+        ...(beforeStory.s06Construction || {}),
+        pending: false,
+        completed,
+        toolBreakExperienced: result?.code === 'toolBroken'
+          || beforeStory.s06Construction?.toolBreakExperienced === true,
+        materialsRefunded: result?.refunded === true,
+        terminalCode: result?.code || result?.status || 'unknown',
+        operationId: result?.operationId || null
+      },
+      lastCheckpointId: 'checkpoint.S06.fieldConstruction'
+    });
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: 'checkpoint.S06.fieldConstruction', sceneId: 'S06'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
+      if (completed) {
+        await this._spawnPlacements({ group: 'S06-built-barricade' });
+        this._showScreenTip('拒马已经完成，可回军令旗决定继续坚守或撤离。', { title: '临时工事完成' });
+      } else {
+        this._showScreenTip('旧铲在夯土时折断，拒马作废；木铁已全部退回。你只能带着这次损失重新评估守撤。', {
+          title: '第一次失去铲子'
+        });
+      }
+      return true;
+    } catch (error) {
+      this._restoreConstructionRollback(rollback, [`${result?.operationId}:refund`]);
+      this._showScreenTip(`S06 工事检查点失败：${error?.message || error}，材料和工具状态已回滚。`, { title: '保存失败' });
+      return false;
     }
   }
 
@@ -2631,6 +4462,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }))
     });
     return true;
+  }
+
+  async _handleIrreversibleChoiceCommand(command = {}) {
+    if (this.currentSceneId === 'S06') return this._handleS06DefenseChoiceCommand(command);
+    if (this.currentSceneId === 'S08') return this._handleS08RetreatChoiceCommand(command);
+    return this._handleS04RouteChoiceCommand(command);
   }
 
   async _handleS04RouteChoiceCommand(command = {}) {
@@ -3014,6 +4851,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('startS04BocaiRescue', () => this.startS04BocaiRescue());
     trig.registerAction('completeS04BocaiEvacuation', () => this.completeS04BocaiEvacuation());
     trig.registerAction('openS04RouteChoice', () => this.openS04RouteChoice());
+    trig.registerAction('openS05BattleMode', () => this.openS05BattleMode());
+    trig.registerAction('prepareS05Mine', () => this.prepareS05Mine());
+    trig.registerAction('showS05MineStatus', () => this.showS05MineStatus());
+    trig.registerAction('completeS05MineRetreat', () => this.completeS05MineRetreat());
+    trig.registerAction('startS05ZhangManchengRescue', () => this.startS05ZhangManchengRescue());
+    trig.registerAction('checkS05Exit', () => this.checkS05Exit());
+    trig.registerAction('openS06DefenseChoice', () => this.openS06DefenseChoice());
+    trig.registerAction('startS06FieldConstruction', () => this.startS06FieldConstruction());
+    trig.registerAction('completeS06Recall', () => this.completeS06Recall());
+    trig.registerAction('openS07BattleMode', () => this.openS07BattleMode());
+    trig.registerAction('commitS07DelayPoint', (p = {}) => this.commitS07DelayPoint(p));
+    trig.registerAction('checkS07Exit', (p = {}) => this.checkS07Exit(p));
+    trig.registerAction('openS08RetreatChoice', () => this.openS08RetreatChoice());
+    trig.registerAction('completeS08Recall', () => this.completeS08Recall());
+    trig.registerAction('commitS10ZhangJiaoDeath', () => this.commitS10ZhangJiaoDeath());
+    trig.registerAction('acknowledgeS10TemporaryCamp', () => this.acknowledgeS10TemporaryCamp());
+    trig.registerAction('completeS10CampRelocation', () => this.completeS10CampRelocation());
+    trig.registerAction('startS10Construction', (p = {}) => this.startS10Construction(p));
+    trig.registerAction('cancelS10Construction', (p = {}) => this.cancelS10Construction(p));
     trig.registerAction('acceptS09Enlistment', () => this.acceptS09Enlistment());
     trig.registerAction('prepareS09RefugeeConflict', () => this.prepareS09RefugeeConflict());
     trig.registerAction('startS09RefugeeConflict', () => this.startS09RefugeeConflict());

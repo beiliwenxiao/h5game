@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1786404691533,
+  "createdAt": 1786471187918,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -132,6 +132,42 @@
                 "herb": 16,
                 "iron": 18,
                 "wood": 20
+              },
+              "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {},
+              "buildingLevel": 2,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.18,
+              "factionId": "han_government",
+              "id": "city.s05_wancheng",
+              "morale": 52,
+              "name": "宛城",
+              "resources": {
+                "food": 55,
+                "herb": 12,
+                "iron": 48,
+                "wood": 24
+              },
+              "schemaVersion": 2
+            },
+            {
+              "buildingDamage": {
+                "palisade.s07": 0.2
+              },
+              "buildingLevel": 1,
+              "damagePausedUntilDay": 0,
+              "damageRatio": 0.12,
+              "factionId": "han_government",
+              "id": "city.s07_xihua",
+              "morale": 58,
+              "name": "西华",
+              "resources": {
+                "food": 38,
+                "herb": 9,
+                "iron": 16,
+                "wood": 22
               },
               "schemaVersion": 2
             }
@@ -377,6 +413,12 @@
           "schemaVersion": 1,
           "characters": [],
           "completedOperations": []
+        },
+        "constructionState": {
+          "schemaVersion": 1,
+          "structures": [],
+          "pending": [],
+          "operations": []
         },
         "battleState": {
           "schemaVersion": 1,

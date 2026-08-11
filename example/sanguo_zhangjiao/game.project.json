@@ -103,6 +103,67 @@
       }
     }
   },
+  "construction": {
+    "schemaVersion": 1,
+    "maxOperations": 256,
+    "definitions": [
+      {
+        "id": "construction.campfire",
+        "name": "营地火堆",
+        "costs": [{ "itemId": "resource.wood", "quantity": 8 }],
+        "requiredProficiency": 1,
+        "requiredToolType": "shovel",
+        "duration": 30,
+        "maxDurability": 100,
+        "experience": 10,
+        "manned": false,
+        "imageId": "s10.construction.campfire"
+      },
+      {
+        "id": "construction.barricade",
+        "name": "拒马",
+        "costs": [{ "itemId": "resource.wood", "quantity": 15 }, { "itemId": "resource.iron", "quantity": 2 }],
+        "requiredProficiency": 1,
+        "requiredToolType": "shovel",
+        "duration": 60,
+        "maxDurability": 180,
+        "experience": 20,
+        "manned": false,
+        "imageId": "s10.construction.barricade"
+      },
+      {
+        "id": "construction.simple_wall",
+        "name": "简易壁垒",
+        "costs": [{ "itemId": "resource.wood", "quantity": 24 }, { "itemId": "resource.iron", "quantity": 6 }],
+        "requiredProficiency": 1,
+        "requiredToolType": "shovel",
+        "duration": 90,
+        "maxDurability": 300,
+        "experience": 30,
+        "manned": false,
+        "imageId": "s10.construction.simpleWall"
+      },
+      {
+        "id": "construction.arrow_tower",
+        "name": "箭楼",
+        "costs": [{ "itemId": "resource.wood", "quantity": 40 }, { "itemId": "resource.iron", "quantity": 10 }],
+        "requiredProficiency": 2,
+        "requiredToolType": "shovel",
+        "duration": 180,
+        "maxDurability": 400,
+        "experience": 50,
+        "manned": true,
+        "imageId": "s10.construction.arrowTower"
+      }
+    ],
+    "sites": [
+      { "id": "site.s06.field_barricade", "sceneId": "S06", "definitionId": "construction.barricade" },
+      { "id": "site.s10.campfire", "sceneId": "S10", "definitionId": "construction.campfire" },
+      { "id": "site.s10.barricade", "sceneId": "S10", "definitionId": "construction.barricade" },
+      { "id": "site.s10.simple_wall", "sceneId": "S10", "definitionId": "construction.simple_wall" },
+      { "id": "site.s10.arrow_tower", "sceneId": "S10", "definitionId": "construction.arrow_tower" }
+    ]
+  },
   "variables": {
     "storyState": {
       "month": 3,
@@ -169,6 +230,42 @@
           "palisade.s04": 0.45
         },
         "morale": 48,
+        "damagePausedUntilDay": 0
+      },
+      {
+        "schemaVersion": 2,
+        "id": "city.s05_wancheng",
+        "name": "宛城",
+        "factionId": "han_government",
+        "buildingLevel": 2,
+        "resources": {
+          "food": 55,
+          "wood": 24,
+          "iron": 48,
+          "herb": 12
+        },
+        "damageRatio": 0.18,
+        "buildingDamage": {},
+        "morale": 52,
+        "damagePausedUntilDay": 0
+      },
+      {
+        "schemaVersion": 2,
+        "id": "city.s07_xihua",
+        "name": "西华",
+        "factionId": "han_government",
+        "buildingLevel": 1,
+        "resources": {
+          "food": 38,
+          "wood": 22,
+          "iron": 16,
+          "herb": 9
+        },
+        "damageRatio": 0.12,
+        "buildingDamage": {
+          "palisade.s07": 0.2
+        },
+        "morale": 58,
         "damagePausedUntilDay": 0
       }
     ],
@@ -719,6 +816,11 @@
             "sceneId": "S09",
             "row": 1,
             "col": 1
+          },
+          {
+            "sceneId": "S10",
+            "row": 1,
+            "col": 2
           }
         ]
       },
@@ -746,9 +848,19 @@
             "col": 3
           },
           {
+            "sceneId": "S06",
+            "row": 0,
+            "col": 4
+          },
+          {
             "sceneId": "S07",
             "row": 2,
             "col": 3
+          },
+          {
+            "sceneId": "S08",
+            "row": 2,
+            "col": 4
           }
         ]
       }
@@ -770,13 +882,31 @@
     {
       "id": "S05",
       "worldMap": "region-c",
-      "productionState": "greybox",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S06",
+      "worldMap": "region-c",
+      "productionState": "playable",
       "previewOnly": false
     },
     {
       "id": "S07",
       "worldMap": "region-c",
-      "productionState": "greybox",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S08",
+      "worldMap": "region-c",
+      "productionState": "playable",
+      "previewOnly": false
+    },
+    {
+      "id": "S10",
+      "worldMap": "region-b",
+      "productionState": "playable",
       "previewOnly": false
     }
   ],
@@ -786,11 +916,20 @@
     },
     {
       "$ref": "config/battles/S04.json"
+    },
+    {
+      "$ref": "config/battles/S05.json"
+    },
+    {
+      "$ref": "config/battles/S07.json"
     }
   ],
   "rescues": [
     {
       "$ref": "config/rescues/S04.json"
+    },
+    {
+      "$ref": "config/rescues/S05.json"
     }
   ],
   "dialogues": [
@@ -993,6 +1132,82 @@
       {
         "value": "openS04RouteChoice",
         "label": "选择南阳或西华路线 openS04RouteChoice"
+      },
+      {
+        "value": "openS05BattleMode",
+        "label": "打开 S05 战役模式 openS05BattleMode"
+      },
+      {
+        "value": "startS05ZhangManchengRescue",
+        "label": "启动张曼成限时救援 startS05ZhangManchengRescue"
+      },
+      {
+        "value": "checkS05Exit",
+        "label": "完成 S05 并前往 S06 checkS05Exit"
+      },
+      {
+        "value": "openS06DefenseChoice",
+        "label": "打开 S06 守撤决策 openS06DefenseChoice"
+      },
+      {
+        "value": "startS06FieldConstruction",
+        "label": "开始 S06 缺口临时工事 startS06FieldConstruction"
+      },
+      {
+        "value": "completeS06Recall",
+        "label": "完成 S06 信使召回 completeS06Recall"
+      },
+      {
+        "value": "openS07BattleMode",
+        "label": "打开 S07 战役模式 openS07BattleMode"
+      },
+      {
+        "value": "commitS07DelayPoint",
+        "label": "提交 S07 三线阻滞点 commitS07DelayPoint"
+      },
+      {
+        "value": "checkS07Exit",
+        "label": "保存 S07 残部并前往 S08 checkS07Exit"
+      },
+      {
+        "value": "openS08RetreatChoice",
+        "label": "打开 S08 残部撤退决策 openS08RetreatChoice"
+      },
+      {
+        "value": "completeS08Recall",
+        "label": "完成 S08 信使召回 completeS08Recall"
+      },
+      {
+        "value": "commitS10ZhangJiaoDeath",
+        "label": "确认 S10 张角病逝 commitS10ZhangJiaoDeath"
+      },
+      {
+        "value": "acknowledgeS10TemporaryCamp",
+        "label": "检查 S10 临时营地 acknowledgeS10TemporaryCamp"
+      },
+      {
+        "value": "completeS10CampRelocation",
+        "label": "完成 S10 沿溪迁营 completeS10CampRelocation"
+      },
+      {
+        "value": "startS10Construction",
+        "label": "开始或查看 S10 施工 startS10Construction"
+      },
+      {
+        "value": "cancelS10Construction",
+        "label": "取消 S10 施工 cancelS10Construction"
+      },
+      {
+        "value": "prepareS05Mine",
+        "label": "准备 S05 矿坑事件 prepareS05Mine"
+      },
+      {
+        "value": "showS05MineStatus",
+        "label": "查看 S05 矿坑状态 showS05MineStatus"
+      },
+      {
+        "value": "completeS05MineRetreat",
+        "label": "完成 S05 矿坑撤退 completeS05MineRetreat"
       },
       {
         "value": "acceptS09Enlistment",
@@ -1631,6 +1846,370 @@
       ],
       "once": false,
       "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_claim_pickaxe",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "prepareS05Mine",
+          "params": {},
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_mine_status",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "showS05MineStatus",
+          "params": {},
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_mine_retreat",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "completeS05MineRetreat",
+          "params": {},
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_choose_battle_mode",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "openS05BattleMode",
+          "params": {},
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_start_zhang_mancheng_rescue",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "startS05ZhangManchengRescue",
+          "params": {}
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s05_exit_s06",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "checkS05Exit",
+          "params": {}
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s06_defense_choice",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "openS06DefenseChoice",
+          "params": {}
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s06_field_construction",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "startS06FieldConstruction", "params": {}, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s06_complete_recall",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "completeS06Recall", "params": {}, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s07_spawn_initial",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "S07"
+        }
+      },
+      "do": [
+        {
+          "action": "spawnPlacements",
+          "params": {
+            "selector": {
+              "group": "S07-yellow-turban"
+            }
+          },
+          "await": true
+        },
+        {
+          "action": "spawnPlacements",
+          "params": {
+            "selector": {
+              "group": "S07-han-army"
+            }
+          },
+          "await": true
+        },
+        {
+          "action": "showTip",
+          "params": {
+            "text": "先在军令旗选择观战或介入；介入后依次提交 north、center、south 三线阻滞点并保存残部。"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s07_choose_battle_mode",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "openS07BattleMode",
+          "params": {
+            "battleId": "battle.s07_xihua_delay"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s07_commit_delay_north",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "commitS07DelayPoint",
+          "params": {
+            "pointId": "north"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s07_commit_delay_center",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "commitS07DelayPoint",
+          "params": {
+            "pointId": "center"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s07_commit_delay_south",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "commitS07DelayPoint",
+          "params": {
+            "pointId": "south"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s07_exit_s08",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "checkS07Exit",
+          "params": {
+            "sceneId": "S08",
+            "spawnRef": "player",
+            "transition": "fadeBlack"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s08_enter",
+      "when": {
+        "type": "sceneEnter",
+        "params": {
+          "sceneId": "S08"
+        }
+      },
+      "do": [
+        {
+          "action": "showTip",
+          "params": {
+            "text": "检查泥泞马车，在决策军令旗下决定残部撤退方案，再前往召回出口。"
+          }
+        }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s08_retreat_choice",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "openS08RetreatChoice",
+          "params": {
+            "sceneId": "S08",
+            "cartId": "S08-retreat-cart"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s08_complete_recall",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "completeS08Recall",
+          "params": {
+            "sceneId": "S08",
+            "exitId": "S08-recall-exit"
+          },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_enter",
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S10" } },
+      "do": [
+        { "action": "showTip", "params": { "text": "先进入病帐确认张角病逝，再检查临时营地，最后沿溪拔营。" } }
+      ],
+      "once": true
+    },
+    {
+      "id": "trg_s10_zhangjiao_death",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "commitS10ZhangJiaoDeath", "params": {}, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_acknowledge_temporary_camp",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "acknowledgeS10TemporaryCamp", "params": {}, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_complete_relocation",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "completeS10CampRelocation", "params": {}, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_build_campfire",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.campfire", "siteId": "site.s10.campfire", "siteKey": "campfire" }, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_build_barricade",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.barricade", "siteId": "site.s10.barricade", "siteKey": "barricade" }, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_build_simple_wall",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.simple_wall", "siteId": "site.s10.simple_wall", "siteKey": "simpleWall" }, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_build_arrow_tower",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "startS10Construction", "params": { "definitionId": "construction.arrow_tower", "siteId": "site.s10.arrow_tower", "siteKey": "arrowTower" }, "await": true } ],
+      "once": false,
+      "cooldown": 0.5
     }
   ],
   "tutorials": [],
@@ -1655,6 +2234,13 @@
         "name": "粮食",
         "type": "material",
         "subType": "food",
+        "maxStack": 99
+      },
+      {
+        "id": "resource.iron",
+        "name": "铁料",
+        "type": "material",
+        "subType": "iron",
         "maxStack": 99
       },
       {
@@ -1701,6 +2287,111 @@
           "width": 40,
           "height": 40
         }
+      },
+      {
+        "id": "story.s05.mine_collapse",
+        "name": "矿坑封路塌方",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s05.environment.mineCollapse",
+        "width": 170,
+        "height": 95,
+        "showName": false,
+        "sprite": {
+          "width": 170,
+          "height": 95,
+          "isStatic": true
+        }
+      },
+      {
+        "id": "tool.worn_pickaxe",
+        "name": "破旧铁镐",
+        "type": "tool",
+        "toolType": "pickaxe",
+        "maxStack": 1,
+        "durability": 1,
+        "maxDurability": 1,
+        "imageId": "s05.tool.wornPickaxe",
+        "sprite": {
+          "width": 48,
+          "height": 48
+        }
+      },
+      {
+        "id": "tool.worn_shovel",
+        "name": "开裂的旧铲",
+        "type": "tool",
+        "toolType": "shovel",
+        "maxStack": 1,
+        "durability": 1,
+        "maxDurability": 1,
+        "imageId": "tool.wornShovel",
+        "sprite": { "width": 48, "height": 48 }
+      },
+      {
+        "id": "tool.shovel",
+        "name": "营建铁铲",
+        "type": "tool",
+        "toolType": "shovel",
+        "maxStack": 1,
+        "durability": 12,
+        "maxDurability": 12,
+        "imageId": "tool.shovel",
+        "sprite": { "width": 48, "height": 48 }
+      },
+      {
+        "id": "construction.s10.campfire",
+        "name": "已建营地火堆",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s10.construction.campfire",
+        "width": 80,
+        "height": 72,
+        "showName": false,
+        "sprite": { "width": 80, "height": 72, "isStatic": true }
+      },
+      {
+        "id": "construction.s10.barricade",
+        "name": "已建拒马",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s10.construction.barricade",
+        "width": 128,
+        "height": 84,
+        "showName": false,
+        "sprite": { "width": 128, "height": 84, "isStatic": true }
+      },
+      {
+        "id": "construction.s10.simple_wall",
+        "name": "已建简易壁垒",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s10.construction.simpleWall",
+        "width": 150,
+        "height": 100,
+        "showName": false,
+        "sprite": { "width": 150, "height": 100, "isStatic": true }
+      },
+      {
+        "id": "construction.s10.arrow_tower",
+        "name": "已建箭楼",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s10.construction.arrowTower",
+        "width": 140,
+        "height": 180,
+        "showName": false,
+        "sprite": { "width": 140, "height": 180, "isStatic": true }
       },
       {
         "id": "iron_sword",
@@ -1895,6 +2586,29 @@
           "height": 58,
           "isStatic": true
         }
+      },
+      {
+        "id": "node.s05_iron_ore",
+        "schemaVersion": 1,
+        "name": "宛城铁矿",
+        "resourceType": "iron",
+        "itemId": "resource.iron",
+        "remaining": 12,
+        "maxRemaining": 12,
+        "yieldPerGather": 4,
+        "gatherDuration": 2.2,
+        "interactionRadius": 76,
+        "requiredToolType": "pickaxe",
+        "refreshDays": 0,
+        "guardUnitIds": [],
+        "riskEvents": [],
+        "damageRatio": 0,
+        "imageId": "s05.resource.ironOre",
+        "sprite": {
+          "width": 64,
+          "height": 56,
+          "isStatic": true
+        }
       }
     ],
     "enemies": [
@@ -2031,6 +2745,51 @@
         "sprite": {
           "width": 56,
           "height": 74,
+          "isStatic": true
+        }
+      },
+      {
+        "id": "enemy.s05_zhang_mancheng",
+        "templateId": "yellow_turban_commander",
+        "name": "张曼成",
+        "level": 4,
+        "stats": {
+          "maxHp": 150,
+          "attack": 12,
+          "defense": 7,
+          "speed": 70
+        },
+        "aiType": "defensive",
+        "aiActive": false,
+        "faction": "friendly",
+        "factionId": "yellow_turban",
+        "lootTable": [],
+        "imageId": "s05.character.zhangMancheng",
+        "sprite": {
+          "width": 60,
+          "height": 82,
+          "isStatic": true
+        }
+      },
+      {
+        "id": "enemy.s05_qin_jie",
+        "templateId": "han_commander",
+        "name": "秦颉",
+        "level": 4,
+        "stats": {
+          "maxHp": 170,
+          "attack": 13,
+          "defense": 8,
+          "speed": 68
+        },
+        "aiType": "battleFormation",
+        "aiActive": false,
+        "factionId": "han_government",
+        "lootTable": [],
+        "imageId": "s05.character.qinJie",
+        "sprite": {
+          "width": 60,
+          "height": 82,
           "isStatic": true
         }
       }

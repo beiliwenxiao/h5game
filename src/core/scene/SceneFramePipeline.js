@@ -316,7 +316,10 @@ export class SceneFramePipeline {
       ? { x: dx / distance, y: dy / distance }
       : { x: 1, y: 0 };
 
-    scene.combatSystem.applyDamage(enemy, finalDamage, knockbackDirection);
+    scene.combatSystem.applyDamage(enemy, finalDamage, knockbackDirection, '投掷武器', {
+      sourceEntity: scene.playerEntity,
+      attackKind: 'throw'
+    });
     scene.floatingTextManager.addText(
       enemyTransform.position.x,
       enemyTransform.position.y - 60,

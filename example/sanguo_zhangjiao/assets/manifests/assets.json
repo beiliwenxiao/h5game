@@ -687,6 +687,177 @@
       "runtime3D": { "mode": "billboard", "sourceAssetId": "s09.environment.brokenSupplyCart" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 130, "height": 82 },
       "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s05.resource.ironOre", "imageId": "s05.resource.ironOre",
+      "category": "resource-node", "usage": ["S05", "iron", "mine"],
+      "sourceFile": "assets/images/s05/iron-ore.svg",
+      "runtime2D": { "path": "assets/images/s05/iron-ore.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.resource.ironOre" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 64, "height": 56 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s05.tool.wornPickaxe", "imageId": "s05.tool.wornPickaxe",
+      "category": "tool-world", "usage": ["S05", "tool", "pickaxe", "pickup"],
+      "sourceFile": "assets/images/s05/worn-pickaxe.svg",
+      "runtime2D": { "path": "assets/images/s05/worn-pickaxe.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.tool.wornPickaxe" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s05.environment.mineCollapse", "imageId": "s05.environment.mineCollapse",
+      "category": "environment-prop", "usage": ["S05", "mine", "collapse", "blocked-route"],
+      "sourceFile": "assets/images/s05/mine-collapse.svg",
+      "runtime2D": { "path": "assets/images/s05/mine-collapse.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.environment.mineCollapse" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 170, "height": 95 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s05.character.zhangMancheng", "imageId": "s05.character.zhangMancheng",
+      "category": "character-static", "usage": ["S05", "rescue-target", "yellow_turban"],
+      "sourceFile": "assets/images/s05/zhang-mancheng.svg",
+      "runtime2D": { "path": "assets/images/s05/zhang-mancheng.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.character.zhangMancheng" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s05.character.qinJie", "imageId": "s05.character.qinJie",
+      "category": "character-static", "usage": ["S05", "enemy", "han_government"],
+      "sourceFile": "assets/images/s05/qin-jie.svg",
+      "runtime2D": { "path": "assets/images/s05/qin-jie.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s05.character.qinJie" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 60, "height": 82 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s06.landmark.wanchengWall", "imageId": "s06.landmark.wanchengWall",
+      "category": "environment-landmark", "usage": ["S06", "wancheng", "city-wall"],
+      "sourceFile": "assets/images/s06/wancheng-wall.svg",
+      "runtime2D": { "path": "assets/images/s06/wancheng-wall.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s06.landmark.wanchengWall" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 460, "height": 250 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s07.environment.delayBarricade", "imageId": "s07.environment.delayBarricade",
+      "category": "environment-prop", "usage": ["S07", "delay-line", "barricade"],
+      "sourceFile": "assets/images/s07/delay-barricade.svg",
+      "runtime2D": { "path": "assets/images/s07/delay-barricade.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s07.environment.delayBarricade" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 110 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s08.vehicle.retreatCart", "imageId": "s08.vehicle.retreatCart",
+      "category": "vehicle-static", "usage": ["S08", "retreat", "cart", "mud"],
+      "sourceFile": "assets/images/s08/retreat-cart.svg",
+      "runtime2D": { "path": "assets/images/s08/retreat-cart.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s08.vehicle.retreatCart" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 110 },
+      "animations": [], "targetPhase": "P3", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.environment.creekCampGround", "imageId": "s10.environment.creekCampGround",
+      "category": "environment-background", "usage": ["S10", "creek", "temporary-camp"],
+      "sourceFile": "assets/images/s10/creek-camp-ground.svg",
+      "runtime2D": { "path": "assets/images/s10/creek-camp-ground.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.environment.creekCampGround" },
+      "pivot": { "x": 0, "y": 0 }, "bounds": { "width": 1280, "height": 720 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.story.zhangjiaoDeathbed", "imageId": "s10.story.zhangjiaoDeathbed",
+      "category": "story-prop", "usage": ["S10", "zhangjiao", "historical-death"],
+      "sourceFile": "assets/images/s10/zhangjiao-deathbed.svg",
+      "runtime2D": { "path": "assets/images/s10/zhangjiao-deathbed.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.story.zhangjiaoDeathbed" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 180, "height": 120 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.environment.relocationSign", "imageId": "s10.environment.relocationSign",
+      "category": "environment-prop", "usage": ["S10", "creek", "relocation"],
+      "sourceFile": "assets/images/s10/relocation-sign.svg",
+      "runtime2D": { "path": "assets/images/s10/relocation-sign.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.environment.relocationSign" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 96 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "tool.wornShovel", "imageId": "tool.wornShovel",
+      "category": "tool", "usage": ["S06", "S10", "construction", "shovel", "worn"],
+      "sourceFile": "assets/images/tools/worn-shovel.svg",
+      "runtime2D": { "path": "assets/images/tools/worn-shovel.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "tool.wornShovel" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "tool.shovel", "imageId": "tool.shovel",
+      "category": "tool", "usage": ["S06", "S10", "construction", "shovel"],
+      "sourceFile": "assets/images/tools/shovel.svg",
+      "runtime2D": { "path": "assets/images/tools/shovel.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "tool.shovel" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 48 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.construction.siteMarker", "imageId": "s10.construction.siteMarker",
+      "category": "construction-marker", "usage": ["S06", "S10", "construction", "site"],
+      "sourceFile": "assets/images/s10/construction-site-marker.svg",
+      "runtime2D": { "path": "assets/images/s10/construction-site-marker.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.siteMarker" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 72, "height": 56 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.construction.campfire", "imageId": "s10.construction.campfire",
+      "category": "construction-structure", "usage": ["S10", "construction", "campfire"],
+      "sourceFile": "assets/images/s10/campfire-structure.svg",
+      "runtime2D": { "path": "assets/images/s10/campfire-structure.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.campfire" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 80, "height": 72 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.construction.barricade", "imageId": "s10.construction.barricade",
+      "category": "construction-structure", "usage": ["S06", "S10", "construction", "barricade"],
+      "sourceFile": "assets/images/s10/barricade-structure.svg",
+      "runtime2D": { "path": "assets/images/s10/barricade-structure.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.barricade" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 128, "height": 84 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.construction.simpleWall", "imageId": "s10.construction.simpleWall",
+      "category": "construction-structure", "usage": ["S10", "construction", "simple-wall"],
+      "sourceFile": "assets/images/s10/simple-wall-structure.svg",
+      "runtime2D": { "path": "assets/images/s10/simple-wall-structure.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.simpleWall" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 150, "height": 100 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s10.construction.arrowTower", "imageId": "s10.construction.arrowTower",
+      "category": "construction-structure", "usage": ["S10", "construction", "arrow-tower", "manned"],
+      "sourceFile": "assets/images/s10/arrow-tower-structure.svg",
+      "runtime2D": { "path": "assets/images/s10/arrow-tower-structure.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "s10.construction.arrowTower" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 140, "height": 180 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "story.messengerRecallBanner", "imageId": "story.messengerRecallBanner",
+      "category": "story-prop", "usage": ["S06", "S08", "messenger", "recall"],
+      "sourceFile": "assets/images/story/messenger-recall-banner.svg",
+      "runtime2D": { "path": "assets/images/story/messenger-recall-banner.svg", "mode": "image" },
+      "runtime3D": { "mode": "billboard", "sourceAssetId": "story.messengerRecallBanner" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 80, "height": 112 },
+      "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
     }
   ]
 }

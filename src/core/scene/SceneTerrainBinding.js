@@ -87,6 +87,41 @@ export class SceneTerrainBinding {
     scene._terrainCollision.resolveTerrains(terrains, scene.entities);
   }
 
+  /**
+   * 按场景局部坐标安装或移除运行时碰撞体。
+   * 动态工事、塌方等表现可以与静态场景共用同一碰撞解算器，且 worldOffset 只应用一次。
+   */
+  setDynamicCollider({ sceneId = null, id, shape = null, enabled = true } = {}) {
+    if (!id) return false;
+    const scene = this.scene;
+    const terrains = scene._terrains?.length ? scene._terrains : (scene.terrain ? [scene.terrain] : []);
+    const terrain = terrains.find(candidate => !sceneId || candidate?._editorSceneId === sceneId);
+    if (!terrain) return false;
+    terrain._collisionShapes = Array.isArray(terrain._collisionShapes) ? terrain._collisionShapes : [];
+    const marker = `dynamic:${id}`;
+    for (let index = terrain._collisionShapes.length - 1; index >= 0; index--) {
+      if (terrain._collisionShapes[index]?.__dynamicColliderId === marker) {
+        terrain._collisionShapes.splice(index, 1);
+      }
+    }
+    if (!enabled) return true;
+    if (!shape || typeof shape !== 'object') return false;
+
+    const offset = terrain.worldOffset || { x: 0, y: 0 };
+    const projected = { ...shape, id: shape.id || id, __dynamicColliderId: marker, collide: true };
+    if (Array.isArray(shape.points)) {
+      projected.points = shape.points.map(point => [
+        Number(point?.[0]) + (Number(offset.x) || 0),
+        Number(point?.[1]) + (Number(offset.y) || 0)
+      ]);
+    } else {
+      projected.x = Number(shape.x) + (Number(offset.x) || 0);
+      projected.y = Number(shape.y) + (Number(offset.y) || 0);
+    }
+    terrain._collisionShapes.push(projected);
+    return true;
+  }
+
   updateMinimap(minimap) {
     const scene = this.scene;
     if (!minimap) return;

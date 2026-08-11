@@ -1,0 +1,489 @@
+/************************************************************
+ * 通用营建领域系统：前置校验、材料托管、工期、工具损毁与幂等结果。
+ ************************************************************/
+
+const SNAPSHOT_VERSION = 1;
+const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+const normalizeId = value => typeof value === 'string' ? value.trim() : '';
+
+export class ConstructionSystem {
+  constructor({ inventoryTransactions, proficiencySystem = null, itemResolver = null,
+    validateSite = null, onEvent = null, maxOperations = 256 } = {}) {
+    if (!inventoryTransactions) throw new TypeError('ConstructionSystem requires inventoryTransactions');
+    this.inventoryTransactions = inventoryTransactions;
+    this.proficiencySystem = proficiencySystem;
+    this.itemResolver = typeof itemResolver === 'function' ? itemResolver : () => null;
+    this.validateSite = typeof validateSite === 'function' ? validateSite : () => ({ ok: true });
+    this.onEvent = typeof onEvent === 'function' ? onEvent : () => {};
+    this.maxOperations = Math.max(16, Math.floor(Number(maxOperations) || 256));
+    this.definitions = new Map();
+    this.pending = new Map();
+    this.structures = new Map();
+    this.operations = new Map();
+    this.toolReservations = new Map();
+  }
+
+  registerDefinitions(definitions = []) {
+    if (!Array.isArray(definitions) || definitions.length === 0) {
+      return { ok: false, code: 'missingDefinitions' };
+    }
+    const prepared = new Map();
+    for (const source of definitions) {
+      const definition = this._normalizeDefinition(source);
+      if (!definition.ok) return definition;
+      if (prepared.has(definition.value.id)) {
+        return { ok: false, code: 'duplicateDefinition', id: definition.value.id };
+      }
+      prepared.set(definition.value.id, definition.value);
+    }
+    this.definitions = prepared;
+    return { ok: true, count: prepared.size };
+  }
+
+  getDefinition(id) { return clone(this.definitions.get(id) || null); }
+  getStructure(siteId) { return clone(this.structures.get(siteId) || null); }
+  getPending(siteId) { return this._describePending(this.pending.get(siteId)); }
+  getStructures() { return [...this.structures.values()].map(clone); }
+
+  start({ characterId, inventory, definitionId, siteId, operationId,
+    cityDamageRatio = 0, context = null } = {}) {
+    const character = normalizeId(characterId);
+    const definitionKey = normalizeId(definitionId);
+    const siteKey = normalizeId(siteId);
+    const opId = normalizeId(operationId);
+    if (!character || !definitionKey || !siteKey || !opId || !inventory) {
+      return { ok: false, code: 'invalidInput' };
+    }
+    const fingerprint = JSON.stringify([character, definitionKey, siteKey, Number(cityDamageRatio) > 0.5]);
+    const known = this.operations.get(opId);
+    if (known) {
+      return known.fingerprint === fingerprint
+        ? { ...clone(known.result), idempotent: true }
+        : { ok: false, code: 'operationIdConflict', operationId: opId };
+    }
+
+    const definition = this.definitions.get(definitionKey);
+    if (!definition) return { ok: false, code: 'unknownDefinition', definitionId: definitionKey };
+
+    // 固定前置顺序：占用 → 熟练度 → 材料 → 工具 → 位置；失败不扣材料。
+    if (this.pending.has(siteKey)) return { ok: false, code: 'siteBusy', siteId: siteKey };
+    if (this.structures.has(siteKey)) return { ok: false, code: 'siteOccupied', siteId: siteKey };
+    const level = Number(this.proficiencySystem?.getState?.(character, 'construction')?.level) || 0;
+    if (level < definition.requiredProficiency) {
+      return { ok: false, code: 'proficiencyRequired', required: definition.requiredProficiency, actual: level };
+    }
+
+    const reservedItems = [];
+    for (const entry of definition.costs) {
+      if (this.inventoryTransactions.previewRemove(inventory, entry.itemId, entry.quantity).remainder > 0) {
+        return { ok: false, code: 'materialsRequired', itemId: entry.itemId, quantity: entry.quantity };
+      }
+      const item = this.itemResolver(entry.itemId);
+      if (!item?.id) return { ok: false, code: 'unknownMaterialDefinition', itemId: entry.itemId };
+      reservedItems.push({ item: clone(item), quantity: entry.quantity });
+    }
+
+    const tool = this._findTool(inventory, definition.requiredToolType);
+    if (definition.requiredToolType && !tool) {
+      return { ok: false, code: 'toolRequired', toolType: definition.requiredToolType };
+    }
+    if (tool && !normalizeId(tool.instanceId)) {
+      return { ok: false, code: 'toolInstanceRequired', toolType: definition.requiredToolType };
+    }
+    if (tool && this.toolReservations.has(tool.instanceId)) {
+      return { ok: false, code: 'toolReserved', toolInstanceId: tool.instanceId };
+    }
+
+    const site = this.validateSite({
+      siteId: siteKey,
+      characterId: character,
+      definition: clone(definition),
+      context: clone(context)
+    }) || { ok: false };
+    if (site.ok === false) return { ok: false, code: site.code || 'invalidSite', siteId: siteKey };
+
+    const materialOperationId = `${opId}:materials`;
+    const removed = this.inventoryTransactions.commit({
+      type: 'batchRemove', inventory, entries: definition.costs, operationId: materialOperationId
+    });
+    if (!removed.ok) {
+      this.inventoryTransactions.forgetOperation?.(materialOperationId);
+      return { ok: false, code: removed.code || 'materialCommitFailed' };
+    }
+
+    const emergency = Number(cityDamageRatio) > 0.5;
+    const pending = {
+      characterId: character,
+      inventory,
+      definition,
+      definitionId: definitionKey,
+      siteId: siteKey,
+      operationId: opId,
+      operationFingerprint: fingerprint,
+      materialOperationId,
+      elapsed: 0,
+      duration: emergency ? definition.duration * 0.5 : definition.duration,
+      emergency,
+      toolInstanceId: tool?.instanceId || null,
+      toolId: tool?.id || null,
+      reservedCosts: clone(definition.costs),
+      reservedItems,
+      status: 'active',
+      cancelReason: null
+    };
+    this.pending.set(siteKey, pending);
+    if (pending.toolInstanceId) this.toolReservations.set(pending.toolInstanceId, siteKey);
+    const result = {
+      ok: true,
+      status: 'active',
+      operationId: opId,
+      siteId: siteKey,
+      definitionId: definitionKey,
+      duration: pending.duration,
+      emergency
+    };
+    this._remember(opId, fingerprint, result);
+    this._emit('constructionStarted', result);
+    return clone(result);
+  }
+
+  update(deltaTime) {
+    const terminal = [];
+    const elapsed = Math.max(0, Number(deltaTime) || 0);
+    for (const [siteId, pending] of [...this.pending]) {
+      if (pending.status !== 'active') continue;
+      pending.elapsed = Math.min(pending.duration, pending.elapsed + elapsed);
+      this._emit('constructionProgress', this._describePending(pending));
+      if (pending.elapsed >= pending.duration) terminal.push(this._complete(siteId, pending));
+    }
+    return terminal;
+  }
+
+  cancel(siteId, reason = 'cancelled') {
+    const pending = this.pending.get(normalizeId(siteId));
+    if (!pending) return { ok: false, code: 'noPendingConstruction' };
+    return pending.status === 'refundPending'
+      ? this.retryRefund(pending.siteId)
+      : this._cancel(pending.siteId, pending, reason);
+  }
+
+  retryRefund(siteId) {
+    const pending = this.pending.get(normalizeId(siteId));
+    if (!pending || pending.status !== 'refundPending') {
+      return { ok: false, code: 'noPendingRefund' };
+    }
+    return this._refundAndClose(pending.siteId, pending, pending.cancelReason || 'cancelled');
+  }
+
+  captureRuntime() {
+    return {
+      pending: new Map([...this.pending].map(([id, value]) => [id, this._cloneRuntimePending(value)])),
+      structures: new Map([...this.structures].map(([id, value]) => [id, clone(value)])),
+      operations: new Map([...this.operations].map(([id, value]) => [id, clone(value)]))
+    };
+  }
+
+  restoreRuntime(snapshot) {
+    if (!(snapshot?.pending instanceof Map)
+      || !(snapshot?.structures instanceof Map)
+      || !(snapshot?.operations instanceof Map)) return false;
+    this.pending = new Map([...snapshot.pending].map(([id, value]) => [id, this._cloneRuntimePending(value)]));
+    this.structures = new Map([...snapshot.structures].map(([id, value]) => [id, clone(value)]));
+    this.operations = new Map([...snapshot.operations].map(([id, value]) => [id, clone(value)]));
+    this._rebuildToolReservations();
+    return true;
+  }
+
+  serialize() {
+    return {
+      schemaVersion: SNAPSHOT_VERSION,
+      structures: [...this.structures.values()].map(clone),
+      pending: [...this.pending.values()].map(value => ({
+        ...this._describePending(value),
+        characterId: value.characterId,
+        materialOperationId: value.materialOperationId,
+        operationFingerprint: value.operationFingerprint,
+        reservedCosts: clone(value.reservedCosts),
+        reservedItems: clone(value.reservedItems),
+        cancelReason: value.cancelReason || null
+      })),
+      operations: [...this.operations.entries()].map(([operationId, entry]) => ({
+        operationId,
+        fingerprint: entry.fingerprint,
+        result: clone(entry.result)
+      }))
+    };
+  }
+
+  validateSerialized(data = {}, options = {}) {
+    const prepared = this._prepareSerialized(data, options);
+    return prepared.ok ? { ok: true, errors: [] } : { ok: false, errors: prepared.errors };
+  }
+
+  deserialize(data = {}, options = {}) {
+    const prepared = this._prepareSerialized(data, options);
+    if (!prepared.ok) return { ok: false, errors: prepared.errors };
+    this.structures = prepared.structures;
+    this.pending = prepared.pending;
+    this.operations = prepared.operations;
+    this._rebuildToolReservations();
+    return { ok: true, errors: [] };
+  }
+
+  _complete(siteId, pending) {
+    const tool = this._findReservedTool(pending.inventory, pending);
+    if (pending.definition.requiredToolType && !tool) return this._cancel(siteId, pending, 'toolMissing');
+    if (tool) {
+      tool.durability = Math.max(0, Math.floor(Number(tool.durability) || 0) - 1);
+      if (tool.durability === 0) return this._cancel(siteId, pending, 'toolBroken');
+    }
+
+    const maxDurability = pending.definition.maxDurability;
+    const structure = {
+      schemaVersion: 1,
+      id: `${pending.definitionId}:${siteId}`,
+      siteId,
+      definitionId: pending.definitionId,
+      status: 'completed',
+      maxDurability,
+      durability: pending.emergency ? Math.max(1, Math.floor(maxDurability * 0.5)) : maxDurability,
+      manned: pending.definition.manned,
+      operationId: pending.operationId
+    };
+    this.pending.delete(siteId);
+    this._releaseTool(pending);
+    this.structures.set(siteId, structure);
+    const experienceResult = this.proficiencySystem?.gainExperience?.({
+      characterId: pending.characterId,
+      type: 'construction',
+      amount: pending.definition.experience,
+      operationId: `${pending.operationId}:proficiency`
+    }) || { ok: true, skipped: true };
+    const result = {
+      ok: true,
+      status: 'completed',
+      operationId: pending.operationId,
+      structure: clone(structure),
+      experienceResult: clone(experienceResult)
+    };
+    this._remember(pending.operationId, pending.operationFingerprint, result);
+    this._emit('constructionCompleted', result);
+    return clone(result);
+  }
+
+  _cancel(siteId, pending, reason) {
+    pending.status = 'refundPending';
+    pending.cancelReason = reason;
+    return this._refundAndClose(siteId, pending, reason);
+  }
+
+  _refundAndClose(siteId, pending, reason) {
+    const refundId = `${pending.operationId}:refund`;
+    const refunded = this.inventoryTransactions.commit({
+      type: 'batchAdd',
+      inventory: pending.inventory,
+      entries: pending.reservedItems,
+      allowPartial: false,
+      operationId: refundId
+    });
+    if (!refunded.ok) {
+      this.inventoryTransactions.forgetOperation?.(refundId);
+      return { ok: false, code: 'refundPending', reason, status: 'refundPending', siteId };
+    }
+    this.pending.delete(siteId);
+    this._releaseTool(pending);
+    const result = {
+      ok: false,
+      code: reason,
+      status: 'cancelled',
+      refunded: true,
+      operationId: pending.operationId,
+      siteId,
+      definitionId: pending.definitionId
+    };
+    this._remember(pending.operationId, pending.operationFingerprint, result);
+    this._emit('constructionCancelled', result);
+    return clone(result);
+  }
+
+  _findTool(inventory, toolType) {
+    if (!toolType) return null;
+    return (inventory?.slots || []).map(stack => stack?.item).find(item => (
+      item?.toolType === toolType
+      && Number(item.durability) > 0
+      && normalizeId(item.instanceId)
+      && !this.toolReservations.has(item.instanceId)
+    )) || null;
+  }
+
+  _findReservedTool(inventory, pending) {
+    if (!pending.toolInstanceId) return null;
+    return (inventory?.slots || []).map(stack => stack?.item)
+      .find(item => item?.instanceId === pending.toolInstanceId) || null;
+  }
+
+  _releaseTool(pending) {
+    if (pending?.toolInstanceId) this.toolReservations.delete(pending.toolInstanceId);
+  }
+
+  _rebuildToolReservations() {
+    this.toolReservations = new Map();
+    for (const pending of this.pending.values()) {
+      if (pending.toolInstanceId) this.toolReservations.set(pending.toolInstanceId, pending.siteId);
+    }
+  }
+
+  _describePending(pending) {
+    if (!pending) return null;
+    return {
+      definitionId: pending.definitionId,
+      siteId: pending.siteId,
+      operationId: pending.operationId,
+      status: pending.status,
+      elapsed: pending.elapsed,
+      duration: pending.duration,
+      progress: pending.duration > 0 ? pending.elapsed / pending.duration : 1,
+      emergency: pending.emergency,
+      toolInstanceId: pending.toolInstanceId,
+      toolId: pending.toolId
+    };
+  }
+
+  _cloneRuntimePending(value) {
+    return {
+      ...value,
+      inventory: value.inventory,
+      definition: clone(value.definition),
+      reservedCosts: clone(value.reservedCosts),
+      reservedItems: clone(value.reservedItems)
+    };
+  }
+
+  _prepareSerialized(data, { resolveInventory = null } = {}) {
+    const errors = [];
+    if (!data || Number(data.schemaVersion) !== SNAPSHOT_VERSION) {
+      return { ok: false, errors: [{ code: 'invalidSnapshot', path: 'schemaVersion' }] };
+    }
+    if (!Array.isArray(data.structures) || !Array.isArray(data.pending) || !Array.isArray(data.operations)) {
+      return { ok: false, errors: [{ code: 'invalidSnapshot', path: '', message: '营建存档集合必须为数组' }] };
+    }
+    const structures = new Map();
+    data.structures.forEach((source, index) => {
+      const siteId = normalizeId(source?.siteId);
+      const definitionId = normalizeId(source?.definitionId);
+      if (!siteId || !this.definitions.has(definitionId) || structures.has(siteId)) {
+        errors.push({ code: 'invalidStructure', path: `structures[${index}]` });
+        return;
+      }
+      structures.set(siteId, clone(source));
+    });
+
+    const pending = new Map();
+    data.pending.forEach((source, index) => {
+      const siteId = normalizeId(source?.siteId);
+      const definitionId = normalizeId(source?.definitionId);
+      const characterId = normalizeId(source?.characterId);
+      const operationId = normalizeId(source?.operationId);
+      const definition = this.definitions.get(definitionId);
+      const inventory = typeof resolveInventory === 'function'
+        ? resolveInventory(characterId, clone(source))
+        : null;
+      if (!siteId || !characterId || !operationId || !definition || !inventory
+        || pending.has(siteId) || structures.has(siteId)) {
+        errors.push({ code: 'invalidPendingConstruction', path: `pending[${index}]` });
+        return;
+      }
+      const duration = Number(source.duration);
+      const elapsed = Number(source.elapsed);
+      const status = source.status === 'refundPending' ? 'refundPending' : 'active';
+      if (!Number.isFinite(duration) || duration <= 0 || !Number.isFinite(elapsed) || elapsed < 0) {
+        errors.push({ code: 'invalidPendingTime', path: `pending[${index}]` });
+        return;
+      }
+      const value = {
+        characterId,
+        inventory,
+        definition,
+        definitionId,
+        siteId,
+        operationId,
+        operationFingerprint: normalizeId(source.operationFingerprint),
+        materialOperationId: normalizeId(source.materialOperationId) || `${operationId}:materials`,
+        elapsed: Math.min(duration, elapsed),
+        duration,
+        emergency: source.emergency === true,
+        toolInstanceId: normalizeId(source.toolInstanceId) || null,
+        toolId: normalizeId(source.toolId) || null,
+        reservedCosts: clone(source.reservedCosts || definition.costs),
+        reservedItems: clone(source.reservedItems || []),
+        status,
+        cancelReason: source.cancelReason || null
+      };
+      if (definition.requiredToolType && !this._findReservedTool(inventory, value)) {
+        errors.push({ code: 'reservedToolMissing', path: `pending[${index}].toolInstanceId` });
+        return;
+      }
+      if (!Array.isArray(value.reservedItems) || value.reservedItems.some(entry => !entry?.item?.id || !(entry.quantity > 0))) {
+        errors.push({ code: 'invalidReservedItems', path: `pending[${index}].reservedItems` });
+        return;
+      }
+      pending.set(siteId, value);
+    });
+
+    const operations = new Map();
+    data.operations.forEach((source, index) => {
+      const operationId = normalizeId(source?.operationId);
+      if (!operationId || !normalizeId(source?.fingerprint) || !source?.result || operations.has(operationId)) {
+        errors.push({ code: 'invalidOperation', path: `operations[${index}]` });
+        return;
+      }
+      operations.set(operationId, { fingerprint: source.fingerprint, result: clone(source.result) });
+    });
+    return errors.length ? { ok: false, errors } : { ok: true, structures, pending, operations };
+  }
+
+  _normalizeDefinition(source) {
+    const id = normalizeId(source?.id);
+    if (!id || !Array.isArray(source.costs) || source.costs.length === 0) {
+      return { ok: false, code: 'invalidDefinition', id };
+    }
+    const costs = source.costs.map(entry => ({
+      itemId: normalizeId(entry?.itemId),
+      quantity: Math.floor(Number(entry?.quantity) || 0)
+    }));
+    if (costs.some(entry => !entry.itemId || entry.quantity <= 0)) {
+      return { ok: false, code: 'invalidCost', id };
+    }
+    return {
+      ok: true,
+      value: {
+        id,
+        name: source.name || id,
+        costs,
+        requiredProficiency: Math.max(0, Math.floor(Number(source.requiredProficiency) || 0)),
+        requiredToolType: normalizeId(source.requiredToolType) || null,
+        duration: Math.max(0.1, Number(source.duration) || 1),
+        maxDurability: Math.max(1, Math.floor(Number(source.maxDurability) || 100)),
+        experience: Math.max(1, Math.floor(Number(source.experience) || 1)),
+        manned: source.manned === true,
+        imageId: normalizeId(source.imageId) || null
+      }
+    };
+  }
+
+  _remember(operationId, fingerprint, result) {
+    if (!operationId) return;
+    this.operations.set(operationId, { fingerprint, result: clone(result) });
+    while (this.operations.size > this.maxOperations) this.operations.delete(this.operations.keys().next().value);
+  }
+
+  _emit(event, payload) {
+    try {
+      this.onEvent(event, clone(payload));
+    } catch (error) {
+      console.warn(`[ConstructionSystem] ${event} listener failed`, error);
+    }
+  }
+}
+
+export default ConstructionSystem;

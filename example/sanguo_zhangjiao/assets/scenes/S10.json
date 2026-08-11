@@ -1,0 +1,40 @@
+{
+  "id":"S10","name":"S10·广城外围","width":1280,"height":720,"backgroundColor":"#49483f","type":"terrain","sceneType":"worldChunk","worldMap":"region-b","productionState":"playable","previewOnly":false,"presentationProfile":"sanguo-zhangjiao-presentation-v1",
+  "composition":{"complexity":"medium","focalPoint":"S10-zhangjiao-deathbed","primaryRoute":["S10-spawn-entry","S10-zhangjiao-deathbed","S10-temporary-camp","S10-relocation-sign","S10-site-campfire","S10-site-arrow-tower"],"cameraFrame":{"width":1280,"height":720}},
+  "assetBudget":{"environmentModules":8,"actorVariants":3,"interactiveProps":12,"vfx":1,"audioLayers":0},
+  "layers":[
+    {"id":"layer_bg","name":"溪畔营地背景","visible":true,"locked":false,"objects":[{"id":"S10-bg-creek-camp","type":"image","imageId":"s10.environment.creekCampGround","x":0,"y":0,"width":1280,"height":720,"rotation":0}]},
+    {"id":"layer_deco","name":"剧情地标与施工点","visible":true,"locked":false,"objects":[
+      {"id":"S10-zhangjiao-deathbed","type":"image","imageId":"s10.story.zhangjiaoDeathbed","name":"张角病榻","x":185,"y":155,"width":180,"height":120,"rotation":0,"depthSort":true,"sortY":275},
+      {"id":"S10-temporary-camp","type":"image","imageId":"s09.environment.yellowTurbanTent","name":"离水源较远的临时营地","x":500,"y":430,"width":180,"height":120,"rotation":0,"depthSort":true,"sortY":550},
+      {"id":"S10-relocation-sign","type":"image","imageId":"s10.environment.relocationSign","name":"沿溪迁营路标","x":1000,"y":255,"width":72,"height":96,"rotation":0,"depthSort":true,"sortY":351},
+      {"id":"S10-site-campfire","type":"image","imageId":"s10.construction.siteMarker","name":"火堆施工点","x":380,"y":230,"width":72,"height":56,"rotation":0,"depthSort":true,"sortY":286},
+      {"id":"S10-site-barricade","type":"image","imageId":"s10.construction.siteMarker","name":"拒马施工点","x":650,"y":170,"width":72,"height":56,"rotation":0,"depthSort":true,"sortY":226},
+      {"id":"S10-site-simple-wall","type":"image","imageId":"s10.construction.siteMarker","name":"简易壁垒施工点","x":730,"y":535,"width":72,"height":56,"rotation":0,"depthSort":true,"sortY":591},
+      {"id":"S10-site-arrow-tower","type":"image","imageId":"s10.construction.siteMarker","name":"箭楼施工点","x":1035,"y":500,"width":72,"height":56,"rotation":0,"depthSort":true,"sortY":556}
+    ]},
+    {"id":"layer_placement","name":"出生点、施工补给与完成工事","visible":true,"locked":false,"objects":[
+      {"id":"S10-spawn-entry","type":"spawn","name":"广城外围入口","ref":"player","x":95,"y":625},
+      {"id":"S10-worn-shovel","type":"ref","kind":"item","ref":"tool.worn_shovel","group":"S10-construction-supplies","tags":["pickup","tool","construction","worn"],"x":245,"y":610,"overrides":{"instanceId":"S10-tool-worn-shovel-1","durability":1,"maxDurability":1}},
+      {"id":"S10-shovel","type":"ref","kind":"item","ref":"tool.shovel","group":"S10-construction-supplies","tags":["pickup","tool","construction"],"x":310,"y":610,"overrides":{"instanceId":"S10-tool-shovel-1","durability":12,"maxDurability":12}},
+      {"id":"S10-supply-wood","type":"ref","kind":"item","ref":"resource.wood","group":"S10-construction-supplies","tags":["pickup","construction","supply"],"x":385,"y":610,"overrides":{"quantity":87}},
+      {"id":"S10-supply-iron","type":"ref","kind":"item","ref":"resource.iron","group":"S10-construction-supplies","tags":["pickup","construction","supply"],"x":460,"y":610,"overrides":{"quantity":18}},
+      {"id":"S10-built-campfire","type":"ref","kind":"item","ref":"construction.s10.campfire","group":"S10-built-campfire","spawnWhen":{"blackboardKey":"storyState","path":"s10Construction.completedSites.campfire","equals":true},"x":416,"y":286},
+      {"id":"S10-built-barricade","type":"ref","kind":"item","ref":"construction.s10.barricade","group":"S10-built-barricade","spawnWhen":{"blackboardKey":"storyState","path":"s10Construction.completedSites.barricade","equals":true},"x":686,"y":226},
+      {"id":"S10-built-simple-wall","type":"ref","kind":"item","ref":"construction.s10.simple_wall","group":"S10-built-simple-wall","spawnWhen":{"blackboardKey":"storyState","path":"s10Construction.completedSites.simpleWall","equals":true},"x":766,"y":591},
+      {"id":"S10-built-arrow-tower","type":"ref","kind":"item","ref":"construction.s10.arrow_tower","group":"S10-built-arrow-tower","spawnWhen":{"blackboardKey":"storyState","path":"s10Construction.completedSites.arrowTower","equals":true},"x":1071,"y":556}
+    ]},
+    {"id":"layer_logic","name":"视觉化触发器","visible":true,"locked":false,"objects":[
+      {"id":"S10-binding-zhangjiao-death","type":"trigger","name":"确认张角病逝","triggerId":"trg_s10_zhangjiao_death","x":155,"y":125,"width":240,"height":180,"event":"interact","targetMode":"id","target":"S10-zhangjiao-deathbed","radius":120,"pointerRadius":70,"prompt":"{interact}进入病帐，见张角最后一面"},
+      {"id":"S10-binding-temporary-camp","type":"trigger","name":"检查临时营地","triggerId":"trg_s10_acknowledge_temporary_camp","x":470,"y":400,"width":240,"height":180,"event":"interact","targetMode":"id","target":"S10-temporary-camp","radius":120,"pointerRadius":70,"prompt":"{interact}检查临时营地的防守与水源"},
+      {"id":"S10-binding-relocation","type":"trigger","name":"沿溪拔营","triggerId":"trg_s10_complete_relocation","x":950,"y":215,"width":170,"height":170,"event":"interact","targetMode":"id","target":"S10-relocation-sign","radius":115,"pointerRadius":64,"prompt":"{interact}拔营并沿溪寻找筑城地"},
+      {"id":"S10-binding-build-campfire","type":"trigger","name":"修筑火堆","triggerId":"trg_s10_build_campfire","x":350,"y":200,"width":132,"height":116,"event":"interact","targetMode":"id","target":"S10-site-campfire","radius":105,"pointerRadius":58,"prompt":"{interact}在此修筑火堆"},
+      {"id":"S10-binding-build-barricade","type":"trigger","name":"修筑拒马","triggerId":"trg_s10_build_barricade","x":620,"y":140,"width":132,"height":116,"event":"interact","targetMode":"id","target":"S10-site-barricade","radius":105,"pointerRadius":58,"prompt":"{interact}在此修筑拒马"},
+      {"id":"S10-binding-build-simple-wall","type":"trigger","name":"修筑简易壁垒","triggerId":"trg_s10_build_simple_wall","x":700,"y":505,"width":132,"height":116,"event":"interact","targetMode":"id","target":"S10-site-simple-wall","radius":105,"pointerRadius":58,"prompt":"{interact}在此修筑简易壁垒"},
+      {"id":"S10-binding-build-arrow-tower","type":"trigger","name":"修筑箭楼","triggerId":"trg_s10_build_arrow_tower","x":1005,"y":470,"width":132,"height":116,"event":"interact","targetMode":"id","target":"S10-site-arrow-tower","radius":105,"pointerRadius":58,"prompt":"{interact}在此修筑箭楼（营建 2 级）"}
+    ]}
+  ],
+  "decorations":[],"colliders":[],
+  "imageAssets":{"s10.environment.creekCampGround":{"src":"../example/sanguo_zhangjiao/assets/images/s10/creek-camp-ground.svg","name":"广城外围溪畔营地"},"s10.story.zhangjiaoDeathbed":{"src":"../example/sanguo_zhangjiao/assets/images/s10/zhangjiao-deathbed.svg","name":"张角病榻"},"s09.environment.yellowTurbanTent":{"src":"../example/sanguo_zhangjiao/assets/images/s09/yellow-turban-tent.svg","name":"黄巾临时营帐"},"s10.environment.relocationSign":{"src":"../example/sanguo_zhangjiao/assets/images/s10/relocation-sign.svg","name":"沿溪迁营路标"},"s10.construction.siteMarker":{"src":"../example/sanguo_zhangjiao/assets/images/s10/construction-site-marker.svg","name":"施工规划标记"}},
+  "updatedAt":"2026-08-12T00:00:00.000Z"
+}

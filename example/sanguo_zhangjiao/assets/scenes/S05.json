@@ -1,14 +1,63 @@
 {
-  "id":"S05","name":"S05·宛城外围（灰盒入口）","width":1280,"height":720,"backgroundColor":"#5b4b3b","type":"terrain","sceneType":"worldChunk","worldMap":"region-c","productionState":"greybox","previewOnly":false,"presentationProfile":"sanguo-zhangjiao-presentation-v1",
-  "composition":{"complexity":"low","focalPoint":"S05-route-marker","primaryRoute":["S05-spawn-entry","S05-route-marker"],"cameraFrame":{"width":1280,"height":720}},
-  "assetBudget":{"environmentModules":3,"actorVariants":0,"interactiveProps":1,"vfx":0,"audioLayers":0},
-  "layers":[
-    {"id":"layer_bg","name":"宛城外围灰盒","visible":true,"locked":false,"objects":[{"id":"S05-bg","type":"image","imageId":"graybox.naturalTerrain","x":0,"y":0,"width":1280,"height":720,"rotation":0}]},
-    {"id":"layer_ground","name":"南阳进军路线","visible":true,"locked":false,"objects":[{"id":"S05-ground","type":"shape","shapeType":"polygon","name":"宛城外郭地面","points":[[0,0],[1280,0],[1280,720],[0,720]],"fillMode":"color","fill":"#5b4b3b","opacity":0.34,"strokeWidth":0},{"id":"S05-main-route","type":"shape","shapeType":"polygon","name":"通往宛城的军道","points":[[80,430],[80,610],[1180,420],[1180,240]],"fillMode":"color","fill":"#947454","opacity":0.76,"stroke":"#c39b68","strokeWidth":3,"walkable":true}]},
-    {"id":"layer_landmark","name":"路线地标","visible":true,"locked":false,"objects":[{"id":"S05-route-marker","type":"image","imageId":"graybox.battlefieldUnit","name":"南阳军令旗","x":610,"y":315,"width":72,"height":72,"rotation":0,"depthSort":true,"sortY":387}]},
-    {"id":"layer_placement","name":"出生点","visible":true,"locked":false,"objects":[{"id":"S05-spawn-entry","type":"spawn","name":"南阳路线入口","ref":"player","x":130,"y":520}]}
+  "id": "S05", "name": "S05·宛城外围", "width": 1280, "height": 720,
+  "backgroundColor": "#554b3d", "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-c",
+  "productionState": "playable", "previewOnly": false, "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "composition": { "complexity": "medium", "focalPoint": "S05-zone-battle-command", "primaryRoute": ["S05-spawn-entry", "S05-zone-battle-command", "S05-zone-s06-exit"], "cameraFrame": { "width": 1280, "height": 720 } },
+  "assetBudget": { "environmentModules": 7, "actorVariants": 4, "interactiveProps": 5, "vfx": 2, "audioLayers": 0 },
+  "layers": [
+    { "id": "layer_bg", "name": "宛城外围背景", "visible": true, "locked": false, "objects": [
+      { "id": "S05-bg-wancheng", "type": "image", "imageId": "graybox.naturalTerrain", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0 }
+    ] },
+    { "id": "layer_ground", "name": "军道、矿坑与伏兵区", "visible": true, "locked": false, "objects": [
+      { "id": "S05-ground", "type": "shape", "shapeType": "polygon", "name": "宛城外郭地面", "points": [[0,0],[1280,0],[1280,720],[0,720]], "fillMode": "color", "fill": "#554b3d", "opacity": 0.38, "strokeWidth": 0 },
+      { "id": "S05-main-route", "type": "shape", "shapeType": "polygon", "name": "南阳进军道", "points": [[60,560],[145,680],[1195,315],[1130,190]], "fillMode": "color", "fill": "#8d7655", "opacity": 0.76, "stroke": "#c0a06a", "strokeWidth": 3, "walkable": true },
+      { "id": "S05-mine-pit-visual", "type": "shape", "shapeType": "polygon", "name": "废弃矿坑视觉区", "points": [[165,150],[445,105],[525,305],[225,350]], "fillMode": "color", "fill": "#272825", "opacity": 0.78, "stroke": "#746b56", "strokeWidth": 4 },
+      { "id": "S05-ambush-visual", "type": "shape", "shapeType": "polygon", "name": "官军伏兵视觉区", "points": [[770,120],[1095,105],[1160,275],[835,305]], "fillMode": "color", "fill": "#6f3432", "opacity": 0.35, "stroke": "#b75c54", "strokeWidth": 3 },
+      { "id": "S05-zone-ambush", "type": "region", "name": "矿坑伏兵区", "regionId": "S05-mine-ambush", "x": 760, "y": 105, "width": 400, "height": 215 },
+      { "id": "S05-zone-mine-retreat", "type": "region", "name": "矿坑撤退区", "regionId": "S05-mine-retreat", "x": 110, "y": 350, "width": 155, "height": 110 }
+    ] },
+    { "id": "layer_landmarks", "name": "军令与战场地标", "visible": true, "locked": false, "objects": [
+      { "id": "S05-zone-battle-command", "type": "region", "name": "宛城外围军令台", "regionId": "S05-battle-command", "x": 505, "y": 430, "width": 180, "height": 125 },
+      { "id": "S05-command-marker", "type": "image", "imageId": "graybox.battlefieldUnit", "name": "宛城战役军令旗", "x": 560, "y": 445, "width": 72, "height": 72, "rotation": 0, "depthSort": true, "sortY": 517 },
+      { "id": "S05-iron-ore-visual", "type": "image", "imageId": "s05.resource.ironOre", "name": "矿坑铁矿", "x": 285, "y": 235, "width": 64, "height": 56, "rotation": 0, "depthSort": true, "sortY": 291 },
+      { "id": "S05-zone-s06-exit", "type": "region", "name": "通往宛城城下", "regionId": "S05-s06-exit", "x": 1090, "y": 40, "width": 155, "height": 135 }
+    ] },
+    { "id": "layer_placement", "name": "参战单位、救援目标与资源", "visible": true, "locked": false, "objects": [
+      { "id": "S05-spawn-entry", "type": "spawn", "name": "西南入场点", "ref": "player", "x": 115, "y": 625 },
+      { "id": "S05-spawn-intervention", "type": "spawn", "name": "介入战线入口", "ref": "battle-intervention", "x": 445, "y": 535 },
+      { "id": "S05-yellow-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S05-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 390, "y": 575, "overrides": { "aiActive": false } },
+      { "id": "S05-yellow-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S05-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 470, "y": 610, "overrides": { "aiActive": false } },
+      { "id": "S05-yellow-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_yellow_turban_soldier", "group": "S05-yellow-turban", "tags": ["battleParticipant","yellow_turban"], "x": 525, "y": 550, "overrides": { "aiActive": false } },
+      { "id": "S05-han-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-han-army", "tags": ["battleParticipant","han_government"], "x": 790, "y": 350, "overrides": { "aiActive": false } },
+      { "id": "S05-han-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-han-army", "tags": ["battleParticipant","han_government"], "x": 875, "y": 315, "overrides": { "aiActive": false } },
+      { "id": "S05-han-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-han-army", "tags": ["battleParticipant","han_government"], "x": 955, "y": 365, "overrides": { "aiActive": false } },
+      { "id": "S05-iron-ore", "type": "ref", "kind": "resourceNode", "ref": "node.s05_iron_ore", "group": "S05-iron-mine", "x": 317, "y": 291, "overrides": { "imageId": "s05.resource.ironOre" } },
+      { "id": "S05-worn-pickaxe", "type": "ref", "kind": "item", "ref": "tool.worn_pickaxe", "group": "S05-initial", "tags": ["pickup","tool","mine"], "x": 225, "y": 325, "overrides": { "instanceId": "S05-tool-worn-pickaxe-1", "durability": 1, "maxDurability": 1 } },
+      { "id": "S05-mine-collapse", "type": "ref", "kind": "item", "ref": "story.s05.mine_collapse", "group": "S05-mine-collapse", "tags": ["story","worldProp","mine","blocked-route"], "spawnWhen": { "blackboardKey": "storyState", "path": "s05Mine.collapseCommitted", "equals": true }, "x": 250, "y": 365, "overrides": { "collision": { "x": -80, "y": -44, "width": 160, "height": 44 } } },
+      { "id": "S05-ambush-1", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-mine-ambush", "tags": ["ambush","han_government","mine"], "spawnWhen": { "blackboardKey": "storyState", "path": "s05Mine.ambushActivated", "equals": true }, "x": 825, "y": 175, "overrides": { "aiActive": true } },
+      { "id": "S05-ambush-2", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-mine-ambush", "tags": ["ambush","han_government","mine"], "spawnWhen": { "blackboardKey": "storyState", "path": "s05Mine.ambushActivated", "equals": true }, "x": 940, "y": 205, "overrides": { "aiActive": true } },
+      { "id": "S05-ambush-3", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S05-mine-ambush", "tags": ["ambush","han_government","mine"], "spawnWhen": { "blackboardKey": "storyState", "path": "s05Mine.ambushActivated", "equals": true }, "x": 1060, "y": 235, "overrides": { "aiActive": true } },
+      { "id": "S05-zhang-mancheng", "type": "ref", "kind": "enemy", "ref": "enemy.s05_zhang_mancheng", "group": "S05-zhang-mancheng-rescue", "tags": ["rescueTarget","battleParticipant","yellow_turban"], "x": 690, "y": 405, "overrides": { "aiActive": false, "imageId": "s05.character.zhangMancheng" } },
+      { "id": "S05-qin-jie", "type": "ref", "kind": "enemy", "ref": "enemy.s05_qin_jie", "group": "S05-han-army", "tags": ["battleParticipant","han_government","lethalStrikeSource"], "x": 755, "y": 395, "overrides": { "aiActive": false, "imageId": "s05.character.qinJie" } }
+    ] },
+    { "id": "layer_logic", "name": "视觉化触发器", "visible": true, "locked": false, "objects": [
+      { "id": "S05-binding-claim-pickaxe", "type": "trigger", "name": "准备矿坑与领取铁镐", "triggerId": "trg_s05_claim_pickaxe", "x": 145, "y": 245, "width": 155, "height": 120, "event": "interact", "targetMode": "id", "target": "S05-mine-pit-visual", "radius": 115, "pointerRadius": 62, "prompt": "{interact}检查矿坑入口与破旧铁镐" },
+      { "id": "S05-binding-mine-status", "type": "trigger", "name": "查看矿坑状态", "triggerId": "trg_s05_mine_status", "x": 255, "y": 205, "width": 145, "height": 135, "event": "interact", "targetMode": "id", "target": "S05-iron-ore-visual", "radius": 100, "pointerRadius": 58, "prompt": "{interact}查看矿坑开采与撤离状态" },
+      { "id": "S05-binding-mine-retreat", "type": "trigger", "name": "从矿坑徒手撤退", "triggerId": "trg_s05_mine_retreat", "x": 110, "y": 350, "width": 155, "height": 110, "event": "interact", "targetMode": "id", "target": "S05-zone-mine-retreat", "radius": 100, "pointerRadius": 60, "prompt": "{interact}从矿坑撤退" },
+      { "id": "S05-binding-battle-mode", "type": "trigger", "name": "选择宛城外围参战方式", "triggerId": "trg_s05_choose_battle_mode", "x": 505, "y": 430, "width": 180, "height": 125, "event": "interact", "targetMode": "id", "target": "S05-command-marker", "radius": 120, "pointerRadius": 64, "prompt": "{interact}选择宛城外围参战方式" },
+      { "id": "S05-binding-start-zhang-mancheng-rescue", "type": "trigger", "name": "启动张曼成救援", "triggerId": "trg_s05_start_zhang_mancheng_rescue", "x": 625, "y": 335, "width": 155, "height": 145, "event": "interact", "targetMode": "id", "target": "S05-zhang-mancheng", "radius": 105, "pointerRadius": 62, "prompt": "{interact}启动张曼成限时救援" },
+      { "id": "S05-binding-s06-exit", "type": "trigger", "name": "进入宛城围攻灰盒", "triggerId": "trg_s05_exit_s06", "x": 1090, "y": 40, "width": 155, "height": 135, "event": "interact", "targetMode": "id", "target": "S05-zone-s06-exit", "radius": 105, "pointerRadius": 60, "prompt": "{interact}前往宛城城下" }
+    ] }
   ],
-  "decorations":[],"colliders":[],
-  "imageAssets":{"graybox.naturalTerrain":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg","name":"自然地形灰盒"},"graybox.battlefieldUnit":{"src":"../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg","name":"战场单位灰盒"}},
-  "updatedAt":"2026-08-10T00:00:00.000Z"
+  "decorations": [], "colliders": [],
+  "imageAssets": {
+    "graybox.naturalTerrain": { "src": "../example/sanguo_zhangjiao/assets/images/graybox/natural-terrain.svg", "name": "自然地形灰盒" },
+    "graybox.battlefieldUnit": { "src": "../example/sanguo_zhangjiao/assets/images/graybox/battlefield-unit.svg", "name": "战场军令旗灰盒" },
+    "s05.resource.ironOre": { "src": "../example/sanguo_zhangjiao/assets/images/s05/iron-ore.svg", "name": "宛城铁矿节点" },
+    "s05.tool.wornPickaxe": { "src": "../example/sanguo_zhangjiao/assets/images/s05/worn-pickaxe.svg", "name": "破旧铁镐" },
+    "s05.environment.mineCollapse": { "src": "../example/sanguo_zhangjiao/assets/images/s05/mine-collapse.svg", "name": "矿坑封路塌方" },
+    "s05.character.zhangMancheng": { "src": "../example/sanguo_zhangjiao/assets/images/s05/zhang-mancheng.svg", "name": "张曼成" },
+    "s05.character.qinJie": { "src": "../example/sanguo_zhangjiao/assets/images/s05/qin-jie.svg", "name": "秦颉" }
+  },
+  "updatedAt": "2026-08-10T00:00:00.000Z"
 }

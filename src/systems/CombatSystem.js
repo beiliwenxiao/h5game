@@ -134,6 +134,7 @@ export class CombatSystem {
     this.onEnterCombatCallback = null;
     this.onExitCombatCallback = null;
     this.onDamageCallback = null;
+    this._damageListeners = new Set();
     this.onPlayerDeathCallback = null;
     this.isPlayerInputLocked = typeof config.isPlayerInputLocked === 'function'
       ? config.isPlayerInputLocked
@@ -928,14 +929,32 @@ export class CombatSystem {
     const hpAfter = Number(stats.hp) || 0;
     const appliedDamage = Math.max(0, hpBefore - hpAfter);
     const isDead = hpAfter <= 0;
-    if (appliedDamage > 0 && this.onDamageCallback) {
-      try {
-        this.onDamageCallback({
-          target, requestedDamage, appliedDamage,
-          damageType, hpBefore, hpAfter, isDead
-        });
-      } catch (error) {
-        console.warn('CombatSystem: 受伤回调执行失败', error);
+    if (appliedDamage > 0) {
+      const damageEvent = {
+        target,
+        sourceEntity,
+        sourceEntityId: sourceEntity?.id || null,
+        attackKind: context.attackKind || 'unknown',
+        requestedDamage,
+        appliedDamage,
+        damageType,
+        hpBefore,
+        hpAfter,
+        isDead
+      };
+      if (this.onDamageCallback) {
+        try {
+          this.onDamageCallback(damageEvent);
+        } catch (error) {
+          console.warn('CombatSystem: 受伤回调执行失败', error);
+        }
+      }
+      for (const listener of [...this._damageListeners]) {
+        try {
+          listener(damageEvent);
+        } catch (error) {
+          console.warn('CombatSystem: 受伤监听器执行失败', error);
+        }
       }
     }
     
@@ -957,7 +976,8 @@ export class CombatSystem {
     // }
     
     // 玩家死亡必须进入唯一失败结算入口；普通敌人沿用现有掉落与特效。
-    if (!wasDead && isDead) {
+    // 需要原子 checkpoint 的剧情可延迟死亡副作用，提交成功后再显式触发。
+    if (!wasDead && isDead && context.deferDeathEffects !== true) {
       if (target.type === 'player') {
         this.handleDeath(target);
       } else {
@@ -1655,7 +1675,10 @@ export class CombatSystem {
       
       // 应用伤害（传入技能名称作为伤害类型）
       const damage = this.calculateSkillDamage(caster, target, skill);
-      this.applyDamage(target, damage, null, skill.name);
+      this.applyDamage(target, damage, null, skill.name, {
+        sourceEntity: caster,
+        attackKind: 'skill-melee'
+      });
       return;
     }
     
@@ -1674,7 +1697,10 @@ export class CombatSystem {
             () => {
               // 命中回调（传入技能名称）
               const damage = this.calculateSkillDamage(caster, target, skill);
-              this.applyDamage(target, damage, null, skill.name);
+              this.applyDamage(target, damage, null, skill.name, {
+                sourceEntity: caster,
+                attackKind: 'skill-ranged'
+              });
             }
           );
           return; // 伤害将在命中时应用
@@ -1693,7 +1719,10 @@ export class CombatSystem {
       // 伤害技能（近战或没有特效系统）（传入技能名称）
       if (target && skill.range <= 100) {
         const damage = this.calculateSkillDamage(caster, target, skill);
-        this.applyDamage(target, damage, null, skill.name);
+        this.applyDamage(target, damage, null, skill.name, {
+          sourceEntity: caster,
+          attackKind: 'skill-melee'
+        });
       }
     } else if (skill.type === 'heal') {
       // 治疗技能
@@ -3397,9 +3426,16 @@ export class CombatSystem {
     this.isPlayerInputLocked = typeof callback === 'function' ? callback : () => false;
   }
 
-  /** 设置实际受伤回调。 */
+  /** 设置单一兼容受伤回调。新代码优先使用 addDamageListener。 */
   setOnDamageCallback(callback) {
     this.onDamageCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  /** 订阅实际伤害事件；返回可取消函数，避免场景监听器泄漏。 */
+  addDamageListener(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this._damageListeners.add(callback);
+    return () => this._damageListeners.delete(callback);
   }
 
   /** 设置玩家死亡的唯一领域结算回调。 */

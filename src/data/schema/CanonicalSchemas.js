@@ -500,6 +500,7 @@ export const GAME_PROJECT_SCHEMA = {
     assetManifest: { type: FieldType.OBJECT, required: true },
     presentation: { type: FieldType.OBJECT, required: true },
     progression: { type: FieldType.OBJECT },
+    construction: { type: FieldType.OBJECT },
     variables: { type: FieldType.OBJECT, required: true },
     worldMap: { type: FieldType.OBJECT, required: true },
     scenes: { type: FieldType.ARRAY, required: true },

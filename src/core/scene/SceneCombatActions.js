@@ -358,7 +358,10 @@ export class SceneCombatActions {
       const damageType = weaponReady
         ? `${attackTypeName}${Math.floor(multiplier * 100)}%`
         : `${attackTypeName}[冷却]`;
-      scene.combatSystem.applyDamage(enemy, damage, knockback, damageType);
+      scene.combatSystem.applyDamage(enemy, damage, knockback, damageType, {
+        sourceEntity: scene.playerEntity,
+        attackKind: 'melee'
+      });
       const enemyTransform = enemy.getComponent('transform');
       if (scene.skillEffects && enemyTransform) {
         scene.skillEffects.createSkillEffect('basic_attack', transform.position, enemyTransform.position);

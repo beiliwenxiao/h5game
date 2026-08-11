@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "rescue.s05.zhangMancheng",
+  "battleId": "battle.s05_wancheng_outskirts",
+  "duration": 60,
+  "allowedModes": ["intervene"],
+  "targetEntityId": "S05-zhang-mancheng",
+  "stages": [
+    {
+      "id": "interrupt-lethal-strike",
+      "objective": "在秦颉完成致命一击前以远程攻击打断，并接手战斗"
+    }
+  ],
+  "costs": {}
+}

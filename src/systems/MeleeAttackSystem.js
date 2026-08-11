@@ -404,7 +404,10 @@ export class MeleeAttackSystem {
             const dist = Math.sqrt(dx * dx + dy * dy);
             if (dist >= sweepRadius - 25) {
               const finalDamage = Math.max(1, Math.floor(e.damage * (0.8 + Math.random() * 0.4)));
-              this.combatSystem.applyDamage(entity, finalDamage, null, '斩击');
+              this.combatSystem.applyDamage(entity, finalDamage, null, '斩击', {
+                sourceEntity: this.playerEntity,
+                attackKind: 'melee'
+              });
               if (this.combatSystem.createSliceEffect) {
                 this.combatSystem.createSliceEffect(targetTransform.position);
               }
@@ -439,7 +442,10 @@ export class MeleeAttackSystem {
             
             if (dist <= hitRadius) {
               const finalDamage = Math.max(1, Math.floor(e.damage * (0.8 + Math.random() * 0.4)));
-              this.combatSystem.applyDamage(entity, finalDamage, null, '远程攻击');
+              this.combatSystem.applyDamage(entity, finalDamage, null, '远程攻击', {
+                sourceEntity: this.playerEntity,
+                attackKind: 'ranged'
+              });
               if (this.combatSystem.createSliceEffect) {
                 this.combatSystem.createSliceEffect(targetTransform.position);
               }

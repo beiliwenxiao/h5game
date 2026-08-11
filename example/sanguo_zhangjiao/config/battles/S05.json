@@ -1,0 +1,49 @@
+{
+  "id": "battle.s05_wancheng_outskirts",
+  "battleId": "battle.s05_wancheng_outskirts",
+  "title": "S05·宛城外围争夺战",
+  "description": "黄巾军在宛城外郭争夺铁矿与军道，官军伏兵正试图截杀张曼成。两军将按实时战斗流程交战。",
+  "participantFactionIds": ["yellow_turban", "han_government"],
+  "playerEntityId": "$runtime.player",
+  "createParams": {
+    "battleId": "battle.s05_wancheng_outskirts", "terrainId": "terrain.s05.wancheng_outskirts",
+    "attackerArmy": { "schemaVersion": 2, "id": "army.s05.yellow_turban", "name": "南阳黄巾军", "factionId": "yellow_turban", "formationIds": ["formation.s05.yellow_turban.vanguard"], "commanderHeroId": "hero.zhang_mancheng", "morale": 100, "resources": { "food": 28, "wood": 14, "iron": 6, "herb": 8 } },
+    "defenderArmy": { "schemaVersion": 2, "id": "army.s05.han", "name": "宛城官军", "factionId": "han_government", "formationIds": ["formation.s05.han.ambush"], "commanderHeroId": "hero.qin_jie", "morale": 0, "resources": { "food": 52, "wood": 25, "iron": 35, "herb": 12 } },
+    "attackerMorale": 100, "defenderMorale": 0,
+    "attackerCommanderId": "hero.zhang_mancheng", "defenderCommanderId": "hero.qin_jie",
+    "weather": "dust", "seed": 30501, "logicalTime": 180,
+    "affectedCityId": "city.s05_wancheng",
+    "resourceSourceCityId": "city.s05_wancheng",
+    "resourceDestinationCityId": "city.s09_guangzong_camp",
+    "resourceNodeIds": ["node.s05_iron_ore"]
+  },
+  "outcomePriority": [
+    { "signal": "hanArmyDefeated", "winnerFactionId": "yellow_turban", "reason": "hanArmyDefeated" },
+    { "signal": "yellowTurbanDefeated", "winnerFactionId": "han_government", "reason": "yellowTurbanDefeated" },
+    { "signal": "hanMoraleBroken", "winnerFactionId": "yellow_turban", "reason": "hanMoraleBroken" },
+    { "signal": "yellowTurbanMoraleBroken", "winnerFactionId": "han_government", "reason": "yellowTurbanMoraleBroken" }
+  ],
+  "outcomeSignals": {
+    "hanArmyDefeated": { "type": "factionDefeated", "factionId": "han_government" },
+    "yellowTurbanDefeated": { "type": "factionDefeated", "factionId": "yellow_turban" },
+    "hanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "han_government" },
+    "yellowTurbanMoraleBroken": { "type": "factionMoraleBroken", "factionId": "yellow_turban" }
+  },
+  "objective": "击溃宛城官军并守住矿坑军道",
+  "playerInterventionFactionId": "yellow_turban",
+  "realtimeMorale": { "yellow_turban": 70, "han_government": 76 },
+  "realtimeResult": {
+    "byWinner": {
+      "yellow_turban": { "capturedResources": { "wood": 4, "iron": 12, "food": 8, "herb": 2 }, "cityDamage": 0.22, "damagedResourceNodeIds": [] },
+      "han_government": { "capturedResources": { "wood": 0, "iron": 0, "food": 0, "herb": 0 }, "cityDamage": 0.08, "damagedResourceNodeIds": ["node.s05_iron_ore"] }
+    }
+  },
+  "entryPointRef": "battle-intervention",
+  "modeView": {
+    "title": "宛城外围·选择参战方式",
+    "description": "选择确认后不可更改；两军将实时交战。介入后可在 60 秒内远程打断秦颉的致命一击并接手战斗。",
+    "allowCancel": true,
+    "observe": { "label": "观战", "consequences": ["不能伤害或治疗交战单位", "不能启动张曼成救援", "等待宛城外围战果冻结"] },
+    "intervene": { "label": "介入", "consequences": ["进入黄巾前线", "可启动张曼成 60 秒救援", "承担矿坑伏兵与战场伤亡风险"] }
+  }
+}

@@ -1,451 +1,182 @@
-# 项目基本信息
+# 项目当前事实索引
 
-## 项目概述
+> 截至 2026-08-14。本文件只记录当前代码与配置事实；阶段完成度以 `yijian18-game-demo-development-plan.md` 为准。`playable`、代码接线或 diagnostics 通过不等于浏览器实玩、音画验收或 Release Candidate 已完成。
 
-- **项目名称**: YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
-- **版本**: 0.0.1
-- **作者**: 刘枭 (beiliwenxiao)
-- **邮箱**: beiliwenxiao@qq.com
-- **博客**: https://blog.csdn.net/beiliwenxiao
-- **仓库**: 
-  - https://github.com/beiliwenxiao/yijian18-engine
-  - https://gitee.com/coderaaa/yijian18-engine
-- **许可证**: MIT
-- **交流QQ群**: 58607027
+## 1. 项目与交付物
 
-## 技术栈
+- **引擎**：YiJian18-Engine，跨平台 2D/3D ECS 游戏引擎。
+- **根 npm 包**：`yijian18-engine@0.0.1`，ES Module，MIT。
+- **当前唯一 Demo**：`example/sanguo_zhangjiao/`，作品名固定为 **《三国张角传》**。
+- **Demo 配置版本**：`game.project.json` 为 `schemaVersion: 1`、`meta.version: 3`、`meta.schema: 3`、campaign `sanguo-zhangjiao-s01-s14`；它与 npm 包版本不是同一版本层。
+- **作者**：刘枭（beiliwenxiao），邮箱 `beiliwenxiao@qq.com`。
+- **仓库**：<https://github.com/beiliwenxiao/yijian18-engine>、<https://gitee.com/coderaaa/yijian18-engine>。
+- 当前 Demo 是单机交付物；引擎仍保留网络模块，但战役外部服务目前只有同契约 `LocalMockTransport`，不包含 Go server/slg 仓库。
 
-### 核心技术
-- **语言**: ES6+ JavaScript (ES Module)
-- **构建工具**: Vite 5.x
-- **测试框架**: Vitest 3.x + jsdom
-- **渲染**: HTML5 Canvas 2D / three.js 3D (双渲染后端)
-- **移动端**: Capacitor 6.x (Android打包)
+## 2. 技术栈
 
-### 依赖库
-- `three`: 0.184.0 - 3D 渲染引擎
-- `@capacitor/core`: 6.2.1 - 移动端桥接核心
-- `@capacitor/android`: 6.2.1 - Android 平台支持
-- `vitest`: 3.2.4 - 单元测试框架
-- `vite`: 5.0.0 - 构建开发工具
-- `jsdom`: 26.1.0 - DOM 模拟环境
+- JavaScript ES6+、ES Module。
+- Vite `^5.0.0`；Vitest `^3.2.4`；jsdom `^26.1.0`。
+- Canvas 2D 正式发布主表现；three.js `^0.184.0` 提供 3D 后端。
+- Capacitor `^6.2.1`：`@capacitor/core`、`@capacitor/android`、`@capacitor/cli`。
+- HTML5 Canvas、Web Audio、键鼠/触屏/Xbox 360 风格手柄输入。
 
-## 架构设计
+## 3. 当前目录职责
 
-### 核心架构: ECS (Entity-Component-System)
-
-项目采用 ECS 架构，实现高性能、模块化的游戏设计：
-
-- **Entity (实体)**: 游戏对象的唯一标识
-- **Component (组件)**: 纯数据容器，无逻辑
-- **System (系统)**: 处理特定功能的逻辑单元
-
-### 目录结构
-
-```
+```text
 src/
-├── core/           # 核心引擎模块
-│   ├── GameEngine.js       # 游戏引擎核心
-│   ├── SceneManager.js     # 场景管理器
-│   ├── Scene.js            # 场景基类
-│   ├── InputManager.js     # 输入管理器
-│   ├── AssetManager.js     # 资源管理器
-│   ├── AudioManager.js     # 音频管理器
-│   ├── PerformanceMonitor.js # 性能监控
-│   ├── ObjectPool.js       # 对象池
-│   ├── ErrorHandler.js     # 错误处理
-│   ├── Logger.js           # 日志系统
-│   ├── PlatformProfile.js  # 平台检测
-│   ├── UIClickHandler.js   # UI 点击事件处理
-│   ├── Blackboard.js       # 黑板（全局共享数据）
-│   ├── DebugTools.js       # 调试工具
-│   ├── GameLoader.js       # 游戏加载器
-│   ├── LoadedChunk.js      # 加载块管理
-│   ├── PlaceholderAssets.js # 占位资源
-│   ├── Registry.js         # 注册表
-│   ├── RNG.js              # 随机数生成器
-│   └── WorldStreamingManager.js # 世界流式加载
-│
-├── ecs/            # ECS 架构
-│   ├── Entity.js           # 实体基类
-│   ├── Component.js        # 组件基类
-│   ├── EntityFactory.js    # 实体工厂
-│   ├── index.js            # ECS 导出入口
-│   └── components/         # 组件定义
-│       ├── BuildingComponent.js    # 建筑组件
-│       ├── CombatComponent.js      # 战斗组件
-│       ├── ControllerComponent.js  # 控制器组件
-│       ├── EquipmentComponent.js   # 装备组件
-│       ├── InventoryComponent.js   # 背包组件
-│       ├── LayerComponent.js       # 图层组件
-│       ├── MovementComponent.js    # 移动组件
-│       ├── NameComponent.js        # 名称组件
-│       ├── ObjectiveComponent.js   # 目标组件
-│       ├── RiderComponent.js       # 骑乘组件
-│       ├── SpriteComponent.js      # 精灵组件
-│       ├── StatsComponent.js       # 属性组件
-│       ├── StatusEffectComponent.js # 状态效果组件
-│       ├── TransformComponent.js   # 变换组件
-│       └── VehicleComponent.js     # 载具组件
-│
-├── systems/        # 游戏系统 (40+ 系统)
-│   ├── CombatSystem.js         # 战斗系统
-│   ├── MovementSystem.js       # 移动系统
-│   ├── MeleeAttackSystem.js    # 近战攻击系统
-│   ├── CollisionSystem.js      # 碰撞系统
-│   ├── EquipmentSystem.js      # 装备系统
-│   ├── DialogueSystem.js       # 对话系统
-│   ├── TutorialSystem.js       # 教程系统
-│   ├── QuestSystem.js          # 任务系统
-│   ├── ClassSystem.js          # 职业系统
-│   ├── SkillTreeSystem.js      # 技能树系统
-│   ├── ShopSystem.js           # 商店系统
-│   ├── AISystem.js             # AI 行为系统
-│   ├── AttributeSystem.js      # 属性系统
-│   ├── ElementSystem.js        # 元素系统
-│   ├── EnhancementSystem.js    # 强化系统
-│   ├── TalentSystem.js         # 天赋系统
-│   ├── UnitSystem.js           # 兵种系统
-│   ├── NPCSystem.js            # NPC 系统
-│   ├── NPCRecruitmentSystem.js # NPC 招募系统
-│   ├── StatusEffectSystem.js   # 状态效果系统
-│   ├── FlightSystem.js         # 飞行/轻功系统
-│   ├── DungeonSystem.js        # 副本系统
-│   ├── TeamSystem.js           # 组队系统
-│   ├── FriendSystem.js         # 好友系统
-│   ├── ChatSystem.js           # 聊天系统
-│   ├── GuildSystem.js          # 公会系统
-│   ├── PVPSystem.js            # PVP 系统
-│   ├── LootSystem.js           # 掉落系统
-│   ├── PickupSystem.js         # 拾取系统
-│   ├── MapSystem.js            # 地图系统
-│   ├── EventSystem.js          # 事件系统
-│   ├── ProgressManager.js      # 进度管理
-│   ├── MeditationSystem.js     # 打坐系统
-│   ├── PlayerSyncSystem.js     # 玩家同步系统
-│   ├── EntityLifecycleSystem.js # 实体生命周期
-│   ├── PerformanceOptimizer.js # 性能优化器
-│   ├── TriggerSystem.js        # 触发器系统
-│   ├── TriggerActions.js       # 触发器动作
-│   ├── ExpressionEngine.js     # 表达式引擎
-│   ├── VehicleSystem.js        # 载具系统
-│   ├── WorldStreamingManager.js # 无状态兼容转发（状态权威在 core）
-│   └── resolvers/              # 解析器
-│       ├── CombatResolver.js   # 战斗解析
-│       ├── LootResolver.js     # 掉落解析
-│       └── QuestResolver.js    # 任务解析
-│
-├── rendering/      # 渲染系统
-│   ├── RenderSystem.js         # 渲染系统
-│   ├── Camera.js               # 相机系统
-│   ├── IsometricRenderer.js    # 等距渲染器
-│   ├── SpriteRenderer.js       # 精灵渲染器
-│   ├── ParticleSystem.js       # 粒子系统
-│   ├── Particle.js             # 粒子基类
-│   ├── CombatEffects.js        # 战斗特效
-│   ├── SkillEffects.js         # 技能特效
-│   ├── WeaponRenderer.js       # 武器渲染器
-│   ├── EnemyWeaponRenderer.js  # 敌人武器渲染器
-│   ├── AnimationManager.js     # 动画管理器
-│   ├── ShapeRenderer.js        # 形状渲染器
-│   ├── WorldTerrainRenderer.js # 世界地形渲染器
-│   └── backends/               # 双渲染后端
-│       ├── IRenderBackend.js       # 渲染后端接口
-│       ├── ICameraAdapter.js       # 相机适配器接口
-│       ├── IParticleRenderer.js    # 粒子渲染器接口
-│       ├── IPicker.js              # 拾取器接口
-│       ├── pickBackend.js          # 后端选择器
-│       ├── BackendConfig.js        # 后端配置
-│       ├── Canvas2DBackend.js      # 2D 渲染后端
-│       ├── Camera2DAdapter.js      # 2D 相机适配器
-│       ├── ParticleRenderer2D.js   # 2D 粒子渲染器
-│       ├── Picker2D.js            # 2D 拾取器
-│       ├── ThreeBackend.js         # 3D 渲染后端
-│       ├── Camera3DAdapter.js      # 3D 相机适配器
-│       ├── ParticleRenderer3D.js   # 3D 粒子渲染器
-│       ├── Picker3D.js            # 3D 拾取器
-│       ├── EntityView3D.js         # 3D 实体视图
-│       └── Transform3DAdapter.js   # 3D 变换适配器
-│
-├── ui/             # UI 组件 (40+ 组件)
-│   ├── UISystem.js             # UI 系统核心
-│   ├── UIElement.js            # UI 元素基类
-│   ├── UILayoutLoader.js       # UI 布局加载器
-│   ├── PanelLayoutLoader.js    # 面板布局加载器
-│   ├── DialogueBox.js          # 对话框
-│   ├── InventoryPanel.js       # 背包面板
-│   ├── PlayerInfoPanel.js      # 角色信息面板 (装备栏)
-│   ├── EquipmentPanel.js       # 装备面板
-│   ├── AttributePanel.js       # 属性面板
-│   ├── SkillTreePanel.js       # 技能树面板
-│   ├── ShopPanel.js            # 商店面板
-│   ├── QuestPanel.js           # 任务面板
-│   ├── Minimap.js              # 小地图
-│   ├── MapPanel.js             # 地图面板
-│   ├── HealthBar.js            # 血条
-│   ├── ManaBar.js              # 蓝条
-│   ├── SkillBar.js             # 技能栏
-│   ├── BottomControlBar.js     # 底部控制栏 (移动端)
-│   ├── PlayerStatusHUD.js      # 玩家状态 HUD
-│   ├── StatusEffectBar.js      # 状态效果条
-│   ├── FloatingText.js         # 飘字
-│   ├── NotificationSystem.js   # 通知系统
-│   ├── TutorialTooltip.js      # 教程提示
-│   ├── ChatPanel.js            # 聊天面板
-│   ├── FriendPanel.js          # 好友面板
-│   ├── PlayerListPanel.js      # 玩家列表面板
-│   ├── NPCPanel.js             # NPC 面板
-│   ├── DungeonPanel.js         # 副本面板
-│   ├── EventPanel.js           # 事件面板
-│   ├── TalentPanel.js          # 天赋面板
-│   ├── EnhancementPanel.js     # 强化面板
-│   ├── ElementInfoPanel.js     # 元素信息面板
-│   ├── UnitInfoPanel.js        # 兵种信息面板
-│   ├── DebugPanel.js           # 调试面板
-│   ├── IconButton.js           # 图标按钮
-│   ├── ItemIconRenderer.js     # 物品图标渲染器
-│   ├── PickupPrompt.js         # 拾取提示
-│   ├── index.js                # UI 导出入口
-│   └── strategies/             # UI 策略模式
-│       ├── UIStrategy.js           # 策略基类
-│       ├── DesktopUIStrategy.js    # 桌面端策略
-│       └── MobileUIStrategy.js     # 移动端策略
-│
-├── scenes/         # 通用场景
-│   ├── LoginScene.js       # 登录场景
-│   ├── CharacterScene.js   # 角色选择场景
-│   ├── GameScene.js        # 游戏场景
-│   └── index.js            # 场景导出入口
-│
-├── network/        # 网络通信
-│   ├── NetworkManager.js   # 网络管理器
-│   ├── WebSocketClient.js  # WebSocket 客户端
-│   ├── MockWebSocket.js    # 模拟 WebSocket
-│   └── index.js            # 网络导出入口
-│
-├── data/           # 数据层
-│   ├── ItemData.js         # 物品数据
-│   ├── EquipmentData.js    # 装备数据
-│   └── MockDataService.js  # 模拟数据服务
-│
-└── main.js         # 引擎主入口
+├── core/                 # 引擎、资源、场景、流式、输入、快照、校验
+│   ├── input/            # InputActionRouter、InputHints、设备档案
+│   ├── scene/            # Runtime、生命周期、输入/渲染管线、Chunk/Region
+│   ├── snapshot/         # SnapshotManager、SaveGameService、存储适配器
+│   └── validation/       # ContentValidator 与配置校验
+├── data/schema/          # Canonical Schema
+├── ecs/                  # Entity、Component、EntityFactory 与组件
+├── systems/              # 通用领域系统
+│   ├── ability/          # 技能定义与执行准入
+│   ├── effects/          # EffectResolver
+│   ├── progression/      # 统一成长图、点数、熟练度
+│   └── resolvers/        # 战斗、掉落、任务解析
+├── integration/          # BattleClient、JSON-RPC、LocalMock、幂等存储
+├── rendering/backends/   # Canvas2D / three.js 双后端
+├── ui/                   # HUD、面板、战役/救援/结局/成长 View
+├── network/              # WebSocket 与网络兼容模块
+└── scenes/               # 引擎通用场景
 
-example/
-└── sanguo_zhangjiao/   # 三国张角序章 Demo
-    ├── index.html          # 入口文件
-    ├── game.project.json   # 项目配置
-    ├── vite.config.js      # Vite 配置
-    ├── assets/             # 资源文件
-    ├── scenes/             # 场景 (Act1-6)
-    ├── config/             # 配置文件
-    ├── conditions/         # 条件函数
-    ├── entities/           # 实体定义
-    ├── data/               # 剧情数据
-    ├── systems/            # Demo 专用系统
-    ├── mobile/             # 移动端适配
-    └── desktop/            # 桌面端打包
+example/sanguo_zhangjiao/
+├── game.project.json     # Demo 项目、世界图、Story/City/War 初始事实
+├── assets/scenes/        # canonical S01-S14 / SXX-CNN 场景 JSON
+├── assets/manifests/     # 稳定 assetId/imageId 与双后端映射
+├── config/               # 成长、技能、结局、表现等配置
+├── data/                 # 内容数据
+├── entities/             # Demo 实体装配
+├── scenes/               # DataDrivenPrologueScene 与 Demo 场景组合
+└── systems/              # 仅历史剧情与场景编排适配器
 
-editor/                 # 地图编辑器
-├── index.html          # 编辑器入口
-├── SceneEditor.js      # 场景编辑器主入口
-├── SceneEditorUI.js    # UI 模块
-├── SceneEditorCanvas.js # 渲染模块
-├── ...                 # 其他模块
-└── config/             # 编辑器配置
+editor/                   # 场景、世界地图、对话、UI 等编辑器
+android/                  # Android 发布权威工程
 ```
 
-## 核心系统清单
+`desktop/`、Demo 内 legacy `mobile/`、`example/sanguo_zhangjiao_3d/` 不参与当前功能修改。
 
-### 引擎核心 (core/)
-| 系统 | 文件 | 说明 |
-|------|------|------|
-| GameEngine | GameEngine.js | 游戏引擎核心，管理游戏循环 |
-| SceneManager | SceneManager.js | 场景管理与切换 |
-| Scene | Scene.js | 场景基类 |
-| InputManager | InputManager.js | 统一输入处理（键盘、鼠标、触摸） |
-| AssetManager | AssetManager.js | 资源加载与管理 |
-| AudioManager | AudioManager.js | 音频播放与管理 |
-| PerformanceMonitor | PerformanceMonitor.js | 性能监控 |
-| ObjectPool | ObjectPool.js | 对象池，减少 GC 压力 |
-| ErrorHandler | ErrorHandler.js | 错误处理 |
-| Logger | Logger.js | 日志系统 |
-| PlatformProfile | PlatformProfile.js | 平台检测 (桌面/移动) |
-| UIClickHandler | UIClickHandler.js | UI 点击事件处理 |
-| Blackboard | Blackboard.js | 全局共享数据黑板 |
-| DebugTools | DebugTools.js | 调试工具集 |
-| GameLoader | GameLoader.js | 游戏加载器 |
-| LoadedChunk | LoadedChunk.js | 加载块管理 |
-| PlaceholderAssets | PlaceholderAssets.js | 占位资源生成 |
-| Registry | Registry.js | 通用注册表 |
-| RNG | RNG.js | 可种子随机数生成器 |
-| WorldStreamingManager | WorldStreamingManager.js | Region 九宫格异步流式唯一状态权威 |
+## 4. 架构与状态边界
 
-### 游戏系统 (systems/)
-| 系统 | 文件 | 说明 |
-|------|------|------|
-| CombatSystem | CombatSystem.js | 战斗系统 |
-| MeleeAttackSystem | MeleeAttackSystem.js | 近战攻击系统 |
-| CollisionSystem | CollisionSystem.js | 碰撞检测系统 |
-| MovementSystem | MovementSystem.js | 移动系统 |
-| EquipmentSystem | EquipmentSystem.js | 装备系统 |
-| DialogueSystem | DialogueSystem.js | 对话系统 |
-| TutorialSystem | TutorialSystem.js | 教程系统 |
-| QuestSystem | QuestSystem.js | 任务系统 |
-| ClassSystem | ClassSystem.js | 职业系统 |
-| SkillTreeSystem | SkillTreeSystem.js | 技能树系统 |
-| ShopSystem | ShopSystem.js | 商店系统 |
-| AISystem | AISystem.js | AI 行为系统 |
-| AttributeSystem | AttributeSystem.js | 属性系统 |
-| ElementSystem | ElementSystem.js | 元素系统 |
-| EnhancementSystem | EnhancementSystem.js | 强化系统 |
-| TalentSystem | TalentSystem.js | 天赋系统 |
-| UnitSystem | UnitSystem.js | 兵种系统 |
-| NPCSystem | NPCSystem.js | NPC 系统 |
-| NPCRecruitmentSystem | NPCRecruitmentSystem.js | NPC 招募系统 |
-| StatusEffectSystem | StatusEffectSystem.js | 状态效果系统 |
-| FlightSystem | FlightSystem.js | 飞行/轻功系统 |
-| DungeonSystem | DungeonSystem.js | 副本系统 |
-| TeamSystem | TeamSystem.js | 组队系统 |
-| FriendSystem | FriendSystem.js | 好友系统 |
-| ChatSystem | ChatSystem.js | 聊天系统 |
-| GuildSystem | GuildSystem.js | 公会系统 |
-| PVPSystem | PVPSystem.js | PVP 系统 |
-| LootSystem | LootSystem.js | 掉落系统 |
-| PickupSystem | PickupSystem.js | 拾取系统 |
-| MapSystem | MapSystem.js | 地图系统 |
-| EventSystem | EventSystem.js | 事件系统 |
-| ProgressManager | ProgressManager.js | 进度管理 |
-| MeditationSystem | MeditationSystem.js | 打坐/回血系统 |
-| PlayerSyncSystem | PlayerSyncSystem.js | 玩家同步系统 |
-| EntityLifecycleSystem | EntityLifecycleSystem.js | 实体生命周期管理 |
-| PerformanceOptimizer | PerformanceOptimizer.js | 运行时性能优化 |
-| TriggerSystem | TriggerSystem.js | 触发器系统 |
-| TriggerActions | TriggerActions.js | 触发器动作定义 |
-| ExpressionEngine | ExpressionEngine.js | 表达式引擎 |
-| VehicleSystem | VehicleSystem.js | 载具系统 |
-| WorldStreamingManager | WorldStreamingManager.js | 无状态兼容转发，仅委托 `src/core/WorldStreamingManager.js`；禁止持有 loaded/savedStates |
-| CombatResolver | resolvers/CombatResolver.js | 战斗结果解析 |
-| LootResolver | resolvers/LootResolver.js | 掉落结果解析 |
-| QuestResolver | resolvers/QuestResolver.js | 任务条件解析 |
+- 基础架构仍是 ECS：Entity 是稳定标识，Component 持有数据，System 持有逻辑。
+- 定义、角色运行状态、领域事务、UI/表现必须分离；历史人物、S01-S14 剧情和数值留在 Demo，通用机制进入 `src/`。
+- 状态修改统一遵循：`validate → prepare draft → commit → emit → checkpoint`。失败必须零修改；持久事务使用稳定 `operationId` 幂等，同 ID 不同载荷必须拒绝。
+- 资源、图片和渲染后端只属于表现层，不得成为 StoryState、BattleResult、库存或存档的业务事实源。
+- 复杂场景由 `SceneSystemContainer`、`GameSceneRuntime`、`SceneGameplaySystemAssembler`、显式输入/帧/渲染管线和 `SceneEntityStore` 等模块装配；`BaseGameScene` 仍在继续向薄组合根收口。
 
-### UI 组件 (ui/)
-| 组件 | 文件 | 说明 |
-|------|------|------|
-| UISystem | UISystem.js | UI 系统核心 |
-| UIElement | UIElement.js | UI 元素基类 |
-| UILayoutLoader | UILayoutLoader.js | UI 布局加载器 |
-| PanelLayoutLoader | PanelLayoutLoader.js | 面板布局加载器 |
-| DialogueBox | DialogueBox.js | 对话框 |
-| InventoryPanel | InventoryPanel.js | 背包面板 |
-| PlayerInfoPanel | PlayerInfoPanel.js | 角色信息面板 (装备栏) |
-| EquipmentPanel | EquipmentPanel.js | 装备面板 |
-| AttributePanel | AttributePanel.js | 属性面板 |
-| SkillTreePanel | SkillTreePanel.js | 技能树面板 |
-| ShopPanel | ShopPanel.js | 商店面板 |
-| QuestPanel | QuestPanel.js | 任务面板 |
-| Minimap | Minimap.js | 小地图 |
-| MapPanel | MapPanel.js | 地图面板 |
-| HealthBar | HealthBar.js | 血条 |
-| ManaBar | ManaBar.js | 蓝条 |
-| SkillBar | SkillBar.js | 技能栏 |
-| BottomControlBar | BottomControlBar.js | 底部控制栏 (移动端) |
-| PlayerStatusHUD | PlayerStatusHUD.js | 玩家状态 HUD |
-| StatusEffectBar | StatusEffectBar.js | 状态效果条 |
-| FloatingText | FloatingText.js | 飘字 |
-| NotificationSystem | NotificationSystem.js | 通知系统 |
-| TutorialTooltip | TutorialTooltip.js | 教程提示 |
-| ChatPanel | ChatPanel.js | 聊天面板 |
-| FriendPanel | FriendPanel.js | 好友面板 |
-| PlayerListPanel | PlayerListPanel.js | 玩家列表面板 |
-| NPCPanel | NPCPanel.js | NPC 面板 |
-| DungeonPanel | DungeonPanel.js | 副本面板 |
-| EventPanel | EventPanel.js | 事件面板 |
-| TalentPanel | TalentPanel.js | 天赋面板 |
-| EnhancementPanel | EnhancementPanel.js | 强化面板 |
-| ElementInfoPanel | ElementInfoPanel.js | 元素信息面板 |
-| UnitInfoPanel | UnitInfoPanel.js | 兵种信息面板 |
-| DebugPanel | DebugPanel.js | 调试面板 |
-| IconButton | IconButton.js | 图标按钮 |
-| ItemIconRenderer | ItemIconRenderer.js | 物品图标渲染器 |
-| PickupPrompt | PickupPrompt.js | 拾取提示 |
-| UIStrategy | strategies/UIStrategy.js | UI 策略基类 |
-| DesktopUIStrategy | strategies/DesktopUIStrategy.js | 桌面端 UI 策略 |
-| MobileUIStrategy | strategies/MobileUIStrategy.js | 移动端 UI 策略 |
+### 主要已接入能力
 
-## 开发命令
+- `EffectResolver`、`AbilitySystem`、`ProgressionGraphSystem` 与旧 Skill/Talent 适配层。
+- `InputActionRouter`、`InputHints`、设备无关交互与模态输入优先级。
+- `SnapshotManager`、`SaveGameService`、ContentValidator、Canonical Schema。
+- 原子库存、采集、工具、死亡/DeathDrop、营建/维修、载具/Cargo/席位。
+- BattleClient/LocalMock、BattleSystem、BattlefieldRuntimeSystem、CityWarSystem、RescueSystem。
+- 职业、四成长图、熟练度、跳跃/用力跳/轻功/攀爬。
+- S13 原子结算、S14 资源分歧、EndingSystem 与六结局演出。
 
-```bash
-npm install          # 安装依赖
-npm run dev          # 启动开发服务器 (端口 3000)
-npm run build        # 构建生产版本
-npm test             # 运行单元测试
+## 5. 《三国张角传》Canonical 内容
+
+- 运行时唯一场景 ID 为 `S01`–`S14`；大型战场附属 chunk 使用 `SXX-CNN`，并归入对应 SXX 业务状态命名空间。
+- 默认入口和微信入口只注册 `DataDrivenPrologueScene`。
+- 旧 `s0-*`、旧 Act 类/alias、旧六幕 campaign、旧 ending 变量和旧 `mage` 职业均已退出当前内容事实，不作为兼容目标。
+- 第三职业固定为 `strategist`，显示名“军师”。
+- 六结局固定优先级：焦土 → 旁观者 → 火种 → 余烬 → 流星 → 尘埃。
+- `S01`–`S14` 已登记为 canonical 可加载单元；S11-S14 为 `productionState: "playable"`、`previewOnly: false`，但仍需浏览器通玩和音画验收。
+
+### 全局 20×20 世界坐标
+
+| Region | 场景坐标 `(row,col)` |
+|---|---|
+| A 干旱平原 | S01 `(1,1)`、S02 `(3,3)` |
+| B 冀州 | S09 `(6,12)`、S10 `(6,13)`、S11 `(7,14)`、S12 `(8,15)` |
+| C 豫州 | S03 `(15,12)`、S04 `(15,13)`、S05 `(16,13)`、S06 `(16,14)`、S07 `(17,15)`、S08 `(17,16)` |
+| D 终局 | S13 `(18,11)`、S14 `(18,12)` |
+
+世界布局唯一事实源是 `game.project.json -> worldMap.regions[].grid`。场景 JSON 只保存 chunk 局部坐标；`worldOffset = (col × 1280, row × 720)` 由运行时派生且只能应用一次。`reserved: true` 单元只保留规划位置，不允许加载、传送或恢复。
+
+## 6. 世界流式与场景事实源
+
+- `src/core/WorldStreamingManager.js` 是 Region 九宫格流式加载唯一状态权威，拥有 `loaded/savedStates`、generation + AbortController latest-wins、并行 prepare、完整校验、一次 commit 和逆序 rollback。
+- `src/systems/WorldStreamingManager.js` 仅为无状态兼容转发，不得持有第二份 loaded/saved 状态。
+- `WorldMapLoadSession` 只预载入口/目标场景；相邻块由 core manager 的 `sceneResolver` 按需读取磁盘 JSON。
+- `RegionCoordinator` 使用 detached/shadow session 准备目标 Region；准备失败时旧 Region、玩家位置、Story 和 runtime 应保持不变。
+- 磁盘 canonical 场景 JSON 是运行与编辑器缩略图的事实源；localStorage 仅作 fallback/cache，缺少 `layers/imageAssets` 时必须回退磁盘。
+- dynamic provider 保存资源节点、placement、DeathDrop、S10 工事和 S14 载具/物流；physical chunk ID 用于生成实体，SXX namespace 只用于业务状态聚合。
+
+## 7. 存档约定
+
+- Snapshot 恢复分两段：先 migrate/validate 全部 provider；再 capture 回滚快照并依次 restore。任一 provider 失败都必须把当前失败 provider 纳入逆序回滚。
+- `BaseGameScene.restoreSaveState()` 直接调用也必须自身原子，不能只依赖 SnapshotManager 外层保护。
+- 损坏 JSON 返回 `invalidJson` 并原样保留；缺少迁移器返回 `missingMigration`。
+- 当前产品策略：旧 schema、旧 chunk、旧 Act、旧职业存档直接拒绝并提示新游戏，不迁移，也不删除用户存档。
+- 自动位固定为 `autosave-1..3`，手动位最多 `slot-1..100`，两类槽位不得互相覆盖。
+- 跨 Region 读档先用 `inspect/inspectAuto` 只读校验并准备目标 Region，再同步原子恢复。
+- Vite 开发环境成功快照镜像到 `example/sanguo_zhangjiao/saves/<slot>/snapshot.json`，缩略图独立保存为 `thumbnail.jpg`；localStorage 仍是同步运行缓存。
+
+## 8. 双渲染后端与资源
+
+- URL 请求模式：`?mode=2d`、`?mode=3d`、`?mode=auto`；2D 是默认正式表现。
+- `BackendConfig.mode` / `GameEngine.requestedBackendMode` 仅表示请求模式；WebGL、宿主或动态导入失败可降级，唯一实际模式读取 `GameEngine.actualBackendMode`。
+- BackendConfig 固定解析时的 `host`，后端选择不得二次读取可变全局宿主。
+- requested/actual 只用于表现和诊断，禁止写入 StoryState、战果或存档。
+- 3D 当前优先使用与 2D 相同稳定 ID 的 billboard/sprite；坐标映射为 2D `x → three.x`、2D `y → three.z`、`elevation → three.y`。
+- Manifest 稳定 ID 链为 `assetId === imageId`；世界物件默认脚底中心 pivot `{x:0.5,y:1}`。缺图先复用，确实缺失时生成 SVG、登记 Manifest，再接内容。
+- DeathDrop 使用稳定 ID `world.loot.deathDrop`；Vehicle/Cargo/DeathDrop 快照只保存业务状态，恢复时由场景重新注入表现。
+
+## 9. 输入与 UI
+
+- 正式世界输入必须经过 `SceneInputFlow/InputActionRouter`，不得在 Demo 另建键鼠、触屏或手柄旁路。
+- 路由优先级：模态 UI → 面板 UI → 瞄准 → Ctrl 轻功 → Shift 投掷 → 拾取 → 技能 → 攻击 → 右键移动。
+- W/A/S/D 或方向键移动；E 为交互/拾取；B 为背包；C 打开角色信息/装备栏；数字键使用快捷技能。手柄 Y 进入 canonical `jump`；触屏按钮产生同一动作。
+- 操作提示统一使用 `InputHints` token，禁止硬编码单平台按键。
+- 在《三国张角传》中，“装备栏”专指 `PlayerInfoPanel`。
+- 不存在 `N` 键“下一幕”的 canonical 流程；场景推进只允许 `_scene_order.json` 登记目标及 `teleportToChunk()/RegionCoordinator`。
+
+## 10. 编辑器与资产审计
+
+- 世界网格从当前游戏磁盘 `game.project.json` 加载；`builtin-games.json` 只登记游戏入口，不复制第二份世界事实。
+- 场景编辑器保存正常路径同时写磁盘 JSON 与 localStorage；审计和发布引用始终以磁盘文件为准。
+- 发布资产审计只扫描 `SXX.json` / `SXX-CNN.json`，排除旧 `s0-*`、模板和其他非 canonical JSON。
+- 审计覆盖稳定 ID 重复、Manifest 文件断链、未登记图片、scene imageId/atlasId、slice、placeholder、3D fallback 和音频 cue 断链；只生成报告，不自动修复。
+- 未被场景对象实际引用的 `imageAssets` 只作为清理提示，不算发布引用。
+- 当前资源政策不逐项审计授权/作者/来源；只阻断稳定 ID、文件、状态、尺寸、pivot、动画和 2D/3D 映射问题。
+
+## 11. Android 发布权威
+
+- 根 `capacitor.config.json` 与根 `android/` 是唯一 Android 发布权威；Demo 内 legacy mobile 工程不参与发布。
+- 当前配置：`appId/namespace/applicationId = com.sanguo.zhangjiao`、`appName = 三国张角传`、`webDir = dist/sanguo_zhangjiao`。
+- 根 Android Manifest 通过 `android:screenOrientation="landscape"` 锁定原生横屏；Web `force-landscape` 只用于普通浏览器和非原生宿主 fallback。
+- `versionCode 1` / `versionName "1.0"` 尚未建立用户确认的发布版本语义。
+- Release signing 尚未配置；keystore、alias 和密码不得写入仓库或用 debug key 替代，只能通过本机 Gradle properties 或 CI secret 注入。
+
+## 12. 开发与验证命令
+
+```text
+npm install
+npm run dev
+npx vite --config example/sanguo_zhangjiao/vite.config.js
+npx vite build --config example/sanguo_zhangjiao/vite.config.js
+npx vitest --run <目标测试文件>
 ```
 
-## 性能目标
+根 `npm run build` 构建根入口，不等同于《三国张角传》Android Web 产物。日常代码修改只运行 diagnostics；除非用户明确要求，不自动运行 Vitest、build、dev server 或 cap sync，也不创建功能验证 HTML。
 
-- **帧率**: 60 FPS (稳定)
-- **实体数量**: 100+ 同时在线
-- **内存使用**: < 100MB
+## 13. 当前状态与明确阻断
 
-## 渲染模式
+- P0-P6 当前均为 `inProgress`；尚无完整 S01-S14 浏览器 playthrough 与音画验收证据。
+- P4 尚缺马/云梯 placement、CargoTransfer UI、投石车实际武器入口；马车单一 DeathDrop 已完成代码接线但待成功/回滚/重放实测。
+- 流式加载仍需连续跨界、远距传送、失败保留旧区、动态对象卸载恢复、SXX-CNN 和两轮存读档实测。
+- S11 性能门槛是至少 100 个活动 ECS 实体、平均 60 FPS，并检查 1% low、长任务和 draw calls；不是“100 个在线玩家已支持”。
+- 同 Region 连续跨界内存目标 `<100MB` 尚未验收。
+- 2D/3D 同 seed、同命令序列业务 diff=0 尚未验收。
+- Manifest 最近静态审计无 placeholder/引用错误；正式音频 cue 当前为 0，是明确 RC 内容阻断。
+- Android release signing、发布版本语义、真机构建/安装/通关尚未完成，因此不能标记为 Release Candidate。
 
-支持双渲染后端，通过 URL 参数切换：
+## 14. 维护边界
 
-- `?mode=2d` - Canvas 2D 渲染（默认）
-- `?mode=3d` - three.js 3D 渲染
-- `?mode=auto` - 自动选择
-
-`BackendConfig.mode` 与 `GameEngine.requestedBackendMode` 表示请求模式；宿主限制、WebGL 或动态导入失败后可能降级，唯一实际模式读取 `GameEngine.actualBackendMode`。解析配置时使用的 `host` 会固定在 BackendConfig 中，后端选择不得二次读取可变的全局宿主。请求/实际渲染模式只属于运行表现与诊断信息，禁止写入 StoryState、战果或存档。
-
-## 控制方式
-
-### 键盘 (桌面)
-| 按键 | 功能 |
-|------|------|
-| W/A/S/D 或 方向键 | 移动 |
-| E | 拾取物品 |
-| C | 属性/装备面板 |
-| B | 背包 |
-| 空格 | 攻击 |
-| 1-4 | 使用技能 |
-| N | 下一幕 (测试用) |
-
-### 鼠标
-- 左键点击：移动到目标位置
-- 右键点击：选择目标
-
-### 触屏 (移动端)
-- 虚拟摇杆：移动
-- 技能按钮：释放技能
-- 交互按钮：拾取/交互
-
-## 示例项目
-
-`example/sanguo_zhangjiao/` - 三国张角序章
-
-包含六幕剧情：
-1. **第一幕 - 绝望的开始**: 角色创建、教程、战斗
-2. **第二幕 - 符水救灾**: 加入黄巾军，学习新技能
-3. **第三幕 - 铜钱法器**: 获取铜钱剑
-4. **第四幕 - 职业选择**: 职业选择、技能树
-5. **第五幕 - 四场战斗**: 大规模战役
-6. **第六幕 - 结局**: 最终决战、结局分支
-
-## 调试模式
-
-BaseGameScene 有 `this.debugMode` 属性（默认 false）
-
-开启方式：控制台执行 `sceneManager.getCurrentScene().debugMode = true`
-
-调试功能：
-- 红色十字：鼠标屏幕位置
-- 蓝色方块：玩家位置
-- 坐标标签：详细坐标信息
-- 控制台输出：详细日志
-
-## 特殊约定
-
-1. **装备栏**: 在 zhangjiao demo 中，装备栏指 PlayerInfoPanel
-2. **desktop 目录**: 打包为 exe 用，修改功能时不要管
-3. **测试文件**: 所有测试用 .html 文件放在 test 文件夹
-4. **文档文件**: 所有 .md 文档放在 docs 文件夹
+- 复杂实现细节分别维护在现有 steering：成长/场景基础设施见 `progression-implementation.md`，流式优化见 `optimization-plan-b-plus.md`，地图编辑器见 `map-editor.md`，Android 见 `android-build.md`，交付状态见 `yijian18-game-demo-development-plan.md`。
+- 本文件不再维护逐个类/文件的完整清单，避免新增模块后再次整体过期。
+- 修改功能时不处理 `desktop/`；不创建新游戏目录；文档放 `docs/`，但除用户要求外不主动创建普通文档。
+- 调试信息不得自动删除；如需删除必须先取得用户同意。

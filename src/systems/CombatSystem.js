@@ -916,76 +916,69 @@ export class CombatSystem {
   applyDamage(target, damage, knockbackDir = null, damageType = null, context = {}) {
     const stats = target.getComponent('stats');
     const transform = target.getComponent('transform');
-    
+
     if (!stats) return null;
 
     const sourceEntity = context.sourceEntity
       || (target !== this.playerEntity ? this.playerEntity : null);
     const requestedDamage = this._filterEffectAmount('damage', sourceEntity, target, damage);
-    // 扣除生命值，并只按实际生命变化发出受伤事件。
     const hpBefore = Number(stats.hp) || 0;
     const wasDead = hpBefore <= 0;
     stats.takeDamage(requestedDamage);
     const hpAfter = Number(stats.hp) || 0;
     const appliedDamage = Math.max(0, hpBefore - hpAfter);
     const isDead = hpAfter <= 0;
-    if (appliedDamage > 0) {
-      const damageEvent = {
-        target,
-        sourceEntity,
-        sourceEntityId: sourceEntity?.id || null,
-        attackKind: context.attackKind || 'unknown',
-        requestedDamage,
-        appliedDamage,
-        damageType,
-        hpBefore,
-        hpAfter,
-        isDead
-      };
-      if (this.onDamageCallback) {
-        try {
-          this.onDamageCallback(damageEvent);
-        } catch (error) {
-          console.warn('CombatSystem: 受伤回调执行失败', error);
+    const damageEvent = {
+      target,
+      sourceEntity,
+      sourceEntityId: sourceEntity?.id || null,
+      attackKind: context.attackKind || 'unknown',
+      requestedDamage,
+      appliedDamage,
+      damageType,
+      hpBefore,
+      hpAfter,
+      isDead
+    };
+    let finalized = false;
+
+    const finalize = () => {
+      if (finalized) return false;
+      finalized = true;
+      if (appliedDamage > 0) {
+        if (this.onDamageCallback) {
+          try { this.onDamageCallback(damageEvent); }
+          catch (error) { console.warn('CombatSystem: 受伤回调执行失败', error); }
+        }
+        for (const listener of [...this._damageListeners]) {
+          try { listener(damageEvent); }
+          catch (error) { console.warn('CombatSystem: 受伤监听器执行失败', error); }
         }
       }
-      for (const listener of [...this._damageListeners]) {
-        try {
-          listener(damageEvent);
-        } catch (error) {
-          console.warn('CombatSystem: 受伤监听器执行失败', error);
+      if (transform) this.showDamageNumber(transform.position, appliedDamage, damageType);
+      const sprite = target.getComponent('sprite');
+      if (sprite && appliedDamage > 0) this.playHitEffect(target);
+      if (!wasDead && isDead && context.deferDeathEffects !== true) {
+        if (target.type === 'player') this.handleDeath(target);
+        else {
+          this.spawnLoot(target);
+          this.triggerDeathEffect(target);
         }
       }
-    }
-    
-    // 显示伤害数字（包含类型信息）
-    if (transform) {
-      this.showDamageNumber(transform.position, appliedDamage, damageType);
-    }
-    
-    // 播放受击动画（如果有）
-    const sprite = target.getComponent('sprite');
-    if (sprite && appliedDamage > 0) {
-      // 可以添加受击闪烁效果
-      this.playHitEffect(target);
-    }
-    
-    // 击退已禁用 - 不再推动实体移动
-    // if (knockbackDir && !isDead && transform) {
-    //   this.applyKnockback(target, knockbackDir);
-    // }
-    
-    // 玩家死亡必须进入唯一失败结算入口；普通敌人沿用现有掉落与特效。
-    // 需要原子 checkpoint 的剧情可延迟死亡副作用，提交成功后再显式触发。
-    if (!wasDead && isDead && context.deferDeathEffects !== true) {
-      if (target.type === 'player') {
-        this.handleDeath(target);
-      } else {
-        this.spawnLoot(target);
-        this.triggerDeathEffect(target);
-      }
-    }
-    return { target, requestedDamage, appliedDamage, hpBefore, hpAfter, isDead };
+      return true;
+    };
+
+    const rollback = () => {
+      if (finalized || Number(stats.hp) !== hpAfter) return false;
+      stats.hp = hpBefore;
+      return true;
+    };
+
+    if (context.deferPresentationEffects !== true) finalize();
+    return {
+      ...damageEvent,
+      ...(context.deferPresentationEffects === true ? { finalize, rollback } : {})
+    };
   }
   
   /**

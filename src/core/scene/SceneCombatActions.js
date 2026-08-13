@@ -50,11 +50,12 @@ export class SceneCombatActions {
   attackByFacing() {
     if (this._isLocked()) return false;
     const scene = this.scene;
+    const direction = scene.getPlayerFacingVector?.() || { x: 1, y: 0 };
+    if (scene.handleBasicAttackIntent?.({ type: 'attack', direction, source: 'touch' }) === true) return true;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const spriteHeight = scene.playerEntity.getComponent('sprite')?.height || 64;
-    const direction = scene.getPlayerFacingVector();
     const melee = scene.meleeAttackSystem;
     melee.setPlayerEntity(scene.playerEntity);
     melee.setEntities(scene.entities);
@@ -69,12 +70,16 @@ export class SceneCombatActions {
   attackByDirection(dirX, dirY, distRatio) {
     if (this._isLocked()) return false;
     const scene = this.scene;
+    const magnitude = Math.hypot(dirX, dirY);
+    const direction = magnitude > 0 ? { x: dirX / magnitude, y: dirY / magnitude } : { x: 1, y: 0 };
+    if (scene.handleBasicAttackIntent?.({
+      type: 'attack', direction, magnitude: distRatio, source: 'directional'
+    }) === true) return true;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
     const melee = scene.meleeAttackSystem;
     const spriteHeight = scene.playerEntity.getComponent('sprite')?.height || 64;
-    const magnitude = Math.hypot(dirX, dirY);
     melee.setPlayerEntity(scene.playerEntity);
     melee.setEntities(scene.entities);
     melee.sectorDirection = magnitude > 0 ? Math.atan2(dirY, dirX) : 0;

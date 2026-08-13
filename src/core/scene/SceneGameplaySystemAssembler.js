@@ -70,8 +70,8 @@ export class SceneGameplaySystemAssembler {
       const lootEntities = scene.pickupSystem.spawnLootItems(position, lootItems);
       for (let i = 0; i < lootEntities.length; i++) {
         const entity = lootEntities[i];
-        scene.entities.push(entity);
-        scene.equipmentItems.push(entity);
+        scene.entityStore.add(entity);
+        scene.entityStore.addEquipmentItem(entity);
       }
     });
 

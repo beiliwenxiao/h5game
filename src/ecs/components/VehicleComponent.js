@@ -55,6 +55,7 @@ export class VehicleComponent extends Component {
       odometer: Math.max(0, Number(config.logistics?.odometer) || 0),
       distanceSinceFeed: Math.max(0, Number(config.logistics?.distanceSinceFeed) || 0),
       foodConsumed: Math.max(0, Math.floor(Number(config.logistics?.foodConsumed) || 0)),
+      travelBatchProgress: Math.max(0, Number(config.logistics?.travelBatchProgress) || 0),
       starved: config.logistics?.starved === true,
       ladderEntryDisabled: config.logistics?.ladderEntryDisabled === true,
       catapultAssembled: config.logistics?.catapultAssembled === true,
@@ -180,7 +181,7 @@ export class VehicleComponent extends Component {
     if (!logistics || typeof logistics !== 'object' || Array.isArray(logistics)) {
       return { ok: false, code: 'invalidVehicleLogistics', path: 'logistics' };
     }
-    for (const key of ['odometer', 'distanceSinceFeed']) {
+    for (const key of ['odometer', 'distanceSinceFeed', 'travelBatchProgress']) {
       if (!Number.isFinite(logistics[key]) || logistics[key] < 0) {
         return { ok: false, code: 'invalidVehicleLogistics', path: `logistics.${key}` };
       }

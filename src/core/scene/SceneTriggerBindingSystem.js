@@ -10,9 +10,16 @@ import { normalizeSceneObjectSelector, resolveSceneObjects } from './SceneObject
  * 场景空间触发器绑定：只处理已投影到世界坐标的 binding，行为始终由 TriggerSystem 执行。
  */
 export class SceneTriggerBindingSystem {
-  constructor({ triggerSystem = null, getPlayer = null, logger = null, onPromptChange = null } = {}) {
+  constructor({
+    triggerSystem = null,
+    getPlayer = null,
+    resolveDynamicTarget = null,
+    logger = null,
+    onPromptChange = null
+  } = {}) {
     this.triggerSystem = triggerSystem;
     this.getPlayer = typeof getPlayer === 'function' ? getPlayer : () => null;
+    this.resolveDynamicTarget = typeof resolveDynamicTarget === 'function' ? resolveDynamicTarget : null;
     this.logger = typeof logger === 'function' ? logger : null;
     this.onPromptChange = typeof onPromptChange === 'function' ? onPromptChange : null;
     this.bindings = [];
@@ -145,14 +152,8 @@ export class SceneTriggerBindingSystem {
       this.logger?.('missingTriggerId', binding);
       return false;
     }
-    const selector = normalizeSceneObjectSelector({
-      mode: binding.targetMode,
-      value: binding.target,
-      sceneId: binding.sceneId
-    });
-    const targets = selector.value
-      ? resolveSceneObjects(this.sceneObjects.filter(object => object !== binding), selector)
-      : [];
+    const selector = this._selector(binding);
+    const targets = selector.value ? this._resolveTargets(binding, selector) : [];
     if (selector.value && targets.length === 0) {
       this.logger?.('missingTarget', binding);
       return false;
@@ -180,27 +181,76 @@ export class SceneTriggerBindingSystem {
     return fired;
   }
 
+  _selector(binding) {
+    return normalizeSceneObjectSelector({
+      mode: binding.targetMode,
+      value: binding.target,
+      sceneId: binding.sceneId
+    });
+  }
+
+  _resolveDynamicTargets(binding, selector = this._selector(binding)) {
+    if (!this.resolveDynamicTarget || selector.mode !== 'id' || !selector.value) return [];
+    try {
+      const resolved = this.resolveDynamicTarget(selector.value, binding, selector);
+      const targets = Array.isArray(resolved) ? resolved : [resolved];
+      return targets.filter(target => target?.id === selector.value
+        && (!selector.sceneId || !target.sceneId || target.sceneId === selector.sceneId));
+    } catch (error) {
+      this.logger?.('dynamicTargetError', binding, error);
+      return [];
+    }
+  }
+
+  _resolveTargets(binding, selector = this._selector(binding)) {
+    const dynamicTargets = this._resolveDynamicTargets(binding, selector);
+    if (dynamicTargets.length > 0) return dynamicTargets;
+    return resolveSceneObjects(this.sceneObjects.filter(object => object !== binding), selector);
+  }
+
   _playerPosition() {
     const player = this.getPlayer();
     const transform = player?.getComponent?.('transform');
     return transform?.position || player?.position || null;
   }
 
+  _geometry(binding) {
+    const dynamicTarget = this._resolveDynamicTargets(binding)[0];
+    if (dynamicTarget) {
+      const width = Math.max(1, Number(dynamicTarget.width) || 1);
+      const height = Math.max(1, Number(dynamicTarget.height) || 1);
+      const center = dynamicTarget.center && Number.isFinite(dynamicTarget.center.x)
+        && Number.isFinite(dynamicTarget.center.y)
+        ? { x: dynamicTarget.center.x, y: dynamicTarget.center.y }
+        : {
+            x: Number(dynamicTarget.x || 0) + width / 2,
+            y: Number(dynamicTarget.y || 0) + height / 2
+          };
+      return {
+        x: Number.isFinite(dynamicTarget.x) ? dynamicTarget.x : center.x - width / 2,
+        y: Number.isFinite(dynamicTarget.y) ? dynamicTarget.y : center.y - height / 2,
+        width,
+        height,
+        center
+      };
+    }
+    const width = Math.max(1, Number(binding.width) || 1);
+    const height = Math.max(1, Number(binding.height) || 1);
+    const x = Number(binding.x || 0);
+    const y = Number(binding.y || 0);
+    return { x, y, width, height, center: { x: x + width / 2, y: y + height / 2 } };
+  }
+
   _center(binding) {
-    return {
-      x: Number(binding.x || 0) + Number(binding.width || 0) / 2,
-      y: Number(binding.y || 0) + Number(binding.height || 0) / 2
-    };
+    return this._geometry(binding).center;
   }
 
   _contains(binding, x, y, pointer = false) {
-    const center = this._center(binding);
+    const geometry = this._geometry(binding);
     const radius = Math.max(0, Number(pointer ? (binding.pointerRadius ?? binding.radius) : binding.radius) || 0);
-    if (radius > 0) return Math.hypot(x - center.x, y - center.y) <= radius;
-    const width = Math.max(1, Number(binding.width) || 1);
-    const height = Math.max(1, Number(binding.height) || 1);
-    return x >= Number(binding.x || 0) && x <= Number(binding.x || 0) + width
-      && y >= Number(binding.y || 0) && y <= Number(binding.y || 0) + height;
+    if (radius > 0) return Math.hypot(x - geometry.center.x, y - geometry.center.y) <= radius;
+    return x >= geometry.x && x <= geometry.x + geometry.width
+      && y >= geometry.y && y <= geometry.y + geometry.height;
   }
 
   _distanceSq(binding, point) {

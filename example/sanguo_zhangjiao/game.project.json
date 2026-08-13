@@ -2883,16 +2883,22 @@
       { "value": "completeS11GuardRally", "label": "完成 S11 卫兵集合 completeS11GuardRally" },
       { "value": "reportS11AssassinWaveDefeated", "label": "提交 S11 刺客波次 reportS11AssassinWaveDefeated" },
       { "value": "completeS11WestGateBreakout", "label": "完成 S11 西门突围 completeS11WestGateBreakout" },
+      { "value": "interactS11Horse", "label": "骑乘或离开 S11 突围战马 interactS11Horse" },
       { "value": "checkS11Exit", "label": "完成 S11 并前往 S12 checkS11Exit" },
       { "value": "openS12BattleMode", "label": "打开 S12 战役模式 openS12BattleMode" },
       { "value": "startS12Rescue", "label": "启动 S12 张宝救援 startS12Rescue" },
       { "value": "completeS12SecretPassage", "label": "完成 S12 密道阶段 completeS12SecretPassage" },
       { "value": "completeS12Evacuation", "label": "完成 S12 张宝撤离 completeS12Evacuation" },
+      { "value": "useS12LadderEntry", "label": "使用 S12 云梯入口 useS12LadderEntry" },
+      { "value": "burnS12Ladder", "label": "火烧 S12 云梯 burnS12Ladder" },
       { "value": "checkS12Exit", "label": "根据 S12 后状态进入 S13 或 S14 checkS12Exit" },
       { "value": "openS13BattleMode", "label": "打开 S13 战役模式 openS13BattleMode" },
       { "value": "checkS13Exit", "label": "完成 S13 并前往 S14 checkS13Exit" },
+      { "value": "openS14CargoTransfer", "label": "打开 S14 马车货舱 openS14CargoTransfer" },
       { "value": "resolveS14LastCart", "label": "结算 S14 最后马车 resolveS14LastCart" },
       { "value": "resolveS14Catapult", "label": "结算 S14 投石车 resolveS14Catapult" },
+      { "value": "operateS14Catapult", "label": "组装或进入 S14 投石车武器席 operateS14Catapult" },
+      { "value": "leaveS14Catapult", "label": "离开 S14 投石车武器席 leaveS14Catapult" },
       { "value": "commitS14Ending", "label": "通过 EndingSystem 提交 S14 结局 commitS14Ending" }
     ]
   },
@@ -4011,6 +4017,12 @@
       "once": false, "cooldown": 0.5
     },
     {
+      "id": "trg_s11_interact_horse",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "interactS11Horse", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.25
+    },
+    {
       "id": "trg_s11_exit_s12",
       "when": { "type": "interact", "params": {} },
       "do": [{ "action": "checkS11Exit", "params": { "sceneId": "S12" }, "await": true }],
@@ -4048,6 +4060,18 @@
       "once": false, "cooldown": 0.5
     },
     {
+      "id": "trg_s12_use_ladder",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "useS12LadderEntry", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s12_burn_ladder",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "burnS12Ladder", "params": { "damageType": "fire" }, "await": true }],
+      "once": false, "cooldown": 0.5
+    },
+    {
       "id": "trg_s12_zhang_bao_evacuation",
       "when": { "type": "enter", "params": {} },
       "do": [{ "action": "completeS12Evacuation", "params": {}, "await": true }],
@@ -4082,6 +4106,12 @@
       "once": false, "cooldown": 1
     },
     {
+      "id": "trg_s14_open_cargo_transfer",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "openS14CargoTransfer", "params": {}, "await": false }],
+      "once": false, "cooldown": 0.2
+    },
+    {
       "id": "trg_s14_resolve_last_cart",
       "when": { "type": "interact", "params": {} },
       "do": [{ "action": "resolveS14LastCart", "params": {}, "await": true }],
@@ -4092,6 +4122,18 @@
       "when": { "type": "interact", "params": {} },
       "do": [{ "action": "resolveS14Catapult", "params": {}, "await": true }],
       "once": false, "cooldown": 0.5
+    },
+    {
+      "id": "trg_s14_operate_catapult",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "operateS14Catapult", "params": {}, "await": true }],
+      "once": false, "cooldown": 0.35
+    },
+    {
+      "id": "trg_s14_leave_catapult",
+      "when": { "type": "interact", "params": {} },
+      "do": [{ "action": "leaveS14Catapult", "params": {}, "await": false }],
+      "once": false, "cooldown": 0.2
     },
     {
       "id": "trg_s14_commit_ending",

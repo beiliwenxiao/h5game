@@ -69,32 +69,28 @@ export class SkillEffects {
    * @param {number} deltaTime - 时间增量（秒）
    */
   updateProjectile(projectile, deltaTime) {
-    // 更新位置
     projectile.position.x += projectile.velocity.x * deltaTime;
     projectile.position.y += projectile.velocity.y * deltaTime;
-    
-    // 更新生命周期
     projectile.elapsed += deltaTime;
-    
-    // 发射尾迹粒子
+    const progress = projectile.maxLife > 0
+      ? Math.min(1, Math.max(0, projectile.elapsed / projectile.maxLife))
+      : 1;
+    projectile.elevation = Math.sin(progress * Math.PI) * (Number(projectile.arcHeight) || 0);
+
     if (projectile.trailConfig) {
       this.particleSystem.emit({
         ...projectile.trailConfig,
         position: { ...projectile.position }
       });
     }
-    
-    // 检查是否到达目标或超时
+
     if (projectile.target) {
       const dx = projectile.target.x - projectile.position.x;
       const dy = projectile.target.y - projectile.position.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (distance < 20 || projectile.elapsed >= projectile.maxLife) {
-        // 到达目标，触发命中效果
-        if (projectile.onHit) {
-          projectile.onHit(projectile.position);
-        }
+        if (projectile.onHit) projectile.onHit({ ...projectile.target });
         projectile.completed = true;
       }
     } else if (projectile.elapsed >= projectile.maxLife) {
@@ -109,17 +105,15 @@ export class SkillEffects {
    */
   render(ctx, camera) {
     const viewBounds = camera.getViewBounds();
-    
+
     for (const projectile of this.projectiles) {
-      // 转换为屏幕坐标
       const screenX = projectile.position.x - viewBounds.left;
-      const screenY = projectile.position.y - viewBounds.top;
-      
-      // 绘制抛射物
+      const screenY = projectile.position.y - viewBounds.top - (Number(projectile.elevation) || 0);
+
       ctx.save();
       ctx.fillStyle = projectile.color || '#ffffff';
       ctx.globalAlpha = 1 - (projectile.elapsed / projectile.maxLife);
-      
+
       if (projectile.shape === 'circle') {
         ctx.beginPath();
         ctx.arc(screenX, screenY, projectile.size || 5, 0, Math.PI * 2);
@@ -132,7 +126,7 @@ export class SkillEffects {
           projectile.size || 5
         );
       }
-      
+
       ctx.restore();
     }
   }
@@ -392,6 +386,41 @@ export class SkillEffects {
         sizeRange: { min: 8, max: 12 }
       }
     );
+  }
+
+  /** 创建带抛物线高度的投石车石弹，命中时复用爆炸粒子。 */
+  createCatapultProjectile(position, target, { speed = 260, arcHeight = 120, onHit = null } = {}) {
+    if (!target) return false;
+    const dx = target.x - position.x;
+    const dy = target.y - position.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 1) {
+      this.createFireballHitEffect(position);
+      onHit?.(position);
+      return true;
+    }
+    this.projectiles.push({
+      position: { ...position },
+      velocity: { x: (dx / distance) * speed, y: (dy / distance) * speed },
+      target: { ...target },
+      elapsed: 0,
+      maxLife: distance / speed,
+      arcHeight,
+      elevation: 0,
+      size: 13,
+      color: '#4a4035',
+      shape: 'circle',
+      trailConfig: {
+        position: { ...position }, velocity: { x: 0, y: 0 }, life: 260,
+        size: 5, color: '#8b7355', gravity: 25
+      },
+      onHit: hitPos => {
+        this.createFireballHitEffect(hitPos);
+        onHit?.(hitPos);
+      },
+      completed: false
+    });
+    return true;
   }
 
   /**

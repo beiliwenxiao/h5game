@@ -622,7 +622,7 @@ export class EntityFactory {
     if (data.cargo) entity.addComponent(new CargoComponent(data.cargo));
 
     // 载具移动能力（复用 MovementSystem）
-    entity.addComponent(new MovementComponent({ speed: data.speed || 120 }));
+    entity.addComponent(new MovementComponent({ speed: data.speed != null ? data.speed : 120 }));
 
     // 载具本体控制者（driver 席位有人时被接管）
     entity.addComponent(new ControllerComponent({ kind: ControllerKind.AI, team: data.team }));

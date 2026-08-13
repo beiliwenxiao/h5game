@@ -35,6 +35,9 @@ export class MovementSystem {
     this.isMovementLocked = typeof config.isMovementLocked === 'function'
       ? config.isMovementLocked
       : entity => this.jumpSystem?.isJumping?.(entity) === true;
+    this.moveIntentRouter = typeof config.moveIntentRouter === 'function'
+      ? config.moveIntentRouter
+      : null;
     
     // 地图边界（默认无限大）
     this.mapBounds = config.mapBounds || {
@@ -74,6 +77,27 @@ export class MovementSystem {
         this.camera.setTarget(transform);
       }
     }
+  }
+
+  /**
+   * 注入设备无关的移动 intent 路由。驾驶席可将同一输入转发到载具。
+   * @param {Function|null} router
+   */
+  setMoveIntentRouter(router) {
+    this.moveIntentRouter = typeof router === 'function' ? router : null;
+  }
+
+  _resolveMoveTarget(playerEntity, intent) {
+    let route = null;
+    try { route = this.moveIntentRouter?.(playerEntity, intent) || null; }
+    catch (error) { console.warn('MovementSystem: move intent router failed', error); }
+    const entity = route?.target === 'vehicle' && route.vehicle ? route.vehicle : playerEntity;
+    return {
+      entity,
+      movement: entity?.getComponent?.('movement') || null,
+      sprite: entity?.getComponent?.('sprite') || null,
+      routedToVehicle: entity !== playerEntity
+    };
   }
 
   /**
@@ -201,26 +225,19 @@ export class MovementSystem {
    */
   handleKeyboardInput(entities) {
     if (!this.inputManager) return;
-    
-    // 只处理玩家实体的键盘输入
+
     const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
     if (!playerEntity) return;
-    
-    const movement = playerEntity.getComponent('movement');
-    const sprite = playerEntity.getComponent('sprite');
-    if (!movement || this.isMovementLocked(playerEntity)) return;
-    
-    // 方向输入：优先取归一化的方向向量（手柄摇杆带模拟量），
-    // 拿不到再退回逐键判断（旧版 InputManager / 测试替身）
+
+    // 方向输入统一来自 InputManager；触屏虚拟摇杆和手柄均在采集层映射到这里。
     let vx = 0;
     let vy = 0;
     let magnitude = 0;
-
     if (typeof this.inputManager.getMoveAxis === 'function') {
       const axis = this.inputManager.getMoveAxis();
-      vx = axis.x;
-      vy = axis.y;
-      magnitude = axis.magnitude;
+      vx = Number(axis?.x) || 0;
+      vy = Number(axis?.y) || 0;
+      magnitude = Math.max(0, Number(axis?.magnitude) || 0);
     } else {
       if (this.inputManager.isKeyDown('up')) vy -= 1;
       if (this.inputManager.isKeyDown('down')) vy += 1;
@@ -234,40 +251,27 @@ export class MovementSystem {
       }
     }
 
-    // 如果有方向输入
+    const target = this._resolveMoveTarget(playerEntity, {
+      type: 'move', source: 'axis', direction: { x: vx, y: vy }, magnitude
+    });
+    const { entity, movement, sprite, routedToVehicle } = target;
+    if (!movement || movement.enabled === false
+      || (!routedToVehicle && this.isMovementLocked(playerEntity))) return;
+
     if (magnitude > 0) {
-      // 获取修改后的移动速度（考虑状态效果）
       let speed = movement.speed;
-      if (this.statusEffectSystem) {
-        const modifiedStats = this.statusEffectSystem.getModifiedStats(playerEntity);
-        speed = modifiedStats.speed;
+      if (!routedToVehicle && this.statusEffectSystem) {
+        speed = this.statusEffectSystem.getModifiedStats(playerEntity).speed;
       }
-      
-      // vx/vy 已归一化（斜向不会超速）；magnitude 为摇杆推杆量，键盘恒为 1
-      vx = vx * speed * magnitude;
-      vy = vy * speed * magnitude;
-      
-      // 开始键盘移动
-      movement.startKeyboardMovement(vx, vy);
-      
-      // 切换到移动动画
-      if (sprite && sprite.currentAnimation !== 'walk') {
-        sprite.playAnimation('walk');
-      }
-    } else {
-      // 没有键盘输入，如果当前是键盘移动模式，则停止
-      if (movement.movementType === 'keyboard') {
-        movement.stop();
-        
-        // 停止行走动画
-        if (sprite && sprite.useAnimatedSprite) {
-          sprite.setWalking(false);
-        }
-        // 切换到待机动画
-        if (sprite && sprite.currentAnimation !== 'idle') {
-          sprite.playAnimation('idle');
-        }
-      }
+      movement.startKeyboardMovement(vx * speed * magnitude, vy * speed * magnitude);
+      if (sprite && sprite.currentAnimation !== 'walk') sprite.playAnimation('walk');
+      return;
+    }
+
+    if (movement.movementType === 'keyboard') {
+      movement.stop();
+      if (sprite?.useAnimatedSprite) sprite.setWalking(false);
+      if (sprite && sprite.currentAnimation !== 'idle') sprite.playAnimation('idle');
     }
   }
 
@@ -277,54 +281,27 @@ export class MovementSystem {
    */
   handleClickMovement(entities) {
     if (!this.inputManager) return;
-    
-    // 检测鼠标点击（右键移动）
-    // 只有当点击未被 UI 处理时才响应移动
-    if (this.inputManager.isMouseClicked() && 
-        this.inputManager.getMouseButton() === 2 &&
-        !this.inputManager.isMouseClickHandled()) {
-      
-      // 只处理玩家实体的点击移动
-      const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
-      if (!playerEntity) return;
-      
-      const movement = playerEntity.getComponent('movement');
-      const sprite = playerEntity.getComponent('sprite');
-      if (!movement) return;
-      
-      // 如果当前是键盘移动模式，不处理点击
-      if (movement.movementType === 'keyboard') {
-        return;
-      }
-      
-      // 获取点击的世界坐标
-      // 使用当前帧相机位置实时转换，确保坐标准确
-      const mouseScreen = this.inputManager.getMousePosition();
-      let clickPos;
-      if (this.camera) {
-        clickPos = this.camera.screenToWorld(mouseScreen.x, mouseScreen.y);
-      } else {
-        clickPos = this.inputManager.getMouseWorldPosition();
-      }
-      
-      // 检查是否点击了敌人（如果点击了敌人，不移动）
-      const clickedEnemy = this.findEnemyAtPosition(clickPos, entities);
-      if (clickedEnemy) {
-        // 点击了敌人，不移动（由 CombatSystem 处理选中）
-        return;
-      }
-      
-      // 设置移动路径（简单的直线路径）
-      movement.setPath([clickPos]);
-      
-      // 切换到移动动画
-      if (sprite && sprite.currentAnimation !== 'walk') {
-        sprite.playAnimation('walk');
-      }
-      
-      // 标记点击已处理
-      this.inputManager.markMouseClickHandled();
-    }
+    if (!this.inputManager.isMouseClicked()
+      || this.inputManager.getMouseButton() !== 2
+      || this.inputManager.isMouseClickHandled()) return;
+
+    const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
+    if (!playerEntity) return;
+    const target = this._resolveMoveTarget(playerEntity, { type: 'move', source: 'pointer' });
+    const { movement, sprite, routedToVehicle } = target;
+    if (!movement || movement.enabled === false
+      || (!routedToVehicle && this.isMovementLocked(playerEntity))) return;
+    if (movement.movementType === 'keyboard') return;
+
+    const mouseScreen = this.inputManager.getMousePosition();
+    const clickPos = this.camera
+      ? this.camera.screenToWorld(mouseScreen.x, mouseScreen.y)
+      : this.inputManager.getMouseWorldPosition();
+    if (this.findEnemyAtPosition(clickPos, entities)) return;
+
+    movement.setPath([clickPos]);
+    if (sprite && sprite.currentAnimation !== 'walk') sprite.playAnimation('walk');
+    this.inputManager.markMouseClickHandled();
   }
   
   /**

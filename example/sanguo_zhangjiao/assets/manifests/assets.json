@@ -3331,6 +3331,16 @@
       "replacementBrief": { "sceneIds": ["S14"], "subject": "雪后将明的终局山口", "mustShow": ["前景残营", "最后马车", "缺梁投石车", "远景退路"], "mustPreserve": ["1280×720 坐标对齐", "终局交互锚点", "碰撞由场景定义"], "camera": "top-down-oblique-2d", "palette": ["#24282a", "#6b6760", "#c8d0d8", "#d8aa32"], "textPolicy": "no-baked-text" }
     },
     {
+      "assetId": "s11.vehicle.breakoutHorse", "imageId": "s11.vehicle.breakoutHorse", "category": "vehicle", "usage": ["S11", "horse", "breakout"],
+      "sourceFile": "assets/images/s11/breakout-horse.svg", "runtime2D": { "path": "assets/images/s11/breakout-horse.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s11.vehicle.breakoutHorse" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 150, "height": 100 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s12.vehicle.siegeLadder", "imageId": "s12.vehicle.siegeLadder", "category": "vehicle", "usage": ["S12", "ladder", "siege-entry"],
+      "sourceFile": "assets/images/s12/siege-ladder.svg", "runtime2D": { "path": "assets/images/s12/siege-ladder.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s12.vehicle.siegeLadder" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 100, "height": 220 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
       "assetId": "s14.vehicle.lastRetreatCart", "imageId": "s14.vehicle.lastRetreatCart", "category": "vehicle", "usage": ["S14", "final-retreat", "cart-breakout"],
       "sourceFile": "assets/images/s14/last-retreat-cart.svg", "runtime2D": { "path": "assets/images/s14/last-retreat-cart.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s14.vehicle.lastRetreatCart" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 220, "height": 128 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1

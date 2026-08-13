@@ -20,7 +20,6 @@ export class ScenePlayerLifecycle {
     this.lifecycleSystem = lifecycleSystem;
     this._createPlayer = createPlayer.bind(playerFactory);
     this._protectedPlayer = null;
-    this._trackedEnemies = false;
     this._previousBeforeRemove = null;
     this._ownsBeforeRemove = false;
     this._cleanupConfigured = false;
@@ -50,13 +49,11 @@ export class ScenePlayerLifecycle {
     });
   }
 
-  /** 在场景完成进入日志后配置玩家保护与敌人清理接线。 */
+  /** 在场景完成进入日志后配置玩家保护与死亡前副作用。 */
   configureCleanup(player = this.context.player.entity) {
     if (this._cleanupConfigured || !player) return false;
     this.lifecycleSystem.protect?.(player);
     this._protectedPlayer = player;
-    this.lifecycleSystem.trackList?.(this.context.entities.enemies);
-    this._trackedEnemies = true;
     this._previousBeforeRemove = this.lifecycleSystem.onBeforeRemove || null;
     const callback = (entity) => {
       this._previousBeforeRemove?.(entity);
@@ -78,10 +75,6 @@ export class ScenePlayerLifecycle {
     if (this._protectedPlayer) {
       this.lifecycleSystem.unprotect?.(this._protectedPlayer);
       this._protectedPlayer = null;
-    }
-    if (this._trackedEnemies) {
-      this.lifecycleSystem.untrackList?.(this.context.entities.enemies);
-      this._trackedEnemies = false;
     }
     if (this._ownsBeforeRemove && this.lifecycleSystem.onBeforeRemove === this._beforeRemove) {
       this.lifecycleSystem.setOnBeforeRemove?.(this._previousBeforeRemove);

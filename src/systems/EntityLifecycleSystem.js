@@ -76,39 +76,38 @@ export class EntityLifecycleSystem {
   }
 
   /**
-   * 从主列表和所有跟踪列表中移除死亡实体
+   * 收集死亡实体并执行移除前回调，不修改任何实体列表。
+   * @param {Array} entities - 只读主实体列表
+   * @returns {Array} 待移除的实体列表
+   */
+  collectDeadEntities(entities = []) {
+    const deadEntities = [];
+    for (let i = entities.length - 1; i >= 0; i--) {
+      const entity = entities[i];
+      if (!entity?.isDead || this.protectedEntities.has(entity)) continue;
+      deadEntities.push(entity);
+      this.onBeforeRemove?.(entity);
+    }
+    return deadEntities;
+  }
+
+  /**
+   * 兼容旧调用方：从主列表和所有跟踪列表中移除死亡实体。
+   * 新场景应调用 collectDeadEntities()，再由实体存储统一提交删除。
    * @param {Array} entities - 主实体列表（会被修改）
    * @returns {Array} 被移除的实体列表
    */
   removeDeadEntities(entities) {
-    const deadEntities = [];
-    
-    for (let i = entities.length - 1; i >= 0; i--) {
-      const entity = entities[i];
-      if (entity.isDead && !this.protectedEntities.has(entity)) {
-        deadEntities.push(entity);
-        
-        // 执行移除前回调
-        if (this.onBeforeRemove) {
-          this.onBeforeRemove(entity);
-        }
-        
-        // 从主列表移除
-        entities.splice(i, 1);
+    const deadEntities = this.collectDeadEntities(entities);
+    if (deadEntities.length === 0) return deadEntities;
+
+    const deadSet = new Set(deadEntities);
+    for (const list of [entities, ...this.trackedLists]) {
+      if (!Array.isArray(list)) continue;
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (deadSet.has(list[i])) list.splice(i, 1);
       }
     }
-    
-    // 从所有跟踪列表中移除。批量死亡时用 Set 单次反向扫描，
-    // 避免对每个死亡实体重复 indexOf 整个列表。
-    if (deadEntities.length > 0) {
-      const deadSet = new Set(deadEntities);
-      for (const list of this.trackedLists) {
-        for (let i = list.length - 1; i >= 0; i--) {
-          if (deadSet.has(list[i])) list.splice(i, 1);
-        }
-      }
-    }
-    
     return deadEntities;
   }
 

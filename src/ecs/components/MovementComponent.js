@@ -30,7 +30,7 @@ export class MovementComponent extends Component {
     super('movement');
     
     // 速度
-    this.speed = config.speed || 100;
+    this.speed = config.speed != null ? config.speed : 100;
     this.velocity = { x: 0, y: 0 };
     
     // 路径

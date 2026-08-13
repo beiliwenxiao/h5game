@@ -58,6 +58,7 @@ import { BattleHudView } from '../../../src/ui/BattleHudView.js';
 import { BattleResultView } from '../../../src/ui/BattleResultView.js';
 import { RescueObjectiveView } from '../../../src/ui/RescueObjectiveView.js';
 import { IrreversibleChoiceView } from '../../../src/ui/IrreversibleChoiceView.js';
+import { CargoTransferView } from '../../../src/ui/CargoTransferView.js';
 import { EndingPresentationView } from '../../../src/ui/EndingPresentationView.js';
 import { EndingSystem } from '../../../src/systems/EndingSystem.js';
 import { Entity } from '../../../src/ecs/Entity.js';
@@ -330,10 +331,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.vehicleLogisticsSystem = null;
     this.mannedStructureAdapter = null;
     this._s10StructureEntities = new Map();
-    this._s14VehicleEntities = new Map();
+    this._sceneVehicleEntities = new Map();
+    // Demo 历史编排兼容别名；与通用 map 是同一引用，不形成第二份状态。
+    this._s14VehicleEntities = this._sceneVehicleEntities;
     this._s10StructureInteractionBusy = false;
     this.rescueObjectiveView = null;
     this.irreversibleChoiceView = null;
+    this.cargoTransferView = new CargoTransferView({
+      width: 680,
+      onCommand: command => { void this._handleCargoTransferCommand?.(command); }
+    });
+    this._cargoTransferBusy = false;
+    this._cargoTransferPendingOperation = null;
+    this._cargoTransferSequence = 0;
     this.endingPresentationView = null;
     this.endingSystem = null;
     this.s04RouteCoordinator = null;
@@ -440,14 +450,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       capture: context => this._captureStreamedChunkState(context.chunk),
       validate: (data, context = {}) => {
         const errors = [];
-        if (!data || data.schemaVersion !== 1) {
+        if (!data || data.schemaVersion !== 2) {
           errors.push({ code: 'invalidDemoChunkState', path: 'schemaVersion', message: 'Demo chunk 动态状态版本无效' });
           return { ok: false, errors };
         }
         if (data.sceneNamespace !== context.sceneNamespace) {
           errors.push({ code: 'demoChunkNamespaceMismatch', path: 'sceneNamespace', message: 'Demo chunk 业务命名空间不一致' });
         }
-        for (const field of ['resourceNodes', 'placementStates', 'deathDrops', 's10StructureStates', 's14VehicleStates']) {
+        for (const field of ['resourceNodes', 'placementStates', 'deathDrops', 's10StructureStates', 'vehicleStates']) {
           if (!Array.isArray(data[field])) {
             errors.push({ code: 'invalidDemoChunkField', path: field, message: `${field} 必须是数组` });
           }
@@ -484,20 +494,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             message: 'S10 工事状态无效'
           });
         }
-        if (context.sceneNamespace !== 'S14'
-          && ((data.s14VehicleStates || []).length > 0 || data.vehicleLogisticsState)) {
-          errors.push({ code: 's14VehicleNamespaceMismatch', path: 's14VehicleStates', message: 'S14 载具状态不能属于其他场景' });
-        } else if (context.sceneNamespace === 'S14') {
-          const s14Check = this._validateS14VehicleStates(
-            data.s14VehicleStates || [],
-            data.vehicleLogisticsState || null
-          );
-          if (!s14Check.ok) errors.push({
-            code: s14Check.code,
-            path: 's14VehicleStates',
-            message: 'S14 载具或物流状态无效'
-          });
-        }
+        const vehicleCheck = this._validateSceneVehicleStates(
+          context.sceneNamespace,
+          data.vehicleStates || []
+        );
+        if (!vehicleCheck.ok) errors.push({
+          code: vehicleCheck.code,
+          path: 'vehicleStates',
+          message: `${context.sceneNamespace} 载具状态无效`
+        });
         return { ok: errors.length === 0, errors };
       },
       prepareRestore: data => ({
@@ -517,8 +522,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           sceneNamespace: draft.sceneNamespace,
           deathDrops: draft.deathDrops || [],
           s10StructureStates: draft.s10StructureStates || [],
-          s14VehicleStates: draft.s14VehicleStates || [],
-          vehicleLogisticsState: draft.vehicleLogisticsState || null
+          vehicleStates: draft.vehicleStates || []
         });
         return { ok: true };
       },
@@ -594,11 +598,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const capturedS10Structures = chunk.sceneNamespace === 'S10'
       ? this._captureS10StructureStates()
       : [];
-    const capturedS14Vehicles = chunk.sceneNamespace === 'S14'
-      ? this._captureS14VehicleStates()
-      : [];
+    const capturedVehicles = this._captureSceneVehicleStates(chunk.sceneNamespace);
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       sceneNamespace: chunk.sceneNamespace,
       resourceNodes,
       placementStates,
@@ -606,16 +608,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       s10StructureStates: capturedS10Structures.length > 0
         ? capturedS10Structures
         : cloneData(pendingDomain?.s10StructureStates || []),
-      s14VehicleStates: capturedS14Vehicles.length > 0
-        ? capturedS14Vehicles
-        : cloneData(pendingDomain?.s14VehicleStates || []),
-      vehicleLogisticsState: chunk.sceneNamespace === 'S14'
-        ? ((this._s14VehicleEntities?.size || 0) > 0
-          ? this.vehicleLogisticsSystem?.serialize?.() || null
-          : cloneData(pendingDomain?.vehicleLogisticsState)
-            || this.vehicleLogisticsSystem?.serialize?.()
-            || null)
-        : null
+      vehicleStates: capturedVehicles.length > 0
+        ? capturedVehicles
+        : cloneData(pendingDomain?.vehicleStates || [])
     };
   }
 
@@ -650,7 +645,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const namespaceStillLoaded = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
       .some(loadedChunk => loadedChunk !== chunk && loadedChunk?.sceneNamespace === chunk?.sceneNamespace);
     if (!namespaceStillLoaded && chunk?.sceneNamespace === 'S10') this._disposeS10Structures();
-    if (!namespaceStillLoaded && chunk?.sceneNamespace === 'S14') this._disposeS14Vehicles();
+    if (!namespaceStillLoaded) this._disposeSceneVehicles(chunk?.sceneNamespace);
   }
 
   _restoreStreamedDomainState(sceneId) {
@@ -670,17 +665,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const state = {
       deathDrops: mergeBy('deathDrops', 'id'),
       s10StructureStates: mergeBy('s10StructureStates', 'siteId'),
-      s14VehicleStates: mergeBy('s14VehicleStates', 'definitionId'),
-      vehicleLogisticsState: pendingEntries
-        .map(([, value]) => value?.vehicleLogisticsState)
-        .find(Boolean) || null
+      vehicleStates: mergeBy('vehicleStates', 'definitionId')
     };
     if (sceneId === 'S10' && state.s10StructureStates.length) {
       const result = this._restoreS10StructureStates(state.s10StructureStates);
       if (result?.ok === false) return result;
     }
-    if (sceneId === 'S14' && state.s14VehicleStates.length) {
-      const result = this._restoreS14VehicleStates(state.s14VehicleStates, state.vehicleLogisticsState);
+    if (state.vehicleStates.length) {
+      const result = this._restoreSceneVehicleStates(sceneId, state.vehicleStates);
       if (result?.ok === false) return result;
     }
     const chunks = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
@@ -911,9 +903,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.battleResultView = null;
       this.rescueObjectiveView?.clear?.();
       this.irreversibleChoiceView?.close?.();
+      this.cargoTransferView?.close?.();
+      this._cargoTransferBusy = false;
+      this._cargoTransferPendingOperation = null;
       this.rescueSystem = null;
       this._disposeS10Structures();
-      this._disposeS14Vehicles();
+      this._disposeAllSceneVehicles();
       this.constructionSystem = null;
       this.vehicleLogisticsSystem = null;
       this.vehicleSystem = null;
@@ -1049,7 +1044,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         if (sceneId === 'S07') this._syncS07DelayWorldState();
         if (sceneId === 'S12') this._ensureS12GateEntity();
         else this._removeS12GateEntity();
-        if (sceneId === 'S14') this._ensureS14VehicleEntities();
+        this._ensureSceneVehicleEntities(sceneId);
         await this._restoreStreamedDomainState(sceneId);
         // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
@@ -1181,6 +1176,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._ensureS10StructureEntities();
     this.mannedStructureAdapter?.syncAll?.();
     this.vehicleSystem?.update?.(deltaTime);
+    this._updateS11HorseTravel?.();
 
     // Combat/AI/Collision 已在父类帧管线完成；随后按配置优先级判断实时战役结果。
     this._updateS03BattleRuntime(deltaTime);
@@ -1313,8 +1309,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
   }
 
-  /** S01 攻击教学允许无敌人空挥；其余场景仍遵守正式战斗状态。 */
+  /** S01 攻击教学允许无敌人空挥；S14 gunner 攻击转交载具武器事务。 */
   canPerformBasicAttack() {
+    if (this._isS14CatapultGunner?.()) {
+      if (this.inputManager?.isMouseButtonDown?.(0)
+        && !this.inputManager?.isMouseClickHandled?.()) {
+        const position = this.playerEntity?.getComponent?.('transform')?.position;
+        const mouse = this.inputManager?.mouse;
+        const dx = Number(mouse?.worldX) - Number(position?.x);
+        const dy = Number(mouse?.worldY) - Number(position?.y);
+        const magnitude = Math.hypot(dx, dy);
+        const direction = magnitude > 0
+          ? { x: dx / magnitude, y: dy / magnitude }
+          : this.getPlayerFacingVector();
+        this.handleBasicAttackIntent?.({ type: 'attack', direction, source: 'pointer' });
+      }
+      return false;
+    }
     if (super.canPerformBasicAttack()) return true;
     if (this.currentSceneId !== 'S01') return false;
     const nextTutorial = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
@@ -1953,7 +1964,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _clearRegionRuntime(result = this._worldLoadResult) {
     this.gatheringPuppetSystem?.cancelActive?.('regionUnload', { silent: true });
     this._disposeS10Structures();
-    this._disposeS14Vehicles();
+    this._disposeAllSceneVehicles();
     const placementIds = new Set((result?.placements || [])
       .filter(placement => placement?.type === 'ref' && placement.id)
       .map(placement => placement.id));
@@ -2040,7 +2051,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (placementResult?.ok === false) return placementResult;
     if (request.sceneId === 'S12') this._ensureS12GateEntity();
     else this._removeS12GateEntity();
-    if (request.sceneId === 'S14') this._ensureS14VehicleEntities();
+    this._ensureSceneVehicleEntities(request.sceneId);
 
     const targetRegionId = result.region?.id;
     const targetState = targetRegionId ? this._regionDynamicStates.get(targetRegionId) : null;
@@ -2162,9 +2173,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const hasWorldStreaming = !!this.worldStreamingManager;
     const s11s14State = this._captureS11S14SceneState();
     if (hasWorldStreaming) {
-      // 载具与物流由 demoDynamic provider 按 S14 namespace 唯一保存。
-      s11s14State.vehicleLogisticsState = null;
-      s11s14State.s14VehicleStates = [];
+      // 载具运行态由 demoDynamic provider 按 scene namespace 保存；全局物流 ledger 只保存一次。
+      s11s14State.vehicleStates = [];
     }
     return {
       worldStreamingState: this.worldStreamingManager?.serialize?.() || null,
@@ -3047,6 +3057,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       },
       onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`vehicle.${event}`, cloneData(data))
     });
+    this.movementSystem?.setMoveIntentRouter?.((rider, intent) => (
+      this.vehicleSystem?.routeIntent?.(rider, intent) || { target: 'self', role: null, intent }
+    ));
     this.vehicleLogisticsSystem = new VehicleLogisticsSystem({
       inventoryTransactions: this.inventoryTransactions,
       getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
@@ -3060,7 +3073,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`mannedStructure.${event}`, cloneData(data))
     });
     this._ensureS10StructureEntities();
-    this._ensureS14VehicleEntities();
+    this._ensureSceneVehicleEntities(this.currentSceneId);
     this._gameplaySystemAssembler?.configureAbilities?.({
       skillRegistry: gameLoader.skillRegistry,
       effectResolver: resolver
@@ -5603,22 +5616,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return null;
   }
 
-  _getS14VehicleDefinitions() {
-    return cloneData(this._worldLoadSession?.getChunk?.('S14')?.sceneData?.gameplay?.vehicles || []);
+  _getSceneVehicleDefinitions(sceneId = this.currentSceneId) {
+    if (!sceneId) return [];
+    return cloneData(this._worldLoadSession?.getChunk?.(sceneId)?.sceneData?.gameplay?.vehicles || []);
   }
 
-  _ensureS14VehicleEntities() {
-    if (this.currentSceneId !== 'S14' || !this.vehicleSystem || !this.entityFactory || !this.entityStore) return [];
+  _ensureSceneVehicleEntities(sceneId = this.currentSceneId) {
+    if (this.currentSceneId !== sceneId || !this.vehicleSystem || !this.entityFactory || !this.entityStore) return [];
     const created = [];
-    for (const definition of this._getS14VehicleDefinitions()) {
+    for (const definition of this._getSceneVehicleDefinitions(sceneId)) {
       if (!definition?.id || !definition.markerId) continue;
-      const cached = this._s14VehicleEntities.get(definition.id);
-      if (cached && this.entityStore.all.includes(cached)) continue;
-      if (cached) {
-        this.vehicleSystem.unregisterVehicle(cached);
-        this._s14VehicleEntities.delete(definition.id);
-      }
-      const marker = this._findProjectedSceneObject('S14', definition.markerId);
+      const cached = this._sceneVehicleEntities.get(definition.id);
+      if (cached && cached.vehicleSceneId === sceneId && this.entityStore.all.includes(cached)) continue;
+      if (cached) this._disposeSceneVehicles(cached.vehicleSceneId || sceneId, definition.id);
+      const marker = this._findProjectedSceneObject(sceneId, definition.markerId);
       if (!marker) continue;
       const entity = this.entityFactory.createVehicle({
         ...cloneData(definition),
@@ -5628,8 +5639,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         },
         team: 'yellow_turban'
       });
-      entity.tags = ['s14Vehicle', definition.vehicleType, 'yellow_turban'];
+      entity.tags = [`${sceneId.toLowerCase()}Vehicle`, definition.vehicleType, 'yellow_turban'];
       entity.vehicleDefinitionId = definition.id;
+      entity.vehicleSceneId = sceneId;
       if (definition.renderMode === 'sceneObject') {
         const sprite = entity.getComponent?.('sprite');
         if (sprite) sprite.visible = false;
@@ -5637,97 +5649,108 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
       this.entityStore.add(entity);
       this.vehicleSystem.registerVehicle(entity);
-      this._s14VehicleEntities.set(definition.id, entity);
+      this._sceneVehicleEntities.set(definition.id, entity);
       created.push(entity);
     }
     return created;
   }
 
-  _disposeS14Vehicles() {
-    for (const entity of this._s14VehicleEntities?.values?.() || []) {
-      const vehicle = entity?.getComponent?.('vehicle');
+  _disposeSceneVehicles(sceneId, definitionId = null) {
+    for (const [id, entity] of [...(this._sceneVehicleEntities?.entries?.() || [])]) {
+      if (entity?.vehicleSceneId !== sceneId || (definitionId && id !== definitionId)) continue;
+      const vehicle = entity.getComponent?.('vehicle');
       for (const riderId of vehicle?.getRiders?.() || []) {
         const rider = this.entityStore?.all?.find?.(candidate => candidate?.id === riderId);
         if (rider) this.vehicleSystem?.dismount?.(rider);
       }
       this.vehicleSystem?.unregisterVehicle?.(entity);
       this.entityStore?.remove?.(entity);
-      try { entity?.destroy?.(); } catch (error) { /* best-effort lifecycle cleanup */ }
+      this._sceneVehicleEntities.delete(id);
+      try { entity.destroy?.(); } catch (error) { /* best-effort lifecycle cleanup */ }
     }
-    this._s14VehicleEntities?.clear?.();
+    if (sceneId === 'S14') {
+      this.vehicleWeaponSystem?.dispose?.();
+      this.vehicleWeaponSystem = null;
+      this._s14CatapultFireBusy = false;
+    }
+  }
+
+  _disposeAllSceneVehicles() {
+    const sceneIds = new Set([...(this._sceneVehicleEntities?.values?.() || [])].map(entity => entity?.vehicleSceneId).filter(Boolean));
+    for (const sceneId of sceneIds) this._disposeSceneVehicles(sceneId);
   }
 
   _resolveVehicleInventoryOwnerId(inventory) {
     if (inventory === this.playerEntity?.getComponent?.('inventory')) {
       return `${this.playerEntity?.id || 'player'}:inventory`;
     }
-    for (const [vehicleId, entity] of this._s14VehicleEntities || []) {
+    for (const [vehicleId, entity] of this._sceneVehicleEntities || []) {
       if (inventory === entity?.getComponent?.('cargo')) return `${vehicleId}:cargo`;
     }
     return null;
   }
 
-  _captureS14VehicleStates() {
-    this._ensureS14VehicleEntities();
-    return [...(this._s14VehicleEntities || new Map()).entries()].map(([definitionId, entity]) => {
-      const transform = entity.getComponent?.('transform');
-      return {
-        schemaVersion: 1,
-        definitionId,
-        entityId: entity.id,
-        transform: transform ? {
-          x: Number(transform.position.x) || 0,
-          y: Number(transform.position.y) || 0,
-          rotation: Number(transform.rotation) || 0
-        } : null,
-        vehicle: cloneData(entity.getComponent?.('vehicle')?.serialize?.() || null),
-        cargo: cloneData(entity.getComponent?.('cargo')?.serialize?.() || null)
-      };
-    });
+  _captureSceneVehicleStates(sceneId = this.currentSceneId) {
+    if (this.currentSceneId === sceneId) this._ensureSceneVehicleEntities(sceneId);
+    return [...(this._sceneVehicleEntities || new Map()).entries()]
+      .filter(([, entity]) => entity?.vehicleSceneId === sceneId)
+      .map(([definitionId, entity]) => {
+        const transform = entity.getComponent?.('transform');
+        return {
+          schemaVersion: 1,
+          sceneId,
+          definitionId,
+          entityId: entity.id,
+          transform: transform ? {
+            x: Number(transform.position.x) || 0,
+            y: Number(transform.position.y) || 0,
+            rotation: Number(transform.rotation) || 0
+          } : null,
+          vehicle: cloneData(entity.getComponent?.('vehicle')?.serialize?.() || null),
+          cargo: cloneData(entity.getComponent?.('cargo')?.serialize?.() || null)
+        };
+      });
   }
 
-  _validateS14VehicleStates(states, logisticsState = null) {
-    if (states != null && !Array.isArray(states)) return { ok: false, code: 'invalidS14VehicleStates' };
-    const definitionList = this._getS14VehicleDefinitions();
-    const definitions = new Map(definitionList.map(entry => [entry.id, entry]));
+  _validateSceneVehicleStates(sceneId, states, logisticsState = null) {
+    if (!sceneId || (states != null && !Array.isArray(states))) return { ok: false, code: 'invalidSceneVehicleStates' };
+    const definitions = new Map(this._getSceneVehicleDefinitions(sceneId).map(entry => [entry.id, entry]));
     const ids = new Set();
     for (const entry of states || []) {
       const definition = definitions.get(entry?.definitionId);
-      if (entry?.schemaVersion !== 1 || !definition || ids.has(entry.definitionId)
+      if (entry?.schemaVersion !== 1 || entry.sceneId !== sceneId || !definition || ids.has(entry.definitionId)
         || entry.entityId !== entry.definitionId || !entry.transform
         || !Number.isFinite(entry.transform.x) || !Number.isFinite(entry.transform.y)
         || !Number.isFinite(entry.transform.rotation)) {
-        return { ok: false, code: 'invalidS14VehicleState', definitionId: entry?.definitionId };
+        return { ok: false, code: 'invalidSceneVehicleState', definitionId: entry?.definitionId };
       }
       ids.add(entry.definitionId);
       const probe = this.entityFactory?.createVehicle?.({ ...cloneData(definition), position: { x: 0, y: 0 } });
-      if (!probe) return { ok: false, code: 's14VehicleValidationProbeFailed', definitionId: entry.definitionId };
+      if (!probe) return { ok: false, code: 'vehicleValidationProbeFailed', definitionId: entry.definitionId };
       try {
         const vehicleCheck = probe.getComponent?.('vehicle')?.validateSerialized?.(entry.vehicle);
-        if (!vehicleCheck?.ok) {
-          return {
-            ok: false,
-            code: vehicleCheck?.code || 'invalidVehicleSnapshot',
-            definitionId: entry.definitionId,
-            path: vehicleCheck?.path
-          };
-        }
+        if (!vehicleCheck?.ok) return {
+          ok: false,
+          code: vehicleCheck?.code || 'invalidVehicleSnapshot',
+          definitionId: entry.definitionId,
+          path: vehicleCheck?.path
+        };
         const cargoProbe = probe.getComponent?.('cargo');
         if (!!entry.cargo !== !!cargoProbe) {
-          return { ok: false, code: 's14CargoDefinitionMismatch', definitionId: entry.definitionId };
+          return { ok: false, code: 'cargoDefinitionMismatch', definitionId: entry.definitionId };
         }
         if (entry.cargo) {
           const cargoCheck = cargoProbe.validateSerialized?.(entry.cargo);
-          if (!cargoCheck?.ok) {
-            return { ok: false, code: cargoCheck?.code || 'invalidCargoSnapshot', definitionId: entry.definitionId };
-          }
+          if (!cargoCheck?.ok) return {
+            ok: false, code: cargoCheck?.code || 'invalidCargoSnapshot', definitionId: entry.definitionId
+          };
         }
       } finally {
         try { probe.destroy?.(); } catch (error) { /* validation probe cleanup */ }
       }
     }
     if ((states || []).length > 0 && ids.size !== definitions.size) {
-      return { ok: false, code: 'incompleteS14VehicleStates' };
+      return { ok: false, code: 'incompleteSceneVehicleStates', sceneId };
     }
     if (logisticsState) {
       if (logisticsState.schemaVersion !== 1 || !Array.isArray(logisticsState.operations)) {
@@ -5745,34 +5768,26 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return { ok: true };
   }
 
-  _restoreS14VehicleStates(states = [], logisticsState = null) {
-    const checked = this._validateS14VehicleStates(states, logisticsState);
+  _restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) {
+    const checked = this._validateSceneVehicleStates(sceneId, states, logisticsState);
     if (!checked.ok) return checked;
-    if (states.length > 0 && this.currentSceneId !== 'S14') {
-      return { ok: false, code: 's14VehicleSceneMismatch' };
+    if (states.length > 0 && this.currentSceneId !== sceneId) {
+      return { ok: false, code: 'sceneVehicleSceneMismatch', sceneId };
     }
-    this._ensureS14VehicleEntities();
+    this._ensureSceneVehicleEntities(sceneId);
     const prepared = [];
     for (const entry of states) {
-      const entity = this._s14VehicleEntities.get(entry.definitionId);
+      const entity = this._sceneVehicleEntities.get(entry.definitionId);
       const transform = entity?.getComponent?.('transform');
       const vehicle = entity?.getComponent?.('vehicle');
       const cargo = entity?.getComponent?.('cargo');
-      if (!entity || !transform || !vehicle || (!!entry.cargo !== !!cargo)) {
-        return { ok: false, code: 's14VehicleRebuildFailed', definitionId: entry.definitionId };
+      if (!entity || entity.vehicleSceneId !== sceneId || !transform || !vehicle || (!!entry.cargo !== !!cargo)) {
+        return { ok: false, code: 'sceneVehicleRebuildFailed', definitionId: entry.definitionId };
       }
       prepared.push({
-        entry,
-        entity,
-        transform,
-        vehicle,
-        cargo,
+        entry, entity, transform, vehicle, cargo,
         before: {
-          transform: {
-            x: transform.position.x,
-            y: transform.position.y,
-            rotation: transform.rotation
-          },
+          transform: { x: transform.position.x, y: transform.position.y, rotation: transform.rotation },
           vehicle: cloneData(vehicle.serialize()),
           cargo: cloneData(cargo?.serialize?.() || null),
           registered: this.vehicleSystem?.vehicles?.has?.(entity) === true
@@ -5810,6 +5825,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           break;
         }
       }
+      const movement = item.entity.getComponent?.('movement');
+      if (movement) {
+        movement.enabled = !item.vehicle.destroyed && !item.vehicle.logistics.starved;
+        if (!movement.enabled) movement.stop?.();
+      }
       if (item.vehicle.destroyed) this.vehicleSystem?.unregisterVehicle?.(item.entity);
       else this.vehicleSystem?.registerVehicle?.(item.entity);
     }
@@ -5819,11 +5839,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     if (failure) {
       const rolledBack = rollback();
-      return rolledBack
-        ? failure
-        : { ok: false, code: 's14VehicleRollbackFailed', cause: failure.code };
+      return rolledBack ? failure : { ok: false, code: 'sceneVehicleRollbackFailed', cause: failure.code };
     }
     return { ok: true };
+  }
+
+  // S14 编排兼容入口；状态所有权已经统一到 scene vehicle store。
+  _getS14VehicleDefinitions() { return this._getSceneVehicleDefinitions('S14'); }
+  _ensureS14VehicleEntities() { return this._ensureSceneVehicleEntities('S14'); }
+  _disposeS14Vehicles() { return this._disposeSceneVehicles('S14'); }
+  _captureS14VehicleStates() { return this._captureSceneVehicleStates('S14'); }
+  _validateS14VehicleStates(states, logisticsState = null) {
+    return this._validateSceneVehicleStates('S14', states, logisticsState);
+  }
+  _restoreS14VehicleStates(states = [], logisticsState = null) {
+    return this._restoreSceneVehicleStates('S14', states, logisticsState);
   }
 
   _findS10ProjectedObject(objectId) {
@@ -6663,16 +6693,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('completeS11GuardRally', () => this.completeS11GuardRally());
     trig.registerAction('reportS11AssassinWaveDefeated', (p = {}) => this.reportS11AssassinWaveDefeated(p.waveNumber));
     trig.registerAction('completeS11WestGateBreakout', () => this.completeS11WestGateBreakout());
+    trig.registerAction('interactS11Horse', () => this.interactS11Horse());
     trig.registerAction('checkS11Exit', (p = {}) => this.checkS11Exit(p));
     trig.registerAction('openS12BattleMode', () => this.openS12BattleMode());
     trig.registerAction('startS12Rescue', () => this.startS12Rescue());
     trig.registerAction('completeS12SecretPassage', () => this.completeS12SecretPassage());
     trig.registerAction('completeS12Evacuation', () => this.completeS12Evacuation());
+    trig.registerAction('useS12LadderEntry', () => this.useS12LadderEntry());
+    trig.registerAction('burnS12Ladder', (p = {}) => this.burnS12Ladder(p));
     trig.registerAction('checkS12Exit', (p = {}) => this.checkS12Exit(p));
     trig.registerAction('openS13BattleMode', () => this.openS13BattleMode());
     trig.registerAction('checkS13Exit', (p = {}) => this.checkS13Exit(p));
+    trig.registerAction('openS14CargoTransfer', () => this.openS14CargoTransfer());
     trig.registerAction('resolveS14LastCart', () => this.resolveS14LastCart());
     trig.registerAction('resolveS14Catapult', () => this.resolveS14Catapult());
+    trig.registerAction('operateS14Catapult', () => this.operateS14Catapult());
+    trig.registerAction('leaveS14Catapult', () => this.leaveS14Catapult());
     trig.registerAction('commitS14Ending', (p = {}) => this.commitS14Ending(p));
     trig.registerAction('acceptS09Enlistment', () => this.acceptS09Enlistment());
     trig.registerAction('prepareS09RefugeeConflict', () => this.prepareS09RefugeeConflict());
@@ -7663,6 +7699,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this._createEndingInputContext({ inputManager, gamepad })
       );
     }
+    if (this.cargoTransferView?.visible) {
+      return this.cargoTransferView.handleInput({
+        inputManager,
+        gamepad,
+        viewWidth: this.logicalWidth,
+        viewHeight: this.logicalHeight
+      });
+    }
     if (this.battleResultView?.visible) {
       return this.battleResultView.handleInput({
         inputManager,
@@ -8131,6 +8175,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.irreversibleChoiceView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 战果面板最后绘制并吞掉全部世界输入，关闭只影响 UI 可见性。
     this.battleResultView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    // 货舱面板只发转移命令，实际库存与货舱事务由 VehicleLogisticsSystem 提交。
+    this.cargoTransferView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 终局演出是最高层只读表现，仅通过命令请求宿主动作。
     this.endingPresentationView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   }

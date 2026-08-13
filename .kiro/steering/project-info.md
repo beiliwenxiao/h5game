@@ -103,7 +103,7 @@ android/                  # Android 发布权威工程
 - `WorldMapLoadSession` 只预载入口/目标场景；相邻块由 core manager 的 `sceneResolver` 按需读取磁盘 JSON。
 - `RegionCoordinator` 使用 detached/shadow session 准备目标 Region；准备失败时旧 Region、玩家位置、Story 和 runtime 应保持不变。
 - 磁盘 canonical 场景 JSON 是运行与编辑器缩略图的事实源；localStorage 仅作 fallback/cache，缺少 `layers/imageAssets` 时必须回退磁盘。
-- dynamic provider 保存资源节点、placement、DeathDrop、S10 工事和 S14 载具/物流；physical chunk ID 用于生成实体，SXX namespace 只用于业务状态聚合。
+- dynamic provider 保存资源节点、placement、DeathDrop、S10 工事和按 `sceneNamespace` 分区的 Vehicle/Cargo 运行态；载具物流 operation ledger 是全局单份快照，不随旧 chunk 重复覆盖。physical chunk ID 用于生成实体，SXX namespace 只用于业务状态聚合。
 
 ## 7. 存档约定
 
@@ -166,7 +166,7 @@ npx vitest --run <目标测试文件>
 ## 13. 当前状态与明确阻断
 
 - P0-P6 当前均为 `inProgress`；尚无完整 S01-S14 浏览器 playthrough 与音画验收证据。
-- P4 尚缺马/云梯 placement、CargoTransfer UI、投石车实际武器入口；马车单一 DeathDrop 已完成代码接线但待成功/回滚/重放实测。
+- P4 的马/云梯 placement 与代码接线已完成：S11 战马复用统一输入路由和里程耗粮，S12 云梯复用幂等火毁事务并由载具状态派生入口可用性；S14 `CargoTransferView` 已通过 `VehicleLogisticsSystem.transfer()` 接入背包↔货舱双向原子转移，马车单一 DeathDrop 已完成代码接线；投石车已接入真实 gunner 席、三输入攻击 intent、稳定目标指纹、石料/人力扣除、伤害、弧线石弹与 checkpoint 失败回滚。上述载具仍待成功/资源或容量不足/checkpoint 回滚/幂等重放、乘降、目标死亡、卸载恢复和存读档实测。
 - 流式加载仍需连续跨界、远距传送、失败保留旧区、动态对象卸载恢复、SXX-CNN 和两轮存读档实测。
 - S11 性能门槛是至少 100 个活动 ECS 实体、平均 60 FPS，并检查 1% low、长任务和 draw calls；不是“100 个在线玩家已支持”。
 - 同 Region 连续跨界内存目标 `<100MB` 尚未验收。

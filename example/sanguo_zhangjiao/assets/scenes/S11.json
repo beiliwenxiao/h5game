@@ -19,7 +19,17 @@
       "assassin-wave-1": "S11-assassin-wave-1",
       "assassin-wave-2": "S11-assassin-wave-2",
       "assassin-wave-3": "S11-assassin-wave-3"
-    }
+    },
+    "vehicles": [
+      {
+        "id": "vehicle.s11.breakoutHorse", "markerId": "S11-breakout-horse", "vehicleType": "horse",
+        "name": "广宗突围战马", "imageId": "s11.vehicle.breakoutHorse", "width": 150, "height": 100,
+        "maxHp": 280, "hp": 280, "speed": 210, "turnRate": 4, "renderMode": "entity",
+        "seats": [{ "id": "driver", "role": "driver", "offset": [0, -34] }],
+        "logistics": { "travelBatchProgress": 0 },
+        "consumption": { "distancePerFood": 360, "foodItemId": "resource.food", "onMissingFood": "stop" }
+      }
+    ]
   },
   "composition": {
     "complexity": "high",
@@ -40,6 +50,7 @@
       "objects": [
         { "id": "S11-command-banner", "type": "image", "imageId": "s13.story.finalCommandBanner", "name": "广宗军令旗", "x": 105, "y": 555, "width": 72, "height": 96, "depthSort": true, "sortY": 651, "semanticRole": "battleMarker" },
         { "id": "S11-beacon", "type": "image", "imageId": "s11.prop.beaconTower", "name": "广宗烽火台", "x": 610, "y": 235, "width": 72, "height": 96, "depthSort": true, "sortY": 331, "semanticRole": "rescueObjective" },
+        { "id": "S11-breakout-horse", "type": "image", "imageId": "s11.vehicle.breakoutHorse", "name": "广宗突围战马生成标记", "x": 55, "y": 345, "width": 150, "height": 100, "opacity": 0, "depthSort": true, "sortY": 445, "semanticRole": "vehicleSpawnMarker" },
         { "id": "S11-rally-zone", "type": "region", "name": "卫兵集合区", "regionId": "S11-rally-zone", "x": 220, "y": 420, "width": 285, "height": 195 },
         { "id": "S11-assassin-zone", "type": "region", "name": "三波刺客压力区", "regionId": "S11-assassin-zone", "x": 770, "y": 230, "width": 390, "height": 310 },
         { "id": "S11-west-gate-zone", "type": "region", "name": "西门突围区", "regionId": "S11-west-gate-zone", "x": 430, "y": 35, "width": 220, "height": 115 },
@@ -185,6 +196,7 @@
         { "id": "S11-trigger-beacon", "type": "trigger", "name": "点燃烽火", "triggerId": "trg_s11_light_beacon", "command": "completeS11Beacon", "x": 575, "y": 205, "width": 140, "height": 150, "event": "interact", "targetMode": "id", "target": "S11-beacon", "radius": 100, "pointerRadius": 60, "prompt": "{interact}点燃烽火" },
         { "id": "S11-trigger-rally", "type": "trigger", "name": "集合卫兵", "triggerId": "trg_s11_rally_guards", "command": "completeS11GuardRally", "x": 220, "y": 420, "width": 285, "height": 195, "event": "enter", "targetMode": "id", "target": "S11-rally-zone", "radius": 110, "pointerRadius": 60, "prompt": "集合 6 名卫兵" },
         { "id": "S11-trigger-west-gate", "type": "trigger", "name": "张梁西门突围", "triggerId": "trg_s11_west_gate_breakout", "command": "completeS11WestGateBreakout", "x": 430, "y": 35, "width": 220, "height": 115, "event": "enter", "targetMode": "id", "target": "S11-west-gate-zone", "radius": 85, "pointerRadius": 60, "prompt": "西门突围点" },
+        { "id": "S11-trigger-interact-horse", "type": "trigger", "name": "骑乘或离开突围战马", "triggerId": "trg_s11_interact_horse", "command": "interactS11Horse", "x": 55, "y": 345, "width": 150, "height": 100, "event": "interact", "targetMode": "id", "target": "vehicle.s11.breakoutHorse", "radius": 76, "pointerRadius": 60, "prompt": "{interact}骑乘/离开突围战马" },
         { "id": "S11-binding-s12-exit", "type": "trigger", "name": "前往下曲阳战场", "triggerId": "trg_s11_exit_s12", "command": "checkS11Exit", "x": 700, "y": 35, "width": 150, "height": 180, "event": "interact", "targetMode": "id", "target": "S11-exit-marker", "radius": 115, "pointerRadius": 64, "prompt": "{interact}确认广宗战果并前往下曲阳" }
       ]
     }
@@ -194,6 +206,7 @@
   "imageAssets": {
     "s11.environment.guangzongBattlefieldGround": { "src": "../example/sanguo_zhangjiao/assets/images/s11/guangzong-battlefield-ground.svg", "name": "广宗百人战地貌" },
     "s11.prop.beaconTower": { "src": "../example/sanguo_zhangjiao/assets/images/s11/beacon-tower.svg", "name": "广宗烽火台" },
+    "s11.vehicle.breakoutHorse": { "src": "../example/sanguo_zhangjiao/assets/images/s11/breakout-horse.svg", "name": "广宗突围战马" },
     "s11.unit.assassin": { "src": "../example/sanguo_zhangjiao/assets/images/s11/assassin.svg", "name": "广宗刺客" },
     "s09.character.zhangliang": { "src": "../example/sanguo_zhangjiao/assets/images/s09/zhangliang.svg", "name": "张梁" },
     "s13.story.finalCommandBanner": { "src": "../example/sanguo_zhangjiao/assets/images/s13/final-command-banner.svg", "name": "军令旗" },

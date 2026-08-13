@@ -10,7 +10,12 @@ import { InputEventType } from '../input/InputEvent.js';
 export class SceneWorldInteraction {
   constructor(scene, options = {}) {
     if (!scene) throw new TypeError('SceneWorldInteraction requires scene');
+    const entityStore = options.entityStore || scene.entityStore;
+    if (typeof entityStore?.removeMany !== 'function') {
+      throw new TypeError('SceneWorldInteraction requires a SceneEntityStore');
+    }
     this.scene = scene;
+    this.entityStore = entityStore;
     this.feedbackRenderer = options.feedbackRenderer || ClickFeedbackRenderer;
     this.document = options.document || globalThis.document;
     this.clickRings = [];
@@ -130,16 +135,7 @@ export class SceneWorldInteraction {
   }
 
   _applyPickupResult(result = {}) {
-    const scene = this.scene;
-    const removedEntities = result.removedEntities || [];
-    if (scene.entityStore?.removeMany) {
-      scene.entityStore.removeMany(removedEntities);
-    } else if (Array.isArray(scene.entities)) {
-      const removedSet = new Set(removedEntities);
-      for (let index = scene.entities.length - 1; index >= 0; index--) {
-        if (removedSet.has(scene.entities[index])) scene.entities.splice(index, 1);
-      }
-    }
+    this.entityStore.removeMany(result.removedEntities || []);
   }
 
   /** 保留旧 Ctrl+左键轻功入口；当前 PC 主路径由瞄准服务驱动。 */

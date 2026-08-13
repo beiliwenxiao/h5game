@@ -183,6 +183,61 @@ export class VehicleLogisticsSystem {
     });
   }
 
+  async refeedHorse({
+    vehicle, inventory, config = {}, operationId, checkpointId = null, context = null,
+    inventoryOwnerId = null
+  } = {}) {
+    const component = vehicle?.getComponent?.('vehicle');
+    if (!component || component.vehicleType !== 'horse' || !inventory || !operationId) {
+      return { ok: false, code: 'invalidHorseRefeed' };
+    }
+    const interval = Math.max(1, Number(config.distancePerFood) || 1000);
+    const itemId = config.foodItemId || 'resource.food';
+    const fingerprint = JSON.stringify([
+      'horseRefeed', vehicle.id, inventoryOwnerId || this._inventoryId(inventory), interval, itemId
+    ]);
+    return this._executeOperation(operationId, fingerprint, async () => {
+      if (component.logistics.starved !== true) return { ok: false, code: 'horseNotStarved' };
+      const required = Math.max(1, Math.floor(component.logistics.distanceSinceFeed / interval));
+      const available = inventory.getItemCount(itemId);
+      if (available < required) {
+        return { ok: false, code: 'horseFoodMissing', operationId, required, available };
+      }
+      const before = clone(component.logistics);
+      const inventoryBefore = snapshotInventory(inventory);
+      const transactionId = `${operationId}:food`;
+      const removed = this.inventoryTransactions.commit({
+        type: 'remove', inventory, itemId, quantity: required, allowPartial: false, operationId: transactionId
+      });
+      if (!removed.ok) return removed;
+
+      component.logistics = {
+        ...before,
+        distanceSinceFeed: Math.max(0, before.distanceSinceFeed - required * interval),
+        foodConsumed: before.foodConsumed + required,
+        starved: false
+      };
+      const result = {
+        ok: true,
+        operationId,
+        vehicleId: vehicle.id,
+        foodConsumed: required,
+        logistics: clone(component.logistics)
+      };
+      const saved = await this._saveOperation(operationId, fingerprint, result, {
+        checkpointId, operationId, context, kind: 'horseRefed'
+      });
+      if (!saved.ok) {
+        component.logistics = before;
+        restoreInventory(inventory, inventoryBefore);
+        this.inventoryTransactions.forgetOperation(transactionId);
+        return saved;
+      }
+      this._emit('horseRefed', result);
+      return clone(result);
+    });
+  }
+
   async destroyCargoVehicle({
     vehicle, operationId, checkpointId = null, context = null,
     deferCheckpoint = false, deferEvent = false
@@ -267,8 +322,8 @@ export class VehicleLogisticsSystem {
   }
 
   async fireCatapult({
-    vehicle, inventory, costs = {}, operationId, checkpointId = null, context = null,
-    inventoryOwnerId = null
+    vehicle, inventory, costs = {}, targetId = null, execute = null,
+    operationId, checkpointId = null, context = null, inventoryOwnerId = null
   } = {}) {
     const component = vehicle?.getComponent?.('vehicle');
     if (!component || component.vehicleType !== 'catapult' || !inventory || !operationId) {
@@ -276,7 +331,7 @@ export class VehicleLogisticsSystem {
     }
     return this._consumeForVehicle({
       vehicle, component, inventory, entries: this._resourceEntries(costs), operationId, checkpointId, context,
-      inventoryOwnerId, kind: 'catapultFired',
+      inventoryOwnerId, kind: 'catapultFired', fingerprintSuffix: targetId ? [targetId] : [], execute,
       validate: value => value.logistics.catapultAssembled && !value.destroyed,
       alreadyCode: 'catapultNotReady',
       mutate: () => { component.logistics.catapultShots += 1; }
@@ -305,33 +360,68 @@ export class VehicleLogisticsSystem {
 
   async _consumeForVehicle({
     vehicle, component, inventory, entries, operationId, checkpointId, context, kind, mutate,
-    inventoryOwnerId = null, deferCheckpoint = false,
+    inventoryOwnerId = null, deferCheckpoint = false, fingerprintSuffix = [], execute = null,
     validate = () => true, alreadyCode = 'invalidVehicleOperation'
   }) {
     if (!entries.length) return { ok: false, code: 'resourceRequirementsMissing' };
     const fingerprint = JSON.stringify([
-      kind, vehicle?.id || 'unknown', inventoryOwnerId || this._inventoryId(inventory), entries
+      kind, vehicle?.id || 'unknown', inventoryOwnerId || this._inventoryId(inventory), entries,
+      ...fingerprintSuffix
     ]);
     return this._executeOperation(operationId, fingerprint, async () => {
       if (!validate(component)) return { ok: false, code: alreadyCode };
       const inventoryBefore = snapshotInventory(inventory);
       const logisticsBefore = clone(component.logistics);
       const transactionId = `${operationId}:resources`;
+      const rollbackBase = () => {
+        restoreInventory(inventory, inventoryBefore);
+        component.logistics = logisticsBefore;
+        this.inventoryTransactions.forgetOperation(transactionId);
+      };
       const removed = this.inventoryTransactions.commit({
         type: 'batchRemove', inventory, entries, operationId: transactionId
       });
       if (!removed.ok) return { ...removed, code: removed.code || 'vehicleResourcesMissing' };
       mutate();
-      const result = { ok: true, operationId, kind, consumed: clone(entries), logistics: clone(component.logistics) };
+
+      let execution = null;
+      if (typeof execute === 'function') {
+        try {
+          execution = await execute({ vehicle, component, operationId, kind, context });
+        } catch (error) {
+          rollbackBase();
+          return { ok: false, code: 'vehicleWeaponExecutionFailed', message: String(error?.message || error) };
+        }
+        if (execution?.ok === false) {
+          try { await execution.rollback?.(); } catch (error) { /* executor 尚未提交，继续恢复基础状态 */ }
+          rollbackBase();
+          return clone(execution);
+        }
+      }
+
+      const result = {
+        ok: true,
+        operationId,
+        kind,
+        consumed: clone(entries),
+        logistics: clone(component.logistics),
+        ...(fingerprintSuffix.length ? { targetId: fingerprintSuffix[0] } : {}),
+        ...(execution?.result ? { execution: clone(execution.result) } : {})
+      };
       const saved = await this._saveOperation(operationId, fingerprint, result, {
         checkpointId, operationId, context, kind, deferCheckpoint
       });
       if (!saved.ok) {
-        restoreInventory(inventory, inventoryBefore);
-        component.logistics = logisticsBefore;
-        this.inventoryTransactions.forgetOperation(transactionId);
-        return saved;
+        let executorRollbackOk = true;
+        try { executorRollbackOk = await execution?.rollback?.() !== false; }
+        catch (error) { executorRollbackOk = false; }
+        rollbackBase();
+        return executorRollbackOk
+          ? saved
+          : { ok: false, code: 'vehicleRollbackFailed', cause: saved.code };
       }
+      try { await execution?.finalize?.(); }
+      catch (error) { console.warn('VehicleLogisticsSystem: executor finalize failed', error); }
       this._emit(kind, result);
       return clone(result);
     });
@@ -374,11 +464,10 @@ export class VehicleLogisticsSystem {
   }
 
   async _saveOperation(operationId, fingerprint, result, payload) {
-    const operationsBefore = new Map(this.operations);
-    this._remember(operationId, fingerprint, result);
+    const journal = this._remember(operationId, fingerprint, result);
     if (payload?.deferCheckpoint === true) return { ok: true, deferred: true };
     const saved = await this._checkpoint(payload);
-    if (!saved.ok) this.operations = operationsBefore;
+    if (!saved.ok) this._rollbackRemember(journal);
     return saved;
   }
 
@@ -433,8 +522,38 @@ export class VehicleLogisticsSystem {
   }
 
   _remember(operationId, fingerprint, result) {
-    this.operations.set(operationId, { fingerprint, result: clone(result) });
-    while (this.operations.size > this.maxOperations) this.operations.delete(this.operations.keys().next().value);
+    const previous = this.operations.get(operationId);
+    const previousIndex = [...this.operations.keys()].indexOf(operationId);
+    const entry = { fingerprint, result: clone(result) };
+    this.operations.set(operationId, entry);
+    const evicted = [];
+    while (this.operations.size > this.maxOperations) {
+      const evictedId = this.operations.keys().next().value;
+      const evictedValue = this.operations.get(evictedId);
+      this.operations.delete(evictedId);
+      evicted.push({ operationId: evictedId, value: evictedValue, index: 0 });
+    }
+    return { operationId, entry, previous, previousIndex, evicted };
+  }
+
+  _rollbackRemember(journal) {
+    if (!journal || this.operations.get(journal.operationId) !== journal.entry) return false;
+    this.operations.delete(journal.operationId);
+    if (journal.previous && !this.operations.has(journal.operationId)) {
+      this._insertOperationAt(journal.operationId, journal.previous, journal.previousIndex);
+    }
+    for (const evicted of [...journal.evicted].reverse()) {
+      if (!this.operations.has(evicted.operationId)) {
+        this._insertOperationAt(evicted.operationId, evicted.value, evicted.index);
+      }
+    }
+    return true;
+  }
+
+  _insertOperationAt(operationId, value, index) {
+    const entries = [...this.operations.entries()];
+    entries.splice(Math.max(0, Math.min(entries.length, Number(index) || 0)), 0, [operationId, value]);
+    this.operations = new Map(entries);
   }
 
   _emit(event, payload) {

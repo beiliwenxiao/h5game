@@ -160,16 +160,10 @@ export class PickupSystem {
         let result;
         if (item.getComponent?.('deathDrop')) {
           result = this.pickupContainer(item, playerEntity, request.operationId);
-          if (result.complete) {
-            equipmentItems.splice(i, 1);
-            removedEntities.push(item);
-          }
+          if (result.complete) removedEntities.push(item);
         } else if (item.tags && item.tags.includes('loot')) {
           result = this.pickupLoot(item, playerEntity, request.operationId);
-          if (result.complete) {
-            equipmentItems.splice(i, 1);
-            removedEntities.push(item);
-          }
+          if (result.complete) removedEntities.push(item);
         } else {
           result = this.pickupItem(item, playerEntity, request.operationId);
           if (result.accepted > 0) pickedItems.push(item);

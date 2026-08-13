@@ -99,6 +99,7 @@ export class SceneRenderPipeline {
 
   renderWorldObjects(ctx) {
     const scene = this.scene;
+    const entities = this.context?.entities?.all || scene.entities;
     if (scene.terrain) {
       // 复用 Y-sort 排序队列数组；terrain.collectDecorations 会 push 进去，
       // 调用方有义务传入空数组——此处在顶部重置 length 保证兼容。
@@ -108,8 +109,8 @@ export class SceneRenderPipeline {
       scene.terrain.collectDecorations(queue, ctx, this._viewBounds);
       scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
       let entityItemCount = 0;
-      for (let i = 0, len = scene.entities.length; i < len; i++) {
-        const entity = scene.entities[i];
+      for (let i = 0, len = entities.length; i < len; i++) {
+        const entity = entities[i];
         if (!this._isEntityVisible(entity)) continue;
         const transform = entity.getComponent('transform');
         if (!transform) continue;
@@ -140,8 +141,8 @@ export class SceneRenderPipeline {
     queue.length = 0;
     scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
     let entityItemCount = 0;
-    for (let i = 0, len = scene.entities.length; i < len; i++) {
-      const entity = scene.entities[i];
+    for (let i = 0, len = entities.length; i < len; i++) {
+      const entity = entities[i];
       if (!this._isEntityVisible(entity)) continue;
       const position = entity.getComponent('transform')?.position;
       if (!position) continue;

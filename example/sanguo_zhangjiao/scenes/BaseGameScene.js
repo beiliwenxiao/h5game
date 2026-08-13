@@ -682,6 +682,28 @@ export class BaseGameScene extends Scene {
     this._sceneTriggerBindings?.dispose();
     this._sceneTriggerBindings = new SceneTriggerBindingSystem({
       getPlayer: () => this.playerEntity,
+      resolveDynamicTarget: (targetId, binding) => {
+        const entity = this.entityStore?.all?.find?.(candidate => candidate?.id === targetId);
+        const transform = entity?.getComponent?.('transform');
+        if (!entity || !transform?.position) return null;
+        const sceneId = entity.vehicleSceneId || entity.sceneId || this.currentSceneId || '';
+        if (binding?.sceneId && sceneId && binding.sceneId !== sceneId) return null;
+        const sprite = entity.getComponent?.('sprite');
+        const width = Math.max(1, Number(sprite?.width) || 1);
+        const height = Math.max(1, Number(sprite?.height) || 1);
+        return {
+          id: entity.id,
+          type: 'entity',
+          sceneId,
+          entityId: entity.id,
+          dynamicTarget: true,
+          x: transform.position.x - width / 2,
+          y: transform.position.y - height / 2,
+          width,
+          height,
+          center: { x: transform.position.x, y: transform.position.y }
+        };
+      },
       logger: (reason, binding) => console.warn(`BaseGameScene: 场景触发器绑定 ${reason}`, binding?.id),
       onPromptChange: prompt => {
         if (prompt) this._hintPresenter?.showHint(prompt, '交互');
@@ -1486,7 +1508,7 @@ export class BaseGameScene extends Scene {
    * 移除死亡实体（委托给 EntityLifecycleSystem）
    */
   removeDeadEntities() {
-    const removed = this.entityLifecycleSystem.removeDeadEntities(this.entities);
+    const removed = this.entityLifecycleSystem.collectDeadEntities(this.entities);
     this.entityStore.removeMany(removed);
     return removed;
   }

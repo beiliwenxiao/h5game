@@ -99,7 +99,10 @@ export class VehicleSystem {
 
     // 乘员移动交由载具接管：暂停其自身移动
     const rm = rider.getComponent('movement');
-    if (rm) rm.enabled = false;
+    if (rm) {
+      rm.stop?.();
+      rm.enabled = false;
+    }
 
     this.onEvent('mount', { riderId: rider.id, vehicleId: vehicle.id, seatId: seat.id, role: seat.role });
     return true;

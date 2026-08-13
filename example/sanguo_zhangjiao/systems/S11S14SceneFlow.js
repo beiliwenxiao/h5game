@@ -4,6 +4,7 @@
  ************************************************************/
 
 import { EndingSystem } from '../../../src/systems/EndingSystem.js';
+import { VehicleWeaponSystem } from '../../../src/systems/VehicleWeaponSystem.js';
 import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
 import { RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { Entity } from '../../../src/ecs/Entity.js';
@@ -18,6 +19,9 @@ const S13_BATTLE_ID = 'battle.s13.jingshan';
 const S11_RESCUE_ID = 'rescue.s11.zhangLiang';
 const S12_RESCUE_ID = 'rescue.s12.zhangBao';
 const S12_GATE_ID = 'S12-yamen-gate';
+const S11_HORSE_ID = 'vehicle.s11.breakoutHorse';
+const S12_LADDER_ID = 'vehicle.s12.siegeLadder';
+const S11_HORSE_TRAVEL_BATCH = 120;
 const RESOURCE_IDS = Object.freeze({ food: 'resource.food', herb: 'resource.herb', wood: 'resource.wood', iron: 'resource.iron' });
 
 function clamp(value, min, max) {
@@ -114,6 +118,235 @@ function buildLowMoraleResult(scene, context = {}) {
 const s11s12Methods = {
   _createS12LowMoraleResult(context = {}) {
     return buildLowMoraleResult(this, context);
+  },
+
+  async interactS11Horse() {
+    if (this.currentSceneId !== 'S11') return false;
+    this._ensureSceneVehicleEntities?.('S11');
+    const horse = this._sceneVehicleEntities?.get?.(S11_HORSE_ID);
+    if (!horse || horse._horseTravelCommitBusy || horse._horseInteractionCommitBusy) {
+      this._showScreenTip('战马状态正在保存，请稍候。', { title: '战马忙碌' });
+      return false;
+    }
+    const rider = this.playerEntity?.getComponent?.('rider');
+    if (rider) {
+      if (rider.vehicleId !== horse.id || rider.role !== 'driver') {
+        this._showScreenTip('你已占用其他载具席位，请先离席。', { title: '无法操作战马' });
+        return false;
+      }
+      const vehicle = horse.getComponent?.('vehicle');
+      if (vehicle?.logistics?.starved) {
+        return this._resumeS11Horse(horse, this.playerEntity?.getComponent?.('inventory'));
+      }
+      return this.leaveS11Horse();
+    }
+    return this.mountS11Horse();
+  },
+
+  async mountS11Horse() {
+    if (this.currentSceneId !== 'S11') return false;
+    this._ensureSceneVehicleEntities?.('S11');
+    const horse = this._sceneVehicleEntities?.get?.(S11_HORSE_ID);
+    const vehicle = horse?.getComponent?.('vehicle');
+    const movement = horse?.getComponent?.('movement');
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    if (!horse || !vehicle || !movement || !inventory || vehicle.destroyed) {
+      this._showScreenTip('突围战马当前不可使用。', { title: '战马不可用' });
+      return false;
+    }
+    if (horse._horseTravelCommitBusy || horse._horseInteractionCommitBusy) {
+      this._showScreenTip('战马状态正在保存，请稍候。', { title: '战马忙碌' });
+      return false;
+    }
+    const rider = this.playerEntity?.getComponent?.('rider');
+    if (rider) {
+      if (rider.vehicleId === horse.id && rider.role === 'driver') {
+        this._showScreenTip('你已经骑在这匹战马上。', { title: '已在驾驶席' });
+        return true;
+      }
+      this._showScreenTip('你已占用其他载具席位，请先离席。', { title: '无法上马' });
+      return false;
+    }
+    if (vehicle.logistics.starved && !await this._resumeS11Horse(horse, inventory)) return false;
+    if (!this.vehicleSystem?.mount?.(this.playerEntity, horse, 'driver')) {
+      movement.stop?.();
+      this._showScreenTip('驾驶席已被占用。', { title: '无法上马' });
+      return false;
+    }
+    movement.enabled = true;
+    const position = horse.getComponent?.('transform')?.position;
+    horse._horseTravelObservedPosition = position ? { x: position.x, y: position.y } : null;
+    this._showScreenTip('已骑上战马。使用 {move} 驾驶；每行进一段距离会自动消耗粮食。', { title: '战马突围' });
+    return true;
+  },
+
+  async _resumeS11Horse(horse, inventory) {
+    const vehicle = horse?.getComponent?.('vehicle');
+    const movement = horse?.getComponent?.('movement');
+    const definition = this._getSceneVehicleDefinitions?.('S11')
+      ?.find?.(entry => entry?.id === S11_HORSE_ID);
+    if (!vehicle || !movement || !inventory || !definition || !this.vehicleLogisticsSystem?.refeedHorse) {
+      this._showScreenTip('战马补粮服务当前不可用。', { title: '无法补粮' });
+      return false;
+    }
+    const incident = Math.floor(vehicle.logistics.odometer / S11_HORSE_TRAVEL_BATCH);
+    const operationId = `horse-refeed:${horse.id}:${incident}`;
+    horse._horseInteractionCommitBusy = true;
+    try {
+      const result = await this.vehicleLogisticsSystem.refeedHorse({
+        vehicle: horse,
+        inventory,
+        config: definition.consumption || {},
+        inventoryOwnerId: `${this.playerEntity?.id || 'player'}:inventory`,
+        operationId,
+        checkpointId: 'checkpoint.s11.horse-refeed',
+        context: { sceneId: 'S11', vehicleId: horse.id, incident }
+      });
+      if (!result?.ok) {
+        const missing = Math.max(1, Number(result?.required) || 1);
+        const message = result?.code === 'horseFoodMissing'
+          ? `战马缺粮停步。背包中还需要 ${missing} 份粮食。`
+          : '战马补粮检查点未提交，库存与载具状态保持不变。';
+        this._showScreenTip(message, { title: result?.code === 'horseFoodMissing' ? '战马缺粮' : '补粮失败' });
+        return false;
+      }
+      movement.enabled = true;
+      this._showScreenTip('补粮已保存，战马可以继续移动。使用 {move} 驾驶。', { title: '继续突围' });
+      return true;
+    } catch (error) {
+      this._showScreenTip('战马补粮异常，库存与载具状态保持未提交。', { title: '补粮失败' });
+      return false;
+    } finally {
+      horse._horseInteractionCommitBusy = false;
+    }
+  },
+
+  leaveS11Horse() {
+    const rider = this.playerEntity?.getComponent?.('rider');
+    if (this.currentSceneId !== 'S11' || rider?.vehicleId !== S11_HORSE_ID || rider?.role !== 'driver') {
+      this._showScreenTip('你当前不在突围战马上。', { title: '无需下马' });
+      return false;
+    }
+    const horse = this._sceneVehicleEntities?.get?.(S11_HORSE_ID);
+    if (horse?._horseTravelCommitBusy || horse?._horseInteractionCommitBusy) {
+      this._showScreenTip('战马状态正在保存，请稍候再下马。', { title: '战马忙碌' });
+      return false;
+    }
+    horse?.getComponent?.('movement')?.stop?.();
+    const left = this.vehicleSystem?.dismount?.(this.playerEntity) === true;
+    if (left) {
+      horse._horseTravelObservedPosition = null;
+      this._showScreenTip('已安全下马。', { title: '离开战马' });
+    }
+    return left;
+  },
+
+  _updateS11HorseTravel() {
+    const horse = this._sceneVehicleEntities?.get?.(S11_HORSE_ID);
+    if (this.currentSceneId !== 'S11' || !horse || horse._horseTravelCommitBusy) return;
+    const rider = this.playerEntity?.getComponent?.('rider');
+    const transform = horse.getComponent?.('transform');
+    const vehicle = horse.getComponent?.('vehicle');
+    if (!transform || !vehicle || rider?.vehicleId !== horse.id || rider?.role !== 'driver') {
+      horse._horseTravelObservedPosition = transform
+        ? { x: transform.position.x, y: transform.position.y }
+        : null;
+      return;
+    }
+    const previous = horse._horseTravelObservedPosition;
+    horse._horseTravelObservedPosition = { x: transform.position.x, y: transform.position.y };
+    if (!previous) return;
+    const travelled = Math.hypot(transform.position.x - previous.x, transform.position.y - previous.y);
+    if (!Number.isFinite(travelled) || travelled <= 0 || travelled > 80) return;
+    vehicle.logistics.travelBatchProgress += travelled;
+    if (vehicle.logistics.travelBatchProgress < S11_HORSE_TRAVEL_BATCH) return;
+
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const definition = this._getSceneVehicleDefinitions?.('S11')
+      ?.find?.(entry => entry?.id === S11_HORSE_ID);
+    if (!inventory || !definition) return;
+    vehicle.logistics.travelBatchProgress -= S11_HORSE_TRAVEL_BATCH;
+    const batchNumber = Math.floor(vehicle.logistics.odometer / S11_HORSE_TRAVEL_BATCH) + 1;
+    const operationId = `horse-travel:${horse.id}:${batchNumber}`;
+    horse._horseTravelCommitBusy = true;
+    const settlement = this.vehicleLogisticsSystem?.recordHorseTravel?.({
+      vehicle: horse,
+      inventory,
+      distance: S11_HORSE_TRAVEL_BATCH,
+      config: definition.consumption || {},
+      inventoryOwnerId: `${this.playerEntity?.id || 'player'}:inventory`,
+      operationId,
+      checkpointId: 'checkpoint.s11.horse-travel',
+      context: { sceneId: 'S11', vehicleId: horse.id, batchNumber }
+    });
+    if (!settlement || typeof settlement.then !== 'function') {
+      vehicle.logistics.travelBatchProgress += S11_HORSE_TRAVEL_BATCH;
+      horse._horseTravelCommitBusy = false;
+      this._showScreenTip('战马里程服务不可用，本段状态保持未提交。', { title: '里程未提交' });
+      return;
+    }
+    void settlement.then(result => {
+      if (result?.code === 'horseFoodMissing') {
+        const movement = horse.getComponent?.('movement');
+        if (movement) {
+          movement.stop();
+          movement.enabled = false;
+        }
+        this._showScreenTip('粮食不足，战马已经停步；粮食库存没有被扣成负数。', { title: '战马缺粮' });
+      } else if (!result?.ok) {
+        vehicle.logistics.travelBatchProgress += S11_HORSE_TRAVEL_BATCH;
+        this._showScreenTip('战马里程检查点保存失败，本段耗粮与里程已回滚。', { title: '里程未提交' });
+      }
+    }).catch(() => {
+      vehicle.logistics.travelBatchProgress += S11_HORSE_TRAVEL_BATCH;
+      this._showScreenTip('战马里程结算异常，本段状态保持未提交。', { title: '里程未提交' });
+    }).finally(() => { horse._horseTravelCommitBusy = false; });
+  },
+
+  async useS12LadderEntry() {
+    if (this.currentSceneId !== 'S12') return false;
+    this._ensureSceneVehicleEntities?.('S12');
+    const ladder = this._sceneVehicleEntities?.get?.(S12_LADDER_ID);
+    const vehicle = ladder?.getComponent?.('vehicle');
+    if (!ladder || !vehicle || vehicle.destroyed || vehicle.logistics.ladderEntryDisabled) {
+      this._showScreenTip('云梯已经烧毁，攻城入口不可用。', { title: '入口已禁用' });
+      return false;
+    }
+    const result = await this.teleportToChunk?.({
+      scene: 'S12', spawnRef: 'siege-ladder-top', transition: 'fadeBlack'
+    });
+    if (result === false || result?.cancelled) return false;
+    this._showScreenTip('已从云梯登上城内侧。此入口不改变张宝密道救援阶段。', { title: '登城成功' });
+    return true;
+  },
+
+  async burnS12Ladder(params = {}) {
+    if (this.currentSceneId !== 'S12') return false;
+    if (params.damageType !== 'fire') {
+      this._showScreenTip('只有火焰伤害能够烧毁云梯。', { title: '伤害类型无效' });
+      return false;
+    }
+    this._ensureSceneVehicleEntities?.('S12');
+    const ladder = this._sceneVehicleEntities?.get?.(S12_LADDER_ID);
+    if (!ladder) return false;
+    const result = await this.vehicleLogisticsSystem?.burnLadder?.({
+      vehicle: ladder,
+      operationId: `ladder-burn:${ladder.id}`,
+      checkpointId: 'checkpoint.s12.ladder-burned',
+      context: { sceneId: 'S12', vehicleId: ladder.id, damageType: 'fire' }
+    });
+    if (!result?.ok) {
+      this._showScreenTip(
+        result?.code === 'vehicleCheckpointRejected'
+          ? '检查点保存失败，云梯与攻城入口均已恢复。'
+          : '云梯当前不能再次烧毁。',
+        { title: '烧毁失败' }
+      );
+      return false;
+    }
+    ladder.getComponent?.('movement')?.stop?.();
+    this._showScreenTip('云梯已被火焰烧毁，对应攻城入口立即禁用。', { title: '云梯烧毁' });
+    return true;
   },
 
   async startS11Rescue() {
@@ -786,6 +1019,154 @@ const s13s14Methods = {
     };
   },
 
+  _buildS14CargoTransferSnapshot({ direction = null, statusMessage = '', statusType = 'info' } = {}) {
+    const cart = this._s14VehicleEntities?.get?.('vehicle.s14.lastCart');
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const cargo = cart?.getComponent?.('cargo');
+    const summarize = component => (component?.exportItems?.() || [])
+      .map(stack => ({
+        itemId: stack?.item?.id || '',
+        name: stack?.item?.name || stack?.item?.id || '未知物品',
+        quantity: Math.max(0, Math.floor(Number(stack?.quantity) || 0))
+      }))
+      .filter(entry => entry.itemId && entry.quantity > 0);
+    return {
+      vehicleId: cart?.id || null,
+      title: cart?.name ? `${cart.name} · 货舱` : '最后的马车 · 货舱',
+      direction: direction || this.cargoTransferView?.direction || 'toCargo',
+      inventory: {
+        items: summarize(inventory),
+        usedSlots: inventory?.getUsedSlotCount?.() || 0,
+        maxSlots: Math.max(0, Number(inventory?.maxSlots) || 0)
+      },
+      cargo: {
+        items: summarize(cargo),
+        total: cargo?.getItemCountTotal?.() || 0,
+        capacity: Math.max(0, Number(cargo?.capacity) || 0)
+      },
+      statusMessage,
+      statusType
+    };
+  },
+
+  openS14CargoTransfer() {
+    if (this.currentSceneId !== 'S14' || !this.cargoTransferView) return false;
+    this._ensureS14VehicleEntities?.();
+    const cart = this._s14VehicleEntities?.get?.('vehicle.s14.lastCart');
+    const vehicle = cart?.getComponent?.('vehicle');
+    const cargo = cart?.getComponent?.('cargo');
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    if (!cart || !vehicle || !cargo || !inventory || vehicle.destroyed || cargo.dropGenerated) {
+      this._showScreenTip('马车货舱当前无法使用。', { title: '货舱不可用' });
+      return false;
+    }
+    this._cargoTransferPendingOperation = null;
+    this.cargoTransferView.open(this._buildS14CargoTransferSnapshot());
+    return true;
+  },
+
+  _nextCargoTransferOperationId(vehicleId) {
+    const operations = this.vehicleLogisticsSystem?.operations || new Map();
+    let candidate;
+    do {
+      this._cargoTransferSequence = Math.max(0, Number(this._cargoTransferSequence) || 0) + 1;
+      candidate = `cargo-transfer:${vehicleId}:${this._cargoTransferSequence}`;
+    } while (operations.has(candidate));
+    return candidate;
+  },
+
+  _formatCargoTransferFailure(result = {}) {
+    const messages = {
+      invalidTransfer: '转移请求无效，请重新选择物品和数量。',
+      transferRejected: '当前物品无法转移。',
+      inventoryFull: '目标背包没有可用槽位。',
+      cargoCapacityFull: '马车货舱容量不足。',
+      insufficientItems: '来源物品数量不足。',
+      operationIdConflict: '操作内容已变化，请重新确认。',
+      vehicleCheckpointRejected: '保存检查点失败，本次转移已回滚。'
+    };
+    return messages[result.code] || result.message || result.code || '转移失败，状态未改变。';
+  },
+
+  async _handleCargoTransferCommand(command = {}) {
+    if (!this.cargoTransferView?.visible) return false;
+    if (command.type === 'close') {
+      if (this._cargoTransferBusy) return true;
+      this.cargoTransferView.close();
+      this._cargoTransferPendingOperation = null;
+      return true;
+    }
+    if (command.type !== 'transfer' || this._cargoTransferBusy || this.currentSceneId !== 'S14') return true;
+
+    const cart = this._s14VehicleEntities?.get?.('vehicle.s14.lastCart');
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const cargo = cart?.getComponent?.('cargo');
+    const vehicle = cart?.getComponent?.('vehicle');
+    const quantity = Math.max(1, Math.floor(Number(command.quantity) || 1));
+    const direction = command.direction === 'toInventory' ? 'toInventory' : 'toCargo';
+    if (!cart || !inventory || !cargo || !vehicle || vehicle.destroyed || cargo.dropGenerated) {
+      this.cargoTransferView.setSnapshot(this._buildS14CargoTransferSnapshot({
+        direction, statusMessage: '马车货舱当前无法使用。', statusType: 'error'
+      }));
+      return true;
+    }
+
+    const source = direction === 'toCargo' ? inventory : cargo;
+    const target = direction === 'toCargo' ? cargo : inventory;
+    const sourceOwnerId = direction === 'toCargo'
+      ? `${this.playerEntity?.id || 'player'}:inventory`
+      : `${cart.id}:cargo`;
+    const targetOwnerId = direction === 'toCargo'
+      ? `${cart.id}:cargo`
+      : `${this.playerEntity?.id || 'player'}:inventory`;
+    const payloadKey = JSON.stringify([cart.id, direction, command.itemId, quantity]);
+    if (this._cargoTransferPendingOperation?.payloadKey !== payloadKey) {
+      this._cargoTransferPendingOperation = {
+        payloadKey,
+        operationId: this._nextCargoTransferOperationId(cart.id)
+      };
+    }
+
+    this._cargoTransferBusy = true;
+    this.cargoTransferView.setBusy(true);
+    let result;
+    try {
+      result = await this.vehicleLogisticsSystem.transfer({
+        source,
+        target,
+        itemId: command.itemId,
+        quantity,
+        sourceOwnerId,
+        targetOwnerId,
+        operationId: this._cargoTransferPendingOperation.operationId,
+        checkpointId: 'checkpoint.s14.cargo-transfer',
+        context: { sceneId: 'S14', vehicleId: cart.id, direction }
+      });
+    } catch (error) {
+      result = { ok: false, code: 'cargoTransferFailed', message: String(error?.message || error) };
+    } finally {
+      this._cargoTransferBusy = false;
+      this.cargoTransferView.setBusy(false);
+    }
+
+    if (result?.ok) {
+      this._cargoTransferPendingOperation = null;
+      this.cargoTransferView.setSnapshot(this._buildS14CargoTransferSnapshot({
+        direction,
+        statusMessage: `已转移 ${result.accepted} 件物品。`,
+        statusType: 'success'
+      }));
+      return true;
+    }
+    if (result?.code === 'operationIdConflict') this._cargoTransferPendingOperation = null;
+    this.cargoTransferView.setSnapshot(this._buildS14CargoTransferSnapshot({
+      direction,
+      statusMessage: this._formatCargoTransferFailure(result),
+      statusType: 'error'
+    }));
+    return true;
+  },
+
   async resolveS14LastCart() {
     if (this.currentSceneId !== 'S14') return false;
     this._ensureS14VehicleEntities?.();
@@ -807,6 +1188,170 @@ const s13s14Methods = {
       return false;
     }
     this._showScreenTip(result.result.subtitle, { title: result.result.resultId === 'catapult-ready' ? '投石车组装完成' : '投石车无法组装' });
+    return true;
+  },
+
+  _getS14CatapultDefinition() {
+    return this._getS14VehicleDefinitions?.()
+      ?.find?.(entry => entry?.id === 'vehicle.s14.catapult') || null;
+  },
+
+  _isS14CatapultGunner() {
+    const rider = this.playerEntity?.getComponent?.('rider');
+    return this.currentSceneId === 'S14'
+      && rider?.vehicleId === 'vehicle.s14.catapult'
+      && rider?.role === 'gunner';
+  },
+
+  handleBasicAttackIntent(intent = {}) {
+    if (!this._isS14CatapultGunner()) return false;
+    void this.fireS14Catapult(intent);
+    return true;
+  },
+
+  async operateS14Catapult() {
+    if (this.currentSceneId !== 'S14') return false;
+    this._ensureS14VehicleEntities?.();
+    const catapult = this._s14VehicleEntities?.get?.('vehicle.s14.catapult');
+    const component = catapult?.getComponent?.('vehicle');
+    if (!catapult || !component || component.destroyed) {
+      this._showScreenTip('投石车当前不可操作。', { title: '载具不可用' });
+      return false;
+    }
+    if (!component.logistics.catapultAssembled) {
+      const assembled = await this.resolveS14Catapult();
+      if (!assembled || !component.logistics.catapultAssembled) return false;
+    }
+    if (this._isS14CatapultGunner()) {
+      this._showScreenTip('你已在武器席。使用 {attack} 向官军封锁目标开火，或在离席点按 {interact} 下车。', { title: '投石车武器席' });
+      return true;
+    }
+    if (this.playerEntity?.getComponent?.('rider')) {
+      this._showScreenTip('你已占用其他载具席位，请先离席。', { title: '无法登车' });
+      return false;
+    }
+    if (!this.vehicleSystem?.mount?.(this.playerEntity, catapult, 'gunner')) {
+      this._showScreenTip('投石车武器席已被占用。', { title: '无法登车' });
+      return false;
+    }
+    this._showScreenTip('已进入投石车武器席。使用 {attack} 开火；每发消耗 2 石料与 1 人力。', { title: '准备开火' });
+    return true;
+  },
+
+  leaveS14Catapult() {
+    if (!this._isS14CatapultGunner()) {
+      this._showScreenTip('你当前不在投石车武器席。', { title: '无需离席' });
+      return false;
+    }
+    const left = this.vehicleSystem?.dismount?.(this.playerEntity) === true;
+    if (left) this._showScreenTip('已离开投石车武器席。', { title: '安全离席' });
+    return left;
+  },
+
+  _findS14CatapultTarget(intent = {}, weapon = {}) {
+    const catapult = this._s14VehicleEntities?.get?.('vehicle.s14.catapult');
+    const origin = catapult?.getComponent?.('transform')?.position;
+    if (!origin) return null;
+    const direction = intent.direction || this.getPlayerFacingVector?.() || { x: 1, y: 0 };
+    const magnitude = Math.hypot(direction.x || 0, direction.y || 0) || 1;
+    const range = Math.max(1, Number(weapon.range) || 1);
+    return (this.entities || [])
+      .filter(entity => entity?.tags?.includes?.('catapultTarget') && !this._isEntityDead(entity))
+      .map(entity => {
+        const position = entity.getComponent?.('transform')?.position;
+        if (!position) return null;
+        const dx = position.x - origin.x;
+        const dy = position.y - origin.y;
+        const distance = Math.hypot(dx, dy);
+        const dot = distance > 0
+          ? (dx * direction.x + dy * direction.y) / (distance * magnitude)
+          : 1;
+        return { entity, distance, dot };
+      })
+      .filter(candidate => candidate && candidate.distance <= range && candidate.dot >= 0.15)
+      .sort((left, right) => right.dot - left.dot || left.distance - right.distance)[0]?.entity || null;
+  },
+
+  async fireS14Catapult(intent = {}) {
+    if (!this._isS14CatapultGunner() || this._s14CatapultFireBusy) return false;
+    const definition = this._getS14CatapultDefinition();
+    const weapon = definition?.weapon || {};
+    const catapult = this._s14VehicleEntities?.get?.('vehicle.s14.catapult');
+    const inventory = this.playerEntity?.getComponent?.('inventory');
+    const target = this._findS14CatapultTarget(intent, weapon);
+    if (!target) {
+      this._showScreenTip('射程和瞄准方向内没有可轰击的官军封锁目标。', { title: '无有效目标' });
+      return false;
+    }
+    if (!this.vehicleWeaponSystem) {
+      this.vehicleWeaponSystem = new VehicleWeaponSystem({
+        vehicleSystem: this.vehicleSystem,
+        vehicleLogisticsSystem: this.vehicleLogisticsSystem
+      });
+    }
+    const component = catapult?.getComponent?.('vehicle');
+    const operationId = `catapult-fire:${catapult.id}:${(component?.logistics?.catapultShots || 0) + 1}`;
+    this._s14CatapultFireBusy = true;
+    let result;
+    try {
+      result = await this.vehicleWeaponSystem.handleIntent({
+        rider: this.playerEntity,
+        intent: { ...intent, type: 'attack', targetEntity: target },
+        inventory,
+        weapon,
+        costs: definition.fireCosts || {},
+        operationId,
+        checkpointId: 'checkpoint.S14.catapult-fire',
+        inventoryOwnerId: `${this.playerEntity?.id || 'player'}:inventory`,
+        context: { sceneId: 'S14', vehicleId: catapult.id, targetId: target.id },
+        execute: ({ vehicle, target: hitTarget, weapon: weaponConfig }) => {
+          const damage = this.combatSystem?.applyDamage?.(
+            hitTarget,
+            Math.max(1, Number(weaponConfig.damage) || 1),
+            null,
+            '投石车',
+            {
+              sourceEntity: vehicle,
+              attackKind: 'vehicle-catapult',
+              deferPresentationEffects: true
+            }
+          );
+          if (!damage || damage.appliedDamage <= 0) return { ok: false, code: 'vehicleWeaponDamageRejected' };
+          const origin = clone(vehicle.getComponent?.('transform')?.position || { x: 0, y: 0 });
+          const targetPosition = clone(hitTarget.getComponent?.('transform')?.position || origin);
+          return {
+            ok: true,
+            result: { targetId: hitTarget.id, damage: damage.appliedDamage, killed: damage.isDead },
+            rollback: () => damage.rollback?.() === true,
+            finalize: () => {
+              const presented = this.skillEffects?.createCatapultProjectile?.(origin, targetPosition, {
+                speed: weaponConfig.projectileSpeed,
+                arcHeight: weaponConfig.arcHeight,
+                onHit: () => damage.finalize?.()
+              });
+              if (!presented) damage.finalize?.();
+              return true;
+            }
+          };
+        }
+      });
+    } catch (error) {
+      result = { ok: false, code: 'catapultFireFailed', message: String(error?.message || error) };
+    } finally {
+      this._s14CatapultFireBusy = false;
+    }
+    if (!result?.ok) {
+      const messages = {
+        insufficientItems: '石料或人力不足，本次开火未扣除任何资源。',
+        vehicleResourcesMissing: '石料或人力不足，本次开火未扣除任何资源。',
+        vehicleWeaponCooldown: '投石车正在重新装填。',
+        vehicleCheckpointRejected: '检查点保存失败，弹药、伤害和开火次数均已回滚。',
+        operationIdConflict: '本次开火目标与幂等记录冲突，状态未改变。'
+      };
+      this._showScreenTip(messages[result.code] || result.message || result.code || '投石车开火失败。', { title: '无法开火' });
+      return false;
+    }
+    this._showScreenTip(`投石车已开火，命中造成 ${result.execution?.damage || 0} 点伤害。`, { title: '石弹离弦' });
     return true;
   },
 
@@ -985,12 +1530,15 @@ const s13s14Methods = {
       s12GateState: this._s12GateEntity?.getComponent?.('building')?.serialize?.() || null,
       endingSystemState: this.endingSystem?.serialize?.() || null,
       vehicleLogisticsState: this.vehicleLogisticsSystem?.serialize?.() || null,
-      s14VehicleStates: this._captureS14VehicleStates?.() || [],
+      vehicleStates: this._captureSceneVehicleStates?.(this.currentSceneId) || [],
       s13PendingSettlement: clone(this._s13PendingSettlement)
     };
   },
 
   _validateS11S14SceneState(data = {}) {
+    if (Object.prototype.hasOwnProperty.call(data, 's14VehicleStates') || !Array.isArray(data.vehicleStates)) {
+      return { ok: false, errors: [{ code: 'legacyVehicleSnapshotRejected', path: 'vehicleStates' }] };
+    }
     if (data.s11s12CoordinatorState) {
       const checked = this.s11s12Coordinator?.validateSerialized?.(data.s11s12CoordinatorState);
       if (!checked?.ok) return { ok: false, errors: [{ code: checked?.code || 'invalidSnapshot', path: 's11s12CoordinatorState' }] };
@@ -1007,11 +1555,11 @@ const s13s14Methods = {
         return { ok: false, errors: [{ code: 'invalidGateState', path: 's12GateState' }] };
       }
     }
-    const vehicleCheck = this._validateS14VehicleStates?.(
-      data.s14VehicleStates || [], data.vehicleLogisticsState || null
+    const vehicleCheck = this._validateSceneVehicleStates?.(
+      this.currentSceneId, data.vehicleStates, data.vehicleLogisticsState || null
     );
     if (vehicleCheck?.ok === false) {
-      return { ok: false, errors: [{ code: vehicleCheck.code, path: 's14VehicleStates' }] };
+      return { ok: false, errors: [{ code: vehicleCheck.code, path: 'vehicleStates' }] };
     }
     if (data.s13PendingSettlement && (data.s13PendingSettlement.schemaVersion !== 2
       || !['observe', 'intervene'].includes(data.s13PendingSettlement.mode)
@@ -1034,11 +1582,11 @@ const s13s14Methods = {
       if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'endingSystemState' }] };
     }
     this._s13PendingSettlement = clone(data.s13PendingSettlement);
-    const vehicleRestore = this._restoreS14VehicleStates?.(
-      data.s14VehicleStates || [], data.vehicleLogisticsState || null
+    const vehicleRestore = this._restoreSceneVehicleStates?.(
+      this.currentSceneId, data.vehicleStates, data.vehicleLogisticsState || null
     );
     if (vehicleRestore?.ok === false) {
-      return { ok: false, errors: [{ code: vehicleRestore.code, path: 's14VehicleStates' }] };
+      return { ok: false, errors: [{ code: vehicleRestore.code, path: 'vehicleStates' }] };
     }
     if (data.s12GateState && this.currentSceneId === 'S12') {
       const gate = this._ensureS12GateEntity();

@@ -31,10 +31,11 @@ S7  配置选主（默认 arpg）        已完成
 S8  统一成长 UI                 已完成
 S9  InputActionRouter + Snapshot 已完成
 S10 ContentValidator + 场景提取  已完成
-S11 Demo 迁移验证               待进行
+S11 Demo 迁移验证               进行中
 
-未开始：WorldStreaming 单一实现与异步事务
-部分完成：场景通用能力已提取，BaseGameScene 尚未迁移
+已完成代码接线：WorldStreaming 单一权威、九宫格异步事务、同步原子快照恢复与跨 Region shadow prepare
+待完成验收：浏览器连续跨界/传送、两轮存读档、100 实体性能与内存硬门槛
+部分完成：场景通用能力已提取并由 BaseGameScene/DataDrivenPrologueScene 增量采用
 ```
 
 ## 总体原则
@@ -83,11 +84,15 @@ InputManager 继续采集设备状态；InputActionRouter 生成统一事件并�
 
 尚未完成：把 BaseGameScene、DataDrivenScene、DataDrivenPrologueScene 迁移到这些模块。迁移建议分两步，先替换系统注册与退出清理，再单独处理输入路由。
 
-### 7. WorldStreaming 单一实现（未开始）
+### 7. WorldStreaming 单一实现（代码接线完成，运行验收中）
 
-以 `src/core/WorldStreamingManager.js` 为唯一实现，增加异步 Chunk 加载、失败回滚、Region 协调和动态状态恢复。Scene 对象始终从原始局部坐标应用一次 worldOffset，禁止重复偏移共享对象引用。
+`src/core/WorldStreamingManager.js` 是唯一状态权威：拥有 Region 命名空间 `loaded/savedStates`、generation + AbortController latest-wins、九宫格并行 prepare、完整校验、一次 commit 和逆序 rollback。`src/systems/WorldStreamingManager.js` 只保留无状态兼容转发，禁止再拥有第二份运行状态。
 
-坐标投影部分已由 `SceneObjectProjector` 解决，剩余工作是异步加载事务与 Region 切换。
+`LoadedChunk` 通过注入的 placement adapter 执行 prepare/commit/rollback/release；场景对象从只读局部坐标投影，`x/y/sortY/points` 的 worldOffset 只应用一次。动态资源、敌人、NPC、掉落、工事和载具由 state provider 捕获；同步快照恢复不得卸载当前 runtime 或发起 IO，provider 若返回 Promise 必须拒绝并回滚。`BaseGameScene.restoreSaveState()` 的直接调用同样必须先采集调用前快照，任一内容/场景/provider 提交失败后恢复整份旧状态，不能只依赖 SnapshotManager 外层回滚。
+
+载具运行态快照固定由内容定义重建组件后恢复：`VehicleComponent` 的 schema 必须严格校验 `vehicleType/hp/destroyed/seats/logistics`，`deserialize()` 先完整 validate/prepare、失败零修改，调用方必须检查返回值。Cargo 首次摧毁只允许一个稳定 operationId 和一个确定性 DeathDrop；掉落实体、Cargo、Vehicle 与物流 ledger 必须处于同一回滚边界。DeathDrop 存档只保存 `deathId/stacks/position` 等业务事实，图片由场景注入稳定 `imageId/assetId`，不得把表现资源变成存档事实源。
+
+`WorldMapLoadSession` 只预载入口/目标场景，邻近八格由 core manager 的异步 sceneResolver 按需读取磁盘 JSON；跨 Region 必须先完成 detached manager 的目标九宫格加载与校验，再清理旧区并激活。九宫格实体生成按 physical `chunk.sceneId` 匹配 placement：SXX-CNN 与 SXX 只共享业务状态 namespace，不得用归一后的 SXX 过滤附属 chunk 内容；首次进入、自然跨界、传送和跨 Region 激活都要为当前 loaded chunks 做幂等生成。剩余门槛是浏览器连续跨界/远距传送、失败保持旧区、两轮 save/load 等价、SXX-CNN namespace、100 实体性能和内存验收。
 
 ### 8. 旧系统兼容适配器（已完成）
 

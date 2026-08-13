@@ -43,9 +43,25 @@ export class ConstructionSystem {
   }
 
   getDefinition(id) { return clone(this.definitions.get(id) || null); }
-  getStructure(siteId) { return clone(this.structures.get(siteId) || null); }
+  getStructure(siteId) { return clone(this.structures.get(normalizeId(siteId)) || null); }
   getPending(siteId) { return this._describePending(this.pending.get(siteId)); }
   getStructures() { return [...this.structures.values()].map(clone); }
+
+  /**
+   * 将外部 ECS 建筑耐久同步回营建领域镜像，不创建检查点。
+   * 调用方必须以 BuildingComponent 为运行时事实源，并在维修事务开始前调用。
+   */
+  synchronizeStructure({ siteId, durability, destroyed = false } = {}) {
+    const siteKey = normalizeId(siteId);
+    const structure = this.structures.get(siteKey);
+    const value = Math.floor(Number(durability));
+    if (!siteKey || !structure) return { ok: false, code: 'structureMissing', siteId: siteKey };
+    if (!Number.isFinite(value) || value < 0 || value > structure.maxDurability) {
+      return { ok: false, code: 'invalidStructureDurability', siteId: siteKey };
+    }
+    structure.durability = destroyed === true ? 0 : value;
+    return { ok: true, structure: clone(structure) };
+  }
 
   /**
    * 只校验并生成维修草稿，不修改运行时状态。
@@ -570,7 +586,10 @@ export class ConstructionSystem {
         maxDurability: Math.max(1, Math.floor(Number(source.maxDurability) || 100)),
         experience: Math.max(1, Math.floor(Number(source.experience) || 1)),
         manned: source.manned === true,
-        imageId: normalizeId(source.imageId) || null
+        imageId: normalizeId(source.imageId) || null,
+        warEffects: source.warEffects && typeof source.warEffects === 'object'
+          ? clone(source.warEffects)
+          : null
       }
     };
   }

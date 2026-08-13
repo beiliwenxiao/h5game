@@ -3,10 +3,10 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-import { InputHandler } from './InputEvent.js';
+import { InputEventType, InputHandler } from './InputEvent.js';
 
 const NOOP = () => false;
-const DEFAULT_KEYS = ['e', 'space', 'skill1', 'skill2', 'skill3', 'skill4'];
+const DEFAULT_KEYS = ['e', 'space', 'jump', 'skill1', 'skill2', 'skill3', 'skill4'];
 
 function wasHandled(value, inputManager) {
   if (value === true || value?.handled === true || value?.consumed === true) return true;
@@ -24,6 +24,7 @@ export class SceneInputFlow {
     onModalInput = NOOP,
     onPopupConfirm = NOOP,
     onGamepadCombat = NOOP,
+    onLocomotionInput = NOOP,
     onPromptSwitch = NOOP,
     dialogue = null,
     aiming = null,
@@ -38,6 +39,7 @@ export class SceneInputFlow {
     this.onModalInput = typeof onModalInput === 'function' ? onModalInput : NOOP;
     this.onPopupConfirm = typeof onPopupConfirm === 'function' ? onPopupConfirm : NOOP;
     this.onGamepadCombat = typeof onGamepadCombat === 'function' ? onGamepadCombat : NOOP;
+    this.onLocomotionInput = typeof onLocomotionInput === 'function' ? onLocomotionInput : NOOP;
     this.onPromptSwitch = typeof onPromptSwitch === 'function' ? onPromptSwitch : NOOP;
     this.dialogue = dialogue;
     this.aiming = aiming;
@@ -98,6 +100,12 @@ export class SceneInputFlow {
         ['handlePickupInput', 'handlePickupEvent', 'handlePickupClick', 'pickup'],
         event
       )
+    }));
+    this._disposers.push(register(InputHandler.SKILL, {
+      id: 'scene-input-locomotion',
+      constraint: null,
+      canHandle: event => event.type === InputEventType.KEY_PRESS && (event.key === 'space' || event.key === 'jump'),
+      handle: event => wasHandled(this.onLocomotionInput(event), this.inputManager)
     }));
     this._registered = true;
     return this;

@@ -225,8 +225,10 @@ const sceneEditor = new SceneEditor(containerElement);
 
 ### 资产审计
 
-- 图形资源栏的“🔎 资产审计”会递归扫描当前游戏 `assets/images/`，读取 `assets/manifests/assets.json` 和磁盘场景 JSON。
-- 审计范围包括：重复稳定 ID、Manifest 缺失文件、未登记图片、场景 imageId/atlasId 缺失引用、无效 slice、placeholder 和 3D fallback。
+- 图形资源栏的“🔎 资产审计”会递归扫描当前游戏 `assets/images/`、`assets/audio/`，读取 `assets/manifests/assets.json`、`data/AudioConfig.json` 和磁盘 canonical 场景 JSON。
+- 发布场景审计范围只接受 `SXX.json` 与 `SXX-CNN.json`；旧 `s0-*`、模板和其他非 canonical JSON 不得混入发布引用统计。
+- 图片审计包括：重复稳定 ID、Manifest 缺失文件、未登记图片、场景 imageId/atlasId 缺失引用、无效 slice、placeholder 和 3D fallback。
+- 音频审计包括：music/sfx cue 文件断链；没有任何真实 cue 时明确报告 Release Candidate 音频覆盖阻断。不存在的音频不得注册虚假 cue 或用空文件占位。
 - 当前项目的资源统一按原创或已获授权处理；审计不检查授权、版权、作者或来源，也不以相关元数据阻断开发。
 - 审计只生成报告，不自动登记图片或修改资源状态。
 - 磁盘场景 JSON 是引用审计的事实源，localStorage 不替代磁盘文件。

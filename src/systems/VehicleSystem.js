@@ -39,6 +39,9 @@ export class VehicleSystem {
    */
   constructor(config = {}) {
     this.resolveEntity = config.resolveEntity || (() => null);
+    this.findSafeDismountPosition = typeof config.findSafeDismountPosition === 'function'
+      ? config.findSafeDismountPosition
+      : null;
     this.onEvent = config.onEvent || (() => {});
     // 已注册的载具实体（可选，update 遍历用）
     this.vehicles = new Set();
@@ -214,12 +217,22 @@ export class VehicleSystem {
     return { target: 'self', role: rc.role, intent };
   }
 
-  /** 把乘员落在载具旁一点 */
+  /** 把乘员放到载具附近的可通行点；未注入导航适配器时保持旧偏移。 */
   _placeBeside(rider, vehicle) {
     const rt = rider && rider.getComponent('transform');
     const vt = vehicle && vehicle.getComponent('transform');
     if (!rt || !vt) return;
-    rt.setPosition(vt.position.x + 40, vt.position.y);
+    const fallback = { x: vt.position.x + 40, y: vt.position.y };
+    let target = fallback;
+    if (this.findSafeDismountPosition) {
+      try {
+        const resolved = this.findSafeDismountPosition({ rider, vehicle, fallback });
+        if (Number.isFinite(resolved?.x) && Number.isFinite(resolved?.y)) target = resolved;
+      } catch (error) {
+        console.warn('[VehicleSystem] safe dismount resolver failed', error);
+      }
+    }
+    rt.setPosition(target.x, target.y);
   }
 }
 

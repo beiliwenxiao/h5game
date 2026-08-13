@@ -37,7 +37,7 @@
       "assetId": "mountain_landscape",
       "category": "environment-atlas",
       "usage": [
-        "legacy-candidate",
+        "runtime-terrain-atlas",
         "environment"
       ],
       "sourceFile": "assets/images/scene1/mountain_landscape.png",
@@ -59,89 +59,15 @@
       },
       "animations": [],
       "license": {
-        "status": "unverified",
-        "name": "待确认",
-        "commercialUse": false
+        "status": "approved",
+        "name": "项目已确认授权",
+        "commercialUse": true
       },
-      "author": "unknown",
-      "owner": "unknown",
+      "author": "project-authorized",
+      "owner": "project-authorized",
       "targetPhase": "P1",
-      "status": "placeholder",
-      "revision": 1
-    },
-    {
-      "assetId": "img_1783095863410",
-      "imageId": "img_1783095863410",
-      "category": "environment-background",
-      "usage": [
-        "legacy-candidate",
-        "background"
-      ],
-      "sourceFile": "assets/images/scene1/bg1.png",
-      "runtime2D": {
-        "path": "assets/images/scene1/bg1.png",
-        "mode": "image"
-      },
-      "runtime3D": {
-        "mode": "billboard",
-        "sourceAssetId": "img_1783095863410"
-      },
-      "pivot": {
-        "x": 0,
-        "y": 0
-      },
-      "bounds": {
-        "width": 1280,
-        "height": 720
-      },
-      "animations": [],
-      "license": {
-        "status": "unverified",
-        "name": "待确认",
-        "commercialUse": false
-      },
-      "author": "unknown",
-      "owner": "unknown",
-      "targetPhase": "P1",
-      "status": "placeholder",
-      "revision": 1
-    },
-    {
-      "assetId": "img_1784926747445",
-      "imageId": "img_1784926747445",
-      "category": "environment-background",
-      "usage": [
-        "legacy-candidate",
-        "background"
-      ],
-      "sourceFile": "assets/images/bg_0_0.png",
-      "runtime2D": {
-        "path": "assets/images/bg_0_0.png",
-        "mode": "image"
-      },
-      "runtime3D": {
-        "mode": "billboard",
-        "sourceAssetId": "img_1784926747445"
-      },
-      "pivot": {
-        "x": 0,
-        "y": 0
-      },
-      "bounds": {
-        "width": 1280,
-        "height": 720
-      },
-      "animations": [],
-      "license": {
-        "status": "unverified",
-        "name": "待确认",
-        "commercialUse": false
-      },
-      "author": "unknown",
-      "owner": "unknown",
-      "targetPhase": "P1",
-      "status": "placeholder",
-      "revision": 1
+      "status": "third-party-approved",
+      "revision": 2
     },
     {
       "assetId": "vfx.freePixel.magicSpell",
@@ -987,75 +913,18 @@
       "revision": 1
     },
     {
-      "assetId": "graybox.naturalTerrain",
-      "imageId": "graybox.naturalTerrain",
-      "category": "environment-background",
-      "usage": [
-        "graybox",
-        "natural-terrain",
-        "composition"
-      ],
-      "sourceFile": "assets/images/graybox/natural-terrain.svg",
-      "runtime2D": {
-        "path": "assets/images/graybox/natural-terrain.svg",
-        "mode": "image"
-      },
-      "runtime3D": {
-        "mode": "billboard",
-        "sourceAssetId": "graybox.naturalTerrain"
-      },
-      "pivot": {
-        "x": 0,
-        "y": 0
-      },
-      "bounds": {
-        "width": 1280,
-        "height": 720
-      },
-      "animations": [],
-      "targetPhase": "P0",
-      "status": "placeholder",
-      "revision": 1
-    },
-    {
-      "assetId": "graybox.cityGround",
-      "imageId": "graybox.cityGround",
-      "category": "environment-background",
-      "usage": [
-        "graybox",
-        "city",
-        "composition"
-      ],
-      "sourceFile": "assets/images/graybox/city-ground.svg",
-      "runtime2D": {
-        "path": "assets/images/graybox/city-ground.svg",
-        "mode": "image"
-      },
-      "runtime3D": {
-        "mode": "billboard",
-        "sourceAssetId": "graybox.cityGround"
-      },
-      "pivot": {
-        "x": 0,
-        "y": 0
-      },
-      "bounds": {
-        "width": 1280,
-        "height": 720
-      },
-      "animations": [],
-      "targetPhase": "P0",
-      "status": "placeholder",
-      "revision": 1
-    },
-    {
       "assetId": "graybox.battlefieldUnit",
       "imageId": "graybox.battlefieldUnit",
-      "category": "unit-placeholder",
+      "category": "battle-command-marker",
       "usage": [
-        "graybox",
-        "battlefield-unit",
-        "formation-readability"
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "battle-choice",
+        "command-banner"
       ],
       "sourceFile": "assets/images/graybox/battlefield-unit.svg",
       "runtime2D": {
@@ -1075,14 +944,14 @@
         "height": 48
       },
       "animations": [],
-      "targetPhase": "P0",
-      "status": "placeholder",
-      "revision": 1
+      "targetPhase": "P3",
+      "status": "ai-generated",
+      "revision": 2
     },
     {
       "assetId": "s03.unit.yellowTurbanSoldier",
       "imageId": "s03.unit.yellowTurbanSoldier",
-      "category": "unit-placeholder",
+      "category": "unit-sprite",
       "usage": [
         "S03",
         "yellow_turban",
@@ -1107,13 +976,13 @@
       },
       "animations": [],
       "targetPhase": "P3",
-      "status": "placeholder",
-      "revision": 1
+      "status": "ai-generated",
+      "revision": 2
     },
     {
       "assetId": "s03.unit.hanSoldier",
       "imageId": "s03.unit.hanSoldier",
-      "category": "unit-placeholder",
+      "category": "unit-sprite",
       "usage": [
         "S03",
         "han_government",
@@ -1138,8 +1007,8 @@
       },
       "animations": [],
       "targetPhase": "P3",
-      "status": "placeholder",
-      "revision": 1
+      "status": "ai-generated",
+      "revision": 2
     },
     {
       "assetId": "s09.environment.campGround",
@@ -3448,6 +3317,11 @@
       "assetId": "s13.story.finalCommandBanner", "imageId": "s13.story.finalCommandBanner", "category": "story-prop", "usage": ["S13", "S14", "battle-choice", "ending-review"],
       "sourceFile": "assets/images/s13/final-command-banner.svg", "runtime2D": { "path": "assets/images/s13/final-command-banner.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s13.story.finalCommandBanner" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 96, "height": 128 }, "animations": [], "targetPhase": "P5", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "world.loot.deathDrop", "imageId": "world.loot.deathDrop", "category": "loot-container", "usage": ["world", "player-death", "cargo-destruction"],
+      "sourceFile": "assets/images/items/death-drop.svg", "runtime2D": { "path": "assets/images/items/death-drop.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "world.loot.deathDrop" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 40 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
     },
     {
       "assetId": "s14.environment.endingGround", "imageId": "s14.environment.endingGround", "category": "environment-background", "usage": ["S14", "scene-background", "ending-stage"],

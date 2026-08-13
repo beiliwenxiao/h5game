@@ -34,6 +34,12 @@ export class GameEngine {
         this.ctx = null;
         this.backend = null;
         this.backendConfig = parseBackendConfig(options.backendConfig);
+        Object.defineProperty(this, 'requestedBackendMode', {
+            value: this.backendConfig.mode,
+            enumerable: true,
+            writable: false,
+            configurable: false
+        });
         this.isRunning = false;
         this.lastFrameTime = 0;
         this.targetFPS = 60;
@@ -51,6 +57,11 @@ export class GameEngine {
         this.errorHandler = null;
         this.debugTools = null;
         this.logger = logger.createChild('GameEngine');
+    }
+
+    /** 实际已初始化的渲染后端；auto/3d 降级后以此为准。 */
+    get actualBackendMode() {
+        return this.backend?.mode || null;
     }
 
     /**
@@ -109,7 +120,10 @@ export class GameEngine {
         this.ctx = this.backend.getHUDContext?.() ?? null;
         // 适应初始窗口尺寸
         this.handleResize();
-        this.logger.info(`Backend: ${this.backend.mode === '3d' ? 'Three' : 'Canvas2D'} initialized`);
+        this.logger.info(
+            `Backend: ${this.actualBackendMode === '3d' ? 'Three' : 'Canvas2D'} initialized `
+            + `(requested=${this.requestedBackendMode}, host=${this.backendConfig.host})`
+        );
     }
 
     /**

@@ -129,7 +129,7 @@ src/
 │   ├── TriggerActions.js       # 触发器动作
 │   ├── ExpressionEngine.js     # 表达式引擎
 │   ├── VehicleSystem.js        # 载具系统
-│   ├── WorldStreamingManager.js # 世界流式管理
+│   ├── WorldStreamingManager.js # 无状态兼容转发（状态权威在 core）
 │   └── resolvers/              # 解析器
 │       ├── CombatResolver.js   # 战斗解析
 │       ├── LootResolver.js     # 掉落解析
@@ -278,7 +278,7 @@ editor/                 # 地图编辑器
 | PlaceholderAssets | PlaceholderAssets.js | 占位资源生成 |
 | Registry | Registry.js | 通用注册表 |
 | RNG | RNG.js | 可种子随机数生成器 |
-| WorldStreamingManager | WorldStreamingManager.js | 世界流式加载管理 |
+| WorldStreamingManager | WorldStreamingManager.js | Region 九宫格异步流式唯一状态权威 |
 
 ### 游戏系统 (systems/)
 | 系统 | 文件 | 说明 |
@@ -323,7 +323,7 @@ editor/                 # 地图编辑器
 | TriggerActions | TriggerActions.js | 触发器动作定义 |
 | ExpressionEngine | ExpressionEngine.js | 表达式引擎 |
 | VehicleSystem | VehicleSystem.js | 载具系统 |
-| WorldStreamingManager | WorldStreamingManager.js | 世界流式管理 |
+| WorldStreamingManager | WorldStreamingManager.js | 无状态兼容转发，仅委托 `src/core/WorldStreamingManager.js`；禁止持有 loaded/savedStates |
 | CombatResolver | resolvers/CombatResolver.js | 战斗结果解析 |
 | LootResolver | resolvers/LootResolver.js | 掉落结果解析 |
 | QuestResolver | resolvers/QuestResolver.js | 任务条件解析 |
@@ -394,6 +394,8 @@ npm test             # 运行单元测试
 - `?mode=2d` - Canvas 2D 渲染（默认）
 - `?mode=3d` - three.js 3D 渲染
 - `?mode=auto` - 自动选择
+
+`BackendConfig.mode` 与 `GameEngine.requestedBackendMode` 表示请求模式；宿主限制、WebGL 或动态导入失败后可能降级，唯一实际模式读取 `GameEngine.actualBackendMode`。解析配置时使用的 `host` 会固定在 BackendConfig 中，后端选择不得二次读取可变的全局宿主。请求/实际渲染模式只属于运行表现与诊断信息，禁止写入 StoryState、战果或存档。
 
 ## 控制方式
 

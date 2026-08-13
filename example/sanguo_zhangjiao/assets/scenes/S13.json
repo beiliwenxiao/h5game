@@ -31,6 +31,7 @@
       { "id": "S13-han-03", "type": "ref", "kind": "enemy", "ref": "enemy.s03_han_soldier", "group": "S13-han-army", "tags": ["battleParticipant", "han_government"], "x": 925, "y": 355, "overrides": { "aiActive": false } }
     ] },
     { "id": "layer_logic", "name": "终局战役交互", "visible": true, "locked": false, "objects": [
+      { "id": "S13-cliff-shortcut", "type": "region", "name": "精山断崖攀爬捷径", "semanticRole": "climbSurface", "x": 210, "y": 500, "width": 90, "height": 100, "radius": 115, "climbTarget": { "x": 430, "y": 430 }, "prompt": "{climb}攀上断崖，绕至军令台侧翼" },
       { "id": "S13-binding-choice", "type": "trigger", "name": "选择精山参战方式", "triggerId": "trg_s13_choose_final_battle_mode", "command": "openS13BattleMode", "x": 510, "y": 265, "width": 170, "height": 180, "event": "interact", "targetMode": "id", "target": "S13-command-banner", "radius": 125, "pointerRadius": 68, "prompt": "{interact}决定是否消耗最后资源介入精山" },
       { "id": "S13-binding-exit", "type": "trigger", "name": "前往结局之地", "triggerId": "trg_s13_exit_s14", "command": "checkS13Exit", "x": 1050, "y": 55, "width": 160, "height": 180, "event": "interact", "targetMode": "id", "target": "S13-exit-marker", "radius": 115, "pointerRadius": 64, "prompt": "{interact}确认精山战果并前往结局之地" }
     ] }

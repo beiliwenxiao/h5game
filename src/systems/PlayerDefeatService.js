@@ -22,7 +22,7 @@ function buildLossDraft(inventory) {
 /** 玩家失败结算：普通死亡与特殊昏迷共用同一互斥、幂等入口。 */
 export class PlayerDefeatService {
   constructor({ inventoryTransactions, entityFactory, entityStore, revivePlayer,
-    respawnResolver = null, onResolved = null } = {}) {
+    respawnResolver = null, onResolved = null, getDeathDropPresentation = null } = {}) {
     if (!inventoryTransactions) throw new TypeError('PlayerDefeatService requires inventoryTransactions');
     this.inventoryTransactions = inventoryTransactions;
     this.entityFactory = entityFactory;
@@ -30,6 +30,9 @@ export class PlayerDefeatService {
     this.revivePlayer = typeof revivePlayer === 'function' ? revivePlayer : () => {};
     this.respawnResolver = typeof respawnResolver === 'function' ? respawnResolver : () => null;
     this.onResolved = typeof onResolved === 'function' ? onResolved : () => {};
+    this.getDeathDropPresentation = typeof getDeathDropPresentation === 'function'
+      ? getDeathDropPresentation
+      : () => ({});
     this.resolvedDeathIds = new Set();
     this.nextDeathSequence = 1;
   }
@@ -61,7 +64,9 @@ export class PlayerDefeatService {
     const stacks = buildLossDraft(inventory);
     let drop = null;
     if (stacks.length > 0) {
+      const presentation = this.getDeathDropPresentation({ player, deathId, stacks }) || {};
       drop = this.entityFactory?.createDeathDrop?.({
+        ...presentation,
         id: `death-drop-${deathId}`, deathId, stacks,
         position: { x: transform.position.x, y: transform.position.y }
       });

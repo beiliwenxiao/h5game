@@ -287,9 +287,10 @@ export class BaseGameScene extends Scene {
       onSwitch: () => this.switchToNextScene()
     });
 
-    // 宿主页面注入系统菜单和自动存档入口；场景层不依赖具体 DOM。
+    // 宿主页面注入系统菜单、自动存档和受控检查点读档入口；场景层不依赖具体 DOM/存储实现。
     this._systemMenuCallback = null;
     this._autoSaveCallback = null;
+    this._checkpointLoadCallback = null;
   }
 
   setSceneManager(sceneManager) {
@@ -312,6 +313,22 @@ export class BaseGameScene extends Scene {
 
   requestAutoSave(context = {}) {
     return this._autoSaveCallback?.({ scene: this, ...context }) || Promise.resolve(null);
+  }
+
+  /** 宿主注入按 checkpointId 恢复自动存档的入口。 */
+  setCheckpointLoadCallback(callback) {
+    this._checkpointLoadCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  requestCheckpointLoad(checkpointId) {
+    const request = { scene: this, checkpointId };
+    if (this._checkpointLoadCallback) {
+      return Promise.resolve(this._checkpointLoadCallback(request));
+    }
+    if (typeof globalThis.__loadCheckpointAutoSave === 'function') {
+      return Promise.resolve(globalThis.__loadCheckpointAutoSave(request));
+    }
+    return Promise.resolve({ ok: false, code: 'checkpointLoadUnavailable' });
   }
 
   /** 采集可序列化的通用游戏状态，供 SnapshotManager 原子存档。 */
@@ -401,6 +418,58 @@ export class BaseGameScene extends Scene {
     const player = this.playerEntity;
     if (!player) return { ok: false, errors: [{ code: 'missingPlayer', path: 'player', message: '玩家尚未创建' }] };
 
+    let rollbackSnapshot;
+    try {
+      rollbackSnapshot = this.captureSaveState();
+    } catch (error) {
+      return {
+        ok: false,
+        errors: error?.errors || [{
+          code: 'rollbackCaptureFailed',
+          path: '',
+          message: error?.message || '恢复前状态采集失败'
+        }]
+      };
+    }
+
+    const apply = snapshot => {
+      try {
+        const result = this._applyValidatedSaveState(snapshot);
+        return result?.ok === false ? result : { ok: true, errors: [] };
+      } catch (error) {
+        return {
+          ok: false,
+          errors: error?.errors || [{
+            code: 'saveRestoreFailed',
+            path: '',
+            message: error?.message || String(error)
+          }]
+        };
+      }
+    };
+
+    const result = apply(data);
+    if (result.ok) return result;
+
+    const rollback = apply(rollbackSnapshot);
+    if (!rollback.ok) {
+      return {
+        ok: false,
+        errors: [
+          ...(result.errors || []),
+          ...(rollback.errors || []).map(error => ({
+            ...error,
+            code: error.code || 'saveRestoreRollbackFailed',
+            path: error.path ? `rollback.${error.path}` : 'rollback'
+          }))
+        ]
+      };
+    }
+    return result;
+  }
+
+  _applyValidatedSaveState(data) {
+    const player = this.playerEntity;
     const transform = player.getComponent('transform');
     const stats = player.getComponent('stats');
     const inventory = player.getComponent('inventory');
@@ -879,6 +948,7 @@ export class BaseGameScene extends Scene {
         onModalInput: context => this.handleModalInput(context),
         onPopupConfirm: () => this._handleGainedPopupGamepad(),
         onGamepadCombat: () => this._updateGamepadCombat(),
+        onLocomotionInput: event => this.jumpByInput({ event }),
         onPromptSwitch: () => this._updatePromptSwitch(),
         dialogue: this._ensureDialogueFlow(),
         aiming: this._ensureSkillActions(),
@@ -1132,8 +1202,19 @@ export class BaseGameScene extends Scene {
     return this._ensureCombatActions().attackByDirection(dirX, dirY, distRatio) === true;
   }
 
+  /** 虚拟按钮通过 InputActionRouter 入队，和键盘/手柄共享消费优先级。 */
+  enqueueLocomotionInput(key = 'jump') {
+    this.sceneRuntime?.inputRouter?.enqueueKey?.(key);
+    return true;
+  }
+
+  /** 子场景可按世界对象语义解析攀爬目标。 */
+  resolveClimbTarget(_request = {}) {
+    return null;
+  }
+
   /** PC/触屏/手柄：按当前移动输入跳跃；无方向时原地跳。 */
-  jumpByInput() {
+  jumpByInput(_options = {}) {
     if (this.isPlayerActionLocked()) return false;
     const started = this._ensureCombatActions().jumpByInput() === true;
     if (started) this.onPlayerTutorialAction?.('jump');

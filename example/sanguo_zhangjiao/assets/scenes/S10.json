@@ -19,7 +19,8 @@
       "S10-temporary-camp",
       "S10-relocation-sign",
       "S10-site-campfire",
-      "S10-site-arrow-tower"
+      "S10-site-arrow-tower",
+      "S10-exit-marker"
     ],
     "cameraFrame": {
       "width": 1280,
@@ -166,6 +167,21 @@
           "sortY": 556,
           "semanticRole": "constructionSite",
           "visualDescription": "箭楼施工点；场景内可辨识地标或物件，替换时保持位置、尺寸和脚底基线。"
+        },
+        {
+          "id": "S10-exit-marker",
+          "type": "image",
+          "imageId": "story.messengerRecallBanner",
+          "name": "前往广宗的军令旗",
+          "x": 1135,
+          "y": 90,
+          "width": 80,
+          "height": 112,
+          "rotation": 0,
+          "depthSort": true,
+          "sortY": 202,
+          "semanticRole": "travelMarker",
+          "visualDescription": "四类工事完成后开放的广宗战场出口。"
         }
       ]
     },
@@ -255,62 +271,6 @@
           "overrides": {
             "quantity": 18
           }
-        },
-        {
-          "id": "S10-built-campfire",
-          "type": "ref",
-          "kind": "item",
-          "ref": "construction.s10.campfire",
-          "group": "S10-built-campfire",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "path": "s10Construction.completedSites.campfire",
-            "equals": true
-          },
-          "x": 416,
-          "y": 286
-        },
-        {
-          "id": "S10-built-barricade",
-          "type": "ref",
-          "kind": "item",
-          "ref": "construction.s10.barricade",
-          "group": "S10-built-barricade",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "path": "s10Construction.completedSites.barricade",
-            "equals": true
-          },
-          "x": 686,
-          "y": 226
-        },
-        {
-          "id": "S10-built-simple-wall",
-          "type": "ref",
-          "kind": "item",
-          "ref": "construction.s10.simple_wall",
-          "group": "S10-built-simple-wall",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "path": "s10Construction.completedSites.simpleWall",
-            "equals": true
-          },
-          "x": 766,
-          "y": 591
-        },
-        {
-          "id": "S10-built-arrow-tower",
-          "type": "ref",
-          "kind": "item",
-          "ref": "construction.s10.arrow_tower",
-          "group": "S10-built-arrow-tower",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "path": "s10Construction.completedSites.arrowTower",
-            "equals": true
-          },
-          "x": 1071,
-          "y": 556
         }
       ]
     },
@@ -419,7 +379,7 @@
         {
           "id": "S10-binding-build-arrow-tower",
           "type": "trigger",
-          "name": "修筑箭楼",
+          "name": "修筑、维修或操作箭楼",
           "triggerId": "trg_s10_build_arrow_tower",
           "x": 1005,
           "y": 470,
@@ -430,7 +390,24 @@
           "target": "S10-site-arrow-tower",
           "radius": 105,
           "pointerRadius": 58,
-          "prompt": "{interact}在此修筑箭楼（营建 2 级）"
+          "prompt": "{interact}修筑、维修或操作箭楼（营建 2 级）"
+        },
+        {
+          "id": "S10-binding-exit-s11",
+          "type": "trigger",
+          "name": "前往广宗战场",
+          "triggerId": "trg_s10_exit_s11",
+          "command": "checkS10Exit",
+          "x": 1095,
+          "y": 55,
+          "width": 160,
+          "height": 180,
+          "event": "interact",
+          "targetMode": "id",
+          "target": "S10-exit-marker",
+          "radius": 115,
+          "pointerRadius": 64,
+          "prompt": "{interact}确认工事状态并前往广宗"
         }
       ]
     }
@@ -457,6 +434,10 @@
     "s10.construction.siteMarker": {
       "src": "../example/sanguo_zhangjiao/assets/images/s10/construction-site-marker.svg",
       "name": "施工规划标记"
+    },
+    "story.messengerRecallBanner": {
+      "src": "../example/sanguo_zhangjiao/assets/images/story/messenger-recall-banner.svg",
+      "name": "广宗军令旗"
     }
   },
   "updatedAt": "2026-08-12T00:00:00.000Z"

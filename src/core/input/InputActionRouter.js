@@ -188,10 +188,16 @@ export class InputActionRouter {
    * @returns {InputEvent}
    */
   enqueueInteract(device = InputDevice.VIRTUAL) {
+    return this.enqueueKey('e', device);
+  }
+
+  /** 虚拟按钮与脚本动作统一构造键按下事件。 */
+  enqueueKey(key, device = InputDevice.VIRTUAL, modifiers = null) {
     return this.enqueue(new InputEvent({
       type: InputEventType.KEY_PRESS,
       device,
-      key: 'e'
+      key,
+      modifiers
     }));
   }
 

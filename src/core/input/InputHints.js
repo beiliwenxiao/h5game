@@ -50,6 +50,8 @@ const DEFAULT_ACTIONS = {
   block: { pc: { key: 'Q', kind: 'key' }, android: '格挡按钮', padFixed: 'LT', padKind: 'key' },
   flight: { pc: { key: 'Ctrl', kind: 'key' }, android: '轻功按钮', padKey: SKILL_RELEASE_ACTION, padFallback: '未绑定' },
   jump: { pc: { key: '空格', kind: 'key' }, android: '跳跃按钮', padKey: JUMP_ACTION, padFallback: '未绑定' },
+  powerJump: { pc: { key: '技能快捷键', kind: 'raw' }, android: '用力跳技能按钮', padKey: SKILL_RELEASE_ACTION, padFallback: '未绑定' },
+  climb: { pc: { key: '空格（靠近攀爬面）', kind: 'key' }, android: '靠近攀爬面后点击跳跃按钮', padKey: JUMP_ACTION, padFallback: '未绑定' },
   throw: { pc: { key: 'Shift', kind: 'key' }, android: '投掷按钮', padKey: SKILL_RELEASE_ACTION, padFallback: '未绑定' },
   harvest: { pc: { key: 'E', kind: 'key' }, android: '交互按钮', padKey: 'e' },
   potionHp: { pc: { key: '1', kind: 'key' }, android: '红瓶按钮', padFixed: '十字键↑', padKind: 'key' },

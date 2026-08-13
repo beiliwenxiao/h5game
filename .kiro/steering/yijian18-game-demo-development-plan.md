@@ -138,19 +138,19 @@ example/sanguo_zhangjiao/
 | P5 | 1.5 周 | Content Complete | S13–S14、六结局、成长收口 | 六结局演出与全内容补齐 |
 | P6 | 2 周 | Release Candidate | 全图流式、优化、修复、发布 | 全量替换、压缩、版权与宣传素材 |
 
-### 6.1 当前实施进度（2026-08-12）
+### 6.1 当前实施进度（2026-08-14）
 
 状态只使用 `notStarted / inProgress / blocked / done`。`done` 必须满足对应阶段出口门槛；已经完成代码和内容预检、但尚未完成浏览器实际运行或音画验收的工作仍记为 `inProgress`。
 
 | 阶段 | 状态 | 当前已落地 | 尚未完成/出口阻断 |
 |---|---|---|---|
-| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入；GameProject 已提供受控 `extensions`，S01 教学、S09 饥民数值和 S03/S04/S05/S07 战役 flow 已改为配置优先；六个通用 trigger action 已下沉至 `SceneTriggerActionProvider`；编辑器已支持 image/shape/effectZone 名称、语义角色、状态和视觉说明，背景 Manifest 已支持结构化 replacement brief；A–D Region 已统一为用户确认的全局 20×20 grid，S01–S14 规划坐标已落盘，未完成的 S12–S14 使用不可加载 reserved 单元 | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 与 `extensions` 对外部调用方的影响；继续把 Demo 事务编排按领域拆入 coordinator，但不把回滚/checkpoint 直接 JSON 化 |
+| P0 | inProgress | 新战役 ID 与 S01 基线、Canonical Schema v2、ContentValidator、GameLoader 启动预检、BattleClient/LocalMockTransport/IdempotencyStore、Asset Manifest、Presentation Profile、旧 campaign/scene/act/mage 内容策略已接入；GameProject 已提供受控 `extensions`，S01 教学、S09 饥民数值和 S03/S04/S05/S07 战役 flow 已改为配置优先；六个通用 trigger action 已下沉至 `SceneTriggerActionProvider`；编辑器已支持 image/shape/effectZone 名称、语义角色、状态和视觉说明，背景 Manifest 已支持结构化 replacement brief；A–D Region 已统一为用户确认的全局 20×20 grid，S01–S14 坐标和可加载字符串单元均已落盘，S11–S14 均为 `productionState:"playable"`、`previewOnly:false` | 浏览器验证加载错误 UI、旧存档拒绝和完整启动路径；确认 Schema v2 与 `extensions` 对外部调用方的影响；继续把 Demo 事务编排按领域拆入 coordinator，但不把回滚/checkpoint 直接 JSON 化 |
 | P1 | inProgress | 原子库存、设备无关拾取、采集与工具回滚、S01 七项教学和一次性收益、普通死亡/DeathDrop、Placement 动态恢复、跨 Region 两阶段切换已实现；S01 干旱荒原与 S02 废弃营地已接入独立 1280×720 细节背景、稳定 ID 和替换 brief | 浏览器验证攻击教学、采集中断、受伤半产量、owner 隔离、奖励幂等、DeathDrop 和两轮 save/load；S02 完整体验与音画仍需验收，当前生成背景仍是可替换临时资产 |
 | P2 | inProgress | S09 三职业与不可逆确认、职业装备/技能事务、军师采集傀儡、未许可采粮、饥民三分支与延迟后果、四成长池、ProficiencySystem、CityStateSummaryPanel、稳定资产链与通用 Y-sort 已接入；S09 专属背景已有地貌语义与替换 brief | 浏览器验证三输入、三剧情分支、跨日/读档、城市摘要、熟练度反馈和 S09 动线；真实音频及最终美术审核未完成，S09 不得提升为 `contentComplete` |
 | P3 | inProgress | BattleSystem、CityWarSystem、BattlefieldRuntimeSystem、战役 HUD/战果 UI、S03/S04/S05/S07 实时战役、波才/张曼成救援、S05 矿坑工具损毁与撤退、S06 铲损工事作废及守撤选择、S07 三线资源阻滞、S08 残部撤退与 S10 召回接续均已接入；S03–S08 已分别接入颍川旷野、长社焦土、宛城外郭/围攻、西华阻滞/残营独立背景和对象语义，S04 毒烟表现统一使用 smoke 预设与 poisonSmoke 语义 | 浏览器实际战斗、观战/介入、AI/Collision、战中存读档、两次救援、两条路线和三输入仍待验收；S06 木铁采集修补的完整采集表现与 P3 全量音画尚未完成，生成背景仍需最终美术审核，不能称为 Main Alpha |
-| P4 | inProgress | S10 已登记为 B Region 可玩场景；张角病逝、临时营地评估、沿溪迁营、ConstructionSystem、S06 铲损退料体验、S10 四类工事与施工中存档恢复已接入；S10 溪畔营地和 S11 广宗百人战均已有独立背景语义与替换 brief，S11 单位标记已补可见名称 | S10 完整对白/音画、维修和箭楼乘员适配、S09 饥民剧情兜底、S11–S12、张梁/张宝救援、载具与百人战尚未完成；S11 仍为 previewOnly/greybox，不因背景完成而视为可玩 |
-| P5 | notStarted | 结局所需的 Story/City/War 状态基础正在前序阶段积累 | S13、S14、EndingSystem、六结局演出和成长收口尚未实施 |
-| P6 | notStarted | worldOffset 单次投影、RegionCoordinator 和双渲染基础已建立 | 全图九宫格流式、性能硬门槛、2D/3D 业务一致性、全量资产审计和 Android Release Candidate 尚未执行 |
+| P4 | inProgress | S10–S12 已登记为可玩场景；张角病逝、临时营地评估、沿溪迁营、四类工事施工/维修、箭楼乘员、战争效果、S11 百人战与张梁救援、S12 守门/密道/护送与张宝救援、S10→S11→S12 主流程均已接线；三波刺客具备 checkpoint 失败重试和防重复生成 | 浏览器验证 S10→S12 自然流程、维修/乘降/摧毁弹员、三波刺客重试、100 活动实体性能、S12 deadline 边界、马车单一 DeathDrop 的成功/回滚/重放及完整音画；马/云梯 placement、CargoTransfer UI 和投石车实际武器入口尚待收口 |
+| P5 | inProgress | S13 单一原子结算、S14 马车/投石车资源收束、采集/营建/城市损毁隐藏输入、焦土选择、六结局判定与 key art 演出、结局前检查点及普通跳/用力跳/轻功/攀爬成长链均已接线 | 浏览器验证 S13 成功/失败回滚与幂等、S14 三输入和六结局优先级、结局资源/音乐/检查点、四类位移三输入与攀爬中存读档；完整音画仍是出口阻断项 |
+| P6 | inProgress | `src/core/WorldStreamingManager.js` 已成为唯一权威，完成 Region 九宫格异步 latest-wins、detached prepare/validate/commit/rollback、动态 provider、同步原子快照恢复、SXX-CNN namespace、按需磁盘 sceneResolver、远距传送预加载和跨 Region shadow manager 激活；systems 路径仅无状态兼容转发；渲染配置已区分请求模式与实际后端并固定解析宿主；编辑器发布资产审计只扫描 canonical SXX/SXX-CNN，已覆盖 Manifest placeholder/断链/重复 ID、3D fallback、音频 cue 断链及零音频覆盖阻断 | 浏览器连续跨边界/远距传送、失败保持旧区、动态资源/敌人/NPC/工事/载具/DeathDrop 卸载恢复、worldOffset、两轮存读档、100 实体/内存硬门槛、2D/3D 业务 diff 与 Android RC 尚待验收；Manifest 当前静态审计已无 placeholder/引用错误，但正式音频 cue 仍为 0，是明确 RC 内容阻断；签名密钥与发布版本语义尚未由用户确认 |
 
 ### 6.2 当前 P3 工作面
 
@@ -165,7 +165,7 @@ example/sanguo_zhangjiao/
 
 - `S04RouteCoordinator` 领域 one-off 已覆盖：南阳只解锁 S05、同路线不重复 checkpoint、异路线返回 `routeLocked`、checkpoint 失败完整恢复 StoryState、active 救援阻断、目标缺失拒绝、checkpoint 后事件异常不回滚已持久化路线。
 - 真实 `GameLoader.load()` 已完成全部 `$ref` 解析、内容策略和注册表预检；初始解锁仍只有 S01，S05/S07 只通过路线事务动态解锁。
-- `WorldMapLoadSession` 已按用户确认的全局 20×20 坐标投影：S05 offset `{16640,11520}`、S07 offset `{19200,12240}`；当前磁盘 S07 玩家出生点局部坐标 `{125,635}`，投影世界坐标 `{19325,12875}`，局部坐标保持不变。S12–S14 仅以 `reserved:true` 保存规划位置，不进入加载、传送或存档恢复目标。
+- `WorldMapLoadSession` 与 core `WorldStreamingManager` 使用用户确认的全局 20×20 坐标和按需磁盘加载：S05 offset `{16640,11520}`、S07 offset `{19200,12240}`；场景局部坐标保持不变，`worldOffset` 只投影一次。S01–S14 均为可加载 canonical 字符串单元，SXX-CNN 附属 chunk 归入 SXX 业务命名空间。
 - 当前相关 JS/JSON diagnostics 均通过；ConstructionSystem、S06/S10 场景、GameProject、Manifest 与新增 SVG 最近一次 diagnostics 无问题。尚无浏览器 playthrough 证据，因此 P0–P4 均不得整体标记 `done`。
 
 每阶段同时推进四条轨道：A 引擎与领域系统、B 场景和叙事内容、C 美术音频和 UI、D 集成与质量。任何阶段不能只关闭 A 轨道。

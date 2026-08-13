@@ -60,7 +60,8 @@ export class RegionCoordinator {
       shadowSession = this.createSession(request);
       const result = await shadowSession.load({
         projectUrl: request.projectUrl || 'game.project.json',
-        regionIndex: request.regionIndex
+        regionIndex: request.regionIndex,
+        sceneIds: request.sceneId ? [request.sceneId] : null
       });
       const validation = await this.validateTarget({ request, result, shadowSession, draft });
       if (validation?.ok === false) {
@@ -71,7 +72,14 @@ export class RegionCoordinator {
       }
 
       commitStarted = true;
-      const committed = await this.commitTarget({ request, result, shadowSession, oldSession, draft });
+      const committed = await this.commitTarget({
+        request,
+        result,
+        shadowSession,
+        oldSession,
+        draft,
+        validation
+      });
       if (committed?.ok === false) {
         const error = new Error(committed.errors?.[0]?.message || '目标大区提交失败');
         error.code = 'regionCommitFailed';

@@ -600,24 +600,34 @@ export class SceneEditorAssets {
   }
 
   /**
-   * 审计当前游戏的 Manifest、磁盘图片、场景引用、图集切片、授权和 3D fallback。
-   * 只生成报告，不自动登记或提升授权状态。
+   * 审计当前游戏的 Manifest、磁盘图片、canonical 场景引用、音频文件和 3D fallback。
+   * 只生成报告，不自动登记或修改资源状态。
    */
   async runAssetAudit() {
     const gameId = this._contentGameId();
     const gameRoot = `example/${gameId}`;
     const button = document.getElementById('editor-audit-assets');
     if (button) button.disabled = true;
-    this.editor.ui.showToast?.('正在扫描磁盘资产与场景引用…');
+    this.editor.ui.showToast?.('正在扫描磁盘资产与 canonical 场景引用…');
 
     try {
-      const [manifest, imageFiles, sceneFiles] = await Promise.all([
+      const canonicalSceneFile = file => /\/S\d{2}(?:-C\d{2})?\.json$/i.test(file.replace(/\\/g, '/'));
+      const [manifest, imageFiles, sceneFiles, audioConfig, audioFiles] = await Promise.all([
         this._fetchJson(`/${gameRoot}/assets/manifests/assets.json`),
         this._listFilesRecursive(`${gameRoot}/assets/images`, file => /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(file)),
-        this._listFilesRecursive(`${gameRoot}/assets/scenes`, file => /\.json$/i.test(file) && !file.endsWith('/_scene_order.json'))
+        this._listFilesRecursive(`${gameRoot}/assets/scenes`, canonicalSceneFile),
+        this._fetchJson(`/${gameRoot}/data/AudioConfig.json`),
+        this._listFilesRecursive(`${gameRoot}/assets/audio`, file => /\.(mp3|ogg|wav|m4a|aac|flac|webm)$/i.test(file))
       ]);
       const scenes = await Promise.all(sceneFiles.map(file => this._fetchJson(`/${file}`)));
-      const report = this._buildAssetAuditReport({ gameRoot, manifest, imageFiles, scenes });
+      const report = this._buildAssetAuditReport({
+        gameRoot,
+        manifest,
+        imageFiles,
+        scenes,
+        audioConfig,
+        audioFiles
+      });
       this._showAssetAuditModal(report);
       this.editor.ui.showToast?.(report.blockingCount
         ? `资产审计完成：${report.blockingCount} 个阻断项`
@@ -654,9 +664,10 @@ export class SceneEditorAssets {
     return result.sort();
   }
 
-  _buildAssetAuditReport({ gameRoot, manifest, imageFiles, scenes }) {
+  _buildAssetAuditReport({ gameRoot, manifest, imageFiles, scenes, audioConfig = {}, audioFiles = [] }) {
     const entries = Array.isArray(manifest?.assets) ? manifest.assets : [];
     const diskPaths = new Set(imageFiles.map(path => path.slice(gameRoot.length + 1)));
+    const diskAudioPaths = new Set(audioFiles.map(path => path.slice(gameRoot.length + 1)));
     const manifestPaths = new Set();
     const assetIds = new Set();
     const imageIds = new Set();
@@ -674,9 +685,14 @@ export class SceneEditorAssets {
       } else if (entry?.runtime2D?.mode === 'image') {
         invalidEntries.push(`${entry?.assetId || '<unknown>'}: 非 atlas/slice 图片缺少稳定 imageId`);
       }
-      const sourcePath = String(entry?.sourceFile || entry?.runtime2D?.path || '').replace(/^\.\//, '');
-      if (sourcePath) manifestPaths.add(sourcePath);
-      else invalidEntries.push(`${entry?.assetId || '<unknown>'}: 缺少 sourceFile/runtime2D.path`);
+      const sourcePaths = [entry?.sourceFile, entry?.runtime2D?.path]
+        .map(path => this._normalizeGameAssetPath(path))
+        .filter(Boolean);
+      if (sourcePaths.length > 0) {
+        for (const path of sourcePaths) manifestPaths.add(path);
+      } else {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: 缺少 sourceFile/runtime2D.path`);
+      }
       if (!(Number(entry?.bounds?.width) > 0) || !(Number(entry?.bounds?.height) > 0)) {
         invalidEntries.push(`${entry?.assetId || '<unknown>'}: bounds.width/height 必须大于 0`);
       }
@@ -695,24 +711,20 @@ export class SceneEditorAssets {
     const unregisteredFiles = [...diskPaths].filter(path => !manifestPaths.has(path));
     const missingReferences = [];
     const invalidSlices = [];
+    const unusedSceneImages = [];
     for (const scene of scenes.filter(Boolean)) {
       const sceneId = scene.id || scene.name || '<unknown-scene>';
       const sceneImages = scene.imageAssets || {};
       const atlases = new Map((scene.atlases || []).map(atlas => [atlas.id, atlas]));
-      for (const [imageId, image] of Object.entries(sceneImages)) {
-        if (!imageIds.has(imageId) && !assetIds.has(imageId)) missingReferences.push(`${sceneId}: imageId ${imageId} 未登记 Manifest`);
-        const path = this._normalizeGameAssetPath(image?.src);
-        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: ${imageId} 指向缺失文件 ${path}`);
-      }
-      for (const atlas of atlases.values()) {
-        if (!assetIds.has(atlas.id)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 未登记 Manifest`);
-        const path = this._normalizeGameAssetPath(atlas.path);
-        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 指向缺失文件 ${path}`);
-      }
+      const usedImageIds = new Set();
       for (const layer of scene.layers || []) {
         for (const object of layer?.objects || []) {
-          if (object?.type === 'image' && (!object.imageId || !sceneImages[object.imageId])) {
-            missingReferences.push(`${sceneId}/${object?.id || '<object>'}: 图片对象缺少有效 imageId`);
+          if (object?.type === 'image') {
+            if (!object.imageId || !sceneImages[object.imageId]) {
+              missingReferences.push(`${sceneId}/${object?.id || '<object>'}: 图片对象缺少有效 imageId`);
+            } else {
+              usedImageIds.add(object.imageId);
+            }
           }
           if (object?.sliceKey) {
             const atlas = atlases.get(object.atlasId);
@@ -722,16 +734,50 @@ export class SceneEditorAssets {
           }
         }
       }
+      for (const [imageId, image] of Object.entries(sceneImages)) {
+        if (!usedImageIds.has(imageId)) {
+          unusedSceneImages.push(`${sceneId}: imageAssets.${imageId}`);
+          continue;
+        }
+        if (!imageIds.has(imageId) && !assetIds.has(imageId)) missingReferences.push(`${sceneId}: imageId ${imageId} 未登记 Manifest`);
+        const path = this._normalizeGameAssetPath(image?.src);
+        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: ${imageId} 指向缺失文件 ${path}`);
+      }
+      for (const atlas of atlases.values()) {
+        if (!assetIds.has(atlas.id)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 未登记 Manifest`);
+        const path = this._normalizeGameAssetPath(atlas.path);
+        if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 指向缺失文件 ${path}`);
+      }
     }
 
+    const audioCues = [];
+    const missingAudioFiles = [];
+    for (const group of ['music', 'sfx']) {
+      const cues = audioConfig?.[group];
+      if (!cues || typeof cues !== 'object' || Array.isArray(cues)) continue;
+      for (const [cueId, cue] of Object.entries(cues)) {
+        audioCues.push(`${group}.${cueId}`);
+        const path = this._normalizeGameAssetPath(cue?.file);
+        if (!path) missingAudioFiles.push(`${group}.${cueId}: 缺少文件路径`);
+        else if (!diskAudioPaths.has(path)) missingAudioFiles.push(`${group}.${cueId}: 指向缺失文件 ${path}`);
+      }
+    }
+    const missingAudioCoverage = audioCues.length === 0
+      ? ['未登记任何正式 music/sfx cue；Release Candidate 音频内容尚未接入']
+      : [];
+
     const blockingCount = duplicateIds.length + invalidEntries.length + missingFiles.length
-      + missingReferences.length + invalidSlices.length;
+      + missingReferences.length + invalidSlices.length + placeholders.length
+      + missingAudioFiles.length + missingAudioCoverage.length;
     return {
       summary: {
         diskImages: diskPaths.size,
+        diskAudio: diskAudioPaths.size,
         manifestEntries: entries.length,
         scenes: scenes.length,
+        audioCues: audioCues.length,
         unregisteredFiles: unregisteredFiles.length,
+        unusedSceneImages: unusedSceneImages.length,
         placeholders: placeholders.length
       },
       blockingCount,
@@ -740,7 +786,10 @@ export class SceneEditorAssets {
       missingFiles,
       missingReferences,
       invalidSlices,
+      missingAudioFiles,
+      missingAudioCoverage,
       unregisteredFiles,
+      unusedSceneImages,
       placeholders
     };
   }
@@ -769,14 +818,17 @@ export class SceneEditorAssets {
     const summary = report.summary;
     modal.innerHTML = `<div style="width:min(820px,92vw);max-height:88vh;overflow:auto;background:#20242b;color:#eee;border:1px solid #596273;border-radius:8px;padding:18px;box-shadow:0 12px 40px #000;">
       <h3 style="margin:0 0 8px;">资产审计报告</h3>
-      <div style="font-size:13px;color:#b9c2d0;">磁盘图片 ${summary.diskImages} · Manifest ${summary.manifestEntries} · 场景 ${summary.scenes} · 阻断项 ${report.blockingCount}</div>
+      <div style="font-size:13px;color:#b9c2d0;">磁盘图片 ${summary.diskImages} · Manifest ${summary.manifestEntries} · canonical 场景 ${summary.scenes} · 音频 ${summary.audioCues}/${summary.diskAudio} · 阻断项 ${report.blockingCount}</div>
       ${section('重复稳定 ID', report.duplicateIds, true)}
       ${section('Manifest 结构 / 3D fallback', report.invalidEntries, true)}
       ${section('Manifest 指向缺失文件', report.missingFiles, true)}
       ${section('场景缺失引用', report.missingReferences, true)}
       ${section('无效 slice 引用', report.invalidSlices, true)}
+      ${section('音频 cue 指向缺失文件', report.missingAudioFiles, true)}
+      ${section('音频覆盖（Release Candidate 阻断）', report.missingAudioCoverage, true)}
       ${section('未登记图片（不得直接作为正式资产）', report.unregisteredFiles)}
-      ${section('占位资产', report.placeholders)}
+      ${section('场景未使用 imageAssets（可保存清理）', report.unusedSceneImages)}
+      ${section('占位资产（Release Candidate 阻断）', report.placeholders, true)}
       <div style="display:flex;justify-content:flex-end;margin-top:14px;"><button id="asset-audit-close" style="padding:7px 18px;">关闭</button></div>
     </div>`;
     modal.addEventListener('click', event => {

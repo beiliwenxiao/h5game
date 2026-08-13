@@ -47,25 +47,61 @@ export class LayerComponent extends Component {
     this.floorId = config.floorId ?? 'ground';
     this.renderOrder = config.renderOrder ?? 0;
 
-    /** 原始 worldLayer（用于临时切换后恢复，如 FlightSystem） */
+    /** 首个临时层进入前的基础 worldLayer。 */
     this._originalWorldLayer = this.worldLayer;
+    this._layerLeases = [];
+    this._layerLeaseSequence = 0;
   }
 
   /**
-   * 切到新层并记住原层
+   * 获取临时世界层租约。多个系统嵌套切层时，各自只能释放自己的 token。
    * @param {string} layer
+   * @param {string|null} [owner]
+   * @returns {string|null}
    */
-  pushLayer(layer) {
-    if (!WORLD_LAYERS.includes(layer)) return;
-    this._originalWorldLayer = this.worldLayer;
+  acquireLayer(layer, owner = null) {
+    if (!WORLD_LAYERS.includes(layer)) return null;
+    if (this._layerLeases.length === 0) this._originalWorldLayer = this.worldLayer;
+    const token = `layer:${++this._layerLeaseSequence}`;
+    this._layerLeases.push({ token, layer, owner });
     this.worldLayer = layer;
+    return token;
   }
 
   /**
-   * 恢复到原层
+   * 释放指定临时层租约。
+   * @param {string} token
+   * @returns {boolean}
    */
-  popLayer() {
+  releaseLayer(token) {
+    const index = this._layerLeases.findIndex(lease => lease.token === token);
+    if (index < 0) return false;
+    this._layerLeases.splice(index, 1);
+    const active = this._layerLeases[this._layerLeases.length - 1];
+    this.worldLayer = active?.layer || this._originalWorldLayer || 'entity';
+    return true;
+  }
+
+  /**
+   * 切到新层并返回租约 token；保留旧调用兼容。
+   * @param {string} layer
+   * @param {string|null} [owner]
+   * @returns {string|null}
+   */
+  pushLayer(layer, owner = null) {
+    return this.acquireLayer(layer, owner);
+  }
+
+  /**
+   * 恢复临时层。传 token 时只释放对应租约；不传时兼容旧的后进先出行为。
+   * @param {string|null} [token]
+   * @returns {boolean}
+   */
+  popLayer(token = null) {
+    const target = token || this._layerLeases[this._layerLeases.length - 1]?.token;
+    if (target) return this.releaseLayer(target);
     this.worldLayer = this._originalWorldLayer ?? 'entity';
+    return false;
   }
 
   setFloor(id) {

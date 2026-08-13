@@ -47,12 +47,7 @@ export class SceneFramePipeline {
       return;
     }
 
-    // 空格或可重绑手柄 jump 动作按下时起跳；对话/模态状态由统一动作出口拦截。
-    if (!playerActionLocked && (
-      scene.inputManager?.isKeyPressed?.('space') || scene.inputManager?.isKeyPressed?.('jump')
-    )) {
-      scene.jumpByInput?.();
-    }
+    // jump/攀爬由 SceneInputFlow → InputActionRouter 的 SKILL 优先级统一消费。
 
     // 运行时优先输入阶段保留旧扩展 hook 的准确位置。
     scene._runRuntimePhase?.('priorityInput', deltaTime);
@@ -148,6 +143,9 @@ export class SceneFramePipeline {
 
     // HUD 冷却集中由 SceneHudUpdater 读取显式 UI/System 依赖。
     hudUpdater?.updateCooldowns();
+
+    // 更新攀爬等统一位移执行器；Jump/Flight 保持各自既有更新顺序。
+    scene.locomotionSystem?.update?.(deltaTime);
 
     // 更新跳跃系统（先于普通移动；MovementSystem 会跳过正在跳跃的实体）
     if (scene.jumpSystem && scene.playerEntity) {

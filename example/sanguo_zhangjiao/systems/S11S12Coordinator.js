@@ -99,7 +99,9 @@ export class S11S12Coordinator {
     this.state.s11.assassinWavesDefeated = wave;
     this.onEvent('s11AssassinWaveDefeated', { wave, total: 3 });
     if (wave < 3) return { ok: true, completed: false, wave, state: this.getState() };
-    return this._advanceS11('repel-assassins', 's11AssassinsRepelled', options);
+    const advanced = await this._advanceS11('repel-assassins', 's11AssassinsRepelled', options);
+    if (!advanced?.ok) this.state.s11.assassinWavesDefeated = completed;
+    return advanced;
   }
 
   async completeS11WestGateBreakout(options = {}) {
@@ -283,6 +285,33 @@ export class S11S12Coordinator {
 
   async failS12Escort(options = {}) {
     return this._failS12Stage('escort-zhang-bao', 'escortFailed', options);
+  }
+
+  /**
+   * 观战或战前直接失败时，救援不会启动，但仍必须冻结人物死亡事实。
+   * 复用统一 _settle 事务，保证 StoryState、checkpoint 与幂等语义一致。
+   */
+  async settleUnavailableRescue(sceneId, options = {}) {
+    if (!['S11', 'S12'].includes(sceneId)) return { ok: false, code: 'invalidSceneId' };
+    const rescueId = sceneId === 'S11' ? S11_RESCUE_ID : S12_RESCUE_ID;
+    const existing = this.readStoryState()?.rescueResults?.[rescueId];
+    if (existing) return { ok: true, idempotent: true, result: clone(existing) };
+    if (options.mode && options.mode !== 'observe' && options.force !== true) {
+      return { ok: false, code: 'rescueStillAvailable', mode: options.mode };
+    }
+    const beforeRescue = this.rescueSystem?.serialize?.();
+    if (!beforeRescue) return { ok: false, code: 'rescueUnavailable' };
+    const result = {
+      rescueId,
+      battleId: sceneId === 'S11' ? S11_BATTLE_ID : S12_BATTLE_ID,
+      status: 'failed',
+      survived: false,
+      completedAt: Number(options.completedAt ?? this.rescueSystem.now?.() ?? 0),
+      failureReason: String(options.reason || (options.mode === 'observe' ? 'modeObserved' : 'rescueUnavailable')),
+      completedStageIds: [],
+      costs: {}
+    };
+    return this._settle(sceneId, result, beforeRescue);
   }
 
   async handleTrigger(triggerId, payload = {}) {

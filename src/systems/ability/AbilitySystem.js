@@ -26,7 +26,7 @@
 import { SkillTargeting } from './SkillDefinition.js';
 
 /** 拒绝原因 */
-export const AbilityRejectReason = {
+export const AbilityRejectReason = Object.freeze({
   NO_DEFINITION: 'noDefinition',
   NOT_UNLOCKED: 'notUnlocked',
   NO_COMBAT_COMPONENT: 'noCombatComponent',
@@ -35,8 +35,9 @@ export const AbilityRejectReason = {
   INSUFFICIENT_COST: 'insufficientCost',
   OUT_OF_RANGE: 'outOfRange',
   INVALID_TARGET: 'invalidTarget',
-  NO_EXECUTOR: 'noExecutor'
-};
+  NO_EXECUTOR: 'noExecutor',
+  EXECUTION_FAILED: 'executionFailed'
+});
 
 export class AbilitySystem {
   /**
@@ -185,7 +186,7 @@ export class AbilitySystem {
       return { ok: false, reason: AbilityRejectReason.NO_DEFINITION, message: `技能定义不存在: ${skillId}` };
     }
 
-    if (!this.isUnlocked(caster, skillId)) {
+    if (options.requireUnlock !== false && !this.isUnlocked(caster, skillId)) {
       return { ok: false, reason: AbilityRejectReason.NOT_UNLOCKED, message: `技能未解锁: ${def.name}` };
     }
 
@@ -345,6 +346,7 @@ export class AbilitySystem {
         target: options.target || null,
         targetPosition: options.targetPosition || null,
         entities: options.entities || null,
+        context: options.context || null,
         currentTime
       }) !== false;
     } catch (e) {
@@ -365,7 +367,11 @@ export class AbilitySystem {
       combat.castStartTime = snapshot.castStartTime;
 
       this.onEvent('abilityFailed', { casterId: this._entityId(caster), skillId });
-      return { ok: false, reason: 'executionFailed', message: `技能执行失败: ${view.name}` };
+      return {
+        ok: false,
+        reason: AbilityRejectReason.EXECUTION_FAILED,
+        message: `技能执行失败: ${view.name}`
+      };
     }
 
     this.onEvent('abilityUsed', {

@@ -176,7 +176,7 @@ export class ScenePanelLayout {
       scene.jumpButton = new IconButton({
         x: 666, y: 640, width: 50, height: 50,
         icon: '⬆️', label: '跳跃', hintAction: 'jump',
-        onClick: () => { scene.jumpByInput?.(); }
+        onClick: () => { scene.enqueueLocomotionInput?.('jump'); }
       });
       // 轻功（按下进入瞄准，左键在射程内确认瞬移）
       scene.flightButton = new IconButton({

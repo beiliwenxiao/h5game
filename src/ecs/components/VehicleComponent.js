@@ -50,7 +50,16 @@ export class VehicleComponent extends Component {
     this.maxHp = config.maxHp != null ? config.maxHp : 500;
     this.hp = config.hp != null ? config.hp : this.maxHp;
     this.onDestroyed = config.onDestroyed || 'eject';
-    this.destroyed = false;
+    this.destroyed = this.hp <= 0;
+    this.logistics = {
+      odometer: Math.max(0, Number(config.logistics?.odometer) || 0),
+      distanceSinceFeed: Math.max(0, Number(config.logistics?.distanceSinceFeed) || 0),
+      foodConsumed: Math.max(0, Math.floor(Number(config.logistics?.foodConsumed) || 0)),
+      starved: config.logistics?.starved === true,
+      ladderEntryDisabled: config.logistics?.ladderEntryDisabled === true,
+      catapultAssembled: config.logistics?.catapultAssembled === true,
+      catapultShots: Math.max(0, Math.floor(Number(config.logistics?.catapultShots) || 0))
+    };
 
     // 席位：id -> { id, role, weapon, offset:[dx,dy], riderId:null }
     this.seats = {};
@@ -110,26 +119,100 @@ export class VehicleComponent extends Component {
 
   takeDamage(amount) {
     if (this.destroyed) return { dead: true, hp: 0 };
-    this.hp = Math.max(0, this.hp - (amount || 0));
+    const damage = Math.max(0, Number(amount) || 0);
+    this.hp = Math.max(0, this.hp - damage);
     if (this.hp <= 0) this.destroyed = true;
     return { dead: this.destroyed, hp: this.hp };
   }
 
   serialize() {
     const seats = {};
-    for (const [k, s] of Object.entries(this.seats)) seats[k] = { riderId: s.riderId };
-    return { vehicleType: this.vehicleType, hp: this.hp, destroyed: this.destroyed, seats };
+    for (const [key, seat] of Object.entries(this.seats)) seats[key] = { riderId: seat.riderId };
+    return {
+      schemaVersion: 1,
+      vehicleType: this.vehicleType,
+      hp: this.hp,
+      destroyed: this.destroyed,
+      seats,
+      logistics: { ...this.logistics }
+    };
+  }
+
+  /** 严格校验运行态快照；定义态仍由内容配置创建，不从存档覆盖。 */
+  validateSerialized(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data) || data.schemaVersion !== 1) {
+      return { ok: false, code: 'invalidVehicleSnapshot', path: 'schemaVersion' };
+    }
+    if (typeof data.vehicleType !== 'string' || data.vehicleType !== this.vehicleType) {
+      return { ok: false, code: 'vehicleTypeMismatch', path: 'vehicleType' };
+    }
+    if (!Number.isFinite(data.hp) || data.hp < 0 || data.hp > this.maxHp) {
+      return { ok: false, code: 'invalidVehicleHp', path: 'hp' };
+    }
+    if (typeof data.destroyed !== 'boolean' || data.destroyed !== (data.hp === 0)) {
+      return { ok: false, code: 'invalidVehicleDestroyedState', path: 'destroyed' };
+    }
+
+    const savedSeats = data.seats;
+    const expectedSeatIds = Object.keys(this.seats).sort();
+    const savedSeatIds = savedSeats && typeof savedSeats === 'object' && !Array.isArray(savedSeats)
+      ? Object.keys(savedSeats).sort()
+      : [];
+    if (expectedSeatIds.length !== savedSeatIds.length
+      || expectedSeatIds.some((seatId, index) => seatId !== savedSeatIds[index])) {
+      return { ok: false, code: 'vehicleSeatDefinitionMismatch', path: 'seats' };
+    }
+    const riders = new Set();
+    for (const seatId of expectedSeatIds) {
+      const seat = savedSeats[seatId];
+      const riderId = seat?.riderId;
+      if (!seat || typeof seat !== 'object' || Array.isArray(seat)
+        || (riderId !== null && (typeof riderId !== 'string' || riderId.length === 0))) {
+        return { ok: false, code: 'invalidVehicleSeatState', path: `seats.${seatId}.riderId` };
+      }
+      if (riderId !== null && riders.has(riderId)) {
+        return { ok: false, code: 'duplicateVehicleRider', path: `seats.${seatId}.riderId` };
+      }
+      if (riderId !== null) riders.add(riderId);
+    }
+
+    const logistics = data.logistics;
+    if (!logistics || typeof logistics !== 'object' || Array.isArray(logistics)) {
+      return { ok: false, code: 'invalidVehicleLogistics', path: 'logistics' };
+    }
+    for (const key of ['odometer', 'distanceSinceFeed']) {
+      if (!Number.isFinite(logistics[key]) || logistics[key] < 0) {
+        return { ok: false, code: 'invalidVehicleLogistics', path: `logistics.${key}` };
+      }
+    }
+    for (const key of ['foodConsumed', 'catapultShots']) {
+      if (!Number.isInteger(logistics[key]) || logistics[key] < 0) {
+        return { ok: false, code: 'invalidVehicleLogistics', path: `logistics.${key}` };
+      }
+    }
+    for (const key of ['starved', 'ladderEntryDisabled', 'catapultAssembled']) {
+      if (typeof logistics[key] !== 'boolean') {
+        return { ok: false, code: 'invalidVehicleLogistics', path: `logistics.${key}` };
+      }
+    }
+    return { ok: true };
   }
 
   deserialize(data) {
-    if (!data) return;
-    this.hp = data.hp != null ? data.hp : this.hp;
-    this.destroyed = !!data.destroyed;
-    if (data.seats) {
-      for (const [k, v] of Object.entries(data.seats)) {
-        if (this.seats[k]) this.seats[k].riderId = v.riderId || null;
-      }
+    const checked = this.validateSerialized(data);
+    if (!checked.ok) return checked;
+    const nextLogistics = { ...data.logistics };
+    const nextRiders = Object.fromEntries(
+      Object.entries(data.seats).map(([seatId, seat]) => [seatId, seat.riderId])
+    );
+
+    this.hp = data.hp;
+    this.destroyed = data.destroyed;
+    this.logistics = nextLogistics;
+    for (const [seatId, riderId] of Object.entries(nextRiders)) {
+      this.seats[seatId].riderId = riderId;
     }
+    return { ok: true };
   }
 }
 

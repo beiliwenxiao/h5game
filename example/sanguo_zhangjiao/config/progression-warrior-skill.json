@@ -140,7 +140,7 @@
     {
       "id": "jump",
       "name": "跳跃",
-      "description": "解锁跳跃",
+      "description": "强化基础跳跃，并作为高级位移的前置",
       "kind": "activeSkill",
       "maxRank": 1,
       "costs": { "skill": 1 },
@@ -176,6 +176,20 @@
       "position": { "x": 7, "y": 1 },
       "effects": [
         { "type": "skill.unlock", "target": "power_jump", "value": true }
+      ]
+    },
+    {
+      "id": "flight",
+      "name": "轻功",
+      "description": "解锁指向远距离位移",
+      "kind": "activeSkill",
+      "maxRank": 1,
+      "costs": { "skill": 1 },
+      "prerequisites": ["jump"],
+      "region": "locomotion",
+      "position": { "x": 8, "y": 1 },
+      "effects": [
+        { "type": "skill.unlock", "target": "flight", "value": true }
       ]
     },
     {

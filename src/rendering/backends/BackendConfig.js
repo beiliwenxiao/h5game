@@ -190,7 +190,11 @@ export function parseBackendConfig(userConfig = {}, urlSearch, options = {}) {
   const withUser = deepMerge(withHost, sanitizedUser);
 
   const urlOverride = parseUrlParams(urlSearch);
-  return deepMerge(withUser, urlOverride);
+  return {
+    ...deepMerge(withUser, urlOverride),
+    // 固定本次解析所使用的宿主，后端选择不得再次读取可能变化的全局 PlatformProfile。
+    host
+  };
 }
 
 /**

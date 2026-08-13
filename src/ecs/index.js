@@ -33,6 +33,7 @@ export { ControllerComponent, ControllerKind } from './components/ControllerComp
 export { BuildingComponent, BuildingType } from './components/BuildingComponent.js';
 export { ObjectiveComponent, ObjectiveKind } from './components/ObjectiveComponent.js';
 export { VehicleComponent, SeatRole } from './components/VehicleComponent.js';
+export { CargoComponent } from './components/CargoComponent.js';
 export { RiderComponent } from './components/RiderComponent.js';
 export { ResourceNodeComponent } from './components/ResourceNodeComponent.js';
 export { DeathDropComponent } from './components/DeathDropComponent.js';

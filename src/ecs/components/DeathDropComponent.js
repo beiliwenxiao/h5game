@@ -29,6 +29,33 @@ export class DeathDropComponent extends Component {
     return this.stacks.length === 0;
   }
 
+  validateSerialized(data) {
+    if (!data || data.schemaVersion !== 1 || typeof data.deathId !== 'string'
+      || data.deathId.length === 0 || !Array.isArray(data.stacks)) {
+      return { ok: false, code: 'invalidDeathDropSnapshot' };
+    }
+    const stackIds = new Set();
+    for (const stack of data.stacks) {
+      if (!stack || typeof stack.id !== 'string' || stack.id.length === 0 || stackIds.has(stack.id)
+        || !stack.item || typeof stack.item !== 'object' || typeof stack.item.id !== 'string'
+        || stack.item.id.length === 0 || !Number.isInteger(stack.quantity) || stack.quantity <= 0) {
+        return { ok: false, code: 'invalidDeathDropState' };
+      }
+      stackIds.add(stack.id);
+    }
+    return { ok: true };
+  }
+
+  deserialize(data) {
+    const checked = this.validateSerialized(data);
+    if (!checked.ok) return checked;
+    const stacks = data.stacks.map((stack, index) => normalizeStack(stack, index));
+    if (stacks.some(stack => !stack)) return { ok: false, code: 'invalidDeathDropState' };
+    this.deathId = data.deathId;
+    this.stacks = stacks;
+    return { ok: true };
+  }
+
   serialize() {
     return {
       schemaVersion: this.schemaVersion,

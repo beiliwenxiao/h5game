@@ -71,6 +71,7 @@ export class S13S14Coordinator {
     this.readState = config.readState || (() => ({}));
     this.writeStoryState = config.writeStoryState || (() => false);
     this.applyS13Settlement = config.applyS13Settlement || (async () => ({ ok: true }));
+    this.applyResourceDivergence = config.applyResourceDivergence || (async () => ({ ok: true }));
     this.createCheckpoint = config.createCheckpoint || (async () => ({ ok: true }));
     this.hasTarget = config.hasTarget || (() => true);
     this.onS13Committed = config.onS13Committed || (() => {});
@@ -94,7 +95,7 @@ export class S13S14Coordinator {
     return { ok: true, sceneId, s13Eligible: eligible };
   }
 
-  async commitS13Choice(choice) {
+  async commitS13Choice(choice, options = {}) {
     if (this.busy) return { ok: false, code: 'coordinatorBusy' };
     if (!choice || !['observe', 'intervene'].includes(choice.id)) return { ok: false, code: 'invalidS13Choice' };
     const route = this.resolvePostS12Target();
@@ -108,27 +109,29 @@ export class S13S14Coordinator {
         ? { ok: true, idempotent: true, resolution: clone(existing) }
         : { ok: false, code: 's13ChoiceLocked', choiceId: existing.choiceId };
     }
+    const checkpointId = options.checkpointId || 'checkpoint.S13.resolved';
     const operationId = `story:S13:${choice.id}`;
     const resolution = {
       committed: true, choiceId: choice.id, battleMode: choice.result?.battleMode || choice.id,
       resourceCost: clone(choice.resourceCost || {}), result: clone(choice.result || {}),
       operationId, nextSceneId: 'S14'
     };
-    const draftStory = {
-      ...beforeStory,
-      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S13'])],
-      battleModes: { ...(beforeStory.battleModes || {}), 'battle.s13.jingshan': resolution.battleMode },
-      s13Resolution: resolution, s13Resolved: true, lastCheckpointId: 'checkpoint.S13.resolved'
-    };
 
     this.busy = true;
     let settlement = null;
     try {
       settlement = await this.applyS13Settlement({ choice: clone(choice), operationId, beforeState });
-      if (settlement?.ok === false) return { ok: false, code: settlement.code || 's13SettlementRejected' };
+      if (settlement?.ok === false) throw new Error(settlement.message || settlement.code || 's13SettlementRejected');
+      const committedStory = clone(this.readState()?.storyState || beforeStory);
+      const draftStory = {
+        ...committedStory,
+        visitedScenes: [...new Set([...(committedStory.visitedScenes || []), 'S13'])],
+        battleModes: { ...(committedStory.battleModes || {}), 'battle.s13.jingshan': resolution.battleMode },
+        s13Resolution: resolution, s13Resolved: true, lastCheckpointId: checkpointId
+      };
       if (this.writeStoryState(clone(draftStory)) === false) throw new Error('storyCommitRejected');
-      const checkpoint = await this.createCheckpoint({ checkpointId: 'checkpoint.S13.resolved', sceneId: 'S13', operationId });
-      if (checkpoint?.ok === false) throw new Error(checkpoint.message || 'checkpointRejected');
+      const checkpoint = await this.createCheckpoint({ checkpointId, sceneId: 'S13', operationId });
+      if (checkpoint?.ok === false) throw new Error(checkpoint.message || checkpoint.code || 'checkpointRejected');
     } catch (error) {
       this.writeStoryState(beforeStory);
       await settlement?.rollback?.();
@@ -206,6 +209,60 @@ export class S13S14Coordinator {
     const cart = evaluateCondition(config.cartBreakout.condition, snapshot) ? config.cartBreakout : config.cartLost;
     const catapult = evaluateCondition(config.catapultReady.condition, snapshot) ? config.catapultReady : config.catapultMissingWood;
     return { ok: true, id: config.id, cart: clone(cart), catapult: clone(catapult) };
+  }
+
+  async commitResourceDivergence(kind, endingConfig) {
+    if (this.busy) return { ok: false, code: 'coordinatorBusy' };
+    if (!['cart', 'catapult'].includes(kind)) return { ok: false, code: 'invalidResourceDivergenceKind' };
+    const beforeState = clone(this.readState() || {});
+    const beforeStory = clone(beforeState.storyState || {});
+    const existing = beforeStory.s14ResourceDivergence?.[kind];
+    if (existing) return { ok: true, idempotent: true, kind, result: clone(existing) };
+
+    const frozenSnapshot = deepFreeze(this.normalizeEndingSnapshot());
+    const divergence = this.resolveResourceDivergence(endingConfig, frozenSnapshot);
+    if (!divergence.ok) return divergence;
+    const selected = clone(divergence[kind]);
+    const operationId = `story:S14:${divergence.id}:${kind}`;
+    const result = { ...selected, operationId, committed: true };
+    const resourceDivergence = {
+      ...(beforeStory.s14ResourceDivergence || {}),
+      id: divergence.id,
+      [kind]: result
+    };
+    resourceDivergence.completed = !!resourceDivergence.cart && !!resourceDivergence.catapult;
+    const draftStory = {
+      ...beforeStory,
+      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S14'])],
+      s14ResourceDivergence: resourceDivergence,
+      lastCheckpointId: `checkpoint.S14.${kind}`
+    };
+
+    this.busy = true;
+    let domain = null;
+    try {
+      domain = await this.applyResourceDivergence({
+        kind, result: clone(result), operationId: `${operationId}:domain`,
+        snapshot: clone(frozenSnapshot), beforeState: clone(beforeState)
+      });
+      if (domain?.ok === false) throw new Error(domain.message || domain.code || 'resourceDomainCommitRejected');
+      if (this.writeStoryState(clone(draftStory)) === false) throw new Error('storyCommitRejected');
+      const checkpoint = await this.createCheckpoint({
+        checkpointId: draftStory.lastCheckpointId,
+        sceneId: 'S14',
+        operationId
+      });
+      if (checkpoint?.ok === false) throw new Error(checkpoint.message || checkpoint.code || 'checkpointRejected');
+      try { await domain?.finalize?.(); }
+      catch (error) { console.warn('[S13S14Coordinator] post-checkpoint finalize failed', error); }
+      return { ok: true, kind, result: clone(result), completed: resourceDivergence.completed };
+    } catch (error) {
+      this.writeStoryState(beforeStory);
+      await domain?.rollback?.();
+      return { ok: false, code: 'resourceDivergenceRolledBack', message: String(error?.message || error) };
+    } finally {
+      this.busy = false;
+    }
   }
 
   selectConfiguredEnding(endingConfig, snapshot) {

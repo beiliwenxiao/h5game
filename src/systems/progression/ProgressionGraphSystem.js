@@ -64,8 +64,9 @@ export class ProgressionGraphSystem {
     this.graphs = new Map();
     /** @type {Map<string, ProgressionState>} */
     this.states = new Map();
-    /** @type {Map<string, PointLedger>} */
-    this.ledgers = new Map();
+    /** @type {Map<string, Map<string, {fingerprint:string, result:Object}>>} */
+    this.pointGrantOperations = new Map();
+    this.maxPointGrantOperations = Math.max(16, Number(config.maxPointGrantOperations) || 256);
 
     this.effectResolver = config.effectResolver || new EffectResolver();
 
@@ -199,6 +200,48 @@ export class ProgressionGraphSystem {
   grantPoints(characterId, pool, amount) {
     this.getLedger(characterId).grant(pool, amount);
     this.onEvent('pointsGranted', { characterId, pool, amount });
+  }
+
+  /**
+   * 以稳定 operationId 幂等发放点数；同 ID 不同载荷会被拒绝。
+   * @returns {{ok:boolean,idempotent?:boolean,code?:string,characterId?:string,pool?:string,amount?:number,operationId?:string}}
+   */
+  grantPointsOnce(characterId, pool, amount, operationId) {
+    const normalizedCharacterId = String(characterId || '');
+    const normalizedPool = String(pool || '');
+    const normalizedAmount = Number(amount);
+    const normalizedOperationId = String(operationId || '');
+    if (!normalizedCharacterId || !normalizedPool || !normalizedOperationId
+      || !Number.isInteger(normalizedAmount) || normalizedAmount <= 0) {
+      return { ok: false, code: 'invalidPointGrant' };
+    }
+
+    let operations = this.pointGrantOperations.get(normalizedCharacterId);
+    if (!operations) {
+      operations = new Map();
+      this.pointGrantOperations.set(normalizedCharacterId, operations);
+    }
+    const fingerprint = JSON.stringify([normalizedPool, normalizedAmount]);
+    const known = operations.get(normalizedOperationId);
+    if (known) {
+      return known.fingerprint === fingerprint
+        ? { ...known.result, idempotent: true }
+        : { ok: false, code: 'operationConflict', operationId: normalizedOperationId };
+    }
+
+    this.grantPoints(normalizedCharacterId, normalizedPool, normalizedAmount);
+    const result = {
+      ok: true,
+      characterId: normalizedCharacterId,
+      pool: normalizedPool,
+      amount: normalizedAmount,
+      operationId: normalizedOperationId
+    };
+    operations.set(normalizedOperationId, { fingerprint, result: { ...result } });
+    while (operations.size > this.maxPointGrantOperations) {
+      operations.delete(operations.keys().next().value);
+    }
+    return result;
   }
 
   /**
@@ -550,9 +593,15 @@ export class ProgressionGraphSystem {
    * @returns {Object}
    */
   serializeCharacter(characterId) {
+    const operations = this.pointGrantOperations.get(characterId) || new Map();
     return {
       state: this.getState(characterId).serialize(),
-      ledger: this.getLedger(characterId).serialize()
+      ledger: this.getLedger(characterId).serialize(),
+      pointGrantOperations: [...operations.entries()].map(([operationId, entry]) => ({
+        operationId,
+        fingerprint: entry.fingerprint,
+        result: { ...entry.result }
+      }))
     };
   }
 
@@ -569,6 +618,29 @@ export class ProgressionGraphSystem {
 
     const errors = [];
     const state = ProgressionState.deserialize(data.state);
+    const operations = new Map();
+    for (const [index, entry] of (data.pointGrantOperations || []).entries()) {
+      if (!entry?.operationId || typeof entry.fingerprint !== 'string' || entry.result?.ok !== true) {
+        errors.push({
+          code: 'invalidPointGrantOperation',
+          path: `pointGrantOperations[${index}]`,
+          message: '成长点奖励幂等记录无效'
+        });
+        continue;
+      }
+      if (operations.has(entry.operationId)) {
+        errors.push({
+          code: 'duplicateOperation',
+          path: `pointGrantOperations[${index}].operationId`,
+          message: `重复的成长点奖励 operationId: ${entry.operationId}`
+        });
+        continue;
+      }
+      operations.set(entry.operationId, {
+        fingerprint: entry.fingerprint,
+        result: { ...entry.result }
+      });
+    }
 
     // 版本不一致时报告，交由上层迁移器处理
     for (const [graphId, graphData] of state.graphs) {
@@ -590,6 +662,7 @@ export class ProgressionGraphSystem {
 
     this.states.set(characterId, state);
     this.ledgers.set(characterId, PointLedger.deserialize(data.ledger));
+    this.pointGrantOperations.set(characterId, operations);
     this.syncAllEffectSources(characterId);
 
     return { ok: true, errors: [] };

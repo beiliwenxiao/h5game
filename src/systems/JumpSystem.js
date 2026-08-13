@@ -15,7 +15,7 @@ export class JumpSystem {
     this._active = new Map();
   }
 
-  startJump(entity, direction = { x: 0, y: 0 }) {
+  startJump(entity, direction = { x: 0, y: 0 }, options = {}) {
     const transform = entity?.getComponent?.('transform');
     if (!transform || this._active.has(entity)) return false;
     const magnitude = Math.hypot(direction.x || 0, direction.y || 0);
@@ -24,13 +24,17 @@ export class JumpSystem {
     movement?.stop?.();
     this._active.set(entity, {
       transform,
+      mode: options.mode === 'power' ? 'power' : 'normal',
       elapsed: 0,
+      chargeDuration: Math.max(0, Number(options.chargeDuration) || 0),
       horizontalProgress: 0,
       baseElevation: transform.position.elevation || 0,
       direction: moving
         ? { x: direction.x / magnitude, y: direction.y / magnitude }
         : { x: 0, y: 0 },
-      distance: moving ? this.config.distance : 0
+      distance: moving ? Math.max(0, Number(options.distance) || this.config.distance) : 0,
+      duration: Math.max(0.1, Number(options.duration) || this.config.duration),
+      peakHeight: Math.max(0, Number(options.peakHeight) || this.config.peakHeight)
     });
     return true;
   }
@@ -47,14 +51,19 @@ export class JumpSystem {
         continue;
       }
       data.elapsed += Math.max(0, deltaTime || 0);
-      const progress = Math.min(1, data.elapsed / this.config.duration);
+      if (data.elapsed < data.chargeDuration) {
+        transform.position.elevation = data.baseElevation;
+        continue;
+      }
+      const airborneElapsed = data.elapsed - data.chargeDuration;
+      const progress = Math.min(1, airborneElapsed / data.duration);
       // easeOutQuad：起跳立即开始前移，不保留起步预备缓动；落地自然减速。
       const horizontal = 1 - (1 - progress) * (1 - progress);
       const step = (horizontal - data.horizontalProgress) * data.distance;
       transform.position.x += data.direction.x * step;
       transform.position.y += data.direction.y * step;
       transform.position.elevation = data.baseElevation +
-        this.config.peakHeight * 4 * progress * (1 - progress);
+        data.peakHeight * 4 * progress * (1 - progress);
       data.horizontalProgress = horizontal;
       if (progress >= 1) {
         transform.position.elevation = data.baseElevation;

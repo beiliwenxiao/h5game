@@ -28,6 +28,7 @@ import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
+import { WorldStreamingManager } from '../../../src/core/WorldStreamingManager.js';
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
@@ -45,6 +46,9 @@ import { BattlefieldRuntimeSystem } from '../../../src/systems/BattlefieldRuntim
 import { CityWarSystem } from '../../../src/systems/CityWarSystem.js';
 import { RescueSystem, RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { ConstructionSystem } from '../../../src/systems/ConstructionSystem.js';
+import { VehicleSystem } from '../../../src/systems/VehicleSystem.js';
+import { VehicleLogisticsSystem } from '../../../src/systems/VehicleLogisticsSystem.js';
+import { MannedStructureAdapter } from '../../../src/systems/MannedStructureAdapter.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
@@ -58,7 +62,8 @@ import { EndingPresentationView } from '../../../src/ui/EndingPresentationView.j
 import { EndingSystem } from '../../../src/systems/EndingSystem.js';
 import { Entity } from '../../../src/ecs/Entity.js';
 import { TransformComponent } from '../../../src/ecs/components/TransformComponent.js';
-import { BuildingComponent } from '../../../src/ecs/components/BuildingComponent.js';
+import { BuildingComponent, BuildingType } from '../../../src/ecs/components/BuildingComponent.js';
+import { DeathDropComponent } from '../../../src/ecs/components/DeathDropComponent.js';
 import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
 import { S09AudioDirector } from '../systems/S09AudioDirector.js';
 import { S04RouteCoordinator, S04_ROUTE_CONFIGS } from '../systems/S04RouteCoordinator.js';
@@ -66,6 +71,7 @@ import {
   S11S12Coordinator, S11_BATTLE_ID, S12_BATTLE_ID, S11_RESCUE_ID, S12_RESCUE_ID
 } from '../systems/S11S12Coordinator.js';
 import { S13S14Coordinator } from '../systems/S13S14Coordinator.js';
+import { installS11S14SceneFlow } from '../systems/S11S14SceneFlow.js';
 
 const S01_TUTORIAL_KEYS = Object.freeze([
   'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
@@ -200,6 +206,31 @@ const S10_CONSTRUCTION_SITE_KEYS = Object.freeze({
   'site.s10.simple_wall': 'simpleWall',
   'site.s10.arrow_tower': 'arrowTower'
 });
+const S10_STRUCTURE_CONFIG = Object.freeze({
+  campfire: Object.freeze({
+    siteId: 'site.s10.campfire', markerId: 'S10-site-campfire', entityId: 'S10-structure-campfire',
+    buildingType: BuildingType.GENERIC, name: '营地火堆', width: 96, height: 80,
+    footprint: Object.freeze({ w: 80, h: 48 }), controllable: false
+  }),
+  barricade: Object.freeze({
+    siteId: 'site.s10.barricade', markerId: 'S10-site-barricade', entityId: 'S10-structure-barricade',
+    buildingType: BuildingType.GENERIC, name: '拒马', width: 128, height: 72,
+    footprint: Object.freeze({ w: 112, h: 42 }), controllable: false
+  }),
+  simpleWall: Object.freeze({
+    siteId: 'site.s10.simple_wall', markerId: 'S10-site-simple-wall', entityId: 'S10-structure-simple-wall',
+    buildingType: BuildingType.WALL, name: '简易壁垒', width: 152, height: 92,
+    footprint: Object.freeze({ w: 136, h: 54 }), controllable: false
+  }),
+  arrowTower: Object.freeze({
+    siteId: 'site.s10.arrow_tower', markerId: 'S10-site-arrow-tower', entityId: 'S10-structure-arrow-tower',
+    buildingType: BuildingType.TOWER, name: '箭楼', width: 112, height: 156,
+    footprint: Object.freeze({ w: 88, h: 70 }), controllable: true
+  })
+});
+const S10_STRUCTURE_BY_SITE = Object.freeze(Object.fromEntries(
+  Object.values(S10_STRUCTURE_CONFIG).map(config => [config.siteId, config])
+));
 const S06_FIELD_CONSTRUCTION_SITE_ID = 'site.s06.field_barricade';
 
 /** 同一剧情操作和逻辑日始终得到同一结果，checkpoint 失败重试不会重新掷骰。 */
@@ -270,6 +301,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._promptNextWave = null; // { text }
 
     this.terrain = null;
+    this.worldStreamingManager = null;
+    this._detachWorldStreaming = null;
+    this._pendingChunkDomainStates = new Map();
     this.gameLoader = null;
     this.progressionViewModel = null;
     this.progressionPanel = null;
@@ -292,6 +326,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.battleResultView = null;
     this.rescueSystem = null;
     this.constructionSystem = null;
+    this.vehicleSystem = null;
+    this.vehicleLogisticsSystem = null;
+    this.mannedStructureAdapter = null;
+    this._s10StructureEntities = new Map();
+    this._s14VehicleEntities = new Map();
+    this._s10StructureInteractionBusy = false;
     this.rescueObjectiveView = null;
     this.irreversibleChoiceView = null;
     this.endingPresentationView = null;
@@ -395,6 +435,422 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
+  _createStreamingStateProvider() {
+    return {
+      capture: context => this._captureStreamedChunkState(context.chunk),
+      validate: (data, context = {}) => {
+        const errors = [];
+        if (!data || data.schemaVersion !== 1) {
+          errors.push({ code: 'invalidDemoChunkState', path: 'schemaVersion', message: 'Demo chunk 动态状态版本无效' });
+          return { ok: false, errors };
+        }
+        if (data.sceneNamespace !== context.sceneNamespace) {
+          errors.push({ code: 'demoChunkNamespaceMismatch', path: 'sceneNamespace', message: 'Demo chunk 业务命名空间不一致' });
+        }
+        for (const field of ['resourceNodes', 'placementStates', 'deathDrops', 's10StructureStates', 's14VehicleStates']) {
+          if (!Array.isArray(data[field])) {
+            errors.push({ code: 'invalidDemoChunkField', path: field, message: `${field} 必须是数组` });
+          }
+        }
+        for (const [index, entry] of (data.resourceNodes || []).entries()) {
+          if (!entry?.id || !entry.state || typeof entry.state !== 'object') {
+            errors.push({ code: 'invalidResourceNodeState', path: `resourceNodes[${index}]`, message: '资源节点状态无效' });
+          }
+        }
+        for (const [index, entry] of (data.placementStates || []).entries()) {
+          if (!entry?.id || !entry.state || typeof entry.state !== 'object') {
+            errors.push({ code: 'invalidPlacementState', path: `placementStates[${index}]`, message: '放置点状态无效' });
+          }
+        }
+        const deathDropProbe = new DeathDropComponent();
+        for (const [index, entry] of (data.deathDrops || []).entries()) {
+          const stateCheck = deathDropProbe.validateSerialized(entry?.state);
+          if (!entry?.id || !stateCheck.ok
+            || !Number.isFinite(Number(entry.position?.x)) || !Number.isFinite(Number(entry.position?.y))) {
+            errors.push({
+              code: stateCheck.code || 'invalidDeathDropState',
+              path: `deathDrops[${index}]`,
+              message: '死亡掉落状态无效'
+            });
+          }
+        }
+        if (context.sceneNamespace !== 'S10' && (data.s10StructureStates || []).length > 0) {
+          errors.push({ code: 's10StructureNamespaceMismatch', path: 's10StructureStates', message: 'S10 工事状态不能属于其他场景' });
+        } else {
+          const s10Check = this._validateS10StructureStates(data.s10StructureStates || []);
+          if (!s10Check.ok) errors.push({
+            code: s10Check.code,
+            path: Number.isInteger(s10Check.index) ? `s10StructureStates[${s10Check.index}]` : 's10StructureStates',
+            message: 'S10 工事状态无效'
+          });
+        }
+        if (context.sceneNamespace !== 'S14'
+          && ((data.s14VehicleStates || []).length > 0 || data.vehicleLogisticsState)) {
+          errors.push({ code: 's14VehicleNamespaceMismatch', path: 's14VehicleStates', message: 'S14 载具状态不能属于其他场景' });
+        } else if (context.sceneNamespace === 'S14') {
+          const s14Check = this._validateS14VehicleStates(
+            data.s14VehicleStates || [],
+            data.vehicleLogisticsState || null
+          );
+          if (!s14Check.ok) errors.push({
+            code: s14Check.code,
+            path: 's14VehicleStates',
+            message: 'S14 载具或物流状态无效'
+          });
+        }
+        return { ok: errors.length === 0, errors };
+      },
+      prepareRestore: data => ({
+        ok: true,
+        draft: JSON.parse(JSON.stringify(data)),
+        rollback: {
+          resourceNodes: [...this._pendingResourceNodeStates.entries()],
+          placementStates: [...this._pendingPlacementStates.entries()],
+          domainStates: [...this._pendingChunkDomainStates.entries()]
+        }
+      }),
+      commitRestore: (draft, context = {}) => {
+        for (const entry of draft.resourceNodes || []) this._pendingResourceNodeStates.set(entry.id, entry.state);
+        for (const entry of draft.placementStates || []) this._pendingPlacementStates.set(entry.id, entry.state);
+        const domainKey = context.key || `${draft.sceneNamespace}:domain`;
+        this._pendingChunkDomainStates.set(domainKey, {
+          sceneNamespace: draft.sceneNamespace,
+          deathDrops: draft.deathDrops || [],
+          s10StructureStates: draft.s10StructureStates || [],
+          s14VehicleStates: draft.s14VehicleStates || [],
+          vehicleLogisticsState: draft.vehicleLogisticsState || null
+        });
+        return { ok: true };
+      },
+      rollbackRestore: rollback => {
+        if (!rollback) return { ok: true };
+        this._pendingResourceNodeStates = new Map(rollback.resourceNodes || []);
+        this._pendingPlacementStates = new Map(rollback.placementStates || []);
+        this._pendingChunkDomainStates = new Map(rollback.domainStates || []);
+        return { ok: true };
+      }
+    };
+  }
+
+  _captureStreamedChunkState(chunk) {
+    const placementById = new Map((chunk?.placements || [])
+      .filter(placement => placement?.id)
+      .map(placement => [placement.id, placement]));
+    const resourceNodes = [];
+    const placementStates = [];
+    const values = new Set([
+      ...(this.entities || []),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ]);
+    for (const value of values) {
+      if (value === this.playerEntity) continue;
+      const id = value?.placementId || value?.id;
+      const placement = placementById.get(id);
+      if (!placement) continue;
+      const node = value?.getComponent?.('resourceNode');
+      if (node?.serialize) resourceNodes.push({ id, state: node.serialize() });
+      const transform = value?.getComponent?.('transform');
+      const stats = value?.getComponent?.('stats');
+      const position = transform?.position || (Number.isFinite(value?.x) ? { x: value.x, y: value.y } : null);
+      placementStates.push({
+        id,
+        state: {
+          kind: placement.kind || 'entity',
+          removed: value.picked === true || this._isEntityDead(value),
+          ...(Number.isFinite(value?.quantity) ? { quantity: Math.max(0, Math.floor(value.quantity)) } : {}),
+          ...(Number.isFinite(stats?.hp) ? { hp: Math.max(0, Number(stats.hp)) } : {}),
+          ...(position ? { position: { x: Number(position.x) || 0, y: Number(position.y) || 0 } } : {}),
+          ...(placement.kind === 'enemy' ? { ai: this.aiSystem?.getRuntimeState?.(value) || null } : {})
+        }
+      });
+    }
+    for (const [id, state] of this._pendingResourceNodeStates || []) {
+      if (placementById.has(id) && !resourceNodes.some(entry => entry.id === id)) resourceNodes.push({ id, state });
+    }
+    for (const [id, state] of this._pendingPlacementStates || []) {
+      if (placementById.has(id) && !placementStates.some(entry => entry.id === id)) placementStates.push({ id, state });
+    }
+    const pendingDomain = this._pendingChunkDomainStates?.get(chunk.key)
+      || this._pendingChunkDomainStates?.get(chunk.sceneNamespace)
+      || null;
+    const left = chunk.origin.x;
+    const top = chunk.origin.y;
+    const right = left + (Number(this.worldStreamingManager?.chunkWidth) || 1280);
+    const bottom = top + (Number(this.worldStreamingManager?.chunkHeight) || 720);
+    const deathDropById = new Map((pendingDomain?.deathDrops || [])
+      .filter(entry => entry?.id)
+      .map(entry => [entry.id, cloneData(entry)]));
+    for (const entity of this.equipmentItems || []) {
+      if (!entity?.getComponent?.('deathDrop')) continue;
+      const position = entity.getComponent?.('transform')?.position;
+      if (!position || position.x < left || position.x > right || position.y < top || position.y > bottom) continue;
+      deathDropById.set(entity.id, {
+        id: entity.id,
+        position: { ...position },
+        state: entity.getComponent('deathDrop').serialize()
+      });
+    }
+    const capturedS10Structures = chunk.sceneNamespace === 'S10'
+      ? this._captureS10StructureStates()
+      : [];
+    const capturedS14Vehicles = chunk.sceneNamespace === 'S14'
+      ? this._captureS14VehicleStates()
+      : [];
+    return {
+      schemaVersion: 1,
+      sceneNamespace: chunk.sceneNamespace,
+      resourceNodes,
+      placementStates,
+      deathDrops: [...deathDropById.values()],
+      s10StructureStates: capturedS10Structures.length > 0
+        ? capturedS10Structures
+        : cloneData(pendingDomain?.s10StructureStates || []),
+      s14VehicleStates: capturedS14Vehicles.length > 0
+        ? capturedS14Vehicles
+        : cloneData(pendingDomain?.s14VehicleStates || []),
+      vehicleLogisticsState: chunk.sceneNamespace === 'S14'
+        ? ((this._s14VehicleEntities?.size || 0) > 0
+          ? this.vehicleLogisticsSystem?.serialize?.() || null
+          : cloneData(pendingDomain?.vehicleLogisticsState)
+            || this.vehicleLogisticsSystem?.serialize?.()
+            || null)
+        : null
+    };
+  }
+
+  _releaseStreamedChunkRuntime(chunk) {
+    const placementIds = new Set((chunk?.placements || []).map(placement => placement?.id).filter(Boolean));
+    const left = chunk?.origin?.x || 0;
+    const top = chunk?.origin?.y || 0;
+    const right = left + (Number(this.worldStreamingManager?.chunkWidth) || 1280);
+    const bottom = top + (Number(this.worldStreamingManager?.chunkHeight) || 720);
+    const values = new Set([
+      ...(this.entities || []),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ]);
+    const removed = [...values].filter(value => {
+      if (!value || value === this.playerEntity) return false;
+      const id = value.placementId || value.id;
+      if (placementIds.has(id)) return true;
+      const position = value.getComponent?.('deathDrop') && value.getComponent?.('transform')?.position;
+      return !!position && position.x >= left && position.x <= right && position.y >= top && position.y <= bottom;
+    });
+    for (const value of removed) this.aiSystem?.unregisterAI?.(value);
+    this.entityStore?.removeMany?.(removed);
+    for (const value of removed) {
+      try { value?.destroy?.(); } catch (error) { /* best-effort chunk release */ }
+    }
+    this._placementSpawner?.forgetPlacements?.(placementIds);
+    this._npcEntities = (this._npcEntities || []).filter(entity => !removed.includes(entity));
+    for (const [group, entities] of Object.entries(this._groupEnemies || {})) {
+      this._groupEnemies[group] = (entities || []).filter(entity => !removed.includes(entity));
+    }
+    const namespaceStillLoaded = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
+      .some(loadedChunk => loadedChunk !== chunk && loadedChunk?.sceneNamespace === chunk?.sceneNamespace);
+    if (!namespaceStillLoaded && chunk?.sceneNamespace === 'S10') this._disposeS10Structures();
+    if (!namespaceStillLoaded && chunk?.sceneNamespace === 'S14') this._disposeS14Vehicles();
+  }
+
+  _restoreStreamedDomainState(sceneId) {
+    const pendingEntries = [...this._pendingChunkDomainStates.entries()]
+      .filter(([key, value]) => value?.sceneNamespace === sceneId || key === sceneId);
+    if (pendingEntries.length === 0) return { ok: true };
+    const mergeBy = (field, idField) => {
+      const merged = new Map();
+      for (const [, value] of pendingEntries) {
+        for (const entry of value?.[field] || []) {
+          const id = entry?.[idField];
+          if (id) merged.set(id, entry);
+        }
+      }
+      return [...merged.values()];
+    };
+    const state = {
+      deathDrops: mergeBy('deathDrops', 'id'),
+      s10StructureStates: mergeBy('s10StructureStates', 'siteId'),
+      s14VehicleStates: mergeBy('s14VehicleStates', 'definitionId'),
+      vehicleLogisticsState: pendingEntries
+        .map(([, value]) => value?.vehicleLogisticsState)
+        .find(Boolean) || null
+    };
+    if (sceneId === 'S10' && state.s10StructureStates.length) {
+      const result = this._restoreS10StructureStates(state.s10StructureStates);
+      if (result?.ok === false) return result;
+    }
+    if (sceneId === 'S14' && state.s14VehicleStates.length) {
+      const result = this._restoreS14VehicleStates(state.s14VehicleStates, state.vehicleLogisticsState);
+      if (result?.ok === false) return result;
+    }
+    const chunks = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
+      .filter(chunk => chunk?.sceneNamespace === sceneId);
+    const currentDrops = (this.equipmentItems || [])
+      .filter(entity => entity?.getComponent?.('deathDrop'))
+      .filter(entity => {
+        const position = entity.getComponent?.('transform')?.position;
+        return position && chunks.some(chunk => {
+          const left = Number(chunk.origin?.x) || 0;
+          const top = Number(chunk.origin?.y) || 0;
+          const width = Number(this.worldStreamingManager?.chunkWidth) || 1280;
+          const height = Number(this.worldStreamingManager?.chunkHeight) || 720;
+          return position.x >= left && position.x <= left + width
+            && position.y >= top && position.y <= top + height;
+        });
+      });
+    this.entityStore?.removeMany?.(currentDrops);
+    for (const drop of currentDrops) {
+      try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
+    }
+    for (const entry of state.deathDrops) {
+      if (!entry?.id || !Array.isArray(entry.state?.stacks)) continue;
+      if ((this.equipmentItems || []).some(item => item?.id === entry.id)) continue;
+      const drop = this.entityFactory?.createDeathDrop?.({
+        ...this.getDeathDropPresentation(),
+        id: entry.id,
+        deathId: entry.state.deathId,
+        stacks: entry.state.stacks,
+        position: entry.position
+      });
+      if (drop) {
+        this.entityStore.add(drop);
+        this.entityStore.addEquipmentItem(drop);
+      }
+    }
+    for (const [key] of pendingEntries) this._pendingChunkDomainStates.delete(key);
+    return { ok: true };
+  }
+
+  async _prepareWorldStreamingManager(result, targetSceneId = this.currentSceneId, session = this._worldLoadSession) {
+    const region = result?.region;
+    if (!region) throw new Error('无法初始化流式加载：Region 不存在');
+
+    const manager = new WorldStreamingManager();
+    const configured = manager.configureRegion(region, {
+      sceneResolver: sceneId => session?.loadSceneData?.(sceneId)
+        || session?.getSceneData?.(sceneId)
+        || null,
+      onChunkUnload: null
+    });
+    if (!configured.ok) throw new Error(configured.errors?.[0]?.message || '流式 Region 配置失败');
+    manager.registerStateProvider('demoDynamic', this._createStreamingStateProvider());
+
+    const initialChunk = result.chunks?.find(chunk => chunk.sceneId === targetSceneId)
+      || result.chunks?.[0];
+    if (!initialChunk) throw new Error('流式 Region 中没有可加载 chunk');
+    const centerX = initialChunk.offset.x + (Number(region.chunkWidth) || 1280) / 2;
+    const centerY = initialChunk.offset.y + (Number(region.chunkHeight) || 720) / 2;
+    const loaded = await manager.update(centerX, centerY);
+    if (!loaded.ok) {
+      manager.unloadAll({ preserveState: false });
+      throw new Error(loaded.errors?.[0]?.message || '初始九宫格加载失败');
+    }
+    return manager;
+  }
+
+  async _initializeWorldStreaming(result, targetSceneId = this.currentSceneId, options = {}) {
+    const manager = options.preparedManager
+      || await this._prepareWorldStreamingManager(result, targetSceneId, options.session || this._worldLoadSession);
+    this._detachWorldStreaming?.();
+    this.worldStreamingManager?.unloadAll?.({ preserveState: false });
+    manager.onChunkUnload = (_col, _row, chunk) => this._releaseStreamedChunkRuntime(chunk);
+    this.worldStreamingManager = manager;
+    this._streamingTerrains = new Map();
+    this._syncWorldStreamingProjection();
+
+    this._detachWorldStreaming = this.sceneRuntime?.attachWorldStreaming?.(manager, {
+      getPosition: () => this.playerEntity?.getComponent?.('transform')?.position || null,
+      onTransition: async transition => {
+        if (transition.unchanged) return;
+        this._syncWorldStreamingProjection();
+        const placementResult = await this._spawnLoadedChunkPlacements();
+        if (placementResult?.ok === false) {
+          this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
+          return;
+        }
+        const position = this.playerEntity?.getComponent?.('transform')?.position;
+        const center = position ? manager.worldToChunk(position.x, position.y) : null;
+        const chunkId = center ? manager.getSceneId(center.col, center.row) : null;
+        const sceneId = chunkId ? manager.getSceneNamespace(chunkId) : null;
+        if (sceneId && sceneId !== this.currentSceneId) {
+          await this._enterStreamedScene(sceneId);
+        } else if (sceneId) {
+          const restored = this._restoreStreamedDomainState(sceneId);
+          if (restored?.ok === false) {
+            this._showScreenTip(`地图块动态状态恢复失败：${restored.code || 'unknown'}`, { title: '恢复失败' });
+          }
+        }
+      },
+      onError: failure => {
+        const message = failure?.errors?.[0]?.message || '相邻地图块加载失败';
+        this._showScreenTip(message, { title: '地图加载失败' });
+      }
+    }) || null;
+    return manager;
+  }
+
+  _syncWorldStreamingProjection() {
+    const manager = this.worldStreamingManager;
+    if (!manager) return false;
+    const chunks = [...manager.getLoadedChunks().values()];
+    const activeKeys = new Set(chunks.map(chunk => chunk.key));
+    this._streamingTerrains = this._streamingTerrains || new Map();
+    for (const key of [...this._streamingTerrains.keys()]) {
+      if (!activeKeys.has(key)) this._streamingTerrains.delete(key);
+    }
+    const chunkWidth = Number(manager.chunkWidth) || 1280;
+    const chunkHeight = Number(manager.chunkHeight) || 720;
+    for (const chunk of chunks) {
+      if (this._streamingTerrains.has(chunk.key)) continue;
+      this._streamingTerrains.set(chunk.key, new Scene1Terrain({
+        centerX: chunkWidth / 2,
+        centerY: chunkHeight / 2,
+        width: chunkWidth,
+        height: chunkHeight,
+        editorSceneId: chunk.sceneId,
+        worldOffset: chunk.origin,
+        skipEditorLoad: true,
+        sceneData: chunk.sceneData && Array.isArray(chunk.sceneData.layers)
+          ? JSON.parse(JSON.stringify(chunk.sceneData))
+          : null
+      }));
+    }
+    this._terrains = chunks.map(chunk => this._streamingTerrains.get(chunk.key)).filter(Boolean);
+    const currentChunk = chunks.find(chunk => chunk.sceneId === this.currentSceneId);
+    this.terrain = currentChunk ? this._streamingTerrains.get(currentChunk.key) : (this._terrains[0] || null);
+    this.terrainAct1 = this._terrains.length > 1 ? this._terrains[0] : null;
+    this.context.world.terrain = this.terrain;
+    this.context.world.terrains = this._terrains;
+    this._placements = chunks.flatMap(chunk => chunk.placements || []);
+    const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
+    const triggerBindings = chunks.flatMap(chunk => chunk.triggerBindings || []);
+    const effectZones = chunks.flatMap(chunk => chunk.effectZones || []);
+    this._sceneTriggerBindings?.setBindings(triggerBindings, sceneObjects);
+    this._initMultiChunkEffectZones(effectZones);
+    return true;
+  }
+
+  async _enterStreamedScene(sceneId) {
+    if (!sceneId || sceneId === this.currentSceneId) return true;
+    this.currentSceneId = sceneId;
+    this._s09AudioDirector?.syncScene?.(sceneId);
+    const blackboard = this.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState');
+    if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
+    this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId });
+    const placementResult = await this._spawnLoadedChunkPlacements();
+    if (placementResult?.ok === false) {
+      this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
+      return false;
+    }
+    const restored = await this._restoreStreamedDomainState(sceneId);
+    if (restored?.ok === false) {
+      this._showScreenTip(`地图块动态状态恢复失败：${restored.code || 'unknown'}`, { title: '恢复失败' });
+      return false;
+    }
+    return true;
+  }
+
   enter(data = null) {
     // 复用父类：初始化 canvas/相机/inputManager/全部系统/UI/玩家创建
     super.enter(data);
@@ -433,6 +889,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._pendingResourceNodeStates?.clear?.();
       this._pendingPlacementStates?.clear?.();
       this._regionDynamicStates?.clear?.();
+      this._pendingChunkDomainStates?.clear?.();
+      this._detachWorldStreaming?.();
+      this._detachWorldStreaming = null;
+      this.worldStreamingManager?.unloadAll?.({ preserveState: false });
+      this.worldStreamingManager = null;
       this.gameLoader = null;
       this.classSystem = null;
       this.proficiencySystem = null;
@@ -451,8 +912,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.rescueObjectiveView?.clear?.();
       this.irreversibleChoiceView?.close?.();
       this.rescueSystem = null;
+      this._disposeS10Structures();
+      this._disposeS14Vehicles();
       this.constructionSystem = null;
+      this.vehicleLogisticsSystem = null;
+      this.vehicleSystem = null;
+      this.mannedStructureAdapter = null;
       this._constructionCheckpointBusy = false;
+      this._s10StructureInteractionBusy = false;
       this.rescueObjectiveView = null;
       this.irreversibleChoiceView = null;
       this.s04RouteCoordinator = null;
@@ -506,6 +973,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._spawnApplied = false;
     this._pendingResourceNodeStates = new Map();
     this._pendingPlacementStates = new Map();
+    this._pendingChunkDomainStates = new Map();
     this._regionDynamicStates = new Map();
     this._currentRegionIndex = 0;
     this._worldLoadResult = null;
@@ -553,6 +1021,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       findSpawn: (sceneId, spawnRef) => this._worldLoadSession?.findSpawn(sceneId, spawnRef),
       getPlayer: () => this.playerEntity,
       getCamera: () => this.camera,
+      prepareTarget: async ({ x, y }) => {
+        if (!this.worldStreamingManager) {
+          return { ok: false, errors: [{ code: 'streamingUnavailable', path: 'world', message: '世界流式加载尚未就绪' }] };
+        }
+        const result = await this.worldStreamingManager.update(x, y);
+        if (result?.ok === false) return result;
+        this._syncWorldStreamingProjection();
+        const placementResult = await this._spawnLoadedChunkPlacements();
+        if (placementResult?.ok === false) return placementResult;
+        return { ok: true };
+      },
       onSceneEnter: async ({ sceneId, x, y }) => {
         this.currentSceneId = sceneId;
         this._s09AudioDirector?.syncScene?.(sceneId);
@@ -562,10 +1041,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
+        const placementResult = await this._spawnLoadedChunkPlacements();
+        if (placementResult?.ok === false) {
+          throw new Error(placementResult.errors?.[0]?.message || '地图块放置点生成失败');
+        }
         if (sceneId === 'S05') void this._syncS05MineWorldState();
         if (sceneId === 'S07') this._syncS07DelayWorldState();
         if (sceneId === 'S12') this._ensureS12GateEntity();
         else this._removeS12GateEntity();
+        if (sceneId === 'S14') this._ensureS14VehicleEntities();
+        await this._restoreStreamedDomainState(sceneId);
         // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
@@ -581,10 +1066,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       transition: (type, commit) => type === 'fadeBlack' ? this._fadeTransition(commit) : commit()
     });
     this._worldLoadPromise = this._worldLoadSession
-      .load({ projectUrl: 'game.project.json', regionIndex: 0 })
-      .then(result => {
+      .load({ projectUrl: 'game.project.json', regionIndex: 0, sceneIds: ['S01'] })
+      .then(async result => {
         const validated = this._validateWorldLoadResult(result);
         this._worldLoadResult = validated;
+        await this._initializeWorldStreaming(validated);
         return validated;
       });
     this._loadWorldTerrains();
@@ -670,6 +1156,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // approach/enter/leave 统一由框架空间绑定系统处理。
     this._sceneTriggerBindings?.update();
+    this._updateClimbPrompt();
 
     // 调试面板快捷键：反引号 `
     if (debugPanelKeyPressed) {
@@ -691,6 +1178,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 营建工期随正常游戏帧推进；终态在异步 checkpoint 完成前暂停继续计时。
     this._updateConstructionRuntime(deltaTime);
+    this._ensureS10StructureEntities();
+    this.mannedStructureAdapter?.syncAll?.();
+    this.vehicleSystem?.update?.(deltaTime);
 
     // Combat/AI/Collision 已在父类帧管线完成；随后按配置优先级判断实时战役结果。
     this._updateS03BattleRuntime(deltaTime);
@@ -831,8 +1321,43 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return nextTutorial === 's01.attack';
   }
 
-  /** 场景采集政策统一入口：S05 处理强制工具损毁，S09 处理未许可采粮。 */
+  /** 将所有成功采集原子投影为结局隐藏输入，再组合场景专属政策。 */
   prepareGatheringSettlement(context = {}) {
+    const scenePolicy = this._prepareSceneGatheringSettlement(context);
+    if (scenePolicy?.ok === false || scenePolicy?.idempotent === true) return scenePolicy;
+    const { operationId, node } = context;
+    const resourceType = node?.resourceType;
+    if (!operationId || !['wood', 'iron', 'food', 'herb'].includes(resourceType)) return scenePolicy;
+    const blackboard = this.gameLoader?.blackboard;
+    if (!blackboard) return { ok: false, code: 'storyStateUnavailable' };
+    const storyBefore = cloneData(blackboard.get('storyState') || {});
+    const applied = storyBefore.endingInputs?.gatheringOperations || [];
+    if (applied.includes(operationId)) return { ok: true, idempotent: true };
+    return {
+      ok: true,
+      commit: details => {
+        const sceneResult = scenePolicy?.commit?.(details);
+        if (sceneResult === false || sceneResult?.ok === false) {
+          throw new Error(sceneResult?.code || 'sceneGatheringPolicyRejected');
+        }
+        const current = cloneData(blackboard.get('storyState') || storyBefore);
+        const endingInputs = cloneData(current.endingInputs || {});
+        const cumulative = cloneData(endingInputs.cumulativeGathering || { wood: 0, iron: 0, food: 0, herb: 0 });
+        cumulative[resourceType] = Math.max(0, Math.floor(Number(cumulative[resourceType]) || 0))
+          + Math.max(0, Math.floor(Number(details?.accepted) || 0));
+        endingInputs.cumulativeGathering = cumulative;
+        endingInputs.gatheringOperations = [...new Set([...(endingInputs.gatheringOperations || []), operationId])].slice(-512);
+        blackboard.set('storyState', { ...current, endingInputs });
+        return { ok: true };
+      },
+      rollback: () => {
+        try { scenePolicy?.rollback?.(); } finally { blackboard.set('storyState', storyBefore); }
+      }
+    };
+  }
+
+  /** 场景采集政策：S05 处理强制工具损毁，S09 处理未许可采粮。 */
+  _prepareSceneGatheringSettlement(context = {}) {
     const { operationId, node, owner } = context;
     if (this.currentSceneId === 'S05' && node?.resourceType === 'iron') {
       return this._prepareS05MineGatheringSettlement(context);
@@ -1375,7 +1900,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return result;
   }
 
-  _validateRegionTarget({ request, result, shadowSession }) {
+  async _validateRegionTarget({ request, result, shadowSession }) {
     const errors = [...(result?.errors || []).map((entry, index) => ({
       code: 'regionLoadFailed', path: `region.errors[${index}]`, message: entry.message || String(entry.error || entry)
     }))];
@@ -1390,13 +1915,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!shadowSession?.findSpawn?.(request.sceneId, request.spawnRef || 'player')) {
       errors.push({ code: 'missingSpawn', path: `scenes.${request.sceneId}.spawn`, message: `${request.sceneId} 缺少出生点 ${request.spawnRef || 'player'}` });
     }
-    return { ok: errors.length === 0, errors };
+    if (errors.length > 0) return { ok: false, errors };
+
+    try {
+      const preparedStreamingManager = await this._prepareWorldStreamingManager(
+        result,
+        request.sceneId,
+        shadowSession
+      );
+      return { ok: true, errors: [], preparedStreamingManager };
+    } catch (error) {
+      return {
+        ok: false,
+        errors: [{
+          code: 'regionStreamingPrepareFailed',
+          path: `scenes.${request.sceneId}`,
+          message: error?.message || String(error)
+        }]
+      };
+    }
   }
 
   _extractRegionDynamicState(sceneState = {}) {
     const keys = [
-      'campfireLit', 'firedPickups', 'clearedGroups', 'resourceNodes',
-      'placementStates', 'deathDrops', 'gatheringState', 'puppetState', 'gatheringPolicyOperations',
+      'worldStreamingState',
+      'campfireLit', 'firedPickups', 'clearedGroups',
+      'gatheringState', 'puppetState', 'gatheringPolicyOperations',
       'nextSceneTarget', 'playerDiedTriggered'
     ];
     const state = {};
@@ -1408,6 +1952,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   _clearRegionRuntime(result = this._worldLoadResult) {
     this.gatheringPuppetSystem?.cancelActive?.('regionUnload', { silent: true });
+    this._disposeS10Structures();
+    this._disposeS14Vehicles();
     const placementIds = new Set((result?.placements || [])
       .filter(placement => placement?.type === 'ref' && placement.id)
       .map(placement => placement.id));
@@ -1426,7 +1972,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._npcEntities = [];
   }
 
-  async _commitRegionTarget({ request, result, shadowSession, draft }) {
+  async _commitRegionTarget({ request, result, shadowSession, draft, validation }) {
+    const preparedStreamingManager = validation?.preparedStreamingManager;
+    if (!preparedStreamingManager) {
+      return { ok: false, errors: [{
+        code: 'missingPreparedStreamingManager',
+        path: 'region.streaming',
+        message: '目标大区缺少已校验的流式加载草稿'
+      }] };
+    }
     const oldRegionId = this._worldLoadResult?.region?.id;
     const oldSceneState = draft?.saveState?.scene;
     if (oldRegionId && oldSceneState) {
@@ -1439,14 +1993,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._worldLoadSession = shadowSession;
     this._worldLoadResult = result;
     this._currentRegionIndex = request.regionIndex;
+    await this._initializeWorldStreaming(result, request.sceneId, {
+      preparedManager: preparedStreamingManager,
+      session: shadowSession
+    });
     this._worldLoadPromise = Promise.resolve(result);
     this._loadWorldTerrains();
     this._loadScenePlacements();
     await this._worldLoadPromise;
     await Promise.resolve();
 
-    if (this._worldRegion !== result.region || this._placements !== result.placements) {
-      return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区投影未完成' }] };
+    const targetChunkLoaded = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
+      .some(chunk => chunk?.sceneId === request.sceneId);
+    if (this._worldRegion !== result.region || !targetChunkLoaded) {
+      return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区九宫格投影未完成' }] };
     }
     this.currentSceneId = request.sceneId;
     if (!this._getBattleFlowByScene(request.sceneId)) {
@@ -1476,9 +2036,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
     }
     this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId: request.sceneId });
-    await this._spawnPlacements({ sceneId: request.sceneId });
+    const placementResult = await this._spawnLoadedChunkPlacements();
+    if (placementResult?.ok === false) return placementResult;
     if (request.sceneId === 'S12') this._ensureS12GateEntity();
     else this._removeS12GateEntity();
+    if (request.sceneId === 'S14') this._ensureS14VehicleEntities();
 
     const targetRegionId = result.region?.id;
     const targetState = targetRegionId ? this._regionDynamicStates.get(targetRegionId) : null;
@@ -1501,12 +2063,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._worldLoadSession = oldSession || this._worldLoadSession;
     this._worldLoadResult = draft.worldResult;
     this._currentRegionIndex = draft.regionIndex;
+    await this._initializeWorldStreaming(draft.worldResult, draft.saveState?.currentSceneId);
     this._worldLoadPromise = Promise.resolve(draft.worldResult);
     this._loadWorldTerrains();
     this._loadScenePlacements();
     await this._worldLoadPromise;
     await Promise.resolve();
     return this.restoreSaveState(draft.saveState);
+  }
+
+  getDeathDropPresentation() {
+    return {
+      imageId: 'world.loot.deathDrop',
+      assetId: 'world.loot.deathDrop',
+      width: 48,
+      height: 40,
+      name: '遗失物资'
+    };
   }
 
   resolvePlayerDefeatResolution() {
@@ -1586,7 +2159,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         });
       }
     }
+    const hasWorldStreaming = !!this.worldStreamingManager;
+    const s11s14State = this._captureS11S14SceneState();
+    if (hasWorldStreaming) {
+      // 载具与物流由 demoDynamic provider 按 S14 namespace 唯一保存。
+      s11s14State.vehicleLogisticsState = null;
+      s11s14State.s14VehicleStates = [];
+    }
     return {
+      worldStreamingState: this.worldStreamingManager?.serialize?.() || null,
       regionStates: [...(this._regionDynamicStates || new Map()).entries()].map(([regionId, state]) => ({
         regionId,
         state: JSON.parse(JSON.stringify(state))
@@ -1594,11 +2175,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       campfireLit: !!this.campfire?.lit,
       firedPickups: [...(this._firedPickups || [])],
       clearedGroups: [...(this._clearedGroups || [])],
-      resourceNodes: [...resourceNodeStates.entries()].map(([id, state]) => ({ id, state })),
-      placementStates: [...placementStates.entries()].map(([id, state]) => ({ id, state })),
-      deathDrops,
+      ...(hasWorldStreaming ? {} : {
+        resourceNodes: [...resourceNodeStates.entries()].map(([id, state]) => ({ id, state })),
+        placementStates: [...placementStates.entries()].map(([id, state]) => ({ id, state })),
+        deathDrops,
+        s10StructureStates: this._captureS10StructureStates()
+      }),
       defeatState: this.playerDefeatService?.serialize?.() || null,
       gatheringState: this.gatheringSystem?.serialize?.() || null,
+      locomotionState: this.locomotionSystem?.serialize?.(this.playerEntity) || null,
       puppetState: this.gatheringPuppetSystem?.serialize?.() || null,
       proficiencyState: this.proficiencySystem?.serialize?.() || null,
       constructionState: this.constructionSystem?.serialize?.() || null,
@@ -1606,6 +2191,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       battlefieldRuntimeState: this.battlefieldRuntime?.serialize?.() || null,
       cityWarState: this.cityWarSystem?.serialize?.() || null,
       rescueState: this.rescueSystem?.serialize?.() || null,
+      ...s11s14State,
       gatheringPolicyOperations: [...(this._appliedGatheringPolicyOperations || new Set())],
       timeState: this.timeSystem?.serialize?.() || null,
       nextSceneTarget: this._nextSceneTarget || null,
@@ -1665,6 +2251,49 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }] };
       }
     }
+    if (data.worldStreamingState) {
+      if (!this.worldStreamingManager) {
+        return { ok: false, errors: [{ code: 'worldStreamingUnavailable', path: 'worldStreamingState', message: '世界流式运行时尚未就绪' }] };
+      }
+      const check = this.worldStreamingManager.validateSerialized(data.worldStreamingState);
+      if (!check.ok) {
+        return { ok: false, errors: check.errors.map(error => ({
+          ...error,
+          path: error.path ? `worldStreamingState.${error.path}` : 'worldStreamingState'
+        })) };
+      }
+    }
+    if (data.deathDrops != null) {
+      if (!Array.isArray(data.deathDrops)) {
+        return { ok: false, errors: [{ code: 'invalidDeathDrops', path: 'deathDrops', message: '死亡掉落列表无效' }] };
+      }
+      const deathDropProbe = new DeathDropComponent();
+      const deathDropIds = new Set();
+      for (let index = 0; index < data.deathDrops.length; index += 1) {
+        const entry = data.deathDrops[index];
+        const stateCheck = deathDropProbe.validateSerialized(entry?.state);
+        if (!entry?.id || deathDropIds.has(entry.id) || !stateCheck.ok
+          || !Number.isFinite(entry.position?.x) || !Number.isFinite(entry.position?.y)) {
+          return { ok: false, errors: [{
+            code: stateCheck.code || 'invalidDeathDropState',
+            path: `deathDrops[${index}]`,
+            message: '死亡掉落状态校验失败'
+          }] };
+        }
+        deathDropIds.add(entry.id);
+      }
+    }
+    const s11s14Check = this._validateS11S14SceneState(data);
+    if (!s11s14Check.ok) return s11s14Check;
+    if (data.locomotionState) {
+      if (!this.locomotionSystem) {
+        return { ok: false, errors: [{ code: 'locomotionRuntimeUnavailable', path: 'locomotionState', message: '位移运行时尚未就绪' }] };
+      }
+      const check = this.locomotionSystem.validateSerialized(data.locomotionState);
+      if (!check.ok) {
+        return { ok: false, errors: [{ code: check.code, path: 'locomotionState', message: '位移状态校验失败' }] };
+      }
+    }
     if (data.proficiencyState && !this.proficiencySystem) {
       return { ok: false, errors: [{
         code: 'proficiencyRuntimeUnavailable', path: 'proficiencyState', message: '熟练度运行时尚未就绪'
@@ -1697,6 +2326,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         })) };
       }
     }
+    const s10StructureCheck = this._validateS10StructureStates(data.s10StructureStates);
+    if (!s10StructureCheck.ok) {
+      return { ok: false, errors: [{
+        code: s10StructureCheck.code,
+        path: Number.isInteger(s10StructureCheck.index)
+          ? `s10StructureStates[${s10StructureCheck.index}]`
+          : 's10StructureStates',
+        message: 'S10 工事动态状态校验失败'
+      }] };
+    }
+    if (data.worldStreamingState) {
+      const worldRestore = this.worldStreamingManager.deserialize(data.worldStreamingState);
+      if (!worldRestore.ok) {
+        return { ok: false, errors: worldRestore.errors.map(error => ({
+          ...error,
+          path: error.path ? `worldStreamingState.${error.path}` : 'worldStreamingState'
+        })) };
+      }
+    }
     this._regionDynamicStates = new Map((data.regionStates || [])
       .filter(entry => typeof entry?.regionId === 'string' && entry.state && typeof entry.state === 'object')
       .map(entry => [entry.regionId, JSON.parse(JSON.stringify(entry.state))]));
@@ -1710,12 +2358,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     ) || 1));
     if (data.timeState) this.timeSystem?.deserialize?.(data.timeState);
     this.timeSystem?.setCurrentDay?.(restoredStoryDay);
-    this._pendingResourceNodeStates = new Map((data.resourceNodes || [])
-      .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
-      .map(entry => [entry.id, entry.state]));
-    this._pendingPlacementStates = new Map((data.placementStates || [])
-      .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
-      .map(entry => [entry.id, entry.state]));
+    if (!data.worldStreamingState) {
+      this._pendingResourceNodeStates = new Map((data.resourceNodes || [])
+        .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
+        .map(entry => [entry.id, entry.state]));
+      this._pendingPlacementStates = new Map((data.placementStates || [])
+        .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
+        .map(entry => [entry.id, entry.state]));
+    }
 
     const rebuild = this._rebuildCurrentScenePlacements();
     if (!rebuild.ok) return rebuild;
@@ -1752,6 +2402,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         })) };
       }
     }
+    if (!data.worldStreamingState) {
+      const s10StructureRestore = this._restoreS10StructureStates(data.s10StructureStates || []);
+      if (!s10StructureRestore.ok) {
+        return { ok: false, errors: [{
+          code: s10StructureRestore.code,
+          path: 's10StructureStates',
+          message: `S10 工事动态状态恢复失败: ${s10StructureRestore.siteId || s10StructureRestore.riderId || 'unknown'}`
+        }] };
+      }
+    }
     if (data.battleState) {
       const restored = this.battleSystem.deserialize(data.battleState);
       if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'battleState', message: '战役状态恢复失败' }] };
@@ -1785,25 +2445,39 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (restored.state?.definitionId) this._setRescueObjectiveTitle(restored.state.definitionId);
       this.rescueObjectiveView?.setSnapshot?.(restored.state);
     }
-    const currentDrops = (this.equipmentItems || [])
-      .filter(entity => entity?.getComponent?.('deathDrop'));
-    this.entityStore?.removeMany?.(currentDrops);
-    for (const drop of currentDrops) {
-      try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
-    }
-    for (const entry of data.deathDrops || []) {
-      if (!entry?.id || !entry.state?.stacks?.length) continue;
-      const drop = this.entityFactory?.createDeathDrop?.({
-        id: entry.id,
-        deathId: entry.state.deathId,
-        stacks: entry.state.stacks,
-        position: entry.position
-      });
-      if (!drop) {
-        return { ok: false, errors: [{ code: 'deathDropRestoreFailed', path: `deathDrops.${entry.id}`, message: '死亡掉落重建失败' }] };
+    const s11s14Restore = this._restoreS11S14SceneState(data);
+    if (!s11s14Restore.ok) return s11s14Restore;
+    if (data.worldStreamingState) {
+      const domainRestore = this._restoreStreamedDomainState(this.currentSceneId);
+      if (domainRestore?.ok === false) {
+        return { ok: false, errors: [{
+          code: domainRestore.code || 'streamedDomainRestoreFailed',
+          path: 'worldStreamingState',
+          message: `当前地图块领域状态恢复失败: ${domainRestore.definitionId || domainRestore.siteId || 'unknown'}`
+        }] };
       }
-      this.entityStore.add(drop);
-      this.entityStore.addEquipmentItem(drop);
+    } else {
+      const currentDrops = (this.equipmentItems || [])
+        .filter(entity => entity?.getComponent?.('deathDrop'));
+      this.entityStore?.removeMany?.(currentDrops);
+      for (const drop of currentDrops) {
+        try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
+      }
+      for (const entry of data.deathDrops || []) {
+        if (!entry?.id || !Array.isArray(entry.state?.stacks)) continue;
+        const drop = this.entityFactory?.createDeathDrop?.({
+          ...this.getDeathDropPresentation(),
+          id: entry.id,
+          deathId: entry.state.deathId,
+          stacks: entry.state.stacks,
+          position: entry.position
+        });
+        if (!drop) {
+          return { ok: false, errors: [{ code: 'deathDropRestoreFailed', path: `deathDrops.${entry.id}`, message: '死亡掉落重建失败' }] };
+        }
+        this.entityStore.add(drop);
+        this.entityStore.addEquipmentItem(drop);
+      }
     }
 
     const restoredClass = this.playerEntity?.getComponent?.('stats')?.class;
@@ -1836,6 +2510,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     this._syncPlayerClassAppearance(this.selectedClass);
     this._syncUnlockedClassSkills();
+    if (data.locomotionState) {
+      const locomotionRestore = this.locomotionSystem.deserialize(this.playerEntity, data.locomotionState);
+      if (!locomotionRestore.ok) {
+        return { ok: false, errors: [{
+          code: locomotionRestore.code || 'locomotionRestoreFailed',
+          path: 'locomotionState',
+          message: '位移状态恢复失败'
+        }] };
+      }
+    }
     const puppetRestore = this.gatheringPuppetSystem?.deserialize?.(data.puppetState || {}, {
       owner: this.playerEntity,
       resolveNode: nodeId => (this.entities || []).find(entity => entity?.id === nodeId) || null
@@ -1936,16 +2620,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (state.kind === 'item' && Number.isFinite(state.quantity)) {
       value.quantity = Math.max(0, Math.floor(state.quantity));
     }
-    if (state.kind === 'enemy') {
-      const stats = value.getComponent?.('stats');
-      const transform = value.getComponent?.('transform');
-      if (stats && Number.isFinite(state.hp)) stats.hp = Math.min(stats.maxHp, Math.max(0, state.hp));
-      if (transform && Number.isFinite(state.position?.x) && Number.isFinite(state.position?.y)) {
-        transform.position.x = state.position.x;
-        transform.position.y = state.position.y;
-      }
-      if (state.ai) this.aiSystem?.restoreRuntimeState?.(value, state.ai);
+    const stats = value.getComponent?.('stats');
+    const transform = value.getComponent?.('transform');
+    if (stats && Number.isFinite(state.hp)) {
+      const maxHp = Number.isFinite(Number(stats.maxHp)) ? Number(stats.maxHp) : Number(state.hp);
+      stats.hp = Math.min(maxHp, Math.max(0, Number(state.hp)));
     }
+    if (transform && Number.isFinite(state.position?.x) && Number.isFinite(state.position?.y)) {
+      transform.position.x = state.position.x;
+      transform.position.y = state.position.y;
+    }
+    if (state.kind === 'enemy' && state.ai) this.aiSystem?.restoreRuntimeState?.(value, state.ai);
     this._pendingPlacementStates.delete(placementId);
     return false;
   }
@@ -2267,6 +2952,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           throw gameLoader.createValidationError(placementValidation.errors);
         }
         this.gameLoader = gameLoader;
+        const placementResult = await this._spawnLoadedChunkPlacements();
+        if (placementResult?.ok === false) {
+          throw gameLoader.createValidationError(placementResult.errors || []);
+        }
         const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
         this.timeSystem?.setCurrentDay?.(storyDay);
         this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
@@ -2316,6 +3005,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       proficiencySystem: this.proficiencySystem,
       maxOperations: constructionConfig.maxOperations,
       itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
+      createCheckpoint: checkpoint => this._checkpointConstructionRepair(checkpoint),
       validateSite: ({ siteId, definition }) => {
         const site = constructionSites.get(siteId);
         if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
@@ -2339,6 +3029,38 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!registered.ok || !this.proficiencySystem.getDefinition?.('construction')) {
       throw new Error(`营建配置无效: ${registered.code || 'missingConstructionProficiency'}`);
     }
+    this.vehicleSystem = new VehicleSystem({
+      resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
+      findSafeDismountPosition: ({ rider, vehicle, fallback }) => {
+        const transform = vehicle?.getComponent?.('transform');
+        if (!transform || !this.movementSystem?.canMoveTo) return fallback;
+        const candidates = [
+          [40, 0], [-40, 0], [0, 40], [0, -40],
+          [56, 56], [-56, 56], [56, -56], [-56, -56]
+        ];
+        for (const [dx, dy] of candidates) {
+          const x = transform.position.x + dx;
+          const y = transform.position.y + dy;
+          if (this.movementSystem.canMoveTo(x, y, rider)) return { x, y };
+        }
+        return fallback;
+      },
+      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`vehicle.${event}`, cloneData(data))
+    });
+    this.vehicleLogisticsSystem = new VehicleLogisticsSystem({
+      inventoryTransactions: this.inventoryTransactions,
+      getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
+      createCheckpoint: checkpoint => this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
+      }),
+      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`vehicleLogistics.${event}`, cloneData(data))
+    });
+    this.mannedStructureAdapter = new MannedStructureAdapter({
+      vehicleSystem: this.vehicleSystem,
+      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`mannedStructure.${event}`, cloneData(data))
+    });
+    this._ensureS10StructureEntities();
+    this._ensureS14VehicleEntities();
     this._gameplaySystemAssembler?.configureAbilities?.({
       skillRegistry: gameLoader.skillRegistry,
       effectResolver: resolver
@@ -2346,6 +3068,57 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: this.playerEntity });
     this._syncUnlockedClassSkills();
     return true;
+  }
+
+  _projectS10ConstructionEffects(definition, sceneId) {
+    if (!definition || !['S11', 'S12'].includes(sceneId)) return definition;
+    const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const runtimeStructures = this.constructionSystem?.getStructures?.() || [];
+    const effects = cloneData(runtimeStructures.some(structure => S10_STRUCTURE_BY_SITE[structure.siteId])
+      ? this._deriveS10ConstructionEffects()
+      : (story.s10Construction?.effects || this._deriveS10ConstructionEffects()));
+    definition.s10ConstructionEffects = effects;
+    const moraleKey = 'yellow_turban';
+    const morale = Math.max(0, Math.min(100,
+      Math.floor(Number(definition.realtimeMorale?.[moraleKey]) || 0) + Math.floor(Number(effects.moraleBonus) || 0)
+    ));
+    definition.realtimeMorale = { ...(definition.realtimeMorale || {}), [moraleKey]: morale };
+    const armyKey = sceneId === 'S11' ? 'attackerArmy' : 'defenderArmy';
+    const moraleField = sceneId === 'S11' ? 'attackerMorale' : 'defenderMorale';
+    definition.createParams = {
+      ...(definition.createParams || {}),
+      [moraleField]: morale,
+      [armyKey]: { ...(definition.createParams?.[armyKey] || {}), morale }
+    };
+    return definition;
+  }
+
+  _applyS10ConstructionBattleEffects(config, sceneId) {
+    if (!['S11', 'S12'].includes(sceneId)) return;
+    const effects = config?.s10ConstructionEffects || {};
+    const casualtyMultiplier = Math.max(0.1, Number(effects.friendlyCasualtyMultiplier) || 1);
+    const defenseMultiplier = Math.max(0.1, Number(effects.friendlyDefenseMultiplier) || 1);
+    const enemySpeedMultiplier = Math.max(0.1, Number(effects.enemyAdvanceSpeedMultiplier) || 1);
+    const effectId = `s10Construction:${config.battleId}`;
+    for (const entity of this.entities || []) {
+      if (entity?._s10ConstructionBattleEffectId === effectId) continue;
+      const factionId = entity?.factionId || entity?.faction;
+      const stats = entity?.getComponent?.('stats');
+      const movement = entity?.getComponent?.('movement');
+      if (factionId === 'yellow_turban' && stats) {
+        if (casualtyMultiplier < 1 && Number.isFinite(Number(stats.maxHp))) {
+          const ratio = stats.maxHp > 0 ? Math.max(0, Number(stats.hp) || 0) / stats.maxHp : 1;
+          stats.maxHp = Math.max(1, Math.round(stats.maxHp / casualtyMultiplier));
+          stats.hp = Math.max(1, Math.round(stats.maxHp * ratio));
+        }
+        if (Number.isFinite(Number(stats.defense))) stats.defense *= defenseMultiplier;
+      }
+      if (factionId === 'han_government') {
+        if (movement && Number.isFinite(Number(movement.speed))) movement.speed *= enemySpeedMultiplier;
+        if (stats && Number.isFinite(Number(stats.speed))) stats.speed *= enemySpeedMultiplier;
+      }
+      entity._s10ConstructionBattleEffectId = effectId;
+    }
   }
 
   /** 安装 S03/S04/S05/S07 战役与通用救援领域系统；UI 只发命令，Blackboard 由事务 adapter 提交。 */
@@ -2393,8 +3166,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const s04Definition = cloneData(s04Source);
     const s05Definition = cloneData(s05Source);
     const s07Definition = cloneData(s07Source);
-    const s11Definition = cloneData(s11Source);
-    const s12Definition = cloneData(s12Source);
+    const s11Definition = this._projectS10ConstructionEffects(cloneData(s11Source), 'S11');
+    const s12Definition = this._projectS10ConstructionEffects(cloneData(s12Source), 'S12');
     const s13Definition = cloneData(s13Source);
     const s04RescueDefinition = cloneData(s04RescueSource);
     const s05RescueDefinition = cloneData(s05RescueSource);
@@ -2523,8 +3296,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       height: this.logicalHeight,
       resolveImage: imageId => this.assetManager?.getAsset?.(imageId) || null,
       onMusicChange: musicId => {
-        if (!musicId) return;
-        this.audioManager?.playMusic?.(musicId);
+        if (musicId && this.audioManager?.hasMusic?.(musicId)) {
+          this.audioManager.playMusic?.(musicId);
+        } else {
+          this.audioManager?.stopMusic?.(true);
+        }
       },
       onCommand: command => { void this._handleEndingPresentationCommand(command); }
     });
@@ -2568,11 +3344,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return true;
       },
       applyS13Settlement: context => this._applyS13Settlement(context),
+      applyResourceDivergence: context => this._applyS14ResourceDivergence(context),
       createCheckpoint: checkpoint => this.requestAutoSave({
         reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: checkpoint.sceneId
       }),
-      hasTarget: sceneId => !!this._worldLoadSession?.getChunk?.(sceneId)
-        && !!this._worldLoadSession?.findSpawn?.(sceneId, 'player'),
+      hasTarget: sceneId => this._findRegionIndexForScene?.(sceneId) >= 0,
       endingSystem
     });
 
@@ -2828,6 +3604,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   async _openBattleMode(sceneId) {
     const flow = this._getBattleFlowByScene(sceneId);
     const config = flow ? this._getBattleConfigById(flow.battleId) : null;
+    if (config && ['S11', 'S12'].includes(sceneId)) this._projectS10ConstructionEffects(config, sceneId);
     if (!flow || this.currentSceneId !== sceneId || !this.battleSystem || !config) {
       this._showScreenTip(flow?.unavailableMessage || '未知战役不能选择参战模式', { title: '无法选择战役模式' });
       return false;
@@ -2967,6 +3744,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       }
 
+      this._applyS10ConstructionBattleEffects(config, sceneId);
       const started = this.battlefieldRuntime.start({
         entities: this.entities || [],
         playerEntity: this.playerEntity,
@@ -3018,21 +3796,104 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       .finally(() => { this._s03BattleBusy = false; });
   }
 
+  async _grantBattleProgressionRewards(flow, result) {
+    const progression = this.gameLoader?.progressionSystem;
+    const characterId = this.playerEntity?.id;
+    const configured = this.gameLoader?.project?.progression?.battleRewards;
+    if (!progression?.grantPointsOnce || !characterId || !configured || !flow || !result?.battleId) {
+      return { ok: true, granted: [] };
+    }
+
+    const sceneId = Object.entries(BATTLE_FLOW_BY_SCENE)
+      .find(([, candidate]) => candidate.battleId === result.battleId)?.[0];
+    const rewards = [];
+    for (const reward of configured.byScene?.[sceneId] || []) {
+      rewards.push({ ...reward, reason: 'completion' });
+    }
+    if (this.battleSystem?.mode === BattleMode.INTERVENE) {
+      for (const reward of configured.intervention || []) {
+        rewards.push({ ...reward, reason: 'intervention' });
+      }
+      const playerFactionId = flow.playerFactionId || 'yellow_turban';
+      if (result.winnerFactionId === playerFactionId) {
+        for (const reward of configured.victory || []) {
+          rewards.push({ ...reward, reason: 'victory' });
+        }
+      }
+    }
+    if (!rewards.length) return { ok: true, granted: [] };
+
+    const before = progression.serializeCharacter(characterId);
+    const granted = [];
+    for (const reward of rewards) {
+      const pool = String(reward?.pool || '');
+      const amount = Math.floor(Number(reward?.amount) || 0);
+      const operationId = `progression:${result.resultId}:${reward.reason}:${pool}`;
+      const applied = progression.grantPointsOnce(characterId, pool, amount, operationId);
+      if (!applied?.ok) {
+        progression.deserializeCharacter(characterId, before);
+        return applied;
+      }
+      if (!applied.idempotent) granted.push({ pool, amount, reason: reward.reason });
+    }
+    if (!granted.length) return { ok: true, idempotent: true, granted: [] };
+
+    const saved = await this.requestAutoSave({
+      reason: 'checkpoint',
+      checkpointId: `${flow.checkpointId}.progressionRewards`,
+      sceneId: sceneId || this.currentSceneId
+    });
+    if (!saved?.ok && !saved?.snapshot) {
+      progression.deserializeCharacter(characterId, before);
+      return {
+        ok: false,
+        code: 'progressionRewardCheckpointFailed',
+        message: saved?.message || saved?.errors?.[0]?.message || '成长奖励保存失败'
+      };
+    }
+
+    const summary = granted.map(entry => `${entry.pool} +${entry.amount}`).join('、');
+    this.notificationSystem?.addSuccess?.(`成长奖励：${summary}`);
+    return { ok: true, granted };
+  }
+
   async _settleBattleResult(result, battleSnapshot = null) {
     const flow = this._getBattleFlowById(result?.battleId);
     if (!flow) throw new Error(`unknownBattleId:${result?.battleId || 'missing'}`);
-    const settled = await this.cityWarSystem.applyBattleResult({
-      result,
-      operationId: `settle:${result.resultId}`,
-      context: { mode: this.battleSystem.mode, checkpointId: flow.checkpointId }
-    });
-    if (!settled?.ok) throw new Error(settled?.message || settled?.code || 'battleSettlementRejected');
-
+    let settled;
     if (result.battleId === S13_BATTLE_ID) {
       const choice = this._buildS13Choice(this.battleSystem.mode, result);
-      const committed = await this.s13s14Coordinator?.commitS13Choice?.(choice);
-      if (!committed?.ok) throw new Error(committed?.message || committed?.code || 's13CoordinatorCommitRejected');
+      settled = await this.s13s14Coordinator?.commitS13Choice?.(choice, {
+        checkpointId: flow.checkpointId
+      });
+      if (!settled?.ok) throw new Error(settled?.message || settled?.code || 's13CoordinatorCommitRejected');
       this._s13PendingSettlement = null;
+    } else {
+      settled = await this.cityWarSystem.applyBattleResult({
+        result,
+        operationId: `settle:${result.resultId}`,
+        context: { mode: this.battleSystem.mode, checkpointId: flow.checkpointId }
+      });
+      if (!settled?.ok) throw new Error(settled?.message || settled?.code || 'battleSettlementRejected');
+    }
+
+    if ([S11_BATTLE_ID, S12_BATTLE_ID].includes(result.battleId)
+      && (this.battleSystem.mode === BattleMode.OBSERVE || result.failureReason === 'friendlyMoraleZero')) {
+      const sceneId = result.battleId === S11_BATTLE_ID ? 'S11' : 'S12';
+      const unavailable = await this.s11s12Coordinator?.settleUnavailableRescue?.(sceneId, {
+        mode: this.battleSystem.mode,
+        force: result.failureReason === 'friendlyMoraleZero',
+        reason: result.failureReason === 'friendlyMoraleZero' ? 'friendlyMoraleZero' : 'modeObserved',
+        completedAt: this.rescueSystem?.now?.()
+      });
+      if (unavailable?.ok === false) {
+        throw new Error(unavailable.message || unavailable.code || 'unavailableRescueSettlementRejected');
+      }
+    }
+
+    const progressionReward = await this._grantBattleProgressionRewards(flow, result);
+    if (!progressionReward?.ok) {
+      throw new Error(progressionReward?.message || progressionReward?.code || 'progressionRewardRejected');
     }
 
     const faction = battleSnapshot?.factions?.[result.winnerFactionId];
@@ -3794,8 +4655,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const nanyangIntervened = beforeStory.nanyangIntervened === true
       || (this.battleSystem?.definition?.battleId === S05_BATTLE_ID
         && this.battleSystem?.mode === BattleMode.INTERVENE);
+    const endingInputs = cloneData(beforeStory.endingInputs || {});
+    if (choiceId === 'withdraw') endingInputs.allowedCityDestruction = true;
     const draftStory = {
       ...beforeStory,
+      endingInputs,
       visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S06'])],
       nanyangIntervened,
       s06Resolved: true,
@@ -4468,12 +5332,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return false;
     }
     const completed = this.constructionSystem.getStructure(siteId);
-    if (completed) {
-      this._showScreenTip(`${this.constructionSystem.getDefinition(definitionId)?.name || '工事'}已经完成，耐久 ${completed.durability}/${completed.maxDurability}。`, {
-        title: '工事状态'
-      });
-      return true;
-    }
+    if (completed) return this.interactS10Structure(params);
     const existing = this.constructionSystem.getPending(siteId);
     if (existing?.status === 'refundPending') return this.cancelS10Construction({ siteId });
     if (existing) {
@@ -4599,7 +5458,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     construction.pendingSites = { ...(construction.pendingSites || {}) };
     construction.completedSites = { ...(construction.completedSites || {}) };
     construction.cancelledSites = { ...(construction.cancelledSites || {}) };
-    const completedKeys = [];
     const rollbackOperationIds = [];
 
     for (const result of results) {
@@ -4609,7 +5467,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       delete construction.pendingSites[siteKey];
       if (result.status === 'completed') {
         construction.completedSites[siteKey] = true;
-        completedKeys.push(siteKey);
       } else {
         construction.cancelledSites[siteKey] = result.code || 'cancelled';
         if (result.code === 'toolBroken') {
@@ -4624,8 +5481,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       .every(key => construction.completedSites[key] === true);
     construction.completed = allCompleted;
     construction.lastTerminalAtScene = 'S10';
+    construction.effects = this._deriveS10ConstructionEffects();
+    const completedCount = Object.values(construction.completedSites).filter(Boolean).length;
+    const endingInputs = cloneData(beforeStory.endingInputs || {});
+    endingInputs.resourceConstructionScore = Math.max(
+      Math.floor(Number(endingInputs.resourceConstructionScore) || 0), completedCount
+    );
+    endingInputs.cityMaintenanceLevel = Math.max(
+      Math.floor(Number(endingInputs.cityMaintenanceLevel) || 0), completedCount
+    );
     const nextStory = {
       ...beforeStory,
+      endingInputs,
       s10Construction: construction,
       month: allCompleted ? Math.max(10, Math.floor(Number(beforeStory.month) || 0)) : beforeStory.month,
       unlockedScenes: allCompleted
@@ -4643,9 +5510,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         reason: 'checkpoint', checkpointId: nextStory.lastCheckpointId, sceneId: 'S10'
       });
       if (!saved?.ok) throw new Error(saved?.message || saved?.errors?.[0]?.message || 'checkpointFailed');
-      for (const siteKey of completedKeys) {
-        await this._spawnPlacements({ group: `S10-built-${siteKey === 'simpleWall' ? 'simple-wall' : siteKey === 'arrowTower' ? 'arrow-tower' : siteKey}` });
-      }
+      this._ensureS10StructureEntities();
       if (allCompleted) {
         this._showScreenTip('四类工事已全部完成，时间推进至十月，S11 广宗战场已经开放。', { title: '溪畔营地建成' });
       } else if (results.some(result => result.code === 'toolBroken')) {
@@ -4666,6 +5531,636 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
       return false;
     }
+  }
+
+  /** 从当前磁盘场景投影中解析最近的可攀爬面；目标坐标只应用一次 chunk offset。 */
+  /**
+   * 在没有更高优先级空间 trigger 提示时显示攀爬操作；文案保留 InputHints token，
+   * 由 SceneHintPresenter 按当前输入设备格式化。
+   * @private
+   */
+  _updateClimbPrompt() {
+    if (this._sceneTriggerBindings?.hasActivePrompt?.()) return;
+    const player = this.playerEntity;
+    const canClimb = !!player && this.abilitySystem?.isUnlocked?.(player, 'climb') === true;
+    const target = canClimb ? this.resolveClimbTarget({ entity: player }) : null;
+    if (target?.promptTemplate) this.showHint(target.promptTemplate, '攀爬');
+    else this.hideHint();
+  }
+
+  resolveClimbTarget({ entity } = {}) {
+    const transform = entity?.getComponent?.('transform');
+    if (!transform || !this.currentSceneId) return null;
+    const chunk = this._worldLoadSession?.getChunk?.(this.currentSceneId);
+    const offset = chunk?.offset || { x: 0, y: 0 };
+    const projected = (this._worldLoadResult?.sceneObjects || [])
+      .filter(object => object?.sceneId === this.currentSceneId && object?.semanticRole === 'climbSurface');
+    const sources = projected.length > 0
+      ? projected
+      : (chunk?.sceneData?.layers || []).flatMap(layer => (layer.objects || [])
+        .filter(object => object?.semanticRole === 'climbSurface')
+        .map(object => ({ ...object, x: Number(object.x) + offset.x, y: Number(object.y) + offset.y })));
+    let best = null;
+    for (const surface of sources) {
+      const centerX = Number(surface.x) + (Number(surface.width) || 0) / 2;
+      const centerY = Number(surface.y) + (Number(surface.height) || 0) / 2;
+      const distance = Math.hypot(transform.position.x - centerX, transform.position.y - centerY);
+      const radius = Math.max(32, Number(surface.radius) || 96);
+      if (distance > radius || (best && best.distance <= distance)) continue;
+      const target = surface.climbTarget || {};
+      const targetIsWorld = surface.climbTargetWorld === true;
+      const targetX = Number(target.x);
+      const targetY = Number(target.y);
+      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) continue;
+      best = {
+        id: surface.id,
+        distance,
+        promptTemplate: surface.prompt || '{climb}攀爬',
+        targetPosition: {
+          x: targetX + (targetIsWorld ? 0 : offset.x),
+          y: targetY + (targetIsWorld ? 0 : offset.y)
+        }
+      };
+    }
+    return best;
+  }
+
+  _findProjectedSceneObject(sceneId, objectId) {
+    const projected = (this._worldLoadResult?.sceneObjects || [])
+      .find(object => object?.sceneId === sceneId && object?.id === objectId);
+    if (projected) return projected;
+    const chunk = this._worldLoadSession?.getChunk?.(sceneId);
+    for (const layer of chunk?.sceneData?.layers || []) {
+      const source = (layer.objects || []).find(object => object?.id === objectId);
+      if (!source) continue;
+      return {
+        ...source,
+        x: Number(source.x) + (Number(chunk.offset?.x) || 0),
+        y: Number(source.y) + (Number(chunk.offset?.y) || 0),
+        sceneId
+      };
+    }
+    return null;
+  }
+
+  _getS14VehicleDefinitions() {
+    return cloneData(this._worldLoadSession?.getChunk?.('S14')?.sceneData?.gameplay?.vehicles || []);
+  }
+
+  _ensureS14VehicleEntities() {
+    if (this.currentSceneId !== 'S14' || !this.vehicleSystem || !this.entityFactory || !this.entityStore) return [];
+    const created = [];
+    for (const definition of this._getS14VehicleDefinitions()) {
+      if (!definition?.id || !definition.markerId) continue;
+      const cached = this._s14VehicleEntities.get(definition.id);
+      if (cached && this.entityStore.all.includes(cached)) continue;
+      if (cached) {
+        this.vehicleSystem.unregisterVehicle(cached);
+        this._s14VehicleEntities.delete(definition.id);
+      }
+      const marker = this._findProjectedSceneObject('S14', definition.markerId);
+      if (!marker) continue;
+      const entity = this.entityFactory.createVehicle({
+        ...cloneData(definition),
+        position: {
+          x: Number(marker.x) + (Number(marker.width) || 0) / 2,
+          y: Number(marker.y) + (Number(marker.height) || 0)
+        },
+        team: 'yellow_turban'
+      });
+      entity.tags = ['s14Vehicle', definition.vehicleType, 'yellow_turban'];
+      entity.vehicleDefinitionId = definition.id;
+      if (definition.renderMode === 'sceneObject') {
+        const sprite = entity.getComponent?.('sprite');
+        if (sprite) sprite.visible = false;
+        entity.name = '';
+      }
+      this.entityStore.add(entity);
+      this.vehicleSystem.registerVehicle(entity);
+      this._s14VehicleEntities.set(definition.id, entity);
+      created.push(entity);
+    }
+    return created;
+  }
+
+  _disposeS14Vehicles() {
+    for (const entity of this._s14VehicleEntities?.values?.() || []) {
+      const vehicle = entity?.getComponent?.('vehicle');
+      for (const riderId of vehicle?.getRiders?.() || []) {
+        const rider = this.entityStore?.all?.find?.(candidate => candidate?.id === riderId);
+        if (rider) this.vehicleSystem?.dismount?.(rider);
+      }
+      this.vehicleSystem?.unregisterVehicle?.(entity);
+      this.entityStore?.remove?.(entity);
+      try { entity?.destroy?.(); } catch (error) { /* best-effort lifecycle cleanup */ }
+    }
+    this._s14VehicleEntities?.clear?.();
+  }
+
+  _resolveVehicleInventoryOwnerId(inventory) {
+    if (inventory === this.playerEntity?.getComponent?.('inventory')) {
+      return `${this.playerEntity?.id || 'player'}:inventory`;
+    }
+    for (const [vehicleId, entity] of this._s14VehicleEntities || []) {
+      if (inventory === entity?.getComponent?.('cargo')) return `${vehicleId}:cargo`;
+    }
+    return null;
+  }
+
+  _captureS14VehicleStates() {
+    this._ensureS14VehicleEntities();
+    return [...(this._s14VehicleEntities || new Map()).entries()].map(([definitionId, entity]) => {
+      const transform = entity.getComponent?.('transform');
+      return {
+        schemaVersion: 1,
+        definitionId,
+        entityId: entity.id,
+        transform: transform ? {
+          x: Number(transform.position.x) || 0,
+          y: Number(transform.position.y) || 0,
+          rotation: Number(transform.rotation) || 0
+        } : null,
+        vehicle: cloneData(entity.getComponent?.('vehicle')?.serialize?.() || null),
+        cargo: cloneData(entity.getComponent?.('cargo')?.serialize?.() || null)
+      };
+    });
+  }
+
+  _validateS14VehicleStates(states, logisticsState = null) {
+    if (states != null && !Array.isArray(states)) return { ok: false, code: 'invalidS14VehicleStates' };
+    const definitionList = this._getS14VehicleDefinitions();
+    const definitions = new Map(definitionList.map(entry => [entry.id, entry]));
+    const ids = new Set();
+    for (const entry of states || []) {
+      const definition = definitions.get(entry?.definitionId);
+      if (entry?.schemaVersion !== 1 || !definition || ids.has(entry.definitionId)
+        || entry.entityId !== entry.definitionId || !entry.transform
+        || !Number.isFinite(entry.transform.x) || !Number.isFinite(entry.transform.y)
+        || !Number.isFinite(entry.transform.rotation)) {
+        return { ok: false, code: 'invalidS14VehicleState', definitionId: entry?.definitionId };
+      }
+      ids.add(entry.definitionId);
+      const probe = this.entityFactory?.createVehicle?.({ ...cloneData(definition), position: { x: 0, y: 0 } });
+      if (!probe) return { ok: false, code: 's14VehicleValidationProbeFailed', definitionId: entry.definitionId };
+      try {
+        const vehicleCheck = probe.getComponent?.('vehicle')?.validateSerialized?.(entry.vehicle);
+        if (!vehicleCheck?.ok) {
+          return {
+            ok: false,
+            code: vehicleCheck?.code || 'invalidVehicleSnapshot',
+            definitionId: entry.definitionId,
+            path: vehicleCheck?.path
+          };
+        }
+        const cargoProbe = probe.getComponent?.('cargo');
+        if (!!entry.cargo !== !!cargoProbe) {
+          return { ok: false, code: 's14CargoDefinitionMismatch', definitionId: entry.definitionId };
+        }
+        if (entry.cargo) {
+          const cargoCheck = cargoProbe.validateSerialized?.(entry.cargo);
+          if (!cargoCheck?.ok) {
+            return { ok: false, code: cargoCheck?.code || 'invalidCargoSnapshot', definitionId: entry.definitionId };
+          }
+        }
+      } finally {
+        try { probe.destroy?.(); } catch (error) { /* validation probe cleanup */ }
+      }
+    }
+    if ((states || []).length > 0 && ids.size !== definitions.size) {
+      return { ok: false, code: 'incompleteS14VehicleStates' };
+    }
+    if (logisticsState) {
+      if (logisticsState.schemaVersion !== 1 || !Array.isArray(logisticsState.operations)) {
+        return { ok: false, code: 'invalidVehicleLogisticsSnapshot' };
+      }
+      const operationIds = new Set();
+      for (const operation of logisticsState.operations) {
+        if (!operation?.operationId || operationIds.has(operation.operationId)
+          || !operation.fingerprint || !operation.result) {
+          return { ok: false, code: 'invalidVehicleLogisticsSnapshot' };
+        }
+        operationIds.add(operation.operationId);
+      }
+    }
+    return { ok: true };
+  }
+
+  _restoreS14VehicleStates(states = [], logisticsState = null) {
+    const checked = this._validateS14VehicleStates(states, logisticsState);
+    if (!checked.ok) return checked;
+    if (states.length > 0 && this.currentSceneId !== 'S14') {
+      return { ok: false, code: 's14VehicleSceneMismatch' };
+    }
+    this._ensureS14VehicleEntities();
+    const prepared = [];
+    for (const entry of states) {
+      const entity = this._s14VehicleEntities.get(entry.definitionId);
+      const transform = entity?.getComponent?.('transform');
+      const vehicle = entity?.getComponent?.('vehicle');
+      const cargo = entity?.getComponent?.('cargo');
+      if (!entity || !transform || !vehicle || (!!entry.cargo !== !!cargo)) {
+        return { ok: false, code: 's14VehicleRebuildFailed', definitionId: entry.definitionId };
+      }
+      prepared.push({
+        entry,
+        entity,
+        transform,
+        vehicle,
+        cargo,
+        before: {
+          transform: {
+            x: transform.position.x,
+            y: transform.position.y,
+            rotation: transform.rotation
+          },
+          vehicle: cloneData(vehicle.serialize()),
+          cargo: cloneData(cargo?.serialize?.() || null),
+          registered: this.vehicleSystem?.vehicles?.has?.(entity) === true
+        }
+      });
+    }
+    const logisticsBefore = cloneData(this.vehicleLogisticsSystem?.serialize?.() || null);
+    const rollback = () => {
+      let ok = true;
+      for (const item of [...prepared].reverse()) {
+        item.transform.setPosition(item.before.transform.x, item.before.transform.y);
+        item.transform.rotation = item.before.transform.rotation;
+        if (item.vehicle.deserialize(cloneData(item.before.vehicle))?.ok === false) ok = false;
+        if (item.before.cargo && item.cargo?.deserialize(cloneData(item.before.cargo))?.ok === false) ok = false;
+        if (item.before.registered) this.vehicleSystem?.registerVehicle?.(item.entity);
+        else this.vehicleSystem?.unregisterVehicle?.(item.entity);
+      }
+      if (logisticsBefore && this.vehicleLogisticsSystem?.deserialize?.(cloneData(logisticsBefore))?.ok === false) ok = false;
+      return ok;
+    };
+
+    let failure = null;
+    for (const item of prepared) {
+      item.transform.setPosition(item.entry.transform.x, item.entry.transform.y);
+      item.transform.rotation = item.entry.transform.rotation;
+      const vehicleResult = item.vehicle.deserialize(cloneData(item.entry.vehicle));
+      if (!vehicleResult?.ok) {
+        failure = { ...vehicleResult, definitionId: item.entry.definitionId };
+        break;
+      }
+      if (item.entry.cargo) {
+        const cargoResult = item.cargo.deserialize(cloneData(item.entry.cargo));
+        if (!cargoResult?.ok) {
+          failure = { ...cargoResult, definitionId: item.entry.definitionId };
+          break;
+        }
+      }
+      if (item.vehicle.destroyed) this.vehicleSystem?.unregisterVehicle?.(item.entity);
+      else this.vehicleSystem?.registerVehicle?.(item.entity);
+    }
+    if (!failure && logisticsState) {
+      const logisticsResult = this.vehicleLogisticsSystem?.deserialize?.(cloneData(logisticsState));
+      if (!logisticsResult?.ok) failure = logisticsResult || { ok: false, code: 'vehicleLogisticsUnavailable' };
+    }
+    if (failure) {
+      const rolledBack = rollback();
+      return rolledBack
+        ? failure
+        : { ok: false, code: 's14VehicleRollbackFailed', cause: failure.code };
+    }
+    return { ok: true };
+  }
+
+  _findS10ProjectedObject(objectId) {
+    const projected = (this._worldLoadResult?.sceneObjects || []).find(object => object?.id === objectId);
+    if (projected) return projected;
+    const chunk = this._worldLoadSession?.getChunk?.('S10');
+    for (const layer of chunk?.sceneData?.layers || []) {
+      const source = (layer.objects || []).find(object => object?.id === objectId);
+      if (!source) continue;
+      return {
+        ...source,
+        x: Number(source.x) + (Number(chunk.offset?.x) || 0),
+        y: Number(source.y) + (Number(chunk.offset?.y) || 0)
+      };
+    }
+    return null;
+  }
+
+  _ensureS10StructureEntities() {
+    if (!this.constructionSystem || !this.entityFactory || !this.entityStore || !this.mannedStructureAdapter) return [];
+    const created = [];
+    for (const structure of this.constructionSystem.getStructures()) {
+      const config = S10_STRUCTURE_BY_SITE[structure.siteId];
+      if (!config) continue;
+      const cached = this._s10StructureEntities.get(structure.siteId);
+      if (cached && this.entityStore.all.includes(cached)) continue;
+      if (cached) this._s10StructureEntities.delete(structure.siteId);
+      const source = this._findS10ProjectedObject(config.markerId);
+      const definition = this.constructionSystem.getDefinition(structure.definitionId);
+      if (!source || !definition) continue;
+      const entity = this.entityFactory.createBuilding({
+        id: config.entityId,
+        name: config.name,
+        buildingType: config.buildingType,
+        position: {
+          x: Number(source.x) + (Number(source.width) || 0) / 2,
+          y: Number(source.y) + (Number(source.height) || 0)
+        },
+        maxHp: structure.maxDurability,
+        hp: structure.durability,
+        team: 'yellow_turban',
+        footprint: cloneData(config.footprint),
+        controllable: config.controllable,
+        imageId: definition.imageId,
+        width: config.width,
+        height: config.height
+      });
+      entity.tags = ['s10Construction', 'yellow_turban', config.buildingType];
+      entity.constructionSiteId = structure.siteId;
+      this.entityStore.add(entity);
+      this._s10StructureEntities.set(structure.siteId, entity);
+      if (config.controllable) {
+        this.mannedStructureAdapter.registerStructure(entity, {
+          vehicleType: 'mannedStructure:arrowTower',
+          seats: [{ id: 'operator', role: 'gunner', offset: [0, -32] }]
+        });
+      }
+      created.push(entity);
+    }
+    return created;
+  }
+
+  _disposeS10Structures() {
+    for (const entity of this._s10StructureEntities?.values?.() || []) {
+      const vehicle = entity?.getComponent?.('vehicle');
+      for (const riderId of vehicle?.getRiders?.() || []) {
+        const rider = this.entityStore?.all?.find?.(candidate => candidate?.id === riderId);
+        if (rider) this.vehicleSystem?.dismount?.(rider);
+      }
+      if (this.mannedStructureAdapter?.isMannedStructure?.(entity)) {
+        this.mannedStructureAdapter.unregisterStructure(entity);
+      }
+      this.entityStore?.remove?.(entity);
+      try { entity?.destroy?.(); } catch (error) { /* best-effort lifecycle cleanup */ }
+    }
+    this._s10StructureEntities?.clear?.();
+  }
+
+  _syncS10StructureDomain(siteId = null) {
+    const entries = siteId
+      ? [[siteId, this._s10StructureEntities.get(siteId)]]
+      : [...this._s10StructureEntities.entries()];
+    for (const [id, entity] of entries) {
+      const building = entity?.getComponent?.('building');
+      if (!building) continue;
+      this.constructionSystem?.synchronizeStructure?.({
+        siteId: id,
+        durability: Math.max(0, Math.floor(Number(building.hp) || 0)),
+        destroyed: building.destroyed === true
+      });
+    }
+  }
+
+  _captureS10StructureStates() {
+    // S10 作为邻格加载时只保存已有运行时或 provider 中的状态，不能为快照采集创建实体。
+    if (this.currentSceneId === 'S10') this._ensureS10StructureEntities();
+    this._syncS10StructureDomain();
+    return [...this._s10StructureEntities.entries()].map(([siteId, entity]) => ({
+      schemaVersion: 1,
+      siteId,
+      entityId: entity.id,
+      building: cloneData(entity.getComponent?.('building')?.serialize?.() || null),
+      manned: cloneData(this.mannedStructureAdapter?.captureState?.(entity) || null)
+    }));
+  }
+
+  _validateS10StructureStates(states) {
+    if (states == null) return { ok: true };
+    if (!Array.isArray(states)) return { ok: false, code: 'invalidS10StructureStates' };
+    const seen = new Set();
+    for (let index = 0; index < states.length; index++) {
+      const entry = states[index];
+      const config = S10_STRUCTURE_BY_SITE[entry?.siteId];
+      const hp = Number(entry?.building?.hp);
+      const maxHp = Number(entry?.building?.maxHp);
+      if (!config || seen.has(entry.siteId) || entry.entityId !== config.entityId
+        || !Number.isFinite(hp) || !Number.isFinite(maxHp) || maxHp <= 0 || hp < 0 || hp > maxHp
+        || (entry.manned && (entry.manned.schemaVersion !== 1 || !entry.manned.vehicle?.seats))) {
+        return { ok: false, code: 'invalidS10StructureState', index };
+      }
+      seen.add(entry.siteId);
+    }
+    return { ok: true };
+  }
+
+  _restoreS10StructureStates(states = []) {
+    this._disposeS10Structures();
+    this._ensureS10StructureEntities();
+    for (const entry of states || []) {
+      const entity = this._s10StructureEntities.get(entry.siteId);
+      const building = entity?.getComponent?.('building');
+      if (!entity || !building) return { ok: false, code: 's10StructureRebuildFailed', siteId: entry.siteId };
+      building.deserialize(cloneData(entry.building));
+      this.mannedStructureAdapter?.syncStructure?.(entity);
+    }
+    for (const entry of states || []) {
+      const entity = this._s10StructureEntities.get(entry.siteId);
+      for (const [seatId, seat] of Object.entries(entry.manned?.vehicle?.seats || {})) {
+        if (!seat?.riderId) continue;
+        const rider = this.entityStore?.all?.find?.(candidate => candidate?.id === seat.riderId);
+        if (!rider) return { ok: false, code: 's10StructureRiderMissing', riderId: seat.riderId };
+        if (rider.hasComponent?.('rider')) this.vehicleSystem?.dismount?.(rider);
+        if (!this.mannedStructureAdapter?.mount?.(rider, entity, seatId)) {
+          return { ok: false, code: 's10StructureRiderRestoreFailed', riderId: seat.riderId };
+        }
+      }
+    }
+    return { ok: true };
+  }
+
+  _deriveS10ConstructionEffects() {
+    const effects = {
+      moraleBonus: 0,
+      hungerDrainMultiplier: 1,
+      enemyAdvanceSpeedMultiplier: 1,
+      friendlyCasualtyMultiplier: 1,
+      friendlyDefenseMultiplier: 1
+    };
+    for (const structure of this.constructionSystem?.getStructures?.() || []) {
+      const definition = this.constructionSystem.getDefinition(structure.definitionId);
+      const configured = definition?.warEffects || {};
+      const alive = Number(structure.durability) > 0;
+      if (alive) {
+        effects.moraleBonus += Number(configured.moraleBonus) || 0;
+        if (Number.isFinite(Number(configured.hungerDrainMultiplier))) {
+          effects.hungerDrainMultiplier *= Number(configured.hungerDrainMultiplier);
+        }
+        if (Number.isFinite(Number(configured.enemyAdvanceSpeedMultiplier))) {
+          effects.enemyAdvanceSpeedMultiplier *= Number(configured.enemyAdvanceSpeedMultiplier);
+        }
+        if (Number.isFinite(Number(configured.friendlyCasualtyMultiplier))) {
+          effects.friendlyCasualtyMultiplier *= Number(configured.friendlyCasualtyMultiplier);
+        }
+        if (Number.isFinite(Number(configured.friendlyDefenseMultiplier))) {
+          effects.friendlyDefenseMultiplier *= Number(configured.friendlyDefenseMultiplier);
+        }
+      } else if (Number.isFinite(Number(configured.destroyedDefenseMultiplier))) {
+        effects.friendlyDefenseMultiplier *= Number(configured.destroyedDefenseMultiplier);
+      }
+    }
+    return effects;
+  }
+
+  async _checkpointConstructionRepair(checkpoint = {}) {
+    const structure = checkpoint.structure;
+    const config = S10_STRUCTURE_BY_SITE[structure?.siteId];
+    if (!config) {
+      return this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId,
+        sceneId: checkpoint.context?.sceneId || this.currentSceneId
+      });
+    }
+    this._ensureS10StructureEntities();
+    const entity = this._s10StructureEntities.get(structure.siteId);
+    const building = entity?.getComponent?.('building');
+    const blackboard = this.gameLoader?.blackboard;
+    if (!building || !blackboard) return { ok: false, code: 'repairProjectionUnavailable' };
+    const beforeBuilding = cloneData(building.serialize());
+    const beforeStory = cloneData(blackboard.get('storyState') || {});
+    building.hp = Math.min(building.maxHp, Math.max(0, Number(structure.durability) || 0));
+    building.destroyed = building.hp <= 0;
+    this.mannedStructureAdapter?.syncStructure?.(entity);
+    const siteKey = S10_CONSTRUCTION_SITE_KEYS[structure.siteId];
+    const construction = cloneData(beforeStory.s10Construction || {});
+    construction.repairAttempts = { ...(construction.repairAttempts || {}) };
+    construction.repairAttempts[siteKey] = Math.max(
+      Number(construction.repairAttempts[siteKey]) || 0,
+      Number(checkpoint.context?.attempt) || 0
+    );
+    construction.effects = this._deriveS10ConstructionEffects();
+    construction.lastRepair = {
+      siteId: structure.siteId,
+      operationId: checkpoint.operationId,
+      durability: structure.durability
+    };
+    construction.repairedSites = { ...(construction.repairedSites || {}), [siteKey]: true };
+    const endingInputs = cloneData(beforeStory.endingInputs || {});
+    const completedCount = Object.values(construction.completedSites || {}).filter(Boolean).length;
+    const repairedCount = Object.values(construction.repairedSites).filter(Boolean).length;
+    endingInputs.resourceConstructionScore = Math.max(
+      Math.floor(Number(endingInputs.resourceConstructionScore) || 0), completedCount
+    );
+    endingInputs.cityMaintenanceLevel = Math.max(
+      Math.floor(Number(endingInputs.cityMaintenanceLevel) || 0), completedCount + repairedCount
+    );
+    blackboard.set('storyState', {
+      ...beforeStory,
+      endingInputs,
+      s10Construction: construction,
+      lastCheckpointId: checkpoint.checkpointId
+    });
+    try {
+      const saved = await this.requestAutoSave({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: 'S10'
+      });
+      if (!saved?.ok) throw new Error(saved?.message || 'checkpointRejected');
+      return saved;
+    } catch (error) {
+      building.deserialize(beforeBuilding);
+      this.mannedStructureAdapter?.syncStructure?.(entity);
+      blackboard.set('storyState', beforeStory);
+      return { ok: false, code: 'repairCheckpointRejected', message: String(error?.message || error) };
+    }
+  }
+
+  async repairS10Structure({ siteId, amount = 50 } = {}) {
+    if (this.currentSceneId !== 'S10' || this._s10StructureInteractionBusy) return false;
+    this._ensureS10StructureEntities();
+    const config = S10_STRUCTURE_BY_SITE[siteId];
+    const entity = this._s10StructureEntities.get(siteId);
+    const building = entity?.getComponent?.('building');
+    if (!config || !building) {
+      this._showScreenTip('此处还没有可维修的工事。', { title: '维修不可用' });
+      return false;
+    }
+    this._syncS10StructureDomain(siteId);
+    const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const attempt = Math.max(0, Number(story.s10Construction?.repairAttempts?.[S10_CONSTRUCTION_SITE_KEYS[siteId]]) || 0) + 1;
+    this._s10StructureInteractionBusy = true;
+    try {
+      const result = await this.constructionSystem.repair({
+        siteId,
+        amount: Math.max(1, Math.floor(Number(amount) || 50)),
+        operationId: `repair:S10:${S10_CONSTRUCTION_SITE_KEYS[siteId]}:${attempt}`,
+        checkpointId: `checkpoint.S10.repair.${S10_CONSTRUCTION_SITE_KEYS[siteId]}`,
+        context: { sceneId: 'S10', attempt }
+      });
+      if (!result.ok) {
+        const messages = {
+          repairNotNeeded: '工事耐久已满，无需维修。',
+          structureBusy: '该工事正在结算维修，请稍候。',
+          repairRolledBack: '维修检查点失败，耐久已恢复到维修前。'
+        };
+        this._showScreenTip(messages[result.code] || `维修失败：${result.code || 'unknown'}`, { title: '维修未完成' });
+        return false;
+      }
+      this._showScreenTip(`${config.name}恢复 ${result.appliedAmount} 点耐久，当前 ${result.structure.durability}/${result.structure.maxDurability}。`, {
+        title: '维修完成'
+      });
+      return true;
+    } finally {
+      this._s10StructureInteractionBusy = false;
+    }
+  }
+
+  mountS10ArrowTower() {
+    if (this.currentSceneId !== 'S10') return false;
+    this._ensureS10StructureEntities();
+    const tower = this._s10StructureEntities.get(S10_STRUCTURE_CONFIG.arrowTower.siteId);
+    const mounted = this.mannedStructureAdapter?.mount?.(this.playerEntity, tower, 'operator') === true;
+    this._showScreenTip(mounted ? '已进入箭楼武器席，攻击意图将路由到箭楼。' : '箭楼席位不可用或已被占用。', {
+      title: mounted ? '进入箭楼' : '无法进入箭楼'
+    });
+    return mounted;
+  }
+
+  leaveS10ArrowTower() {
+    const left = this.mannedStructureAdapter?.dismount?.(this.playerEntity) === true;
+    if (left) this._showScreenTip('已离开箭楼，席位已释放。', { title: '离开箭楼' });
+    return left;
+  }
+
+  async interactS10Structure(params = {}) {
+    const siteId = String(params.siteId || '');
+    if (this.playerEntity?.hasComponent?.('rider')) return this.leaveS10ArrowTower();
+    const structure = this.constructionSystem?.getStructure?.(siteId);
+    if (!structure) return this.startS10Construction(params);
+    this._ensureS10StructureEntities();
+    const building = this._s10StructureEntities.get(siteId)?.getComponent?.('building');
+    if (building && building.hp < building.maxHp) return this.repairS10Structure({ siteId, amount: params.repairAmount });
+    if (siteId === S10_STRUCTURE_CONFIG.arrowTower.siteId) return this.mountS10ArrowTower();
+    const config = S10_STRUCTURE_BY_SITE[siteId];
+    this._showScreenTip(`${config?.name || '工事'}耐久 ${building?.hp || structure.durability}/${building?.maxHp || structure.maxDurability}。`, {
+      title: '工事状态'
+    });
+    return true;
+  }
+
+  async checkS10Exit() {
+    if (this.currentSceneId !== 'S10') return false;
+    const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const pending = this.constructionSystem?.serialize?.().pending || [];
+    this._ensureS10StructureEntities();
+    const allRebuilt = Object.values(S10_STRUCTURE_CONFIG)
+      .every(config => this._s10StructureEntities.has(config.siteId));
+    if (story.s10Construction?.completed !== true || pending.length > 0 || !allRebuilt) {
+      this._showScreenTip('完成四类工事并等待所有施工结算后，才能前往广宗。', { title: '尚未完成迁营' });
+      return false;
+    }
+    const regionIndex = this._findRegionIndexForScene('S11');
+    if (regionIndex < 0) return false;
+    if (regionIndex !== this._currentRegionIndex) {
+      const result = await this.travelToRegion({ regionIndex, sceneId: 'S11', spawnRef: 'player' });
+      return result?.ok === true;
+    }
+    const result = await this.teleportToChunk({ scene: 'S11', spawnRef: 'player', transition: 'fadeBlack' });
+    return result !== false && !result?.cancelled;
   }
 
   async _checkpointS06ConstructionTerminal(results, rollback) {
@@ -4749,6 +6244,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   async _handleIrreversibleChoiceCommand(command = {}) {
     if (this.currentSceneId === 'S06') return this._handleS06DefenseChoiceCommand(command);
     if (this.currentSceneId === 'S08') return this._handleS08RetreatChoiceCommand(command);
+    if (this.currentSceneId === 'S14') return this._handleS14FinalDoctrineCommand(command);
     return this._handleS04RouteChoiceCommand(command);
   }
 
@@ -4859,7 +6355,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const resolver = this.gameLoader?.progressionSystem?.effectResolver;
     const registry = this.gameLoader?.skillRegistry;
     if (!combat || !resolver || !registry || !player?.id) return false;
-    const canonicalIds = new Set(['cleave', 'arrow_shot', 'talisman_water', 'gathering_puppet']);
+    const canonicalIds = new Set(['cleave', 'arrow_shot', 'talisman_water', 'gathering_puppet', 'power_jump']);
     const removedLegacyIds = new Set(['flame_palm', 'ice_finger', 'inferno_palm', 'heal', 'meditation']);
     const unlockedIds = new Set(resolver.getUnlockedSkills(player.id).filter(id => canonicalIds.has(id)));
     const previousCooldowns = new Map(combat.skillCooldowns || []);
@@ -5156,6 +6652,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('completeS10CampRelocation', () => this.completeS10CampRelocation());
     trig.registerAction('startS10Construction', (p = {}) => this.startS10Construction(p));
     trig.registerAction('cancelS10Construction', (p = {}) => this.cancelS10Construction(p));
+    trig.registerAction('interactS10Structure', (p = {}) => this.interactS10Structure(p));
+    trig.registerAction('repairS10Structure', (p = {}) => this.repairS10Structure(p));
+    trig.registerAction('mountS10ArrowTower', () => this.mountS10ArrowTower());
+    trig.registerAction('leaveS10ArrowTower', () => this.leaveS10ArrowTower());
+    trig.registerAction('checkS10Exit', () => this.checkS10Exit());
     trig.registerAction('openS11BattleMode', () => this.openS11BattleMode());
     trig.registerAction('startS11Rescue', () => this.startS11Rescue());
     trig.registerAction('completeS11Beacon', () => this.completeS11Beacon());
@@ -5998,6 +7499,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
+   * 为当前已加载九宫格按 physical chunkId 生成放置点。
+   * SXX-CNN 与 SXX 共用业务命名空间，但各自 placement.sceneId 必须保持物理 chunk ID。
+   */
+  async _spawnLoadedChunkPlacements() {
+    const chunks = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
+      .filter(chunk => chunk?.sceneId && (chunk.placements || []).length > 0)
+      .sort((a, b) => (a.row - b.row) || (a.col - b.col) || a.sceneId.localeCompare(b.sceneId));
+    for (const chunk of chunks) {
+      const result = await this._spawnPlacements({ sceneId: chunk.sceneId });
+      if (result?.ok === false) return result;
+    }
+    return { ok: true, errors: [] };
+  }
+
+  /**
    * 按放置点 ID、组名或标签生成场景物品/实体。
    * 世界放置点异步加载完成前先等待，防止 once 触发器空生成后永久失效。
    * @param {Object} selector - { placementIds?, group?, tag?, tags?, sceneId?, kinds? }
@@ -6143,12 +7659,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** SceneInputFlow 的 MODAL_UI 出口；弹窗存在时无条件吞掉世界输入。 */
   handleModalInput({ inputManager, gamepad } = {}) {
     if (this.endingPresentationView?.visible) {
-      return this.endingPresentationView.handleInput({
-        inputManager,
-        gamepad,
-        viewWidth: this.logicalWidth,
-        viewHeight: this.logicalHeight
-      });
+      return this.endingPresentationView.handleInput(
+        this._createEndingInputContext({ inputManager, gamepad })
+      );
     }
     if (this.battleResultView?.visible) {
       return this.battleResultView.handleInput({
@@ -6435,9 +7948,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       if (!result.region) {
         console.warn('[DDScene] game.project.json 无 worldMap 配置');
       }
-      const placements = result.placements || [];
-      this._placements = placements;
-      this._sceneTriggerBindings?.setBindings(result.triggerBindings || [], result.sceneObjects || []);
+      this._syncWorldStreamingProjection();
+      const placements = this._placements || [];
       this._applySpawnPoints(placements, {
         sceneId: this.currentSceneId,
         applyPlayer: this._initialPlayerSpawnPending === true
@@ -6527,36 +8039,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const region = result.region;
       this._worldRegion = region;
       this.context.world.region = region;
-      this._terrains.length = 0;
-      this.terrain = null;
-      this.terrainAct1 = null;
-
-      if (region) {
-        const chunkWidth = Number(region.chunkWidth) || 1280;
-        const chunkHeight = Number(region.chunkHeight) || 720;
-        for (const chunk of result.chunks) {
-          const terrain = new Scene1Terrain({
-            centerX: chunkWidth / 2,
-            centerY: chunkHeight / 2,
-            width: chunkWidth,
-            height: chunkHeight,
-            editorSceneId: chunk.sceneId,
-            worldOffset: chunk.offset,
-            skipEditorLoad: true,
-            // 每个 terrain 持有独立数据副本，避免重复 sceneId 的 chunk 共享可变对象。
-            sceneData: chunk.sceneData && Array.isArray(chunk.sceneData.layers)
-              ? JSON.parse(JSON.stringify(chunk.sceneData))
-              : null
-          });
-          this._terrains.push(terrain);
-          if (!this.terrain) this.terrain = terrain;
-        }
-      }
-
-      // 兼容旧代码中 terrainAct1 的引用
-      if (this._terrains.length > 1) this.terrainAct1 = this._terrains[0];
-      this.context.world.terrain = this.terrain;
-      this.context.world.terrains = this._terrains;
+      this._syncWorldStreamingProjection();
 
       // 加载天气和时间系统配置
       if (project?.system) {
@@ -6568,8 +8051,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       }
 
-      // effectZones 已由 session 投影到世界坐标，禁止再次叠加 worldOffset。
-      this._initMultiChunkEffectZones(result.effectZones || []);
+      // effectZones 已由流式 manager 按当前九宫格投影并同步。
       this._worldReadyGate?.resolve('terrains', this._terrains);
       this._syncWorldReadyProjection();
     })).catch(this.resourceScope.guard(e => {
@@ -7108,5 +8590,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._terrainBinding.checkTerrainCollision();
   }
 }
+
+installS11S14SceneFlow(DataDrivenPrologueScene);
 
 export default DataDrivenPrologueScene;

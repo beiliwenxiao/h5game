@@ -72,7 +72,7 @@ export class WorldMapLoadSession {
     this._detachScope = typeof scope?.add === 'function' ? scope.add(() => this.dispose()) : null;
   }
 
-  async load({ projectUrl = 'game.project.json', regionIndex = 0 } = {}) {
+  async load({ projectUrl = 'game.project.json', regionIndex = 0, sceneIds = null } = {}) {
     if (this._disposed) throw abortError();
     const version = ++this._version;
     const errors = [];
@@ -93,8 +93,11 @@ export class WorldMapLoadSession {
     }
 
     const chunkSpecs = this._chunkSpecs(region);
-    const sceneIds = [...new Set(chunkSpecs.map(chunk => chunk.sceneId).filter(Boolean))];
-    const loaded = await Promise.all(sceneIds.map(async sceneId => {
+    const regionSceneIds = [...new Set(chunkSpecs.map(chunk => chunk.sceneId).filter(Boolean))];
+    const requestedSceneIds = Array.isArray(sceneIds)
+      ? [...new Set(sceneIds.filter(sceneId => regionSceneIds.includes(sceneId)))]
+      : regionSceneIds;
+    const loaded = await Promise.all(requestedSceneIds.map(async sceneId => {
       const outcome = await this._getScenePromise(sceneId, project);
       return [sceneId, outcome];
     }));
@@ -121,6 +124,29 @@ export class WorldMapLoadSession {
 
   getSceneData(sceneId) {
     return this._sceneData.get(sceneId) || null;
+  }
+
+  async loadSceneData(sceneId, project = this._lastResult?.project || null) {
+    if (this._disposed) throw abortError();
+    const outcome = await this._getScenePromise(sceneId, project);
+    if (!outcome?.data) {
+      const error = new Error(outcome?.errors?.[0]?.message || `场景 ${sceneId} 加载失败`);
+      error.errors = outcome?.errors || [];
+      throw error;
+    }
+    this._sceneData.set(sceneId, outcome.data);
+    const chunk = this._lastResult?.chunks?.find(entry => entry.sceneId === sceneId);
+    if (chunk && !chunk.sceneData) {
+      chunk.sceneData = outcome.data;
+      this._collectChunkObjects(
+        chunk,
+        this._lastResult.sceneObjects,
+        this._lastResult.placements,
+        this._lastResult.effectZones,
+        this._lastResult.triggerBindings
+      );
+    }
+    return outcome.data;
   }
 
   getChunk(sceneOrQuery, occurrence = 0) {

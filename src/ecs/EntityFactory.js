@@ -27,6 +27,7 @@ import { NameComponent } from './components/NameComponent.js';
 import { LayerComponent } from './components/LayerComponent.js';
 import { BuildingComponent } from './components/BuildingComponent.js';
 import { VehicleComponent } from './components/VehicleComponent.js';
+import { CargoComponent } from './components/CargoComponent.js';
 import { ObjectiveComponent } from './components/ObjectiveComponent.js';
 import { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
 import { NpcComponent } from './components/NpcComponent.js';
@@ -514,18 +515,36 @@ export class EntityFactory {
   createDeathDrop(data = {}) {
     const entity = new Entity(data.id || `death-drop-${data.deathId || this.generateId()}`, 'loot');
     const position = data.position || { x: 0, y: 0 };
+    const spriteData = data.sprite && typeof data.sprite === 'object' ? data.sprite : {};
+    const stableId = data.imageId || data.assetId || spriteData.imageId || spriteData.assetId
+      || data.spriteSheet || '';
+    const name = data.name || '遗失物资';
     entity.addComponent(new TransformComponent(position.x, position.y));
     entity.addComponent(new DeathDropComponent(data));
-    const sprite = new SpriteComponent('', {
-      width: 28, height: 24, color: '#d6a94f', visible: true, defaultAnimation: 'idle'
+    const sprite = new SpriteComponent(stableId, {
+      width: spriteData.width || data.width || 40,
+      height: spriteData.height || data.height || 36,
+      color: spriteData.color || data.color || '#d6a94f',
+      visible: spriteData.visible !== false,
+      defaultAnimation: 'idle',
+      isStatic: Boolean(stableId)
     });
+    sprite.scale = spriteData.scale || data.scale || 1;
     sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
     entity.addComponent(sprite);
-    entity.addComponent(new NameComponent(data.name || '遗失物资', {
-      color: '#ffd36a', fontSize: 14, offsetY: -22, visible: true
+    entity.addComponent(new NameComponent(name, {
+      color: data.nameStyle?.color || '#ffd36a',
+      fontSize: data.nameStyle?.fontSize || 14,
+      offsetY: data.nameStyle?.offsetY ?? -22,
+      visible: data.nameStyle?.visible !== false
     }));
-    entity.itemData = { id: 'death-drop', type: 'death_drop', name: data.name || '遗失物资' };
-    entity.name = data.name || '遗失物资';
+    entity.itemData = {
+      id: 'death-drop', type: 'death_drop', name,
+      imageId: stableId || null, assetId: stableId || null
+    };
+    entity.imageId = stableId || null;
+    entity.assetId = stableId || null;
+    entity.name = name;
     entity.x = position.x;
     entity.y = position.y;
     entity.tags = ['loot', 'deathDrop'];
@@ -553,12 +572,14 @@ export class EntityFactory {
     // 代码渲染样式（无精灵图时用内置绘制，如 'cauldron'）
     if (data.renderStyle) entity.renderStyle = data.renderStyle;
 
-    // 精灵（可选）：有图集或有 renderStyle 都需要 sprite 才能进入 renderEntity 渲染流程
-    if (data.spriteSheet || data.renderStyle) {
-      const sprite = new SpriteComponent(data.spriteSheet || '', {
+    // 稳定资源 ID 优先，旧 spriteSheet/renderStyle 仅作兼容降级。
+    const stableId = data.imageId || data.assetId || '';
+    if (stableId || data.spriteSheet || data.renderStyle) {
+      const sprite = new SpriteComponent(stableId || data.spriteSheet || '', {
         width: data.width || 64,
         height: data.height || 64,
-        defaultAnimation: 'idle'
+        defaultAnimation: 'idle',
+        isStatic: Boolean(stableId)
       });
       sprite.scale = data.scale || 1;
       sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
@@ -595,8 +616,10 @@ export class EntityFactory {
       maxHp: data.maxHp,
       hp: data.hp,
       seats: data.seats,
-      onDestroyed: data.onDestroyed
+      onDestroyed: data.onDestroyed,
+      logistics: data.logistics
     }));
+    if (data.cargo) entity.addComponent(new CargoComponent(data.cargo));
 
     // 载具移动能力（复用 MovementSystem）
     entity.addComponent(new MovementComponent({ speed: data.speed || 120 }));
@@ -604,12 +627,15 @@ export class EntityFactory {
     // 载具本体控制者（driver 席位有人时被接管）
     entity.addComponent(new ControllerComponent({ kind: ControllerKind.AI, team: data.team }));
 
-    if (data.spriteSheet) {
-      const sprite = new SpriteComponent(data.spriteSheet, {
+    const stableId = data.imageId || data.assetId || '';
+    if (stableId || data.spriteSheet) {
+      const sprite = new SpriteComponent(stableId || data.spriteSheet, {
         width: data.width || 64,
         height: data.height || 64,
-        defaultAnimation: 'idle'
+        defaultAnimation: 'idle',
+        isStatic: Boolean(stableId)
       });
+      sprite.scale = data.scale || 1;
       sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
       entity.addComponent(sprite);
     }

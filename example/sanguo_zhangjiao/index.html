@@ -1669,12 +1669,16 @@
             else notifier.addNotification(message, 'info', 4500);
         }
 
-        async function performAutoSave({ reason = 'unknown' } = {}) {
+        async function performAutoSave({ reason = 'unknown', checkpointId = null, sceneId = null } = {}) {
             showAutoSaveStatus('自动存档保存中...');
-            const result = saveGames.saveAuto(currentSaveMeta());
+            const meta = currentSaveMeta();
+            meta.reason = reason;
+            if (checkpointId) meta.checkpointId = checkpointId;
+            if (sceneId) meta.currentSceneId = sceneId;
+            const result = saveGames.saveAuto(meta);
             if (!result.ok) {
                 showAutoSaveStatus('自动存档保存失败', 'error');
-                console.warn('自动保存失败', { reason, errors: result.errors });
+                console.warn('自动保存失败', { reason, checkpointId, errors: result.errors });
                 return result;
             }
             const fileResult = await persistSaveFiles(result.autoSlotId, result.snapshot);
@@ -1687,7 +1691,7 @@
             if (fileResult.ok) showAutoSaveStatus('自动存档保存成功', 'success');
             else {
                 showAutoSaveStatus('自动存档保存失败', 'error');
-                console.warn('自动存档文件保存失败', { reason, errors: fileResult.errors });
+                console.warn('自动存档文件保存失败', { reason, checkpointId, errors: fileResult.errors });
             }
             return completed;
         }
@@ -1700,6 +1704,34 @@
                 .finally(() => { autoSaveInFlight = null; });
             return autoSaveInFlight;
         }
+
+        /** 只恢复精确匹配 checkpointId 的最新自动存档，不猜测普通自动位。 */
+        async function loadCheckpointAutoSave({ checkpointId } = {}) {
+            const targetId = String(checkpointId || '');
+            if (!targetId) return { ok: false, code: 'checkpointIdMissing' };
+            if (autoSaveInFlight) await autoSaveInFlight;
+            const candidate = saveGames.getAutoSlots()
+                .filter(slot => slot.exists && slot.info?.meta?.checkpointId === targetId)
+                .sort((a, b) => (Number(b.info?.createdAt) || 0) - (Number(a.info?.createdAt) || 0))[0];
+            if (!candidate) return { ok: false, code: 'checkpointNotFound', checkpointId: targetId };
+
+            const inspected = saveGames.inspectAuto(candidate.index);
+            if (!inspected.ok) return { ...inspected, code: 'checkpointInspectFailed' };
+            const savedState = inspected.snapshot?.data?.game;
+            const prepared = await scene?.prepareRestoreRegion?.(savedState);
+            if (prepared?.ok === false) {
+                return {
+                    ok: false,
+                    code: 'checkpointRegionPrepareFailed',
+                    errors: prepared.errors || []
+                };
+            }
+            const loaded = saveGames.loadAuto(candidate.index);
+            return loaded.ok
+                ? { ...loaded, checkpointId: targetId, autoSlotIndex: candidate.index }
+                : { ...loaded, code: 'checkpointRestoreFailed' };
+        }
+        globalThis.__loadCheckpointAutoSave = loadCheckpointAutoSave;
 
         async function confirmSavePicker() {
             if (savePickerConfirmInFlight || isOverwriteConfirmationOpen()) return;
@@ -2138,7 +2170,12 @@
                 if (scene) {
                     setupSceneCallbacks(scene);
                     scene.setSystemMenuCallback?.(() => openSystemMenu());
-                    scene.setAutoSaveCallback?.(context => autoSaveCurrentGame({ reason: context?.reason || 'scene-event' }));
+                    scene.setAutoSaveCallback?.(context => autoSaveCurrentGame({
+                        reason: context?.reason || 'scene-event',
+                        checkpointId: context?.checkpointId || null,
+                        sceneId: context?.sceneId || null
+                    }));
+                    scene.setCheckpointLoadCallback?.(context => loadCheckpointAutoSave(context));
 
                     // 启动必须等待世界和 GameLoader 成功；任何失败都不能进入可运行或可写档状态。
                     const readyTasks = [scene._worldLoadPromise, scene._gameLoaderReady].filter(Boolean);

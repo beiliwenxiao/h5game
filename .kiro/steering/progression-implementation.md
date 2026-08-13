@@ -64,6 +64,9 @@ CombatSystem      表现与伤害结算（作为执行器被调用）
 - `requireUnlock: false` 用于尚未接入成长系统的场景。
 - 场景快捷栏执行 canonical 技能时必须先走 `AbilitySystem`；只有 SkillRegistry 中不存在的 legacy 技能才回退旧 `CombatSystem.tryUseSkillAtPosition()`。`AbilitySystem` 已拥有消耗和冷却，执行器不得重复扣除。
 - `SceneFramePipeline` 必须每帧调用 `AbilitySystem.update(deltaTime, entities)`，否则带 `castTime` 的技能会永久停留在施法状态。
+- 位移能力仍遵循同一职责边界：`AbilitySystem` 唯一拥有高级位移的成长解锁、体力消耗、冷却、施法与失败回滚；`LocomotionSystem` 只把已批准命令委托给 `JumpSystem`、`FlightSystem`、`ClimbSystem` 执行，不重复扣费或判断成长节点。
+- S01 普通跳是所有职业的 baseline，不需要成长解锁；职业 jump 节点只强化基础跳并作为用力跳、轻功、攀爬等高级位移前置。手柄 Y 必须通过 `SceneInputFlow` 的 canonical `jump` 动作进入同一执行链。
+- 临时高度层由 `LayerComponent.acquireLayer/releaseLayer` 的 token 租约管理；Flight/Climb 只能释放自己持有的 token，禁止 `popLayer` 误删其他位移系统的层。
 
 ## 职业、库存与采集接线
 
@@ -229,8 +232,8 @@ MOVE     右键
 - `SceneInputFlow`：统一帧首手柄 poll、弹窗优先消费、战斗意图、InputActionRouter 与正常帧末 flush；转场提前返回只 release，不清输入。
 - `SceneHudUpdater`：统一冷却、面板、对话框、手柄面板和小地图更新；RenderPipeline 只绘制，不在 render 内修改 UI 状态。
 - `SceneLifecycleCoordinator`：为同步 Scene API 提供 `exitSync()`，Base 退出事务由协调器拥有；ResourceScope 先失效，随后按既有顺序释放输入、玩家、系统、UI 与实体。
-- `WorldMapLoadSession` + `WorldReadyGate`：项目/场景只加载一次，terrain 与 placements 共享 Promise；JSON 文件优先、localStorage 仅 fallback，3 秒超时仍开放渲染。玩家启动意图必须在场景 `enter()` 前确定；通用 placements 投影只允许 `newGame` 首次消费当前 `sceneId` 的 canonical 玩家出生点。读档位置由 `restoreSaveState()`、继承位置由 `ScenePlayerLifecycle`、同区传送由 `ChunkNavigator`、跨区传送由 `RegionCoordinator` 各自持有，加载 placements 不得再次覆盖。
-- `RegionCoordinator`：跨 Region 必须使用独立 shadow session 执行 load/validate，目标提交成功后才释放旧 session；提交开始后的任何失败必须恢复旧 session 与完整状态草稿。卸载区的节点、敌人、掉落等放入按 `regionId` 隔离的 `regionStates`，不得因释放运行时实例而丢失。读档先通过 `SaveGameService.inspect/inspectAuto` 取得目标 `currentSceneId` 并准备对应 Region，再进入同步原子 restore。
+- `WorldMapLoadSession` + `WorldReadyGate`：项目只加载一次；session 只预载启动/目标场景，邻近八格由唯一 `src/core/WorldStreamingManager.js` 的异步 `sceneResolver` 按需读取磁盘 JSON，localStorage 仅 fallback。core manager 唯一拥有 Region 命名空间 `loaded/savedStates`、latest-wins、九宫格 prepare/commit/rollback 和 provider 快照；`src/systems/WorldStreamingManager.js` 仅无状态兼容转发。同步 `deserialize()` 必须完整 validate/prepare 后原子恢复当前 loaded chunk/provider，不卸载 runtime、不发 IO，成功后标记下一帧 refresh。terrain 与 placements 共享已加载的 chunk 数据，3 秒超时仍开放渲染。玩家启动意图必须在场景 `enter()` 前确定；通用 placements 投影只允许 `newGame` 首次消费当前 `sceneId` 的 canonical 玩家出生点。读档位置由 `restoreSaveState()`、继承位置由 `ScenePlayerLifecycle`、同区传送由 `ChunkNavigator`、跨区传送由 `RegionCoordinator` 各自持有，加载 placements 不得再次覆盖。
+- `RegionCoordinator`：跨 Region 必须使用独立 shadow session 加载目标入口，并在 commit 前由 detached core `WorldStreamingManager` 完成目标九宫格 load/validate；目标 manager 准备失败时旧 Region、玩家位置、Story 和 runtime 零修改。提交开始后的任何失败恢复旧 session 与完整状态草稿，成功后才释放旧 session。卸载区按 `regionId` 保存完整 `worldStreamingState`；资源节点、placement、DeathDrop、S10 工事和 S14 载具/物流只由流式 provider 保存，禁止再与 legacy `regionStates` 领域字段双写。读档先通过 `SaveGameService.inspect/inspectAuto` 取得目标 `currentSceneId` 并准备对应 Region，再进入同步原子 restore。
 - `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。`PlacementSpawner.shouldSpawn({ placement, selector })` 是条件化放置的唯一注入口；返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`，StoryState 解释仍留在具体游戏。`sceneEnter` 初始组只允许生成开场即可见的静态资源/道具/NPC；延迟敌人必须使用独立 group + `spawnWhen`，由可视化空间 trigger 在领域状态提交后调用 `spawnPlacements`，禁止把尚未进入剧情的主动 AI 混入初始组。
 - `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话事件、场景标记、上下文和 sceneEnter；`DialogueSystem.onEnd/onChoice` 都是可取消的多监听器，Bridge 分别发布 `dialogueEnd{id}` 与 `dialogueChoice{id,choiceId,index,nextNode}`，具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
 - `TimeSystem`：除昼夜段外统一拥有从 1 开始的 `currentDay`，支持 `advanceDays()` 与 `serialize/deserialize`。历史延迟后果描述保存在 StoryState（稳定 event id、dueDay、status），到期领域提交仍遵循草稿→提交→checkpoint，保存失败恢复草稿并保留 pending 供重试。

@@ -1,179 +1,320 @@
 /************************************************************
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
- * 
- * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
- * @author    刘枭 (beiliwenxiao)
- * @email     beiliwenxiao@qq.com
- * @date      2026-07-16
- * @blog      https://blog.csdn.net/beiliwenxiao
- * @repo      https://github.com/beiliwenxiao/yijian18-engine
- *            https://gitee.com/coderaaa/yijian18-engine
+ * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+const CHUNK_STATE_SCHEMA_VERSION = 1;
+
+function cloneValue(value) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function isPromise(value) {
+  return !!value && typeof value.then === 'function';
+}
+
 /**
- * LoadedChunk - 已加载的地图块
- *
- * 管理一个 chunk 内的实体（NPC/敌人/装饰物/建筑/载具）的实例化、渲染和状态持久化。
- * 由 WorldStreamingManager 创建和销毁。
- *
- * 坐标约定：
- * - chunk 数据（来自编辑器）使用**局部坐标**（相对 chunk 左上角）
- * - 实例化时转为**世界坐标**（+= origin）
- * - 渲染时由相机变换处理（与其他实体一致）
+ * detached chunk 容器。实体创建完全委托 placementAdapter，core 不解释 Demo 内容库。
  */
 export class LoadedChunk {
-  /**
-   * @param {Object} options
-   * @param {number} options.col - chunk 网格列
-   * @param {number} options.row - chunk 网格行
-   * @param {string} options.sceneId - 对应编辑器场景 ID
-   * @param {{x: number, y: number}} options.origin - chunk 世界坐标原点
-   * @param {Object} [options.sceneData] - 编辑器场景数据（layers/objects/terrain）
-   * @param {Object} [options.savedState] - 之前卸载时保存的状态
-   */
   constructor(options = {}) {
-    this.col = options.col;
-    this.row = options.row;
-    this.sceneId = options.sceneId;
+    this.key = options.key || '';
+    this.regionId = options.regionId || 'default';
+    this.chunkId = options.chunkId || options.sceneId || '';
+    this.sceneId = options.sceneId || this.chunkId;
+    this.sceneNamespace = options.sceneNamespace || this.sceneId.replace(/-C\d{2}$/, '');
+    this.col = Number(options.col) || 0;
+    this.row = Number(options.row) || 0;
     this.origin = options.origin || { x: 0, y: 0 };
     this.sceneData = options.sceneData || null;
-
-    // 本 chunk 管理的实体 ID 列表（世界 entities 数组中的引用）
+    this.placementAdapter = options.placementAdapter || null;
     this.entityIds = [];
-
-    // 装饰物渲染队列（世界坐标）
+    this.entities = [];
     this.decorations = [];
-
-    // 动态状态（拾取/死怪/开关/NPC位置）
-    this._state = {
-      pickedItems: [],    // 已拾取的物品 ID
-      killedEnemies: [],  // 已死亡的敌人 ID
-      switches: {},       // 开关状态 { switchId: boolean }
-      npcPositions: {}    // NPC 位置覆盖 { npcId: {x, y} }
-    };
-
-    // 恢复之前保存的状态
+    this.sceneObjects = [];
+    this.placements = [];
+    this.triggerBindings = [];
+    this.effectZones = [];
+    this._commitHandle = null;
+    this._state = this._emptyState();
     if (options.savedState) {
-      this.restoreState(options.savedState);
+      const restored = this.restoreState(options.savedState);
+      if (!restored.ok) throw new TypeError(`LoadedChunk ${this.chunkId} savedState is invalid`);
     }
   }
 
-  /**
-   * 实例化 chunk 内的实体（从 sceneData 创建世界坐标实体）
-   * @param {EntityFactory} entityFactory
-   * @param {Array} worldEntities - 全局实体数组（push 进去）
-   * @param {Object} [registries] - 定义注册表
-   */
-  instantiate(entityFactory, worldEntities, registries) {
-    if (!this.sceneData) return;
+  _emptyState() {
+    return {
+      schemaVersion: CHUNK_STATE_SCHEMA_VERSION,
+      pickedItems: [],
+      killedEnemies: [],
+      switches: {},
+      npcPositions: {},
+      placementState: null
+    };
+  }
 
-    const ox = this.origin.x;
-    const oy = this.origin.y;
+  _context(extra = {}) {
+    return {
+      chunk: this,
+      key: this.key,
+      regionId: this.regionId,
+      chunkId: this.chunkId,
+      sceneId: this.sceneId,
+      sceneNamespace: this.sceneNamespace,
+      col: this.col,
+      row: this.row,
+      origin: { ...this.origin },
+      sceneData: this.sceneData,
+      state: cloneValue(this._state),
+      ...extra
+    };
+  }
 
-    // 从场景 layers 中提取可实例化的逻辑对象
-    const layers = this.sceneData.layers || [];
-    for (const layer of layers) {
-      if (!layer || !layer.objects || layer.visible === false) continue;
-      for (const obj of layer.objects) {
-        if (!obj) continue;
-
-        // 跳过已被消灭/已拾取的对象
-        if (obj.type === 'ref' && obj.kind === 'enemy' && this._state.killedEnemies.includes(obj.ref)) continue;
-        if (obj.type === 'ref' && obj.kind === 'item' && this._state.pickedItems.includes(obj.ref)) continue;
-
-        // 逻辑对象：type='ref' 引用内容库定义
-        if (obj.type === 'ref') {
-          const worldX = (obj.x || 0) + ox;
-          const worldY = (obj.y || 0) + oy;
-          // 恢复 NPC 位置
-          if (obj.kind === 'npc' && this._state.npcPositions[obj.ref]) {
-            const pos = this._state.npcPositions[obj.ref];
-            // 使用保存的位置而非默认位置
-          }
-          // TODO: 按 kind 调用 entityFactory 创建实体
-          // entityFactory.createFromLibrary(obj.kind, obj.ref, worldX, worldY, registries)
-        }
-
-        // 装饰物（非逻辑对象）
-        if (obj.type === 'deco' || obj.type === 'slice') {
-          this.decorations.push({
-            ...obj,
-            x: (obj.x || 0) + ox,
-            y: (obj.y || 0) + oy
-          });
-        }
+  async prepare({ signal = null, savedState = null } = {}) {
+    if (signal?.aborted) return { ok: false, errors: [{ code: 'aborted', path: '', message: 'Chunk 准备已取消' }] };
+    if (savedState) {
+      const check = this.validateState(savedState);
+      if (!check.ok) return check;
+    }
+    const placements = [];
+    const decorations = [];
+    const sceneObjects = [];
+    const triggerBindings = [];
+    const effectZones = [];
+    for (const layer of this.sceneData?.layers || []) {
+      if (!layer || layer.visible === false) continue;
+      for (const object of layer.objects || []) {
+        if (!object) continue;
+        const projected = this._projectObject(object);
+        sceneObjects.push(projected);
+        if (object.type === 'ref' || object.type === 'spawn') placements.push(projected);
+        if (object.type === 'trigger') triggerBindings.push(projected);
+        if (object.type === 'effectZone') effectZones.push(projected);
+        if (object.type === 'deco' || object.type === 'slice' || object.type === 'image') decorations.push(projected);
       }
     }
-  }
-
-  /**
-   * 记录物品被拾取
-   * @param {string} itemId
-   */
-  markItemPicked(itemId) {
-    if (!this._state.pickedItems.includes(itemId)) {
-      this._state.pickedItems.push(itemId);
+    const objects = this.sceneData?.objects || {};
+    for (const list of [objects.npcs, objects.spawns, objects.portals, objects.regions]) {
+      for (const object of list || []) {
+        const projected = this._projectObject(object);
+        sceneObjects.push(projected);
+        placements.push(projected);
+      }
     }
-  }
-
-  /**
-   * 记录敌人被击杀
-   * @param {string} enemyId
-   */
-  markEnemyKilled(enemyId) {
-    if (!this._state.killedEnemies.includes(enemyId)) {
-      this._state.killedEnemies.push(enemyId);
+    let placementDraft = null;
+    if (typeof this.placementAdapter?.prepare === 'function') {
+      placementDraft = await this.placementAdapter.prepare(this._context({ placements, signal }));
+      if (placementDraft?.ok === false) return placementDraft;
     }
+    return {
+      ok: true,
+      placements,
+      decorations,
+      sceneObjects,
+      triggerBindings,
+      effectZones,
+      placementDraft: placementDraft?.draft ?? placementDraft
+    };
   }
 
-  /**
-   * 设置开关状态
-   * @param {string} switchId
-   * @param {boolean} value
-   */
-  setSwitch(switchId, value) {
-    this._state.switches[switchId] = value;
+  validatePrepared(prepared) {
+    const errors = [];
+    if (!prepared || prepared.ok === false || !Array.isArray(prepared.placements) ||
+        !Array.isArray(prepared.decorations) || !Array.isArray(prepared.sceneObjects) ||
+        !Array.isArray(prepared.triggerBindings) || !Array.isArray(prepared.effectZones)) {
+      errors.push({ code: 'invalidChunkDraft', path: '', message: 'Chunk detached 草稿无效' });
+      return { ok: false, errors };
+    }
+    if (typeof this.placementAdapter?.validatePrepared === 'function') {
+      const check = this.placementAdapter.validatePrepared(prepared.placementDraft, this._context());
+      if (isPromise(check)) {
+        errors.push({ code: 'asyncValidationUnsupported', path: 'placementDraft', message: '提交前校验必须同步完成' });
+      } else if (check?.ok === false) {
+        errors.push(...(check.errors || [{ code: 'invalidPlacementDraft', path: 'placementDraft', message: '放置草稿无效' }]));
+      }
+    }
+    return { ok: errors.length === 0, errors };
   }
 
-  /**
-   * 保存 NPC 当前位置
-   * @param {string} npcId
-   * @param {number} x - 世界坐标
-   * @param {number} y - 世界坐标
-   */
-  saveNpcPosition(npcId, x, y) {
-    this._state.npcPositions[npcId] = { x: x - this.origin.x, y: y - this.origin.y };
+  async commit(prepared) {
+    const check = this.validatePrepared(prepared);
+    if (!check.ok) return check;
+    let adapterResult = { ok: true, entities: [], entityIds: [], rollback: null };
+    if (typeof this.placementAdapter?.commit === 'function') {
+      adapterResult = await this.placementAdapter.commit(prepared.placementDraft, this._context({ placements: prepared.placements }));
+      if (adapterResult?.ok === false) return adapterResult;
+    }
+    this.decorations = prepared.decorations;
+    this.sceneObjects = prepared.sceneObjects;
+    this.placements = prepared.placements;
+    this.triggerBindings = prepared.triggerBindings;
+    this.effectZones = prepared.effectZones;
+    this.entities = Array.isArray(adapterResult?.entities) ? adapterResult.entities : [];
+    this.entityIds = Array.isArray(adapterResult?.entityIds)
+      ? adapterResult.entityIds.slice()
+      : this.entities.map(entity => entity?.id).filter(Boolean);
+    this._commitHandle = adapterResult?.commitHandle ?? null;
+    return { ok: true, rollback: adapterResult?.rollback ?? null, adapterResult };
   }
 
-  /**
-   * 序列化状态（卸载时保存）
-   * @returns {Object}
-   */
-  serialize() {
-    return JSON.parse(JSON.stringify(this._state));
-  }
-
-  /**
-   * 恢复状态（重新加载时）
-   * @param {Object} state
-   */
-  restoreState(state) {
-    if (!state) return;
-    this._state.pickedItems = state.pickedItems || [];
-    this._state.killedEnemies = state.killedEnemies || [];
-    this._state.switches = state.switches || {};
-    this._state.npcPositions = state.npcPositions || {};
-  }
-
-  /**
-   * 销毁 chunk（卸载时调用）
-   * 清理实体引用和装饰物
-   */
-  destroy() {
+  async rollbackPrepared(commitResult, prepared) {
+    if (typeof this.placementAdapter?.rollback === 'function') {
+      await this.placementAdapter.rollback(
+        commitResult?.rollback ?? commitResult?.adapterResult?.rollback ?? null,
+        this._context({ placementDraft: prepared?.placementDraft })
+      );
+    } else if (typeof this.placementAdapter?.release === 'function') {
+      await this.placementAdapter.release(this._context({ commitHandle: this._commitHandle }));
+    }
     this.entityIds = [];
+    this.entities = [];
     this.decorations = [];
-    this.sceneData = null;
+    this.sceneObjects = [];
+    this.placements = [];
+    this.triggerBindings = [];
+    this.effectZones = [];
+    this._commitHandle = null;
+    return { ok: true };
+  }
+
+  async discardPrepared(prepared) {
+    if (typeof this.placementAdapter?.discard === 'function') {
+      await this.placementAdapter.discard(prepared?.placementDraft, this._context());
+    }
+  }
+
+  /** 兼容入口；正式流式路径使用 prepare → validatePrepared → commit。 */
+  async instantiate(placementAdapter = this.placementAdapter) {
+    if (placementAdapter) this.placementAdapter = placementAdapter;
+    const prepared = await this.prepare();
+    if (prepared?.ok === false) return prepared;
+    return this.commit(prepared);
+  }
+
+  _projectObject(object) {
+    const projected = {
+      ...cloneValue(object),
+      localX: Number(object.x) || 0,
+      localY: Number(object.y) || 0,
+      x: (Number(object.x) || 0) + this.origin.x,
+      y: (Number(object.y) || 0) + this.origin.y,
+      sceneId: this.sceneId,
+      chunkId: this.chunkId,
+      sceneNamespace: this.sceneNamespace,
+      row: this.row,
+      col: this.col
+    };
+    if (typeof object.sortY === 'number') projected.sortY = object.sortY + this.origin.y;
+    if (Array.isArray(object.points)) {
+      projected.points = object.points.map(point => {
+        if (Array.isArray(point)) return [point[0] + this.origin.x, point[1] + this.origin.y, ...point.slice(2)];
+        if (point && typeof point === 'object') {
+          return {
+            ...point,
+            ...(typeof point.x === 'number' ? { x: point.x + this.origin.x } : {}),
+            ...(typeof point.y === 'number' ? { y: point.y + this.origin.y } : {})
+          };
+        }
+        return point;
+      });
+    }
+    Object.defineProperty(projected, '_worldOffsetApplied', { value: true, enumerable: false });
+    return projected;
+  }
+
+  markItemPicked(itemId) {
+    if (itemId && !this._state.pickedItems.includes(itemId)) this._state.pickedItems.push(itemId);
+  }
+
+  markEnemyKilled(enemyId) {
+    if (enemyId && !this._state.killedEnemies.includes(enemyId)) this._state.killedEnemies.push(enemyId);
+  }
+
+  setSwitch(switchId, value) {
+    if (switchId) this._state.switches[switchId] = !!value;
+  }
+
+  saveNpcPosition(npcId, x, y) {
+    if (!npcId || !Number.isFinite(Number(x)) || !Number.isFinite(Number(y))) return false;
+    this._state.npcPositions[npcId] = { x: Number(x) - this.origin.x, y: Number(y) - this.origin.y };
+    return true;
+  }
+
+  serialize() {
+    let placementState = this._state.placementState;
+    if (typeof this.placementAdapter?.capture === 'function') {
+      placementState = this.placementAdapter.capture(this._context({
+        entities: this.entities,
+        entityIds: this.entityIds,
+        commitHandle: this._commitHandle
+      }));
+      if (isPromise(placementState)) throw new TypeError('LoadedChunk placementAdapter.capture must be synchronous');
+    }
+    return cloneValue({ ...this._state, placementState });
+  }
+
+  validateState(state) {
+    const errors = [];
+    if (!state || state.schemaVersion !== CHUNK_STATE_SCHEMA_VERSION) {
+      errors.push({ code: 'chunkStateVersionMismatch', path: 'schemaVersion', message: 'Chunk 状态版本不兼容' });
+      return { ok: false, errors };
+    }
+    if (!Array.isArray(state.pickedItems) || !Array.isArray(state.killedEnemies) ||
+        !state.switches || typeof state.switches !== 'object' ||
+        !state.npcPositions || typeof state.npcPositions !== 'object') {
+      errors.push({ code: 'invalidChunkState', path: '', message: 'Chunk 动态状态字段无效' });
+    }
+    for (const [id, position] of Object.entries(state.npcPositions || {})) {
+      if (!id || !Number.isFinite(Number(position?.x)) || !Number.isFinite(Number(position?.y))) {
+        errors.push({ code: 'invalidNpcPosition', path: `npcPositions.${id}`, message: 'NPC 局部坐标无效' });
+      }
+    }
+    if (typeof this.placementAdapter?.validateState === 'function' && state.placementState != null) {
+      const check = this.placementAdapter.validateState(state.placementState, this._context());
+      if (isPromise(check)) {
+        errors.push({ code: 'asyncValidationUnsupported', path: 'placementState', message: 'Chunk 状态校验必须同步' });
+      } else if (check?.ok === false) {
+        errors.push(...(check.errors || []).map(error => ({
+          ...error,
+          path: `placementState${error.path ? `.${error.path}` : ''}`
+        })));
+      }
+    }
+    return { ok: errors.length === 0, errors };
+  }
+
+  restoreState(state) {
+    const check = this.validateState(state);
+    if (!check.ok) return check;
+    this._state = cloneValue(state);
+    return { ok: true, errors: [] };
+  }
+
+  async release() {
+    if (typeof this.placementAdapter?.release === 'function') {
+      await this.placementAdapter.release(this._context({
+        entities: this.entities,
+        entityIds: this.entityIds,
+        commitHandle: this._commitHandle
+      }));
+    }
+    this.entityIds = [];
+    this.entities = [];
+    this.decorations = [];
+    this.sceneObjects = [];
+    this.placements = [];
+    this.triggerBindings = [];
+    this.effectZones = [];
+    this._commitHandle = null;
+  }
+
+  destroy() {
+    const result = this.release();
+    if (isPromise(result)) result.catch(error => console.warn('LoadedChunk: 异步释放失败', this.key, error));
   }
 }
 
+export { CHUNK_STATE_SCHEMA_VERSION };
 export default LoadedChunk;

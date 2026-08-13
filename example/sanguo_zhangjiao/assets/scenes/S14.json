@@ -2,7 +2,32 @@
   "id": "S14", "name": "S14·结局之地", "width": 1280, "height": 720, "backgroundColor": "#24282a",
   "type": "terrain", "sceneType": "worldChunk", "worldMap": "region-d", "productionState": "playable", "previewOnly": false,
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
-  "gameplay": { "endingConfigId": "sanguo-zhangjiao-endings-v1", "resourceDivergenceId": "final-retreat-resources", "freezeOnEnter": true, "checkpointBeforeEnding": "checkpoint.S14.preEnding", "postEndingActions": ["returnTitle", "loadPreEndingSave", "viewUnlockedEndings"] },
+  "gameplay": {
+    "endingConfigId": "sanguo-zhangjiao-endings-v1",
+    "resourceDivergenceId": "final-retreat-resources",
+    "freezeOnEnter": true,
+    "checkpointBeforeEnding": "checkpoint.S14.preEnding",
+    "postEndingActions": ["returnTitle", "loadPreEndingSave", "viewUnlockedEndings"],
+    "vehicles": [
+      {
+        "id": "vehicle.s14.lastCart", "markerId": "S14-last-cart", "vehicleType": "cart",
+        "name": "最后的伤员马车", "imageId": "s14.vehicle.lastRetreatCart", "width": 220, "height": 128,
+        "maxHp": 420, "hp": 420, "speed": 72, "renderMode": "sceneObject",
+        "seats": [{ "id": "driver", "role": "driver", "offset": [0, -30] }],
+        "cargo": { "capacity": 80, "maxSlots": 12, "items": [] }
+      },
+      {
+        "id": "vehicle.s14.catapult", "markerId": "S14-unassembled-catapult", "vehicleType": "catapult",
+        "name": "缺少主梁的投石车", "imageId": "s14.vehicle.unassembledCatapult", "width": 220, "height": 150,
+        "maxHp": 600, "hp": 600, "speed": 32, "renderMode": "sceneObject",
+        "seats": [{ "id": "driver", "role": "driver", "offset": [-28, -34] }, { "id": "gunner", "role": "gunner", "offset": [34, -48] }],
+        "logistics": { "catapultAssembled": false },
+        "assemblyRequirements": { "resource.wood": 40 },
+        "fireCosts": { "resource.stone": 2, "resource.manpower": 1 }
+      }
+    ],
+    "cartLoad": [{ "itemId": "resource.food", "quantity": 20 }, { "itemId": "resource.herb", "quantity": 8 }]
+  },
   "composition": { "complexity": "medium", "focalPoint": "S14-last-cart", "primaryRoute": ["S14-spawn-entry", "S14-last-cart", "S14-unassembled-catapult", "S14-ending-marker"], "cameraFrame": { "width": 1280, "height": 720 } },
   "assetBudget": { "environmentModules": 6, "actorVariants": 0, "interactiveProps": 4, "vfx": 4, "audioLayers": 3 },
   "layers": [

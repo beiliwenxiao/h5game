@@ -98,7 +98,8 @@ export class CityWarSystem {
   }
 
   async applyBattleResult({ result, operationId, context = {} } = {}) {
-    if (!this.readState || !this.commitState || !this.restoreState || !this.createCheckpoint) {
+    const deferCheckpoint = context.deferCheckpoint === true;
+    if (!this.readState || !this.commitState || !this.restoreState || (!deferCheckpoint && !this.createCheckpoint)) {
       return { ok: false, code: 'stateAdapterMissing' };
     }
     const opId = String(operationId || `battle-result:${result?.resultId || 'missing'}`);
@@ -109,24 +110,28 @@ export class CityWarSystem {
     const before = clone(this.readState());
     const prepared = this.prepareDraft(before, result, context);
     if (!prepared.ok || prepared.idempotent) return prepared;
+    const operationsBefore = new Map(this._operations);
+    const settled = { ok: true, resultId: result.resultId, state: clone(prepared.draft) };
 
     try {
       const committed = await this.commitState(clone(prepared.draft));
       if (committed === false) throw new Error('stateCommitRejected');
+      this._rememberOperation(opId, payload, settled);
       this.onEvent('battleResultApplied', { result: clone(result), context: clone(context) });
-      const checkpoint = await this.createCheckpoint({
-        checkpointId: context.checkpointId || `checkpoint.${result.battleId}.resolved`,
-        result: clone(result)
-      });
-      if (checkpoint?.ok === false) throw new Error(checkpoint.errors?.[0]?.message || 'checkpointRejected');
+      if (!deferCheckpoint) {
+        const checkpoint = await this.createCheckpoint({
+          checkpointId: context.checkpointId || `checkpoint.${result.battleId}.resolved`,
+          result: clone(result)
+        });
+        if (checkpoint?.ok === false) throw new Error(checkpoint.errors?.[0]?.message || 'checkpointRejected');
+      }
     } catch (error) {
       await this.restoreState(before);
+      this._operations = operationsBefore;
       this.onEvent('battleResultRolledBack', { resultId: result?.resultId, reason: String(error?.message || error) });
       return { ok: false, code: 'settlementRolledBack', message: String(error?.message || error) };
     }
 
-    const settled = { ok: true, resultId: result.resultId, state: clone(prepared.draft) };
-    this._rememberOperation(opId, payload, settled);
     return settled;
   }
 

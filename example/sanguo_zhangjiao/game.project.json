@@ -101,6 +101,19 @@
           "experiencePerUnit": 1
         }
       }
+    },
+    "battleRewards": {
+      "intervention": [{ "pool": "unit", "amount": 1 }],
+      "victory": [{ "pool": "unit", "amount": 1 }],
+      "byScene": {
+        "S03": [{ "pool": "skill", "amount": 1 }],
+        "S04": [{ "pool": "talent", "amount": 1 }],
+        "S05": [{ "pool": "passive", "amount": 1 }],
+        "S07": [{ "pool": "passive", "amount": 1 }],
+        "S11": [{ "pool": "talent", "amount": 1 }],
+        "S12": [{ "pool": "skill", "amount": 1 }],
+        "S13": [{ "pool": "passive", "amount": 1 }]
+      }
     }
   },
   "construction": {
@@ -122,7 +135,11 @@
         "maxDurability": 100,
         "experience": 10,
         "manned": false,
-        "imageId": "s10.construction.campfire"
+        "imageId": "s10.construction.campfire",
+        "warEffects": {
+          "moraleBonus": 8,
+          "hungerDrainMultiplier": 0.8
+        }
       },
       {
         "id": "construction.barricade",
@@ -143,7 +160,10 @@
         "maxDurability": 180,
         "experience": 20,
         "manned": false,
-        "imageId": "s10.construction.barricade"
+        "imageId": "s10.construction.barricade",
+        "warEffects": {
+          "enemyAdvanceSpeedMultiplier": 0.82
+        }
       },
       {
         "id": "construction.simple_wall",
@@ -164,7 +184,11 @@
         "maxDurability": 300,
         "experience": 30,
         "manned": false,
-        "imageId": "s10.construction.simpleWall"
+        "imageId": "s10.construction.simpleWall",
+        "warEffects": {
+          "friendlyDefenseMultiplier": 1.15,
+          "destroyedDefenseMultiplier": 0.8
+        }
       },
       {
         "id": "construction.arrow_tower",
@@ -185,7 +209,10 @@
         "maxDurability": 400,
         "experience": 50,
         "manned": true,
-        "imageId": "s10.construction.arrowTower"
+        "imageId": "s10.construction.arrowTower",
+        "warEffects": {
+          "friendlyCasualtyMultiplier": 0.85
+        }
       }
     ],
     "sites": [
@@ -329,7 +356,14 @@
       ],
       "delayedConsequences": [],
       "storyTags": [],
-      "hiddenClues": []
+      "hiddenClues": [],
+      "endingInputs": {
+        "cumulativeGathering": { "wood": 0, "iron": 0, "food": 0, "herb": 0 },
+        "gatheringOperations": [],
+        "cityMaintenanceLevel": 0,
+        "allowedCityDestruction": false,
+        "resourceConstructionScore": 0
+      }
     },
     "cityStates": [
       {
@@ -2736,6 +2770,26 @@
         "label": "取消 S10 施工 cancelS10Construction"
       },
       {
+        "value": "interactS10Structure",
+        "label": "修筑、维修或操作 S10 工事 interactS10Structure"
+      },
+      {
+        "value": "repairS10Structure",
+        "label": "维修 S10 工事 repairS10Structure"
+      },
+      {
+        "value": "mountS10ArrowTower",
+        "label": "进入 S10 箭楼席位 mountS10ArrowTower"
+      },
+      {
+        "value": "leaveS10ArrowTower",
+        "label": "离开 S10 箭楼席位 leaveS10ArrowTower"
+      },
+      {
+        "value": "checkS10Exit",
+        "label": "检查 S10 广宗出口 checkS10Exit"
+      },
+      {
         "value": "prepareS05Mine",
         "label": "准备 S05 矿坑事件 prepareS05Mine"
       },
@@ -3875,6 +3929,22 @@
             "siteId": "site.s10.arrow_tower",
             "siteKey": "arrowTower"
           },
+          "await": true
+        }
+      ],
+      "once": false,
+      "cooldown": 0.5
+    },
+    {
+      "id": "trg_s10_exit_s11",
+      "when": {
+        "type": "interact",
+        "params": {}
+      },
+      "do": [
+        {
+          "action": "checkS10Exit",
+          "params": {},
           "await": true
         }
       ],

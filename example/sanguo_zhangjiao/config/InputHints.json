@@ -104,6 +104,24 @@
       "padKey": "jump",
       "padFallback": "未绑定"
     },
+    "powerJump": {
+      "pc": {
+        "key": "技能快捷键",
+        "kind": "raw"
+      },
+      "android": "用力跳技能按钮",
+      "padKey": "skillRelease",
+      "padFallback": "未绑定"
+    },
+    "climb": {
+      "pc": {
+        "key": "空格（靠近攀爬面）",
+        "kind": "raw"
+      },
+      "android": "靠近攀爬面后点击跳跃按钮",
+      "padKey": "jump",
+      "padFallback": "未绑定"
+    },
     "throw": {
       "pc": {
         "key": "Shift",

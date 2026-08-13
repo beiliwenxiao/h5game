@@ -286,11 +286,24 @@ export class EndingPresentationView extends UIElement {
 
   _renderArtwork(ctx, width, height) {
     const shot = this.phase === 'shot' ? this.ending?.shots?.[this.shotIndex] : null;
-    const imageId = shot?.imageId || shot?.keyArtImageId || shot?.cameraImageId
-      || this.ending?.keyArtImageId;
-    if (!imageId) return;
-    const image = this._resolveImage(imageId);
-    const size = this._imageSize(image);
+    const candidates = [
+      shot?.imageId,
+      shot?.keyArtImageId,
+      shot?.cameraImageId,
+      shot?.cameraId,
+      this.ending?.keyArtImageId
+    ].filter((imageId, index, values) => imageId && values.indexOf(imageId) === index);
+    let image = null;
+    let size = null;
+    for (const imageId of candidates) {
+      const candidate = this._resolveImage(imageId);
+      const candidateSize = this._imageSize(candidate);
+      if (candidate && candidateSize) {
+        image = candidate;
+        size = candidateSize;
+        break;
+      }
+    }
     if (!image || !size) return;
     const scale = Math.max(width / size.width, height / size.height);
     const sourceWidth = width / scale;

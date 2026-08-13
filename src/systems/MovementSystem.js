@@ -32,6 +32,9 @@ export class MovementSystem {
     this.camera = config.camera;
     this.statusEffectSystem = config.statusEffectSystem;
     this.jumpSystem = config.jumpSystem || null;
+    this.isMovementLocked = typeof config.isMovementLocked === 'function'
+      ? config.isMovementLocked
+      : entity => this.jumpSystem?.isJumping?.(entity) === true;
     
     // 地图边界（默认无限大）
     this.mapBounds = config.mapBounds || {
@@ -205,7 +208,7 @@ export class MovementSystem {
     
     const movement = playerEntity.getComponent('movement');
     const sprite = playerEntity.getComponent('sprite');
-    if (!movement || this.jumpSystem?.isJumping?.(playerEntity)) return;
+    if (!movement || this.isMovementLocked(playerEntity)) return;
     
     // 方向输入：优先取归一化的方向向量（手柄摇杆带模拟量），
     // 拿不到再退回逐键判断（旧版 InputManager / 测试替身）
@@ -365,8 +368,8 @@ export class MovementSystem {
     // 远程玩家的移动由网络同步控制，不走本地 MovementSystem
     if (entity.isRemote) return;
 
-    // 跳跃期间水平位移由 JumpSystem 逐帧推进，避免普通移动重复叠加。
-    if (this.jumpSystem?.isJumping?.(entity)) {
+    // 位移能力期间坐标由对应执行器推进，避免普通移动重复叠加。
+    if (this.isMovementLocked(entity)) {
       movement.velocity.x = 0;
       movement.velocity.y = 0;
       movement.clearPath?.();

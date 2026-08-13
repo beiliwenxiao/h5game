@@ -152,7 +152,8 @@ export class MannedStructureAdapter {
     }
     const vehicle = structure.getComponent?.('vehicle');
     if (!vehicle?.deserialize) return { ok: false, code: 'vehicleComponentMissing' };
-    vehicle.deserialize(clone(snapshot.vehicle));
+    const restored = vehicle.deserialize(clone(snapshot.vehicle));
+    if (!restored?.ok) return restored || { ok: false, code: 'vehicleRestoreFailed' };
     this.vehicleSystem.registerVehicle(structure);
     return { ok: true, structureId: structure.id };
   }

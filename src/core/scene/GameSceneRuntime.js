@@ -158,6 +158,46 @@ export class GameSceneRuntime {
   }
 
   /**
+   * 将 core WorldStreamingManager 注册为唯一快照参与者，并可选按玩家坐标驱动。
+   * manager 自己处理 latest-wins 并发；运行时不把 deltaTime 误当世界坐标。
+   */
+  attachWorldStreaming(manager, {
+    key = 'worldStreaming',
+    getPosition = null,
+    onTransition = null,
+    onError = null
+  } = {}) {
+    if (!manager || typeof manager.serialize !== 'function' || typeof manager.deserialize !== 'function') {
+      throw new TypeError('GameSceneRuntime.attachWorldStreaming requires WorldStreamingManager');
+    }
+    const offSnapshot = this.registerSnapshotProvider(key, {
+      snapshot: () => manager.serialize(),
+      validate: data => manager.validateSerialized(data),
+      restore: data => manager.deserialize(data),
+      required: true
+    });
+    const offUpdate = typeof getPosition === 'function'
+      ? this.onFramePhase(FramePhase.AFTER_SCENE, () => {
+        const position = getPosition();
+        if (!position) return;
+        Promise.resolve(manager.update(position.x, position.y))
+          .then(result => {
+            if (result?.ok) onTransition?.(result);
+            else if (!result?.superseded) onError?.(result);
+          })
+          .catch(error => onError?.({
+            ok: false,
+            errors: [{ code: 'streamingUpdateFailed', path: '', message: error?.message || String(error) }]
+          }));
+      })
+      : () => {};
+    return () => {
+      offUpdate();
+      offSnapshot();
+    };
+  }
+
+  /**
    * 注册每帧逻辑，在系统更新之后执行
    * @param {Function} hook - (deltaTime) => void
    * @returns {Function} 注销函数

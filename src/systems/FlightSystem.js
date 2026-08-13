@@ -91,7 +91,7 @@ export class FlightSystem {
    * @param {number} targetY - 目标Y坐标
    * @returns {boolean} 是否成功开始飞行
    */
-  startFlight(playerEntityOrTransform, targetX, targetY) {
+  startFlight(playerEntityOrTransform, targetX, targetY, options = {}) {
     // 兼容：可能传入 transform
     let playerTransform = null;
     let playerEntity = null;
@@ -126,12 +126,13 @@ export class FlightSystem {
     const dy = targetY - startY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     
-    // 限制飞行距离
+    // 限制飞行距离；单次能力参数只影响本次执行，不污染系统默认配置。
+    const maxDistance = Math.max(0, Number(options.maxDistance) || this.config.maxDistance);
     let finalTargetX = targetX;
     let finalTargetY = targetY;
     
-    if (distance > this.config.maxDistance) {
-      const ratio = this.config.maxDistance / distance;
+    if (distance > maxDistance) {
+      const ratio = maxDistance / distance;
       finalTargetX = startX + dx * ratio;
       finalTargetY = startY + dy * ratio;
     }
@@ -155,12 +156,17 @@ export class FlightSystem {
       this.camera.externalControl = true;
     }
 
-    // 临时切到 aerial 世界子层
+    // 临时切到 aerial 世界子层；保存租约，避免落地时释放其他系统的临时层。
     if (playerEntity) {
       const layer = playerEntity.getComponent?.('layer');
       if (layer) {
-        layer.pushLayer('aerial');
-        this.flyingData._layerPushed = true;
+        if (typeof layer.acquireLayer === 'function') {
+          this.flyingData._layerToken = layer.acquireLayer('aerial', 'flight');
+          this.flyingData._layerPushed = !!this.flyingData._layerToken;
+        } else {
+          layer.pushLayer?.('aerial');
+          this.flyingData._layerPushed = true;
+        }
       }
     }
     
@@ -287,8 +293,7 @@ export class FlightSystem {
       playerTransform.position.elevation = data.baseElevation ?? 0;
       const restoreEntity = playerEntity || data.playerEntity;
       if (data._layerPushed && restoreEntity) {
-        const layer = restoreEntity.getComponent?.('layer');
-        if (layer) layer.popLayer();
+        this._releaseLayerLease(restoreEntity, data);
       }
 
       this.isFlying = false;
@@ -392,6 +397,19 @@ export class FlightSystem {
     }
   }
   
+  _releaseLayerLease(entity, data) {
+    const layer = entity?.getComponent?.('layer');
+    if (data?._layerToken && typeof layer?.releaseLayer === 'function') {
+      layer.releaseLayer(data._layerToken);
+    } else {
+      layer?.popLayer?.();
+    }
+    if (data) {
+      data._layerPushed = false;
+      data._layerToken = null;
+    }
+  }
+
   /**
    * 取消飞行（紧急恢复 elevation / layer）
    * @param {Object} [playerEntity]
@@ -402,8 +420,7 @@ export class FlightSystem {
       const transform = entity?.getComponent?.('transform');
       if (transform) transform.position.elevation = this.flyingData.baseElevation ?? 0;
       if (this.flyingData._layerPushed && entity) {
-        const layer = entity.getComponent?.('layer');
-        if (layer) layer.popLayer();
+        this._releaseLayerLease(entity, this.flyingData);
       }
     }
     this.isFlying = false;

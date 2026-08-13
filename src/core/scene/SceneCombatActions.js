@@ -5,6 +5,7 @@
  ************************************************************/
 
 import { IntentType } from '../input/GamepadCombatController.js';
+import { AbilityRejectReason } from '../../systems/ability/AbilitySystem.js';
 
 const DIAGONAL_UNIT = Math.SQRT1_2;
 const DIRECTION_VECTORS = Object.freeze({
@@ -97,48 +98,86 @@ export class SceneCombatActions {
     return this.jumpByDirection(axis.x || 0, axis.y || 0);
   }
 
+  _useLocomotion(skillId, options = {}) {
+    const scene = this.scene;
+    const result = scene.abilitySystem?.use?.(scene.playerEntity, skillId, {
+      entities: scene.entities,
+      ...options,
+      context: { scene, ...(options.context || {}) }
+    });
+    if (result?.ok) return true;
+    if (result?.message && [
+      AbilityRejectReason.NOT_UNLOCKED,
+      AbilityRejectReason.INSUFFICIENT_COST
+    ].includes(result.reason)) {
+      scene._showScreenTip?.(result.message);
+    }
+    return false;
+  }
+
   jumpByDirection(dirX = 0, dirY = 0) {
     if (this._isLocked()) return false;
     const scene = this.scene;
     if (scene.dialogueSystem?.isDialogueActive?.() || scene.itemGainedPopup?.visible ||
         scene.backpackPanel?.visible || scene.isTransitioning) return false;
-    if (!scene.jumpSystem || !scene.playerEntity || scene.playerEntity.isDead || scene.playerEntity.pinnedByWeapon) return false;
-    if (scene.meditationSystem?.isActive?.() || scene.jumpSystem.isJumping(scene.playerEntity)) return false;
-    if (scene.flightSystem?.isPlayerFlying?.()) return false;
-    return scene.jumpSystem.startJump(scene.playerEntity, { x: dirX, y: dirY });
+    const player = scene.playerEntity;
+    if (!scene.jumpSystem || !player || player.isDead || player.pinnedByWeapon) return false;
+    if (scene.meditationSystem?.isActive?.() || scene.locomotionSystem?.isBusy?.(player)) return false;
+
+    const climbTarget = scene.resolveClimbTarget?.({ entity: player, direction: { x: dirX, y: dirY } }) || null;
+    if (climbTarget && scene.abilitySystem?.isUnlocked?.(player, 'climb')) {
+      return this._useLocomotion('climb', { context: { climbTarget } });
+    }
+
+    const transform = player.getComponent?.('transform');
+    if (!transform || !scene.abilitySystem) {
+      return scene.jumpSystem.startJump(player, { x: dirX, y: dirY });
+    }
+    const magnitude = Math.hypot(dirX, dirY);
+    const params = scene.abilitySystem.resolveSkillParams?.(player, 'jump', { scene }) || {};
+    const range = Math.max(0, Number(params.range) || scene.jumpSystem.config?.distance || 56);
+    const targetPosition = magnitude > 0
+      ? { x: transform.position.x + (dirX / magnitude) * range, y: transform.position.y + (dirY / magnitude) * range }
+      : { x: transform.position.x, y: transform.position.y };
+    // 普通跳是 S01 教学基线；强化仍由同一技能定义和 EffectResolver 解析。
+    return this._useLocomotion('jump', { targetPosition, requireUnlock: false });
   }
 
   flightByFacing() {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
-    if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
-    const transform = scene.playerEntity.getComponent('transform');
-    if (!transform) return;
+    const player = scene.playerEntity;
+    if (!scene.flightSystem || !player || scene.locomotionSystem?.isBusy?.(player)) return false;
+    const transform = player.getComponent('transform');
+    if (!transform) return false;
     const direction = scene.getPlayerFacingVector();
-    const distance = scene.flightSystem.config?.maxDistance || 400;
-    scene.flightSystem.startFlight(
-      scene.playerEntity,
-      transform.position.x + direction.x * distance,
-      transform.position.y + direction.y * distance
-    );
+    const params = scene.abilitySystem?.resolveSkillParams?.(player, 'flight', { scene }) || {};
+    const distance = Number(params.range) || scene.flightSystem.config?.maxDistance || 400;
+    return this._useLocomotion('flight', {
+      targetPosition: {
+        x: transform.position.x + direction.x * distance,
+        y: transform.position.y + direction.y * distance
+      }
+    });
   }
 
-  flightByDirection(dirX, dirY, distRatio) {
+  flightByDirection(dirX, dirY, distRatio = 1) {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    if (!scene.flightSystem || !scene.playerEntity || scene.flightSystem.isPlayerFlying?.()) return;
-    if (scene.jumpSystem?.isJumping?.(scene.playerEntity)) return;
-    const transform = scene.playerEntity.getComponent('transform');
+    const player = scene.playerEntity;
+    if (!scene.flightSystem || !player || scene.locomotionSystem?.isBusy?.(player)) return false;
+    const transform = player.getComponent('transform');
     const magnitude = Math.hypot(dirX, dirY);
-    if (!transform) return;
-    if (magnitude < 1) return this.flightByFacing();
-    const distance = (scene.flightSystem.config?.maxDistance || 400) * Math.min(distRatio, 1);
-    scene.flightSystem.startFlight(
-      scene.playerEntity,
-      transform.position.x + (dirX / magnitude) * distance,
-      transform.position.y + (dirY / magnitude) * distance
-    );
+    if (!transform) return false;
+    if (magnitude < 0.01) return this.flightByFacing();
+    const params = scene.abilitySystem?.resolveSkillParams?.(player, 'flight', { scene }) || {};
+    const distance = (Number(params.range) || scene.flightSystem.config?.maxDistance || 400) * Math.min(Math.max(Number(distRatio) || 0, 0), 1);
+    return this._useLocomotion('flight', {
+      targetPosition: {
+        x: transform.position.x + (dirX / magnitude) * distance,
+        y: transform.position.y + (dirY / magnitude) * distance
+      }
+    });
   }
 
   throwByFacing() {

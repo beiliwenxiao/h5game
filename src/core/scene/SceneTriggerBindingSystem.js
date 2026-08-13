@@ -107,6 +107,11 @@ export class SceneTriggerBindingSystem {
     return false;
   }
 
+  /** 当前是否有空间 trigger 占用交互提示。 */
+  hasActivePrompt() {
+    return this._activePromptBindingId !== null;
+  }
+
   clear() {
     this._setActivePrompt(null);
     this.bindings = [];

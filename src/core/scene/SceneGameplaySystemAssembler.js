@@ -20,6 +20,7 @@ import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
 import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
 import { FlightSystem } from '../../systems/FlightSystem.js';
 import { JumpSystem } from '../../systems/JumpSystem.js';
+import { LocomotionSystem } from '../../systems/LocomotionSystem.js';
 import { CombatEffects } from '../../rendering/CombatEffects.js';
 import { SkillEffects } from '../../rendering/SkillEffects.js';
 import { WeaponRenderer } from '../../rendering/WeaponRenderer.js';
@@ -45,6 +46,11 @@ export class SceneGameplaySystemAssembler {
       camera: scene.camera
     });
     scene.jumpSystem = new JumpSystem();
+    scene.locomotionSystem = new LocomotionSystem({
+      jumpSystem: scene.jumpSystem,
+      flightSystem: scene.flightSystem,
+      resolveClimbTarget: request => scene.resolveClimbTarget?.(request) || null
+    });
 
     scene.combatSystem = new CombatSystem({
       inputManager: scene.inputManager,
@@ -72,7 +78,8 @@ export class SceneGameplaySystemAssembler {
     scene.movementSystem = new MovementSystem({
       inputManager: scene.inputManager,
       camera: scene.camera,
-      jumpSystem: scene.jumpSystem
+      jumpSystem: scene.jumpSystem,
+      isMovementLocked: entity => scene.locomotionSystem?.isBusy?.(entity) === true
     });
     scene.equipmentSystem = new EquipmentSystem();
     scene.aiSystem = new AISystem();
@@ -142,6 +149,7 @@ export class SceneGameplaySystemAssembler {
       entityStore: scene.entityStore,
       revivePlayer: player => scene.combatSystem.revivePlayer(player),
       respawnResolver: context => scene.resolvePlayerRespawnPosition?.(context) || null,
+      getDeathDropPresentation: context => scene.getDeathDropPresentation?.(context) || {},
       onResolved: result => scene.onPlayerDefeatResolved?.(result)
     });
     scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
@@ -185,6 +193,8 @@ export class SceneGameplaySystemAssembler {
       skillRegistry,
       effectResolver,
       executor: context => {
+        const locomotionHandled = scene.locomotionSystem?.execute?.(context);
+        if (locomotionHandled !== undefined && locomotionHandled !== null) return locomotionHandled;
         const handled = scene.executeAbility?.(context);
         if (handled !== undefined && handled !== null) return handled;
         return scene.combatSystem?.executeSkill?.(context) === true;
@@ -199,6 +209,7 @@ export class SceneGameplaySystemAssembler {
     const scene = this.scene;
     scene.gatheringPuppetSystem?.dispose?.();
     scene.abilitySystem = null;
+    scene.locomotionSystem?.cleanup?.();
     scene.jumpSystem?.cleanup?.();
     scene.flightSystem?.cleanup?.();
     scene.meleeAttackSystem?.cleanup?.();

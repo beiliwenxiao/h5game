@@ -53,6 +53,7 @@ export class ChunkNavigator {
     findSpawn = () => null,
     getPlayer = () => null,
     getCamera = () => null,
+    prepareTarget = null,
     onSceneEnter = null,
     onFallback = null,
     transition = null
@@ -62,6 +63,7 @@ export class ChunkNavigator {
     this.findSpawn = findSpawn;
     this.getPlayer = getPlayer;
     this.getCamera = getCamera;
+    this.prepareTarget = typeof prepareTarget === 'function' ? prepareTarget : null;
     this.onSceneEnter = onSceneEnter;
     this.onFallback = onFallback;
     this.transition = transition;
@@ -109,6 +111,36 @@ export class ChunkNavigator {
     }
 
     const commit = async () => {
+      if (this.prepareTarget) {
+        const prepared = await this.prepareTarget({
+          sceneId,
+          spawnRef,
+          spawn,
+          chunk,
+          x: worldX,
+          y: worldY
+        });
+        if (prepared === false || prepared?.ok === false) {
+          return {
+            ok: false,
+            cancelled: true,
+            reason: 'targetPrepareFailed',
+            errors: prepared?.errors || []
+          };
+        }
+        if (spawnRef != null && !spawn) {
+          try {
+            spawn = prepared?.spawn || this.findSpawn?.(sceneId, spawnRef) || null;
+          } catch (error) {
+            return this._fallback({ reason: 'spawnLookupFailed', sceneId, spawnRef, error });
+          }
+          if (spawn) {
+            const projected = spawn._worldOffsetApplied === true;
+            worldX = (Number(spawn.x) || 0) + (projected ? 0 : offset.x);
+            worldY = (Number(spawn.y) || 0) + (projected ? 0 : offset.y);
+          }
+        }
+      }
       const player = this.getPlayer?.() || null;
       const camera = this.getCamera?.() || null;
       const playerMoved = setPlayerPosition(player, worldX, worldY);

@@ -36,7 +36,7 @@ H:\Android\Sdk\
 ```json
 {
   "appId": "com.sanguo.zhangjiao",
-  "appName": "三国张角",
+  "appName": "三国张角传",
   "webDir": "dist/sanguo_zhangjiao",
   "server": { "androidScheme": "https" }
 }
@@ -85,13 +85,16 @@ android\app\build\outputs\apk\debug\app-debug.apk
 - **`ClassNotFoundException: SdkManagerCli`**：lib 下的 jar 被错误递归解包成了目录，需重新正确解压。
 - **Gradle 找不到 SDK**：检查 `android/local.properties` 的 `sdk.dir`，或设置 `ANDROID_HOME` 环境变量。
 
-## 五、发布版（Release APK，需签名）
+## 五、发布版（Release APK，需签名与版本确认）
 
 ```cmd
 cd android
 gradlew.bat assembleRelease --no-daemon
 ```
-Release 包需配置签名（keystore），未签名包无法安装。签名配置写在 `android/app/build.gradle` 的 `signingConfigs` 中，此处暂未配置。
+
+- 根 `android/app/build.gradle` 当前只有 `versionCode 1`、`versionName "1.0"`，尚未建立经用户确认的发布版本语义；准备对外发布前必须先确认版本号，不能由工具自行猜测。
+- Release signing 当前未配置。keystore、alias 和密码属于发布秘密，不得写入仓库，也不得用 debug key 冒充正式签名；应通过本机 Gradle properties 或 CI secret 注入，确认密钥方案后再接线。
+- 未配置正式签名与版本策略前只能视为开发工程，不能标记为 Release Candidate。
 
 ## 六、移动端 UI 适配（sanguo_zhangjiao）
 
@@ -167,39 +170,20 @@ npx vite build --config example/sanguo_zhangjiao/vite.config.js
 ```
 该配置 `emptyOutDir: true` 会清空并重建 `dist/sanguo_zhangjiao`，并自动拷贝 `assets`、`data`。
 
-## 八、竖屏自动以横屏方式显示（不锁定方向）
+## 八、横屏策略（原生发布锁定，Web 保留兼容 fallback）
 
-需求：手机竖屏时不弹"请旋转手机"，也不强制锁定方向，而是直接把游戏页面以横屏呈现。
+根 Android 工程是发布权威，`android/app/src/main/AndroidManifest.xml` 的 `MainActivity` 固定配置：
+```xml
+android:screenOrientation="landscape"
+```
+因此 Android 安装包由原生层锁定横屏；不得再把发布策略描述为“不锁方向、始终依赖 CSS 旋转”。
 
-### 实现方式（CSS 旋转 + 坐标变换）
-1. **CSS 旋转容器**（`example/sanguo_zhangjiao/index.html`）
-   - 触屏 + 竖屏时给 `body` 加类 `force-landscape`。
-   - `body.force-landscape #game-container` 旋转 90°，宽高对调（`width:100vh; height:100vw`），
-     `transform: translate(-50%,-50%) rotate(90deg)` 填满屏幕。
-   - 横屏/桌面不加类，保持原样。
-   - 移除了原 `screen.orientation.lock('landscape')` 强制锁定 和 `#rotate-overlay` 竖屏提示遮罩。
-
-2. **坐标变换（关键坑）**
-   - CSS 旋转后 `getBoundingClientRect()` 返回的是旋转后外接矩形，触摸/点击坐标会错位。
-   - 框架级补充：`src/core/InputManager.js` 新增 `setPointerTransform(fn)` 钩子，
-     `updateMousePosition` / `updateTouchPosition` 优先用该钩子把页面坐标映射回 canvas 像素坐标。
-   - 入口 `index.html`：
-     - `applyForceLandscape()` 按竖屏与否切换 `force-landscape` 类并重算 canvas 尺寸。
-     - `makePointerTransform()` 返回坐标映射函数（处理旋转 90° + 缩放）；旋转时
-       `cx = py/rect.height*canvas.width`，`cy = (rect.width-px)/rect.width*canvas.height`。
-     - `setupOrientation()` 把变换装到当前场景的 `inputManager.setPointerTransform`，
-       并暴露 `window.__pointerTransform` 供虚拟摇杆复用。
-     - 监听 `resize` / `orientationchange` 动态切换。
-
-3. **虚拟摇杆适配旋转**
-   - 摇杆绘制层改为与主 canvas 同像素尺寸的覆盖 canvas（`#joystick-overlay`），在 canvas 像素空间绘制。
-   - 摇杆的 `clientToCanvas` 复用 `window.__pointerTransform`，保证旋转后摇杆中心、方向、
-     点击移动、技能释放坐标都正确。
+`example/sanguo_zhangjiao/index.html` 仍保留 `force-landscape`、`applyForceLandscape()` 与指针坐标变换，供普通移动浏览器、设备模拟和未受原生方向约束的宿主兼容。原生 WebView 已处于横屏时 `innerWidth >= innerHeight`，该 fallback 不会添加 `force-landscape`，页面保持正常坐标系。
 
 ### 维护要点
-- `setPointerTransform` 是通用框架能力：任何"页面被 CSS 旋转/缩放"的场景都可复用，不止本 demo。
-- 若以后改为原生锁定横屏（AndroidManifest 加 `android:screenOrientation="landscape"`），
-  则不需要 CSS 旋转，此时应让 `applyForceLandscape()` 不加 `force-landscape` 类（横屏即原样）。
+- Android 发布方向只修改根 `android/app/src/main/AndroidManifest.xml`；legacy mobile 工程不参与发布。
+- 浏览器 CSS 旋转存在时必须继续复用 `InputManager.setPointerTransform()`，保证点击、触摸、虚拟摇杆与 Canvas 逻辑坐标一致。
+- 若未来产品决策改为支持原生自由旋转，必须同时修改 Manifest、CSS fallback、指针映射和浏览器/真机验收，不能只改其中一处。
 
 ## 九、网页版 / 安卓版 UI 与文案分离架构（方案 B + 文案 B2）
 

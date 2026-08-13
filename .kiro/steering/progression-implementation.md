@@ -93,6 +93,7 @@ passiveBoard   天赋盘        pointPool: passive，requireConnected: true
 强制约定：
 
 - `NodeDefinition` 禁止包含 `currentRank`、`isLearned`、`isUnlocked`；角色状态只存 `ProgressionState`。
+- `ProgressionGraphSystem` 构造器必须同时初始化 `states`、`ledgers`、`pointGrantOperations` 三份运行态容器；`setProfile/getLedger/deserializeCharacter` 均依赖 `ledgers`。Demo 不得直接探测这些可缺失内部字段，角色成长存在性应通过稳定公开 API 判断。
 - 分配流程：`previewAllocate` 只读校验 → 扣点 → 写等级 → 同步效果；任一步失败不产生半成品状态。
 - `deallocateNode` 先在 `clone()` 草稿上撤销，用 `checkNoOrphans` 检查后才提交，防止后续节点悬空。
 - 天赋盘新节点必须与起点或已分配节点相邻；起点视为天然可达，不需先花点。

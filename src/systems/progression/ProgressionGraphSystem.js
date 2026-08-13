@@ -64,6 +64,8 @@ export class ProgressionGraphSystem {
     this.graphs = new Map();
     /** @type {Map<string, ProgressionState>} */
     this.states = new Map();
+    /** @type {Map<string, PointLedger>} */
+    this.ledgers = new Map();
     /** @type {Map<string, Map<string, {fingerprint:string, result:Object}>>} */
     this.pointGrantOperations = new Map();
     this.maxPointGrantOperations = Math.max(16, Number(config.maxPointGrantOperations) || 256);

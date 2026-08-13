@@ -913,6 +913,79 @@
       "revision": 1
     },
     {
+      "assetId": "graybox.naturalTerrain",
+      "imageId": "graybox.naturalTerrain",
+      "category": "environment-background",
+      "usage": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S07",
+        "S08",
+        "S09",
+        "S10",
+        "S11",
+        "S13",
+        "S14",
+        "natural-terrain",
+        "graybox"
+      ],
+      "sourceFile": "assets/images/graybox/natural-terrain.svg",
+      "runtime2D": {
+        "path": "assets/images/graybox/natural-terrain.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "graybox.naturalTerrain"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "ai-generated",
+      "revision": 1
+    },
+    {
+      "assetId": "graybox.cityGround",
+      "imageId": "graybox.cityGround",
+      "category": "environment-background",
+      "usage": [
+        "S06",
+        "city-ground",
+        "graybox"
+      ],
+      "sourceFile": "assets/images/graybox/city-ground.svg",
+      "runtime2D": {
+        "path": "assets/images/graybox/city-ground.svg",
+        "mode": "image"
+      },
+      "runtime3D": {
+        "mode": "billboard",
+        "sourceAssetId": "graybox.cityGround"
+      },
+      "pivot": {
+        "x": 0,
+        "y": 0
+      },
+      "bounds": {
+        "width": 1280,
+        "height": 720
+      },
+      "animations": [],
+      "targetPhase": "P0",
+      "status": "ai-generated",
+      "revision": 1
+    },
+    {
       "assetId": "graybox.battlefieldUnit",
       "imageId": "graybox.battlefieldUnit",
       "category": "battle-command-marker",

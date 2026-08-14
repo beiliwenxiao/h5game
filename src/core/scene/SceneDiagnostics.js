@@ -30,6 +30,11 @@ export class SceneDiagnostics {
     scene._drawCallProxied = false;
     scene._drawCallOriginals = null;
     scene._drawCallProxyContext = null;
+    this._terrainCollisionSignature = null;
+    this._collisionDebugRenderCount = 0;
+    this._collisionEntered = false;
+    this._noTerrainLogged = false;
+    this._collisionInitLogged = false;
   }
 
   togglePerformance() {
@@ -100,6 +105,132 @@ export class SceneDiagnostics {
     scene._drawCallOriginals = null;
     scene._drawCallProxyContext = null;
     scene._drawCallProxied = false;
+  }
+  observeTerrainCollision({ terrains = [], terrain = null, playerEntity = null, label = 'Scene' } = {}) {
+    const state = terrains.map((entry, index) => ({
+      index,
+      sceneId: entry?._editorSceneId || null,
+      worldOffset: entry?.worldOffset || null,
+      collisionShapeCount: entry?._collisionShapes?.length || 0
+    }));
+    const signature = JSON.stringify(state);
+    if (signature === this._terrainCollisionSignature) return false;
+    const transform = playerEntity?.getComponent?.('transform');
+    console.log(`[${label}][Collision] 地形碰撞数据状态变化`, {
+      terrains: state,
+      mainTerrainSceneId: terrain?._editorSceneId || null,
+      playerPosition: transform
+        ? { x: transform.position.x, y: transform.position.y }
+        : null
+    });
+    this._terrainCollisionSignature = signature;
+    return true;
+  }
+
+  renderCollisionShapes(ctx, {
+    enabled = false,
+    camera = null,
+    terrains = [],
+    label = 'Scene'
+  } = {}) {
+    if (!enabled || !camera || !Array.isArray(terrains)) return false;
+
+    this._collisionDebugRenderCount++;
+    if (this._collisionDebugRenderCount % 120 === 1) {
+      const shapeInfo = terrains.map((terrain, index) => {
+        const first = terrain?._collisionShapes?.[0];
+        return `[${index}] ${terrain?._editorSceneId}: ${terrain?._collisionShapes?.length || 0} shapes`
+          + (first ? `, first.points[0..1]=${JSON.stringify(first.points?.slice(0, 2))}` : '');
+      });
+      const bounds = camera.getViewBounds();
+      console.log(`[${label}][CollisionDebug]`, shapeInfo.join(' | '),
+        `| view: L=${Math.round(bounds.left)} T=${Math.round(bounds.top)} R=${Math.round(bounds.right)} B=${Math.round(bounds.bottom)}`);
+    }
+
+    ctx.save();
+    const viewBounds = camera.getViewBounds();
+    ctx.translate(-viewBounds.left, -viewBounds.top);
+    for (const terrain of terrains) {
+      const shapes = terrain?._collisionShapes;
+      if (!shapes || shapes.length === 0) continue;
+      for (const shape of shapes) {
+        if (shape.shapeType === 'polygon' && Array.isArray(shape.points) && shape.points.length > 2) {
+          ctx.beginPath();
+          ctx.moveTo(shape.points[0][0], shape.points[0][1]);
+          for (let index = 1; index < shape.points.length; index++) {
+            ctx.lineTo(shape.points[index][0], shape.points[index][1]);
+          }
+          ctx.closePath();
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fill();
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else if (shape.shapeType === 'rect' || (shape.x !== undefined && shape.width)) {
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
+        } else if (shape.shapeType === 'ellipse' || shape.shapeType === 'circle') {
+          const cx = (shape.x || 0) + (shape.width || 0) / 2;
+          const cy = (shape.y || 0) + (shape.height || 0) / 2;
+          const rx = (shape.width || 0) / 2;
+          const ry = (shape.height || 0) / 2;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+          ctx.globalAlpha = 0.7;
+          ctx.fillStyle = '#ff9800';
+          ctx.fill();
+          ctx.strokeStyle = '#ff3b30';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+    return true;
+  }
+
+  checkTerrainCollision({
+    terrainBinding = null,
+    terrains = [],
+    terrain = null,
+    secondaryTerrain = null,
+    playerEntity = null,
+    label = 'Scene'
+  } = {}) {
+    if (!this._collisionEntered) {
+      console.log(`%c[${label}] checkTerrainCollision 进入方法体`, 'color:lime;font-size:14px');
+      this._collisionEntered = true;
+    }
+    if (terrains.length === 0) {
+      if (!this._noTerrainLogged) {
+        console.warn(`[${label}] checkTerrainCollision: 地形未加载`);
+        this._noTerrainLogged = true;
+      }
+      return false;
+    }
+    const current = terrain || terrains[0];
+    if (!this._collisionInitLogged) {
+      console.log(`[${label}] checkTerrainCollision, collisionShapes:`, current?._collisionShapes?.length,
+        'act1 shapes:', secondaryTerrain?._collisionShapes?.length);
+      for (let index = 0; index < Math.min(3, current?._collisionShapes?.length || 0); index++) {
+        const shape = current._collisionShapes[index];
+        console.log(`[${label}] shape[${index}]: type=${shape.shapeType}, points前3个=`,
+          shape.points ? shape.points.slice(0, 3) : 'NO POINTS');
+      }
+      const transform = playerEntity?.getComponent?.('transform');
+      console.log(`[${label}] 玩家位置:`, transform
+        ? `(${Math.round(transform.position.x)},${Math.round(transform.position.y)})`
+        : 'null');
+      this._collisionInitLogged = true;
+    }
+    terrainBinding?.checkTerrainCollision?.();
+    return true;
   }
 
 

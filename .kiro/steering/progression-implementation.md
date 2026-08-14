@@ -236,7 +236,7 @@ MOVE     右键
 - `SceneEntityStore`：唯一拥有 canonical `all/enemies/pickups/equipmentItems` 四个稳定数组及玩家引用；场景上的同名集合仅为稳定投影，新增、分类、批量删除和销毁必须经 store。`PickupSystem` 与 `EntityLifecycleSystem.collectDeadEntities()` 只返回 `removedEntities`，不得原地缩短这些数组；调用场景以一次 `removeMany()` 作为唯一删除提交点。旧 `EntityLifecycleSystem.removeDeadEntities()` 仅保留给未迁移调用方作为兼容 mutating wrapper。
 - `WorldMapLoadSession` + `WorldReadyGate`：项目只加载一次；session 只预载启动/目标场景，邻近八格由唯一 `src/core/WorldStreamingManager.js` 的异步 `sceneResolver` 按需读取磁盘 JSON，localStorage 仅 fallback。core manager 唯一拥有 Region 命名空间 `loaded/savedStates`、latest-wins、九宫格 prepare/commit/rollback 和 provider 快照；`src/systems/WorldStreamingManager.js` 仅无状态兼容转发。同步 `deserialize()` 必须完整 validate/prepare 后原子恢复当前 loaded chunk/provider，不卸载 runtime、不发 IO，成功后标记下一帧 refresh。terrain 与 placements 共享已加载的 chunk 数据，3 秒超时仍开放渲染。玩家启动意图必须在场景 `enter()` 前确定；通用 placements 投影只允许 `newGame` 首次消费当前 `sceneId` 的 canonical 玩家出生点。读档位置由 `restoreSaveState()`、继承位置由 `ScenePlayerLifecycle`、同区传送由 `ChunkNavigator`、跨区传送由 `RegionCoordinator` 各自持有，加载 placements 不得再次覆盖。
 - `RegionCoordinator`：跨 Region 必须使用独立 shadow session 加载目标入口，并在 commit 前由 detached core `WorldStreamingManager` 完成目标九宫格 load/validate；目标 manager 准备失败时旧 Region、玩家位置、Story 和 runtime 零修改。提交开始后的任何失败恢复旧 session 与完整状态草稿，成功后才释放旧 session。卸载区按 `regionId` 保存完整 `worldStreamingState`；资源节点、placement、DeathDrop、S10 工事和按 scene namespace 分区的 Vehicle/Cargo 运行态只由流式 provider 保存，载具物流 operation ledger 只在全局场景快照保存一次，禁止旧 chunk 用过期 ledger 覆盖新事务，也禁止与 legacy `regionStates` 领域字段双写。读档先通过 `SaveGameService.inspect/inspectAuto` 取得目标 `currentSceneId` 并准备对应 Region，再进入同步原子 restore。
-- `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：分别承接通用放置点生成、chunk 传送和淡黑状态机；Demo 分组/NPC/剧情副作用通过回调注入。`PlacementSpawner.shouldSpawn({ placement, selector })` 是条件化放置的唯一注入口；返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`，StoryState 解释仍留在具体游戏。`sceneEnter` 初始组只允许生成开场即可见的静态资源/道具/NPC；延迟敌人必须使用独立 group + `spawnWhen`，由可视化空间 trigger 在领域状态提交后调用 `spawnPlacements`，禁止把尚未进入剧情的主动 AI 混入初始组。
+- `ScenePlacementRuntime` + `PlacementSpawner` + `ChunkNavigator` + `FadeOverlayTransition`：Runtime 是通用放置投影、生成幂等、pending 状态、出生点消费与恢复重建的唯一所有者，并以 `context.services.placements` 显式注册；Scene 只负责注入依赖和调用 `spawn/spawnGroup/spawnLoadedChunks/loadProjection/rebuild`。Spawner 仅承接定义合并与实体创建，Demo 分组/NPC/剧情索引副作用通过显式 coordinator 回调注入。`ScenePlacementRuntime` 必须等待世界 Promise 后再生成，按 physical chunk ID 稳定排序，且只能在 `newGame` 首次消费玩家出生点；removed tombstone 必须同时注销 AI、移出 `SceneEntityStore` 并销毁实体。恢复重建先保留旧对象并生成完整草稿，任一生成错误清理草稿并恢复 pending/spawned ledger，禁止先删旧对象后留下半成品。`spawnWhen` 的 Blackboard 路径解释通过 `getConditionRoot` 注入，返回 false 的对象不创建也不登记 spawned ID，条件异常记录为 `spawnConditionFailed`。`sceneEnter` 初始组只允许生成开场即可见的静态资源/道具/NPC；延迟敌人必须使用独立 group + `spawnWhen`，由可视化空间 trigger 在领域状态提交后调用 `spawnPlacements`，禁止把尚未进入剧情的主动 AI 混入初始组。
 - `SceneGameLoaderBridge`：组装标准 GameLoader 依赖、物品奖励、对话事件、场景标记、上下文和 sceneEnter；`DialogueSystem.onEnd/onChoice` 都是可取消的多监听器，Bridge 分别发布 `dialogueEnd{id}` 与 `dialogueChoice{id,choiceId,index,nextNode}`，具体剧情动作由场景通过 `registerActions` 注入，Bridge 负责 generation 防止退出后旧加载继续装配。
 - `TimeSystem`：除昼夜段外统一拥有从 1 开始的 `currentDay`，支持 `advanceDays()` 与 `serialize/deserialize`。历史延迟后果描述保存在 StoryState（稳定 event id、dueDay、status），到期领域提交仍遵循草稿→提交→checkpoint，保存失败恢复草稿并保留 pending 供重试。
 - `SceneTransitionFlow`：封装转场的淡入、提示和切换阶段，`isTransitioning` 与 `transitionPhase` 只读投影给子场景。
@@ -253,7 +253,7 @@ MOVE     右键
 - `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，输入与 HUD 优先从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。相机必须在本帧移动、实体碰撞和地形位置修正完成后跟随最终玩家位置，禁止长期使用上一帧位置。Demo 自建主循环必须在每个 `requestAnimationFrame` 执行一次 update/render，不得用 `elapsed < frameInterval` 跳过 RAF 后再把累计 `deltaTime` 一次性交给移动系统；页面切换或长任务产生的异常 `deltaTime` 应做保守上限钳制。
 - `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，并按 `worldLayers → screenLayers → modalLayers` 有序绘制；render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。显式 `depthSort:true` 的场景图片和 effectZone 粒子进入实体队列，稳定同 Y 顺序为静态图片/装饰（0）→ worldDepth 粒子（1）→实体（2）；普通背景图片与战斗/技能顶层粒子保持原层级。`sortY` 是世界 Y 字段，任何 chunk 投影必须与 `y/points` 同时且只偏移一次。
 - `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
-- `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理和纹理内存估算；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
+- `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理、纹理内存估算、terrain 碰撞状态变更日志、碰撞 shape 调试绘制与首次碰撞诊断；以 `context.services.diagnostics` 显式注册。调试绘制继续受场景 `debugShowCollisionPolygons` 控制，原日志内容不得因迁移而删除；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
 - `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
 
 Demo 默认角色的选择配置、技能和系统/UI 绑定位于 `example/sanguo_zhangjiao/entities/DemoPlayerFactory.js`；底层实体创建仍必须复用框架 `EntityFactory.createPlayer()`，不要把 Demo 技能写入框架。
@@ -294,6 +294,8 @@ S11 为 Demo 迁移验证：旧张角 Demo 通过新架构运行、逐个切换 
 ## BaseGameScene 深度重构执行方案
 
 目标：`BaseGameScene` 最终只作为组合根，保留 constructor/enter/update/render/exit、暂停控制和少量 Demo 内容 hook；禁止继续把系统、UI、实体和世界状态平铺为无所有权的场景字段。
+
+- 功能性实现必须上移到 `src/core/scene/` 等框架模块，并以显式服务注册到 `GameSceneContext.services`；Scene 只负责装配、传参和调用。禁止为通用能力使用 `install*(SceneClass)`、`Object.defineProperty(SceneClass.prototype, ...)` 等 prototype mixin。固定人物、S01–S14 历史条件和剧情事务可留在 Demo coordinator，但也必须由 Scene 显式调用，不得混入 Scene prototype。
 
 ### 目标结构
 

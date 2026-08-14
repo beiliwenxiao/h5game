@@ -58,7 +58,7 @@ function formatFailure(result, fallback) {
 }
 
 async function activateGroup(scene, group, aiType = null) {
-  await scene._spawnPlacements?.({ group, sceneId: scene.currentSceneId });
+  await scene.context?.services?.placements?.spawn({ group, sceneId: scene.currentSceneId });
   const entities = scene._groupEnemies?.[group] || [];
   let active = 0;
   for (const entity of entities) {

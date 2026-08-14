@@ -165,6 +165,7 @@ export class BaseGameScene extends Scene {
 
     // 调试面板、性能采样和 Canvas 观测由框架诊断服务统一管理。
     this._diagnostics = new SceneDiagnostics(this);
+    this.context.services.diagnostics = this._diagnostics;
     
     // 核心系统
     this.inputManager = null;
@@ -792,31 +793,6 @@ export class BaseGameScene extends Scene {
   }
 
   /**
-   * 加载火焰图片
-   */
-  loadFireImage() {
-    if (!this.campfire) return;
-    const image = new Image();
-    this.campfire.fireImage = image;
-    const onload = () => {
-      this.campfire.imageLoaded = true;
-      console.log('BaseGameScene: 火焰图片加载成功');
-    };
-    const onerror = () => {
-      console.warn('BaseGameScene: 火焰图片加载失败');
-      this.campfire.imageLoaded = false;
-    };
-    image.onload = this.resourceScope?.guard(onload) || onload;
-    image.onerror = this.resourceScope?.guard(onerror) || onerror;
-    this.resourceScope?.track(() => {
-      image.onload = null;
-      image.onerror = null;
-    });
-    image.src = 'assets/images/fire.webp';
-  }
-
-
-  /**
    * 处理装备槽点击（卸下装备）——属性面板/装备面板共用
    * @param {string} slotType - 装备槽类型
    * @param {string} button - 鼠标按钮
@@ -1239,7 +1215,11 @@ export class BaseGameScene extends Scene {
   jumpByInput(_options = {}) {
     if (this.isPlayerActionLocked()) return false;
     const started = this._ensureCombatActions().jumpByInput() === true;
-    if (started) this.onPlayerTutorialAction?.('jump');
+    if (started) {
+      const tutorialFlow = this.context?.services?.tutorialFlow;
+      if (tutorialFlow) tutorialFlow.notify('jumpPerformed');
+      else this.onPlayerTutorialAction?.('jump');
+    }
     return started;
   }
 
@@ -1247,7 +1227,11 @@ export class BaseGameScene extends Scene {
   jumpByDirection(dirX, dirY) {
     if (this.isPlayerActionLocked()) return false;
     const started = this._ensureCombatActions().jumpByDirection(dirX, dirY) === true;
-    if (started) this.onPlayerTutorialAction?.('jump');
+    if (started) {
+      const tutorialFlow = this.context?.services?.tutorialFlow;
+      if (tutorialFlow) tutorialFlow.notify('jumpPerformed');
+      else this.onPlayerTutorialAction?.('jump');
+    }
     return started;
   }
 

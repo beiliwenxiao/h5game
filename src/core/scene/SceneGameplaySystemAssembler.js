@@ -150,10 +150,17 @@ export class SceneGameplaySystemAssembler {
       revivePlayer: player => scene.combatSystem.revivePlayer(player),
       respawnResolver: context => scene.resolvePlayerRespawnPosition?.(context) || null,
       getDeathDropPresentation: context => scene.getDeathDropPresentation?.(context) || {},
-      onResolved: result => scene.onPlayerDefeatResolved?.(result)
+      onResolved: result => {
+        const policy = scene.context?.services?.defeatPolicy;
+        if (policy?.handleResolved?.(result) === true) return;
+        scene.onPlayerDefeatResolved?.(result);
+      }
     });
     scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
-      const resolution = scene.resolvePlayerDefeatResolution?.({ player }) || { type: 'normalDeath' };
+      const policy = scene.context?.services?.defeatPolicy;
+      const resolution = policy?.resolve?.({ player })
+        || scene.resolvePlayerDefeatResolution?.({ player })
+        || { type: 'normalDeath' };
       return scene.playerDefeatService.resolve({ player, resolution });
     });
 
@@ -178,7 +185,11 @@ export class SceneGameplaySystemAssembler {
       combatSystem: scene.combatSystem,
       floatingTextManager: scene.floatingTextManager,
       canAttack: () => scene.canPerformBasicAttack?.() ?? scene.combatSystem?.isInCombat?.() === true,
-      onAttackPerformed: () => scene.onPlayerTutorialAction?.('attack')
+      onAttackPerformed: () => {
+        const tutorialFlow = scene.context?.services?.tutorialFlow;
+        if (tutorialFlow) tutorialFlow.notify('attackPerformed');
+        else scene.onPlayerTutorialAction?.('attack');
+      }
     });
 
     this.initialized = true;

@@ -24,7 +24,7 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 }
 ```
 
-`DataDrivenPrologueScene._spawnGroup` 委托框架 `PlacementSpawner.spawnGroup()`，由它执行定义合并和实体创建；场景通过 `onSpawn` 回调维护 `_npcEntities` / `_groupEnemies`，保留 Demo 诊断和剧情副作用。
+`DataDrivenPrologueScene` 不再定义 `_spawnGroup/_spawnPlacements` 或持有 `_placements`。所有调用统一进入显式注册的 `context.services.placements`（`ScenePlacementRuntime`），由它等待世界加载、校验引用，并委托 `PlacementSpawner` 执行定义合并和实体创建；场景只注入 Blackboard 数据源、玩家/相机、火堆位置消费者和 Demo coordinator。`SanguoPlacementCoordinator` 维护 `_npcEntities` / `_groupEnemies` 的剧情索引副作用，不修改 Scene prototype，也不拥有实体集合。
 
 编辑器支持：SceneEditorUI 的 ref 属性面板对 npc 类显示"本处覆盖"分组（对话ID/商店ID/交互半径/交互方式），`data-prop` 处理器走 `overrides.*` 嵌套分支。
 

@@ -1,13 +1,23 @@
 /************************************************************
- * 三国张角传 - P1.4 S01 火堆与迷雾表现
- * 只消费宿主持有的世界坐标，不再次应用 worldOffset。
+ * 场景火堆、局部迷雾、粒子、深度绘制与碰撞服务。
+ * 只消费调用方传入的世界坐标，不读取或应用 worldOffset。
  ************************************************************/
 
-import { InputHints } from '../../../src/core/input/InputHints.js';
+import { InputHints } from '../input/InputHints.js';
 
-export const S01_INITIAL_FOG_OPACITY = 1.0;
+export const DEFAULT_CAMPFIRE_FOG_OPACITY = 1.0;
 
-const s01CampfirePresentationMethods = {
+const DEFAULT_PARTICLE_PRESETS = Object.freeze([
+  Object.freeze({ rate: 6, vy: -50, life: 250, size: 8.5, color: '#ffaa22', alpha: 0.85 }),
+  Object.freeze({ rate: 8, vy: -35, life: 200, size: 6, color: '#ff8833', alpha: 0.8 }),
+  Object.freeze({ rate: 4, vy: -120, life: 400, size: 4.5, color: '#ffffee', alpha: 1 }),
+  Object.freeze({ rate: 10, vy: -100, life: 350, size: 3.5, color: '#ffee44', alpha: 0.9 }),
+  Object.freeze({ rate: 8, vy: -80, life: 300, size: 2.5, color: '#ff9933', alpha: 0.85 }),
+  Object.freeze({ rate: 6, vy: -60, life: 250, size: 2, color: '#ff5522', alpha: 0.8 }),
+  Object.freeze({ rate: 12, vy: -40, life: 200, size: 2, color: '#ff6633', alpha: 0.7 })
+]);
+
+const campfireFeatureMethods = {
   _restoreCampfireState(lit) {
     if (lit) {
       if (!this.campfire.lit) this.lightCampfire({ emitEvent: false });
@@ -20,8 +30,9 @@ const s01CampfirePresentationMethods = {
     if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
     this.campfire.emitterSmoke = null;
     this.campfire.lit = false;
-    this.fog.opacity = S01_INITIAL_FOG_OPACITY;
-    this.fog.targetOpacity = S01_INITIAL_FOG_OPACITY;
+    this.fog.opacity = this.initialFogOpacity;
+    this.fog.targetOpacity = this.initialFogOpacity;
+    this.fog.active = true;
   },
 
   /** 点燃火堆并创建火焰粒子（7 组发射器）。 */
@@ -44,19 +55,13 @@ const s01CampfirePresentationMethods = {
         }
       })
     );
-    mk(6, -50, 250, 8.5, '#ffaa22', 0.85);
-    mk(8, -35, 200, 6, '#ff8833', 0.8);
-    mk(4, -120, 400, 4.5, '#ffffee', 1.0);
-    mk(10, -100, 350, 3.5, '#ffee44', 0.9);
-    mk(8, -80, 300, 2.5, '#ff9933', 0.85);
-    mk(6, -60, 250, 2, '#ff5522', 0.8);
-    mk(12, -40, 200, 2, '#ff6633', 0.7);
-
-    console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
-    this.fog.targetOpacity = 0;
-    if (emitEvent && this.gameLoader) {
-      this.gameLoader.triggerSystem.fire('campfireLit', { sceneId: 'S01' });
+    for (const preset of this.particlePresets) {
+      mk(preset.rate, preset.vy, preset.life, preset.size, preset.color, preset.alpha);
     }
+
+    this.logger?.debug?.('SceneCampfireService: campfire particle emitters created');
+    this.fog.targetOpacity = 0;
+    if (emitEvent) this.onIgnited?.();
   },
 
   updateFog(deltaTime) {
@@ -81,15 +86,15 @@ const s01CampfirePresentationMethods = {
       }
     }
     if (!this.campfire.lit) return;
-    const time = performance.now() / 1000;
+    const time = this.now() / 1000;
     this.campfire.emitters.forEach((emitter, index) => {
       if (!emitter) return;
       const swayAmount = index < 2
-        ? (Math.random() - 0.5) * 10
-        : Math.sin(time * 2 + index * 0.5) * 4 + (Math.random() - 0.5) * 2;
+        ? (this.random() - 0.5) * 10
+        : Math.sin(time * 2 + index * 0.5) * 4 + (this.random() - 0.5) * 2;
       emitter.position.x = this.campfire.x + swayAmount;
       emitter.position.y = this.campfire.y - 13;
-      emitter.particleConfig.velocity.x = (Math.random() - 0.5) * 10;
+      emitter.particleConfig.velocity.x = (this.random() - 0.5) * 10;
       this.particleSystem.updateEmitter(emitter, deltaTime);
     });
   },
@@ -117,7 +122,7 @@ const s01CampfirePresentationMethods = {
         const playerScreenX = playerTransform.position.x - viewBounds.left;
         const playerScreenY = playerTransform.position.y - viewBounds.top;
         const lightRadius = 150;
-        if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
+        if (!this._fogCanvas) this._fogCanvas = this.createCanvas();
         if (this._fogCanvas.width !== width || this._fogCanvas.height !== height) {
           this._fogCanvas.width = width;
           this._fogCanvas.height = height;
@@ -188,7 +193,7 @@ const s01CampfirePresentationMethods = {
       ctx.beginPath(); ctx.moveTo(x - 15, y - 7); ctx.lineTo(x - 5, y - 27); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
       ctx.restore();
-      const time = performance.now() / 1000;
+      const time = this.now() / 1000;
       const blinkAlpha = 0.7 + 0.3 * Math.abs(Math.sin(time * 2.5));
       const dotRadius = 4 + Math.sin(time * 3);
       ctx.save();
@@ -258,8 +263,8 @@ const s01CampfirePresentationMethods = {
       ctx.textAlign = 'center';
       ctx.shadowColor = '#000000';
       ctx.shadowBlur = 4;
-      ctx.fillText('熄灭的火堆', x, y - 55);
-      ctx.fillText(InputHints.format('{interact}点燃'), x, y - 40);
+      ctx.fillText(this.labels.unlit, x, y - 55);
+      ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
       ctx.shadowBlur = 0;
       return;
     }
@@ -323,18 +328,141 @@ const s01CampfirePresentationMethods = {
   }
 };
 
-export function installS01CampfirePresentation(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s01CampfirePresentationMethods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S01CampfirePresentation method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class SceneCampfireService {
+  constructor(config = {}) {
+    const initialFogOpacity = Number.isFinite(config.initialFogOpacity)
+      ? config.initialFogOpacity
+      : DEFAULT_CAMPFIRE_FOG_OPACITY;
+    this.initialFogOpacity = initialFogOpacity;
+    this.campfire = {
+      x: Number(config.position?.x) || 0,
+      y: Number(config.position?.y) || 0,
+      lit: false,
+      emitters: [],
+      emitterSmoke: null,
+      fireImage: null,
+      imageLoaded: false,
+      frameWidth: Number(config.sprite?.frameWidth) || 1,
+      frameHeight: Number(config.sprite?.frameHeight) || 1,
+      frameCols: Math.max(1, Math.floor(Number(config.sprite?.frameCols) || 1)),
+      frameRows: Math.max(1, Math.floor(Number(config.sprite?.frameRows) || 1)),
+      frameCount: Math.max(1, Math.floor(Number(config.sprite?.frameCount) || 1)),
+      currentFrame: 0,
+      frameTime: 0,
+      frameDuration: Number(config.sprite?.frameDuration) || 0.16
+    };
+    this.fog = {
+      opacity: initialFogOpacity,
+      targetOpacity: initialFogOpacity,
+      fadeSpeed: Number(config.fog?.fadeSpeed) || 0.4,
+      color: config.fog?.color || 'rgba(30, 30, 40,',
+      active: config.fog?.active !== false
+    };
+    this.particlePresets = Array.isArray(config.particlePresets)
+      ? config.particlePresets.map(preset => ({ ...preset }))
+      : DEFAULT_PARTICLE_PRESETS;
+    this.labels = {
+      unlit: config.labels?.unlit || 'Unlit campfire',
+      ignite: config.labels?.ignite || '{interact} Ignite'
+    };
+    this.formatHint = config.formatHint || (text => InputHints.format(text));
+    this.createCanvas = config.createCanvas || (() => {
+      if (typeof document !== 'undefined') return document.createElement('canvas');
+      if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(1, 1);
+      throw new Error('SceneCampfireService requires createCanvas outside browser hosts');
+    });
+    this.now = config.now || (() => performance.now());
+    this.random = config.random || Math.random;
+    this.onIgnited = config.onIgnited || null;
+    this.logger = config.logger || console;
+    this._fogCanvas = null;
   }
-  return SceneClass;
+
+  _bindRuntime(runtime = {}) {
+    this.particleSystem = runtime.particleSystem || this.particleSystem || null;
+    this.timeSystem = runtime.timeSystem || null;
+    this.weatherSystem = runtime.weatherSystem || null;
+    this.playerEntity = runtime.playerEntity || null;
+    this.camera = runtime.camera || null;
+    this.flightSystem = runtime.flightSystem || null;
+    this.logicalWidth = Number(runtime.width) || this.logicalWidth || 1280;
+    this.logicalHeight = Number(runtime.height) || this.logicalHeight || 720;
+  }
+
+  setPosition(position = {}) {
+    if (Number.isFinite(position.x)) this.campfire.x = position.x;
+    if (Number.isFinite(position.y)) this.campfire.y = position.y;
+    return this.getPosition();
+  }
+
+  getPosition() {
+    return { x: this.campfire.x, y: this.campfire.y };
+  }
+
+  setFireImage(image) {
+    this.campfire.fireImage = image || null;
+    this.campfire.imageLoaded = !!image;
+  }
+
+  isLit() {
+    return this.campfire.lit === true;
+  }
+
+  snapshot() {
+    return { lit: this.isLit() };
+  }
+
+  restore({ lit = false } = {}, runtime = {}) {
+    this._bindRuntime(runtime);
+    return campfireFeatureMethods._restoreCampfireState.call(this, lit === true);
+  }
+
+  ignite({ emitEvent = true, runtime = {} } = {}) {
+    this._bindRuntime(runtime);
+    return campfireFeatureMethods.lightCampfire.call(this, { emitEvent });
+  }
+
+  lightCampfire(options = {}) {
+    return this.ignite(options);
+  }
+
+  update(deltaTime, runtime = {}) {
+    this._bindRuntime(runtime);
+    campfireFeatureMethods.updateCampfireAnimation.call(this, deltaTime);
+    campfireFeatureMethods.updateFog.call(this, deltaTime);
+  }
+
+  renderAtmosphere(ctx, runtime = {}) {
+    this._bindRuntime(runtime);
+    return campfireFeatureMethods.renderFogLayer.call(this, ctx);
+  }
+
+  appendRenderItems(queue, ctx, runtime = {}) {
+    if (!Array.isArray(queue)) return false;
+    this._bindRuntime(runtime);
+    queue.push({
+      type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0,
+      render: () => campfireFeatureMethods.renderCampfireBottom.call(this, ctx)
+    });
+    queue.push({
+      type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0,
+      render: () => campfireFeatureMethods.renderCampfireTop.call(this, ctx)
+    });
+    return true;
+  }
+
+  resolvePlayerCollision(runtime = {}) {
+    this._bindRuntime(runtime);
+    return campfireFeatureMethods.checkCampfireCollision.call(this);
+  }
+
+  dispose() {
+    for (const emitter of this.campfire.emitters || []) emitter.active = false;
+    this.campfire.emitters.length = 0;
+    if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
+    this.campfire.emitterSmoke = null;
+    this._fogCanvas = null;
+  }
 }
 
-export default installS01CampfirePresentation;
+export default SceneCampfireService;

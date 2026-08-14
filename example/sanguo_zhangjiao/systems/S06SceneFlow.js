@@ -311,7 +311,7 @@ const s06Methods = {
       });
       if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
       if (completed) {
-        await this._spawnPlacements({ group: 'S06-built-barricade' });
+        await this.context.services.placements?.spawn({ group: 'S06-built-barricade' });
         this._showScreenTip('拒马已经完成，可回军令旗决定继续坚守或撤离。', { title: '临时工事完成' });
       } else {
         this._showScreenTip('旧铲在夯土时折断，拒马作废；木铁已全部退回。你只能带着这次损失重新评估守撤。', {

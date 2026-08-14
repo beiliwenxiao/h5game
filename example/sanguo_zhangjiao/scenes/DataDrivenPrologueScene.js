@@ -32,7 +32,7 @@ import { WorldStreamingManager } from '../../../src/core/WorldStreamingManager.j
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
-import { PlacementSpawner } from '../../../src/core/scene/PlacementSpawner.js';
+import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
 import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
@@ -64,7 +64,13 @@ import { EndingSystem } from '../../../src/systems/EndingSystem.js';
 import { DeathDropComponent } from '../../../src/ecs/components/DeathDropComponent.js';
 import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
 import { S09AudioDirector } from '../systems/S09AudioDirector.js';
+import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinator.js';
 import { S04RouteCoordinator } from '../systems/S04RouteCoordinator.js';
+import {
+  createS01TutorialConfig, S01S02Coordinator
+} from '../systems/S01S02SceneFlow.js';
+import { SceneTutorialFlow } from '../../../src/core/scene/SceneTutorialFlow.js';
+import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
 import {
   installS03S08SceneFlow, S03_BATTLE_ID, S04_BOCAI_RESCUE_ID
 } from '../systems/S03S08SceneFlow.js';
@@ -86,13 +92,8 @@ import {
 import { S13S14Coordinator } from '../systems/S13S14Coordinator.js';
 import { installS11S14SceneFlow } from '../systems/S11S14SceneFlow.js';
 
-const S01_TUTORIAL_KEYS = Object.freeze([
-  'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
-]);
-const S01_TUTORIAL_IDS = Object.freeze(S01_TUTORIAL_KEYS.map(key => `s01.${key}`));
 const S04_BATTLE_ID = 'battle.s04.changshe';
 const S13_BATTLE_ID = 'battle.s13.jingshan';
-const S01_INITIAL_FOG_OPACITY = 1.0;
 const BATTLE_FLOW_BY_SCENE = Object.freeze({
   S03: Object.freeze({
     battleId: S03_BATTLE_ID,
@@ -215,36 +216,47 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     this.currentSceneId = 'S01';
 
-    // 盆地火堆（含火焰帧动画字段，迁移自 Act1）
-    // 局部坐标，enter() 中会加 worldOffset
-    this.campfire = {
-      x: 350,
-      y: 250,
-      lit: false,
-      emitters: [],
-      emitterSmoke: null,
-      fireImage: null,
-      imageLoaded: false,
-      frameWidth: 658 / 4,
-      frameHeight: 712 / 3,
-      frameCols: 4,
-      frameRows: 3,
-      frameCount: 12,
-      currentFrame: 0,
-      frameTime: 0,
-      frameDuration: 0.16,
-      autoIgniteTimer: 0,
-      autoIgniteDelay: 10
-    };
+    this._tutorialFlow = new SceneTutorialFlow({
+      tutorialSystem: this.tutorialSystem,
+      activeWhen: () => this.currentSceneId === 'S01',
+      presenter: {
+        show: data => this._showScreenTip(data?.step?.text || '', {
+          title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
+        }),
+        hide: () => this._hideScreenTip('tutorial')
+      },
+      scheduler: callback => this.resourceScope?.setTimeout(callback, 0)
+    });
+    this.context.services.tutorialFlow = this._tutorialFlow;
+    this._s01s02Coordinator = new S01S02Coordinator(this);
+    Object.assign(this.context.services, {
+      s01s02: this._s01s02Coordinator,
+      defeatPolicy: this._s01s02Coordinator
+    });
 
-    // 开场迷雾（模糊黑雾 + 玩家周围 2.5D 椭圆透光；点燃火堆后淡出，迁移自 Act1）
-    this.fog = {
-      opacity: S01_INITIAL_FOG_OPACITY,
-      targetOpacity: S01_INITIAL_FOG_OPACITY,
-      fadeSpeed: 0.4,
-      color: 'rgba(30, 30, 40,',
-      active: true
-    };
+    // S01 只提供表现参数；状态、粒子、迷雾、绘制和碰撞由框架服务拥有。
+    this._campfireService = new SceneCampfireService({
+      position: { x: 350, y: 250 },
+      initialFogOpacity: 1,
+      fog: { fadeSpeed: 0.4, color: 'rgba(30, 30, 40,', active: true },
+      sprite: {
+        frameWidth: 658 / 4,
+        frameHeight: 712 / 3,
+        frameCols: 4,
+        frameRows: 3,
+        frameCount: 12,
+        frameDuration: 0.16
+      },
+      labels: { unlit: '熄灭的火堆', ignite: '{interact}点燃' },
+      onIgnited: () => this.gameLoader?.triggerSystem?.fire?.('campfireLit', { sceneId: 'S01' }),
+      logger: console
+    });
+    this.context.services.campfire = this._campfireService;
+
+    this._placementCoordinator = new SanguoPlacementCoordinator({
+      getNpcEntities: () => (this._npcEntities = this._npcEntities || []),
+      getGroupEnemies: () => (this._groupEnemies = this._groupEnemies || {})
+    });
 
     // 饥民逐渐生成器（第二波，复用旧 Act1 starvingSpawner 逻辑）
     this._starvingSpawner = {
@@ -463,18 +475,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         });
         return { ok: errors.length === 0, errors };
       },
-      prepareRestore: data => ({
-        ok: true,
-        draft: JSON.parse(JSON.stringify(data)),
-        rollback: {
-          resourceNodes: [...this._pendingResourceNodeStates.entries()],
-          placementStates: [...this._pendingPlacementStates.entries()],
-          domainStates: [...this._pendingChunkDomainStates.entries()]
-        }
-      }),
+      prepareRestore: data => {
+        const pending = this.context.services.placements?.getPendingStateSnapshot?.()
+          || { resourceNodes: [], placementStates: [] };
+        return {
+          ok: true,
+          draft: JSON.parse(JSON.stringify(data)),
+          rollback: {
+            ...pending,
+            domainStates: [...this._pendingChunkDomainStates.entries()]
+          }
+        };
+      },
       commitRestore: (draft, context = {}) => {
-        for (const entry of draft.resourceNodes || []) this._pendingResourceNodeStates.set(entry.id, entry.state);
-        for (const entry of draft.placementStates || []) this._pendingPlacementStates.set(entry.id, entry.state);
+        const placements = this.context.services.placements;
+        for (const entry of draft.resourceNodes || []) placements?.addPendingResourceNodeState?.(entry.id, entry.state);
+        for (const entry of draft.placementStates || []) placements?.addPendingPlacementState?.(entry.id, entry.state);
         const domainKey = context.key || `${draft.sceneNamespace}:domain`;
         this._pendingChunkDomainStates.set(domainKey, {
           sceneNamespace: draft.sceneNamespace,
@@ -486,8 +502,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       },
       rollbackRestore: rollback => {
         if (!rollback) return { ok: true };
-        this._pendingResourceNodeStates = new Map(rollback.resourceNodes || []);
-        this._pendingPlacementStates = new Map(rollback.placementStates || []);
+        this.context.services.placements?.restorePendingStateSnapshot?.(rollback);
         this._pendingChunkDomainStates = new Map(rollback.domainStates || []);
         return { ok: true };
       }
@@ -527,10 +542,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }
       });
     }
-    for (const [id, state] of this._pendingResourceNodeStates || []) {
+    const pendingPlacementState = this.context.services.placements?.getPendingStateSnapshot?.()
+      || { resourceNodes: [], placementStates: [] };
+    for (const [id, state] of pendingPlacementState.resourceNodes) {
       if (placementById.has(id) && !resourceNodes.some(entry => entry.id === id)) resourceNodes.push({ id, state });
     }
-    for (const [id, state] of this._pendingPlacementStates || []) {
+    for (const [id, state] of pendingPlacementState.placementStates) {
       if (placementById.has(id) && !placementStates.some(entry => entry.id === id)) placementStates.push({ id, state });
     }
     const pendingDomain = this._pendingChunkDomainStates?.get(chunk.key)
@@ -595,11 +612,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     for (const value of removed) {
       try { value?.destroy?.(); } catch (error) { /* best-effort chunk release */ }
     }
-    this._placementSpawner?.forgetPlacements?.(placementIds);
-    this._npcEntities = (this._npcEntities || []).filter(entity => !removed.includes(entity));
-    for (const [group, entities] of Object.entries(this._groupEnemies || {})) {
-      this._groupEnemies[group] = (entities || []).filter(entity => !removed.includes(entity));
-    }
+    this.context.services.placements?.forgetPlacements?.(placementIds);
+    this._placementCoordinator.removeValues(removed);
     const namespaceStillLoaded = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
       .some(loadedChunk => loadedChunk !== chunk && loadedChunk?.sceneNamespace === chunk?.sceneNamespace);
     if (!namespaceStillLoaded && chunk?.sceneNamespace === 'S10') this._disposeS10Structures();
@@ -713,7 +727,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       onTransition: async transition => {
         if (transition.unchanged) return;
         this._syncWorldStreamingProjection();
-        const placementResult = await this._spawnLoadedChunkPlacements();
+        const placementResult = await this.context.services.placements?.spawnLoadedChunks();
         if (placementResult?.ok === false) {
           this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
           return;
@@ -771,7 +785,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.terrainAct1 = this._terrains.length > 1 ? this._terrains[0] : null;
     this.context.world.terrain = this.terrain;
     this.context.world.terrains = this._terrains;
-    this._placements = chunks.flatMap(chunk => chunk.placements || []);
+    this.context.services.placements?.setProjection(
+      chunks.flatMap(chunk => chunk.placements || [])
+    );
     const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
     const triggerBindings = chunks.flatMap(chunk => chunk.triggerBindings || []);
     const effectZones = chunks.flatMap(chunk => chunk.effectZones || []);
@@ -788,7 +804,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const storyState = blackboard?.get?.('storyState');
     if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
     this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId });
-    const placementResult = await this._spawnLoadedChunkPlacements();
+    const placementResult = await this.context.services.placements?.spawnLoadedChunks();
     if (placementResult?.ok === false) {
       this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
       return false;
@@ -812,7 +828,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ? 'inherit'
       : (this._progressionBootstrap?.playerStartMode || 'restore');
     this._initialPlayerSpawnPending = this._playerStartMode === 'newGame';
-    this._configureS01Tutorial();
+    this._tutorialFlow.configure(createS01TutorialConfig()).bindPresentation();
+    this.resourceScope?.track(() => this._tutorialFlow.dispose());
 
     this._s09AudioDirector?.dispose?.();
     const s09AudioDirector = new S09AudioDirector({ audioManager: this.audioManager });
@@ -824,10 +841,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
 
     this.resourceScope?.track(() => {
-      for (const emitter of this.campfire.emitters) emitter.active = false;
-      this.campfire.emitters.length = 0;
-      if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
-      this.campfire.emitterSmoke = null;
+      this._campfireService.dispose();
       this.effectZoneRenderer?.clear?.();
       this._terrains.length = 0;
       this.terrain = null;
@@ -836,8 +850,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.context.world.terrain = null;
       this.context.world.terrains = null;
       this.context.world.region = null;
-      this._pendingResourceNodeStates?.clear?.();
-      this._pendingPlacementStates?.clear?.();
+      this.context.services.placements?.reset?.({ clearProjection: true, clearPending: true, clearSpawned: true });
       this._regionDynamicStates?.clear?.();
       this._pendingChunkDomainStates?.clear?.();
       this._detachWorldStreaming?.();
@@ -899,8 +912,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 火堆先使用世界坐标兜底，placements 就绪后再由当前场景的 canonical spawn 精确覆盖。
     // 玩家位置不在这里预写：新游戏、读档、继承和显式传送各有且只有一个位置权威。
-    this.campfire.x = 350 + this._prologueOffset.x;
-    this.campfire.y = 250 + this._prologueOffset.y;
+    this._campfireService.setPosition({
+      x: 350 + this._prologueOffset.x,
+      y: 250 + this._prologueOffset.y
+    });
 
     // 地形实例在 _loadWorldTerrains 中动态创建
     this.terrain = null;
@@ -924,8 +939,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._sceneReady = false;
     this._terrainsLoaded = false;
     this._spawnApplied = false;
-    this._pendingResourceNodeStates = new Map();
-    this._pendingPlacementStates = new Map();
     this._pendingChunkDomainStates = new Map();
     this._regionDynamicStates = new Map();
     this._currentRegionIndex = 0;
@@ -944,30 +957,41 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
 
     this._fadeOverlayTransition = new FadeOverlayTransition({ duration: 0.3, scope });
-    this._placementSpawner = new PlacementSpawner({
+    const placements = new ScenePlacementRuntime({
+      scope,
       entityFactory: this.entityFactory,
       entityStore: this.entityStore,
       aiSystem: this.aiSystem,
       assetManager: this.assetManager,
+      getWorldPromise: () => this._worldLoadPromise,
+      getLoadedChunks: () => this.worldStreamingManager?.getLoadedChunks?.() || new Map(),
+      getRegistries: () => this.gameLoader?.registries || {},
+      validatePlacementReferences: values => this.gameLoader?.validatePlacementReferences?.(values)
+        || { ok: true, errors: [] },
+      setValidationErrors: errors => {
+        if (this.gameLoader) this.gameLoader.lastValidationErrors = errors;
+      },
+      getConditionRoot: key => this.gameLoader?.blackboard?.get?.(key),
+      getCurrentSceneId: () => this.currentSceneId,
+      getPlayer: () => this.playerEntity,
+      getCamera: () => this.camera,
+      consumeInitialPlayerSpawn: () => { this._initialPlayerSpawnPending = false; },
+      getPlayerStartMode: () => this._playerStartMode,
+      onCampfireSpawn: spawn => this._campfireService.setPosition(spawn),
+      getCampfirePosition: () => this._campfireService.getPosition(),
+      syncProjection: () => this._syncWorldStreamingProjection(),
+      clearProjectionBindings: () => this._sceneTriggerBindings?.setBindings?.([]),
+      getReadyGate: () => this._worldReadyGate,
+      onProjectionReady: () => this._syncWorldReadyProjection(),
       onNpcImageError: scope?.guard(({ url }) => {
         console.warn('[DDScene] NPC 图集加载失败（将用占位）:', url);
       }),
-      shouldSpawn: ({ placement }) => this._shouldSpawnPlacement(placement),
-      onSpawn: scope?.guard(({ entity, kind, group, placement }) => {
-        if (entity && Array.isArray(placement?.tags)) {
-          entity.tags = [...new Set([...(entity.tags || []), ...placement.tags])];
-        }
-        if (kind === 'resourceNode') this._applyPendingResourceNodeState(entity);
-        if (this._applyPendingPlacementState(entity, placement)) return;
-        if (kind === 'npc') {
-          this._npcEntities = this._npcEntities || [];
-          this._npcEntities.push(entity);
-        } else if (kind === 'enemy') {
-          this._groupEnemies = this._groupEnemies || {};
-          (this._groupEnemies[group] = this._groupEnemies[group] || []).push(entity);
-        }
-      })
+      onSpawn: detail => this._placementCoordinator.handleSpawn(detail),
+      onRemove: values => this._placementCoordinator.removeValues(values),
+      logger: console
     });
+    this.context.services.placements = placements;
+    scope?.track(() => placements.dispose());
     this._chunkNavigator = new ChunkNavigator({
       getRegion: () => this._worldRegion,
       getChunk: sceneId => this._worldLoadSession?.getChunk(sceneId),
@@ -981,7 +1005,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         const result = await this.worldStreamingManager.update(x, y);
         if (result?.ok === false) return result;
         this._syncWorldStreamingProjection();
-        const placementResult = await this._spawnLoadedChunkPlacements();
+        const placementResult = await this.context.services.placements?.spawnLoadedChunks();
         if (placementResult?.ok === false) return placementResult;
         return { ok: true };
       },
@@ -994,7 +1018,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
           this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
         }
-        const placementResult = await this._spawnLoadedChunkPlacements();
+        const placementResult = await this.context.services.placements?.spawnLoadedChunks();
         if (placementResult?.ok === false) {
           throw new Error(placementResult.errors?.[0]?.message || '地图块放置点生成失败');
         }
@@ -1028,13 +1052,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
     this._loadWorldTerrains();
 
-    // 火焰图（父类 loadFireImage 会写入 this.campfire.fireImage）
-    this.loadFireImage();
+    // 火焰帧图在 Manifest 注册完成后按稳定资源 ID 注入框架火堆服务。
     // 火堆初始熄灭：由数据驱动的 interact 触发器点燃（靠近按 E），或 timer 自燃兜底
 
-    // 加载场景放置点（type:'ref'），供 spawnGroup 按组实例化（位置来自场景编辑器）
-    this._placements = [];
-    this._loadScenePlacements();
+    // 由框架 placement runtime 等待世界加载、投影出生点并解析 ready gate。
+    void this.context.services.placements?.loadProjection({
+      sceneId: this.currentSceneId,
+      consumePlayerSpawn: this._initialPlayerSpawnPending === true
+    });
 
     // 数据驱动：装配 GameProject 触发器/黑板/对话，fire(sceneEnter)
     this._initGameLoader();
@@ -1079,11 +1104,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._playerCtxSynced = true;
     }
 
-    // 火焰动画 + 粒子发射器更新
-    this.updateCampfireAnimation(deltaTime);
-
-    // 开场迷雾淡出
-    this.updateFog(deltaTime);
+    this._campfireService.update(deltaTime, {
+      particleSystem: this.particleSystem,
+      timeSystem: this.timeSystem,
+      weatherSystem: this.weatherSystem,
+      playerEntity: this.playerEntity,
+      camera: this.camera,
+      flightSystem: this.flightSystem,
+      width: this.logicalWidth,
+      height: this.logicalHeight
+    });
 
     // 天气和时间系统更新；跨日后只投影一次 StoryState 并处理到期事件。
     if (this.weatherSystem) this.weatherSystem.update(deltaTime);
@@ -1160,25 +1190,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._updateSceneCountdown(deltaTime);
 
     // 地形碰撞（火堆 + 水池/树/编辑器碰撞多边形）
-    this.checkCampfireCollision();
-    const terrainCollisionState = (this._terrains || []).map((terrain, index) => ({
-      index,
-      sceneId: terrain._editorSceneId || null,
-      worldOffset: terrain.worldOffset || null,
-      collisionShapeCount: terrain._collisionShapes?.length || 0
-    }));
-    const terrainCollisionSignature = JSON.stringify(terrainCollisionState);
-    if (terrainCollisionSignature !== this._terrainCollisionSignature) {
-      const playerTransform = this.playerEntity?.getComponent('transform');
-      console.log('[DDScene][Collision] 地形碰撞数据状态变化', {
-        terrains: terrainCollisionState,
-        mainTerrainSceneId: this.terrain?._editorSceneId || null,
-        playerPosition: playerTransform
-          ? { x: playerTransform.position.x, y: playerTransform.position.y }
-          : null
-      });
-      this._terrainCollisionSignature = terrainCollisionSignature;
-    }
+    this._campfireService.resolvePlayerCollision({
+      playerEntity: this.playerEntity,
+      flightSystem: this.flightSystem
+    });
+    this.context.services.diagnostics?.observeTerrainCollision({
+      terrains: this._terrains || [],
+      terrain: this.terrain,
+      playerEntity: this.playerEntity,
+      label: 'DDScene'
+    });
   }
 
   /**
@@ -1208,65 +1229,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  _configureS01Tutorial(project = null) {
-    const fallbackTutorials = [
-      { id: 's01.move', title: '移动', steps: [{ text: '使用 {move} 移动，离开火堆附近。' }] },
-      { id: 's01.attack', title: '攻击', steps: [{ text: '使用 {attack} 进行一次攻击。' }] },
-      { id: 's01.pickup', title: '拾取', steps: [{ text: '靠近物资后使用 {pickup} 拾取。' }] },
-      { id: 's01.jump', title: '跳跃', steps: [{ text: '使用 {jump} 越过障碍。' }] },
-      { id: 's01.gather', title: '采集', steps: [{ text: '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。' }] },
-      { id: 's01.durability', title: '工具耐久', steps: [{ text: '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。' }] },
-      { id: 's01.capacity', title: '背包容量', steps: [{ text: '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。' }] }
-    ];
-    const configured = project?.extensions?.sanguoZhangjiao?.s01Tutorials;
-    const configuredById = new Map((Array.isArray(configured) ? configured : [])
-      .filter(definition => S01_TUTORIAL_IDS.includes(definition?.id))
-      .map(definition => [definition.id, definition]));
-    const definitions = fallbackTutorials.map(fallback => {
-      const override = configuredById.get(fallback.id);
-      return override && Array.isArray(override.steps)
-        ? { ...fallback, ...cloneData(override) }
-        : fallback;
-    });
-    for (const definition of definitions) {
-      this.tutorialSystem.registerTutorial(definition.id, {
-        ...cloneData(definition),
-        category: definition.category || 's01-survival',
-        canSkip: definition.canSkip === true,
-        autoTrigger: definition.autoTrigger === true
-      });
-    }
-    if (project || this._s01TutorialCallbacksBound) return;
-    this._s01TutorialCallbacksBound = true;
-    this.tutorialSystem.onShow(data => {
-      this._showScreenTip(data?.step?.text || '', {
-        title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
-      });
-    });
-    this.tutorialSystem.onHide(() => this._hideScreenTip('tutorial'));
-    this.tutorialSystem.onComplete(() => {
-      this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
-    });
-  }
-
-  _showNextS01Tutorial() {
-    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isShowingTutorial()) return false;
-    const next = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return next ? this.tutorialSystem.showTutorial(next) : false;
-  }
-
-  _completeS01TutorialStep(key) {
-    const id = `s01.${key}`;
-    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isTutorialCompleted(id)) return false;
-    this.tutorialSystem.completeTutorial(id);
-    if (!this.tutorialSystem.isShowingTutorial()) this._showNextS01Tutorial();
-    return true;
-  }
-
-  onPlayerTutorialAction(action) {
-    if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
-  }
-
   /** S01 攻击教学允许无敌人空挥；S14 gunner 攻击转交载具武器事务。 */
   canPerformBasicAttack() {
     if (this._isS14CatapultGunner?.()) {
@@ -1285,9 +1247,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return false;
     }
     if (super.canPerformBasicAttack()) return true;
-    if (this.currentSceneId !== 'S01') return false;
-    const nextTutorial = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return nextTutorial === 's01.attack';
+    return this._tutorialFlow.isCurrent('s01.attack');
   }
 
   /** 将所有成功采集原子投影为结局隐藏输入，再组合场景专属政策。 */
@@ -1428,16 +1388,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
       return;
     }
-    if (event !== 'completed') return;
-    if (!this.tutorialSystem.isTutorialCompleted('s01.gather')) {
-      this._completeS01TutorialStep('gather');
-      return;
-    }
-    if (!this.tutorialSystem.isTutorialCompleted('s01.durability')) {
-      if (data.toolInstanceId) this._completeS01TutorialStep('durability');
-      return;
-    }
-    this._completeS01TutorialStep('capacity');
+    if (event === 'completed') this._tutorialFlow.notify('gatheringCompleted', data);
   }
 
   /**
@@ -1451,17 +1402,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const trig = this.gameLoader.triggerSystem;
 
     // playerMoved：完成事实只存 TutorialSystem.completedTutorials。
-    const t = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (t) {
-      if (!this._startPos) this._startPos = { x: t.position.x, y: t.position.y };
-      if (!this.tutorialSystem.isTutorialCompleted('s01.move')) {
-        const d = Math.hypot(t.position.x - this._startPos.x, t.position.y - this._startPos.y);
-        if (d > 60) {
-          this._completeS01TutorialStep('move');
-          trig.fire('playerMoved', {});
-        }
-      }
-    }
+    const position = this.playerEntity?.getComponent?.('transform')?.position;
+    this._tutorialFlow.updateMovement(position, {
+      onComplete: () => trig.fire('playerMoved', {})
+    });
 
     // panelOpen（上升沿：false→true 时触发）
     const invVis = !!(this.inventoryPanel && this.inventoryPanel.visible);
@@ -1575,8 +1519,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   _spawnSingleStarving(group) {
     const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-    const centerX = playerTransform ? playerTransform.position.x : this.campfire.x;
-    const centerY = playerTransform ? playerTransform.position.y : this.campfire.y;
+    const campfirePosition = this._campfireService.getPosition();
+    const centerX = playerTransform ? playerTransform.position.x : campfirePosition.x;
+    const centerY = playerTransform ? playerTransform.position.y : campfirePosition.y;
 
     // 从玩家四面八方生成（距离 150~250 像素）
     const spawnDistance = 150 + Math.random() * 100;
@@ -1619,8 +1564,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const entries = Array.isArray(p.enemies) ? p.enemies : [];
     if (entries.length === 0) { console.warn('[DDScene] spawnWave: enemies 为空'); return; }
     const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-    const cx = pt ? pt.position.x : this.campfire.x;
-    const cy = pt ? pt.position.y : this.campfire.y;
+    const campfirePosition = this._campfireService.getPosition();
+    const cx = pt ? pt.position.x : campfirePosition.x;
+    const cy = pt ? pt.position.y : campfirePosition.y;
     this._groupEnemies = this._groupEnemies || {};
     this._groupEnemies[group] = this._groupEnemies[group] || [];
     let total = 0;
@@ -1849,7 +1795,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     for (const value of values) {
       try { value?.destroy?.(); } catch (error) { /* best-effort region unload */ }
     }
-    this._placementSpawner?.forgetPlacements?.(placementIds);
+    this.context.services.placements?.forgetPlacements?.(placementIds);
+    this._placementCoordinator.removeValues(values);
     this._groupEnemies = {};
     this._npcEntities = [];
   }
@@ -1869,9 +1816,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._regionDynamicStates.set(oldRegionId, this._extractRegionDynamicState(oldSceneState));
     }
     this._clearRegionRuntime(this._worldLoadResult);
-    this._pendingResourceNodeStates = new Map();
-    this._pendingPlacementStates = new Map();
-    this._restoreCampfireState(false);
+    this.context.services.placements?.setPendingStates?.();
+    this._campfireService.restore({ lit: false }, { particleSystem: this.particleSystem });
     this._worldLoadSession = shadowSession;
     this._worldLoadResult = result;
     this._currentRegionIndex = request.regionIndex;
@@ -1881,7 +1827,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     this._worldLoadPromise = Promise.resolve(result);
     this._loadWorldTerrains();
-    this._loadScenePlacements();
+    void this.context.services.placements?.loadProjection({
+      sceneId: request.sceneId,
+      consumePlayerSpawn: false
+    });
     await this._worldLoadPromise;
     await Promise.resolve();
 
@@ -1918,7 +1867,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
     }
     this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId: request.sceneId });
-    const placementResult = await this._spawnLoadedChunkPlacements();
+    const placementResult = await this.context.services.placements?.spawnLoadedChunks();
     if (placementResult?.ok === false) return placementResult;
     if (request.sceneId === 'S12') this._ensureS12GateEntity();
     else this._removeS12GateEntity();
@@ -1948,7 +1897,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     await this._initializeWorldStreaming(draft.worldResult, draft.saveState?.currentSceneId);
     this._worldLoadPromise = Promise.resolve(draft.worldResult);
     this._loadWorldTerrains();
-    this._loadScenePlacements();
+    void this.context.services.placements?.loadProjection({
+      sceneId: draft.saveState?.currentSceneId,
+      consumePlayerSpawn: false
+    });
     await this._worldLoadPromise;
     await Promise.resolve();
     return this.restoreSaveState(draft.saveState);
@@ -1964,49 +1916,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     };
   }
 
-  resolvePlayerDefeatResolution() {
-    const storyState = this.gameLoader?.blackboard?.get?.('storyState') || {};
-    if (storyState.pendingDefeatResolution !== 'specialFaint') return { type: 'normalDeath' };
-    const allowed = ['passerby', 'patrol', 'temporaryCamp'];
-    return {
-      type: 'specialFaint',
-      rescueType: allowed.includes(storyState.specialFaintRescueType)
-        ? storyState.specialFaintRescueType
-        : 'passerby'
-    };
-  }
-
   resolvePlayerRespawnPosition() {
-    if (this.currentSceneId === 'S01' && this.campfire?.lit) {
-      return { x: this.campfire.x + 48, y: this.campfire.y + 64, label: '已点燃的火堆旁' };
+    if (this.currentSceneId === 'S01' && this._campfireService.isLit()) {
+      const campfire = this._campfireService.getPosition();
+      return { x: campfire.x + 48, y: campfire.y + 64, label: '已点燃的火堆旁' };
     }
-    const spawnId = `${this.currentSceneId}-spawn-player`;
-    const spawn = (this._placements || []).find(placement => placement.id === spawnId);
+    const spawn = this.context.services.placements?.getSpawnPoint?.(this.currentSceneId, 'player');
     return spawn ? { x: spawn.x, y: spawn.y, label: `${this.currentSceneId}入口` } : null;
-  }
-
-  onPlayerDefeatResolved(result = {}) {
-    if (result.type !== 'specialFaint') {
-      super.onPlayerDefeatResolved(result);
-      return;
-    }
-    const labels = { passerby: '路人救援', patrol: '小股官兵救援', temporaryCamp: '临时扎营' };
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (storyState) {
-      blackboard.set('storyState', {
-        ...storyState,
-        pendingDefeatResolution: null,
-        lastSpecialFaintRescueType: result.rescueType
-      });
-    }
-    const location = result.respawnPosition?.label || '安全处';
-    this._showScreenTip(`${labels[result.rescueType] || '路人救援'}：你在${location}醒来，未扣除资源，也未生成遗失物资`);
   }
 
   /** Demo 专属运行状态；玩家/任务/黑板由 BaseGameScene 统一保存。 */
   captureSceneSaveState() {
-    const resourceNodeStates = new Map(this._pendingResourceNodeStates || []);
+    const pendingPlacementState = this.context.services.placements?.getPendingStateSnapshot?.()
+      || { resourceNodes: [], placementStates: [] };
+    const resourceNodeStates = new Map(pendingPlacementState.resourceNodes);
     for (const entity of this.entities || []) {
       const node = entity?.getComponent?.('resourceNode');
       if (node) resourceNodeStates.set(entity.id, node.serialize());
@@ -2018,7 +1941,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         position: { ...entity.getComponent('transform').position },
         state: entity.getComponent('deathDrop').serialize()
       }));
-    const placementStates = new Map(this._pendingPlacementStates || []);
+    const placementStates = new Map(pendingPlacementState.placementStates);
     for (const item of this.pickupItems || []) {
       const placementId = item?.placementId;
       if (!placementId) continue;
@@ -2053,7 +1976,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         regionId,
         state: JSON.parse(JSON.stringify(state))
       })),
-      campfireLit: !!this.campfire?.lit,
+      campfireLit: this._campfireService.snapshot().lit,
       firedPickups: [...(this._firedPickups || [])],
       clearedGroups: [...(this._clearedGroups || [])],
       ...(hasWorldStreaming ? {} : {
@@ -2240,23 +2163,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (data.timeState) this.timeSystem?.deserialize?.(data.timeState);
     this.timeSystem?.setCurrentDay?.(restoredStoryDay);
     if (!data.worldStreamingState) {
-      this._pendingResourceNodeStates = new Map((data.resourceNodes || [])
-        .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
-        .map(entry => [entry.id, entry.state]));
-      this._pendingPlacementStates = new Map((data.placementStates || [])
-        .filter(entry => typeof entry?.id === 'string' && entry.state && typeof entry.state === 'object')
-        .map(entry => [entry.id, entry.state]));
+      this.context.services.placements?.setPendingStates?.({
+        resourceNodes: data.resourceNodes || [],
+        placementStates: data.placementStates || []
+      });
     }
 
-    const rebuild = this._rebuildCurrentScenePlacements();
+    const placementRuntime = this.context.services.placements;
+    const rebuild = placementRuntime?.rebuild?.(this.currentSceneId)
+      || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placementStates', message: '场景放置运行时尚未就绪' }] };
     if (!rebuild.ok) return rebuild;
-    for (const entity of [...(this.entities || [])]) {
-      this._applyPendingResourceNodeState(entity);
-      this._applyPendingPlacementState(entity, { id: entity?.placementId || entity?.id });
-    }
-    for (const item of [...(this.pickupItems || []), ...(this.equipmentItems || [])]) {
-      this._applyPendingPlacementState(item, { id: item?.placementId });
-    }
+    placementRuntime.applyPendingToExisting([
+      ...(this.entities || []),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ]);
     this._syncWarResourceNodeStates(this.gameLoader?.blackboard?.get?.('warResourceNodeStates') || []);
 
     this.playerDefeatService?.deserialize?.(data.defeatState || {});
@@ -2424,105 +2345,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     this._classConfirm = null;
     this._classSelectionBusy = false;
-    this._restoreCampfireState(data.campfireLit === true);
-    this._startPos = this.playerEntity?.getComponent?.('transform')?.position
-      ? { ...this.playerEntity.getComponent('transform').position }
-      : null;
+    this._campfireService.restore(
+      { lit: data.campfireLit === true },
+      { particleSystem: this.particleSystem }
+    );
+    this._tutorialFlow.resetMovementOrigin(
+      this.playerEntity?.getComponent?.('transform')?.position || null
+    );
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
     if (this.currentSceneId === 'S05') void this._syncS05MineWorldState();
     if (this.currentSceneId === 'S07') this._syncS07DelayWorldState();
-    this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
+    this.resourceScope?.setTimeout(() => this._tutorialFlow.showNext(), 0);
     return { ok: true, errors: [] };
-  }
-
-  _rebuildCurrentScenePlacements() {
-    if (!this._placementSpawner || !this.gameLoader || !this.entityStore) {
-      return { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placementStates', message: '场景放置运行时尚未就绪' }] };
-    }
-    const restoreIds = new Set([
-      ...this._pendingPlacementStates.keys(),
-      ...this._pendingResourceNodeStates.keys()
-    ]);
-    for (const placement of this._placements || []) {
-      if (placement?.type === 'ref' && placement.sceneId === this.currentSceneId && placement.id) {
-        restoreIds.add(placement.id);
-      }
-    }
-    const placements = (this._placements || []).filter(placement =>
-      placement?.type === 'ref' && placement.id && restoreIds.has(placement.id)
-    );
-    const placementIds = new Set(placements.map(placement => placement.id));
-    const values = new Set([
-      ...(this.entities || []),
-      ...(this.pickupItems || []),
-      ...(this.equipmentItems || [])
-    ].filter(value => placementIds.has(value?.placementId || value?.id)));
-
-    for (const value of values) this.aiSystem?.unregisterAI?.(value);
-    this.entityStore.removeMany(values);
-    for (const value of values) {
-      try { value?.destroy?.(); } catch (error) { /* best-effort rebuild cleanup */ }
-    }
-    this._npcEntities = (this._npcEntities || []).filter(entity => !values.has(entity));
-    for (const [group, enemies] of Object.entries(this._groupEnemies || {})) {
-      this._groupEnemies[group] = (enemies || []).filter(entity => !values.has(entity));
-    }
-
-    this._placementSpawner.forgetPlacements(placementIds);
-    const result = this._placementSpawner.spawnMatching({
-      selector: { placementIds: [...placementIds] },
-      placements: this._placements || [],
-      registries: this.gameLoader.registries
-    });
-    if (result.errors.length > 0) {
-      return {
-        ok: false,
-        errors: result.errors.map((entry, index) => ({
-          code: entry.reason || 'placementRestoreFailed',
-          path: `placementStates.${entry.placement?.id || index}`,
-          message: `放置对象重建失败: ${entry.ref || entry.placement?.id || index}`
-        }))
-      };
-    }
-    return { ok: true, errors: [] };
-  }
-
-  _applyPendingPlacementState(value, placement = {}) {
-    const placementId = placement?.id || value?.placementId || value?.id;
-    const state = this._pendingPlacementStates?.get(placementId);
-    if (!placementId || !state) return false;
-    if (state.removed === true) {
-      value.picked = state.kind === 'item' || value.picked === true;
-      value.isDead = state.kind === 'enemy' || value.isDead === true;
-      value.isDying = state.kind === 'enemy' || value.isDying === true;
-      this.entityStore?.remove?.(value);
-      return true;
-    }
-    if (state.kind === 'item' && Number.isFinite(state.quantity)) {
-      value.quantity = Math.max(0, Math.floor(state.quantity));
-    }
-    const stats = value.getComponent?.('stats');
-    const transform = value.getComponent?.('transform');
-    if (stats && Number.isFinite(state.hp)) {
-      const maxHp = Number.isFinite(Number(stats.maxHp)) ? Number(stats.maxHp) : Number(state.hp);
-      stats.hp = Math.min(maxHp, Math.max(0, Number(state.hp)));
-    }
-    if (transform && Number.isFinite(state.position?.x) && Number.isFinite(state.position?.y)) {
-      transform.position.x = state.position.x;
-      transform.position.y = state.position.y;
-    }
-    if (state.kind === 'enemy' && state.ai) this.aiSystem?.restoreRuntimeState?.(value, state.ai);
-    this._pendingPlacementStates.delete(placementId);
-    return false;
-  }
-
-  _applyPendingResourceNodeState(entity) {
-    const node = entity?.getComponent?.('resourceNode');
-    const state = this._pendingResourceNodeStates?.get(entity?.id);
-    if (!node || !state) return false;
-    node.deserialize(state);
-    this._pendingResourceNodeStates.delete(entity.id);
-    return true;
   }
 
   /**
@@ -2604,12 +2438,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!this._firedPickups) this._firedPickups = new Set();
     const uid = item.placementId || item._pickUid || item.entityId || item.id;
     if (item.placementId && item.picked === true) {
-      this._pendingPlacementStates?.set(item.placementId, { kind: 'item', removed: true, quantity: 0 });
+      this.context.services.placements?.addPendingPlacementState?.(
+        item.placementId,
+        { kind: 'item', removed: true, quantity: 0 }
+      );
     }
     if (!uid || this._firedPickups.has(uid)) return false;
     this._firedPickups.add(uid);
     const itemId = item.itemId || item.id;
-    this._completeS01TutorialStep('pickup');
+    this._tutorialFlow.notify('itemPicked', { item });
     this.gameLoader.triggerSystem.fire('itemPickup', { item: itemId, id: itemId });
     console.log('[DDScene] itemPickup:', itemId);
     return true;
@@ -2811,12 +2648,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           }
           const manifestResult = this.assetManager.registerManifest(gameLoader.project.assetManifest);
           if (manifestResult.queued > 0) await this.assetManager.loadAll();
+          const fireAsset = this.assetManager.resolveManifestAsset?.('vfx.freePixel.fire', '2d');
+          this._campfireService.setFireImage(
+            this.assetManager.getAsset?.(fireAsset?.key || 'vfx.freePixel.fire') || null
+          );
           this.entityRenderer2D?.clearCaches?.();
           const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
           this._syncPlayerClassAppearance(currentClass);
 
           // 项目扩展配置覆盖启动期兼容定义；新游戏首条教学只会在 GameLoader ready 后显示。
-          this._configureS01Tutorial(gameLoader.project);
+          this._tutorialFlow.configure(createS01TutorialConfig(gameLoader.project));
           this._configureSharedClassEffects(gameLoader);
           this._installBattleFlow(gameLoader);
           this._installProgressionUI(gameLoader);
@@ -2827,20 +2668,21 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._gameLoaderReady = ready.then(this.resourceScope.guard(async gameLoader => {
         if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
         await this._worldLoadPromise;
-        const placementValidation = gameLoader.validatePlacementReferences(this._placements || []);
+        const placementRuntime = this.context.services.placements;
+        const placementValidation = placementRuntime?.validateProjection?.()
+          || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placements', message: '场景放置运行时尚未就绪' }] };
         if (!placementValidation.ok) {
-          gameLoader.lastValidationErrors = placementValidation.errors;
           throw gameLoader.createValidationError(placementValidation.errors);
         }
         this.gameLoader = gameLoader;
-        const placementResult = await this._spawnLoadedChunkPlacements();
+        const placementResult = await placementRuntime.spawnLoadedChunks();
         if (placementResult?.ok === false) {
           throw gameLoader.createValidationError(placementResult.errors || []);
         }
         const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
         this.timeSystem?.setCurrentDay?.(storyDay);
         this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
-        if (this._progressionBootstrap?.isNewGame) this._showNextS01Tutorial();
+        if (this._progressionBootstrap?.isNewGame) this._tutorialFlow.showNext();
         console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
         return gameLoader;
       })).catch(this.resourceScope.guard(e => {
@@ -3351,10 +3193,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const state = byId.get(entity?.id);
       if (node && state) node.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
     }
-    for (const [id, pending] of this._pendingResourceNodeStates || []) {
+    this.context.services.placements?.updatePendingResourceNodeStates?.((pending, id) => {
       const state = byId.get(id);
-      if (state) pending.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
-    }
+      if (!state) return false;
+      pending.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
+      return true;
+    });
   }
 
   _getBattleConfigById(battleId) {
@@ -4331,7 +4175,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 将本场景现有触发动作注册到 SceneGameLoaderBridge 创建的 loader。 */
   _registerGameLoaderActions(trig, gameLoader) {
     registerSceneTriggerActions(trig, {
-      spawnPlacements: selector => this._spawnPlacements(selector),
+      spawnPlacements: selector => this.context.services.placements?.spawn(selector),
       teleportToChunk: params => this.teleportToChunk(params),
       requestAutoSave: params => this.requestAutoSave(params),
       weatherSystem: this.weatherSystem,
@@ -4339,18 +4183,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       logger: console
     });
     // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
-    trig.registerAction('lightCampfire', () => this.lightCampfire());
+    trig.registerAction('lightCampfire', () => this._campfireService.ignite({
+      runtime: { particleSystem: this.particleSystem }
+    }));
     // 场景专属动作：按组激活场景放置点（兼容既有触发器）。
-    trig.registerAction('spawnGroup', (p) => this._spawnGroup(p));
+    trig.registerAction('spawnGroup', p => this.context.services.placements?.spawnGroup(p));
     // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
     trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
     // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
     trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
     // S01 教学完成后的单一事务出口：一次性奖励、解锁 S02、传送。
-    trig.registerAction('completeS01AndTravel', (p) => this.completeS01AndTravel(p));
+    trig.registerAction('completeS01AndTravel', (p) => (
+      this._s01s02Coordinator.completeS01AndTravel(p)
+    ));
     // S02 召见对话完成后创建可恢复检查点，再通过 RegionCoordinator 前往 S09。
-    trig.registerAction('acceptS02Summons', (p) => this.acceptS02Summons(p));
-    trig.registerAction('travelToS09', () => this.travelToS09());
+    trig.registerAction('acceptS02Summons', (p) => this._s01s02Coordinator.acceptS02Summons(p));
+    trig.registerAction('travelToS09', () => this._s01s02Coordinator.travelToS09());
     trig.registerAction('travelToS03', () => this.travelToS03());
     trig.registerAction('openS03BattleMode', () => this.openS03BattleMode());
     trig.registerAction('checkS03Exit', () => this.checkS03Exit());
@@ -4412,8 +4260,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.handleS09RefugeeChoice(event?.params?.choiceId)
     ));
     trig.registerAction('advanceGameDay', (p = {}) => this.advanceGameDay(p.days));
-    trig.registerAction('prepareSpecialFaint', (p) => this.setPendingSpecialFaint(p));
-    trig.registerAction('clearSpecialFaint', () => this.clearPendingSpecialFaint());
+    trig.registerAction('prepareSpecialFaint', (p) => (
+      this._s01s02Coordinator.prepareSpecialFaint(p)
+    ));
+    trig.registerAction('clearSpecialFaint', () => this._s01s02Coordinator.clearSpecialFaint());
     // 切换到显式注册的独立场景（副本/过场等）；大地图推进一律走 teleportToChunk。
     trig.registerAction('switchScene', async (p) => {
       const scene = p.scene || p.target;
@@ -4446,183 +4296,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       }
       this._gainedQueue = [];
     });
-  }
-
-  /**
-   * S01 完成事务：先校验教学、目标 chunk/spawn、奖励定义与容量，再一次提交奖励和 StoryState。
-   * 传送被取消时恢复提交前库存和黑板，保证失败不留下半完成状态。
-   */
-  async completeS01AndTravel(params = {}) {
-    if (this.currentSceneId !== 'S01') return false;
-    const incomplete = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    if (incomplete) {
-      this._showNextS01Tutorial();
-      if (!this.tutorialSystem.isShowingTutorial()) {
-        this._showScreenTip('请先完成当前生存教学', { title: '尚未完成' });
-      }
-      return false;
-    }
-
-    try {
-      await this._worldLoadPromise;
-    } catch (error) {
-      this._showScreenTip(`无法前往 S02：${error.message || error}`, { title: '场景加载失败' });
-      return false;
-    }
-    const targetSceneId = params.scene || params.sceneId || 'S02';
-    const spawnRef = params.spawnRef || 'player';
-    const targetChunk = this._worldLoadSession?.getChunk?.(targetSceneId);
-    const targetSpawn = this._worldLoadSession?.findSpawn?.(targetSceneId, spawnRef);
-    if (!targetChunk || !targetSpawn) {
-      this._showScreenTip(`无法前往 ${targetSceneId}：目标区块或出生点不存在`, { title: '场景配置错误' });
-      return false;
-    }
-
-    const blackboard = this.gameLoader?.blackboard;
-    const previousStoryState = blackboard?.get?.('storyState') || {};
-    const alreadyCompleted = previousStoryState.s01Completed === true;
-    const inventory = this.playerEntity?.getComponent?.('inventory');
-    let inventoryBefore = null;
-    if (!alreadyCompleted) {
-      if (!inventory || !blackboard) return false;
-      const rewardSpecs = Array.isArray(params.rewards) && params.rewards.length
-        ? params.rewards
-        : [{ itemId: 'resource.wood', quantity: 3 }, { itemId: 'resource.herb', quantity: 2 }];
-      const itemRegistry = this.gameLoader?.getRegistry?.('items');
-      const rewardEntries = rewardSpecs.map(spec => ({
-        item: itemRegistry?.get?.(spec.itemId),
-        quantity: Math.max(0, Math.floor(Number(spec.quantity) || 0))
-      }));
-      if (rewardEntries.some(entry => !entry.item?.id || entry.quantity <= 0)) {
-        this._showScreenTip('S01 完成奖励配置无效', { title: '内容配置错误' });
-        return false;
-      }
-      const preview = this.inventoryTransactions.previewBatchAdd(inventory, rewardEntries);
-      if (preview.remainder > 0) {
-        this._showScreenTip('背包空间不足，整理后再前往废弃营地', { title: '无法领取奖励' });
-        return false;
-      }
-      inventoryBefore = inventory.exportItems();
-      const rewardResult = this.inventoryTransactions.commit({
-        type: 'batchAdd', inventory, entries: rewardEntries, allowPartial: false
-      });
-      if (!rewardResult.ok) {
-        this._showScreenTip('完成奖励结算失败，库存未改变', { title: '结算失败' });
-        return false;
-      }
-      blackboard.set('storyState', {
-        ...previousStoryState,
-        s01Completed: true,
-        currentSceneId: targetSceneId,
-        pendingDefeatResolution: null,
-        specialFaintRescueType: null,
-        unlockedScenes: [...new Set([...(previousStoryState.unlockedScenes || []), targetSceneId])]
-      });
-    }
-
-    const result = await this.teleportToChunk({
-      scene: targetSceneId,
-      spawnRef,
-      transition: params.transition || 'fadeBlack'
-    });
-    if (result === false || result == null || result?.cancelled) {
-      if (!alreadyCompleted && inventoryBefore) {
-        inventory.loadItems(inventoryBefore);
-        blackboard.set('storyState', previousStoryState);
-      }
-      return false;
-    }
-    if (blackboard) {
-      const committedStoryState = blackboard.get('storyState') || previousStoryState;
-      blackboard.set('storyState', {
-        ...committedStoryState,
-        currentSceneId: targetSceneId,
-        pendingDefeatResolution: null,
-        specialFaintRescueType: null
-      });
-    }
-    if (!alreadyCompleted) this._showScreenTip('完成 S01：获得木材 ×3、草药 ×2，已开放 S02');
-    return true;
-  }
-
-  setPendingSpecialFaint(params = {}) {
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (!blackboard || !storyState || this.currentSceneId !== 'S01') return false;
-    const rescueType = ['passerby', 'patrol', 'temporaryCamp'].includes(params.rescueType)
-      ? params.rescueType
-      : 'passerby';
-    blackboard.set('storyState', {
-      ...storyState,
-      pendingDefeatResolution: 'specialFaint',
-      specialFaintRescueType: rescueType
-    });
-    this._showScreenTip('你选择不逃跑：若在这场抵抗中倒下，将进入特殊救援昏迷');
-    return true;
-  }
-
-  clearPendingSpecialFaint() {
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (!blackboard || !storyState || storyState.pendingDefeatResolution !== 'specialFaint') return false;
-    blackboard.set('storyState', {
-      ...storyState,
-      pendingDefeatResolution: null,
-      specialFaintRescueType: null
-    });
-    return true;
-  }
-
-  /** S02 接受召见：StoryState 与自动检查点共用一个可回滚提交入口。 */
-  async acceptS02Summons() {
-    if (this.currentSceneId !== 'S02') return false;
-    const blackboard = this.gameLoader?.blackboard;
-    const previousStoryState = blackboard?.get?.('storyState');
-    if (!blackboard || !previousStoryState) return false;
-    if (previousStoryState.s02SummonsAccepted === true) {
-      this._showScreenTip('召见已接受，前往粥棚营地的路线正在准备中');
-      return true;
-    }
-    blackboard.set('storyState', {
-      ...previousStoryState,
-      s02SummonsAccepted: true,
-      lastCheckpointId: 'checkpoint.S02.summonsAccepted'
-    });
-    try {
-      const saveResult = await this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: 'checkpoint.S02.summonsAccepted', sceneId: 'S02'
-      });
-      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '自动存档未提交');
-    } catch (error) {
-      blackboard.set('storyState', previousStoryState);
-      this.dialogueSystem?.clearCompleted?.('dialogue.s02.zhangjiaoSummons');
-      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s02_zhangjiao_summons');
-      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s02_accept_summons');
-      this._sceneTriggerBindings?.resetBinding?.('S02-binding-zhangjiao-summons');
-      this._showScreenTip('召见检查点保存失败，剧情状态未提交，可重新与信使交谈', { title: '保存失败' });
-      return false;
-    }
-    this._showScreenTip('已接受张角召见并创建检查点，正在前往粥棚营地');
-    const travel = await this.travelToS09();
-    if (!travel?.ok) {
-      this._showScreenTip('召见检查点已保留；可从东北出口重试前往粥棚营地', { title: '路线暂不可用' });
-      return false;
-    }
-    return true;
-  }
-
-  async travelToS09() {
-    if (this.currentSceneId !== 'S02') return { ok: false, errors: [{ code: 'wrongScene', path: 'currentSceneId', message: '只能从 S02 前往 S09' }] };
-    const storyState = this.gameLoader?.blackboard?.get?.('storyState');
-    if (storyState?.s02SummonsAccepted !== true) {
-      this._showScreenTip('先与黄巾信使交谈并接受召见', { title: '尚未获得路线' });
-      return { ok: false, errors: [{ code: 'summonsRequired', path: 'storyState.s02SummonsAccepted', message: '尚未接受张角召见' }] };
-    }
-    const regionIndex = this._findRegionIndexForScene('S09');
-    if (regionIndex < 0) {
-      return { ok: false, errors: [{ code: 'missingTargetScene', path: 'worldMap', message: '世界地图未登记 S09' }] };
-    }
-    return this.travelToRegion({ regionIndex, sceneId: 'S09', spawnRef: 'player' });
   }
 
   /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */
@@ -4661,182 +4334,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     this._showScreenTip('你已加入黄巾。前往战士、弓手或军师旗帜确认职业。');
     return true;
-  }
-
-  // ==================== 火堆（迁移自 Act1） ====================
-
-  _restoreCampfireState(lit) {
-    if (lit) {
-      if (!this.campfire.lit) this.lightCampfire({ emitEvent: false });
-      this.fog.opacity = 0;
-      this.fog.targetOpacity = 0;
-      return;
-    }
-    for (const emitter of this.campfire.emitters || []) emitter.active = false;
-    this.campfire.emitters = [];
-    if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
-    this.campfire.emitterSmoke = null;
-    this.campfire.lit = false;
-    this.fog.opacity = S01_INITIAL_FOG_OPACITY;
-    this.fog.targetOpacity = S01_INITIAL_FOG_OPACITY;
-  }
-
-  /** 点燃火堆并创建火焰粒子（7 组发射器） */
-  lightCampfire({ emitEvent = true } = {}) {
-    if (this.campfire.lit) return;
-    this.campfire.lit = true;
-    this.campfire.emitters = [];
-
-    const fireBaseY = this.campfire.y - 15;
-    const firePoint = { x: this.campfire.x, y: fireBaseY };
-    const mk = (rate, vy, life, size, color, alpha) => this.campfire.emitters.push(
-      this.particleSystem.createEmitter({
-        position: { x: firePoint.x, y: firePoint.y },
-        rate,
-        duration: Infinity,
-        particleConfig: {
-          position: { x: firePoint.x, y: firePoint.y },
-          velocity: { x: 0, y: vy },
-          life, size, color, alpha, gravity: 0, friction: 0.95
-        }
-      })
-    );
-
-    mk(6, -50, 250, 8.5, '#ffaa22', 0.85);  // 大火焰
-    mk(8, -35, 200, 6, '#ff8833', 0.8);     // 中火焰
-    mk(4, -120, 400, 4.5, '#ffffee', 1.0);  // 白色亮点
-    mk(10, -100, 350, 3.5, '#ffee44', 0.9); // 亮黄火星
-    mk(8, -80, 300, 2.5, '#ff9933', 0.85);  // 橙色火星
-    mk(6, -60, 250, 2, '#ff5522', 0.8);     // 红色火星
-    mk(12, -40, 200, 2, '#ff6633', 0.7);    // 小火星
-
-    console.log('DataDrivenPrologueScene: 火焰粒子效果已创建（1个发射点，7种粒子）');
-
-    // 点燃火堆后驱散开场薄雾
-    this.fog.targetOpacity = 0;
-
-    // 当前火堆剧情归属 S01；存档恢复只重建表现，不重复发布剧情事件。
-    if (emitEvent && this.gameLoader) this.gameLoader.triggerSystem.fire('campfireLit', { sceneId: 'S01' });
-  }
-
-  /** 通用放置条件：从 Blackboard 纯数据路径读取 exists/equals/in，不让 PlacementSpawner 依赖剧情。 */
-  _shouldSpawnPlacement(placement = {}) {
-    const condition = placement.spawnWhen;
-    if (!condition || typeof condition !== 'object') return true;
-    const root = this.gameLoader?.blackboard?.get?.(condition.blackboardKey || 'storyState');
-    let value = root;
-    for (const segment of String(condition.path || '').split('.').filter(Boolean)) {
-      value = value && typeof value === 'object' ? value[segment] : undefined;
-    }
-    if (condition.exists === true && value === undefined) return false;
-    if (condition.exists === false && value !== undefined) return false;
-    if (Object.prototype.hasOwnProperty.call(condition, 'equals') && value !== condition.equals) return false;
-    if (Array.isArray(condition.in) && !condition.in.includes(value)) return false;
-    return true;
-  }
-
-  /**
-   * 兼容旧触发器：按组名放置对应场景引用。
-   * @param {Object} p - { group }
-   * @private
-   */
-  _spawnGroup(p = {}) {
-    return this._spawnPlacements({ group: p.group });
-  }
-
-  /**
-   * 为当前已加载九宫格按 physical chunkId 生成放置点。
-   * SXX-CNN 与 SXX 共用业务命名空间，但各自 placement.sceneId 必须保持物理 chunk ID。
-   */
-  async _spawnLoadedChunkPlacements() {
-    const chunks = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
-      .filter(chunk => chunk?.sceneId && (chunk.placements || []).length > 0)
-      .sort((a, b) => (a.row - b.row) || (a.col - b.col) || a.sceneId.localeCompare(b.sceneId));
-    for (const chunk of chunks) {
-      const result = await this._spawnPlacements({ sceneId: chunk.sceneId });
-      if (result?.ok === false) return result;
-    }
-    return { ok: true, errors: [] };
-  }
-
-  /**
-   * 按放置点 ID、组名或标签生成场景物品/实体。
-   * 世界放置点异步加载完成前先等待，防止 once 触发器空生成后永久失效。
-   * @param {Object} selector - { placementIds?, group?, tag?, tags?, sceneId?, kinds? }
-   * @private
-   */
-  async _spawnPlacements(selector = {}) {
-    const scope = this.resourceScope;
-    if (!scope || scope.disposed || !this.gameLoader) return;
-    try {
-      await this._worldLoadPromise;
-    } catch (error) {
-      if (!scope.disposed) console.warn('[DDScene] 放置点加载失败，无法生成场景物品', error);
-      return;
-    }
-    if (scope.disposed || this.resourceScope !== scope || !this.gameLoader || !this._placementSpawner) return;
-
-    const placementValidation = this.gameLoader.validatePlacementReferences(this._placements || []);
-    if (!placementValidation.ok) {
-      this.gameLoader.lastValidationErrors = placementValidation.errors;
-      console.error('[DDScene] 放置点引用校验失败', placementValidation.errors);
-      return { ok: false, errors: placementValidation.errors };
-    }
-
-    const reg = this.gameLoader.registries;
-    const result = this._placementSpawner.spawnMatching({
-      selector,
-      placements: this._placements || [],
-      registries: reg
-    });
-    for (const entry of result.errors) {
-      if (entry.reason === 'definitionNotFound') {
-        console.warn('[DDScene] spawnPlacements 未找到定义', entry.kind, entry.ref);
-      }
-    }
-
-    let worldPropN = 0;
-    for (const placement of result.matchedPlacements) {
-      if (placement.kind !== 'item') continue;
-      const baseDef = reg[this._regKey(placement.kind)]?.get(placement.ref);
-      const definition = placement.overrides ? this._mergeOverrides(baseDef, placement.overrides) : baseDef;
-      if (definition?.worldProp) worldPropN++;
-    }
-    const itemN = Math.max(0, result.counts.item - worldPropN);
-    const eqN = result.counts.equipment;
-    const entN = worldPropN + result.counts.enemy + result.counts.npc +
-      result.counts.building + result.counts.vehicle;
-    console.log('[DDScene] spawnPlacements', {
-      selector: result.selector,
-      matched: result.matchedPlacements.map(placement => placement.id),
-      items: itemN,
-      equipment: eqN,
-      others: entN
-    });
-  }
-
-  /**
-   * 合并放置点覆盖到库定义（不修改库定义本身）。
-   * 普通对象递归合并一层，这样只覆盖 interaction.radius 时不会丢掉库里的 prompt/trigger；
-   * 数组与基本类型直接整体替换。
-   * @param {Object} base - 内容库定义
-   * @param {Object} overrides - 放置点上的覆盖
-   * @returns {Object} 新对象
-   * @private
-   */
-  _mergeOverrides(base, overrides) {
-    const out = { ...base };
-    for (const [k, v] of Object.entries(overrides || {})) {
-      const isPlain = v && typeof v === 'object' && !Array.isArray(v);
-      const basePlain = out[k] && typeof out[k] === 'object' && !Array.isArray(out[k]);
-      out[k] = (isPlain && basePlain) ? this._mergeOverrides(out[k], v) : v;
-    }
-    return out;
-  }
-
-  /** kind → registries 键名 */
-  _regKey(kind) {
-    return ({ item: 'items', equipment: 'equipment', npc: 'npcs', enemy: 'enemies', shop: 'shops', vehicle: 'vehicles', building: 'buildings' })[kind] || null;
   }
 
   /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */
@@ -5191,96 +4688,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
-   * 加载场景放置点（type:'ref'/'spawn'）：从 game.project.json 的 worldMap 动态读取所有场景
-   * @private
-   */
-  _loadScenePlacements() {
-    const loadPromise = this._worldLoadPromise;
-    if (!loadPromise) return;
-
-    loadPromise.then(this.resourceScope.guard(result => {
-      if (!result.region) {
-        console.warn('[DDScene] game.project.json 无 worldMap 配置');
-      }
-      this._syncWorldStreamingProjection();
-      const placements = this._placements || [];
-      this._applySpawnPoints(placements, {
-        sceneId: this.currentSceneId,
-        applyPlayer: this._initialPlayerSpawnPending === true
-      });
-      this._worldReadyGate?.resolve('placements', placements);
-      this._syncWorldReadyProjection();
-    })).catch(this.resourceScope.guard(e => {
-      console.warn('[DDScene] 加载 game.project.json 失败:', e);
-      this._placements = [];
-      this._sceneTriggerBindings?.setBindings([]);
-      this._applySpawnPoints(this._placements, {
-        sceneId: this.currentSceneId,
-        applyPlayer: this._initialPlayerSpawnPending === true
-      });
-      this._worldReadyGate?.resolve('placements', this._placements);
-      this._syncWorldReadyProjection();
-    }));
-  }
-
-  /**
-   * 从场景数据中收集放置点，坐标加 offset
-   * @private
-   */
-  _collectPlacements(scene, placements, offset) {
-    if (!scene || !Array.isArray(scene.layers)) return;
-    for (const layer of scene.layers) {
-      for (const o of (layer.objects || [])) {
-        if (o.type === 'ref' || o.type === 'spawn') {
-          placements.push({
-            ...o,
-            x: o.x + (offset ? offset.x : 0),
-            y: o.y + (offset ? offset.y : 0)
-          });
-        }
-      }
-    }
-  }
-
-  /**
-   * 应用当前业务场景的出生点。玩家出生点只允许由新游戏启动消费一次；
-   * 读档、继承玩家与显式传送分别由 SaveGame、ScenePlayerLifecycle 和 Navigator 持有位置权威。
-   * @private
-   */
-  _applySpawnPoints(placements, { sceneId = this.currentSceneId, applyPlayer = false } = {}) {
-    const scenePlacements = (placements || []).filter(placement => placement.sceneId === sceneId);
-    const campfireSpawn = scenePlacements.find(placement =>
-      placement.type === 'spawn' && placement.ref === 'campfire');
-    if (campfireSpawn) {
-      this.campfire.x = campfireSpawn.x;
-      this.campfire.y = campfireSpawn.y;
-    }
-
-    let playerMoved = false;
-    if (applyPlayer) {
-      const playerSpawn = scenePlacements.find(placement =>
-        placement.type === 'spawn' && (placement.ref === 'player' || placement.kind === 'player'));
-      const transform = this.playerEntity?.getComponent?.('transform');
-      if (playerSpawn && transform) {
-        transform.position.x = playerSpawn.x;
-        transform.position.y = playerSpawn.y;
-        this.camera?.setPosition?.(playerSpawn.x, playerSpawn.y);
-        this._initialPlayerSpawnPending = false;
-        playerMoved = true;
-      } else {
-        console.error(`[DDScene] 新游戏缺少 canonical 玩家出生点: ${sceneId}`);
-      }
-    }
-
-    console.log('[DDScene] 场景放置点:', placements?.length || 0,
-      '当前场景:', sceneId,
-      '启动模式:', this._playerStartMode,
-      '玩家出生点已应用:', playerMoved,
-      '玩家:', this.playerEntity?.getComponent('transform')?.position,
-      '火堆:', this.campfire.x, this.campfire.y);
-  }
-
-  /**
    * 从 game.project.json 的 worldMap 动态创建地形实例
    * @private
    */
@@ -5346,20 +4753,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._syncWorldReadyProjection();
   }
 
-  /** 迷雾淡出（平滑过渡到目标浓度） */
-  updateFog(deltaTime) {
-    if (!this.fog.active) return;
-    if (Math.abs(this.fog.opacity - this.fog.targetOpacity) > 0.01) {
-      if (this.fog.opacity > this.fog.targetOpacity) {
-        this.fog.opacity -= this.fog.fadeSpeed * deltaTime;
-        if (this.fog.opacity < this.fog.targetOpacity) this.fog.opacity = this.fog.targetOpacity;
-      }
-    } else if (this.fog.targetOpacity === 0) {
-      this.fog.opacity = 0;
-      this.fog.active = false;
-    }
-  }
-
   /** 渲染：父类管线 + 碰撞多边形调试层 + 传送淡黑遮罩 */
   render(ctx) {
     // 加载门：地形/放置点异步加载完成前只填背景色，避免先渲染在默认位置再"跳变"、
@@ -5372,7 +4765,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       return;
     }
     super.render(ctx);
-    this._renderCollisionShapesDebug(ctx);
+    this.context.services.diagnostics?.renderCollisionShapes(ctx, {
+      enabled: this.debugShowCollisionPolygons,
+      camera: this.camera,
+      terrains: this._terrains,
+      label: 'DDScene'
+    });
     this._renderTeleportFade(ctx);
     // 战中 HUD 与救援 HUD 只绘制领域系统的不可变快照。
     this.battleHudView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
@@ -5389,196 +4787,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.cargoTransferView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 终局演出是最高层只读表现，仅通过命令请求宿主动作。
     this.endingPresentationView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
-  }
-
-  /** 迷雾效果层（在世界对象之后、UI 面板之前渲染） */
-  renderFogLayer(ctx) {
-    const w = this.logicalWidth;
-    const h = this.logicalHeight;
-
-    // 1) 时间系统：明暗度和色调叠加
-    if (this.timeSystem) {
-      this.timeSystem.render(ctx, w, h);
-    }
-
-    // 2) 迷雾（受时间系统 fogOpacity 调节）
-    const timeFogAdd = this.timeSystem?.enabled ? this.timeSystem.getFogOpacity() : 0;
-    const weatherFogAdd = this.weatherSystem ? this.weatherSystem.getFogAdd() : 0;
-    const baseFogOpacity = this.fog.active ? this.fog.opacity : 0;
-    // 使用分层 alpha 合成而不是直接相加；开场基础雾可达到纯黑，玩家与营火透光区仍由遮罩挖出。
-    const timeFogOpacity = Math.min(1, Math.max(0, timeFogAdd * 0.3));
-    const weatherFogOpacity = Math.min(1, Math.max(0, weatherFogAdd));
-    const composedFogOpacity = 1
-      - (1 - Math.min(1, Math.max(0, baseFogOpacity)))
-      * (1 - timeFogOpacity)
-      * (1 - weatherFogOpacity);
-    const totalFogOpacity = Math.min(1.0, composedFogOpacity);
-
-    if (totalFogOpacity > 0.01) {
-      ctx.save();
-      const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-      const viewBounds = this.camera.getViewBounds();
-      if (playerTransform) {
-        const playerScreenX = playerTransform.position.x - viewBounds.left;
-        const playerScreenY = playerTransform.position.y - viewBounds.top;
-        const lightRadius = 150;
-
-        if (!this._fogCanvas) this._fogCanvas = document.createElement('canvas');
-        if (this._fogCanvas.width !== w || this._fogCanvas.height !== h) {
-          this._fogCanvas.width = w;
-          this._fogCanvas.height = h;
-        }
-        const fogCtx = this._fogCanvas.getContext('2d');
-
-        fogCtx.clearRect(0, 0, w, h);
-        fogCtx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
-        fogCtx.fillRect(0, 0, w, h);
-
-        // destination-out 挖出玩家周围椭圆透光区（Y 轴压缩，符合 2.5D 视角）
-        fogCtx.globalCompositeOperation = 'destination-out';
-        const yScale = 0.6;
-        fogCtx.save();
-        fogCtx.translate(playerScreenX, playerScreenY);
-        fogCtx.scale(1, yScale);
-        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        fogCtx.fillStyle = gradient;
-        fogCtx.beginPath();
-        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
-        fogCtx.fill();
-        fogCtx.restore();
-
-        // 火堆点燃后在火堆位置也挖出 2.5D 椭圆透光区
-        if (this.campfire.lit) {
-          const campScreenX = this.campfire.x - viewBounds.left;
-          const campScreenY = this.campfire.y - viewBounds.top;
-          const campLightRadius = 150;
-          fogCtx.save();
-          fogCtx.translate(campScreenX, campScreenY);
-          fogCtx.scale(1, yScale);
-          const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
-          campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-          campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
-          campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          fogCtx.fillStyle = campGradient;
-          fogCtx.beginPath();
-          fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
-          fogCtx.fill();
-          fogCtx.restore();
-        }
-
-        fogCtx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(this._fogCanvas, 0, 0);
-      } else {
-        ctx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
-        ctx.fillRect(0, 0, w, h);
-      }
-      ctx.restore();
-    }
-
-    // 3) 天气粒子效果（雨、风线等）
-    if (this.weatherSystem) {
-      this.weatherSystem.render(ctx, w, h);
-    }
-  }
-
-  /** 在迷雾之上绘制编辑器碰撞多边形调试层 */
-  _renderCollisionShapesDebug(ctx) {
-    if (!this.debugShowCollisionPolygons || !this.camera || !Array.isArray(this._terrains)) return;
-
-    // 调试日志：每 60 帧打印一次，方便排查渲染是否到达此处
-    if (!this._collisionDebugRenderCount) this._collisionDebugRenderCount = 0;
-    this._collisionDebugRenderCount++;
-    if (this._collisionDebugRenderCount % 120 === 1) {
-      const shapeInfo = this._terrains.map((t, i) => {
-        const s0 = t._collisionShapes?.[0];
-        return `[${i}] ${t._editorSceneId}: ${t._collisionShapes?.length || 0} shapes` +
-          (s0 ? `, first.points[0..1]=${JSON.stringify(s0.points?.slice(0,2))}` : '');
-      });
-      const vb = this.camera.getViewBounds();
-      console.log('[DDScene][CollisionDebug]', shapeInfo.join(' | '),
-        `| view: L=${Math.round(vb.left)} T=${Math.round(vb.top)} R=${Math.round(vb.right)} B=${Math.round(vb.bottom)}`);
-    }
-
-    ctx.save();
-    const viewBounds = this.camera.getViewBounds();
-    ctx.translate(-viewBounds.left, -viewBounds.top);
-
-    // 直接遍历所有地形碰撞 shape 绘制，不走 ShapeRenderer 以确保可见
-    for (const terrain of this._terrains) {
-      const shapes = terrain._collisionShapes;
-      if (!shapes || shapes.length === 0) continue;
-      for (const shape of shapes) {
-        if (shape.shapeType === 'polygon' && Array.isArray(shape.points) && shape.points.length > 2) {
-          ctx.beginPath();
-          ctx.moveTo(shape.points[0][0], shape.points[0][1]);
-          for (let i = 1; i < shape.points.length; i++) {
-            ctx.lineTo(shape.points[i][0], shape.points[i][1]);
-          }
-          ctx.closePath();
-          ctx.globalAlpha = 0.7;
-          ctx.fillStyle = '#ff9800';
-          ctx.fill();
-          ctx.strokeStyle = '#ff3b30';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        } else if (shape.shapeType === 'rect' || (shape.x !== undefined && shape.width)) {
-          ctx.globalAlpha = 0.7;
-          ctx.fillStyle = '#ff9800';
-          ctx.fillRect(shape.x, shape.y, shape.width, shape.height);
-          ctx.strokeStyle = '#ff3b30';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
-        } else if (shape.shapeType === 'ellipse' || shape.shapeType === 'circle') {
-          const cx = (shape.x || 0) + (shape.width || 0) / 2;
-          const cy = (shape.y || 0) + (shape.height || 0) / 2;
-          const rx = (shape.width || 0) / 2;
-          const ry = (shape.height || 0) / 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-          ctx.globalAlpha = 0.7;
-          ctx.fillStyle = '#ff9800';
-          ctx.fill();
-          ctx.strokeStyle = '#ff3b30';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  }
-
-  /** 更新火焰帧动画与粒子发射器位置 */
-  updateCampfireAnimation(deltaTime) {
-    if (this.campfire.lit && this.campfire.imageLoaded) {
-      this.campfire.frameTime += deltaTime;
-      if (this.campfire.frameTime >= this.campfire.frameDuration) {
-        this.campfire.frameTime = 0;
-        this.campfire.currentFrame = (this.campfire.currentFrame + 1) % this.campfire.frameCount;
-      }
-    }
-
-    if (this.campfire.lit) {
-      const time = performance.now() / 1000;
-      this.campfire.emitters.forEach((emitter, index) => {
-        if (!emitter) return;
-        let swayAmount;
-        if (index < 2) {
-          swayAmount = (Math.random() - 0.5) * 10;
-        } else {
-          swayAmount = Math.sin(time * 2 + index * 0.5) * 4 + (Math.random() - 0.5) * 2;
-        }
-        const baseX = this.campfire.x;
-        const baseY = this.campfire.y + 2;
-        emitter.position.x = baseX + swayAmount;
-        emitter.position.y = baseY - 15;
-        emitter.particleConfig.velocity.x = (Math.random() - 0.5) * 10;
-        this.particleSystem.updateEmitter(emitter, deltaTime);
-      });
-    }
   }
 
   // ==================== 渲染（迁移自 Act1） ====================
@@ -5606,8 +4814,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         renderQueue.push({ type: 'entity', y: transform.position.y, sortPriority: 2, entity });
       }
     }
-    renderQueue.push({ type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0, render: () => this.renderCampfireBottom(ctx) });
-    renderQueue.push({ type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0, render: () => this.renderCampfireTop(ctx) });
+    this._campfireService.appendRenderItems(renderQueue, ctx, {
+      particleSystem: this.particleSystem,
+      width: this.logicalWidth,
+      height: this.logicalHeight
+    });
 
     for (const t of this._terrains) {
       t.renderBelowDecorations(ctx);
@@ -5625,135 +4836,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 渲染 Buff 多边形区域
     this._renderBuffZones(ctx);
-  }
-
-  /** 火堆下半部分 */
-  renderCampfireBottom(ctx) {
-    const x = this.campfire.x;
-    const y = this.campfire.y;
-
-    if (!this.campfire.lit) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x - 30, y - 15, 60, 15);
-      ctx.clip();
-      ctx.strokeStyle = '#5a4a3a';
-      ctx.lineWidth = 6;
-      ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - 18, y - 15); ctx.lineTo(x + 18, y - 15); ctx.stroke();
-      ctx.strokeStyle = '#4a3a2a';
-      ctx.beginPath(); ctx.moveTo(x - 15, y - 7); ctx.lineTo(x - 5, y - 27); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
-      ctx.restore();
-
-      const time = performance.now() / 1000;
-      const blinkAlpha = 0.7 + 0.3 * Math.abs(Math.sin(time * 2.5));
-      const dotRadius = 4 + 1 * Math.sin(time * 3);
-      ctx.save();
-      ctx.globalAlpha = blinkAlpha;
-      const outerGlow = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius + 6);
-      outerGlow.addColorStop(0, 'rgba(255, 100, 50, 0.8)');
-      outerGlow.addColorStop(0.5, 'rgba(255, 50, 20, 0.4)');
-      outerGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
-      ctx.fillStyle = outerGlow;
-      ctx.beginPath(); ctx.arc(x, y - 15, dotRadius + 6, 0, Math.PI * 2); ctx.fill();
-      const dotGradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, dotRadius);
-      dotGradient.addColorStop(0, 'rgba(255, 255, 200, 1)');
-      dotGradient.addColorStop(0.4, 'rgba(255, 120, 60, 1)');
-      dotGradient.addColorStop(1, 'rgba(255, 50, 20, 0)');
-      ctx.fillStyle = dotGradient;
-      ctx.beginPath(); ctx.arc(x, y - 15, dotRadius, 0, Math.PI * 2); ctx.fill();
-      ctx.restore();
-    } else {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x - 30, y - 15, 60, 15);
-      ctx.clip();
-      ctx.strokeStyle = '#3a2a1a';
-      ctx.lineWidth = 8;
-      ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
-      ctx.restore();
-
-      const gradient = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, 60);
-      gradient.addColorStop(0, 'rgba(255, 200, 0, 0.4)');
-      gradient.addColorStop(0.5, 'rgba(255, 100, 0, 0.2)');
-      gradient.addColorStop(1, 'rgba(255, 50, 0, 0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath(); ctx.arc(x, y - 15, 60, 0, Math.PI * 2); ctx.fill();
-
-      const centerGlow = ctx.createRadialGradient(x, y - 15, 0, x, y - 15, 20);
-      centerGlow.addColorStop(0, 'rgba(255, 255, 200, 0.6)');
-      centerGlow.addColorStop(0.5, 'rgba(255, 150, 0, 0.3)');
-      centerGlow.addColorStop(1, 'rgba(255, 100, 0, 0)');
-      ctx.fillStyle = centerGlow;
-      ctx.beginPath(); ctx.arc(x, y - 15, 20, 0, Math.PI * 2); ctx.fill();
-    }
-  }
-
-  /** 火堆上半部分（木材 + 火焰帧动画） */
-  renderCampfireTop(ctx) {
-    const x = this.campfire.x;
-    const y = this.campfire.y;
-
-    if (!this.campfire.lit) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(x - 30, y - 45, 60, 30);
-      ctx.clip();
-      ctx.strokeStyle = '#5a4a3a';
-      ctx.lineWidth = 6;
-      ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x - 18, y - 15); ctx.lineTo(x + 18, y - 15); ctx.stroke();
-      ctx.strokeStyle = '#4a3a2a';
-      ctx.beginPath(); ctx.moveTo(x - 15, y - 7); ctx.lineTo(x - 5, y - 27); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
-      ctx.restore();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = '#000000';
-      ctx.shadowBlur = 4;
-      ctx.fillText('熄灭的火堆', x, y - 55);
-      ctx.fillText(InputHints.format('{interact}点燃'), x, y - 40);
-      ctx.shadowBlur = 0;
-      return;
-    }
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x - 30, y - 45, 60, 30);
-    ctx.clip();
-    ctx.strokeStyle = '#3a2a1a';
-    ctx.lineWidth = 8;
-    ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(x - 20, y - 5); ctx.lineTo(x + 20, y - 25); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
-    ctx.restore();
-
-    if (this.campfire.imageLoaded && this.campfire.fireImage) {
-      const col = this.campfire.currentFrame % this.campfire.frameCols;
-      const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
-      const frameX = col * this.campfire.frameWidth;
-      const frameY = row * this.campfire.frameHeight;
-      const fireWidth = 40;
-      const fireHeight = 60;
-      const fireX = x - fireWidth / 2;
-      const fireY = y - fireHeight - 5;
-      ctx.globalAlpha = 0.9;
-      ctx.drawImage(
-        this.campfire.fireImage,
-        frameX, frameY, this.campfire.frameWidth, this.campfire.frameHeight,
-        fireX, fireY, fireWidth, fireHeight
-      );
-      ctx.globalAlpha = 1.0;
-    }
   }
 
   // ==================== 相机 / 碰撞（迁移自 Act1） ====================
@@ -5791,59 +4873,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.camera.position.y = Math.max(halfH, Math.min(worldHeight - halfH, this.camera.position.y));
   }
 
-  /** 火堆碰撞（阻止玩家穿过火堆） */
-  checkCampfireCollision() {
-    if (this.flightSystem && this.flightSystem.isPlayerFlying()) return;
-    const transform = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (!transform) return;
-
-    const playerX = transform.position.x;
-    const playerY = transform.position.y;
-    const playerRadius = 20;
-    const fullWidth = 50, fullHeight = 30;
-    const collisionWidth = fullWidth * 0.8;
-    const collisionHeight = fullHeight * 0.75;
-    const campfireLeft = this.campfire.x - collisionWidth / 2;
-    const campfireRight = this.campfire.x + collisionWidth / 2;
-    const campfireTop = this.campfire.y - 15;
-    const campfireBottom = this.campfire.y - 15 + collisionHeight;
-
-    const playerLeft = playerX - playerRadius;
-    const playerRight = playerX + playerRadius;
-    const playerTop = playerY - playerRadius;
-    const playerBottom = playerY + playerRadius;
-
-    if (playerRight > campfireLeft && playerLeft < campfireRight &&
-        playerBottom > campfireTop && playerTop < campfireBottom) {
-      const dx = playerX - this.campfire.x;
-      const dy = playerY - this.campfire.y;
-      const overlapX = dx > 0 ? (campfireRight - playerLeft) : (campfireLeft - playerRight);
-      const overlapY = dy > 0 ? (campfireBottom - playerTop) : (campfireTop - playerBottom);
-      if (Math.abs(overlapX) < Math.abs(overlapY)) transform.position.x += overlapX;
-      else transform.position.y += overlapY;
-    }
-  }
-
   /** 地形碰撞（水面 + 树木 + 编辑器碰撞多边形） */
   checkTerrainCollision() {
-    if (!this._ctcFirstLog) { console.log('%c[DDScene] checkTerrainCollision 进入方法体', 'color:lime;font-size:14px'); this._ctcFirstLog = true; }
-    if (this._terrains.length === 0) { if (!this._noTerrainLogged) { console.warn('[DDScene] checkTerrainCollision: 地形未加载'); this._noTerrainLogged = true; } return; }
-    const t = this.terrain || this._terrains[0];
-    if (!this._collisionInitLogged) {
-      console.log('[DDScene] checkTerrainCollision, collisionShapes:', t._collisionShapes?.length,
-        'act1 shapes:', this.terrainAct1?._collisionShapes?.length);
-      if (t._collisionShapes) {
-        for (let i = 0; i < Math.min(3, t._collisionShapes.length); i++) {
-          const s = t._collisionShapes[i];
-          console.log(`[DDScene] shape[${i}]: type=${s.shapeType}, points前3个=`,
-            s.points ? s.points.slice(0, 3) : 'NO POINTS');
-        }
-      }
-      const pt = this.playerEntity?.getComponent('transform');
-      console.log('[DDScene] 玩家位置:', pt ? `(${Math.round(pt.position.x)},${Math.round(pt.position.y)})` : 'null');
-      this._collisionInitLogged = true;
-    }
-    this._terrainBinding.checkTerrainCollision();
+    return this.context.services.diagnostics?.checkTerrainCollision({
+      terrainBinding: this._terrainBinding,
+      terrains: this._terrains,
+      terrain: this.terrain,
+      secondaryTerrain: this.terrainAct1,
+      playerEntity: this.playerEntity,
+      label: 'DDScene'
+    }) === true;
   }
 }
 

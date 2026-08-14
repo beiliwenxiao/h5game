@@ -113,6 +113,16 @@ export class PlacementSpawner {
     return removed;
   }
 
+  rememberPlacements(ids = []) {
+    let added = 0;
+    for (const id of ids || []) {
+      if (!id || this.spawnedPlacementIds.has(id)) continue;
+      this.spawnedPlacementIds.add(id);
+      added++;
+    }
+    return added;
+  }
+
   /**
    * 兼容旧触发器：按组名生成放置点。
    * @param {Object} options

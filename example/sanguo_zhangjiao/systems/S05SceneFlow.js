@@ -108,8 +108,9 @@ const s05Methods = {
       this.showS05MineStatus();
       return true;
     }
-    const nodePlacement = (this._placements || []).find(entry => entry.id === 'S05-iron-ore');
-    const toolPlacement = (this._placements || []).find(entry => entry.id === 'S05-worn-pickaxe');
+    const placements = this.context.services.placements?.getPlacements?.() || [];
+    const nodePlacement = placements.find(entry => entry.id === 'S05-iron-ore');
+    const toolPlacement = placements.find(entry => entry.id === 'S05-worn-pickaxe');
     if (!blackboard || !nodePlacement || !toolPlacement) {
       this._showScreenTip('矿坑铁矿或破旧铁镐配置缺失。', { title: '矿坑不可用' });
       return false;
@@ -135,7 +136,9 @@ const s05Methods = {
         reason: 'checkpoint', checkpointId: 'checkpoint.S05.minePrepared', sceneId: 'S05'
       });
       if (!saved?.ok) throw new Error(saved?.message || 'checkpointFailed');
-      await this._spawnPlacements({ placementIds: ['S05-worn-pickaxe', 'S05-iron-ore'] });
+      await this.context.services.placements?.spawn({
+        placementIds: ['S05-worn-pickaxe', 'S05-iron-ore']
+      });
       this._showScreenTip('矿坑边只剩一把耐久 1 的破旧铁镐。拾取后采下一批铁矿；镐一旦折断，近路会被塌方封死。', {
         title: '矿坑准备完成'
       });
@@ -238,7 +241,8 @@ const s05Methods = {
   async _syncS05MineWorldState() {
     const mine = this.gameLoader?.blackboard?.get?.('storyState')?.s05Mine || {};
     const collapsed = mine.collapseCommitted === true;
-    const placement = (this._placements || []).find(entry => entry.id === 'S05-mine-collapse');
+    const placement = (this.context.services.placements?.getPlacements?.() || [])
+      .find(entry => entry.id === 'S05-mine-collapse');
     const collider = placement?.overrides?.collision;
     if (placement && collider) {
       this._terrainBinding?.setDynamicCollider?.({
@@ -253,8 +257,8 @@ const s05Methods = {
       });
     }
     if (!collapsed || this.currentSceneId !== 'S05') return collapsed;
-    await this._spawnPlacements({ group: 'S05-mine-collapse' });
-    await this._spawnPlacements({ group: 'S05-mine-ambush' });
+    await this.context.services.placements?.spawn({ group: 'S05-mine-collapse' });
+    await this.context.services.placements?.spawn({ group: 'S05-mine-ambush' });
     for (const enemy of this._groupEnemies?.['S05-mine-ambush'] || []) {
       if (!this._isEntityDead(enemy)) this.aiSystem?.activateAI?.(enemy, enemy.aiType || 'aggressive');
     }

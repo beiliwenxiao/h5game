@@ -119,7 +119,7 @@ const s09RefugeeMethods = {
       });
     }
 
-    await this._spawnPlacements({ group: S09_REFUGEE_GROUP });
+    await this.context.services.placements?.spawn({ group: S09_REFUGEE_GROUP });
     if (firstTrigger) {
       this._s09AudioDirector?.playFeedback?.('conflict');
       this._showScreenTip('粮仓损毁引发饥民争斗。难民区出现伤兵、妇孺与死者，请查看现场。', {
@@ -390,7 +390,9 @@ const s09RefugeeMethods = {
 
     this._s09AudioDirector?.playFeedback?.(branch);
     this._setRefugeeDialogueNode(resultNode);
-    if (scoutTriggered) await this._spawnPlacements({ group: 'S09-refugee-scout' });
+    if (scoutTriggered) {
+      await this.context.services.placements?.spawn({ group: 'S09-refugee-scout' });
+    }
     const messages = {
       hardline: '残兵控制住人群：城市士气 +10，获得“严苛统领”标签；下一游戏日将结算逃亡风险。',
       appease: result === 'foodRestored' ? '有效斧头帮助收集燃料与散粮，城市粮食 +30。' : '没有有效斧头，安抚失败并引来了官军斥候。',

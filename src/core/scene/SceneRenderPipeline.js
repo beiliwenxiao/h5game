@@ -22,7 +22,16 @@ export class SceneRenderPipeline {
       (_scene, ctx) => this._renderWorldEffects(ctx)
     ];
     this.screenLayers = config?.screenLayers || [
-      (scene, ctx) => scene.renderFogLayer(ctx),
+      (scene, ctx) => (this.context?.services?.campfire
+        ? this.context.services.campfire.renderAtmosphere(ctx, {
+          timeSystem: scene.timeSystem,
+          weatherSystem: scene.weatherSystem,
+          playerEntity: scene.playerEntity,
+          camera: scene.camera,
+          width: scene.logicalWidth,
+          height: scene.logicalHeight
+        })
+        : scene.renderFogLayer(ctx)),
       (scene, ctx) => (this.context?.services?.worldInteraction
         ? this.context.services.worldInteraction.renderClickScreenMarkers(ctx)
         : scene._renderClickScreenMarkers(ctx)),

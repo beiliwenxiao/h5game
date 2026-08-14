@@ -2,14 +2,41 @@
  * 三国张角传 - P1：S01–S02 生存教学与主线事务编排
  ************************************************************/
 
-const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
-
 export const S01_TUTORIAL_KEYS = Object.freeze([
   'move', 'attack', 'pickup', 'jump', 'gather', 'durability', 'capacity'
 ]);
 export const S01_TUTORIAL_IDS = Object.freeze(
   S01_TUTORIAL_KEYS.map(key => `s01.${key}`)
 );
+
+export function createS01TutorialConfig(project = null) {
+  return {
+    category: 's01-survival',
+    order: S01_TUTORIAL_IDS,
+    definitions: [
+      { id: 's01.move', title: '移动', steps: [{ text: '使用 {move} 移动，离开火堆附近。' }] },
+      { id: 's01.attack', title: '攻击', steps: [{ text: '使用 {attack} 进行一次攻击。' }] },
+      { id: 's01.pickup', title: '拾取', steps: [{ text: '靠近物资后使用 {pickup} 拾取。' }] },
+      { id: 's01.jump', title: '跳跃', steps: [{ text: '使用 {jump} 越过障碍。' }] },
+      { id: 's01.gather', title: '采集', steps: [{ text: '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。' }] },
+      { id: 's01.durability', title: '工具耐久', steps: [{ text: '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。' }] },
+      { id: 's01.capacity', title: '背包容量', steps: [{ text: '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。' }] }
+    ],
+    overrides: project?.extensions?.sanguoZhangjiao?.s01Tutorials,
+    rules: [
+      { signal: 'attackPerformed', stepId: 's01.attack' },
+      { signal: 'jumpPerformed', stepId: 's01.jump' },
+      { signal: 'itemPicked', stepId: 's01.pickup' },
+      { signal: 'gatheringCompleted', stepId: 's01.gather' },
+      {
+        signal: 'gatheringCompleted', stepId: 's01.durability',
+        when: payload => !!payload?.toolInstanceId
+      },
+      { signal: 'gatheringCompleted', stepId: 's01.capacity' }
+    ],
+    movementRule: { stepId: 's01.move', threshold: 60 }
+  };
+}
 
 const SPECIAL_FAINT_RESCUE_TYPES = Object.freeze(['passerby', 'patrol', 'temporaryCamp']);
 const SPECIAL_FAINT_LABELS = Object.freeze({
@@ -19,100 +46,6 @@ const SPECIAL_FAINT_LABELS = Object.freeze({
 });
 
 const s01s02Methods = {
-  _configureS01Tutorial(project = null) {
-    const fallbackTutorials = [
-      { id: 's01.move', title: '移动', steps: [{ text: '使用 {move} 移动，离开火堆附近。' }] },
-      { id: 's01.attack', title: '攻击', steps: [{ text: '使用 {attack} 进行一次攻击。' }] },
-      { id: 's01.pickup', title: '拾取', steps: [{ text: '靠近物资后使用 {pickup} 拾取。' }] },
-      { id: 's01.jump', title: '跳跃', steps: [{ text: '使用 {jump} 越过障碍。' }] },
-      { id: 's01.gather', title: '采集', steps: [{ text: '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。' }] },
-      { id: 's01.durability', title: '工具耐久', steps: [{ text: '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。' }] },
-      { id: 's01.capacity', title: '背包容量', steps: [{ text: '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。' }] }
-    ];
-    const configured = project?.extensions?.sanguoZhangjiao?.s01Tutorials;
-    const configuredById = new Map((Array.isArray(configured) ? configured : [])
-      .filter(definition => S01_TUTORIAL_IDS.includes(definition?.id))
-      .map(definition => [definition.id, definition]));
-    const definitions = fallbackTutorials.map(fallback => {
-      const override = configuredById.get(fallback.id);
-      return override && Array.isArray(override.steps)
-        ? { ...fallback, ...cloneData(override) }
-        : fallback;
-    });
-    for (const definition of definitions) {
-      this.tutorialSystem.registerTutorial(definition.id, {
-        ...cloneData(definition),
-        category: definition.category || 's01-survival',
-        canSkip: definition.canSkip === true,
-        autoTrigger: definition.autoTrigger === true
-      });
-    }
-    if (project || this._s01TutorialCallbacksBound) return;
-    this._s01TutorialCallbacksBound = true;
-    this.tutorialSystem.onShow(data => {
-      this._showScreenTip(data?.step?.text || '', {
-        title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
-      });
-    });
-    this.tutorialSystem.onHide(() => this._hideScreenTip('tutorial'));
-    this.tutorialSystem.onComplete(() => {
-      this.resourceScope?.setTimeout(() => this._showNextS01Tutorial(), 0);
-    });
-  },
-
-  _showNextS01Tutorial() {
-    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isShowingTutorial()) return false;
-    const next = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return next ? this.tutorialSystem.showTutorial(next) : false;
-  },
-
-  _completeS01TutorialStep(key) {
-    const id = `s01.${key}`;
-    if (this.currentSceneId !== 'S01' || this.tutorialSystem.isTutorialCompleted(id)) return false;
-    this.tutorialSystem.completeTutorial(id);
-    if (!this.tutorialSystem.isShowingTutorial()) this._showNextS01Tutorial();
-    return true;
-  },
-
-  onPlayerTutorialAction(action) {
-    if (action === 'attack' || action === 'jump') this._completeS01TutorialStep(action);
-  },
-
-  _isS01AttackTutorialAvailable() {
-    if (this.currentSceneId !== 'S01') return false;
-    const nextTutorial = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return nextTutorial === 's01.attack';
-  },
-
-  _handleS01GatheringTutorial(event, data = {}) {
-    if (event !== 'completed' || this.currentSceneId !== 'S01') return false;
-    if (!this.tutorialSystem.isTutorialCompleted('s01.gather')) {
-      return this._completeS01TutorialStep('gather');
-    }
-    if (!this.tutorialSystem.isTutorialCompleted('s01.durability')) {
-      return data.toolInstanceId ? this._completeS01TutorialStep('durability') : false;
-    }
-    return this._completeS01TutorialStep('capacity');
-  },
-
-  _updateS01MovementTutorial(triggerSystem = this.gameLoader?.triggerSystem) {
-    const transform = this.playerEntity?.getComponent?.('transform');
-    if (!transform) return false;
-    if (!this._startPos) {
-      this._startPos = { x: transform.position.x, y: transform.position.y };
-    }
-    if (this.currentSceneId !== 'S01'
-      || this.tutorialSystem.isTutorialCompleted('s01.move')) return false;
-    const distance = Math.hypot(
-      transform.position.x - this._startPos.x,
-      transform.position.y - this._startPos.y
-    );
-    if (distance <= 60) return false;
-    this._completeS01TutorialStep('move');
-    triggerSystem?.fire?.('playerMoved', {});
-    return true;
-  },
-
   resolvePlayerDefeatResolution() {
     const storyState = this.gameLoader?.blackboard?.get?.('storyState') || {};
     if (storyState.pendingDefeatResolution !== 'specialFaint') return { type: 'normalDeath' };
@@ -145,9 +78,10 @@ const s01s02Methods = {
    */
   async completeS01AndTravel(params = {}) {
     if (this.currentSceneId !== 'S01') return false;
-    const incomplete = S01_TUTORIAL_IDS.find(id => !this.tutorialSystem.isTutorialCompleted(id));
+    const tutorialFlow = this.context?.services?.tutorialFlow;
+    const incomplete = S01_TUTORIAL_IDS.find(id => !tutorialFlow?.isCompleted(id));
     if (incomplete) {
-      this._showNextS01Tutorial();
+      tutorialFlow?.showNext();
       if (!this.tutorialSystem.isShowingTutorial()) {
         this._showScreenTip('请先完成当前生存教学', { title: '尚未完成' });
       }
@@ -294,7 +228,7 @@ const s01s02Methods = {
       return false;
     }
     this._showScreenTip('已接受张角召见并创建检查点，正在前往粥棚营地');
-    const travel = await this.travelToS09();
+    const travel = await s01s02Methods.travelToS09.call(this);
     if (!travel?.ok) {
       this._showScreenTip('召见检查点已保留；可从东北出口重试前往粥棚营地', { title: '路线暂不可用' });
       return false;
@@ -328,18 +262,40 @@ const s01s02Methods = {
   }
 };
 
-export function installS01S02SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s01s02Methods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S01S02SceneFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+/** S01/S02 固定剧情事务协调器；不修改 Scene prototype。 */
+export class S01S02Coordinator {
+  constructor(scene) {
+    if (!scene) throw new TypeError('S01S02Coordinator requires scene');
+    this.scene = scene;
   }
-  return SceneClass;
+
+  resolve() {
+    return s01s02Methods.resolvePlayerDefeatResolution.call(this.scene);
+  }
+
+  handleResolved(result = {}) {
+    return s01s02Methods._handleSpecialFaintResolved.call(this.scene, result);
+  }
+
+  completeS01AndTravel(params = {}) {
+    return s01s02Methods.completeS01AndTravel.call(this.scene, params);
+  }
+
+  prepareSpecialFaint(params = {}) {
+    return s01s02Methods.setPendingSpecialFaint.call(this.scene, params);
+  }
+
+  clearSpecialFaint() {
+    return s01s02Methods.clearPendingSpecialFaint.call(this.scene);
+  }
+
+  acceptS02Summons(params = {}) {
+    return s01s02Methods.acceptS02Summons.call(this.scene, params);
+  }
+
+  travelToS09() {
+    return s01s02Methods.travelToS09.call(this.scene);
+  }
 }
 
-export default installS01S02SceneFlow;
+export default S01S02Coordinator;

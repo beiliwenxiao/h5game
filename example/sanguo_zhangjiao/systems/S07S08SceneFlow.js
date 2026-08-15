@@ -10,13 +10,17 @@ export const S07_BATTLE_ID = 'battle.s07_xihua_delay';
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
 const s07s08Methods = {
+  _getS07BattleDefinition() {
+    return this.s03s14BattleCoordinator?.getDefinition?.(S07_BATTLE_ID) || null;
+  },
+
   _getS07DelayPointDefinition(pointId) {
-    return (this._s07BattleConfig?.delayPoints || []).find(point => point?.id === pointId) || null;
+    return (this._getS07BattleDefinition()?.delayPoints || []).find(point => point?.id === pointId) || null;
   },
 
   _syncS07DelayWorldState() {
     const committed = this.gameLoader?.blackboard?.get?.('storyState')?.s07DelayPoints || {};
-    for (const point of this._s07BattleConfig?.delayPoints || []) {
+    for (const point of this._getS07BattleDefinition()?.delayPoints || []) {
       if (!point?.id || !point.collider) continue;
       this._terrainBinding?.setDynamicCollider?.({
         sceneId: 'S07',
@@ -42,14 +46,15 @@ const s07s08Methods = {
       this._showScreenTip(`${point.label}已经完成，资源不会重复扣除。`, { title: '阻滞点已提交' });
       return true;
     }
-    if (this.battleSystem?.definition?.battleId !== S07_BATTLE_ID
-      || this.battleSystem?.mode !== BattleMode.INTERVENE
-      || ![BattleState.ACTIVE, BattleState.RESOLVED].includes(this.battleSystem?.state)) {
+    const battleSession = this.s03s14BattleCoordinator?.getSessionState?.() || {};
+    if (battleSession.battleId !== S07_BATTLE_ID
+      || battleSession.mode !== BattleMode.INTERVENE
+      || ![BattleState.ACTIVE, BattleState.RESOLVED].includes(battleSession.state)) {
       this._showScreenTip('先在军令旗选择介入并启动西华战役；观战不能亲自布置阻滞。', { title: '无法提交阻滞点' });
       return false;
     }
-    if (this.battleSystem.state === BattleState.RESOLVED) {
-      const frozen = this.battleSystem.getState().result;
+    if (battleSession.state === BattleState.RESOLVED) {
+      const frozen = battleSession.result;
       const applied = frozen?.resultId
         && (blackboard.get('appliedBattleResultIds') || []).includes(frozen.resultId);
       if (!applied) {
@@ -131,7 +136,7 @@ const s07s08Methods = {
   },
 
   _buildS07RouteResult({ story, city, battleResult, battleMode }) {
-    const delayPointCount = (this._s07BattleConfig?.delayPoints || [])
+    const delayPointCount = (this._getS07BattleDefinition()?.delayPoints || [])
       .filter(point => story.s07DelayPoints?.[point.id]?.committed === true).length;
     const yellowTurbanWon = battleResult.winnerFactionId === 'yellow_turban';
     const survivorCount = Math.min(60, Math.max(0,
@@ -172,9 +177,10 @@ const s07s08Methods = {
       this._showScreenTip('先完成西华战役并让战果成功写入检查点。', { title: '尚不能撤离' });
       return false;
     }
+    const currentBattle = this.s03s14BattleCoordinator?.getSessionState?.() || {};
     const battleMode = beforeStory.battleModes?.[S07_BATTLE_ID]
-      || (this.battleSystem?.definition?.battleId === S07_BATTLE_ID ? this.battleSystem.mode : null);
-    const pointDefinitions = this._s07BattleConfig?.delayPoints || [];
+      || (currentBattle.battleId === S07_BATTLE_ID ? currentBattle.mode : null);
+    const pointDefinitions = this._getS07BattleDefinition()?.delayPoints || [];
     const committedCount = pointDefinitions
       .filter(point => beforeStory.s07DelayPoints?.[point.id]?.committed === true).length;
     if (battleMode === BattleMode.INTERVENE && committedCount !== pointDefinitions.length) {
@@ -223,9 +229,7 @@ const s07s08Methods = {
     try {
       const traveled = await this.teleportToChunk({ scene: sceneId, spawnRef, transition });
       if (traveled === false || traveled?.cancelled) throw new Error('sceneTransitionCancelled');
-      this.battleModeView?.close?.();
-      this.battleResultView?.close?.();
-      this.battleHudView?.clear?.();
+      this.s03s14BattleCoordinator.closeUi();
       this._showScreenTip(
         `西华残部 ${routeResult.survivorCount} 人、追兵强度 ${routeResult.pursuitIntensity} 已冻结。`,
         { title: 'S08·西华余部' }

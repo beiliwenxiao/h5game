@@ -209,6 +209,10 @@ MOVE     右键
 
 `SceneBattleFlowRegistry` 统一校验并索引场景战役流程参数。canonical 场景 JSON 的 `gameplay.battleId` 与 `gameplay.battleFlow` 是 locationName、提示文案、Story 状态键、checkpoint 和战果展示 `worldChanges` 的唯一事实源；`config/battles/*.json` 只保存 BattleSystem 领域定义，不得再复制 `sceneFlow`。Registry 从所属场景 `id` 和 `gameplay.battleId` 派生双索引，`battleFlow` 内不得重复保存 sceneId/battleId；`registerMany()` 必须先完整校验再一次替换索引，失败保留旧注册状态。`BaseGameScene` 只暴露 `configureSceneBattleFlows/getBattleFlowByScene/getBattleFlowById/getBattleFlows`，具体 Scene 只负责加载 canonical 场景数据、传参和调用，不得另建常量 Map 或私有 getter。
 
+`SceneCityWarStateBridge` 是 Blackboard、CityWarSystem 与已加载资源节点之间的唯一通用投影桥。`commit()` 可按当前活动战役投影 mode、resolved/winner/checkpoint 与配置化月份下限；`restore()` 必须精确写回已捕获状态，禁止再次执行活动战役投影，否则 rollback 会把待回滚事实重新写入快照。写入或资源节点同步失败时必须恢复 Blackboard 与节点状态。
+
+`SceneBattleRuntime` 只拥有单活动战役会话、`BattleSystem/CityWarSystem/BattlefieldRuntimeSystem`、效果过滤器、三类战役 UI、默认 CityWar 结算、成长奖励和原存档键恢复。它每次更新或启停都通过注入的 `getEntities()` 读取当前实体，不捕获初始化时数组；初始化、重复初始化和退出必须恢复此前的 `CombatSystem` effect filter。外部只允许通过 `getSessionState/isBattlefieldActive/canUseRescue/freezeResult` 查询或提交战役事实，通过 `captureCityWarState/restoreCityWarState/applyBattleResult` 参与外层原子事务，并通过 `handleInputLayer/renderLayer` 访问 `result/mode/hud` 分层表现；不得把 Runtime 内部系统或 View 再平铺到 Scene。`getSessionState()` 必须返回克隆快照，`restore()` 直接调用也必须先捕获完整战役状态，任一步失败后恢复 Battle/Battlefield/CityWar 全部旧状态。战役帧更新注册到 `GameSceneRuntime` 的 `afterScene` 阶段，保证 Combat/AI/Collision 已完成且 Scene 不再手工驱动。S03–S14、固定人物、月份、救援、S13 特殊结算等历史规则只能由 Demo `S03S14BattleCoordinator` 通过 hooks 注入，core 禁止按 sceneId/battleId 分支；Scene 只显式调用 coordinator/runtime，不直接实例化战役系统或定义会话函数。
+
 `SceneFlowCoordinator` 是 Demo 历史流程从 Scene 中拆出的通用显式承载器：Scene 构造器必须显式持有 coordinator，并经 `sceneCoordinator.method(...)` 调用；禁止重新引入 `install*(SceneClass)`、`Object.defineProperty(SceneClass.prototype, ...)` 或其他动态 instance/prototype mixin。flow 内嵌套方法调用保持在同一 coordinator，字段读写投影到真实 Scene，Scene/框架方法仍以真实 Scene 为 receiver。只有向 Dialogue 等外部 API 传递 Scene 身份时才使用 `$scene`；不得把代理上下文本身外传，也不得把 `$scene` 当成恢复隐式 mixin 的入口。固定人物、S01–S14 历史条件与事务继续留在 Demo coordinator，通用状态机和领域能力仍上移到 `src/`。
 
 `src/core/scene/` 提供三个可增量采纳的模块：
@@ -229,7 +233,7 @@ MOVE     右键
 `BaseGameScene` 已采用这些模块，场景本体只保留场景编排、游戏内容钩子与兼容转发入口：
 
 - `SceneTerrainCollision`：集中处理水池、树木和编辑器碰撞形状；静态碰撞体按 terrain 建空间索引，异步场景数据替换或数量变化时自动失效。椭圆盆地只负责视觉与装饰布局，**不得**作为物理边界；walkable 优先于 collide，区块接缝不会被 terrain 自动推出。主路 walkable 与建筑 collide 不得重叠，除非该区域明确是桥、门或可穿越入口；否则优先规则会让建筑变成可穿越。
-- `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；所有 terrain 均处理水池、树与 shape，具体 Terrain 类型通过依赖注入。
+- `SceneTerrainBinding`：统一单/多 terrain 的创建、特效区域、Buff 区域、碰撞与小地图绑定；所有 terrain 均处理水池、树与 shape，具体 Terrain 类型通过依赖注入。`effectZoneRenderer` 的创建、替换和释放必须经 Binding 同步写入 `context.presentation.effectZoneRenderer`；异步旧 renderer 只能清理自身，禁止覆盖新生命周期投影。
 - `SceneAimController` + `SceneAimPresentation` + `AimPreviewRenderer`：统一 PC/触屏/手柄的瞄准控制、状态与 5px 虚线预览；场景通过回调注入射程和确认动作。
 - `SceneEquipmentFlow`：统一装备槽位映射、属性差值和装备/卸下事务；变更结果仍必须由 `BaseGameScene.onEquipmentChanged(messages, info)` 派发。
 - `SceneItemGainedFlow`：管理拾取/奖励后的 FIFO 弹窗、装备比较和使用动作；弹窗装备同样必须经过统一装备事件出口。
@@ -254,9 +258,12 @@ MOVE     右键
 - `SceneDialogueFlow`：统一继续对话、跳过打字机、选项节点保护和点击消费；`lastSpacePressed` 继续作为兼容字段保留。
 - `ScenePanelLayout`：组合并绑定 HUD，加载 UIEditor/PanelEditor 布局、响应窗口缩放、同步面板悬停，并在背包打开时协调 Canvas 与 DOM 触屏控件层级。
 - `SceneWorldPresentation`：统一通用 terrain/等距背景、掉落物、飞行阴影与格挡护盾；子场景仍通过 `renderBackground`、`renderFogLayer`、`renderSpeechBubbles` 覆盖 Demo 内容表现。
-- `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，输入与 HUD 优先从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。相机必须在本帧移动、实体碰撞和地形位置修正完成后跟随最终玩家位置，禁止长期使用上一帧位置。Demo 自建主循环必须在每个 `requestAnimationFrame` 执行一次 update/render，不得用 `elapsed < frameInterval` 跳过 RAF 后再把累计 `deltaTime` 一次性交给移动系统；页面切换或长任务产生的异常 `deltaTime` 应做保守上限钳制。
-- `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，并按 `worldLayers → screenLayers → modalLayers` 有序绘制；render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。显式 `depthSort:true` 的场景图片和 effectZone 粒子进入实体队列，稳定同 Y 顺序为静态图片/装饰（0）→ worldDepth 粒子（1）→实体（2）；普通背景图片与战斗/技能顶层粒子保持原层级。`sortY` 是世界 Y 字段，任何 chunk 投影必须与 `y/points` 同时且只偏移一次。
-- `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；实例仍投影到场景字段，保持 `SceneFramePipeline` 调用契约和初始化顺序。
+- `SceneFramePipeline`：通过显式 `{ scene, context }` 构造，帧首一次解析 `context.systems/presentation/entities/player/input/camera`，完整系统更新链只消费这些局部 Context 依赖，不再回退到 Scene 同名平铺字段。输入与 HUD 从 `context.services` 调度；保持系统更新顺序和转场提前返回语义，正常帧最后才清输入。相机必须在本帧移动、实体碰撞和地形位置修正完成后跟随最终玩家位置，禁止长期使用上一帧位置。Demo 自建主循环必须在每个 `requestAnimationFrame` 执行一次 update/render，不得用 `elapsed < frameInterval` 跳过 RAF 后再把累计 `deltaTime` 一次性交给移动系统；页面切换或长任务产生的异常 `deltaTime` 应做保守上限钳制。
+- `SceneRenderPipeline`：通过显式 `{ scene, context }` 构造，camera/player/entities/systems/presentation/ui 等正式依赖只从 Context 读取，不再回退到 Scene 同名平铺字段；按 `worldLayers → screenLayers → modalLayers` 有序绘制，render 内禁止更新 UI 状态，Y-sort 缓冲继续复用。显式 `depthSort:true` 的场景图片和 effectZone 粒子进入实体队列，稳定同 Y 顺序为静态图片/装饰（0）→ worldDepth 粒子（1）→实体（2）；普通背景图片与战斗/技能顶层粒子保持原层级。`sortY` 是世界 Y 字段，任何 chunk 投影必须与 `y/points` 同时且只偏移一次。
+- `SceneGameplaySystemAssembler`：集中创建、接线和释放 Combat/Movement/AI/Collision/Pickup/Meditation/Zone/Flight/Melee 及战斗渲染器；`GameLoader` 就绪后还统一创建 Class/Proficiency/Construction/Vehicle/VehicleLogistics/MannedStructure，并接入同一个 EffectResolver、库存容量和移动 intent 路由。正式所有权投影到 `context.systems/presentation`，Scene 同名字段只作迁移兼容；释放时只清除仍指向本装配器实例的 Context 槽位和路由，并清空物流 inventory owner 闭包；退出后迟到的未决物流 checkpoint 必须被拒绝以触发事务自身回滚，禁止伪装成功后写入已释放场景。Demo 只能注入配置、历史校验、checkpoint 与事件回调，不得再次直接 `new` 这些系统。
+- `SceneGameplaySnapshotRuntime`：统一捕获 defeat/gathering/locomotion/puppet/proficiency/construction 字段，并按“基础领域状态→职业事实同步→角色派生状态”分阶段恢复。`restoreFoundations()` 与 `restoreActors()` 各自必须先捕获本阶段全部回滚快照；当前失败步骤和此前步骤都按逆序恢复，直接调用也不能留下半恢复状态。外层 `BaseGameScene.restoreSaveState()` 仍负责跨阶段及剧情/职业状态的整体原子回滚。
+- `SceneDeathDropRuntime`：统一 DeathDrop 列表捕获、纯校验和替换恢复，并以 `context.services.deathDrops` 注册。恢复必须先创建全部未注册草稿，草稿完整后才一次替换选中范围；创建失败保持旧列表不变，提交失败恢复旧 `SceneEntityStore` 分类注册。流式 chunk 只能通过 `selectCurrent` 替换当前加载范围，禁止破坏其他已加载 namespace 的掉落。
+- `SceneVehicleRuntime`：拥有 canonical 场景 `gameplay.vehicles` 的实体生成、按 `sceneNamespace` 捕获、纯预校验、Vehicle/Cargo/物流 ledger 原子恢复和逆序回滚；使用注入的 `getChunk/findMarker/VehicleSystem/EntityStore`，core 不识别 SXX、阵营或历史规则。具体游戏只传 team/tags 和退出钩子；流式 provider 保存分区载具状态，场景总快照仍只保存一次全局物流 ledger。恢复前 `ensure()` 新建的实体必须单独记录；任一组件或物流恢复失败时，除恢复已有载具的 Transform/Vehicle/Cargo/Movement/注册状态外，还必须注销、移出 store 并销毁本次新建实体。
 - `SceneDiagnostics`：集中管理 DebugPanel、PerformanceOptimizer/Monitor、draw-call Canvas 代理、纹理内存估算、terrain 碰撞状态变更日志、碰撞 shape 调试绘制与首次碰撞诊断；以 `context.services.diagnostics` 显式注册。调试绘制继续受场景 `debugShowCollisionPolygons` 控制，原日志内容不得因迁移而删除；监控关闭时不保留代理，场景退出时恢复 Canvas 原方法。
 - `EntityRenderer2D`、`ItemSpriteRenderer`、`ClickFeedbackRenderer`：承接实体、掉落物和点击反馈绘制；实体渲染器缓存已就绪资源、代码样式与稳定文本测量结果。
 

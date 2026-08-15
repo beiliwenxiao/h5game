@@ -56,9 +56,7 @@ const s03s08Methods = {
     try {
       const result = await this.teleportToChunk({ scene: 'S04', spawnRef: 'player', transition: 'fadeBlack' });
       if (result === false || result?.cancelled) throw new Error('sceneTransitionCancelled');
-      this.battleModeView?.close?.();
-      this.battleResultView?.close?.();
-      this.battleHudView?.clear?.();
+      this.s03s14BattleCoordinator.closeUi();
       this._showScreenTip('已抵达五月的长社战场。', { title: 'S04·长社战场' });
       return true;
     } catch (error) {
@@ -69,9 +67,12 @@ const s03s08Methods = {
   },
 
   startS04BocaiRescue() {
-    if (this.currentSceneId !== 'S04' || !this.rescueSystem || !this._s04BocaiRescueConfig) return false;
-    this._setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
-    if (this.battleSystem?.mode !== BattleMode.INTERVENE) {
+    const battleCoordinator = this.s03s14BattleCoordinator;
+    const rescueDefinition = battleCoordinator?.getRescueDefinition?.(S04_BOCAI_RESCUE_ID);
+    const battleSession = battleCoordinator?.getSessionState?.() || {};
+    if (this.currentSceneId !== 'S04' || !this.rescueSystem || !rescueDefinition) return false;
+    battleCoordinator.setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
+    if (battleSession.mode !== BattleMode.INTERVENE) {
       this._showScreenTip('只有在长社战役选择介入后才能启动波才救援。', { title: '救援不可用' });
       return false;
     }
@@ -84,14 +85,14 @@ const s03s08Methods = {
       );
       return true;
     }
-    const targetId = this._s04BocaiRescueConfig.targetEntityId;
+    const targetId = rescueDefinition.targetEntityId;
     const target = (this.entities || []).find(entity => entity?.id === targetId);
     if (!target) {
       this._showScreenTip(`救援目标 ${targetId} 尚未生成`, { title: '救援配置错误' });
       return false;
     }
-    const started = this.rescueSystem.start(this._s04BocaiRescueConfig, {
-      mode: this.battleSystem.mode,
+    const started = this.rescueSystem.start(rescueDefinition, {
+      mode: battleSession.mode,
       operationId: `start:${S04_BOCAI_RESCUE_ID}`
     });
     if (!started.ok) {
@@ -105,7 +106,7 @@ const s03s08Methods = {
 
   completeS04BocaiEvacuation() {
     if (this.currentSceneId !== 'S04' || this.rescueSystem?.status !== RescueStatus.ACTIVE) return false;
-    const definition = this._s04BocaiRescueConfig;
+    const definition = this.s03s14BattleCoordinator?.getRescueDefinition?.(S04_BOCAI_RESCUE_ID);
     const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const evacuation = this._worldLoadSession?.findSpawn?.('S04', definition?.evacuationRef);
     const transform = target?.getComponent?.('transform');
@@ -127,7 +128,7 @@ const s03s08Methods = {
 
   _updateS04BocaiRescue(deltaTime) {
     if (this.currentSceneId !== 'S04' || this.rescueSystem?.status !== RescueStatus.ACTIVE || this._s04RescueBusy) return;
-    const definition = this._s04BocaiRescueConfig;
+    const definition = this.s03s14BattleCoordinator?.getRescueDefinition?.(S04_BOCAI_RESCUE_ID);
     const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const targetStats = target?.getComponent?.('stats');
     const targetTransform = target?.getComponent?.('transform');
@@ -191,7 +192,7 @@ const s03s08Methods = {
     } catch (error) {
       blackboard?.set?.('storyState', beforeStory);
       const restored = this.rescueSystem.deserialize(beforeRescueState);
-      this._setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
+      this.s03s14BattleCoordinator.setRescueObjectiveTitle(S04_BOCAI_RESCUE_ID);
       this.rescueObjectiveView?.setSnapshot?.(restored?.state || this.rescueSystem.getState());
       this._showScreenTip(`救援检查点失败：${error?.message || error}，结果已回滚。`, { title: '保存失败' });
       return false;
@@ -319,9 +320,7 @@ const s03s08Methods = {
       scene: route.entrySceneId, spawnRef: 'player', transition: 'fadeBlack'
     });
     if (result === false || result?.cancelled) throw new Error('sceneTransitionCancelled');
-    this.battleModeView?.close?.();
-    this.battleResultView?.close?.();
-    this.battleHudView?.clear?.();
+    this.s03s14BattleCoordinator.closeUi();
     this._showScreenTip(`已进入${route.label}。当前场景为后续内容制作的灰盒入口。`, {
       title: `${route.entrySceneId}·${route.label}`
     });

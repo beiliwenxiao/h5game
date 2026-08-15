@@ -13,13 +13,14 @@ const TERMINAL = new Set(['succeeded', 'failed']);
 export class S11S12Coordinator {
   constructor(config = {}) {
     this.rescueSystem = config.rescueSystem || null;
-    this.battleSystem = config.battleSystem || null;
     this.inventoryTransactions = config.inventoryTransactions || null;
     this.getInventory = config.getInventory || (() => null);
+    this.getBattleSession = config.getBattleSession || (() => ({}));
+    this.canUseRescue = config.canUseRescue || (() => false);
     this.readStoryState = config.readStoryState || (() => ({}));
     this.writeStoryState = config.writeStoryState || (() => false);
     this.createCheckpoint = config.createCheckpoint || (async () => ({ ok: false, code: 'checkpointUnavailable' }));
-    this.freezeBattleResult = config.freezeBattleResult || (candidate => this.battleSystem?.freezeResult?.(candidate));
+    this.freezeBattleResult = config.freezeBattleResult || (() => ({ ok: false, code: 'battleResultFreezeUnavailable' }));
     this.createLowMoraleResult = config.createLowMoraleResult || (() => null);
     this.onEvent = config.onEvent || (() => {});
     this.definitions = config.rescueDefinitions || {};
@@ -332,10 +333,10 @@ export class S11S12Coordinator {
   _validateStart(definition, mode) {
     if (!definition || !this.rescueSystem) return { ok: false, code: 'rescueUnavailable' };
     if (mode !== 'intervene') return { ok: false, code: 'modeNotAllowed', mode };
-    if (this.battleSystem?.canUseRescue && !this.battleSystem.canUseRescue()) {
+    if (!this.canUseRescue()) {
       return { ok: false, code: 'battleNotIntervened' };
     }
-    const currentBattleId = this.battleSystem?.definition?.battleId;
+    const currentBattleId = this.getBattleSession()?.battleId || null;
     if (currentBattleId && currentBattleId !== definition.battleId) {
       return { ok: false, code: 'battleMismatch', battleId: currentBattleId };
     }

@@ -40,7 +40,7 @@ export class SceneTerrainBinding {
     if (!scene.particleSystem || !sceneId || !this.EffectZoneRenderer || !this.loadSceneFromFile) return null;
     const renderer = new this.EffectZoneRenderer(scene.particleSystem);
     const scope = resourceScope || scene.resourceScope || null;
-    scene.effectZoneRenderer = renderer;
+    this.setEffectZoneRenderer(renderer);
     const applyData = data => {
       if (scope?.disposed || scene.effectZoneRenderer !== renderer) return;
       if (data && Array.isArray(data.layers)) renderer.loadFromSceneData(data, worldOffset);
@@ -50,6 +50,30 @@ export class SceneTerrainBinding {
       .then(scope?.guard?.(applyData) || applyData)
       .catch(scope?.guard?.(ignoreFailure) || ignoreFailure);
     return renderer;
+  }
+
+  /** 替换唯一特效区域渲染器，并同步正式 Context 投影。 */
+  setEffectZoneRenderer(renderer, { clearPrevious = false } = {}) {
+    const scene = this.scene;
+    const previous = scene.effectZoneRenderer || null;
+    if (clearPrevious && previous && previous !== renderer) previous.clear?.();
+    scene.effectZoneRenderer = renderer || null;
+    if (scene.context?.presentation) {
+      scene.context.presentation.effectZoneRenderer = renderer || null;
+    }
+    return renderer || null;
+  }
+
+  /** 只清理当前实例，避免旧生命周期误清新场景接线。 */
+  clearEffectZoneRenderer(renderer = this.scene.effectZoneRenderer) {
+    const scene = this.scene;
+    if (!renderer || scene.effectZoneRenderer !== renderer) return false;
+    renderer.clear?.();
+    scene.effectZoneRenderer = null;
+    if (scene.context?.presentation?.effectZoneRenderer === renderer) {
+      scene.context.presentation.effectZoneRenderer = null;
+    }
+    return true;
   }
 
   collectBuffZones() {

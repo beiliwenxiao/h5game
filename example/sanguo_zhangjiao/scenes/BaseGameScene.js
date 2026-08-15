@@ -66,6 +66,8 @@ import { GameSceneRuntime } from '../../../src/core/scene/GameSceneRuntime.js';
 import { SceneItemGainedFlow } from '../../../src/core/scene/SceneItemGainedFlow.js';
 import { SceneAimPresentation } from '../../../src/core/scene/SceneAimPresentation.js';
 import { SceneGameplaySystemAssembler } from '../../../src/core/scene/SceneGameplaySystemAssembler.js';
+import { SceneGameplaySnapshotRuntime } from '../../../src/core/scene/SceneGameplaySnapshotRuntime.js';
+import { SceneDeathDropRuntime } from '../../../src/core/scene/SceneDeathDropRuntime.js';
 import { SceneDiagnostics } from '../../../src/core/scene/SceneDiagnostics.js';
 import { SceneBattleFlowRegistry } from '../../../src/core/scene/SceneBattleFlowRegistry.js';
 import { GameSceneContext } from '../../../src/core/scene/GameSceneContext.js';
@@ -128,6 +130,20 @@ export class BaseGameScene extends Scene {
     this.pickupItems = this.entityStore.pickups;
     this.equipmentItems = this.entityStore.equipmentItems;
     this.context = new GameSceneContext({ entities: this.entityStore });
+    this._gameplaySnapshots = new SceneGameplaySnapshotRuntime({
+      context: this.context,
+      getPlayer: () => this.context.player.entity,
+      getEntities: () => this.context.entities.all
+    });
+    this._deathDrops = new SceneDeathDropRuntime({
+      entityFactory: this.entityFactory,
+      entityStore: this.entityStore,
+      getPresentation: entry => this.getDeathDropPresentation?.(entry) || {}
+    });
+    Object.assign(this.context.services, {
+      gameplaySnapshots: this._gameplaySnapshots,
+      deathDrops: this._deathDrops
+    });
     this.resourceScope = null;
     this.playerLifecycle = null;
     this._lifecycleCoordinator = null;
@@ -658,23 +674,9 @@ export class BaseGameScene extends Scene {
     this._initializeSceneRuntime();
     this.context.runtime.sceneRuntime = this.sceneRuntime;
 
-    // 通用玩法系统按原顺序创建，并继续投影到场景字段供帧管线使用。
+    // 通用玩法系统按原顺序创建；装配器统一写入 Context，并保留 Scene 兼容投影。
     this._gameplaySystemAssembler.initialize({
       zoneCallbacks: this._createZoneEffectCallbacks()
-    });
-    Object.assign(this.context.systems, {
-      container: this._gameplaySystemAssembler,
-      combat: this.combatSystem,
-      movement: this.movementSystem,
-      equipment: this.equipmentSystem,
-      ai: this.aiSystem,
-      collision: this.collisionSystem,
-      pickup: this.pickupSystem,
-      meditation: this.meditationSystem,
-      zoneEffect: this.zoneEffectSystem,
-      flight: this.flightSystem,
-      jump: this.jumpSystem,
-      meleeAttack: this.meleeAttackSystem
     });
 
     // 初始化 UI 面板
@@ -1837,6 +1839,7 @@ export class BaseGameScene extends Scene {
     this.tutorialSystem.cleanup();
     this.dialogueSystem?.reset?.();
     this.questSystem?.cleanup?.();
+    this._terrainBinding.clearEffectZoneRenderer();
     this.particleSystem.clear?.();
 
     // 释放小地图缓存

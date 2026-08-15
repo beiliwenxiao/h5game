@@ -161,6 +161,13 @@ export class WorldMapLoadSession {
     return chunks.filter(chunk => chunk.sceneId === sceneOrQuery)[occurrence] || null;
   }
 
+  findSceneObject(sceneId, objectId) {
+    if (!sceneId || !objectId) return null;
+    return this._lastResult?.sceneObjects?.find(object => (
+      object?.sceneId === sceneId && object?.id === objectId
+    )) || null;
+  }
+
   findSpawn(sceneId, spawnRef = null) {
     const placements = this._lastResult?.placements || [];
     return placements.find(placement => {

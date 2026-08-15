@@ -183,9 +183,10 @@ const s06Methods = {
     }
     const draftCities = cloneData(beforeCities);
     draftCities[cityIndex] = city;
+    const battleSession = this.s03s14BattleCoordinator?.getSessionState?.() || {};
     const nanyangIntervened = beforeStory.nanyangIntervened === true
-      || (this.battleSystem?.definition?.battleId === S05_BATTLE_ID
-        && this.battleSystem?.mode === BattleMode.INTERVENE);
+      || (battleSession.battleId === S05_BATTLE_ID
+        && battleSession.mode === BattleMode.INTERVENE);
     const endingInputs = cloneData(beforeStory.endingInputs || {});
     if (choiceId === 'withdraw') endingInputs.allowedCityDestruction = true;
     const draftStory = {

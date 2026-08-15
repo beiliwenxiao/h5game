@@ -26,9 +26,38 @@ export class SceneFramePipeline {
    */
   run(deltaTime) {
     const scene = this.scene;
-    const services = this.context?.services || {};
-    const inputFlow = services.input || scene._ensureInputFlow?.();
-    const hudUpdater = services.hud || scene._ensureHudUpdater?.();
+    const context = this.context || scene.context || null;
+    const services = context?.services || {};
+    const systems = context?.systems || {};
+    const presentation = context?.presentation || {};
+    const entities = context?.entities?.all || [];
+    const player = context?.player?.entity || null;
+    const inputManager = context?.input?.manager || null;
+    const camera = context?.camera?.instance || null;
+    const abilitySystem = systems.ability;
+    const combatSystem = systems.combat;
+    const movementSystem = systems.movement;
+    const equipmentSystem = systems.equipment;
+    const aiSystem = systems.ai;
+    const collisionSystem = systems.collision;
+    const pickupSystem = systems.pickup;
+    const gatheringSystem = systems.gathering;
+    const gatheringPuppetSystem = systems.gatheringPuppet;
+    const meditationSystem = systems.meditation;
+    const zoneEffectSystem = systems.zoneEffect;
+    const meleeAttackSystem = systems.meleeAttack;
+    const flightSystem = systems.flight;
+    const jumpSystem = systems.jump;
+    const locomotionSystem = systems.locomotion;
+    const combatEffects = presentation.combatEffects;
+    const skillEffects = presentation.skillEffects;
+    const weaponRenderer = presentation.weaponRenderer;
+    const enemyWeaponRenderer = presentation.enemyWeaponRenderer;
+    const particleSystem = presentation.particleSystem;
+    const floatingTextManager = presentation.floatingTextManager;
+    const effectZoneRenderer = presentation.effectZoneRenderer;
+    const inputFlow = services.input;
+    const hudUpdater = services.hud;
     if (!scene.isActive || scene.isPaused) return;
 
     // 运行时输入前阶段：仅调度显式阶段钩子，不采集/清空输入。
@@ -43,7 +72,7 @@ export class SceneFramePipeline {
     if (scene.isSkillWheelWorldPaused) {
       if (inputFlow) inputFlow.flush();
       else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
-      else scene.inputManager?.update?.();
+      else inputManager?.update?.();
       return;
     }
 
@@ -76,27 +105,27 @@ export class SceneFramePipeline {
     scene.performanceOptimizer.update();
 
     // 更新空间分区网格
-    scene.performanceOptimizer.updateSpatialGrid(scene.entities);
+    scene.performanceOptimizer.updateSpatialGrid(entities);
 
     // 更新武器渲染器的鼠标角度（保留用于攻击范围计算）
-    if (scene.weaponRenderer && scene.playerEntity && scene.inputManager) {
-      const mouseWorldPos = scene.inputManager.getMouseWorldPosition(scene.camera);
-      const transform = scene.playerEntity.getComponent('transform');
+    if (weaponRenderer && player && inputManager) {
+      const mouseWorldPos = inputManager.getMouseWorldPosition(camera);
+      const transform = player.getComponent('transform');
       if (transform) {
         const currentTime = performance.now() / 1000;
-        const sprite = scene.playerEntity.getComponent('sprite');
+        const sprite = player.getComponent('sprite');
         const spriteHeight = sprite?.height || 64;
         const playerCenter = {
           x: transform.position.x,
           y: transform.position.y - spriteHeight / 2
         };
-        scene.weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
+        weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
 
         // PC：按下 Ctrl 进入轻功瞄准、Shift 进入投掷瞄准（随后左键确认）
         if (!playerActionLocked && !scene.isMobileLayout) {
-          if (scene.inputManager.isKeyPressed('ctrl')) {
+          if (inputManager.isKeyPressed('ctrl')) {
             scene.enterPCAimMode('flight');
-          } else if (scene.inputManager.isKeyPressed('shift')) {
+          } else if (inputManager.isKeyPressed('shift')) {
             scene.enterPCAimMode('throw');
           }
         }
@@ -109,9 +138,9 @@ export class SceneFramePipeline {
           else scene.updatePCAimMode();
 
           // 拾取已由 SceneInputFlow/InputActionRouter 在攻击优先级之前统一分发。
-          scene.meleeAttackSystem.setPlayerEntity(scene.playerEntity);
-          scene.meleeAttackSystem.setEntities(scene.entities);
-          scene.meleeAttackSystem.update(mouseWorldPos, playerCenter, currentTime);
+          meleeAttackSystem?.setPlayerEntity?.(player);
+          meleeAttackSystem?.setEntities?.(entities);
+          meleeAttackSystem?.update?.(mouseWorldPos, playerCenter, currentTime);
         }
       }
     }
@@ -119,10 +148,10 @@ export class SceneFramePipeline {
     // 更新所有实体
     // 运行时系统阶段：迁移期默认只执行阶段钩子，旧 ECS 更新顺序保持在下方。
     scene._runRuntimePhase?.('systems', deltaTime);
-    scene.abilitySystem?.update?.(deltaTime, scene.entities);
-    scene.gatheringSystem?.update?.(deltaTime);
-    scene.gatheringPuppetSystem?.update?.(deltaTime);
-    for (const entity of scene.entities) {
+    abilitySystem?.update?.(deltaTime, entities);
+    gatheringSystem?.update?.(deltaTime);
+    gatheringPuppetSystem?.update?.(deltaTime);
+    for (const entity of entities) {
       entity.update(deltaTime);
     }
 
@@ -131,9 +160,9 @@ export class SceneFramePipeline {
     else scene.handleUIClick();
 
     // 右键点击调试：显示光圈 + 输出坐标日志
-    if (scene.inputManager.isMouseClicked() &&
-        scene.inputManager.getMouseButton() === 2 &&
-        !scene.inputManager.isMouseClickHandled()) {
+    if (inputManager.isMouseClicked() &&
+        inputManager.getMouseButton() === 2 &&
+        !inputManager.isMouseClickHandled()) {
       if (services.worldInteraction) services.worldInteraction.debugRightClick();
       else scene._debugRightClick();
     }
@@ -145,46 +174,46 @@ export class SceneFramePipeline {
     hudUpdater?.updateCooldowns();
 
     // 更新攀爬等统一位移执行器；Jump/Flight 保持各自既有更新顺序。
-    scene.locomotionSystem?.update?.(deltaTime);
+    locomotionSystem?.update?.(deltaTime);
 
     // 更新跳跃系统（先于普通移动；MovementSystem 会跳过正在跳跃的实体）
-    if (scene.jumpSystem && scene.playerEntity) {
-      scene.jumpSystem.update(deltaTime);
+    if (jumpSystem && player) {
+      jumpSystem.update(deltaTime);
     }
 
     // 更新轻功飞行系统
-    if (scene.flightSystem && scene.playerEntity) {
-      scene.flightSystem.update(deltaTime, scene.playerEntity);
+    if (flightSystem && player) {
+      flightSystem.update(deltaTime, player);
     }
 
     // 更新移动系统：打坐或采集只锁玩家，AI/其他实体继续移动。
-    if ((scene.meditationSystem.isActive() || playerActionLocked) && scene.playerEntity) {
+    if ((meditationSystem.isActive() || playerActionLocked) && player) {
       // 锁定期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
-      if (scene._meditationEntitySource !== scene.entities ||
-          scene._meditationEntityCount !== scene.entities.length ||
-          scene._meditationPlayer !== scene.playerEntity) {
-        scene._meditationEntitySource = scene.entities;
-        scene._meditationEntityCount = scene.entities.length;
-        scene._meditationPlayer = scene.playerEntity;
-        scene._meditationMovableEntities = scene.entities.filter(entity => entity !== scene.playerEntity);
+      if (scene._meditationEntitySource !== entities ||
+          scene._meditationEntityCount !== entities.length ||
+          scene._meditationPlayer !== player) {
+        scene._meditationEntitySource = entities;
+        scene._meditationEntityCount = entities.length;
+        scene._meditationPlayer = player;
+        scene._meditationMovableEntities = entities.filter(entity => entity !== player);
       }
-      scene.movementSystem.update(deltaTime, scene._meditationMovableEntities);
+      movementSystem.update(deltaTime, scene._meditationMovableEntities);
 
       // 移动中断检测由 meditationSystem.update 处理
     } else {
       // 正常更新所有实体
-      scene.movementSystem.update(deltaTime, scene.entities);
+      movementSystem.update(deltaTime, entities);
     }
 
     // 检查实体之间的碰撞
-    scene.collisionSystem.update(scene.entities);
+    collisionSystem.update(entities);
 
     // 检查地形碰撞（编辑器场景有 terrain 时生效）
     scene.checkTerrainCollision();
 
     // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，
     // 避免相机长期落后一帧并放大不均匀 deltaTime 造成的画面跳动。
-    scene.camera.update(deltaTime);
+    camera.update(deltaTime);
 
     // 相机后处理钩子（子类可覆盖，如限制相机在大地图边缘）
     scene.postCameraUpdate();
@@ -194,29 +223,29 @@ export class SceneFramePipeline {
 
     // 更新AI系统（使用节流）
     if (scene.performanceOptimizer.shouldUpdate('ai')) {
-      scene.aiSystem.update(deltaTime, scene.entities, scene.combatSystem);
+      aiSystem.update(deltaTime, entities, combatSystem);
     }
 
     // 更新战斗系统
-    scene.combatSystem.update(deltaTime, scene.entities);
+    combatSystem.update(deltaTime, entities);
 
     // 更新战斗状态（通过 CombatSystem）
-    scene.combatSystem.updateCombatState(deltaTime, scene.entities);
+    combatSystem.updateCombatState(deltaTime, entities);
 
     // 更新打坐状态（通过冥想系统）
-    scene.meditationSystem.update(deltaTime, scene.playerEntity);
+    meditationSystem.update(deltaTime, player);
 
     // 更新区域效果（Buff 多边形）
-    if (scene.zoneEffectSystem) {
+    if (zoneEffectSystem) {
       // 延迟收集 buffZone（terrain 异步加载完成后）
       if (!scene._buffZonesCollected) {
         scene._collectBuffZones();
       }
-      scene.zoneEffectSystem.update(deltaTime, scene.entities);
+      zoneEffectSystem.update(deltaTime, entities);
     }
 
     // 更新装备系统
-    scene.equipmentSystem.update(deltaTime, scene.entities);
+    equipmentSystem.update(deltaTime, entities);
 
     // 更新序章系统
     scene.tutorialSystem.update(deltaTime, scene.getGameState());
@@ -227,33 +256,33 @@ export class SceneFramePipeline {
 
     // 更新特效（使用节流）
     if (scene.performanceOptimizer.shouldUpdate('effects')) {
-      scene.combatEffects.update(deltaTime);
-      scene.skillEffects.update(deltaTime);
+      combatEffects.update(deltaTime);
+      skillEffects.update(deltaTime);
     }
-    scene.floatingTextManager.update(deltaTime);
+    floatingTextManager.update(deltaTime);
     if (scene.notificationSystem) scene.notificationSystem.update(deltaTime);
-    scene.particleSystem.update(deltaTime);
+    particleSystem.update(deltaTime);
     // 特效区域粒子生成
-    if (scene.effectZoneRenderer) scene.effectZoneRenderer.update(deltaTime);
+    if (effectZoneRenderer) effectZoneRenderer.update(deltaTime);
 
     // 更新武器渲染器
-    if (scene.weaponRenderer) {
+    if (weaponRenderer) {
       const currentTime = performance.now() / 1000; // 转换为秒
-      scene.weaponRenderer.update(deltaTime, currentTime);
+      weaponRenderer.update(deltaTime, currentTime);
     }
 
     // 更新敌人武器渲染器
-    if (scene.enemyWeaponRenderer) {
-      scene.enemyWeaponRenderer.update(deltaTime);
+    if (enemyWeaponRenderer) {
+      enemyWeaponRenderer.update(deltaTime);
 
       // 检查武器飞行路径上的碰撞
-      if (scene.weaponRenderer.thrownWeapon.flying) {
-        scene.weaponRenderer.checkThrowPathCollision(scene.entities, this._onThrownWeaponHit);
+      if (weaponRenderer?.thrownWeapon.flying) {
+        weaponRenderer.checkThrowPathCollision(entities, this._onThrownWeaponHit);
       }
 
       // 检查武器拾取
-      if (scene.weaponRenderer.isWeaponThrown() && !scene.weaponRenderer.thrownWeapon.flying) {
-        scene.pickupSystem.checkWeaponPickup(scene.playerEntity);
+      if (weaponRenderer?.isWeaponThrown() && !weaponRenderer.thrownWeapon.flying) {
+        pickupSystem.checkWeaponPickup(player);
       }
     }
 
@@ -279,15 +308,15 @@ export class SceneFramePipeline {
     scene._runRuntimePhase?.('afterScene', deltaTime);
     if (inputFlow) inputFlow.flush();
     else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
-    else scene.inputManager.update();
+    else inputManager.update();
 
     // 性能监控关闭时不做计时、可见实体裁剪、纹理遍历和对象池快照。
     if (monitorEnabled) {
       const updateTime = performance.now() - updateStartTime;
       scene.performanceMonitor.update(deltaTime, {
-        entityCount: scene.entities.length,
-        visibleEntityCount: scene.isometricRenderer ? scene.isometricRenderer.cullEntities(scene.entities).length : 0,
-        particleCount: scene.particleSystem.getActiveCount(),
+        entityCount: entities.length,
+        visibleEntityCount: scene.isometricRenderer ? scene.isometricRenderer.cullEntities(entities).length : 0,
+        particleCount: particleSystem.getActiveCount(),
         poolStats: scene.performanceOptimizer.getPoolStats(),
         updateTime,
         drawCallsPerFrame: scene._drawCallCount || 0,
@@ -299,8 +328,12 @@ export class SceneFramePipeline {
   /** 稳定的投掷命中回调，避免飞行期间每帧创建闭包。 @private */
   _handleThrownWeaponHit(enemy, isFinalTarget) {
     const scene = this.scene;
-    const stats = scene.playerEntity?.getComponent('stats');
-    const playerTransform = scene.playerEntity?.getComponent('transform');
+    const context = this.context || scene.context || null;
+    const player = context?.player?.entity || null;
+    const combatSystem = context?.systems?.combat || null;
+    const floatingTextManager = context?.presentation?.floatingTextManager || null;
+    const stats = player?.getComponent('stats');
+    const playerTransform = player?.getComponent('transform');
     const enemyTransform = enemy?.getComponent('transform');
     if (!stats || !playerTransform || !enemyTransform) return;
 
@@ -314,11 +347,11 @@ export class SceneFramePipeline {
       ? { x: dx / distance, y: dy / distance }
       : { x: 1, y: 0 };
 
-    scene.combatSystem.applyDamage(enemy, finalDamage, knockbackDirection, '投掷武器', {
-      sourceEntity: scene.playerEntity,
+    combatSystem.applyDamage(enemy, finalDamage, knockbackDirection, '投掷武器', {
+      sourceEntity: player,
       attackKind: 'throw'
     });
-    scene.floatingTextManager.addText(
+    floatingTextManager.addText(
       enemyTransform.position.x,
       enemyTransform.position.y - 60,
       isFinalTarget ? '投掷伤害 300%' : '投掷伤害 30%',

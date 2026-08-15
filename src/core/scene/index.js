@@ -32,6 +32,8 @@ export { SceneFramePipeline } from './SceneFramePipeline.js';
 export { SceneTerrainBinding } from './SceneTerrainBinding.js';
 export { SceneItemGainedFlow } from './SceneItemGainedFlow.js';
 export { SceneGameLoaderBridge } from './SceneGameLoaderBridge.js';
+export { SceneCityWarStateBridge } from './SceneCityWarStateBridge.js';
+export { SceneBattleRuntime } from './SceneBattleRuntime.js';
 export { registerSceneTriggerActions } from './SceneTriggerActionProvider.js';
 export { SceneAimPresentation } from './SceneAimPresentation.js';
 export { SceneGameplaySystemAssembler } from './SceneGameplaySystemAssembler.js';

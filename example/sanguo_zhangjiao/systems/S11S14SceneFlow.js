@@ -6,7 +6,6 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { EndingSystem } from '../../../src/systems/EndingSystem.js';
 import { VehicleWeaponSystem } from '../../../src/systems/VehicleWeaponSystem.js';
-import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
 import { RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { Entity } from '../../../src/ecs/Entity.js';
 import { TransformComponent } from '../../../src/ecs/components/TransformComponent.js';
@@ -88,7 +87,7 @@ async function travel(scene, sceneId, title) {
 }
 
 function buildLowMoraleResult(scene, context = {}) {
-  const definition = scene._s12BattleConfig;
+  const definition = scene.s03s14BattleCoordinator?.getDefinition?.(S12_BATTLE_ID);
   const create = definition?.createParams || {};
   const policy = definition?.realtimeResult?.byWinner?.han_government || {};
   const resources = clone(policy.capturedResources || {});
@@ -352,14 +351,17 @@ const s11s12Methods = {
 
   async startS11Rescue() {
     if (this.currentSceneId !== 'S11' || !this.s11s12Coordinator) return false;
-    this._setRescueObjectiveTitle?.(S11_RESCUE_ID);
-    const targetId = this._s11RescueConfig?.targetEntityId;
+    const battleCoordinator = this.s03s14BattleCoordinator;
+    const rescueDefinition = battleCoordinator?.getRescueDefinition?.(S11_RESCUE_ID);
+    const battleSession = battleCoordinator?.getSessionState?.() || {};
+    battleCoordinator?.setRescueObjectiveTitle?.(S11_RESCUE_ID);
+    const targetId = rescueDefinition?.targetEntityId;
     if (!entityAlive(this, targetId)) {
       this._showScreenTip('张梁尚未生成或已经阵亡。', { title: '救援不可用' });
       return false;
     }
     const result = await this.s11s12Coordinator.startS11Rescue({
-      mode: this.battleSystem?.mode,
+      mode: battleSession.mode,
       operationId: `start:${S11_RESCUE_ID}`
     });
     if (!result?.ok) {
@@ -430,9 +432,10 @@ const s11s12Methods = {
 
   async completeS11WestGateBreakout() {
     if (this.currentSceneId !== 'S11') return false;
-    const target = (this.entities || []).find(entity => entity?.id === this._s11RescueConfig?.targetEntityId);
+    const definition = this.s03s14BattleCoordinator?.getRescueDefinition?.(S11_RESCUE_ID);
+    const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const targetTransform = target?.getComponent?.('transform');
-    const exit = this._worldLoadSession?.findSpawn?.('S11', this._s11RescueConfig?.evacuationRef);
+    const exit = this._worldLoadSession?.findSpawn?.('S11', definition?.evacuationRef);
     if (!targetTransform || !exit || Math.hypot(targetTransform.position.x - exit.x, targetTransform.position.y - exit.y) > 100) {
       this._showScreenTip('张梁尚未到达西门，请继续护送。', { title: '突围未完成' });
       return false;
@@ -462,14 +465,17 @@ const s11s12Methods = {
 
   async startS12Rescue() {
     if (this.currentSceneId !== 'S12' || !this.s11s12Coordinator) return false;
-    this._setRescueObjectiveTitle?.(S12_RESCUE_ID);
-    if (!entityAlive(this, this._s12RescueConfig?.targetEntityId)) {
+    const battleCoordinator = this.s03s14BattleCoordinator;
+    const rescueDefinition = battleCoordinator?.getRescueDefinition?.(S12_RESCUE_ID);
+    const battleSession = battleCoordinator?.getSessionState?.() || {};
+    battleCoordinator?.setRescueObjectiveTitle?.(S12_RESCUE_ID);
+    if (!entityAlive(this, rescueDefinition?.targetEntityId)) {
       this._showScreenTip('张宝尚未生成或已经阵亡。', { title: '救援不可用' });
       return false;
     }
     this._ensureS12GateEntity();
     const result = await this.s11s12Coordinator.startS12Rescue({
-      mode: this.battleSystem?.mode,
+      mode: battleSession.mode,
       startedAt: this.rescueSystem?.now?.(),
       operationId: `start:${S12_RESCUE_ID}`,
       costOperationId: `cost:${S12_RESCUE_ID}`
@@ -499,9 +505,10 @@ const s11s12Methods = {
 
   async completeS12Evacuation() {
     if (this.currentSceneId !== 'S12') return false;
-    const target = (this.entities || []).find(entity => entity?.id === this._s12RescueConfig?.targetEntityId);
+    const definition = this.s03s14BattleCoordinator?.getRescueDefinition?.(S12_RESCUE_ID);
+    const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const targetTransform = target?.getComponent?.('transform');
-    const exit = this._worldLoadSession?.findSpawn?.('S12', this._s12RescueConfig?.evacuationRef);
+    const exit = this._worldLoadSession?.findSpawn?.('S12', definition?.evacuationRef);
     if (!targetTransform || !exit || Math.hypot(targetTransform.position.x - exit.x, targetTransform.position.y - exit.y) > 100) {
       this._showScreenTip('张宝尚未进入撤离点，请继续护送。', { title: '撤离未完成' });
       return false;
@@ -561,9 +568,9 @@ const s11s12Methods = {
     if (this.currentSceneId === 'S11' && rescue.stageId === 'repel-assassins') {
       void this._retryS11WaveActivation();
     }
-    const targetId = this.currentSceneId === 'S11'
-      ? this._s11RescueConfig?.targetEntityId
-      : this._s12RescueConfig?.targetEntityId;
+    const rescueDefinition = this.s03s14BattleCoordinator
+      ?.getRescueDefinition?.(this.currentSceneId === 'S11' ? S11_RESCUE_ID : S12_RESCUE_ID);
+    const targetId = rescueDefinition?.targetEntityId;
     const target = (this.entities || []).find(entity => entity?.id === targetId);
     const targetTransform = target?.getComponent?.('transform');
     const playerTransform = this.playerEntity?.getComponent?.('transform');
@@ -692,7 +699,8 @@ const s13s14Methods = {
       return { ok: false, code: 's13BattleResultMissing' };
     }
     const inventory = this.playerEntity?.getComponent?.('inventory');
-    if (!inventory || !this.inventoryTransactions || !this.cityWarSystem) {
+    const battleCoordinator = this.s03s14BattleCoordinator;
+    if (!inventory || !this.inventoryTransactions || !battleCoordinator?.captureCityWarState?.()) {
       return { ok: false, code: 's13SettlementRuntimeUnavailable' };
     }
     for (const entry of pending.entries) {
@@ -703,13 +711,13 @@ const s13s14Methods = {
     }
 
     const inventoryBefore = clone(inventory.exportItems?.() || []);
-    const cityWarBefore = clone(this._readCityWarState());
-    const cityWarLedgerBefore = clone(this.cityWarSystem.serialize());
+    const cityWarBefore = clone(this.cityWarStateBridge.read());
+    const cityWarLedgerBefore = battleCoordinator.captureCityWarState();
     const rollback = async () => {
       inventory.loadItems?.(clone(inventoryBefore));
       this.inventoryTransactions.forgetOperation?.(pending.operationId);
-      this._restoreCityWarState(clone(cityWarBefore));
-      this.cityWarSystem.deserialize(clone(cityWarLedgerBefore));
+      this.cityWarStateBridge.restore(clone(cityWarBefore));
+      battleCoordinator.restoreCityWarState(cityWarLedgerBefore);
       return true;
     };
     if (pending.entries.length > 0) {
@@ -718,7 +726,7 @@ const s13s14Methods = {
       });
       if (!removed.ok) return removed;
     }
-    const settled = await this.cityWarSystem.applyBattleResult({
+    const settled = await battleCoordinator.applyBattleResult({
       result: battleResult,
       operationId: `settle:${battleResult.resultId}`,
       context: { mode: pending.mode, deferCheckpoint: true, outerOperationId: operationId }
@@ -1613,6 +1621,13 @@ export class S11S14SceneCoordinator extends SceneFlowCoordinator {
   constructor(scene) {
     super(scene, s11s14Methods, { name: 'S11S14SceneCoordinator' });
   }
+
+  prepareS13Settlement(mode) { return this._prepareS13Settlement(mode); }
+  rollbackS13Settlement() { return this._rollbackS13PendingSettlement(); }
+  buildS13Choice(mode, result) { return this._buildS13Choice(mode, result); }
+  applyS13Settlement(context) { return this._applyS13Settlement(context); }
+  createS12LowMoraleResult(context) { return this._createS12LowMoraleResult(context); }
+  handleS11S12Event(event, data) { return this._handleS11S12CoordinatorEvent(event, data); }
 }
 
 export default S11S14SceneCoordinator;

@@ -33,49 +33,33 @@ import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js'
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
 import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
+import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime.js';
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
+import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
 import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
 import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
-import { ClassSystem, ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
-import { BattleSystem, BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
-import { BattlefieldRuntimeSystem } from '../../../src/systems/BattlefieldRuntimeSystem.js';
-import { CityWarSystem } from '../../../src/systems/CityWarSystem.js';
-import { RescueSystem, RescueStatus } from '../../../src/systems/RescueSystem.js';
-import { ConstructionSystem } from '../../../src/systems/ConstructionSystem.js';
-import { VehicleSystem } from '../../../src/systems/VehicleSystem.js';
-import { VehicleLogisticsSystem } from '../../../src/systems/VehicleLogisticsSystem.js';
-import { MannedStructureAdapter } from '../../../src/systems/MannedStructureAdapter.js';
+import { ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
 import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
 import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
 import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
-import { BattleModeView } from '../../../src/ui/BattleModeView.js';
-import { BattleHudView } from '../../../src/ui/BattleHudView.js';
-import { BattleResultView } from '../../../src/ui/BattleResultView.js';
-import { RescueObjectiveView } from '../../../src/ui/RescueObjectiveView.js';
-import { IrreversibleChoiceView } from '../../../src/ui/IrreversibleChoiceView.js';
 import { CargoTransferView } from '../../../src/ui/CargoTransferView.js';
-import { EndingPresentationView } from '../../../src/ui/EndingPresentationView.js';
-import { EndingSystem } from '../../../src/systems/EndingSystem.js';
-import { DeathDropComponent } from '../../../src/ecs/components/DeathDropComponent.js';
-import { ProficiencySystem } from '../../../src/systems/progression/ProficiencySystem.js';
 import { S09AudioDirector } from '../systems/S09AudioDirector.js';
 import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinator.js';
-import { S04RouteCoordinator } from '../systems/S04RouteCoordinator.js';
 import {
   createS01TutorialConfig, S01S02Coordinator
 } from '../systems/S01S02SceneFlow.js';
 import { SceneTutorialFlow } from '../../../src/core/scene/SceneTutorialFlow.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
 import {
-  S03S08Coordinator, S03_BATTLE_ID, S04_BOCAI_RESCUE_ID
+  S03S08Coordinator, S03_BATTLE_ID
 } from '../systems/S03S08SceneFlow.js';
 import {
-  S05SceneCoordinator, S05_BATTLE_ID, S05_ZHANG_MANCHENG_RESCUE_ID
+  S05SceneCoordinator, S05_ZHANG_MANCHENG_RESCUE_ID
 } from '../systems/S05SceneFlow.js';
 import { S06SceneCoordinator } from '../systems/S06SceneFlow.js';
 import {
@@ -86,20 +70,9 @@ import {
 } from '../systems/S09RefugeeFlow.js';
 import { S10ConstructionCoordinator } from '../systems/S10ConstructionFlow.js';
 import { S10StoryCoordinator } from '../systems/S10StoryFlow.js';
-import {
-  S11S12Coordinator, S11_BATTLE_ID, S12_BATTLE_ID, S11_RESCUE_ID, S12_RESCUE_ID
-} from '../systems/S11S12Coordinator.js';
-import { S13S14Coordinator } from '../systems/S13S14Coordinator.js';
 import { S11S14SceneCoordinator } from '../systems/S11S14SceneFlow.js';
+import { S03S14BattleCoordinator } from '../systems/S03S14BattleCoordinator.js';
 
-const S04_BATTLE_ID = 'battle.s04.changshe';
-const S13_BATTLE_ID = 'battle.s13.jingshan';
-const RESCUE_TITLE_BY_ID = Object.freeze({
-  [S04_BOCAI_RESCUE_ID]: '波才限时救援',
-  [S05_ZHANG_MANCHENG_RESCUE_ID]: '张曼成限时救援',
-  [S11_RESCUE_ID]: '张梁广宗突围',
-  [S12_RESCUE_ID]: '张宝下曲阳撤离'
-});
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
 export class DataDrivenPrologueScene extends BaseGameScene {
@@ -187,12 +160,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._classConfirm = null;
     this._classSelectionBusy = false;
     this._s09AudioDirector = null;
-    this.battleSystem = null;
-    this.battlefieldRuntime = null;
-    this.cityWarSystem = null;
-    this.battleModeView = null;
-    this.battleHudView = null;
-    this.battleResultView = null;
     this.rescueSystem = null;
     this.constructionSystem = null;
     this.vehicleSystem = null;
@@ -200,6 +167,28 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.mannedStructureAdapter = null;
     this._s10StructureEntities = new Map();
     this._sceneVehicleEntities = new Map();
+    this._sceneVehicleRuntime = new SceneVehicleRuntime({
+      entityFactory: this.entityFactory,
+      entityStore: this.entityStore,
+      entities: this._sceneVehicleEntities,
+      getCurrentSceneId: () => this.currentSceneId,
+      getChunk: sceneId => this._worldLoadSession?.getChunk?.(sceneId) || null,
+      findMarker: (sceneId, objectId) => this._worldLoadSession?.findSceneObject?.(sceneId, objectId) || null,
+      getVehicleSystem: () => this.context?.systems?.vehicle || this.vehicleSystem,
+      getLogisticsSystem: () => this.context?.systems?.vehicleLogistics || this.vehicleLogisticsSystem,
+      getPlayer: () => this.context?.player?.entity || this.playerEntity,
+      team: 'yellow_turban',
+      createTags: (sceneId, definition) => [
+        `${sceneId.toLowerCase()}Vehicle`, definition.vehicleType, 'yellow_turban'
+      ],
+      onAfterDisposeScene: sceneId => {
+        if (sceneId !== 'S14') return;
+        this.vehicleWeaponSystem?.dispose?.();
+        this.vehicleWeaponSystem = null;
+        this._s14CatapultFireBusy = false;
+      }
+    });
+    this.context.services.vehicles = this._sceneVehicleRuntime;
     // Demo 历史编排兼容别名；与通用 map 是同一引用，不形成第二份状态。
     this._s14VehicleEntities = this._sceneVehicleEntities;
     this._s10StructureInteractionBusy = false;
@@ -220,19 +209,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._s12GateEntity = null;
     this._s13PendingSettlement = null;
     this._endingConfig = null;
-    this._s03BattleConfig = null;
-    this._s04BattleConfig = null;
-    this._s05BattleConfig = null;
-    this._s07BattleConfig = null;
-    this._s11BattleConfig = null;
-    this._s12BattleConfig = null;
-    this._s13BattleConfig = null;
-    this._s04BocaiRescueConfig = null;
-    this._s05ZhangManchengRescueConfig = null;
-    this._s11RescueConfig = null;
-    this._s12RescueConfig = null;
-    this._activeBattleConfig = null;
-    this._s03BattleBusy = false;
     this._s04RescueBusy = false;
     this._s05RescueBusy = false;
     this._s04RouteBusy = false;
@@ -259,6 +235,26 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s10StoryCoordinator = new S10StoryCoordinator(this);
     this.s10ConstructionCoordinator = new S10ConstructionCoordinator(this);
     this.s11s14SceneCoordinator = new S11S14SceneCoordinator(this);
+    this.s03s14BattleCoordinator = new S03S14BattleCoordinator(this);
+    this.cityWarStateBridge = new SceneCityWarStateBridge({
+      getBlackboard: () => this.gameLoader?.blackboard || null,
+      getConfiguredResourceNodes: () => this.gameLoader?.project?.library?.resourceNodes || [],
+      getEntities: () => this.entityStore.all,
+      updatePendingResourceNodes: updater => (
+        this.context.services.placements?.updatePendingResourceNodeStates?.(updater) || 0
+      ),
+      getActiveBattle: () => {
+        const session = this.context.services.battleRuntime?.getSessionState?.() || {};
+        return { battleId: session.battleId || null, mode: session.mode || null };
+      },
+      getBattleFlowById: battleId => this.getBattleFlowById(battleId),
+      getBattleFlows: () => this.getBattleFlows(),
+      battleMonthMinimums: {
+        [S03_BATTLE_ID]: 5,
+        [S07_BATTLE_ID]: 6
+      }
+    });
+    this.context.services.cityWarState = this.cityWarStateBridge;
 
     // 天气系统和时间系统；游戏日从 1 开始并随完整昼夜周期推进。
     this.weatherSystem = new WeatherSystem();
@@ -348,18 +344,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             errors.push({ code: 'invalidPlacementState', path: `placementStates[${index}]`, message: '放置点状态无效' });
           }
         }
-        const deathDropProbe = new DeathDropComponent();
-        for (const [index, entry] of (data.deathDrops || []).entries()) {
-          const stateCheck = deathDropProbe.validateSerialized(entry?.state);
-          if (!entry?.id || !stateCheck.ok
-            || !Number.isFinite(Number(entry.position?.x)) || !Number.isFinite(Number(entry.position?.y))) {
-            errors.push({
-              code: stateCheck.code || 'invalidDeathDropState',
-              path: `deathDrops[${index}]`,
-              message: '死亡掉落状态无效'
-            });
-          }
-        }
+        const deathDropCheck = this._deathDrops.validate(data.deathDrops || []);
+        if (!deathDropCheck.ok) errors.push(...deathDropCheck.errors);
         if (context.sceneNamespace !== 'S10' && (data.s10StructureStates || []).length > 0) {
           errors.push({ code: 's10StructureNamespaceMismatch', path: 's10StructureStates', message: 'S10 工事状态不能属于其他场景' });
         } else {
@@ -466,15 +452,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const deathDropById = new Map((pendingDomain?.deathDrops || [])
       .filter(entry => entry?.id)
       .map(entry => [entry.id, cloneData(entry)]));
-    for (const entity of this.equipmentItems || []) {
-      if (!entity?.getComponent?.('deathDrop')) continue;
+    for (const entry of this._deathDrops.capture(entity => {
       const position = entity.getComponent?.('transform')?.position;
-      if (!position || position.x < left || position.x > right || position.y < top || position.y > bottom) continue;
-      deathDropById.set(entity.id, {
-        id: entity.id,
-        position: { ...position },
-        state: entity.getComponent('deathDrop').serialize()
-      });
+      return !!position && position.x >= left && position.x <= right
+        && position.y >= top && position.y <= bottom;
+    })) {
+      deathDropById.set(entry.id, entry);
     }
     const capturedS10Structures = chunk.sceneNamespace === 'S10'
       ? this.s10ConstructionCoordinator._captureS10StructureStates()
@@ -557,7 +540,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     const chunks = [...(this.worldStreamingManager?.getLoadedChunks?.().values?.() || [])]
       .filter(chunk => chunk?.sceneNamespace === sceneId);
-    const currentDrops = (this.equipmentItems || [])
+    const currentDrops = new Set((this.equipmentItems || [])
       .filter(entity => entity?.getComponent?.('deathDrop'))
       .filter(entity => {
         const position = entity.getComponent?.('transform')?.position;
@@ -569,25 +552,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           return position.x >= left && position.x <= left + width
             && position.y >= top && position.y <= top + height;
         });
-      });
-    this.entityStore?.removeMany?.(currentDrops);
-    for (const drop of currentDrops) {
-      try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
-    }
-    for (const entry of state.deathDrops) {
-      if (!entry?.id || !Array.isArray(entry.state?.stacks)) continue;
-      if ((this.equipmentItems || []).some(item => item?.id === entry.id)) continue;
-      const drop = this.entityFactory?.createDeathDrop?.({
-        ...this.getDeathDropPresentation(),
-        id: entry.id,
-        deathId: entry.state.deathId,
-        stacks: entry.state.stacks,
-        position: entry.position
-      });
-      if (drop) {
-        this.entityStore.add(drop);
-        this.entityStore.addEquipmentItem(drop);
-      }
+      }));
+    const dropRestore = this._deathDrops.restore(state.deathDrops, {
+      selectCurrent: entity => currentDrops.has(entity)
+    });
+    if (!dropRestore.ok) {
+      const error = dropRestore.errors?.[0] || {};
+      return { ok: false, code: error.code || 'deathDropRestoreFailed', path: error.path };
     }
     for (const [key] of pendingEntries) this._pendingChunkDomainStates.delete(key);
     return { ok: true };
@@ -766,20 +737,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.worldStreamingManager?.unloadAll?.({ preserveState: false });
       this.worldStreamingManager = null;
       this.gameLoader = null;
-      this.classSystem = null;
-      this.proficiencySystem = null;
       this.cityStateSummaryPanel = null;
       this._classConfirm = null;
       this._classSelectionBusy = false;
-      this.battleModeView?.close?.();
-      this.battleResultView?.close?.();
-      this.battlefieldRuntime?.dispose?.(this.entities || []);
-      this.battleSystem = null;
-      this.battlefieldRuntime = null;
-      this.cityWarSystem = null;
-      this.battleModeView = null;
-      this.battleHudView = null;
-      this.battleResultView = null;
       this.rescueObjectiveView?.clear?.();
       this.irreversibleChoiceView?.close?.();
       this.cargoTransferView?.close?.();
@@ -788,23 +748,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.rescueSystem = null;
       this.s10ConstructionCoordinator._disposeS10Structures();
       this._disposeAllSceneVehicles();
-      this.constructionSystem = null;
-      this.vehicleLogisticsSystem = null;
-      this.vehicleSystem = null;
-      this.mannedStructureAdapter = null;
       this._constructionCheckpointBusy = false;
       this._s10StructureInteractionBusy = false;
       this.rescueObjectiveView = null;
       this.irreversibleChoiceView = null;
       this.s04RouteCoordinator = null;
-      this._s03BattleConfig = null;
-      this._s04BattleConfig = null;
-      this._s05BattleConfig = null;
-      this._s07BattleConfig = null;
-      this._s04BocaiRescueConfig = null;
-      this._s05ZhangManchengRescueConfig = null;
-      this._activeBattleConfig = null;
-      this._s03BattleBusy = false;
       this._s04RescueBusy = false;
       this._s05RescueBusy = false;
       this._s04RouteBusy = false;
@@ -1068,12 +1016,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 营建工期随正常游戏帧推进；终态在异步 checkpoint 完成前暂停继续计时。
     this.s10ConstructionCoordinator._updateConstructionRuntime(deltaTime);
     this.s10ConstructionCoordinator._ensureS10StructureEntities();
-    this.mannedStructureAdapter?.syncAll?.();
-    this.vehicleSystem?.update?.(deltaTime);
+    this._gameplaySystemAssembler.updateSharedSystems(deltaTime);
     this.s11s14SceneCoordinator._updateS11HorseTravel();
 
-    // Combat/AI/Collision 已在父类帧管线完成；随后按配置优先级判断实时战役结果。
-    this._updateS03BattleRuntime(deltaTime);
     // 救援计时与护送跟随复用同一帧的实体状态；deadline 仅由 RescueSystem 判定。
     this.s03s08Coordinator._updateS04BocaiRescue(deltaTime);
     this.s05SceneCoordinator._updateS05ZhangManchengRescue(deltaTime);
@@ -1747,12 +1692,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     this.currentSceneId = request.sceneId;
     if (!this.getBattleFlowByScene(request.sceneId)) {
-      this.battleModeView?.close?.();
-      this.battleResultView?.close?.();
-      this.battleHudView?.clear?.();
-      if (this.battlefieldRuntime?.active) {
-        this.battlefieldRuntime.stop({ entities: this.entities || [], preserveSnapshot: true });
-      }
+      this.s03s14BattleCoordinator.leaveBattleScene({ preserveSnapshot: true });
     }
     const spawn = shadowSession.findSpawn(request.sceneId, request.spawnRef || 'player');
     const transform = this.playerEntity?.getComponent?.('transform');
@@ -1840,13 +1780,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const node = entity?.getComponent?.('resourceNode');
       if (node) resourceNodeStates.set(entity.id, node.serialize());
     }
-    const deathDrops = (this.equipmentItems || [])
-      .filter(entity => entity?.getComponent?.('deathDrop'))
-      .map(entity => ({
-        id: entity.id,
-        position: { ...entity.getComponent('transform').position },
-        state: entity.getComponent('deathDrop').serialize()
-      }));
+    const deathDrops = this._deathDrops.capture();
     const placementStates = new Map(pendingPlacementState.placementStates);
     for (const item of this.pickupItems || []) {
       const placementId = item?.placementId;
@@ -1891,15 +1825,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         deathDrops,
         s10StructureStates: this.s10ConstructionCoordinator._captureS10StructureStates()
       }),
-      defeatState: this.playerDefeatService?.serialize?.() || null,
-      gatheringState: this.gatheringSystem?.serialize?.() || null,
-      locomotionState: this.locomotionSystem?.serialize?.(this.playerEntity) || null,
-      puppetState: this.gatheringPuppetSystem?.serialize?.() || null,
-      proficiencyState: this.proficiencySystem?.serialize?.() || null,
-      constructionState: this.constructionSystem?.serialize?.() || null,
-      battleState: this.battleSystem?.serialize?.() || null,
-      battlefieldRuntimeState: this.battlefieldRuntime?.serialize?.() || null,
-      cityWarState: this.cityWarSystem?.serialize?.() || null,
+      ...this._gameplaySnapshots.capture(),
+      ...this.s03s14BattleCoordinator.capture(),
       rescueState: this.rescueSystem?.serialize?.() || null,
       ...s11s14State,
       gatheringPolicyOperations: [...(this._appliedGatheringPolicyOperations || new Set())],
@@ -1910,41 +1837,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   restoreSceneSaveState(data = {}) {
-    if (data.battleState) {
-      if (!this.battleSystem) {
-        return { ok: false, errors: [{ code: 'battleRuntimeUnavailable', path: 'battleState', message: '战役运行时尚未就绪' }] };
-      }
-      const probe = new BattleSystem();
-      const check = probe.deserialize(data.battleState);
-      if (!check.ok) {
-        return { ok: false, errors: [{ code: check.code, path: 'battleState', message: `战役状态校验失败: ${check.code}` }] };
-      }
-      const battleId = data.battleState.definition?.battleId;
-      if (!this.getBattleFlowById(battleId)
-        || !this._getBattleConfigById(battleId)) {
-        return { ok: false, errors: [{
-          code: 'unknownBattleId', path: 'battleState.definition.battleId', message: `未知战役配置: ${battleId || 'missing'}`
-        }] };
-      }
-    }
-    if (data.battlefieldRuntimeState) {
-      if (!this.battlefieldRuntime) {
-        return { ok: false, errors: [{ code: 'battlefieldRuntimeUnavailable', path: 'battlefieldRuntimeState', message: '实时战场运行时尚未就绪' }] };
-      }
-      const check = this.battlefieldRuntime.validateSerialized(data.battlefieldRuntimeState);
-      if (!check.ok) {
-        return { ok: false, errors: [{ code: check.code, path: 'battlefieldRuntimeState', message: `实时战场状态校验失败: ${check.code}` }] };
-      }
-    }
-    if (data.cityWarState) {
-      if (!this.cityWarSystem) {
-        return { ok: false, errors: [{ code: 'cityWarRuntimeUnavailable', path: 'cityWarState', message: '城市战争运行时尚未就绪' }] };
-      }
-      const probe = new CityWarSystem();
-      const check = probe.deserialize(data.cityWarState);
-      if (!check.ok) {
-        return { ok: false, errors: [{ code: check.code, path: 'cityWarState', message: `城市战争状态校验失败: ${check.code}` }] };
-      }
+    const battleValidation = this.s03s14BattleCoordinator.validateSnapshot(data);
+    if (!battleValidation.ok) {
+      return { ok: false, errors: [{
+        code: battleValidation.code,
+        path: battleValidation.path || 'battleState',
+        message: `战役运行状态校验失败: ${battleValidation.code}`
+      }] };
     }
     if (data.rescueState) {
       if (!this.rescueSystem) {
@@ -1955,7 +1854,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return { ok: false, errors: [{ code: check.code, path: 'rescueState', message: `救援状态校验失败: ${check.code}` }] };
       }
       const rescueId = data.rescueState.definition?.id || null;
-      if (rescueId && !Object.prototype.hasOwnProperty.call(RESCUE_TITLE_BY_ID, rescueId)) {
+      if (rescueId && !this.s03s14BattleCoordinator.hasRescueDefinition(rescueId)) {
         return { ok: false, errors: [{
           code: 'unknownRescueId', path: 'rescueState.definition.id', message: `未知救援配置: ${rescueId}`
         }] };
@@ -1973,69 +1872,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         })) };
       }
     }
-    if (data.deathDrops != null) {
-      if (!Array.isArray(data.deathDrops)) {
-        return { ok: false, errors: [{ code: 'invalidDeathDrops', path: 'deathDrops', message: '死亡掉落列表无效' }] };
-      }
-      const deathDropProbe = new DeathDropComponent();
-      const deathDropIds = new Set();
-      for (let index = 0; index < data.deathDrops.length; index += 1) {
-        const entry = data.deathDrops[index];
-        const stateCheck = deathDropProbe.validateSerialized(entry?.state);
-        if (!entry?.id || deathDropIds.has(entry.id) || !stateCheck.ok
-          || !Number.isFinite(entry.position?.x) || !Number.isFinite(entry.position?.y)) {
-          return { ok: false, errors: [{
-            code: stateCheck.code || 'invalidDeathDropState',
-            path: `deathDrops[${index}]`,
-            message: '死亡掉落状态校验失败'
-          }] };
-        }
-        deathDropIds.add(entry.id);
-      }
-    }
+    const deathDropValidation = this._deathDrops.validate(data.deathDrops);
+    if (!deathDropValidation.ok) return deathDropValidation;
     const s11s14Check = this.s11s14SceneCoordinator._validateS11S14SceneState(data);
     if (!s11s14Check.ok) return s11s14Check;
-    if (data.locomotionState) {
-      if (!this.locomotionSystem) {
-        return { ok: false, errors: [{ code: 'locomotionRuntimeUnavailable', path: 'locomotionState', message: '位移运行时尚未就绪' }] };
-      }
-      const check = this.locomotionSystem.validateSerialized(data.locomotionState);
-      if (!check.ok) {
-        return { ok: false, errors: [{ code: check.code, path: 'locomotionState', message: '位移状态校验失败' }] };
-      }
-    }
-    if (data.proficiencyState && !this.proficiencySystem) {
-      return { ok: false, errors: [{
-        code: 'proficiencyRuntimeUnavailable', path: 'proficiencyState', message: '熟练度运行时尚未就绪'
-      }] };
-    }
-    const proficiencyCheck = this.proficiencySystem?.validateSerialized?.(data.proficiencyState || {});
-    if (proficiencyCheck?.ok === false) {
-      return {
-        ok: false,
-        errors: proficiencyCheck.errors.map(error => ({
-          ...error,
-          path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
-        }))
-      };
-    }
-    if (data.constructionState) {
-      if (!this.constructionSystem) {
-        return { ok: false, errors: [{
-          code: 'constructionRuntimeUnavailable', path: 'constructionState', message: '营建运行时尚未就绪'
-        }] };
-      }
-      const inventory = this.playerEntity?.getComponent?.('inventory');
-      const constructionCheck = this.constructionSystem.validateSerialized(data.constructionState, {
-        resolveInventory: characterId => characterId === this.playerEntity?.id ? inventory : null
-      });
-      if (!constructionCheck.ok) {
-        return { ok: false, errors: constructionCheck.errors.map(error => ({
-          ...error,
-          path: error.path ? `constructionState.${error.path}` : 'constructionState'
-        })) };
-      }
-    }
+    const gameplayValidation = this._gameplaySnapshots.validate(data);
+    if (!gameplayValidation.ok) return gameplayValidation;
     const s10StructureCheck = this.s10ConstructionCoordinator._validateS10StructureStates(data.s10StructureStates);
     if (!s10StructureCheck.ok) {
       return { ok: false, errors: [{
@@ -2084,32 +1926,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ...(this.pickupItems || []),
       ...(this.equipmentItems || [])
     ]);
-    this._syncWarResourceNodeStates(this.gameLoader?.blackboard?.get?.('warResourceNodeStates') || []);
+    this.cityWarStateBridge.syncResourceNodes(
+      this.gameLoader?.blackboard?.get?.('warResourceNodeStates') || []
+    );
 
-    this.playerDefeatService?.deserialize?.(data.defeatState || {});
-    this.gatheringSystem?.deserialize?.(data.gatheringState || {});
-    const proficiencyRestore = this.proficiencySystem?.deserialize?.(data.proficiencyState || {});
-    if (proficiencyRestore?.ok === false) {
-      return {
-        ok: false,
-        errors: proficiencyRestore.errors.map(error => ({
-          ...error,
-          path: error.path ? `proficiencyState.${error.path}` : 'proficiencyState'
-        }))
-      };
-    }
-    if (data.constructionState) {
-      const inventory = this.playerEntity?.getComponent?.('inventory');
-      const constructionRestore = this.constructionSystem.deserialize(data.constructionState, {
-        resolveInventory: characterId => characterId === this.playerEntity?.id ? inventory : null
-      });
-      if (!constructionRestore.ok) {
-        return { ok: false, errors: constructionRestore.errors.map(error => ({
-          ...error,
-          path: error.path ? `constructionState.${error.path}` : 'constructionState'
-        })) };
-      }
-    }
+    const gameplayFoundations = this._gameplaySnapshots.restoreFoundations(data);
+    if (!gameplayFoundations.ok) return gameplayFoundations;
     if (!data.worldStreamingState) {
       const s10StructureRestore = this.s10ConstructionCoordinator._restoreS10StructureStates(
         data.s10StructureStates || []
@@ -2122,37 +1944,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }] };
       }
     }
-    if (data.battleState) {
-      const restored = this.battleSystem.deserialize(data.battleState);
-      if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'battleState', message: '战役状态恢复失败' }] };
-      const battleId = data.battleState.definition?.battleId;
-      const config = this._getBattleConfigById(battleId);
-      if (!config) {
-        return { ok: false, errors: [{ code: 'unknownBattleId', path: 'battleState.definition.battleId', message: `未知战役配置: ${battleId}` }] };
-      }
-      this._activeBattleConfig = config;
-    }
-    if (data.battlefieldRuntimeState) {
-      const restored = this.battlefieldRuntime.deserialize(data.battlefieldRuntimeState, {
-        entities: this.entities || [],
-        playerEntity: this.playerEntity,
-        playerFactionId: this._activeBattleConfig?.playerInterventionFactionId || 'yellow_turban'
-      });
+    if (data.battleState || data.battlefieldRuntimeState || data.cityWarState) {
+      const restored = this.s03s14BattleCoordinator.restore(data);
       if (!restored.ok) {
-        return { ok: false, errors: [{ code: restored.code, path: 'battlefieldRuntimeState', message: '实时战场状态恢复失败' }] };
+        return { ok: false, errors: [{
+          code: restored.code,
+          path: restored.path || 'battleState',
+          message: `战役运行状态恢复失败: ${restored.code}`
+        }] };
       }
-      this.battleHudView?.setSnapshot?.(
-        this.battlefieldRuntime.active ? this.battlefieldRuntime.getSnapshot() : null
-      );
-    }
-    if (data.cityWarState) {
-      const restored = this.cityWarSystem.deserialize(data.cityWarState);
-      if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'cityWarState', message: '城市战争状态恢复失败' }] };
     }
     if (data.rescueState) {
       const restored = this.rescueSystem.deserialize(data.rescueState);
       if (!restored.ok) return { ok: false, errors: [{ code: restored.code, path: 'rescueState', message: '救援状态恢复失败' }] };
-      if (restored.state?.definitionId) this._setRescueObjectiveTitle(restored.state.definitionId);
+      if (restored.state?.definitionId) {
+        this.s03s14BattleCoordinator.setRescueObjectiveTitle(restored.state.definitionId);
+      }
       this.rescueObjectiveView?.setSnapshot?.(restored.state);
     }
     const s11s14Restore = this.s11s14SceneCoordinator._restoreS11S14SceneState(data);
@@ -2167,27 +1974,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         }] };
       }
     } else {
-      const currentDrops = (this.equipmentItems || [])
-        .filter(entity => entity?.getComponent?.('deathDrop'));
-      this.entityStore?.removeMany?.(currentDrops);
-      for (const drop of currentDrops) {
-        try { drop?.destroy?.(); } catch (error) { /* best-effort snapshot replacement */ }
-      }
-      for (const entry of data.deathDrops || []) {
-        if (!entry?.id || !Array.isArray(entry.state?.stacks)) continue;
-        const drop = this.entityFactory?.createDeathDrop?.({
-          ...this.getDeathDropPresentation(),
-          id: entry.id,
-          deathId: entry.state.deathId,
-          stacks: entry.state.stacks,
-          position: entry.position
-        });
-        if (!drop) {
-          return { ok: false, errors: [{ code: 'deathDropRestoreFailed', path: `deathDrops.${entry.id}`, message: '死亡掉落重建失败' }] };
-        }
-        this.entityStore.add(drop);
-        this.entityStore.addEquipmentItem(drop);
-      }
+      const dropRestore = this._deathDrops.restore(data.deathDrops || []);
+      if (!dropRestore.ok) return dropRestore;
     }
 
     const restoredClass = this.playerEntity?.getComponent?.('stats')?.class;
@@ -2220,27 +2008,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
     this._syncPlayerClassAppearance(this.selectedClass);
     this._syncUnlockedClassSkills();
-    if (data.locomotionState) {
-      const locomotionRestore = this.locomotionSystem.deserialize(this.playerEntity, data.locomotionState);
-      if (!locomotionRestore.ok) {
-        return { ok: false, errors: [{
-          code: locomotionRestore.code || 'locomotionRestoreFailed',
-          path: 'locomotionState',
-          message: '位移状态恢复失败'
-        }] };
-      }
-    }
-    const puppetRestore = this.gatheringPuppetSystem?.deserialize?.(data.puppetState || {}, {
-      owner: this.playerEntity,
-      resolveNode: nodeId => (this.entities || []).find(entity => entity?.id === nodeId) || null
-    });
-    if (puppetRestore?.ok === false) {
-      return { ok: false, errors: [{
-        code: puppetRestore.code || 'puppetRestoreFailed',
-        path: 'puppetState',
-        message: `采集傀儡恢复失败: ${puppetRestore.code || 'unknown'}`
-      }] };
-    }
+    const gameplayActors = this._gameplaySnapshots.restoreActors(data);
+    if (!gameplayActors.ok) return gameplayActors;
     const refugeeConflict = restoredStory.s09RefugeeConflict;
     if (refugeeConflict && this.dialogueSystem?.getCurrentDialogue?.()?.id === S09_REFUGEE_DIALOGUE_ID) {
       if (refugeeConflict.branch) {
@@ -2606,873 +2375,86 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 将职业、成长、采集、资源容量与能力执行接到同一个 EffectResolver。 */
+  /** 将 Demo 配置与历史策略注入框架共享玩法装配器。 */
   _configureSharedClassEffects(gameLoader) {
     const resolver = gameLoader?.progressionSystem?.effectResolver;
     if (!resolver) return false;
     const proficiencyConfig = gameLoader?.project?.progression?.proficiency || {};
-    this.proficiencySystem = new ProficiencySystem({
-      ...proficiencyConfig,
-      onEvent: (event, data) => {
-        if (event !== 'levelUp') return;
-        const definition = this.proficiencySystem?.getDefinition?.(data.type);
-        this.notificationSystem?.addNotification?.(
-          `${definition?.name || data.type}熟练度提升至 ${data.level} 级`,
-          'success'
-        );
-      }
-    });
-    this.classSystem = new ClassSystem({ effectResolver: resolver });
-    this.gatheringSystem?.setEffectResolver?.(resolver);
-    this.gatheringSystem?.setSettlementPolicy?.(context => this.prepareGatheringSettlement(context));
-    this.inventoryTransactions?.configureEffects?.({
-      effectResolver: resolver,
-      getEntityId: () => this.playerEntity?.id || null,
-      baseResourceCapacity: 120
-    });
     const constructionConfig = gameLoader?.project?.construction || {};
     const constructionSites = new Map((constructionConfig.sites || []).map(site => [site.id, site]));
     const itemRegistry = gameLoader?.getRegistry?.('items');
-    this.constructionSystem = new ConstructionSystem({
-      inventoryTransactions: this.inventoryTransactions,
-      proficiencySystem: this.proficiencySystem,
-      maxOperations: constructionConfig.maxOperations,
-      itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
-      createCheckpoint: checkpoint => this.s10ConstructionCoordinator._checkpointConstructionRepair(checkpoint),
-      validateSite: ({ siteId, definition }) => {
-        const site = constructionSites.get(siteId);
-        if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
-          return { ok: false, code: 'invalidSite' };
+    const trigger = (name, event, data) => (
+      this.gameLoader?.triggerSystem?.fire?.(`${name}.${event}`, cloneData(data))
+    );
+
+    const shared = this._gameplaySystemAssembler.configureSharedSystems({
+      effectResolver: resolver,
+      skillRegistry: gameLoader.skillRegistry,
+      proficiency: {
+        config: proficiencyConfig,
+        onEvent: (event, data) => {
+          if (event !== 'levelUp') return;
+          const definition = this.proficiencySystem?.getDefinition?.(data.type);
+          this.notificationSystem?.addNotification?.(
+            `${definition?.name || data.type}熟练度提升至 ${data.level} 级`,
+            'success'
+          );
         }
-        const story = gameLoader.blackboard?.get?.('storyState') || {};
-        if (site.sceneId === 'S06') {
-          const rescueSucceeded = story.zhangManchengSurvived === true
-            && story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived === true;
-          return rescueSucceeded && story.s06Decision?.committed !== true
-            ? { ok: true }
-            : { ok: false, code: 'constructionSiteLocked' };
+      },
+      inventoryEffects: {
+        getEntityId: () => this.playerEntity?.id || null,
+        baseResourceCapacity: 120
+      },
+      gathering: {
+        settlementPolicy: context => this.prepareGatheringSettlement(context)
+      },
+      construction: {
+        definitions: constructionConfig.definitions || [],
+        maxOperations: constructionConfig.maxOperations,
+        requiredProficiencyType: 'construction',
+        itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
+        createCheckpoint: checkpoint => this.s10ConstructionCoordinator._checkpointConstructionRepair(checkpoint),
+        validateSite: ({ siteId, definition }) => {
+          const site = constructionSites.get(siteId);
+          if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
+            return { ok: false, code: 'invalidSite' };
+          }
+          const story = gameLoader.blackboard?.get?.('storyState') || {};
+          if (site.sceneId === 'S06') {
+            const rescueSucceeded = story.zhangManchengSurvived === true
+              && story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived === true;
+            return rescueSucceeded && story.s06Decision?.committed !== true
+              ? { ok: true }
+              : { ok: false, code: 'constructionSiteLocked' };
+          }
+          if (story.constructionSiteUnlocked !== true || story.s10CampRelocation?.completed !== true) {
+            return { ok: false, code: 'constructionSiteLocked' };
+          }
+          return { ok: true };
         }
-        if (story.constructionSiteUnlocked !== true || story.s10CampRelocation?.completed !== true) {
-          return { ok: false, code: 'constructionSiteLocked' };
-        }
-        return { ok: true };
+      },
+      vehicles: {
+        resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
+        getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
+        createCheckpoint: checkpoint => this.requestAutoSave({
+          reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
+        }),
+        onVehicleEvent: (event, data) => trigger('vehicle', event, data),
+        onLogisticsEvent: (event, data) => trigger('vehicleLogistics', event, data),
+        onMannedStructureEvent: (event, data) => trigger('mannedStructure', event, data)
       }
     });
-    const registered = this.constructionSystem.registerDefinitions(constructionConfig.definitions || []);
-    if (!registered.ok || !this.proficiencySystem.getDefinition?.('construction')) {
-      throw new Error(`营建配置无效: ${registered.code || 'missingConstructionProficiency'}`);
-    }
-    this.vehicleSystem = new VehicleSystem({
-      resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
-      findSafeDismountPosition: ({ rider, vehicle, fallback }) => {
-        const transform = vehicle?.getComponent?.('transform');
-        if (!transform || !this.movementSystem?.canMoveTo) return fallback;
-        const candidates = [
-          [40, 0], [-40, 0], [0, 40], [0, -40],
-          [56, 56], [-56, 56], [56, -56], [-56, -56]
-        ];
-        for (const [dx, dy] of candidates) {
-          const x = transform.position.x + dx;
-          const y = transform.position.y + dy;
-          if (this.movementSystem.canMoveTo(x, y, rider)) return { x, y };
-        }
-        return fallback;
-      },
-      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`vehicle.${event}`, cloneData(data))
-    });
-    this.movementSystem?.setMoveIntentRouter?.((rider, intent) => (
-      this.vehicleSystem?.routeIntent?.(rider, intent) || { target: 'self', role: null, intent }
-    ));
-    this.vehicleLogisticsSystem = new VehicleLogisticsSystem({
-      inventoryTransactions: this.inventoryTransactions,
-      getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
-      createCheckpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
-      }),
-      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`vehicleLogistics.${event}`, cloneData(data))
-    });
-    this.mannedStructureAdapter = new MannedStructureAdapter({
-      vehicleSystem: this.vehicleSystem,
-      onEvent: (event, data) => this.gameLoader?.triggerSystem?.fire?.(`mannedStructure.${event}`, cloneData(data))
-    });
+    if (!shared) return false;
+
     this.s10ConstructionCoordinator._ensureS10StructureEntities();
     this._ensureSceneVehicleEntities(this.currentSceneId);
-    this._gameplaySystemAssembler?.configureAbilities?.({
-      skillRegistry: gameLoader.skillRegistry,
-      effectResolver: resolver
-    });
-    this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: this.playerEntity });
     this._syncUnlockedClassSkills();
     return true;
   }
 
-  /** 安装 S03/S04/S05/S07/S11/S12/S13 战役与通用救援领域系统。 */
+  /** 由显式 Demo coordinator 装配战役定义、通用运行时与历史策略。 */
   async _installBattleFlow(gameLoader) {
-    const s03Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S03_BATTLE_ID);
-    const s04Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S04_BATTLE_ID);
-    const s05Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S05_BATTLE_ID);
-    const s07Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S07_BATTLE_ID);
-    const s11Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S11_BATTLE_ID);
-    const s12Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S12_BATTLE_ID);
-    const s13Source = (gameLoader?.project?.battles || []).find(entry => entry?.battleId === S13_BATTLE_ID);
-    const s04RescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S04_BOCAI_RESCUE_ID);
-    const s05RescueSource = (gameLoader?.project?.rescues || []).find(
-      entry => entry?.id === S05_ZHANG_MANCHENG_RESCUE_ID
-    );
-    const s11RescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S11_RESCUE_ID);
-    const s12RescueSource = (gameLoader?.project?.rescues || []).find(entry => entry?.id === S12_RESCUE_ID);
-    if (!s03Source) throw new Error(`缺少战役配置 ${S03_BATTLE_ID}`);
-    if (!s04Source) throw new Error(`缺少战役配置 ${S04_BATTLE_ID}`);
-    if (!s05Source) throw new Error(`缺少战役配置 ${S05_BATTLE_ID}`);
-    if (!s07Source) throw new Error(`缺少战役配置 ${S07_BATTLE_ID}`);
-    if (!s11Source) throw new Error(`缺少战役配置 ${S11_BATTLE_ID}`);
-    if (!s12Source) throw new Error(`缺少战役配置 ${S12_BATTLE_ID}`);
-    if (!s13Source) throw new Error(`缺少战役配置 ${S13_BATTLE_ID}`);
-    if (!s04RescueSource) throw new Error(`缺少救援配置 ${S04_BOCAI_RESCUE_ID}`);
-    if (!s05RescueSource) throw new Error(`缺少救援配置 ${S05_ZHANG_MANCHENG_RESCUE_ID}`);
-    if (!s11RescueSource) throw new Error(`缺少救援配置 ${S11_RESCUE_ID}`);
-    if (!s12RescueSource) throw new Error(`缺少救援配置 ${S12_RESCUE_ID}`);
-
-    const definition = cloneData(s03Source);
-    const s04Definition = cloneData(s04Source);
-    const s05Definition = cloneData(s05Source);
-    const s07Definition = cloneData(s07Source);
-    const s11Definition = this.s10ConstructionCoordinator._projectS10ConstructionEffects(
-      cloneData(s11Source), 'S11'
-    );
-    const s12Definition = this.s10ConstructionCoordinator._projectS10ConstructionEffects(
-      cloneData(s12Source), 'S12'
-    );
-    const s13Definition = cloneData(s13Source);
-    const s04RescueDefinition = cloneData(s04RescueSource);
-    const s05RescueDefinition = cloneData(s05RescueSource);
-    const s11RescueDefinition = cloneData(s11RescueSource);
-    const s12RescueDefinition = cloneData(s12RescueSource);
-    const battleFlowSceneIds = ['S03', 'S04', 'S05', 'S07', 'S11', 'S12', 'S13'];
-    const sceneDataList = await Promise.all(battleFlowSceneIds.map(async sceneId => {
-      const cached = this._worldLoadSession?.getSceneData?.(sceneId);
-      const sceneData = cached || await loadSceneFromFile(sceneId);
-      if (!sceneData) throw new Error(`缺少 canonical 场景配置 ${sceneId}`);
-      return sceneData;
-    }));
-    this.configureSceneBattleFlows(sceneDataList, gameLoader.project.battles);
-    definition.playerEntityId = this.playerEntity?.id || definition.playerEntityId;
-    s04Definition.playerEntityId = this.playerEntity?.id || s04Definition.playerEntityId;
-    s05Definition.playerEntityId = this.playerEntity?.id || s05Definition.playerEntityId;
-    s07Definition.playerEntityId = this.playerEntity?.id || s07Definition.playerEntityId;
-    s11Definition.playerEntityId = this.playerEntity?.id || s11Definition.playerEntityId;
-    s12Definition.playerEntityId = this.playerEntity?.id || s12Definition.playerEntityId;
-    s13Definition.playerEntityId = this.playerEntity?.id || s13Definition.playerEntityId;
-    const battleSystem = new BattleSystem({
-      battleClient: gameLoader.battleClient,
-      validator: gameLoader.contentValidator,
-      onEvent: (event, data) => {
-        if (event === 'battleModeSelected') {
-          this.notificationSystem?.addNotification?.(
-            data.mode === BattleMode.OBSERVE ? '本场已选择观战' : '本场已选择介入',
-            'info'
-          );
-        }
-      }
-    });
-    const previousEffectFilter = this.combatSystem?.setEffectAmountFilter?.(
-      (context, amount) => battleSystem.filterEffectAmount(context, amount)
-    ) || null;
-    const cityWarSystem = new CityWarSystem({
-      validator: gameLoader.contentValidator,
-      readState: () => this._readCityWarState(),
-      commitState: draft => this._commitCityWarState(draft),
-      restoreState: before => this._restoreCityWarState(before),
-      createCheckpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
-      }),
-      onEvent: event => {
-        if (event === 'battleResultRolledBack') {
-          this.notificationSystem?.addNotification?.('战果检查点失败，城市与战争状态已回滚', 'error');
-        }
-      }
-    });
-    const battleModeView = new BattleModeView({
-      width: Math.min(560, this.logicalWidth - 32),
-      onCommand: command => { void this._handleBattleModeCommand(command); }
-    });
-    const battleHudView = new BattleHudView({ width: Math.min(500, this.logicalWidth - 32) });
-    const battleResultView = new BattleResultView({
-      width: Math.min(520, this.logicalWidth - 32),
-      onCommand: command => {
-        if (command.type === 'close') battleResultView.close();
-      }
-    });
-    const battlefieldRuntime = new BattlefieldRuntimeSystem({
-      battleSystem,
-      aiSystem: this.aiSystem,
-      onEvent: (event, data) => {
-        if (event === 'battlefieldStarted') battleHudView.setSnapshot(data);
-        if (event === 'battlefieldResolved') battleHudView.clear();
-      }
-    });
-    const rescueObjectiveView = new RescueObjectiveView({
-      width: Math.min(500, this.logicalWidth - 32),
-      title: '波才限时救援'
-    });
-    const irreversibleChoiceView = new IrreversibleChoiceView({
-      width: Math.min(600, this.logicalWidth - 32),
-      onCommand: command => { void this._handleIrreversibleChoiceCommand(command); }
-    });
-    const rescueSystem = new RescueSystem({
-      onEvent: (event, data) => {
-        if (event === 'rescueStarted' || event === 'rescueStageAdvanced') {
-          rescueObjectiveView.setSnapshot(data);
-        }
-      }
-    });
-    const offS05CombatDamage = this.combatSystem?.addDamageListener?.(
-      event => this.s05SceneCoordinator._handleS05CombatDamage(event)
-    ) || (() => {});
-    this.resourceScope?.track(offS05CombatDamage);
-    const s04RouteCoordinator = new S04RouteCoordinator({
-      readState: () => ({
-        storyState: cloneData(gameLoader.blackboard?.get?.('storyState') || {}),
-        warState: cloneData(gameLoader.blackboard?.get?.('warState') || {}),
-        appliedBattleResultIds: cloneData(gameLoader.blackboard?.get?.('appliedBattleResultIds') || [])
-      }),
-      writeStoryState: storyState => {
-        if (!gameLoader.blackboard) return false;
-        gameLoader.blackboard.set('storyState', cloneData(storyState));
-        return true;
-      },
-      hasTarget: sceneId => !!this._worldLoadSession?.getChunk?.(sceneId)
-        && !!this._worldLoadSession?.findSpawn?.(sceneId, 'player'),
-      createCheckpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: checkpoint.sceneId
-      }),
-      onCommitted: ({ route, operationId }) => gameLoader.triggerSystem?.fire?.('routeSelected', {
-        routeId: route.id, entrySceneId: route.entrySceneId, operationId
-      })
-    });
-
-    const endingConfig = cloneData(gameLoader.project?.extensions?.endings || null);
-    const endingPresentationView = new EndingPresentationView({
-      width: this.logicalWidth,
-      height: this.logicalHeight,
-      resolveImage: imageId => this.assetManager?.getAsset?.(imageId) || null,
-      onMusicChange: musicId => {
-        if (musicId && this.audioManager?.hasMusic?.(musicId)) {
-          this.audioManager.playMusic?.(musicId);
-        } else {
-          this.audioManager?.stopMusic?.(true);
-        }
-      },
-      onCommand: command => { void this.s11s14SceneCoordinator._handleEndingPresentationCommand(command); }
-    });
-    const endingSystem = new EndingSystem({
-      readState: () => this.s11s14SceneCoordinator._readEndingRuntimeState(),
-      commitState: state => this.s11s14SceneCoordinator._writeEndingRuntimeState(state),
-      restoreState: state => this.s11s14SceneCoordinator._writeEndingRuntimeState(state),
-      projectInput: state => this.s11s14SceneCoordinator._projectEndingInput(state),
-      emit: (event, payload) => {
-        if (event === 'endingResolved') gameLoader.triggerSystem?.fire?.('endingResolved', cloneData(payload));
-        return true;
-      },
-      checkpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: 'S14'
-      })
-    });
-    const s11s12Coordinator = new S11S12Coordinator({
-      rescueSystem,
-      battleSystem,
-      inventoryTransactions: this.inventoryTransactions,
-      getInventory: () => this.playerEntity?.getComponent?.('inventory') || null,
-      readStoryState: () => cloneData(gameLoader.blackboard?.get?.('storyState') || {}),
-      writeStoryState: storyState => {
-        if (!gameLoader.blackboard) return false;
-        gameLoader.blackboard.set('storyState', cloneData(storyState));
-        return true;
-      },
-      createCheckpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: checkpoint.sceneId
-      }),
-      freezeBattleResult: candidate => battleSystem.freezeResult(candidate),
-      createLowMoraleResult: context => this.s11s14SceneCoordinator._createS12LowMoraleResult(context),
-      rescueDefinitions: { S11: s11RescueDefinition, S12: s12RescueDefinition },
-      onEvent: (event, data) => this.s11s14SceneCoordinator._handleS11S12CoordinatorEvent(event, data)
-    });
-    const s13s14Coordinator = new S13S14Coordinator({
-      readState: () => this.s11s14SceneCoordinator._readS13S14State(),
-      writeStoryState: storyState => {
-        if (!gameLoader.blackboard) return false;
-        gameLoader.blackboard.set('storyState', cloneData(storyState));
-        return true;
-      },
-      applyS13Settlement: context => this.s11s14SceneCoordinator._applyS13Settlement(context),
-      applyResourceDivergence: context => this.s11s14SceneCoordinator._applyS14ResourceDivergence(context),
-      createCheckpoint: checkpoint => this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: checkpoint.sceneId
-      }),
-      hasTarget: sceneId => this._findRegionIndexForScene?.(sceneId) >= 0,
-      endingSystem
-    });
-
-    this.battleSystem = battleSystem;
-    this.battlefieldRuntime = battlefieldRuntime;
-    this.cityWarSystem = cityWarSystem;
-    this.battleModeView = battleModeView;
-    this.battleHudView = battleHudView;
-    this.battleResultView = battleResultView;
-    this.rescueSystem = rescueSystem;
-    this.rescueObjectiveView = rescueObjectiveView;
-    this.irreversibleChoiceView = irreversibleChoiceView;
-    this.endingPresentationView = endingPresentationView;
-    this.endingSystem = endingSystem;
-    this.s04RouteCoordinator = s04RouteCoordinator;
-    this.s11s12Coordinator = s11s12Coordinator;
-    this.s13s14Coordinator = s13s14Coordinator;
-    this._endingConfig = endingConfig;
-    this._s03BattleConfig = definition;
-    this._s04BattleConfig = s04Definition;
-    this._s05BattleConfig = s05Definition;
-    this._s07BattleConfig = s07Definition;
-    this._s11BattleConfig = s11Definition;
-    this._s12BattleConfig = s12Definition;
-    this._s13BattleConfig = s13Definition;
-    this._s04BocaiRescueConfig = s04RescueDefinition;
-    this._s05ZhangManchengRescueConfig = s05RescueDefinition;
-    this._s11RescueConfig = s11RescueDefinition;
-    this._s12RescueConfig = s12RescueDefinition;
-    this._activeBattleConfig = definition;
-    this._s03BattleBusy = false;
-    this._s04RescueBusy = false;
-    this._s05RescueBusy = false;
-    this._s04RouteBusy = false;
-    this._s07PointBusy = false;
-    this._s07ExitBusy = false;
-    this._s08DecisionBusy = false;
-    this._s08RecallBusy = false;
-    this.resourceScope?.track(() => {
-      battleModeView.close();
-      battleResultView.close();
-      battleHudView.clear();
-      rescueObjectiveView.clear();
-      irreversibleChoiceView.close();
-      endingPresentationView.close();
-      battlefieldRuntime.dispose(this.entities || []);
-      if (this.battleSystem === battleSystem) {
-        this.combatSystem?.setEffectAmountFilter?.(previousEffectFilter);
-        this.battleSystem = null;
-      }
-      if (this.battlefieldRuntime === battlefieldRuntime) this.battlefieldRuntime = null;
-      if (this.cityWarSystem === cityWarSystem) this.cityWarSystem = null;
-      if (this.battleModeView === battleModeView) this.battleModeView = null;
-      if (this.battleHudView === battleHudView) this.battleHudView = null;
-      if (this.battleResultView === battleResultView) this.battleResultView = null;
-      if (this.rescueSystem === rescueSystem) this.rescueSystem = null;
-      if (this.rescueObjectiveView === rescueObjectiveView) this.rescueObjectiveView = null;
-      if (this.irreversibleChoiceView === irreversibleChoiceView) this.irreversibleChoiceView = null;
-      if (this.endingPresentationView === endingPresentationView) this.endingPresentationView = null;
-      if (this.endingSystem === endingSystem) this.endingSystem = null;
-      if (this.s04RouteCoordinator === s04RouteCoordinator) this.s04RouteCoordinator = null;
-      if (this.s11s12Coordinator === s11s12Coordinator) this.s11s12Coordinator = null;
-      if (this.s13s14Coordinator === s13s14Coordinator) this.s13s14Coordinator = null;
-      if (this._s03BattleConfig === definition) this._s03BattleConfig = null;
-      if (this._s04BattleConfig === s04Definition) this._s04BattleConfig = null;
-      if (this._s05BattleConfig === s05Definition) this._s05BattleConfig = null;
-      if (this._s07BattleConfig === s07Definition) this._s07BattleConfig = null;
-      if (this._s11BattleConfig === s11Definition) this._s11BattleConfig = null;
-      if (this._s12BattleConfig === s12Definition) this._s12BattleConfig = null;
-      if (this._s13BattleConfig === s13Definition) this._s13BattleConfig = null;
-      if (this._s04BocaiRescueConfig === s04RescueDefinition) this._s04BocaiRescueConfig = null;
-      if (this._s05ZhangManchengRescueConfig === s05RescueDefinition) {
-        this._s05ZhangManchengRescueConfig = null;
-      }
-      if (this._s11RescueConfig === s11RescueDefinition) this._s11RescueConfig = null;
-      if (this._s12RescueConfig === s12RescueDefinition) this._s12RescueConfig = null;
-      this._endingConfig = null;
-      this._s13PendingSettlement = null;
-      this.s11s14SceneCoordinator._removeS12GateEntity();
-      this._activeBattleConfig = null;
-      this._s03BattleBusy = false;
-      this._s04RescueBusy = false;
-      this._s05RescueBusy = false;
-      this._s04RouteBusy = false;
-      this._s07PointBusy = false;
-      this._s07ExitBusy = false;
-      this._s08DecisionBusy = false;
-      this._s08RecallBusy = false;
-      this._s10StoryBusy = false;
-    });
-    return true;
-  }
-
-  _readCityWarState() {
-    const blackboard = this.gameLoader?.blackboard;
-    const configuredNodes = (this.gameLoader?.project?.library?.resourceNodes || []).map(node => ({
-      id: node.id,
-      damageRatio: Number(node.damageRatio) || 0
-    }));
-    const savedNodes = blackboard?.get?.('warResourceNodeStates');
-    return cloneData({
-      storyState: blackboard?.get?.('storyState') || {},
-      cityStates: blackboard?.get?.('cityStates') || [],
-      warState: blackboard?.get?.('warState') || { battles: {}, casualties: {} },
-      appliedBattleResultIds: blackboard?.get?.('appliedBattleResultIds') || [],
-      resourceNodes: Array.isArray(savedNodes) && savedNodes.length ? savedNodes : configuredNodes
-    });
-  }
-
-  _projectBattleStoryState(state) {
-    const projected = cloneData(state);
-    const activeBattleId = this.battleSystem?.definition?.battleId;
-    if (activeBattleId && !this.getBattleFlowById(activeBattleId)) {
-      throw new Error(`unknownBattleId:${activeBattleId}`);
-    }
-    const battleModes = { ...(projected.storyState?.battleModes || {}) };
-    if (activeBattleId && this.battleSystem?.mode) battleModes[activeBattleId] = this.battleSystem.mode;
-    projected.storyState = { ...(projected.storyState || {}), battleModes };
-    for (const flow of this.getBattleFlows()) {
-      const result = projected.warState?.battles?.[flow.battleId];
-      if (!result) continue;
-      projected.storyState = {
-        ...projected.storyState,
-        [flow.resolvedKey]: true,
-        [flow.winnerKey]: result.winnerFactionId,
-        lastCheckpointId: flow.checkpointId
-      };
-      if (flow.battleId === S03_BATTLE_ID) {
-        projected.storyState.month = Math.max(5, Math.floor(Number(projected.storyState.month) || 0));
-      }
-      if (flow.battleId === S07_BATTLE_ID) {
-        projected.storyState.month = Math.max(6, Math.floor(Number(projected.storyState.month) || 0));
-      }
-    }
-    return projected;
-  }
-
-  _commitCityWarState(draft) {
-    const blackboard = this.gameLoader?.blackboard;
-    if (!blackboard) return false;
-    const before = cloneData(blackboard.serialize());
-    try {
-      const committed = this._projectBattleStoryState(draft);
-      blackboard.set('storyState', cloneData(committed.storyState));
-      blackboard.set('cityStates', cloneData(committed.cityStates));
-      blackboard.set('warState', cloneData(committed.warState));
-      blackboard.set('appliedBattleResultIds', cloneData(committed.appliedBattleResultIds));
-      blackboard.set('warResourceNodeStates', cloneData(committed.resourceNodes));
-      this._syncWarResourceNodeStates(committed.resourceNodes);
-      return true;
-    } catch (error) {
-      blackboard.deserialize(before);
-      return false;
-    }
-  }
-
-  _restoreCityWarState(before) {
-    return this._commitCityWarState(before);
-  }
-
-  _syncWarResourceNodeStates(states = []) {
-    const byId = new Map((states || []).map(state => [state.id, state]));
-    for (const entity of this.entities || []) {
-      const node = entity?.getComponent?.('resourceNode');
-      const state = byId.get(entity?.id);
-      if (node && state) node.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
-    }
-    this.context.services.placements?.updatePendingResourceNodeStates?.((pending, id) => {
-      const state = byId.get(id);
-      if (!state) return false;
-      pending.damageRatio = Math.min(1, Math.max(0, Number(state.damageRatio) || 0));
-      return true;
-    });
-  }
-
-  _getBattleConfigById(battleId) {
-    const configs = {
-      [S03_BATTLE_ID]: this._s03BattleConfig,
-      [S04_BATTLE_ID]: this._s04BattleConfig,
-      [S05_BATTLE_ID]: this._s05BattleConfig,
-      [S07_BATTLE_ID]: this._s07BattleConfig,
-      [S11_BATTLE_ID]: this._s11BattleConfig,
-      [S12_BATTLE_ID]: this._s12BattleConfig,
-      [S13_BATTLE_ID]: this._s13BattleConfig
-    };
-    return Object.prototype.hasOwnProperty.call(configs, battleId) ? configs[battleId] : null;
-  }
-
-  _setRescueObjectiveTitle(definitionId) {
-    const title = RESCUE_TITLE_BY_ID[definitionId];
-    if (!title || !this.rescueObjectiveView) return false;
-    this.rescueObjectiveView.title = title;
-    return true;
-  }
-
-  _markS05Visited() {
-    const blackboard = this.gameLoader?.blackboard;
-    const beforeStory = blackboard?.get?.('storyState');
-    if (!beforeStory || (beforeStory.visitedScenes || []).includes('S05')) return true;
-    blackboard.set('storyState', {
-      ...beforeStory,
-      visitedScenes: [...new Set([...(beforeStory.visitedScenes || []), 'S05'])]
-    });
-    return true;
-  }
-
-  _activateBattleConfig(definition) {
-    if (!definition || !this.battleSystem || !this.battlefieldRuntime) return false;
-    const currentBattleId = this.battleSystem.definition?.battleId;
-    if (!currentBattleId || currentBattleId === definition.battleId) {
-      this._activeBattleConfig = definition;
-      return true;
-    }
-    if (this.battleSystem.state !== BattleState.RESOLVED) return false;
-    const frozenResult = this.battleSystem.getState().result;
-    const applied = frozenResult
-      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
-    if (!applied) return false;
-    this.battlefieldRuntime.stop({ entities: this.entities || [] });
-    this.battlefieldRuntime.reset();
-    this.battleSystem.reset();
-    this._activeBattleConfig = definition;
-    return true;
-  }
-
-  async openS03BattleMode() {
-    return this._openBattleMode('S03');
-  }
-
-  async openS04BattleMode() {
-    return this._openBattleMode('S04');
-  }
-
-  async openS05BattleMode() {
-    return this._openBattleMode('S05');
-  }
-
-  async openS07BattleMode() {
-    return this._openBattleMode('S07');
-  }
-
-  async openS11BattleMode() { return this._openBattleMode('S11'); }
-  async openS12BattleMode() { return this._openBattleMode('S12'); }
-  async openS13BattleMode() {
-    const route = this.s13s14Coordinator?.resolvePostS12Target?.();
-    if (!route?.ok || !route.s13Eligible) {
-      this._showScreenTip('只有走南阳路线、在 S05 选择介入且访问过 S05/S06 才能进入精山战场。', { title: '精山未开放' });
-      return false;
-    }
-    return this._openBattleMode('S13');
-  }
-
-  async _openBattleMode(sceneId) {
-    const flow = this.getBattleFlowByScene(sceneId);
-    const config = flow ? this._getBattleConfigById(flow.battleId) : null;
-    if (config && ['S11', 'S12'].includes(sceneId)) {
-      this.s10ConstructionCoordinator._projectS10ConstructionEffects(config, sceneId);
-    }
-    if (!flow || this.currentSceneId !== sceneId || !this.battleSystem || !config) {
-      this._showScreenTip(flow?.unavailableMessage || '未知战役不能选择参战模式', { title: '无法选择战役模式' });
-      return false;
-    }
-    if (!this._activateBattleConfig(config)) {
-      this._showScreenTip(flow.conflictMessage, { title: '战役状态冲突' });
-      return false;
-    }
-    if (sceneId === 'S05') this._markS05Visited();
-    const frozenResult = this.battleSystem.getState().result;
-    const resultApplied = frozenResult
-      && (this.gameLoader?.blackboard?.get?.('appliedBattleResultIds') || []).includes(frozenResult.resultId);
-    if (this.battleSystem.state === BattleState.RESOLVED && resultApplied) {
-      this.battleResultView?.open?.({
-        title: flow.appliedTitle,
-        result: frozenResult,
-        mode: this.battleSystem.mode,
-        winnerName: frozenResult?.winnerFactionId,
-        worldChanges: cloneData(flow.worldChanges),
-        message: '该战果已经冻结并写入检查点，不能重新选择参战模式。'
-      });
-      return true;
-    }
-    if (this.battleSystem.state === BattleState.ACTIVE && this.battlefieldRuntime?.active) {
-      this._showScreenTip(flow.activeMessage, { title: '战役进行中' });
-      return true;
-    }
-    try {
-      if (this.battleSystem.state === BattleState.IDLE) {
-        const started = await this.battleSystem.start(config, { requestId: `create:${flow.battleId}` });
-        if (!started?.ok) throw new Error(started?.code || 'battleStartRejected');
-      } else {
-        const restored = await this.battleSystem.rehydrate({ requestId: `create:${flow.battleId}` });
-        if (!restored?.ok) throw new Error(restored?.code || 'battleRehydrateRejected');
-      }
-      this.battleModeView?.open?.({
-        ...cloneData(config.modeView || {}),
-        description: sceneId === 'S03' && frozenResult
-          ? '战果已冻结，但上次检查点未提交。确认原模式以重试城市与战争结算。'
-          : config.modeView?.description,
-        selectedMode: this.battleSystem.mode || BattleMode.OBSERVE
-      });
-      return true;
-    } catch (error) {
-      this._showScreenTip(`创建${flow.locationName}战役失败：${error?.message || error}`, { title: '战役服务错误' });
-      return false;
-    }
-  }
-
-  async _handleBattleModeCommand(command = {}) {
-    if (command.type === 'cancel') {
-      if (!this._s03BattleBusy) this.battleModeView?.close?.();
-      return true;
-    }
-    if (command.type !== 'selectMode') return false;
-    const handlers = {
-      S03: () => this.selectS03BattleMode(command.mode),
-      S04: () => this.selectS04BattleMode(command.mode),
-      S05: () => this.selectS05BattleMode(command.mode),
-      S07: () => this.selectS07BattleMode(command.mode),
-      S11: () => this.selectS11BattleMode(command.mode),
-      S12: () => this.selectS12BattleMode(command.mode),
-      S13: () => this.selectS13BattleMode(command.mode)
-    };
-    return handlers[this.currentSceneId]?.() ?? false;
-  }
-
-  async selectS03BattleMode(mode) {
-    return this._selectBattleMode(mode, this._s03BattleConfig, 'S03');
-  }
-
-  async selectS04BattleMode(mode) {
-    return this._selectBattleMode(mode, this._s04BattleConfig, 'S04');
-  }
-
-  async selectS05BattleMode(mode) {
-    if (this.currentSceneId !== 'S05') return false;
-    this._markS05Visited();
-    return this._selectBattleMode(mode, this._s05BattleConfig, 'S05');
-  }
-
-  async selectS07BattleMode(mode) {
-    return this._selectBattleMode(mode, this._s07BattleConfig, 'S07');
-  }
-
-  async selectS11BattleMode(mode) { return this._selectBattleMode(mode, this._s11BattleConfig, 'S11'); }
-  async selectS12BattleMode(mode) { return this._selectBattleMode(mode, this._s12BattleConfig, 'S12'); }
-  async selectS13BattleMode(mode) { return this._selectBattleMode(mode, this._s13BattleConfig, 'S13'); }
-
-  async _selectBattleMode(mode, config, sceneId) {
-    const flow = this.getBattleFlowByScene(sceneId);
-    if (this._s03BattleBusy || !flow || this.currentSceneId !== sceneId
-      || !config || config.battleId !== flow.battleId
-      || !this.battleSystem || !this.cityWarSystem || !this.battlefieldRuntime) return false;
-    if (!this._activateBattleConfig(config)) return false;
-    this._s03BattleBusy = true;
-    this.battleModeView?.setBusy?.(true);
-    try {
-      if (this.battleSystem.mode && this.battleSystem.mode !== mode) {
-        throw new Error(`modeLocked:${this.battleSystem.mode}`);
-      }
-
-      const frozenResult = this.battleSystem.getState().result;
-      if (frozenResult) {
-        await this._settleBattleResult(frozenResult, this.battlefieldRuntime.getSnapshot());
-        this.battleModeView?.close?.();
-        return true;
-      }
-
-      const entry = this._worldLoadSession?.findSpawn?.(
-        sceneId, config.entryPointRef || 'battle-intervention'
-      );
-      if (sceneId === 'S13' && !this._s13PendingSettlement) {
-        const prepared = this.s11s14SceneCoordinator._prepareS13Settlement(mode);
-        if (!prepared.ok) throw new Error(prepared.message || prepared.code || 's13SettlementPreparationRejected');
-      }
-      if (!this.battleSystem.mode) {
-        const selected = await this.battleSystem.selectMode(mode, {
-          operationId: `mode:${config.battleId}:${mode}`,
-          heroId: this.playerEntity?.id,
-          entryPoint: entry ? { x: entry.x, y: entry.y } : null
-        });
-        if (!selected?.ok) throw new Error(selected?.code || 'modeSelectionRejected');
-      }
-
-      if (sceneId === 'S12') {
-        const city = (this.gameLoader?.blackboard?.get?.('cityStates') || [])
-          .find(entryState => entryState?.id === 'city.s12_xiaquyang');
-        const morale = Math.max(0, Math.floor(Number(city?.morale ?? config.realtimeMorale?.yellow_turban) || 0));
-        const moraleResult = this.s11s12Coordinator?.resolveS12PreBattleMorale({ friendlyMorale: morale });
-        if (moraleResult?.battleMayStart === false) {
-          if (!moraleResult.ok || !moraleResult.result) throw new Error(moraleResult.code || 'lowMoraleResolutionRejected');
-          await this._settleBattleResult(moraleResult.result, null);
-          this.battleModeView?.close?.();
-          this._showScreenTip('守军士气已经归零，下曲阳战役直接冻结为官军胜利。', { title: '未能开战' });
-          return true;
-        }
-      }
-
-      this.s10ConstructionCoordinator._applyS10ConstructionBattleEffects(config, sceneId);
-      const started = this.battlefieldRuntime.start({
-        entities: this.entities || [],
-        playerEntity: this.playerEntity,
-        playerFactionId: config.playerInterventionFactionId || 'yellow_turban'
-      });
-      if (!started?.ok) throw new Error(started?.code || 'battlefieldStartRejected');
-
-      if (this.battleSystem.mode === BattleMode.INTERVENE && entry) {
-        const transform = this.playerEntity?.getComponent?.('transform');
-        if (transform) {
-          transform.position.x = entry.x;
-          transform.position.y = entry.y;
-          this.camera?.setPosition?.(entry.x, entry.y);
-        }
-      }
-      this.battleHudView?.setSnapshot?.(started.snapshot);
-      this.battleModeView?.close?.();
-      const observing = this.battleSystem.mode === BattleMode.OBSERVE;
-      this._showScreenTip(
-        observing
-          ? `${flow.locationName}两军开始交战。观战期间不能影响参战单位。`
-          : flow.interventionMessage,
-        { title: '战役开始' }
-      );
-      return true;
-    } catch (error) {
-      if (sceneId === 'S13' && this.battleSystem?.state !== BattleState.RESOLVED) {
-        this.s11s14SceneCoordinator._rollbackS13PendingSettlement();
-      }
-      this._showScreenTip(`战役模式未启动：${error?.message || error}。可保留当前选择重试。`, { title: '启动失败' });
-      return false;
-    } finally {
-      this._s03BattleBusy = false;
-      this.battleModeView?.setBusy?.(false);
-    }
-  }
-
-  _updateS03BattleRuntime(deltaTime) {
-    if (!this.getBattleFlowByScene(this.currentSceneId)
-      || !this.battlefieldRuntime?.active || this._s03BattleBusy) return;
-    const updated = this.battlefieldRuntime.update(deltaTime, this.entities || []);
-    if (updated?.snapshot) this.battleHudView?.setSnapshot?.(updated.snapshot);
-    if (!updated?.resolved || !updated.result) return;
-    this._s03BattleBusy = true;
-    void this._settleBattleResult(updated.result, updated.snapshot)
-      .catch(error => {
-        this._showScreenTip(`战果检查点未提交：${error?.message || error}。可在军令旗处重试。`, { title: '结算失败' });
-      })
-      .finally(() => { this._s03BattleBusy = false; });
-  }
-
-  async _grantBattleProgressionRewards(flow, result) {
-    const progression = this.gameLoader?.progressionSystem;
-    const characterId = this.playerEntity?.id;
-    const configured = this.gameLoader?.project?.progression?.battleRewards;
-    if (!progression?.grantPointsOnce || !characterId || !configured || !flow || !result?.battleId) {
-      return { ok: true, granted: [] };
-    }
-
-    const sceneId = flow.sceneId;
-    const rewards = [];
-    for (const reward of configured.byScene?.[sceneId] || []) {
-      rewards.push({ ...reward, reason: 'completion' });
-    }
-    if (this.battleSystem?.mode === BattleMode.INTERVENE) {
-      for (const reward of configured.intervention || []) {
-        rewards.push({ ...reward, reason: 'intervention' });
-      }
-      const playerFactionId = flow.playerFactionId || 'yellow_turban';
-      if (result.winnerFactionId === playerFactionId) {
-        for (const reward of configured.victory || []) {
-          rewards.push({ ...reward, reason: 'victory' });
-        }
-      }
-    }
-    if (!rewards.length) return { ok: true, granted: [] };
-
-    const before = progression.serializeCharacter(characterId);
-    const granted = [];
-    for (const reward of rewards) {
-      const pool = String(reward?.pool || '');
-      const amount = Math.floor(Number(reward?.amount) || 0);
-      const operationId = `progression:${result.resultId}:${reward.reason}:${pool}`;
-      const applied = progression.grantPointsOnce(characterId, pool, amount, operationId);
-      if (!applied?.ok) {
-        progression.deserializeCharacter(characterId, before);
-        return applied;
-      }
-      if (!applied.idempotent) granted.push({ pool, amount, reason: reward.reason });
-    }
-    if (!granted.length) return { ok: true, idempotent: true, granted: [] };
-
-    const saved = await this.requestAutoSave({
-      reason: 'checkpoint',
-      checkpointId: `${flow.checkpointId}.progressionRewards`,
-      sceneId: sceneId || this.currentSceneId
-    });
-    if (!saved?.ok && !saved?.snapshot) {
-      progression.deserializeCharacter(characterId, before);
-      return {
-        ok: false,
-        code: 'progressionRewardCheckpointFailed',
-        message: saved?.message || saved?.errors?.[0]?.message || '成长奖励保存失败'
-      };
-    }
-
-    const summary = granted.map(entry => `${entry.pool} +${entry.amount}`).join('、');
-    this.notificationSystem?.addSuccess?.(`成长奖励：${summary}`);
-    return { ok: true, granted };
-  }
-
-  async _settleBattleResult(result, battleSnapshot = null) {
-    const flow = this.getBattleFlowById(result?.battleId);
-    if (!flow) throw new Error(`unknownBattleId:${result?.battleId || 'missing'}`);
-    let settled;
-    if (result.battleId === S13_BATTLE_ID) {
-      const choice = this.s11s14SceneCoordinator._buildS13Choice(this.battleSystem.mode, result);
-      settled = await this.s13s14Coordinator?.commitS13Choice?.(choice, {
-        checkpointId: flow.checkpointId
-      });
-      if (!settled?.ok) throw new Error(settled?.message || settled?.code || 's13CoordinatorCommitRejected');
-      this._s13PendingSettlement = null;
-    } else {
-      settled = await this.cityWarSystem.applyBattleResult({
-        result,
-        operationId: `settle:${result.resultId}`,
-        context: { mode: this.battleSystem.mode, checkpointId: flow.checkpointId }
-      });
-      if (!settled?.ok) throw new Error(settled?.message || settled?.code || 'battleSettlementRejected');
-    }
-
-    if ([S11_BATTLE_ID, S12_BATTLE_ID].includes(result.battleId)
-      && (this.battleSystem.mode === BattleMode.OBSERVE || result.failureReason === 'friendlyMoraleZero')) {
-      const sceneId = result.battleId === S11_BATTLE_ID ? 'S11' : 'S12';
-      const unavailable = await this.s11s12Coordinator?.settleUnavailableRescue?.(sceneId, {
-        mode: this.battleSystem.mode,
-        force: result.failureReason === 'friendlyMoraleZero',
-        reason: result.failureReason === 'friendlyMoraleZero' ? 'friendlyMoraleZero' : 'modeObserved',
-        completedAt: this.rescueSystem?.now?.()
-      });
-      if (unavailable?.ok === false) {
-        throw new Error(unavailable.message || unavailable.code || 'unavailableRescueSettlementRejected');
-      }
-    }
-
-    const progressionReward = await this._grantBattleProgressionRewards(flow, result);
-    if (!progressionReward?.ok) {
-      throw new Error(progressionReward?.message || progressionReward?.code || 'progressionRewardRejected');
-    }
-
-    const faction = battleSnapshot?.factions?.[result.winnerFactionId];
-    this.battleHudView?.clear?.();
-    this.battleResultView?.open?.({
-      title: flow.resultTitle,
-      result,
-      mode: this.battleSystem.mode,
-      winnerName: faction?.name || result.winnerFactionId,
-      worldChanges: cloneData(flow.worldChanges),
-      message: flow.resultMessage
-    });
-    this._showScreenTip(flow.settlementMessage, { title: '战役结算完成' });
-    if (result.battleId === S13_BATTLE_ID && this.currentSceneId === 'S13') {
-      await this.s11s14SceneCoordinator.checkS13Exit();
-    }
-    return settled;
+    return this.s03s14BattleCoordinator.initialize(gameLoader);
   }
 
   /** 从当前磁盘场景投影中解析最近的可攀爬面；目标坐标只应用一次 chunk offset。 */
@@ -3528,249 +2510,39 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   _findProjectedSceneObject(sceneId, objectId) {
-    const projected = (this._worldLoadResult?.sceneObjects || [])
-      .find(object => object?.sceneId === sceneId && object?.id === objectId);
-    if (projected) return projected;
-    const chunk = this._worldLoadSession?.getChunk?.(sceneId);
-    for (const layer of chunk?.sceneData?.layers || []) {
-      const source = (layer.objects || []).find(object => object?.id === objectId);
-      if (!source) continue;
-      return {
-        ...source,
-        x: Number(source.x) + (Number(chunk.offset?.x) || 0),
-        y: Number(source.y) + (Number(chunk.offset?.y) || 0),
-        sceneId
-      };
-    }
-    return null;
+    return this._worldLoadSession?.findSceneObject?.(sceneId, objectId) || null;
   }
 
   _getSceneVehicleDefinitions(sceneId = this.currentSceneId) {
-    if (!sceneId) return [];
-    return cloneData(this._worldLoadSession?.getChunk?.(sceneId)?.sceneData?.gameplay?.vehicles || []);
+    return this._sceneVehicleRuntime.getDefinitions(sceneId);
   }
 
   _ensureSceneVehicleEntities(sceneId = this.currentSceneId) {
-    if (this.currentSceneId !== sceneId || !this.vehicleSystem || !this.entityFactory || !this.entityStore) return [];
-    const created = [];
-    for (const definition of this._getSceneVehicleDefinitions(sceneId)) {
-      if (!definition?.id || !definition.markerId) continue;
-      const cached = this._sceneVehicleEntities.get(definition.id);
-      if (cached && cached.vehicleSceneId === sceneId && this.entityStore.all.includes(cached)) continue;
-      if (cached) this._disposeSceneVehicles(cached.vehicleSceneId || sceneId, definition.id);
-      const marker = this._findProjectedSceneObject(sceneId, definition.markerId);
-      if (!marker) continue;
-      const entity = this.entityFactory.createVehicle({
-        ...cloneData(definition),
-        position: {
-          x: Number(marker.x) + (Number(marker.width) || 0) / 2,
-          y: Number(marker.y) + (Number(marker.height) || 0)
-        },
-        team: 'yellow_turban'
-      });
-      entity.tags = [`${sceneId.toLowerCase()}Vehicle`, definition.vehicleType, 'yellow_turban'];
-      entity.vehicleDefinitionId = definition.id;
-      entity.vehicleSceneId = sceneId;
-      if (definition.renderMode === 'sceneObject') {
-        const sprite = entity.getComponent?.('sprite');
-        if (sprite) sprite.visible = false;
-        entity.name = '';
-      }
-      this.entityStore.add(entity);
-      this.vehicleSystem.registerVehicle(entity);
-      this._sceneVehicleEntities.set(definition.id, entity);
-      created.push(entity);
-    }
-    return created;
+    return this._sceneVehicleRuntime.ensure(sceneId);
   }
 
   _disposeSceneVehicles(sceneId, definitionId = null) {
-    for (const [id, entity] of [...(this._sceneVehicleEntities?.entries?.() || [])]) {
-      if (entity?.vehicleSceneId !== sceneId || (definitionId && id !== definitionId)) continue;
-      const vehicle = entity.getComponent?.('vehicle');
-      for (const riderId of vehicle?.getRiders?.() || []) {
-        const rider = this.entityStore?.all?.find?.(candidate => candidate?.id === riderId);
-        if (rider) this.vehicleSystem?.dismount?.(rider);
-      }
-      this.vehicleSystem?.unregisterVehicle?.(entity);
-      this.entityStore?.remove?.(entity);
-      this._sceneVehicleEntities.delete(id);
-      try { entity.destroy?.(); } catch (error) { /* best-effort lifecycle cleanup */ }
-    }
-    if (sceneId === 'S14') {
-      this.vehicleWeaponSystem?.dispose?.();
-      this.vehicleWeaponSystem = null;
-      this._s14CatapultFireBusy = false;
-    }
+    return this._sceneVehicleRuntime.disposeScene(sceneId, definitionId);
   }
 
   _disposeAllSceneVehicles() {
-    const sceneIds = new Set([...(this._sceneVehicleEntities?.values?.() || [])].map(entity => entity?.vehicleSceneId).filter(Boolean));
-    for (const sceneId of sceneIds) this._disposeSceneVehicles(sceneId);
+    return this._sceneVehicleRuntime.disposeAll();
   }
 
   _resolveVehicleInventoryOwnerId(inventory) {
-    if (inventory === this.playerEntity?.getComponent?.('inventory')) {
-      return `${this.playerEntity?.id || 'player'}:inventory`;
-    }
-    for (const [vehicleId, entity] of this._sceneVehicleEntities || []) {
-      if (inventory === entity?.getComponent?.('cargo')) return `${vehicleId}:cargo`;
-    }
-    return null;
+    return this._sceneVehicleRuntime.resolveInventoryOwnerId(inventory);
   }
 
   _captureSceneVehicleStates(sceneId = this.currentSceneId) {
-    if (this.currentSceneId === sceneId) this._ensureSceneVehicleEntities(sceneId);
-    return [...(this._sceneVehicleEntities || new Map()).entries()]
-      .filter(([, entity]) => entity?.vehicleSceneId === sceneId)
-      .map(([definitionId, entity]) => {
-        const transform = entity.getComponent?.('transform');
-        return {
-          schemaVersion: 1,
-          sceneId,
-          definitionId,
-          entityId: entity.id,
-          transform: transform ? {
-            x: Number(transform.position.x) || 0,
-            y: Number(transform.position.y) || 0,
-            rotation: Number(transform.rotation) || 0
-          } : null,
-          vehicle: cloneData(entity.getComponent?.('vehicle')?.serialize?.() || null),
-          cargo: cloneData(entity.getComponent?.('cargo')?.serialize?.() || null)
-        };
-      });
+    return this._sceneVehicleRuntime.capture(sceneId);
   }
 
   _validateSceneVehicleStates(sceneId, states, logisticsState = null) {
-    if (!sceneId || (states != null && !Array.isArray(states))) return { ok: false, code: 'invalidSceneVehicleStates' };
-    const definitions = new Map(this._getSceneVehicleDefinitions(sceneId).map(entry => [entry.id, entry]));
-    const ids = new Set();
-    for (const entry of states || []) {
-      const definition = definitions.get(entry?.definitionId);
-      if (entry?.schemaVersion !== 1 || entry.sceneId !== sceneId || !definition || ids.has(entry.definitionId)
-        || entry.entityId !== entry.definitionId || !entry.transform
-        || !Number.isFinite(entry.transform.x) || !Number.isFinite(entry.transform.y)
-        || !Number.isFinite(entry.transform.rotation)) {
-        return { ok: false, code: 'invalidSceneVehicleState', definitionId: entry?.definitionId };
-      }
-      ids.add(entry.definitionId);
-      const probe = this.entityFactory?.createVehicle?.({ ...cloneData(definition), position: { x: 0, y: 0 } });
-      if (!probe) return { ok: false, code: 'vehicleValidationProbeFailed', definitionId: entry.definitionId };
-      try {
-        const vehicleCheck = probe.getComponent?.('vehicle')?.validateSerialized?.(entry.vehicle);
-        if (!vehicleCheck?.ok) return {
-          ok: false,
-          code: vehicleCheck?.code || 'invalidVehicleSnapshot',
-          definitionId: entry.definitionId,
-          path: vehicleCheck?.path
-        };
-        const cargoProbe = probe.getComponent?.('cargo');
-        if (!!entry.cargo !== !!cargoProbe) {
-          return { ok: false, code: 'cargoDefinitionMismatch', definitionId: entry.definitionId };
-        }
-        if (entry.cargo) {
-          const cargoCheck = cargoProbe.validateSerialized?.(entry.cargo);
-          if (!cargoCheck?.ok) return {
-            ok: false, code: cargoCheck?.code || 'invalidCargoSnapshot', definitionId: entry.definitionId
-          };
-        }
-      } finally {
-        try { probe.destroy?.(); } catch (error) { /* validation probe cleanup */ }
-      }
-    }
-    if ((states || []).length > 0 && ids.size !== definitions.size) {
-      return { ok: false, code: 'incompleteSceneVehicleStates', sceneId };
-    }
-    if (logisticsState) {
-      if (logisticsState.schemaVersion !== 1 || !Array.isArray(logisticsState.operations)) {
-        return { ok: false, code: 'invalidVehicleLogisticsSnapshot' };
-      }
-      const operationIds = new Set();
-      for (const operation of logisticsState.operations) {
-        if (!operation?.operationId || operationIds.has(operation.operationId)
-          || !operation.fingerprint || !operation.result) {
-          return { ok: false, code: 'invalidVehicleLogisticsSnapshot' };
-        }
-        operationIds.add(operation.operationId);
-      }
-    }
-    return { ok: true };
+    return this._sceneVehicleRuntime.validate(sceneId, states, logisticsState);
   }
 
   _restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) {
-    const checked = this._validateSceneVehicleStates(sceneId, states, logisticsState);
-    if (!checked.ok) return checked;
-    if (states.length > 0 && this.currentSceneId !== sceneId) {
-      return { ok: false, code: 'sceneVehicleSceneMismatch', sceneId };
-    }
-    this._ensureSceneVehicleEntities(sceneId);
-    const prepared = [];
-    for (const entry of states) {
-      const entity = this._sceneVehicleEntities.get(entry.definitionId);
-      const transform = entity?.getComponent?.('transform');
-      const vehicle = entity?.getComponent?.('vehicle');
-      const cargo = entity?.getComponent?.('cargo');
-      if (!entity || entity.vehicleSceneId !== sceneId || !transform || !vehicle || (!!entry.cargo !== !!cargo)) {
-        return { ok: false, code: 'sceneVehicleRebuildFailed', definitionId: entry.definitionId };
-      }
-      prepared.push({
-        entry, entity, transform, vehicle, cargo,
-        before: {
-          transform: { x: transform.position.x, y: transform.position.y, rotation: transform.rotation },
-          vehicle: cloneData(vehicle.serialize()),
-          cargo: cloneData(cargo?.serialize?.() || null),
-          registered: this.vehicleSystem?.vehicles?.has?.(entity) === true
-        }
-      });
-    }
-    const logisticsBefore = cloneData(this.vehicleLogisticsSystem?.serialize?.() || null);
-    const rollback = () => {
-      let ok = true;
-      for (const item of [...prepared].reverse()) {
-        item.transform.setPosition(item.before.transform.x, item.before.transform.y);
-        item.transform.rotation = item.before.transform.rotation;
-        if (item.vehicle.deserialize(cloneData(item.before.vehicle))?.ok === false) ok = false;
-        if (item.before.cargo && item.cargo?.deserialize(cloneData(item.before.cargo))?.ok === false) ok = false;
-        if (item.before.registered) this.vehicleSystem?.registerVehicle?.(item.entity);
-        else this.vehicleSystem?.unregisterVehicle?.(item.entity);
-      }
-      if (logisticsBefore && this.vehicleLogisticsSystem?.deserialize?.(cloneData(logisticsBefore))?.ok === false) ok = false;
-      return ok;
-    };
-
-    let failure = null;
-    for (const item of prepared) {
-      item.transform.setPosition(item.entry.transform.x, item.entry.transform.y);
-      item.transform.rotation = item.entry.transform.rotation;
-      const vehicleResult = item.vehicle.deserialize(cloneData(item.entry.vehicle));
-      if (!vehicleResult?.ok) {
-        failure = { ...vehicleResult, definitionId: item.entry.definitionId };
-        break;
-      }
-      if (item.entry.cargo) {
-        const cargoResult = item.cargo.deserialize(cloneData(item.entry.cargo));
-        if (!cargoResult?.ok) {
-          failure = { ...cargoResult, definitionId: item.entry.definitionId };
-          break;
-        }
-      }
-      const movement = item.entity.getComponent?.('movement');
-      if (movement) {
-        movement.enabled = !item.vehicle.destroyed && !item.vehicle.logistics.starved;
-        if (!movement.enabled) movement.stop?.();
-      }
-      if (item.vehicle.destroyed) this.vehicleSystem?.unregisterVehicle?.(item.entity);
-      else this.vehicleSystem?.registerVehicle?.(item.entity);
-    }
-    if (!failure && logisticsState) {
-      const logisticsResult = this.vehicleLogisticsSystem?.deserialize?.(cloneData(logisticsState));
-      if (!logisticsResult?.ok) failure = logisticsResult || { ok: false, code: 'vehicleLogisticsUnavailable' };
-    }
-    if (failure) {
-      const rolledBack = rollback();
-      return rolledBack ? failure : { ok: false, code: 'sceneVehicleRollbackFailed', cause: failure.code };
-    }
-    return { ok: true };
+    return this._sceneVehicleRuntime.restore(sceneId, states, logisticsState);
   }
 
   // S14 编排兼容入口；状态所有权已经统一到 scene vehicle store。
@@ -3794,12 +2566,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
 
   _ensureClassSystem() {
-    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
-    if (!resolver) return null;
-    if (!this.classSystem || this.classSystem.effectResolver !== resolver) {
-      this.classSystem = new ClassSystem({ effectResolver: resolver });
-    }
-    return this.classSystem;
+    const system = this.context?.systems?.classes
+      || this._gameplaySystemAssembler?.getSharedSystems?.()?.classSystem
+      || null;
+    if (system) this.classSystem = system;
+    return system;
   }
 
   /** 把 EffectResolver 的技能解锁投影到兼容快捷栏；定义本身仍由 SkillRegistry 拥有。 */
@@ -4085,13 +2856,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('acceptS02Summons', (p) => this._s01s02Coordinator.acceptS02Summons(p));
     trig.registerAction('travelToS09', () => this._s01s02Coordinator.travelToS09());
     trig.registerAction('travelToS03', () => this.s03s08Coordinator.travelToS03());
-    trig.registerAction('openS03BattleMode', () => this.openS03BattleMode());
+    trig.registerAction('openS03BattleMode', () => this.s03s14BattleCoordinator.open('S03'));
     trig.registerAction('checkS03Exit', () => this.s03s08Coordinator.checkS03Exit());
-    trig.registerAction('openS04BattleMode', () => this.openS04BattleMode());
+    trig.registerAction('openS04BattleMode', () => this.s03s14BattleCoordinator.open('S04'));
     trig.registerAction('startS04BocaiRescue', () => this.s03s08Coordinator.startS04BocaiRescue());
     trig.registerAction('completeS04BocaiEvacuation', () => this.s03s08Coordinator.completeS04BocaiEvacuation());
     trig.registerAction('openS04RouteChoice', () => this.s03s08Coordinator.openS04RouteChoice());
-    trig.registerAction('openS05BattleMode', () => this.openS05BattleMode());
+    trig.registerAction('openS05BattleMode', () => this.s03s14BattleCoordinator.open('S05'));
     trig.registerAction('prepareS05Mine', () => this.s05SceneCoordinator.prepareS05Mine());
     trig.registerAction('showS05MineStatus', () => this.s05SceneCoordinator.showS05MineStatus());
     trig.registerAction('completeS05MineRetreat', () => this.s05SceneCoordinator.completeS05MineRetreat());
@@ -4100,7 +2871,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('openS06DefenseChoice', () => this.s06SceneCoordinator.openS06DefenseChoice());
     trig.registerAction('startS06FieldConstruction', () => this.s06SceneCoordinator.startS06FieldConstruction());
     trig.registerAction('completeS06Recall', () => this.s06SceneCoordinator.completeS06Recall());
-    trig.registerAction('openS07BattleMode', () => this.openS07BattleMode());
+    trig.registerAction('openS07BattleMode', () => this.s03s14BattleCoordinator.open('S07'));
     trig.registerAction('commitS07DelayPoint', (p = {}) => this.s07s08Coordinator.commitS07DelayPoint(p));
     trig.registerAction('checkS07Exit', (p = {}) => this.s07s08Coordinator.checkS07Exit(p));
     trig.registerAction('openS08RetreatChoice', () => this.s07s08Coordinator.openS08RetreatChoice());
@@ -4115,7 +2886,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('mountS10ArrowTower', () => this.s10ConstructionCoordinator.mountS10ArrowTower());
     trig.registerAction('leaveS10ArrowTower', () => this.s10ConstructionCoordinator.leaveS10ArrowTower());
     trig.registerAction('checkS10Exit', () => this.s10ConstructionCoordinator.checkS10Exit());
-    trig.registerAction('openS11BattleMode', () => this.openS11BattleMode());
+    trig.registerAction('openS11BattleMode', () => this.s03s14BattleCoordinator.open('S11'));
     trig.registerAction('startS11Rescue', () => this.s11s14SceneCoordinator.startS11Rescue());
     trig.registerAction('completeS11Beacon', () => this.s11s14SceneCoordinator.completeS11Beacon());
     trig.registerAction('completeS11GuardRally', () => this.s11s14SceneCoordinator.completeS11GuardRally());
@@ -4127,7 +2898,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     ));
     trig.registerAction('interactS11Horse', () => this.s11s14SceneCoordinator.interactS11Horse());
     trig.registerAction('checkS11Exit', () => this.s11s14SceneCoordinator.checkS11Exit());
-    trig.registerAction('openS12BattleMode', () => this.openS12BattleMode());
+    trig.registerAction('openS12BattleMode', () => this.s03s14BattleCoordinator.open('S12'));
     trig.registerAction('startS12Rescue', () => this.s11s14SceneCoordinator.startS12Rescue());
     trig.registerAction('completeS12SecretPassage', () => (
       this.s11s14SceneCoordinator.completeS12SecretPassage()
@@ -4136,7 +2907,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     trig.registerAction('useS12LadderEntry', () => this.s11s14SceneCoordinator.useS12LadderEntry());
     trig.registerAction('burnS12Ladder', (p = {}) => this.s11s14SceneCoordinator.burnS12Ladder(p));
     trig.registerAction('checkS12Exit', () => this.s11s14SceneCoordinator.checkS12Exit());
-    trig.registerAction('openS13BattleMode', () => this.openS13BattleMode());
+    trig.registerAction('openS13BattleMode', () => this.s03s14BattleCoordinator.open('S13'));
     trig.registerAction('checkS13Exit', () => this.s11s14SceneCoordinator.checkS13Exit());
     trig.registerAction('openS14CargoTransfer', () => this.s11s14SceneCoordinator.openS14CargoTransfer());
     trig.registerAction('resolveS14LastCart', () => this.s11s14SceneCoordinator.resolveS14LastCart());
@@ -4305,8 +3076,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         viewHeight: this.logicalHeight
       });
     }
-    if (this.battleResultView?.visible) {
-      return this.battleResultView.handleInput({
+    if (this.s03s14BattleCoordinator.isInputLayerVisible('result')) {
+      return this.s03s14BattleCoordinator.handleInputLayer('result', {
         inputManager,
         gamepad,
         viewWidth: this.logicalWidth,
@@ -4321,8 +3092,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         viewHeight: this.logicalHeight
       });
     }
-    if (this.battleModeView?.visible) {
-      return this.battleModeView.handleInput({
+    if (this.s03s14BattleCoordinator.isInputLayerVisible('mode')) {
+      return this.s03s14BattleCoordinator.handleInputLayer('mode', {
         inputManager,
         gamepad,
         viewWidth: this.logicalWidth,
@@ -4620,8 +3391,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   _initMultiChunkEffectZones(effectZones) {
     if (!this.particleSystem) return;
     const renderer = new EffectZoneRenderer(this.particleSystem);
-    this.effectZoneRenderer?.clear?.();
-    this.effectZoneRenderer = renderer;
+    this._terrainBinding.setEffectZoneRenderer(renderer, { clearPrevious: true });
     renderer.zones = Array.isArray(effectZones) ? effectZones : [];
     renderer._accumulators = renderer.zones.map(() => 0);
     if (renderer.zones.length > 0) {
@@ -4664,16 +3434,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     this._renderTeleportFade(ctx);
     // 战中 HUD 与救援 HUD 只绘制领域系统的不可变快照。
-    this.battleHudView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    this.s03s14BattleCoordinator.renderLayer('hud', ctx, this.logicalWidth, this.logicalHeight);
     this.rescueObjectiveView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 职业确认窗口（最上层，半透明遮罩 + 面板）
     this._renderClassConfirmation(ctx);
     // 战役模式确认优先于其他场景弹窗，且不直接修改领域状态。
-    this.battleModeView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    this.s03s14BattleCoordinator.renderLayer('mode', ctx, this.logicalWidth, this.logicalHeight);
     // 路线选择只发命令；互斥、幂等和 checkpoint 由场景领域事务拥有。
     this.irreversibleChoiceView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 战果面板最后绘制并吞掉全部世界输入，关闭只影响 UI 可见性。
-    this.battleResultView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    this.s03s14BattleCoordinator.renderLayer('result', ctx, this.logicalWidth, this.logicalHeight);
     // 货舱面板只发转移命令，实际库存与货舱事务由 VehicleLogisticsSystem 提交。
     this.cargoTransferView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
     // 终局演出是最高层只读表现，仅通过命令请求宿主动作。

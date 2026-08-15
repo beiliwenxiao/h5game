@@ -267,15 +267,17 @@ const s05Methods = {
   },
 
   startS05ZhangManchengRescue() {
-    if (this.currentSceneId !== 'S05' || !this.rescueSystem || !this._s05ZhangManchengRescueConfig) {
+    const battleCoordinator = this.s03s14BattleCoordinator;
+    const rescueDefinition = battleCoordinator?.getRescueDefinition?.(S05_ZHANG_MANCHENG_RESCUE_ID);
+    const battleSession = battleCoordinator?.getSessionState?.() || {};
+    if (this.currentSceneId !== 'S05' || !this.rescueSystem || !rescueDefinition) {
       this._showScreenTip('张曼成救援只可在 S05 宛城外围启动。', { title: '救援不可用' });
       return false;
     }
-    const activeBattleId = this.battleSystem?.definition?.battleId;
-    if (this.battleSystem?.mode !== BattleMode.INTERVENE
-      || activeBattleId !== S05_BATTLE_ID
-      || this.battleSystem?.state !== BattleState.ACTIVE
-      || this.battlefieldRuntime?.active !== true) {
+    if (battleSession.mode !== BattleMode.INTERVENE
+      || battleSession.battleId !== S05_BATTLE_ID
+      || battleSession.state !== BattleState.ACTIVE
+      || battleSession.battlefieldActive !== true) {
       this._showScreenTip('先在宛城外围战役选择介入并让实时战场进入进行中状态。', { title: '救援不可用' });
       return false;
     }
@@ -294,7 +296,7 @@ const s05Methods = {
     const existing = this.rescueSystem.getState();
     if (existing.status !== RescueStatus.IDLE) {
       if (existing.definitionId === S05_ZHANG_MANCHENG_RESCUE_ID) {
-        this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+        battleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
         this.rescueObjectiveView?.setSnapshot?.(existing);
         this._showScreenTip(
           existing.status === RescueStatus.ACTIVE ? '张曼成救援正在进行。' : '张曼成救援结果已经冻结。',
@@ -319,15 +321,15 @@ const s05Methods = {
       }
     }
 
-    const started = this.rescueSystem.start(this._s05ZhangManchengRescueConfig, {
-      mode: this.battleSystem.mode,
+    const started = this.rescueSystem.start(rescueDefinition, {
+      mode: battleSession.mode,
       operationId: `start:${S05_ZHANG_MANCHENG_RESCUE_ID}`
     });
     if (!started.ok) {
       this._showScreenTip(`救援未启动：${started.message || started.code}`, { title: '救援失败' });
       return false;
     }
-    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    battleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
     this.rescueObjectiveView?.setSnapshot?.(started.state);
     this._showScreenTip('60 秒内以远程攻击、远程技能或投掷命中秦颉，打断对张曼成的致命一击。', {
       title: '张曼成限时救援'
@@ -347,7 +349,7 @@ const s05Methods = {
     const outcome = this.rescueSystem.completeStage('interrupt-lethal-strike', {
       operationId: `complete:${S05_ZHANG_MANCHENG_RESCUE_ID}:interrupt-lethal-strike`
     });
-    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    this.s03s14BattleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
     if (!outcome?.completed || !outcome.result) return false;
     void this._settleS05ZhangManchengRescue(outcome.result, beforeRescueState);
@@ -360,7 +362,8 @@ const s05Methods = {
       || rescueState?.definitionId !== S05_ZHANG_MANCHENG_RESCUE_ID
       || rescueState.status !== RescueStatus.ACTIVE
       || this._s05RescueBusy) return;
-    const targetId = this._s05ZhangManchengRescueConfig?.targetEntityId;
+    const targetId = this.s03s14BattleCoordinator
+      ?.getRescueDefinition?.(S05_ZHANG_MANCHENG_RESCUE_ID)?.targetEntityId;
     const target = (this.entities || []).find(entity => entity?.id === targetId);
     const stats = target?.getComponent?.('stats');
     const beforeRescueState = this.rescueSystem.serialize();
@@ -384,7 +387,7 @@ const s05Methods = {
         );
       }
     }
-    this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+    this.s03s14BattleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
     if (outcome?.completed && outcome.result) {
       void this._settleS05ZhangManchengRescue(outcome.result, beforeRescueState, targetHpRollback);
@@ -431,7 +434,7 @@ const s05Methods = {
           this.combatSystem?.triggerDeathEffect?.(defeatedTarget);
         }
       }
-      this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+      this.s03s14BattleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
       this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
       this._showScreenTip(
         survived
@@ -448,7 +451,7 @@ const s05Methods = {
         const stats = target?.getComponent?.('stats');
         if (stats) stats.hp = targetHpRollback.hp;
       }
-      this._setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
+      this.s03s14BattleCoordinator.setRescueObjectiveTitle(S05_ZHANG_MANCHENG_RESCUE_ID);
       this.rescueObjectiveView?.setSnapshot?.(restored?.state || this.rescueSystem.getState());
       this._showScreenTip(`张曼成救援检查点失败：${error?.message || error}，剧情、救援与生命值已回滚。`, {
         title: '保存失败'
@@ -489,9 +492,7 @@ const s05Methods = {
     try {
       const transition = await this.teleportToChunk({ scene: 'S06', spawnRef: 'player', transition: 'fadeBlack' });
       if (transition === false || transition?.cancelled) throw new Error('sceneTransitionCancelled');
-      this.battleModeView?.close?.();
-      this.battleResultView?.close?.();
-      this.battleHudView?.clear?.();
+      this.s03s14BattleCoordinator.closeUi();
       this.rescueObjectiveView?.clear?.();
       this._showScreenTip('张曼成率余部延长战线，你已抵达宛城城下。', { title: 'S06·宛城围攻' });
       return true;

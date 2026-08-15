@@ -26,8 +26,8 @@ export class SceneRenderPipeline {
         ? this.context.services.campfire.renderAtmosphere(ctx, {
           timeSystem: scene.timeSystem,
           weatherSystem: scene.weatherSystem,
-          playerEntity: scene.playerEntity,
-          camera: scene.camera,
+          playerEntity: this.context?.player?.entity || null,
+          camera: this.context?.camera?.instance || null,
           width: scene.logicalWidth,
           height: scene.logicalHeight
         })
@@ -35,29 +35,31 @@ export class SceneRenderPipeline {
       (scene, ctx) => (this.context?.services?.worldInteraction
         ? this.context.services.worldInteraction.renderClickScreenMarkers(ctx)
         : scene._renderClickScreenMarkers(ctx)),
-      (scene, ctx) => scene.skillEffects.render(ctx, scene.camera),
-      (scene) => scene.combatEffects.render(),
-      (scene, ctx) => scene.floatingTextManager.render(ctx, scene.camera),
+      (scene, ctx) => this.context?.presentation?.skillEffects
+        ?.render?.(ctx, this.context?.camera?.instance || null),
+      (_scene) => this.context?.presentation?.combatEffects?.render?.(),
+      (_scene, ctx) => this.context?.presentation?.floatingTextManager
+        ?.render?.(ctx, this.context?.camera?.instance || null),
       (scene, ctx) => scene.tutorialSystem?.render(ctx),
-      (scene, ctx) => scene.dialogueBox?.render(ctx),
-      (scene, ctx) => scene.combatSystem?.render(ctx),
-      (scene, ctx) => scene.bottomControlBar?.render(ctx),
+      (_scene, ctx) => this.context?.ui?.dialogueBox?.render?.(ctx),
+      (_scene, ctx) => this.context?.systems?.combat?.render?.(ctx),
+      (_scene, ctx) => this.context?.ui?.bottomControlBar?.render?.(ctx),
       (scene, ctx) => scene.blockButton?.render(ctx),
       (scene, ctx) => scene.jumpButton?.render(ctx),
       (scene, ctx) => scene.flightButton?.render(ctx),
       (scene, ctx) => scene.throwButton?.render(ctx),
       (scene, ctx) => scene.bagButton?.render(ctx),
       (scene, ctx) => scene.settingsButton?.render(ctx),
-      (scene, ctx) => scene.playerStatusHUD?.render(ctx),
+      (_scene, ctx) => this.context?.ui?.playerStatusHUD?.render?.(ctx),
       (scene, ctx) => scene.minimap?.render(ctx),
       (scene, ctx) => scene.renderCombatStateUI(ctx),
       (scene, ctx) => { if (scene.isTransitioning) scene.renderTransition(ctx); },
       (scene, ctx) => { if (scene.performanceMonitor?.enabled) scene.performanceMonitor.render(ctx); }
     ];
     this.modalLayers = config?.modalLayers || [
-      (scene, ctx) => scene.backpackPanel?.render(ctx),
-      // 统一成长面板属于模态 UI，优先从显式 SceneContext 读取。
-      (scene, ctx) => (this.context?.ui?.progression || scene.progressionPanel)?.render(ctx),
+      (_scene, ctx) => this.context?.ui?.backpack?.render?.(ctx),
+      // 统一成长面板属于模态 UI，只从显式 SceneContext 读取。
+      (_scene, ctx) => this.context?.ui?.progression?.render?.(ctx),
       (scene, ctx) => scene.notificationSystem?.render(ctx),
       (scene, ctx) => scene.itemGainedPopup?.render(ctx),
       (scene, ctx) => scene.gamepadPanel?.render(ctx),
@@ -71,7 +73,9 @@ export class SceneRenderPipeline {
 
   render(ctx) {
     const scene = this.scene;
-    const services = this.context?.services || {};
+    const context = this.context || scene.context || null;
+    const camera = context?.camera?.instance || null;
+    const player = context?.player?.entity || null;
     if (scene.performanceMonitor?.enabled) {
       scene._drawCallCount = 0;
       if (scene._drawCallProxied && scene._drawCallProxyContext !== ctx) {
@@ -89,11 +93,11 @@ export class SceneRenderPipeline {
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, scene.logicalWidth, scene.logicalHeight);
     ctx.save();
-    const viewBounds = scene.camera.getViewBounds();
+    const viewBounds = camera.getViewBounds();
     this._viewBounds = viewBounds;
     if (scene._debugNextRender) {
-      console.log('【渲染】相机位置:', scene.camera.position.x, scene.camera.position.y, '视野边界:', viewBounds);
-      console.log('【渲染】玩家位置:', scene.playerEntity ? scene.playerEntity.getComponent('transform')?.position : 'no player');
+      console.log('【渲染】相机位置:', camera.position.x, camera.position.y, '视野边界:', viewBounds);
+      console.log('【渲染】玩家位置:', player ? player.getComponent('transform')?.position : 'no player');
       scene._debugNextRender = false;
     }
     ctx.translate(-viewBounds.left, -viewBounds.top);
@@ -108,15 +112,19 @@ export class SceneRenderPipeline {
 
   renderWorldObjects(ctx) {
     const scene = this.scene;
-    const entities = this.context?.entities?.all || scene.entities;
-    if (scene.terrain) {
+    const context = this.context || scene.context || null;
+    const entities = context?.entities?.all || [];
+    const terrain = context?.world?.terrain || null;
+    const camera = context?.camera?.instance || null;
+    const particleSystem = context?.presentation?.particleSystem || null;
+    if (terrain) {
       // 复用 Y-sort 排序队列数组；terrain.collectDecorations 会 push 进去，
       // 调用方有义务传入空数组——此处在顶部重置 length 保证兼容。
       const queue = this._worldQueue;
       queue.length = 0;
-      scene.terrain.renderBelowDecorations(ctx);
-      scene.terrain.collectDecorations(queue, ctx, this._viewBounds);
-      scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
+      terrain.renderBelowDecorations(ctx);
+      terrain.collectDecorations(queue, ctx, this._viewBounds);
+      particleSystem?.collectDepthSorted?.(queue, ctx, camera, this._viewBounds);
       let entityItemCount = 0;
       for (let i = 0, len = entities.length; i < len; i++) {
         const entity = entities[i];
@@ -140,7 +148,7 @@ export class SceneRenderPipeline {
         if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
         else item.render?.();
       }
-      scene.terrain.renderCliffs(ctx);
+      terrain.renderCliffs(ctx);
       scene._renderBuffZones(ctx);
       scene.renderSpeechBubbles(ctx);
       return;
@@ -148,7 +156,7 @@ export class SceneRenderPipeline {
 
     const queue = this._worldQueue;
     queue.length = 0;
-    scene.particleSystem?.collectDepthSorted?.(queue, ctx, scene.camera, this._viewBounds);
+    particleSystem?.collectDepthSorted?.(queue, ctx, camera, this._viewBounds);
     let entityItemCount = 0;
     for (let i = 0, len = entities.length; i < len; i++) {
       const entity = entities[i];
@@ -193,7 +201,8 @@ export class SceneRenderPipeline {
 
   renderCombatStateUI(ctx) {
     const scene = this.scene;
-    if (!scene.combatSystem?.isInCombat()) return;
+    const combatSystem = this.context?.systems?.combat || null;
+    if (!combatSystem?.isInCombat()) return;
     const mobileOffset = scene.uiStrategy?.platform === 'mobile' ? 100 : 0;
     const x = scene.logicalWidth - 90 - mobileOffset;
     const y = 10;
@@ -207,7 +216,7 @@ export class SceneRenderPipeline {
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('战斗中', x + 40, y + 14);
-    const timer = Math.ceil(scene.combatSystem.getCombatExitTimer());
+    const timer = Math.ceil(combatSystem.getCombatExitTimer());
     ctx.fillStyle = timer > 0 ? '#ffff00' : '#ff6666';
     ctx.font = timer > 0 ? '10px Arial' : '9px Arial';
     ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + 40, y + 26);
@@ -216,24 +225,34 @@ export class SceneRenderPipeline {
 
   _renderWorldEffects(ctx) {
     const scene = this.scene;
-    if (scene.weaponRenderer?.thrownWeapon.active) scene.weaponRenderer.renderThrownWeapon(ctx, scene.camera);
-    if (scene.combatSystem?.isInCombat() && scene.playerEntity) {
-      scene.meleeAttackSystem.renderCombatAlertCircle(ctx, scene.camera);
+    const context = this.context || scene.context || null;
+    const services = context?.services || {};
+    const systems = context?.systems || {};
+    const presentation = context?.presentation || {};
+    const camera = context?.camera?.instance || null;
+    const player = context?.player?.entity || null;
+    const combatSystem = systems.combat;
+    const meleeAttackSystem = systems.meleeAttack;
+    const weaponRenderer = presentation.weaponRenderer;
+    const particleSystem = presentation.particleSystem;
+
+    if (weaponRenderer?.thrownWeapon.active) weaponRenderer.renderThrownWeapon(ctx, camera);
+    if (combatSystem?.isInCombat() && player) {
+      meleeAttackSystem?.renderCombatAlertCircle?.(ctx, camera);
     }
-    if (scene.meleeAttackSystem.sliceTrail?.length > 1) scene.meleeAttackSystem.renderSliceTrail(ctx);
-    scene.meleeAttackSystem.renderSectorSlashEffects(ctx);
-    const worldPresentation = scene.context?.services?.worldPresentation;
+    if (meleeAttackSystem?.sliceTrail?.length > 1) meleeAttackSystem.renderSliceTrail(ctx);
+    meleeAttackSystem?.renderSectorSlashEffects?.(ctx);
+    const worldPresentation = services.worldPresentation;
     if (worldPresentation) {
       worldPresentation.renderFlightShadow(ctx);
       worldPresentation.renderBlockShield(ctx);
     }
-    scene.particleSystem.render(ctx, scene.camera);
+    particleSystem.render(ctx, camera);
     if (scene._debugParticleFrames > 0) {
-      console.log('【渲染】粒子系统活跃粒子数:', scene.particleSystem.getActiveCount());
+      console.log('【渲染】粒子系统活跃粒子数:', particleSystem.getActiveCount());
       scene._debugParticleFrames--;
     }
-    scene.combatSystem?.renderSkillRangeIndicators(ctx);
-    const services = scene.context?.services || {};
+    combatSystem?.renderSkillRangeIndicators(ctx);
     if (services.worldInteraction) services.worldInteraction.renderClickRings(ctx);
     else scene._renderClickRings(ctx);
     if (services.skills) services.skills.renderAimPreview(ctx);

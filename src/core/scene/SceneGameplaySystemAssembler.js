@@ -2,7 +2,7 @@
  * SceneGameplaySystemAssembler - 通用游戏场景系统装配器。
  *
  * 只负责创建、接线和释放框架系统；场景内容通过宿主回调注入。
- * 为兼容现有帧管线，系统实例仍投影到 scene 同名字段。
+ * Context 是帧/渲染管线的正式读取边界；scene 同名字段只保留迁移期兼容投影。
  */
 import { CombatSystem } from '../../systems/CombatSystem.js';
 import { MovementSystem } from '../../systems/MovementSystem.js';
@@ -21,6 +21,12 @@ import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
 import { FlightSystem } from '../../systems/FlightSystem.js';
 import { JumpSystem } from '../../systems/JumpSystem.js';
 import { LocomotionSystem } from '../../systems/LocomotionSystem.js';
+import { ClassSystem } from '../../systems/ClassSystem.js';
+import { ConstructionSystem } from '../../systems/ConstructionSystem.js';
+import { VehicleSystem } from '../../systems/VehicleSystem.js';
+import { VehicleLogisticsSystem } from '../../systems/VehicleLogisticsSystem.js';
+import { MannedStructureAdapter } from '../../systems/MannedStructureAdapter.js';
+import { ProficiencySystem } from '../../systems/progression/ProficiencySystem.js';
 import { CombatEffects } from '../../rendering/CombatEffects.js';
 import { SkillEffects } from '../../rendering/SkillEffects.js';
 import { WeaponRenderer } from '../../rendering/WeaponRenderer.js';
@@ -30,6 +36,65 @@ export class SceneGameplaySystemAssembler {
   constructor(scene) {
     this.scene = scene;
     this.initialized = false;
+    this._systemProjection = Object.create(null);
+    this._presentationProjection = Object.create(null);
+    this._sharedSystems = null;
+    this._sharedFacade = null;
+    this._moveIntentRouter = null;
+  }
+
+  /** @private 将当前实例写入 Context；兼容 Scene 字段不再是管线事实源。 */
+  _projectContext() {
+    const scene = this.scene;
+    const context = scene.context;
+    if (!context) return;
+
+    this._systemProjection = {
+      container: this,
+      ability: scene.abilitySystem,
+      combat: scene.combatSystem,
+      movement: scene.movementSystem,
+      equipment: scene.equipmentSystem,
+      ai: scene.aiSystem,
+      collision: scene.collisionSystem,
+      pickup: scene.pickupSystem,
+      gathering: scene.gatheringSystem,
+      gatheringPuppet: scene.gatheringPuppetSystem,
+      meditation: scene.meditationSystem,
+      zoneEffect: scene.zoneEffectSystem,
+      meleeAttack: scene.meleeAttackSystem,
+      flight: scene.flightSystem,
+      jump: scene.jumpSystem,
+      locomotion: scene.locomotionSystem,
+      playerDefeat: scene.playerDefeatService,
+      inventoryTransactions: scene.inventoryTransactions
+    };
+    this._presentationProjection = {
+      combatEffects: scene.combatEffects,
+      skillEffects: scene.skillEffects,
+      weaponRenderer: scene.weaponRenderer,
+      enemyWeaponRenderer: scene.enemyWeaponRenderer,
+      particleSystem: scene.particleSystem,
+      floatingTextManager: scene.floatingTextManager,
+      effectZoneRenderer: scene.effectZoneRenderer
+    };
+    Object.assign(context.systems, this._systemProjection);
+    Object.assign(context.presentation, this._presentationProjection);
+  }
+
+  /** @private 只清理由本装配器写入且仍指向原实例的 Context 引用。 */
+  _clearContextProjection() {
+    const context = this.scene.context;
+    if (context) {
+      for (const [key, value] of Object.entries(this._systemProjection)) {
+        if (context.systems[key] === value) context.systems[key] = null;
+      }
+      for (const [key, value] of Object.entries(this._presentationProjection)) {
+        if (context.presentation[key] === value) context.presentation[key] = null;
+      }
+    }
+    this._systemProjection = Object.create(null);
+    this._presentationProjection = Object.create(null);
   }
 
   initialize({ zoneCallbacks = {} } = {}) {
@@ -192,6 +257,7 @@ export class SceneGameplaySystemAssembler {
       }
     });
 
+    this._projectContext();
     this.initialized = true;
     return this;
   }
@@ -212,19 +278,203 @@ export class SceneGameplaySystemAssembler {
       },
       onEvent: (event, data) => scene.onAbilityEvent?.(event, data)
     });
+    if (scene.context) scene.context.systems.ability = scene.abilitySystem;
+    this._systemProjection.ability = scene.abilitySystem;
     scene.gatheringPuppetSystem?.configure?.({ effectResolver, owner: scene.playerEntity });
+    return true;
+  }
+
+  /**
+   * GameLoader 就绪后统一创建职业、熟练度、营建与载具领域系统。
+   * 历史条件、checkpoint 和事件命名全部由调用方以回调注入。
+   */
+  configureSharedSystems(config = {}) {
+    const scene = this.scene;
+    const effectResolver = config.effectResolver || null;
+    if (!effectResolver) return null;
+
+    this.disposeSharedSystems();
+    const proficiencyConfig = config.proficiency || {};
+    const proficiencySystem = new ProficiencySystem({
+      ...(proficiencyConfig.config || {}),
+      onEvent: proficiencyConfig.onEvent
+    });
+    const classSystem = new ClassSystem({ effectResolver });
+
+    scene.gatheringSystem?.setEffectResolver?.(effectResolver);
+    scene.gatheringSystem?.setSettlementPolicy?.(config.gathering?.settlementPolicy || null);
+    scene.inventoryTransactions?.configureEffects?.({
+      effectResolver,
+      getEntityId: config.inventoryEffects?.getEntityId,
+      baseResourceCapacity: config.inventoryEffects?.baseResourceCapacity
+    });
+
+    const constructionConfig = config.construction || {};
+    const constructionSystem = new ConstructionSystem({
+      inventoryTransactions: scene.inventoryTransactions,
+      proficiencySystem,
+      maxOperations: constructionConfig.maxOperations,
+      itemResolver: constructionConfig.itemResolver,
+      createCheckpoint: constructionConfig.createCheckpoint,
+      validateSite: constructionConfig.validateSite,
+      onEvent: constructionConfig.onEvent
+    });
+    const registered = constructionSystem.registerDefinitions(constructionConfig.definitions || []);
+    const requiredProficiency = constructionConfig.requiredProficiencyType || null;
+    if (!registered.ok || (requiredProficiency && !proficiencySystem.getDefinition?.(requiredProficiency))) {
+      throw new Error(`Shared gameplay construction config invalid: ${registered.code || `missingProficiency:${requiredProficiency}`}`);
+    }
+
+    const vehicleConfig = config.vehicles || {};
+    const vehicleSystem = new VehicleSystem({
+      resolveEntity: vehicleConfig.resolveEntity,
+      findSafeDismountPosition: vehicleConfig.findSafeDismountPosition
+        || (request => this._findSafeDismountPosition(request)),
+      onEvent: vehicleConfig.onVehicleEvent
+    });
+    const moveIntentRouter = (rider, intent) => (
+      vehicleSystem.routeIntent(rider, intent) || { target: 'self', role: null, intent }
+    );
+    scene.movementSystem?.setMoveIntentRouter?.(moveIntentRouter);
+
+    const vehicleLogisticsSystem = new VehicleLogisticsSystem({
+      inventoryTransactions: scene.inventoryTransactions,
+      getInventoryOwnerId: vehicleConfig.getInventoryOwnerId,
+      createCheckpoint: vehicleConfig.createCheckpoint,
+      onEvent: vehicleConfig.onLogisticsEvent,
+      maxOperations: vehicleConfig.maxOperations
+    });
+    const mannedStructureAdapter = new MannedStructureAdapter({
+      vehicleSystem,
+      onEvent: vehicleConfig.onMannedStructureEvent
+    });
+
+    scene.classSystem = classSystem;
+    scene.proficiencySystem = proficiencySystem;
+    scene.constructionSystem = constructionSystem;
+    scene.vehicleSystem = vehicleSystem;
+    scene.vehicleLogisticsSystem = vehicleLogisticsSystem;
+    scene.mannedStructureAdapter = mannedStructureAdapter;
+
+    const sharedProjection = {
+      classes: classSystem,
+      proficiency: proficiencySystem,
+      construction: constructionSystem,
+      vehicle: vehicleSystem,
+      vehicleLogistics: vehicleLogisticsSystem,
+      mannedStructure: mannedStructureAdapter
+    };
+    Object.assign(scene.context?.systems || {}, sharedProjection);
+    Object.assign(this._systemProjection, sharedProjection);
+
+    this._moveIntentRouter = moveIntentRouter;
+    this._sharedSystems = Object.freeze({
+      classSystem,
+      proficiencySystem,
+      constructionSystem,
+      vehicleSystem,
+      vehicleLogisticsSystem,
+      mannedStructureAdapter
+    });
+    const facade = Object.freeze({
+      getSystems: () => this._sharedSystems,
+      update: deltaTime => this.updateSharedSystems(deltaTime)
+    });
+    this._sharedFacade = facade;
+    if (scene.context) scene.context.services.sharedGameplay = facade;
+
+    this.configureAbilities({
+      skillRegistry: config.skillRegistry,
+      effectResolver
+    });
+    return this._sharedSystems;
+  }
+
+  /** 默认在载具四周寻找首个可通行下车点；具体导航策略仍可由调用方覆盖。 @private */
+  _findSafeDismountPosition({ rider, vehicle, fallback } = {}) {
+    const transform = vehicle?.getComponent?.('transform');
+    const movementSystem = this.scene.context?.systems?.movement || this.scene.movementSystem;
+    if (!transform || typeof movementSystem?.canMoveTo !== 'function') return fallback;
+    const candidates = [
+      [40, 0], [-40, 0], [0, 40], [0, -40],
+      [56, 56], [-56, 56], [56, -56], [-56, -56]
+    ];
+    for (const [dx, dy] of candidates) {
+      const x = transform.position.x + dx;
+      const y = transform.position.y + dy;
+      if (movementSystem.canMoveTo(x, y, rider)) return { x, y };
+    }
+    return fallback;
+  }
+
+  /** 保持旧顺序：人控工事先同步耐久，再同步载具乘员位置。 */
+  updateSharedSystems(deltaTime) {
+    if (!this._sharedSystems) return false;
+    this._sharedSystems.mannedStructureAdapter.syncAll();
+    this._sharedSystems.vehicleSystem.update(deltaTime);
+    return true;
+  }
+
+  getSharedSystems() {
+    return this._sharedSystems;
+  }
+
+  /** 幂等释放共享系统接线；实体本身仍由 SceneEntityStore/具体 runtime 先行释放。 */
+  disposeSharedSystems() {
+    const scene = this.scene;
+    const owned = this._sharedSystems;
+    if (!owned) return false;
+
+    const movementSystem = scene.context?.systems?.movement || scene.movementSystem;
+    if (movementSystem?.moveIntentRouter === this._moveIntentRouter) {
+      movementSystem.setMoveIntentRouter(null);
+    }
+    owned.mannedStructureAdapter.structures?.clear?.();
+    owned.vehicleSystem.vehicles?.clear?.();
+    owned.vehicleSystem.resolveEntity = () => null;
+    owned.vehicleSystem.onEvent = () => {};
+    owned.vehicleLogisticsSystem.onEvent = () => {};
+    owned.vehicleLogisticsSystem.getInventoryOwnerId = null;
+    // 退出后迟到的未决事务必须被 checkpoint 拒绝并走自身回滚，不能静默提交到已释放场景。
+    owned.vehicleLogisticsSystem.createCheckpoint = async () => false;
+    scene.gatheringSystem?.setEffectResolver?.(null);
+    scene.gatheringSystem?.setSettlementPolicy?.(null);
+    scene.inventoryTransactions?.configureEffects?.({ effectResolver: null, getEntityId: null });
+
+    const fields = {
+      classes: 'classSystem',
+      proficiency: 'proficiencySystem',
+      construction: 'constructionSystem',
+      vehicle: 'vehicleSystem',
+      vehicleLogistics: 'vehicleLogisticsSystem',
+      mannedStructure: 'mannedStructureAdapter'
+    };
+    for (const [contextKey, sceneKey] of Object.entries(fields)) {
+      const instance = this._systemProjection[contextKey];
+      if (scene.context?.systems?.[contextKey] === instance) scene.context.systems[contextKey] = null;
+      if (scene[sceneKey] === instance) scene[sceneKey] = null;
+      delete this._systemProjection[contextKey];
+    }
+    if (scene.context?.services?.sharedGameplay === this._sharedFacade) {
+      delete scene.context.services.sharedGameplay;
+    }
+    this._sharedSystems = null;
+    this._sharedFacade = null;
+    this._moveIntentRouter = null;
     return true;
   }
 
   dispose() {
     const scene = this.scene;
+    this.disposeSharedSystems();
     scene.gatheringPuppetSystem?.dispose?.();
-    scene.abilitySystem = null;
     scene.locomotionSystem?.cleanup?.();
     scene.jumpSystem?.cleanup?.();
     scene.flightSystem?.cleanup?.();
     scene.meleeAttackSystem?.cleanup?.();
     scene.enemyWeaponRenderer?.cleanup?.();
+    this._clearContextProjection();
+    scene.abilitySystem = null;
     this.initialized = false;
   }
 }

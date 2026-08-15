@@ -690,6 +690,14 @@ export class S10ConstructionCoordinator extends SceneFlowCoordinator {
   constructor(scene) {
     super(scene, s10ConstructionMethods, { name: 'S10ConstructionCoordinator' });
   }
+
+  projectBattleDefinition(definition, sceneId) {
+    return this._projectS10ConstructionEffects(definition, sceneId);
+  }
+
+  applyBattleEffects(definition, sceneId) {
+    return this._applyS10ConstructionBattleEffects(definition, sceneId);
+  }
 }
 
 export default S10ConstructionCoordinator;

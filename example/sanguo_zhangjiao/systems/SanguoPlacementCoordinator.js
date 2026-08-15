@@ -1,0 +1,49 @@
+/**
+ * 《三国张角传》放置点生成后的剧情索引协调器。
+ * 通用生成、恢复与实体清理由 ScenePlacementRuntime 拥有。
+ */
+export class SanguoPlacementCoordinator {
+  constructor({ getNpcEntities, getGroupEnemies } = {}) {
+    this.getNpcEntities = getNpcEntities || (() => []);
+    this.getGroupEnemies = getGroupEnemies || (() => ({}));
+  }
+
+  handleSpawn({ entity, kind, group, placement } = {}) {
+    if (!entity) return false;
+    if (Array.isArray(placement?.tags)) {
+      entity.tags = [...new Set([...(entity.tags || []), ...placement.tags])];
+    }
+    if (kind === 'npc') {
+      const npcs = this.getNpcEntities();
+      if (!npcs.includes(entity)) npcs.push(entity);
+    } else if (kind === 'enemy') {
+      const groups = this.getGroupEnemies();
+      const key = group || placement?.group || 'default';
+      const members = groups[key] = groups[key] || [];
+      if (!members.includes(entity)) members.push(entity);
+    }
+    return true;
+  }
+
+  removeValues(values = []) {
+    const targets = values instanceof Set ? values : new Set(values || []);
+    if (targets.size === 0) return 0;
+    const npcs = this.getNpcEntities();
+    let removed = 0;
+    for (let index = npcs.length - 1; index >= 0; index--) {
+      if (!targets.has(npcs[index])) continue;
+      npcs.splice(index, 1);
+      removed++;
+    }
+    for (const members of Object.values(this.getGroupEnemies())) {
+      for (let index = members.length - 1; index >= 0; index--) {
+        if (!targets.has(members[index])) continue;
+        members.splice(index, 1);
+        removed++;
+      }
+    }
+    return removed;
+  }
+}
+
+export default SanguoPlacementCoordinator;

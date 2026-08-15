@@ -2,6 +2,7 @@
  * 三国张角传 - P4.2 S10 营建和工事场景编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { BuildingType } from '../../../src/ecs/components/BuildingComponent.js';
 import { S06_FIELD_CONSTRUCTION_SITE_ID } from './S06SceneFlow.js';
 
@@ -266,7 +267,7 @@ const s10ConstructionMethods = {
   },
   async _checkpointS10ConstructionTerminal(results, rollback) {
     if (results.some(result => (result?.structure?.siteId || result?.siteId) === S06_FIELD_CONSTRUCTION_SITE_ID)) {
-      return this._checkpointS06ConstructionTerminal(results, rollback);
+      return this.s06SceneCoordinator?._checkpointS06ConstructionTerminal(results, rollback) ?? false;
     }
     const blackboard = this.gameLoader?.blackboard;
     if (!blackboard || !rollback) return false;
@@ -685,19 +686,10 @@ const s10ConstructionMethods = {
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS10ConstructionFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s10ConstructionMethods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S10ConstructionFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S10ConstructionCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s10ConstructionMethods, { name: 'S10ConstructionCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS10ConstructionFlow;
+export default S10ConstructionCoordinator;

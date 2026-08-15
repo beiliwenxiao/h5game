@@ -11,9 +11,27 @@
  */
 
 import {
+  SCENE_BATTLE_FLOW_STRING_FIELDS
+} from '../src/core/scene/SceneBattleFlowRegistry.js';
+import {
   SCENE_OBJECT_SELECTOR_MODES,
   sceneObjectSelectorValues
 } from '../src/core/scene/SceneObjectSelector.js';
+
+const BATTLE_FLOW_FIELD_LABELS = Object.freeze({
+  locationName: '地点名称',
+  unavailableMessage: '不可用提示',
+  conflictMessage: '冲突提示',
+  activeMessage: '进行中提示',
+  appliedTitle: '已结算标题',
+  resultTitle: '战果标题',
+  resultMessage: '战果说明',
+  settlementMessage: '结算提示',
+  interventionMessage: '介入提示',
+  resolvedKey: '完成状态键',
+  winnerKey: '胜方状态键',
+  checkpointId: '检查点 ID'
+});
 
 /**
  * SceneEditorUI - 场景编辑器 UI 模块
@@ -32,6 +50,12 @@ export class SceneEditorUI {
    */
   initUI() {
     const editor = this.editor;
+    const battleFlowFieldsHtml = SCENE_BATTLE_FLOW_STRING_FIELDS.map(field => `
+      <div class="info-row" style="align-items:flex-start;">
+        <label title="gameplay.battleFlow.${field}">${BATTLE_FLOW_FIELD_LABELS[field]}:</label>
+        <textarea data-battle-flow-field="${field}" rows="2" style="flex:1;min-width:0;resize:vertical;"></textarea>
+      </div>
+    `).join('');
     editor.container.innerHTML = `
       <div class="scene-editor">
         <div class="editor-toolbar">
@@ -183,6 +207,24 @@ export class SceneEditorUI {
                   <label>对象数:</label>
                   <span id="editor-object-count">0</span>
                 </div>
+                <details id="editor-battle-flow-panel" style="margin-top:8px;">
+                  <summary style="cursor:pointer;color:#e8c46a;">战役流程参数</summary>
+                  <div style="margin-top:8px;">
+                    <div class="info-row">
+                      <label title="对应 game.project.json 已登记的 battleId">战役 ID:</label>
+                      <input type="text" id="editor-battle-id" placeholder="如 battle.s03.yingchuan" style="flex:1;min-width:0;">
+                    </div>
+                    <div id="editor-battle-flow-fields" style="display:none;">
+                      ${battleFlowFieldsHtml}
+                      <div class="info-row" style="align-items:flex-start;">
+                        <label title="仅用于战果展示摘要，不会作为任意 Blackboard patch">世界变化:</label>
+                        <textarea id="editor-battle-world-changes" rows="4" style="flex:1;min-width:0;resize:vertical;" placeholder='{"month": 5}'></textarea>
+                      </div>
+                      <button id="editor-apply-battle-flow" type="button" style="width:100%;margin-top:4px;">应用战役流程参数</button>
+                      <small style="display:block;margin-top:5px;color:#9aa7bd;">提示文案可保留 {interact} 等 InputHints token；保存时写入当前磁盘场景 JSON。</small>
+                    </div>
+                  </div>
+                </details>
               </div>
             </div>
           </div>
@@ -198,6 +240,28 @@ export class SceneEditorUI {
     editor.layers.updateLayerList();
     this._initAssetTabs();
     this._initResizers();
+    this.refreshBattleFlowFields();
+  }
+
+  /** 将 canonical gameplay.battleId/battleFlow 投影到场景信息面板。 */
+  refreshBattleFlowFields() {
+    const gameplay = this.editor.sceneData?.gameplay || {};
+    const flow = gameplay.battleFlow || {};
+    const battleIdInput = document.getElementById('editor-battle-id');
+    const fieldsContainer = document.getElementById('editor-battle-flow-fields');
+    if (!battleIdInput || !fieldsContainer) return;
+
+    battleIdInput.value = gameplay.battleId || '';
+    fieldsContainer.style.display = gameplay.battleId ? '' : 'none';
+    for (const input of fieldsContainer.querySelectorAll('[data-battle-flow-field]')) {
+      input.value = flow[input.dataset.battleFlowField] || '';
+    }
+    const worldChangesInput = document.getElementById('editor-battle-world-changes');
+    if (worldChangesInput) {
+      worldChangesInput.value = JSON.stringify(flow.worldChanges || {}, null, 2);
+    }
+    const panel = document.getElementById('editor-battle-flow-panel');
+    if (panel && gameplay.battleId) panel.open = true;
   }
 
   /**

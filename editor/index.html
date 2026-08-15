@@ -666,6 +666,7 @@
                 this.currentGameId = null;
                 this.currentSceneId = null;
                 this._projectTriggers = [];
+                this._projectBattles = [];
                 this._presentationProfile = null;
                 
                 this._initAsync();
@@ -823,6 +824,7 @@
                 return {
                     getSceneList: () => this.dataManager.getGameScenes(this.currentGameId),
                     getProjectTriggers: () => this._projectTriggers,
+                    getBattleDefinitions: () => this._projectBattles,
                     presentationProfile: this._presentationProfile,
                     openTriggerEditor: triggerId => this._openTriggerEditor(triggerId),
                     previewTrigger: (binding, trigger) => {
@@ -845,6 +847,20 @@
                         project = data?.ok && data.content ? JSON.parse(data.content) : null;
                     }
                     this._projectTriggers = Array.isArray(project?.triggers) ? project.triggers : [];
+                    const battleEntries = Array.isArray(project?.battles) ? project.battles : [];
+                    this._projectBattles = (await Promise.all(battleEntries.map(async entry => {
+                        if (entry?.battleId) return entry;
+                        if (!entry?.$ref) return null;
+                        try {
+                            const battlePath = `${gamePath}${entry.$ref}`.replace(/^\.\.\//, '');
+                            const response = await fetch('/api/read-file?path=' + encodeURIComponent(battlePath));
+                            const data = response.ok ? await response.json() : null;
+                            return data?.ok && data.content ? JSON.parse(data.content) : null;
+                        } catch (error) {
+                            console.warn(`[Editor] 加载战役定义失败: ${entry.$ref}`, error);
+                            return null;
+                        }
+                    }))).filter(entry => entry?.battleId);
                     this._presentationProfile = null;
                     const profileRef = project?.presentation?.$ref;
                     if (profileRef) {
@@ -854,8 +870,9 @@
                         this._presentationProfile = data?.ok && data.content ? JSON.parse(data.content) : null;
                     }
                 } catch (error) {
-                    console.warn('[Editor] 加载项目触发器/表现规格失败', error);
+                    console.warn('[Editor] 加载项目触发器/战役/表现规格失败', error);
                     this._projectTriggers = [];
+                    this._projectBattles = [];
                     this._presentationProfile = null;
                 }
                 this.sceneEditor?.setPresentationProfile?.(this._presentationProfile || {});

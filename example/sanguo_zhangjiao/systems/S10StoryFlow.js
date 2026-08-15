@@ -2,6 +2,8 @@
  * 三国张角传 - P4.1 S10 广城外围剧情检查点编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
 const s10StoryMethods = {
@@ -143,19 +145,10 @@ const s10StoryMethods = {
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS10StoryFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s10StoryMethods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S10StoryFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S10StoryCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s10StoryMethods, { name: 'S10StoryCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS10StoryFlow;
+export default S10StoryCoordinator;

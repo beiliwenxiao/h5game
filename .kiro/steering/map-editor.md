@@ -349,6 +349,14 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - 项目行为通过 `triggerId` 精确绑定，动作需要目标时从事件第三参数的 `targetSelector/targetObject/targetObjects/targetIds` 读取；不得再用隐藏的 `when.params.target` 与场景 binding 重复绑定。
 - 打开场景时磁盘 JSON 是唯一真实源，始终优先于 localStorage；localStorage 仅在磁盘文件不可读时 fallback，并在磁盘读取成功后刷新，避免旧缓存清空 trigger binding。
 
+## 场景战役流程参数
+
+- 场景信息面板直接编辑 `gameplay.battleId` 与 `gameplay.battleFlow`：地点、不可用/冲突/进行中/介入提示、战果标题与说明、结算提示、Story 完成键/胜方键、checkpoint，以及对象型 `worldChanges`。
+- 当前游戏磁盘 `assets/scenes/<sceneId>.json` 是这些参数的唯一事实源；`config/battles/*.json` 只保存领域战役定义，不得复制 `sceneFlow`，localStorage 仍只作 fallback/cache。
+- 编辑器通过 `SceneBattleFlowRegistry` 对完整候选数据做校验，通过后才一次提交并进入 undo/redo；非法 JSON、数组/null 型 `worldChanges`、缺字段或未登记 battleId 都不得写入当前场景。
+- `battleFlow` 不重复保存 sceneId/battleId；它们分别来自场景 `id` 与 `gameplay.battleId`。编辑时必须保留 `{interact}` 等 InputHints token 原文，禁止替换为单平台硬编码按键。
+- 更新 battle flow 时只合并 `gameplay.battleId/battleFlow`，不得整体覆盖 `gameplay`，否则会删除 S11/S12 rescue/vehicles 和 S13 settlement/choices 等同级配置。
+
 ## 场景保存机制
 
 ### 双重保存

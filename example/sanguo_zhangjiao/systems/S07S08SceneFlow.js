@@ -2,6 +2,7 @@
  * 三国张角传 - P3.2 批次 E/F：S07 西华战场与 S08 西华余部场景编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
 
 export const S07_BATTLE_ID = 'battle.s07_xihua_delay';
@@ -392,19 +393,10 @@ const s07s08Methods = {
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS07S08SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s07s08Methods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S07S08SceneFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S07S08Coordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s07s08Methods, { name: 'S07S08Coordinator' });
   }
-  return SceneClass;
 }
 
-export default installS07S08SceneFlow;
+export default S07S08Coordinator;

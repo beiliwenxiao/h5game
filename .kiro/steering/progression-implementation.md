@@ -207,6 +207,10 @@ MOVE     右键
 
 ## 场景通用能力（S10）
 
+`SceneBattleFlowRegistry` 统一校验并索引场景战役流程参数。canonical 场景 JSON 的 `gameplay.battleId` 与 `gameplay.battleFlow` 是 locationName、提示文案、Story 状态键、checkpoint 和战果展示 `worldChanges` 的唯一事实源；`config/battles/*.json` 只保存 BattleSystem 领域定义，不得再复制 `sceneFlow`。Registry 从所属场景 `id` 和 `gameplay.battleId` 派生双索引，`battleFlow` 内不得重复保存 sceneId/battleId；`registerMany()` 必须先完整校验再一次替换索引，失败保留旧注册状态。`BaseGameScene` 只暴露 `configureSceneBattleFlows/getBattleFlowByScene/getBattleFlowById/getBattleFlows`，具体 Scene 只负责加载 canonical 场景数据、传参和调用，不得另建常量 Map 或私有 getter。
+
+`SceneFlowCoordinator` 是 Demo 历史流程从 Scene 中拆出的通用显式承载器：Scene 构造器必须显式持有 coordinator，并经 `sceneCoordinator.method(...)` 调用；禁止重新引入 `install*(SceneClass)`、`Object.defineProperty(SceneClass.prototype, ...)` 或其他动态 instance/prototype mixin。flow 内嵌套方法调用保持在同一 coordinator，字段读写投影到真实 Scene，Scene/框架方法仍以真实 Scene 为 receiver。只有向 Dialogue 等外部 API 传递 Scene 身份时才使用 `$scene`；不得把代理上下文本身外传，也不得把 `$scene` 当成恢复隐式 mixin 的入口。固定人物、S01–S14 历史条件与事务继续留在 Demo coordinator，通用状态机和领域能力仍上移到 `src/`。
+
 `src/core/scene/` 提供三个可增量采纳的模块：
 
 **SceneSystemContainer**：系统注册、`order` 显式更新顺序、`destroy()` 覆盖全部系统并逆序执行。单个系统抛错不影响其余。

@@ -2,6 +2,7 @@
  * 三国张角传 - P3.2 批次 C：S05 宛城外围场景编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
 import { RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { S04_BOCAI_RESCUE_ID } from './S03S08SceneFlow.js';
@@ -501,19 +502,10 @@ const s05Methods = {
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS05SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s05Methods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S05SceneFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S05SceneCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s05Methods, { name: 'S05SceneCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS05SceneFlow;
+export default S05SceneCoordinator;

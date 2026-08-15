@@ -67,6 +67,7 @@ import { SceneItemGainedFlow } from '../../../src/core/scene/SceneItemGainedFlow
 import { SceneAimPresentation } from '../../../src/core/scene/SceneAimPresentation.js';
 import { SceneGameplaySystemAssembler } from '../../../src/core/scene/SceneGameplaySystemAssembler.js';
 import { SceneDiagnostics } from '../../../src/core/scene/SceneDiagnostics.js';
+import { SceneBattleFlowRegistry } from '../../../src/core/scene/SceneBattleFlowRegistry.js';
 import { GameSceneContext } from '../../../src/core/scene/GameSceneContext.js';
 import { SceneResourceScope } from '../../../src/core/scene/SceneResourceScope.js';
 import { SceneEntityStore } from '../../../src/core/scene/SceneEntityStore.js';
@@ -165,7 +166,11 @@ export class BaseGameScene extends Scene {
 
     // 调试面板、性能采样和 Canvas 观测由框架诊断服务统一管理。
     this._diagnostics = new SceneDiagnostics(this);
-    this.context.services.diagnostics = this._diagnostics;
+    this._battleFlowRegistry = new SceneBattleFlowRegistry();
+    Object.assign(this.context.services, {
+      diagnostics: this._diagnostics,
+      battleFlows: this._battleFlowRegistry
+    });
     
     // 核心系统
     this.inputManager = null;
@@ -292,6 +297,22 @@ export class BaseGameScene extends Scene {
     this._systemMenuCallback = null;
     this._autoSaveCallback = null;
     this._checkpointLoadCallback = null;
+  }
+
+  configureSceneBattleFlows(sceneDataList, battleDefinitions = null) {
+    return this._battleFlowRegistry.registerMany(sceneDataList, battleDefinitions);
+  }
+
+  getBattleFlowByScene(sceneId = this.currentSceneId) {
+    return this._battleFlowRegistry.getBySceneId(sceneId);
+  }
+
+  getBattleFlowById(battleId) {
+    return this._battleFlowRegistry.getByBattleId(battleId);
+  }
+
+  getBattleFlows() {
+    return this._battleFlowRegistry.list();
   }
 
   setSceneManager(sceneManager) {

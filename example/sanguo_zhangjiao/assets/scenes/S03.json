@@ -10,6 +10,24 @@
   "productionState": "playable",
   "previewOnly": false,
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "gameplay": {
+    "battleId": "battle.s03.yingchuan",
+    "battleFlow": {
+      "locationName": "颍川",
+      "unavailableMessage": "颍川战役运行时尚未就绪",
+      "conflictMessage": "另一场战役尚未完成结算，不能切换到颍川战役。",
+      "activeMessage": "颍川战役正在进行，当前参战方式不可更改。",
+      "appliedTitle": "颍川首战·已结算战果",
+      "resultTitle": "颍川首战·战果",
+      "resultMessage": "战果已冻结并保存；北侧出口现可前往长社战场。",
+      "settlementMessage": "颍川战果已写入城市与战争状态，时间推进至五月。",
+      "interventionMessage": "你已进入黄巾前线。击溃官军或使其士气崩溃。",
+      "worldChanges": { "month": 5 },
+      "resolvedKey": "s03BattleResolved",
+      "winnerKey": "s03WinnerFactionId",
+      "checkpointId": "checkpoint.S03.battleResolved"
+    }
+  },
   "composition": {
     "complexity": "medium",
     "focalPoint": "S03-zone-battle-command",

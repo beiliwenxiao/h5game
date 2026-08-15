@@ -32,6 +32,10 @@ import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
 import { sceneDataLoader, getGlobalImages } from './SceneDataLoader.js';
 import { summarizeTrigger } from '../src/systems/TriggerCatalog.js';
+import {
+  SCENE_BATTLE_FLOW_STRING_FIELDS,
+  SceneBattleFlowRegistry
+} from '../src/core/scene/SceneBattleFlowRegistry.js';
 import { normalizePresentationProfile } from '../src/core/PresentationProfile.js';
 
 // 编辑器默认配置（运行时从 JSON 加载覆盖）
@@ -192,6 +196,73 @@ export class SceneEditor {
     this.render();
   }
 
+  getBattleDefinitions() {
+    if (typeof this.options.getBattleDefinitions !== 'function') return null;
+    try {
+      const definitions = this.options.getBattleDefinitions();
+      return Array.isArray(definitions) ? definitions : [];
+    } catch (error) {
+      console.warn('SceneEditor: 获取项目战役定义失败', error);
+      return [];
+    }
+  }
+
+  _applyBattleFlowFields() {
+    const battleIdInput = document.getElementById('editor-battle-id');
+    if (!battleIdInput) return false;
+    const battleId = battleIdInput.value.trim();
+    const currentGameplay = this.sceneData.gameplay || {};
+
+    if (!battleId) {
+      if (!currentGameplay.battleId && !currentGameplay.battleFlow) return true;
+      const nextGameplay = { ...currentGameplay };
+      delete nextGameplay.battleId;
+      delete nextGameplay.battleFlow;
+      this.history.saveHistory();
+      if (Object.keys(nextGameplay).length) this.sceneData.gameplay = nextGameplay;
+      else delete this.sceneData.gameplay;
+      this.ui.refreshBattleFlowFields();
+      this.ui.showToast('已移除当前场景的战役流程参数');
+      return true;
+    }
+
+    try {
+      const battleFlow = {};
+      for (const field of SCENE_BATTLE_FLOW_STRING_FIELDS) {
+        const input = document.querySelector(`[data-battle-flow-field="${field}"]`);
+        battleFlow[field] = String(input?.value || '').trim();
+      }
+      const worldChangesInput = document.getElementById('editor-battle-world-changes');
+      const worldChanges = JSON.parse(worldChangesInput?.value || '{}');
+      if (worldChanges === null || typeof worldChanges !== 'object' || Array.isArray(worldChanges)) {
+        throw new Error('worldChanges 必须是 JSON 普通对象');
+      }
+      battleFlow.worldChanges = worldChanges;
+
+      const candidate = JSON.parse(JSON.stringify(this.sceneData));
+      candidate.gameplay = { ...(candidate.gameplay || {}), battleId, battleFlow };
+      const registry = new SceneBattleFlowRegistry();
+      registry.validate(candidate, this.getBattleDefinitions());
+
+      const previous = JSON.stringify({
+        battleId: currentGameplay.battleId || '',
+        battleFlow: currentGameplay.battleFlow || null
+      });
+      const next = JSON.stringify({ battleId, battleFlow });
+      if (previous === next) return true;
+
+      this.history.saveHistory();
+      this.sceneData.gameplay = { ...currentGameplay, battleId, battleFlow };
+      this.ui.refreshBattleFlowFields();
+      this.ui.showToast('战役流程参数已应用');
+      return true;
+    } catch (error) {
+      this.ui.refreshBattleFlowFields();
+      this.ui.showToast(`战役流程参数无效：${error?.message || error}`, 'error');
+      return false;
+    }
+  }
+
   /**
    * 渲染（委托给 canvas 模块）
    */
@@ -228,6 +299,15 @@ export class SceneEditor {
         if (this.onSceneMetaChange) this.onSceneMetaChange({ id: newId, oldId });
       });
     }
+    const battleIdInput = document.getElementById('editor-battle-id');
+    const battleFlowFields = document.getElementById('editor-battle-flow-fields');
+    battleIdInput?.addEventListener('input', () => {
+      const hasEditableFlow = battleIdInput.value.trim() || this.sceneData.gameplay?.battleId;
+      if (battleFlowFields) battleFlowFields.style.display = hasEditableFlow ? '' : 'none';
+    });
+    document.getElementById('editor-apply-battle-flow')?.addEventListener('click', () => {
+      this._applyBattleFlowFields();
+    });
     document.getElementById('editor-bg-color').addEventListener('input', (e) => {
       this.sceneData.backgroundColor = e.target.value;
       this.render();
@@ -397,6 +477,7 @@ export class SceneEditor {
     if (bgInput) bgInput.value = this.sceneData.backgroundColor;
     if (widthInput) widthInput.value = this.sceneData.width;
     if (heightInput) heightInput.value = this.sceneData.height;
+    this.ui.refreshBattleFlowFields();
 
     // 更新画布尺寸
     const canvas = document.getElementById('editor-canvas');

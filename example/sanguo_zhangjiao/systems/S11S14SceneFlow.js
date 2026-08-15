@@ -3,6 +3,7 @@
  * 历史人物和固定剧情留在 Demo；领域状态继续委托通用系统。
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { EndingSystem } from '../../../src/systems/EndingSystem.js';
 import { VehicleWeaponSystem } from '../../../src/systems/VehicleWeaponSystem.js';
 import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
@@ -1597,18 +1598,21 @@ const s13s14Methods = {
   }
 };
 
-export function installS11S14SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  for (const methods of [s11s12Methods, s13s14Methods]) {
-    for (const [name, descriptor] of Object.entries(Object.getOwnPropertyDescriptors(methods))) {
-      if (name === '__proto__') continue;
-      if (Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)) {
-        throw new Error(`S11S14SceneFlow method conflict: ${name}`);
-      }
-      Object.defineProperty(SceneClass.prototype, name, descriptor);
-    }
+const duplicateMethodNames = Object.keys(s11s12Methods)
+  .filter(methodName => Object.prototype.hasOwnProperty.call(s13s14Methods, methodName));
+if (duplicateMethodNames.length > 0) {
+  throw new Error(`S11S14SceneCoordinator duplicate methods: ${duplicateMethodNames.join(', ')}`);
+}
+const s11s14Methods = Object.freeze({ ...s11s12Methods, ...s13s14Methods });
+
+/**
+ * S11–S14 历史场景编排器。通过 SceneFlowCoordinator 投影 Scene 状态，
+ * 不修改 Scene prototype；Scene 只显式装配并调用本 coordinator。
+ */
+export class S11S14SceneCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s11s14Methods, { name: 'S11S14SceneCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS11S14SceneFlow;
+export default S11S14SceneCoordinator;

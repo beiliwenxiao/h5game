@@ -55,6 +55,7 @@ export class SceneEditorHistory {
     editor.layers.updateLayerList();
     editor.ui.updateObjectProperties();
     editor.ui.updateObjectCount();
+    editor.ui.refreshBattleFlowFields?.();
     editor.render();
   }
 
@@ -70,6 +71,7 @@ export class SceneEditorHistory {
     editor.layers.updateLayerList();
     editor.ui.updateObjectProperties();
     editor.ui.updateObjectCount();
+    editor.ui.refreshBattleFlowFields?.();
     editor.render();
   }
 

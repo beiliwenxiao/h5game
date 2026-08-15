@@ -12,6 +12,21 @@
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
   "gameplay": {
     "battleId": "battle.s12.xiaquyang",
+    "battleFlow": {
+      "locationName": "下曲阳",
+      "unavailableMessage": "下曲阳战役运行时尚未就绪",
+      "conflictMessage": "上一场战役尚未完成结算。",
+      "activeMessage": "下曲阳战役正在进行，参战方式不可更改。",
+      "appliedTitle": "下曲阳·已结算战果",
+      "resultTitle": "下曲阳·战果",
+      "resultMessage": "守城战果与张宝救援结果已经冻结。",
+      "settlementMessage": "下曲阳战果已写入城市与战争状态。",
+      "interventionMessage": "已进入府衙防线，可确认消耗粮药的张宝救援路线。",
+      "worldChanges": {},
+      "resolvedKey": "s12BattleResolved",
+      "winnerKey": "s12WinnerFactionId",
+      "checkpointId": "checkpoint.S12.battleResolved"
+    },
     "rescueId": "rescue.s12.zhangBao",
     "vehicles": [
       {

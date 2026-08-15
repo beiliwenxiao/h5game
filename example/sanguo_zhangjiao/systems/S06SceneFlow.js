@@ -2,6 +2,7 @@
  * 三国张角传 - P3.2 批次 D：S06 宛城围攻场景编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { BattleMode } from '../../../src/systems/BattleSystem.js';
 import { S05_BATTLE_ID, S05_ZHANG_MANCHENG_RESCUE_ID } from './S05SceneFlow.js';
 
@@ -24,7 +25,7 @@ const s06Methods = {
     }
     const pending = this.constructionSystem.getPending(S06_FIELD_CONSTRUCTION_SITE_ID);
     if (pending?.status === 'refundPending') {
-      const refundRollback = this._captureConstructionRollback();
+      const refundRollback = this.s10ConstructionCoordinator._captureConstructionRollback();
       const retried = this.constructionSystem.retryRefund(S06_FIELD_CONSTRUCTION_SITE_ID);
       if (retried.status !== 'cancelled') {
         this._showScreenTip('清理背包空间后才能退回工事材料。', { title: '退款等待中' });
@@ -46,7 +47,7 @@ const s06Methods = {
     if (!inventory || !this.playerEntity?.id) return false;
     const attempt = Math.max(0, Math.floor(Number(story.s06Construction?.attempt) || 0)) + 1;
     const operationId = `construction:S06:fieldBarricade:${attempt}`;
-    const rollback = this._captureConstructionRollback();
+    const rollback = this.s10ConstructionCoordinator._captureConstructionRollback();
     const cityDamageRatio = Number((blackboard.get('cityStates') || [])
       .find(city => city?.id === 'city.s05_wancheng')?.damageRatio) || 0;
     const started = this.constructionSystem.start({
@@ -89,7 +90,7 @@ const s06Methods = {
       });
       return true;
     } catch (error) {
-      this._restoreConstructionRollback(rollback, [`${operationId}:materials`]);
+      this.s10ConstructionCoordinator._restoreConstructionRollback(rollback, [`${operationId}:materials`]);
       this._showScreenTip(`临时工事保存失败：${error?.message || error}，材料和施工状态已回滚。`, { title: '保存失败' });
       return false;
     } finally {
@@ -320,26 +321,17 @@ const s06Methods = {
       }
       return true;
     } catch (error) {
-      this._restoreConstructionRollback(rollback, [`${result?.operationId}:refund`]);
+      this.s10ConstructionCoordinator._restoreConstructionRollback(rollback, [`${result?.operationId}:refund`]);
       this._showScreenTip(`S06 工事检查点失败：${error?.message || error}，材料和工具状态已回滚。`, { title: '保存失败' });
       return false;
     }
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS06SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s06Methods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S06SceneFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S06SceneCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s06Methods, { name: 'S06SceneCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS06SceneFlow;
+export default S06SceneCoordinator;

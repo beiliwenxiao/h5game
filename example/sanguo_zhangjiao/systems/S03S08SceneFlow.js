@@ -5,6 +5,7 @@
  * 领域系统及其共享装配仍由场景组合根注入。
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { BattleMode } from '../../../src/systems/BattleSystem.js';
 import { RescueStatus } from '../../../src/systems/RescueSystem.js';
 import { S04_ROUTE_CONFIGS } from './S04RouteCoordinator.js';
@@ -329,22 +330,10 @@ const s03s08Methods = {
 };
 
 
-/**
- * 在类定义完成后安装 P3 场景方法。
- * 先全量检查冲突，再一次性写入，避免安装到一半才发现覆盖。
- */
-export function installS03S08SceneFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s03s08Methods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S03S08SceneFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S03S08Coordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s03s08Methods, { name: 'S03S08Coordinator' });
   }
-  return SceneClass;
 }
 
-export default installS03S08SceneFlow;
+export default S03S08Coordinator;

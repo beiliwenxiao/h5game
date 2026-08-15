@@ -2,6 +2,8 @@
  * 三国张角传 - P2.2 S09 饥民争斗与跨日延迟后果编排
  ************************************************************/
 
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+
 const S09_CITY_ID = 'city.s09_guangzong_camp';
 export const S09_REFUGEE_DIALOGUE_ID = 'dialogue.s09.refugeeConflict';
 const S09_REFUGEE_GROUP = 'S09-refugee-conflict';
@@ -54,7 +56,7 @@ const s09RefugeeMethods = {
 
   _setRefugeeDialogueNode(nodeId) {
     if (this.dialogueSystem?.getCurrentDialogue?.()?.id !== S09_REFUGEE_DIALOGUE_ID) return false;
-    return this.dialogueSystem.goToNode(nodeId, { player: this.playerEntity, scene: this });
+    return this.dialogueSystem.goToNode(nodeId, { player: this.playerEntity, scene: this.$scene });
   },
 
   _refugeeBranchResultNode(conflict = {}) {
@@ -151,7 +153,7 @@ const s09RefugeeMethods = {
 
     const resumeStatus = conflict.status;
     if (!this.dialogueSystem.startDialogue(S09_REFUGEE_DIALOGUE_ID, {
-      player: this.playerEntity, scene: this
+      player: this.playerEntity, scene: this.$scene
     })) return false;
     if (conflict.donationCommitted) this._setRefugeeDialogueNode('branchChoice');
     else if (resumeStatus === 'started') this._setRefugeeDialogueNode('donationOffer');
@@ -497,19 +499,10 @@ const s09RefugeeMethods = {
   }
 };
 
-/** 先检查全部冲突，再安装方法，避免部分写入原型。 */
-export function installS09RefugeeFlow(SceneClass) {
-  if (typeof SceneClass !== 'function') throw new TypeError('SceneClass must be a constructor');
-  const descriptors = Object.entries(Object.getOwnPropertyDescriptors(s09RefugeeMethods))
-    .filter(([name]) => name !== '__proto__');
-  const conflict = descriptors.find(([name]) => (
-    Object.prototype.hasOwnProperty.call(SceneClass.prototype, name)
-  ));
-  if (conflict) throw new Error(`S09RefugeeFlow method conflict: ${conflict[0]}`);
-  for (const [name, descriptor] of descriptors) {
-    Object.defineProperty(SceneClass.prototype, name, descriptor);
+export class S09RefugeeCoordinator extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, s09RefugeeMethods, { name: 'S09RefugeeCoordinator' });
   }
-  return SceneClass;
 }
 
-export default installS09RefugeeFlow;
+export default S09RefugeeCoordinator;

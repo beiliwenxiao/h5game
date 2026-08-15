@@ -4,7 +4,23 @@
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
   "availability": { "optional": true, "afterSceneId": "S12", "all": [{ "path": "storyState.nanyangIntervened", "equals": true }, { "path": "storyState.s12Resolved", "equals": true }], "visitedAny": ["S05", "S06"], "otherwiseSceneId": "S14" },
   "gameplay": {
-    "battleId": "battle.s13.jingshan", "settlementId": "settlement.s13.jingshan", "nextSceneId": "S14", "confirmIrreversible": true,
+    "battleId": "battle.s13.jingshan",
+    "battleFlow": {
+      "locationName": "精山",
+      "unavailableMessage": "精山战役运行时尚未就绪",
+      "conflictMessage": "上一场战役尚未完成结算。",
+      "activeMessage": "精山战役正在进行，最终选择不可更改。",
+      "appliedTitle": "精山战场·已结算战果",
+      "resultTitle": "精山战场·战果",
+      "resultMessage": "精山战果与最终资源投入已经冻结。",
+      "settlementMessage": "精山战果已写入战争状态与结局输入。",
+      "interventionMessage": "已投入最后资源进入孙夏阵线。",
+      "worldChanges": {},
+      "resolvedKey": "s13Resolved",
+      "winnerKey": "s13WinnerFactionId",
+      "checkpointId": "checkpoint.S13.resolved"
+    },
+    "settlementId": "settlement.s13.jingshan", "nextSceneId": "S14", "confirmIrreversible": true,
     "intro": "精山离最后的退路很近。这里花掉的每一份粮、药和木料，都不会带到结局之地。",
     "choices": [
       { "id": "observe", "label": "观战", "description": "保留物资，让孙夏按历史结果作战。", "resourceCost": {}, "result": { "battleMode": "observe", "cityDamageDelta": 0.08, "warStrengthDelta": -6 } },

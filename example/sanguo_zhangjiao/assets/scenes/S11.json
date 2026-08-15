@@ -12,6 +12,21 @@
   "presentationProfile": "sanguo-zhangjiao-presentation-v1",
   "gameplay": {
     "battleId": "battle.s11.guangzong",
+    "battleFlow": {
+      "locationName": "广宗战场",
+      "unavailableMessage": "广宗战役运行时尚未就绪",
+      "conflictMessage": "上一场战役尚未完成结算。",
+      "activeMessage": "广宗战役正在进行，参战方式不可更改。",
+      "appliedTitle": "广宗战场·已结算战果",
+      "resultTitle": "广宗战场·战果",
+      "resultMessage": "广宗战果与张梁救援分别冻结并保存。",
+      "settlementMessage": "广宗战果已写入战争状态。",
+      "interventionMessage": "已进入黄巾阵线，可启动张梁四阶段救援。",
+      "worldChanges": { "month": 11 },
+      "resolvedKey": "s11BattleResolved",
+      "winnerKey": "s11WinnerFactionId",
+      "checkpointId": "checkpoint.S11.battleResolved"
+    },
     "rescueId": "rescue.s11.zhangLiang",
     "nextSceneId": "S12",
     "rescueSpawnGroups": {

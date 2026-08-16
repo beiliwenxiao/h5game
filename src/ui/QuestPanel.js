@@ -319,10 +319,9 @@ export class QuestPanel {
     this.content.innerHTML = detailHtml;
   }
 
-  abandonQuest(questId) {
-    if (this.questSystem?.abandonQuest(questId)) {
-      this.refresh();
-    }
+  async abandonQuest(questId) {
+    const result = await this.questSystem?.abandonQuest?.(questId);
+    if (result?.ok) this.refresh();
   }
 
   destroy() {

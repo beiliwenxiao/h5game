@@ -128,8 +128,9 @@ export function registerDefaultActions(triggerSystem) {
     },
 
     // ---- 任务 ----
-    startQuest: (p, ctx) => { ctx.questSystem?.acceptQuest?.(p.quest); },
-    completeQuest: (p, ctx) => { ctx.questSystem?.turnInQuest?.(p.quest); },
+    // 兼容 action 仅转发到 QuestTransactionService；不得直接写任务运行态。
+    startQuest: (p, ctx) => ctx.questSystem?.acceptQuest?.(p.quest || p.questId),
+    completeQuest: (p, ctx) => ctx.questSystem?.turnInQuest?.(p.quest || p.questId),
 
     // ---- 提示 / 引导 ----
     // 文案里可写 {bag}、{key:pickup} 等占位符，按当前输入方案（键鼠/触屏/手柄）替换

@@ -316,16 +316,28 @@ export class CandidateRuleValidator {
 
     list(candidate?.quests).forEach((quest, questIndex) => {
       const path = `quests[${questIndex}]`;
-      if (!Array.isArray(quest?.objectives)) {
+      if (!isObject(quest)) {
+        errors.push(makeError(ValidationCode.TYPE_MISMATCH, path, 'QuestDefinition 必须为对象'));
+        return;
+      }
+      if (!Array.isArray(quest.objectives)) {
         errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${path}.objectives`, 'quest objectives 必须为数组'));
       } else {
         stableIds(quest.objectives, `${path}.objectives`, errors);
+        quest.objectives.forEach((objective, objectiveIndex) => {
+          const objectivePath = `${path}.objectives[${objectiveIndex}]`;
+          if (typeof objective?.type !== 'string' || !objective.type.trim()) errors.push(makeError(ValidationCode.MISSING_FIELD, `${objectivePath}.type`, '任务目标必须声明 type'));
+          if (objective?.targetId !== undefined && objective.targetId !== null && typeof objective.targetId !== 'string') errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${objectivePath}.targetId`, 'targetId 必须为字符串或 null（通配）'));
+          if (objective?.requiredCount !== undefined && (!Number.isInteger(objective.requiredCount) || objective.requiredCount < 1)) errors.push(makeError(ValidationCode.OUT_OF_RANGE, `${objectivePath}.requiredCount`, 'requiredCount 必须为正整数'));
+          if (objective?.optional !== undefined && typeof objective.optional !== 'boolean') errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${objectivePath}.optional`, 'optional 必须为布尔值'));
+        });
       }
-      const runtimeFields = ['state', 'objectiveProgress', 'acceptedLogicalTime', 'remaining', 'tracking', 'stateRevision'];
+      for (const field of ['text', 'giver', 'turnIn', 'reward', 'time', 'repeatPolicy']) {
+        if (own(quest, field) && !isObject(quest[field])) errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${path}.${field}`, `${field} 必须为对象`));
+      }
+      const runtimeFields = ['questRuntimeId', 'state', 'objectiveProgress', 'acceptedLogicalTime', 'remaining', 'repeat', 'rewardSettlementLedger', 'tracking', 'stateRevision', 'acceptedTime', 'completedTime', 'expiresAt', 'lastCompletedTime', 'tracked'];
       runtimeFields.forEach(field => {
-        if (own(quest, field)) {
-          errors.push(makeError('runtimeFieldInDefinition', `${path}.${field}`, `QuestDefinition 不得包含运行态字段 ${field}`));
-        }
+        if (own(quest, field)) errors.push(makeError('runtimeFieldInDefinition', `${path}.${field}`, `QuestDefinition 不得包含运行态字段 ${field}`));
       });
     });
 

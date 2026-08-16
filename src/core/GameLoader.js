@@ -339,15 +339,18 @@ export class GameLoader {
       });
     }
 
-    const questSystem = deps.questSystem;
-    if (questSystem && Array.isArray(project.quests) && project.quests.length > 0) {
-      const nextQuests = new Map(questSystem.quests instanceof Map ? questSystem.quests : []);
-      project.quests.forEach(definition => nextQuests.set(definition.id, definition));
-      let previous;
-      drafts.push({
-        commit: () => { previous = questSystem.quests; questSystem.quests = nextQuests; },
-        rollback: () => { if (previous) questSystem.quests = previous; }
-      });
+    const questTransactionService = deps.questTransactionService || deps.questSystem;
+    if (questTransactionService && Array.isArray(project.quests)) {
+      const prepared = typeof questTransactionService.prepareDefinitions === 'function'
+        ? questTransactionService.prepareDefinitions(context.repository)
+        : null;
+      if (prepared?.ok === false) throw this._createValidationError(prepared.errors || []);
+      if (prepared?.commit) {
+        drafts.push({
+          commit: () => prepared.commit(),
+          rollback: () => prepared.rollback?.()
+        });
+      }
     }
 
     const consumers = Array.isArray(deps.canonicalConsumers) ? deps.canonicalConsumers : [];

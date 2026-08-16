@@ -33,6 +33,9 @@ export { DungeonSystem, DungeonTemplate, DungeonInstance, DungeonWave, DungeonRe
 export { EventSystem, EventType, EventState, EventReward, WorldEvent, EventTemplate } from './EventSystem.js';
 export { NPCSystem, NPC, NPCType, NPCState, DialogOption, DialogNode, DialogTree } from './NPCSystem.js';
 export { QuestSystem, Quest, QuestType, QuestState, ObjectiveType, QuestObjective, QuestReward } from './QuestSystem.js';
+export { QuestRuntimeState, QUEST_RUNTIME_SCHEMA_VERSION } from './QuestRuntimeState.js';
+export { QuestTransactionService, QUEST_COMMANDS } from './QuestTransactionService.js';
+export { QuestResolver } from './resolvers/QuestResolver.js';
 export { ShopSystem, Shop, ShopItem, ShopType, CurrencyType } from './ShopSystem.js';
 export { ChatSystem, ChatChannel, ChatMessageType, ChatMessage } from './ChatSystem.js';
 export { PlayerSyncSystem, RemotePlayer, PlayerState } from './PlayerSyncSystem.js';

@@ -119,6 +119,7 @@ export class SceneGameLoaderBridge {
       dialogueSystem: this.dialogueSystem || scope?.dialogueSystem || null,
       tutorialSystem: scope?.tutorialSystem || null,
       questSystem: scope?.questSystem,
+      questTransactionService: scope?.questSystem,
       combatSystem: scope?.combatSystem,
       sceneManager: engine?.sceneManager || scope?.sceneManager || null,
       audioManager: scope?.audioManager || engine?.audioManager || null,

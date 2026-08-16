@@ -33,7 +33,7 @@ import { InputManager } from '../../../src/core/InputManager.js';
 import UIClickHandler from '../../../src/core/UIClickHandler.js';
 import { TutorialSystem } from '../../../src/systems/TutorialSystem.js';
 import { DialogueSystem } from '../../../src/systems/DialogueSystem.js';
-import { QuestSystem } from '../../../src/systems/QuestSystem.js';
+import { QuestTransactionService, QUEST_COMMANDS } from '../../../src/systems/QuestTransactionService.js';
 import { IsometricRenderer } from '../../../src/rendering/IsometricRenderer.js';
 import { BackpackPanel } from '../../../src/ui/BackpackPanel.js';
 import { BottomControlBar } from '../../../src/ui/BottomControlBar.js';
@@ -226,7 +226,12 @@ export class BaseGameScene extends Scene {
     // 序章系统
     this.tutorialSystem = new TutorialSystem();
     this.dialogueSystem = new DialogueSystem();
-    this.questSystem = new QuestSystem();
+    this.questSystem = new QuestTransactionService({
+      getDefaultActorId: () => this.playerEntity?.id || null,
+      createCheckpoint: ({ operationId, questId }) => this.requestAutoSave({
+        reason: 'questTransaction', operationId, questId
+      })
+    });
     
     // UI 面板
     this.backpackPanel = null;
@@ -1012,6 +1017,16 @@ export class BaseGameScene extends Scene {
     this.sceneRuntime?.dispose();
     this.sceneRuntime = new GameSceneRuntime({
       onError: (phase, name, error) => console.warn(`BaseGameScene runtime ${phase} [${name}]`, error)
+    });
+    this.questSystem.setCommandGateway(this.sceneRuntime.commandGateway);
+    for (const commandType of Object.values(QUEST_COMMANDS)) {
+      this.sceneRuntime.registerCommandHandler(commandType, this.questSystem);
+    }
+    this.sceneRuntime.authoritySnapshotService.registerService('quests', {
+      snapshot: () => this.questSystem.snapshot(),
+      validate: snapshot => this.questSystem.validate(snapshot),
+      restore: snapshot => this.questSystem.restore(snapshot),
+      required: true
     });
     this.sceneRuntime.provide({ scene: this });
     this.sceneRuntime.enter();

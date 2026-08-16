@@ -361,7 +361,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: Dialogue completed/repeatable/idle、统一输入和跨 Region rollback 行为不变_
     - _Requirements: 2.12, 3.5, 3.7, 3.8, 3.10_
 
-  - [~] 3.26 实现 QuestRuntimeState、QuestTransactionService 与唯一 QuestResolver
+  - [x] 3.26 实现 QuestRuntimeState、QuestTransactionService 与唯一 QuestResolver
     - 将 QuestDefinition 作为 DefinitionRepository 的不可变定义，覆盖稳定 text/giver/turnIn/prerequisites/objectives/reward/time/repeatPolicy/triggerRefs/dialogueRefs；拒绝 runtime 字段和重复 quest/objective ID。
     - QuestRuntimeState 只保存 questRuntimeId、definitionId、state、objectiveProgress、acceptedLogicalTime、remaining、repeat、rewardSettlementLedger、tracking 和 stateRevision，由 QuestTransactionService 唯一拥有；退出 `initDefaultQuests` 正式内容源，当前 Demo 空 quests 不回填示例。
     - QuestResolver 成为 objective matching/wildcard/required/optional/count cap/completion/expiration/repeat 的唯一纯推进算法；移除或只读转发 Quest/QuestObjective 第二写路径，禁用全局时钟/RNG 和任何 UI/ECS/Trigger/storage 副作用。

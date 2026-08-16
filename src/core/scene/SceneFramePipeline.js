@@ -258,7 +258,7 @@ export class SceneFramePipeline {
     // 更新序章系统
     scene.tutorialSystem.update(deltaTime, scene.getGameState());
     scene.dialogueSystem.update(deltaTime);
-    scene.questSystem.update(deltaTime);
+    // 任务状态只能由 Authority command 驱动；过期检查同样通过 quest.expire command 提交。
     // 数据驱动触发器（timer 类）——仅当场景调用过 initGameLoader 才存在
     if (scene.gameLoader) scene.gameLoader.update(deltaTime);
 

@@ -69,9 +69,9 @@ import { SceneGameplaySystemAssembler } from '../../../src/core/scene/SceneGamep
 import { SceneGameplaySnapshotRuntime } from '../../../src/core/scene/SceneGameplaySnapshotRuntime.js';
 import { SceneDeathDropRuntime } from '../../../src/core/scene/SceneDeathDropRuntime.js';
 import { SceneDiagnostics } from '../../../src/core/scene/SceneDiagnostics.js';
+import { applySceneRuntimeConfig, toggleSceneDebugPanel } from '../../../src/core/scene/RuntimeDebugWiring.js';
 import { SceneBattleFlowRegistry } from '../../../src/core/scene/SceneBattleFlowRegistry.js';
 import { GameSceneContext } from '../../../src/core/scene/GameSceneContext.js';
-import { SceneResourceScope } from '../../../src/core/scene/SceneResourceScope.js';
 import { SceneEntityStore } from '../../../src/core/scene/SceneEntityStore.js';
 import { ScenePlayerLifecycle } from '../../../src/core/scene/ScenePlayerLifecycle.js';
 import { SceneInputBindings } from '../../../src/core/scene/SceneInputBindings.js';
@@ -85,6 +85,7 @@ import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { EntityLifecycleSystem } from '../../../src/systems/EntityLifecycleSystem.js';
+import { ItemRuntimeFactory } from '../../../src/systems/items/ItemRuntimeFactory.js';
 import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
@@ -122,7 +123,10 @@ export class BaseGameScene extends Scene {
     this.sceneManager = null;
     
     // ECS 核心：SceneEntityStore 是所有场景集合的唯一所有者，平铺字段仅作稳定投影。
-    this.entityFactory = new EntityFactory();
+    this.itemRuntimeFactory = new ItemRuntimeFactory({
+      getDefinitionRepository: () => this.gameLoader?.definitionRepository || null
+    });
+    this.entityFactory = new EntityFactory({ itemRuntimeFactory: this.itemRuntimeFactory });
     this._playerFactory = new DemoPlayerFactory();
     this.entityStore = new SceneEntityStore();
     this.entities = this.entityStore.all;
@@ -136,7 +140,7 @@ export class BaseGameScene extends Scene {
       getEntities: () => this.context.entities.all
     });
     this._deathDrops = new SceneDeathDropRuntime({
-      entityFactory: this.entityFactory,
+      itemRuntimeFactory: this.itemRuntimeFactory,
       entityStore: this.entityStore,
       getPresentation: entry => this.getDeathDropPresentation?.(entry) || {}
     });
@@ -159,7 +163,7 @@ export class BaseGameScene extends Scene {
     this.logicalWidth = this.presentationProfile.logicalResolution.width;
     this.logicalHeight = this.presentationProfile.logicalResolution.height;
     
-    // 调试模式（开启后显示坐标标记和日志）
+    // 调试模式只投影 RuntimeConfig 的规范化结果，不再作为独立事实源。
     this.debugMode = false;
 
     // 编辑器场景渲染器（通用，默认使用《三国张角传》S01 区块）
@@ -309,10 +313,9 @@ export class BaseGameScene extends Scene {
       onSwitch: () => this.switchToNextScene()
     });
 
-    // 宿主页面注入系统菜单、自动存档和受控检查点读档入口；场景层不依赖具体 DOM/存储实现。
+    // 宿主页面注入系统菜单；检查点持久化只借用 SaveGameService。
     this._systemMenuCallback = null;
-    this._autoSaveCallback = null;
-    this._checkpointLoadCallback = null;
+    this._saveGameService = null;
   }
 
   configureSceneBattleFlows(sceneDataList, battleDefinitions = null) {
@@ -344,29 +347,18 @@ export class BaseGameScene extends Scene {
     return globalThis.__openSystemMenu?.(this);
   }
 
-  /** 宿主注入自动存档入口；剧情/地图切换只请求，不直接依赖存储实现。 */
-  setAutoSaveCallback(callback) {
-    this._autoSaveCallback = typeof callback === 'function' ? callback : null;
+  setSaveGameService(service) {
+    this._saveGameService = service || null;
   }
 
   requestAutoSave(context = {}) {
-    return this._autoSaveCallback?.({ scene: this, ...context }) || Promise.resolve(null);
-  }
-
-  /** 宿主注入按 checkpointId 恢复自动存档的入口。 */
-  setCheckpointLoadCallback(callback) {
-    this._checkpointLoadCallback = typeof callback === 'function' ? callback : null;
+    return this._saveGameService?.requestAutoSave?.(context)
+      || Promise.resolve({ ok: false, code: 'saveGameServiceUnavailable' });
   }
 
   requestCheckpointLoad(checkpointId) {
-    const request = { scene: this, checkpointId };
-    if (this._checkpointLoadCallback) {
-      return Promise.resolve(this._checkpointLoadCallback(request));
-    }
-    if (typeof globalThis.__loadCheckpointAutoSave === 'function') {
-      return Promise.resolve(globalThis.__loadCheckpointAutoSave(request));
-    }
-    return Promise.resolve({ ok: false, code: 'checkpointLoadUnavailable' });
+    return this._saveGameService?.loadCheckpoint?.(checkpointId)
+      || Promise.resolve({ ok: false, code: 'saveGameServiceUnavailable' });
   }
 
   /** 采集可序列化的通用游戏状态，供 SnapshotManager 原子存档。 */
@@ -404,8 +396,16 @@ export class BaseGameScene extends Scene {
           floorId: transform.floorId || 'ground'
         } : null,
         stats: statsData,
-        inventory: inventory?.exportItems?.() || [],
-        equipment: equipment?.exportEquipment?.() || {}
+        inventory: (() => {
+          inventory?.setDefinitionResolver?.(id => this.gameLoader?.definitionRepository?.get('items', id)
+            || this.gameLoader?.definitionRepository?.get('equipment', id));
+          return inventory?.exportRuntimeStates?.() || inventory?.exportItems?.() || [];
+        })(),
+        equipment: (() => {
+          equipment?.setDefinitionResolver?.(id => this.gameLoader?.definitionRepository?.get('items', id)
+            || this.gameLoader?.definitionRepository?.get('equipment', id));
+          return equipment?.exportRuntimeState?.() || equipment?.exportEquipment?.() || {};
+        })()
       },
       tutorial: this.tutorialSystem?.saveProgress?.() || null,
       dialogue: this.dialogueSystem?.saveState?.() || null,
@@ -445,6 +445,18 @@ export class BaseGameScene extends Scene {
       errors.push({ code: 'missingField', path: 'player', message: '缺少玩家状态' });
     } else if (data.player.transform && (!Number.isFinite(data.player.transform.x) || !Number.isFinite(data.player.transform.y))) {
       errors.push({ code: 'invalidField', path: 'player.transform', message: '玩家坐标无效' });
+    }
+    if (data.player && this.gameLoader?.definitionRepository) {
+      const inventoryStates = Array.isArray(data.player.inventory) ? data.player.inventory : [];
+      const equipmentStates = Object.values(data.player.equipment || {}).filter(Boolean);
+      const itemCheck = this.itemRuntimeFactory.validateRuntimeStates(
+        [...inventoryStates, ...equipmentStates], 'player.items'
+      );
+      errors.push(...itemCheck.errors);
+    }
+    if (Array.isArray(data.scene?.deathDrops)) {
+      const dropCheck = this._deathDrops.validate(data.scene.deathDrops);
+      errors.push(...(dropCheck.errors || []).map(error => ({ ...error, path: `scene.${error.path}` })));
     }
     return { ok: errors.length === 0, errors };
   }
@@ -528,6 +540,8 @@ export class BaseGameScene extends Scene {
     }
     if (equipment && savedPlayer.equipment) {
       for (const slot of Object.keys(equipment.slots)) equipment.slots[slot] = null;
+      equipment.setDefinitionResolver?.(id => this.gameLoader?.definitionRepository?.get('items', id)
+        || this.gameLoader?.definitionRepository?.get('equipment', id));
       equipment.loadEquipment(savedPlayer.equipment);
     }
     if (stats && savedPlayer.stats) {
@@ -540,7 +554,11 @@ export class BaseGameScene extends Scene {
       Object.assign(stats, JSON.parse(JSON.stringify(savedPlayer.stats)));
       if (hasSavedClass) player.class = savedPlayer.stats.class;
     }
-    if (inventory && Array.isArray(savedPlayer.inventory)) inventory.loadItems(savedPlayer.inventory);
+    if (inventory && Array.isArray(savedPlayer.inventory)) {
+      inventory.setDefinitionResolver?.(id => this.gameLoader?.definitionRepository?.get('items', id)
+        || this.gameLoader?.definitionRepository?.get('equipment', id));
+      inventory.loadItems(savedPlayer.inventory);
+    }
 
     this.tutorialSystem?.loadProgress?.(data.tutorial);
     this.questSystem?.reset?.();
@@ -591,14 +609,22 @@ export class BaseGameScene extends Scene {
    */
   enter(data = null) {
     super.enter(data);
+    this._sceneResourcesDisposed = false;
 
-    this.resourceScope?.dispose();
-    this.resourceScope = new SceneResourceScope();
+    // Runtime 是 container、ResourceScope、输入 disposer 与自建 SnapshotManager 的唯一 owner。
+    this._initializeSceneRuntime();
+    this.resourceScope = this.sceneRuntime.resourceScope;
     this._lifecycleCoordinator = new SceneLifecycleCoordinator({
       context: this.context,
       onError: (phase, name, error) => console.warn(`BaseGameScene lifecycle ${phase} [${name}]`, error)
     });
     this.context.lifecycle.coordinator = this._lifecycleCoordinator;
+    this._lifecycleCoordinator.track(
+      'scene-resources',
+      this,
+      () => this._disposeSceneResources(),
+      100
+    );
     this._hintPresenter = new SceneHintPresenter({
       resourceScope: this.resourceScope,
       InputHints,
@@ -670,14 +696,19 @@ export class BaseGameScene extends Scene {
     this.context.input.gamepad = this.inputManager.gamepad || null;
     // 操作提示按当前输入方案（键鼠 / 触屏 / 手柄）取文案，手柄接上会自动切换
     InputHints.setInputManager(this.inputManager);
-    // 运行时先仅管理生命周期、阶段和 disposer；旧帧管线仍保留既有系统调用顺序。
-    this._initializeSceneRuntime();
+    // 输入管理器转交 Runtime owned registration；Context/Scene 仅保留 borrowed projection。
+    this.sceneRuntime.setInput({
+      inputManager: this.inputManager,
+      camera: this.camera,
+      ownInputManager: true
+    });
     this.context.runtime.sceneRuntime = this.sceneRuntime;
 
-    // 通用玩法系统按原顺序创建；装配器统一写入 Context，并保留 Scene 兼容投影。
-    this._gameplaySystemAssembler.initialize({
+    // Assembler 只产出登记计划，由 Runtime 接管 owner、更新与释放。
+    const gameplayPlan = this._gameplaySystemAssembler.initialize({
       zoneCallbacks: this._createZoneEffectCallbacks()
     });
+    this.sceneRuntime.applyRegistrationPlan(gameplayPlan);
 
     // 初始化 UI 面板
     this.initializeUIPanels();
@@ -703,6 +734,7 @@ export class BaseGameScene extends Scene {
       onInherited: (player) => console.log('BaseGameScene: 继承玩家实体', player),
       onCreated: () => console.log('BaseGameScene: 创建新玩家实体')
     });
+    this.seedItemLifecycleProjection();
     this._sceneTriggerBindings?.dispose();
     this._sceneTriggerBindings = new SceneTriggerBindingSystem({
       getPlayer: () => this.playerEntity,
@@ -846,6 +878,41 @@ export class BaseGameScene extends Scene {
     return this._ensureInventoryFlow().itemUsed(item, healAmount, manaAmount);
   }
 
+  submitItemIntent(intentType, payload = {}, options = {}) {
+    const actorId = options.actorId || this.playerEntity?.id;
+    if (!actorId || !this.sceneRuntime?.commandGateway) {
+      return Promise.resolve({ ok: false, code: 'itemCommandUnavailable' });
+    }
+    this._itemIntentSequence = Math.max(0, Number(this._itemIntentSequence) || 0) + 1;
+    const operationId = options.operationId
+      || `item:${actorId}:${intentType}:${this._itemIntentSequence}`;
+    return this.sceneRuntime.commandGateway.execute({
+      intentType,
+      actorRef: actorId,
+      operationId,
+      payload
+    }, options);
+  }
+
+  getItemLifecycleProjection(actorId = this.playerEntity?.id) {
+    if (!actorId) return null;
+    return this.sceneRuntime?.projectionStore?.get?.('itemLifecycle', `item-lifecycle:${actorId}`) || null;
+  }
+
+  seedItemLifecycleProjection(actor = this.playerEntity) {
+    if (!actor || !this.itemLifecycleService || !this.sceneRuntime?.projectionStore) return null;
+    const stateId = `item-lifecycle:${actor.id}`;
+    return this.sceneRuntime.projectionStore.seed({
+      projectionType: 'itemLifecycle',
+      projectionId: stateId,
+      definitionRevision: this.gameLoader?.definitionRepository?.definitionRevision || 0,
+      stateRevision: this.sceneRuntime.stateRevisions.current(stateId),
+      projectionRevision: 0,
+      lastEventSequence: this.sceneRuntime.projectionStore.lastEventSequence,
+      value: this.itemLifecycleService.seedProjection(actor)
+    });
+  }
+
   /**
    * 装备变化回调
    * @param {Array} messages - 消息数组
@@ -940,12 +1007,10 @@ export class BaseGameScene extends Scene {
     return this._framePipeline;
   }
 
-  /** 初始化运行时；场景重入时先释放旧 disposer，避免重复事件订阅。 */
+  /** 初始化唯一 Runtime；场景重入会先幂等释放旧 owner。 */
   _initializeSceneRuntime() {
     this.sceneRuntime?.dispose();
     this.sceneRuntime = new GameSceneRuntime({
-      inputManager: this.inputManager,
-      camera: this.camera,
       onError: (phase, name, error) => console.warn(`BaseGameScene runtime ${phase} [${name}]`, error)
     });
     this.sceneRuntime.provide({ scene: this });
@@ -953,9 +1018,12 @@ export class BaseGameScene extends Scene {
     return this.sceneRuntime;
   }
 
-  /** 由 SceneFramePipeline 在旧调用链中的准确位置调度运行时阶段。 */
+  /** 迁移兼容入口；正式 SceneFramePipeline 直接调用 Runtime。 */
   _runRuntimePhase(phase, deltaTime) {
-    return this.sceneRuntime?.runFramePhase(phase, deltaTime, { scene: this }) || false;
+    return this.sceneRuntime?.runFramePhase(phase, deltaTime, {
+      scene: this,
+      frameToken: this.sceneRuntime.currentFrameToken
+    }) || false;
   }
 
   /** @private 顶层输入编排：帧首采集、优先消费，正常帧末统一清帧。 */
@@ -1000,6 +1068,7 @@ export class BaseGameScene extends Scene {
         getBackpack: () => this.backpackPanel,
         getFloatingText: () => this.floatingTextManager,
         getNotification: () => this.notificationSystem,
+        executeIntent: (intentType, payload, options) => this.submitItemIntent(intentType, payload, options),
         onEquipmentChanged: (messages, info) => this.onEquipmentChanged(messages, info),
         onItemUsedEvent: ({ id, item }) => this.gameLoader?.triggerSystem?.fire('itemUsed', { id, item })
       });
@@ -1047,6 +1116,7 @@ export class BaseGameScene extends Scene {
     if (!this._itemGainedFlow) {
       this._itemGainedFlow = new SceneItemGainedFlow(this, {
         getEquipmentFlow: () => this._ensureEquipmentFlow(),
+        executeIntent: (intentType, payload, options) => this.submitItemIntent(intentType, payload, options),
         onEquipmentChanged: (messages, info) => this.onEquipmentChanged(messages, info),
         onQueueDrained: () => this.gameLoader?.triggerSystem?.fire('gainedPopupClosed', {})
       });
@@ -1520,9 +1590,14 @@ export class BaseGameScene extends Scene {
     return removed;
   }
 
+  /** 应用 GameLoader 生成的唯一 RuntimeConfig snapshot 到场景及现有调试消费者。 */
+  applyRuntimeConfig(runtimeConfig = null) {
+    return applySceneRuntimeConfig(this, runtimeConfig);
+  }
+
   /** 切换调试面板显示/隐藏（触发器动作 toggleDebug）。 */
   _toggleDebugPanel() {
-    return this._diagnostics.toggleDebugPanel();
+    return toggleSceneDebugPanel(this);
   }
 
   /**
@@ -1796,19 +1871,16 @@ export class BaseGameScene extends Scene {
    */
   exit() {
     super.exit();
-    const coordinator = this._lifecycleCoordinator;
-    if (coordinator && coordinator.state === 'idle') {
-      coordinator.track('scene-resources', this, () => this._disposeSceneResources(), 100);
-      coordinator.exitSync();
-      return;
-    }
-    this._disposeSceneResources();
+    this._lifecycleCoordinator?.exit({ synchronous: true });
   }
 
-  /** @private 由 SceneLifecycleCoordinator 拥有的同步场景资源释放事务。 */
+  /** @private 唯一同步场景资源释放事务；重复调用 no-op。 */
   _disposeSceneResources() {
-    // 首先令所有 guard/token 失效，并清除场景计时器、监听和自定义 disposer。
-    this.resourceScope?.dispose();
+    if (this._sceneResourcesDisposed) return false;
+    this._sceneResourcesDisposed = true;
+    const runtime = this.sceneRuntime;
+    // 先由 Runtime owner 关闭 ResourceScope 门闩，拒绝所有迟到异步写回。
+    runtime?.invalidate();
     this.context.lifecycle.state = 'exiting';
 
     // 清掉背包让位用的 body class，避免切场景后触屏控件仍是半透明不可点
@@ -1825,16 +1897,11 @@ export class BaseGameScene extends Scene {
     this._inputFlow = null;
     this._sceneTriggerBindings?.dispose();
     this._sceneTriggerBindings = null;
-    this.sceneRuntime?.dispose();
-    this.sceneRuntime = null;
 
-    if (this.inputManager) {
-      this.inputManager.destroy();
-    }
-
-    // 先解除玩家与玩法系统/UI 的接线，再销毁 combat/movement 等底层系统。
+    // 先解除玩家与玩法系统/UI 的接线，再由 Runtime 按登记严格逆序释放 owned 实例。
     this.playerLifecycle?.dispose();
-    this._gameplaySystemAssembler.dispose();
+    runtime?.dispose();
+    this.sceneRuntime = null;
 
     this.tutorialSystem.cleanup();
     this.dialogueSystem?.reset?.();
@@ -1871,6 +1938,7 @@ export class BaseGameScene extends Scene {
     this.playerEntity = null;
 
     console.log(`BaseGameScene: 退出场景 ${this.name}`);
+    return true;
   }
 }
 

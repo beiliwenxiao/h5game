@@ -670,6 +670,36 @@ export class EditorDataManager {
     return cfg;
   }
 
+  /** 创建未持久化的场景候选；正式缓存只能在 canonical 磁盘提交后更新。 */
+  createSceneDraft(sceneData = {}) {
+    const editorDefaults = { width: 1280, height: 720, backgroundColor: '#2a3a1a' };
+    const { defaultTemplateId } = this.getSceneTemplates();
+    const templateId = sceneData.templateId || defaultTemplateId;
+    const template = this.getSceneTemplate(templateId);
+    const base = template?.scene ? JSON.parse(JSON.stringify(template.scene)) : {
+      layers: [
+        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_fill', name: '背景填充层', visible: true, locked: false, objects: [] },
+        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] },
+        { id: 'layer_placement', name: '放置层', visible: true, locked: false, objects: [] },
+        { id: 'layer_logic', name: '逻辑对象', visible: true, locked: false, objects: [] }
+      ]
+    };
+    return {
+      ...base,
+      id: sceneData.id || `scene_${Date.now()}`,
+      name: sceneData.name || base.name || '新场景',
+      width: sceneData.width || base.width || editorDefaults.width,
+      height: sceneData.height || base.height || editorDefaults.height,
+      backgroundColor: sceneData.backgroundColor || base.backgroundColor || editorDefaults.backgroundColor,
+      templateId,
+      decorations: base.decorations || [],
+      colliders: base.colliders || [],
+      createdAt: sceneData.createdAt || new Date().toISOString()
+    };
+  }
+
   /**
    * 创建新场景。若指定 templateId，则以该模板的 scene 数据为初始内容（深拷贝），
    * 再用 sceneData 中用户填写的字段覆盖（name / 宽高 / 背景色）。

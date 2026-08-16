@@ -6,6 +6,10 @@
   "allowedModes": ["intervene"],
   "targetEntityId": "S04-bocai",
   "evacuationRef": "bocai-evacuation",
+  "evacuationRadius": 80,
+  "followDistance": 62,
+  "followMaxDistance": 260,
+  "followOffset": { "x": -28, "y": 18 },
   "stages": [
     {
       "id": "escort-east",

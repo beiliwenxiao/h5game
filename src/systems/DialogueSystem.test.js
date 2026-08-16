@@ -190,11 +190,11 @@ describe('DialogueSystem', () => {
     it('应该逐字显示文本', () => {
       dialogueSystem.startDialogue('test_dialogue');
       
-      // 更新几次
-      dialogueSystem.update(10);
+      // update() 接收秒；10ms/字时每次推进 10ms，避免第一次更新就显示完整文本
+      dialogueSystem.update(0.01);
       const displayed1 = dialogueSystem.getDisplayedText();
       
-      dialogueSystem.update(10);
+      dialogueSystem.update(0.01);
       const displayed2 = dialogueSystem.getDisplayedText();
       
       expect(displayed2.length).toBeGreaterThan(displayed1.length);
@@ -350,7 +350,7 @@ describe('DialogueSystem', () => {
       expect(action).toHaveBeenCalled();
     });
 
-    it('应该执行选项动作', () => {
+    it('选项内嵌 action 不执行，副作用必须由 dialogueChoice Trigger 编排', () => {
       const action = vi.fn();
       
       dialogueSystem.registerDialogue('choice_action', {
@@ -368,8 +368,35 @@ describe('DialogueSystem', () => {
       dialogueSystem.setTypewriterEnabled(false);
       dialogueSystem.startDialogue('choice_action');
       dialogueSystem.selectChoice(0);
-      
-      expect(action).toHaveBeenCalled();
+      expect(action).not.toHaveBeenCalled();
+    });
+
+    it('仅在 dialogueChoice 编排成功后推进节点，失败保持 node/history/completed', async () => {
+      dialogueSystem.registerDialogue('choice_commit', {
+        startNode: 'start',
+        nodes: {
+          start: { text: '选择', choices: [{ id: 'yes', text: '确认', nextNode: 'done' }] },
+          done: { text: '完成' }
+        }
+      });
+      dialogueSystem.setTypewriterEnabled(false);
+      dialogueSystem.startDialogue('choice_commit');
+      const historyBefore = dialogueSystem.getHistory(100);
+      dialogueSystem.setChoiceDispatcher(() => Promise.resolve({ ok: false, code: 'triggerFailed' }));
+      expect(await dialogueSystem.selectChoice(0)).toBe(false);
+      expect(dialogueSystem.getCurrentNode().id).toBe('start');
+      expect(dialogueSystem.getHistory(100)).toEqual(historyBefore);
+      expect(dialogueSystem.hasCompleted('choice_commit')).toBe(false);
+
+      const dispatch = vi.fn(() => Promise.resolve({ ok: true }));
+      dialogueSystem.setChoiceDispatcher(dispatch);
+      expect(await dialogueSystem.selectChoice(0)).toBe(true);
+      expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'dialogueChoice', id: 'choice_commit', dialogueId: 'choice_commit',
+        choiceId: 'yes', index: 0, nextNode: 'done'
+      }), {});
+      expect(dialogueSystem.getCurrentNode().id).toBe('done');
+      expect(dialogueSystem.getHistory(100).at(-2)).toMatchObject({ type: 'choice', choiceId: 'yes' });
     });
   });
 

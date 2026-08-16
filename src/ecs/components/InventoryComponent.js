@@ -86,6 +86,7 @@ export class InventoryComponent extends Component {
    */
   constructor(options = {}) {
     super('inventory');
+    this.definitionResolver = typeof options.definitionResolver === 'function' ? options.definitionResolver : null;
     
     this.maxSlots = options.maxSlots || 24; // 默认24个槽位（6x4）
     this.slots = new Array(this.maxSlots).fill(null); // 槽位数组
@@ -105,6 +106,11 @@ export class InventoryComponent extends Component {
     if (options.items) {
       this.loadItems(options.items);
     }
+  }
+
+  setDefinitionResolver(definitionResolver) {
+    this.definitionResolver = typeof definitionResolver === 'function' ? definitionResolver : null;
+    return this;
   }
 
   /**
@@ -389,10 +395,30 @@ export class InventoryComponent extends Component {
     this.slots.fill(null);
     
     for (const itemData of items) {
-      if (itemData.item && itemData.quantity) {
+      if (itemData?.definitionId) {
+        const definition = this.definitionResolver?.(itemData.definitionId);
+        if (!definition) throw new Error(`inventoryDefinitionMissing:${itemData.definitionId}`);
+        const item = itemData.instanceId
+          ? { ...definition, instanceId: itemData.instanceId, ...(itemData.mutable || {}) }
+          : definition;
+        this.addItem(item, itemData.instanceId ? 1 : itemData.quantity);
+      } else if (itemData.item && itemData.quantity) {
         this.addItem(itemData.item, itemData.quantity);
       }
     }
+  }
+
+  /** 正式快照只导出稳定定义/实例引用、数量与最小 mutable state。 */
+  exportRuntimeStates() {
+    return this.slots.filter(Boolean).map(slot => {
+      const definitionId = slot.item.definitionId || slot.item.id;
+      if (!slot.item.instanceId) return { definitionId, quantity: slot.quantity };
+      const mutable = {};
+      for (const key of ['durability', 'binding', 'charges', 'container']) {
+        if (slot.item[key] !== undefined) mutable[key] = structuredClone(slot.item[key]);
+      }
+      return { definitionId, instanceId: slot.item.instanceId, mutable };
+    });
   }
 
   /**

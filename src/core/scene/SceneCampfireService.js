@@ -4,18 +4,13 @@
  ************************************************************/
 
 import { InputHints } from '../input/InputHints.js';
+import { cloneCanonicalValue, deepFreeze } from '../CanonicalSnapshot.js';
 
-export const DEFAULT_CAMPFIRE_FOG_OPACITY = 1.0;
-
-const DEFAULT_PARTICLE_PRESETS = Object.freeze([
-  Object.freeze({ rate: 6, vy: -50, life: 250, size: 8.5, color: '#ffaa22', alpha: 0.85 }),
-  Object.freeze({ rate: 8, vy: -35, life: 200, size: 6, color: '#ff8833', alpha: 0.8 }),
-  Object.freeze({ rate: 4, vy: -120, life: 400, size: 4.5, color: '#ffffee', alpha: 1 }),
-  Object.freeze({ rate: 10, vy: -100, life: 350, size: 3.5, color: '#ffee44', alpha: 0.9 }),
-  Object.freeze({ rate: 8, vy: -80, life: 300, size: 2.5, color: '#ff9933', alpha: 0.85 }),
-  Object.freeze({ rate: 6, vy: -60, life: 250, size: 2, color: '#ff5522', alpha: 0.8 }),
-  Object.freeze({ rate: 12, vy: -40, life: 200, size: 2, color: '#ff6633', alpha: 0.7 })
-]);
+function requirePositive(value, path) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) throw new TypeError(`${path} must be a positive number`);
+  return number;
+}
 
 const campfireFeatureMethods = {
   _restoreCampfireState(lit) {
@@ -149,7 +144,7 @@ const campfireFeatureMethods = {
         if (this.campfire.lit) {
           const campScreenX = this.campfire.x - viewBounds.left;
           const campScreenY = this.campfire.y - viewBounds.top;
-          const campLightRadius = 150;
+          const campLightRadius = this.presentation.lightRadius;
           fogCtx.save();
           fogCtx.translate(campScreenX, campScreenY);
           fogCtx.scale(1, yScale);
@@ -285,8 +280,8 @@ const campfireFeatureMethods = {
     const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
     const frameX = col * this.campfire.frameWidth;
     const frameY = row * this.campfire.frameHeight;
-    const fireWidth = 40;
-    const fireHeight = 60;
+    const fireWidth = this.presentation.fireWidth;
+    const fireHeight = this.presentation.fireHeight;
     const fireX = x - fireWidth / 2;
     const fireY = y - fireHeight - 5;
     ctx.globalAlpha = 0.9;
@@ -306,8 +301,8 @@ const campfireFeatureMethods = {
     const playerX = transform.position.x;
     const playerY = transform.position.y;
     const playerRadius = 20;
-    const collisionWidth = 50 * 0.8;
-    const collisionHeight = 30 * 0.75;
+    const collisionWidth = this.presentation.collisionWidth;
+    const collisionHeight = this.presentation.collisionHeight;
     const campfireLeft = this.campfire.x - collisionWidth / 2;
     const campfireRight = this.campfire.x + collisionWidth / 2;
     const campfireTop = this.campfire.y - 15;
@@ -330,10 +325,7 @@ const campfireFeatureMethods = {
 
 export class SceneCampfireService {
   constructor(config = {}) {
-    const initialFogOpacity = Number.isFinite(config.initialFogOpacity)
-      ? config.initialFogOpacity
-      : DEFAULT_CAMPFIRE_FOG_OPACITY;
-    this.initialFogOpacity = initialFogOpacity;
+    this.initialFogOpacity = 0;
     this.campfire = {
       x: Number(config.position?.x) || 0,
       y: Number(config.position?.y) || 0,
@@ -342,29 +334,20 @@ export class SceneCampfireService {
       emitterSmoke: null,
       fireImage: null,
       imageLoaded: false,
-      frameWidth: Number(config.sprite?.frameWidth) || 1,
-      frameHeight: Number(config.sprite?.frameHeight) || 1,
-      frameCols: Math.max(1, Math.floor(Number(config.sprite?.frameCols) || 1)),
-      frameRows: Math.max(1, Math.floor(Number(config.sprite?.frameRows) || 1)),
-      frameCount: Math.max(1, Math.floor(Number(config.sprite?.frameCount) || 1)),
+      frameWidth: 1,
+      frameHeight: 1,
+      frameCols: 1,
+      frameRows: 1,
+      frameCount: 1,
       currentFrame: 0,
       frameTime: 0,
-      frameDuration: Number(config.sprite?.frameDuration) || 0.16
+      frameDuration: 1
     };
-    this.fog = {
-      opacity: initialFogOpacity,
-      targetOpacity: initialFogOpacity,
-      fadeSpeed: Number(config.fog?.fadeSpeed) || 0.4,
-      color: config.fog?.color || 'rgba(30, 30, 40,',
-      active: config.fog?.active !== false
-    };
-    this.particlePresets = Array.isArray(config.particlePresets)
-      ? config.particlePresets.map(preset => ({ ...preset }))
-      : DEFAULT_PARTICLE_PRESETS;
-    this.labels = {
-      unlit: config.labels?.unlit || 'Unlit campfire',
-      ignite: config.labels?.ignite || '{interact} Ignite'
-    };
+    this.fog = { opacity: 0, targetOpacity: 0, fadeSpeed: 0, color: '', active: false };
+    this.particlePresets = Object.freeze([]);
+    this.labels = Object.freeze({});
+    this.presentation = Object.freeze({ lightRadius: 1, fireWidth: 1, fireHeight: 1, collisionWidth: 1, collisionHeight: 1 });
+    this.configView = null;
     this.formatHint = config.formatHint || (text => InputHints.format(text));
     this.createCanvas = config.createCanvas || (() => {
       if (typeof document !== 'undefined') return document.createElement('canvas');
@@ -376,7 +359,55 @@ export class SceneCampfireService {
     this.onIgnited = config.onIgnited || null;
     this.logger = config.logger || console;
     this._fogCanvas = null;
+    if (config.configView) this.configure(config.configView);
   }
+
+  configure(configView) {
+    const source = configView?.get && typeof configView.get === 'function'
+      ? configView.get('scene.gameplay.campfire', configView.get('gameplay.campfire'))
+      : configView;
+    if (!source || typeof source !== 'object') throw new TypeError('campfire config view is required');
+    const sprite = source.sprite;
+    const fog = source.fog;
+    const presentation = source.presentation;
+    if (!sprite || !fog || !presentation || !Array.isArray(source.particlePresets) || source.particlePresets.length === 0) {
+      throw new TypeError('campfire config view is incomplete');
+    }
+    const next = deepFreeze(cloneCanonicalValue(source));
+    this.initialFogOpacity = Number(next.initialFogOpacity);
+    if (!Number.isFinite(this.initialFogOpacity) || this.initialFogOpacity < 0 || this.initialFogOpacity > 1) {
+      throw new TypeError('campfire.initialFogOpacity must be between 0 and 1');
+    }
+    Object.assign(this.campfire, {
+      frameWidth: requirePositive(sprite.frameWidth, 'campfire.sprite.frameWidth'),
+      frameHeight: requirePositive(sprite.frameHeight, 'campfire.sprite.frameHeight'),
+      frameCols: Math.floor(requirePositive(sprite.frameCols, 'campfire.sprite.frameCols')),
+      frameRows: Math.floor(requirePositive(sprite.frameRows, 'campfire.sprite.frameRows')),
+      frameCount: Math.floor(requirePositive(sprite.frameCount, 'campfire.sprite.frameCount')),
+      frameDuration: requirePositive(sprite.frameDuration, 'campfire.sprite.frameDuration')
+    });
+    this.fog = {
+      opacity: this.campfire.lit ? 0 : this.initialFogOpacity,
+      targetOpacity: this.campfire.lit ? 0 : this.initialFogOpacity,
+      fadeSpeed: requirePositive(fog.fadeSpeed, 'campfire.fog.fadeSpeed'),
+      color: String(fog.color),
+      active: fog.active !== false
+    };
+    this.particlePresets = next.particlePresets;
+    this.labels = next.labels;
+    this.presentation = deepFreeze({
+      lightRadius: requirePositive(presentation.lightRadius, 'campfire.presentation.lightRadius'),
+      fireWidth: requirePositive(presentation.fireWidth, 'campfire.presentation.fireWidth'),
+      fireHeight: requirePositive(presentation.fireHeight, 'campfire.presentation.fireHeight'),
+      collisionWidth: requirePositive(presentation.collisionWidth, 'campfire.presentation.collisionWidth'),
+      collisionHeight: requirePositive(presentation.collisionHeight, 'campfire.presentation.collisionHeight')
+    });
+    this.configView = next;
+    this._fogCanvas = null;
+    return this.configView;
+  }
+
+  isConfigured() { return this.configView !== null; }
 
   _bindRuntime(runtime = {}) {
     this.particleSystem = runtime.particleSystem || this.particleSystem || null;
@@ -418,8 +449,10 @@ export class SceneCampfireService {
   }
 
   ignite({ emitEvent = true, runtime = {} } = {}) {
+    if (!this.isConfigured()) return false;
     this._bindRuntime(runtime);
-    return campfireFeatureMethods.lightCampfire.call(this, { emitEvent });
+    campfireFeatureMethods.lightCampfire.call(this, { emitEvent });
+    return true;
   }
 
   lightCampfire(options = {}) {
@@ -427,18 +460,20 @@ export class SceneCampfireService {
   }
 
   update(deltaTime, runtime = {}) {
+    if (!this.isConfigured()) return;
     this._bindRuntime(runtime);
     campfireFeatureMethods.updateCampfireAnimation.call(this, deltaTime);
     campfireFeatureMethods.updateFog.call(this, deltaTime);
   }
 
   renderAtmosphere(ctx, runtime = {}) {
+    if (!this.isConfigured()) return;
     this._bindRuntime(runtime);
     return campfireFeatureMethods.renderFogLayer.call(this, ctx);
   }
 
   appendRenderItems(queue, ctx, runtime = {}) {
-    if (!Array.isArray(queue)) return false;
+    if (!this.isConfigured() || !Array.isArray(queue)) return false;
     this._bindRuntime(runtime);
     queue.push({
       type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0,
@@ -452,6 +487,7 @@ export class SceneCampfireService {
   }
 
   resolvePlayerCollision(runtime = {}) {
+    if (!this.isConfigured()) return;
     this._bindRuntime(runtime);
     return campfireFeatureMethods.checkCampfireCollision.call(this);
   }

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SceneSystemContainer } from './SceneSystemContainer.js';
+import { SceneSystemContainer, DependencyOwnership } from './SceneSystemContainer.js';
+import { SceneLifecycleCoordinator } from './SceneLifecycleCoordinator.js';
 import { SceneObjectProjector } from './SceneObjectProjector.js';
-import { GameSceneRuntime, UpdateOrder } from './GameSceneRuntime.js';
+import { GameSceneRuntime, UpdateOrder, FramePhase } from './GameSceneRuntime.js';
 import { InputHandler, InputEvent, InputEventType, PointerButton } from '../input/InputEvent.js';
 
 /** 记录调用顺序的系统替身 */
@@ -107,6 +108,65 @@ describe('SceneSystemContainer', () => {
     expect(container.unregister('sys')).toBe(true);
     expect(system.destroyed).toBe(true);
     expect(container.has('sys')).toBe(false);
+  });
+
+  it('拒绝同名隐式覆盖并保留原实例', () => {
+    const first = makeSystem(log, 'first');
+    const second = makeSystem(log, 'second');
+    container.register('same', first);
+
+    expect(container.register('same', second)).toBeNull();
+    expect(container.resolve('same')).toBe(first);
+  });
+
+  it('同一 identity 只能有一个 owned 登记，borrowed alias 不释放', () => {
+    const shared = makeSystem(log, 'shared');
+    expect(container.register('owner', shared)).toBe(shared);
+    expect(container.register('second-owner', shared)).toBeNull();
+    expect(container.register('alias', shared, {
+      ownership: DependencyOwnership.BORROWED,
+      updateHook: false
+    })).toBe(shared);
+
+    container.destroy();
+    expect(log).toEqual(['destroy:shared']);
+  });
+
+  it('同 order 按 sequence 更新，且同 frame token 恰好一次', () => {
+    container.register('first', makeSystem(log, 'first'), { order: 10 });
+    container.register('second', makeSystem(log, 'second'), { order: 10 });
+    const token = Object.freeze({ frame: 1 });
+
+    container.updateFrame(token, 0.016);
+    container.updateFrame(token, 0.016);
+
+    expect(log).toEqual(['update:first', 'update:second']);
+    expect(container.getRegistration('first').frameToken).toBe(token);
+  });
+
+  it('重复 destroy 为 no-op 且不重复释放', () => {
+    container.register('owned', makeSystem(log, 'owned'));
+    expect(container.destroy()).toEqual(['owned']);
+    expect(container.destroy()).toEqual([]);
+    expect(log).toEqual(['destroy:owned']);
+  });
+});
+
+describe('SceneLifecycleCoordinator', () => {
+  it('严格逆序释放 owned，borrowed 只解除投影且重复 exit no-op', () => {
+    const log = [];
+    const coordinator = new SceneLifecycleCoordinator();
+    coordinator.track('first', {}, () => log.push('dispose:first'), 1);
+    coordinator.track('borrowed', {}, null, 2, {
+      ownership: DependencyOwnership.BORROWED,
+      detach: () => log.push('detach:borrowed')
+    });
+    coordinator.track('last', {}, () => log.push('dispose:last'), 2);
+
+    coordinator.exit({ synchronous: true });
+    coordinator.exit({ synchronous: true });
+
+    expect(log).toEqual(['dispose:last', 'detach:borrowed', 'dispose:first']);
   });
 });
 
@@ -325,6 +385,46 @@ describe('GameSceneRuntime 帧顺序与清理', () => {
     runtime.enter();
     runtime.update(0.016);
     expect(count).toBe(1);
+  });
+
+  it('registration plan 由 Runtime 拥有并只解除 borrowed projection', () => {
+    const projection = {};
+    const owned = makeSystem(log, 'planned');
+    runtime.applyRegistrationPlan({
+      id: 'test-plan',
+      registrations: [{ name: 'planned', instance: owned, options: { order: 1 } }],
+      projections: [{ target: projection, key: 'system', instance: owned }]
+    });
+
+    expect(projection.system).toBe(owned);
+    runtime.dispose();
+    expect(projection.system).toBeNull();
+    expect(log).toEqual(['destroy:planned']);
+  });
+
+  it('相同 frame token 的阶段和系统不会重复执行', () => {
+    const token = runtime.beginFrame();
+    const system = makeSystem(log, 'once');
+    let hooks = 0;
+    runtime.registerSystem('once', system, { phase: FramePhase.SYSTEMS });
+    runtime.onFramePhase(FramePhase.SYSTEMS, () => { hooks++; });
+
+    runtime.runFramePhase(FramePhase.SYSTEMS, 0.016, { frameToken: token, updateSystems: true });
+    runtime.runFramePhase(FramePhase.SYSTEMS, 0.016, { frameToken: token, updateSystems: true });
+
+    expect(system.updated).toBe(1);
+    expect(hooks).toBe(1);
+  });
+
+  it('ResourceScope 在 Runtime 失效后拒绝迟到异步写回', () => {
+    const ownedRuntime = new GameSceneRuntime();
+    const guarded = ownedRuntime.resourceScope.guard(() => log.push('late-write'));
+    ownedRuntime.enter();
+
+    ownedRuntime.invalidate();
+    guarded();
+
+    expect(log).toEqual([]);
   });
 
   it('检查点参与者可注册并原子恢复', () => {

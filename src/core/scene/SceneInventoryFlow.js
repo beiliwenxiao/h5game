@@ -22,7 +22,8 @@ export class SceneInventoryFlow {
     getFloatingText = GET_NULL,
     getNotification = GET_NULL,
     onEquipmentChanged = NOOP,
-    onItemUsedEvent = NOOP
+    onItemUsedEvent = NOOP,
+    executeIntent = null
   } = {}) {
     this.equipmentFlow = equipmentFlow;
     this.itemGainedFlow = itemGainedFlow;
@@ -32,45 +33,26 @@ export class SceneInventoryFlow {
     this.getNotification = typeof getNotification === 'function' ? getNotification : GET_NULL;
     this.onEquipmentChanged = typeof onEquipmentChanged === 'function' ? onEquipmentChanged : NOOP;
     this.onItemUsedEvent = typeof onItemUsedEvent === 'function' ? onItemUsedEvent : NOOP;
+    this.executeIntent = typeof executeIntent === 'function' ? executeIntent : null;
   }
 
   unequip(slot, button, { mobile = false } = {}) {
     if (button !== 'right' && !mobile) return { ok: false, reason: 'ignored' };
-    const player = this.getPlayer();
-    if (!player || !this.equipmentFlow?.unequip) return { ok: false, reason: 'unavailable' };
-
-    const result = this.equipmentFlow.unequip(player, slot);
-    if (!result?.ok) {
-      if (result?.reason === 'inventoryFull') {
-        notify(this.getNotification(), 'addWarning', '背包已满，无法卸下装备', 'warning');
-      }
-      return result || { ok: false, reason: 'failed' };
-    }
-
-    const removed = result.oldItem;
-    const transform = player.getComponent?.('transform');
-    const floatingText = this.getFloatingText();
-    if (removed && transform && typeof floatingText?.addText === 'function') {
-      floatingText.addText(
-        transform.position.x,
-        transform.position.y - 30,
-        `卸下 ${removed.name || '装备'}`,
-        '#ffff00'
-      );
-    }
-
-    const backpack = this.getBackpack();
-    if (typeof backpack?.setEntity === 'function') backpack.setEntity(player);
-    else backpack?.refresh?.(player);
-
-    const messages = [`卸下了 ${removed?.name || '装备'}`];
-    this.onEquipmentChanged(messages, {
-      slot,
-      item: null,
-      oldItem: removed,
-      action: 'unequip'
-    });
-    return result;
+    if (!this.executeIntent) return { ok: false, reason: 'unavailable' };
+    return Promise.resolve(this.executeIntent('item.unequip', { slot }))
+      .then(result => {
+        if (!result?.ok) {
+          if (result?.code === 'inventoryFull') {
+            notify(this.getNotification(), 'addWarning', '背包已满，无法卸下装备', 'warning');
+          }
+          return result || { ok: false, reason: 'failed' };
+        }
+        const player = this.getPlayer();
+        const backpack = this.getBackpack();
+        if (typeof backpack?.setEntity === 'function') backpack.setEntity(player);
+        else backpack?.refresh?.(player);
+        return result;
+      });
   }
 
   itemUsed(item, heal = 0, mana = 0) {

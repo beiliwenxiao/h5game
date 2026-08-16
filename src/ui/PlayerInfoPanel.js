@@ -37,7 +37,9 @@ export class PlayerInfoPanel extends UIElement {
       zIndex: options.zIndex || 100
     });
     
+    this._playerSource = options.player || null;
     this.player = options.player || null;
+    this.getProjection = typeof options.getProjection === 'function' ? options.getProjection : () => null;
     this.backgroundColor = options.backgroundColor || 'rgba(0, 0, 0, 0.85)';
     this.borderColor = options.borderColor || '#4a9eff';
     this.textColor = options.textColor || '#ffffff';
@@ -300,7 +302,26 @@ export class PlayerInfoPanel extends UIElement {
    * @param {Entity} player - 玩家实体
    */
   setPlayer(player) {
-    this.player = player;
+    this._playerSource = player || null;
+    if (!player) {
+      this.player = null;
+      return;
+    }
+    this.player = new Proxy(player, {
+      get: (target, property, receiver) => {
+        if (property !== 'getComponent') return Reflect.get(target, property, receiver);
+        return type => {
+          const projection = this.getProjection()?.value || this.getProjection();
+          if (!projection) return target.getComponent?.(type);
+          if (type === 'stats') return projection.stats || null;
+          if (type === 'equipment') {
+            const slots = projection.equipment || {};
+            return { slots, getEquipment: slot => slots[slot] || null };
+          }
+          return target.getComponent?.(type);
+        };
+      }
+    });
   }
   
   /**

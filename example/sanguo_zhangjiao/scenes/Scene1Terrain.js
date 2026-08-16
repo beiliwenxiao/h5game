@@ -12,6 +12,7 @@
 
 import { ShapeRenderer } from '../../../src/rendering/ShapeRenderer.js';
 import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
+import { SceneObjectProjector } from '../../../src/core/scene/SceneObjectProjector.js';
 
 /**
  * Scene1Terrain - 第一幕盆地地形系统
@@ -47,6 +48,7 @@ export class Scene1Terrain {
   constructor(config = {}) {
     // 世界偏移量（大地图 chunk 原点）
     this.worldOffset = config.worldOffset || { x: 0, y: 0 };
+    this._sceneObjectProjector = config.projector || new SceneObjectProjector();
 
     // 盆地中心 = 火堆位置
     this.centerX = config.centerX ?? 350;
@@ -334,10 +336,13 @@ export class Scene1Terrain {
           const sprite = this.decoSprites[key];
           const w = obj.width || sprite.sw;
           const h = obj.height || sprite.sh;
-          // 左上角 -> 底部中心锚点；存独立 w/h（与编辑器一致，宽高各自照搬，不锁宽高比）
+          const anchor = this._sceneObjectProjector.project({
+            x: obj.x + w / 2,
+            y: obj.y + h
+          }, this.worldOffset);
           decorations.push({
-            x: Math.round(obj.x + w / 2),
-            y: Math.round(obj.y + h),
+            x: Math.round(anchor.x),
+            y: Math.round(anchor.y),
             key,
             w, h,
             scale: w / sprite.sw
@@ -374,11 +379,12 @@ export class Scene1Terrain {
         const layerHidden = layer.visible === false;
         for (const obj of layer.objects) {
           if (!obj) continue;
-          // walkable 优先于 collide；即使旧数据同时带两个标记，也只进入一个会偏移的数组。
+          const projectedObj = this._sceneObjectProjector.project(obj, this.worldOffset);
+          // walkable 优先于 collide；所有业务碰撞与表现共用同一投影入口。
           if (obj.type === 'shape' && obj.walkable) {
-            this._walkableShapes.push(obj);
+            this._walkableShapes.push(projectedObj);
           } else if (obj.type === 'shape' && obj.collide) {
-            this._collisionShapes.push(obj);
+            this._collisionShapes.push(projectedObj);
           }
           // 图层隐藏时跳过视觉渲染相关的收集
           // 碰撞/可落脚 shape 也不重复放入 _editorShapes（避免 worldOffset 双重偏移）
@@ -408,8 +414,8 @@ export class Scene1Terrain {
             this._combinedGroundCache = null;  // 重建合并缓存
             console.log('Scene1Terrain: 应用编辑器椭圆', { cx, cy, rx, ry, fillMode: this._terrainEllipse.fillMode });
           } else if (obj.type === 'shape') {
-            // 其它 shape（多边形/矩形/圆/额外椭圆）作为可渲染对象
-            this._editorShapes.push(obj);
+            // 其它 shape 使用与碰撞相同的世界投影结果。
+            this._editorShapes.push(projectedObj);
           } else if (obj.type === 'image' && obj.imageId) {
             // 从 imageAssets 获取图片 src
             const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
@@ -426,14 +432,16 @@ export class Scene1Terrain {
                 id: obj.id || null,
                 imageId: obj.imageId,
                 src,
-                x: obj.x,
-                y: obj.y,
+                x: projectedObj.x,
+                y: projectedObj.y,
                 width: obj.width,
                 height: obj.height,
                 rotation: Number.isFinite(obj.rotation) ? obj.rotation : 0,
                 opacity: obj.opacity,
                 layerId: layer.id,
-                sortY: Number.isFinite(obj.sortY) ? obj.sortY : obj.y + obj.height,
+                sortY: Number.isFinite(projectedObj.sortY)
+                  ? projectedObj.sortY
+                  : projectedObj.y + projectedObj.height,
                 _img: null,
                 _loaded: false
               };
@@ -446,8 +454,8 @@ export class Scene1Terrain {
           } else if (obj.type === 'fill' && obj.fillMode === 'image' && obj.imageSrc) {
             this._editorBackgroundImages.push({
               src: obj.imageSrc,
-              x: obj.x || 0,
-              y: obj.y || 0,
+              x: projectedObj.x || 0,
+              y: projectedObj.y || 0,
               width: obj.width || this.basinWidth,
               height: obj.height || this.basinHeight,
               imageMode: obj.imageMode || 'stretch',
@@ -502,49 +510,22 @@ export class Scene1Terrain {
       this.basinBottom += oy;
       this.entranceCenterX = this.centerX;
 
-      // 装饰物（底部中心锚点）
-      for (const d of this.decorations) {
-        d.x += ox;
-        d.y += oy;
+      // 只有没有场景图层时，程序化默认装饰才在此转换；场景对象已由 projector 投影。
+      if (!Array.isArray(scene.layers) || scene.layers.length === 0) {
+        for (const d of this.decorations) {
+          d.x += ox;
+          d.y += oy;
+        }
       }
       this._treeColliders = null;
 
-      // 水池
+      // 水池属于 terrain 参数派生数据，随 terrain 原点转换。
       for (const p of this.waterPatches) {
         p.x += ox;
         p.y += oy;
       }
 
-      // 地面图片
-      for (const bg of this._editorBackgroundImages) {
-        bg.x += ox;
-        bg.y += oy;
-      }
-
-      // 与实体共用 Y-sort 的图片；脚底基线与图片坐标必须使用同一次偏移。
-      for (const image of this._depthSortedImages) {
-        image.x += ox;
-        image.y += oy;
-        image.sortY += oy;
-      }
-
-      // 碰撞 shapes
-      for (const s of this._collisionShapes) {
-        if (s.x !== undefined) { s.x += ox; s.y += oy; }
-        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
-      }
-
-      // 可落脚 shapes
-      for (const s of this._walkableShapes) {
-        if (s.x !== undefined) { s.x += ox; s.y += oy; }
-        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
-      }
-
-      // 渲染 shapes
-      for (const s of this._editorShapes) {
-        if (s.x !== undefined) { s.x += ox; s.y += oy; }
-        if (s.points) { s.points = s.points.map(p => [p[0] + ox, p[1] + oy]); }
-      }
+      // image、碰撞、walkable 与普通 shape 均已由 SceneObjectProjector 恰好投影一次。
 
       // 地形椭圆
       if (this._terrainEllipse) {

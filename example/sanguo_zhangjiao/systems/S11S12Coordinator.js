@@ -47,7 +47,10 @@ export class S11S12Coordinator {
       return { ok: false, code: 'invalidSnapshot' };
     }
     const waves = Number(snapshot.s11.assassinWavesDefeated);
-    if (!Number.isInteger(waves) || waves < 0 || waves > 3) return { ok: false, code: 'invalidAssassinWaveCount' };
+    const waveCount = Number(this._definition('S11')?.assassinWaveCount);
+    if (!Number.isInteger(waves) || waves < 0 || !Number.isInteger(waveCount) || waves > waveCount) {
+      return { ok: false, code: 'invalidAssassinWaveCount' };
+    }
     const deadline = snapshot.s12.gateDeadline;
     if (deadline !== null && (!Number.isFinite(Number(deadline)) || Number(deadline) < 0)) {
       return { ok: false, code: 'invalidGateDeadline' };
@@ -82,7 +85,7 @@ export class S11S12Coordinator {
   }
 
   async completeS11GuardRally(options = {}) {
-    const required = Math.max(1, Number(this._definition('S11')?.requiredGuardCount) || 6);
+    const required = Number(this._definition('S11')?.requiredGuardCount);
     const count = Math.max(0, Math.floor(Number(options.guardCount) || 0));
     if (count < required) return { ok: false, code: 'guardsMissing', required, actual: count };
     return this._advanceS11('rally-guards', 's11GuardsRallied', options);
@@ -96,10 +99,11 @@ export class S11S12Coordinator {
     const wave = Math.floor(Number(waveNumber));
     const completed = this.state.s11.assassinWavesDefeated;
     if (wave <= completed && wave >= 1) return { ok: true, idempotent: true, wave, state: this.getState() };
-    if (wave !== completed + 1 || wave > 3) return { ok: false, code: 'assassinWaveOutOfOrder', expected: completed + 1 };
+    const waveCount = Number(this._definition('S11')?.assassinWaveCount);
+    if (wave !== completed + 1 || wave > waveCount) return { ok: false, code: 'assassinWaveOutOfOrder', expected: completed + 1 };
     this.state.s11.assassinWavesDefeated = wave;
-    this.onEvent('s11AssassinWaveDefeated', { wave, total: 3 });
-    if (wave < 3) return { ok: true, completed: false, wave, state: this.getState() };
+    this.onEvent('s11AssassinWaveDefeated', { wave, total: waveCount });
+    if (wave < waveCount) return { ok: true, completed: false, wave, state: this.getState() };
     const advanced = await this._advanceS11('repel-assassins', 's11AssassinsRepelled', options);
     if (!advanced?.ok) this.state.s11.assassinWavesDefeated = completed;
     return advanced;
@@ -379,7 +383,7 @@ export class S11S12Coordinator {
 
   _extendS12PostGateWindow() {
     const definition = this._definition('S12');
-    const seconds = Math.max(1, Number(definition?.postGateDuration) || 180);
+    const seconds = Number(definition?.postGateDuration);
     const snapshot = this.rescueSystem.serialize();
     if (snapshot.status !== 'active' || snapshot.stageIndex !== 1) return { ok: false, code: 'postGateStateMismatch' };
     snapshot.definition.duration = Number(snapshot.definition.duration) + seconds;

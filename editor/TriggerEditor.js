@@ -16,10 +16,11 @@
  * 读写 GameProject（example/<game>/game.project.json）的 triggers[]。
  * 触发器数据见 editor-architecture.md §4.2：{ id, when, if, do, once, cooldown }
  *
- * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写工程文件（保留其它字段）。
+ * 通过 Vite dev server 的 /api/read-file、/api/canonical-transaction 读写工程文件（保留其它字段）。
  */
 
 import { getTriggerEvents, getTriggerActions, validateTriggerDefinition } from '../src/systems/TriggerCatalog.js';
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 let WHEN_TYPES = getTriggerEvents();
 let ACTION_TYPES = getTriggerActions();
@@ -32,6 +33,8 @@ export class TriggerEditor {
   constructor(container, options = {}) {
     this.container = container;
     this.gameId = options.gameId || 'sanguo_zhangjiao';
+    this.canonicalSession = options.canonicalSession || null;
+    this.schemaFields = this.canonicalSession?.fields || null;
     // 场景列表由编辑器入口按当前游戏动态提供，禁止由触发器引用反推。
     this.getSceneList = typeof options.getSceneList === 'function' ? options.getSceneList : () => [];
     // 当前场景的完整放置点由场景编辑器显式注入，供物品生成动作可视化选择。
@@ -59,7 +62,9 @@ export class TriggerEditor {
 
   /** 加载工程文件 */
   async _load() {
-    try {
+    if (this.canonicalSession) {
+      this.project = this.canonicalSession.getValue();
+    } else try {
       const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
       if (res.ok) {
         const data = await res.json();
@@ -130,14 +135,17 @@ export class TriggerEditor {
     }
     console.log('[TriggerEditor] 准备保存:', this.projectPath, this.target, '数量:', this.triggers.length, JSON.parse(JSON.stringify(this.triggers)));
     try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
-      });
-      const data = await res.json();
+      const data = this.canonicalSession
+        ? await (async () => {
+            this.canonicalSession.patchMany([
+              { path: 'triggers', value: this.project.triggers },
+              { path: 'tutorials', value: this.project.tutorials }
+            ]);
+            return this.canonicalSession.save();
+          })()
+        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
       console.log('[TriggerEditor] 保存返回:', data);
-      if (data && data.ok) {
+      if (data && (data.ok || data.committed)) {
         this._status('✅ 已保存到 ' + this.projectPath + '（触发器 ' + this.triggers.length + ' 条）', 'ok');
         this._toast('保存成功（触发器 ' + this.triggers.length + ' 条）', true);
         await this.onSaved?.(this.project);
@@ -697,27 +705,32 @@ export class TriggerEditor {
     }
     t.when = t.when || {};
     t.when.type = panel.querySelector('#d-when-type').value;
-    t.when.params = this._parseJson(panel.querySelector('#d-when-params').value, {});
+    const whenParamsText = panel.querySelector('#d-when-params').value.trim();
+    if (whenParamsText) t.when.params = this._parseJson(whenParamsText, {});
+    else if (Object.prototype.hasOwnProperty.call(t.when, 'params')) t.when.params = {};
     const ifVal = panel.querySelector('#d-if').value.trim();
     if (ifVal) t.if = this._parseJson(ifVal, null); else delete t.if;
-    t.once = panel.querySelector('#d-once').checked;
+    const onceChecked = panel.querySelector('#d-once').checked;
+    if (onceChecked) t.once = true;
+    else if (Object.prototype.hasOwnProperty.call(t, 'once')) t.once = false;
     const cd = panel.querySelector('#d-cooldown').value.trim();
     if (cd) t.cooldown = parseFloat(cd); else delete t.cooldown;
 
-    // 动作
+    // 动作：只覆盖可视字段，保留 action 上的稳定 ID、policy 与 unknown-but-allowed 字段。
+    const previousActions = Array.isArray(t.do) ? t.do : [];
+    const nextActions = [];
     const doItems = panel.querySelectorAll('.trg-do-item');
-    t.do = [];
-    doItems.forEach(el => {
+    doItems.forEach((el, index) => {
       const action = el.querySelector('.do-action').value;
       const params = action === 'spawnPlacements'
         ? this._readSpawnPlacementParams(el)
         : this._parseJson(el.querySelector('.do-params').value, {});
-      t.do.push({
-        action,
-        params,
-        ...(el.querySelector('.do-await').checked ? { await: true } : {})
-      });
+      const next = { ...(previousActions[index] || {}), action, params };
+      if (el.querySelector('.do-await').checked) next.await = true;
+      else if (next.await === true) next.await = false;
+      nextActions.push(next);
     });
+    t.do = nextActions;
   }
 
   _addTrigger() {

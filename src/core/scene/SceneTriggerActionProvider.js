@@ -8,8 +8,6 @@
  */
 export function registerSceneTriggerActions(triggerSystem, {
   spawnPlacements,
-  teleportToChunk,
-  requestAutoSave,
   weatherSystem,
   timeSystem,
   logger = console
@@ -26,16 +24,6 @@ export function registerSceneTriggerActions(triggerSystem, {
 
   if (typeof spawnPlacements === 'function') {
     register('spawnPlacements', params => spawnPlacements(params?.selector || params));
-  }
-  if (typeof teleportToChunk === 'function') {
-    register('teleportToChunk', params => teleportToChunk(params || {}));
-  }
-  if (typeof requestAutoSave === 'function') {
-    register('autoSave', (params = {}) => requestAutoSave({
-      reason: params.reason || 'story-event',
-      checkpointId: params.checkpointId,
-      sceneId: params.sceneId
-    }));
   }
   if (typeof weatherSystem?.setWeather === 'function') {
     register('setWeather', (params = {}) => {

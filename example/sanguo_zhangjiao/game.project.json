@@ -248,92 +248,6 @@
       "$ref": "config/endings.json"
     },
     "sanguoZhangjiao": {
-      "s01Tutorials": [
-        {
-          "id": "s01.move",
-          "title": "移动",
-          "steps": [
-            {
-              "text": "使用 {move} 移动，离开火堆附近。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.attack",
-          "title": "攻击",
-          "steps": [
-            {
-              "text": "使用 {attack} 进行一次攻击。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.pickup",
-          "title": "拾取",
-          "steps": [
-            {
-              "text": "靠近物资后使用 {pickup} 拾取。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.jump",
-          "title": "跳跃",
-          "steps": [
-            {
-              "text": "使用 {jump} 越过障碍。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.gather",
-          "title": "采集",
-          "steps": [
-            {
-              "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.durability",
-          "title": "工具耐久",
-          "steps": [
-            {
-              "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        },
-        {
-          "id": "s01.capacity",
-          "title": "背包容量",
-          "steps": [
-            {
-              "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。"
-            }
-          ],
-          "category": "s01-survival",
-          "canSkip": false,
-          "autoTrigger": false
-        }
-      ],
       "s09RefugeeConflict": {
         "minimumCityDamageRatio": 0.4,
         "donationFood": 20,
@@ -508,6 +422,7 @@
     }
   },
   "system": {
+    "debug": false,
     "login": {
       "title": "三国张角传",
       "subtitle": "苍天已死，黄天当立",
@@ -578,6 +493,7 @@
     }
   },
   "worldMap": {
+    "entrySceneId": "S01",
     "regions": [
       {
         "id": "region-a",
@@ -4142,7 +4058,90 @@
       "once": false, "cooldown": 1
     }
   ],
-  "tutorials": [],
+  "tutorials": [
+    {
+      "id": "s01.move",
+      "title": "移动",
+      "category": "s01-survival",
+      "order": 0,
+      "steps": [{ "text": "使用 {move} 移动，离开火堆附近。" }],
+      "movementRule": { "threshold": 60 },
+      "signalRules": [],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.attack",
+      "title": "攻击",
+      "category": "s01-survival",
+      "order": 1,
+      "steps": [{ "text": "使用 {attack} 进行一次攻击。" }],
+      "signalRules": [{ "signal": "attackPerformed", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.pickup",
+      "title": "拾取",
+      "category": "s01-survival",
+      "order": 2,
+      "steps": [{ "text": "靠近物资后使用 {pickup} 拾取。" }],
+      "signalRules": [{ "signal": "itemPicked", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.jump",
+      "title": "跳跃",
+      "category": "s01-survival",
+      "order": 3,
+      "steps": [{ "text": "使用 {jump} 越过障碍。" }],
+      "signalRules": [{ "signal": "jumpPerformed", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.gather",
+      "title": "采集",
+      "category": "s01-survival",
+      "order": 4,
+      "steps": [{ "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。" }],
+      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.durability",
+      "title": "工具耐久",
+      "category": "s01-survival",
+      "order": 5,
+      "steps": [{ "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。" }],
+      "signalRules": [{
+        "signal": "gatheringCompleted",
+        "threshold": 1,
+        "conditions": [{ "field": "toolInstanceId", "operator": "exists", "value": true }]
+      }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.capacity",
+      "title": "背包容量",
+      "category": "s01-survival",
+      "order": 6,
+      "steps": [{ "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。" }],
+      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    }
+  ],
   "library": {
     "items": [
       {

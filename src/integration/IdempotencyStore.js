@@ -12,8 +12,8 @@ export function stableDigest(value) {
 }
 
 /**
- * 保存请求响应及已提交业务标识。
- * 相同 requestId + 相同载荷返回首次响应；不同载荷视为冲突。
+ * 仅保存 JSON-RPC request/response attempt 去重信息。
+ * operationId 业务幂等由 core/command/OperationLedger 独立拥有。
  */
 export class IdempotencyStore {
   constructor() {

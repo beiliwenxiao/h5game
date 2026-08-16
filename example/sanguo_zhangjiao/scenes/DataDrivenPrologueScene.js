@@ -23,11 +23,11 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
-import { getWorldMapCellSceneId } from '../../../src/core/WorldMapCell.js';
 import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
-import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
+import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
+import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
 import { WorldStreamingManager } from '../../../src/core/WorldStreamingManager.js';
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
@@ -37,8 +37,9 @@ import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
 import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
-import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
 import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
+import { registerSanguoScenarioActionBindings } from '../systems/SanguoScenarioActionBindings.js';
+import { ScenarioCommandService, SCENARIO_COMMANDS } from '../../../src/systems/ScenarioCommandService.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
@@ -50,9 +51,7 @@ import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js'
 import { CargoTransferView } from '../../../src/ui/CargoTransferView.js';
 import { S09AudioDirector } from '../systems/S09AudioDirector.js';
 import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinator.js';
-import {
-  createS01TutorialConfig, S01S02Coordinator
-} from '../systems/S01S02SceneFlow.js';
+import { S01S02Coordinator } from '../systems/S01S02SceneFlow.js';
 import { SceneTutorialFlow } from '../../../src/core/scene/SceneTutorialFlow.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
 import {
@@ -85,10 +84,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       title: '三国张角传',
       description: 'S01 干旱平原'
     });
-    this.currentSceneId = 'S01';
+    // 启动场景只在 ProjectWorldIndex 构建成功后由显式 entrySceneId 决定。
+    this.currentSceneId = null;
 
     this._tutorialFlow = new SceneTutorialFlow({
       tutorialSystem: this.tutorialSystem,
+      category: 's01-survival',
       activeWhen: () => this.currentSceneId === 'S01',
       presenter: {
         show: data => this._showScreenTip(data?.step?.text || '', {
@@ -105,21 +106,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       defeatPolicy: this._s01s02Coordinator
     });
 
-    // S01 只提供表现参数；状态、粒子、迷雾、绘制和碰撞由框架服务拥有。
+    // 火堆服务只保存运行态；表现参数由当前 canonical scene gameplay consumer 发布后配置。
     this._campfireService = new SceneCampfireService({
-      position: { x: 350, y: 250 },
-      initialFogOpacity: 1,
-      fog: { fadeSpeed: 0.4, color: 'rgba(30, 30, 40,', active: true },
-      sprite: {
-        frameWidth: 658 / 4,
-        frameHeight: 712 / 3,
-        frameCols: 4,
-        frameRows: 3,
-        frameCount: 12,
-        frameDuration: 0.16
-      },
-      labels: { unlit: '熄灭的火堆', ignite: '{interact}点燃' },
-      onIgnited: () => this.gameLoader?.triggerSystem?.fire?.('campfireLit', { sceneId: 'S01' }),
+      onIgnited: () => this.gameLoader?.triggerSystem?.fire?.('campfireLit', { sceneId: this.currentSceneId }),
       logger: console
     });
     this.context.services.campfire = this._campfireService;
@@ -132,11 +121,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 饥民逐渐生成器（第二波，复用旧 Act1 starvingSpawner 逻辑）
     this._starvingSpawner = {
       active: false,
-      totalCount: 18,
+      totalCount: 0,
       spawnedCount: 0,
-      spawnInterval: 0.6,
+      spawnInterval: 0,
       spawnTimer: 0,
-      group: null       // 完成后 fire waveCleared 用的组名
+      group: null
     };
 
     // 提示"按 N 进入下一波"状态（promptNextWave 动作设置）
@@ -248,17 +237,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return { battleId: session.battleId || null, mode: session.mode || null };
       },
       getBattleFlowById: battleId => this.getBattleFlowById(battleId),
-      getBattleFlows: () => this.getBattleFlows(),
-      battleMonthMinimums: {
-        [S03_BATTLE_ID]: 5,
-        [S07_BATTLE_ID]: 6
-      }
+      getBattleFlows: () => this.getBattleFlows()
     });
     this.context.services.cityWarState = this.cityWarStateBridge;
 
-    // 天气系统和时间系统；游戏日从 1 开始并随完整昼夜周期推进。
-    this.weatherSystem = new WeatherSystem();
-    this.timeSystem = new TimeSystem({ enabled: true, currentDay: 1 });
+    // 天气/时间只在 canonical runtime config 发布成功后创建。
+    this.weatherSystem = new WeatherSystem(null);
+    this.timeSystem = new TimeSystem({ enabled: false, currentDay: 1 });
   }
 
   /** 由宿主在 enter() 前标记本次启动意图；读档与继承玩家不得消费场景出生点。 */
@@ -271,25 +256,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._progressionBootstrap = { isNewGame: newGame, playerStartMode: resolvedMode };
   }
 
-  /** 启动闸门：只接受位于 20×20 网格 (1,1) 的 canonical S01。 */
+  /** 启动闸门：项目世界索引、显式入口与目标 Region 必须完整有效。 */
   _validateWorldLoadResult(result) {
-    const region = result?.region;
     const errors = Array.isArray(result?.errors) ? result.errors : [];
-    const grid = region?.grid;
-    const chunk = result?.chunks?.find(item => item.sceneId === 'S01');
+    const worldIndex = result?.worldIndex;
+    const entry = worldIndex?.getEntry?.();
+    const chunk = entry ? result?.chunks?.find(item => item.sceneId === entry.sceneId) : null;
     const valid = errors.length === 0
-      && region?.cols === 20
-      && region?.rows === 20
-      && Array.isArray(grid)
-      && grid.length === 20
-      && grid[1]?.[1] === 'S01'
-      && chunk?.row === 1
-      && chunk?.col === 1
-      && chunk?.offset?.x === 1280
-      && chunk?.offset?.y === 720
+      && result?.region
+      && entry?.loadable === true
+      && worldIndex?.isLoadable?.(entry.sceneId) === true
+      && chunk?.row === entry.row
+      && chunk?.col === entry.col
+      && chunk?.offset === entry.offset
       && Array.isArray(chunk?.sceneData?.layers);
     if (!valid) {
-      const detail = errors[0]?.message || 'S01 必须位于 20×20 网格 (1,1)，且场景 layers 必须有效';
+      const detail = errors[0]?.message || '显式入口必须是唯一、非 reserved 且具有有效场景 layers';
       throw new Error(`世界内容校验失败: ${detail}`);
     }
     return result;
@@ -297,24 +279,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   _createWorldLoadSession(scope = this.resourceScope) {
     const gameId = 'sanguo_zhangjiao';
-    return new WorldMapLoadSession({
-      scope,
-      loadProject: async projectUrl => {
-        const response = await fetch(projectUrl);
-        if (!response.ok) throw new Error(`加载 ${projectUrl} 失败: HTTP ${response.status}`);
-        return response.json();
-      },
-      loadScene: async sceneId => {
-        const scene = await loadSceneFromFile(sceneId);
-        if (!scene || !Array.isArray(scene.layers)) throw new Error(`场景 JSON 无有效 layers: ${sceneId}`);
-        return scene;
-      },
-      loadSceneFallback: sceneId => {
-        const scene = loadSceneFromStorage(gameId, sceneId);
-        if (!scene || !Array.isArray(scene.layers)) throw new Error(`场景缓存无有效 layers: ${sceneId}`);
-        return scene;
-      }
+    const repository = new CanonicalSceneRepository({
+      diskAdapter: new FetchDiskSceneAdapter({
+        projectUrl: 'game.project.json',
+        sceneBaseUrl: 'assets/scenes/'
+      }),
+      cacheAdapter: new LocalStorageSceneCacheAdapter({ gameId }),
+      mode: 'runtime'
     });
+    return new WorldMapLoadSession({ scope, repository });
   }
 
   _createStreamingStateProvider() {
@@ -447,8 +420,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       || null;
     const left = chunk.origin.x;
     const top = chunk.origin.y;
-    const right = left + (Number(this.worldStreamingManager?.chunkWidth) || 1280);
-    const bottom = top + (Number(this.worldStreamingManager?.chunkHeight) || 720);
+    const right = left + this.worldStreamingManager.chunkWidth;
+    const bottom = top + this.worldStreamingManager.chunkHeight;
     const deathDropById = new Map((pendingDomain?.deathDrops || [])
       .filter(entry => entry?.id)
       .map(entry => [entry.id, cloneData(entry)]));
@@ -482,8 +455,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const placementIds = new Set((chunk?.placements || []).map(placement => placement?.id).filter(Boolean));
     const left = chunk?.origin?.x || 0;
     const top = chunk?.origin?.y || 0;
-    const right = left + (Number(this.worldStreamingManager?.chunkWidth) || 1280);
-    const bottom = top + (Number(this.worldStreamingManager?.chunkHeight) || 720);
+    const right = left + this.worldStreamingManager.chunkWidth;
+    const bottom = top + this.worldStreamingManager.chunkHeight;
     const values = new Set([
       ...(this.entities || []),
       ...(this.pickupItems || []),
@@ -547,8 +520,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return position && chunks.some(chunk => {
           const left = Number(chunk.origin?.x) || 0;
           const top = Number(chunk.origin?.y) || 0;
-          const width = Number(this.worldStreamingManager?.chunkWidth) || 1280;
-          const height = Number(this.worldStreamingManager?.chunkHeight) || 720;
+          const width = this.worldStreamingManager.chunkWidth;
+          const height = this.worldStreamingManager.chunkHeight;
           return position.x >= left && position.x <= left + width
             && position.y >= top && position.y <= top + height;
         });
@@ -565,11 +538,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _prepareWorldStreamingManager(result, targetSceneId = this.currentSceneId, session = this._worldLoadSession) {
+    const worldIndex = result?.worldIndex;
     const region = result?.region;
-    if (!region) throw new Error('无法初始化流式加载：Region 不存在');
+    if (!worldIndex || !region) throw new Error('无法初始化流式加载：ProjectWorldIndex 或 Region 不存在');
 
     const manager = new WorldStreamingManager();
-    const configured = manager.configureRegion(region, {
+    const configured = manager.configureRegion(worldIndex, {
+      regionRef: region.id,
       sceneResolver: sceneId => session?.loadSceneData?.(sceneId)
         || session?.getSceneData?.(sceneId)
         || null,
@@ -578,11 +553,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!configured.ok) throw new Error(configured.errors?.[0]?.message || '流式 Region 配置失败');
     manager.registerStateProvider('demoDynamic', this._createStreamingStateProvider());
 
-    const initialChunk = result.chunks?.find(chunk => chunk.sceneId === targetSceneId)
-      || result.chunks?.[0];
+    const initialChunk = result.chunks?.find(chunk => chunk.sceneId === targetSceneId);
     if (!initialChunk) throw new Error('流式 Region 中没有可加载 chunk');
-    const centerX = initialChunk.offset.x + (Number(region.chunkWidth) || 1280) / 2;
-    const centerY = initialChunk.offset.y + (Number(region.chunkHeight) || 720) / 2;
+    const centerX = initialChunk.offset.x + region.chunkWidth / 2;
+    const centerY = initialChunk.offset.y + region.chunkHeight / 2;
     const loaded = await manager.update(centerX, centerY);
     if (!loaded.ok) {
       manager.unloadAll({ preserveState: false });
@@ -641,8 +615,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     for (const key of [...this._streamingTerrains.keys()]) {
       if (!activeKeys.has(key)) this._streamingTerrains.delete(key);
     }
-    const chunkWidth = Number(manager.chunkWidth) || 1280;
-    const chunkHeight = Number(manager.chunkHeight) || 720;
+    const chunkWidth = manager.chunkWidth;
+    const chunkHeight = manager.chunkHeight;
     for (const chunk of chunks) {
       if (this._streamingTerrains.has(chunk.key)) continue;
       this._streamingTerrains.set(chunk.key, new Scene1Terrain({
@@ -707,7 +681,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ? 'inherit'
       : (this._progressionBootstrap?.playerStartMode || 'restore');
     this._initialPlayerSpawnPending = this._playerStartMode === 'newGame';
-    this._tutorialFlow.configure(createS01TutorialConfig()).bindPresentation();
+    this._tutorialFlow.bindPresentation();
     this.resourceScope?.track(() => this._tutorialFlow.dispose());
 
     this._s09AudioDirector?.dispose?.();
@@ -726,9 +700,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.terrain = null;
       this.terrainAct1 = null;
       this._worldRegion = null;
+      this._worldIndex = null;
       this.context.world.terrain = null;
       this.context.world.terrains = null;
       this.context.world.region = null;
+      this.context.world.worldIndex = null;
       this.context.services.placements?.reset?.({ clearProjection: true, clearPending: true, clearSpawned: true });
       this._regionDynamicStates?.clear?.();
       this._pendingChunkDomainStates?.clear?.();
@@ -758,18 +734,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._s04RouteBusy = false;
     });
 
-    // 大地图 chunk 偏移：从 game.project.json worldMap 动态加载地形
-    // 编辑器中每个 scene 的坐标是 0~chunkWidth 局部坐标，运行时加 worldOffset 转为世界坐标
-    const chunkWidth = 1280;
-    const chunkHeight = 720;
-    this._prologueOffset = { x: 1 * chunkWidth, y: 1 * chunkHeight };
-
-    // 火堆先使用世界坐标兜底，placements 就绪后再由当前场景的 canonical spawn 精确覆盖。
-    // 玩家位置不在这里预写：新游戏、读档、继承和显式传送各有且只有一个位置权威。
-    this._campfireService.setPosition({
-      x: 350 + this._prologueOffset.x,
-      y: 250 + this._prologueOffset.y
-    });
+    // 世界 offset 在 ProjectWorldIndex 构建成功后派生；这里不预写 Demo 尺寸或入口。
 
     // 地形实例在 _loadWorldTerrains 中动态创建
     this.terrain = null;
@@ -795,7 +760,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._spawnApplied = false;
     this._pendingChunkDomainStates = new Map();
     this._regionDynamicStates = new Map();
-    this._currentRegionIndex = 0;
+    this._currentRegionIndex = -1;
     this._worldLoadResult = null;
     this._regionCoordinator = new RegionCoordinator({
       createSession: () => this._createWorldLoadSession(this.resourceScope),
@@ -847,7 +812,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.context.services.placements = placements;
     scope?.track(() => placements.dispose());
     this._chunkNavigator = new ChunkNavigator({
-      getRegion: () => this._worldRegion,
+      getWorldIndex: () => this._worldLoadResult?.worldIndex || this._worldLoadSession?._lastResult?.worldIndex || null,
       getChunk: sceneId => this._worldLoadSession?.getChunk(sceneId),
       findSpawn: (sceneId, spawnRef) => this._worldLoadSession?.findSpawn(sceneId, spawnRef),
       getPlayer: () => this.playerEntity,
@@ -863,26 +828,46 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         if (placementResult?.ok === false) return placementResult;
         return { ok: true };
       },
+      captureState: () => ({
+        currentSceneId: this.currentSceneId,
+        storyState: cloneData(this.gameLoader?.blackboard?.get?.('storyState')),
+        worldStreamingState: cloneData(this.worldStreamingManager?.serialize?.())
+      }),
+      restoreState: snapshot => {
+        if (!snapshot) return;
+        if (snapshot.worldStreamingState && this.worldStreamingManager?.deserialize) {
+          const restored = this.worldStreamingManager.deserialize(snapshot.worldStreamingState);
+          if (restored?.ok === false) {
+            throw new Error(restored.errors?.[0]?.message || '世界流式状态回滚失败');
+          }
+          this._syncWorldStreamingProjection();
+        }
+        this.currentSceneId = snapshot.currentSceneId;
+        if (snapshot.storyState && this.gameLoader?.blackboard) {
+          this.gameLoader.blackboard.set('storyState', snapshot.storyState);
+        }
+      },
       onSceneEnter: async ({ sceneId, x, y }) => {
         this.currentSceneId = sceneId;
         this._s09AudioDirector?.syncScene?.(sceneId);
-        if (this.gameLoader?.triggerSystem) {
-          const blackboard = this.gameLoader.blackboard;
-          const storyState = blackboard?.get?.('storyState');
-          if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
-          this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
-        }
+        const blackboard = this.gameLoader?.blackboard;
+        const storyState = blackboard?.get?.('storyState');
+        if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
         const placementResult = await this.context.services.placements?.spawnLoadedChunks();
         if (placementResult?.ok === false) {
           throw new Error(placementResult.errors?.[0]?.message || '地图块放置点生成失败');
         }
-        if (sceneId === 'S05') void this.s05SceneCoordinator._syncS05MineWorldState();
+        if (sceneId === 'S05') await this.s05SceneCoordinator._syncS05MineWorldState();
         if (sceneId === 'S07') this.s07s08Coordinator._syncS07DelayWorldState();
         if (sceneId === 'S12') this.s11s14SceneCoordinator._ensureS12GateEntity();
         else this.s11s14SceneCoordinator._removeS12GateEntity();
         this._ensureSceneVehicleEntities(sceneId);
-        await this._restoreStreamedDomainState(sceneId);
-        // 此时淡黑层处于完全覆盖状态；自动存档必须等 teleportToChunk 在淡入结束后再请求。
+        const domainRestore = await this._restoreStreamedDomainState(sceneId);
+        if (domainRestore?.ok === false) {
+          throw new Error(domainRestore.errors?.[0]?.message || domainRestore.code || '区块领域状态恢复失败');
+        }
+        // 只有目标区块和领域投影全部提交后，才转发 sceneEnter application notification。
+        this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId });
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
       onFallback: ({ reason, sceneId }) => {
@@ -896,11 +881,33 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       },
       transition: (type, commit) => type === 'fadeBlack' ? this._fadeTransition(commit) : commit()
     });
+    this._scenarioCommandService = new ScenarioCommandService({
+      dialogueSystem: this.dialogueSystem,
+      tutorialSystem: this.tutorialSystem,
+      getChunkNavigator: () => this._chunkNavigator,
+      getRegionCoordinator: () => this._regionCoordinator,
+      getWorldIndex: () => this._worldLoadResult?.worldIndex || null,
+      getCurrentRegionIndex: () => this._currentRegionIndex,
+      getSaveGameService: () => this._saveGameService,
+      getSnapshotManager: () => this.sceneRuntime?.snapshotManager || null
+    });
+    this.context.services.scenarioCommands = this._scenarioCommandService;
+    for (const commandType of Object.values(SCENARIO_COMMANDS)) {
+      this.sceneRuntime.registerCommandHandler(commandType, this._scenarioCommandService);
+    }
     this._worldLoadPromise = this._worldLoadSession
-      .load({ projectUrl: 'game.project.json', regionIndex: 0, sceneIds: ['S01'] })
+      .load({ projectUrl: 'game.project.json', sceneIds: 'entry' })
       .then(async result => {
         const validated = this._validateWorldLoadResult(result);
         this._worldLoadResult = validated;
+        this._worldIndex = validated.worldIndex;
+        const entry = validated.worldIndex.getEntry();
+        this.currentSceneId = entry.sceneId;
+        this._currentRegionIndex = entry.regionIndex;
+        this._prologueOffset = entry.offset;
+        this._campfireService.setPosition(
+          this._worldLoadSession.projector.project({ x: 350, y: 250 }, entry.offset)
+        );
         await this._initializeWorldStreaming(validated);
         return validated;
       });
@@ -911,7 +918,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 由框架 placement runtime 等待世界加载、投影出生点并解析 ready gate。
     void this.context.services.placements?.loadProjection({
-      sceneId: this.currentSceneId,
       consumePlayerSpawn: this._initialPlayerSpawnPending === true
     });
 
@@ -1016,7 +1022,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 营建工期随正常游戏帧推进；终态在异步 checkpoint 完成前暂停继续计时。
     this.s10ConstructionCoordinator._updateConstructionRuntime(deltaTime);
     this.s10ConstructionCoordinator._ensureS10StructureEntities();
-    this._gameplaySystemAssembler.updateSharedSystems(deltaTime);
+    this.sceneRuntime?.runFramePhase?.('postScene', deltaTime, {
+      scene: this,
+      frameToken: this.sceneRuntime.currentFrameToken,
+      updateSystems: true
+    });
     this.s11s14SceneCoordinator._updateS11HorseTravel();
 
     // 救援计时与护送跟随复用同一帧的实体状态；deadline 仅由 RescueSystem 判定。
@@ -1330,20 +1340,20 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /**
-   * 启动饥民逐渐生成（动作 spawnStarvingWave）。
-   * 从玩家四面八方逐渐涌出饥民，每 0.6 秒一个，总计 18 个。
-   * 全部生成后由 _updateStarvingSpawner 自动追踪死亡 → fire waveCleared。
-   * @param {Object} p - { group:组名(默认'act1_wave2'), count:总数(默认18), interval:间隔秒(默认0.6) }
-   * @private
-   */
+  /** 启动由 canonical action params 完整定义的渐进生成波次。 */
   _startStarvingWave(p = {}) {
-    const group = p.group || 'act1_wave2';
+    const group = typeof p.group === 'string' ? p.group.trim() : '';
+    const totalCount = Math.floor(Number(p.count));
+    const spawnInterval = Number(p.interval);
+    if (!group || !Number.isInteger(totalCount) || totalCount <= 0
+      || !Number.isFinite(spawnInterval) || spawnInterval <= 0) {
+      throw new TypeError('spawnStarvingWave requires group, positive integer count and positive interval');
+    }
     this._starvingSpawner.active = true;
-    this._starvingSpawner.totalCount = p.count || 18;
+    this._starvingSpawner.totalCount = totalCount;
     this._starvingSpawner.spawnedCount = 0;
     this._starvingSpawner.spawnTimer = 0;
-    this._starvingSpawner.spawnInterval = p.interval || 0.6;
+    this._starvingSpawner.spawnInterval = spawnInterval;
     this._starvingSpawner.group = group;
     // 初始化该组的追踪列表
     this._groupEnemies = this._groupEnemies || {};
@@ -1529,27 +1539,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    */
   teleportToChunk(p = {}) {
     const sceneId = p.sceneId || p.scene;
-    const teleport = this._chunkNavigator?.teleport({ ...p, sceneId });
-    if (!teleport || typeof teleport.then !== 'function') return teleport;
-
-    // FadeOverlayTransition 的 Promise 仅在淡入完成后兑现；此时宿主已可缓存目标区块的有效画面。
-    return teleport.then(result => {
-      if (result === false || result?.cancelled) return result;
-      return Promise.resolve(this.requestAutoSave({ reason: 'map-change', sceneId }))
-        .catch(error => {
-          console.warn('[DDScene] 地图切换自动存档失败:', error);
-          return null;
-        })
-        .then(() => result);
-    });
+    return this._scenarioCommandService?.navigate({ ...p, sceneId })
+      || this._chunkNavigator?.teleport({ ...p, sceneId });
   }
 
   _findRegionIndexForScene(sceneId) {
-    const regions = this._worldLoadResult?.project?.worldMap?.regions || [];
-    return regions.findIndex(region => {
-      if ((region.chunks || []).some(chunk => chunk?.sceneId === sceneId)) return true;
-      return (region.grid || []).some(row => (row || []).some(cell => getWorldMapCellSceneId(cell) === sceneId));
-    });
+    return this._worldLoadResult?.worldIndex?.findScene?.(sceneId)?.regionIndex ?? -1;
   }
 
   async prepareRestoreRegion(saveState = {}) {
@@ -1573,9 +1568,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._showScreenTip(message, { title: '大区切换失败' });
       return result || { ok: false, errors: [{ code: 'regionCoordinatorUnavailable', path: 'region', message }] };
     }
+    // Scene 只投影已提交 Region 的表现；checkpoint 必须由独立 checkpoint.request 命令发起。
     this._s09AudioDirector?.syncScene?.(sceneId);
-    const saveResult = await this.requestAutoSave({ reason: 'region-change', sceneId });
-    if (!saveResult?.ok) this._showScreenTip('已进入目标区域，但自动存档失败', { title: '保存失败' });
     return result;
   }
 
@@ -1671,6 +1665,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._campfireService.restore({ lit: false }, { particleSystem: this.particleSystem });
     this._worldLoadSession = shadowSession;
     this._worldLoadResult = result;
+    this._worldIndex = result.worldIndex;
     this._currentRegionIndex = request.regionIndex;
     await this._initializeWorldStreaming(result, request.sceneId, {
       preparedManager: preparedStreamingManager,
@@ -2068,16 +2063,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @returns {{col, row}|null}
    */
   _findChunkInGrid(sceneId) {
-    const region = this._worldRegion;
-    if (!region || !region.grid) return null;
-    for (let row = 0; row < region.grid.length; row++) {
-      const rowArr = region.grid[row];
-      if (!rowArr) continue;
-      for (let col = 0; col < rowArr.length; col++) {
-        if (getWorldMapCellSceneId(rowArr[col]) === sceneId) return { col, row };
-      }
-    }
-    return null;
+    const location = this._worldIndex?.findScene?.(sceneId);
+    return location?.loadable ? { col: location.col, row: location.row } : null;
   }
 
   /**
@@ -2297,12 +2284,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         dialogueSystem: this.dialogueSystem,
         deps: {
           dialogueSystem: this.dialogueSystem,
+          tutorialSystem: this.tutorialSystem,
           questSystem: this.questSystem,
+          commandGateway: this.sceneRuntime?.commandGateway || null,
           combatSystem: this.combatSystem,
           sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
           audioManager: this.audioManager || (eng && eng.audioManager) || null,
           floatingText: this.floatingTextManager,
-          scene: this
+          scene: this,
+          sceneDiagnostics: this._diagnostics
         },
         onShowTip: text => this._showScreenTip(text || ''),
         onItemGained: (item, player) => this.onItemGained(item, player || this.playerEntity),
@@ -2314,9 +2304,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const ready = bridge.initialize({
         projectUrl: 'game.project.json',
         sceneFlag: 'ddScene',
-        sceneId: 'S01',
         registerActions: (trig, gameLoader) => this._registerGameLoaderActions(trig, gameLoader),
         onReady: async (gameLoader, trig) => {
+          this.gameLoader = gameLoader;
+          this.applyRuntimeConfig(gameLoader.runtimeConfigSnapshot);
           const offTriggerLog = trig.on((evt, t) => {
             if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
           });
@@ -2335,8 +2326,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
           this._syncPlayerClassAppearance(currentClass);
 
-          // 项目扩展配置覆盖启动期兼容定义；新游戏首条教学只会在 GameLoader ready 后显示。
-          this._tutorialFlow.configure(createS01TutorialConfig(gameLoader.project));
+          // TutorialDefinition 已由 GameLoader 原子发布给唯一 TutorialSystem。
+          this._tutorialFlow.configure({ category: 's01-survival' });
           this._configureSharedClassEffects(gameLoader);
           await this._installBattleFlow(gameLoader);
           this._installProgressionUI(gameLoader);
@@ -2347,6 +2338,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._gameLoaderReady = ready.then(this.resourceScope.guard(async gameLoader => {
         if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
         await this._worldLoadPromise;
+        if (!this.currentSceneId) throw new Error('ProjectWorldIndex 未提供有效启动入口');
+        gameLoader.triggerSystem.fire('sceneEnter', { sceneId: this.currentSceneId });
         const placementRuntime = this.context.services.placements;
         const placementValidation = placementRuntime?.validateProjection?.()
           || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placements', message: '场景放置运行时尚未就绪' }] };
@@ -2387,7 +2380,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.gameLoader?.triggerSystem?.fire?.(`${name}.${event}`, cloneData(data))
     );
 
-    const shared = this._gameplaySystemAssembler.configureSharedSystems({
+    const sharedPlan = this._gameplaySystemAssembler.configureSharedSystems({
       effectResolver: resolver,
       skillRegistry: gameLoader.skillRegistry,
       proficiency: {
@@ -2436,15 +2429,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       vehicles: {
         resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
         getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
-        createCheckpoint: checkpoint => this.requestAutoSave({
+        createCheckpoint: checkpoint => this._scenarioCommandService?.requestCheckpoint({
           reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
-        }),
+        }) || Promise.resolve({ ok: false, code: 'checkpointServiceUnavailable' }),
         onVehicleEvent: (event, data) => trigger('vehicle', event, data),
         onLogisticsEvent: (event, data) => trigger('vehicleLogistics', event, data),
         onMannedStructureEvent: (event, data) => trigger('mannedStructure', event, data)
       }
     });
-    if (!shared) return false;
+    if (!sharedPlan) return false;
+    this.sceneRuntime.applyRegistrationPlan(sharedPlan);
 
     this.s10ConstructionCoordinator._ensureS10StructureEntities();
     this._ensureSceneVehicleEntities(this.currentSceneId);
@@ -2828,136 +2822,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     progressionSystem.grantPoints(characterId, 'passive', 1);
   }
 
-  /** 将本场景现有触发动作注册到 SceneGameLoaderBridge 创建的 loader。 */
-  _registerGameLoaderActions(trig, gameLoader) {
-    registerSceneTriggerActions(trig, {
-      spawnPlacements: selector => this.context.services.placements?.spawn(selector),
-      teleportToChunk: params => this.teleportToChunk(params),
-      requestAutoSave: params => this.requestAutoSave(params),
-      weatherSystem: this.weatherSystem,
-      timeSystem: this.timeSystem,
-      logger: console
-    });
-    // 场景专属动作：点燃火堆（触发器 do:lightCampfire 调用）
-    trig.registerAction('lightCampfire', () => this._campfireService.ignite({
-      runtime: { particleSystem: this.particleSystem }
-    }));
-    // 场景专属动作：按组激活场景放置点（兼容既有触发器）。
-    trig.registerAction('spawnGroup', p => this.context.services.placements?.spawnGroup(p));
-    // 场景专属动作：倒计时后触发死亡过渡→传送到目标区块
-    trig.registerAction('sceneCountdown', (p) => this._startSceneCountdown(p));
-    // 场景专属动作：提示切幕（等待按 N 或交互键 E 再传送）
-    trig.registerAction('promptSwitch', (p) => this._startPromptSwitch(p));
-    // S01 教学完成后的单一事务出口：一次性奖励、解锁 S02、传送。
-    trig.registerAction('completeS01AndTravel', (p) => (
-      this._s01s02Coordinator.completeS01AndTravel(p)
-    ));
-    // S02 召见对话完成后创建可恢复检查点，再通过 RegionCoordinator 前往 S09。
-    trig.registerAction('acceptS02Summons', (p) => this._s01s02Coordinator.acceptS02Summons(p));
-    trig.registerAction('travelToS09', () => this._s01s02Coordinator.travelToS09());
-    trig.registerAction('travelToS03', () => this.s03s08Coordinator.travelToS03());
-    trig.registerAction('openS03BattleMode', () => this.s03s14BattleCoordinator.open('S03'));
-    trig.registerAction('checkS03Exit', () => this.s03s08Coordinator.checkS03Exit());
-    trig.registerAction('openS04BattleMode', () => this.s03s14BattleCoordinator.open('S04'));
-    trig.registerAction('startS04BocaiRescue', () => this.s03s08Coordinator.startS04BocaiRescue());
-    trig.registerAction('completeS04BocaiEvacuation', () => this.s03s08Coordinator.completeS04BocaiEvacuation());
-    trig.registerAction('openS04RouteChoice', () => this.s03s08Coordinator.openS04RouteChoice());
-    trig.registerAction('openS05BattleMode', () => this.s03s14BattleCoordinator.open('S05'));
-    trig.registerAction('prepareS05Mine', () => this.s05SceneCoordinator.prepareS05Mine());
-    trig.registerAction('showS05MineStatus', () => this.s05SceneCoordinator.showS05MineStatus());
-    trig.registerAction('completeS05MineRetreat', () => this.s05SceneCoordinator.completeS05MineRetreat());
-    trig.registerAction('startS05ZhangManchengRescue', () => this.s05SceneCoordinator.startS05ZhangManchengRescue());
-    trig.registerAction('checkS05Exit', () => this.s05SceneCoordinator.checkS05Exit());
-    trig.registerAction('openS06DefenseChoice', () => this.s06SceneCoordinator.openS06DefenseChoice());
-    trig.registerAction('startS06FieldConstruction', () => this.s06SceneCoordinator.startS06FieldConstruction());
-    trig.registerAction('completeS06Recall', () => this.s06SceneCoordinator.completeS06Recall());
-    trig.registerAction('openS07BattleMode', () => this.s03s14BattleCoordinator.open('S07'));
-    trig.registerAction('commitS07DelayPoint', (p = {}) => this.s07s08Coordinator.commitS07DelayPoint(p));
-    trig.registerAction('checkS07Exit', (p = {}) => this.s07s08Coordinator.checkS07Exit(p));
-    trig.registerAction('openS08RetreatChoice', () => this.s07s08Coordinator.openS08RetreatChoice());
-    trig.registerAction('completeS08Recall', () => this.s07s08Coordinator.completeS08Recall());
-    trig.registerAction('commitS10ZhangJiaoDeath', () => this.s10StoryCoordinator.commitS10ZhangJiaoDeath());
-    trig.registerAction('acknowledgeS10TemporaryCamp', () => this.s10StoryCoordinator.acknowledgeS10TemporaryCamp());
-    trig.registerAction('completeS10CampRelocation', () => this.s10StoryCoordinator.completeS10CampRelocation());
-    trig.registerAction('startS10Construction', (p = {}) => this.s10ConstructionCoordinator.startS10Construction(p));
-    trig.registerAction('cancelS10Construction', (p = {}) => this.s10ConstructionCoordinator.cancelS10Construction(p));
-    trig.registerAction('interactS10Structure', (p = {}) => this.s10ConstructionCoordinator.interactS10Structure(p));
-    trig.registerAction('repairS10Structure', (p = {}) => this.s10ConstructionCoordinator.repairS10Structure(p));
-    trig.registerAction('mountS10ArrowTower', () => this.s10ConstructionCoordinator.mountS10ArrowTower());
-    trig.registerAction('leaveS10ArrowTower', () => this.s10ConstructionCoordinator.leaveS10ArrowTower());
-    trig.registerAction('checkS10Exit', () => this.s10ConstructionCoordinator.checkS10Exit());
-    trig.registerAction('openS11BattleMode', () => this.s03s14BattleCoordinator.open('S11'));
-    trig.registerAction('startS11Rescue', () => this.s11s14SceneCoordinator.startS11Rescue());
-    trig.registerAction('completeS11Beacon', () => this.s11s14SceneCoordinator.completeS11Beacon());
-    trig.registerAction('completeS11GuardRally', () => this.s11s14SceneCoordinator.completeS11GuardRally());
-    trig.registerAction('reportS11AssassinWaveDefeated', (p = {}) => (
-      this.s11s14SceneCoordinator.reportS11AssassinWaveDefeated(p.waveNumber)
-    ));
-    trig.registerAction('completeS11WestGateBreakout', () => (
-      this.s11s14SceneCoordinator.completeS11WestGateBreakout()
-    ));
-    trig.registerAction('interactS11Horse', () => this.s11s14SceneCoordinator.interactS11Horse());
-    trig.registerAction('checkS11Exit', () => this.s11s14SceneCoordinator.checkS11Exit());
-    trig.registerAction('openS12BattleMode', () => this.s03s14BattleCoordinator.open('S12'));
-    trig.registerAction('startS12Rescue', () => this.s11s14SceneCoordinator.startS12Rescue());
-    trig.registerAction('completeS12SecretPassage', () => (
-      this.s11s14SceneCoordinator.completeS12SecretPassage()
-    ));
-    trig.registerAction('completeS12Evacuation', () => this.s11s14SceneCoordinator.completeS12Evacuation());
-    trig.registerAction('useS12LadderEntry', () => this.s11s14SceneCoordinator.useS12LadderEntry());
-    trig.registerAction('burnS12Ladder', (p = {}) => this.s11s14SceneCoordinator.burnS12Ladder(p));
-    trig.registerAction('checkS12Exit', () => this.s11s14SceneCoordinator.checkS12Exit());
-    trig.registerAction('openS13BattleMode', () => this.s03s14BattleCoordinator.open('S13'));
-    trig.registerAction('checkS13Exit', () => this.s11s14SceneCoordinator.checkS13Exit());
-    trig.registerAction('openS14CargoTransfer', () => this.s11s14SceneCoordinator.openS14CargoTransfer());
-    trig.registerAction('resolveS14LastCart', () => this.s11s14SceneCoordinator.resolveS14LastCart());
-    trig.registerAction('resolveS14Catapult', () => this.s11s14SceneCoordinator.resolveS14Catapult());
-    trig.registerAction('operateS14Catapult', () => this.s11s14SceneCoordinator.operateS14Catapult());
-    trig.registerAction('leaveS14Catapult', () => this.s11s14SceneCoordinator.leaveS14Catapult());
-    trig.registerAction('commitS14Ending', (p = {}) => this.s11s14SceneCoordinator.commitS14Ending(p));
-    trig.registerAction('acceptS09Enlistment', () => this.acceptS09Enlistment());
-    trig.registerAction('prepareS09RefugeeConflict', () => this.s09RefugeeCoordinator.prepareS09RefugeeConflict());
-    trig.registerAction('startS09RefugeeConflict', () => this.s09RefugeeCoordinator.startS09RefugeeConflict());
-    trig.registerAction('handleS09RefugeeChoice', (_params, _ctx, event) => (
-      this.s09RefugeeCoordinator.handleS09RefugeeChoice(event?.params?.choiceId)
-    ));
-    trig.registerAction('advanceGameDay', (p = {}) => this.s09RefugeeCoordinator.advanceGameDay(p.days));
-    trig.registerAction('prepareSpecialFaint', (p) => (
-      this._s01s02Coordinator.prepareSpecialFaint(p)
-    ));
-    trig.registerAction('clearSpecialFaint', () => this._s01s02Coordinator.clearSpecialFaint());
-    // 切换到显式注册的独立场景（副本/过场等）；大地图推进一律走 teleportToChunk。
-    trig.registerAction('switchScene', async (p) => {
-      const scene = p.scene || p.target;
-      if (!scene) { console.warn('[DDScene] switchScene: 缺少 scene 参数'); return null; }
-      const sm = (window.gameEngine && window.gameEngine.sceneManager) || this.sceneManager;
-      if (!sm?.scenes?.has?.(scene)) {
-        console.warn('[DDScene] switchScene: 未注册独立场景；区块推进请使用 teleportToChunk', scene);
-        return null;
-      }
-      await this.requestAutoSave({ reason: 'map-change', sceneId: scene });
-      console.log('[DDScene] switchScene →', scene);
-      sm.switchTo(scene, p);
-      return scene;
-    });
-    // 通用动作：切换调试面板
-    trig.registerAction('toggleDebug', () => this._toggleDebugPanel());
-    // 场景专属动作：提示按 N 进入下一波（第一波打完→等按N→第二波）
-    trig.registerAction('promptNextWave', (p) => this._startPromptNextWave(p));
-    // 场景专属动作：逐渐生成饥民（第二波，从四面八方涌入）
-    trig.registerAction('spawnStarvingWave', (p) => this._startStarvingWave(p));
-    // 场景专属动作：批量生成一波敌人（第五幕战役，小兵+名将）
-    trig.registerAction('spawnWave', (p) => this._spawnWave(p));
-    // S09 职业选择：空间 binding 打开确认框，确认后由单一事务提交职业。
-    trig.registerAction('selectClass', (p) => this._selectClass(p));
-    trig.registerAction('confirmClass', (p) => this._showClassConfirmation(p));
-    // 通用动作：关闭获得物品弹窗（剧情自动推进前调用，避免弹窗与对话冲突）
-    trig.registerAction('dismissPopup', () => {
-      if (this.itemGainedPopup && this.itemGainedPopup.visible) {
-        this.itemGainedPopup.hide();
-      }
-      this._gainedQueue = [];
-    });
+  /** Scene 仅装配 Demo action binding；内容路由与 coordinator 调用不再写在 Scene class。 */
+  _registerGameLoaderActions(triggerSystem) {
+    return registerSanguoScenarioActionBindings(triggerSystem, this);
   }
 
   /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */
@@ -3361,18 +3228,39 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       const project = result.project;
       const region = result.region;
       this._worldRegion = region;
+      this._worldIndex = result.worldIndex;
       this.context.world.region = region;
+      this.context.world.worldIndex = result.worldIndex;
+      this.minimap?.setWorldIndex?.(result.worldIndex, region.id);
       this._syncWorldStreamingProjection();
 
-      // 加载天气和时间系统配置
-      if (project?.system) {
-        if (project.system.weather) {
-          this.weatherSystem = new WeatherSystem(project.system.weather);
-        }
-        if (project.system.time) {
-          this.timeSystem = new TimeSystem(project.system.time);
-        }
+      // 所有 runtime consumer 先在 shadow 中解析；全部成功后一次替换。
+      const weatherView = this.gameLoader?.getConfigConsumer?.('runtime.weather');
+      const weatherConfig = weatherView?.get('system.weather');
+      if (!weatherConfig) throw new Error('runtime weather consumer missing');
+      const nextWeatherSystem = new WeatherSystem(weatherConfig);
+      const nextTimeSystem = new TimeSystem(this.gameLoader?.runtimeConfigSnapshot?.system?.time || {});
+
+      const sceneData = this._worldLoadSession?.getSceneData?.(this.currentSceneId);
+      const sceneConsumption = sceneData
+        ? this.gameLoader?.configConsumptionRegistry?.buildSources?.({ scene: sceneData }, {
+          revision: this.gameLoader?.runtimeConfigSnapshot?.definitionRevision || 0,
+          requirements: sceneData?.gameplay?.campfire
+            ? { paths: [{ pathPattern: 'scene.gameplay.campfire.**', required: true }] }
+            : null
+        })
+        : null;
+      const campfireView = sceneConsumption?.getConsumer?.('scene.gameplay');
+      const campfireConfig = campfireView?.get('scene.gameplay.campfire');
+      if (campfireConfig) {
+        const validationService = new SceneCampfireService({ configView: campfireConfig });
+        validationService.dispose();
       }
+
+      this.weatherSystem = nextWeatherSystem;
+      this.timeSystem = nextTimeSystem;
+      this._sceneConsumptionSnapshot = sceneConsumption;
+      if (campfireConfig) this._campfireService.configure(campfireConfig);
 
       // effectZones 已由流式 manager 按当前九宫格投影并同步。
       this._worldReadyGate?.resolve('terrains', this._terrains);
@@ -3518,14 +3406,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 限制相机不超出大地图世界边界 */
   clampCameraToWorldBounds() {
     if (!this.camera) return;
-    // 从 worldMap region 动态计算大地图尺寸
-    const region = this._worldRegion;
-    const cols = region ? region.cols : 4;
-    const rows = region ? region.rows : 4;
-    const chunkW = region ? region.chunkWidth : 1280;
-    const chunkH = region ? region.chunkHeight : 720;
-    const worldWidth = cols * chunkW;
-    const worldHeight = rows * chunkH;
+    const bounds = this._worldIndex?.getBounds?.(this._worldRegion?.id);
+    if (!bounds) return;
+    const worldWidth = bounds.width;
+    const worldHeight = bounds.height;
 
     const halfW = this.camera.width / 2;
     const halfH = this.camera.height / 2;

@@ -247,11 +247,9 @@ export class ContentValidator {
 
     for (const [name, rule] of Object.entries(fields)) {
       const fieldPath = path ? `${path}.${name}` : name;
-      const present = Object.prototype.hasOwnProperty.call(value, name)
-        && value[name] !== undefined
-        && value[name] !== null;
+      const hasField = Object.prototype.hasOwnProperty.call(value, name);
 
-      if (!present) {
+      if (!hasField) {
         if (rule.required) {
           errors.push(makeError(
             ValidationCode.MISSING_FIELD,
@@ -275,8 +273,9 @@ export class ContentValidator {
       }
     }
 
-    // 自定义规则（跨字段约束）
-    if (typeof schema.validate === 'function' && errors.length === 0) {
+    // 自定义规则（跨字段约束）。即使其他独立字段已失败也继续运行，
+    // 以便一次返回完整候选根路径下的全部可判定错误。
+    if (typeof schema.validate === 'function') {
       try {
         const custom = schema.validate(value);
         if (custom && custom.ok === false) {
@@ -297,6 +296,13 @@ export class ContentValidator {
    */
   _validateField(value, rule, path) {
     const errors = [];
+
+    if (value === null) {
+      return rule.nullable === true ? [] : [this._typeError(path, rule.type || 'non-null value', value)];
+    }
+    if (value === undefined) {
+      return [this._typeError(path, rule.type || 'defined JSON value', value)];
+    }
 
     switch (rule.type) {
       case FieldType.STRING:
@@ -391,7 +397,43 @@ export class ContentValidator {
   }
 
   /**
-   * 加载候选内容：解析 → 版本 → Schema 全部通过后才返回新值。
+   * 克隆候选并递归应用 Schema default。
+   * 只有对象上真正不存在该字段时才应用 default；显式 null/undefined 均保留给校验阶段拒绝或接受。
+   *
+   * @param {*} value
+   * @param {string} schemaId
+   * @returns {*}
+   */
+  applyDefaults(value, schemaId) {
+    const clone = value === undefined ? undefined : structuredClone(value);
+    return this._applyDefaultsAgainstSchema(clone, this.getSchema(schemaId));
+  }
+
+  /** @private */
+  _applyDefaultsAgainstSchema(value, schema) {
+    if (!schema || value === null || typeof value !== 'object' || Array.isArray(value)) return value;
+
+    for (const [name, rule] of Object.entries(schema.fields || {})) {
+      if (!Object.prototype.hasOwnProperty.call(value, name)) {
+        if (Object.prototype.hasOwnProperty.call(rule, 'default')) {
+          value[name] = structuredClone(rule.default);
+        }
+        continue;
+      }
+
+      const fieldValue = value[name];
+      if (rule.schema) {
+        value[name] = this._applyDefaultsAgainstSchema(fieldValue, this.getSchema(rule.schema));
+      } else if (rule.itemSchema && Array.isArray(fieldValue)) {
+        const itemSchema = this.getSchema(rule.itemSchema);
+        value[name] = fieldValue.map(item => this._applyDefaultsAgainstSchema(item, itemSchema));
+      }
+    }
+    return value;
+  }
+
+  /**
+   * 加载候选内容：解析 → 版本 → defaults clone → Schema 全部通过后才返回新值。
    *
    * 任一环节失败时返回当前值，调用方据此保持最近一次有效状态可运行。
    *
@@ -408,6 +450,8 @@ export class ContentValidator {
       if (!parsed.ok) return { committed: false, value: currentValue, errors: parsed.errors };
       candidate = parsed.value;
     }
+
+    candidate = this.applyDefaults(candidate, schemaId);
 
     const versionCheck = this.validateVersion(candidate);
     if (!versionCheck.ok) {
@@ -446,6 +490,8 @@ export class ContentValidator {
       const result = this.validateList(candidate, schemaId);
       return { committed: false, value: currentValue, errors: result.errors };
     }
+
+    candidate = candidate.map(item => this.applyDefaults(item, schemaId));
 
     const versionErrors = [];
     candidate.forEach((item, index) => {

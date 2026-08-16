@@ -46,7 +46,8 @@ export class BackpackPanel extends UIElement {
       showAttributeSection: true,
       showEquipmentSection: true,
       onAttributeAllocate: options.onAttributeAllocate,
-      onEquipmentClick: options.onEquipmentClick
+      onEquipmentClick: options.onEquipmentClick,
+      getProjection: options.getProjection
     });
     this.inventoryContent = new InventoryPanel({
       x: this.x + this._inventoryBounds.x,
@@ -59,7 +60,9 @@ export class BackpackPanel extends UIElement {
       onItemDrop: options.onItemDrop,
       onFilterChange: options.onFilterChange,
       onEquipmentChange: options.onEquipmentChange,
-      canUseItem: options.canUseItem
+      canUseItem: options.canUseItem,
+      onIntent: options.onIntent,
+      getProjection: options.getProjection
     });
 
     this._setContentFrameTransparent();

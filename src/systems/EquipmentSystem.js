@@ -104,15 +104,19 @@ export class EquipmentSystem {
     
     if (!statsComponent || !equipmentComponent) return;
 
+    // 上限不变的装备操作必须原样保留当前值；只有上限实际变化时才按既有比例策略调整。
+    const oldHp = statsComponent.hp;
+    const oldMaxHp = statsComponent.maxHp;
+    const oldMp = statsComponent.mp;
+    const oldMaxMp = statsComponent.maxMp;
+    const hpRatio = oldMaxHp > 0 ? oldHp / oldMaxHp : 1;
+    const mpRatio = oldMaxMp > 0 ? oldMp / oldMaxMp : 1;
+
     // 先重置到基础属性
     statsComponent.resetToBaseStats();
 
     // 获取装备属性加成
     const bonusStats = equipmentComponent.getBonusStats();
-    
-    // 保存当前HP/MP比例
-    const hpRatio = statsComponent.maxHp > 0 ? statsComponent.hp / statsComponent.maxHp : 1;
-    const mpRatio = statsComponent.maxMp > 0 ? statsComponent.mp / statsComponent.maxMp : 1;
     
     // 应用装备加成
     if (bonusStats.attack) {
@@ -123,15 +127,22 @@ export class EquipmentSystem {
     }
     if (bonusStats.maxHp) {
       statsComponent.maxHp += bonusStats.maxHp;
-      statsComponent.hp = Math.floor(statsComponent.maxHp * hpRatio);
     }
     if (bonusStats.maxMp) {
       statsComponent.maxMp += bonusStats.maxMp;
-      statsComponent.mp = Math.floor(statsComponent.maxMp * mpRatio);
     }
     if (bonusStats.speed) {
       statsComponent.speed += bonusStats.speed;
     }
+
+    const nextHp = statsComponent.maxHp !== oldMaxHp
+      ? Math.floor(statsComponent.maxHp * hpRatio)
+      : oldHp;
+    const nextMp = statsComponent.maxMp !== oldMaxMp
+      ? Math.floor(statsComponent.maxMp * mpRatio)
+      : oldMp;
+    statsComponent.hp = Math.min(statsComponent.maxHp, Math.max(0, nextHp));
+    statsComponent.mp = Math.min(statsComponent.maxMp, Math.max(0, nextMp));
     
     // 应用元素攻击加成
     if (bonusStats.elementAttack) {

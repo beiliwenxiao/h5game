@@ -17,9 +17,10 @@ export class WorldStreamingManager {
     this.authority = authority;
   }
 
-  init(regionConfig, project, deps = {}) {
+  init(worldIndex, project, deps = {}) {
     const scenes = Array.isArray(project?.scenes) ? project.scenes : [];
-    return this.authority.configureRegion(regionConfig, {
+    return this.authority.configureRegion(worldIndex, {
+      regionRef: deps.regionRef,
       sceneResolver: deps.sceneResolver || (sceneId => scenes.find(scene => scene?.id === sceneId) || null),
       placementAdapter: deps.placementAdapter || null,
       onChunkLoad: deps.onChunkLoad || null,

@@ -12,11 +12,13 @@
  * - storm: 大雨 + 闪电
  */
 export class WeatherSystem {
-  constructor(config = {}) {
-    this.currentWeather = config.default || 'clear';
+  constructor(config = null) {
+    this.currentWeather = config?.default ?? null;
     this.targetWeather = this.currentWeather;
     this.transitionProgress = 1;
-    this.transitionSpeed = config.transitionSpeed || 0.5;
+    this.transitionSpeed = Number.isFinite(Number(config?.transitionSpeed))
+      ? Number(config.transitionSpeed)
+      : 0;
 
     this.weatherDefs = {
       clear:     { fogAdd: 0 },
@@ -29,7 +31,7 @@ export class WeatherSystem {
       storm:     { fogAdd: 0.3, count: 140, windX: 55, windY: 480, lightning: true }
     };
 
-    if (config.particles) {
+    if (config?.particles) {
       for (const [key, val] of Object.entries(config.particles)) {
         if (this.weatherDefs[key]) Object.assign(this.weatherDefs[key], val);
       }
@@ -72,6 +74,7 @@ export class WeatherSystem {
   }
 
   update(deltaTime) {
+    if (!this.targetWeather || !this.weatherDefs[this.targetWeather]) return;
     this._time += deltaTime;
 
     if (this.transitionProgress < 1) {

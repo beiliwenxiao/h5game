@@ -3,24 +3,7 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-import { getWorldMapCellSceneId } from '../WorldMapCell.js';
-
-function findChunkInRegion(region, sceneId) {
-  if (!region || !Array.isArray(region.grid)) return null;
-  for (let row = 0; row < region.grid.length; row++) {
-    const cells = region.grid[row] || [];
-    for (let col = 0; col < cells.length; col++) {
-      const cell = cells[col];
-      const id = getWorldMapCellSceneId(cell);
-      if (id === sceneId) {
-        const width = Number(region.chunkWidth) || 1280;
-        const height = Number(region.chunkHeight) || 720;
-        return { sceneId, row, col, offset: { x: col * width, y: row * height } };
-      }
-    }
-  }
-  return null;
-}
+import { SceneObjectProjector } from './SceneObjectProjector.js';
 
 function setPlayerPosition(player, x, y) {
   if (!player) return false;
@@ -45,25 +28,39 @@ function setCameraPosition(camera, x, y) {
   return true;
 }
 
+function readPosition(target) {
+  const transform = typeof target?.getComponent === 'function' ? target.getComponent('transform') : null;
+  const position = transform?.position || target?.position;
+  if (Number.isFinite(position?.x) && Number.isFinite(position?.y)) return { x: position.x, y: position.y };
+  if (Number.isFinite(target?.x) && Number.isFinite(target?.y)) return { x: target.x, y: target.y };
+  return null;
+}
+
 /** 大地图区块传送器；所有状态访问和副作用均由构造参数注入。 */
 export class ChunkNavigator {
   constructor({
-    getRegion = () => null,
+    getWorldIndex = () => null,
     getChunk = () => null,
     findSpawn = () => null,
     getPlayer = () => null,
     getCamera = () => null,
+    projector = null,
     prepareTarget = null,
+    captureState = null,
+    restoreState = null,
     onSceneEnter = null,
     onFallback = null,
     transition = null
   } = {}) {
-    this.getRegion = getRegion;
+    this.getWorldIndex = getWorldIndex;
     this.getChunk = getChunk;
     this.findSpawn = findSpawn;
     this.getPlayer = getPlayer;
     this.getCamera = getCamera;
+    this.projector = projector || new SceneObjectProjector();
     this.prepareTarget = typeof prepareTarget === 'function' ? prepareTarget : null;
+    this.captureState = typeof captureState === 'function' ? captureState : null;
+    this.restoreState = typeof restoreState === 'function' ? restoreState : null;
     this.onSceneEnter = onSceneEnter;
     this.onFallback = onFallback;
     this.transition = transition;
@@ -72,22 +69,22 @@ export class ChunkNavigator {
   async teleport({ sceneId, spawnRef = null, x = null, y = null, transition = 'none' } = {}) {
     if (!sceneId) return this._fallback({ reason: 'missingSceneId', sceneId, spawnRef });
 
-    let region;
+    let worldIndex;
+    let cell;
     let chunk;
     try {
-      region = this.getRegion?.() || null;
-      chunk = this.getChunk?.(sceneId) || findChunkInRegion(region, sceneId);
+      worldIndex = this.getWorldIndex?.() || null;
+      cell = worldIndex?.findScene?.(sceneId) || null;
+      if (!cell || worldIndex?.isLoadable?.(sceneId) !== true) {
+        return this._fallback({ reason: 'chunkNotFound', sceneId, spawnRef });
+      }
+      chunk = this.getChunk?.(sceneId) || cell;
     } catch (error) {
       return this._fallback({ reason: 'lookupFailed', sceneId, spawnRef, error });
     }
-    if (!chunk) return this._fallback({ reason: 'chunkNotFound', sceneId, spawnRef });
 
-    const chunkWidth = Number(region?.chunkWidth) || 1280;
-    const chunkHeight = Number(region?.chunkHeight) || 720;
-    const offset = chunk.offset || chunk.origin || {
-      x: (Number(chunk.col) || 0) * chunkWidth,
-      y: (Number(chunk.row) || 0) * chunkHeight
-    };
+    const region = worldIndex.getRegion(cell.regionId);
+    const offset = worldIndex.getOffset(sceneId);
     let spawn = null;
     if (spawnRef != null) {
       try {
@@ -100,63 +97,79 @@ export class ChunkNavigator {
     let worldX;
     let worldY;
     if (spawn) {
-      const projected = spawn._worldOffsetApplied === true;
-      worldX = (Number(spawn.x) || 0) + (projected ? 0 : offset.x);
-      worldY = (Number(spawn.y) || 0) + (projected ? 0 : offset.y);
+      worldX = Number(spawn.x) || 0;
+      worldY = Number(spawn.y) || 0;
     } else {
-      const localX = x == null ? chunkWidth / 2 : Number(x) || 0;
-      const localY = y == null ? chunkHeight / 2 : Number(y) || 0;
-      worldX = offset.x + localX;
-      worldY = offset.y + localY;
+      const localX = x == null ? region.chunkWidth / 2 : Number(x) || 0;
+      const localY = y == null ? region.chunkHeight / 2 : Number(y) || 0;
+      const projected = this.projector.project({ x: localX, y: localY }, offset);
+      worldX = projected.x;
+      worldY = projected.y;
     }
 
     const commit = async () => {
-      if (this.prepareTarget) {
-        const prepared = await this.prepareTarget({
-          sceneId,
-          spawnRef,
-          spawn,
-          chunk,
-          x: worldX,
-          y: worldY
-        });
-        if (prepared === false || prepared?.ok === false) {
-          return {
-            ok: false,
-            cancelled: true,
-            reason: 'targetPrepareFailed',
-            errors: prepared?.errors || []
-          };
-        }
-        if (spawnRef != null && !spawn) {
-          try {
-            spawn = prepared?.spawn || this.findSpawn?.(sceneId, spawnRef) || null;
-          } catch (error) {
-            return this._fallback({ reason: 'spawnLookupFailed', sceneId, spawnRef, error });
-          }
-          if (spawn) {
-            const projected = spawn._worldOffsetApplied === true;
-            worldX = (Number(spawn.x) || 0) + (projected ? 0 : offset.x);
-            worldY = (Number(spawn.y) || 0) + (projected ? 0 : offset.y);
-          }
-        }
-      }
       const player = this.getPlayer?.() || null;
       const camera = this.getCamera?.() || null;
-      const playerMoved = setPlayerPosition(player, worldX, worldY);
-      const cameraMoved = setCameraPosition(camera, worldX, worldY);
-      const result = {
-        sceneId,
-        spawnRef,
-        spawn,
-        chunk,
-        x: worldX,
-        y: worldY,
-        playerMoved,
-        cameraMoved
+      const rollback = {
+        player: readPosition(player),
+        camera: readPosition(camera),
+        external: this.captureState ? await this.captureState({ sceneId, spawnRef }) : null
       };
-      if (typeof this.onSceneEnter === 'function') await this.onSceneEnter(result);
-      return result;
+      const restore = async () => {
+        if (rollback.player) setPlayerPosition(player, rollback.player.x, rollback.player.y);
+        if (rollback.camera) setCameraPosition(camera, rollback.camera.x, rollback.camera.y);
+        if (this.restoreState) await this.restoreState(rollback.external, { sceneId, spawnRef });
+      };
+      try {
+        if (this.prepareTarget) {
+          const prepared = await this.prepareTarget({ sceneId, spawnRef, spawn, chunk, x: worldX, y: worldY });
+          if (prepared === false || prepared?.ok === false) {
+            try {
+              await restore();
+            } catch (rollbackError) {
+              return {
+                ok: false, cancelled: true, reason: 'targetRollbackFailed',
+                errors: [
+                  ...(prepared?.errors || []),
+                  { code: rollbackError?.code || 'targetRollbackFailed', path: 'world.teleport.rollback', message: rollbackError?.message || String(rollbackError) }
+                ]
+              };
+            }
+            return {
+              ok: false, cancelled: true, reason: 'targetPrepareFailed',
+              errors: prepared?.errors || []
+            };
+          }
+          if (spawnRef != null && !spawn) {
+            spawn = prepared?.spawn || this.findSpawn?.(sceneId, spawnRef) || null;
+            if (spawn) {
+              worldX = Number(spawn.x) || 0;
+              worldY = Number(spawn.y) || 0;
+            }
+          }
+        }
+        const playerMoved = setPlayerPosition(player, worldX, worldY);
+        const cameraMoved = setCameraPosition(camera, worldX, worldY);
+        const result = { sceneId, spawnRef, spawn, chunk, x: worldX, y: worldY, playerMoved, cameraMoved };
+        if (typeof this.onSceneEnter === 'function') await this.onSceneEnter(result);
+        return { ok: true, ...result };
+      } catch (error) {
+        try {
+          await restore();
+        } catch (rollbackError) {
+          return {
+            ok: false, cancelled: true, reason: 'targetRollbackFailed',
+            errors: [
+              { code: error?.code || 'targetCommitFailed', path: 'world.teleport', message: error?.message || String(error) },
+              { code: rollbackError?.code || 'targetRollbackFailed', path: 'world.teleport.rollback', message: rollbackError?.message || String(rollbackError) }
+            ]
+          };
+        }
+        return {
+          ok: false, cancelled: true, reason: 'targetCommitFailed',
+          errors: [{ code: error?.code || 'targetCommitFailed', path: 'world.teleport', message: error?.message || String(error) }]
+        };
+      }
     };
 
     if (transition === 'none' || !this.transition) return commit();

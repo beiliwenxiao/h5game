@@ -9,5 +9,6 @@ export {
   unwrapJsonRpcResponse
 } from './JsonRpcProtocol.js';
 export { BattleMethod, BattleClient } from './BattleClient.js';
-export { IdempotencyStore, stableDigest } from './IdempotencyStore.js';
+export { IdempotencyStore, IdempotencyStore as RequestResponseDedupStore, stableDigest } from './IdempotencyStore.js';
 export { LocalMockTransport } from './LocalMockTransport.js';
+export { WebSocketJsonRpcTransport, assertJsonRpcTransport } from './WebSocketJsonRpcTransport.js';

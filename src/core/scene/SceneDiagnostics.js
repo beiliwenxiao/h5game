@@ -4,6 +4,7 @@
  * 性能采样状态继续投影到 scene，保持现有帧/渲染管线契约；具体实现集中在此。
  */
 import { DebugPanel } from '../../ui/DebugPanel.js';
+import { normalizeRuntimeDebugMode } from '../CanonicalSnapshot.js';
 import { PerformanceOptimizer } from '../../systems/PerformanceOptimizer.js';
 import { PerformanceMonitor } from '../PerformanceMonitor.js';
 
@@ -14,6 +15,8 @@ const DRAW_METHODS = Object.freeze([
 export class SceneDiagnostics {
   constructor(scene, options = {}) {
     this.scene = scene;
+    this.runtimeConfig = options.runtimeConfig || null;
+    this.records = [];
     scene.debugPanel = null;
     scene.performanceOptimizer = new PerformanceOptimizer({
       cellSize: options.cellSize || 128,
@@ -37,6 +40,48 @@ export class SceneDiagnostics {
     this._collisionInitLogged = false;
   }
 
+  setRuntimeConfig(runtimeConfig = null) {
+    this.runtimeConfig = runtimeConfig;
+    const enabled = normalizeRuntimeDebugMode(runtimeConfig?.debug);
+    this.scene.debugMode = enabled;
+    if (!enabled) this.scene.debugPanel?.hide?.();
+    return enabled;
+  }
+
+  isDebugEnabled() {
+    return normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
+  }
+
+  recordTriggerFailure(envelope, { openPanel = true } = {}) {
+    if (!this.isDebugEnabled()) return false;
+    this.records.push(envelope);
+    const panel = this._ensureDebugPanel();
+    panel.setDiagnosticRecords(this.records);
+    panel.recordFailure(envelope);
+    if (openPanel) panel.show();
+    return true;
+  }
+
+  getRecords() {
+    return this.records.slice();
+  }
+
+  _ensureDebugPanel() {
+    const scene = this.scene;
+    if (!scene.debugPanel) {
+      scene.debugPanel = new DebugPanel({
+        getScene: () => scene,
+        getSceneManager: () => {
+          const engine = typeof window !== 'undefined' ? window.gameEngine : null;
+          return engine?.sceneManager || scene.sceneManager || null;
+        },
+        isDebugEnabled: () => this.isDebugEnabled()
+      });
+    }
+    scene.debugPanel.setDiagnosticRecords(this.records);
+    return scene.debugPanel;
+  }
+
   togglePerformance() {
     const monitor = this.scene.performanceMonitor;
     monitor.toggle();
@@ -46,6 +91,10 @@ export class SceneDiagnostics {
 
   toggleDebugPanel() {
     const scene = this.scene;
+    if (!this.isDebugEnabled()) {
+      scene.debugPanel?.hide?.();
+      return false;
+    }
     console.log('[BaseGameScene][DebugPanel] 收到切换请求', {
       scene: scene.name,
       isActive: scene.isActive,
@@ -57,24 +106,17 @@ export class SceneDiagnostics {
         ? document.querySelectorAll('#debug-panel').length : 0
     });
 
-    if (!scene.debugPanel) {
-      scene.debugPanel = new DebugPanel({
-        getScene: () => scene,
-        getSceneManager: () => {
-          const engine = typeof window !== 'undefined' ? window.gameEngine : null;
-          return engine?.sceneManager || scene.sceneManager || null;
-        }
-      });
-      console.log('[BaseGameScene][DebugPanel] 已创建 DebugPanel 实例');
-    }
+    const panel = this._ensureDebugPanel();
+    if (!scene.debugPanel.visible) console.log('[BaseGameScene][DebugPanel] 已创建或复用 DebugPanel 实例');
 
-    scene.debugPanel.toggle();
+    const visible = panel.toggle();
     console.log('[BaseGameScene][DebugPanel] 切换调用结束', {
       visibleAfter: scene.debugPanel.visible,
       elementConnectedAfter: scene.debugPanel._el?.isConnected || false,
       domElement: typeof document !== 'undefined'
         ? document.getElementById('debug-panel') : null
     });
+    return visible;
   }
 
   setupDrawCallCounter(ctx) {

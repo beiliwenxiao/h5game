@@ -5,6 +5,7 @@
 
 import { InputEventType, PointerButton } from '../input/InputEvent.js';
 import { normalizeSceneObjectSelector, resolveSceneObjects } from './SceneObjectSelector.js';
+import { createSpatialTriggerBinding } from './SpatialTriggerBinding.js';
 
 /**
  * 场景空间触发器绑定：只处理已投影到世界坐标的 binding，行为始终由 TriggerSystem 执行。
@@ -39,14 +40,21 @@ export class SceneTriggerBindingSystem {
     if (this._disposed) return this;
     const ids = new Set();
     this.sceneObjects = Array.isArray(sceneObjects) ? sceneObjects : [];
-    this.bindings = (bindings || []).filter(binding => {
-      if (!binding || binding.type !== 'trigger') return false;
-      if (!binding.id || ids.has(binding.id)) {
-        console.warn('SceneTriggerBindingSystem: binding.id 缺失或重复', binding?.id);
-        return false;
+    this.bindings = (bindings || []).flatMap(rawBinding => {
+      if (!rawBinding || rawBinding.type !== 'trigger') return [];
+      let binding;
+      try {
+        binding = createSpatialTriggerBinding(rawBinding);
+      } catch (error) {
+        console.warn('SceneTriggerBindingSystem: binding 无效', rawBinding?.id, error);
+        return [];
+      }
+      if (!binding.id || !binding.triggerId || ids.has(binding.id)) {
+        console.warn('SceneTriggerBindingSystem: binding.id/triggerId 缺失或 id 重复', binding.id);
+        return [];
       }
       ids.add(binding.id);
-      return true;
+      return [binding];
     });
     this._setActivePrompt(null);
     this._inside.clear();
@@ -144,7 +152,7 @@ export class SceneTriggerBindingSystem {
   }
 
   _eventType(binding) {
-    return this.triggerSystem?.getById?.(binding.triggerId)?.when?.type || binding.event || '';
+    return this.triggerSystem?.getById?.(binding.triggerId)?.when?.type || '';
   }
 
   _fire(binding, eventType = this._eventType(binding)) {
@@ -159,11 +167,8 @@ export class SceneTriggerBindingSystem {
       return false;
     }
 
-    const definition = this.triggerSystem.getById?.(binding.triggerId);
-    const legacyEventTarget = definition?.when?.params?.target;
     const params = {
-      // 旧项目行为仍可使用 when.params.target；新行为通过 targetSelector/targets 获取真实对象。
-      target: legacyEventTarget ?? targets[0]?.id ?? '',
+      target: targets[0]?.id ?? '',
       targetSelector: selector,
       targetObject: targets[0] || null,
       targetObjects: targets,
@@ -173,6 +178,7 @@ export class SceneTriggerBindingSystem {
       sceneId: binding.sceneId
     };
     const fired = this.triggerSystem.fireById(binding.triggerId, eventType, params);
+    const definition = this.triggerSystem.getById?.(binding.triggerId);
     if (fired && definition?.once) {
       this._completedBindings.add(binding.id);
       if (this._activePromptBindingId === binding.id) this._setActivePrompt(null);
@@ -182,11 +188,7 @@ export class SceneTriggerBindingSystem {
   }
 
   _selector(binding) {
-    return normalizeSceneObjectSelector({
-      mode: binding.targetMode,
-      value: binding.target,
-      sceneId: binding.sceneId
-    });
+    return normalizeSceneObjectSelector(binding.selector || { sceneId: binding.sceneId });
   }
 
   _resolveDynamicTargets(binding, selector = this._selector(binding)) {

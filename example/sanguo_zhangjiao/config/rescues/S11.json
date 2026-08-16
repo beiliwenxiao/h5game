@@ -8,6 +8,10 @@
   "requiredGuardCount": 6,
   "assassinWaveCount": 3,
   "evacuationRef": "zhang-liang-west-gate",
+  "evacuationRadius": 100,
+  "followDistance": 62,
+  "followMaxDistance": 320,
+  "followOffset": { "x": -28, "y": 18 },
   "stages": [
     { "id": "light-beacon", "objective": "点燃广宗烽火，召集失散卫兵" },
     { "id": "rally-guards", "objective": "在集合区集结至少 6 名卫兵" },

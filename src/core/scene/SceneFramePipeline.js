@@ -4,6 +4,8 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+import { FramePhase } from './GameSceneRuntime.js';
+
 /**
  * SceneFramePipeline - 游戏场景帧更新编排（框架级）
  *
@@ -58,10 +60,12 @@ export class SceneFramePipeline {
     const effectZoneRenderer = presentation.effectZoneRenderer;
     const inputFlow = services.input;
     const hudUpdater = services.hud;
+    const runtime = context?.runtime?.sceneRuntime || null;
     if (!scene.isActive || scene.isPaused) return;
+    const frameToken = runtime?.beginFrame?.() || null;
 
-    // 运行时输入前阶段：仅调度显式阶段钩子，不采集/清空输入。
-    scene._runRuntimePhase?.('beforeInput', deltaTime);
+    // 帧管线只调用 Runtime 阶段入口；兼容 Scene 字段不再参与生命周期调度。
+    runtime?.runFramePhase?.(FramePhase.BEFORE_INPUT, deltaTime, { scene, frameToken });
 
     // 顶层输入流程保证手柄帧首 poll、弹窗优先于战斗，并统一路由输入。
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
@@ -71,7 +75,7 @@ export class SceneFramePipeline {
     // 技能轮盘只冻结世界模拟，不能使用 isPaused，否则下一帧无法读取 LB 松开沿。
     if (scene.isSkillWheelWorldPaused) {
       if (inputFlow) inputFlow.flush();
-      else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
+      else if (runtime) runtime.flushInput({ frameToken });
       else inputManager?.update?.();
       return;
     }
@@ -79,7 +83,7 @@ export class SceneFramePipeline {
     // jump/攀爬由 SceneInputFlow → InputActionRouter 的 SKILL 优先级统一消费。
 
     // 运行时优先输入阶段保留旧扩展 hook 的准确位置。
-    scene._runRuntimePhase?.('priorityInput', deltaTime);
+    runtime?.runFramePhase?.(FramePhase.PRIORITY_INPUT, deltaTime, { scene, frameToken });
 
     // 性能监控：关闭时不读取高精度时钟。
     const monitorEnabled = scene.performanceMonitor?.enabled === true;
@@ -146,8 +150,12 @@ export class SceneFramePipeline {
     }
 
     // 更新所有实体
-    // 运行时系统阶段：迁移期默认只执行阶段钩子，旧 ECS 更新顺序保持在下方。
-    scene._runRuntimePhase?.('systems', deltaTime);
+    // 运行时系统阶段按 frame token 去重；旧 ECS 更新顺序保持在下方。
+    runtime?.runFramePhase?.(FramePhase.SYSTEMS, deltaTime, {
+      scene,
+      frameToken,
+      updateSystems: true
+    });
     abilitySystem?.update?.(deltaTime, entities);
     gatheringSystem?.update?.(deltaTime);
     gatheringPuppetSystem?.update?.(deltaTime);
@@ -305,9 +313,9 @@ export class SceneFramePipeline {
     hudUpdater?.updateMinimap(deltaTime);
 
     // 输入清帧必须保持在原有的正常帧末尾；转场提前返回路径只 releaseFrame。
-    scene._runRuntimePhase?.('afterScene', deltaTime);
+    runtime?.runFramePhase?.(FramePhase.AFTER_SCENE, deltaTime, { scene, frameToken });
     if (inputFlow) inputFlow.flush();
-    else if (scene.sceneRuntime) scene.sceneRuntime.flushInput();
+    else if (runtime) runtime.flushInput({ frameToken });
     else inputManager.update();
 
     // 性能监控关闭时不做计时、可见实体裁剪、纹理遍历和对象池快照。

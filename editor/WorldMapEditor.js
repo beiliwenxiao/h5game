@@ -11,7 +11,33 @@
  ************************************************************/
 
 import { SceneEditorCanvas } from './SceneEditorCanvas.js';
+import { ProjectWorldIndex } from '../src/core/ProjectWorldIndex.js';
+import { CanonicalSceneRepository } from '../src/core/scene/CanonicalSceneRepository.js';
+import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
 import { getWorldMapCellSceneId, isReservedWorldMapCell } from '../src/core/WorldMapCell.js';
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
+
+export function validateWorldMapRepositoryClosure(project, repositorySceneIds) {
+  const closure = repositorySceneIds instanceof Set
+    ? repositorySceneIds
+    : new Set(repositorySceneIds || []);
+  const errors = [];
+  for (const [regionIndex, region] of (project?.worldMap?.regions || []).entries()) {
+    for (const [rowIndex, row] of (region?.grid || []).entries()) {
+      for (const [colIndex, cell] of (row || []).entries()) {
+        const sceneId = getWorldMapCellSceneId(cell, { includeReserved: true });
+        if (sceneId && !closure.has(sceneId)) {
+          errors.push({
+            code: 'sceneOutsideRepositoryClosure',
+            path: `worldMap.regions[${regionIndex}].grid[${rowIndex}][${colIndex}]`,
+            message: `场景 ID 不在磁盘 repository closure: ${sceneId}`
+          });
+        }
+      }
+    }
+  }
+  return { ok: errors.length === 0, errors };
+}
 
 /**
  * WorldMapEditor - 大地图块编辑器 Tab（P5-5）
@@ -25,7 +51,7 @@ import { getWorldMapCellSceneId, isReservedWorldMapCell } from '../src/core/Worl
  *   - 全局拼接预览（缩略图）
  *   - 读写 game.project.json 的 worldMap 字段
  *
- * 与 EditorDataManager 通信：读写同一份 GameProject（localStorage + /api/save-file）
+ * 与 EditorDataManager 通信：磁盘 canonical transaction 成功后同步 localStorage 缓存。
  */
 export class WorldMapEditor {
   /**
@@ -37,20 +63,12 @@ export class WorldMapEditor {
     this.gameId = opts.gameId || 'sanguo_zhangjiao';
     this.projectPath = this._normalizeProjectPath(opts.projectPath || `example/${this.gameId}/game.project.json`);
     this.project = null;
+    this.worldIndex = null;
     this._sceneDataById = new Map();
+    this._repositorySceneIds = null;
 
-    // 当前编辑的 region 数据
-    this.region = {
-      id: 'prologue_world',
-      chunkWidth: 1280,
-      chunkHeight: 720,
-      cols: 2,
-      rows: 2,
-      grid: [
-        [null, null],
-        [null, null]
-      ]
-    };
+    // 项目加载前不生成 Demo 尺寸或入口；加载成功后只从 ProjectWorldIndex 投影可编辑草稿。
+    this.region = { id: '', name: '', chunkWidth: '', chunkHeight: '', cols: 0, rows: 0, grid: [] };
 
     // 可选场景列表（从 GameProject.scenes 读取）
     this.availableScenes = [];
@@ -74,7 +92,9 @@ export class WorldMapEditor {
     this.projectPath = nextProjectPath;
     if (changed) {
       this.project = null;
+      this.worldIndex = null;
       this._sceneDataById.clear();
+      this._repositorySceneIds = null;
       this._loadedImages?.clear?.();
     }
     return changed;
@@ -108,43 +128,22 @@ export class WorldMapEditor {
       return;
     }
 
-    // 读可选场景列表（从 localStorage 编辑器场景数据 + project.scenes）
-    this.availableScenes = [];
-    if (Array.isArray(this.project.scenes)) {
-      for (const s of this.project.scenes) {
-        if (s && s.id) this.availableScenes.push(s.id);
-      }
-    }
-    // 也从 localStorage 读编辑器已保存的场景 id
     try {
-      const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + this.gameId);
-      if (raw) {
-        const scenes = JSON.parse(raw);
-        if (Array.isArray(scenes)) {
-          for (const s of scenes) {
-            if (s && s.id && !this.availableScenes.includes(s.id)) {
-              this.availableScenes.push(s.id);
-            }
-          }
-        }
-      }
-    } catch (e) { /* ignore */ }
-
-    // 读 worldMap
-    if (this.project.worldMap && this.project.worldMap.regions && this.project.worldMap.regions[0]) {
-      this._currentRegionIndex = 0;
-      const r = this.project.worldMap.regions[0];
-      this.region = {
-        id: r.id || 'default',
-        name: r.name || '',
-        chunkWidth: r.chunkWidth || 1280,
-        chunkHeight: r.chunkHeight || 720,
-        cols: r.cols || 2,
-        rows: r.rows || 2,
-        grid: r.grid || []
-      };
-      this._normalizeGrid();
+      this.worldIndex = ProjectWorldIndex.build(this.project);
+    } catch (error) {
+      console.warn('[WorldMapEditor] 世界索引校验失败', error?.errors || error);
+      this._showToast?.(error?.errors?.[0]?.message || error.message, 'error');
+      return;
     }
+
+    // 可选场景只来自 canonical project closure；localStorage 不得扩展 ID 集合。
+    this.availableScenes = Array.isArray(this.project.scenes)
+      ? this.project.scenes.map(scene => scene?.id).filter(Boolean)
+      : [];
+
+    this._currentRegionIndex = 0;
+    const indexedRegion = this.worldIndex.getRegion(0);
+    if (indexedRegion) this.region = this._createRegionDraft(indexedRegion);
 
     await this._loadSceneDataFromDisk();
     this._populateRegionSelect();
@@ -153,17 +152,28 @@ export class WorldMapEditor {
     this._render();
   }
 
-  _collectLoadableSceneIds() {
-    const ids = new Set(this.availableScenes);
-    for (const region of this.project?.worldMap?.regions || []) {
-      for (const row of region.grid || []) {
-        for (const cell of row || []) {
-          const sceneId = getWorldMapCellSceneId(cell);
-          if (sceneId) ids.add(sceneId);
-        }
-      }
+  _createRegionDraft(indexedRegion) {
+    const grid = Array.from({ length: indexedRegion.rows }, () => Array(indexedRegion.cols).fill(null));
+    for (const cell of this.worldIndex.getCells(indexedRegion.id, { includeReserved: true })) {
+      grid[cell.row][cell.col] = cell.reserved
+        ? { sceneId: cell.sceneId, reserved: true }
+        : cell.sceneId;
     }
-    return [...ids];
+    return {
+      id: indexedRegion.id,
+      name: indexedRegion.name,
+      chunkWidth: indexedRegion.chunkWidth,
+      chunkHeight: indexedRegion.chunkHeight,
+      cols: indexedRegion.cols,
+      rows: indexedRegion.rows,
+      grid
+    };
+  }
+
+  _collectLoadableSceneIds() {
+    return this.worldIndex
+      ? this.worldIndex.regions.flatMap(region => this.worldIndex.getCells(region.id).map(cell => cell.sceneId))
+      : [];
   }
 
   async _readJsonFile(filePath) {
@@ -184,14 +194,29 @@ export class WorldMapEditor {
     }
   }
 
-  /** 磁盘场景 JSON 是缩略图事实源；localStorage 仅作为读取失败时的 fallback。 */
+  /** 磁盘 repository 是缩略图事实源；缓存仅在同 ID 不可读/解析失败时受限 fallback。 */
   async _loadSceneDataFromDisk() {
     this._sceneDataById.clear();
     const basePath = this.projectPath.slice(0, this.projectPath.lastIndexOf('/') + 1);
-    await Promise.all(this._collectLoadableSceneIds().map(async sceneId => {
-      const scene = await this._readJsonFile(`${basePath}assets/scenes/${sceneId}.json`);
-      if (scene && typeof scene === 'object') this._sceneDataById.set(sceneId, scene);
-    }));
+    const repository = new CanonicalSceneRepository({
+      diskAdapter: new FetchDiskSceneAdapter({
+        projectUrl: `/${this.projectPath}`,
+        sceneBaseUrl: `/${basePath}assets/scenes/`
+      }),
+      cacheAdapter: new LocalStorageSceneCacheAdapter({ gameId: this.gameId }),
+      mode: 'thumbnail'
+    });
+    const result = await repository.refresh();
+    if (!result.ok) {
+      console.warn('[WorldMapEditor] canonical 场景仓库刷新失败', result.errors);
+      return;
+    }
+    this._repositorySceneIds = new Set(result.snapshot.ids);
+    this.availableScenes = result.snapshot.ids.slice();
+    for (const sceneId of this._collectLoadableSceneIds()) {
+      const scene = result.snapshot.getScene(sceneId);
+      if (scene) this._sceneDataById.set(sceneId, scene);
+    }
   }
 
   /**
@@ -203,22 +228,31 @@ export class WorldMapEditor {
       return;
     }
 
-    if (!this.project.worldMap) this.project.worldMap = { regions: [] };
-    if (!this.project.worldMap.regions) this.project.worldMap.regions = [];
     const idx = this._currentRegionIndex || 0;
-    this.project.worldMap.regions[idx] = { ...this.region };
+    const candidate = JSON.parse(JSON.stringify(this.project));
+    if (!candidate.worldMap || !Array.isArray(candidate.worldMap.regions)) {
+      this._showToast('项目缺少 canonical worldMap.regions', 'error');
+      return;
+    }
+    candidate.worldMap.regions[idx] = JSON.parse(JSON.stringify(this.region));
+    const closureResult = validateWorldMapRepositoryClosure(candidate, this._repositorySceneIds);
+    if (!closureResult.ok) {
+      this._showToast(closureResult.errors[0].message, 'error');
+      return;
+    }
+    let candidateIndex;
+    try {
+      candidateIndex = ProjectWorldIndex.build(candidate);
+    } catch (error) {
+      this._showToast(error?.errors?.[0]?.message || error.message, 'error');
+      return;
+    }
 
     try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
-      });
-      if (res.ok) {
-        this._showToast('大地图已保存 ✓');
-      } else {
-        this._showToast('保存失败: ' + res.status, 'error');
-      }
+      await replaceCanonicalFile(this.projectPath, JSON.stringify(candidate, null, 2));
+      this.project = candidate;
+      this.worldIndex = candidateIndex;
+      this._showToast('大地图已保存 ✓');
     } catch (e) {
       this._showToast('保存异常: ' + e.message, 'error');
     }
@@ -266,8 +300,14 @@ export class WorldMapEditor {
 
     this._el.querySelector('.wme-region-id').oninput = (e) => { this.region.id = e.target.value; };
     this._el.querySelector('.wme-region-name').oninput = (e) => { this.region.name = e.target.value; };
-    this._el.querySelector('.wme-chunk-w').oninput = (e) => { this.region.chunkWidth = parseInt(e.target.value) || 1280; };
-    this._el.querySelector('.wme-chunk-h').oninput = (e) => { this.region.chunkHeight = parseInt(e.target.value) || 720; };
+    this._el.querySelector('.wme-chunk-w').oninput = (e) => {
+      const value = Number(e.target.value);
+      if (Number.isFinite(value) && value > 0) this.region.chunkWidth = value;
+    };
+    this._el.querySelector('.wme-chunk-h').oninput = (e) => {
+      const value = Number(e.target.value);
+      if (Number.isFinite(value) && value > 0) this.region.chunkHeight = value;
+    };
 
     // 地图选择器
     this._el.querySelector('.wme-region-select').onchange = (e) => {
@@ -339,21 +379,10 @@ export class WorldMapEditor {
 
   /** 切换当前编辑的 region */
   _switchRegion(index) {
-    if (!this.project || !this.project.worldMap || !this.project.worldMap.regions) return;
-    const regions = this.project.worldMap.regions;
-    if (index < 0 || index >= regions.length) return;
+    const indexedRegion = this.worldIndex?.getRegion?.(index);
+    if (!indexedRegion) return;
     this._currentRegionIndex = index;
-    const r = regions[index];
-    this.region = {
-      id: r.id || 'default',
-      name: r.name || '',
-      chunkWidth: r.chunkWidth || 1280,
-      chunkHeight: r.chunkHeight || 720,
-      cols: r.cols || 2,
-      rows: r.rows || 2,
-      grid: r.grid || []
-    };
-    this._normalizeGrid();
+    this.region = this._createRegionDraft(indexedRegion);
     // 更新输入框
     this._el.querySelector('.wme-region-id').value = this.region.id;
     this._el.querySelector('.wme-region-name').value = this.region.name || '';
@@ -367,18 +396,27 @@ export class WorldMapEditor {
   /** 新建地图 region */
   _addNewRegion() {
     const name = prompt('新地图名称:', '新地图');
-    if (!name) return;
+    if (!name || !this.worldIndex) return;
+    const sourceRegion = this.worldIndex.getRegion(this._currentRegionIndex || 0);
+    if (!sourceRegion) return;
     const id = 'region_' + Date.now();
     const newRegion = {
       id, name,
-      chunkWidth: 1280, chunkHeight: 720,
-      cols: 2, rows: 2,
-      grid: [[null, null], [null, null]]
+      chunkWidth: sourceRegion.chunkWidth,
+      chunkHeight: sourceRegion.chunkHeight,
+      cols: sourceRegion.cols,
+      rows: sourceRegion.rows,
+      grid: Array.from({ length: sourceRegion.rows }, () => Array(sourceRegion.cols).fill(null))
     };
-    if (!this.project) this.project = {};
-    if (!this.project.worldMap) this.project.worldMap = { regions: [] };
-    if (!this.project.worldMap.regions) this.project.worldMap.regions = [];
-    this.project.worldMap.regions.push(newRegion);
+    const candidate = JSON.parse(JSON.stringify(this.project));
+    candidate.worldMap.regions.push(newRegion);
+    try {
+      this.worldIndex = ProjectWorldIndex.build(candidate);
+      this.project = candidate;
+    } catch (error) {
+      this._showToast(error?.errors?.[0]?.message || error.message, 'error');
+      return;
+    }
     this._populateRegionSelect();
     // 切换到新建的
     const idx = this.project.worldMap.regions.length - 1;

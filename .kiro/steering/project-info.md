@@ -137,7 +137,7 @@ android/                  # Android 发布权威工程
 ## 10. 编辑器与资产审计
 
 - 世界网格从当前游戏磁盘 `game.project.json` 加载；`builtin-games.json` 只登记游戏入口，不复制第二份世界事实。
-- 场景编辑器保存正常路径同时写磁盘 JSON 与 localStorage；审计和发布引用始终以磁盘文件为准。
+- 场景编辑器 canonical 保存只通过 Vite `POST /api/canonical-transaction` 写回原磁盘 JSON；普通 `/api/save-file` 拒绝 `game.project.json` 与 `assets/scenes/*.json`。磁盘 commit point 成功后才同步 localStorage 缓存，提交前失败不得改缓存。
 - 发布资产审计只扫描 `SXX.json` / `SXX-CNN.json`，排除旧 `s0-*`、模板和其他非 canonical JSON。
 - 审计覆盖稳定 ID 重复、Manifest 文件断链、未登记图片、scene imageId/atlasId、slice、placeholder、3D fallback 和音频 cue 断链；只生成报告，不自动修复。
 - 未被场景对象实际引用的 `imageAssets` 只作为清理提示，不算发布引用。

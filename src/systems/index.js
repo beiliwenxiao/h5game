@@ -41,6 +41,7 @@ export { TeamSystem, Team, TeamMember, TeamInvite, TeamState, TeamRole, InviteSt
 export { PVPSystem, PVPPlayerData, ArenaBattle, PVPState, ArenaState, PVPConfig } from './PVPSystem.js';
 export { DialogueSystem } from './DialogueSystem.js';
 export { TutorialSystem } from './TutorialSystem.js';
+export { TutorialDefinitionRepository } from './TutorialDefinitionRepository.js';
 export { ProgressManager } from './ProgressManager.js';
 export { ClassSystem, ClassType, ClassNames, ClassInstructors, ClassData, SpecializationData } from './ClassSystem.js';
 export { AISystem } from './AISystem.js';

@@ -32,15 +32,23 @@ import { ObjectiveComponent } from './components/ObjectiveComponent.js';
 import { ControllerComponent, ControllerKind } from './components/ControllerComponent.js';
 import { NpcComponent } from './components/NpcComponent.js';
 import { ResourceNodeComponent } from './components/ResourceNodeComponent.js';
-import { DeathDropComponent } from './components/DeathDropComponent.js';
 
 /**
  * 实体工厂类
  * 提供创建各种游戏实体的工厂方法
  */
 export class EntityFactory {
-  constructor() {
+  constructor({ itemRuntimeFactory = null } = {}) {
     this.entityIdCounter = 0;
+    this.itemRuntimeFactory = itemRuntimeFactory;
+  }
+
+  setItemRuntimeFactory(itemRuntimeFactory) {
+    if (!itemRuntimeFactory?.createDeathDropProjection) {
+      throw new TypeError('EntityFactory requires ItemRuntimeFactory');
+    }
+    this.itemRuntimeFactory = itemRuntimeFactory;
+    return this;
   }
 
   /**
@@ -513,42 +521,15 @@ export class EntityFactory {
   }
 
   createDeathDrop(data = {}) {
-    const entity = new Entity(data.id || `death-drop-${data.deathId || this.generateId()}`, 'loot');
-    const position = data.position || { x: 0, y: 0 };
-    const spriteData = data.sprite && typeof data.sprite === 'object' ? data.sprite : {};
-    const stableId = data.imageId || data.assetId || spriteData.imageId || spriteData.assetId
-      || data.spriteSheet || '';
-    const name = data.name || '遗失物资';
-    entity.addComponent(new TransformComponent(position.x, position.y));
-    entity.addComponent(new DeathDropComponent(data));
-    const sprite = new SpriteComponent(stableId, {
-      width: spriteData.width || data.width || 40,
-      height: spriteData.height || data.height || 36,
-      color: spriteData.color || data.color || '#d6a94f',
-      visible: spriteData.visible !== false,
-      defaultAnimation: 'idle',
-      isStatic: Boolean(stableId)
+    if (!this.itemRuntimeFactory) {
+      throw new Error('EntityFactory.createDeathDrop requires injected ItemRuntimeFactory');
+    }
+    return this.itemRuntimeFactory.createDeathDropProjection({
+      ...data,
+      entityId: data.entityId || data.id,
+      transform: data.transform || data.position,
+      presentation: data.presentation || data
     });
-    sprite.scale = spriteData.scale || data.scale || 1;
-    sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
-    entity.addComponent(sprite);
-    entity.addComponent(new NameComponent(name, {
-      color: data.nameStyle?.color || '#ffd36a',
-      fontSize: data.nameStyle?.fontSize || 14,
-      offsetY: data.nameStyle?.offsetY ?? -22,
-      visible: data.nameStyle?.visible !== false
-    }));
-    entity.itemData = {
-      id: 'death-drop', type: 'death_drop', name,
-      imageId: stableId || null, assetId: stableId || null
-    };
-    entity.imageId = stableId || null;
-    entity.assetId = stableId || null;
-    entity.name = name;
-    entity.x = position.x;
-    entity.y = position.y;
-    entity.tags = ['loot', 'deathDrop'];
-    return entity;
   }
 
   createBuilding(data = {}) {
@@ -619,7 +600,10 @@ export class EntityFactory {
       onDestroyed: data.onDestroyed,
       logistics: data.logistics
     }));
-    if (data.cargo) entity.addComponent(new CargoComponent(data.cargo));
+    if (data.cargo) entity.addComponent(new CargoComponent({
+      ...data.cargo,
+      definitionResolver: id => this.itemRuntimeFactory?.resolveDefinition?.(id) || null
+    }));
 
     // 载具移动能力（复用 MovementSystem）
     entity.addComponent(new MovementComponent({ speed: data.speed != null ? data.speed : 120 }));

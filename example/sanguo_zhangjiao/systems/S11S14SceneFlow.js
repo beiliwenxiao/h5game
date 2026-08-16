@@ -47,9 +47,9 @@ function formatFailure(result, fallback) {
   const messages = {
     modeNotAllowed: '只有介入战役后才能启动救援。',
     battleNotIntervened: '当前战役未处于可救援的介入状态。',
-    guardsMissing: `集合区内存活卫兵不足：${result?.actual || 0}/${result?.required || 6}。`,
+    guardsMissing: `集合区内存活卫兵不足：${result?.actual || 0}/${result?.required}。`,
     stageNotActive: '当前救援阶段尚未开放。',
-    secretPassageLocked: '府衙门尚未守满 60 秒，密道还未开放。',
+    secretPassageLocked: '府衙门防守时限尚未满足，密道还未开放。',
     escortLocked: '先开启密道，再护送目标撤离。',
     rescueResourceMissing: `救援物资不足：${result?.itemId || '资源'} 缺少 ${result?.missing || 0}。`,
     coordinatorBusy: '救援结果正在保存，请稍候。'
@@ -369,7 +369,7 @@ const s11s12Methods = {
       return false;
     }
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem?.getState?.());
-    this._showScreenTip('120 秒计时开始。先点燃烽火召集六名卫兵。', { title: '张梁突围' });
+    this._showScreenTip(`${rescueDefinition.duration} 秒计时开始。先点燃烽火召集${rescueDefinition.requiredGuardCount}名卫兵。`, { title: '张梁突围' });
     return true;
   },
 
@@ -413,7 +413,8 @@ const s11s12Methods = {
       this._clearedGroups?.delete?.(`S11-assassin-wave-${wave}`);
       return false;
     }
-    if (wave < 3) {
+    const waveCount = Number(this.s03s14BattleCoordinator?.getRescueDefinition?.(S11_RESCUE_ID)?.assassinWaveCount);
+    if (wave < waveCount) {
       const nextWave = wave + 1;
       this._s11PendingWaveActivation = nextWave;
       const activated = await this._retryS11WaveActivation();
@@ -424,7 +425,7 @@ const s11s12Methods = {
         { title: '继续迎敌' }
       );
     } else {
-      this._showScreenTip('三波刺客全部击退。护送张梁前往西门突围点。', { title: '西门已开放' });
+      this._showScreenTip(`${waveCount} 波刺客全部击退。护送张梁前往西门突围点。`, { title: '西门已开放' });
     }
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem?.getState?.());
     return true;
@@ -436,7 +437,10 @@ const s11s12Methods = {
     const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const targetTransform = target?.getComponent?.('transform');
     const exit = this._worldLoadSession?.findSpawn?.('S11', definition?.evacuationRef);
-    if (!targetTransform || !exit || Math.hypot(targetTransform.position.x - exit.x, targetTransform.position.y - exit.y) > 100) {
+    if (!targetTransform || !exit || Math.hypot(
+      targetTransform.position.x - exit.x,
+      targetTransform.position.y - exit.y
+    ) > Number(definition?.evacuationRadius)) {
       this._showScreenTip('张梁尚未到达西门，请继续护送。', { title: '突围未完成' });
       return false;
     }
@@ -485,7 +489,7 @@ const s11s12Methods = {
       return false;
     }
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem?.getState?.());
-    this._showScreenTip('粮食与草药已提交。守住府衙门 60 秒，提前破门则救援失败。', { title: '张宝救援' });
+    this._showScreenTip(`粮食与草药已提交。守住府衙门 ${rescueDefinition.duration} 秒，提前破门则救援失败。`, { title: '张宝救援' });
     return true;
   },
 
@@ -509,7 +513,10 @@ const s11s12Methods = {
     const target = (this.entities || []).find(entity => entity?.id === definition?.targetEntityId);
     const targetTransform = target?.getComponent?.('transform');
     const exit = this._worldLoadSession?.findSpawn?.('S12', definition?.evacuationRef);
-    if (!targetTransform || !exit || Math.hypot(targetTransform.position.x - exit.x, targetTransform.position.y - exit.y) > 100) {
+    if (!targetTransform || !exit || Math.hypot(
+      targetTransform.position.x - exit.x,
+      targetTransform.position.y - exit.y
+    ) > Number(definition?.evacuationRadius)) {
       this._showScreenTip('张宝尚未进入撤离点，请继续护送。', { title: '撤离未完成' });
       return false;
     }
@@ -544,8 +551,10 @@ const s11s12Methods = {
     if (this._s11WaveActivationPromise) return this._s11WaveActivationPromise;
     const rescue = this.rescueSystem?.getState?.();
     if (rescue?.status !== RescueStatus.ACTIVE || rescue.stageId !== 'repel-assassins') return false;
+    const waveCount = Number(this.s03s14BattleCoordinator?.getRescueDefinition?.(S11_RESCUE_ID)?.assassinWaveCount);
+    if (!Number.isInteger(waveCount) || waveCount <= 0) return false;
     const defeated = Math.max(0, Math.floor(Number(this.s11s12Coordinator?.state?.s11?.assassinWavesDefeated) || 0));
-    const wave = this._s11PendingWaveActivation || Math.min(3, defeated + 1);
+    const wave = this._s11PendingWaveActivation || Math.min(waveCount, defeated + 1);
     const group = `S11-assassin-wave-${wave}`;
     if ((this._groupEnemies?.[group] || []).length > 0) {
       this._s11PendingWaveActivation = null;
@@ -581,9 +590,15 @@ const s11s12Methods = {
         playerTransform.position.y - targetTransform.position.y
       );
       const movement = target.getComponent?.('movement');
-      if (movement && distance > 62 && distance < 320) {
-        movement.setPath([{ x: playerTransform.position.x - 28, y: playerTransform.position.y + 18 }]);
-      } else if (movement && distance <= 62) movement.stop();
+      const followDistance = Number(rescueDefinition.followDistance);
+      const followMaxDistance = Number(rescueDefinition.followMaxDistance);
+      const followOffset = rescueDefinition.followOffset;
+      if (movement && distance > followDistance && distance < followMaxDistance) {
+        movement.setPath([{
+          x: playerTransform.position.x + Number(followOffset.x),
+          y: playerTransform.position.y + Number(followOffset.y)
+        }]);
+      } else if (movement && distance <= followDistance) movement.stop();
     }
     this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem.getState());
     if (this._s11s12RuntimePromise) return;
@@ -1092,6 +1107,7 @@ const s13s14Methods = {
       cargoCapacityFull: '马车货舱容量不足。',
       insufficientItems: '来源物品数量不足。',
       operationIdConflict: '操作内容已变化，请重新确认。',
+      operationConflict: '操作内容已变化，请重新确认。',
       vehicleCheckpointRejected: '保存检查点失败，本次转移已回滚。'
     };
     return messages[result.code] || result.message || result.code || '转移失败，状态未改变。';
@@ -1120,12 +1136,10 @@ const s13s14Methods = {
       return true;
     }
 
-    const source = direction === 'toCargo' ? inventory : cargo;
-    const target = direction === 'toCargo' ? cargo : inventory;
-    const sourceOwnerId = direction === 'toCargo'
+    const sourceId = direction === 'toCargo'
       ? `${this.playerEntity?.id || 'player'}:inventory`
       : `${cart.id}:cargo`;
-    const targetOwnerId = direction === 'toCargo'
+    const targetId = direction === 'toCargo'
       ? `${cart.id}:cargo`
       : `${this.playerEntity?.id || 'player'}:inventory`;
     const payloadKey = JSON.stringify([cart.id, direction, command.itemId, quantity]);
@@ -1140,17 +1154,14 @@ const s13s14Methods = {
     this.cargoTransferView.setBusy(true);
     let result;
     try {
-      result = await this.vehicleLogisticsSystem.transfer({
-        source,
-        target,
+      result = await this.submitItemIntent('item.transfer', {
+        sourceId,
+        targetId,
         itemId: command.itemId,
         quantity,
-        sourceOwnerId,
-        targetOwnerId,
-        operationId: this._cargoTransferPendingOperation.operationId,
         checkpointId: 'checkpoint.s14.cargo-transfer',
         context: { sceneId: 'S14', vehicleId: cart.id, direction }
-      });
+      }, { operationId: this._cargoTransferPendingOperation.operationId });
     } catch (error) {
       result = { ok: false, code: 'cargoTransferFailed', message: String(error?.message || error) };
     } finally {
@@ -1162,12 +1173,14 @@ const s13s14Methods = {
       this._cargoTransferPendingOperation = null;
       this.cargoTransferView.setSnapshot(this._buildS14CargoTransferSnapshot({
         direction,
-        statusMessage: `已转移 ${result.accepted} 件物品。`,
+        statusMessage: `已转移 ${result.value?.accepted || 0} 件物品。`,
         statusType: 'success'
       }));
       return true;
     }
-    if (result?.code === 'operationIdConflict') this._cargoTransferPendingOperation = null;
+    if (result?.code === 'operationIdConflict' || result?.code === 'operationConflict') {
+      this._cargoTransferPendingOperation = null;
+    }
     this.cargoTransferView.setSnapshot(this._buildS14CargoTransferSnapshot({
       direction,
       statusMessage: this._formatCargoTransferFailure(result),

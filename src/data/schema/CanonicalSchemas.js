@@ -174,7 +174,7 @@ export const RESOURCE_NODE_DEFINITION_SCHEMA = {
     yieldPerGather: { type: FieldType.INTEGER, required: true, min: 1 },
     gatherDuration: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
     interactionRadius: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
-    requiredToolType: {},
+    requiredToolType: { nullable: true },
     refreshDays: nonNegativeInteger(true),
     guardUnitIds: { type: FieldType.ARRAY, required: true, itemType: FieldType.STRING },
     riskEvents: { type: FieldType.ARRAY, itemSchema: 'resourceNodeRiskEvent' },
@@ -199,6 +199,87 @@ export const RESOURCE_NODE_DEFINITION_SCHEMA = {
       ));
     }
     return { ok: errors.length === 0, errors };
+  }
+};
+
+export const ITEM_CAPABILITY_SCHEMA = {
+  id: 'itemCapability',
+  allowUnknown: false,
+  fields: {
+    id: { type: FieldType.STRING, minLength: 1 },
+    capabilityId: { type: FieldType.STRING, minLength: 1 },
+    strategyId: { type: FieldType.STRING, minLength: 1 },
+    parameters: { type: FieldType.OBJECT },
+    requires: { type: FieldType.ARRAY, itemType: FieldType.STRING },
+    conflictsWith: { type: FieldType.ARRAY, itemType: FieldType.STRING }
+  },
+  validate(capability) {
+    const id = capability.id || capability.capabilityId;
+    if (typeof id === 'string' && id.trim()) return { ok: true, errors: [] };
+    return { ok: false, errors: [makeError(ValidationCode.MISSING_FIELD, 'id', 'capability 需要 id 或 capabilityId')] };
+  }
+};
+
+export const ITEM_DEFINITION_SCHEMA = {
+  id: 'itemDefinition',
+  fields: {
+    id: idField(),
+    name: { type: FieldType.STRING, minLength: 1 },
+    description: { type: FieldType.STRING },
+    type: { type: FieldType.STRING },
+    imageId: { type: FieldType.STRING, minLength: 1 },
+    assetId: { type: FieldType.STRING, minLength: 1 },
+    capabilities: { type: FieldType.ARRAY, itemSchema: 'itemCapability' },
+    tags: { type: FieldType.ARRAY, itemType: FieldType.STRING }
+  },
+  validate(definition) {
+    if (definition.imageId && definition.assetId && definition.imageId !== definition.assetId) {
+      return { ok: false, errors: [makeError(ValidationCode.INVALID_REFERENCE, 'assetId', 'assetId 必须与 imageId 使用同一稳定 ID')] };
+    }
+    return { ok: true, errors: [] };
+  }
+};
+
+export const ITEM_STACK_SCHEMA = {
+  id: 'itemStack',
+  allowUnknown: false,
+  fields: {
+    definitionId: idField(),
+    quantity: { type: FieldType.INTEGER, required: true, min: 1 }
+  }
+};
+
+export const ITEM_INSTANCE_STATE_SCHEMA = {
+  id: 'itemInstanceState',
+  allowUnknown: false,
+  fields: {
+    definitionId: idField(),
+    instanceId: idField(),
+    mutable: { type: FieldType.OBJECT, required: true }
+  }
+};
+
+export const GROUND_DROP_PROJECTION_SCHEMA = {
+  id: 'groundDropProjection',
+  allowUnknown: false,
+  fields: {
+    entityId: idField(),
+    definitionId: idField(),
+    instanceId: { type: FieldType.STRING, minLength: 1 },
+    quantity: { type: FieldType.INTEGER, required: true, min: 1 },
+    transform: { type: FieldType.OBJECT, required: true, schema: 'position' },
+    pickupState: { type: FieldType.STRING, required: true, enum: ['available', 'reserved', 'picked'] }
+  }
+};
+
+export const DEATH_DROP_PROJECTION_SCHEMA = {
+  id: 'deathDropProjection',
+  allowUnknown: false,
+  fields: {
+    entityId: idField(),
+    deathId: idField(),
+    stacks: { type: FieldType.ARRAY, required: true },
+    transform: { type: FieldType.OBJECT, required: true, schema: 'position' }
   }
 };
 
@@ -431,6 +512,64 @@ export const CHECKPOINT_SCHEMA = {
   }
 };
 
+export const TUTORIAL_STEP_SCHEMA = {
+  id: 'tutorialStep',
+  fields: {
+    id: { type: FieldType.STRING },
+    text: { type: FieldType.STRING, required: true, minLength: 1 },
+    image: { type: FieldType.STRING, nullable: true },
+    target: { type: FieldType.STRING, nullable: true },
+    highlightTarget: { type: FieldType.BOOLEAN },
+    position: { type: FieldType.STRING },
+    arrow: { type: FieldType.STRING, nullable: true }
+  }
+};
+
+export const TUTORIAL_SIGNAL_CONDITION_SCHEMA = {
+  id: 'tutorialSignalCondition',
+  fields: {
+    field: { type: FieldType.STRING, required: true, minLength: 1 },
+    operator: { type: FieldType.STRING, required: true, enum: ['equals', 'notEquals', 'exists', 'gte', 'lte'] },
+    value: {}
+  }
+};
+
+export const TUTORIAL_SIGNAL_RULE_SCHEMA = {
+  id: 'tutorialSignalRule',
+  fields: {
+    id: { type: FieldType.STRING },
+    signal: { type: FieldType.STRING, required: true, minLength: 1 },
+    threshold: { type: FieldType.INTEGER, min: 1 },
+    conditions: { type: FieldType.ARRAY, itemSchema: 'tutorialSignalCondition' }
+  }
+};
+
+export const TUTORIAL_MOVEMENT_RULE_SCHEMA = {
+  id: 'tutorialMovementRule',
+  fields: {
+    threshold: { type: FieldType.NUMBER, required: true, min: 0 }
+  }
+};
+
+export const TUTORIAL_DEFINITION_SCHEMA = {
+  id: 'tutorialDefinition',
+  fields: {
+    id: idField(),
+    title: { type: FieldType.STRING, required: true, minLength: 1 },
+    description: { type: FieldType.STRING },
+    category: { type: FieldType.STRING, required: true, minLength: 1 },
+    order: { type: FieldType.INTEGER, required: true, min: 0 },
+    steps: { type: FieldType.ARRAY, required: true, minItems: 1, itemSchema: 'tutorialStep' },
+    signalRules: { type: FieldType.ARRAY, itemSchema: 'tutorialSignalRule' },
+    movementRule: { type: FieldType.OBJECT, schema: 'tutorialMovementRule' },
+    completionPolicy: { type: FieldType.STRING, required: true, enum: ['allSteps', 'signal', 'manual'] },
+    pauseGame: { type: FieldType.BOOLEAN },
+    canSkip: { type: FieldType.BOOLEAN },
+    autoTrigger: { type: FieldType.BOOLEAN },
+    priority: { type: FieldType.INTEGER }
+  }
+};
+
 export const GAME_PROJECT_META_SCHEMA = {
   id: 'gameProjectMeta',
   fields: {
@@ -479,7 +618,7 @@ export const GAME_PROJECT_INTEGRATION_SCHEMA = {
 export const GAME_PROJECT_LIBRARY_SCHEMA = {
   id: 'gameProjectLibrary',
   fields: {
-    items: { type: FieldType.ARRAY },
+    items: { type: FieldType.ARRAY, itemSchema: 'itemDefinition' },
     equipment: { type: FieldType.ARRAY },
     enemies: { type: FieldType.ARRAY },
     npcs: { type: FieldType.ARRAY },
@@ -501,8 +640,16 @@ export const GAME_PROJECT_SCHEMA = {
     presentation: { type: FieldType.OBJECT, required: true },
     // 游戏专属的纯数据扩展；复杂事务仍由具体游戏 coordinator/system 消费。
     extensions: { type: FieldType.OBJECT },
-    progression: { type: FieldType.OBJECT },
+    // 可选消费契约只声明需被证明的通用 schema path；不承载运行态或函数。
+    consumptionRequirements: { type: FieldType.OBJECT },
+    system: { type: FieldType.OBJECT },
+    progression: { type: FieldType.OBJECT, schema: 'progressionConfig' },
     construction: { type: FieldType.OBJECT },
+    battles: { type: FieldType.ARRAY },
+    rescues: { type: FieldType.ARRAY },
+    scenarios: { type: FieldType.ARRAY },
+    capabilityCatalog: { type: FieldType.ARRAY },
+    strategyCatalog: { type: FieldType.ARRAY },
     variables: { type: FieldType.OBJECT, required: true },
     worldMap: { type: FieldType.OBJECT, required: true },
     scenes: { type: FieldType.ARRAY, required: true },
@@ -510,7 +657,7 @@ export const GAME_PROJECT_SCHEMA = {
     quests: { type: FieldType.ARRAY, required: true },
     triggerCatalog: { type: FieldType.OBJECT },
     triggers: { type: FieldType.ARRAY, required: true },
-    tutorials: { type: FieldType.ARRAY, required: true },
+    tutorials: { type: FieldType.ARRAY, required: true, itemSchema: 'tutorialDefinition' },
     library: { type: FieldType.OBJECT, required: true, schema: 'gameProjectLibrary' },
     integration: { type: FieldType.OBJECT, required: true, schema: 'gameProjectIntegration' }
   }
@@ -525,6 +672,12 @@ export const CANONICAL_SCHEMAS = [
   RESOURCE_NODE_SCHEMA,
   RESOURCE_NODE_RISK_EVENT_SCHEMA,
   RESOURCE_NODE_DEFINITION_SCHEMA,
+  ITEM_CAPABILITY_SCHEMA,
+  ITEM_DEFINITION_SCHEMA,
+  ITEM_STACK_SCHEMA,
+  ITEM_INSTANCE_STATE_SCHEMA,
+  GROUND_DROP_PROJECTION_SCHEMA,
+  DEATH_DROP_PROJECTION_SCHEMA,
   INVENTORY_STACK_SCHEMA,
   INVENTORY_SCHEMA,
   CITY_SCHEMA,
@@ -533,6 +686,11 @@ export const CANONICAL_SCHEMAS = [
   TOOL_STATE_SCHEMA,
   CHECKPOINT_PLAYER_SCHEMA,
   CHECKPOINT_SCHEMA,
+  TUTORIAL_STEP_SCHEMA,
+  TUTORIAL_SIGNAL_CONDITION_SCHEMA,
+  TUTORIAL_SIGNAL_RULE_SCHEMA,
+  TUTORIAL_MOVEMENT_RULE_SCHEMA,
+  TUTORIAL_DEFINITION_SCHEMA,
   GAME_PROJECT_META_SCHEMA,
   BATTLE_INTEGRATION_SCHEMA,
   GAME_PROJECT_INTEGRATION_SCHEMA,

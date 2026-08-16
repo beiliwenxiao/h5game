@@ -52,3 +52,13 @@ export {
   ASSET_MANIFEST_SCHEMA,
   ASSET_MANIFEST_SCHEMAS
 } from '../../data/schema/AssetManifestSchemas.js';
+
+export { CanonicalCandidatePipeline } from './CanonicalCandidatePipeline.js';
+export { CandidateRuleValidator } from './CandidateRuleValidator.js';
+export {
+  ContentPhase,
+  ContentErrorCategory,
+  createContentOperationResult,
+  createBlankCanonicalTemplate,
+  normalizeContentError
+} from './ContentOperationResult.js';

@@ -3,17 +3,15 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-import { DeathDropComponent } from '../../ecs/components/DeathDropComponent.js';
-
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
 /** DeathDrop 的场景列表捕获、纯校验和 draft-first 原子替换恢复。 */
 export class SceneDeathDropRuntime {
-  constructor({ entityFactory, entityStore, getPresentation = null } = {}) {
-    if (!entityFactory || !entityStore) {
-      throw new TypeError('SceneDeathDropRuntime requires entityFactory and entityStore');
+  constructor({ itemRuntimeFactory, entityStore, getPresentation = null } = {}) {
+    if (!itemRuntimeFactory || !entityStore) {
+      throw new TypeError('SceneDeathDropRuntime requires ItemRuntimeFactory and entityStore');
     }
-    this.entityFactory = entityFactory;
+    this.itemRuntimeFactory = itemRuntimeFactory;
     this.entityStore = entityStore;
     this.getPresentation = typeof getPresentation === 'function' ? getPresentation : () => ({});
   }
@@ -33,22 +31,24 @@ export class SceneDeathDropRuntime {
     if (!Array.isArray(entries)) {
       return this._failure('invalidDeathDrops', 'deathDrops', '死亡掉落列表无效');
     }
-    const probe = new DeathDropComponent();
     const ids = new Set();
+    const errors = [];
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index];
-      const checked = probe.validateSerialized(entry?.state);
-      if (!entry?.id || ids.has(entry.id) || !checked.ok
-        || !Number.isFinite(entry.position?.x) || !Number.isFinite(entry.position?.y)) {
-        return this._failure(
-          checked.code || 'invalidDeathDropState',
-          `deathDrops[${index}]`,
-          '死亡掉落状态校验失败'
-        );
+      if (!entry?.id || ids.has(entry.id)) {
+        errors.push({ code: 'invalidDeathDropState', path: `deathDrops[${index}].id`, message: '死亡掉落 ID 无效或重复' });
+        continue;
       }
       ids.add(entry.id);
+      const checked = this.itemRuntimeFactory.validateDeathDropProjection({
+        entityId: entry.id,
+        deathId: entry.state?.deathId,
+        stacks: entry.state?.stacks,
+        transform: entry.position
+      }, `deathDrops[${index}]`);
+      errors.push(...checked.errors);
     }
-    return { ok: true, errors: [] };
+    return errors.length > 0 ? { ok: false, errors } : { ok: true, errors: [] };
   }
 
   /**
@@ -87,12 +87,12 @@ export class SceneDeathDropRuntime {
     const drafts = [];
     try {
       for (const entry of entries) {
-        const drop = this.entityFactory.createDeathDrop({
-          ...this.getPresentation(entry),
-          id: entry.id,
+        const drop = this.itemRuntimeFactory.createDeathDropProjection({
+          entityId: entry.id,
           deathId: entry.state.deathId,
           stacks: clone(entry.state.stacks),
-          position: clone(entry.position)
+          transform: clone(entry.position),
+          presentation: this.getPresentation(entry)
         });
         if (!drop) throw new Error(`DeathDrop draft was not created: ${entry.id}`);
         drafts.push(drop);

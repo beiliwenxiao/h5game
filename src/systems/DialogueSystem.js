@@ -58,6 +58,8 @@ export class DialogueSystem {
     this.onEndCallback = null;
     this.onChoiceCallback = null;
     this._choiceListeners = [];
+    this._choiceDispatcher = null;
+    this._pendingChoice = null;
     
     // 是否启用打字机效果
     this.enableTypewriter = true;
@@ -220,55 +222,73 @@ export class DialogueSystem {
    * @returns {boolean} 是否选择成功
    */
   selectChoice(choiceIndex, context = {}) {
-    if (!this.currentNode || !this.currentNode.choices) {
-      return false;
-    }
-
+    if (!this.currentNode || !this.currentNode.choices || this._pendingChoice) return false;
     const choice = this.currentNode.choices[choiceIndex];
     if (!choice) {
       console.warn(`DialogueSystem: 选项不存在: ${choiceIndex}`);
       return false;
     }
-
-    // 检查选项条件
     if (choice.condition && !choice.condition(context)) {
       console.warn('DialogueSystem: 选项条件不满足');
       return false;
     }
 
-    // 执行选项动作
-    if (choice.action) {
-      choice.action(context);
-    }
+    const pending = {
+      dialogue: this.currentDialogue,
+      node: this.currentNode,
+      dialogueId: this.currentDialogue.id,
+      choiceId: choice.id || null,
+      choiceIndex
+    };
+    this._pendingChoice = pending;
 
-    // 触发选择监听器；复制数组，允许监听器在回调中取消订阅。
-    if (this._choiceListeners.length > 0) {
+    const commit = () => {
+      if (this._pendingChoice !== pending
+        || this.currentDialogue !== pending.dialogue
+        || this.currentNode !== pending.node) return false;
+      this.addToHistory({
+        type: 'choice', choiceIndex, choiceId: choice.id || null,
+        choiceText: choice.text, timestamp: Date.now()
+      });
       for (const callback of [...this._choiceListeners]) {
         try { callback(choice, choiceIndex, context); } catch (error) {
           console.warn('DialogueSystem: onChoice 监听器出错', error);
         }
       }
-    } else if (this.onChoiceCallback) {
-      // 兼容直接赋值 onChoiceCallback 的旧调用方。
-      this.onChoiceCallback(choice, choiceIndex, context);
+      if (!this._choiceListeners.length && this.onChoiceCallback) {
+        this.onChoiceCallback(choice, choiceIndex, context);
+      }
+      return choice.nextNode ? this.goToNode(choice.nextNode, context) : (this.endDialogue(), true);
+    };
+
+    let dispatch;
+    try {
+      dispatch = this._choiceDispatcher?.({
+        type: 'dialogueChoice', id: pending.dialogueId, dialogueId: pending.dialogueId,
+        choiceId: pending.choiceId, index: choiceIndex,
+        nextNode: choice.nextNode || null
+      }, context);
+    } catch (error) {
+      if (this._pendingChoice === pending) this._pendingChoice = null;
+      console.warn('DialogueSystem: dialogueChoice 编排失败', error);
+      return false;
     }
 
-    // 记录历史
-    this.addToHistory({
-      type: 'choice',
-      choiceIndex,
-      choiceText: choice.text,
-      timestamp: Date.now()
-    });
-
-    // 跳转到下一个节点
-    if (choice.nextNode) {
-      return this.goToNode(choice.nextNode, context);
-    } else {
-      // 没有下一个节点，结束对话
-      this.endDialogue();
-      return true;
+    if (!dispatch || typeof dispatch.then !== 'function') {
+      const accepted = dispatch !== false && dispatch?.ok !== false;
+      const result = accepted ? commit() : false;
+      if (this._pendingChoice === pending) this._pendingChoice = null;
+      return result;
     }
+    return Promise.resolve(dispatch)
+      .then(result => (result === false || result?.ok === false ? false : commit()))
+      .catch(error => {
+        console.warn('DialogueSystem: dialogueChoice 编排失败', error);
+        return false;
+      })
+      .finally(() => {
+        if (this._pendingChoice === pending) this._pendingChoice = null;
+      });
   }
 
   /**
@@ -311,6 +331,9 @@ export class DialogueSystem {
     }
 
     const dialogue = this.currentDialogue;
+
+    // 任何外部结束都会使在途 choice 失效，迟到的 Trigger 结果不得推进旧会话。
+    this._pendingChoice = null;
 
     // 清除状态
     this.currentDialogue = null;
@@ -550,8 +573,16 @@ export class DialogueSystem {
     };
   }
 
+  setChoiceDispatcher(dispatcher) {
+    const previous = this._choiceDispatcher;
+    this._choiceDispatcher = typeof dispatcher === 'function' ? dispatcher : null;
+    return () => {
+      if (this._choiceDispatcher === dispatcher) this._choiceDispatcher = previous || null;
+    };
+  }
+
   /**
-   * 注册选择监听器（支持多个）。
+   * 注册选择监听器（仅在 dialogueChoice 编排成功并提交节点后触发）。
    * @param {Function} callback - (choice, choiceIndex, context) => void
    * @returns {Function} 取消订阅函数
    */
@@ -641,6 +672,12 @@ export class DialogueSystem {
       return;
     }
 
+    // 读档会替换当前会话投影；在途 choice 的迟到结果不得写入恢复后的会话。
+    this._pendingChoice = null;
+    this.currentDialogue = null;
+    this.currentNode = null;
+    this.stopTypewriter();
+
     // 恢复历史
     if (stateData.history) {
       this.history = [...stateData.history];
@@ -676,6 +713,7 @@ export class DialogueSystem {
   reset() {
     this.currentDialogue = null;
     this.currentNode = null;
+    this._pendingChoice = null;
     this.stopTypewriter();
     this.clearHistory();
   }

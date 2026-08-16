@@ -4,10 +4,14 @@
  * 配置游戏系统级参数（登录界面、加载页面、全局设置等），保存到 game.project.json 的 system 字段。
  * 标签顺序与运行时一致：登录界面 → 加载页面 → 天气/时间系统。
  */
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
+
 export class SystemEditor {
   constructor(container, opts = {}) {
     this.container = container;
     this.gameId = opts.gameId || 'sanguo_zhangjiao';
+    this.canonicalSession = opts.canonicalSession || null;
+    this.schemaFields = this.canonicalSession?.fields || null;
     this._initialized = false;
     this._data = null; // system 配置数据
   }
@@ -23,6 +27,10 @@ export class SystemEditor {
   }
 
   async _loadData() {
+    if (this.canonicalSession) {
+      this._data = this.canonicalSession.getValue('system') || {};
+      return;
+    }
     this._data = {};
     const key = 'yijian18-engine_editor_project_' + this.gameId;
     try {
@@ -109,6 +117,13 @@ export class SystemEditor {
 
   async _save() {
     try {
+      if (this.canonicalSession) {
+        this.canonicalSession.patch('system', this._data);
+        const result = await this.canonicalSession.save();
+        if (!result?.committed) throw new Error(result?.errors?.[0]?.message || result?.error || 'canonical 提交失败');
+        this._showToast(result.degraded ? '磁盘已提交，缓存/通知同步降级' : '已保存到 canonical 配置');
+        return result;
+      }
       const key = 'yijian18-engine_editor_project_' + this.gameId;
       let project = {};
       const raw = localStorage.getItem(key);
@@ -131,16 +146,8 @@ export class SystemEditor {
     if (!res.ok) throw new Error(`读取项目文件失败: HTTP ${res.status}`);
     const existing = await res.json();
     existing.system = this._data;
-    const saved = await fetch('/api/save-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        path: `example/${this.gameId}/game.project.json`,
-        content: JSON.stringify(existing, null, 2)
-      })
-    });
-    if (!saved.ok) throw new Error(`写入项目文件失败: HTTP ${saved.status}`);
-    const result = await saved.json();
+    const projectPath = `example/${this.gameId}/game.project.json`;
+    const result = await replaceCanonicalFile(projectPath, JSON.stringify(existing, null, 2));
     if (!result.ok) throw new Error(result.error || '写入项目文件失败');
     return existing;
   }
@@ -297,12 +304,13 @@ export class SystemEditor {
     const wtSave = this.container.querySelector('#sys-wt-save');
     if (wtSave) wtSave.addEventListener('click', () => {
       this._data.weather.default = this.container.querySelector('#sys-wt-default').value;
-      this._data.weather.transitionSpeed = parseFloat(this.container.querySelector('#sys-wt-speed').value) || 0.5;
+      this._data.weather.transitionSpeed = parseFloat(this.container.querySelector('#sys-wt-speed').value);
       // 收集各天气粒子参数
       this.container.querySelectorAll('.sys-wt-row').forEach(row => {
         const key = row.dataset.weather;
         if (!key) return;
         this._data.weather.particles[key] = {
+          ...(this._data.weather.particles[key] || {}),
           fogAdd: parseFloat(row.querySelector('.wt-fog').value) || 0,
           count: parseInt(row.querySelector('.wt-count').value) || 0,
           windX: parseFloat(row.querySelector('.wt-wx').value) || 0,
@@ -319,11 +327,11 @@ export class SystemEditor {
       // 收集各时间段参数
       this.container.querySelectorAll('.sys-period-row').forEach(row => {
         const p = row.dataset.period;
-        if (!this._data.time.periods[p]) return;
-        this._data.time.periods[p].duration = parseFloat(row.querySelector('.p-dur').value) || 60;
-        this._data.time.periods[p].brightness = parseFloat(row.querySelector('.p-bright').value) || 1;
-        this._data.time.periods[p].fogOpacity = parseFloat(row.querySelector('.p-fog').value) || 0;
-        this._data.time.periods[p].tintColor = row.querySelector('.p-tint').value || 'rgba(0,0,0,0)';
+        if (!this._data.time?.periods?.[p]) return;
+        this._data.time.periods[p].duration = parseFloat(row.querySelector('.p-dur').value);
+        this._data.time.periods[p].brightness = parseFloat(row.querySelector('.p-bright').value);
+        this._data.time.periods[p].fogOpacity = parseFloat(row.querySelector('.p-fog').value);
+        this._data.time.periods[p].tintColor = row.querySelector('.p-tint').value;
       });
       this._save();
     });
@@ -420,7 +428,7 @@ export class SystemEditor {
     const container = this.container.querySelector('#sys-tm-periods');
     if (!container) return;
     const NAMES = { dawn:'凌晨', earlyMorning:'清晨', morning:'上午', noon:'中午', afternoon:'下午', dusk:'黄昏', night:'夜晚', lateNight:'深夜' };
-    const periods = this._data.time.periods;
+    const periods = this._data.time?.periods || {};
     container.innerHTML = Object.entries(NAMES).map(([key, name]) => {
       const p = periods[key] || { duration: 60, brightness: 1, fogOpacity: 0, tintColor: 'rgba(0,0,0,0)' };
       return `<div class="sys-period-row" data-period="${key}" style="display:flex;align-items:center;gap:4px;margin-bottom:4px;background:#0a1020;padding:4px 6px;border-radius:3px;">

@@ -3,21 +3,14 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-import { getWorldMapCellSceneId } from '../WorldMapCell.js';
+import { ProjectWorldIndex } from '../ProjectWorldIndex.js';
+import { SceneObjectProjector } from './SceneObjectProjector.js';
+import { createSpatialTriggerBinding } from './SpatialTriggerBinding.js';
 
 function abortError() {
   const error = new Error('World map load session is no longer active');
   error.name = 'AbortError';
   return error;
-}
-
-function cloneValue(value, seen = new Map()) {
-  if (value === null || typeof value !== 'object') return value;
-  if (seen.has(value)) return seen.get(value);
-  const copy = Array.isArray(value) ? [] : {};
-  seen.set(value, copy);
-  for (const key of Object.keys(value)) copy[key] = cloneValue(value[key], seen);
-  return copy;
 }
 
 function errorRecord(stage, error, extra = {}) {
@@ -29,73 +22,85 @@ function errorRecord(stage, error, extra = {}) {
   };
 }
 
-function projectObject(source, offset, chunk) {
-  const projected = cloneValue(source);
-  if (typeof projected.x === 'number') projected.x += offset.x;
-  if (typeof projected.y === 'number') projected.y += offset.y;
-  if (typeof projected.sortY === 'number') projected.sortY += offset.y;
-  if (Array.isArray(projected.points)) {
-    projected.points = projected.points.map(point => {
-      if (Array.isArray(point)) return [point[0] + offset.x, point[1] + offset.y, ...point.slice(2)];
-      if (point && typeof point === 'object') {
-        return {
-          ...point,
-          ...(typeof point.x === 'number' ? { x: point.x + offset.x } : {}),
-          ...(typeof point.y === 'number' ? { y: point.y + offset.y } : {})
-        };
-      }
-      return point;
-    });
-  }
-  projected.sceneId = chunk.sceneId;
-  projected.row = chunk.row;
-  projected.col = chunk.col;
-  Object.defineProperty(projected, '_worldOffsetApplied', { value: true });
-  return projected;
-}
-
 /** 加载项目世界地图，并缓存项目及每个场景的唯一加载 Promise。 */
 export class WorldMapLoadSession {
-  constructor({ loadProject, loadScene, loadSceneFallback = null, scope = null } = {}) {
-    if (typeof loadProject !== 'function') throw new TypeError('loadProject must be a function');
-    if (typeof loadScene !== 'function') throw new TypeError('loadScene must be a function');
+  constructor({ repository = null, loadProject = null, loadScene = null, loadSceneFallback = null, scope = null, projector = null } = {}) {
+    if (!repository && typeof loadProject !== 'function') throw new TypeError('loadProject must be a function');
+    if (!repository && typeof loadScene !== 'function') throw new TypeError('loadScene must be a function');
+    this.repository = repository;
     this.loadProject = loadProject;
     this.loadScene = loadScene;
     this.loadSceneFallback = loadSceneFallback;
     this.scope = scope;
+    this.projector = projector || new SceneObjectProjector();
     this._projectPromises = new Map();
     this._scenePromises = new Map();
     this._sceneData = new Map();
+    this._generationSnapshot = null;
     this._lastResult = null;
     this._version = 0;
     this._disposed = false;
     this._detachScope = typeof scope?.add === 'function' ? scope.add(() => this.dispose()) : null;
   }
 
-  async load({ projectUrl = 'game.project.json', regionIndex = 0, sceneIds = null } = {}) {
+  async load({ projectUrl = 'game.project.json', regionIndex = null, sceneIds = null } = {}) {
     if (this._disposed) throw abortError();
     const version = ++this._version;
     const errors = [];
+    const warnings = [];
+    this._projectPromises = new Map();
+    this._scenePromises = new Map();
+    this._generationSnapshot = null;
     let project = null;
+    let worldIndex = null;
 
     try {
-      project = await this._getProjectPromise(projectUrl);
+      if (this.repository) {
+        const repositoryResult = await this.repository.refresh();
+        this._generationSnapshot = repositoryResult.snapshot;
+        warnings.push(...(repositoryResult.warnings || []));
+        if (!repositoryResult.ok) {
+          errors.push(...repositoryResult.errors.map(error => errorRecord('canonicalSceneRepository', error, {
+            projectUrl,
+            category: error.category,
+            source: error.source
+          })));
+        }
+        project = this._generationSnapshot?.project || null;
+      } else {
+        project = await this._getProjectPromise(projectUrl);
+      }
+      worldIndex = ProjectWorldIndex.build(project);
     } catch (error) {
-      errors.push(errorRecord('project', error, { projectUrl }));
+      errors.push(errorRecord('projectWorldIndex', error, {
+        projectUrl,
+        errors: error?.errors || []
+      }));
     }
     this._assertActive(version);
 
-    const regions = project?.worldMap?.regions || project?.regions || [];
-    const region = regions[regionIndex] || null;
+    const resolvedRegionRef = regionIndex ?? (sceneIds === 'entry'
+      ? worldIndex?.getEntry?.()?.regionId
+      : 0);
+    const region = worldIndex?.getRegion(resolvedRegionRef) || null;
     if (!region) {
-      errors.push(errorRecord('region', new Error(`Region ${regionIndex} was not found`), { regionIndex }));
-      return this._commit(version, { project, region: null, chunks: [], sceneObjects: [], placements: [], triggerBindings: [], effectZones: [], errors });
+      errors.push(errorRecord('region', new Error(`Region ${resolvedRegionRef} was not found`), {
+        regionIndex: resolvedRegionRef
+      }));
+      return this._commit(version, {
+        project, worldIndex, repositorySnapshot: this._generationSnapshot,
+        region: null, chunks: [], sceneObjects: [], placements: [], triggerBindings: [], effectZones: [],
+        sceneProvenance: {}, warnings, errors
+      });
     }
 
-    const chunkSpecs = this._chunkSpecs(region);
+    const chunkSpecs = this._chunkSpecs(worldIndex, region);
     const regionSceneIds = [...new Set(chunkSpecs.map(chunk => chunk.sceneId).filter(Boolean))];
-    const requestedSceneIds = Array.isArray(sceneIds)
-      ? [...new Set(sceneIds.filter(sceneId => regionSceneIds.includes(sceneId)))]
+    const requestedValues = sceneIds === 'entry'
+      ? [worldIndex.getEntry()?.sceneId]
+      : sceneIds;
+    const requestedSceneIds = Array.isArray(requestedValues)
+      ? [...new Set(requestedValues.filter(sceneId => regionSceneIds.includes(sceneId)))]
       : regionSceneIds;
     const loaded = await Promise.all(requestedSceneIds.map(async sceneId => {
       const outcome = await this._getScenePromise(sceneId, project);
@@ -119,7 +124,15 @@ export class WorldMapLoadSession {
     const effectZones = [];
     for (const chunk of chunks) this._collectChunkObjects(chunk, sceneObjects, placements, effectZones, triggerBindings);
 
-    return this._commit(version, { project, region, chunks, sceneObjects, placements, triggerBindings, effectZones, errors });
+    const sceneProvenance = Object.fromEntries(requestedSceneIds.map(sceneId => [
+      sceneId,
+      this._generationSnapshot?.getProvenance?.(sceneId) || null
+    ]));
+    return this._commit(version, {
+      project, worldIndex, repositorySnapshot: this._generationSnapshot,
+      region, chunks, sceneObjects, placements, triggerBindings, effectZones,
+      sceneProvenance, warnings, errors
+    });
   }
 
   getSceneData(sceneId) {
@@ -182,6 +195,7 @@ export class WorldMapLoadSession {
     this._disposed = true;
     this._version++;
     this._sceneData.clear();
+    this._generationSnapshot = null;
     this._lastResult = null;
     this._projectPromises.clear();
     this._scenePromises.clear();
@@ -200,6 +214,19 @@ export class WorldMapLoadSession {
 
   _getScenePromise(sceneId, project) {
     if (!this._scenePromises.has(sceneId)) {
+      if (this._generationSnapshot) {
+        const record = this._generationSnapshot.getRecord(sceneId);
+        const promise = record
+          ? Promise.resolve({ data: record.data, errors: [] })
+          : Promise.resolve({
+            data: null,
+            errors: [errorRecord('scene', new Error(`场景不在当前 repository snapshot: ${sceneId}`), {
+              loader: 'repository', sceneId
+            })]
+          });
+        this._scenePromises.set(sceneId, promise);
+        return promise;
+      }
       const promise = Promise.resolve()
         .then(() => this.loadScene(sceneId, project))
         .then(data => ({ data, errors: [] }))
@@ -219,29 +246,13 @@ export class WorldMapLoadSession {
     return this._scenePromises.get(sceneId);
   }
 
-  _chunkSpecs(region) {
-    const width = Number(region.chunkWidth) || 1280;
-    const height = Number(region.chunkHeight) || 720;
-    const chunks = [];
-    if (Array.isArray(region.grid)) {
-      for (let row = 0; row < region.grid.length; row++) {
-        const cells = region.grid[row] || [];
-        for (let col = 0; col < cells.length; col++) {
-          const cell = cells[col];
-          const sceneId = getWorldMapCellSceneId(cell);
-          if (sceneId) chunks.push({ sceneId, row, col, offset: { x: col * width, y: row * height } });
-        }
-      }
-      return chunks;
-    }
-    for (const item of region.chunks || []) {
-      const sceneId = item?.sceneId ?? item?.scene ?? item?.id;
-      if (!sceneId) continue;
-      const row = Number(item.row) || 0;
-      const col = Number(item.col) || 0;
-      chunks.push({ sceneId, row, col, offset: { x: col * width, y: row * height } });
-    }
-    return chunks;
+  _chunkSpecs(worldIndex, region) {
+    return worldIndex.getCells(region.id).map(cell => ({
+      sceneId: cell.sceneId,
+      row: cell.row,
+      col: cell.col,
+      offset: cell.offset
+    }));
   }
 
   _collectChunkObjects(chunk, sceneObjects, placements, effectZones, triggerBindings) {
@@ -255,12 +266,18 @@ export class WorldMapLoadSession {
     for (const object of candidates) {
       if (!object || typeof object !== 'object' || seen.has(object)) continue;
       seen.add(object);
-      const projected = projectObject(object, chunk.offset, chunk);
+      const projected = this.projector.project(object, chunk.offset, {
+        sceneId: chunk.sceneId,
+        row: chunk.row,
+        col: chunk.col
+      });
+      if (object.type === 'trigger') {
+        triggerBindings.push(createSpatialTriggerBinding(projected));
+        continue;
+      }
       sceneObjects.push(projected);
       if (object.type === 'ref' || object.type === 'spawn') {
         placements.push(projected);
-      } else if (object.type === 'trigger') {
-        triggerBindings.push(projected);
       } else if (object.type === 'effectZone') {
         effectZones.push(projected);
       }

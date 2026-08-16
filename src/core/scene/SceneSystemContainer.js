@@ -1,216 +1,221 @@
 /************************************************************
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
- *
- * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
- * @author    刘枭 (beiliwenxiao)
- * @email     beiliwenxiao@qq.com
- * @blog      https://blog.csdn.net/beiliwenxiao
- * @repo      https://github.com/beiliwenxiao/yijian18-engine
- *            https://gitee.com/coderaaa/yijian18-engine
+ * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-/**
- * SceneSystemContainer.js
- * 场景系统容器：依赖注入、显式更新顺序、统一清理。
- *
- * 从 BaseGameScene 的手工装配中提取。原实现把十余个系统的创建、
- * 更新顺序和清理散落在 enter/update/exit 中，容易出现：
- *   - 更新顺序被无意调整导致行为变化
- *   - 场景退出时漏清理某个系统，留下监听器或定时器
- *
- * 容器把顺序变成显式数据，并保证 destroy 覆盖全部已注册系统。
- */
+export const DependencyOwnership = Object.freeze({
+  OWNED: 'OWNED',
+  BORROWED: 'BORROWED'
+});
 
+const DEFAULT_ORDER = 100;
+const DEFAULT_PHASE = 'systems';
+
+function inferHook(instance, candidates) {
+  for (const name of candidates) {
+    if (typeof instance?.[name] === 'function') return name;
+  }
+  return false;
+}
+
+/**
+ * 以对象身份为边界的场景生命周期容器。
+ * 名称只用于解析；ownership 决定释放责任，borrowed alias 永不被当前容器释放。
+ */
 export class SceneSystemContainer {
-  /**
-   * @param {Object} [config]
-   * @param {Function} [config.onError] - (phase, name, error) => void
-   */
   constructor(config = {}) {
-    /** @type {Map<string, Object>} name -> { instance, order, update, render, destroy } */
     this.systems = new Map();
-    /** 共享依赖，供 resolve 注入 */
-    this.dependencies = {};
+    this.dependencies = Object.create(null);
     this.onError = config.onError || ((phase, name, error) => {
       console.warn(`SceneSystemContainer: ${phase} 阶段出错 [${name}]`, error);
     });
-
+    this._ownedIdentities = new Map();
+    this._sequence = 0;
     this._sortedCache = null;
+    this.disposed = false;
   }
 
-  /**
-   * 提供共享依赖
-   * @param {Object} deps
-   */
-  provide(deps = {}) {
-    Object.assign(this.dependencies, deps);
+  _reject(name, message) {
+    const error = new Error(message);
+    this.onError('register', String(name), error);
+    return null;
   }
 
-  /**
-   * 获取依赖或已注册系统实例
-   * @param {string} name
-   * @returns {*}
-   */
-  resolve(name) {
-    if (this.systems.has(name)) return this.systems.get(name).instance;
-    return this.dependencies[name];
-  }
-
-  /**
-   * 注册系统
-   *
-   * @param {string} name - 唯一标识
-   * @param {Object|Function} systemOrFactory - 实例，或 (deps) => 实例
-   * @param {Object} [options]
-   * @param {number} [options.order] - 更新顺序，越小越先执行
-   * @param {string|Function|false} [options.update] - 更新方法名或函数；false 表示不参与更新
-   * @param {string|Function|false} [options.render] - 渲染方法名或函数
-   * @param {string|Function|false} [options.destroy] - 清理方法名或函数
-   * @returns {*} 系统实例
-   */
-  register(name, systemOrFactory, options = {}) {
-    if (!name) {
-      this.onError('register', String(name), new Error('系统必须提供名称'));
-      return null;
+  _createRegistration(name, instance, options = {}) {
+    const ownership = options.ownership || DependencyOwnership.OWNED;
+    if (!Object.values(DependencyOwnership).includes(ownership)) {
+      return this._reject(name, `invalid ownership: ${ownership}`);
+    }
+    const identity = options.identity ?? instance;
+    if (this.systems.has(name) || Object.prototype.hasOwnProperty.call(this.dependencies, name)) {
+      return this._reject(name, `duplicate registration name "${name}"; use replace() explicitly`);
+    }
+    if (ownership === DependencyOwnership.OWNED && this._ownedIdentities.has(identity)) {
+      return this._reject(name, `identity already owned by "${this._ownedIdentities.get(identity)}"`);
     }
 
+    const borrowed = ownership === DependencyOwnership.BORROWED;
+    const registration = {
+      name,
+      instance,
+      identity,
+      ownership,
+      order: Number.isFinite(options.order) ? options.order : DEFAULT_ORDER,
+      sequence: this._sequence++,
+      phase: options.phase || DEFAULT_PHASE,
+      updateHook: options.updateHook !== undefined
+        ? options.updateHook
+        : (options.update !== undefined ? options.update : (borrowed ? false : 'update')),
+      renderHook: options.renderHook !== undefined
+        ? options.renderHook
+        : (options.render !== undefined ? options.render : false),
+      disposeHook: borrowed
+        ? false
+        : (options.disposeHook !== undefined
+          ? options.disposeHook
+          : (options.destroy !== undefined ? options.destroy : inferHook(instance, ['dispose', 'destroy', 'cleanup']))),
+      frameToken: null,
+      disposed: false,
+      dependency: options.dependency === true
+    };
+    return registration;
+  }
+
+  register(name, systemOrFactory, options = {}) {
+    if (this.disposed) return this._reject(name, 'container is disposed');
+    if (!name) return this._reject(name, 'registration requires a name');
     const instance = typeof systemOrFactory === 'function' && !systemOrFactory.prototype?.update
       ? systemOrFactory(this.dependencies)
       : systemOrFactory;
+    if (!instance) return this._reject(name, 'registration instance is empty');
 
-    if (!instance) {
-      this.onError('register', name, new Error('系统实例为空'));
-      return null;
+    const registration = this._createRegistration(name, instance, options);
+    if (!registration) return null;
+    this.systems.set(name, registration);
+    if (registration.ownership === DependencyOwnership.OWNED) {
+      this._ownedIdentities.set(registration.identity, name);
     }
-
-    this.systems.set(name, {
-      instance,
-      order: typeof options.order === 'number' ? options.order : 100,
-      update: options.update !== undefined ? options.update : 'update',
-      render: options.render !== undefined ? options.render : false,
-      destroy: options.destroy !== undefined ? options.destroy : 'destroy'
-    });
-
+    if (registration.dependency) this.dependencies[name] = instance;
     this._sortedCache = null;
     return instance;
   }
 
-  /**
-   * 批量注册
-   * @param {Array<{name: string, system: *, options?: Object}>} list
-   */
+  provide(deps = {}, options = {}) {
+    const registered = [];
+    for (const [name, instance] of Object.entries(deps)) {
+      const value = this.register(name, instance, {
+        ...options,
+        ownership: options.ownership || DependencyOwnership.BORROWED,
+        updateHook: false,
+        renderHook: false,
+        dependency: true
+      });
+      if (value) registered.push(name);
+    }
+    return registered;
+  }
+
+  replace(name, instance, options = {}) {
+    if (!this.systems.has(name)) return this.register(name, instance, options);
+    this.unregister(name);
+    return this.register(name, instance, options);
+  }
+
   registerAll(list = []) {
-    for (const item of list) {
-      this.register(item.name, item.system, item.options);
+    return list.map(item => this.register(item.name, item.instance ?? item.system, item.options || item));
+  }
+
+  resolve(name) {
+    return this.systems.get(name)?.instance;
+  }
+
+  getRegistration(name) {
+    return this.systems.get(name) || null;
+  }
+
+  has(name) {
+    return this.systems.has(name);
+  }
+
+  getNames() {
+    return Array.from(this.systems.keys());
+  }
+
+  _sorted() {
+    if (!this._sortedCache) {
+      this._sortedCache = Array.from(this.systems.values())
+        .sort((a, b) => a.order - b.order || a.sequence - b.sequence);
+    }
+    return this._sortedCache;
+  }
+
+  _invoke(phase, registration, hook, args) {
+    if (hook === false || hook === null || registration.disposed) return false;
+    try {
+      if (typeof hook === 'function') hook.apply(registration.instance, args);
+      else if (typeof hook === 'string' && typeof registration.instance?.[hook] === 'function') {
+        registration.instance[hook](...args);
+      } else return false;
+      return true;
+    } catch (error) {
+      this.onError(phase, registration.name, error);
+      return false;
     }
   }
 
-  /**
-   * 注销系统并执行其清理
-   * @param {string} name
-   * @returns {boolean}
-   */
-  unregister(name) {
-    const entry = this.systems.get(name);
-    if (!entry) return false;
+  update(deltaTime, ...extraArgs) {
+    return this.updateFrame(Symbol('implicit-frame'), deltaTime, { extraArgs });
+  }
 
-    this._invoke('destroy', name, entry, entry.destroy, []);
+  updateFrame(frameToken, deltaTime, { phase = DEFAULT_PHASE, extraArgs = [] } = {}) {
+    if (this.disposed || frameToken === null || frameToken === undefined) return [];
+    const updated = [];
+    const identities = new Set();
+    for (const registration of this._sorted()) {
+      if (registration.phase !== phase || registration.frameToken === frameToken) continue;
+      registration.frameToken = frameToken;
+      if (registration.updateHook === false || registration.updateHook === null) continue;
+      if (identities.has(registration.identity)) continue;
+      identities.add(registration.identity);
+      if (this._invoke('update', registration, registration.updateHook, [deltaTime, ...extraArgs])) {
+        updated.push(registration.name);
+      }
+    }
+    return updated;
+  }
+
+  render(ctx, ...extraArgs) {
+    for (const registration of this._sorted()) {
+      this._invoke('render', registration, registration.renderHook, [ctx, ...extraArgs]);
+    }
+  }
+
+  unregister(name) {
+    const registration = this.systems.get(name);
+    if (!registration) return false;
+    if (registration.ownership === DependencyOwnership.OWNED && !registration.disposed) {
+      this._invoke('dispose', registration, registration.disposeHook, []);
+      registration.disposed = true;
+      this._ownedIdentities.delete(registration.identity);
+    }
+    delete this.dependencies[name];
     this.systems.delete(name);
     this._sortedCache = null;
     return true;
   }
 
-  /** 是否已注册 */
-  has(name) {
-    return this.systems.has(name);
-  }
-
-  /** 已注册系统名称 */
-  getNames() {
-    return Array.from(this.systems.keys());
-  }
-
-  /**
-   * 按 order 排序的系统条目
-   * @private
-   */
-  _sorted() {
-    if (this._sortedCache) return this._sortedCache;
-
-    this._sortedCache = Array.from(this.systems.entries())
-      .map(([name, entry]) => ({ name, ...entry }))
-      .sort((a, b) => a.order - b.order);
-
-    return this._sortedCache;
-  }
-
-  /**
-   * 调用系统的某个钩子
-   * @private
-   * @returns {boolean} 是否成功调用
-   */
-  _invoke(phase, name, entry, hook, args) {
-    if (hook === false || hook === null) return false;
-
-    try {
-      if (typeof hook === 'function') {
-        hook.apply(entry.instance, args);
-        return true;
-      }
-      if (typeof hook === 'string' && typeof entry.instance[hook] === 'function') {
-        entry.instance[hook](...args);
-        return true;
-      }
-    } catch (e) {
-      this.onError(phase, name, e);
-    }
-    return false;
-  }
-
-  /**
-   * 按顺序更新全部系统。
-   * 单个系统抛错不会中断其余系统。
-   *
-   * @param {number} deltaTime
-   * @param {...*} extraArgs - 透传给系统 update 的额外参数
-   */
-  update(deltaTime, ...extraArgs) {
-    for (const entry of this._sorted()) {
-      this._invoke('update', entry.name, entry, entry.update, [deltaTime, ...extraArgs]);
-    }
-  }
-
-  /**
-   * 按顺序渲染声明了 render 的系统
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {...*} extraArgs
-   */
-  render(ctx, ...extraArgs) {
-    for (const entry of this._sorted()) {
-      this._invoke('render', entry.name, entry, entry.render, [ctx, ...extraArgs]);
-    }
-  }
-
-  /**
-   * 清理全部系统。
-   *
-   * 按注册顺序的逆序清理，保证依赖方先于被依赖方释放；
-   * 清理完成后容器清空，避免场景重入时残留旧实例。
-   *
-   * @returns {Array<string>} 已执行清理的系统名
-   */
   destroy() {
+    if (this.disposed) return [];
+    this.disposed = true;
     const cleaned = [];
-    const reversed = this._sorted().slice().reverse();
-
-    for (const entry of reversed) {
-      if (this._invoke('destroy', entry.name, entry, entry.destroy, [])) {
-        cleaned.push(entry.name);
-      }
+    for (const registration of this._sorted().slice().reverse()) {
+      if (registration.ownership !== DependencyOwnership.OWNED || registration.disposed) continue;
+      if (this._invoke('dispose', registration, registration.disposeHook, [])) cleaned.push(registration.name);
+      registration.disposed = true;
     }
-
     this.systems.clear();
-    this.dependencies = {};
+    this._ownedIdentities.clear();
+    this.dependencies = Object.create(null);
     this._sortedCache = null;
     return cleaned;
   }

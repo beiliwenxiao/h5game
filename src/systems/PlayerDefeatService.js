@@ -6,15 +6,15 @@ function buildLossDraft(inventory) {
   const byId = new Map();
   for (const stack of inventory?.slots || []) {
     if (!stack || !isDroppableResource(stack.item)) continue;
-    const current = byId.get(stack.item.id) || { item: { ...stack.item }, quantity: 0 };
-    current.quantity += Math.max(0, Math.floor(Number(stack.quantity) || 0));
-    byId.set(stack.item.id, current);
+    const definitionId = stack.item.definitionId || stack.item.id;
+    byId.set(definitionId, (byId.get(definitionId) || 0)
+      + Math.max(0, Math.floor(Number(stack.quantity) || 0)));
   }
-  return [...byId.values()]
-    .map((entry, index) => ({
-      id: `${entry.item.id}-${index}`,
-      item: entry.item,
-      quantity: Math.floor(entry.quantity * 0.5)
+  return [...byId.entries()]
+    .map(([definitionId, quantity], index) => ({
+      id: `${definitionId}-${index}`,
+      definitionId,
+      quantity: Math.floor(quantity * 0.5)
     }))
     .filter(entry => entry.quantity > 0);
 }
@@ -37,7 +37,7 @@ export class PlayerDefeatService {
     this.nextDeathSequence = 1;
   }
 
-  resolve({ player, deathId = null, resolution = { type: 'normalDeath' } } = {}) {
+  resolve({ player, deathId = null, resolution = { type: 'normalDeath' }, deferFinalize = false } = {}) {
     if (!player) return { ok: false, code: 'invalidInput' };
     const stableDeathId = deathId || `player-death-${this.nextDeathSequence++}`;
     if (this.resolvedDeathIds.has(stableDeathId)) {
@@ -50,10 +50,16 @@ export class PlayerDefeatService {
       : this._resolveNormalDeath(player, deathId);
     if (!result.ok) return result;
     this.resolvedDeathIds.add(deathId);
+    const sequenceMatch = /^player-death-(\d+)$/.exec(deathId);
+    if (sequenceMatch) this.nextDeathSequence = Math.max(this.nextDeathSequence, Number(sequenceMatch[1]) + 1);
     result.respawnPosition = this._respawn(player, resolution);
-    try { this.onResolved(result); } catch (error) {
-      console.warn('PlayerDefeatService: onResolved failed', error);
-    }
+    const finalize = () => {
+      try { this.onResolved(result); } catch (error) {
+        console.warn('PlayerDefeatService: onResolved failed', error);
+      }
+    };
+    if (deferFinalize) result.finalize = finalize;
+    else finalize();
     return result;
   }
 
@@ -73,7 +79,7 @@ export class PlayerDefeatService {
       if (!drop) return { ok: false, code: 'dropCreationFailed' };
       const removal = this.inventoryTransactions.commit({
         type: 'batchRemove', inventory,
-        entries: stacks.map(stack => ({ itemId: stack.item.id, quantity: stack.quantity })),
+        entries: stacks.map(stack => ({ itemId: stack.definitionId, quantity: stack.quantity })),
         operationId: `death:${deathId}:remove`
       });
       if (!removal.ok) return { ...removal, code: removal.code || 'lossCommitFailed' };

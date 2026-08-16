@@ -18,8 +18,10 @@
  * 覆盖：NPC / 敌人 / 物品 / 装备 / 商店 / 职业 / 技能 / 载具 / 建筑。
  *
  * 每条定义 = 通用字段(id/name) + 该类专属字段(JSON)。保存前 JSON 实时校验。
- * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写（保留其它字段）。
+ * 通过 Vite dev server 的受限 canonical transaction endpoint 读写（保留其它字段）。
  */
+
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 // 库分类定义（内容库仅保留角色养成类全局定义；可放置内容 NPC/敌人/物品/装备/商店/载具/建筑
 // 已移到场景编辑器「资源库·内容」Tab 就地定义+放置）。
@@ -92,6 +94,8 @@ export class LibraryEditor {
   constructor(container, options = {}) {
     this.container = container;
     this.gameId = options.gameId || 'sanguo_zhangjiao';
+    this.canonicalSession = options.canonicalSession || null;
+    this.schemaFields = this.canonicalSession?.fields || null;
     this.projectPath = `example/${this.gameId}/game.project.json`;
     this.project = null;
     this.library = null;
@@ -114,7 +118,9 @@ export class LibraryEditor {
 
   /** 加载工程文件 */
   async _load() {
-    try {
+    if (this.canonicalSession) {
+      this.project = this.canonicalSession.getValue();
+    } else try {
       const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
       if (res.ok) {
         const data = await res.json();
@@ -142,13 +148,13 @@ export class LibraryEditor {
     this._commitDetail();
     this.project.library = this.library;
     try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
-      });
-      const data = await res.json();
-      if (data && data.ok) {
+      const data = this.canonicalSession
+        ? await (async () => {
+            this.canonicalSession.patch('library', this.library);
+            return this.canonicalSession.save();
+          })()
+        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
+      if (data && (data.ok || data.committed)) {
         const n = this._current().length;
         this._status('✅ 已保存到 ' + this.projectPath, 'ok');
         this._toast('保存成功（' + this._catLabel() + ' ' + n + ' 条）', true);
@@ -469,6 +475,7 @@ export class LibraryEditor {
       const srcEl = panel.querySelector('#l-sprite-src');
       if (srcEl) {
         e.sprite = {
+          ...(e.sprite || {}),
           src: srcEl.value.trim(),
           frameWidth: parseInt(panel.querySelector('#l-sprite-fw')?.value) || 64,
           frameHeight: parseInt(panel.querySelector('#l-sprite-fh')?.value) || 64,
@@ -486,7 +493,7 @@ export class LibraryEditor {
         const row = parseInt(tr.querySelector(`[data-anim="${key}"][data-field="row"]`)?.value) || 0;
         const frames = parseInt(tr.querySelector(`[data-anim="${key}"][data-field="frames"]`)?.value) || 4;
         const speed = parseFloat(tr.querySelector(`[data-anim="${key}"][data-field="speed"]`)?.value) || 0.1;
-        if (name) anims[name] = { row, frames, speed };
+        if (name) anims[name] = { ...(e.animations?.[key] || {}), row, frames, speed };
       });
       e.animations = anims;
       // baseStats
@@ -498,9 +505,10 @@ export class LibraryEditor {
       // AI (enemies)
       if (cat === 'enemies') {
         e.ai = {
+          ...(e.ai || {}),
           type: panel.querySelector('#l-ai-type')?.value || 'melee',
-          aggroRange: parseInt(panel.querySelector('#l-ai-aggro')?.value) || 200,
-          attackRange: parseInt(panel.querySelector('#l-ai-atkrange')?.value) || 50
+          aggroRange: Number(panel.querySelector('#l-ai-aggro')?.value),
+          attackRange: Number(panel.querySelector('#l-ai-atkrange')?.value)
         };
         e.loot = this._parseJson(panel.querySelector('#l-loot')?.value, []);
       }
@@ -514,7 +522,8 @@ export class LibraryEditor {
         e.shopId = panel.querySelector('#l-shop')?.value.trim() || '';
         e.questId = panel.querySelector('#l-quest')?.value.trim() || '';
         e.interaction = {
-          radius: parseInt(panel.querySelector('#l-it-radius')?.value) || 60,
+          ...(e.interaction || {}),
+          radius: Number(panel.querySelector('#l-it-radius')?.value),
           trigger: panel.querySelector('#l-it-trigger')?.value || 'interact',
           prompt: panel.querySelector('#l-it-prompt')?.value.trim() || '按 E 对话'
         };

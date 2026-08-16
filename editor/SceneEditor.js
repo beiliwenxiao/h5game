@@ -440,22 +440,13 @@ export class SceneEditor {
       colliders: []
     };
 
-    const incoming = sceneData ? JSON.parse(JSON.stringify(sceneData)) : {};
-    this.sceneData = { ...base, ...incoming };
+    const incoming = sceneData ? structuredClone(sceneData) : null;
+    // Canonical load/import is lossless: defaults and migrations are only for a brand-new blank draft.
+    this.sceneData = incoming ?? base;
 
-    // 规范化图层
-    this.sceneData.layers = this.layers.normalizeLayers(this.sceneData.layers);
-
-    // 遮罩层已废弃：清理空的遗留遮罩层（非空的保留，避免丢对象，用户可手动处理）
-    this.sceneData.layers = this.sceneData.layers.filter(
-      l => !(l.id === 'layer_mask' && (!l.objects || l.objects.length === 0))
-    );
-
-    // 旧对象迁移为统一 shape（rect/circle/fill/ellipse → type:'shape'）
-    this._migrateShapes();
-
-    // 将 decorations 转换合并到装饰层
-    this.layers.mergeDecorationsToLayer();
+    if (!incoming) {
+      this.sceneData.layers = this.layers.normalizeLayers(this.sceneData.layers);
+    }
 
     // 清空缓存
     this.loadedImages = new Map();
@@ -493,9 +484,11 @@ export class SceneEditor {
       overlay.height = ch;
     }
 
-    // 合并全局图集到场景数据（所有场景共享同一套图集资源）
-    this._mergeGlobalAtlases();
-    this._mergeGlobalImages();
+    // 全局资源只注入新建空白草稿；已加载 canonical 文档保持逐字段无损。
+    if (!incoming) {
+      this._mergeGlobalAtlases();
+      this._mergeGlobalImages();
+    }
 
     // 加载图集和图片
     this.assets.loadAtlasImages();

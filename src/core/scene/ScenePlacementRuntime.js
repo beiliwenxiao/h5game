@@ -185,15 +185,16 @@ export class ScenePlacementRuntime {
   }
 
 
-  loadProjection({ sceneId = this.getCurrentSceneId(), consumePlayerSpawn = false } = {}) {
+  loadProjection({ sceneId = null, consumePlayerSpawn = false } = {}) {
     const promise = this.getWorldPromise();
     if (!promise || typeof promise.then !== 'function') return Promise.resolve({ ok: false, errors: [] });
     const scope = this.scope;
     return promise.then(result => {
       if (!this._isActive(scope)) return { ok: false, errors: [] };
       if (!result?.region) this.logger.warn('[ScenePlacementRuntime] game.project.json 无 worldMap 配置');
+      const targetSceneId = sceneId ?? result?.worldIndex?.getEntry?.()?.sceneId ?? this.getCurrentSceneId();
       this.syncProjection();
-      this.applySpawnPoints({ sceneId, applyPlayer: consumePlayerSpawn });
+      this.applySpawnPoints({ sceneId: targetSceneId, applyPlayer: consumePlayerSpawn });
       this.getReadyGate()?.resolve?.('placements', this.placements);
       this.onProjectionReady();
       return { ok: true, placements: this.placements };
@@ -202,7 +203,7 @@ export class ScenePlacementRuntime {
       this.logger.warn('[ScenePlacementRuntime] 加载 game.project.json 失败:', error);
       this.setProjection([]);
       this.clearProjectionBindings();
-      this.applySpawnPoints({ sceneId, applyPlayer: consumePlayerSpawn });
+      this.applySpawnPoints({ sceneId: sceneId ?? this.getCurrentSceneId(), applyPlayer: consumePlayerSpawn });
       this.getReadyGate()?.resolve?.('placements', this.placements);
       this.onProjectionReady();
       return { ok: false, errors: [{ code: 'placementProjectionFailed', path: 'placements', message: error?.message || String(error) }] };

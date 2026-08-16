@@ -15,10 +15,22 @@ import { ProgressionGraphSystem } from '../systems/progression/ProgressionGraphS
 import { ProgressionProfile } from '../systems/progression/ProgressionProfile.js';
 import { SkillRegistry } from '../systems/ability/SkillRegistry.js';
 import { createContentValidator } from './validation/ContentSchemas.js';
+import { CanonicalCandidatePipeline } from './validation/CanonicalCandidatePipeline.js';
+import { CandidateRuleValidator } from './validation/CandidateRuleValidator.js';
 import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
+import { createStandardActionDescriptorRegistry } from '../systems/ActionDescriptorRegistry.js';
+import { CommandAdapter } from '../systems/CommandAdapter.js';
+import { ScenarioDefinitionIndex } from './scenario/ScenarioDefinitionIndex.js';
+import { TriggerGraph } from './scenario/TriggerGraph.js';
 import { createStandardRegistries } from './Registry.js';
+import { DefinitionRepository } from './DefinitionRepository.js';
+import { createStandardCapabilityStrategyRegistry } from '../systems/items/CapabilityStrategyRegistry.js';
+import {
+  ConfigConsumptionSnapshot,
+  createStandardConfigConsumptionRegistry
+} from './ConfigConsumptionRegistry.js';
 import { BattleClient } from '../integration/BattleClient.js';
 import { LocalMockTransport } from '../integration/LocalMockTransport.js';
 
@@ -41,14 +53,30 @@ export class GameLoader {
     const {
       contentValidator = null,
       contentValidatorConfig = {},
+      candidatePipeline = null,
       projectValidators = [],
-      contentPolicy = null
+      contentPolicy = null,
+      capabilityStrategyRegistry = null,
+      configConsumptionRegistry = null,
+      actionDescriptorRegistry = null
     } = config || {};
     this.project = null;
+    this.lastSuccessfulSnapshot = null;
+    this.runtimeConfigSnapshot = null;
+    this.definitionRepository = DefinitionRepository.empty();
+    this.capabilityStrategyRegistry = capabilityStrategyRegistry || createStandardCapabilityStrategyRegistry();
+    this.configConsumptionRegistry = configConsumptionRegistry
+      || createStandardConfigConsumptionRegistry(this.capabilityStrategyRegistry);
+    this.configConsumptionSnapshot = ConfigConsumptionSnapshot.empty();
+    this.actionDescriptorRegistry = actionDescriptorRegistry || createStandardActionDescriptorRegistry();
+    this.scenarioDefinitionIndex = ScenarioDefinitionIndex.empty();
+    this.triggerGraph = TriggerGraph.fromSnapshot(Object.freeze({ project: Object.freeze({}), definitionRevision: 0 }));
+    this.commandAdapter = null;
+    this._definitionRevision = 0;
     this.blackboard = new Blackboard();
     this.triggerSystem = new TriggerSystem();
-    // 内容库注册表（P2）：库与实例分离，运行时实例化引用库 id
-    this.registries = createStandardRegistries();
+    // 兼容 Registry 只读委托当前 DefinitionRepository revision。
+    this.registries = createStandardRegistries(this.definitionRepository);
 
     // 成长系统（技能树 / 职业天赋 / 兵种天赋 / 天赋盘）
     this.progressionProfile = null;
@@ -65,6 +93,14 @@ export class GameLoader {
     } else if (typeof contentPolicy?.validateProject === 'function') {
       this.projectValidators.push(contentPolicy.validateProject.bind(contentPolicy));
     }
+    this.candidatePipeline = candidatePipeline || new CanonicalCandidatePipeline({
+      contentValidator: this.contentValidator,
+      ruleValidator: new CandidateRuleValidator({
+        contentValidator: this.contentValidator,
+        businessRuleValidators: this.projectValidators,
+        capabilityStrategyRegistry: this.capabilityStrategyRegistry
+      })
+    });
     /** 最近一次装配的校验错误，供错误提示界面读取 */
     this.lastValidationErrors = [];
 
@@ -76,6 +112,7 @@ export class GameLoader {
     this._loadGeneration = 0;
     this._disposed = false;
     this._eventSourceDisposers = [];
+    this._lastAssemblyDeps = null;
   }
 
   /**
@@ -89,202 +126,34 @@ export class GameLoader {
    * @returns {{ok: boolean, errors: Array<Object>}}
    */
   assembleProgression(proj, deps = {}) {
-    const config = proj && proj.progression;
-    const errors = [];
-    this.lastValidationErrors = [];
-
-    // 先整体校验：非法配置不进入运行状态
-    if (config) {
-      const configCheck = this.contentValidator.validate(config, 'progressionConfig', 'progression');
-      if (!configCheck.ok) {
-        this.lastValidationErrors = configCheck.errors;
-        console.warn('GameLoader: progression 配置校验失败，已跳过成长装配\n' + formatErrors(configCheck.errors));
-        return { ok: false, errors: configCheck.errors };
-      }
+    try {
+      const draft = this._buildProgressionDraft(proj, deps);
+      Object.assign(this, {
+        progressionProfile: draft.profile,
+        progressionSystem: draft.progressionSystem,
+        skillRegistry: draft.skillRegistry
+      });
+      this.lastValidationErrors = [];
+      return { ok: true, errors: [] };
+    } catch (error) {
+      const errors = error?.errors || [{ code: 'progressionDraftFailed', path: 'progression', message: String(error?.message || error) }];
+      this.lastValidationErrors = errors;
+      return { ok: false, errors };
     }
-
-    this.progressionProfile = new ProgressionProfile(config || {});
-    const profileCheck = this.progressionProfile.validate();
-    if (!profileCheck.ok) {
-      errors.push(...profileCheck.errors.map(e => ({ ...e, path: `progression.${e.path}` })));
-    }
-
-    this.progressionSystem = new ProgressionGraphSystem({
-      effectResolver: deps.effectResolver,
-      profile: this.progressionProfile
-    });
-
-    if (!config) return { ok: errors.length === 0, errors };
-
-    // 技能定义：Schema 校验通过后才注册
-    const skills = config.skills && Array.isArray(config.skills.skills)
-      ? config.skills.skills
-      : (Array.isArray(config.skills) ? config.skills : []);
-
-    const skillCheck = this.contentValidator.validateList(skills, 'skill', 'progression.skills');
-    if (skillCheck.ok) {
-      const skillResult = this.skillRegistry.registerAll(skills);
-      for (const item of skillResult.errors) {
-        errors.push({
-          code: 'invalidSkill',
-          path: `progression.skills.${item.id}`,
-          message: JSON.stringify(item.errors)
-        });
-      }
-    } else {
-      errors.push(...skillCheck.errors);
-    }
-
-    // 成长图：Schema 校验通过后才交给成长系统
-    for (const graphConfig of config.graphs || []) {
-      const graphPath = `progression.graphs.${(graphConfig && graphConfig.id) || '<unknown>'}`;
-      const graphCheck = this.contentValidator.validate(graphConfig, 'progressionGraph', graphPath);
-
-      if (!graphCheck.ok) {
-        errors.push(...graphCheck.errors);
-        continue;
-      }
-
-      const result = this.progressionSystem.registerGraph(graphConfig);
-      if (!result.ok) {
-        errors.push(...result.errors.map(e => ({ ...e, path: `${graphPath}.${e.path}` })));
-      }
-    }
-
-    this.lastValidationErrors = errors;
-    return { ok: errors.length === 0, errors };
   }
 
   /**
    * 在任何运行状态写入前完成工程、成长配置、触发器和内容库预检。
    * @returns {{ok: boolean, value: Object|null, errors: Array<Object>}}
    */
-  validateProjectCandidate(project) {
-    const loaded = this.contentValidator.loadCandidate(project, 'gameProject', this.project);
-    if (!loaded.committed) return { ok: false, value: null, errors: loaded.errors };
-
-    const candidate = loaded.value;
-    const errors = [];
-    errors.push(...this.contentValidator.validate(
-      candidate.presentation,
-      'presentationProfile',
-      'presentation'
-    ).errors);
-    errors.push(...this.contentValidator.validate(
-      candidate.assetManifest,
-      'assetManifest',
-      'assetManifest'
-    ).errors);
-    errors.push(...this.contentValidator.validateList(
-      candidate.rescues || [],
-      'rescueDefinition',
-      'rescues'
-    ).errors);
-    const progression = candidate.progression;
-
-    if (progression) {
-      errors.push(...this.contentValidator.validate(
-        progression,
-        'progressionConfig',
-        'progression'
-      ).errors);
-
-      const skills = progression.skills && Array.isArray(progression.skills.skills)
-        ? progression.skills.skills
-        : (Array.isArray(progression.skills) ? progression.skills : []);
-      errors.push(...this.contentValidator.validateList(
-        skills,
-        'skill',
-        'progression.skills'
-      ).errors);
-
-      for (const [index, graph] of (progression.graphs || []).entries()) {
-        errors.push(...this.contentValidator.validate(
-          graph,
-          'progressionGraph',
-          `progression.graphs[${index}]`
-        ).errors);
-      }
-    }
-
-    try {
-      new TriggerSystem().registerAll([
-        ...(candidate.triggers || []),
-        ...(candidate.tutorials || [])
-      ]);
-    } catch (error) {
-      errors.push({
-        code: 'invalidTrigger',
-        path: 'triggers',
-        message: String(error && error.message ? error.message : error)
-      });
-    }
-
-    for (const [libraryName, definitions] of Object.entries(candidate.library || {})) {
-      if (!Array.isArray(definitions)) continue;
-      const seen = new Set();
-      definitions.forEach((definition, index) => {
-        const id = definition && definition.id;
-        const path = `library.${libraryName}[${index}].id`;
-        if (typeof id !== 'string' || !id.trim()) {
-          errors.push({ code: 'missingField', path, message: '内容库定义缺少稳定 id' });
-        } else if (seen.has(id)) {
-          errors.push({ code: 'duplicateId', path, message: `重复的内容库 id: ${id}` });
-        }
-        seen.add(id);
-      });
-    }
-
-    const itemDefinitions = Array.isArray(candidate.library?.items) ? candidate.library.items : [];
-    const itemIds = new Set(itemDefinitions.map(item => item?.id).filter(Boolean));
-    const availableToolTypes = new Set(itemDefinitions
-      .filter(item => item?.type === 'tool' && typeof item.toolType === 'string')
-      .map(item => item.toolType));
-    for (const [index, node] of (candidate.library?.resourceNodes || []).entries()) {
-      if (!itemIds.has(node?.itemId)) {
-        errors.push({
-          code: 'invalidReference',
-          path: `library.resourceNodes[${index}].itemId`,
-          message: `资源节点引用了不存在的物品: ${node?.itemId}`
-        });
-      }
-      if (node?.requiredToolType && !availableToolTypes.has(node.requiredToolType)) {
-        errors.push({
-          code: 'invalidReference',
-          path: `library.resourceNodes[${index}].requiredToolType`,
-          message: `资源节点要求的工具类型不存在: ${node.requiredToolType}`
-        });
-      }
-    }
-
-    for (const [index, city] of (candidate.variables?.cityStates || []).entries()) {
-      errors.push(...this.contentValidator.validate(
-        city, 'city', `variables.cityStates[${index}]`
-      ).errors);
-    }
-
-    for (const validator of this.projectValidators) {
-      try {
-        const result = validator(candidate, { loader: this });
-        const policyErrors = Array.isArray(result) ? result : (result?.errors || []);
-        for (const error of policyErrors) {
-          errors.push({
-            code: error?.code || 'projectPolicy',
-            path: error?.path || 'project',
-            message: error?.message || '项目内容策略校验失败',
-            ...(error && typeof error === 'object' ? error : {})
-          });
-        }
-      } catch (error) {
-        errors.push({
-          code: 'projectPolicy',
-          path: 'project',
-          message: String(error?.message || error)
-        });
-      }
-    }
-
-    return { ok: errors.length === 0, value: candidate, errors };
+  validateProjectCandidate(project, options = {}) {
+    return this.candidatePipeline.process(project, {
+      schemaId: 'gameProject',
+      source: options.source || this._baseDir || 'game.project.json',
+      lastSuccessfulValue: this.project,
+      context: { loader: this, ...(options.context || {}) },
+      trace: options.trace || null
+    });
   }
 
   /** 创建带结构化 errors 的公开内容校验异常。 */
@@ -329,6 +198,15 @@ export class GameLoader {
   /** 取某类内容库注册表。 */
   getRegistry(name) {
     return this.registries[name] || null;
+  }
+
+  /** 获取当前 definition revision 下的只读通用配置 consumer。 */
+  getConfigConsumer(id) {
+    return this.configConsumptionSnapshot.getConsumer(id);
+  }
+
+  getConfigConsumptionStatus() {
+    return this.configConsumptionSnapshot.status;
   }
 
   /**
@@ -376,42 +254,199 @@ export class GameLoader {
     return this.assemble(proj, deps);
   }
 
-  /**
-   * 用已解析的 project 对象直接装配（无需 fetch，供编辑器/测试）
-   * @param {Object} proj
-   * @param {Object} deps
-   */
-  assemble(proj, deps = {}) {
-    const validation = this.validateProjectCandidate(proj);
-    if (!validation.ok) {
-      this.lastValidationErrors = validation.errors;
-      throw this._createValidationError(validation.errors);
+  _buildProgressionDraft(project, deps = {}) {
+    const config = project?.progression;
+    const errors = [];
+    if (config) {
+      const configCheck = this.contentValidator.validate(config, 'progressionConfig', 'progression');
+      if (!configCheck.ok) errors.push(...configCheck.errors);
+    }
+    const profile = new ProgressionProfile(config || {});
+    const profileCheck = profile.validate();
+    if (!profileCheck.ok) {
+      errors.push(...profileCheck.errors.map(error => ({ ...error, path: `progression.${error.path}` })));
     }
 
-    // 所有候选对象先在影子容器中建立；预检失败时不会触碰当前运行状态。
-    const candidate = validation.value;
-    const nextRegistries = createStandardRegistries();
-    for (const key of Object.keys(nextRegistries)) {
-      const definitions = candidate.library?.[key];
-      if (Array.isArray(definitions)) nextRegistries[key].registerAll(definitions);
+    const skillRegistry = new SkillRegistry();
+    const skills = Array.isArray(config?.skills?.skills)
+      ? config.skills.skills
+      : (Array.isArray(config?.skills) ? config.skills : []);
+    const skillCheck = this.contentValidator.validateList(skills, 'skill', 'progression.skills');
+    if (!skillCheck.ok) errors.push(...skillCheck.errors);
+    const skillResult = skillCheck.ok ? skillRegistry.registerAll(skills) : { errors: [] };
+    skillResult.errors.forEach(entry => {
+      for (const error of entry.errors || []) {
+        errors.push({ ...error, path: `progression.skills.${entry.id || '<unknown>'}.${error.path || ''}`.replace(/\.$/, '') });
+      }
+    });
+
+    const progressionSystem = new ProgressionGraphSystem({
+      effectResolver: deps.effectResolver,
+      profile
+    });
+    for (const graphConfig of config?.graphs || []) {
+      const id = graphConfig?.id || '<unknown>';
+      const graphPath = `progression.graphs.${id}`;
+      const graphCheck = this.contentValidator.validate(graphConfig, 'progressionGraph', graphPath);
+      if (!graphCheck.ok) {
+        errors.push(...graphCheck.errors);
+        continue;
+      }
+      const result = progressionSystem.registerGraph(graphConfig);
+      if (!result.ok) {
+        errors.push(...result.errors.map(error => ({
+          ...error,
+          path: `progression.graphs.${id}.${error.path || ''}`.replace(/\.$/, '')
+        })));
+      }
     }
-    const battleIntegration = this._createBattleIntegration(candidate, deps);
+    if (errors.length > 0) throw this._createValidationError(errors);
+    return { profile, progressionSystem, skillRegistry };
+  }
 
-    this._disposed = false;
-    this.project = candidate;
-    this.registries = nextRegistries;
-    this.battleTransport = battleIntegration.transport;
-    this.battleClient = battleIntegration.client;
-    this.skillRegistry = new SkillRegistry();
-    proj = candidate;
+  _buildExternalConsumerDrafts(project, deps, context) {
+    const drafts = [];
+    const dialogueSystem = deps.dialogueSystem;
+    if (dialogueSystem && Array.isArray(project.dialogues)) {
+      const nextDialogues = new Map();
+      for (const definition of project.dialogues) {
+        if (definition.enabled === false) continue;
+        const nodes = definition.nodes instanceof Map
+          ? new Map(definition.nodes)
+          : new Map(Object.entries(definition.nodes || {}));
+        nextDialogues.set(definition.id, {
+          id: definition.id,
+          title: definition.title || '',
+          startNode: definition.startNode || 'start',
+          nodes,
+          variables: definition.variables || {},
+          metadata: definition.metadata || {}
+        });
+      }
+      let previous;
+      drafts.push({
+        commit: () => { previous = dialogueSystem.dialogues; dialogueSystem.dialogues = nextDialogues; },
+        rollback: () => { if (previous) dialogueSystem.dialogues = previous; }
+      });
+    }
 
-    // 1. 变量 → 黑板
-    this.blackboard.init(proj.variables || {});
+    const tutorialSystem = deps.tutorialSystem;
+    if (tutorialSystem && Array.isArray(project.tutorials)) {
+      const previous = tutorialSystem.getAllTutorials?.() || [];
+      drafts.push({
+        commit: () => tutorialSystem.replaceDefinitions(project.tutorials),
+        rollback: () => tutorialSystem.replaceDefinitions(previous)
+      });
+    }
 
-    // 2. 触发器 → TriggerSystem
-    this.triggerSystem.reset();
-    this.triggerSystem.init({
-      blackboard: this.blackboard,
+    const questSystem = deps.questSystem;
+    if (questSystem && Array.isArray(project.quests) && project.quests.length > 0) {
+      const nextQuests = new Map(questSystem.quests instanceof Map ? questSystem.quests : []);
+      project.quests.forEach(definition => nextQuests.set(definition.id, definition));
+      let previous;
+      drafts.push({
+        commit: () => { previous = questSystem.quests; questSystem.quests = nextQuests; },
+        rollback: () => { if (previous) questSystem.quests = previous; }
+      });
+    }
+
+    const consumers = Array.isArray(deps.canonicalConsumers) ? deps.canonicalConsumers : [];
+    for (const consumer of consumers) {
+      const prepared = typeof consumer?.prepare === 'function'
+        ? consumer.prepare(context)
+        : (typeof consumer === 'function' ? consumer(context) : consumer);
+      if (prepared && typeof prepared.then === 'function') {
+        throw new TypeError('GameLoader canonical consumer prepare must be synchronous');
+      }
+      if (prepared?.ok === false) throw this._createValidationError(prepared.errors || [{ code: 'consumerRejected', path: '', message: 'consumer draft rejected' }]);
+      if (prepared && (typeof prepared.commit === 'function' || typeof consumer?.commit === 'function')) {
+        drafts.push({
+          commit: () => (prepared.commit || consumer.commit).call(prepared.commit ? prepared : consumer, context),
+          rollback: () => (prepared.rollback || consumer.rollback)?.call(prepared.rollback ? prepared : consumer, context)
+        });
+      }
+    }
+
+    const world = deps.world;
+    const region = project.worldMap?.regions?.[0];
+    if (world?.init && region) {
+      if (typeof world.createCanonicalDraft === 'function') {
+        const prepared = world.createCanonicalDraft({ ...context, region, project });
+        if (prepared?.ok === false) throw this._createValidationError(prepared.errors || []);
+        drafts.push({
+          commit: () => {
+            const result = typeof world.publishCanonicalDraft === 'function'
+              ? world.publishCanonicalDraft(prepared)
+              : prepared?.commit?.();
+            if (result?.ok === false) throw this._createValidationError(result.errors || []);
+          },
+          rollback: () => prepared?.rollback?.()
+        });
+      } else {
+        const previousSerialized = typeof world.serialize === 'function' ? world.serialize() : null;
+        const previousRegion = {
+          id: world.regionId,
+          chunkWidth: world.chunkWidth,
+          chunkHeight: world.chunkHeight,
+          cols: world.cols,
+          rows: world.rows,
+          grid: world.grid
+        };
+        const previousOptions = {
+          sceneResolver: world.sceneResolver,
+          placementAdapter: world.placementAdapter,
+          onChunkLoad: world.onChunkLoad,
+          onChunkUnload: world.onChunkUnload
+        };
+        drafts.push({
+          commit: () => {
+            const result = world.init(region, project, {
+              entityFactory: deps.entityFactory || null,
+              triggerSystem: context.triggerSystem,
+              registries: context.registries
+            });
+            if (result?.ok === false) throw this._createValidationError(result.errors || []);
+          },
+          rollback: () => {
+            world.configureRegion?.(previousRegion, previousOptions);
+            if (previousSerialized && typeof world.deserialize === 'function') world.deserialize(previousSerialized);
+          }
+        });
+      }
+    }
+    return drafts;
+  }
+
+  _buildShadowDraft({ snapshot, repository, runtimeConfig }, deps = {}) {
+    const project = snapshot.project;
+    const blackboard = new Blackboard();
+    blackboard.init(project.variables || {});
+    const registries = createStandardRegistries(repository);
+    const battleIntegration = this._createBattleIntegration(project, deps);
+    const triggerGraph = TriggerGraph.fromSnapshot(snapshot);
+    const scenarioDefinitionIndex = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph });
+    const commandAdapter = deps.commandAdapter || (deps.commandGateway ? new CommandAdapter({
+      registry: this.actionDescriptorRegistry,
+      commandGateway: deps.commandGateway,
+      definitionRepository: repository
+    }) : null);
+    const triggerSystem = new TriggerSystem({
+      actionDescriptorRegistry: this.actionDescriptorRegistry,
+      commandAdapter,
+      definitionRevision: snapshot.definitionRevision,
+      monotonicClock: deps.authorityClocks?.monotonic || deps.monotonicClock,
+      logicalClock: deps.authorityClocks?.logical || deps.logicalClock,
+      advanceClockOnUpdate: deps.advanceTriggerClockOnUpdate,
+      operationIdFactory: deps.triggerOperationIdFactory,
+      applicationEventPublisher: deps.triggerApplicationEventPublisher,
+      serviceReferenceResolver: deps.triggerServiceReferenceResolver,
+      bindingReferenceResolver: deps.triggerBindingReferenceResolver,
+      operationFingerprintValidator: deps.triggerOperationFingerprintValidator,
+      runtimeConfig,
+      sceneDiagnostics: deps.sceneDiagnostics
+    });
+    triggerSystem.init({
+      blackboard,
       dialogue: deps.dialogueSystem,
       questSystem: deps.questSystem,
       sceneManager: deps.sceneManager,
@@ -420,58 +455,130 @@ export class GameLoader {
       audioManager: deps.audioManager,
       floatingText: deps.floatingText,
       tutorial: deps.tutorial,
+      services: deps.services,
+      triggerBindings: deps.triggerBindings,
       onItemGained: deps.onItemGained,
-      battleClient: this.battleClient,
-      registries: this.registries
+      battleClient: battleIntegration.client,
+      registries,
+      definitionRepository: repository,
+      runtimeConfig,
+      sceneDiagnostics: deps.sceneDiagnostics
     });
-    registerDefaultActions(this.triggerSystem);
-    // 项目触发器与 tutorials 共用稳定 ID 命名空间；合并预检避免失败后留下半注册状态。
-    this.triggerSystem.registerAll([...(proj.triggers || []), ...(proj.tutorials || [])]);
+    registerDefaultActions(triggerSystem);
+    triggerSystem.registerAll(project.triggers || []);
+    const progression = this._buildProgressionDraft(project, deps);
+    const configConsumption = this.configConsumptionRegistry.build(snapshot);
+    const context = {
+      snapshot, repository, runtimeConfig, configConsumption,
+      scenarioDefinitionIndex, triggerGraph, commandAdapter,
+      blackboard, triggerSystem, registries
+    };
+    const consumerDrafts = this._buildExternalConsumerDrafts(project, deps, context);
+    return { ...context, ...progression, battleIntegration, consumerDrafts, deps };
+  }
 
-    // 3. 对话 → DialogueSystem（跳过 enabled:false 的停用对话）
-    if (deps.dialogueSystem && Array.isArray(proj.dialogues)) {
-      for (const d of proj.dialogues) {
-        if (d.enabled === false) continue;
-        deps.dialogueSystem.registerDialogue?.(d.id, d);
-      }
-    }
-
-    // 4. 任务 → QuestSystem
-    if (deps.questSystem && Array.isArray(proj.quests)) {
-      for (const q of proj.quests) deps.questSystem.registerQuest?.(q);
-    }
-
-    // 5. 内容库已在影子注册表中完整构建；此处只同步外部兼容 registry。
-    if (proj.library && deps.registries) {
-      const lib = proj.library;
-      for (const [key, reg] of Object.entries(deps.registries)) {
-        if (reg && typeof reg.register === 'function' && Array.isArray(lib[key])) {
-          lib[key].forEach(def => reg.register(def));
+  _publishShadowDraft(draft) {
+    const committed = [];
+    const previous = {
+      project: this.project,
+      lastSuccessfulSnapshot: this.lastSuccessfulSnapshot,
+      runtimeConfigSnapshot: this.runtimeConfigSnapshot,
+      definitionRepository: this.definitionRepository,
+      configConsumptionSnapshot: this.configConsumptionSnapshot,
+      scenarioDefinitionIndex: this.scenarioDefinitionIndex,
+      triggerGraph: this.triggerGraph,
+      commandAdapter: this.commandAdapter,
+      registries: this.registries,
+      blackboard: this.blackboard,
+      triggerSystem: this.triggerSystem,
+      battleTransport: this.battleTransport,
+      battleClient: this.battleClient,
+      progressionProfile: this.progressionProfile,
+      progressionSystem: this.progressionSystem,
+      skillRegistry: this.skillRegistry,
+      _definitionRevision: this._definitionRevision,
+      _disposed: this._disposed
+    };
+    try {
+      for (const consumer of draft.consumerDrafts) {
+        try {
+          consumer.commit?.();
+          committed.push(consumer);
+        } catch (error) {
+          try { consumer.rollback?.(); } catch { /* preserve original publication error */ }
+          throw error;
         }
       }
-    }
 
-    // 6. worldMap → WorldStreamingManager（P5，若提供）
-    if (deps.world && deps.world.init && proj.worldMap) {
-      const region = proj.worldMap.regions?.[0];
-      if (region) {
-        deps.world.init(region, proj, {
-          entityFactory: deps.entityFactory || null,
-          triggerSystem: this.triggerSystem,
-          registries: this.registries
-        });
+      this._releaseEventSources();
+      Object.assign(this, {
+        project: draft.snapshot.project,
+        lastSuccessfulSnapshot: draft.snapshot,
+        runtimeConfigSnapshot: draft.runtimeConfig,
+        definitionRepository: draft.repository,
+        configConsumptionSnapshot: draft.configConsumption,
+        scenarioDefinitionIndex: draft.scenarioDefinitionIndex,
+        triggerGraph: draft.triggerGraph,
+        commandAdapter: draft.commandAdapter,
+        registries: draft.registries,
+        blackboard: draft.blackboard,
+        triggerSystem: draft.triggerSystem,
+        battleTransport: draft.battleIntegration.transport,
+        battleClient: draft.battleIntegration.client,
+        progressionProfile: draft.profile,
+        progressionSystem: draft.progressionSystem,
+        skillRegistry: draft.skillRegistry,
+        _definitionRevision: draft.snapshot.definitionRevision,
+        _disposed: false
+      });
+      this.bridgeEventSources(draft.deps);
+      this._lastAssemblyDeps = draft.deps;
+    } catch (error) {
+      this._releaseEventSources();
+      Object.assign(this, previous);
+      for (const consumer of committed.reverse()) {
+        try { consumer.rollback?.(); } catch { /* best-effort rollback */ }
       }
+      if (this._lastAssemblyDeps) {
+        try { this.bridgeEventSources(this._lastAssemblyDeps); } catch { /* preserve publication error */ }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * 用已解析的 project 对象直接装配（无需 fetch，供编辑器/测试）。
+   * 完整 shadow 构建成功后才交换正式快照与全部内部 consumer。
+   */
+  assemble(proj, deps = {}) {
+    const result = this.candidatePipeline.processToSnapshot(proj, {
+      schemaId: 'gameProject',
+      source: this._baseDir || 'game.project.json',
+      revision: this._definitionRevision + 1,
+      lastSuccessfulSnapshot: this.lastSuccessfulSnapshot,
+      context: { loader: this },
+      repositoryOptions: { capabilityStrategyRegistry: this.capabilityStrategyRegistry },
+      buildShadow: context => this._buildShadowDraft(context, deps)
+    });
+    if (!result.ok) {
+      this.lastValidationErrors = result.errors;
+      throw this._createValidationError(result.errors);
     }
 
-    // 7. 成长系统 → ProgressionGraphSystem + SkillRegistry
-    const progressionResult = this.assembleProgression(proj, deps);
-    if (!progressionResult.ok) {
-      console.warn('GameLoader: 成长配置存在问题，已跳过非法项', progressionResult.errors);
+    try {
+      this._publishShadowDraft(result.draft);
+    } catch (error) {
+      const errors = error?.errors || [{ code: 'snapshotPublishFailed', path: '', message: String(error?.message || error) }];
+      this.lastValidationErrors = errors;
+      throw this._createValidationError(errors);
     }
+    this.lastValidationErrors = [];
+    return result.snapshot.project;
+  }
 
-    // 8. 事件源桥接（§4.4）：集中订阅各系统事件 → fire 到 TriggerSystem
-    this.bridgeEventSources(deps);
-    return proj;
+  /** 捕获命令开始时的不可变定义 revision；后续 reload 不改变此 lock。 */
+  lockDefinitionRevision() {
+    return this.definitionRepository.lockRevision();
   }
 
   /**
@@ -583,8 +690,12 @@ export class GameLoader {
   deserialize(data, characterId = null) {
     if (!data) return { ok: false, errors: [{ code: 'missingField', path: '', message: '存档为空' }] };
 
+    const triggerValidation = this.triggerSystem.validateSnapshot(data.triggers);
+    if (!triggerValidation.ok) return triggerValidation;
+
     this.blackboard.deserialize(data.blackboard);
-    this.triggerSystem.deserialize(data.triggers);
+    const triggerResult = this.triggerSystem.deserialize(data.triggers);
+    if (!triggerResult.ok) return triggerResult;
 
     if (characterId && data.progression && this.progressionSystem) {
       return this.progressionSystem.deserializeCharacter(characterId, data.progression);

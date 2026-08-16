@@ -55,8 +55,9 @@ export class Minimap extends UIElement {
 
     // 地形实例列表
     this._terrains = [];
-    // 大地图 region 边界数据（优先于 terrain 包围盒）
-    this._worldRegion = null;
+    // 项目世界索引是边界和 chunk 尺寸的唯一来源。
+    this._worldIndex = options.worldIndex || null;
+    this._regionRef = options.regionRef ?? null;
     // 缩略图离屏 canvas
     this._mapCache = null;
     // 缓存脏标记版本号
@@ -93,12 +94,10 @@ export class Minimap extends UIElement {
     this._invalidateCache();
   }
 
-  /**
-   * 设置大地图 region 数据（用于确定小地图整体边界）
-   * @param {Object|null} region - { cols, rows, chunkWidth, chunkHeight }
-   */
-  setWorldRegion(region) {
-    this._worldRegion = region || null;
+  /** 注入 ProjectWorldIndex；小地图不直接读取 region 配置。 */
+  setWorldIndex(worldIndex, regionRef = null) {
+    this._worldIndex = worldIndex || null;
+    this._regionRef = regionRef ?? worldIndex?.getEntry?.()?.regionId ?? null;
     this._invalidateCache();
   }
 
@@ -182,8 +181,10 @@ export class Minimap extends UIElement {
 
     // 先计算全部 terrain 包围盒（zoom=2 最小缩放用）
     let fullMinX = Infinity, fullMinY = Infinity, fullMaxX = -Infinity, fullMaxY = -Infinity;
-    const chunkW = (this._worldRegion && this._worldRegion.chunkWidth) || 1280;
-    const chunkH = (this._worldRegion && this._worldRegion.chunkHeight) || 720;
+    const region = this._worldIndex?.getRegion?.(this._regionRef);
+    if (!region) return;
+    const chunkW = region.chunkWidth;
+    const chunkH = region.chunkHeight;
 
     for (const t of this._terrains) {
       const ox = t.worldOffset ? t.worldOffset.x : 0;
@@ -292,9 +293,6 @@ export class Minimap extends UIElement {
       const bgColor = t.sceneBackgroundColor || '#1f1a14';
       const ox = t.worldOffset ? t.worldOffset.x : 0;
       const oy = t.worldOffset ? t.worldOffset.y : 0;
-      // 使用 chunk 尺寸（从 region 或默认 1280×720）
-      const chunkW = (this._worldRegion && this._worldRegion.chunkWidth) || 1280;
-      const chunkH = (this._worldRegion && this._worldRegion.chunkHeight) || 720;
       ctx.fillStyle = bgColor;
       ctx.fillRect(ox, oy, chunkW, chunkH);
 

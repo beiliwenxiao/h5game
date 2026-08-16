@@ -319,6 +319,28 @@ describe('TutorialSystem', () => {
   });
 
   describe('进度保存和加载', () => {
+    it('canonical definitions 完整持有 signal/threshold/policy，运行态可保存恢复', () => {
+      tutorialSystem.replaceDefinitions([{
+        id: 'canonical', title: '规范教学', category: 'scene', order: 1,
+        steps: [{ text: '完成两次动作' }],
+        signalRules: [{ signal: 'performed', threshold: 2 }],
+        completionPolicy: 'signal', canSkip: false, autoTrigger: false
+      }]);
+      expect(tutorialSystem.notify('performed')).toBe(false);
+      expect(tutorialSystem.notify('performed')).toBe(true);
+      const saved = tutorialSystem.saveProgress();
+      expect(saved.completedTutorials).toEqual(['canonical']);
+      expect(saved.signalProgress['canonical:performed']).toBe(2);
+
+      const restored = new TutorialSystem();
+      restored.replaceDefinitions(tutorialSystem.getAllTutorials());
+      restored.loadProgress(saved);
+      expect(restored.isTutorialCompleted('canonical')).toBe(true);
+      expect(restored.getTutorial('canonical')).toMatchObject({
+        completionPolicy: 'signal', signalRules: [{ signal: 'performed', threshold: 2 }]
+      });
+    });
+
     it('应该能保存进度', () => {
       tutorialSystem.completedTutorials.add('movement_tutorial');
       const progress = tutorialSystem.saveProgress();
@@ -366,5 +388,54 @@ describe('TutorialSystem', () => {
       
       expect(tutorialSystem.shouldPauseGame()).toBe(false);
     });
+  });
+});
+
+
+describe('TutorialSystem canonical policy boundary', () => {
+  it('signal/manual policy 不会被普通步骤浏览错误完成，且不执行 JavaScript 条件', () => {
+    const system = new TutorialSystem();
+    const triggerCondition = vi.fn(() => true);
+    const completionCondition = vi.fn(() => true);
+    system.replaceDefinitions([
+      {
+        id: 'signal-only', title: '信号教程', category: 'test', order: 0,
+        steps: [{ text: '等待信号' }], signalRules: [{ signal: 'done', threshold: 1 }],
+        completionPolicy: 'signal', autoTrigger: true, triggerCondition, completionCondition
+      },
+      {
+        id: 'manual-only', title: '手动教程', category: 'test', order: 1,
+        steps: [{ text: '等待命令' }], completionPolicy: 'manual', autoTrigger: false
+      }
+    ]);
+
+    system.update(0, { ready: true });
+    expect(system.getCurrentTutorial()?.id).toBe('signal-only');
+    expect(system.nextStep()).toBe(false);
+    expect(system.isTutorialCompleted('signal-only')).toBe(false);
+    expect(triggerCondition).not.toHaveBeenCalled();
+    expect(completionCondition).not.toHaveBeenCalled();
+
+    expect(system.notify('done')).toBe(true);
+    expect(system.isTutorialCompleted('signal-only')).toBe(true);
+    expect(system.showTutorial('manual-only')).toBe(true);
+    expect(system.nextStep()).toBe(false);
+    expect(system.isTutorialCompleted('manual-only')).toBe(false);
+    system.completeTutorial('manual-only');
+    expect(system.isTutorialCompleted('manual-only')).toBe(true);
+  });
+
+  it('只有 signal policy 消费 signal rule，definition 不进入 TriggerSystem', () => {
+    const system = new TutorialSystem();
+    system.replaceDefinitions([{
+      id: 'all-steps', title: '步骤教程', category: 'test', order: 0,
+      steps: [{ text: '步骤' }], signalRules: [{ signal: 'done', threshold: 1 }],
+      completionPolicy: 'allSteps', autoTrigger: false
+    }]);
+
+    expect(system.notify('done')).toBe(false);
+    expect(system.isTutorialCompleted('all-steps')).toBe(false);
+    expect(system.getTutorial('all-steps')).not.toHaveProperty('when');
+    expect(system.getTutorial('all-steps')).not.toHaveProperty('do');
   });
 });

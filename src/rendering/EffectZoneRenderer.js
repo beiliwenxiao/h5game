@@ -10,6 +10,8 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  ************************************************************/
 
+import { SceneObjectProjector } from '../core/scene/SceneObjectProjector.js';
+
 /**
  * EffectZoneRenderer - 特效区域粒子渲染器
  *
@@ -107,8 +109,9 @@ export class EffectZoneRenderer {
   /**
    * @param {import('./ParticleSystem.js').ParticleSystem} particleSystem - 场景的粒子系统实例
    */
-  constructor(particleSystem) {
+  constructor(particleSystem, { projector = null } = {}) {
     this.particleSystem = particleSystem;
+    this.projector = projector || new SceneObjectProjector();
     /** @type {Array<Object>} 当前场景的特效区域列表 */
     this.zones = [];
     /** 每个 zone 的发射累积器 */
@@ -125,25 +128,15 @@ export class EffectZoneRenderer {
     this._accumulators = [];
     if (!sceneData || !Array.isArray(sceneData.layers)) return;
 
-    const ox = worldOffset.x || 0;
-    const oy = worldOffset.y || 0;
-
     for (const layer of sceneData.layers) {
       if (!layer || !Array.isArray(layer.objects)) continue;
       for (const obj of layer.objects) {
         if (!obj || obj.type !== 'effectZone') continue;
         if (!Array.isArray(obj.points) || obj.points.length < 3) continue;
-        // 深拷贝 + 偏移坐标（避免修改原始数据）
-        const zone = {
-          ...obj,
-          points: obj.points.map(p => [p[0] + ox, p[1] + oy]),
-          x: (obj.x || 0) + ox,
-          y: (obj.y || 0) + oy,
-          sortY: Number.isFinite(obj.sortY)
-            ? obj.sortY + oy
-            : (obj.y || 0) + (obj.height || 0) + oy
-        };
-        this.zones.push(zone);
+        const source = Number.isFinite(obj.sortY)
+          ? obj
+          : { ...obj, sortY: (Number(obj.y) || 0) + (Number(obj.height) || 0) };
+        this.zones.push(this.projector.project(source, worldOffset));
         this._accumulators.push(0);
       }
     }

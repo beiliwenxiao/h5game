@@ -22,8 +22,10 @@
  * choice.if = ExpressionEngine 条件（JSON，可空）；choice.do = 动作序列（JSON，可空）。
  *
  * 提供「导入 DialogueData.json」把现有对话数据迁移进 dialogues[]（P3-2）。
- * 通过 Vite dev server 的 /api/read-file、/api/save-file 读写。
+ * 通过 Vite dev server 的 /api/read-file、/api/canonical-transaction 读写。
  */
+
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 export class DialogueGraphEditor {
   /**
@@ -33,6 +35,8 @@ export class DialogueGraphEditor {
   constructor(container, options = {}) {
     this.container = container;
     this.gameId = options.gameId || 'sanguo_zhangjiao';
+    this.canonicalSession = options.canonicalSession || null;
+    this.schemaFields = this.canonicalSession?.fields || null;
     this.projectPath = `example/${this.gameId}/game.project.json`;
     this.legacyDialoguePath = `example/${this.gameId}/data/DialogueData.json`;
     this.project = null;
@@ -55,7 +59,9 @@ export class DialogueGraphEditor {
   // ---- 加载 / 保存 ----
 
   async _load() {
-    try {
+    if (this.canonicalSession) {
+      this.project = this.canonicalSession.getValue();
+    } else try {
       const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
       if (res.ok) {
         const data = await res.json();
@@ -78,13 +84,13 @@ export class DialogueGraphEditor {
     this._commitDetail();
     this.project.dialogues = this.dialogues;
     try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.projectPath, content: JSON.stringify(this.project, null, 2) })
-      });
-      const data = await res.json();
-      if (data && data.ok) {
+      const data = this.canonicalSession
+        ? await (async () => {
+            this.canonicalSession.patch('dialogues', this.dialogues);
+            return this.canonicalSession.save();
+          })()
+        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
+      if (data && (data.ok || data.committed)) {
         this._status('✅ 已保存到 ' + this.projectPath + '（对话 ' + this.dialogues.length + ' 条）', 'ok');
         this._toast('保存成功（对话 ' + this.dialogues.length + ' 条）', true);
       } else {
@@ -501,29 +507,36 @@ export class DialogueGraphEditor {
       if (!n) return;
       n.speaker = card.querySelector('.n-speaker').value;
       const portrait = card.querySelector('.n-portrait').value.trim();
-      n.portrait = portrait || null;
+      if (portrait) n.portrait = portrait;
+      else if (Object.prototype.hasOwnProperty.call(n, 'portrait')) {
+        n.portrait = n.portrait === null ? null : '';
+      }
       n.text = card.querySelector('.n-text').value;
 
       const choiceEls = card.querySelectorAll('.dlg-choice');
       if (choiceEls.length > 0) {
+        const previousChoices = Array.isArray(n.choices) ? n.choices : [];
         n.choices = [];
         delete n.nextNode;
         choiceEls.forEach((ce, idx) => {
+          const previous = previousChoices[idx] || {};
           const ch = {
-            id: 'ch_' + (idx + 1),
+            ...previous,
+            id: previous.id || 'ch_' + (idx + 1),
             text: ce.querySelector('.ch-text').value,
             nextNode: ce.querySelector('.ch-next').value || null
           };
           const ifv = ce.querySelector('.ch-if').value.trim();
           const dov = ce.querySelector('.ch-do').value.trim();
-          if (ifv) ch.if = this._parseJson(ifv, undefined);
-          if (dov) ch.do = this._parseJson(dov, undefined);
+          if (ifv) ch.if = this._parseJson(ifv, undefined); else delete ch.if;
+          if (dov) ch.do = this._parseJson(dov, undefined); else delete ch.do;
           n.choices.push(ch);
         });
       } else {
         delete n.choices;
         const nextSel = card.querySelector('.n-next');
-        n.nextNode = nextSel && nextSel.value ? nextSel.value : null;
+        if (nextSel?.value) n.nextNode = nextSel.value;
+        else if (Object.prototype.hasOwnProperty.call(n, 'nextNode')) n.nextNode = null;
       }
     });
   }

@@ -24,6 +24,17 @@
 
 import { InputHints } from '../core/input/InputHints.js';
 
+/** 稳定的内置 action 契约，供 canonical 候选引用校验复用。 */
+export const DEFAULT_TRIGGER_ACTION_IDS = Object.freeze([
+  'setVar', 'addVar', 'setFlag', 'toggleFlag', 'startDialogue', 'switchScene',
+  'loadRegion', 'teleportToChunk', 'giveReward', 'heal', 'startQuest',
+  'completeQuest', 'showTip', 'playSound', 'playBgm', 'spawnEnemy', 'wait',
+  'parallel', 'battleWin', 'battleLose', 'spawnWave', 'mount',
+  'rescue.command', 'battle.command', 'construction.command', 'vehicle.command',
+  'quest.command', 'world.teleport', 'checkpoint.request', 'ending.command',
+  'dialogue.command', 'tutorial.command'
+]);
+
 export function registerDefaultActions(triggerSystem) {
   triggerSystem.registerActions({
     // ---- 变量 / 开关 ----

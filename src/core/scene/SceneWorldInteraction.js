@@ -105,7 +105,9 @@ export class SceneWorldInteraction {
       ...request
     });
     this._applyPickupResult(result);
-    const picked = (result.pickedItems?.length || 0) > 0 || (result.removedEntities?.length || 0) > 0;
+    const picked = (result.scheduled || 0) > 0
+      || (result.pickedItems?.length || 0) > 0
+      || (result.removedEntities?.length || 0) > 0;
     return picked || this.scene.harvestByFacing?.({ silent: true }) === true;
   }
 

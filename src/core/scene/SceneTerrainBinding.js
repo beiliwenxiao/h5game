@@ -4,6 +4,8 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+import { SceneObjectProjector } from './SceneObjectProjector.js';
+
 /**
  * SceneTerrainBinding - 将游戏侧 terrain 实现绑定到通用场景生命周期。
  *
@@ -18,6 +20,7 @@ export class SceneTerrainBinding {
     this.loadSceneFromFile = loadSceneFromFile;
     this.EffectZoneRenderer = EffectZoneRenderer;
     this.SceneTerrainCollision = SceneTerrainCollision;
+    this.projector = new SceneObjectProjector();
   }
 
   initEditorTerrain(config = {}) {
@@ -132,16 +135,12 @@ export class SceneTerrainBinding {
     if (!shape || typeof shape !== 'object') return false;
 
     const offset = terrain.worldOffset || { x: 0, y: 0 };
-    const projected = { ...shape, id: shape.id || id, __dynamicColliderId: marker, collide: true };
-    if (Array.isArray(shape.points)) {
-      projected.points = shape.points.map(point => [
-        Number(point?.[0]) + (Number(offset.x) || 0),
-        Number(point?.[1]) + (Number(offset.y) || 0)
-      ]);
-    } else {
-      projected.x = Number(shape.x) + (Number(offset.x) || 0);
-      projected.y = Number(shape.y) + (Number(offset.y) || 0);
-    }
+    const projected = this.projector.project({
+      ...shape,
+      id: shape.id || id,
+      __dynamicColliderId: marker,
+      collide: true
+    }, offset);
     terrain._collisionShapes.push(projected);
     return true;
   }

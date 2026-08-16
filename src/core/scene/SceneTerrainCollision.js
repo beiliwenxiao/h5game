@@ -8,6 +8,10 @@
  * @repo      https://github.com/beiliwenxiao/yijian18-engine
  ************************************************************/
 
+import { SceneObjectProjector } from './SceneObjectProjector.js';
+
+const SCENE_OBJECT_PROJECTOR = new SceneObjectProjector();
+
 /**
  * SceneTerrainCollision - 地形碰撞与区域收集（框架级）
  *
@@ -408,21 +412,21 @@ export class SceneTerrainCollision {
       loadedCount++;
       if (!Array.isArray(scene.layers)) continue;
 
-      const ox = t.worldOffset ? t.worldOffset.x : 0;
-      const oy = t.worldOffset ? t.worldOffset.y : 0;
+      const offset = t.worldOffset || { x: 0, y: 0 };
 
       for (const layer of scene.layers) {
         if (!Array.isArray(layer.objects)) continue;
         for (const obj of layer.objects) {
           if (obj.type !== 'buffZone' || !obj.effect) continue;
+          const projected = SCENE_OBJECT_PROJECTOR.project(obj, offset);
           zones.push({
-            id: obj.id,
-            name: obj.name || '',
-            points: (obj.points || []).map(pt => [pt[0] + ox, pt[1] + oy]),
-            fillColor: obj.fillColor,
-            borderColor: obj.borderColor,
-            visible: obj.visible !== false,
-            effect: obj.effect
+            id: projected.id,
+            name: projected.name || '',
+            points: projected.points || [],
+            fillColor: projected.fillColor,
+            borderColor: projected.borderColor,
+            visible: projected.visible !== false,
+            effect: projected.effect
           });
         }
       }

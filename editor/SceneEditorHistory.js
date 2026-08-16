@@ -10,8 +10,6 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
-import { getGlobalImages } from './SceneDataLoader.js';
-
 /**
  * SceneEditorHistory - 场景编辑器撤销/重做/导入导出模块
  */
@@ -86,81 +84,21 @@ export class SceneEditorHistory {
   /**
    * 保存场景（触发回调）
    */
-  save() {
+  async save() {
     const editor = this.editor;
-    
-    // 保存前清理 imageAssets：只保留场景中实际使用的图片
-    this._cleanupImageAssets();
-    
-    // 保存前截断位置参数精度（不超过小数点后2位）
-    this._roundPositionValues();
-    
-    if (editor.onSceneChange) editor.onSceneChange(editor.sceneData);
-    editor.ui.showToast('场景已保存');
-    return editor.sceneData;
+    const result = editor.onSceneChange ? await editor.onSceneChange(editor.sceneData) : null;
+    if (result?.committed && result?.degraded) {
+      editor.ui.showToast('磁盘已提交，但缓存/通知同步降级', 'warn');
+    } else {
+      editor.ui.showToast('场景已保存');
+    }
+    return result || editor.sceneData;
   }
-  
   /**
-   * 清理 imageAssets，只保留图层对象中实际引用的图片
-   * @private
-   */
-  _cleanupImageAssets() {
-    const editor = this.editor;
-    if (!editor.sceneData.imageAssets) return;
-    
-    // 收集所有图层对象中引用的 imageId
-    const usedIds = new Set();
-    for (const layer of editor.sceneData.layers) {
-      for (const obj of layer.objects) {
-        if (obj.imageId) usedIds.add(obj.imageId);
-      }
-    }
-
-    // 全局图片库中的图片视为库资源，保留（即使未在场景中放置）
-    const globalImages = getGlobalImages() || {};
-
-    // 删除既未被对象引用、也不在全局库中的条目
-    for (const id of Object.keys(editor.sceneData.imageAssets)) {
-      if (!usedIds.has(id) && !globalImages[id]) {
-        delete editor.sceneData.imageAssets[id];
-      }
-    }
-    
-    // 如果清空了就删除整个字段
-    if (Object.keys(editor.sceneData.imageAssets).length === 0) {
-      delete editor.sceneData.imageAssets;
-    }
-  }
-
-  /**
-   * 截断所有图层对象的位置/尺寸参数精度，不超过小数点后2位
-   * @private
-   */
-  _roundPositionValues() {
-    const editor = this.editor;
-    const r2 = (v) => Math.round(v * 100) / 100;
-    const posKeys = ['x', 'y', 'width', 'height', 'radius', 'scale'];
-
-    for (const layer of editor.sceneData.layers) {
-      if (!layer.objects) continue;
-      for (const obj of layer.objects) {
-        for (const key of posKeys) {
-          if (typeof obj[key] === 'number') obj[key] = r2(obj[key]);
-        }
-        // 多边形/路径的顶点
-        if (Array.isArray(obj.points)) {
-          obj.points = obj.points.map(p => [r2(p[0]), r2(p[1])]);
-        }
-      }
-    }
-  }
-
-  /**
-   * 导出 JSON
+   * 导出 JSON。导出是纯序列化，不清理资源、不舍入、不注入元数据。
    */
   exportJSON() {
     const editor = this.editor;
-    this._roundPositionValues();
     const json = JSON.stringify(editor.sceneData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

@@ -27,6 +27,7 @@ export class EquipmentComponent extends Component {
    */
   constructor(options = {}) {
     super('equipment');
+    this.definitionResolver = typeof options.definitionResolver === 'function' ? options.definitionResolver : null;
     
     // 装备槽位（与 PlayerInfoPanel 保持一致）
     this.slots = {
@@ -59,6 +60,11 @@ export class EquipmentComponent extends Component {
     if (options.equipment) {
       this.loadEquipment(options.equipment);
     }
+  }
+
+  setDefinitionResolver(definitionResolver) {
+    this.definitionResolver = typeof definitionResolver === 'function' ? definitionResolver : null;
+    return this;
   }
 
   /**
@@ -273,11 +279,37 @@ export class EquipmentComponent extends Component {
    */
   loadEquipment(equipmentData) {
     for (const slotType in equipmentData) {
-      if (this.slots.hasOwnProperty(slotType) && equipmentData[slotType]) {
-        this.slots[slotType] = equipmentData[slotType];
+      if (!this.slots.hasOwnProperty(slotType) || !equipmentData[slotType]) continue;
+      const saved = equipmentData[slotType];
+      if (saved.definitionId) {
+        const definition = this.definitionResolver?.(saved.definitionId);
+        if (!definition) throw new Error(`equipmentDefinitionMissing:${saved.definitionId}`);
+        this.slots[slotType] = saved.instanceId
+          ? { ...definition, instanceId: saved.instanceId, ...(saved.mutable || {}) }
+          : definition;
+      } else {
+        this.slots[slotType] = saved;
       }
     }
     this.recalculateBonusStats();
+  }
+
+  exportRuntimeState() {
+    const data = {};
+    for (const [slotType, item] of Object.entries(this.slots)) {
+      if (!item) continue;
+      const definitionId = item.definitionId || item.id;
+      if (!item.instanceId) {
+        data[slotType] = { definitionId, quantity: 1 };
+        continue;
+      }
+      const mutable = {};
+      for (const key of ['durability', 'binding', 'charges', 'container']) {
+        if (item[key] !== undefined) mutable[key] = structuredClone(item[key]);
+      }
+      data[slotType] = { definitionId, instanceId: item.instanceId, mutable };
+    }
+    return data;
   }
 
   /**

@@ -34,7 +34,28 @@ export class SaveGameService {
     this.storage = storage || new LocalStorageAdapter({ prefix: `yijian18:${gameId}:save` });
     this.manager = new SnapshotManager({ storage: this.storage, now: now || (() => Date.now()) });
     this._providerOff = null;
+    this._autoSaveExecutor = null;
+    this._checkpointLoadExecutor = null;
     if (migrateLegacyAutoSlot) this._migrateLegacyAutoSlot();
+  }
+
+  setAutoSaveExecutor(executor) {
+    this._autoSaveExecutor = typeof executor === 'function' ? executor : null;
+  }
+
+  requestAutoSave(meta = {}) {
+    return this._autoSaveExecutor
+      ? Promise.resolve(this._autoSaveExecutor(meta))
+      : Promise.resolve(this.saveAuto(meta));
+  }
+
+  setCheckpointLoadExecutor(executor) {
+    this._checkpointLoadExecutor = typeof executor === 'function' ? executor : null;
+  }
+
+  loadCheckpoint(checkpointId) {
+    if (!this._checkpointLoadExecutor) return Promise.resolve({ ok: false, code: 'checkpointLoadUnavailable' });
+    return Promise.resolve(this._checkpointLoadExecutor({ checkpointId }));
   }
 
   /** 切换当前运行时状态提供者；同一时刻只允许一个游戏状态参与者。 */

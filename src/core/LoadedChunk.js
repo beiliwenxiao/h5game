@@ -3,6 +3,9 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+import { SceneObjectProjector } from './scene/SceneObjectProjector.js';
+import { createSpatialTriggerBinding } from './scene/SpatialTriggerBinding.js';
+
 const CHUNK_STATE_SCHEMA_VERSION = 1;
 
 function cloneValue(value) {
@@ -29,6 +32,7 @@ export class LoadedChunk {
     this.origin = options.origin || { x: 0, y: 0 };
     this.sceneData = options.sceneData || null;
     this.placementAdapter = options.placementAdapter || null;
+    this.projector = options.projector || new SceneObjectProjector();
     this.entityIds = [];
     this.entities = [];
     this.decorations = [];
@@ -88,9 +92,12 @@ export class LoadedChunk {
       for (const object of layer.objects || []) {
         if (!object) continue;
         const projected = this._projectObject(object);
+        if (object.type === 'trigger') {
+          triggerBindings.push(createSpatialTriggerBinding(projected));
+          continue;
+        }
         sceneObjects.push(projected);
         if (object.type === 'ref' || object.type === 'spawn') placements.push(projected);
-        if (object.type === 'trigger') triggerBindings.push(projected);
         if (object.type === 'effectZone') effectZones.push(projected);
         if (object.type === 'deco' || object.type === 'slice' || object.type === 'image') decorations.push(projected);
       }
@@ -194,34 +201,13 @@ export class LoadedChunk {
   }
 
   _projectObject(object) {
-    const projected = {
-      ...cloneValue(object),
-      localX: Number(object.x) || 0,
-      localY: Number(object.y) || 0,
-      x: (Number(object.x) || 0) + this.origin.x,
-      y: (Number(object.y) || 0) + this.origin.y,
+    return this.projector.project(object, this.origin, {
       sceneId: this.sceneId,
       chunkId: this.chunkId,
       sceneNamespace: this.sceneNamespace,
       row: this.row,
       col: this.col
-    };
-    if (typeof object.sortY === 'number') projected.sortY = object.sortY + this.origin.y;
-    if (Array.isArray(object.points)) {
-      projected.points = object.points.map(point => {
-        if (Array.isArray(point)) return [point[0] + this.origin.x, point[1] + this.origin.y, ...point.slice(2)];
-        if (point && typeof point === 'object') {
-          return {
-            ...point,
-            ...(typeof point.x === 'number' ? { x: point.x + this.origin.x } : {}),
-            ...(typeof point.y === 'number' ? { y: point.y + this.origin.y } : {})
-          };
-        }
-        return point;
-      });
-    }
-    Object.defineProperty(projected, '_worldOffsetApplied', { value: true, enumerable: false });
-    return projected;
+    });
   }
 
   markItemPicked(itemId) {

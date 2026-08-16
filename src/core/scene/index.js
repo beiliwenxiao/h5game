@@ -14,7 +14,7 @@
  * 场景运行时通用能力导出入口。
  */
 
-export { SceneSystemContainer } from './SceneSystemContainer.js';
+export { SceneSystemContainer, DependencyOwnership } from './SceneSystemContainer.js';
 export { SceneObjectProjector, ProjectionView } from './SceneObjectProjector.js';
 export { GameSceneRuntime, UpdateOrder, FramePhase } from './GameSceneRuntime.js';
 export { SceneTerrainCollision } from './SceneTerrainCollision.js';

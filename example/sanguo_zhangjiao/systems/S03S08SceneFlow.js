@@ -113,7 +113,7 @@ const s03s08Methods = {
     if (!transform || !evacuation) return false;
     const dx = transform.position.x - evacuation.x;
     const dy = transform.position.y - evacuation.y;
-    if (Math.hypot(dx, dy) > 80) {
+    if (Math.hypot(dx, dy) > Number(definition.evacuationRadius)) {
       this._showScreenTip('波才尚未进入东侧撤离点，请继续护送。', { title: '撤离未完成' });
       return false;
     }
@@ -144,7 +144,7 @@ const s03s08Methods = {
         if (evacuation && Math.hypot(
           targetTransform.position.x - evacuation.x,
           targetTransform.position.y - evacuation.y
-        ) <= 80) {
+        ) <= Number(definition.evacuationRadius)) {
           outcome = this.rescueSystem.completeStage('escort-east', {
             operationId: `complete:${S04_BOCAI_RESCUE_ID}:escort-east`
           });
@@ -155,9 +155,15 @@ const s03s08Methods = {
         const dy = playerTransform.position.y - targetTransform.position.y;
         const distance = Math.hypot(dx, dy);
         const movement = target.getComponent?.('movement');
-        if (movement && distance > 62 && distance < 260) {
-          movement.setPath([{ x: playerTransform.position.x - 28, y: playerTransform.position.y + 18 }]);
-        } else if (movement && distance <= 62) {
+        const followDistance = Number(definition.followDistance);
+        const followMaxDistance = Number(definition.followMaxDistance);
+        const followOffset = definition.followOffset;
+        if (movement && distance > followDistance && distance < followMaxDistance) {
+          movement.setPath([{
+            x: playerTransform.position.x + Number(followOffset.x),
+            y: playerTransform.position.y + Number(followOffset.y)
+          }]);
+        } else if (movement && distance <= followDistance) {
           movement.stop();
         }
       }

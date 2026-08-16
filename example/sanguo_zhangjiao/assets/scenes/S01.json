@@ -4,6 +4,37 @@
   "width": 1280,
   "height": 720,
   "backgroundColor": "#5a4a32",
+  "gameplay": {
+    "campfire": {
+      "initialFogOpacity": 1,
+      "fog": { "fadeSpeed": 0.4, "color": "rgba(30, 30, 40,", "active": true },
+      "sprite": {
+        "frameWidth": 164.5,
+        "frameHeight": 237.33333333333334,
+        "frameCols": 4,
+        "frameRows": 3,
+        "frameCount": 12,
+        "frameDuration": 0.16
+      },
+      "particlePresets": [
+        { "rate": 6, "vy": -50, "life": 250, "size": 8.5, "color": "#ffaa22", "alpha": 0.85 },
+        { "rate": 8, "vy": -35, "life": 200, "size": 6, "color": "#ff8833", "alpha": 0.8 },
+        { "rate": 4, "vy": -120, "life": 400, "size": 4.5, "color": "#ffffee", "alpha": 1 },
+        { "rate": 10, "vy": -100, "life": 350, "size": 3.5, "color": "#ffee44", "alpha": 0.9 },
+        { "rate": 8, "vy": -80, "life": 300, "size": 2.5, "color": "#ff9933", "alpha": 0.85 },
+        { "rate": 6, "vy": -60, "life": 250, "size": 2, "color": "#ff5522", "alpha": 0.8 },
+        { "rate": 12, "vy": -40, "life": 200, "size": 2, "color": "#ff6633", "alpha": 0.7 }
+      ],
+      "labels": { "unlit": "熄灭的火堆", "ignite": "{interact}点燃" },
+      "presentation": {
+        "lightRadius": 150,
+        "fireWidth": 40,
+        "fireHeight": 60,
+        "collisionWidth": 40,
+        "collisionHeight": 22.5
+      }
+    }
+  },
   "layers": [
     {
       "id": "layer_bg",

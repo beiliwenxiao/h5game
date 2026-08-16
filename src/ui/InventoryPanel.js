@@ -41,6 +41,10 @@ export class InventoryPanel extends UIElement {
     this.borderColor = options.borderColor || '#666';
     this.borderWidth = options.borderWidth || 2;
     this.entity = null;
+    this._entitySource = null;
+    this.getProjection = typeof options.getProjection === 'function' ? options.getProjection : () => null;
+    this.onIntent = typeof options.onIntent === 'function' ? options.onIntent : null;
+    this.currentFilter = 'all';
     this.slotSize = options.slotSize || 50;
     this.slotPadding = options.slotPadding || 5;
     this.slotsPerRow = options.slotsPerRow || 6;  // 每行格子数
@@ -128,7 +132,50 @@ export class InventoryPanel extends UIElement {
    * @param {Entity} entity - 实体对象
    */
   setEntity(entity) {
-    this.entity = entity;
+    this._entitySource = entity || null;
+    if (!entity) {
+      this.entity = null;
+      return;
+    }
+    this.entity = new Proxy(entity, {
+      get: (target, property, receiver) => {
+        if (property !== 'getComponent') return Reflect.get(target, property, receiver);
+        return type => {
+          const projection = this.getProjection()?.value || this.getProjection();
+          if (!projection) return target.getComponent?.(type);
+          if (type === 'stats') return projection.stats || null;
+          if (type === 'equipment') {
+            const slots = projection.equipment || {};
+            return { slots, getEquipment: slot => slots[slot] || null };
+          }
+          if (type === 'inventory') {
+            const inventory = projection.inventory || {};
+            const slots = inventory.slots || [];
+            const filters = {
+              all: () => true,
+              equipment: item => item.type === 'equipment' || ['weapon', 'armor', 'helmet', 'boots', 'gloves', 'accessory'].includes(item.type),
+              consumable: item => item.type === 'consumable',
+              material: item => item.type === 'material' || item.type === 'resource',
+              quest: item => item.type === 'quest'
+            };
+            return {
+              slots,
+              filters,
+              maxSlots: inventory.maxSlots || slots.length,
+              currentFilter: this.currentFilter,
+              getSlot: index => slots[index] || null,
+              getUsedSlotCount: () => slots.reduce((count, slot) => count + (slot ? 1 : 0), 0),
+              getAllItems: () => slots.map((slot, index) => ({ slot, index })).filter(entry => entry.slot),
+              setFilter: filter => { if (filters[filter]) this.currentFilter = filter; },
+              getItemCount: itemId => slots.reduce((sum, stack) => (
+                stack?.item?.id === itemId ? sum + stack.quantity : sum
+              ), 0)
+            };
+          }
+          return target.getComponent?.(type);
+        };
+      }
+    });
   }
 
   /**
@@ -1170,24 +1217,16 @@ export class InventoryPanel extends UIElement {
    * @param {number} slotIndex - 槽位索引
    */
   dropItem(slotIndex) {
-    if (!this.entity) return;
-    
-    const inventoryComponent = this.entity.getComponent('inventory');
-    if (!inventoryComponent) return;
-    
-    const slot = inventoryComponent.getSlot(slotIndex);
-    if (!slot || !slot.item) return;
-    
-    const item = slot.item;
+    const inventory = this.entity?.getComponent?.('inventory');
+    const stack = inventory?.getSlot?.(slotIndex);
+    if (!stack?.item || !this.onIntent) return;
+    const item = stack.item;
     console.log(`丢弃物品: ${item.name}`);
-    
-    // 从背包移除物品
-    inventoryComponent.removeItem(item.id, 1);
-    
-    // 触发丢弃回调
-    if (this.onItemDrop) {
-      this.onItemDrop(item);
-    }
+    return this.onIntent('item.drop', {
+      itemId: item.id,
+      instanceId: item.instanceId || null,
+      quantity: 1
+    });
   }
 
   /**
@@ -1357,82 +1396,18 @@ export class InventoryPanel extends UIElement {
   handleSlotLeftClick(slotIndex) {
     this.selectedSlot = slotIndex;
     console.log(`选中槽位: ${slotIndex}`);
-    
-    if (!this.entity) return;
-    
-    const inventoryComponent = this.entity.getComponent('inventory');
-    const equipmentComponent = this.entity.getComponent('equipment');
-    const statsComponent = this.entity.getComponent('stats');
-    
-    if (!inventoryComponent) return;
-    
-    const slot = inventoryComponent.getSlot(slotIndex);
-    if (!slot || !slot.item) return;
-    
-    const item = slot.item;
-    
-    // 如果是装备，尝试装备
-    if (item.type === 'equipment' && equipmentComponent) {
-      const subType = item.subType; // 'weapon', 'armor', 'accessory' 等
-      
-      console.log(`尝试装备物品: ${item.name}, subType: ${subType}`);
-      
-      // 保存装备前的属性
-      const oldStats = statsComponent ? {
-        attack: statsComponent.attack,
-        defense: statsComponent.defense,
-        maxHp: statsComponent.maxHp,
-        maxMp: statsComponent.maxMp,
-        speed: statsComponent.speed
-      } : null;
-      
-      // 从背包移除物品（箭矢等有数量的装备移除整组）
-      const stackQuantity = slot.quantity; // ItemStack 的实际堆叠数量
-      const removeCount = (item.subType === 'ammo') ? stackQuantity : 1;
-      inventoryComponent.removeItem(item.id, removeCount);
-      
-      // 箭矢等弹药类装备，保持 item.quantity 不变（只有攻击消耗才减少）
-      
-      // 装备到对应槽位（兼容 subType 别名）
-      const slotMap = { weapon: 'mainhand', shield: 'offhand', ammo: 'offhand' };
-      const targetSlot = slotMap[subType] || subType;
-      const oldItem = equipmentComponent.equip(targetSlot, item);
-      
-      // 如果有旧装备，放回背包
-      if (oldItem) {
-        inventoryComponent.addItem(oldItem, oldItem.quantity || 1);
-        console.log(`旧装备 ${oldItem.name} 已放回背包`);
-      }
-      
-      // 切换主手武器时，如果新武器不是远程武器，自动卸下副手的箭矢
-      if (targetSlot === 'mainhand' && !item.ranged) {
-        const offhandItem = equipmentComponent.getEquipment('offhand');
-        if (offhandItem && offhandItem.subType === 'ammo') {
-          const removedAmmo = equipmentComponent.unequip('offhand');
-          if (removedAmmo) {
-            inventoryComponent.addItem(removedAmmo, removedAmmo.quantity || 1);
-            console.log(`副手箭矢 ${removedAmmo.name} 已自动卸下到背包`);
-          }
-        }
-      }
-      
-      // 更新玩家属性（应用装备加成）
-      if (statsComponent) {
-        this.updateEntityStats(equipmentComponent, statsComponent);
-        
-        // 计算属性变化并显示提示
-        const statChanges = this.calculateStatChanges(oldStats, statsComponent);
-        this.showEquipmentNotification(item.name, oldItem?.name, statChanges, true, {
-          slot: targetSlot, item, oldItem, action: 'equip'
-        });
-      }
-      
-      console.log(`成功装备物品: ${item.name} 到 ${subType} 槽位`);
+    const inventory = this.entity?.getComponent?.('inventory');
+    const stack = inventory?.getSlot?.(slotIndex);
+    if (!stack?.item || !this.onIntent) return;
+    const item = stack.item;
+    if (item.type === 'equipment') {
+      console.log(`尝试装备物品: ${item.name}, subType: ${item.subType}`);
+      return this.onIntent('item.equip', {
+        itemId: item.id,
+        instanceId: item.instanceId || null
+      });
     }
-    // 如果是可使用的消耗品，直接使用
-    else if (item.type === 'consumable' && item.usable) {
-      this.useItem(slotIndex);
-    }
+    if (item.type === 'consumable' && item.usable) return this.useItem(slotIndex);
   }
 
   /**
@@ -1440,75 +1415,20 @@ export class InventoryPanel extends UIElement {
    * @param {number} slotIndex - 槽位索引
    */
   useItem(slotIndex) {
-    if (!this.entity) return;
-    
-    const inventoryComponent = this.entity.getComponent('inventory');
-    const statsComponent = this.entity.getComponent('stats');
-    
-    if (!inventoryComponent || !statsComponent) return;
-    
-    const slot = inventoryComponent.getSlot(slotIndex);
-    if (!slot || !slot.item || !slot.item.usable) return;
-    
-    const item = slot.item;
-    
-    // 检查物品是否可以使用
+    const inventory = this.entity?.getComponent?.('inventory');
+    const stack = inventory?.getSlot?.(slotIndex);
+    if (!stack?.item?.usable || !this.onIntent) return;
+    const item = stack.item;
     if (this.canUseItem && !this.canUseItem(item)) {
       console.log(`物品 ${item.name} 暂时无法使用`);
       return;
     }
-    
     console.log(`使用物品: ${item.name}`);
-    
-    let healAmount = 0;
-    let manaAmount = 0;
-    
-    // 应用物品效果
-    if (item.effect) {
-      switch (item.effect.type) {
-        case 'heal':
-          // 恢复生命值
-          healAmount = item.effect.value;
-          const oldHp = statsComponent.hp;
-          statsComponent.hp = Math.min(statsComponent.hp + healAmount, statsComponent.maxHp);
-          const actualHeal = statsComponent.hp - oldHp;
-          console.log(`恢复了 ${actualHeal} 点生命值，当前生命值: ${statsComponent.hp}/${statsComponent.maxHp}`);
-          healAmount = actualHeal; // 使用实际恢复量
-          break;
-          
-        case 'restore_mana':
-          // 恢复魔法值
-          manaAmount = item.effect.value;
-          const oldMp = statsComponent.mp;
-          statsComponent.mp = Math.min(statsComponent.mp + manaAmount, statsComponent.maxMp);
-          const actualMana = statsComponent.mp - oldMp;
-          console.log(`恢复了 ${actualMana} 点魔法值，当前魔法值: ${statsComponent.mp}/${statsComponent.maxMp}`);
-          manaAmount = actualMana; // 使用实际恢复量
-          break;
-          
-        case 'buff':
-          // 应用增益效果（需要状态效果系统支持）
-          console.log(`应用增益效果: ${item.effect.stat} +${item.effect.value * 100}%`);
-          break;
-          
-        case 'currency':
-          // 货币类物品，通过回调让场景处理
-          console.log(`使用货币物品: ${item.name}，获得 ${item.effect.value} 铜钱`);
-          break;
-          
-        default:
-          console.log(`未知的物品效果类型: ${item.effect.type}`);
-      }
-    }
-    
-    // 从背包移除物品
-    inventoryComponent.removeItem(item.id, 1);
-    console.log(`已使用物品: ${item.name}`);
-    
-    // 触发使用回调
-    if (this.onItemUse) {
-      this.onItemUse(item, healAmount, manaAmount);
-    }
+    return this.onIntent('item.use', {
+      itemId: item.id,
+      instanceId: item.instanceId || null,
+      quantity: 1
+    });
   }
 
   /**
@@ -1590,51 +1510,6 @@ export class InventoryPanel extends UIElement {
   hide() {
     this.visible = false;
     this.contextMenu.visible = false;
-  }
-
-  /**
-   * 更新实体属性（应用装备加成）
-   * @param {Object} equipmentComponent - 装备组件
-   * @param {Object} statsComponent - 属性组件
-   */
-  updateEntityStats(equipmentComponent, statsComponent) {
-    if (!equipmentComponent || !statsComponent) return;
-
-    // 先重置到基础属性
-    statsComponent.resetToBaseStats();
-
-    // 获取装备属性加成
-    const bonusStats = equipmentComponent.getBonusStats();
-    
-    // 保存当前HP/MP比例
-    const hpRatio = statsComponent.maxHp > 0 ? statsComponent.hp / statsComponent.maxHp : 1;
-    const mpRatio = statsComponent.maxMp > 0 ? statsComponent.mp / statsComponent.maxMp : 1;
-    
-    // 应用装备加成
-    if (bonusStats.attack) {
-      statsComponent.attack += bonusStats.attack;
-    }
-    if (bonusStats.defense) {
-      statsComponent.defense += bonusStats.defense;
-    }
-    if (bonusStats.maxHp) {
-      statsComponent.maxHp += bonusStats.maxHp;
-      statsComponent.hp = Math.floor(statsComponent.maxHp * hpRatio);
-    }
-    if (bonusStats.maxMp) {
-      statsComponent.maxMp += bonusStats.maxMp;
-      statsComponent.mp = Math.floor(statsComponent.maxMp * mpRatio);
-    }
-    if (bonusStats.speed) {
-      statsComponent.speed += bonusStats.speed;
-    }
-    
-    console.log('InventoryPanel: 更新实体属性', {
-      attack: statsComponent.attack,
-      defense: statsComponent.defense,
-      maxHp: statsComponent.maxHp,
-      speed: statsComponent.speed
-    });
   }
 
   /**

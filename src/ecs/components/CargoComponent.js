@@ -8,7 +8,11 @@ const clone = value => value == null ? value : JSON.parse(JSON.stringify(value))
 export class CargoComponent extends InventoryComponent {
   constructor(options = {}) {
     const capacity = Math.max(1, Math.floor(Number(options.capacity) || 40));
-    super({ maxSlots: Math.max(1, Math.floor(Number(options.maxSlots) || capacity)), items: [] });
+    super({
+      maxSlots: Math.max(1, Math.floor(Number(options.maxSlots) || capacity)),
+      items: [],
+      definitionResolver: options.definitionResolver
+    });
     this.type = 'cargo';
     this.capacity = capacity;
     this.dropGenerated = options.dropGenerated === true;
@@ -37,8 +41,11 @@ export class CargoComponent extends InventoryComponent {
       maxSlots: this.maxSlots,
       dropGenerated: this.dropGenerated,
       dropOperationId: this.dropOperationId,
-      dropManifest: clone(this.dropManifest),
-      items: clone(this.exportItems())
+      dropManifest: clone(this.dropManifest.map(entry => entry.definitionId ? entry : ({
+        definitionId: entry.item?.definitionId || entry.item?.id,
+        ...(entry.item?.instanceId ? { instanceId: entry.item.instanceId, mutable: {} } : { quantity: entry.quantity })
+      }))),
+      items: clone(this.exportRuntimeStates())
     };
   }
   validateSerialized(data) {
@@ -48,12 +55,14 @@ export class CargoComponent extends InventoryComponent {
     }
     const capacity = Math.floor(Number(data.capacity));
     const maxSlots = Math.floor(Number(data.maxSlots));
-    const total = data.items.reduce((sum, entry) => sum + Math.max(0, Math.floor(Number(entry?.quantity) || 0)), 0);
+    const total = data.items.reduce((sum, entry) => sum
+      + (entry?.instanceId ? 1 : Math.max(0, Math.floor(Number(entry?.quantity) || 0))), 0);
     const validDrop = data.dropGenerated === false
       ? data.dropOperationId == null && data.dropManifest.length === 0
       : typeof data.dropOperationId === 'string' && data.dropOperationId.length > 0;
     if (capacity <= 0 || maxSlots <= 0 || total > capacity || !validDrop
-      || [...data.items, ...data.dropManifest].some(entry => !entry?.item?.id || !(Number(entry.quantity) > 0))) {
+      || [...data.items, ...data.dropManifest].some(entry => !(entry?.definitionId || entry?.item?.id)
+        || !(entry?.instanceId || Number(entry.quantity) > 0))) {
       return { ok: false, code: 'invalidCargoState' };
     }
     return { ok: true };

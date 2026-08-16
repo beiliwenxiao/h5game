@@ -91,8 +91,13 @@ export class SceneHudUpdater {
 
     const terrainBinding = world.terrainBinding || world.binding;
     terrainBinding?.updateMinimap?.(minimap);
+    const worldIndex = world.worldIndex || null;
     const region = world.worldRegion || world.region;
-    if (region && !minimap._worldRegion) minimap.setWorldRegion?.(region);
+    const regionRef = region?.id ?? region ?? null;
+    if (worldIndex && regionRef != null &&
+        (minimap._worldIndex !== worldIndex || minimap._regionRef !== regionRef)) {
+      minimap.setWorldIndex?.(worldIndex, regionRef);
+    }
 
     const player = this.getPlayer();
     const playerTransform = player?.getComponent?.('transform');

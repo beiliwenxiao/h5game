@@ -11,6 +11,7 @@
  */
 
 import { updateAtlasesCache, updateImagesCache, addGlobalImage } from './SceneDataLoader.js';
+import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -1236,12 +1237,7 @@ export class SceneEditorAssets {
     if (!this._contentProject) return;
     this._contentProject.library = this._contentLib;
     try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this._contentProjectPath, content: JSON.stringify(this._contentProject, null, 2) })
-      });
-      const data = await res.json();
+      const data = await replaceCanonicalFile(this._contentProjectPath, JSON.stringify(this._contentProject, null, 2));
       this.editor.ui.showToast?.(data && data.ok ? '内容库已保存' : ('保存失败: ' + (data.error || '未知')), data && data.ok ? 'success' : 'error');
     } catch (e) {
       this.editor.ui.showToast?.('保存失败: ' + e.message, 'error');

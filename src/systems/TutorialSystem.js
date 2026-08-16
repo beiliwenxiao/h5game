@@ -22,16 +22,28 @@
  * 需求：2, 3, 4, 5, 11, 12, 37
  */
 
+import { TutorialDefinitionRepository } from './TutorialDefinitionRepository.js';
+
 export class TutorialSystem {
-  constructor() {
-    // 教程注册表
-    this.tutorials = new Map();
+  constructor(config = {}) {
+    // definitions 属于不可变 Repository；本系统只借用索引并拥有运行进度。
+    this.definitionRepository = TutorialDefinitionRepository.from(config.definitions || []);
     
     // 已完成的教程ID集合
     this.completedTutorials = new Set();
     
-    // 当前显示的教程
-    this.currentTutorial = null;
+    // 当前显示只保存稳定 definition id；完整定义始终从只读索引解析。
+    this.currentTutorialId = null;
+    Object.defineProperty(this, 'currentTutorial', {
+      enumerable: false,
+      configurable: false,
+      get: () => this.currentTutorialId
+        ? this.definitionRepository.get(this.currentTutorialId)
+        : null,
+      set: value => {
+        this.currentTutorialId = typeof value === 'string' ? value : (value?.id || null);
+      }
+    });
     
     // 当前教程步骤索引
     this.currentStepIndex = 0;
@@ -43,9 +55,8 @@ export class TutorialSystem {
     this.onShowCallback = null;
     this.onHideCallback = null;
     this.onCompleteCallback = null;
-    
-    // 教程触发条件检查器
-    this.triggerCheckers = new Map();
+    this.signalProgress = new Map();
+    this.movementOrigins = new Map();
     
     // 是否启用教程系统
     this.enabled = true;
@@ -62,23 +73,102 @@ export class TutorialSystem {
       console.error('TutorialSystem: 无效的教程ID或数据');
       return false;
     }
+    try {
+      this.setDefinitionRepository(this.definitionRepository.withDefinition(tutorialId, tutorialData));
+      return true;
+    } catch (error) {
+      console.error('TutorialSystem: 教程定义无效', error);
+      return false;
+    }
+  }
 
-    const tutorial = {
-      id: tutorialId,
-      title: tutorialData.title || '教程',
-      description: tutorialData.description || '',
-      steps: tutorialData.steps || [],
-      triggerCondition: tutorialData.triggerCondition || null,
-      completionCondition: tutorialData.completionCondition || null,
-      pauseGame: tutorialData.pauseGame !== undefined ? tutorialData.pauseGame : false,
-      canSkip: tutorialData.canSkip !== undefined ? tutorialData.canSkip : true,
-      priority: tutorialData.priority || 0,
-      category: tutorialData.category || 'general',
-      autoTrigger: tutorialData.autoTrigger !== undefined ? tutorialData.autoTrigger : true
-    };
-
-    this.tutorials.set(tutorialId, tutorial);
+  setDefinitionRepository(repository) {
+    const next = TutorialDefinitionRepository.from(repository);
+    const activeId = this.currentTutorial?.id || null;
+    this.definitionRepository = next;
+    if (activeId) {
+      const replacement = next.get(activeId);
+      if (replacement) this.currentTutorial = replacement;
+      else this.hideTutorial();
+    }
     return true;
+  }
+
+  replaceDefinitions(definitions = []) {
+    if (!Array.isArray(definitions)) throw new TypeError('Tutorial definitions must be an array');
+    return this.setDefinitionRepository(new TutorialDefinitionRepository(definitions));
+  }
+
+  showNext(category = null) {
+    if (this.currentTutorial) return false;
+    const next = [...this.definitionRepository.values()]
+      .filter(definition => (!category || definition.category === category)
+        && !this.completedTutorials.has(definition.id))
+      .sort((left, right) => left.order - right.order || right.priority - left.priority)[0];
+    return next ? this.showTutorial(next.id) : false;
+  }
+
+  notify(signal, payload = {}) {
+    if (!this.enabled || !signal) return false;
+    const candidates = [...this.definitionRepository.values()]
+      .filter(definition => definition.completionPolicy === 'signal'
+        && !this.completedTutorials.has(definition.id))
+      .sort((left, right) => left.order - right.order || right.priority - left.priority);
+    for (const definition of candidates) {
+      for (const rule of definition.signalRules) {
+        if (rule.signal !== signal || !this._matchesSignalRule(rule, payload)) continue;
+        const key = `${definition.id}:${rule.id || signal}`;
+        const count = (this.signalProgress.get(key) || 0) + 1;
+        this.signalProgress.set(key, count);
+        if (count < Math.max(1, Number(rule.threshold) || 1)) return false;
+        this.completeTutorial(definition.id);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  updateMovement(position, category = null) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return false;
+    const definition = [...this.definitionRepository.values()]
+      .filter(value => (!category || value.category === category)
+        && value.completionPolicy === 'signal'
+        && value.movementRule && !this.completedTutorials.has(value.id))
+      .sort((left, right) => left.order - right.order)[0];
+    if (!definition) return false;
+    const origin = this.movementOrigins.get(definition.id);
+    if (!origin) {
+      this.movementOrigins.set(definition.id, { x: position.x, y: position.y });
+      return false;
+    }
+    const distance = Math.hypot(position.x - origin.x, position.y - origin.y);
+    if (distance <= Math.max(0, Number(definition.movementRule.threshold) || 0)) return false;
+    this.completeTutorial(definition.id);
+    return true;
+  }
+
+  resetMovementOrigin(tutorialId = null, position = null) {
+    const value = Number.isFinite(position?.x) && Number.isFinite(position?.y)
+      ? { x: position.x, y: position.y } : null;
+    if (tutorialId) {
+      if (value) this.movementOrigins.set(tutorialId, value);
+      else this.movementOrigins.delete(tutorialId);
+    } else {
+      this.movementOrigins.clear();
+    }
+  }
+
+  _matchesSignalRule(rule, payload) {
+    const conditions = Array.isArray(rule.conditions) ? rule.conditions : [];
+    return conditions.every(condition => {
+      const value = String(condition.field || '').split('.').filter(Boolean)
+        .reduce((current, key) => current?.[key], payload);
+      if (condition.operator === 'exists') return condition.value === false ? value == null : value != null;
+      if (condition.operator === 'notEquals') return value !== condition.value;
+      if (condition.operator === 'gte') return Number(value) >= Number(condition.value);
+      if (condition.operator === 'lte') return Number(value) <= Number(condition.value);
+      return value === condition.value;
+    });
   }
 
   /**
@@ -102,7 +192,7 @@ export class TutorialSystem {
     }
 
     // 获取教程
-    const tutorial = this.tutorials.get(tutorialId);
+    const tutorial = this.definitionRepository.get(tutorialId);
     if (!tutorial) {
       console.warn(`TutorialSystem: 教程不存在: ${tutorialId}`);
       return false;
@@ -186,8 +276,8 @@ export class TutorialSystem {
     const nextIndex = this.currentStepIndex + 1;
     
     if (nextIndex >= this.currentTutorial.steps.length) {
-      // 已经是最后一步，完成教程
-      this.completeTutorial();
+      // 只有 allSteps policy 由步骤浏览完成；signal/manual 等待各自正式命令。
+      if (this.currentTutorial.completionPolicy === 'allSteps') this.completeTutorial();
       return false;
     }
 
@@ -314,7 +404,7 @@ export class TutorialSystem {
    * @returns {Object|null} 教程对象
    */
   getTutorial(tutorialId) {
-    return this.tutorials.get(tutorialId) || null;
+    return this.definitionRepository.get(tutorialId);
   }
 
   /**
@@ -322,7 +412,7 @@ export class TutorialSystem {
    * @returns {Array} 教程列表
    */
   getAllTutorials() {
-    return Array.from(this.tutorials.values());
+    return [...this.definitionRepository.values()];
   }
 
   /**
@@ -363,19 +453,9 @@ export class TutorialSystem {
    * @param {Object} gameState - 游戏状态
    */
   update(deltaTime, gameState = {}) {
-    if (!this.enabled) {
-      return;
-    }
-
-    // 检查自动触发的教程
+    if (!this.enabled) return;
+    // Definition 只包含可序列化规则；系统不执行 JavaScript when/completion callback。
     this.checkAutoTriggers(gameState);
-
-    // 检查当前教程的完成条件
-    if (this.currentTutorial && this.currentTutorial.completionCondition) {
-      if (this.currentTutorial.completionCondition(gameState)) {
-        this.completeTutorial();
-      }
-    }
   }
 
   /**
@@ -397,18 +477,11 @@ export class TutorialSystem {
       return;
     }
 
-    // 按优先级排序教程
-    const sortedTutorials = Array.from(this.tutorials.values())
+    // autoTrigger 只决定是否按 canonical order/priority 展示，不执行 JavaScript when。
+    const next = Array.from(this.definitionRepository.values())
       .filter(t => t.autoTrigger && !this.completedTutorials.has(t.id))
-      .sort((a, b) => b.priority - a.priority);
-
-    // 检查触发条件
-    for (const tutorial of sortedTutorials) {
-      if (tutorial.triggerCondition && tutorial.triggerCondition(gameState)) {
-        this.showTutorial(tutorial.id, gameState);
-        break;
-      }
-    }
+      .sort((a, b) => a.order - b.order || b.priority - a.priority)[0];
+    if (next) this.showTutorial(next.id, gameState);
   }
 
   /**
@@ -442,8 +515,14 @@ export class TutorialSystem {
   resetTutorial(tutorialId = null) {
     if (tutorialId) {
       this.completedTutorials.delete(tutorialId);
+      this.movementOrigins.delete(tutorialId);
+      for (const key of [...this.signalProgress.keys()]) {
+        if (key.startsWith(`${tutorialId}:`)) this.signalProgress.delete(key);
+      }
     } else {
       this.completedTutorials.clear();
+      this.signalProgress.clear();
+      this.movementOrigins.clear();
     }
 
     // 如果当前正在显示该教程，隐藏它
@@ -457,6 +536,8 @@ export class TutorialSystem {
    */
   reset() {
     this.completedTutorials.clear();
+    this.signalProgress.clear();
+    this.movementOrigins.clear();
     this.hideTutorial();
   }
 
@@ -478,7 +559,7 @@ export class TutorialSystem {
    * @returns {Object} 进度信息
    */
   getProgress() {
-    const totalTutorials = this.tutorials.size;
+    const totalTutorials = this.definitionRepository.size;
     const completedCount = this.completedTutorials.size;
     
     return {
@@ -496,7 +577,7 @@ export class TutorialSystem {
    * @returns {Array} 教程列表
    */
   getTutorialsByCategory(category) {
-    return Array.from(this.tutorials.values())
+    return Array.from(this.definitionRepository.values())
       .filter(t => t.category === category);
   }
 
@@ -505,7 +586,7 @@ export class TutorialSystem {
    * @returns {Array} 未完成的教程列表
    */
   getIncompleteTutorials() {
-    return Array.from(this.tutorials.values())
+    return Array.from(this.definitionRepository.values())
       .filter(t => !this.completedTutorials.has(t.id));
   }
 
@@ -516,7 +597,11 @@ export class TutorialSystem {
   saveProgress() {
     return {
       completedTutorials: Array.from(this.completedTutorials),
-      enabled: this.enabled
+      enabled: this.enabled,
+      currentTutorialId: this.currentTutorial?.id || null,
+      currentStepIndex: this.currentStepIndex,
+      signalProgress: Object.fromEntries(this.signalProgress),
+      movementOrigins: Object.fromEntries(this.movementOrigins)
     };
   }
 
@@ -539,6 +624,21 @@ export class TutorialSystem {
     if (progressData.enabled !== undefined) {
       this.enabled = progressData.enabled;
     }
+    this.signalProgress = new Map(Object.entries(progressData.signalProgress || {})
+      .map(([key, value]) => [key, Math.max(0, Math.floor(Number(value) || 0))]));
+    this.movementOrigins = new Map(Object.entries(progressData.movementOrigins || {})
+      .filter(([, value]) => Number.isFinite(value?.x) && Number.isFinite(value?.y)));
+    const active = progressData.currentTutorialId
+      ? this.definitionRepository.get(progressData.currentTutorialId) : null;
+    if (active && !this.completedTutorials.has(active.id)) {
+      this.currentTutorial = active;
+      this.currentStepIndex = Math.min(
+        Math.max(0, Math.floor(Number(progressData.currentStepIndex) || 0)),
+        Math.max(0, active.steps.length - 1)
+      );
+      this.pauseGame = active.pauseGame;
+      this.showStep(this.currentStepIndex);
+    }
   }
 
   /**
@@ -560,8 +660,10 @@ export class TutorialSystem {
    * 清除所有教程
    */
   clearAllTutorials() {
-    this.tutorials.clear();
+    this.setDefinitionRepository(new TutorialDefinitionRepository());
     this.completedTutorials.clear();
+    this.signalProgress.clear();
+    this.movementOrigins.clear();
     this.hideTutorial();
   }
 }

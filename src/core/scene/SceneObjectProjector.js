@@ -52,10 +52,14 @@ export class SceneObjectProjector {
    * @param {{x: number, y: number}} worldOffset
    * @returns {Object} 世界坐标对象
    */
-  project(obj, worldOffset = { x: 0, y: 0 }) {
-    const ox = worldOffset.x || 0;
-    const oy = worldOffset.y || 0;
-    const projected = { ...obj };
+  project(obj, worldOffset, metadata = null) {
+    if (!obj || typeof obj !== 'object') throw new TypeError('SceneObjectProjector.project requires a local object');
+    if (!worldOffset || !Number.isFinite(worldOffset.x) || !Number.isFinite(worldOffset.y)) {
+      throw new TypeError('SceneObjectProjector.project requires a finite worldOffset');
+    }
+    const ox = worldOffset.x;
+    const oy = worldOffset.y;
+    const projected = { ...obj, ...(metadata || {}) };
 
     if (typeof obj.x === 'number') projected.x = obj.x + ox;
     if (typeof obj.y === 'number') projected.y = obj.y + oy;
@@ -63,20 +67,31 @@ export class SceneObjectProjector {
 
     if (Array.isArray(obj.points)) {
       projected.points = obj.points.map(p => (
-        Array.isArray(p) ? [p[0] + ox, p[1] + oy] : { ...p, x: p.x + ox, y: p.y + oy }
+        Array.isArray(p) ? [p[0] + ox, p[1] + oy, ...p.slice(2)] : {
+          ...p,
+          ...(typeof p?.x === 'number' ? { x: p.x + ox } : {}),
+          ...(typeof p?.y === 'number' ? { y: p.y + oy } : {})
+        }
       ));
     }
 
     if (Array.isArray(obj.path)) {
       projected.path = obj.path.map(p => (
-        Array.isArray(p) ? [p[0] + ox, p[1] + oy] : { ...p, x: p.x + ox, y: p.y + oy }
+        Array.isArray(p) ? [p[0] + ox, p[1] + oy, ...p.slice(2)] : {
+          ...p,
+          ...(typeof p?.x === 'number' ? { x: p.x + ox } : {}),
+          ...(typeof p?.y === 'number' ? { y: p.y + oy } : {})
+        }
       ));
     }
 
-    // 记录来源与所用偏移，便于排查重复偏移
-    projected._localX = typeof obj.x === 'number' ? obj.x : undefined;
-    projected._localY = typeof obj.y === 'number' ? obj.y : undefined;
-    projected._worldOffset = { x: ox, y: oy };
+    // 记录不可枚举的投影证明；消费者不得根据标记再次补 offset。
+    Object.defineProperties(projected, {
+      _localX: { value: typeof obj.x === 'number' ? obj.x : undefined, enumerable: false },
+      _localY: { value: typeof obj.y === 'number' ? obj.y : undefined, enumerable: false },
+      _worldOffset: { value: Object.freeze({ x: ox, y: oy }), enumerable: false },
+      _worldOffsetApplied: { value: true, enumerable: false }
+    });
 
     return projected;
   }
@@ -143,7 +158,12 @@ export class SceneObjectProjector {
       copy.path = world.path.map(p => (Array.isArray(p) ? [...p] : { ...p }));
     }
     if (world._worldOffset) {
-      copy._worldOffset = { ...world._worldOffset };
+      Object.defineProperties(copy, {
+        _localX: { value: world._localX, enumerable: false },
+        _localY: { value: world._localY, enumerable: false },
+        _worldOffset: { value: world._worldOffset, enumerable: false },
+        _worldOffsetApplied: { value: true, enumerable: false }
+      });
     }
 
     return copy;

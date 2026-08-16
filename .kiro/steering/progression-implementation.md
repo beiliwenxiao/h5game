@@ -191,7 +191,8 @@ MOVE     右键
 要点：
 
 - 所有错误必须能定位字段路径；JSON 语法错误还要给出行列（`locateJsonError` 优先用 position 反算）。
-- `loadCandidate` 实现「校验通过才替换」，失败时返回当前值，最近一次有效状态保持可运行。
+- `CanonicalCandidatePipeline` 固定执行 `read → parse(source/line/column) → defaults clone → schema → reference → businessRule → canonicalize`；`ContentValidator` 用 `hasOwnProperty` 区分真正缺失与显式 `null/undefined`，只对真正缺失应用 schema default。schema/reference/business-rule 必须收集全部可独立错误并统一返回 `phase/source/category/path/line/column/fallback`；失败返回最近成功状态，空白模板固定 `canonical:false/saveable:false/hasProjectContent:false`。`canonicalize` 不修改输入，不重排数组，不删除字段或 unknown-but-allowed 数据。
+- `loadCandidate` 保留兼容入口并实现「校验通过才替换」，失败时返回当前值，最近一次有效状态保持可运行。
 - `canonicalize` 按 Schema 字段声明顺序重排，其余键名排序，保证 `stringify → parse → stringify` 文本一致。
 - 内置成长 Schema：`effect`、`skill`、`progressionNode`、`progressionGraph`、`progressionConfig`。
 - Canonical Schema 位于 `src/data/schema/`，统一使用 `schemaVersion`，当前覆盖 Unit、Hero、Formation、Army、ResourceNode、Inventory、City、BattleResult、Checkpoint 和 GameProject；数量字段必须是非负整数，损毁比例限制为 `[0,1]`。

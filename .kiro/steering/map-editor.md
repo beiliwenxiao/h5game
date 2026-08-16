@@ -234,10 +234,11 @@ const sceneEditor = new SceneEditor(containerElement);
 - 审计只生成报告，不自动登记图片或修改资源状态。
 - 磁盘场景 JSON 是引用审计的事实源，localStorage 不替代磁盘文件。
 
-### imageAssets 清理
-- `SceneEditorHistory.save()` 保存前自动调用 `_cleanupImageAssets()`
-- 遍历所有图层对象，收集实际引用的 `imageId`，删除未引用的 `imageAssets` 条目
-- 如果 imageAssets 清空则删除整个字段
+### imageAssets 无损保存
+- `SceneEditorHistory.save()/exportJSON()` 不得自动删除未引用 `imageAssets`；未引用资源只作为资产审计提示。
+- 保存、导入、导出不执行全局坐标舍入，不改变高精度数值、字段存在性、数组顺序或 unknown-but-allowed 数据。
+- 普通 canonical load/import 不执行旧 shape/decorations 迁移，也不把全局 atlas/images 合并写入场景文档；迁移必须是用户显式发起的独立操作。
+- 场景仍可从全局资源库提供只读选择项，但选择项不得因此成为场景 JSON 的隐式字段。
 
 ### 游戏侧加载图片
 - `Scene1Terrain._applySceneData()` 第3步读取 `type:'image'` 对象
@@ -286,7 +287,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 
 ### 关键坑 3：模板资源库缺少新加的图片
 `loadScene` 内部只 `_mergeGlobalImages()`（全局 `images.json`），但**新加的图片常只存在于某个场景自己的 `imageAssets`（localStorage），未写进全局库**。模板 `scene` 没有 per-scene imageAssets，于是缺图。
-**修复**：`editSceneTemplate` 打开模板前用 `_collectAllSceneImages()` 聚合当前游戏**所有场景**的 `imageAssets` 塞进 `sceneToLoad.imageAssets`（`loadScene` 再叠加全局库）→ 模板资源库 = 所有场景图片 ∪ 全局库，与其他场景一致。保存时 `_cleanupImageAssets` 自动裁掉未使用且非全局的条目，模板不被撑大。
+**修复**：`editSceneTemplate` 打开模板时只把模板原始 canonical 数据交给场景编辑器；全局图片作为只读资源选择项提供，不合并写入 `scene.imageAssets`。保存不得自动裁剪或扩充 imageAssets，确保无语义 round-trip 深相等。
 
 ### EditorDataManager 模板相关方法
 | 方法 | 作用 |
@@ -307,7 +308,6 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 | `_buildTemplateSectionHtml()` / `_bindTemplateItems(list)` | 「场景模板」筛选视图的列表 HTML 与事件绑定 |
 | `editSceneTemplate(id)` | 进入模板编辑态并加载到场景编辑器 |
 | `createNewTemplate()` / `deleteTemplate(id)` | 新建/删除模板 |
-| `_collectAllSceneImages(base)` | 聚合所有场景 imageAssets（模板资源库图片一致性） |
 | `_saveTemplatesToFile()` | 写回 `editor/config/scene-templates.json` |
 
 ### 数据一致性
@@ -359,13 +359,11 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 
 ## 场景保存机制
 
-### 双重保存
-- **localStorage**：`EditorDataManager.updateScene()` 写入，游戏联动实时生效
-- **JSON 文件**：通过 Vite dev server `/api/save-file` 接口写入 `example/sanguo_zhangjiao/assets/scenes/{场景名}.json`，用于安卓打包 fallback
-
-### Vite dev server API 端点
+### 提交边界
+- canonical 项目与场景只通过 Vite dev server `POST /api/canonical-transaction` 提交；普通 `/api/save-file` 明确拒绝 `game.project.json` 与 `assets/scenes/*.json`。
+- transaction endpoint 只接受当前项目 closure 内 JSON 路径；在仓库独占锁内以 temp、备份和恢复 journal 提交 change set。磁盘 commit point 之前失败恢复原文件并保持 localStorage 不变，commit point 之后的缓存失败不得回滚磁盘。
 - `GET /api/read-file?path=xxx` — 读取文件内容
-- `POST /api/save-file` — 写入文本文件（JSON）
+- `POST /api/save-file` — 仅写入非 canonical 编辑器配置或资源文件
 - `GET /api/list-files?path=xxx` — 列出目录内容
 
 ## 性能优化（游戏侧 Scene1Terrain）

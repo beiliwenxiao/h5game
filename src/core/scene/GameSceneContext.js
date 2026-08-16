@@ -4,13 +4,15 @@
  ************************************************************/
 
 import { SceneEntityStore } from './SceneEntityStore.js';
+import { normalizeRuntimeDebugMode } from '../CanonicalSnapshot.js';
 
 const GROUP_DEFAULTS = Object.freeze({
   input: Object.freeze({ manager: null, bindings: null, gamepad: null }),
   camera: Object.freeze({ instance: null, renderer: null }),
   runtime: Object.freeze({
     canvas: null, context: null, width: 0, height: 0,
-    backingWidth: 0, backingHeight: 0, active: false
+    backingWidth: 0, backingHeight: 0, active: false, sceneRuntime: null,
+    config: null, debugMode: false
   }),
   systems: Object.freeze({
     container: null,
@@ -48,7 +50,7 @@ const GROUP_DEFAULTS = Object.freeze({
     progression: null,
     cityStateSummary: null
   }),
-  world: Object.freeze({ terrain: null }),
+  world: Object.freeze({ terrain: null, terrains: null, region: null, worldIndex: null }),
   presentation: Object.freeze({
     renderer: null,
     hints: null,
@@ -95,6 +97,14 @@ export class GameSceneContext {
     this.presentation = createGroup('presentation', config.presentation);
     this.services = createGroup('services', config.services);
     this.lifecycle = createGroup('lifecycle', config.lifecycle);
+    this.applyRuntimeConfig(config.runtimeConfig || null);
+  }
+
+  /** 投影唯一 RuntimeConfig；仅 true、1、"1" 启用 debug。 */
+  applyRuntimeConfig(runtimeConfig = null) {
+    this.runtime.config = runtimeConfig;
+    this.runtime.debugMode = normalizeRuntimeDebugMode(runtimeConfig?.debug);
+    return this.runtime.debugMode;
   }
 
   /** 记录当前 Canvas、绘图上下文和逻辑尺寸；物理 backing 可由 DPR scaler 独立管理。 */

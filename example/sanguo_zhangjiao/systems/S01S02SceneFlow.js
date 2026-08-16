@@ -9,35 +9,6 @@ export const S01_TUTORIAL_IDS = Object.freeze(
   S01_TUTORIAL_KEYS.map(key => `s01.${key}`)
 );
 
-export function createS01TutorialConfig(project = null) {
-  return {
-    category: 's01-survival',
-    order: S01_TUTORIAL_IDS,
-    definitions: [
-      { id: 's01.move', title: '移动', steps: [{ text: '使用 {move} 移动，离开火堆附近。' }] },
-      { id: 's01.attack', title: '攻击', steps: [{ text: '使用 {attack} 进行一次攻击。' }] },
-      { id: 's01.pickup', title: '拾取', steps: [{ text: '靠近物资后使用 {pickup} 拾取。' }] },
-      { id: 's01.jump', title: '跳跃', steps: [{ text: '使用 {jump} 越过障碍。' }] },
-      { id: 's01.gather', title: '采集', steps: [{ text: '靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。' }] },
-      { id: 's01.durability', title: '工具耐久', steps: [{ text: '再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。' }] },
-      { id: 's01.capacity', title: '背包容量', steps: [{ text: '再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。' }] }
-    ],
-    overrides: project?.extensions?.sanguoZhangjiao?.s01Tutorials,
-    rules: [
-      { signal: 'attackPerformed', stepId: 's01.attack' },
-      { signal: 'jumpPerformed', stepId: 's01.jump' },
-      { signal: 'itemPicked', stepId: 's01.pickup' },
-      { signal: 'gatheringCompleted', stepId: 's01.gather' },
-      {
-        signal: 'gatheringCompleted', stepId: 's01.durability',
-        when: payload => !!payload?.toolInstanceId
-      },
-      { signal: 'gatheringCompleted', stepId: 's01.capacity' }
-    ],
-    movementRule: { stepId: 's01.move', threshold: 60 }
-  };
-}
-
 const SPECIAL_FAINT_RESCUE_TYPES = Object.freeze(['passerby', 'patrol', 'temporaryCamp']);
 const SPECIAL_FAINT_LABELS = Object.freeze({
   passerby: '路人救援',

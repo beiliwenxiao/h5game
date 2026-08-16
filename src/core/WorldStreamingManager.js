@@ -3,7 +3,7 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-import { getWorldMapCellSceneId } from './WorldMapCell.js';
+import { ProjectWorldIndex } from './ProjectWorldIndex.js';
 import { LoadedChunk } from './LoadedChunk.js';
 
 const STREAMING_SCHEMA_VERSION = 1;
@@ -25,18 +25,31 @@ function isPromise(value) {
   return !!value && typeof value.then === 'function';
 }
 
+function createExplicitRegionIndex(options) {
+  if (!Array.isArray(options.grid)) return null;
+  return ProjectWorldIndex.fromRegion({
+    id: options.regionId || 'default',
+    chunkWidth: options.chunkWidth,
+    chunkHeight: options.chunkHeight,
+    cols: options.cols,
+    rows: options.rows,
+    grid: options.grid
+  });
+}
+
 /**
  * Region 内唯一九宫格流式状态权威。
- * 所有加载先在 detached shadow 中准备，完整校验后才一次替换 loaded/savedStates。
+ * 所有世界参数只通过 ProjectWorldIndex API 读取。
  */
 export class WorldStreamingManager {
   constructor(options = {}) {
-    this.regionId = options.regionId || 'default';
-    this.chunkWidth = options.chunkWidth || 1280;
-    this.chunkHeight = options.chunkHeight || 720;
-    this.cols = options.cols || 1;
-    this.rows = options.rows || 1;
-    this.grid = options.grid || [];
+    this.worldIndex = options.worldIndex || createExplicitRegionIndex(options);
+    this.region = this.worldIndex?.getRegion(options.regionRef ?? options.regionId ?? 0) || null;
+    this.regionId = this.region?.id || options.regionId || 'unconfigured';
+    this.chunkWidth = this.region?.chunkWidth;
+    this.chunkHeight = this.region?.chunkHeight;
+    this.cols = this.region?.cols;
+    this.rows = this.region?.rows;
 
     this.loaded = new Map();
     this.savedStates = new Map();
@@ -54,18 +67,22 @@ export class WorldStreamingManager {
     this._needsRefresh = true;
   }
 
-  configureRegion(region, options = {}) {
-    if (!region || typeof region !== 'object') {
-      return { ok: false, errors: [{ code: 'invalidRegion', path: 'region', message: 'Region 配置无效' }] };
+  configureRegion(worldIndex, options = {}) {
+    const regionRef = options.regionRef ?? worldIndex?.getEntry?.()?.regionId ?? 0;
+    const region = worldIndex?.getRegion?.(regionRef) || null;
+    if (!region || typeof worldIndex?.getCell !== 'function' || typeof worldIndex?.getOffset !== 'function' ||
+        typeof worldIndex?.isLoadable !== 'function') {
+      return { ok: false, errors: [{ code: 'invalidWorldIndex', path: 'worldIndex', message: '需要有效的 ProjectWorldIndex 与 Region' }] };
     }
     this._cancelPending();
     this.unloadAll({ preserveState: false });
-    this.regionId = region.id || 'default';
-    this.chunkWidth = Number(region.chunkWidth) || this.chunkWidth;
-    this.chunkHeight = Number(region.chunkHeight) || this.chunkHeight;
-    this.cols = Math.max(1, Math.floor(Number(region.cols) || 1));
-    this.rows = Math.max(1, Math.floor(Number(region.rows) || 1));
-    this.grid = Array.isArray(region.grid) ? region.grid : [];
+    this.worldIndex = worldIndex;
+    this.region = region;
+    this.regionId = region.id;
+    this.chunkWidth = region.chunkWidth;
+    this.chunkHeight = region.chunkHeight;
+    this.cols = region.cols;
+    this.rows = region.rows;
     if (Object.prototype.hasOwnProperty.call(options, 'onChunkLoad')) this.onChunkLoad = options.onChunkLoad;
     if (Object.prototype.hasOwnProperty.call(options, 'onChunkUnload')) this.onChunkUnload = options.onChunkUnload;
     if (Object.prototype.hasOwnProperty.call(options, 'sceneResolver')) this.sceneResolver = options.sceneResolver;
@@ -75,8 +92,8 @@ export class WorldStreamingManager {
     return { ok: true, errors: [] };
   }
 
-  initFromRegion(region, options = {}) {
-    return this.configureRegion(region, options);
+  initFromRegion(worldIndex, options = {}) {
+    return this.configureRegion(worldIndex, options);
   }
 
   registerStateProvider(id, provider) {
@@ -94,6 +111,9 @@ export class WorldStreamingManager {
   }
 
   worldToChunk(worldX, worldY) {
+    if (!Number.isFinite(this.chunkWidth) || !Number.isFinite(this.chunkHeight)) {
+      throw streamingError('worldIndexNotConfigured', 'WorldStreamingManager 尚未配置 ProjectWorldIndex');
+    }
     return {
       col: Math.floor(Number(worldX) / this.chunkWidth),
       row: Math.floor(Number(worldY) / this.chunkHeight)
@@ -101,12 +121,14 @@ export class WorldStreamingManager {
   }
 
   chunkOrigin(col, row) {
-    return { x: col * this.chunkWidth, y: row * this.chunkHeight };
+    const offset = this.worldIndex?.getOffset?.(this.regionId, row, col);
+    if (!offset) throw streamingError('invalidChunkCoordinate', `Chunk 坐标无效: ${col},${row}`);
+    return offset;
   }
 
   getSceneId(col, row) {
-    if (row < 0 || row >= this.rows || col < 0 || col >= this.cols) return null;
-    return getWorldMapCellSceneId(this.grid[row]?.[col]);
+    const cell = this.worldIndex?.getCell?.(this.regionId, row, col);
+    return cell?.loadable === true ? cell.sceneId : null;
   }
 
   getSceneNamespace(sceneId) {
@@ -846,9 +868,10 @@ export class WorldStreamingManager {
     return { ok: true, errors: [] };
   }
 
-  init(region, project = null, deps = {}) {
+  init(worldIndex, project = null, deps = {}) {
     const scenes = Array.isArray(project?.scenes) ? project.scenes : [];
-    return this.configureRegion(region, {
+    return this.configureRegion(worldIndex, {
+      regionRef: deps.regionRef,
       sceneResolver: deps.sceneResolver || (sceneId => scenes.find(scene => scene?.id === sceneId) || null),
       placementAdapter: deps.placementAdapter || null,
       onChunkLoad: deps.onChunkLoad || null,

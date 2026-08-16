@@ -15,7 +15,6 @@ export class SceneCityWarStateBridge {
     this.getActiveBattle = config.getActiveBattle || (() => null);
     this.getBattleFlowById = config.getBattleFlowById || (() => null);
     this.getBattleFlows = config.getBattleFlows || (() => []);
-    this.battleMonthMinimums = Object.freeze({ ...(config.battleMonthMinimums || {}) });
   }
 
   read() {
@@ -53,7 +52,7 @@ export class SceneCityWarStateBridge {
         [flow.winnerKey]: result.winnerFactionId,
         lastCheckpointId: flow.checkpointId
       };
-      const minimumMonth = Number(this.battleMonthMinimums[flow.battleId]);
+      const minimumMonth = Number(flow.worldChanges?.month);
       if (Number.isFinite(minimumMonth)) {
         projected.storyState.month = Math.max(
           minimumMonth,

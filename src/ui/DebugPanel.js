@@ -32,6 +32,8 @@ export class DebugPanel {
   constructor(opts = {}) {
     this.getScene = opts.getScene || (() => null);
     this.getSceneManager = opts.getSceneManager || (() => null);
+    this.isDebugEnabled = opts.isDebugEnabled || (() => false);
+    this.diagnosticRecords = [];
     this.visible = false;
     this._el = null;
     this._rafId = null;
@@ -40,8 +42,9 @@ export class DebugPanel {
     this._lastFpsTime = performance.now();
   }
 
-  /** 切换显示/隐藏 */
+  /** 切换显示/隐藏；关闭始终允许，任何打开动作都必须通过 RuntimeConfig 门禁。 */
   toggle() {
+    if (!this.visible && !this.isDebugEnabled()) return false;
     const before = {
       visible: this.visible,
       hasElement: !!this._el,
@@ -83,21 +86,45 @@ export class DebugPanel {
       bounds,
       rafActive: this._rafId !== null
     });
+    return this.visible;
   }
 
   /** 显示 */
   show() {
+    if (!this.isDebugEnabled()) return false;
     if (!this.visible) this.toggle();
+    return this.visible;
   }
 
   /** 隐藏 */
   hide() {
     if (this.visible) this.toggle();
+    return !this.visible;
+  }
+
+  /** 接收 SceneDiagnostics 的持久记录投影，不拥有或清空记录。 */
+  setDiagnosticRecords(records = []) {
+    this.diagnosticRecords = records;
+    this._renderDiagnosticRecords();
+  }
+
+  recordFailure(_envelope) {
+    this._renderDiagnosticRecords();
+  }
+
+  _renderDiagnosticRecords() {
+    const target = this._el?.querySelector?.('#dp-trigger-failures');
+    if (!target) return;
+    const failures = this.diagnosticRecords.filter(record => record?.type === 'triggerFailure');
+    target.textContent = failures.length
+      ? failures.slice(-5).map(record => `${record.triggerId} #${record.action?.index} ${record.reason}`).join('\n')
+      : '--';
   }
 
   /** 创建 DOM */
   _create() {
-    if (this._el) return;
+    if (!this.isDebugEnabled()) return false;
+    if (this._el) return true;
     const el = document.createElement('div');
     el.id = 'debug-panel';
     el.innerHTML = `
@@ -125,6 +152,10 @@ export class DebugPanel {
         <div class="dp-section">
           <div class="dp-title">触发器事件</div>
           <div id="dp-triggers">--</div>
+        </div>
+        <div class="dp-section">
+          <div class="dp-title">触发器失败诊断</div>
+          <pre id="dp-trigger-failures">--</pre>
         </div>
         <div class="dp-section">
           <div class="dp-title">天气</div>
@@ -192,6 +223,7 @@ export class DebugPanel {
     document.body.appendChild(el);
     this._el = el;
     this._bindEvents();
+    this._renderDiagnosticRecords();
   }
 
   /** 注入样式 */

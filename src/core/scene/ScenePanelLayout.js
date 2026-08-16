@@ -91,7 +91,9 @@ export class ScenePanelLayout {
       },
       onEquipmentClick: (slotType, button) => scene._handleEquipmentSlotClick(slotType, button),
       onItemUse: (item, healAmount, manaAmount) => scene.onItemUsed(item, healAmount, manaAmount),
-      onEquipmentChange: (messages, info) => scene.onEquipmentChanged(messages, info)
+      onEquipmentChange: (messages, info) => scene.onEquipmentChanged(messages, info),
+      onIntent: (intentType, payload, options) => scene.submitItemIntent(intentType, payload, options),
+      getProjection: () => scene.getItemLifecycleProjection?.()
     });
     // 保持旧场景和物品弹窗的调用兼容：三个入口均控制同一个组合面板。
     scene.inventoryPanel = scene.backpackPanel;
@@ -269,9 +271,9 @@ export class ScenePanelLayout {
     scene.minimap._anchorRight = scene.logicalWidth - 10;
     // terrain 绑定与缩略图缓存失效由通用 binding 管理。
     scene._terrainBinding.updateMinimap(scene.minimap);
-    // 绑定大地图 region 边界（有 _worldRegion 时小地图以整体边界为准）
-    if (scene._worldRegion) {
-      scene.minimap.setWorldRegion(scene._worldRegion);
+    // ProjectWorldIndex 是小地图边界与 chunk 尺寸的唯一来源。
+    if (scene._worldIndex) {
+      scene.minimap.setWorldIndex(scene._worldIndex, scene._worldRegion?.id);
     }
 
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小

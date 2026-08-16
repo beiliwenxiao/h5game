@@ -18,6 +18,7 @@ export class SceneItemGainedFlow {
     this.scene = scene;
     this.getEquipmentFlow = options.getEquipmentFlow || (() => null);
     this.onEquipmentChanged = options.onEquipmentChanged || (() => {});
+    this.executeIntent = typeof options.executeIntent === 'function' ? options.executeIntent : null;
     this.onQueueDrained = options.onQueueDrained || (() => {});
     this.queue = [];
   }
@@ -85,34 +86,33 @@ export class SceneItemGainedFlow {
 
   _equip(item, player) {
     const scene = this.scene;
-    const result = this.getEquipmentFlow()?.equip(player, item);
-    if (!result?.ok) {
-      if (result?.reason === 'invalidSlot') {
-        scene.notificationSystem?.addWarning(`${item.name} 无法装备到该槽位`);
+    if (!this.executeIntent) return Promise.resolve({ ok: false, code: 'unavailable' });
+    return Promise.resolve(this.executeIntent('item.equip', {
+      itemId: item.id,
+      instanceId: item.instanceId || null
+    })).then(result => {
+      if (!result?.ok) {
+        if (result?.code === 'invalidEquipmentSlot') {
+          scene.notificationSystem?.addWarning(`${item.name} 无法装备到该槽位`);
+        }
+        return result;
       }
-      return;
-    }
-
-    const { oldItem, changeText, slot } = result;
-    scene.notificationSystem?.addNotification(`装备了 ${item.name}`, 'success');
-    if (changeText) scene.notificationSystem?.addNotification(changeText, 'info');
-    scene._refreshEquipmentPanels?.(player);
-
-    const messages = [`装备了 ${item.name}`];
-    if (oldItem) messages.push(`卸下了 ${oldItem.name}`);
-    if (changeText) messages.push(changeText);
-    // 所有装备来源必须经此统一出口，保障数据驱动 equipItem 事件源。
-    this.onEquipmentChanged(messages, { slot, item, oldItem, action: 'equip' });
+      scene.notificationSystem?.addNotification(`装备了 ${item.name}`, 'success');
+      scene._refreshEquipmentPanels?.(player);
+      return result;
+    });
   }
 
-  _useConsumable(item, player) {
-    const inventory = player.getComponent?.('inventory');
-    const slots = inventory?.slots;
-    if (slots && this.scene.backpackPanel?.useItem) {
-      const index = slots.findIndex(slot => slot?.item?.id === item.id);
-      if (index >= 0) this.scene.backpackPanel.useItem(index);
-    }
-    this.scene.notificationSystem?.addNotification(`使用了 ${item.name}`, 'success');
+  _useConsumable(item) {
+    if (!this.executeIntent) return Promise.resolve({ ok: false, code: 'unavailable' });
+    return Promise.resolve(this.executeIntent('item.use', {
+      itemId: item.id,
+      instanceId: item.instanceId || null,
+      quantity: 1
+    })).then(result => {
+      if (result?.ok) this.scene.notificationSystem?.addNotification(`使用了 ${item.name}`, 'success');
+      return result;
+    });
   }
 }
 

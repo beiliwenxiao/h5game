@@ -543,13 +543,17 @@ export class DialogueBox extends UIElement {
     const currentNode = this.dialogueSystem.getCurrentNode();
     if (!currentNode || !currentNode.choices || choiceIndex >= currentNode.choices.length) return;
     this.playChoiceSelectSound();
-    this.dialogueSystem.selectChoice(choiceIndex);
-    if (this.onChoiceSelect) {
-      this.onChoiceSelect(choiceIndex, currentNode.choices[choiceIndex]);
-    }
-    if (!this.dialogueSystem.isDialogueActive()) {
-      this.handleDialogueEnd();
-    }
+    const selected = currentNode.choices[choiceIndex];
+    const pending = this.dialogueSystem.selectChoice(choiceIndex);
+    const finalize = result => {
+      if (result === false) return false;
+      if (this.onChoiceSelect) this.onChoiceSelect(choiceIndex, selected);
+      if (!this.dialogueSystem.isDialogueActive()) this.handleDialogueEnd();
+      return true;
+    };
+    return pending && typeof pending.then === 'function'
+      ? pending.then(finalize)
+      : finalize(pending);
   }
 
   continueDialogue() {

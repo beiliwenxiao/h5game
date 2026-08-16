@@ -37,7 +37,7 @@ export class SceneGameLoaderBridge {
     this.getPlayer = typeof getPlayer === 'function' ? getPlayer : (() => null);
     this.loader = null;
     this._dialogueEndOff = null;
-    this._dialogueChoiceOff = null;
+    this._dialogueChoiceDispatchOff = null;
     this._initializeToken = 0;
     this._disposed = false;
   }
@@ -97,16 +97,16 @@ export class SceneGameLoaderBridge {
     this._disposed = true;
     this._initializeToken += 1;
     const dialogueEndOff = this._dialogueEndOff;
-    const dialogueChoiceOff = this._dialogueChoiceOff;
+    const dialogueChoiceDispatchOff = this._dialogueChoiceDispatchOff;
     this._dialogueEndOff = null;
-    this._dialogueChoiceOff = null;
+    this._dialogueChoiceDispatchOff = null;
 
     const loader = this.loader;
     this.loader = null;
     if (this.scope?.gameLoader === loader) this.scope.gameLoader = null;
     try {
       if (typeof dialogueEndOff === 'function') dialogueEndOff();
-      if (typeof dialogueChoiceOff === 'function') dialogueChoiceOff();
+      if (typeof dialogueChoiceDispatchOff === 'function') dialogueChoiceDispatchOff();
     } finally {
       if (loader && typeof loader.dispose === 'function') loader.dispose();
     }
@@ -117,13 +117,16 @@ export class SceneGameLoaderBridge {
     const engine = typeof window !== 'undefined' ? window.gameEngine : null;
     const defaults = {
       dialogueSystem: this.dialogueSystem || scope?.dialogueSystem || null,
+      tutorialSystem: scope?.tutorialSystem || null,
       questSystem: scope?.questSystem,
       combatSystem: scope?.combatSystem,
       sceneManager: engine?.sceneManager || scope?.sceneManager || null,
       audioManager: scope?.audioManager || engine?.audioManager || null,
       floatingText: scope?.floatingTextManager,
       player: this.getPlayer(),
-      scene: scope
+      scene: scope,
+      sceneDiagnostics: scope?.services?.diagnostics || null,
+      commandGateway: scope?.sceneRuntime?.commandGateway || null
     };
     if (typeof this.onShowTip === 'function') {
       defaults.tutorial = { showTip: params => this.onShowTip(params?.text || '') };
@@ -155,17 +158,12 @@ export class SceneGameLoaderBridge {
   }
 
   _bindDialogueChoice(dialogueSystem, triggerSystem, token, loader) {
-    if (!dialogueSystem?.onChoice) return;
-    const off = dialogueSystem.onChoice((choice, index) => {
-      if (!this._isActive(token, loader)) return;
-      triggerSystem.fire('dialogueChoice', {
-        id: dialogueSystem.getCurrentDialogue?.()?.id || null,
-        choiceId: choice?.id || null,
-        index,
-        nextNode: choice?.nextNode || null
-      });
-    });
-    this._dialogueChoiceOff = typeof off === 'function' ? off : null;
+    if (!dialogueSystem?.setChoiceDispatcher) return;
+    const dispatch = async (payload) => {
+      if (!this._isActive(token, loader)) return { ok: false, code: 'dialogueRuntimeDisposed' };
+      return triggerSystem.fireAndWait('dialogueChoice', payload);
+    };
+    this._dialogueChoiceDispatchOff = dialogueSystem.setChoiceDispatcher(dispatch);
   }
 
   _isActive(token, loader) {

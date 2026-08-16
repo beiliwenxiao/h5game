@@ -1,46 +1,20 @@
 /**
- * 配置化的有序教程流程。场景只发送语义信号，不实现步骤推进逻辑。
+ * TutorialSystem 的场景薄适配器：只转发语义信号与表现生命周期，
+ * 不复制 definition、规则、阈值或完成状态。
  */
 export class SceneTutorialFlow {
   constructor(config = {}) {
-    if (!config.tutorialSystem) {
-      throw new TypeError('SceneTutorialFlow requires tutorialSystem');
-    }
+    if (!config.tutorialSystem) throw new TypeError('SceneTutorialFlow requires tutorialSystem');
     this.tutorialSystem = config.tutorialSystem;
     this.activeWhen = config.activeWhen || (() => true);
     this.presenter = config.presenter || null;
     this.scheduler = config.scheduler || (callback => setTimeout(callback, 0));
-    this.order = [];
-    this.rules = [];
-    this.movementOrigin = null;
+    this.category = config.category || null;
     this._presentationBound = false;
   }
 
   configure(config = {}) {
-    const definitions = Array.isArray(config.definitions) ? config.definitions : [];
-    const overrides = new Map((Array.isArray(config.overrides) ? config.overrides : [])
-      .filter(definition => definition?.id)
-      .map(definition => [definition.id, definition]));
-    this.order = Array.isArray(config.order) && config.order.length
-      ? [...config.order]
-      : definitions.map(definition => definition.id);
-    this.rules = (Array.isArray(config.rules) ? config.rules : [])
-      .filter(rule => rule?.signal && rule?.stepId)
-      .map(rule => ({ ...rule }));
-    this.movementRule = config.movementRule ? { ...config.movementRule } : null;
-
-    for (const definition of definitions) {
-      const override = overrides.get(definition.id);
-      const merged = override && Array.isArray(override.steps)
-        ? { ...definition, ...structuredCloneSafe(override) }
-        : structuredCloneSafe(definition);
-      this.tutorialSystem.registerTutorial(merged.id, {
-        ...merged,
-        category: merged.category || config.category || 'scene',
-        canSkip: merged.canSkip === true,
-        autoTrigger: merged.autoTrigger === true
-      });
-    }
+    this.category = config.category || this.category;
     return this;
   }
 
@@ -49,70 +23,49 @@ export class SceneTutorialFlow {
     if (!presenter) return false;
     this.tutorialSystem.onShow(data => presenter.show?.(data));
     this.tutorialSystem.onHide(() => presenter.hide?.());
-    this.tutorialSystem.onComplete(() => {
-      this.scheduler(() => this.showNext());
-    });
+    this.tutorialSystem.onComplete(() => this.scheduler(() => this.showNext()));
     this._presentationBound = true;
     return true;
   }
+
   showNext() {
-    if (!this.activeWhen() || this.tutorialSystem.isShowingTutorial()) return false;
-    const next = this.order.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return next ? this.tutorialSystem.showTutorial(next) : false;
+    if (!this.activeWhen()) return false;
+    return this.tutorialSystem.showNext(this.category);
   }
 
-  complete(stepId, payload = {}) {
-    if (!stepId || !this.activeWhen() || this.tutorialSystem.isTutorialCompleted(stepId)) {
-      return false;
-    }
-    this.tutorialSystem.completeTutorial(stepId, payload);
+  complete(tutorialId) {
+    if (!tutorialId || !this.activeWhen() || this.isCompleted(tutorialId)) return false;
+    this.tutorialSystem.completeTutorial(tutorialId);
     if (!this.tutorialSystem.isShowingTutorial()) this.showNext();
     return true;
   }
 
   notify(signal, payload = {}) {
     if (!this.activeWhen()) return false;
-    const candidates = this.rules.filter(rule => rule.signal === signal);
-    for (const rule of candidates) {
-      if (this.tutorialSystem.isTutorialCompleted(rule.stepId)) continue;
-      if (typeof rule.when === 'function' && rule.when(payload) !== true) return false;
-      return this.complete(rule.stepId, payload);
-    }
-    return false;
+    return this.tutorialSystem.notify(signal, payload);
   }
 
-  isCurrent(stepId) {
+  isCurrent(tutorialId) {
     if (!this.activeWhen()) return false;
-    const next = this.order.find(id => !this.tutorialSystem.isTutorialCompleted(id));
-    return next === stepId;
+    return this.tutorialSystem.getCurrentTutorial()?.id === tutorialId;
   }
 
-  isCompleted(stepId) {
-    return this.tutorialSystem.isTutorialCompleted(stepId);
+  isCompleted(tutorialId) {
+    return this.tutorialSystem.isTutorialCompleted(tutorialId);
   }
 
   resetMovementOrigin(position = null) {
-    this.movementOrigin = hasPosition(position)
-      ? { x: position.x, y: position.y }
-      : null;
+    const definition = this.tutorialSystem.getAllTutorials()
+      .find(value => (!this.category || value.category === this.category)
+        && value.movementRule && !this.isCompleted(value.id));
+    this.tutorialSystem.resetMovementOrigin(definition?.id || null, position);
   }
 
   updateMovement(position, options = {}) {
-    const rule = { ...(this.movementRule || {}), ...options };
-    if (!hasPosition(position)) return false;
-    if (!this.movementOrigin) {
-      this.movementOrigin = { x: position.x, y: position.y };
-      return false;
-    }
-    if (!this.activeWhen() || !rule.stepId || this.isCompleted(rule.stepId)) return false;
-    const threshold = Math.max(0, Number(rule.threshold) || 0);
-    const distance = Math.hypot(
-      position.x - this.movementOrigin.x,
-      position.y - this.movementOrigin.y
-    );
-    if (distance <= threshold || !this.complete(rule.stepId, { position, distance })) return false;
-    rule.onComplete?.({ position, distance });
-    return true;
+    if (!this.activeWhen()) return false;
+    const completed = this.tutorialSystem.updateMovement(position, this.category);
+    if (completed) options.onComplete?.({ position });
+    return completed;
   }
 
   dispose() {
@@ -122,18 +75,7 @@ export class SceneTutorialFlow {
       this.tutorialSystem.onComplete(null);
     }
     this._presentationBound = false;
-    this.movementOrigin = null;
   }
-}
-
-function hasPosition(position) {
-  return Number.isFinite(position?.x) && Number.isFinite(position?.y);
-}
-
-function structuredCloneSafe(value) {
-  if (value == null) return value;
-  if (typeof structuredClone === 'function') return structuredClone(value);
-  return JSON.parse(JSON.stringify(value));
 }
 
 export default SceneTutorialFlow;

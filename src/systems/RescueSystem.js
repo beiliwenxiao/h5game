@@ -264,6 +264,19 @@ export class RescueSystem {
     }
     if (definition.allowedModes && (!Array.isArray(definition.allowedModes)
       || definition.allowedModes.some(mode => typeof mode !== 'string'))) return 'allowedModes 非法';
+    for (const field of ['evacuationRadius', 'followDistance', 'followMaxDistance', 'postGateDuration']) {
+      if (Object.prototype.hasOwnProperty.call(definition, field)
+        && (!Number.isFinite(Number(definition[field])) || Number(definition[field]) <= 0)) {
+        return `${field} 必须大于 0`;
+      }
+    }
+    if (definition.followDistance != null && definition.followMaxDistance != null
+      && Number(definition.followDistance) >= Number(definition.followMaxDistance)) {
+      return 'followDistance 必须小于 followMaxDistance';
+    }
+    if (definition.followOffset != null && (!definition.followOffset
+      || !Number.isFinite(Number(definition.followOffset.x))
+      || !Number.isFinite(Number(definition.followOffset.y)))) return 'followOffset 非法';
     return null;
   }
 

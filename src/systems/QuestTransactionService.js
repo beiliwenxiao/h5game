@@ -86,8 +86,8 @@ export class QuestTransactionService {
     return this.commandGateway.execute({
       intentType: QUEST_COMMANDS.COMMAND,
       actorRef,
-      operationId: options.operationId,
-      expectedStateRevision: options.expectedStateRevision,
+      ...(options.operationId === undefined ? {} : { operationId: options.operationId }),
+      ...(options.expectedStateRevision === undefined ? {} : { expectedStateRevision: options.expectedStateRevision }),
       payload: { ...clone(payload), questId, operation }
     }, options);
   }

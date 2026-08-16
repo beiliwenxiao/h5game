@@ -46,7 +46,12 @@ class DataDrivenPrologueScene {
 import { SnapshotManager } from '../src/core/snapshot/SnapshotManager.js';
 import { InputActionRouter, HANDLER_PRIORITY } from '../src/core/input/InputActionRouter.js';
 import { InputEvent, InputEventType, InputDevice, PointerButton, InputHandler } from '../src/core/input/InputEvent.js';
-import { Quest, QuestSystem, QuestType, ObjectiveType } from '../src/systems/QuestSystem.js';
+import { DefinitionRepository } from '../src/core/DefinitionRepository.js';
+import { CommandGateway } from '../src/core/command/CommandGateway.js';
+import { LocalAuthorityAdapter } from '../src/core/command/LocalAuthorityAdapter.js';
+import { ProjectionStore } from '../src/core/command/ProjectionStore.js';
+import { QuestSystem, QuestType, ObjectiveType } from '../src/systems/QuestSystem.js';
+import { QUEST_COMMANDS } from '../src/systems/QuestTransactionService.js';
 import { QuestPanel } from '../src/ui/QuestPanel.js';
 import { EndingSystem } from '../src/systems/EndingSystem.js';
 import { S04RouteCoordinator } from '../example/sanguo_zhangjiao/systems/S04RouteCoordinator.js';
@@ -187,32 +192,51 @@ function observeSnapshotAndInput() {
     input: { priority: HANDLER_PRIORITY, ctrl: route({ ctrl: true }), shift: route({ shift: true }), plain: route({}), right: route({ button: PointerButton.RIGHT }), unified }
   };
 }
-function observeQuestPanel() {
-  const questSystem = new QuestSystem();
-  questSystem.quests.clear();
-  questSystem.activeQuests.clear();
-  questSystem.completedQuests.clear();
-  const quest = new Quest({
+async function observeQuestPanel() {
+  const actorId = 'golden-observer';
+  const projectionId = `quest:${actorId}`;
+  const definition = {
     id: 'golden-quest', name: 'Golden Quest', type: QuestType.MAIN,
     description: 'Observed quest', shortDescription: 'Observe', minLevel: 1,
     objectives: [{ id: 'collect-one', type: ObjectiveType.COLLECT, targetId: 'herb', requiredCount: 1, description: 'Collect herb' }],
     reward: { exp: 10, gold: 2 }
+  };
+  const repository = DefinitionRepository.fromSnapshot({
+    definitionRevision: 1,
+    project: {},
+    definitions: { quests: [definition] }
   });
-  questSystem.registerQuest(quest);
+  const projectionStore = new ProjectionStore({ definitionRevision: repository.definitionRevision });
+  projectionStore.registerReducer('questRuntime', (current, event) => {
+    const quest = event.payload?.quest;
+    if (!quest) return current || { quests: [] };
+    return {
+      quests: [
+        ...(current?.quests || []).filter(item => item.id !== quest.id && item.definitionId !== quest.definitionId),
+        quest
+      ]
+    };
+  });
+  const authority = new LocalAuthorityAdapter({ projectionStore });
+  const questSystem = new QuestSystem({ definitionRepository: repository, actorId });
+  for (const commandType of Object.values(QUEST_COMMANDS)) authority.registerHandler(commandType, questSystem);
+  const gateway = new CommandGateway({ authorityPort: authority, definitionRepository: repository });
+  questSystem.setCommandGateway(gateway);
+
   const events = [];
   for (const type of ['questAccepted', 'questTrackingChanged', 'questProgress', 'questCompleted', 'questTurnedIn']) {
     questSystem.on(type, () => events.push(type));
   }
-  const panel = new QuestPanel(questSystem);
+  const panel = new QuestPanel({ projectionStore, projectionId, commandGateway: gateway, actorRef: actorId });
   window.questPanel = panel;
   panel.show();
   const emptyText = panel.content.textContent.trim();
-  questSystem.acceptQuest('golden-quest', { level: 1, activeQuests: [], completedQuests: [] });
-  questSystem.toggleTracking('golden-quest');
+  await questSystem.acceptQuest('golden-quest', { operationId: 'quest:golden:accept' });
+  await questSystem.toggleTracking('golden-quest', { operationId: 'quest:golden:track' });
   panel.refresh();
   const activeText = panel.content.textContent.replace(/\s+/g, ' ').trim();
-  questSystem.updateProgress(ObjectiveType.COLLECT, 'herb', 1);
-  const reward = questSystem.turnInQuest('golden-quest');
+  await questSystem.advanceQuest('golden-quest', { type: ObjectiveType.COLLECT, targetId: 'herb', amount: 1 }, { operationId: 'quest:golden:collect' });
+  const turnIn = await questSystem.turnInQuest('golden-quest', { operationId: 'quest:golden:turn-in' });
   const observed = {
     panelId: panel.container.id,
     display: panel.container.style.display,
@@ -221,7 +245,7 @@ function observeQuestPanel() {
     trackedCountBeforeTurnIn: 1,
     trackedCountAfterTurnIn: questSystem.getTrackedQuests().length,
     events,
-    reward: { exp: reward.exp, gold: reward.gold }
+    reward: { exp: turnIn.value.reward.exp, gold: turnIn.value.reward.gold }
   };
   panel.destroy();
   window.questPanel = null;
@@ -418,7 +442,7 @@ async function observePreservationBaseline() {
     demoAndWorld: observeDemoAndWorld(),
     inventoryAndEquipment: observeInventoryAndEquipment(),
     snapshotAndInput: observeSnapshotAndInput(),
-    questPanelAndTracker: observeQuestPanel(),
+    questPanelAndTracker: await observeQuestPanel(),
     scenarioAndBackends: await observeScenarioAndBackends(),
     streaming: await observeStreaming(),
     rpcAndIsolation: await observeRpcAndIsolation(),

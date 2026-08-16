@@ -90,6 +90,16 @@ export class SceneResourceScope {
     return !this.disposed && token?.[TOKEN_OWNER] === this && token.version === this._tokenVersion;
   }
 
+  /** 只读残留快照，供 P6.2 真实场景释放测量记录使用。 */
+  getLifecycleSnapshot() {
+    return Object.freeze({
+      disposed: this.disposed,
+      pendingTimerCount: this._timers.size,
+      disposerCount: this._disposers.size,
+      tokenVersion: this._tokenVersion
+    });
+  }
+
   dispose() {
     if (this.disposed) return false;
     // 必须先令异步 guard/token 失效，再清理资源。

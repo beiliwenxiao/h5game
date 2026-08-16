@@ -459,7 +459,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 当前 Demo、世界、业务事务、装备、输入、流式、存档、S01–S14 和结局 golden 不回归_
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12_
 
-  - [~] 3.36 复验 Bug Condition exploration test 已转为通过
+  - [x] 3.36 复验 Bug Condition exploration test 已转为通过
     - **Property 1: Expected Behavior** - Modular Canonical Architecture and Unified Commands Satisfy the Correct Predicate
     - **IMPORTANT**：重新运行任务 1 的同一测试与同一反例/seed，不得另写替代测试或删除曾失败的输入。
     - 对全部满足 `isBugCondition(input)` 的输入断言 `expectedBehavior(result,input)`，并运行固定 seed 集与记录的随机 seed；失败必须保留可重放 counterexample。
@@ -467,7 +467,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.35_
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12_
 
-  - [~] 3.37 复验 Preservation property tests 仍通过
+  - [x] 3.37 复验 Preservation property tests 仍通过
     - **Property 2: Preservation** - Non-Buggy Inputs Retain Existing Observable Behavior
     - **IMPORTANT**：重新运行任务 2 的同一 observation-first tests/golden，不得为适配新实现放宽业务状态、提交后通知顺序、ID、引用、接受/拒绝或 committed 状态比较。
     - 比较修复前 golden、修复后 2D 和修复后 3D 的 normalized diagnostics 与完整业务 trace；只忽略允许新增的 provenance/phase/audit metadata。

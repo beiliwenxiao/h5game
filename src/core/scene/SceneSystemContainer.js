@@ -141,6 +141,22 @@ export class SceneSystemContainer {
     return Array.from(this.systems.keys());
   }
 
+  /** 只读生命周期登记快照，供真实释放验收记录 owner 残留。 */
+  getLifecycleSnapshot() {
+    const registrations = this._sorted().map(registration => Object.freeze({
+      name: registration.name,
+      ownership: registration.ownership,
+      disposed: registration.disposed,
+      phase: registration.phase
+    }));
+    return Object.freeze({
+      disposed: this.disposed,
+      registeredCount: registrations.length,
+      ownedCount: registrations.filter(entry => entry.ownership === DependencyOwnership.OWNED).length,
+      registrations: Object.freeze(registrations)
+    });
+  }
+
   _sorted() {
     if (!this._sortedCache) {
       this._sortedCache = Array.from(this.systems.values())

@@ -60,7 +60,8 @@ export class QuestPanel {
   renderQuestItem(quest) {
     const color = TYPE_COLORS[quest.type] || '#fff';
     const progress = Math.floor(progressOf(quest));
-    return `<article data-quest-id="${quest.id || quest.definitionId}" style="border-left:3px solid ${color};padding:12px;margin-bottom:10px;cursor:pointer;"><strong>${TYPE_LABELS[quest.type] || '任务'} ${quest.name || quest.id || quest.definitionId}</strong><p>${quest.shortDescription || ''}</p><small>${progress}%</small></article>`;
+    const level = Math.max(1, Math.floor(Number(quest.minLevel) || 1));
+    return `<article data-quest-id="${quest.id || quest.definitionId}" style="border-left:3px solid ${color};padding:12px;margin-bottom:10px;cursor:pointer;"><strong>${TYPE_LABELS[quest.type] || '任务'} ${quest.name || quest.id || quest.definitionId} Lv.${level}</strong> <p>${quest.shortDescription || ''}</p> <small>${progress}%</small></article>`;
   }
 
   showQuestDetail(questId) {

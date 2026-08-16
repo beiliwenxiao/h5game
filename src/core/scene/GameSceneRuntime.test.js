@@ -466,3 +466,21 @@ describe('GameSceneRuntime 帧顺序与清理', () => {
     expect(pointer.world).toEqual({ x: 7, y: 8 });
   });
 });
+
+
+describe('P6.2 生命周期测量快照', () => {
+  it('ResourceScope 与容器公开只读残留计数', () => {
+    const container = new SceneSystemContainer();
+    container.register('owned', makeSystem([], 'owned'));
+    const scope = new GameSceneRuntime().resourceScope;
+    scope.setTimeout(() => {}, 60_000);
+
+    expect(container.getLifecycleSnapshot()).toMatchObject({ registeredCount: 1, ownedCount: 1 });
+    expect(scope.getLifecycleSnapshot()).toMatchObject({ disposed: false, pendingTimerCount: 1 });
+
+    container.destroy();
+    scope.dispose();
+    expect(container.getLifecycleSnapshot()).toMatchObject({ registeredCount: 0, ownedCount: 0 });
+    expect(scope.getLifecycleSnapshot()).toMatchObject({ disposed: true, pendingTimerCount: 0, disposerCount: 0 });
+  });
+});

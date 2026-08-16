@@ -299,6 +299,13 @@ export class TriggerSystem {
         else this._queues.delete(trigger.id);
         if (next && !(trigger.once && this._firedOnce.has(trigger.id))) this._startExecution(trigger, next);
       });
+    // fireAndWait() observes the same execution record as asynchronous callers.
+    // Keep rejection in token.promise for lifecycle callers while returning a settled
+    // request record for aggregate signal dispatch.
+    request.completion = token.promise.then(
+      value => ({ value, record: this.ledger.get(trigger.id) }),
+      error => ({ error, record: this.ledger.get(trigger.id) })
+    );
   }
 
   async _execute(trigger, request, token) {

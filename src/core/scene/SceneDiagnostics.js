@@ -89,6 +89,83 @@ export class SceneDiagnostics {
     return monitor.enabled;
   }
 
+  /**
+   * 启动 P6.2 的真实性能采样。调用方必须在真实浏览器或设备中执行场景负载；
+   * 此方法只记录数据，不把任何阈值自动标记为通过。
+   */
+  startPerformanceMeasurement(metadata = {}) {
+    const engine = typeof window !== 'undefined' ? window.gameEngine : null;
+    return this.scene.performanceMonitor.startMeasurement({
+      ...metadata,
+      sceneId: metadata.sceneId ?? this.scene.currentSceneId ?? this.scene.editorSceneId ?? null,
+      resolution: metadata.resolution ?? {
+        width: this.scene.logicalWidth ?? null,
+        height: this.scene.logicalHeight ?? null
+      },
+      requestedBackendMode: metadata.requestedBackendMode ?? engine?.requestedBackendMode ?? null,
+      actualBackendMode: metadata.actualBackendMode ?? engine?.actualBackendMode ?? null
+    });
+  }
+
+  stopPerformanceMeasurement() {
+    return this.scene.performanceMonitor.stopMeasurement();
+  }
+
+  getPerformanceMeasurement() {
+    return this.scene.performanceMonitor.getMeasurementSnapshot();
+  }
+
+  _captureReleaseState(runtime = this.scene.sceneRuntime, resourceScope = this.scene.resourceScope) {
+    return {
+      runtimeDisposed: runtime?.disposed ?? null,
+      container: runtime?.container?.getLifecycleSnapshot?.() ?? null,
+      resourceScope: resourceScope?.getLifecycleSnapshot?.() ?? null,
+      drawCallProxyActive: this.scene._drawCallProxied === true,
+      particleCount: this.scene.particleSystem?.getActiveCount?.() ?? null
+    };
+  }
+
+  /** 记录场景释放前的可追踪资源基线；不检查全局浏览器资源。 */
+  beginReleaseAudit() {
+    if (this._releaseAudit?.status === 'capturing') return this._releaseAudit.before;
+    const runtime = this.scene.sceneRuntime;
+    const resourceScope = this.scene.resourceScope;
+    const before = this._captureReleaseState(runtime, resourceScope);
+    this._releaseAudit = { status: 'capturing', before, runtime, resourceScope };
+    return before;
+  }
+
+  /**
+   * 在场景的正式释放事务完成后取样。结果只覆盖容器、ResourceScope、Canvas 代理和粒子；
+   * 浏览器内存与其他宿主资源仍须结合 P6.2 的真实 profile 记录审查。
+   */
+  finalizeReleaseAudit() {
+    const audit = this._releaseAudit || (this.beginReleaseAudit(), this._releaseAudit);
+    const after = this._captureReleaseState(audit.runtime, audit.resourceScope);
+    const trackedResidue = {
+      ownerRegistrations: after.container?.ownedCount ?? null,
+      pendingTimers: after.resourceScope?.pendingTimerCount ?? null,
+      trackedDisposers: after.resourceScope?.disposerCount ?? null,
+      asyncTokensInvalidated: after.resourceScope ? after.resourceScope.disposed === true : null,
+      drawCallProxyActive: after.drawCallProxyActive,
+      activeParticles: after.particleCount
+    };
+    const report = {
+      baseline: audit.before,
+      after,
+      trackedResidue,
+      trackedReleaseComplete: after.container?.registeredCount === 0
+        && after.resourceScope?.disposed === true
+        && after.resourceScope?.pendingTimerCount === 0
+        && after.resourceScope?.disposerCount === 0
+        && after.drawCallProxyActive === false
+        && (after.particleCount === null || after.particleCount === 0)
+    };
+    this._releaseAudit = { ...audit, status: 'completed', report };
+    this.lastReleaseAudit = report;
+    return report;
+  }
+
   toggleDebugPanel() {
     const scene = this.scene;
     if (!this.isDebugEnabled()) {
@@ -304,6 +381,8 @@ export class SceneDiagnostics {
   }
 
   dispose() {
+    this.beginReleaseAudit();
+    this.scene.performanceMonitor?.dispose?.();
     this.teardownDrawCallCounter();
     const scene = this.scene;
     if (!scene.debugPanel) return;

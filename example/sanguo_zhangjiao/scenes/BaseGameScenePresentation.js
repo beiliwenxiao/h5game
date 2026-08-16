@@ -235,6 +235,9 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     this._worldInteraction?.reset();
     this.entityStore.destroyAll();
     this.context.resetTransient();
+    // P6.2 释放审计必须在 Runtime、ResourceScope、粒子和实体全部清理后取样；
+    // 它只记录可追踪残留，不能替代浏览器/设备的真实内存 profile。
+    this._diagnostics.finalizeReleaseAudit();
     this.playerLifecycle = null;
     this._lifecycleCoordinator = null;
     this._inputBindings = null;

@@ -87,9 +87,9 @@ export class SceneObjectProjector {
 
     // 记录不可枚举的投影证明；消费者不得根据标记再次补 offset。
     Object.defineProperties(projected, {
-      _localX: { value: typeof obj.x === 'number' ? obj.x : undefined, enumerable: false },
-      _localY: { value: typeof obj.y === 'number' ? obj.y : undefined, enumerable: false },
-      _worldOffset: { value: Object.freeze({ x: ox, y: oy }), enumerable: false },
+      _localX: { value: typeof obj.x === 'number' ? obj.x : undefined, enumerable: true },
+      _localY: { value: typeof obj.y === 'number' ? obj.y : undefined, enumerable: true },
+      _worldOffset: { value: Object.freeze({ x: ox, y: oy }), enumerable: true },
       _worldOffsetApplied: { value: true, enumerable: false }
     });
 
@@ -159,9 +159,9 @@ export class SceneObjectProjector {
     }
     if (world._worldOffset) {
       Object.defineProperties(copy, {
-        _localX: { value: world._localX, enumerable: false },
-        _localY: { value: world._localY, enumerable: false },
-        _worldOffset: { value: world._worldOffset, enumerable: false },
+        _localX: { value: world._localX, enumerable: true },
+        _localY: { value: world._localY, enumerable: true },
+        _worldOffset: { value: world._worldOffset, enumerable: true },
         _worldOffsetApplied: { value: true, enumerable: false }
       });
     }

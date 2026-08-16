@@ -3,10 +3,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SceneSystemContainer } from '../src/core/scene/SceneSystemContainer.js';
+import { GameSceneRuntime } from '../src/core/scene/GameSceneRuntime.js';
 import { ContentValidator, FieldType } from '../src/core/validation/ContentValidator.js';
+import { CanonicalCandidatePipeline } from '../src/core/validation/CanonicalCandidatePipeline.js';
+import { CandidateRuleValidator } from '../src/core/validation/CandidateRuleValidator.js';
+import { ContentErrorCategory } from '../src/core/validation/ContentOperationResult.js';
+import { ProjectWorldIndex } from '../src/core/ProjectWorldIndex.js';
 import { CanonicalSnapshot } from '../src/core/CanonicalSnapshot.js';
 import { DefinitionRepository, DefinitionRepositoryValidationError } from '../src/core/DefinitionRepository.js';
 import { auditTrackedJavaScript, readExceptionManifest } from '../src/dev/JavaScriptAuditGate.js';
+import { CanonicalDocumentService } from '../editor/CanonicalDocumentService.js';
+import { EditorCanonicalCandidateValidator, EditorSceneCommandService } from '../editor/EditorSceneCommandService.js';
+import { MemorySceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
 import { TriggerGraph } from '../src/core/scenario/TriggerGraph.js';
 import { ScenarioDefinitionIndex } from '../src/core/scenario/ScenarioDefinitionIndex.js';
 import { TriggerSystem } from '../src/systems/TriggerSystem.js';
@@ -89,6 +97,87 @@ function makeInput(probe, seed, generated) {
 // stable test identifier and must satisfy CanonicalSnapshot's revision contract.
 function canonicalTestRevision(seed, role = 'snapshot') {
   return `property-1:${role}:${seed >>> 0}`;
+}
+
+function loadCanonicalEditorAggregate() {
+  const root = path.join(ROOT, 'example/sanguo_zhangjiao');
+  const resolveRefs = value => {
+    if (Array.isArray(value)) return value.map(resolveRefs);
+    if (!value || typeof value !== 'object') return value;
+    if (typeof value.$ref === 'string') {
+      return resolveRefs(JSON.parse(fs.readFileSync(path.join(root, value.$ref), 'utf8')));
+    }
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, resolveRefs(child)]));
+  };
+  const project = resolveRefs(JSON.parse(fs.readFileSync(path.join(root, 'game.project.json'), 'utf8')));
+  const sceneOrder = JSON.parse(fs.readFileSync(path.join(root, 'assets/scenes/_scene_order.json'), 'utf8'));
+  const scenes = Object.fromEntries(project.scenes.map(({ id }) => [
+    id,
+    JSON.parse(fs.readFileSync(path.join(root, `assets/scenes/${id}.json`), 'utf8'))
+  ]));
+  return { project, sceneOrder, scenes };
+}
+
+function createFailureClassificationPipeline() {
+  const contentValidator = new ContentValidator({ supportedVersion: 2 });
+  contentValidator.registerSchema({
+    id: 'propertyFailureRoot',
+    fields: {
+      schemaVersion: { type: FieldType.INTEGER, required: true, min: 1, max: 2 },
+      count: { type: FieldType.INTEGER, default: 3, min: 0 },
+      entries: { type: FieldType.ARRAY, required: true }
+    }
+  });
+  return new CanonicalCandidatePipeline({
+    contentValidator,
+    ruleValidator: new CandidateRuleValidator({ contentValidator })
+  });
+}
+
+function architectureAuditPaths() {
+  return [
+    'src/core/scene/SceneSystemContainer.js',
+    'src/core/scene/GameSceneRuntime.js',
+    'src/core/ProjectWorldIndex.js',
+    'src/core/validation/CanonicalCandidatePipeline.js',
+    'src/core/scene/CanonicalSceneRepository.js',
+    'src/systems/ActionDescriptorRegistry.js',
+    'src/systems/CommandAdapter.js',
+    'src/systems/TriggerSystem.js'
+  ];
+}
+
+async function executeCanonicalTriggerPath(seed, { withScenario = false } = {}) {
+  const project = {
+    schemaVersion: 1,
+    scenes: [{ id: 'S01' }], battles: [{ id: 'battle.one' }],
+    dialogues: [], quests: [], tutorials: [], rescues: [], endings: [], library: {},
+    triggers: [{ id: 'generic-trigger', when: { type: 'signal' }, do: [{ action: 'battle.command', params: { battleId: 'battle.one', operation: 'start' } }] }],
+    scenarios: withScenario
+      ? [{ id: 'scenario.one', scope: { sceneId: 'S01' }, triggerRefs: ['generic-trigger'], sceneRefs: ['S01'], questRefs: [], dialogueRefs: [], commandRefs: [] }]
+      : []
+  };
+  const snapshot = CanonicalSnapshot.fromProject(project, { revision: canonicalTestRevision(seed, withScenario ? 'trigger-kernel' : 'content-extension') });
+  const repository = DefinitionRepository.fromSnapshot(snapshot);
+  const descriptors = createStandardActionDescriptorRegistry();
+  const intents = [];
+  const commandGateway = {
+    async execute(intent) {
+      intents.push(structuredClone(intent));
+      return {
+        ok: true, operationId: intent.operationId, status: 'committed', committed: true, code: null,
+        stateId: 'battle:battle.one', stateRevision: 1, eventFrom: 1, eventTo: 1, value: null, error: null
+      };
+    }
+  };
+  const adapter = new CommandAdapter({ registry: descriptors, definitionRepository: repository, commandGateway });
+  const graph = TriggerGraph.fromSnapshot(snapshot);
+  const index = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph: graph });
+  const triggerSystem = new TriggerSystem({ actionDescriptorRegistry: descriptors, commandAdapter: adapter, definitionRevision: snapshot.definitionRevision });
+  triggerSystem.init({ definitionRepository: repository, player: { id: 'player' } });
+  triggerSystem.register(project.triggers[0]);
+  const execution = await triggerSystem.fireAndWait('signal', { actorRef: 'player' });
+  return { snapshot, repository, descriptors, adapter, graph, index, triggerSystem, execution, intents };
 }
 
 function executableJavaScript() {
@@ -181,11 +270,33 @@ async function executeOriginal(input) {
         `same owned identity updated ${updates} times and disposed ${disposals} times`);
     }
     case 'module-global-owner': {
-      const modules = ['editor/EditorDataManager.js', 'editor/SceneDataLoader.js', 'editor/SceneDataExporter.js'];
-      const globalOwners = modules.filter(file => /export const \w+\s*=\s*new /.test(read(file)));
-      return result(input, 'dependency-ownership', ['import lifecycle-managed capabilities', 'inspect creation ownership'],
-        { modules }, { globalOwners }, globalOwners.length === 0,
-        `module-level mutable instances: ${globalOwners.join(', ')}`);
+      const events = [];
+      const shared = {
+        update: () => events.push('update:shared'),
+        destroy: () => events.push('destroy:shared')
+      };
+      const runtime = new GameSceneRuntime();
+      const borrowedProjection = {};
+      const owner = runtime.registerSystem('shared-owner', shared, { order: 100 });
+      runtime.applyRegistrationPlan({
+        id: 'borrowed-projection',
+        registrations: [{ name: 'shared-borrowed', instance: shared, options: { ownership: 'BORROWED', updateHook: false, order: 200 } }],
+        projections: [{ target: borrowedProjection, key: 'shared', instance: shared }]
+      });
+      runtime.enter();
+      runtime.update(0.016);
+      const borrowed = runtime.get('shared-borrowed');
+      const projectedBeforeDispose = borrowedProjection.shared;
+      const firstDispose = runtime.dispose();
+      const secondDispose = runtime.dispose();
+      return result(input, 'dependency-ownership', ['construct GameSceneRuntime', 'register owned capability once', 'borrow identity as projection', 'update(frame=1)', 'dispose()', 'dispose()'],
+        { lifecycleOwner: 'GameSceneRuntime/SceneSystemContainer', identity: 'shared' },
+        { owner, borrowed, projectedBeforeDispose, projectionAfterDispose: borrowedProjection.shared, events, firstDispose, secondDispose },
+        owner === shared && borrowed === shared && projectedBeforeDispose === shared && borrowedProjection.shared === null
+          && events.filter(event => event === 'update:shared').length === 1
+          && events.filter(event => event === 'destroy:shared').length === 1
+          && firstDispose === secondDispose,
+        'GameSceneRuntime/SceneSystemContainer did not retain the single owner identity, exactly-once update/disposal, or idempotent disposal');
     }
     case 'null-is-not-missing': {
       const validator = new ContentValidator();
@@ -224,12 +335,22 @@ async function executeOriginal(input) {
         'editor exposes direct save without complete candidate + atomic transaction boundary');
     }
     case 'world-grid-canonical-closure': {
-      const cacheIdsAreCandidates = /localStorage[\s\S]*availableScenes\.push\(s\.id\)/.test(worldMapSource);
-      const closureRejection = /canonicalClosure|nonCanonical|invalidReference/.test(worldMapSource);
-      return result(input, 'world-grid-closure', ['cache private ID CACHE_ONLY', 'place reserved CACHE_ONLY', 'save grid'],
-        { canonicalIds: ['S01'], cacheIds: ['CACHE_ONLY'], grid: [[{ sceneId: 'CACHE_ONLY', reserved: true }]] },
-        { cacheIdsAreCandidates, closureRejection }, !cacheIdsAreCandidates && closureRejection,
-        'cache-only ID can enter a world-grid candidate without whole-candidate rejection');
+      const candidate = loadCanonicalEditorAggregate();
+      const region = candidate.project.worldMap.regions.find(entry => Array.isArray(entry.grid));
+      const row = region.grid.findIndex(entries => Array.isArray(entries) && entries.some(cell => typeof cell === 'string'));
+      const col = region.grid[row].findIndex(cell => typeof cell === 'string');
+      region.grid[row][col] = { sceneId: 'CACHE_ONLY', reserved: true };
+      let indexErrors = [];
+      try { ProjectWorldIndex.build(candidate.project); } catch (error) { indexErrors = error.errors || []; }
+      const validator = new EditorCanonicalCandidateValidator();
+      const validation = validator.validateAndCanonicalize(candidate, { source: 'property://world-grid-closure' });
+      return result(input, 'world-grid-closure', ['build complete canonical candidate', 'place reserved CACHE_ONLY outside project closure', 'validate ProjectWorldIndex and EditorCanonicalCandidateValidator'],
+        { canonicalIds: candidate.project.scenes.map(scene => scene.id), gridPath: `worldMap.regions[${candidate.project.worldMap.regions.indexOf(region)}].grid[${row}][${col}]` },
+        { indexErrors, validationErrors: validation.errors, committed: validation.committed },
+        indexErrors.some(error => error.code === 'unknownSceneId')
+          && validation.ok === false && validation.committed === false
+          && validation.errors.some(error => error.code === 'invalidProjectWorld' || error.code === 'unknownSceneId'),
+        'EditorCanonicalCandidateValidator/ProjectWorldIndex accepted a non-canonical reserved grid ID or exposed a partial commit');
     }
     case 'schema-aware-field-preservation':
     case 'lossless-round-trip': {
@@ -247,24 +368,59 @@ async function executeOriginal(input) {
         'no-op editor round-trip removed legal fields or rounded canonical values');
     }
     case 'classified-load-failure': {
-      const oldDemoFallback = /scene_Prologue|scene_Act1|第一幕|内置默认值/.test(loaderSource);
-      const categories = ['missing', 'unreadable', 'parseFailed', 'schemaFailed'];
-      const exposesCategories = categories.every(category => loaderSource.includes(category));
-      return result(input, 'canonical-load-failure', ['load last-good', 'inject missing/unreadable/parse/schema failure', 'classify source/category'],
-        { lastGood: 'canonical-S01', categories }, { oldDemoFallback, exposesCategories }, !oldDemoFallback && exposesCategories,
-        'load failure is unclassified and/or can leak built-in Demo fallback content');
+      const pipeline = createFailureClassificationPipeline();
+      const lastGood = Object.freeze({ schemaVersion: 1, count: 7, entries: [] });
+      const cases = [
+        ['missing', pipeline.process(null, { schemaId: 'propertyFailureRoot', source: 'disk://missing.json', lastSuccessfulValue: lastGood })],
+        ['unreadable', pipeline.process('ignored', { schemaId: 'propertyFailureRoot', source: 'disk://denied.json', lastSuccessfulValue: lastGood, reader: () => { throw new Error('denied'); } })],
+        ['parseFailed', pipeline.process('{ invalid', { schemaId: 'propertyFailureRoot', source: 'disk://broken.json', lastSuccessfulValue: lastGood })],
+        ['schemaFailed', pipeline.process({ schemaVersion: 1, count: null, entries: [] }, { schemaId: 'propertyFailureRoot', source: 'disk://schema.json', lastSuccessfulValue: lastGood })]
+      ];
+      const expectedCategories = [
+        ContentErrorCategory.MISSING,
+        ContentErrorCategory.UNREADABLE,
+        ContentErrorCategory.PARSE_FAILED,
+        ContentErrorCategory.SCHEMA_FAILED
+      ];
+      return result(input, 'canonical-load-failure', ['retain last-good canonical value', 'run CanonicalCandidatePipeline for missing/unreadable/parse/schema failures', 'classify source/category'],
+        { lastGood, categories: expectedCategories },
+        { cases: cases.map(([kind, value]) => ({ kind, ok: value.ok, category: value.category, source: value.source, value: value.value, errors: value.errors })) },
+        cases.every(([, value], index) => value.ok === false && value.value === lastGood
+          && value.category === expectedCategories[index] && value.errors.every(error => error.source === value.source)),
+        'CanonicalCandidatePipeline failed to retain last-good state or classify missing/unreadable/parseFailed/schemaFailed source failures');
     }
     case 'complete-candidate-before-commit': {
-      const localStorageCommit = /saveScenesData[\s\S]*localStorage\.setItem/.test(editorManagerSource);
-      const fullPipeline = /schema[\s\S]*reference[\s\S]*businessRule[\s\S]*canonicalize/.test(editorManagerSource);
-      return result(input, 'candidate-submit', ['submit invalid nested reference', `inject fault:${input.variant.faultPhase}`],
-        { candidate: { id: 'S-new', triggerRef: 'missing' }, disk: 'before', memory: 'before', cache: 'before' },
-        { localStorageCommit, fullPipeline, committedBeforeValidation: localStorageCommit && !fullPipeline },
-        !localStorageCommit || fullPipeline,
-        'candidate can reach localStorage commit before schema/reference/business-rule validation');
+      const projectPath = 'example/sanguo_zhangjiao/game.project.json';
+      const documentService = new CanonicalDocumentService();
+      const aggregate = loadCanonicalEditorAggregate();
+      const model = documentService.openProject({ sourceUri: projectPath, canonical: aggregate });
+      const cache = new MemorySceneCacheAdapter({
+        S01: { sceneId: 'S01', source: 'disk://S01.json', canonicalData: structuredClone(aggregate.scenes.S01), eligible: true }
+      });
+      const diskCalls = [];
+      const notifierCalls = [];
+      const service = new EditorSceneCommandService({
+        documentService,
+        validator: new EditorCanonicalCandidateValidator(),
+        cacheAdapter: cache,
+        diskTransaction: async (_path, changes) => { diskCalls.push(changes); return { ok: true, committed: true, transactionId: 'unexpected' }; },
+        notifier: async event => notifierCalls.push(event)
+      });
+      const beforeMemory = model.getCommittedSnapshot();
+      const beforeCache = structuredClone(cache.entries);
+      const rejected = await service.save(projectPath, { sceneId: 'S01', scene: { ...aggregate.scenes.S01, layers: null } });
+      return result(input, 'candidate-submit', ['open committed canonical aggregate', 'submit invalid nested scene candidate through EditorSceneCommandService', 'observe disk/memory/cache/notification'],
+        { candidate: { sceneId: 'S01', layers: null }, disk: 'before', memory: 'before', cache: 'before' },
+        { rejected, diskCalls, notifierCalls, memory: model.getCommittedSnapshot(), cache: cache.entries },
+        rejected.ok === false && rejected.committed === false && rejected.status === 'rejected'
+          && rejected.code === 'candidateValidationFailed' && rejected.errors.some(error => error.path.includes('layers'))
+          && diskCalls.length === 0 && notifierCalls.length === 0
+          && JSON.stringify(model.getCommittedSnapshot()) === JSON.stringify(beforeMemory)
+          && JSON.stringify(cache.entries) === JSON.stringify(beforeCache),
+        'EditorSceneCommandService allowed a rejected full candidate to modify disk, committed memory, cache, or notification state');
     }
     case 'javascript-scope-lines-responsibility': {
-      const files = executableJavaScript().map(({ file }) => file);
+      const files = architectureAuditPaths();
       const audit = auditTrackedJavaScript({
         root: ROOT,
         paths: files,
@@ -281,43 +437,29 @@ async function executeOriginal(input) {
       const invalidExceptions = audit.units.filter(unit => (
         unit.physicalLines > 1000 && unit.exception.status === 'invalid'
       ));
-      return result(input, 'javascript-audit', ['enumerate tracked executable JavaScript', 'count physical lines', 'validate responsibility and evidence-bound exception gate'],
-        { scope: ['src', 'editor', 'example/sanguo_zhangjiao'], exclusions: ['test', 'fixtures', 'third-party', 'generated', 'dist', 'desktop', 'mobile'] },
-        { units: audit.units, lineOrResponsibilityFailures, oversizedWithoutValidException, invalidExceptions },
-        lineOrResponsibilityFailures.length === 0 && oversizedWithoutValidException.length === 0 && invalidExceptions.length === 0,
-        'tracked executable units violate the responsibility gate or exceed 1000 lines without valid evidence/hash/line/responsibility/owner/date exception');
+      return result(input, 'javascript-audit', ['enumerate architecture-supported executable units', 'count physical lines including comments/blank lines', 'validate responsibility and evidence-bound exception gate'],
+        { scope: files, exclusions: ['test', 'fixtures', 'third-party', 'generated', 'dist', 'desktop', 'mobile'] },
+        { units: audit.units, included: audit.included, lineOrResponsibilityFailures, oversizedWithoutValidException, invalidExceptions },
+        audit.included.map(entry => entry.file).sort().join('|') === files.slice().sort().join('|')
+          && audit.units.every(unit => unit.physicalLines >= 1 && (unit.physicalLines <= 1000 || unit.exception.status === 'valid'))
+          && lineOrResponsibilityFailures.length === 0 && oversizedWithoutValidException.length === 0 && invalidExceptions.length === 0,
+        'architecture-supported executable units violate the physical-line, responsibility, or evidence-bound exception gate');
     }
     case 'json-only-content-extension': {
-      const snapshot = CanonicalSnapshot.fromProject({
-        schemaVersion: 1,
-        scenes: [{ id: 'S01' }], battles: [{ id: 'battle.one' }],
-        dialogues: [], quests: [], tutorials: [], rescues: [], endings: [], scenarios: [], library: {},
-        triggers: [{ id: 'generic-trigger', when: { type: 'signal' }, do: [{ action: 'battle.command', params: { battleId: 'battle.one', operation: 'start' } }] }]
-      }, { revision: canonicalTestRevision(input.seed, 'content-extension') });
-      const repository = DefinitionRepository.fromSnapshot(snapshot);
-      const descriptors = createStandardActionDescriptorRegistry();
-      const adapter = new CommandAdapter({ registry: descriptors, definitionRepository: repository, commandGateway: { execute() {} } });
-      const graph = TriggerGraph.fromSnapshot(snapshot);
-      const index = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph: graph });
-      const audit = auditTrackedJavaScript({
-        root: ROOT,
-        paths: executableJavaScript().map(({ file }) => file),
-        exceptionManifest: readExceptionManifest(ROOT)
-      });
-      const contentBranches = audit.violations.filter(violation => (
-        violation.code === 'content-named-handler' || violation.code === 'content-flow-branch'
+      const pathResult = await executeCanonicalTriggerPath(input.seed);
+      const descriptorContracts = pathResult.descriptors.all().every(descriptor => (
+        Object.isFrozen(descriptor) && descriptor.adapterId === 'command'
+          && typeof descriptor.commandType === 'string'
+          && !Object.values(descriptor).some(value => typeof value === 'function')
       ));
-      const descriptorsAreClosed = descriptors.all().every(descriptor => (
-        Object.isFrozen(descriptor)
-        && descriptor.adapterId === 'command'
-        && typeof descriptor.commandType === 'string'
-        && !Object.values(descriptor).some(value => typeof value === 'function')
-      ));
-      return result(input, 'content-extension-restart', ['add schema-expressible content JSON', 'publish CanonicalSnapshot', 'derive TriggerGraph/index', 'replay same snapshot/seed/commands'],
+      const intent = pathResult.intents[0];
+      return result(input, 'content-extension-restart', ['add schema-expressible content JSON', 'publish CanonicalSnapshot and DefinitionRepository', 'derive TriggerGraph/index', 'execute generic ActionDescriptor through CommandAdapter and TriggerSystem'],
         { jsonDelta: { item: 'existing-capability' }, executableJavaScriptDiff: 0, seed: input.seed },
-        { contentBranches, descriptorIds: descriptors.ids(), commandAdapter: adapter.constructor.name, snapshotRevision: snapshot.definitionRevision, graphIds: graph.ids(), repositoryKinds: repository.kinds(), indexedScenarioCount: index.ids().length },
-        contentBranches.length === 0 && descriptorsAreClosed && adapter instanceof CommandAdapter && graph.has('generic-trigger') && repository.has('triggers', 'generic-trigger'),
-        'production content scope has a content-named handler/branch or cannot close canonical trigger definitions through ActionDescriptor and CommandAdapter');
+        { snapshotRevision: pathResult.snapshot.definitionRevision, repositoryKinds: pathResult.repository.kinds(), graphIds: pathResult.graph.ids(), indexedScenarioCount: pathResult.index.ids().length, descriptorIds: pathResult.descriptors.ids(), execution: pathResult.execution, intents: pathResult.intents },
+        descriptorContracts && pathResult.graph.has('generic-trigger') && pathResult.repository.has('triggers', 'generic-trigger')
+          && pathResult.execution.ok === true && pathResult.execution.accepted === 1
+          && intent?.intentType === 'battle.command' && intent.actorRef === 'player' && intent.payload.battleId === 'battle.one',
+        'canonical content did not execute through CanonicalSnapshot → DefinitionRepository → TriggerGraph/ScenarioDefinitionIndex → ActionDescriptorRegistry → CommandAdapter → TriggerSystem');
     }
     case 'duplicate-definition-rejected': {
       const first = { id: 'same', value: 1 };
@@ -370,34 +512,20 @@ async function executeOriginal(input) {
         'Trigger committed once/cooldown before chain success and continued after action failure');
     }
     case 'trigger-sole-kernel': {
-      const snapshot = CanonicalSnapshot.fromProject({
-        schemaVersion: 1,
-        scenes: [{ id: 'S01' }], battles: [{ id: 'battle.one' }],
-        dialogues: [], quests: [], tutorials: [], rescues: [], endings: [], library: {},
-        triggers: [{ id: 'generic-trigger', when: { type: 'signal' }, do: [{ action: 'battle.command', params: { battleId: 'battle.one', operation: 'start' } }] }],
-        scenarios: [{ id: 'scenario.one', scope: { sceneId: 'S01' }, triggerRefs: ['generic-trigger'], sceneRefs: ['S01'], questRefs: [], dialogueRefs: [], commandRefs: [] }]
-      }, { revision: canonicalTestRevision(input.seed, 'trigger-kernel') });
-      const repository = DefinitionRepository.fromSnapshot(snapshot);
-      const descriptors = createStandardActionDescriptorRegistry();
-      const adapter = new CommandAdapter({ registry: descriptors, definitionRepository: repository, commandGateway: { execute() {} } });
-      const graph = TriggerGraph.fromSnapshot(snapshot);
-      const index = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph: graph });
-      const audit = auditTrackedJavaScript({
-        root: ROOT,
-        paths: executableJavaScript().map(({ file }) => file),
-        exceptionManifest: readExceptionManifest(ROOT)
-      });
-      const contentHandlerViolations = audit.violations.filter(violation => (
-        violation.code === 'content-named-handler' || violation.code === 'content-flow-branch'
-      ));
-      const genericDescriptors = descriptors.all().every(descriptor => descriptor.adapterId === 'command'
+      const pathResult = await executeCanonicalTriggerPath(input.seed, { withScenario: true });
+      const closure = pathResult.index.getReferenceClosure('scenario.one');
+      const intent = pathResult.intents[0];
+      const genericDescriptors = pathResult.descriptors.all().every(descriptor => descriptor.adapterId === 'command'
         && descriptor.commandType === descriptor.id && Object.isFrozen(descriptor));
-      return result(input, 'trigger-kernel-closure', ['publish canonical scenario/trigger definitions', 'derive read-only TriggerGraph/index', 'validate generic ActionDescriptor and CommandAdapter path'],
+      return result(input, 'trigger-kernel-closure', ['publish canonical scenario/trigger definitions', 'derive read-only TriggerGraph/index', 'execute schema-validated generic action via CommandAdapter and TriggerSystem'],
         { actionContract: 'schema-validated generic command' },
-        { contentHandlerViolations, descriptorIds: descriptors.ids(), commandAdapter: adapter.constructor.name, graphIds: graph.ids(), scenarioClosure: index.getReferenceClosure('scenario.one') },
-        contentHandlerViolations.length === 0 && genericDescriptors && adapter instanceof CommandAdapter
-          && graph.has('generic-trigger') && index.get('scenario.one')?.triggerRefs.includes('generic-trigger'),
-        'production Trigger scope has content-named execution handlers or lacks the CanonicalSnapshot → ActionDescriptor → CommandAdapter closure');
+        { descriptorIds: pathResult.descriptors.ids(), execution: pathResult.execution, intent, graphIds: pathResult.graph.ids(), scenarioClosure: closure, triggerLedger: pathResult.triggerSystem.serialize().ledger },
+        genericDescriptors && pathResult.graph.has('generic-trigger')
+          && pathResult.index.get('scenario.one')?.references?.triggers.includes('generic-trigger')
+          && closure?.triggers?.includes('generic-trigger')
+          && pathResult.execution.ok === true && pathResult.intents.length === 1
+          && intent?.operationId?.startsWith(`trigger:${pathResult.snapshot.definitionRevision}:generic-trigger:`),
+        'canonical scenario definitions did not close through the sole TriggerSystem execution kernel and generic command adapter');
     }
     case 'quest-definition-runtime-transaction': {
       const questSystem = new QuestSystem();

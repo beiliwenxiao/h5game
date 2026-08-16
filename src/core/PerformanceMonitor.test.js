@@ -141,3 +141,37 @@ describe('PerformanceMonitor', () => {
     expect(monitor.getColorForMetric('fps', '20')).toBe('#F44336'); // 红色
   });
 });
+
+
+describe('P6.2 实测采样', () => {
+  let monitor;
+
+  beforeEach(() => {
+    monitor = new PerformanceMonitor({ enabled: true });
+  });
+
+  it('显式采样会记录平均 FPS、1% low、实体下限和 draw calls', () => {
+    monitor.startMeasurement({ sceneId: 'S11', maxSamples: 200, memorySampleEveryFrames: 1000 });
+    for (let index = 0; index < 99; index++) {
+      monitor.update(0.01, { entityCount: 100, drawCallsPerFrame: 12 });
+    }
+    monitor.update(0.04, { entityCount: 100, drawCallsPerFrame: 18 });
+
+    const sample = monitor.stopMeasurement();
+    expect(sample.status).toBe('completed');
+    expect(sample.frame.count).toBe(100);
+    expect(sample.frame.activeEntityMin).toBe(100);
+    expect(sample.frame.averageFps).toBeGreaterThan(90);
+    expect(sample.frame.onePercentLowFps).toBe(25);
+    expect(sample.frame.drawCallsMax).toBe(18);
+  });
+
+  it('长帧会作为采样长任务保留，而非由平均 FPS 掩盖', () => {
+    monitor.startMeasurement({ longTaskThresholdMs: 30, memorySampleEveryFrames: 1000 });
+    monitor.update(0.05, { entityCount: 100 });
+
+    const sample = monitor.stopMeasurement();
+    expect(sample.longTasks.count).toBeGreaterThan(0);
+    expect(sample.longTasks.entries[0]).toMatchObject({ source: 'frameTime', duration: 50 });
+  });
+});

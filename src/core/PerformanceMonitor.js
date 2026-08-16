@@ -1,29 +1,42 @@
 /************************************************************
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
- * 
- * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
- * @author    刘枭 (beiliwenxiao)
- * @email     beiliwenxiao@qq.com
- * @date      2026-01-14
- * @blog      https://blog.csdn.net/beiliwenxiao
- * @repo      https://github.com/beiliwenxiao/yijian18-engine
- *            https://gitee.com/coderaaa/yijian18-engine
+ *
+ * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+const MB = 1024 * 1024;
+
+function now() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function clone(value) {
+  if (value == null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(clone);
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, clone(item)]));
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function rounded(value, digits = 2) {
+  const scale = 10 ** digits;
+  return Math.round(value * scale) / scale;
+}
+
 /**
- * PerformanceMonitor - 性能监控器
- * 监控和显示游戏性能指标，包括FPS、实体数量、绘制调用数等
+ * PerformanceMonitor - 场景性能监控与 P6.2 实测采样器。
+ *
+ * 常规 HUD 指标继续保持轻量；只有显式 startMeasurement() 才保存完整帧样本、
+ * 长任务与内存峰值。采样结果仅是浏览器/设备实测记录，不替代验收结论。
  */
 export class PerformanceMonitor {
-  /**
-   * @param {Object} [options] - 配置选项
-   */
   constructor(options = {}) {
     this.enabled = options.enabled !== undefined ? options.enabled : true;
     this.position = options.position || { x: 10, y: 10 };
-    this.updateInterval = options.updateInterval || 0.5; // 更新间隔（秒）
-    
-    // 性能数据
+    this.updateInterval = options.updateInterval || 0.5;
     this.metrics = {
       fps: 0,
       frameTime: 0,
@@ -36,176 +49,251 @@ export class PerformanceMonitor {
       textureMemory: 0,
       memoryUsage: 0,
       particleCount: 0,
-      poolStats: {}
+      poolStats: {},
+      onePercentLowFps: 0,
+      longTaskCount: 0
     };
-    
-    // FPS 计算
     this.frameCount = 0;
     this.lastUpdateTime = 0;
     this.frameTimes = [];
     this.maxFrameTimeSamples = 60;
-    
-    // 时间测量
     this.timers = new Map();
-    
-    // 历史数据（用于图表）
-    this.history = {
-      fps: [],
-      frameTime: [],
-      maxHistoryLength: 100
-    };
-    
-    // 显示选项
+    this.history = { fps: [], frameTime: [], maxHistoryLength: 100 };
     this.showGraph = options.showGraph !== undefined ? options.showGraph : false;
     this.graphHeight = 60;
     this.graphWidth = 200;
+    this.measurement = null;
+    this._longTaskObserver = null;
+    this._memoryRequestInFlight = false;
   }
 
-  /**
-   * 启用/禁用性能监控
-   * @param {boolean} enabled - 是否启用
-   */
   setEnabled(enabled) {
-    this.enabled = enabled;
+    this.enabled = enabled === true;
   }
 
-  /**
-   * 切换性能监控显示
-   */
   toggle() {
     this.enabled = !this.enabled;
   }
 
-  /**
-   * 开始计时
-   * @param {string} name - 计时器名称
-   */
-  startTimer(name) {
-    if (!this.enabled) return;
-    this.timers.set(name, performance.now());
+  /** 开始一次明确标识的真实运行采样；不会创建测试页面或模拟设备数据。 */
+  startMeasurement(metadata = {}) {
+    this.stopMeasurement();
+    this.enabled = true;
+    const start = now();
+    this.measurement = {
+      status: 'running',
+      metadata: clone(metadata),
+      startedAt: start,
+      endedAt: null,
+      maxSamples: Math.max(1, Math.floor(metadata.maxSamples || 36_000)),
+      memorySampleEveryFrames: Math.max(1, Math.floor(metadata.memorySampleEveryFrames || 120)),
+      longTaskThresholdMs: Math.max(1, Number(metadata.longTaskThresholdMs) || 50),
+      frameTimes: [],
+      entityCounts: [],
+      drawCalls: [],
+      memorySamples: [],
+      longTasks: [],
+      droppedFrameSamples: 0
+    };
+    this._captureMemorySample(this.measurement);
+    this._observeLongTasks(this.measurement);
+    return this.getMeasurementSnapshot();
   }
 
-  /**
-   * 结束计时并返回耗时
-   * @param {string} name - 计时器名称
-   * @returns {number} 耗时（毫秒）
-   */
+  /** 结束采样并断开 Long Task observer；异步 UA memory 结果仍会归入本次样本。 */
+  stopMeasurement() {
+    if (!this.measurement) return null;
+    const measurement = this.measurement;
+    if (measurement.status === 'running') {
+      measurement.status = 'completed';
+      measurement.endedAt = now();
+      this._captureMemorySample(measurement);
+    }
+    this._disconnectLongTaskObserver();
+    return this.getMeasurementSnapshot();
+  }
+
+  _observeLongTasks(measurement) {
+    const Observer = globalThis.PerformanceObserver;
+    if (typeof window === 'undefined' || typeof Observer !== 'function') return;
+    try {
+      const observer = new Observer(list => {
+        if (this.measurement !== measurement) return;
+        for (const entry of list.getEntries()) {
+          measurement.longTasks.push({
+            source: 'performanceObserver',
+            startTime: rounded(Number(entry.startTime) || 0),
+            duration: rounded(Number(entry.duration) || 0)
+          });
+        }
+        this.metrics.longTaskCount = measurement.longTasks.length;
+      });
+      observer.observe({ type: 'longtask', buffered: true });
+      this._longTaskObserver = observer;
+    } catch (_) {
+      // 浏览器或策略不支持 longtask 时，帧时间样本仍提供卡顿证据。
+    }
+  }
+
+  _disconnectLongTaskObserver() {
+    this._longTaskObserver?.disconnect?.();
+    this._longTaskObserver = null;
+  }
+
+  _captureMemorySample(measurement) {
+    if (this.measurement !== measurement) return;
+    const memory = globalThis.performance?.memory;
+    const sample = { capturedAt: rounded(now() - measurement.startedAt) };
+    if (Number.isFinite(memory?.usedJSHeapSize)) {
+      sample.usedJsHeapMb = rounded(memory.usedJSHeapSize / MB);
+      if (Number.isFinite(memory.totalJSHeapSize)) sample.totalJsHeapMb = rounded(memory.totalJSHeapSize / MB);
+      if (Number.isFinite(memory.jsHeapSizeLimit)) sample.jsHeapLimitMb = rounded(memory.jsHeapSizeLimit / MB);
+    }
+    if (Object.keys(sample).length > 1) measurement.memorySamples.push(sample);
+    this._captureUaSpecificMemory(measurement);
+  }
+
+  _captureUaSpecificMemory(measurement) {
+    const measure = globalThis.performance?.measureUserAgentSpecificMemory;
+    if (typeof measure !== 'function' || this._memoryRequestInFlight) return;
+    this._memoryRequestInFlight = true;
+    Promise.resolve()
+      .then(() => measure.call(globalThis.performance))
+      .then(result => {
+        if (this.measurement !== measurement || !Number.isFinite(result?.bytes)) return;
+        measurement.memorySamples.push({
+          capturedAt: rounded(now() - measurement.startedAt),
+          userAgentSpecificMb: rounded(result.bytes / MB)
+        });
+      })
+      .catch(() => {
+        // 该 API 需要浏览器权限；不可用不是低内存证明。
+      })
+      .finally(() => { this._memoryRequestInFlight = false; });
+  }
+
+  _recordMeasurementFrame(frameTime, gameState) {
+    const measurement = this.measurement;
+    if (!measurement || measurement.status !== 'running' || !Number.isFinite(frameTime) || frameTime < 0) return;
+    if (measurement.frameTimes.length >= measurement.maxSamples) {
+      measurement.droppedFrameSamples++;
+      return;
+    }
+    measurement.frameTimes.push(frameTime);
+    measurement.entityCounts.push(Number(gameState.entityCount) || 0);
+    measurement.drawCalls.push(Number(gameState.drawCallsPerFrame ?? gameState.drawCalls) || 0);
+    if (frameTime >= measurement.longTaskThresholdMs) {
+      measurement.longTasks.push({ source: 'frameTime', startTime: rounded(now() - measurement.startedAt), duration: rounded(frameTime) });
+      this.metrics.longTaskCount = measurement.longTasks.length;
+    }
+    if (measurement.frameTimes.length % measurement.memorySampleEveryFrames === 0) this._captureMemorySample(measurement);
+  }
+
+  startTimer(name) {
+    if (!this.enabled) return;
+    this.timers.set(name, now());
+  }
+
   endTimer(name) {
     if (!this.enabled) return 0;
-    
     const startTime = this.timers.get(name);
     if (startTime === undefined) return 0;
-    
-    const elapsed = performance.now() - startTime;
+    const elapsed = now() - startTime;
     this.timers.delete(name);
-    
     return elapsed;
   }
 
-  /**
-   * 更新性能指标
-   * @param {number} deltaTime - 帧间隔时间（秒）
-   * @param {Object} gameState - 游戏状态
-   */
   update(deltaTime, gameState = {}) {
     if (!this.enabled) return;
-    
-    // 记录帧时间
+    const frameTime = Math.max(0, Number(deltaTime) || 0) * 1000;
     this.frameCount++;
-    this.frameTimes.push(deltaTime * 1000);
-    if (this.frameTimes.length > this.maxFrameTimeSamples) {
-      this.frameTimes.shift();
-    }
-    
-    // 更新累计时间
-    this.lastUpdateTime += deltaTime;
-    
-    // 定期更新显示的指标
+    this.frameTimes.push(frameTime);
+    if (this.frameTimes.length > this.maxFrameTimeSamples) this.frameTimes.shift();
+    this.lastUpdateTime += Math.max(0, Number(deltaTime) || 0);
     if (this.lastUpdateTime >= this.updateInterval) {
-      // 计算 FPS
       this.metrics.fps = Math.round(this.frameCount / this.lastUpdateTime);
-      
-      // 计算平均帧时间
-      const avgFrameTime = this.frameTimes.reduce((a, b) => a + b, 0) / this.frameTimes.length;
-      this.metrics.frameTime = avgFrameTime;
-      
-      // 更新历史数据
+      this.metrics.frameTime = average(this.frameTimes);
       this.history.fps.push(this.metrics.fps);
-      this.history.frameTime.push(avgFrameTime);
-      
+      this.history.frameTime.push(this.metrics.frameTime);
       if (this.history.fps.length > this.history.maxHistoryLength) {
         this.history.fps.shift();
         this.history.frameTime.shift();
       }
-      
-      // 重置计数器
       this.frameCount = 0;
       this.lastUpdateTime = 0;
     }
-    
-    // 更新游戏状态指标
-    if (gameState.entityCount !== undefined) {
-      this.metrics.entityCount = gameState.entityCount;
+    for (const key of [
+      'entityCount', 'visibleEntityCount', 'drawCalls', 'drawCallsPerFrame', 'textureMemory',
+      'particleCount', 'poolStats', 'updateTime', 'renderTime'
+    ]) {
+      if (gameState[key] !== undefined) this.metrics[key] = gameState[key];
     }
-    if (gameState.visibleEntityCount !== undefined) {
-      this.metrics.visibleEntityCount = gameState.visibleEntityCount;
-    }
-    if (gameState.drawCalls !== undefined) {
-      this.metrics.drawCalls = gameState.drawCalls;
-    }
-    if (gameState.drawCallsPerFrame !== undefined) {
-      this.metrics.drawCallsPerFrame = gameState.drawCallsPerFrame;
-    }
-    if (gameState.textureMemory !== undefined) {
-      this.metrics.textureMemory = gameState.textureMemory;
-    }
-    if (gameState.particleCount !== undefined) {
-      this.metrics.particleCount = gameState.particleCount;
-    }
-    if (gameState.poolStats !== undefined) {
-      this.metrics.poolStats = gameState.poolStats;
-    }
-    
-    // 更新内存使用（如果可用）
-    if (performance.memory) {
-      this.metrics.memoryUsage = Math.round(performance.memory.usedJSHeapSize / 1048576); // MB
-    }
-    
-    // 更新计时器指标
-    if (gameState.updateTime !== undefined) {
-      this.metrics.updateTime = gameState.updateTime;
-    }
-    if (gameState.renderTime !== undefined) {
-      this.metrics.renderTime = gameState.renderTime;
+    const usedHeapSize = globalThis.performance?.memory?.usedJSHeapSize;
+    if (Number.isFinite(usedHeapSize)) this.metrics.memoryUsage = Math.round(usedHeapSize / MB);
+    this._recordMeasurementFrame(frameTime, gameState);
+    const snapshot = this.getMeasurementSnapshot();
+    if (snapshot) {
+      this.metrics.onePercentLowFps = snapshot.frame.onePercentLowFps;
+      this.metrics.longTaskCount = snapshot.longTasks.count;
     }
   }
 
-  /**
-   * 渲染性能监控面板 - 更新 HTML debug-panel 元素
-   * @param {CanvasRenderingContext2D} ctx - Canvas 渲染上下文（保留参数兼容性）
-   */
-  render(ctx) {
-    if (!this.enabled) return;
-    
-    // 更新 HTML 的 #fps 元素（复用已有的 debug-panel）
-    const fpsEl = document.getElementById('fps');
-    if (fpsEl) {
-      fpsEl.textContent = this.metrics.fps;
-      // 根据FPS着色
-      if (this.metrics.fps >= 50) {
-        fpsEl.style.color = '#4CAF50';
-      } else if (this.metrics.fps >= 30) {
-        fpsEl.style.color = '#FFC107';
-      } else {
-        fpsEl.style.color = '#F44336';
+  getMeasurementSnapshot() {
+    const measurement = this.measurement;
+    if (!measurement) return null;
+    const frameTimes = measurement.frameTimes;
+    const frameTotal = frameTimes.reduce((total, value) => total + value, 0);
+    const sorted = frameTimes.slice().sort((left, right) => left - right);
+    const worstCount = Math.max(1, Math.ceil(sorted.length * 0.01));
+    const worstOnePercent = sorted.slice(Math.max(0, sorted.length - worstCount));
+    const usedHeap = measurement.memorySamples
+      .map(sample => sample.userAgentSpecificMb ?? sample.usedJsHeapMb)
+      .filter(Number.isFinite);
+    const durationMs = (measurement.endedAt ?? now()) - measurement.startedAt;
+    return {
+      status: measurement.status,
+      metadata: clone(measurement.metadata),
+      sample: {
+        startedAt: measurement.startedAt,
+        endedAt: measurement.endedAt,
+        durationMs: rounded(Math.max(0, durationMs)),
+        droppedFrameSamples: measurement.droppedFrameSamples
+      },
+      frame: {
+        count: frameTimes.length,
+        averageFps: frameTotal > 0 ? rounded(frameTimes.length * 1000 / frameTotal) : 0,
+        onePercentLowFps: worstOnePercent.length ? rounded(1000 / average(worstOnePercent)) : 0,
+        averageFrameTimeMs: rounded(average(frameTimes)),
+        p99FrameTimeMs: sorted.length ? rounded(sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * 0.99) - 1)]) : 0,
+        maxFrameTimeMs: sorted.length ? rounded(sorted[sorted.length - 1]) : 0,
+        activeEntityMin: measurement.entityCounts.length ? Math.min(...measurement.entityCounts) : 0,
+        activeEntityMax: measurement.entityCounts.length ? Math.max(...measurement.entityCounts) : 0,
+        drawCallsAverage: rounded(average(measurement.drawCalls)),
+        drawCallsMax: measurement.drawCalls.length ? Math.max(...measurement.drawCalls) : 0
+      },
+      memory: {
+        sampleCount: measurement.memorySamples.length,
+        peakMb: usedHeap.length ? rounded(Math.max(...usedHeap)) : null,
+        samples: clone(measurement.memorySamples)
+      },
+      longTasks: {
+        count: measurement.longTasks.length,
+        maxDurationMs: measurement.longTasks.length
+          ? rounded(Math.max(...measurement.longTasks.map(task => task.duration)))
+          : 0,
+        entries: clone(measurement.longTasks)
       }
-    }
+    };
   }
 
-  /**
-   * 获取显示行
-   * @returns {Array} 显示行数组
-   */
+  render(_ctx) {
+    if (!this.enabled) return;
+    const fpsEl = document.getElementById('fps');
+    if (!fpsEl) return;
+    fpsEl.textContent = this.metrics.fps;
+    fpsEl.style.color = this.metrics.fps >= 50 ? '#4CAF50' : (this.metrics.fps >= 30 ? '#FFC107' : '#F44336');
+  }
+
   getDisplayLines() {
     const lines = [
       { label: 'FPS:', metric: 'fps', value: this.metrics.fps.toString() },
@@ -219,134 +307,49 @@ export class PerformanceMonitor {
       { label: 'Tex Memory:', metric: 'textureMemory', value: this._formatBytes(this.metrics.textureMemory) },
       { label: 'Particles:', metric: 'particleCount', value: this.metrics.particleCount.toString() }
     ];
-    
-    // 添加内存使用（如果可用）
-    if (this.metrics.memoryUsage > 0) {
-      lines.push({ 
-        label: 'Memory:', 
-        metric: 'memoryUsage', 
-        value: this.metrics.memoryUsage + ' MB' 
-      });
-    }
-    
+    if (this.metrics.memoryUsage > 0) lines.push({ label: 'Memory:', metric: 'memoryUsage', value: this.metrics.memoryUsage + ' MB' });
     return lines;
   }
 
-  /**
-   * 根据指标值获取颜色
-   * @param {string} metric - 指标名称
-   * @param {string} value - 指标值
-   * @returns {string} 颜色
-   */
   getColorForMetric(metric, value) {
-    if (metric === 'fps') {
-      const fps = parseInt(value);
-      if (fps >= 55) return '#4CAF50'; // 绿色
-      if (fps >= 30) return '#FFC107'; // 黄色
-      return '#F44336'; // 红色
-    }
-    
-    if (metric === 'frameTime') {
-      const time = parseFloat(value);
-      if (time <= 16.7) return '#4CAF50'; // 60 FPS
-      if (time <= 33.3) return '#FFC107'; // 30 FPS
-      return '#F44336';
-    }
-    
-    return '#4CAF50';
+    if (metric !== 'fps') return '#4CAF50';
+    const fps = parseInt(value, 10);
+    return fps >= 55 ? '#4CAF50' : (fps >= 30 ? '#FFC107' : '#F44336');
   }
 
-  /**
-   * 渲染性能图表
-   * @param {CanvasRenderingContext2D} ctx - Canvas 渲染上下文
-   * @param {number} x - X 坐标
-   * @param {number} y - Y 坐标
-   */
   renderGraph(ctx, x, y) {
     const width = this.graphWidth;
     const height = this.graphHeight;
-    
-    // 绘制背景
     ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
     ctx.fillRect(x, y, width, height);
-    
-    // 绘制边框
     ctx.strokeStyle = '#444';
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, width, height);
-    
-    // 绘制 FPS 图表
     if (this.history.fps.length > 1) {
       ctx.strokeStyle = '#4CAF50';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      
-      const maxFps = 60;
       const step = width / (this.history.maxHistoryLength - 1);
-      
-      for (let i = 0; i < this.history.fps.length; i++) {
-        const fps = Math.min(this.history.fps[i], maxFps);
-        const graphX = x + i * step;
-        const graphY = y + height - (fps / maxFps) * height;
-        
-        if (i === 0) {
-          ctx.moveTo(graphX, graphY);
-        } else {
-          ctx.lineTo(graphX, graphY);
-        }
+      for (let index = 0; index < this.history.fps.length; index++) {
+        const graphX = x + index * step;
+        const graphY = y + height - (Math.min(this.history.fps[index], 60) / 60) * height;
+        if (index === 0) ctx.moveTo(graphX, graphY);
+        else ctx.lineTo(graphX, graphY);
       }
-      
       ctx.stroke();
     }
-    
-    // 绘制参考线（60 FPS 和 30 FPS）
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-    
-    // 60 FPS 线
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + width, y);
-    ctx.stroke();
-    
-    // 30 FPS 线
-    ctx.beginPath();
-    const midY = y + height / 2;
-    ctx.moveTo(x, midY);
-    ctx.lineTo(x + width, midY);
-    ctx.stroke();
-    
-    ctx.setLineDash([]);
-    
-    // 绘制标签
-    ctx.fillStyle = '#fff';
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText('60', x - 5, y + 5);
-    ctx.fillText('30', x - 5, midY + 5);
-    ctx.fillText('0', x - 5, y + height);
   }
 
-  /**
-   * 切换图表显示
-   */
   toggleGraph() {
     this.showGraph = !this.showGraph;
   }
 
-  /**
-   * 获取性能指标
-   * @returns {Object} 性能指标
-   */
   getMetrics() {
     return { ...this.metrics };
   }
 
-  /**
-   * 重置性能监控
-   */
   reset() {
+    this.stopMeasurement();
     this.frameCount = 0;
     this.lastUpdateTime = 0;
     this.frameTimes = [];
@@ -355,51 +358,31 @@ export class PerformanceMonitor {
     this.timers.clear();
   }
 
-  /**
-   * 导出性能数据
-   * @returns {Object} 性能数据
-   */
   exportData() {
     return {
       metrics: this.getMetrics(),
-      history: {
-        fps: [...this.history.fps],
-        frameTime: [...this.history.frameTime]
-      },
+      history: { fps: [...this.history.fps], frameTime: [...this.history.frameTime] },
+      measurement: this.getMeasurementSnapshot(),
       timestamp: Date.now()
     };
   }
 
-  /**
-   * 记录性能数据到控制台
-   */
   logToConsole() {
     console.group('Performance Metrics');
-    console.log('FPS:', this.metrics.fps);
-    console.log('Frame Time:', this.metrics.frameTime.toFixed(2), 'ms');
-    console.log('Update Time:', this.metrics.updateTime.toFixed(2), 'ms');
-    console.log('Render Time:', this.metrics.renderTime.toFixed(2), 'ms');
-    console.log('Entities:', this.metrics.entityCount);
-    console.log('Visible Entities:', this.metrics.visibleEntityCount);
-    console.log('Draw Calls:', this.metrics.drawCalls);
-    console.log('Draw Calls/Frame:', this.metrics.drawCallsPerFrame);
-    console.log('Texture Memory:', this._formatBytes(this.metrics.textureMemory));
-    console.log('Particles:', this.metrics.particleCount);
-    if (this.metrics.memoryUsage > 0) {
-      console.log('Memory Usage:', this.metrics.memoryUsage, 'MB');
-    }
+    console.table(this.getMetrics());
+    if (this.measurement) console.log('Measurement:', this.getMeasurementSnapshot());
     console.groupEnd();
   }
 
-  /**
-   * 格式化字节数为可读字符串
-   * @param {number} bytes - 字节数
-   * @returns {string} 格式化后的字符串
-   */
+  dispose() {
+    this.stopMeasurement();
+    this.timers.clear();
+  }
+
   _formatBytes(bytes) {
-    if (!bytes || bytes === 0) return '0 B';
+    if (!bytes) return '0 B';
     if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / 1048576).toFixed(1) + ' MB';
+    if (bytes < MB) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / MB).toFixed(1) + ' MB';
   }
 }

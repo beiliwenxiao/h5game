@@ -402,6 +402,15 @@ export class ScenePanelLayout {
     document.body.classList.toggle('backpack-open', isOpen);
   }
 
+  /** 场景退出时恢复由背包面板设置的 DOM 触控状态。 */
+  clearTouchControlsForBackpack() {
+    const scene = this.scene;
+    if (typeof document !== 'undefined' && document.body) {
+      document.body.classList.remove('backpack-open');
+    }
+    scene._touchControlsDimmed = false;
+  }
+
   updatePanelHover() {
     const scene = this.scene;
     this.syncTouchControlsForBackpack();

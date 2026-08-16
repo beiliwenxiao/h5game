@@ -116,6 +116,56 @@ function buildLowMoraleResult(scene, context = {}) {
 }
 
 const s11s12Methods = {
+  async executeRescueCommand(command = {}) {
+    const rescueId = command.rescueId;
+    const definition = this.s03s14BattleCoordinator?.getRescueDefinition?.(rescueId);
+    if (!definition || definition.id !== rescueId) return false;
+    const operation = command.operation;
+    if (operation === 'start') {
+      if (!entityAlive(this, definition.targetEntityId)) {
+        this._showScreenTip('救援目标尚未生成或已经阵亡。', { title: '救援不可用' });
+        return false;
+      }
+      this.s03s14BattleCoordinator?.setRescueObjectiveTitle?.(rescueId);
+    }
+    if (operation === 'completeStage' && command.stageId === 'rally-guards') {
+      command = {
+        ...command,
+        guardCount: (this._groupEnemies?.[command.placementGroup || this._rescueSpawnGroup(definition, command.stageId)] || [])
+          .filter(entity => !this._isEntityDead(entity)).length
+      };
+    }
+    const finalStageId = definition.stages?.[definition.stages.length - 1]?.id;
+    if (operation === 'completeStage' && command.stageId === finalStageId && definition.evacuationRef) {
+      const target = (this.entities || []).find(entity => entity?.id === definition.targetEntityId);
+      const targetPosition = target?.getComponent?.('transform')?.position;
+      const exit = this._worldLoadSession?.findSpawn?.(this.currentSceneId, definition.evacuationRef);
+      if (!targetPosition || !exit || Math.hypot(targetPosition.x - exit.x, targetPosition.y - exit.y) > Number(definition.evacuationRadius)) {
+        this._showScreenTip('救援目标尚未到达撤离点，请继续护送。', { title: '撤离未完成' });
+        return false;
+      }
+    }
+    const result = await this.s11s12Coordinator?.executeCommand?.({
+      ...command,
+      mode: command.mode || this.s03s14BattleCoordinator?.getSessionState?.().mode,
+      startedAt: command.startedAt ?? this.rescueSystem?.now?.()
+    });
+    if (!result?.ok) {
+      this._showScreenTip(formatFailure(result, '救援命令未能提交。'), { title: '救援不可用' });
+      return false;
+    }
+    const stageEffect = definition.stageEffects?.[command.stageId];
+    if (operation === 'completeStage' && stageEffect?.spawnGroup) {
+      await activateGroup(this, stageEffect.spawnGroup, stageEffect.aiType || null);
+    }
+    this.rescueObjectiveView?.setSnapshot?.(this.rescueSystem?.getState?.());
+    return true;
+  },
+
+  _rescueSpawnGroup(definition, stageId) {
+    return definition?.spawnGroups?.[stageId] || null;
+  },
+
   _createS12LowMoraleResult(context = {}) {
     return buildLowMoraleResult(this, context);
   },
@@ -373,9 +423,9 @@ const s11s12Methods = {
     return true;
   },
 
-  async completeS11Beacon() {
+  async advanceRescueBeacon() {
     if (this.currentSceneId !== 'S11') return false;
-    const result = await this.s11s12Coordinator?.completeS11Beacon?.();
+    const result = await this.s11s12Coordinator?.advanceBeaconStage?.();
     if (!result?.ok) {
       this._showScreenTip(formatFailure(result, '烽火阶段尚未开放。'), { title: '无法点燃烽火' });
       return false;
@@ -531,7 +581,7 @@ const s11s12Methods = {
     return true;
   },
 
-  async checkS12Exit() {
+  async advancePostRescueRoute() {
     if (this.currentSceneId !== 'S12') return false;
     const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
     if (story.s12BattleResolved !== true || story.s12Resolved !== true) {
@@ -673,6 +723,27 @@ const s11s12Methods = {
 };
 
 const s13s14Methods = {
+  async executeVehicleCommand({ vehicleId, operation, divergenceKind, ...payload } = {}) {
+    const definition = this._getSceneVehicleDefinitions?.(this.currentSceneId)
+      ?.find?.(entry => entry?.id === vehicleId);
+    if (!definition) return false;
+    if (operation === 'interact') return this.interactS11Horse();
+    if (operation === 'useEntrance') return this.useS12LadderEntry();
+    if (operation === 'destroy') return this.burnS12Ladder(payload);
+    if (operation === 'openCargo') return this.openS14CargoTransfer();
+    if (operation === 'resolveDivergence') {
+      return divergenceKind === 'cart' ? this.resolveS14LastCart() : this.resolveS14Catapult();
+    }
+    if (operation === 'operateWeapon') return this.operateS14Catapult();
+    if (operation === 'leaveSeat') return this.leaveS14Catapult();
+    return false;
+  },
+
+  async executeEndingCommand({ endingId, operation, ...payload } = {}) {
+    if (operation !== 'resolve' || endingId !== this._endingConfig?.id) return false;
+    return this.resolveEnding(payload);
+  },
+
   _prepareS13Settlement(mode) {
     if (!['observe', 'intervene'].includes(mode)) return { ok: false, code: 'invalidBattleMode' };
     if (this._s13PendingSettlement) {
@@ -1444,7 +1515,7 @@ const s13s14Methods = {
     }
   },
 
-  async commitS14Ending(options = {}) {
+  async resolveEnding(options = {}) {
     if (this.currentSceneId !== 'S14' || !this.endingSystem || !this.endingPresentationView) return false;
     const story = this.gameLoader?.blackboard?.get?.('storyState') || {};
     if (story.s14FinalDoctrine?.committed !== true) {

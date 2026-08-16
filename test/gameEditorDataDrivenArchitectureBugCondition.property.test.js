@@ -4,8 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SceneSystemContainer } from '../src/core/scene/SceneSystemContainer.js';
 import { ContentValidator, FieldType } from '../src/core/validation/ContentValidator.js';
-import { Registry } from '../src/core/Registry.js';
+import { CanonicalSnapshot } from '../src/core/CanonicalSnapshot.js';
+import { DefinitionRepository, DefinitionRepositoryValidationError } from '../src/core/DefinitionRepository.js';
+import { auditTrackedJavaScript, readExceptionManifest } from '../src/dev/JavaScriptAuditGate.js';
+import { TriggerGraph } from '../src/core/scenario/TriggerGraph.js';
+import { ScenarioDefinitionIndex } from '../src/core/scenario/ScenarioDefinitionIndex.js';
 import { TriggerSystem } from '../src/systems/TriggerSystem.js';
+import { createStandardActionDescriptorRegistry } from '../src/systems/ActionDescriptorRegistry.js';
+import { CommandAdapter } from '../src/systems/CommandAdapter.js';
 import { QuestSystem } from '../src/systems/QuestSystem.js';
 import { SceneEditorHistory } from '../editor/SceneEditorHistory.js';
 
@@ -77,6 +83,12 @@ function makeInput(probe, seed, generated) {
         : (probe.faultPhase || 'disk')
     }
   };
+}
+
+// Seeds drive generated inputs and replay only. A snapshot revision is a separate,
+// stable test identifier and must satisfy CanonicalSnapshot's revision contract.
+function canonicalTestRevision(seed, role = 'snapshot') {
+  return `property-1:${role}:${seed >>> 0}`;
 }
 
 function executableJavaScript() {
@@ -252,34 +264,84 @@ async function executeOriginal(input) {
         'candidate can reach localStorage commit before schema/reference/business-rule validation');
     }
     case 'javascript-scope-lines-responsibility': {
-      const offenders = executableJavaScript()
-        .map(({ file, source }) => ({ file, lines: source.split(/\r?\n/).length }))
-        .filter(record => record.lines > 1000)
-        .sort((left, right) => right.lines - left.lines)
-        .slice(0, 8);
-      return result(input, 'javascript-audit', ['enumerate tracked executable JavaScript', 'count physical lines', 'apply <=1000 and one-responsibility gate'],
+      const files = executableJavaScript().map(({ file }) => file);
+      const audit = auditTrackedJavaScript({
+        root: ROOT,
+        paths: files,
+        exceptionManifest: readExceptionManifest(ROOT)
+      });
+      const lineOrResponsibilityFailures = audit.violations.filter(violation => (
+        violation.code === 'line-limit-or-invalid-exception'
+        || violation.code.includes('overreach')
+        || violation.code.includes('responsibility')
+      ));
+      const oversizedWithoutValidException = audit.units.filter(unit => (
+        unit.physicalLines > 1000 && unit.exception.status !== 'valid'
+      ));
+      const invalidExceptions = audit.units.filter(unit => (
+        unit.physicalLines > 1000 && unit.exception.status === 'invalid'
+      ));
+      return result(input, 'javascript-audit', ['enumerate tracked executable JavaScript', 'count physical lines', 'validate responsibility and evidence-bound exception gate'],
         { scope: ['src', 'editor', 'example/sanguo_zhangjiao'], exclusions: ['test', 'fixtures', 'third-party', 'generated', 'dist', 'desktop', 'mobile'] },
-        { offenders }, offenders.length === 0,
-        `tracked executable units exceed 1000 physical lines: ${offenders.map(item => `${item.file}:${item.lines}`).join(', ')}`);
+        { units: audit.units, lineOrResponsibilityFailures, oversizedWithoutValidException, invalidExceptions },
+        lineOrResponsibilityFailures.length === 0 && oversizedWithoutValidException.length === 0 && invalidExceptions.length === 0,
+        'tracked executable units violate the responsibility gate or exceed 1000 lines without valid evidence/hash/line/responsibility/owner/date exception');
     }
     case 'json-only-content-extension': {
-      const contentBranches = [...triggerSource.matchAll(/sceneId|stage|S\d{2}|registerAction/g)].slice(0, 8).map(match => match[0]);
-      const descriptorRegistry = readOptional('src/systems/ActionDescriptorRegistry.js');
-      return result(input, 'content-extension-restart', ['add schema-expressible content JSON', 'restart editor/runtime', 'replay same snapshot/seed/commands'],
+      const snapshot = CanonicalSnapshot.fromProject({
+        schemaVersion: 1,
+        scenes: [{ id: 'S01' }], battles: [{ id: 'battle.one' }],
+        dialogues: [], quests: [], tutorials: [], rescues: [], endings: [], scenarios: [], library: {},
+        triggers: [{ id: 'generic-trigger', when: { type: 'signal' }, do: [{ action: 'battle.command', params: { battleId: 'battle.one', operation: 'start' } }] }]
+      }, { revision: canonicalTestRevision(input.seed, 'content-extension') });
+      const repository = DefinitionRepository.fromSnapshot(snapshot);
+      const descriptors = createStandardActionDescriptorRegistry();
+      const adapter = new CommandAdapter({ registry: descriptors, definitionRepository: repository, commandGateway: { execute() {} } });
+      const graph = TriggerGraph.fromSnapshot(snapshot);
+      const index = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph: graph });
+      const audit = auditTrackedJavaScript({
+        root: ROOT,
+        paths: executableJavaScript().map(({ file }) => file),
+        exceptionManifest: readExceptionManifest(ROOT)
+      });
+      const contentBranches = audit.violations.filter(violation => (
+        violation.code === 'content-named-handler' || violation.code === 'content-flow-branch'
+      ));
+      const descriptorsAreClosed = descriptors.all().every(descriptor => (
+        Object.isFrozen(descriptor)
+        && descriptor.adapterId === 'command'
+        && typeof descriptor.commandType === 'string'
+        && !Object.values(descriptor).some(value => typeof value === 'function')
+      ));
+      return result(input, 'content-extension-restart', ['add schema-expressible content JSON', 'publish CanonicalSnapshot', 'derive TriggerGraph/index', 'replay same snapshot/seed/commands'],
         { jsonDelta: { item: 'existing-capability' }, executableJavaScriptDiff: 0, seed: input.seed },
-        { contentBranches, actionDescriptorRegistryExists: Boolean(descriptorRegistry) },
-        contentBranches.length === 0 && Boolean(descriptorRegistry),
-        'content execution still depends on free-form/code-registered actions rather than closed descriptors');
+        { contentBranches, descriptorIds: descriptors.ids(), commandAdapter: adapter.constructor.name, snapshotRevision: snapshot.definitionRevision, graphIds: graph.ids(), repositoryKinds: repository.kinds(), indexedScenarioCount: index.ids().length },
+        contentBranches.length === 0 && descriptorsAreClosed && adapter instanceof CommandAdapter && graph.has('generic-trigger') && repository.has('triggers', 'generic-trigger'),
+        'production content scope has a content-named handler/branch or cannot close canonical trigger definitions through ActionDescriptor and CommandAdapter');
     }
     case 'duplicate-definition-rejected': {
-      const registry = new Registry('items');
       const first = { id: 'same', value: 1 };
       const second = { id: 'same', value: 2 };
+      const lastSuccessfulSnapshot = CanonicalSnapshot.fromProject({ schemaVersion: 1, library: { items: [first] } }, { revision: canonicalTestRevision(input.seed, 'last-good') });
+      const lastSuccessfulRepository = DefinitionRepository.fromSnapshot(lastSuccessfulSnapshot);
+      let currentSnapshot = lastSuccessfulSnapshot;
+      let currentRepository = lastSuccessfulRepository;
       let rejected = false;
-      try { registry.register(first).register(second); } catch { rejected = true; }
-      return result(input, 'definition-publication', ['register definition id=same value=1', 'register definition id=same value=2', 'publish'],
-        { definitions: [first, second] }, { rejected, published: registry.get('same') }, rejected && registry.get('same') === first,
-        'duplicate definition ID silently overwrote the first definition');
+      let errors = [];
+      try {
+        const candidateSnapshot = CanonicalSnapshot.fromProject({ schemaVersion: 1, library: { items: [first, second] } }, { revision: canonicalTestRevision(input.seed, 'candidate') });
+        const candidateRepository = DefinitionRepository.fromSnapshot(candidateSnapshot);
+        currentSnapshot = candidateSnapshot;
+        currentRepository = candidateRepository;
+      } catch (error) {
+        rejected = error instanceof DefinitionRepositoryValidationError;
+        errors = error.errors || [];
+      }
+      return result(input, 'definition-publication', ['build last successful CanonicalSnapshot', 'build duplicate candidate definition IDs', 'validate DefinitionRepository before publish'],
+        { definitions: [first, second] },
+        { rejected, errors, currentRevision: currentSnapshot.definitionRevision, published: currentRepository.get('items', 'same') },
+        rejected && currentSnapshot === lastSuccessfulSnapshot && currentRepository === lastSuccessfulRepository && currentRepository.get('items', 'same')?.value === first.value,
+        'duplicate definition ID was not rejected before publish, partially published, or replaced the last successful snapshot');
     }
     case 'item-ui-command-port': {
       const directInventoryCommit = /inventoryTransactions\.commit\(/.test(pickupSource);
@@ -308,12 +370,34 @@ async function executeOriginal(input) {
         'Trigger committed once/cooldown before chain success and continued after action failure');
     }
     case 'trigger-sole-kernel': {
-      const directFunctions = /this\.actions\[act\.action\]/.test(triggerSource);
-      const namedRegistrations = executableJavaScript().filter(({ source }) => /registerAction\(['"`][^'"`]+/.test(source)).map(({ file }) => file).slice(0, 8);
-      return result(input, 'trigger-kernel-closure', ['enumerate action registrations', 'inspect descriptor validation', 'inspect command adapter path'],
-        { actionContract: 'schema-validated generic command' }, { directFunctions, namedRegistrations },
-        !directFunctions && namedRegistrations.length === 0,
-        'Trigger executes free-form functions and content-named registrations outside a closed CommandAdapter contract');
+      const snapshot = CanonicalSnapshot.fromProject({
+        schemaVersion: 1,
+        scenes: [{ id: 'S01' }], battles: [{ id: 'battle.one' }],
+        dialogues: [], quests: [], tutorials: [], rescues: [], endings: [], library: {},
+        triggers: [{ id: 'generic-trigger', when: { type: 'signal' }, do: [{ action: 'battle.command', params: { battleId: 'battle.one', operation: 'start' } }] }],
+        scenarios: [{ id: 'scenario.one', scope: { sceneId: 'S01' }, triggerRefs: ['generic-trigger'], sceneRefs: ['S01'], questRefs: [], dialogueRefs: [], commandRefs: [] }]
+      }, { revision: canonicalTestRevision(input.seed, 'trigger-kernel') });
+      const repository = DefinitionRepository.fromSnapshot(snapshot);
+      const descriptors = createStandardActionDescriptorRegistry();
+      const adapter = new CommandAdapter({ registry: descriptors, definitionRepository: repository, commandGateway: { execute() {} } });
+      const graph = TriggerGraph.fromSnapshot(snapshot);
+      const index = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph: graph });
+      const audit = auditTrackedJavaScript({
+        root: ROOT,
+        paths: executableJavaScript().map(({ file }) => file),
+        exceptionManifest: readExceptionManifest(ROOT)
+      });
+      const contentHandlerViolations = audit.violations.filter(violation => (
+        violation.code === 'content-named-handler' || violation.code === 'content-flow-branch'
+      ));
+      const genericDescriptors = descriptors.all().every(descriptor => descriptor.adapterId === 'command'
+        && descriptor.commandType === descriptor.id && Object.isFrozen(descriptor));
+      return result(input, 'trigger-kernel-closure', ['publish canonical scenario/trigger definitions', 'derive read-only TriggerGraph/index', 'validate generic ActionDescriptor and CommandAdapter path'],
+        { actionContract: 'schema-validated generic command' },
+        { contentHandlerViolations, descriptorIds: descriptors.ids(), commandAdapter: adapter.constructor.name, graphIds: graph.ids(), scenarioClosure: index.getReferenceClosure('scenario.one') },
+        contentHandlerViolations.length === 0 && genericDescriptors && adapter instanceof CommandAdapter
+          && graph.has('generic-trigger') && index.get('scenario.one')?.triggerRefs.includes('generic-trigger'),
+        'production Trigger scope has content-named execution handlers or lacks the CanonicalSnapshot → ActionDescriptor → CommandAdapter closure');
     }
     case 'quest-definition-runtime-transaction': {
       const questSystem = new QuestSystem();

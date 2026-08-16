@@ -32,7 +32,7 @@ export const DEFAULT_TRIGGER_ACTION_IDS = Object.freeze([
   'parallel', 'battleWin', 'battleLose', 'spawnWave', 'mount',
   'rescue.command', 'battle.command', 'construction.command', 'vehicle.command',
   'quest.command', 'world.teleport', 'checkpoint.request', 'ending.command',
-  'dialogue.command', 'tutorial.command'
+  'dialogue.command', 'tutorial.command', 'state.transaction', 'scenario.command'
 ]);
 
 export function registerDefaultActions(triggerSystem) {

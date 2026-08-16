@@ -38,8 +38,11 @@ import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransi
 import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
 import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
 import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
-import { registerSanguoScenarioActionBindings } from '../systems/SanguoScenarioActionBindings.js';
+import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
 import { ScenarioCommandService, SCENARIO_COMMANDS } from '../../../src/systems/ScenarioCommandService.js';
+import { DomainCommandService } from '../../../src/systems/DomainCommandService.js';
+import { CanonicalStateTransactionService } from '../../../src/systems/CanonicalStateTransactionService.js';
+import { SanguoDomainCommandFacade } from '../systems/SanguoDomainCommandFacade.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
@@ -894,6 +897,32 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.context.services.scenarioCommands = this._scenarioCommandService;
     for (const commandType of Object.values(SCENARIO_COMMANDS)) {
       this.sceneRuntime.registerCommandHandler(commandType, this._scenarioCommandService);
+    }
+    this._canonicalStateTransactions = new CanonicalStateTransactionService({
+      definitionRepository: {
+        get: (kind, id) => this.gameLoader?.definitionRepository?.get?.(kind, id) || null
+      },
+      getBlackboard: () => this.gameLoader?.blackboard || null,
+      getInventory: () => this.playerEntity?.getComponent?.('inventory') || null,
+      inventoryTransactions: this.inventoryTransactions,
+      getItem: itemId => this.gameLoader?.getRegistry?.('items')?.get?.(itemId) || null,
+      tutorialComplete: id => this._tutorialFlow?.isCompleted?.(id) === true,
+      checkpoint: payload => this._scenarioCommandService.requestCheckpoint(payload),
+      travel: payload => this._scenarioCommandService.navigate(payload)
+    });
+    this.sceneRuntime.registerCommandHandler('state.transaction', this._canonicalStateTransactions);
+    this.context.services.canonicalStateTransactions = this._canonicalStateTransactions;
+    this._sanguoDomainFacade = new SanguoDomainCommandFacade(this);
+    this._domainCommandService = new DomainCommandService({
+      statePrefix: 'sanguo:command',
+      ports: Object.fromEntries([
+        'scenario.command', 'battle.command', 'rescue.command', 'construction.command',
+        'vehicle.command', 'ending.command'
+      ].map(commandType => [commandType, this._sanguoDomainFacade]))
+    });
+    this.context.services.domainCommands = this._domainCommandService;
+    for (const commandType of ['scenario.command', 'battle.command', 'rescue.command', 'construction.command', 'vehicle.command', 'ending.command']) {
+      this.sceneRuntime.registerCommandHandler(commandType, this._domainCommandService);
     }
     this._worldLoadPromise = this._worldLoadSession
       .load({ projectUrl: 'game.project.json', sceneIds: 'entry' })
@@ -2822,48 +2851,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     progressionSystem.grantPoints(characterId, 'passive', 1);
   }
 
-  /** Scene 仅装配 Demo action binding；内容路由与 coordinator 调用不再写在 Scene class。 */
+  /** Scene 只装配通用空间 action；所有业务触发器均由 descriptor command 执行。 */
   _registerGameLoaderActions(triggerSystem) {
-    return registerSanguoScenarioActionBindings(triggerSystem, this);
+    return registerSceneTriggerActions(triggerSystem, {
+      spawnPlacements: selector => this.context.services.placements?.spawn(selector),
+      weatherSystem: this.weatherSystem,
+      timeSystem: this.timeSystem,
+      logger: console
+    });
   }
 
   /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */
-
-  /** S09 入伍承诺：剧情事实与检查点共同提交，失败后可重新与张角交谈。 */
-  async acceptS09Enlistment() {
-    if (this.currentSceneId !== 'S09') return false;
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (!blackboard || !storyState) return false;
-    if (storyState.joinedYellowTurban === true) {
-      this._showScreenTip('你已加入黄巾，请在三面军旗下确认职业');
-      return true;
-    }
-
-    const before = JSON.parse(JSON.stringify(blackboard.serialize()));
-    blackboard.set('storyState', {
-      ...storyState,
-      joinedYellowTurban: true,
-      lastCheckpointId: 'checkpoint.S09.enlisted'
-    });
-    blackboard.set('joinedYellowTurban', true);
-    try {
-      const saveResult = await this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: 'checkpoint.S09.enlisted', sceneId: 'S09'
-      });
-      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '自动存档未提交');
-    } catch (error) {
-      blackboard.deserialize(before);
-      this.dialogueSystem?.clearCompleted?.('dialogue.s09.enlistment');
-      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s09_zhangjiao_enlistment');
-      this.gameLoader?.triggerSystem?.clearFiredOnce?.('trg_s09_accept_enlistment');
-      this._sceneTriggerBindings?.resetBinding?.('S09-binding-zhangjiao-enlistment');
-      this._showScreenTip('入伍检查点保存失败，状态未提交，可重新与张角交谈', { title: '保存失败' });
-      return false;
-    }
-    this._showScreenTip('你已加入黄巾。前往战士、弓手或军师旗帜确认职业。');
-    return true;
-  }
 
   /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */
   _syncPlayerClassAppearance(classId = null) {

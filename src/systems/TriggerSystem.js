@@ -419,6 +419,7 @@ export class TriggerSystem {
           actorRef: request.event?.params?.actorRef || request.event?.params?.actorId || this.ctx.player?.id,
           operationId,
           definitionRepository: this.ctx.definitionRepository,
+          eventParams: request.event?.params || null,
           definitionRevision: this.definitionRevision
         });
       } catch (error) {

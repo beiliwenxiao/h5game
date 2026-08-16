@@ -171,16 +171,23 @@ export class CandidateRuleValidator {
         .map(action => typeof action === 'string' ? action : action?.value || action?.id)
         .filter(Boolean)
     ]);
+    const extensionEndings = isObject(candidate?.extensions?.endings)
+      ? [candidate.extensions.endings]
+      : [];
+    const vehicleIds = libraryIds.vehicles || new Set();
     const standardActionReferences = {
       'rescue.command': ['rescueId', stableIds(candidate?.rescues, 'rescues', errors), '救援'],
       'battle.command': ['battleId', stableIds(candidate?.battles, 'battles', errors), '战役'],
       'construction.command': ['definitionId', stableIds(candidate?.construction?.definitions, 'construction.definitions', errors), '营建定义'],
-      'vehicle.command': ['vehicleId', libraryIds.vehicles || new Set(), '载具'],
+      // Vehicle definitions are scene-owned canonical data. Project-only validation verifies
+      // a non-empty stable reference here; a populated global library remains strictly closed.
+      'vehicle.command': ['vehicleId', vehicleIds, '载具', { allowSceneOwned: true }],
       'quest.command': ['questId', questIds, '任务'],
       'world.teleport': ['sceneId', sceneIds, '场景'],
-      'ending.command': ['endingId', stableIds(candidate?.endings, 'endings', errors), '结局'],
+      'ending.command': ['endingId', stableIds(candidate?.endings || extensionEndings, candidate?.endings ? 'endings' : 'extensions.endings', errors), '结局'],
       'dialogue.command': ['dialogueId', dialogueIds, '对话'],
-    'tutorial.command': ['tutorialId', tutorialIds, '教学']
+      'tutorial.command': ['tutorialId', tutorialIds, '教学'],
+      'state.transaction': ['definitionId', stableIds(candidate?.commands, 'commands', errors), '事务']
     };
     if (actionIds.size > 0) {
       list(candidate?.triggers).forEach((trigger, triggerIndex) => {
@@ -195,9 +202,10 @@ export class CandidateRuleValidator {
           }
           const referenceContract = standardActionReferences[action?.action];
           if (referenceContract) {
-            const [field, ids, label] = referenceContract;
+            const [field, ids, label, options = {}] = referenceContract;
             const referenceId = action?.params?.[field];
-            if (typeof referenceId !== 'string' || !ids.has(referenceId)) {
+            const canResolveFromScene = options.allowSceneOwned === true && ids.size === 0;
+            if (typeof referenceId !== 'string' || !referenceId.trim() || (!canResolveFromScene && !ids.has(referenceId))) {
               errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${actionPath}.params.${field}`, `${label}不存在: ${String(referenceId)}`));
             }
           }

@@ -7,6 +7,13 @@
   "targetEntityId": "S11-zhang-liang",
   "requiredGuardCount": 6,
   "assassinWaveCount": 3,
+  "spawnGroups": {
+    "rally-guards": "S11-rescue-guards",
+    "repel-assassins": ["S11-assassin-wave-1", "S11-assassin-wave-2", "S11-assassin-wave-3"]
+  },
+  "stageEffects": {
+    "light-beacon": { "spawnGroup": "S11-rescue-guards", "aiType": "support" }
+  },
   "evacuationRef": "zhang-liang-west-gate",
   "evacuationRadius": 100,
   "followDistance": 62,

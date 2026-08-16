@@ -40,11 +40,12 @@ export class CommandAdapter {
     return definitionRefs;
   }
 
-  _payload(params, definitionRefs) {
+  _payload(params, definitionRefs, eventParams = null) {
     const payload = {};
     for (const [key, value] of Object.entries(params)) {
       if (!META_FIELDS.has(key)) payload[key] = cloneCanonicalValue(value);
     }
+    if (eventParams && typeof eventParams === 'object') payload.event = cloneCanonicalValue(eventParams);
     if (definitionRefs.length) {
       const existing = Array.isArray(payload.definitionRefs) ? payload.definitionRefs : [];
       payload.definitionRefs = [...existing, ...definitionRefs];
@@ -75,7 +76,7 @@ export class CommandAdapter {
       actorRef,
       ...(operationId ? { operationId } : {}),
       ...(params.expectedStateRevision === undefined ? {} : { expectedStateRevision: params.expectedStateRevision }),
-      payload: this._payload(params, definitionRefs)
+      payload: this._payload(params, definitionRefs, context.eventParams)
     };
     const result = await this.commandGateway.execute(intent, {
       definitionRepository: repository,

@@ -397,7 +397,6 @@
           "type": "trigger",
           "name": "前往广宗战场",
           "triggerId": "trg_s10_exit_s11",
-          "command": "checkS10Exit",
           "x": 1095,
           "y": 55,
           "width": 160,

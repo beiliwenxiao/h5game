@@ -80,7 +80,7 @@ export class S11S12Coordinator {
     return started;
   }
 
-  async completeS11Beacon(options = {}) {
+  async advanceBeaconStage(options = {}) {
     return this._advanceS11('light-beacon', 's11BeaconLit', options);
   }
 
@@ -319,15 +319,38 @@ export class S11S12Coordinator {
     return this._settle(sceneId, result, beforeRescue);
   }
 
-  async handleTrigger(triggerId, payload = {}) {
-    const handlers = {
-      trg_s11_light_beacon: () => this.completeS11Beacon(payload),
-      trg_s11_rally_guards: () => this.completeS11GuardRally(payload),
-      trg_s11_west_gate_breakout: () => this.completeS11WestGateBreakout(payload),
-      trg_s12_open_secret_passage: () => this.completeS12SecretPassage(payload),
-      trg_s12_zhang_bao_evacuation: () => this.completeS12Evacuation(payload)
-    };
-    return handlers[triggerId] ? handlers[triggerId]() : { ok: false, code: 'unknownTrigger', triggerId };
+  /**
+   * Canonical rescue command entry. Trigger IDs are intentionally not interpreted here:
+   * callers provide the stable rescue definition ID and its declared stage/signal payload.
+   */
+  async executeCommand({ rescueId, operation, stageId, waveNumber, ...payload } = {}) {
+    const definition = this._definitionById(rescueId);
+    if (!definition) return { ok: false, code: 'unknownRescueDefinition', rescueId };
+    if (operation === 'start') {
+      return rescueId === S11_RESCUE_ID ? this.startS11Rescue(payload) : this.startS12Rescue(payload);
+    }
+    if (operation === 'recordWave') {
+      return rescueId === S11_RESCUE_ID
+        ? this.reportS11AssassinWaveDefeated(waveNumber, payload)
+        : { ok: false, code: 'unsupportedRescueSignal', rescueId, operation };
+    }
+    if (operation !== 'completeStage') return { ok: false, code: 'unsupportedRescueOperation', operation };
+    if (rescueId === S11_RESCUE_ID) {
+      if (stageId === 'light-beacon') return this.advanceBeaconStage(payload);
+      if (stageId === 'rally-guards') return this.completeS11GuardRally(payload);
+      if (stageId === 'breakout-west-gate') return this.completeS11WestGateBreakout(payload);
+    }
+    if (rescueId === S12_RESCUE_ID) {
+      if (stageId === 'open-secret-passage') return this.completeS12SecretPassage(payload);
+      if (stageId === 'escort-zhang-bao') return this.completeS12Evacuation(payload);
+    }
+    return { ok: false, code: 'unknownRescueStage', rescueId, stageId };
+  }
+
+  _definitionById(rescueId) {
+    return this.definitions[rescueId]
+      || Object.values(this.definitions).find(definition => definition?.id === rescueId)
+      || null;
   }
 
   _definition(sceneId) {

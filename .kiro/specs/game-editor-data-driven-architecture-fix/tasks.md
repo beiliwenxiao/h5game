@@ -112,6 +112,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12_
 
 - [ ] 3. 修复 Canonical Architecture and Unified Command Execution
+  - 状态：3.1–3.26 及已完成的可选属性测试保留为既有完成事实；3.28、3.30–3.33、3.35–3.38 与检查点仍在进行或等待验证；3.27、3.29、3.34 为尚未启动的可选属性测试。
   - 按以下子任务增量实施；每个子任务只跨越一个主要风险域，完成自身 diagnostics 与针对性 Vitest 后再解除下游依赖。
   - 禁止创建测试页面、普通文档、第二个 Demo、Remote 网络交付或 legacy NetworkManager 权威接线；禁止把 build/dev server 作为任务。
   - [x] 3.1 建立可重放的模型测试基础设施
@@ -373,13 +374,13 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 当前 QuestPanel/Tracker 接取/放弃/提交/追踪可观察结果作为迁移 golden；不保留硬编码示例内容_
     - _Requirements: 2.7, 2.10, 2.12, 3.3, 3.4, 3.7, 3.10_
 
-  - [ ]* 3.27 为 QuestRuntimeState 与 QuestTransactionService 增加属性测试（可选）
+  - [-]* 3.27 为 QuestRuntimeState 与 QuestTransactionService 增加属性测试（可选）
     - **Property 10: Fix Checking** - Sole QuestResolver and Atomic Reward Settlement
     - 生成 QuestDefinition/QuestRuntimeState、重复 ID、objective signals、time/repeat/reward、state revision/operation 与阶段故障，与纯 QuestResolver/Transaction Service model 比较 runtime state、remaining、state revision、settlement、committed notifications 和 checkpoint。
     - _Depends on: 3.26_
     - _Requirements: 2.7, 2.10, 2.12, 3.4, 3.7, 3.10_
 
-  - [ ] 3.28 实现薄 QuestEditor 与只读 Quest UI projection
+  - [x] 3.28 实现薄 QuestEditor 与只读 Quest UI projection
     - QuestEditor 复用 SchemaFieldEditor、CanonicalDocumentModel、ScenarioDefinitionIndex/TriggerGraph、共享 undo/validation 和 CanonicalDocumentService→AtomicDiskTransaction；禁止独立 fetch/save/localStorage/validator/document/undo。
     - 提供 QuestDefinition 列表及稳定 ID 创建/复制/重命名/删除，objectives/reward/prerequisites 全字段编辑，trigger/dialogue/scene refs 合法选择和引用图错误定位；重命名/删除在同一完整候选更新引用或精确拒绝。
     - runtime 预览只读显示 QuestRuntimeState 的 state/progress/remaining/repeat/tracking/settlement/stateRevision，不得编辑或保存运行时 snapshot。
@@ -390,13 +391,13 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 迁移前任务面板/追踪显示与交互结果保持 golden 等价_
     - _Requirements: 2.7, 2.9, 2.10, 2.12, 3.10, 3.11_
 
-  - [ ]* 3.29 为共享文档模型和 QuestEditor 增加属性测试（可选）
+  - [x]* 3.29 为共享文档模型和 QuestEditor 增加属性测试（可选）
     - **Property 11: Fix Checking** - Lossless Schema-Aware Path Editing
     - 生成合法 canonical 文档、nested/array/capability/quest path patch、unknown fields/null/缺失和引用重命名，检查 load→edit→save→load canonical 等价、共享 undo/redo 与根路径错误。
     - _Depends on: 3.28_
     - _Requirements: 2.7, 2.9, 2.10, 3.11_
 
-  - [ ] 3.30 完成 P1–P5 S01–S14 Canonical 内容编排迁移
+  - [x] 3.30 完成 P1–P5 S01–S14 Canonical 内容编排迁移
     - 按开发计划正式流程迁移：P1.1/P1.3 S01→S02 教学与推进、P2.2 S09 饥民争斗、P3.3 与 P4.3/P4.4 救援、P4.5 载具运输攻城、P5.2 S14 EndingSystem；只改 canonical definitions/bindings/resources。
     - 移除 `completeS11Beacon`、`checkS12Exit`、`commitS14Ending` 等 SXX/content 命名 handlers、JS tutorial `when`/阈值工厂、sceneId/stage 分支、剧情 setTimeout/callback 和业务状态双写。
     - S01–S14 历史人物/剧情/数值保留在 Demo canonical 数据，core 只含通用 descriptor、CommandAdapter、Transaction Service、State Machine 与普通 command handler；不得改变六结局优先级、路线、救援边界和现有业务事务政策。
@@ -407,7 +408,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 当前 S01–S14 业务状态、ordered committed notifications 与焦土→旁观者→火种→余烬→流星→尘埃优先级不变_
     - _Requirements: 2.12, 3.1, 3.4, 3.5, 3.8, 3.10_
 
-  - [ ] 3.31 实现 JavaScript 物理行与单一职责审计门禁
+  - [x] 3.31 实现 JavaScript 物理行与单一职责审计门禁
     - 只扫描版本控制中 runtime/editor/dev-release tool 直接执行的 JS/MJS 与 HTML script；排除 JSON/data、tests/fixtures、third-party/generated/dist/build/desktop，并按物理行包含空行和注释精确计数。
     - policy 要求每个执行单元只属于 assembly/businessLogic/presentation/editorInteraction 之一；检查装配越权、业务逻辑访问 DOM/Canvas、表现写业务状态、editor 绕过 command service。
     - 静态拒绝 SXX/content handler、sceneId/stage/content 分支、剧情 timer/callback、任意 module path、业务 `if(online)`、直接业务 Date/new Date/Math.random、UI/Trigger 直接修改 service-owned state、Singleton/service locator 和整块客户端状态提交。
@@ -418,7 +419,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 测试/fixture/第三方/生成物/构建产物与 desktop 继续排除_
     - _Requirements: 2.11, 3.3_
 
-  - [ ] 3.32 拆分超大文件并收口组合根职责
+  - [x] 3.32 拆分超大文件并收口组合根职责
     - 依据 3.31 报告按职责拆分超过 1000 行或混责的执行单元；优先把 BaseGameScene 收口为 constructor/enter/update/render/exit、暂停和少量 Demo hook，把通用能力迁入现有 scene modules/services。
     - 将 editor/index.html 内可执行逻辑迁入明确 editorInteraction 模块；编辑器模块只协调交互并调用 CanonicalDocumentService/command service，不承载持久化实现。
     - 装配文件只构造、注入、注册、转发和生命周期协调；不迁移或复制历史内容到 core，不引入 prototype mixin、第二 owner、第二事实源或场景流程分支。
@@ -429,7 +430,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: BaseGameScene/编辑器现有合法入口与调试行为保持_
     - _Requirements: 2.11, 3.3, 3.8, 3.11_
 
-  - [ ] 3.33 实现 ContentExtensionGate 与 JSON-only/JS diff=0 自动验收
+  - [x] 3.33 实现 ContentExtensionGate 与 JSON-only/JS diff=0 自动验收
     - 记录审计范围内可执行 JavaScript 的逐文件 hash；对既有 schema/capability/ActionDescriptor 可表达的内容扩展只允许 canonical JSON 与已登记资源变化。
     - 门禁禁止新增 scene/content/field branch、SXX handler、内容子类、场景 timer/callback 或按 item ID 专属策略；只允许通用 definition lookup/schema-capability dispatch。
     - 完全销毁 editor/runtime、清空正式内存/localStorage cache，仅从 committed disk 重启，比较保存结果 canonical equality、service states、ordered committed notifications、稳定 IDs 和 JS hash change count=0。
@@ -439,13 +440,13 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 新增真正通用能力时仍要求同步 schema/strategy/adapter/consumer/validation/tests，而非按内容开洞_
     - _Requirements: 2.12, 3.3, 3.9, 3.10, 3.11_
 
-  - [ ]* 3.34 为 ContentExtensionGate 增加属性测试（可选）
+  - [x]* 3.34 为 ContentExtensionGate 增加属性测试（可选）
     - **Property 12: Fix Checking** - Capability-Expressible Content Has Zero Executable JavaScript Diff
     - 生成已有 capability 可表达的物品/掉落/placement 与 scenario 数据扩展，检查 hash 集不变、完全重启 replay、definition/instance/placement ID、service-owned state 和 ordered committed notifications 一致。
     - _Depends on: 3.33_
     - _Requirements: 2.12, 3.9, 3.10_
 
-  - [ ] 3.35 执行分模块集成回归与代表性 zero-JS-diff 验收
+  - [x] 3.35 执行分模块集成回归与代表性 zero-JS-diff 验收
     - 使用真实 GameLoader/DefinitionRepository/consumers 修改火堆、生成数量/间隔、月份、天气、救援波次/deadline/距离和 InputHints，验证校验、发布、消费与旧状态保留。
     - 通过临时目录 adapter 覆盖 scene update/delete/rename/fallback 和 editor create/update/rename/delete/import/save；验证 disk→memory→cache→notification 顺序及完全重启读回。
     - 对全部编辑模块各选顶层/嵌套/数组/capability 字段做同 model 全字段无损 round-trip；QuestEditor 验证 path focus、引用图、共享 undo、原位提交和只读 projection。
@@ -458,7 +459,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 当前 Demo、世界、业务事务、装备、输入、流式、存档、S01–S14 和结局 golden 不回归_
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12_
 
-  - [ ] 3.36 复验 Bug Condition exploration test 已转为通过
+  - [~] 3.36 复验 Bug Condition exploration test 已转为通过
     - **Property 1: Expected Behavior** - Modular Canonical Architecture and Unified Commands Satisfy the Correct Predicate
     - **IMPORTANT**：重新运行任务 1 的同一测试与同一反例/seed，不得另写替代测试或删除曾失败的输入。
     - 对全部满足 `isBugCondition(input)` 的输入断言 `expectedBehavior(result,input)`，并运行固定 seed 集与记录的随机 seed；失败必须保留可重放 counterexample。
@@ -466,7 +467,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.35_
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11, 2.12_
 
-  - [ ] 3.37 复验 Preservation property tests 仍通过
+  - [~] 3.37 复验 Preservation property tests 仍通过
     - **Property 2: Preservation** - Non-Buggy Inputs Retain Existing Observable Behavior
     - **IMPORTANT**：重新运行任务 2 的同一 observation-first tests/golden，不得为适配新实现放宽业务状态、提交后通知顺序、ID、引用、接受/拒绝或 committed 状态比较。
     - 比较修复前 golden、修复后 2D 和修复后 3D 的 normalized diagnostics 与完整业务 trace；只忽略允许新增的 provenance/phase/audit metadata。
@@ -475,7 +476,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.36_
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12_
 
-  - [ ] 3.38 执行 P6.2 性能和稳定性的明确实测验收
+  - [~] 3.38 执行 P6.2 性能和稳定性的明确实测验收
     - 在 S11 记录版本、设备/浏览器、分辨率、requested/actual backend、至少 100 个活动 ECS 实体、采样区间、平均 FPS、1% low、长任务和 draw calls；只有平均帧率实测 ≥60 才标通过。
     - 在同一 Region 连续跨界前后记录内存与峰值；只有实测峰值 `<100MB`，并确认 owner/listener/timer/resource/async token 无新增残留才标通过。
     - 从同一 AuthoritySnapshot、seed、fake clocks 和 commands 分别运行 2D/3D，比较 service-owned state、ordered committed notifications、state revision、RNG counters 和 projection；只有 canonical diff=0 才标通过。
@@ -487,7 +488,8 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 性能优化不得改变业务状态、ordered committed notification 顺序、输入优先级或表现资源边界_
     - _Requirements: 2.1, 2.11, 2.12, 3.9, 3.10, 3.12_
 
-- [ ] 4. Checkpoint - 确保所有自动化检查与实测边界状态明确
+- [~] 4. Checkpoint - 确保所有自动化检查与实测边界状态明确
+  - _Depends on: 3.38_
   - 运行受影响模块的 diagnostics 与针对性 Vitest 单次执行（使用 `--run`），确认任务 1 的 Property 1、任务 2 的 Property 2、分域 unit/PBT/integration 和审计门禁均通过。
   - 不自动扩大为全量测试、coverage、生产 build 或 dev server；如需扩大验证范围，先由用户决定。
   - 汇总每项验收为“自动化通过 / 实测通过 / 尚待实测 / 阻塞”，不得把未执行的浏览器、音画、性能、内存、双后端或目标设备检查描述为通过。

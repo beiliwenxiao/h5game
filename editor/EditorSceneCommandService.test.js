@@ -177,7 +177,15 @@ describe('WorldMapEditor repository closure', () => {
 describe('EditorCanonicalCandidateValidator real project', () => {
   it('当前《三国张角传》磁盘 project/order/scenes 可作为完整候选通过', () => {
     const root = path.resolve('example/sanguo_zhangjiao');
-    const project = JSON.parse(fs.readFileSync(path.join(root, 'game.project.json'), 'utf8'));
+    const resolveRefs = value => {
+      if (Array.isArray(value)) return value.map(resolveRefs);
+      if (!value || typeof value !== 'object') return value;
+      if (typeof value.$ref === 'string') {
+        return resolveRefs(JSON.parse(fs.readFileSync(path.join(root, value.$ref), 'utf8')));
+      }
+      return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, resolveRefs(child)]));
+    };
+    const project = resolveRefs(JSON.parse(fs.readFileSync(path.join(root, 'game.project.json'), 'utf8')));
     const sceneOrder = JSON.parse(fs.readFileSync(path.join(root, 'assets/scenes/_scene_order.json'), 'utf8'));
     const scenes = Object.fromEntries(project.scenes.map(entry => [
       entry.id,

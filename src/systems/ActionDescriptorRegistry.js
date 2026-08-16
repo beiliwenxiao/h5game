@@ -120,7 +120,8 @@ function descriptor(id, commandType, idField, kind, sideEffect = ActionSideEffec
       properties: { ...PARAM_META, [idField]: { type: 'string' }, operation: { type: 'string' } }
     },
     resultSchema: RESULT_SCHEMA,
-    referenceFields: kind ? [{ field: idField, kind, required: true }] : []
+    referenceFields: kind && !['vehicles', 'endings'].includes(kind)
+      ? [{ field: idField, kind, required: true }] : []
   };
 }
 
@@ -134,7 +135,9 @@ export const STANDARD_ACTION_DESCRIPTORS = deepFreeze([
   descriptor('checkpoint.request', 'checkpoint.request', 'checkpointId', null, ActionSideEffect.DOMAIN, ActionCheckpointPolicy.REQUIRED),
   descriptor('ending.command', 'ending.command', 'endingId', 'endings', ActionSideEffect.DOMAIN, ActionCheckpointPolicy.REQUIRED),
   descriptor('dialogue.command', 'dialogue.command', 'dialogueId', 'dialogues'),
-  descriptor('tutorial.command', 'tutorial.command', 'tutorialId', 'tutorials')
+  descriptor('tutorial.command', 'tutorial.command', 'tutorialId', 'tutorials'),
+  descriptor('state.transaction', 'state.transaction', 'definitionId', 'commands'),
+  descriptor('scenario.command', 'scenario.command', 'scenarioId', null)
 ]);
 
 export function createStandardActionDescriptorRegistry(extraDescriptors = []) {

@@ -132,7 +132,8 @@ function validateKnownReferences(indexes, errors, actionIds) {
     'world.teleport': ['sceneId', 'scenes'],
     'ending.command': ['endingId', 'endings'],
     'dialogue.command': ['dialogueId', 'dialogues'],
-    'tutorial.command': ['tutorialId', 'tutorials']
+    'tutorial.command': ['tutorialId', 'tutorials'],
+    'state.transaction': ['definitionId', 'commands']
   };
   for (const [kind, definitions] of Object.entries(indexes)) {
     for (const definition of Object.values(definitions)) {
@@ -145,6 +146,7 @@ function validateKnownReferences(indexes, errors, actionIds) {
         const contract = standardActionReferences[action.action];
         if (!contract) return;
         const [field, targetKind] = contract;
+        if (!indexes[targetKind]) return;
         addReferenceError(indexes, targetKind, action?.params?.[field], `${kind}.${definition.id}.do[${index}].params.${field}`, errors);
       });
     }

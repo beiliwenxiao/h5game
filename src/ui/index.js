@@ -39,6 +39,7 @@ export { DungeonPanel } from './DungeonPanel.js';
 export { EventPanel } from './EventPanel.js';
 export { NPCPanel } from './NPCPanel.js';
 export { QuestPanel } from './QuestPanel.js';
+export { QuestProjectionView, QuestIntentClient, QuestTracker, QuestNpcMarker, QuestHud } from './QuestProjectionView.js';
 export { ShopPanel } from './ShopPanel.js';
 export { ChatPanel } from './ChatPanel.js';
 export { DialogueBox } from './DialogueBox.js';

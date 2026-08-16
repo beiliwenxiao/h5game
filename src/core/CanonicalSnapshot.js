@@ -33,10 +33,21 @@ export function collectDefinitionCollections(project) {
     if (!Array.isArray(values)) return;
     collections[kind] = [...(collections[kind] || []), ...values];
   };
+  const hasDeclaredDefinition = (kind, id) => typeof id === 'string'
+    && list(project?.definitionCollections?.[kind]).some(definition => definition?.id === id);
 
   for (const [kind, values] of Object.entries(project?.library || {})) add(kind, values);
   for (const kind of ['scenes', 'dialogues', 'quests', 'triggers', 'tutorials', 'rescues', 'battles', 'endings', 'scenarios', 'commands', 'actions']) {
     add(kind, project?.[kind]);
+  }
+  // Endings remain authored in the project extension file but participate in the
+  // same immutable definition snapshot as top-level definitions. An explicit
+  // collection with the same stable ID is already the canonical owner.
+  const extensionEndings = project?.extensions?.endings;
+  if (!Array.isArray(project?.endings)
+    && isObject(extensionEndings)
+    && !hasDeclaredDefinition('endings', extensionEndings.id)) {
+    add('endings', [extensionEndings]);
   }
   add('skills', Array.isArray(project?.progression?.skills?.skills)
     ? project.progression.skills.skills

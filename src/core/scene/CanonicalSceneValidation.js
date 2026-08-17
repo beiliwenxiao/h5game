@@ -1,6 +1,5 @@
 import { CANONICAL_SCHEMA_VERSION } from '../../data/schema/CanonicalSchemas.js';
 import { CanonicalCandidatePipeline } from '../validation/CanonicalCandidatePipeline.js';
-import { CandidateRuleValidator } from '../validation/CandidateRuleValidator.js';
 import { ContentValidator, FieldType } from '../validation/ContentValidator.js';
 import {
   ContentErrorCategory,
@@ -59,6 +58,19 @@ export class CanonicalSceneValidator {
     return result;
   }
 }
+function createRepositoryRuleValidator(contentValidator) {
+  return {
+    validateSchema(candidate, schemaId) {
+      return [
+        ...contentValidator.validateVersion(candidate).errors,
+        ...contentValidator.validate(candidate, schemaId).errors
+      ];
+    },
+    validateReferences() { return []; },
+    validateBusinessRules() { return []; }
+  };
+}
+
 function createPipeline() {
   const contentValidator = new ContentValidator({ supportedVersion: CANONICAL_SCHEMA_VERSION });
   contentValidator.registerSchemas([
@@ -119,7 +131,7 @@ function createPipeline() {
   ]);
   return new CanonicalCandidatePipeline({
     contentValidator,
-    ruleValidator: new CandidateRuleValidator({ contentValidator })
+    ruleValidator: createRepositoryRuleValidator(contentValidator)
   });
 }
 

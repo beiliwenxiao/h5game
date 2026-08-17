@@ -1,7 +1,9 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 
+const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
 const commandMethods = {
-  prepareGatheringSettlement(context = {}) {
+  prepareSceneGatheringSettlement(context = {}) {
     const { node } = context;
     if (this.currentSceneId === 'S05' && node?.resourceType === 'iron') {
       return this.s05SceneCoordinator._prepareS05MineGatheringSettlement(context);
@@ -10,6 +12,41 @@ const commandMethods = {
       return this.s09RefugeeCoordinator.prepareUnauthorizedHarvestSettlement(context);
     }
     return null;
+  },
+
+  /** 将已通过场景政策的采集原子投影为结局隐藏输入，失败可完整回滚 StoryState。 */
+  prepareGatheringSettlement(context = {}) {
+    const scenePolicy = this.prepareSceneGatheringSettlement(context);
+    if (scenePolicy?.ok === false || scenePolicy?.idempotent === true) return scenePolicy;
+    const { operationId, node } = context;
+    const resourceType = node?.resourceType;
+    if (!operationId || !['wood', 'iron', 'food', 'herb'].includes(resourceType)) return scenePolicy;
+    const blackboard = this.gameLoader?.blackboard;
+    if (!blackboard) return { ok: false, code: 'storyStateUnavailable' };
+    const storyBefore = cloneData(blackboard.get('storyState') || {});
+    const applied = storyBefore.endingInputs?.gatheringOperations || [];
+    if (applied.includes(operationId)) return { ok: true, idempotent: true };
+    return {
+      ok: true,
+      commit: details => {
+        const sceneResult = scenePolicy?.commit?.(details);
+        if (sceneResult === false || sceneResult?.ok === false) {
+          throw new Error(sceneResult?.code || 'sceneGatheringPolicyRejected');
+        }
+        const current = cloneData(blackboard.get('storyState') || storyBefore);
+        const endingInputs = cloneData(current.endingInputs || {});
+        const cumulative = cloneData(endingInputs.cumulativeGathering || { wood: 0, iron: 0, food: 0, herb: 0 });
+        cumulative[resourceType] = Math.max(0, Math.floor(Number(cumulative[resourceType]) || 0))
+          + Math.max(0, Math.floor(Number(details?.accepted) || 0));
+        endingInputs.cumulativeGathering = cumulative;
+        endingInputs.gatheringOperations = [...new Set([...(endingInputs.gatheringOperations || []), operationId])].slice(-512);
+        blackboard.set('storyState', { ...current, endingInputs });
+        return { ok: true };
+      },
+      rollback: () => {
+        try { scenePolicy?.rollback?.(); } finally { blackboard.set('storyState', storyBefore); }
+      }
+    };
   },
 
   shouldForwardGatheringEvent(event, data = {}) {

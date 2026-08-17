@@ -23,9 +23,6 @@
 
 import { BaseGameScene } from './BaseGameScene.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
-import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
-import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
-import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
 import { SceneStreamingRuntime } from '../../../src/core/scene/SceneStreamingRuntime.js';
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
@@ -35,10 +32,7 @@ import { SceneWorldQuery } from '../../../src/core/scene/SceneWorldQuery.js';
 import { ScenePickedObjectObserver } from '../../../src/core/scene/ScenePickedObjectObserver.js';
 import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime.js';
-import { SceneGameLoaderBridge } from '../../../src/core/scene/SceneGameLoaderBridge.js';
 import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
-import { SANGUO_ZHANGJIAO_CONTENT_POLICY } from '../config/SanguoZhangjiaoContentPolicy.js';
-import { registerSceneTriggerActions } from '../../../src/core/scene/SceneTriggerActionProvider.js';
 import { ScenarioCommandService, SCENARIO_COMMANDS } from '../../../src/systems/ScenarioCommandService.js';
 import { DomainCommandService } from '../../../src/systems/DomainCommandService.js';
 import { CanonicalStateTransactionService } from '../../../src/systems/CanonicalStateTransactionService.js';
@@ -73,6 +67,7 @@ import { SanguoSceneCommandCoordinator } from '../systems/SanguoSceneCommandFlow
 import { S03S14BattleCoordinator } from '../systems/S03S14BattleCoordinator.js';
 import { SanguoSceneStateFlow } from '../systems/SanguoSceneStateFlow.js';
 import { SanguoWorldRuntimeCoordinator } from '../systems/SanguoWorldRuntimeCoordinator.js';
+import { SanguoGameLoaderCoordinator } from '../systems/SanguoGameLoaderCoordinator.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -296,10 +291,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.sanguoSceneStateFlow = new SanguoSceneStateFlow(this);
     this.sanguoSceneLifecycleCoordinator = new SanguoSceneLifecycleCoordinator(this);
     this.sanguoProgressionPresentationCoordinator = new SanguoProgressionPresentationCoordinator(this);
+    this.sanguoGameLoaderCoordinator = new SanguoGameLoaderCoordinator(this);
     Object.assign(this.context.services, {
       sanguoSceneState: this.sanguoSceneStateFlow,
       sanguoSceneLifecycle: this.sanguoSceneLifecycleCoordinator,
-      sanguoProgressionPresentation: this.sanguoProgressionPresentationCoordinator
+      sanguoProgressionPresentation: this.sanguoProgressionPresentationCoordinator,
+      sanguoGameLoader: this.sanguoGameLoaderCoordinator
     });
     this.cityWarStateBridge = new SceneCityWarStateBridge({
       getBlackboard: () => this.gameLoader?.blackboard || null,
@@ -332,38 +329,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._progressionBootstrap = { isNewGame: newGame, playerStartMode: resolvedMode };
   }
 
-  /** 启动闸门：项目世界索引、显式入口与目标 Region 必须完整有效。 */
+  /** 世界入口校验由 Demo 世界协调器拥有；WorldReadyGate 时机仍由 Scene 管理。 */
   _validateWorldLoadResult(result) {
-    const errors = Array.isArray(result?.errors) ? result.errors : [];
-    const worldIndex = result?.worldIndex;
-    const entry = worldIndex?.getEntry?.();
-    const chunk = entry ? result?.chunks?.find(item => item.sceneId === entry.sceneId) : null;
-    const valid = errors.length === 0
-      && result?.region
-      && entry?.loadable === true
-      && worldIndex?.isLoadable?.(entry.sceneId) === true
-      && chunk?.row === entry.row
-      && chunk?.col === entry.col
-      && chunk?.offset === entry.offset
-      && Array.isArray(chunk?.sceneData?.layers);
-    if (!valid) {
-      const detail = errors[0]?.message || '显式入口必须是唯一、非 reserved 且具有有效场景 layers';
-      throw new Error(`世界内容校验失败: ${detail}`);
-    }
-    return result;
+    return this.sanguoWorldRuntimeCoordinator.validateWorldLoadResult(result);
   }
 
+  /** canonical 磁盘会话由 Demo 世界协调器创建；保留 Scene 兼容入口。 */
   _createWorldLoadSession(scope = this.resourceScope) {
-    const gameId = 'sanguo_zhangjiao';
-    const repository = new CanonicalSceneRepository({
-      diskAdapter: new FetchDiskSceneAdapter({
-        projectUrl: 'game.project.json',
-        sceneBaseUrl: 'assets/scenes/'
-      }),
-      cacheAdapter: new LocalStorageSceneCacheAdapter({ gameId }),
-      mode: 'runtime'
-    });
-    return new WorldMapLoadSession({ scope, repository });
+    return this.sanguoWorldRuntimeCoordinator.createWorldLoadSession(scope);
   }
 
   /** 流式动态状态由 Demo 世界协调器拥有；保留稳定兼容入口。 */
@@ -704,44 +677,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.sanguoSceneCommandCoordinator.canPerformBasicAttack();
   }
 
-  /** 将所有成功采集原子投影为结局隐藏输入，再组合场景专属政策。 */
+  /** 采集的场景政策与结局隐藏输入均由 Demo 命令协调器组合。 */
   prepareGatheringSettlement(context = {}) {
-    const scenePolicy = this._prepareSceneGatheringSettlement(context);
-    if (scenePolicy?.ok === false || scenePolicy?.idempotent === true) return scenePolicy;
-    const { operationId, node } = context;
-    const resourceType = node?.resourceType;
-    if (!operationId || !['wood', 'iron', 'food', 'herb'].includes(resourceType)) return scenePolicy;
-    const blackboard = this.gameLoader?.blackboard;
-    if (!blackboard) return { ok: false, code: 'storyStateUnavailable' };
-    const storyBefore = cloneData(blackboard.get('storyState') || {});
-    const applied = storyBefore.endingInputs?.gatheringOperations || [];
-    if (applied.includes(operationId)) return { ok: true, idempotent: true };
-    return {
-      ok: true,
-      commit: details => {
-        const sceneResult = scenePolicy?.commit?.(details);
-        if (sceneResult === false || sceneResult?.ok === false) {
-          throw new Error(sceneResult?.code || 'sceneGatheringPolicyRejected');
-        }
-        const current = cloneData(blackboard.get('storyState') || storyBefore);
-        const endingInputs = cloneData(current.endingInputs || {});
-        const cumulative = cloneData(endingInputs.cumulativeGathering || { wood: 0, iron: 0, food: 0, herb: 0 });
-        cumulative[resourceType] = Math.max(0, Math.floor(Number(cumulative[resourceType]) || 0))
-          + Math.max(0, Math.floor(Number(details?.accepted) || 0));
-        endingInputs.cumulativeGathering = cumulative;
-        endingInputs.gatheringOperations = [...new Set([...(endingInputs.gatheringOperations || []), operationId])].slice(-512);
-        blackboard.set('storyState', { ...current, endingInputs });
-        return { ok: true };
-      },
-      rollback: () => {
-        try { scenePolicy?.rollback?.(); } finally { blackboard.set('storyState', storyBefore); }
-      }
-    };
+    return this.sanguoSceneCommandCoordinator.prepareGatheringSettlement(context);
   }
 
-  /** 场景只按当前 canonical 区块路由采集政策；历史规则由对应 coordinator 持有。 */
+  /** 当前 canonical 区块的采集政策由 Demo 命令协调器路由；保留兼容入口。 */
   _prepareSceneGatheringSettlement(context = {}) {
-    return this.sanguoSceneCommandCoordinator.prepareGatheringSettlement(context);
+    return this.sanguoSceneCommandCoordinator.prepareSceneGatheringSettlement(context);
   }
 
   _grantGatheringProficiency(data = {}) {
@@ -811,20 +754,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return result.value || { ok: true };
   }
 
+  /** 跨 Region 存档预准备由世界协调器拥有；保留 BaseGameScene 调用的兼容入口。 */
   _findRegionIndexForScene(sceneId) {
-    return this._worldLoadResult?.worldIndex?.findScene?.(sceneId)?.regionIndex ?? -1;
+    return this.sanguoWorldRuntimeCoordinator.findRegionIndexForScene(sceneId);
   }
 
   async prepareRestoreRegion(saveState = {}) {
-    const sceneId = saveState?.currentSceneId;
-    const regionIndex = this._findRegionIndexForScene(sceneId);
-    if (regionIndex < 0) {
-      return { ok: false, errors: [{ code: 'missingTargetScene', path: 'currentSceneId', message: `存档场景 ${sceneId} 不在世界地图中` }] };
-    }
-    if (regionIndex === this._currentRegionIndex) return { ok: true, errors: [] };
-    return this._regionCoordinator.switchTo({
-      projectUrl: 'game.project.json', regionIndex, sceneId, spawnRef: 'player'
-    });
+    return this.sanguoWorldRuntimeCoordinator.prepareRestoreRegion(saveState);
   }
 
   async travelToRegion({ sceneId, spawnRef = 'player' } = {}) {
@@ -895,184 +831,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.sanguoSceneStateFlow.handleEquipmentChanged(info);
   }
 
-  /**
-   * 装配 GameProject（触发器/黑板/对话/任务），fire(sceneEnter)。showTip 走屏幕居中提示。
-   * @private
-   */
+  /** GameProject 装配由 Demo coordinator 拥有；保留场景兼容入口。 */
   _initGameLoader() {
-    try {
-      const eng = window.gameEngine;
-      const bridge = new SceneGameLoaderBridge({
-        scope: this.resourceScope,
-        loaderConfig: { contentPolicy: SANGUO_ZHANGJIAO_CONTENT_POLICY },
-        dialogueSystem: this.dialogueSystem,
-        deps: {
-          dialogueSystem: this.dialogueSystem,
-          tutorialSystem: this.tutorialSystem,
-          questSystem: this.questSystem,
-          commandGateway: this.sceneRuntime?.commandGateway || null,
-          combatSystem: this.combatSystem,
-          sceneManager: eng ? eng.sceneManager : (this.sceneManager || null),
-          audioManager: this.audioManager || (eng && eng.audioManager) || null,
-          floatingText: this.floatingTextManager,
-          scene: this,
-          sceneDiagnostics: this._diagnostics
-        },
-        onShowTip: text => this._showScreenTip(text || ''),
-        onItemGained: (item, player) => this.onItemGained(item, player || this.playerEntity),
-        getPlayer: () => this.playerEntity || null
-      });
-      this._gameLoaderBridge = bridge;
-      this.resourceScope?.track(() => bridge.dispose());
-
-      const ready = bridge.initialize({
-        projectUrl: 'game.project.json',
-        sceneFlag: 'ddScene',
-        registerActions: (trig, gameLoader) => this._registerGameLoaderActions(trig, gameLoader),
-        onReady: async (gameLoader, trig) => {
-          this.gameLoader = gameLoader;
-          this.applyRuntimeConfig(gameLoader.runtimeConfigSnapshot);
-          const offTriggerLog = trig.on((evt, t) => {
-            if (evt === 'triggerStart') console.log('[DDScene][Trigger] 执行:', t.id, t.do);
-          });
-          this.resourceScope?.track(offTriggerLog);
-
-          if (!this.assetManager?.registerManifest) {
-            throw new Error('场景 AssetManager 不支持稳定资源 Manifest');
-          }
-          const manifestResult = this.assetManager.registerManifest(gameLoader.project.assetManifest);
-          if (manifestResult.queued > 0) await this.assetManager.loadAll();
-          const fireAsset = this.assetManager.resolveManifestAsset?.('vfx.freePixel.fire', '2d');
-          this._campfireService.setFireImage(
-            this.assetManager.getAsset?.(fireAsset?.key || 'vfx.freePixel.fire') || null
-          );
-          this.entityRenderer2D?.clearCaches?.();
-          const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
-          this._syncPlayerClassAppearance(currentClass);
-
-          // TutorialDefinition 已由 GameLoader 原子发布给唯一 TutorialSystem。
-          this._configureSharedClassEffects(gameLoader);
-          await this._installBattleFlow(gameLoader);
-          this._installProgressionUI(gameLoader);
-        }
-      });
-      // initialize() 在首次 await 前已创建 loader；立即保留旧字段投影。
-      this.gameLoader = bridge.loader;
-      this._gameLoaderReady = ready.then(this.resourceScope.guard(async gameLoader => {
-        if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
-        await this._worldLoadPromise;
-        if (!this.currentSceneId) throw new Error('ProjectWorldIndex 未提供有效启动入口');
-        gameLoader.triggerSystem.fire('sceneEnter', { sceneId: this.currentSceneId });
-        const placementRuntime = this.context.services.placements;
-        const placementValidation = placementRuntime?.validateProjection?.()
-          || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placements', message: '场景放置运行时尚未就绪' }] };
-        if (!placementValidation.ok) {
-          throw gameLoader.createValidationError(placementValidation.errors);
-        }
-        this.gameLoader = gameLoader;
-        const placementResult = await placementRuntime.spawnLoadedChunks();
-        if (placementResult?.ok === false) {
-          throw gameLoader.createValidationError(placementResult.errors || []);
-        }
-        const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
-        this.timeSystem?.setCurrentDay?.(storyDay);
-        this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
-        if (this._progressionBootstrap?.isNewGame) this._tutorialFlow.showNext();
-        console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
-        return gameLoader;
-      })).catch(this.resourceScope.guard(e => {
-        console.error('[DDScene][GameLoader] 加载失败:', e);
-        throw e;
-      }));
-    } catch (e) {
-      console.warn('[DDScene][GameLoader] 初始化失败:', e);
-      this._gameLoaderReady = Promise.reject(e);
-      this._gameLoaderReady.catch(() => {});
-    }
+    return this.sanguoGameLoaderCoordinator.initializeGameLoader();
   }
 
-  /** 将 Demo 配置与历史策略注入框架共享玩法装配器。 */
+  /** Demo 共享玩法注入由 GameLoader coordinator 拥有；保留兼容入口。 */
   _configureSharedClassEffects(gameLoader) {
-    const resolver = gameLoader?.progressionSystem?.effectResolver;
-    if (!resolver) return false;
-    const proficiencyConfig = gameLoader?.project?.progression?.proficiency || {};
-    const constructionConfig = gameLoader?.project?.construction || {};
-    const constructionSites = new Map((constructionConfig.sites || []).map(site => [site.id, site]));
-    const itemRegistry = gameLoader?.getRegistry?.('items');
-    const trigger = (name, event, data) => (
-      this.gameLoader?.triggerSystem?.fire?.(`${name}.${event}`, cloneData(data))
-    );
-
-    const sharedPlan = this._gameplaySystemAssembler.configureSharedSystems({
-      effectResolver: resolver,
-      skillRegistry: gameLoader.skillRegistry,
-      proficiency: {
-        config: proficiencyConfig,
-        onEvent: (event, data) => {
-          if (event !== 'levelUp') return;
-          const definition = this.proficiencySystem?.getDefinition?.(data.type);
-          this.notificationSystem?.addNotification?.(
-            `${definition?.name || data.type}熟练度提升至 ${data.level} 级`,
-            'success'
-          );
-        }
-      },
-      inventoryEffects: {
-        getEntityId: () => this.playerEntity?.id || null,
-        baseResourceCapacity: 120
-      },
-      gathering: {
-        settlementPolicy: context => this.prepareGatheringSettlement(context)
-      },
-      construction: {
-        definitions: constructionConfig.definitions || [],
-        maxOperations: constructionConfig.maxOperations,
-        requiredProficiencyType: 'construction',
-        itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
-        createCheckpoint: checkpoint => this.s10ConstructionCoordinator._checkpointConstructionRepair(checkpoint),
-        validateSite: ({ siteId, definition }) => {
-          const site = constructionSites.get(siteId);
-          if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
-            return { ok: false, code: 'invalidSite' };
-          }
-          const story = gameLoader.blackboard?.get?.('storyState') || {};
-          if (site.sceneId === 'S06') {
-            const rescueSucceeded = story.zhangManchengSurvived === true
-              && story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived === true;
-            return rescueSucceeded && story.s06Decision?.committed !== true
-              ? { ok: true }
-              : { ok: false, code: 'constructionSiteLocked' };
-          }
-          if (story.constructionSiteUnlocked !== true || story.s10CampRelocation?.completed !== true) {
-            return { ok: false, code: 'constructionSiteLocked' };
-          }
-          return { ok: true };
-        }
-      },
-      vehicles: {
-        resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
-        getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
-        createCheckpoint: checkpoint => this._executeScenarioCommand(
-          SCENARIO_COMMANDS.CHECKPOINT_REQUEST,
-          {
-            reason: 'checkpoint',
-            checkpointId: checkpoint.checkpointId,
-            sceneId: this.currentSceneId
-          },
-          checkpoint.operationId || null
-        ),
-        onVehicleEvent: (event, data) => trigger('vehicle', event, data),
-        onLogisticsEvent: (event, data) => trigger('vehicleLogistics', event, data),
-        onMannedStructureEvent: (event, data) => trigger('mannedStructure', event, data)
-      }
-    });
-    if (!sharedPlan) return false;
-    this.sceneRuntime.applyRegistrationPlan(sharedPlan);
-
-    this.s10ConstructionCoordinator._ensureS10StructureEntities();
-    this._ensureSceneVehicleEntities(this.currentSceneId);
-    this._syncUnlockedClassSkills();
-    return true;
+    return this.sanguoGameLoaderCoordinator.configureSharedClassEffects(gameLoader);
   }
 
   /** 由显式 Demo coordinator 装配战役定义、通用运行时与历史策略。 */
@@ -1194,14 +960,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     );
   }
 
-  /** Scene 只装配通用空间 action；所有业务触发器均由 descriptor command 执行。 */
+  /** 通用空间 action 注册由 GameLoader coordinator 拥有；保留兼容入口。 */
   _registerGameLoaderActions(triggerSystem) {
-    return registerSceneTriggerActions(triggerSystem, {
-      spawnPlacements: selector => this.context.services.placements?.spawn(selector),
-      weatherSystem: this.weatherSystem,
-      timeSystem: this.timeSystem,
-      logger: console
-    });
+    return this.sanguoGameLoaderCoordinator.registerGameLoaderActions(triggerSystem);
   }
 
   /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */

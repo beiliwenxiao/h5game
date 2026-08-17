@@ -1,4 +1,7 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
+import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
+import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
@@ -13,6 +16,10 @@ const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(val
 export class SanguoWorldRuntimeCoordinator extends SceneFlowCoordinator {
   constructor(scene) {
     super(scene, {
+      findRegionIndexForScene,
+      prepareRestoreRegion,
+      validateWorldLoadResult,
+      createWorldLoadSession,
       createStreamingStateProvider,
       captureStreamedChunkState,
       releaseStreamedChunkRuntime,
@@ -39,6 +46,58 @@ export class SanguoWorldRuntimeCoordinator extends SceneFlowCoordinator {
       forwardCommittedSceneEnter
     }, { name: 'SanguoWorldRuntimeCoordinator' });
   }
+}
+
+/** 由已验证的 ProjectWorldIndex 解析场景所属 Region；无有效映射返回 -1。 */
+function findRegionIndexForScene(sceneId) {
+  return this._worldLoadResult?.worldIndex?.findScene?.(sceneId)?.regionIndex ?? -1;
+}
+
+/** 跨 Region 存档恢复的预准备；真正同步 restore 仍由 BaseGameScene 原子阶段执行。 */
+async function prepareRestoreRegion(saveState = {}) {
+  const sceneId = saveState?.currentSceneId;
+  const regionIndex = this.findRegionIndexForScene(sceneId);
+  if (regionIndex < 0) {
+    return { ok: false, errors: [{ code: 'missingTargetScene', path: 'currentSceneId', message: `存档场景 ${sceneId} 不在世界地图中` }] };
+  }
+  if (regionIndex === this._currentRegionIndex) return { ok: true, errors: [] };
+  return this._regionCoordinator.switchTo({
+    projectUrl: 'game.project.json', regionIndex, sceneId, spawnRef: 'player'
+  });
+}
+
+/** 项目世界加载的启动闸门；仅校验 canonical 入口及预加载场景，不参与 Scene 转场时机。 */
+function validateWorldLoadResult(result) {
+  const errors = Array.isArray(result?.errors) ? result.errors : [];
+  const worldIndex = result?.worldIndex;
+  const entry = worldIndex?.getEntry?.();
+  const chunk = entry ? result?.chunks?.find(item => item.sceneId === entry.sceneId) : null;
+  const valid = errors.length === 0
+    && result?.region
+    && entry?.loadable === true
+    && worldIndex?.isLoadable?.(entry.sceneId) === true
+    && chunk?.row === entry.row
+    && chunk?.col === entry.col
+    && chunk?.offset === entry.offset
+    && Array.isArray(chunk?.sceneData?.layers);
+  if (!valid) {
+    const detail = errors[0]?.message || '显式入口必须是唯一、非 reserved 且具有有效场景 layers';
+    throw new Error(`世界内容校验失败: ${detail}`);
+  }
+  return result;
+}
+
+/** 张角 Demo 的磁盘 canonical 场景会话；缓存仅为运行时 fallback。 */
+function createWorldLoadSession(scope = this.resourceScope) {
+  const repository = new CanonicalSceneRepository({
+    diskAdapter: new FetchDiskSceneAdapter({
+      projectUrl: 'game.project.json',
+      sceneBaseUrl: 'assets/scenes/'
+    }),
+    cacheAdapter: new LocalStorageSceneCacheAdapter({ gameId: 'sanguo_zhangjiao' }),
+    mode: 'runtime'
+  });
+  return new WorldMapLoadSession({ scope, repository });
 }
 
 /** 载具定义与运行态以当前 SceneVehicleRuntime 为唯一 store；此处只负责 Demo 世界编排。 */

@@ -13,12 +13,18 @@ function abortError() {
   return error;
 }
 
+function formatErrorMessage(error) {
+  if (error instanceof Error) return error.message;
+  const nestedMessage = error?.message || error?.errors?.[0]?.message || error?.error?.message;
+  return typeof nestedMessage === 'string' && nestedMessage.length > 0 ? nestedMessage : String(error);
+}
+
 function errorRecord(stage, error, extra = {}) {
   return {
     stage,
     ...extra,
     error,
-    message: error instanceof Error ? error.message : String(error)
+    message: formatErrorMessage(error)
   };
 }
 

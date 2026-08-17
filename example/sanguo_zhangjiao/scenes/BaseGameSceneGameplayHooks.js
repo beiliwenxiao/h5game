@@ -27,9 +27,13 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
     return { type: 'normalDeath' };
   }
 
-  /** 子场景可覆盖复活位置。 */
+  /** 默认复活点使用当前 canonical 场景的玩家出生点；具体游戏可追加特殊营地规则。 */
   resolvePlayerRespawnPosition() {
-    return null;
+    const sceneId = this.currentSceneId || this.editorSceneId || null;
+    const spawn = sceneId
+      ? this.context?.services?.placements?.getSpawnPoint?.(sceneId, 'player')
+      : null;
+    return spawn ? { x: spawn.x, y: spawn.y, label: `${sceneId}入口` } : null;
   }
 
   onPlayerDefeatResolved(result = {}) {
@@ -53,6 +57,11 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
 
   /** 基础攻击默认只在战斗状态开放；具体场景可覆盖以支持训练或可破坏物。 */
   canPerformBasicAttack() {
+    return this.canPerformDefaultBasicAttack();
+  }
+
+  /** 供内容 coordinator 组合训练、载具等规则时调用的框架默认攻击许可。 */
+  canPerformDefaultBasicAttack() {
     return this.combatSystem?.isInCombat?.() === true;
   }
 

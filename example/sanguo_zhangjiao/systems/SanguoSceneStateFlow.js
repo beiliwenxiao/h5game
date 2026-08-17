@@ -1,0 +1,313 @@
+import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+import { S09_REFUGEE_DIALOGUE_ID } from './S09RefugeeFlow.js';
+
+const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
+/**
+ * Demo-owned S01–S14 scene state composition. The coordinator deliberately owns
+ * no gameplay rules: it invokes the scene's existing, explicitly injected systems.
+ */
+export class SanguoSceneStateFlow extends SceneFlowCoordinator {
+  constructor(scene) {
+    super(scene, { captureSceneSaveState, restoreSceneSaveState, handleWorldItemPicked }, {
+      name: 'SanguoSceneStateFlow'
+    });
+  }
+}
+
+function captureSceneSaveState() {
+  const pendingPlacementState = this.context.services.placements?.getPendingStateSnapshot?.()
+    || { resourceNodes: [], placementStates: [] };
+  const resourceNodeStates = new Map(pendingPlacementState.resourceNodes);
+  for (const entity of this.entities || []) {
+    const node = entity?.getComponent?.('resourceNode');
+    if (node) resourceNodeStates.set(entity.id, node.serialize());
+  }
+  const deathDrops = this._deathDrops.capture();
+  const placementStates = new Map(pendingPlacementState.placementStates);
+  for (const item of this.pickupItems || []) {
+    const placementId = item?.placementId;
+    if (!placementId) continue;
+    placementStates.set(placementId, {
+      kind: 'item', removed: item.picked === true,
+      quantity: Math.max(0, Math.floor(Number(item.quantity) || 0))
+    });
+  }
+  const seenEnemies = new Set();
+  for (const list of Object.values(this._groupEnemies || {})) {
+    for (const enemy of list || []) {
+      if (!enemy?.id || seenEnemies.has(enemy.id)) continue;
+      seenEnemies.add(enemy.id);
+      const stats = enemy.getComponent?.('stats');
+      const transform = enemy.getComponent?.('transform');
+      placementStates.set(enemy.id, {
+        kind: 'enemy', removed: this._isEntityDead(enemy),
+        hp: Math.max(0, Number(stats?.hp) || 0),
+        position: transform ? { x: transform.position.x, y: transform.position.y } : null,
+        ai: this.aiSystem?.getRuntimeState?.(enemy) || null
+      });
+    }
+  }
+  const hasWorldStreaming = !!this.worldStreamingManager;
+  const s11s14State = this.s11s14SceneCoordinator._captureS11S14SceneState();
+  if (hasWorldStreaming) s11s14State.vehicleStates = [];
+  return {
+    worldStreamingState: this.worldStreamingManager?.serialize?.() || null,
+    regionStates: [...(this._regionDynamicStates || new Map()).entries()].map(([regionId, state]) => ({
+      regionId, state: cloneData(state)
+    })),
+    campfireLit: this._campfireService.snapshot().lit,
+    firedPickups: [...(this._firedPickups || [])],
+    clearedGroups: [...(this._clearedGroups || [])],
+    ...(hasWorldStreaming ? {} : {
+      resourceNodes: [...resourceNodeStates.entries()].map(([id, state]) => ({ id, state })),
+      placementStates: [...placementStates.entries()].map(([id, state]) => ({ id, state })),
+      deathDrops,
+      s10StructureStates: this.s10ConstructionCoordinator._captureS10StructureStates()
+    }),
+    ...this._gameplaySnapshots.capture(),
+    ...this.s03s14BattleCoordinator.capture(),
+    rescueState: this.rescueSystem?.serialize?.() || null,
+    ...s11s14State,
+    gatheringPolicyOperations: this.s09RefugeeCoordinator.captureUnauthorizedHarvestOperations(),
+    timeState: this.timeSystem?.serialize?.() || null
+  };
+}
+
+function restoreSceneSaveState(data = {}) {
+  const validation = validateSceneSaveState.call(this, data);
+  if (!validation.ok) return validation;
+
+  let rollbackState;
+  try {
+    rollbackState = captureSceneSaveState.call(this);
+  } catch (error) {
+    return {
+      ok: false,
+      errors: [{
+        code: 'sceneStateRollbackCaptureFailed', path: '',
+        message: error?.message || '场景状态回滚快照采集失败'
+      }]
+    };
+  }
+
+  const result = applySceneSaveState.call(this, data);
+  if (result.ok) return result;
+
+  const rollback = applySceneSaveState.call(this, rollbackState);
+  if (rollback.ok) return result;
+  return {
+    ok: false,
+    errors: [
+      ...(result.errors || []),
+      ...(rollback.errors || []).map(error => ({
+        ...error,
+        code: error.code || 'sceneStateRollbackFailed',
+        path: error.path ? `rollback.${error.path}` : 'rollback'
+      }))
+    ]
+  };
+}
+
+function handleWorldItemPicked(item) {
+  if (!this.gameLoader || !item) return false;
+  if (!this._firedPickups) this._firedPickups = new Set();
+  const uid = item.placementId || item._pickUid || item.entityId || item.id;
+  if (item.placementId && item.picked === true) {
+    this.context.services.placements?.addPendingPlacementState?.(
+      item.placementId,
+      { kind: 'item', removed: true, quantity: 0 }
+    );
+  }
+  if (!uid || this._firedPickups.has(uid)) return false;
+  this._firedPickups.add(uid);
+  const itemId = item.itemId || item.id;
+  this._tutorialFlow.notify('itemPicked', { item });
+  this.gameLoader.triggerSystem.fire('itemPickup', { item: itemId, id: itemId });
+  console.log('[DDScene] itemPickup:', itemId);
+  return true;
+}
+
+function validateSceneSaveState(data) {
+  const battleValidation = this.s03s14BattleCoordinator.validateSnapshot(data);
+  if (!battleValidation.ok) return failure('battleState', `战役运行状态校验失败: ${battleValidation.code}`, battleValidation.code, battleValidation.path);
+  if (data.rescueState) {
+    if (!this.rescueSystem) return failure('rescueState', '救援运行时尚未就绪', 'rescueRuntimeUnavailable');
+    const check = this.rescueSystem.validateSerialized(data.rescueState);
+    if (!check.ok) return failure('rescueState', `救援状态校验失败: ${check.code}`, check.code);
+    const rescueId = data.rescueState.definition?.id || null;
+    if (rescueId && !this.s03s14BattleCoordinator.hasRescueDefinition(rescueId)) {
+      return failure('rescueState.definition.id', `未知救援配置: ${rescueId}`, 'unknownRescueId');
+    }
+  }
+  if (data.worldStreamingState) {
+    if (!this.worldStreamingManager) return failure('worldStreamingState', '世界流式运行时尚未就绪', 'worldStreamingUnavailable');
+    const check = this.worldStreamingManager.validateSerialized(data.worldStreamingState);
+    if (!check.ok) return { ok: false, errors: check.errors.map(error => ({
+      ...error, path: error.path ? `worldStreamingState.${error.path}` : 'worldStreamingState'
+    })) };
+  }
+  const deathDropValidation = this._deathDrops.validate(data.deathDrops);
+  if (!deathDropValidation.ok) return deathDropValidation;
+  const s11s14Check = this.s11s14SceneCoordinator._validateS11S14SceneState(data);
+  if (!s11s14Check.ok) return s11s14Check;
+  const gameplayValidation = this._gameplaySnapshots.validate(data);
+  if (!gameplayValidation.ok) return gameplayValidation;
+  const s10StructureCheck = this.s10ConstructionCoordinator._validateS10StructureStates(data.s10StructureStates);
+  if (!s10StructureCheck.ok) {
+    return failure(
+      Number.isInteger(s10StructureCheck.index) ? `s10StructureStates[${s10StructureCheck.index}]` : 's10StructureStates',
+      'S10 工事动态状态校验失败', s10StructureCheck.code
+    );
+  }
+  return { ok: true, errors: [] };
+}
+
+function applySceneSaveState(data) {
+  try {
+    if (data.worldStreamingState) {
+      const worldRestore = this.worldStreamingManager.deserialize(data.worldStreamingState);
+      if (!worldRestore.ok) return {
+        ok: false,
+        errors: worldRestore.errors.map(error => ({
+          ...error,
+          path: error.path ? `worldStreamingState.${error.path}` : 'worldStreamingState'
+        }))
+      };
+    }
+    this._regionDynamicStates = new Map((data.regionStates || [])
+      .filter(entry => typeof entry?.regionId === 'string' && entry.state && typeof entry.state === 'object')
+      .map(entry => [entry.regionId, cloneData(entry.state)]));
+    this._firedPickups = new Set(data.firedPickups || []);
+    this._clearedGroups = new Set(data.clearedGroups || []);
+    this.s09RefugeeCoordinator.restoreUnauthorizedHarvestOperations(data.gatheringPolicyOperations);
+    const restoredStoryDay = Math.max(1, Math.floor(Number(
+      this.gameLoader?.blackboard?.get?.('storyState')?.currentDay
+    ) || 1));
+    if (data.timeState) this.timeSystem?.deserialize?.(data.timeState);
+    this.timeSystem?.setCurrentDay?.(restoredStoryDay);
+    if (!data.worldStreamingState) {
+      this.context.services.placements?.setPendingStates?.({
+        resourceNodes: data.resourceNodes || [],
+        placementStates: data.placementStates || []
+      });
+    }
+
+    const placementRuntime = this.context.services.placements;
+    const rebuild = placementRuntime?.rebuild?.(this.currentSceneId)
+      || failure('placementStates', '场景放置运行时尚未就绪', 'placementRuntimeUnavailable');
+    if (!rebuild.ok) return rebuild;
+    placementRuntime.applyPendingToExisting([
+      ...(this.entities || []),
+      ...(this.pickupItems || []),
+      ...(this.equipmentItems || [])
+    ]);
+    this.cityWarStateBridge.syncResourceNodes(
+      this.gameLoader?.blackboard?.get?.('warResourceNodeStates') || []
+    );
+
+    const gameplayFoundations = this._gameplaySnapshots.restoreFoundations(data);
+    if (!gameplayFoundations.ok) return gameplayFoundations;
+    if (!data.worldStreamingState) {
+      const s10StructureRestore = this.s10ConstructionCoordinator._restoreS10StructureStates(
+        data.s10StructureStates || []
+      );
+      if (!s10StructureRestore.ok) {
+        return failure(
+          's10StructureStates',
+          `S10 工事动态状态恢复失败: ${s10StructureRestore.siteId || s10StructureRestore.riderId || 'unknown'}`,
+          s10StructureRestore.code
+        );
+      }
+    }
+    if (data.battleState || data.battlefieldRuntimeState || data.cityWarState) {
+      const restored = this.s03s14BattleCoordinator.restore(data);
+      if (!restored.ok) {
+        return failure(restored.path || 'battleState', `战役运行状态恢复失败: ${restored.code}`, restored.code);
+      }
+    }
+    if (data.rescueState) {
+      const restored = this.rescueSystem.deserialize(data.rescueState);
+      if (!restored.ok) return failure('rescueState', '救援状态恢复失败', restored.code);
+      if (restored.state?.definitionId) this.s03s14BattleCoordinator.setRescueObjectiveTitle(restored.state.definitionId);
+      this.rescueObjectiveView?.setSnapshot?.(restored.state);
+    }
+    const s11s14Restore = this.s11s14SceneCoordinator._restoreS11S14SceneState(data);
+    if (!s11s14Restore.ok) return s11s14Restore;
+    if (data.worldStreamingState) {
+      const domainRestore = this.sanguoWorldRuntimeCoordinator.restoreStreamedDomainState(this.currentSceneId);
+      if (domainRestore?.ok === false) {
+        return failure(
+          'worldStreamingState',
+          `当前地图块领域状态恢复失败: ${domainRestore.definitionId || domainRestore.siteId || 'unknown'}`,
+          domainRestore.code || 'streamedDomainRestoreFailed'
+        );
+      }
+    } else {
+      const dropRestore = this._deathDrops.restore(data.deathDrops || []);
+      if (!dropRestore.ok) return dropRestore;
+    }
+
+    const restoredClass = this.playerEntity?.getComponent?.('stats')?.class;
+    const restoredStory = this.gameLoader?.blackboard?.get?.('storyState') || {};
+    const supportedClasses = ['warrior', 'archer', 'strategist'];
+    if (restoredStory.classSelectionCommitted === true
+      && (!supportedClasses.includes(restoredClass) || restoredStory.selectedClass !== restoredClass)) {
+      return failure('selectedClass', '职业存档事实与玩家属性不一致', 'classStateMismatch');
+    }
+    if (supportedClasses.includes(restoredClass)) {
+      const classSystem = this._ensureClassSystem();
+      if (!classSystem?.restoreClass?.(this.playerEntity.id, restoredClass)) {
+        return failure('selectedClass', `职业运行状态恢复失败: ${restoredClass}`, 'classRestoreFailed');
+      }
+      this._classSelected = true;
+      this.selectedClass = restoredClass;
+      this.playerEntity.class = restoredClass;
+    } else {
+      const classSystem = this._ensureClassSystem();
+      classSystem?.clearClass?.(this.playerEntity?.id);
+      if (this.playerEntity) delete this.playerEntity.class;
+      const stats = this.playerEntity?.getComponent?.('stats');
+      if (stats) delete stats.class;
+      this._classSelected = false;
+      this.selectedClass = null;
+    }
+    this._syncPlayerClassAppearance(this.selectedClass);
+    this._syncUnlockedClassSkills();
+    const gameplayActors = this._gameplaySnapshots.restoreActors(data);
+    if (!gameplayActors.ok) return gameplayActors;
+    const refugeeConflict = restoredStory.s09RefugeeConflict;
+    if (refugeeConflict && this.dialogueSystem?.getCurrentDialogue?.()?.id === S09_REFUGEE_DIALOGUE_ID) {
+      if (refugeeConflict.branch) {
+        this.s09RefugeeCoordinator._setRefugeeDialogueNode(
+          this.s09RefugeeCoordinator._refugeeBranchResultNode(refugeeConflict)
+        );
+      } else if (refugeeConflict.donationCommitted) {
+        this.s09RefugeeCoordinator._setRefugeeDialogueNode('branchChoice');
+      } else if (refugeeConflict.status === 'started') {
+        this.s09RefugeeCoordinator._setRefugeeDialogueNode('donationOffer');
+      }
+    }
+    this._classConfirm = null;
+    this._classSelectionBusy = false;
+    this._campfireService.restore(
+      { lit: data.campfireLit === true },
+      { particleSystem: this.particleSystem }
+    );
+    this._tutorialFlow.resetMovementOrigin(
+      this.playerEntity?.getComponent?.('transform')?.position || null
+    );
+    this._s09AudioDirector?.syncScene?.(this.currentSceneId);
+    void this.sanguoSceneNavigationCoordinator.projectEntryRuntime(this.currentSceneId);
+    this.resourceScope?.setTimeout(() => this._tutorialFlow.showNext(), 0);
+    return { ok: true, errors: [] };
+  } catch (error) {
+    return failure('', error?.message || String(error), 'sceneStateRestoreFailed');
+  }
+}
+
+function failure(path, message, code) {
+  return { ok: false, errors: [{ code, path, message }] };
+}
+
+export default SanguoSceneStateFlow;

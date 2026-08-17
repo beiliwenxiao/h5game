@@ -16,16 +16,40 @@ export class SceneWorldPresentation {
 
   renderBackground(ctx) {
     const scene = this.scene;
-    if (scene.terrain) {
-      const bounds = scene.camera.getViewBounds();
-      ctx.fillStyle = scene.terrain.sceneBackgroundColor || '#1f1a14';
-      ctx.fillRect(
-        bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
-      scene.terrain.renderGround(ctx);
+    const context = scene.context || null;
+    const terrains = Array.isArray(context?.world?.terrains)
+      ? context.world.terrains.filter(Boolean)
+      : [];
+    const terrain = context?.world?.terrain || scene.terrain || null;
+    const camera = context?.camera?.instance || scene.camera || null;
+
+    if (terrains.length > 0) {
+      const bounds = camera?.getViewBounds?.();
+      const activeTerrain = terrain || terrains[0];
+      ctx.fillStyle = activeTerrain?.sceneBackgroundColor || '#1f1a14';
+      if (bounds) {
+        ctx.fillRect(
+          bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+      } else {
+        ctx.fillRect(0, 0, scene.logicalWidth, scene.logicalHeight);
+      }
+      for (const currentTerrain of terrains) currentTerrain.renderGround?.(ctx);
+      return;
+    }
+    if (terrain) {
+      const bounds = camera?.getViewBounds?.();
+      ctx.fillStyle = terrain.sceneBackgroundColor || '#1f1a14';
+      if (bounds) {
+        ctx.fillRect(
+          bounds.left, bounds.top, bounds.right - bounds.left, bounds.bottom - bounds.top);
+      } else {
+        ctx.fillRect(0, 0, scene.logicalWidth, scene.logicalHeight);
+      }
+      terrain.renderGround?.(ctx);
       return;
     }
     if (scene.isometricRenderer) {
-      scene.isometricRenderer.drawInfiniteGrid(scene.camera.getViewBounds());
+      scene.isometricRenderer.drawInfiniteGrid(camera?.getViewBounds?.());
       if (scene.mapData) scene.isometricRenderer.drawMap();
       return;
     }

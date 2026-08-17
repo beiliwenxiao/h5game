@@ -74,6 +74,18 @@ export class SceneRenderPipeline {
   render(ctx) {
     const scene = this.scene;
     const context = this.context || scene.context || null;
+    const worldReadyGate = context?.services?.worldReadyGate || scene._worldReadyGate || null;
+    const worldGateState = worldReadyGate?.status?.state;
+    // 世界资源尚未收敛时不得进入相机投影，避免默认坐标与程序化地形闪现。
+    if (worldGateState && worldGateState !== 'ready' && worldGateState !== 'timedOut') {
+      if (typeof scene.renderLoadingBackground === 'function') scene.renderLoadingBackground(ctx);
+      else {
+        ctx.fillStyle = '#1f1a14';
+        ctx.fillRect(0, 0, scene.logicalWidth || ctx.canvas?.width || 0, scene.logicalHeight || ctx.canvas?.height || 0);
+      }
+      return;
+    }
+
     const camera = context?.camera?.instance || null;
     const player = context?.player?.entity || null;
     if (scene.performanceMonitor?.enabled) {
@@ -108,55 +120,34 @@ export class SceneRenderPipeline {
     for (const layer of this.screenLayers) layer(scene, ctx);
     // 模态层固定高于常规 HUD，防止背包与获得物品弹窗被覆盖。
     for (const layer of this.modalLayers) layer(scene, ctx);
+    scene.renderPostPipeline?.(ctx);
   }
 
   renderWorldObjects(ctx) {
     const scene = this.scene;
     const context = this.context || scene.context || null;
     const entities = context?.entities?.all || [];
-    const terrain = context?.world?.terrain || null;
+    const worldTerrains = Array.isArray(context?.world?.terrains)
+      ? context.world.terrains.filter(Boolean)
+      : [];
+    const terrains = worldTerrains.length > 0
+      ? worldTerrains
+      : (context?.world?.terrain ? [context.world.terrain] : []);
     const camera = context?.camera?.instance || null;
     const particleSystem = context?.presentation?.particleSystem || null;
-    if (terrain) {
-      // 复用 Y-sort 排序队列数组；terrain.collectDecorations 会 push 进去，
-      // 调用方有义务传入空数组——此处在顶部重置 length 保证兼容。
-      const queue = this._worldQueue;
-      queue.length = 0;
-      terrain.renderBelowDecorations(ctx);
-      terrain.collectDecorations(queue, ctx, this._viewBounds);
-      particleSystem?.collectDepthSorted?.(queue, ctx, camera, this._viewBounds);
-      let entityItemCount = 0;
-      for (let i = 0, len = entities.length; i < len; i++) {
-        const entity = entities[i];
-        if (!this._isEntityVisible(entity)) continue;
-        const transform = entity.getComponent('transform');
-        if (!transform) continue;
-        let item = this._entityQueueItems[entityItemCount];
-        if (!item) {
-          item = { type: 'entity', y: 0, entity: null };
-          this._entityQueueItems[entityItemCount] = item;
-        }
-        entityItemCount++;
-        item.y = transform.position.y;
-        item.sortPriority = 2;
-        item.entity = entity;
-        queue.push(item);
-      }
-      queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
-      for (let i = 0, len = queue.length; i < len; i++) {
-        const item = queue[i];
-        if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
-        else item.render?.();
-      }
-      terrain.renderCliffs(ctx);
-      scene._renderBuffZones(ctx);
-      scene.renderSpeechBubbles(ctx);
-      return;
-    }
-
     const queue = this._worldQueue;
     queue.length = 0;
+
+    for (const terrain of terrains) terrain.renderBelowDecorations?.(ctx);
+    const campfire = context?.services?.campfire || null;
+    campfire?.appendRenderItems?.(queue, ctx, {
+      particleSystem,
+      width: scene.logicalWidth,
+      height: scene.logicalHeight
+    });
+    for (const terrain of terrains) terrain.collectDecorations?.(queue, ctx, this._viewBounds);
     particleSystem?.collectDepthSorted?.(queue, ctx, camera, this._viewBounds);
+
     let entityItemCount = 0;
     for (let i = 0, len = entities.length; i < len; i++) {
       const entity = entities[i];
@@ -169,17 +160,23 @@ export class SceneRenderPipeline {
         this._entityQueueItems[entityItemCount] = item;
       }
       entityItemCount++;
-      item.y = position.y - (position.z || 0) * 0.01;
+      item.y = terrains.length > 0 ? position.y : position.y - (position.z || 0) * 0.01;
       item.sortPriority = 2;
       item.entity = entity;
       queue.push(item);
     }
+
     queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
     for (let i = 0, len = queue.length; i < len; i++) {
       const item = queue[i];
       if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
       else item.render?.();
     }
+
+    if (terrains.length === 0) return;
+    for (const terrain of terrains) terrain.renderCliffs?.(ctx);
+    scene._renderBuffZones?.(ctx);
+    scene.renderSpeechBubbles?.(ctx);
   }
 
   /** 入队前的无分配视野检测；边距覆盖名称、血条和高精灵。 @private */

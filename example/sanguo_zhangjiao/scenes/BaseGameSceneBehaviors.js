@@ -642,13 +642,11 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
   }
 
   /**
-   * 生成等距地图
-   */
-  /**
-   * 相机更新后的后处理钩子（子类可覆盖，如限制相机范围）
+   * 相机更新后的通用后处理：存在 ProjectWorldIndex 时限制在活动 Region 边界，
+   * 其他游戏/编辑器场景因缺少 worldIndex 自动 no-op。
    */
   postCameraUpdate() {
-    // 默认空实现，子类覆盖
+    return this.clampCameraToWorldBounds?.() || false;
   }
 
   /** PC 功能按钮（轻功/投掷/格挡/背包）作为一组水平居中。 */

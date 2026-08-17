@@ -2,6 +2,8 @@
  * 《三国张角传》放置点生成后的剧情索引协调器。
  * 通用生成、恢复与实体清理由 ScenePlacementRuntime 拥有。
  */
+import { SceneGroupClearObserver } from '../../../src/core/scene/SceneGroupClearObserver.js';
+
 export class SanguoPlacementCoordinator {
   constructor({ getNpcEntities, getGroupEnemies } = {}) {
     this.getNpcEntities = getNpcEntities || (() => []);
@@ -23,6 +25,25 @@ export class SanguoPlacementCoordinator {
       if (!members.includes(entity)) members.push(entity);
     }
     return true;
+  }
+
+  /**
+   * 将已经全灭的放置点敌人组转换为 canonical waveCleared 事件。
+   * 已清理集合与触发器由宿主注入，协调器不拥有 StoryState 或实体生命周期。
+   */
+  checkWaveEvents({ clearedGroups, isEntityDead, triggerSystem, logger = console } = {}) {
+    if (!(clearedGroups instanceof Set) || typeof isEntityDead !== 'function') return 0;
+    const cleared = SceneGroupClearObserver.findCleared({
+      groups: this.getGroupEnemies(),
+      clearedGroups,
+      isEntityDead
+    });
+    for (const group of cleared) {
+      clearedGroups.add(group);
+      triggerSystem?.fire?.('waveCleared', { group });
+      logger?.log?.('[SanguoPlacementCoordinator] waveCleared:', group);
+    }
+    return cleared.length;
   }
 
   removeValues(values = []) {

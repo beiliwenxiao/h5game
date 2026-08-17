@@ -1,5 +1,7 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
-import { ClassType } from '../../../src/systems/ClassSystem.js';
+import { InputHints } from '../../../src/core/input/InputHints.js';
+import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
+import { ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
 
 const SUPPORTED_CLASSES = Object.freeze([ClassType.WARRIOR, ClassType.ARCHER, ClassType.STRATEGIST]);
 const STARTER_NODES = Object.freeze({
@@ -147,6 +149,162 @@ const methods = {
     } finally {
       this._classSelectionBusy = false;
     }
+  },
+
+  showConfirmation(payload = {}) {
+    const classId = payload.classId || payload.class || ClassType.WARRIOR;
+    if (!SUPPORTED_CLASSES.includes(classId)) {
+      console.warn('[S09ClassSelectionCoordinator] confirmClass: 不支持的职业', classId);
+      return false;
+    }
+    const storyState = this.gameLoader?.blackboard?.get?.('storyState');
+    if (this.currentSceneId !== 'S09' || storyState?.joinedYellowTurban !== true) {
+      this._showScreenTip('先在 S09 与张角交谈并加入黄巾', { title: '尚未入伍' });
+      return false;
+    }
+    if (storyState.classSelectionCommitted === true || this._classSelected) {
+      this._showScreenTip(`职业已经固定为${ClassNames[storyState.selectedClass || this.selectedClass] || '当前职业'}`);
+      return false;
+    }
+    const descriptions = {
+      warrior: '采集速度更快，但可携带的资源总量较低。',
+      archer: '采集速度较慢，可用远程攻击引开守卫。',
+      strategist: '可召唤一次采集傀儡协助获取资源。'
+    };
+    this._classConfirm = {
+      classId,
+      className: ClassNames[classId] || classId,
+      description: descriptions[classId] || '',
+      confirmHover: false,
+      cancelHover: false
+    };
+    console.log(`[S09ClassSelectionCoordinator] 显示职业确认窗口: ${this._classConfirm.className}`);
+    return true;
+  },
+
+  getConfirmationLayout() {
+    const w = 460;
+    const h = 220;
+    const px = (this.logicalWidth - w) / 2;
+    const py = (this.logicalHeight - h) / 2;
+    const btnW = 140;
+    const btnH = 40;
+    const btnY = py + h - 58;
+    return {
+      w, h, px, py, btnW, btnH, btnY,
+      confirmX: px + w / 2 - btnW - 14,
+      cancelX: px + w / 2 + 14
+    };
+  },
+
+  updateConfirmationHover() {
+    const confirmation = this._classConfirm;
+    if (!confirmation || !this.inputManager) return;
+    const layout = this.getConfirmationLayout();
+    const mouse = this.inputManager.getMousePosition();
+    confirmation.confirmHover = mouse.x >= layout.confirmX && mouse.x <= layout.confirmX + layout.btnW
+      && mouse.y >= layout.btnY && mouse.y <= layout.btnY + layout.btnH;
+    confirmation.cancelHover = mouse.x >= layout.cancelX && mouse.x <= layout.cancelX + layout.btnW
+      && mouse.y >= layout.btnY && mouse.y <= layout.btnY + layout.btnH;
+  },
+
+  handleConfirmationInput({ inputManager, gamepad } = {}) {
+    const confirmation = this._classConfirm;
+    if (!confirmation || !inputManager) return false;
+    this.updateConfirmationHover();
+    const clicked = inputManager.isMouseClicked?.() === true && !inputManager.isMouseClickHandled?.();
+    const confirmPressed = inputManager.isKeyPressed?.('e')
+      || inputManager.isKeyPressed?.('enter') || inputManager.isKeyPressed?.('Enter');
+    const cancelPressed = inputManager.isKeyPressed?.('escape')
+      || gamepad?.isButtonPressed?.(PadButton.B) === true;
+    if (clicked) inputManager.markMouseClickHandled?.();
+    if (!this._classSelectionBusy && (confirmPressed || (clicked && confirmation.confirmHover))) {
+      void this.confirmSelection(confirmation.classId);
+    } else if (!this._classSelectionBusy && (cancelPressed || (clicked && confirmation.cancelHover))) {
+      this._classConfirm = null;
+      console.log('[S09ClassSelectionCoordinator] 取消职业选择');
+    }
+    return true;
+  },
+
+  updateConfirmation() {
+    this.updateConfirmationHover();
+  },
+
+  async confirmSelection(classId) {
+    const result = await this._executeScenarioCommand('scenario.command', {
+      operation: 'class.select',
+      classId
+    }, `class-select:${this.playerEntity?.id || 'unknown'}:${classId}`);
+    if (!result?.ok) return false;
+    this._classConfirm = null;
+    this.presentSelectionCommitted(result.value?.classType || classId);
+    return true;
+  },
+
+  presentSelectionCommitted(classType) {
+    this._syncPlayerClassAppearance(classType);
+    this._s09AudioDirector?.playFeedback?.('classSelected');
+    const className = ClassNames[classType] || classType;
+    this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
+    this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });
+    console.log('%c[S09ClassSelectionCoordinator] S09 职业检查点已提交:', 'color:#4CAF50', className);
+  },
+
+  renderConfirmation(ctx) {
+    const confirmation = this._classConfirm;
+    if (!confirmation) return;
+    const { w, h, px, py, btnW, btnH, btnY, confirmX, cancelX } = this.getConfirmationLayout();
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.62)';
+    ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+    ctx.fillStyle = 'rgba(16,24,40,0.97)';
+    ctx.strokeStyle = '#d6b85f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(px, py, w, h, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    const classIcon = this.assetManager?.getAsset?.(`s09.ui.class.${confirmation.classId}`);
+    const classIconReady = classIcon && classIcon.complete !== false
+      && (classIcon.naturalWidth || classIcon.width || 0) > 0;
+    if (classIconReady) ctx.drawImage(classIcon, px + 16, py + 12, 38, 38);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 20px Arial';
+    ctx.fillText('确认职业选择', px + w / 2, py + 18);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '15px Arial';
+    ctx.fillText(`确定选择「${confirmation.className}」吗？选择后不可更改。`, px + w / 2, py + 57);
+    ctx.fillStyle = '#d6d9df';
+    ctx.font = '14px Arial';
+    ctx.fillText(confirmation.description, px + w / 2, py + 88);
+    if (this._classSelectionBusy) {
+      ctx.fillStyle = '#f0cf77';
+      ctx.fillText('正在创建职业检查点……', px + w / 2, py + 116);
+    }
+
+    ctx.fillStyle = confirmation.confirmHover ? '#5dba68' : '#4CAF50';
+    ctx.beginPath();
+    ctx.roundRect(confirmX, btnY, btnW, btnH, 6);
+    ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 14px Arial';
+    ctx.fillText(`确认（${InputHints.key('confirm')}）`, confirmX + btnW / 2, btnY + 11);
+
+    ctx.fillStyle = confirmation.cancelHover ? '#555' : '#3a3a3a';
+    ctx.beginPath();
+    ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`取消（${InputHints.key('modalCancel')}）`, cancelX + btnW / 2, btnY + 11);
+    ctx.restore();
   }
 };
 

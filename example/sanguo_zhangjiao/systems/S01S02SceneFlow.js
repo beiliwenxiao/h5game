@@ -59,6 +59,12 @@ export class S01S02Coordinator {
     return this._submit('story.s02.travel');
   }
 
+  resolveRespawnPosition() {
+    if (this.scene.currentSceneId !== 'S01' || !this.scene._campfireService?.isLit?.()) return null;
+    const campfire = this.scene._campfireService.getPosition();
+    return { x: campfire.x + 48, y: campfire.y + 64, label: '已点燃的火堆旁' };
+  }
+
   allowsTutorialBasicAttack() {
     return this.scene._tutorialFlow?.isCurrent?.('s01.attack') === true;
   }

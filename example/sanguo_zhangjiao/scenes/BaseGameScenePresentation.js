@@ -1,6 +1,9 @@
 import { applySceneRuntimeConfig, toggleSceneDebugPanel } from '../../../src/core/scene/RuntimeDebugWiring.js';
 import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
+import { SceneCameraBounds } from '../../../src/core/scene/SceneCameraBounds.js';
+import { SceneEntityState } from '../../../src/core/scene/SceneEntityState.js';
+import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
 import { BaseGameSceneGameplayHooks } from './BaseGameSceneGameplayHooks.js';
 
 /** 场景表现与兼容转发层；不拥有领域状态或生命周期 owner。 */
@@ -99,6 +102,129 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     return state;
   }
 
+  /**
+   * 通用世界加载模板：投影 ProjectWorldIndex/Region、同步流式表现并由宿主配置领域运行时。
+   * 具体游戏只能在 configureWorldRuntimeFromLoad 中安装自己的配置消费者，不能重写提交顺序。
+   */
+  _loadWorldTerrains() {
+    const loadPromise = this._worldLoadPromise;
+    if (!loadPromise) return null;
+    const guard = this.resourceScope?.guard?.bind(this.resourceScope) || (callback => callback);
+    return Promise.resolve(loadPromise)
+      .then(guard(async result => {
+        const world = this.context?.world;
+        if (world) {
+          world.region = result?.region || null;
+          world.worldIndex = result?.worldIndex || null;
+        }
+        this._worldRegion = result?.region || null;
+        this._worldIndex = result?.worldIndex || null;
+        this.minimap?.setWorldIndex?.(result?.worldIndex, result?.region?.id);
+        this._syncWorldStreamingProjection?.();
+        await this.configureWorldRuntimeFromLoad(result);
+
+        const terrains = this._terrains?.length
+          ? this._terrains
+          : (this.terrain ? [this.terrain] : []);
+        const gate = this.context?.services?.worldReadyGate || this._worldReadyGate;
+        gate?.resolve?.('terrains', terrains);
+        this._syncWorldReadyProjection();
+        return result;
+      }))
+      .catch(guard(error => {
+        // 保留可运行降级：加载失败后由 WorldReadyGate 超时/已完成规则开放稳定背景。
+        console.warn('[SceneWorldLoad] 加载 worldMap 地形失败:', error);
+        const gate = this.context?.services?.worldReadyGate || this._worldReadyGate;
+        gate?.resolve?.('terrains', []);
+        this._syncWorldReadyProjection();
+        return null;
+      }));
+  }
+
+  /** 子游戏在世界数据已经校验和投影后安装自己的运行时配置消费者。 */
+  configureWorldRuntimeFromLoad(_result) {}
+
+  /** 将 WorldReadyGate 投影到迁移期兼容字段；正式渲染只读取 gate。 */
+  _syncWorldReadyProjection() {
+    const gate = this.context?.services?.worldReadyGate || this._worldReadyGate;
+    const status = gate?.status;
+    if (!status) return;
+    const timedOut = status.state === 'timedOut';
+    this._terrainsLoaded = timedOut || status.entries.terrains?.state === 'resolved';
+    this._spawnApplied = timedOut || status.entries.placements?.state === 'resolved';
+    this._sceneReady = status.state === 'ready' || timedOut;
+  }
+
+  /** 兼容入口；真实状态由 WorldReadyGate 持有。 */
+  _checkSceneReady() {
+    this._syncWorldReadyProjection();
+  }
+
+  /** 世界资源未就绪时的统一稳定背景，避免默认位置和程序化地形闪现。 */
+  renderLoadingBackground(ctx) {
+    const background = this.terrain?.sceneBackgroundColor || '#1f1a14';
+    ctx.fillStyle = background;
+    ctx.fillRect(
+      0,
+      0,
+      this.logicalWidth || ctx.canvas?.width || 0,
+      this.logicalHeight || ctx.canvas?.height || 0
+    );
+  }
+
+  /** 通用 world/screen/modal 管线结束后的游戏专属最高层表现钩子。 */
+  renderPostPipeline(_ctx) {}
+
+  /** 为场景创建可由 update/render 驱动的淡黑覆盖层；资源作用域变更后自动替换旧实例。 */
+  _ensureFadeOverlayTransition() {
+    const current = this._fadeOverlayTransition;
+    if (current && current.scope === this.resourceScope && !current.scope?.disposed) return current;
+    if (!this.resourceScope || this.resourceScope.disposed) return null;
+    const transition = new FadeOverlayTransition({ duration: 0.3, scope: this.resourceScope });
+    this._fadeOverlayTransition = transition;
+    return transition;
+  }
+
+  /** 淡黑→执行→淡出的通用异步转场；取消、替换或退出时返回 false。 */
+  _fadeTransition(callback) {
+    const transition = this._ensureFadeOverlayTransition();
+    if (!transition) return Promise.resolve(false);
+    return transition.start(callback).then(result => !result?.cancelled);
+  }
+
+  /** 每帧推进当前淡黑覆盖层。 */
+  _updateTeleportFade(deltaTime) {
+    return this._fadeOverlayTransition?.update(deltaTime) || false;
+  }
+
+  /** 渲染当前淡黑覆盖层；命名保留以兼容既有传送调用方。 */
+  _renderTeleportFade(ctx) {
+    return this._fadeOverlayTransition?.render(ctx, {
+      width: this.logicalWidth,
+      height: this.logicalHeight
+    }) || false;
+  }
+
+  /** 判断实体是否已死亡、正在死亡或已从当前实体投影中移除。 */
+  _isEntityDead(entity) {
+    return SceneEntityState.isDead(entity, this.context?.entities?.all || this.entities);
+  }
+
+  /** 扫描迁移期兼容对象列表中的已拾取对象；提交与领域反应仍由观察器回调拥有。 */
+  _checkItemPickupEvents() {
+    return this._pickedObjectObserver?.scan?.() || 0;
+  }
+
+  /** 限制相机不超出当前 ProjectWorldIndex 中活动 Region 的派生边界。 */
+  clampCameraToWorldBounds() {
+    const world = this.context?.world || {};
+    return SceneCameraBounds.clampToWorldIndex(
+      this.context?.camera?.instance || this.camera,
+      world.worldIndex || this._worldIndex,
+      world.region?.id || this._worldRegion?.id
+    );
+  }
+
   renderWorldObjects(ctx) {
     return this._ensureRenderPipeline().renderWorldObjects(ctx);
   }
@@ -138,8 +264,25 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     return this._terrainBinding.initEffectZones({ sceneId, worldOffset, resourceScope: this.resourceScope });
   }
 
+  /**
+   * 标准地形碰撞模板：由基类统一提供 terrain/player/diagnostics 上下文。
+   * 子场景只有数据来源确实不同才覆写此方法，常规场景不应重复组装同一参数对象。
+   */
   checkTerrainCollision() {
-    return this._terrainBinding.checkTerrainCollision();
+    const terrainBinding = this._terrainBinding;
+    if (!terrainBinding) return false;
+    const diagnostics = this.context?.services?.diagnostics;
+    if (!diagnostics?.checkTerrainCollision) return terrainBinding.checkTerrainCollision();
+    const terrains = this._terrains?.length
+      ? this._terrains
+      : (this.terrain ? [this.terrain] : []);
+    return diagnostics.checkTerrainCollision({
+      terrainBinding,
+      terrains,
+      terrain: this.terrain || terrains[0] || null,
+      playerEntity: this.playerEntity,
+      label: this.name || this.constructor?.name || 'Scene'
+    }) === true;
   }
 
   renderPickupItems(ctx) {

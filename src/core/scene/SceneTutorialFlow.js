@@ -10,6 +10,7 @@ export class SceneTutorialFlow {
     this.presenter = config.presenter || null;
     this.scheduler = config.scheduler || (callback => setTimeout(callback, 0));
     this._presentationBound = false;
+    this._panelVisibility = new Map();
   }
 
   bindPresentation() {
@@ -60,6 +61,37 @@ export class SceneTutorialFlow {
     return completed;
   }
 
+  /**
+   * Observes generic scene event sources without assigning trigger or panel names.
+   * Panels may be supplied as an object, a Map, or iterable { id, visible } entries.
+   */
+  observeEventSources({ position = null, panels = null, onMovementComplete = null, onPanelVisible = null } = {}) {
+    const movementCompleted = this.updateMovement(position, {
+      onComplete: event => onMovementComplete?.(event)
+    });
+    for (const { id, visible } of this._normalizePanels(panels)) {
+      const wasVisible = this._panelVisibility.get(id) === true;
+      if (visible && !wasVisible) onPanelVisible?.({ id });
+      this._panelVisibility.set(id, visible);
+    }
+    return { movementCompleted };
+  }
+
+  resetObservedSources() {
+    this._panelVisibility.clear();
+  }
+
+  _normalizePanels(panels) {
+    if (panels instanceof Map) return [...panels].map(([id, panel]) => ({ id, visible: panel?.visible === true }));
+    if (Array.isArray(panels)) return panels
+      .filter(entry => entry?.id)
+      .map(entry => ({ id: entry.id, visible: entry.visible === true || entry.panel?.visible === true }));
+    if (panels && typeof panels === 'object') {
+      return Object.entries(panels).map(([id, panel]) => ({ id, visible: panel?.visible === true || panel === true }));
+    }
+    return [];
+  }
+
   _matchesScope(definition, scope) {
     const sceneId = typeof scope === 'string' ? scope : scope?.sceneId;
     const sceneIds = definition?.scope?.sceneIds;
@@ -73,6 +105,7 @@ export class SceneTutorialFlow {
       this.tutorialSystem.onComplete(null);
     }
     this._presentationBound = false;
+    this.resetObservedSources();
   }
 }
 

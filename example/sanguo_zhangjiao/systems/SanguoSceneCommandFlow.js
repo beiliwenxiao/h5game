@@ -12,6 +12,11 @@ const commandMethods = {
     return null;
   },
 
+  canPerformBasicAttack() {
+    if (this.s11s14SceneCoordinator.handlePointerBasicAttack()) return false;
+    return this.canPerformDefaultBasicAttack() || this._s01s02Coordinator.allowsTutorialBasicAttack();
+  },
+
   handleIrreversibleChoice(command = {}) {
     if (this.currentSceneId === 'S06') return this.s06SceneCoordinator._handleS06DefenseChoiceCommand(command);
     if (this.currentSceneId === 'S08') return this.s07s08Coordinator._handleS08RetreatChoiceCommand(command);

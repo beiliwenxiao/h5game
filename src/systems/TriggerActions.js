@@ -29,7 +29,7 @@ export const DEFAULT_TRIGGER_ACTION_IDS = Object.freeze([
   'setVar', 'addVar', 'setFlag', 'toggleFlag', 'startDialogue', 'switchScene',
   'loadRegion', 'teleportToChunk', 'giveReward', 'heal', 'startQuest',
   'completeQuest', 'showTip', 'playSound', 'playBgm', 'spawnEnemy', 'wait',
-  'parallel', 'battleWin', 'battleLose', 'spawnWave', 'mount',
+  'parallel', 'battleWin', 'battleLose', 'mount',
   'rescue.command', 'battle.command', 'construction.command', 'vehicle.command',
   'quest.command', 'world.teleport', 'checkpoint.request', 'ending.command',
   'dialogue.command', 'tutorial.command', 'state.transaction', 'scenario.command'
@@ -169,7 +169,6 @@ export function registerDefaultActions(triggerSystem) {
     // ---- 战场（§14 BattleMode 占位，具体逻辑待实现）----
     battleWin:  (p, ctx) => { ctx.blackboard?.set('_battleResult', { win: true, team: p.team }); },
     battleLose: (p, ctx) => { ctx.blackboard?.set('_battleResult', { win: false, team: p.team }); },
-    spawnWave:  (p, ctx) => { ctx.world?.spawnWave?.(p); },
     mount:      (p, ctx) => { ctx.world?.mount?.(p.rider, p.vehicle, p.seat); }
   });
 }

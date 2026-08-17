@@ -316,10 +316,10 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
         onPopupConfirm: () => this._handleGainedPopupGamepad(),
         onGamepadCombat: () => this._updateGamepadCombat(),
         onLocomotionInput: event => this.jumpByInput({ event }),
-        onPromptSwitch: () => this._updatePromptSwitch(),
         dialogue: this._ensureDialogueFlow(),
         aiming: this._ensureSkillActions(),
         triggerBindings: this._sceneTriggerBindings,
+        getNpcInteraction: () => this.context?.services?.npcInteraction || null,
         worldInteraction: this._ensureWorldInteraction()
       });
     }

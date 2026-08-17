@@ -33,6 +33,7 @@ function normalizeDefinition(input) {
     canSkip: input.canSkip !== false,
     priority: Number.isFinite(input.priority) ? input.priority : 0,
     category: input.category || 'general',
+    scope: input.scope ? cloneValue(input.scope) : null,
     order: Number.isFinite(input.order) ? input.order : 0,
     signalRules: Array.isArray(input.signalRules) ? cloneValue(input.signalRules) : [],
     movementRule: input.movementRule ? cloneValue(input.movementRule) : null,

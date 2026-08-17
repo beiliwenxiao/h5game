@@ -13,6 +13,9 @@ export class SanguoDomainCommandFacade {
     const routes = [
       ['scenario.command', 'campfire.ignite', () => scene._campfireService.ignite({ runtime: { particleSystem: scene.particleSystem } })],
       ['scenario.command', 'class.confirm', p => scene._showClassConfirmation(p)],
+      ['scenario.command', 'class.select', (p, context) => scene.s09ClassSelectionCoordinator.selectClass({
+        ...p, operationId: context.operationId
+      })],
       ['scenario.command', 'yuzhou.travel', () => scene.s03s08Coordinator.travelToS03()],
       ['scenario.command', 'route.choose', () => scene.s03s08Coordinator.openS04RouteChoice()],
       ['scenario.command', 'mine.prepare', () => scene.s05SceneCoordinator.prepareS05Mine()],
@@ -49,7 +52,8 @@ export class SanguoDomainCommandFacade {
     this.routes = new Map(routes.map(([commandType, operation, handler]) => [`${commandType}:${operation}`, handler]));
   }
 
-  execute({ commandType, payload = {} } = {}) {
+  execute({ commandType, payload = {}, operationId = null } = {}) {
+    const context = { operationId };
     const coordinator = this.scene.s11s14SceneCoordinator;
     if (commandType === 'rescue.command' && coordinator?.executeRescueCommand
       && !this.routes.has(`${commandType}:${payload.operation}`)) {
@@ -63,7 +67,7 @@ export class SanguoDomainCommandFacade {
     }
     const route = this.routes.get(`${commandType}:${payload.operation}`);
     if (!route) return { ok: false, code: 'unknownCanonicalOperation', operation: payload.operation };
-    return Promise.resolve(route(payload)).then(asResult);
+    return Promise.resolve(route(payload, context)).then(asResult);
   }
 }
 

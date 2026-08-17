@@ -24,6 +24,12 @@
 
 import { TutorialDefinitionRepository } from './TutorialDefinitionRepository.js';
 
+const matchesScope = (definition, scope = null) => {
+  const sceneId = typeof scope === 'string' ? scope : scope?.sceneId;
+  const sceneIds = definition?.scope?.sceneIds;
+  return !Array.isArray(sceneIds) || sceneIds.length === 0 || !sceneId || sceneIds.includes(sceneId);
+};
+
 export class TutorialSystem {
   constructor(config = {}) {
     // definitions 属于不可变 Repository；本系统只借用索引并拥有运行进度。
@@ -99,19 +105,21 @@ export class TutorialSystem {
     return this.setDefinitionRepository(new TutorialDefinitionRepository(definitions));
   }
 
-  showNext(category = null) {
+  showNext(category = null, scope = null) {
     if (this.currentTutorial) return false;
     const next = [...this.definitionRepository.values()]
       .filter(definition => (!category || definition.category === category)
+        && matchesScope(definition, scope)
         && !this.completedTutorials.has(definition.id))
       .sort((left, right) => left.order - right.order || right.priority - left.priority)[0];
     return next ? this.showTutorial(next.id) : false;
   }
 
-  notify(signal, payload = {}) {
+  notify(signal, payload = {}, scope = null) {
     if (!this.enabled || !signal) return false;
     const candidates = [...this.definitionRepository.values()]
       .filter(definition => definition.completionPolicy === 'signal'
+        && matchesScope(definition, scope)
         && !this.completedTutorials.has(definition.id))
       .sort((left, right) => left.order - right.order || right.priority - left.priority);
     for (const definition of candidates) {
@@ -128,10 +136,11 @@ export class TutorialSystem {
     return false;
   }
 
-  updateMovement(position, category = null) {
+  updateMovement(position, category = null, scope = null) {
     if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return false;
     const definition = [...this.definitionRepository.values()]
       .filter(value => (!category || value.category === category)
+        && matchesScope(value, scope)
         && value.completionPolicy === 'signal'
         && value.movementRule && !this.completedTutorials.has(value.id))
       .sort((left, right) => left.order - right.order)[0];

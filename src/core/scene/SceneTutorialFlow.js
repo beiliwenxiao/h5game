@@ -6,16 +6,10 @@ export class SceneTutorialFlow {
   constructor(config = {}) {
     if (!config.tutorialSystem) throw new TypeError('SceneTutorialFlow requires tutorialSystem');
     this.tutorialSystem = config.tutorialSystem;
-    this.activeWhen = config.activeWhen || (() => true);
+    this.getScope = config.getScope || (() => null);
     this.presenter = config.presenter || null;
     this.scheduler = config.scheduler || (callback => setTimeout(callback, 0));
-    this.category = config.category || null;
     this._presentationBound = false;
-  }
-
-  configure(config = {}) {
-    this.category = config.category || this.category;
-    return this;
   }
 
   bindPresentation() {
@@ -29,25 +23,23 @@ export class SceneTutorialFlow {
   }
 
   showNext() {
-    if (!this.activeWhen()) return false;
-    return this.tutorialSystem.showNext(this.category);
+    return this.tutorialSystem.showNext(null, this.getScope());
   }
 
   complete(tutorialId) {
-    if (!tutorialId || !this.activeWhen() || this.isCompleted(tutorialId)) return false;
+    if (!tutorialId || this.isCompleted(tutorialId)) return false;
     this.tutorialSystem.completeTutorial(tutorialId);
     if (!this.tutorialSystem.isShowingTutorial()) this.showNext();
     return true;
   }
 
   notify(signal, payload = {}) {
-    if (!this.activeWhen()) return false;
-    return this.tutorialSystem.notify(signal, payload);
+    return this.tutorialSystem.notify(signal, payload, this.getScope());
   }
 
   isCurrent(tutorialId) {
-    if (!this.activeWhen()) return false;
-    return this.tutorialSystem.getCurrentTutorial()?.id === tutorialId;
+    const current = this.tutorialSystem.getCurrentTutorial();
+    return current?.id === tutorialId;
   }
 
   isCompleted(tutorialId) {
@@ -55,17 +47,23 @@ export class SceneTutorialFlow {
   }
 
   resetMovementOrigin(position = null) {
+    const scope = this.getScope();
     const definition = this.tutorialSystem.getAllTutorials()
-      .find(value => (!this.category || value.category === this.category)
+      .find(value => this._matchesScope(value, scope)
         && value.movementRule && !this.isCompleted(value.id));
     this.tutorialSystem.resetMovementOrigin(definition?.id || null, position);
   }
 
   updateMovement(position, options = {}) {
-    if (!this.activeWhen()) return false;
-    const completed = this.tutorialSystem.updateMovement(position, this.category);
+    const completed = this.tutorialSystem.updateMovement(position, null, this.getScope());
     if (completed) options.onComplete?.({ position });
     return completed;
+  }
+
+  _matchesScope(definition, scope) {
+    const sceneId = typeof scope === 'string' ? scope : scope?.sceneId;
+    const sceneIds = definition?.scope?.sceneIds;
+    return !Array.isArray(sceneIds) || sceneIds.length === 0 || !sceneId || sceneIds.includes(sceneId);
   }
 
   dispose() {

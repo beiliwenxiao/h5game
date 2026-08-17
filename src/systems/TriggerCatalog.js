@@ -17,7 +17,7 @@ const CORE_ACTIONS = [
   ['startQuest', '开始任务'], ['completeQuest', '完成任务'], ['showTip', '显示提示'],
   ['playSound', '播放音效'], ['playBgm', '播放BGM'], ['spawnEnemy', '生成敌人'], ['wait', '等待'],
   ['parallel', '并行执行'], ['battleWin', '战斗胜利'], ['battleLose', '战斗失败'],
-  ['spawnWave', '生成波次'], ['mount', '上载具/骑乘']
+  ['mount', '上载具/骑乘']
 ].map(([value, label]) => Object.freeze({ value, v: value, label: `${label} ${value}` }));
 
 function mergeCatalog(core, extra = []) {

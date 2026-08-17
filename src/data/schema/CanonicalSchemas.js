@@ -551,6 +551,13 @@ export const TUTORIAL_MOVEMENT_RULE_SCHEMA = {
   }
 };
 
+export const TUTORIAL_SCOPE_SCHEMA = {
+  id: 'tutorialScope',
+  fields: {
+    sceneIds: { type: FieldType.ARRAY, minItems: 1, itemType: FieldType.STRING }
+  }
+};
+
 export const TUTORIAL_DEFINITION_SCHEMA = {
   id: 'tutorialDefinition',
   fields: {
@@ -558,6 +565,7 @@ export const TUTORIAL_DEFINITION_SCHEMA = {
     title: { type: FieldType.STRING, required: true, minLength: 1 },
     description: { type: FieldType.STRING },
     category: { type: FieldType.STRING, required: true, minLength: 1 },
+    scope: { type: FieldType.OBJECT, schema: 'tutorialScope' },
     order: { type: FieldType.INTEGER, required: true, min: 0 },
     steps: { type: FieldType.ARRAY, required: true, minItems: 1, itemSchema: 'tutorialStep' },
     signalRules: { type: FieldType.ARRAY, itemSchema: 'tutorialSignalRule' },
@@ -690,6 +698,7 @@ export const CANONICAL_SCHEMAS = [
   TUTORIAL_SIGNAL_CONDITION_SCHEMA,
   TUTORIAL_SIGNAL_RULE_SCHEMA,
   TUTORIAL_MOVEMENT_RULE_SCHEMA,
+  TUTORIAL_SCOPE_SCHEMA,
   TUTORIAL_DEFINITION_SCHEMA,
   GAME_PROJECT_META_SCHEMA,
   BATTLE_INTEGRATION_SCHEMA,

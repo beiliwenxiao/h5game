@@ -25,10 +25,11 @@ export class SceneInputFlow {
     onPopupConfirm = NOOP,
     onGamepadCombat = NOOP,
     onLocomotionInput = NOOP,
-    onPromptSwitch = NOOP,
     dialogue = null,
     aiming = null,
     triggerBindings = null,
+    npcInteraction = null,
+    getNpcInteraction = null,
     worldInteraction = null
   } = {}) {
     this.inputManager = inputManager;
@@ -40,10 +41,11 @@ export class SceneInputFlow {
     this.onPopupConfirm = typeof onPopupConfirm === 'function' ? onPopupConfirm : NOOP;
     this.onGamepadCombat = typeof onGamepadCombat === 'function' ? onGamepadCombat : NOOP;
     this.onLocomotionInput = typeof onLocomotionInput === 'function' ? onLocomotionInput : NOOP;
-    this.onPromptSwitch = typeof onPromptSwitch === 'function' ? onPromptSwitch : NOOP;
     this.dialogue = dialogue;
     this.aiming = aiming;
     this.triggerBindings = triggerBindings;
+    this.npcInteraction = npcInteraction;
+    this.getNpcInteraction = typeof getNpcInteraction === 'function' ? getNpcInteraction : null;
     this.worldInteraction = worldInteraction;
     this._disposers = [];
     this._registered = false;
@@ -94,6 +96,10 @@ export class SceneInputFlow {
       handle: event => this.triggerBindings?.handleInteract?.(event) === true
     }));
     this._disposers.push(register(InputHandler.PICKUP, {
+      id: 'scene-npc-interact',
+      handle: event => (this.getNpcInteraction?.() || this.npcInteraction)?.handleInput?.(event) === true
+    }));
+    this._disposers.push(register(InputHandler.PICKUP, {
       id: 'scene-input-pickup',
       handle: event => this._invokeHandled(
         this.worldInteraction,
@@ -135,7 +141,6 @@ export class SceneInputFlow {
     }
 
     if (!this._modalConsumed && !this._popupConsumed) this._updateGamepadCombat(dt);
-    this.onPromptSwitch(dt);
 
     if (!this.router?.update) return [];
     return this.router.update(DEFAULT_KEYS);

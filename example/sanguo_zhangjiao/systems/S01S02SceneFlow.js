@@ -58,6 +58,10 @@ export class S01S02Coordinator {
   async travelToS09() {
     return this._submit('story.s02.travel');
   }
+
+  allowsTutorialBasicAttack() {
+    return this.scene._tutorialFlow?.isCurrent?.('s01.attack') === true;
+  }
 }
 
 export default S01S02Coordinator;

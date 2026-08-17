@@ -2635,14 +2635,6 @@
         "label": "spawnGroup"
       },
       {
-        "value": "sceneCountdown",
-        "label": "sceneCountdown"
-      },
-      {
-        "value": "promptSwitch",
-        "label": "promptSwitch"
-      },
-      {
         "value": "teleportToChunk",
         "label": "teleportToChunk"
       },
@@ -2677,18 +2669,6 @@
       {
         "value": "setTime",
         "label": "setTime"
-      },
-      {
-        "value": "promptNextWave",
-        "label": "promptNextWave"
-      },
-      {
-        "value": "spawnStarvingWave",
-        "label": "spawnStarvingWave"
-      },
-      {
-        "value": "spawnWave",
-        "label": "spawnWave"
       },
       {
         "value": "selectClass",
@@ -4555,6 +4535,7 @@
       "id": "s01.move",
       "title": "移动",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 0,
       "steps": [
         {
@@ -4573,6 +4554,7 @@
       "id": "s01.attack",
       "title": "攻击",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 1,
       "steps": [
         {
@@ -4593,6 +4575,7 @@
       "id": "s01.pickup",
       "title": "拾取",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 2,
       "steps": [
         {
@@ -4613,6 +4596,7 @@
       "id": "s01.jump",
       "title": "跳跃",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 3,
       "steps": [
         {
@@ -4633,6 +4617,7 @@
       "id": "s01.gather",
       "title": "采集",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 4,
       "steps": [
         {
@@ -4653,6 +4638,7 @@
       "id": "s01.durability",
       "title": "工具耐久",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 5,
       "steps": [
         {
@@ -4680,6 +4666,7 @@
       "id": "s01.capacity",
       "title": "背包容量",
       "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
       "order": 6,
       "steps": [
         {

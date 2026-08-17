@@ -2,9 +2,12 @@ import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinat
 
 export const S09_REFUGEE_DIALOGUE_ID = 'dialogue.s09.refugeeConflict';
 
+const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
 /**
- * P2.2 presentation adapter. It forwards player intent to the shared command port and only
- * projects committed results into dialogue/placement/audio; it never owns Story/City/Inventory state.
+ * P2.2 S09 历史流程协调器。剧情选择经统一命令端口提交；采粮政策仅在
+ * GatheringSystem 的既有 prepare/commit/rollback 事务中投影 Story/City 结果，
+ * coordinator 自身只持有可快照恢复的操作幂等记录。
  */
 const methods = {
   _submit(definitionId, payload = {}) {
@@ -73,7 +76,88 @@ const methods = {
 };
 
 export class S09RefugeeCoordinator extends SceneFlowCoordinator {
-  constructor(scene) { super(scene, methods, { name: 'S09RefugeeCoordinator' }); }
+  constructor(scene) {
+    super(scene, methods, { name: 'S09RefugeeCoordinator' });
+    this._unauthorizedHarvestOperations = new Set();
+  }
+
+  /** S09 历史采粮政策参与通用 GatheringSystem 的 prepare/commit/rollback 链。 */
+  prepareUnauthorizedHarvestSettlement(context = {}) {
+    const { operationId, node, owner } = context;
+    const scene = this.scene;
+    if (scene.currentSceneId !== 'S09' || node?.resourceType !== 'food') return null;
+    if (!operationId) return { ok: false, code: 'missingGatheringOperationId' };
+    if (this._unauthorizedHarvestOperations.has(operationId)) return { ok: true, idempotent: true };
+
+    const blackboard = scene.gameLoader?.blackboard;
+    const permissions = blackboard?.get?.('resourcePermissions') || {};
+    if (permissions.S09?.food === true) return null;
+    const cityStates = blackboard?.get?.('cityStates');
+    const cityIndex = Array.isArray(cityStates)
+      ? cityStates.findIndex(city => city?.id === 'city.s09_guangzong_camp')
+      : -1;
+    if (cityIndex < 0 || !owner?.id) return { ok: false, code: 'missingS09CityState' };
+    const cityValidation = scene.gameLoader?.contentValidator?.validate?.(
+      cityStates[cityIndex], 'city', `variables.cityStates[${cityIndex}]`
+    );
+    if (cityValidation && !cityValidation.ok) return { ok: false, code: 'invalidS09CityState' };
+    const reputationBefore = Number(blackboard.get('reputation'));
+    if (!Number.isFinite(reputationBefore)) return { ok: false, code: 'invalidReputation' };
+
+    const storyBefore = cloneData(blackboard.get('storyState') || {});
+    const guardIds = Array.isArray(node.guardUnitIds) ? node.guardUnitIds : [];
+    const guards = guardIds
+      .map(id => (scene.enemies || []).find(enemy => enemy?.id === id))
+      .filter(Boolean);
+    if (guards.length !== guardIds.length) return { ok: false, code: 'missingS09GranaryGuards' };
+    const guardStates = guards.map(guard => ({
+      guard,
+      state: scene.aiSystem?.getRuntimeState?.(guard)
+    }));
+
+    return {
+      ok: true,
+      commit: () => {
+        blackboard.set('reputation', Math.max(0, reputationBefore - 5));
+        blackboard.set('storyState', {
+          ...storyBefore,
+          s09UnauthorizedHarvests: Math.max(0, Number(storyBefore.s09UnauthorizedHarvests) || 0) + 1
+        });
+        for (const guard of guards) {
+          if (scene._isEntityDead(guard)) continue;
+          if (!scene.aiSystem?.activateAI?.(guard, guard.aiType || 'aggressive')) {
+            throw new Error(`无法激活粮仓哨兵: ${guard.id}`);
+          }
+        }
+        this._unauthorizedHarvestOperations.add(operationId);
+        return { ok: true };
+      },
+      rollback: () => {
+        blackboard.set('reputation', reputationBefore);
+        blackboard.set('storyState', storyBefore);
+        for (const entry of guardStates) {
+          if (entry.state) scene.aiSystem?.restoreRuntimeState?.(entry.guard, entry.state);
+        }
+        this._unauthorizedHarvestOperations.delete(operationId);
+      }
+    };
+  }
+
+  hasUnauthorizedHarvest(operationId) {
+    return this._unauthorizedHarvestOperations.has(operationId);
+  }
+
+  captureUnauthorizedHarvestOperations() {
+    return [...this._unauthorizedHarvestOperations];
+  }
+
+  restoreUnauthorizedHarvestOperations(operationIds = []) {
+    this._unauthorizedHarvestOperations = new Set(
+      (Array.isArray(operationIds) ? operationIds : [])
+        .filter(operationId => typeof operationId === 'string' && operationId.length > 0)
+        .slice(-256)
+    );
+  }
 }
 
 export default S09RefugeeCoordinator;

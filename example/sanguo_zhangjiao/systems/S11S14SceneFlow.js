@@ -1302,6 +1302,23 @@ const s13s14Methods = {
     return true;
   },
 
+  handlePointerBasicAttack() {
+    if (!this._isS14CatapultGunner()) return false;
+    if (this.inputManager?.isMouseButtonDown?.(0)
+      && !this.inputManager?.isMouseClickHandled?.()) {
+      const position = this.playerEntity?.getComponent?.('transform')?.position;
+      const mouse = this.inputManager?.mouse;
+      const dx = Number(mouse?.worldX) - Number(position?.x);
+      const dy = Number(mouse?.worldY) - Number(position?.y);
+      const magnitude = Math.hypot(dx, dy);
+      const direction = magnitude > 0
+        ? { x: dx / magnitude, y: dy / magnitude }
+        : this.getPlayerFacingVector();
+      this.handleBasicAttackIntent({ type: 'attack', direction, source: 'pointer' });
+    }
+    return true;
+  },
+
   async operateS14Catapult() {
     if (this.currentSceneId !== 'S14') return false;
     this._ensureS14VehicleEntities?.();

@@ -351,7 +351,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.23_
     - _Requirements: 2.12, 3.4, 3.7, 3.10_
 
-  - [x] 3.25 迁移 Dialogue、Tutorial、Teleport、Checkpoint 与薄 Scene 边界
+  - [~] 3.25 迁移 Dialogue、Tutorial、Teleport、Checkpoint 与薄 Scene 边界
     - DialogueSystem 唯一拥有 session/node/history/completed；choice 只发标准 dialogueChoice，Trigger chain 成功后才推进。保留 repeatable、idleText、商店/任务交互优先级和 completed save/load。
     - Tutorial definitions 完整保存步骤、signal rules、阈值、文案和 completion policy；TutorialSystem 只持运行态，`project.tutorials` 不再被普通 Trigger 双重解释。
     - world.teleport 只调用 ChunkNavigator/RegionCoordinator，checkpoint.request 只调用 SaveGameService/SnapshotManager；目标失败保持旧 Region/位置/Story/Trigger ledger。

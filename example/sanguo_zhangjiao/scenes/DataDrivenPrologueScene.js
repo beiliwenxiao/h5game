@@ -57,6 +57,7 @@ import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinato
 import { S01S02Coordinator } from '../systems/S01S02SceneFlow.js';
 import { SceneTutorialFlow } from '../../../src/core/scene/SceneTutorialFlow.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
+import { SceneNpcInteractionFlow } from '../../../src/core/scene/SceneNpcInteractionFlow.js';
 import {
   S03S08Coordinator, S03_BATTLE_ID
 } from '../systems/S03S08SceneFlow.js';
@@ -70,6 +71,7 @@ import {
 import {
   S09RefugeeCoordinator, S09_REFUGEE_DIALOGUE_ID, S09_SILENCE_EVENT_TYPE
 } from '../systems/S09RefugeeFlow.js';
+import { S09ClassSelectionCoordinator } from '../systems/S09ClassSelectionFlow.js';
 import { S10ConstructionCoordinator } from '../systems/S10ConstructionFlow.js';
 import { S10StoryCoordinator } from '../systems/S10StoryFlow.js';
 import { S11S14SceneCoordinator } from '../systems/S11S14SceneFlow.js';
@@ -92,8 +94,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     this._tutorialFlow = new SceneTutorialFlow({
       tutorialSystem: this.tutorialSystem,
-      category: 's01-survival',
-      activeWhen: () => this.currentSceneId === 'S01',
+      getScope: () => ({ sceneId: this.currentSceneId }),
       presenter: {
         show: data => this._showScreenTip(data?.step?.text || '', {
           title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
@@ -120,19 +121,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getNpcEntities: () => (this._npcEntities = this._npcEntities || []),
       getGroupEnemies: () => (this._groupEnemies = this._groupEnemies || {})
     });
-
-    // 饥民逐渐生成器（第二波，复用旧 Act1 starvingSpawner 逻辑）
-    this._starvingSpawner = {
-      active: false,
-      totalCount: 0,
-      spawnedCount: 0,
-      spawnInterval: 0,
-      spawnTimer: 0,
-      group: null
-    };
-
-    // 提示"按 N 进入下一波"状态（promptNextWave 动作设置）
-    this._promptNextWave = null; // { text }
+    this._npcInteractionFlow = new SceneNpcInteractionFlow({
+      getNpcs: () => this._npcEntities || [],
+      getPlayer: () => this.playerEntity,
+      getDialogueSystem: () => this.dialogueSystem,
+      getShopSystem: () => this.shopSystem,
+      onInteract: target => this.gameLoader?.triggerSystem?.fire?.('interact', { target }),
+      showIdleText: ({ npc, text }) => this._presentNpcIdleText(npc, text)
+    });
+    this.context.services.npcInteraction = this._npcInteractionFlow;
 
     this.terrain = null;
     this.worldStreamingManager = null;
@@ -210,7 +207,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._s08RecallBusy = false;
     this._s10StoryBusy = false;
     this._constructionCheckpointBusy = false;
-    this._appliedGatheringPolicyOperations = new Set();
     this._s05MinePendingSettlements = new Map();
     this._s05MineBusy = false;
     this._s06DecisionBusy = false;
@@ -224,6 +220,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s06SceneCoordinator = new S06SceneCoordinator(this);
     this.s07s08Coordinator = new S07S08Coordinator(this);
     this.s09RefugeeCoordinator = new S09RefugeeCoordinator(this);
+    this.s09ClassSelectionCoordinator = new S09ClassSelectionCoordinator(this);
+    this.context.services.s09ClassSelection = this.s09ClassSelectionCoordinator;
     this.s10StoryCoordinator = new S10StoryCoordinator(this);
     this.s10ConstructionCoordinator = new S10ConstructionCoordinator(this);
     this.s11s14SceneCoordinator = new S11S14SceneCoordinator(this);
@@ -907,8 +905,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       inventoryTransactions: this.inventoryTransactions,
       getItem: itemId => this.gameLoader?.getRegistry?.('items')?.get?.(itemId) || null,
       tutorialComplete: id => this._tutorialFlow?.isCompleted?.(id) === true,
-      checkpoint: payload => this._scenarioCommandService.requestCheckpoint(payload),
-      travel: payload => this._scenarioCommandService.navigate(payload)
+      executeScenarioCommand: (intentType, payload, command) => this._executeScenarioCommand(
+        intentType,
+        payload,
+        `${command.operationId}:${intentType}`
+      )
     });
     this.sceneRuntime.registerCommandHandler('state.transaction', this._canonicalStateTransactions);
     this.context.services.canonicalStateTransactions = this._canonicalStateTransactions;
@@ -1017,14 +1018,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 提示切幕已由 SceneInputFlow 在帧首统一处理，确保手柄/键鼠只消费一次。
 
-    // 提示按 N 进入下一波（同样在 super.update 前检测按键）
-    this._updatePromptNextWave();
-
     // 职业确认窗口检测（第四幕，确认窗口打开时优先处理点击，阻止穿透到 NPC 交互）
     this._updateClassConfirmation();
 
-    // NPC 交互候选尚未迁移，保留现有专用路径。
-    this._checkNpcInteract();
+    // NPC 自动靠近交互由通用 flow 更新；显式交互已在帧首经 SceneInputFlow 路由。
+    this.context.services.npcInteraction?.updatePresence?.();
 
     // approach/enter/leave 统一由框架空间绑定系统处理。
     this._sceneTriggerBindings?.update();
@@ -1064,9 +1062,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s11s14SceneCoordinator._updateS11S12Runtime();
     this.endingPresentationView?.update?.(deltaTime * 1000);
 
-    // 饥民逐渐生成器（第二波）
-    this._updateStarvingSpawner(deltaTime);
-
     // 事件源：物品被拾取 → fire('itemPickup', {item:id})（供"拾取X后掉落Y"类触发器）
     this._checkItemPickupEvents();
 
@@ -1075,9 +1070,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 事件源：① 渐进提示条件 —— playerMoved（移动一段距离）/ panelOpen（背包/属性面板打开）
     this._checkTutorialEventSources();
-
-    // ⑤ 切幕：倒计时
-    this._updateSceneCountdown(deltaTime);
 
     // 地形碰撞（火堆 + 水池/树/编辑器碰撞多边形）
     this._campfireService.resolvePlayerCollision({
@@ -1104,9 +1096,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 此处只负责按组统计存活数、fire('waveCleared')（波次全灭，每组一次）。
     for (const [group, list] of Object.entries(this._groupEnemies)) {
       if (this._clearedGroups.has(group)) continue;
-      // 对于逐渐生成的波次（starvingSpawner），必须等全部生成完毕才判定全灭
-      const sp = this._starvingSpawner;
-      if (sp.active && sp.group === group && sp.spawnedCount < sp.totalCount) continue;
       let alive = 0;
       for (const e of list) {
         if (!this._isEntityDead(e)) alive++;
@@ -1119,25 +1108,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** S01 攻击教学允许无敌人空挥；S14 gunner 攻击转交载具武器事务。 */
+  /** S14 gunner 指针意图和 S01 教学许可均由对应 Demo coordinator 投影。 */
   canPerformBasicAttack() {
-    if (this.s11s14SceneCoordinator._isS14CatapultGunner()) {
-      if (this.inputManager?.isMouseButtonDown?.(0)
-        && !this.inputManager?.isMouseClickHandled?.()) {
-        const position = this.playerEntity?.getComponent?.('transform')?.position;
-        const mouse = this.inputManager?.mouse;
-        const dx = Number(mouse?.worldX) - Number(position?.x);
-        const dy = Number(mouse?.worldY) - Number(position?.y);
-        const magnitude = Math.hypot(dx, dy);
-        const direction = magnitude > 0
-          ? { x: dx / magnitude, y: dy / magnitude }
-          : this.getPlayerFacingVector();
-        this.s11s14SceneCoordinator.handleBasicAttackIntent({ type: 'attack', direction, source: 'pointer' });
-      }
-      return false;
-    }
+    if (this.s11s14SceneCoordinator.handlePointerBasicAttack()) return false;
     if (super.canPerformBasicAttack()) return true;
-    return this._tutorialFlow.isCurrent('s01.attack');
+    return this._s01s02Coordinator.allowsTutorialBasicAttack();
   }
 
   /** 将所有成功采集原子投影为结局隐藏输入，再组合场景专属政策。 */
@@ -1175,69 +1150,16 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     };
   }
 
-  /** 场景采集政策：S05 处理强制工具损毁，S09 处理未许可采粮。 */
+  /** 场景只按当前 canonical 区块路由采集政策；历史规则由对应 coordinator 持有。 */
   _prepareSceneGatheringSettlement(context = {}) {
-    const { operationId, node, owner } = context;
+    const { node } = context;
     if (this.currentSceneId === 'S05' && node?.resourceType === 'iron') {
       return this.s05SceneCoordinator._prepareS05MineGatheringSettlement(context);
     }
-    if (this.currentSceneId !== 'S09' || node?.resourceType !== 'food') return null;
-    if (this._appliedGatheringPolicyOperations.has(operationId)) {
-      return { ok: true, idempotent: true };
+    if (this.currentSceneId === 'S09' && node?.resourceType === 'food') {
+      return this.s09RefugeeCoordinator.prepareUnauthorizedHarvestSettlement(context);
     }
-    const blackboard = this.gameLoader?.blackboard;
-    const permissions = blackboard?.get?.('resourcePermissions') || {};
-    if (permissions.S09?.food === true) return null;
-
-    const cityStates = blackboard?.get?.('cityStates');
-    const cityIndex = Array.isArray(cityStates)
-      ? cityStates.findIndex(city => city?.id === 'city.s09_guangzong_camp')
-      : -1;
-    if (cityIndex < 0 || !owner?.id) return { ok: false, code: 'missingS09CityState' };
-    const cityValidation = this.gameLoader?.contentValidator?.validate?.(
-      cityStates[cityIndex], 'city', `variables.cityStates[${cityIndex}]`
-    );
-    if (cityValidation && !cityValidation.ok) return { ok: false, code: 'invalidS09CityState' };
-    const reputationBefore = Number(blackboard.get('reputation'));
-    if (!Number.isFinite(reputationBefore)) return { ok: false, code: 'invalidReputation' };
-
-    const storyBefore = JSON.parse(JSON.stringify(blackboard.get('storyState') || {}));
-    const guardIds = Array.isArray(node.guardUnitIds) ? node.guardUnitIds : [];
-    const guards = guardIds
-      .map(id => (this.enemies || []).find(enemy => enemy?.id === id))
-      .filter(Boolean);
-    if (guards.length !== guardIds.length) return { ok: false, code: 'missingS09GranaryGuards' };
-    const guardStates = guards.map(guard => ({
-      guard,
-      state: this.aiSystem?.getRuntimeState?.(guard)
-    }));
-
-    return {
-      ok: true,
-      commit: () => {
-        blackboard.set('reputation', Math.max(0, reputationBefore - 5));
-        blackboard.set('storyState', {
-          ...storyBefore,
-          s09UnauthorizedHarvests: Math.max(0, Number(storyBefore.s09UnauthorizedHarvests) || 0) + 1
-        });
-        for (const guard of guards) {
-          if (this._isEntityDead(guard)) continue;
-          if (!this.aiSystem?.activateAI?.(guard, guard.aiType || 'aggressive')) {
-            throw new Error(`无法激活粮仓哨兵: ${guard.id}`);
-          }
-        }
-        this._appliedGatheringPolicyOperations.add(operationId);
-        return { ok: true };
-      },
-      rollback: () => {
-        blackboard.set('reputation', reputationBefore);
-        blackboard.set('storyState', storyBefore);
-        for (const entry of guardStates) {
-          if (entry.state) this.aiSystem?.restoreRuntimeState?.(entry.guard, entry.state);
-        }
-        this._appliedGatheringPolicyOperations.delete(operationId);
-      }
-    };
+    return null;
   }
 
   _grantGatheringProficiency(data = {}) {
@@ -1266,7 +1188,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       void this.s05SceneCoordinator._finalizeS05MineCollapse(data);
       return;
     }
-    if (event === 'completed' && this._appliedGatheringPolicyOperations.has(data.operationId)) {
+    if (event === 'completed' && this.s09RefugeeCoordinator.hasUnauthorizedHarvest(data.operationId)) {
       this._showScreenTip('未获许可取走粮食：声望 -5，粮仓哨兵已被惊动。');
     }
     if (event === 'completed') this._grantGatheringProficiency(data);
@@ -1307,269 +1229,45 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._statsWasOpen = statsVis;
   }
 
-  /**
-   * 提示切幕（动作 promptSwitch）：显示提示，等待按 N 或交互键 E 再切场景。
-   * @param {Object} p - { scene:目标场景名, text:提示文案 }
-   * @private
-   */
-  _startPromptSwitch(p = {}) {
-    const scene = p.scene || p.sceneId || null;
-    if (!scene) {
-      console.warn('[DDScene] promptSwitch: 缺少 canonical 目标场景');
-      return;
+  async _executeScenarioCommand(intentType, payload = {}, operationId = null) {
+    const gateway = this.sceneRuntime?.commandGateway;
+    const actorRef = this.playerEntity;
+    if (!gateway || !actorRef?.id) {
+      return { ok: false, code: 'scenarioCommandUnavailable', error: { message: '场景命令端口不可用' } };
     }
-    this._promptSwitch = {
-      scene,
-      spawnRef: p.spawnRef || null,
-      text: p.text || '当前区域目标已完成'
-    };
-  }
-
-  /** @private 提示切幕刷新 + 按键传送到目标区块 */
-  _updatePromptSwitch() {
-    if (!this._promptSwitch) return;
-    this._showScreenTip(this._promptSwitch.text, { persist: true });
-    const im = this.inputManager;
-    if (!im) return;
-    const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
-    if (pressed('n') || pressed('N') || pressed('e') || pressed('E')) {
-      const scene = this._promptSwitch.scene;
-      const spawnRef = this._promptSwitch.spawnRef || null;
-      this._promptSwitch = null;
-      this._hideScreenTip();
-      console.log('[DDScene] 提示切幕：传送到区块 →', scene);
-      this.teleportToChunk({ scene, spawnRef, transition: 'fadeBlack' });
-    }
-  }
-
-  /**
-   * 提示按 N 进入下一波（动作 promptNextWave）。
-   * 显示提示文案，等待按 N → fire('nextWave')，触发器可监听 nextWave 执行 spawnStarvingWave。
-   * @param {Object} p - { text:提示文案 }
-   * @private
-   */
-  _startPromptNextWave(p = {}) {
-    this._promptNextWave = {
-      text: p.text || '按 N 继续'
-    };
-  }
-
-  /** @private 每帧检测 N 键 → fire nextWave 事件 */
-  _updatePromptNextWave() {
-    if (!this._promptNextWave) return;
-    this._showScreenTip(this._promptNextWave.text, { persist: true });
-    const im = this.inputManager;
-    if (!im) return;
-    const pressed = (k) => (im.isKeyPressed ? im.isKeyPressed(k) : im.isKeyDown(k));
-    if (pressed('n') || pressed('N')) {
-      this._promptNextWave = null;
-      this._hideScreenTip();
-      console.log('[DDScene] 按 N：fire nextWave');
-      if (this.gameLoader) this.gameLoader.triggerSystem.fire('nextWave', {});
-    }
-  }
-
-  /** 启动由 canonical action params 完整定义的渐进生成波次。 */
-  _startStarvingWave(p = {}) {
-    const group = typeof p.group === 'string' ? p.group.trim() : '';
-    const totalCount = Math.floor(Number(p.count));
-    const spawnInterval = Number(p.interval);
-    if (!group || !Number.isInteger(totalCount) || totalCount <= 0
-      || !Number.isFinite(spawnInterval) || spawnInterval <= 0) {
-      throw new TypeError('spawnStarvingWave requires group, positive integer count and positive interval');
-    }
-    this._starvingSpawner.active = true;
-    this._starvingSpawner.totalCount = totalCount;
-    this._starvingSpawner.spawnedCount = 0;
-    this._starvingSpawner.spawnTimer = 0;
-    this._starvingSpawner.spawnInterval = spawnInterval;
-    this._starvingSpawner.group = group;
-    // 初始化该组的追踪列表
-    this._groupEnemies = this._groupEnemies || {};
-    this._groupEnemies[group] = [];
-    console.log(`[DDScene] 启动饥民逐渐生成，组: ${group}，总数: ${this._starvingSpawner.totalCount}`);
-  }
-
-  /** @private 每帧更新饥民逐渐生成器 */
-  _updateStarvingSpawner(deltaTime) {
-    const sp = this._starvingSpawner;
-    if (!sp.active) return;
-    if (sp.spawnedCount >= sp.totalCount) return;
-
-    sp.spawnTimer += deltaTime;
-    if (sp.spawnTimer >= sp.spawnInterval) {
-      sp.spawnTimer -= sp.spawnInterval;
-      this._spawnSingleStarving(sp.group);
-    }
-  }
-
-  /**
-   * 从画面边缘随机位置生成一个饥民（复用旧 Act1 spawnSingleStarving 逻辑）
-   * @private
-   */
-  _spawnSingleStarving(group) {
-    const playerTransform = this.playerEntity && this.playerEntity.getComponent('transform');
-    const campfirePosition = this._campfireService.getPosition();
-    const centerX = playerTransform ? playerTransform.position.x : campfirePosition.x;
-    const centerY = playerTransform ? playerTransform.position.y : campfirePosition.y;
-
-    // 从玩家四面八方生成（距离 150~250 像素）
-    const spawnDistance = 150 + Math.random() * 100;
-    const angle = Math.random() * Math.PI * 2;
-    const x = centerX + Math.cos(angle) * spawnDistance;
-    const y = centerY + Math.sin(angle) * spawnDistance;
-
-    const enemy = this.entityFactory.createEnemy({
-      name: '饥民',
-      templateId: 'starving',
-      level: 2,
-      position: { x, y },
-      stats: { maxHp: 40, attack: 6, defense: 3 },
-      aiType: 'aggressive'
+    const normalizedPayload = intentType === SCENARIO_COMMANDS.WORLD_TELEPORT
+      ? { ...payload, sceneId: payload.sceneId || payload.scene }
+      : { ...payload };
+    const generatedOperationId = operationId || `scene:${intentType}:${actorRef.id}:${++this._scenarioCommandSequence}`;
+    return gateway.execute({
+      intentType,
+      actorRef,
+      operationId: generatedOperationId,
+      payload: normalizedPayload
     });
-
-    this.entityStore.addEnemy(enemy);
-    if (this.aiSystem && this.aiSystem.registerAI) {
-      this.aiSystem.registerAI(enemy, 'aggressive');
-    }
-
-    // 追踪到组（供 _checkWaveEvents 检测全灭）
-    this._groupEnemies = this._groupEnemies || {};
-    (this._groupEnemies[group] = this._groupEnemies[group] || []).push(enemy);
-
-    this._starvingSpawner.spawnedCount++;
   }
 
   /**
-   * 数据驱动：批量生成一波敌人（第五幕战役）。围绕玩家四周随机散布。
-   * 触发器 do:spawnWave 调用，明细直接写在触发器 params（可含小兵+名将 BOSS）。
-   * @param {Object} p - {
-   *   group: 组名（供 waveCleared 判定；默认 'act5_wave'）,
-   *   enemies: [ { name, count, templateId, level, stats:{maxHp,attack,defense,speed}, color, aiType } ]
-   * }
-   * @private
-   */
-  _spawnWave(p = {}) {
-    const group = p.group || 'act5_wave';
-    const entries = Array.isArray(p.enemies) ? p.enemies : [];
-    if (entries.length === 0) { console.warn('[DDScene] spawnWave: enemies 为空'); return; }
-    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-    const campfirePosition = this._campfireService.getPosition();
-    const cx = pt ? pt.position.x : campfirePosition.x;
-    const cy = pt ? pt.position.y : campfirePosition.y;
-    this._groupEnemies = this._groupEnemies || {};
-    this._groupEnemies[group] = this._groupEnemies[group] || [];
-    let total = 0;
-    for (const e of entries) {
-      const count = Math.max(1, e.count || 1);
-      for (let i = 0; i < count; i++) {
-        // 四周环形随机散布（BOSS 距离更近一些）
-        const dist = (e.count === 1 ? 200 : 260) + Math.random() * 220;
-        const angle = Math.random() * Math.PI * 2;
-        const x = cx + Math.cos(angle) * dist;
-        const y = cy + Math.sin(angle) * dist;
-        const st = e.stats || {};
-        const enemy = this.entityFactory.createEnemy({
-          name: e.name || '官府士兵',
-          templateId: e.templateId || 'soldier',
-          level: e.level || 3,
-          position: { x, y },
-          stats: {
-            maxHp: st.maxHp || 60, hp: st.maxHp || 60,
-            attack: st.attack || 8, defense: st.defense || 5, speed: st.speed || 85
-          },
-          color: e.color || null,
-          aiType: e.aiType || 'aggressive'
-        });
-        this.entityStore.addEnemy(enemy);
-        if (this.aiSystem && this.aiSystem.registerAI) {
-          this.aiSystem.registerAI(enemy, e.aiType || 'aggressive');
-        }
-        this._groupEnemies[group].push(enemy);
-        total++;
-      }
-    }
-    console.log(`[DDScene] spawnWave(${group}): 生成 ${total} 个敌人`);
-  }
-
-  /**
-   * ⑤ 启动倒计时切幕（动作 sceneCountdown）。
-   * 与旧 Act1 一致：倒计时结束 → triggerPlayerDeath → 黑屏过渡 → switchToNextScene。
-   * @param {Object} p - { scene:目标场景名, seconds:倒计时秒数(默认20), text:提示文案 }
-   * @private
-   */
-  _startSceneCountdown(p = {}) {
-    if (this._countdown) return; // 已在倒计时
-    const scene = p.scene || p.sceneId || null;
-    if (!scene) {
-      console.warn('[DDScene] sceneCountdown: 缺少 canonical 目标场景');
-      return;
-    }
-    this._countdown = {
-      scene,
-      remain: p.seconds != null ? p.seconds : 20,
-      text: p.text || '战斗结束！可以拾取物品'
-    };
-    // 退出战斗状态，方便玩家拾取物品
-    if (this.combatSystem && this.combatSystem.isInCombat()) {
-      this.combatSystem.exitCombat();
-    }
-  }
-
-  /** @private 倒计时刷新 + 到点触发死亡过渡（与旧 Act1 一致） */
-  _updateSceneCountdown(deltaTime) {
-    if (!this._countdown) return;
-    this._countdown.remain -= deltaTime;
-    const sec = Math.max(0, Math.ceil(this._countdown.remain));
-    this._showScreenTip(`${this._countdown.text}。${sec}秒后进入下一幕`, { persist: true });
-    if (this._countdown.remain <= 0) {
-      const scene = this._countdown.scene;
-      this._countdown = null;
-      this._hideScreenTip();
-      // 与旧 Act1 一致：设 HP=0 + 黑屏过渡 + switchToNextScene
-      this._nextSceneTarget = scene;
-      this._triggerPlayerDeath();
-    }
-  }
-
-  /**
-   * 模拟旧 Act1 的 triggerPlayerDeath：HP=0 → 1秒后 startTransition → switchToNextScene
-   * @private
-   */
-  _triggerPlayerDeath() {
-    if (this._playerDiedTriggered) return;
-    this._playerDiedTriggered = true;
-    console.log('[DDScene] triggerPlayerDeath: 触发死亡过渡');
-    const stats = this.playerEntity && this.playerEntity.getComponent('stats');
-    if (stats) stats.hp = 0;
-    this.resourceScope?.setTimeout(
-      () => this.startTransition('眼前一黑，你晕了过去...'),
-      1000
-    );
-  }
-
-  /**
-   * 覆盖 BaseGameScene.switchToNextScene：传送到数据指定的目标区块
-   */
-  switchToNextScene() {
-    const scene = this._nextSceneTarget;
-    if (!scene) {
-      console.warn('[DDScene] switchToNextScene: 没有已配置的 canonical 目标场景');
-      return false;
-    }
-    console.log('[DDScene] switchToNextScene → teleportToChunk:', scene);
-    return this.teleportToChunk({ scene, transition: 'fadeBlack' });
-  }
-
-  /**
-   * 大地图内传送：移动玩家到目标 chunk 的世界坐标
+   * 大地图内传送兼容入口：仍由 ChunkNavigator/RegionCoordinator 完成，
+   * 但所有调用统一经 world.teleport CommandGateway。
    * @param {Object} p - { scene, spawnRef, x, y, transition, region }
-   * @returns {Promise|void}
+   * @returns {Promise<Object>}
    */
-  teleportToChunk(p = {}) {
-    const sceneId = p.sceneId || p.scene;
-    return this._scenarioCommandService?.navigate({ ...p, sceneId })
-      || this._chunkNavigator?.teleport({ ...p, sceneId });
+  async teleportToChunk(p = {}) {
+    const result = await this._executeScenarioCommand(
+      SCENARIO_COMMANDS.WORLD_TELEPORT,
+      p,
+      p.operationId || null
+    );
+    if (!result?.ok) {
+      return {
+        ok: false,
+        cancelled: true,
+        code: result?.code || 'worldTeleportRejected',
+        errors: result?.error ? [{ code: result.code || 'worldTeleportRejected', message: result.error.message }] : []
+      };
+    }
+    return result.value || { ok: true };
   }
 
   _findRegionIndexForScene(sceneId) {
@@ -1642,8 +1340,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const keys = [
       'worldStreamingState',
       'campfireLit', 'firedPickups', 'clearedGroups',
-      'gatheringState', 'puppetState', 'gatheringPolicyOperations',
-      'nextSceneTarget', 'playerDiedTriggered'
+      'gatheringState', 'puppetState', 'gatheringPolicyOperations'
     ];
     const state = {};
     for (const key of keys) {
@@ -1853,10 +1550,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       ...this.s03s14BattleCoordinator.capture(),
       rescueState: this.rescueSystem?.serialize?.() || null,
       ...s11s14State,
-      gatheringPolicyOperations: [...(this._appliedGatheringPolicyOperations || new Set())],
-      timeState: this.timeSystem?.serialize?.() || null,
-      nextSceneTarget: this._nextSceneTarget || null,
-      playerDiedTriggered: !!this._playerDiedTriggered
+      gatheringPolicyOperations: this.s09RefugeeCoordinator.captureUnauthorizedHarvestOperations(),
+      timeState: this.timeSystem?.serialize?.() || null
     };
   }
 
@@ -1926,9 +1621,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       .map(entry => [entry.regionId, JSON.parse(JSON.stringify(entry.state))]));
     this._firedPickups = new Set(data.firedPickups || []);
     this._clearedGroups = new Set(data.clearedGroups || []);
-    this._appliedGatheringPolicyOperations = new Set(data.gatheringPolicyOperations || []);
-    this._nextSceneTarget = data.nextSceneTarget || null;
-    this._playerDiedTriggered = !!data.playerDiedTriggered;
+    this.s09RefugeeCoordinator.restoreUnauthorizedHarvestOperations(data.gatheringPolicyOperations);
     const restoredStoryDay = Math.max(1, Math.floor(Number(
       this.gameLoader?.blackboard?.get?.('storyState')?.currentDay
     ) || 1));
@@ -2163,104 +1856,22 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /**
-   * NPC 交互检测：遍历已生成的 NPC，玩家在交互范围内时：
-   * - trigger==='approach'：进入范围自动触发一次
-   * - trigger==='interact'：按 E / 点击 NPC 触发
-   * 触发内容：优先对话(dialogueId)，其次商店(shopId)。同时 fire('interact',{target:npcId})。
-   *
-   * 对话已讲完（DialogueSystem.hasCompleted）且未标记 repeatableDialogue 时，不再重播剧情：
-   * 有商店则开商店，否则飘一句"XXX 看了你一眼，继续忙事情去了。"
+   * NPC 忙碌台词的纯表现 adapter；节流和可交互判定由 SceneNpcInteractionFlow 统一拥有。
    * @private
    */
-  _checkNpcInteract() {
-    const npcs = this._npcEntities;
-    if (!npcs || npcs.length === 0) return;
-    const pt = this.playerEntity && this.playerEntity.getComponent('transform');
-    if (!pt) return;
-    // 对话进行中不重复触发
-    if (this.dialogueSystem && this.dialogueSystem.isDialogueActive && this.dialogueSystem.isDialogueActive()) return;
-
-    const ePressed = this.inputManager.isKeyDown('e') || this.inputManager.isKeyDown('E');
-    const clicked = this.inputManager.isMouseClicked && this.inputManager.isMouseClicked() && !this.inputManager.isMouseClickHandled();
-    const m = this.inputManager.mouse;
-
-    for (const npc of npcs) {
-      const nt = npc.getComponent('transform');
-      const nc = npc.getComponent('npc');
-      if (!nt || !nc || !nc.hasInteraction()) continue;
-
-      const dist = Math.hypot(nt.position.x - pt.position.x, nt.position.y - pt.position.y);
-      const inRange = dist <= (nc.interactionRadius || 60);
-      nc.inRange = inRange;
-
-      const doInteract = () => {
-        this.gameLoader && this.gameLoader.triggerSystem.fire('interact', { target: nc.npcId });
-
-        const ds = this.dialogueSystem;
-        const dialogueDone = !!(nc.dialogueId && ds && ds.hasCompleted && ds.hasCompleted(nc.dialogueId));
-        const canTalk = nc.dialogueId && ds && ds.startDialogue && (nc.repeatableDialogue || !dialogueDone);
-
-        if (canTalk) {
-          ds.startDialogue(nc.dialogueId);
-        } else if (nc.shopId && this.shopSystem && this.shopSystem.openShop) {
-          this.shopSystem.openShop(nc.shopId);
-        } else if (dialogueDone) {
-          this._showNpcIdleText(npc, nc);
-        }
-      };
-
-      if (nc.interactionTrigger === 'approach') {
-        // 靠近自动触发一次
-        if (inRange && !nc.interacted) {
-          nc.interacted = true;
-          doInteract();
-          return;
-        }
-        if (!inRange) nc.interacted = false;
-      } else {
-        // 按 E 或点击 NPC
-        if (!inRange) continue;
-        let clickedNpc = false;
-        if (clicked && m) {
-          const sp = npc.getComponent('sprite');
-          const hh = (sp?.height || 48) * (sp?.scale || 1);
-          const hw = (sp?.width || 32) * (sp?.scale || 1);
-          if (Math.abs(m.worldX - nt.position.x) <= hw / 2 + 10 && (nt.position.y - m.worldY) <= hh + 10 && (m.worldY - nt.position.y) <= 20) {
-            clickedNpc = true;
-          }
-        }
-        if (ePressed || clickedNpc) {
-          if (clickedNpc) this.inputManager.markMouseClickHandled && this.inputManager.markMouseClickHandled();
-          doInteract();
-          return;
-        }
-      }
+  _presentNpcIdleText(npc, text) {
+    const transform = npc?.getComponent?.('transform');
+    if (transform && this.floatingTextManager) {
+      const sprite = npc.getComponent?.('sprite');
+      const height = (sprite?.height || 48) * (sprite?.scale || 1);
+      this.floatingTextManager.addText(
+        transform.position.x,
+        transform.position.y - height - 20,
+        text,
+        '#cccccc'
+      );
     }
-  }
-
-  /**
-   * 对话已讲完的 NPC 再次交互时的反馈：NPC 头顶飘一句忙碌台词。
-   * 带 2 秒节流，避免按住 E 时每帧刷屏。
-   * @param {Entity} npc
-   * @param {NpcComponent} nc
-   * @private
-   */
-  _showNpcIdleText(npc, nc) {
-    const now = performance.now();
-    if (nc._idleTextAt && now - nc._idleTextAt < 2000) return;
-    nc._idleTextAt = now;
-
-    const nameC = npc.getComponent && npc.getComponent('name');
-    const npcName = (nameC && nameC.name) || npc.name || nc.npcId || '';
-    const text = nc.getIdleText ? nc.getIdleText(npcName) : `${npcName} 看了你一眼，继续忙事情去了。`;
-
-    const nt = npc.getComponent('transform');
-    if (nt && this.floatingTextManager) {
-      const sp = npc.getComponent('sprite');
-      const height = (sp?.height || 48) * (sp?.scale || 1);
-      this.floatingTextManager.addText(nt.position.x, nt.position.y - height - 20, text, '#cccccc');
-    }
-    if (this.notificationSystem) this.notificationSystem.addNotification(text, 'info');
+    this.notificationSystem?.addNotification?.(text, 'info');
   }
 
   /**
@@ -2356,7 +1967,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           this._syncPlayerClassAppearance(currentClass);
 
           // TutorialDefinition 已由 GameLoader 原子发布给唯一 TutorialSystem。
-          this._tutorialFlow.configure({ category: 's01-survival' });
           this._configureSharedClassEffects(gameLoader);
           await this._installBattleFlow(gameLoader);
           this._installProgressionUI(gameLoader);
@@ -2458,9 +2068,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       vehicles: {
         resolveEntity: id => this.entityStore?.all?.find?.(entity => entity?.id === id) || null,
         getInventoryOwnerId: inventory => this._resolveVehicleInventoryOwnerId(inventory),
-        createCheckpoint: checkpoint => this._scenarioCommandService?.requestCheckpoint({
-          reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: this.currentSceneId
-        }) || Promise.resolve({ ok: false, code: 'checkpointServiceUnavailable' }),
+        createCheckpoint: checkpoint => this._executeScenarioCommand(
+          SCENARIO_COMMANDS.CHECKPOINT_REQUEST,
+          {
+            reason: 'checkpoint',
+            checkpointId: checkpoint.checkpointId,
+            sceneId: this.currentSceneId
+          },
+          checkpoint.operationId || null
+        ),
         onVehicleEvent: (event, data) => trigger('vehicle', event, data),
         onLogisticsEvent: (event, data) => trigger('vehicleLogistics', event, data),
         onMannedStructureEvent: (event, data) => trigger('mannedStructure', event, data)
@@ -2861,8 +2477,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
-  /** S09 出征旗是进入 S03 的唯一正常入口；跨区提交成功后 RegionCoordinator 才会解锁 S03。 */
-
   /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */
   _syncPlayerClassAppearance(classId = null) {
     return this._playerFactory?.applyClassAppearance?.(this, this.playerEntity, classId) === true;
@@ -2991,9 +2605,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _confirmClassSelection(classId) {
-    const success = await this._selectClass({ classId });
-    if (success) this._classConfirm = null;
-    return success;
+    const result = await this._executeScenarioCommand('scenario.command', {
+      operation: 'class.select',
+      classId
+    }, `class-select:${this.playerEntity?.id || 'unknown'}:${classId}`);
+    if (!result?.ok) return false;
+    this._classConfirm = null;
+    this._presentClassSelectionCommitted(result.value?.classType || classId);
+    return true;
+  }
+
+  _presentClassSelectionCommitted(classType) {
+    this._syncPlayerClassAppearance(classType);
+    this._s09AudioDirector?.playFeedback?.('classSelected');
+    const className = ClassNames[classType] || classType;
+    this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
+    this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });
+    console.log('%c[DDScene] S09 职业检查点已提交:', 'color:#4CAF50', className);
   }
 
   /** 渲染职业确认窗口；提示文本始终由 InputHints 根据当前设备生成。 */
@@ -3052,166 +2680,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     ctx.fillStyle = '#fff';
     ctx.fillText(`取消（${InputHints.key('modalCancel')}）`, cancelX + btnW / 2, btnY + 11);
     ctx.restore();
-  }
-
-  /**
-   * S09 职业事务：装备、职业来源、初始能力、StoryState 和 checkpoint 要么全部成功，要么全部回滚。
-   */
-  async _selectClass(p = {}) {
-    const classType = p.classId || p.class || ClassType.WARRIOR;
-    const supported = [ClassType.WARRIOR, ClassType.ARCHER, ClassType.STRATEGIST];
-    if (!supported.includes(classType) || this._classSelectionBusy) return false;
-
-    const player = this.playerEntity;
-    const playerId = player?.id;
-    const stats = player?.getComponent?.('stats');
-    const inventory = player?.getComponent?.('inventory');
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    const progression = this.gameLoader?.progressionSystem;
-    const classSystem = this._ensureClassSystem();
-    if (this.currentSceneId !== 'S09' || !playerId || !stats || !inventory || !blackboard
-      || !progression || !classSystem || storyState?.joinedYellowTurban !== true) {
-      this._showScreenTip('职业选择前置状态不完整', { title: '无法选择职业' });
-      return false;
-    }
-
-    if (storyState.classSelectionCommitted === true) {
-      if (storyState.selectedClass !== classType) {
-        this._showScreenTip('职业已经固定，不能改选', { title: '不可更改' });
-        return false;
-      }
-      classSystem.restoreClass(playerId, classType);
-      this._classSelected = true;
-      this.selectedClass = classType;
-      this._syncPlayerClassAppearance(classType);
-      this._syncUnlockedClassSkills();
-      return true;
-    }
-    if (classSystem.getCharacterClass(playerId)) {
-      this._showScreenTip('检测到未完成的职业运行状态，请重新读取检查点', { title: '状态冲突' });
-      return false;
-    }
-
-    const classData = classSystem.getClassData(classType);
-    const itemRegistry = this.gameLoader.getRegistry?.('items');
-    const equipmentEntries = classSystem.getStartingEquipment(classType).map(spec => ({
-      item: itemRegistry?.get?.(spec.id),
-      quantity: Math.max(1, Math.floor(Number(spec.quantity) || 1))
-    }));
-    if (!classData || equipmentEntries.length === 0 || equipmentEntries.some(entry => !entry.item?.id)) {
-      this._showScreenTip('职业初始装备定义缺失', { title: '内容配置错误' });
-      return false;
-    }
-    const inventoryPreview = this.inventoryTransactions.previewBatchAdd(inventory, equipmentEntries);
-    if (!inventoryPreview.valid || inventoryPreview.remainder > 0) {
-      this._showScreenTip('背包空间不足，整理后再确认职业', { title: '无法领取初始装备' });
-      return false;
-    }
-
-    const initialNodeByClass = {
-      warrior: { graphId: 'warrior-skill', nodeId: 'cleave', passiveStart: 'start_warrior' },
-      archer: { graphId: 'archer-skill', nodeId: 'arrow_shot', passiveStart: 'start_archer' },
-      strategist: { graphId: 'strategist-skill', nodeId: 'talisman_water', passiveStart: 'start_strategist' }
-    };
-    const initial = initialNodeByClass[classType];
-    if (!progression.getGraph(initial.graphId)?.getNode?.(initial.nodeId)
-      || !progression.getGraph('global-passive')?.getNode?.(initial.passiveStart)) {
-      this._showScreenTip(`职业初始能力或天赋盘起点不存在：${initial.nodeId}`, { title: '成长配置错误' });
-      return false;
-    }
-
-    const inventoryBefore = JSON.parse(JSON.stringify(inventory.exportItems()));
-    const blackboardBefore = JSON.parse(JSON.stringify(blackboard.serialize()));
-    const progressionBefore = JSON.parse(JSON.stringify(progression.serializeCharacter(playerId)));
-    const statsBefore = {
-      class: stats.class,
-      skillPoints: stats.skillPoints,
-      unitType: stats.unitType
-    };
-    const playerClassBefore = player.class;
-    const operationId = `class-select:${playerId}:${classType}`;
-    this._classSelectionBusy = true;
-
-    try {
-      const equipmentResult = this.inventoryTransactions.commit({
-        type: 'batchAdd', inventory, entries: equipmentEntries, allowPartial: false, operationId
-      });
-      if (!equipmentResult.ok) throw new Error(equipmentResult.code || '初始装备提交失败');
-      if (!classSystem.selectClass(playerId, classType)) throw new Error('职业系统拒绝选择');
-
-      player.class = classType;
-      stats.class = classType;
-      if (typeof stats.setUnitType === 'function') stats.setUnitType(classData.baseUnitType);
-      else stats.unitType = classData.baseUnitType;
-
-      const ledger = progression.getLedger(playerId);
-      const starterPointTotals = { skill: 8, talent: 4, unit: 4, passive: 4 };
-      for (const [pool, targetTotal] of Object.entries(starterPointTotals)) {
-        const currentTotal = ledger.getAvailable(pool) + ledger.getSpent(pool);
-        if (currentTotal < targetTotal) progression.grantPoints(playerId, pool, targetTotal - currentTotal);
-      }
-      if (progression.getRank(playerId, initial.graphId, initial.nodeId) === 0) {
-        const allocated = progression.allocateNode(playerId, initial.graphId, initial.nodeId, {
-          characterLevel: Number(stats.level) || 1
-        });
-        if (!allocated.ok) throw new Error(allocated.message || `无法解锁 ${initial.nodeId}`);
-      }
-      if (progression.getRank(playerId, 'global-passive', initial.passiveStart) === 0) {
-        const startAllocated = progression.allocateNode(playerId, 'global-passive', initial.passiveStart, {
-          characterLevel: Number(stats.level) || 1
-        });
-        if (!startAllocated.ok) throw new Error(startAllocated.message || `无法激活 ${initial.passiveStart}`);
-      }
-      stats.skillPoints = progression.getLedger(playerId).getAvailable('skill');
-
-      blackboard.set('storyState', {
-        ...storyState,
-        joinedYellowTurban: true,
-        classSelectionCommitted: true,
-        selectedClass: classType,
-        lastCheckpointId: 'checkpoint.S09.classSelected'
-      });
-      blackboard.set('joinedYellowTurban', true);
-      blackboard.set('selectedClass', classType);
-      blackboard.set('classSelected', true);
-      this._classSelected = true;
-      this.selectedClass = classType;
-      this._syncUnlockedClassSkills();
-
-      const saveResult = await this.requestAutoSave({
-        reason: 'checkpoint', checkpointId: 'checkpoint.S09.classSelected', sceneId: 'S09'
-      });
-      if (!saveResult?.ok) throw new Error(saveResult?.errors?.[0]?.message || '职业检查点未提交');
-    } catch (error) {
-      inventory.loadItems(inventoryBefore);
-      this.inventoryTransactions.forgetOperation?.(operationId);
-      progression.deserializeCharacter(playerId, progressionBefore);
-      classSystem.clearClass(playerId);
-      player.class = playerClassBefore;
-      for (const [key, value] of Object.entries(statsBefore)) {
-        if (value === undefined) delete stats[key];
-        else stats[key] = value;
-      }
-      blackboard.deserialize(blackboardBefore);
-      this._classSelected = false;
-      this.selectedClass = null;
-      this.gatheringPuppetSystem?.cancelActive?.('classRollback');
-      if (this.gatheringPuppetSystem) this.gatheringPuppetSystem.chargesRemaining = null;
-      this._syncUnlockedClassSkills();
-      this._showScreenTip(`职业提交失败：${error.message || error}。状态已回滚，可重试。`, { title: '检查点失败' });
-      return false;
-    } finally {
-      this._classSelectionBusy = false;
-    }
-
-    this._syncPlayerClassAppearance(classType);
-    this._s09AudioDirector?.playFeedback?.('classSelected');
-    const className = ClassNames[classType] || classType;
-    this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
-    this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });
-    console.log('%c[DDScene] S09 职业检查点已提交:', 'color:#4CAF50', className);
-    return true;
   }
 
   /**

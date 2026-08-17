@@ -140,9 +140,6 @@ export class SceneGameLoaderBridge {
 
   _registerScopeActions(triggerSystem) {
     const scope = this.scope;
-    if (typeof scope?._startPromptSwitch === 'function') {
-      triggerSystem.registerAction('promptSwitch', params => scope._startPromptSwitch(params));
-    }
     if (typeof scope?._toggleDebugPanel === 'function') {
       triggerSystem.registerAction('toggleDebug', () => scope._toggleDebugPanel());
     }

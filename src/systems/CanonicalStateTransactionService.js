@@ -35,7 +35,7 @@ function rejected(command, code, message = code) {
 export class CanonicalStateTransactionService {
   constructor({ definitionRepository, getBlackboard, getInventory = () => null, inventoryTransactions = null,
     getItem = () => null, checkpoint = async () => ({ ok: true }), travel = async () => ({ ok: true }),
-    tutorialComplete = () => true } = {}) {
+    executeScenarioCommand = null, tutorialComplete = () => true } = {}) {
     if (!definitionRepository?.get) throw new TypeError('CanonicalStateTransactionService requires DefinitionRepository');
     if (typeof getBlackboard !== 'function') throw new TypeError('CanonicalStateTransactionService requires getBlackboard');
     this.definitionRepository = definitionRepository;
@@ -43,6 +43,7 @@ export class CanonicalStateTransactionService {
     this.getInventory = getInventory;
     this.inventoryTransactions = inventoryTransactions;
     this.getItem = getItem;
+    this.executeScenarioCommand = typeof executeScenarioCommand === 'function' ? executeScenarioCommand : null;
     this.checkpoint = checkpoint;
     this.travel = travel;
     this.tutorialComplete = tutorialComplete;
@@ -181,13 +182,21 @@ export class CanonicalStateTransactionService {
       }
       const checkpointSpec = variant.checkpoint || transaction.checkpoint;
       if (checkpointSpec) {
-        const saved = await this.checkpoint(this._value(checkpointSpec, env));
+        const checkpointPayload = this._value(checkpointSpec, env);
+        const saved = this.executeScenarioCommand
+          ? await this.executeScenarioCommand('checkpoint.request', checkpointPayload, command)
+          : await this.checkpoint(checkpointPayload, command);
         if (!saved?.ok) throw Object.assign(new Error(saved?.code || 'checkpointFailed'), { code: saved?.code || 'checkpointFailed' });
       }
       const revision = context.commitStateRevision(context.preparedStateRevision);
       if (!revision.ok) throw Object.assign(new Error(revision.code), { code: revision.code });
       const travelSpec = variant.travel || transaction.travel;
-      const travelResult = travelSpec ? await this.travel(this._value(travelSpec, env)) : null;
+      const travelPayload = travelSpec ? this._value(travelSpec, env) : null;
+      const travelResult = travelPayload
+        ? (this.executeScenarioCommand
+          ? await this.executeScenarioCommand('world.teleport', travelPayload, command)
+          : await this.travel(travelPayload, command))
+        : null;
       const value = { definitionId: definition.id, inventory: inventoryOperation, travel: travelResult, state: { story: env.story, cityStates: env.cityStates } };
       const stateId = context.preparedStateRevision.stateId;
       const result = { ok: true, operationId: command.operationId, status: 'committed', committed: true, code: null,

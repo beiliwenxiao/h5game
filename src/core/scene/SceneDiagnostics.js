@@ -336,7 +336,7 @@ export class SceneDiagnostics {
     const current = terrain || terrains[0];
     if (!this._collisionInitLogged) {
       console.log(`[${label}] checkTerrainCollision, collisionShapes:`, current?._collisionShapes?.length,
-        'act1 shapes:', secondaryTerrain?._collisionShapes?.length);
+        'secondary terrain shapes:', secondaryTerrain?._collisionShapes?.length);
       for (let index = 0; index < Math.min(3, current?._collisionShapes?.length || 0); index++) {
         const shape = current._collisionShapes[index];
         console.log(`[${label}] shape[${index}]: type=${shape.shapeType}, points前3个=`,

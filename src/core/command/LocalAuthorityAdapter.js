@@ -246,6 +246,8 @@ export class LocalAuthorityAdapter extends AuthorityPort {
       });
       this.operationLedger.fail(serializedCommand.operationId, claim.ownerToken, failure);
       throw error;
+    } finally {
+      this.stateRevisions.release(context.preparedStateRevision);
     }
   }
 

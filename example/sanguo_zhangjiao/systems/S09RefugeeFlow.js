@@ -69,8 +69,7 @@ const methods = {
   advanceGameDay(days = 1) {
     const currentDay = this.timeSystem?.advanceDays?.(Math.max(1, Math.floor(Number(days) || 1)));
     if (!currentDay) return false;
-    void methods._submit.call(this, 'story.s09.day.advance', { day: currentDay })
-      .then(result => result.ok && methods._submit.call(this, 'story.s09.delayed.resolve'));
+    void this._onGameDayChanged(currentDay);
     return currentDay;
   }
 };
@@ -79,6 +78,51 @@ export class S09RefugeeCoordinator extends SceneFlowCoordinator {
   constructor(scene) {
     super(scene, methods, { name: 'S09RefugeeCoordinator' });
     this._unauthorizedHarvestOperations = new Set();
+  }
+
+  _onGameDayChanged(currentDay) {
+    const day = Math.max(1, Math.floor(Number(currentDay) || 0));
+    if (!day) return Promise.resolve(false);
+    return Promise.resolve(this._submit('story.s09.day.advance', { day }))
+      .then(result => result?.ok === true ? this._processDueStoryEvents() : false);
+  }
+
+  _processDueStoryEvents() {
+    if (this._dueStoryEventsPromise) return this._dueStoryEventsPromise;
+    const scene = this.scene;
+    const storyState = scene.gameLoader?.blackboard?.get?.('storyState') || {};
+    const currentDay = Math.max(0, Number(storyState.currentDay) || 0);
+    const hasDueEvent = (storyState.delayedConsequences || []).some(event => (
+      event?.status === 'pending' && Number(event?.dueDay) <= currentDay
+    ));
+    if (!hasDueEvent) return Promise.resolve(false);
+    this._dueStoryEventsPromise = Promise.resolve(this._submit('story.s09.delayed.resolve'))
+      .then(result => result?.ok === true)
+      .finally(() => { this._dueStoryEventsPromise = null; });
+    return this._dueStoryEventsPromise;
+  }
+
+  _refugeeBranchResultNode(conflict = {}) {
+    return methods._resultNode.call(this.context, conflict);
+  }
+
+  _setRefugeeDialogueNode(nodeId) {
+    const dialogue = this.scene.dialogueSystem;
+    if (!nodeId || dialogue?.getCurrentDialogue?.()?.id !== S09_REFUGEE_DIALOGUE_ID) return false;
+    return dialogue.goToNode?.(nodeId, {
+      player: this.scene.playerEntity,
+      scene: this.scene
+    }) === true;
+  }
+
+  _getS09CityContext() {
+    const blackboard = this.scene.gameLoader?.blackboard;
+    const storyState = blackboard?.get?.('storyState') || null;
+    const cityStates = blackboard?.get?.('cityStates');
+    const city = Array.isArray(cityStates)
+      ? cityStates.find(entry => entry?.id === 'city.s09_guangzong_camp') || null
+      : null;
+    return blackboard && storyState && city ? { blackboard, storyState, city } : null;
   }
 
   /** S09 历史采粮政策参与通用 GatheringSystem 的 prepare/commit/rollback 链。 */

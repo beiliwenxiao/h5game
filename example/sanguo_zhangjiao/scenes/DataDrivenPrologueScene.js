@@ -11,15 +11,14 @@
  ************************************************************/
 
 /**
- * DataDrivenPrologueScene - 数据驱动序章场景（P4-5 逐幕迁移落点）
+ * DataDrivenPrologueScene - 数据驱动 S01–S14 世界场景
  *
- * 继承 BaseGameScene（通用可玩管线），并【迁移】Act1 中的通用地形/火堆代码
- * （相机限制、盆地/水池/树/多边形碰撞、火堆渲染+火焰粒子），
- * 不继承 Act1 的脚本流程（阶段机/渐进提示/刷怪/倒计时切幕/迷雾）——这些改由
- * GameProject（game.project.json）的 triggers + 逻辑对象逐步重建。
+ * 继承 BaseGameScene（通用可玩管线），通过 SceneTerrainBinding、
+ * SceneCampfireService 与 GameProject 的 canonical 场景数据装配地形、碰撞、火堆与表现。
+ * 流程由 GameProject（game.project.json）的 triggers、领域 command 与区块传送驱动。
  *
  * 当前作为 Demo 唯一运行时大地图场景；?ddscene=preview 进入静态编辑器预览。
- * 各幕流程由 GameProject triggers 与区块传送驱动。
+ * 各场景流程由 GameProject triggers 与区块传送驱动。
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
@@ -28,10 +27,15 @@ import { Scene1Terrain } from './Scene1Terrain.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
 import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
 import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
-import { WorldStreamingManager } from '../../../src/core/WorldStreamingManager.js';
+import { SceneStreamingRuntime } from '../../../src/core/scene/SceneStreamingRuntime.js';
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
+import { SceneNavigationProjection } from '../../../src/core/scene/SceneNavigationProjection.js';
+import { SceneCameraBounds } from '../../../src/core/scene/SceneCameraBounds.js';
+import { SceneClimbTargetResolver } from '../../../src/core/scene/SceneClimbTargetResolver.js';
+import { SceneEntityState } from '../../../src/core/scene/SceneEntityState.js';
+import { SceneGroupClearObserver } from '../../../src/core/scene/SceneGroupClearObserver.js';
 import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime.js';
 import { FadeOverlayTransition } from '../../../src/core/scene/FadeOverlayTransition.js';
@@ -43,7 +47,6 @@ import { ScenarioCommandService, SCENARIO_COMMANDS } from '../../../src/systems/
 import { DomainCommandService } from '../../../src/systems/DomainCommandService.js';
 import { CanonicalStateTransactionService } from '../../../src/systems/CanonicalStateTransactionService.js';
 import { SanguoDomainCommandFacade } from '../systems/SanguoDomainCommandFacade.js';
-import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
@@ -75,6 +78,8 @@ import { S09ClassSelectionCoordinator } from '../systems/S09ClassSelectionFlow.j
 import { S10ConstructionCoordinator } from '../systems/S10ConstructionFlow.js';
 import { S10StoryCoordinator } from '../systems/S10StoryFlow.js';
 import { S11S14SceneCoordinator } from '../systems/S11S14SceneFlow.js';
+import { SanguoSceneNavigationCoordinator } from '../systems/SanguoSceneNavigationFlow.js';
+import { SanguoSceneCommandCoordinator } from '../systems/SanguoSceneCommandFlow.js';
 import { S03S14BattleCoordinator } from '../systems/S03S14BattleCoordinator.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
@@ -134,6 +139,61 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.terrain = null;
     this.worldStreamingManager = null;
     this._detachWorldStreaming = null;
+    this._worldStreamingRuntime = new SceneStreamingRuntime({
+      createTerrain: ({ chunk, chunkWidth, chunkHeight, sceneData }) => new Scene1Terrain({
+        centerX: chunkWidth / 2,
+        centerY: chunkHeight / 2,
+        width: chunkWidth,
+        height: chunkHeight,
+        editorSceneId: chunk.sceneId,
+        worldOffset: chunk.origin,
+        skipEditorLoad: true,
+        sceneData
+      }),
+      getPosition: () => this.playerEntity?.getComponent?.('transform')?.position || null,
+      getCurrentSceneId: () => this.currentSceneId,
+      getRuntime: () => this.sceneRuntime,
+      onChunkUnload: ({ chunk }) => this._releaseStreamedChunkRuntime(chunk),
+      onProjection: ({ manager, chunks, terrains, terrain }) => {
+        this.worldStreamingManager = manager;
+        this._terrains = terrains;
+        this.terrain = terrain;
+        this.context.world.terrain = terrain;
+        this.context.world.terrains = terrains;
+        this.context.services.placements?.setProjection(chunks.flatMap(chunk => chunk.placements || []));
+        const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
+        const triggerBindings = chunks.flatMap(chunk => chunk.triggerBindings || []);
+        const effectZones = chunks.flatMap(chunk => chunk.effectZones || []);
+        this._sceneTriggerBindings?.setBindings(triggerBindings, sceneObjects);
+        const effectZoneRenderer = this._terrainBinding.setEffectZones(effectZones);
+        if (effectZoneRenderer?.zones.length > 0) {
+          console.log(`[DDScene] 加载了 ${effectZoneRenderer.zones.length} 个特效区域`);
+        }
+      },
+      onTransition: async ({ manager }) => {
+        const placementResult = await this.context.services.placements?.spawnLoadedChunks();
+        if (placementResult?.ok === false) {
+          this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
+          return;
+        }
+        const position = this.playerEntity?.getComponent?.('transform')?.position;
+        const center = position ? manager.worldToChunk(position.x, position.y) : null;
+        const chunkId = center ? manager.getSceneId(center.col, center.row) : null;
+        const sceneId = chunkId ? manager.getSceneNamespace(chunkId) : null;
+        if (sceneId && sceneId !== this.currentSceneId) {
+          await this._enterStreamedScene(sceneId);
+        } else if (sceneId) {
+          const restored = this._restoreStreamedDomainState(sceneId);
+          if (restored?.ok === false) {
+            this._showScreenTip(`地图块动态状态恢复失败：${restored.code || 'unknown'}`, { title: '恢复失败' });
+          }
+        }
+      },
+      onError: failure => {
+        const message = failure?.errors?.[0]?.message || '相邻地图块加载失败';
+        this._showScreenTip(message, { title: '地图加载失败' });
+      }
+    });
     this._pendingChunkDomainStates = new Map();
     this.gameLoader = null;
     this.progressionViewModel = null;
@@ -225,6 +285,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s10StoryCoordinator = new S10StoryCoordinator(this);
     this.s10ConstructionCoordinator = new S10ConstructionCoordinator(this);
     this.s11s14SceneCoordinator = new S11S14SceneCoordinator(this);
+    this.sanguoSceneNavigationCoordinator = new SanguoSceneNavigationCoordinator(this);
+    this.sanguoSceneCommandCoordinator = new SanguoSceneCommandCoordinator(this);
     this.s03s14BattleCoordinator = new S03S14BattleCoordinator(this);
     this.cityWarStateBridge = new SceneCityWarStateBridge({
       getBlackboard: () => this.gameLoader?.blackboard || null,
@@ -539,135 +601,57 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _prepareWorldStreamingManager(result, targetSceneId = this.currentSceneId, session = this._worldLoadSession) {
-    const worldIndex = result?.worldIndex;
-    const region = result?.region;
-    if (!worldIndex || !region) throw new Error('无法初始化流式加载：ProjectWorldIndex 或 Region 不存在');
-
-    const manager = new WorldStreamingManager();
-    const configured = manager.configureRegion(worldIndex, {
-      regionRef: region.id,
-      sceneResolver: sceneId => session?.loadSceneData?.(sceneId)
-        || session?.getSceneData?.(sceneId)
-        || null,
-      onChunkUnload: null
+    return this._worldStreamingRuntime.prepare({
+      worldResult: result,
+      targetSceneId,
+      session,
+      stateProviders: [{ id: 'demoDynamic', provider: this._createStreamingStateProvider() }]
     });
-    if (!configured.ok) throw new Error(configured.errors?.[0]?.message || '流式 Region 配置失败');
-    manager.registerStateProvider('demoDynamic', this._createStreamingStateProvider());
-
-    const initialChunk = result.chunks?.find(chunk => chunk.sceneId === targetSceneId);
-    if (!initialChunk) throw new Error('流式 Region 中没有可加载 chunk');
-    const centerX = initialChunk.offset.x + region.chunkWidth / 2;
-    const centerY = initialChunk.offset.y + region.chunkHeight / 2;
-    const loaded = await manager.update(centerX, centerY);
-    if (!loaded.ok) {
-      manager.unloadAll({ preserveState: false });
-      throw new Error(loaded.errors?.[0]?.message || '初始九宫格加载失败');
-    }
-    return manager;
   }
 
   async _initializeWorldStreaming(result, targetSceneId = this.currentSceneId, options = {}) {
-    const manager = options.preparedManager
-      || await this._prepareWorldStreamingManager(result, targetSceneId, options.session || this._worldLoadSession);
-    this._detachWorldStreaming?.();
-    this.worldStreamingManager?.unloadAll?.({ preserveState: false });
-    manager.onChunkUnload = (_col, _row, chunk) => this._releaseStreamedChunkRuntime(chunk);
+    const manager = await this._worldStreamingRuntime.initialize({
+      worldResult: result,
+      targetSceneId,
+      session: options.session || this._worldLoadSession,
+      preparedManager: options.preparedManager || null,
+      stateProviders: options.preparedManager
+        ? []
+        : [{ id: 'demoDynamic', provider: this._createStreamingStateProvider() }]
+    });
     this.worldStreamingManager = manager;
-    this._streamingTerrains = new Map();
-    this._syncWorldStreamingProjection();
-
-    this._detachWorldStreaming = this.sceneRuntime?.attachWorldStreaming?.(manager, {
-      getPosition: () => this.playerEntity?.getComponent?.('transform')?.position || null,
-      onTransition: async transition => {
-        if (transition.unchanged) return;
-        this._syncWorldStreamingProjection();
-        const placementResult = await this.context.services.placements?.spawnLoadedChunks();
-        if (placementResult?.ok === false) {
-          this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
-          return;
-        }
-        const position = this.playerEntity?.getComponent?.('transform')?.position;
-        const center = position ? manager.worldToChunk(position.x, position.y) : null;
-        const chunkId = center ? manager.getSceneId(center.col, center.row) : null;
-        const sceneId = chunkId ? manager.getSceneNamespace(chunkId) : null;
-        if (sceneId && sceneId !== this.currentSceneId) {
-          await this._enterStreamedScene(sceneId);
-        } else if (sceneId) {
-          const restored = this._restoreStreamedDomainState(sceneId);
-          if (restored?.ok === false) {
-            this._showScreenTip(`地图块动态状态恢复失败：${restored.code || 'unknown'}`, { title: '恢复失败' });
-          }
-        }
-      },
-      onError: failure => {
-        const message = failure?.errors?.[0]?.message || '相邻地图块加载失败';
-        this._showScreenTip(message, { title: '地图加载失败' });
-      }
-    }) || null;
+    this._detachWorldStreaming = this._worldStreamingRuntime.detach;
     return manager;
   }
 
   _syncWorldStreamingProjection() {
-    const manager = this.worldStreamingManager;
-    if (!manager) return false;
-    const chunks = [...manager.getLoadedChunks().values()];
-    const activeKeys = new Set(chunks.map(chunk => chunk.key));
-    this._streamingTerrains = this._streamingTerrains || new Map();
-    for (const key of [...this._streamingTerrains.keys()]) {
-      if (!activeKeys.has(key)) this._streamingTerrains.delete(key);
-    }
-    const chunkWidth = manager.chunkWidth;
-    const chunkHeight = manager.chunkHeight;
-    for (const chunk of chunks) {
-      if (this._streamingTerrains.has(chunk.key)) continue;
-      this._streamingTerrains.set(chunk.key, new Scene1Terrain({
-        centerX: chunkWidth / 2,
-        centerY: chunkHeight / 2,
-        width: chunkWidth,
-        height: chunkHeight,
-        editorSceneId: chunk.sceneId,
-        worldOffset: chunk.origin,
-        skipEditorLoad: true,
-        sceneData: chunk.sceneData && Array.isArray(chunk.sceneData.layers)
-          ? JSON.parse(JSON.stringify(chunk.sceneData))
-          : null
-      }));
-    }
-    this._terrains = chunks.map(chunk => this._streamingTerrains.get(chunk.key)).filter(Boolean);
-    const currentChunk = chunks.find(chunk => chunk.sceneId === this.currentSceneId);
-    this.terrain = currentChunk ? this._streamingTerrains.get(currentChunk.key) : (this._terrains[0] || null);
-    this.terrainAct1 = this._terrains.length > 1 ? this._terrains[0] : null;
-    this.context.world.terrain = this.terrain;
-    this.context.world.terrains = this._terrains;
-    this.context.services.placements?.setProjection(
-      chunks.flatMap(chunk => chunk.placements || [])
-    );
-    const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
-    const triggerBindings = chunks.flatMap(chunk => chunk.triggerBindings || []);
-    const effectZones = chunks.flatMap(chunk => chunk.effectZones || []);
-    this._sceneTriggerBindings?.setBindings(triggerBindings, sceneObjects);
-    this._initMultiChunkEffectZones(effectZones);
-    return true;
+    return !!this._worldStreamingRuntime.syncProjection(this.currentSceneId);
   }
 
   async _enterStreamedScene(sceneId) {
     if (!sceneId || sceneId === this.currentSceneId) return true;
-    this.currentSceneId = sceneId;
-    this._s09AudioDirector?.syncScene?.(sceneId);
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
-    this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId });
+    const navigationSnapshot = this._navigationProjection?.capture?.();
+    this._navigationProjection?.apply({ sceneId, projectStory: false });
     const placementResult = await this.context.services.placements?.spawnLoadedChunks();
     if (placementResult?.ok === false) {
+      this._navigationProjection?.restore?.(navigationSnapshot);
       this._showScreenTip(placementResult.errors?.[0]?.message || '地图块放置点生成失败', { title: '地图加载失败' });
+      return false;
+    }
+    const runtimeProjection = await this.sanguoSceneNavigationCoordinator.projectEntryRuntime(sceneId);
+    if (runtimeProjection?.ok === false) {
+      this._navigationProjection?.restore?.(navigationSnapshot);
+      this._showScreenTip('地图块运行时投影失败', { title: '地图加载失败' });
       return false;
     }
     const restored = await this._restoreStreamedDomainState(sceneId);
     if (restored?.ok === false) {
+      this._navigationProjection?.restore?.(navigationSnapshot);
       this._showScreenTip(`地图块动态状态恢复失败：${restored.code || 'unknown'}`, { title: '恢复失败' });
       return false;
     }
+    this._navigationProjection?.apply({ sceneId });
+    await this._forwardCommittedSceneEnter(sceneId);
     return true;
   }
 
@@ -699,7 +683,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.effectZoneRenderer?.clear?.();
       this._terrains.length = 0;
       this.terrain = null;
-      this.terrainAct1 = null;
       this._worldRegion = null;
       this._worldIndex = null;
       this.context.world.terrain = null;
@@ -709,9 +692,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.context.services.placements?.reset?.({ clearProjection: true, clearPending: true, clearSpawned: true });
       this._regionDynamicStates?.clear?.();
       this._pendingChunkDomainStates?.clear?.();
-      this._detachWorldStreaming?.();
+      this._worldStreamingRuntime?.dispose?.();
       this._detachWorldStreaming = null;
-      this.worldStreamingManager?.unloadAll?.({ preserveState: false });
       this.worldStreamingManager = null;
       this.gameLoader = null;
       this.cityStateSummaryPanel = null;
@@ -739,7 +721,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 地形实例在 _loadWorldTerrains 中动态创建
     this.terrain = null;
-    this.terrainAct1 = null;
     this._terrains = [];
     this._worldRegion = null;
     this._teleportFade = null;
@@ -763,6 +744,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._regionDynamicStates = new Map();
     this._currentRegionIndex = -1;
     this._worldLoadResult = null;
+    this._navigationProjection = new SceneNavigationProjection({
+      getCurrentSceneId: () => this.currentSceneId,
+      setCurrentSceneId: sceneId => { this.currentSceneId = sceneId; },
+      getStoryState: () => this.gameLoader?.blackboard?.get?.('storyState') || null,
+      setStoryState: storyState => this.gameLoader?.blackboard?.set?.('storyState', storyState),
+      onSceneChanged: sceneId => this._s09AudioDirector?.syncScene?.(sceneId)
+    });
+    this.context.services.navigationProjection = this._navigationProjection;
     this._regionCoordinator = new RegionCoordinator({
       createSession: () => this._createWorldLoadSession(this.resourceScope),
       getCurrentSession: () => this._worldLoadSession,
@@ -830,8 +819,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         return { ok: true };
       },
       captureState: () => ({
-        currentSceneId: this.currentSceneId,
-        storyState: cloneData(this.gameLoader?.blackboard?.get?.('storyState')),
+        ...this._navigationProjection.capture(),
         worldStreamingState: cloneData(this.worldStreamingManager?.serialize?.())
       }),
       restoreState: snapshot => {
@@ -843,32 +831,23 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           }
           this._syncWorldStreamingProjection();
         }
-        this.currentSceneId = snapshot.currentSceneId;
-        if (snapshot.storyState && this.gameLoader?.blackboard) {
-          this.gameLoader.blackboard.set('storyState', snapshot.storyState);
-        }
+        this._navigationProjection.restore(snapshot);
       },
       onSceneEnter: async ({ sceneId, x, y }) => {
-        this.currentSceneId = sceneId;
-        this._s09AudioDirector?.syncScene?.(sceneId);
-        const blackboard = this.gameLoader?.blackboard;
-        const storyState = blackboard?.get?.('storyState');
-        if (storyState) blackboard.set('storyState', { ...storyState, currentSceneId: sceneId });
+        this._navigationProjection.apply({ sceneId, projectStory: false });
         const placementResult = await this.context.services.placements?.spawnLoadedChunks();
         if (placementResult?.ok === false) {
           throw new Error(placementResult.errors?.[0]?.message || '地图块放置点生成失败');
         }
-        if (sceneId === 'S05') await this.s05SceneCoordinator._syncS05MineWorldState();
-        if (sceneId === 'S07') this.s07s08Coordinator._syncS07DelayWorldState();
-        if (sceneId === 'S12') this.s11s14SceneCoordinator._ensureS12GateEntity();
-        else this.s11s14SceneCoordinator._removeS12GateEntity();
-        this._ensureSceneVehicleEntities(sceneId);
+        const runtimeProjection = await this.sanguoSceneNavigationCoordinator.projectEntryRuntime(sceneId);
+        if (runtimeProjection?.ok === false) {
+          throw new Error(runtimeProjection.code || '地图块运行时投影失败');
+        }
         const domainRestore = await this._restoreStreamedDomainState(sceneId);
         if (domainRestore?.ok === false) {
           throw new Error(domainRestore.errors?.[0]?.message || domainRestore.code || '区块领域状态恢复失败');
         }
-        // 只有目标区块和领域投影全部提交后，才转发 sceneEnter application notification。
-        this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId });
+        this._navigationProjection.apply({ sceneId });
         console.log(`[DDScene] teleportToChunk → ${sceneId} (${x}, ${y})`);
       },
       onFallback: ({ reason, sceneId }) => {
@@ -893,6 +872,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getSnapshotManager: () => this.sceneRuntime?.snapshotManager || null
     });
     this.context.services.scenarioCommands = this._scenarioCommandService;
+    const unsubscribeNavigationEvents = this.sceneRuntime?.notificationBus?.subscribe(async event => {
+      if (event?.value?.type !== SCENARIO_COMMANDS.WORLD_TELEPORT) return;
+      const outcome = event.value.payload?.value || {};
+      const sceneId = outcome.sceneId || outcome.request?.sceneId || null;
+      await this._forwardCommittedSceneEnter(sceneId);
+    });
+    if (unsubscribeNavigationEvents) this.resourceScope?.track(unsubscribeNavigationEvents);
     for (const commandType of Object.values(SCENARIO_COMMANDS)) {
       this.sceneRuntime.registerCommandHandler(commandType, this._scenarioCommandService);
     }
@@ -1094,17 +1080,15 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (!this._clearedGroups) this._clearedGroups = new Set();
     // 注：通用 kill 事件源已由 CombatSystem.setOnKillCallback → GameLoader 桥接统一发出，
     // 此处只负责按组统计存活数、fire('waveCleared')（波次全灭，每组一次）。
-    for (const [group, list] of Object.entries(this._groupEnemies)) {
-      if (this._clearedGroups.has(group)) continue;
-      let alive = 0;
-      for (const e of list) {
-        if (!this._isEntityDead(e)) alive++;
-      }
-      if (list.length > 0 && alive === 0) {
-        this._clearedGroups.add(group);
-        this.gameLoader.triggerSystem.fire('waveCleared', { group });
-        console.log('[DDScene] waveCleared:', group);
-      }
+    const clearedGroups = SceneGroupClearObserver.findCleared({
+      groups: this._groupEnemies,
+      clearedGroups: this._clearedGroups,
+      isEntityDead: entity => this._isEntityDead(entity)
+    });
+    for (const group of clearedGroups) {
+      this._clearedGroups.add(group);
+      this.gameLoader.triggerSystem.fire('waveCleared', { group });
+      console.log('[DDScene] waveCleared:', group);
     }
   }
 
@@ -1152,14 +1136,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 场景只按当前 canonical 区块路由采集政策；历史规则由对应 coordinator 持有。 */
   _prepareSceneGatheringSettlement(context = {}) {
-    const { node } = context;
-    if (this.currentSceneId === 'S05' && node?.resourceType === 'iron') {
-      return this.s05SceneCoordinator._prepareS05MineGatheringSettlement(context);
-    }
-    if (this.currentSceneId === 'S09' && node?.resourceType === 'food') {
-      return this.s09RefugeeCoordinator.prepareUnauthorizedHarvestSettlement(context);
-    }
-    return null;
+    return this.sanguoSceneCommandCoordinator.prepareGatheringSettlement(context);
   }
 
   _grantGatheringProficiency(data = {}) {
@@ -1229,6 +1206,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._statsWasOpen = statsVis;
   }
 
+  /** 仅转发已由 Authority 提交的 world.teleport 应用通知，不参与导航事实提交。 */
+  async _forwardCommittedSceneEnter(sceneId) {
+    if (!sceneId || !this.gameLoader?.triggerSystem?.fire) return false;
+    await this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
+    return true;
+  }
+
   async _executeScenarioCommand(intentType, payload = {}, operationId = null) {
     const gateway = this.sceneRuntime?.commandGateway;
     const actorRef = this.playerEntity;
@@ -1286,17 +1270,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
   }
 
-  async travelToRegion({ regionIndex, sceneId, spawnRef = 'player' } = {}) {
-    const result = await this._regionCoordinator?.switchTo?.({
-      projectUrl: 'game.project.json', regionIndex, sceneId, spawnRef
-    });
+  async travelToRegion({ sceneId, spawnRef = 'player' } = {}) {
+    const result = await this.teleportToChunk({ scene: sceneId, spawnRef });
     if (!result?.ok) {
       const message = result?.errors?.[0]?.message || `无法进入 ${sceneId || '目标区域'}`;
       this._showScreenTip(message, { title: '大区切换失败' });
       return result || { ok: false, errors: [{ code: 'regionCoordinatorUnavailable', path: 'region', message }] };
     }
-    // Scene 只投影已提交 Region 的表现；checkpoint 必须由独立 checkpoint.request 命令发起。
-    this._s09AudioDirector?.syncScene?.(sceneId);
     return result;
   }
 
@@ -1399,10 +1379,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     this._worldLoadPromise = Promise.resolve(result);
     this._loadWorldTerrains();
-    void this.context.services.placements?.loadProjection({
+    const projection = await this.context.services.placements?.loadProjection({
       sceneId: request.sceneId,
       consumePlayerSpawn: false
     });
+    if (projection?.ok === false) return projection;
     await this._worldLoadPromise;
     await Promise.resolve();
 
@@ -1411,7 +1392,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     if (this._worldRegion !== result.region || !targetChunkLoaded) {
       return { ok: false, errors: [{ code: 'regionProjectionFailed', path: 'region', message: '目标大区九宫格投影未完成' }] };
     }
-    this.currentSceneId = request.sceneId;
+    this._navigationProjection.apply({ sceneId: request.sceneId, projectStory: false });
     if (!this.getBattleFlowByScene(request.sceneId)) {
       this.s03s14BattleCoordinator.leaveBattleScene({ preserveSnapshot: true });
     }
@@ -1424,21 +1405,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     transform.position.y = spawn.y;
     this.camera?.setPosition?.(spawn.x, spawn.y);
 
-    const blackboard = this.gameLoader?.blackboard;
-    const storyState = blackboard?.get?.('storyState');
-    if (storyState) {
-      blackboard.set('storyState', {
-        ...storyState,
-        currentSceneId: request.sceneId,
-        unlockedScenes: [...new Set([...(storyState.unlockedScenes || []), request.sceneId])]
-      });
-    }
-    this.gameLoader?.triggerSystem?.fire?.('sceneEnter', { sceneId: request.sceneId });
     const placementResult = await this.context.services.placements?.spawnLoadedChunks();
     if (placementResult?.ok === false) return placementResult;
-    if (request.sceneId === 'S12') this.s11s14SceneCoordinator._ensureS12GateEntity();
-    else this.s11s14SceneCoordinator._removeS12GateEntity();
-    this._ensureSceneVehicleEntities(request.sceneId);
+    const runtimeProjection = await this.sanguoSceneNavigationCoordinator.projectEntryRuntime(request.sceneId);
+    if (runtimeProjection?.ok === false) return runtimeProjection;
 
     const targetRegionId = result.region?.id;
     const targetState = targetRegionId ? this._regionDynamicStates.get(targetRegionId) : null;
@@ -1452,6 +1422,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       });
       if (restored?.ok === false) return restored;
     }
+    this._navigationProjection.apply({ sceneId: request.sceneId, unlock: true });
     return { ok: true, errors: [] };
   }
 
@@ -1464,10 +1435,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     await this._initializeWorldStreaming(draft.worldResult, draft.saveState?.currentSceneId);
     this._worldLoadPromise = Promise.resolve(draft.worldResult);
     this._loadWorldTerrains();
-    void this.context.services.placements?.loadProjection({
+    const projection = await this.context.services.placements?.loadProjection({
       sceneId: draft.saveState?.currentSceneId,
       consumePlayerSpawn: false
     });
+    if (projection?.ok === false) return projection;
     await this._worldLoadPromise;
     await Promise.resolve();
     return this.restoreSaveState(draft.saveState);
@@ -1749,8 +1721,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this.playerEntity?.getComponent?.('transform')?.position || null
     );
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
-    if (this.currentSceneId === 'S05') void this.s05SceneCoordinator._syncS05MineWorldState();
-    if (this.currentSceneId === 'S07') this.s07s08Coordinator._syncS07DelayWorldState();
+    void this.sanguoSceneNavigationCoordinator.projectEntryRuntime(this.currentSceneId);
     this.resourceScope?.setTimeout(() => this._tutorialFlow.showNext(), 0);
     return { ok: true, errors: [] };
   }
@@ -1811,13 +1782,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   /** 判断实体是否已死亡/移除 */
-  _isEntityDead(e) {
-    if (!e) return true;
-    if (e.isDead || e.isDying || e.active === false) return true;
-    const s = e.getComponent && e.getComponent('stats');
-    if (s && s.hp <= 0) return true;
-    if (this.entities.indexOf(e) === -1) return true;
-    return false;
+  _isEntityDead(entity) {
+    return SceneEntityState.isDead(entity, this.entities);
   }
 
   /** 实际拾取提交后的统一事件出口；教学和数据触发器不再依赖已被移除的世界对象。 */
@@ -2112,40 +2078,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   resolveClimbTarget({ entity } = {}) {
-    const transform = entity?.getComponent?.('transform');
-    if (!transform || !this.currentSceneId) return null;
     const chunk = this._worldLoadSession?.getChunk?.(this.currentSceneId);
-    const offset = chunk?.offset || { x: 0, y: 0 };
-    const projected = (this._worldLoadResult?.sceneObjects || [])
-      .filter(object => object?.sceneId === this.currentSceneId && object?.semanticRole === 'climbSurface');
-    const sources = projected.length > 0
-      ? projected
-      : (chunk?.sceneData?.layers || []).flatMap(layer => (layer.objects || [])
-        .filter(object => object?.semanticRole === 'climbSurface')
-        .map(object => ({ ...object, x: Number(object.x) + offset.x, y: Number(object.y) + offset.y })));
-    let best = null;
-    for (const surface of sources) {
-      const centerX = Number(surface.x) + (Number(surface.width) || 0) / 2;
-      const centerY = Number(surface.y) + (Number(surface.height) || 0) / 2;
-      const distance = Math.hypot(transform.position.x - centerX, transform.position.y - centerY);
-      const radius = Math.max(32, Number(surface.radius) || 96);
-      if (distance > radius || (best && best.distance <= distance)) continue;
-      const target = surface.climbTarget || {};
-      const targetIsWorld = surface.climbTargetWorld === true;
-      const targetX = Number(target.x);
-      const targetY = Number(target.y);
-      if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) continue;
-      best = {
-        id: surface.id,
-        distance,
-        promptTemplate: surface.prompt || '{climb}攀爬',
-        targetPosition: {
-          x: targetX + (targetIsWorld ? 0 : offset.x),
-          y: targetY + (targetIsWorld ? 0 : offset.y)
-        }
-      };
-    }
-    return best;
+    return SceneClimbTargetResolver.resolve({
+      entity,
+      sceneId: this.currentSceneId,
+      projectedObjects: this._worldLoadResult?.sceneObjects || [],
+      sceneData: chunk?.sceneData || null,
+      worldOffset: chunk?.offset || { x: 0, y: 0 }
+    });
   }
 
   _findProjectedSceneObject(sceneId, objectId) {
@@ -2197,10 +2137,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   async _handleIrreversibleChoiceCommand(command = {}) {
-    if (this.currentSceneId === 'S06') return this.s06SceneCoordinator._handleS06DefenseChoiceCommand(command);
-    if (this.currentSceneId === 'S08') return this.s07s08Coordinator._handleS08RetreatChoiceCommand(command);
-    if (this.currentSceneId === 'S14') return this.s11s14SceneCoordinator._handleS14FinalDoctrineCommand(command);
-    return this.s03s08Coordinator._handleS04RouteChoiceCommand(command);
+    return this.sanguoSceneCommandCoordinator.handleIrreversibleChoice(command);
   }
 
 
@@ -2738,21 +2675,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }));
   }
 
-  /**
-   * 多 chunk 场景的特效区域初始化：遍历所有场景文件，收集 effectZone 数据。
-   * @private
-   */
-  _initMultiChunkEffectZones(effectZones) {
-    if (!this.particleSystem) return;
-    const renderer = new EffectZoneRenderer(this.particleSystem);
-    this._terrainBinding.setEffectZoneRenderer(renderer, { clearPrevious: true });
-    renderer.zones = Array.isArray(effectZones) ? effectZones : [];
-    renderer._accumulators = renderer.zones.map(() => 0);
-    if (renderer.zones.length > 0) {
-      console.log(`[DDScene] 加载了 ${renderer.zones.length} 个特效区域`);
-    }
-  }
-
   /** 将 WorldReadyGate 状态投影到旧兼容字段；真实渲染门只读取 gate。 */
   _syncWorldReadyProjection() {
     const status = this._worldReadyGate?.status;
@@ -2804,9 +2726,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.endingPresentationView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   }
 
-  // ==================== 渲染（迁移自 Act1） ====================
+  // ==================== 世界渲染 ====================
 
-  /** 背景：盆地草地+水池（Scene1Terrain） */
+  /** 背景：当前已加载 chunk 的地表层。 */
   renderBackground(ctx) {
     if (this._terrains.length > 0) {
       const bgColor = (this.terrain && this.terrain.sceneBackgroundColor) || '#1f1a14';
@@ -2819,7 +2741,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 世界对象：实体 + 火堆 + 盆地装饰 Y-sort + 悬崖 */
+  /** 世界对象：实体、火堆、场景装饰与悬崖的稳定 Y-sort。 */
   renderWorldObjects(ctx) {
     const renderQueue = [];
     const viewBounds = this.camera.getViewBounds();
@@ -2853,35 +2775,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._renderBuffZones(ctx);
   }
 
-  // ==================== 相机 / 碰撞（迁移自 Act1） ====================
+  // ==================== 相机 / 碰撞 ====================
 
-  /** 限制相机在盆地范围内 — 大地图模式下不限制 */
-  clampCameraToBasin() {
-    // if (!this.terrain || !this.camera) return;
-    // const t = this.terrain;
-    // const halfW = this.camera.width / 2;
-    // const halfH = this.camera.height / 2;
-    // const maxCamX = t.basinRadiusX - halfW;
-    // const maxCamY = t.basinRadiusY - halfH;
-    // const clampX = maxCamX > 0 ? Math.max(-maxCamX, Math.min(maxCamX, this.camera.position.x - t.centerX)) : 0;
-    // const clampY = maxCamY > 0 ? Math.max(-maxCamY, Math.min(maxCamY, this.camera.position.y - t.centerY)) : 0;
-    // this.camera.position.x = t.centerX + clampX;
-    // this.camera.position.y = t.centerY + clampY;
-  }
-
-  /** 限制相机不超出大地图世界边界 */
+  /** 限制相机不超出由 ProjectWorldIndex 派生的世界边界。 */
   clampCameraToWorldBounds() {
-    if (!this.camera) return;
-    const bounds = this._worldIndex?.getBounds?.(this._worldRegion?.id);
-    if (!bounds) return;
-    const worldWidth = bounds.width;
-    const worldHeight = bounds.height;
-
-    const halfW = this.camera.width / 2;
-    const halfH = this.camera.height / 2;
-
-    this.camera.position.x = Math.max(halfW, Math.min(worldWidth - halfW, this.camera.position.x));
-    this.camera.position.y = Math.max(halfH, Math.min(worldHeight - halfH, this.camera.position.y));
+    return SceneCameraBounds.clampToWorldIndex(this.camera, this._worldIndex, this._worldRegion?.id);
   }
 
   /** 地形碰撞（水面 + 树木 + 编辑器碰撞多边形） */
@@ -2890,7 +2788,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       terrainBinding: this._terrainBinding,
       terrains: this._terrains,
       terrain: this.terrain,
-      secondaryTerrain: this.terrainAct1,
       playerEntity: this.playerEntity,
       label: 'DDScene'
     }) === true;

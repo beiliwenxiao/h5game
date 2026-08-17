@@ -2728,7 +2728,7 @@
     {"id":"story.s01.specialFaint.prepare","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"}]},"writes":[{"target":"story","path":"pendingDefeatResolution","value":"specialFaint"},{"target":"story","path":"specialFaintRescueType","value":{"$get":"payload.rescueType","default":"passerby"}}]}},
     {"id":"story.s01.specialFaint.clear","commandType":"state.transaction","transaction":{"when":{"path":"story.pendingDefeatResolution","equals":"specialFaint"},"writes":[{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null}]}},
     {"id":"story.s01.complete","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"tutorials":["s01.move","s01.attack","s01.pickup","s01.jump","s01.gather"]}]},"writes":[{"target":"story","path":"s01Completed","value":true},{"target":"story","path":"currentSceneId","value":"S02"},{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null},{"target":"story","path":"unlockedScenes","value":{"$appendUnique":{"source":{"$get":"story.unlockedScenes","default":[]},"values":["S02"]}}}],"inventory":{"type":"batchAdd","entries":[{"itemId":"resource.wood","quantity":3},{"itemId":"resource.herb","quantity":2}]},"travel":{"sceneId":"S02","spawnRef":"player","transition":"fadeBlack"}}},
-    {"id":"story.s02.summons.accept","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":false}]},"writes":[{"target":"story","path":"s02SummonsAccepted","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S02.summonsAccepted"}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S02.summonsAccepted","sceneId":"S02"},"travel":{"sceneId":"S09","spawnRef":"player"}}},
+    {"id":"story.s02.summons.accept","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":false}]},"writes":[{"target":"story","path":"s02SummonsAccepted","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S02.summonsAccepted"}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S02.summonsAccepted","sceneId":"S02"}}}},
     {"id":"story.s02.travel","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":true}]},"travel":{"sceneId":"S09","spawnRef":"player"}}},
     {"id":"story.s09.enlist","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.joinedYellowTurban","equals":false}]},"writes":[{"target":"story","path":"joinedYellowTurban","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S09.enlisted"},{"target":"blackboard","path":"joinedYellowTurban","value":true}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.enlisted","sceneId":"S09"}}},
     {"id":"story.s09.day.advance","commandType":"state.transaction","transaction":{"writes":[{"target":"story","path":"currentDay","value":{"$get":"payload.day"}}]}},
@@ -2893,6 +2893,13 @@
           "action": "state.transaction",
           "params": {
             "definitionId": "story.s02.summons.accept"
+          },
+          "await": true
+        },
+        {
+          "action": "state.transaction",
+          "params": {
+            "definitionId": "story.s02.travel"
           },
           "await": true
         }

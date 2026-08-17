@@ -157,6 +157,14 @@ export class CanonicalStateTransactionService {
         if (!env.event) throw Object.assign(new Error('no delayed transaction is due'), { code: 'noDelayedTransactionDue' });
       }
       const variant = this._writes(transaction, env);
+      const checkpointSpec = variant.checkpoint || transaction.checkpoint;
+      const travelSpec = variant.travel || transaction.travel;
+      if (checkpointSpec && travelSpec) {
+        throw Object.assign(
+          new Error('checkpoint and travel require a composite transaction participant'),
+          { code: 'atomicActionCompositionUnsupported' }
+        );
+      }
       if (delayed) {
         const path = delayed.path || 'delayedConsequences';
         const outcome = this._value(variant.outcome ?? delayed.outcome ?? 'completed', env);
@@ -180,7 +188,6 @@ export class CanonicalStateTransactionService {
       for (const [key, value] of Object.entries(env.blackboard)) {
         if (key !== 'storyState' && key !== 'cityStates') blackboard.set(key, value);
       }
-      const checkpointSpec = variant.checkpoint || transaction.checkpoint;
       if (checkpointSpec) {
         const checkpointPayload = this._value(checkpointSpec, env);
         const saved = this.executeScenarioCommand
@@ -188,15 +195,20 @@ export class CanonicalStateTransactionService {
           : await this.checkpoint(checkpointPayload, command);
         if (!saved?.ok) throw Object.assign(new Error(saved?.code || 'checkpointFailed'), { code: saved?.code || 'checkpointFailed' });
       }
-      const revision = context.commitStateRevision(context.preparedStateRevision);
-      if (!revision.ok) throw Object.assign(new Error(revision.code), { code: revision.code });
-      const travelSpec = variant.travel || transaction.travel;
       const travelPayload = travelSpec ? this._value(travelSpec, env) : null;
       const travelResult = travelPayload
         ? (this.executeScenarioCommand
           ? await this.executeScenarioCommand('world.teleport', travelPayload, command)
           : await this.travel(travelPayload, command))
         : null;
+      if (travelPayload && !travelResult?.ok) {
+        throw Object.assign(
+          new Error(travelResult?.code || 'travelFailed'),
+          { code: travelResult?.code || 'travelFailed' }
+        );
+      }
+      const revision = context.commitStateRevision(context.preparedStateRevision);
+      if (!revision.ok) throw Object.assign(new Error(revision.code), { code: revision.code });
       const value = { definitionId: definition.id, inventory: inventoryOperation, travel: travelResult, state: { story: env.story, cityStates: env.cityStates } };
       const stateId = context.preparedStateRevision.stateId;
       const result = { ok: true, operationId: command.operationId, status: 'committed', committed: true, code: null,

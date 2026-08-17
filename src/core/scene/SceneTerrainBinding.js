@@ -67,6 +67,20 @@ export class SceneTerrainBinding {
     return renderer || null;
   }
 
+  /**
+   * 将已投影的多 chunk 特效区域交给唯一 renderer，并重置区域粒子累积器。
+   * effectZones 必须已经处于世界坐标，避免在表现层重复应用 worldOffset。
+   */
+  setEffectZones(effectZones, { clearPrevious = true } = {}) {
+    const scene = this.scene;
+    if (!scene.particleSystem || !this.EffectZoneRenderer) return null;
+    const renderer = new this.EffectZoneRenderer(scene.particleSystem);
+    this.setEffectZoneRenderer(renderer, { clearPrevious });
+    renderer.zones = Array.isArray(effectZones) ? effectZones : [];
+    renderer._accumulators = renderer.zones.map(() => 0);
+    return renderer;
+  }
+
   /** 只清理当前实例，避免旧生命周期误清新场景接线。 */
   clearEffectZoneRenderer(renderer = this.scene.effectZoneRenderer) {
     const scene = this.scene;

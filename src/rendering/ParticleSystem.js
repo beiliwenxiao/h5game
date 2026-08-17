@@ -180,17 +180,25 @@ export class ParticleSystem {
    * @param {number} deltaTime - 时间增量（秒）
    */
   update(deltaTime) {
-    // 更新所有活跃粒子
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const particle = this.particles[i];
+    // 使用双指针法批量删除，避免 splice O(n²)
+    let writeIndex = 0;
+    for (let readIndex = 0, len = this.particles.length; readIndex < len; readIndex++) {
+      const particle = this.particles[readIndex];
       particle.update(deltaTime);
       
-      // 移除不活跃的粒子
-      if (!particle.active) {
+      if (particle.active) {
+        // 保留活跃粒子
+        if (writeIndex !== readIndex) {
+          this.particles[writeIndex] = particle;
+        }
+        writeIndex++;
+      } else {
+        // 回收不活跃粒子
         this.returnParticleToPool(particle);
-        this.particles.splice(i, 1);
       }
     }
+    // 截断数组
+    this.particles.length = writeIndex;
   }
 
   /**

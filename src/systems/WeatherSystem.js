@@ -133,12 +133,20 @@ export class WeatherSystem {
         speed: 30 + Math.random() * 20
       });
     }
-    for (let i = this._sunbeams.length - 1; i >= 0; i--) {
-      const b = this._sunbeams[i];
+    // 使用双指针法批量删除，避免 splice O(n²)
+    let writeIndex = 0;
+    for (let readIndex = 0, len = this._sunbeams.length; readIndex < len; readIndex++) {
+      const b = this._sunbeams[readIndex];
       b.x += b.speed * deltaTime;
       b.life -= deltaTime;
-      if (b.life <= 0) this._sunbeams.splice(i, 1);
+      if (b.life > 0) {
+        if (writeIndex !== readIndex) {
+          this._sunbeams[writeIndex] = b;
+        }
+        writeIndex++;
+      }
     }
+    this._sunbeams.length = writeIndex;
   }
 
   // ─── 风/雨粒子 ───

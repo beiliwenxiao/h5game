@@ -134,7 +134,11 @@ function restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) 
 }
 
 /** 世界投影完成后的历史配置消费者；仅替换已完整解析并验证的运行时实例。 */
-function configureWorldRuntimeFromLoad() {
+async function configureWorldRuntimeFromLoad() {
+  // 必须等待 GameLoader 完全就绪后才能访问配置消费者
+  if (this._gameLoaderReady) {
+    await this._gameLoaderReady;
+  }
   const weatherView = this.gameLoader?.getConfigConsumer?.('runtime.weather');
   const weatherConfig = weatherView?.get('system.weather');
   if (!weatherConfig) throw new Error('runtime weather consumer missing');

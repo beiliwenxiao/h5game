@@ -18,12 +18,13 @@ export class FetchDiskSceneAdapter {
   constructor({
     projectUrl = 'game.project.json',
     sceneBaseUrl = 'assets/scenes/',
-    fetchImpl = globalThis.fetch
+    fetchImpl
   } = {}) {
-    if (typeof fetchImpl !== 'function') throw new TypeError('FetchDiskSceneAdapter requires fetch');
+    const boundFetch = typeof fetchImpl === 'function' ? fetchImpl : globalThis.fetch?.bind?.(globalThis);
+    if (typeof boundFetch !== 'function') throw new TypeError('FetchDiskSceneAdapter requires fetch');
     this.projectUrl = projectUrl;
     this.sceneBaseUrl = sceneBaseUrl.endsWith('/') ? sceneBaseUrl : `${sceneBaseUrl}/`;
-    this.fetchImpl = fetchImpl;
+    this.fetchImpl = boundFetch;
   }
 
   readProject() { return this._read(this.projectUrl); }

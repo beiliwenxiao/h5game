@@ -231,28 +231,34 @@ export class GameEngine {
             return;
         }
 
-        // 请求下一帧
-        requestAnimationFrame((time) => this.gameLoop(time));
-
-        // 计算时间差
+        // 计算时间差（先计算，再决定是否调度）
         const deltaTime = currentTime - this.lastFrameTime;
 
-        // 限制帧率到60 FPS
+        // 限制帧率到60 FPS：未到帧间隔时只调度下一帧，不执行逻辑
         if (deltaTime < this.frameInterval) {
+            requestAnimationFrame((time) => this.gameLoop(time));
             return;
         }
 
         // 更新最后帧时间
         this.lastFrameTime = currentTime - (deltaTime % this.frameInterval);
 
+        // 保护性 deltaTime 上限：页面切换后台、长任务或性能问题时
+        // 单帧最大允许 100ms（正常 16.67ms 的 6 倍），超出部分分摊到后续帧
+        const maxDeltaMs = 100;
+        const clampedDeltaMs = Math.min(deltaTime, maxDeltaMs);
+
         // 转换为秒
-        const dt = deltaTime / 1000;
+        const dt = clampedDeltaMs / 1000;
 
         // 更新游戏状态
         this.update(dt);
 
         // 渲染游戏画面
         this.render();
+
+        // 帧结束后调度下一帧，确保本帧逻辑完整执行
+        requestAnimationFrame((time) => this.gameLoop(time));
     }
 
     /**

@@ -138,9 +138,10 @@ export class InputManager {
         this.canvas.addEventListener('mouseup', this._eventHandlers.mouseup);
         this.canvas.addEventListener('mousemove', this._eventHandlers.mousemove);
         this.canvas.addEventListener('contextmenu', this._eventHandlers.contextmenu);
-        this.canvas.addEventListener('touchstart', this._eventHandlers.touchstart);
-        this.canvas.addEventListener('touchend', this._eventHandlers.touchend);
-        this.canvas.addEventListener('touchmove', this._eventHandlers.touchmove);
+        // 触摸事件标记为 passive 以提升滚动性能
+        this.canvas.addEventListener('touchstart', this._eventHandlers.touchstart, { passive: true });
+        this.canvas.addEventListener('touchend', this._eventHandlers.touchend, { passive: true });
+        this.canvas.addEventListener('touchmove', this._eventHandlers.touchmove, { passive: true });
         
         console.log('InputManager: Event listeners initialized');
     }

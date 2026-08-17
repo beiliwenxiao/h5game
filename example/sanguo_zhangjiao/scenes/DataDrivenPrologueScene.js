@@ -22,7 +22,6 @@
  */
 
 import { BaseGameScene } from './BaseGameScene.js';
-import { InputHints } from '../../../src/core/input/InputHints.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
 import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
@@ -46,12 +45,8 @@ import { CanonicalStateTransactionService } from '../../../src/systems/Canonical
 import { SanguoDomainCommandFacade } from '../systems/SanguoDomainCommandFacade.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
-import { ClassType, ClassNames } from '../../../src/systems/ClassSystem.js';
-import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
-import { ProgressionViewModel } from '../../../src/ui/progression/ProgressionViewModel.js';
-import { ProgressionPanel } from '../../../src/ui/progression/ProgressionPanel.js';
-import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
 import { CargoTransferView } from '../../../src/ui/CargoTransferView.js';
+import { SanguoProgressionPresentationCoordinator } from '../systems/SanguoProgressionPresentationCoordinator.js';
 import { SanguoSceneLifecycleCoordinator } from '../systems/SanguoSceneLifecycleCoordinator.js';
 import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinator.js';
 import { S01S02Coordinator } from '../systems/S01S02SceneFlow.js';
@@ -68,9 +63,7 @@ import { S06SceneCoordinator } from '../systems/S06SceneFlow.js';
 import {
   S07S08Coordinator, S07_BATTLE_ID
 } from '../systems/S07S08SceneFlow.js';
-import {
-  S09RefugeeCoordinator, S09_SILENCE_EVENT_TYPE
-} from '../systems/S09RefugeeFlow.js';
+import { S09RefugeeCoordinator } from '../systems/S09RefugeeFlow.js';
 import { S09ClassSelectionCoordinator } from '../systems/S09ClassSelectionFlow.js';
 import { S10ConstructionCoordinator } from '../systems/S10ConstructionFlow.js';
 import { S10StoryCoordinator } from '../systems/S10StoryFlow.js';
@@ -302,9 +295,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.s03s14BattleCoordinator = new S03S14BattleCoordinator(this);
     this.sanguoSceneStateFlow = new SanguoSceneStateFlow(this);
     this.sanguoSceneLifecycleCoordinator = new SanguoSceneLifecycleCoordinator(this);
+    this.sanguoProgressionPresentationCoordinator = new SanguoProgressionPresentationCoordinator(this);
     Object.assign(this.context.services, {
       sanguoSceneState: this.sanguoSceneStateFlow,
-      sanguoSceneLifecycle: this.sanguoSceneLifecycleCoordinator
+      sanguoSceneLifecycle: this.sanguoSceneLifecycleCoordinator,
+      sanguoProgressionPresentation: this.sanguoProgressionPresentationCoordinator
     });
     this.cityWarStateBridge = new SceneCityWarStateBridge({
       getBlackboard: () => this.gameLoader?.blackboard || null,
@@ -409,48 +404,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     super.enter(data);
     this.sanguoSceneLifecycleCoordinator.initializeEnteredRuntime();
 
-    this.resourceScope?.track(() => {
-      this._campfireService.dispose();
-      if (this.context.services.worldReadyGate === this._worldReadyGate) {
-        this.context.services.worldReadyGate = null;
-      }
-      this._worldReadyGate = null;
-      this.effectZoneRenderer?.clear?.();
-      this._terrains.length = 0;
-      this.terrain = null;
-      this._worldRegion = null;
-      this._worldIndex = null;
-      this.context.world.terrain = null;
-      this.context.world.terrains = null;
-      this.context.world.region = null;
-      this.context.world.worldIndex = null;
-      this.context.services.placements?.reset?.({ clearProjection: true, clearPending: true, clearSpawned: true });
-      this._regionDynamicStates?.clear?.();
-      this._pendingChunkDomainStates?.clear?.();
-      this._worldStreamingRuntime?.dispose?.();
-      this._detachWorldStreaming = null;
-      this.worldStreamingManager = null;
-      this.gameLoader = null;
-      this.cityStateSummaryPanel = null;
-      this._classConfirm = null;
-      this._classSelectionBusy = false;
-      this.rescueObjectiveView?.clear?.();
-      this.irreversibleChoiceView?.close?.();
-      this.cargoTransferView?.close?.();
-      this._cargoTransferBusy = false;
-      this._cargoTransferPendingOperation = null;
-      this.rescueSystem = null;
-      this.s10ConstructionCoordinator._disposeS10Structures();
-      this._disposeAllSceneVehicles();
-      this._constructionCheckpointBusy = false;
-      this._s10StructureInteractionBusy = false;
-      this.rescueObjectiveView = null;
-      this.irreversibleChoiceView = null;
-      this.s04RouteCoordinator = null;
-      this._s04RescueBusy = false;
-      this._s05RescueBusy = false;
-      this._s04RouteBusy = false;
-    });
+    this.resourceScope?.track(() => this.sanguoSceneLifecycleCoordinator.disposeEnteredRuntime());
 
     // 世界 offset 在 ProjectWorldIndex 构建成功后派生；这里不预写 Demo 尺寸或入口。
 
@@ -742,13 +696,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 波次事件由放置点 coordinator 扫描分组，Scene 仅注入 trigger 与死亡谓词。 */
   _checkWaveEvents() {
-    if (!this.gameLoader) return 0;
-    this._clearedGroups ||= new Set();
-    return this._placementCoordinator.checkWaveEvents({
-      clearedGroups: this._clearedGroups,
-      isEntityDead: entity => this._isEntityDead(entity),
-      triggerSystem: this.gameLoader.triggerSystem
-    });
+    return this.sanguoSceneLifecycleCoordinator.observeWaveEvents();
   }
 
   /** S14 gunner 指针意图和 S01 教学许可均由 Demo coordinator 投影。 */
@@ -797,44 +745,14 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   _grantGatheringProficiency(data = {}) {
-    if (Number(data.accepted) <= 0 || !data.operationId) return false;
-    const definition = this.proficiencySystem?.getDefinition?.('gathering');
-    const amount = Math.max(1, Math.floor(Number(data.accepted) * (definition?.experiencePerUnit || 1)));
-    const result = this.proficiencySystem?.gainExperience?.({
-      characterId: this.playerEntity?.id,
-      type: 'gathering',
-      amount,
-      operationId: `gathering:${data.operationId}`
-    });
-    if (result?.ok === false) console.warn('[DDScene] 采集熟练度提交失败:', result.code);
-    return result?.ok !== false;
+    return this.sanguoSceneCommandCoordinator.grantGatheringProficiency(data);
   }
 
+  /** 框架采集回调入口；S01–S14 领域反馈由命令 coordinator 路由。 */
   onGatheringEvent(event, data = {}) {
-    if (event === 'completed' && data.idempotent === true) {
-      this._showScreenTip('该次采集已经结算，不会重复获得资源或扣除声望。');
-      return;
-    }
+    if (!this.sanguoSceneCommandCoordinator.shouldForwardGatheringEvent(event, data)) return;
     super.onGatheringEvent(event, data);
-    if ((event === 'completed' || event === 'interrupted')
-      && data.toolBroken === true
-      && this._s05MinePendingSettlements.has(data.operationId)) {
-      void this.s05SceneCoordinator._finalizeS05MineCollapse(data);
-      return;
-    }
-    if (event === 'completed' && this.s09RefugeeCoordinator.hasUnauthorizedHarvest(data.operationId)) {
-      this._showScreenTip('未获许可取走粮食：声望 -5，粮仓哨兵已被惊动。');
-    }
-    if (event === 'completed') this._grantGatheringProficiency(data);
-    if (event === 'riskTriggered') {
-      this.gameLoader?.triggerSystem?.fire?.('gatheringRisk', {
-        riskId: data.id,
-        riskType: data.type,
-        nodeId: data.nodeId
-      });
-      return;
-    }
-    if (event === 'completed') this._tutorialFlow.notify('gatheringCompleted', data);
+    this.sanguoSceneCommandCoordinator.handleGatheringEvent(event, data);
   }
 
   /**
@@ -844,24 +762,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _checkTutorialEventSources() {
-    if (!this.gameLoader) return;
-    const triggerSystem = this.gameLoader.triggerSystem;
-    this._tutorialFlow.observeEventSources({
-      position: this.playerEntity?.getComponent?.('transform')?.position || null,
-      panels: {
-        inventory: this.inventoryPanel,
-        stats: this.playerInfoPanel
-      },
-      onMovementComplete: () => triggerSystem.fire('playerMoved', {}),
-      onPanelVisible: ({ id }) => triggerSystem.fire('panelOpen', { panel: id })
-    });
+    return this.sanguoSceneLifecycleCoordinator.observeTutorialEventSources();
   }
 
-  /** 仅转发已由 Authority 提交的 world.teleport 应用通知，不参与导航事实提交。 */
+  /** 已提交导航后的内容通知由 Demo 世界协调器拥有。 */
   async _forwardCommittedSceneEnter(sceneId) {
-    if (!sceneId || !this.gameLoader?.triggerSystem?.fire) return false;
-    await this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
-    return true;
+    return this.sanguoWorldRuntimeCoordinator.forwardCommittedSceneEnter(sceneId);
   }
 
   async _executeScenarioCommand(intentType, payload = {}, operationId = null) {
@@ -953,13 +859,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   }
 
   getDeathDropPresentation() {
-    return {
-      imageId: 'world.loot.deathDrop',
-      assetId: 'world.loot.deathDrop',
-      width: 48,
-      height: 40,
-      name: '遗失物资'
-    };
+    return this.sanguoWorldRuntimeCoordinator.getDeathDropPresentation();
   }
 
   resolvePlayerRespawnPosition() {
@@ -986,50 +886,13 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _presentNpcIdleText(npc, text) {
-    const transform = npc?.getComponent?.('transform');
-    if (transform && this.floatingTextManager) {
-      const sprite = npc.getComponent?.('sprite');
-      const height = (sprite?.height || 48) * (sprite?.scale || 1);
-      this.floatingTextManager.addText(
-        transform.position.x,
-        transform.position.y - height - 20,
-        text,
-        '#cccccc'
-      );
-    }
-    this.notificationSystem?.addNotification?.(text, 'info');
+    return this.sanguoSceneLifecycleCoordinator.presentNpcIdleText(npc, text);
   }
 
-  /**
-   * 覆盖父类：装备变更回调 → fire('equipItem') 事件源
-   * 触发器可监听 equipItem 来做"装备武器后刷怪"等逻辑。
-   *
-   * slot 用内容侧的逻辑名（武器统一为 'weapon'），因为 EquipmentComponent 的真实槽位叫
-   * 'mainhand'，而 game.project.json 的触发器写的是 'weapon'。
-   *
-   * @param {string[]} messages
-   * @param {Object} [info] - { slot, item, oldItem, action }，来自知道细节的调用方
-   */
+  /** 框架装备回调入口；已提交的内容 trigger 映射由 Demo 状态协调器拥有。 */
   onEquipmentChanged(messages, info = null) {
     super.onEquipmentChanged(messages, info);
-    if (!this.gameLoader) return;
-
-    const eq = this.playerEntity && this.playerEntity.getComponent('equipment');
-    const slots = (eq && eq.slots) || {};
-    // 槽位：优先用调用方给的真实槽位，否则兜底按主手武器推断（旧路径不传 info）
-    const rawSlot = (info && info.slot) || (slots.mainhand ? 'mainhand' : 'weapon');
-    const slot = rawSlot === 'mainhand' ? 'weapon' : rawSlot;
-    // 卸下用独立事件，否则"卸下武器"也会命中 equipItem 触发器（如误刷野狗）
-    const isUnequip = !!(info && info.action === 'unequip');
-    const changed = isUnequip
-      ? (info.oldItem || null)
-      : ((info && info.item) || slots[rawSlot] || slots.mainhand || slots.weapon || null);
-
-    this.gameLoader.triggerSystem.fire(isUnequip ? 'unequipItem' : 'equipItem', {
-      slot,
-      rawSlot,
-      item: changed ? (changed.id || changed.name || '') : ''
-    });
+    return this.sanguoSceneStateFlow.handleEquipmentChanged(info);
   }
 
   /**
@@ -1224,48 +1087,44 @@ export class DataDrivenPrologueScene extends BaseGameScene {
    * @private
    */
   _updateClimbPrompt() {
-    if (this._sceneTriggerBindings?.hasActivePrompt?.()) return;
-    const player = this.playerEntity;
-    const canClimb = !!player && this.abilitySystem?.isUnlocked?.(player, 'climb') === true;
-    const target = canClimb ? this.resolveClimbTarget({ entity: player }) : null;
-    if (target?.promptTemplate) this.showHint(target.promptTemplate, '攀爬');
-    else this.hideHint();
+    return this.sanguoSceneLifecycleCoordinator.updateClimbPrompt();
   }
 
   resolveClimbTarget({ entity } = {}) {
     return this._worldQuery.resolveClimbTarget({ entity });
   }
 
+  /** SceneVehicleRuntime 的 Demo 世界编排归属 SanguoWorldRuntimeCoordinator；保留兼容入口。 */
   _getSceneVehicleDefinitions(sceneId = this.currentSceneId) {
-    return this._sceneVehicleRuntime.getDefinitions(sceneId);
+    return this.sanguoWorldRuntimeCoordinator.getSceneVehicleDefinitions(sceneId);
   }
 
   _ensureSceneVehicleEntities(sceneId = this.currentSceneId) {
-    return this._sceneVehicleRuntime.ensure(sceneId);
+    return this.sanguoWorldRuntimeCoordinator.ensureSceneVehicleEntities(sceneId);
   }
 
   _disposeSceneVehicles(sceneId, definitionId = null) {
-    return this._sceneVehicleRuntime.disposeScene(sceneId, definitionId);
+    return this.sanguoWorldRuntimeCoordinator.disposeSceneVehicles(sceneId, definitionId);
   }
 
   _disposeAllSceneVehicles() {
-    return this._sceneVehicleRuntime.disposeAll();
+    return this.sanguoWorldRuntimeCoordinator.disposeAllSceneVehicles();
   }
 
   _resolveVehicleInventoryOwnerId(inventory) {
-    return this._sceneVehicleRuntime.resolveInventoryOwnerId(inventory);
+    return this.sanguoWorldRuntimeCoordinator.resolveVehicleInventoryOwnerId(inventory);
   }
 
   _captureSceneVehicleStates(sceneId = this.currentSceneId) {
-    return this._sceneVehicleRuntime.capture(sceneId);
+    return this.sanguoWorldRuntimeCoordinator.captureSceneVehicleStates(sceneId);
   }
 
   _validateSceneVehicleStates(sceneId, states, logisticsState = null) {
-    return this._sceneVehicleRuntime.validate(sceneId, states, logisticsState);
+    return this.sanguoWorldRuntimeCoordinator.validateSceneVehicleStates(sceneId, states, logisticsState);
   }
 
   _restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) {
-    return this._sceneVehicleRuntime.restore(sceneId, states, logisticsState);
+    return this.sanguoWorldRuntimeCoordinator.restoreSceneVehicleStates(sceneId, states, logisticsState);
   }
 
   // S14 编排兼容入口；状态所有权已经统一到 scene vehicle store。
@@ -1286,266 +1145,53 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
 
   _ensureClassSystem() {
-    const system = this.context?.systems?.classes
-      || this._gameplaySystemAssembler?.getSharedSystems?.()?.classSystem
-      || null;
-    if (system) this.classSystem = system;
-    return system;
+    return this.s09ClassSelectionCoordinator.ensureClassSystem();
   }
 
-  /** 把 EffectResolver 的技能解锁投影到兼容快捷栏；定义本身仍由 SkillRegistry 拥有。 */
+  /** 职业技能投影由 S09 coordinator 拥有；保留其他 Demo 调用方的兼容入口。 */
   _syncUnlockedClassSkills() {
-    const player = this.playerEntity;
-    const combat = player?.getComponent?.('combat');
-    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
-    const registry = this.gameLoader?.skillRegistry;
-    if (!combat || !resolver || !registry || !player?.id) return false;
-    const canonicalIds = new Set(['cleave', 'arrow_shot', 'talisman_water', 'gathering_puppet', 'power_jump']);
-    const removedLegacyIds = new Set(['flame_palm', 'ice_finger', 'inferno_palm', 'heal', 'meditation']);
-    const unlockedIds = new Set(resolver.getUnlockedSkills(player.id).filter(id => canonicalIds.has(id)));
-    const previousCooldowns = new Map(combat.skillCooldowns || []);
-    combat.skills = (combat.skills || []).filter(skill =>
-      !canonicalIds.has(skill?.id) && !removedLegacyIds.has(skill?.id)
-    );
-    for (const skillId of [...canonicalIds, ...removedLegacyIds]) {
-      combat.skillCooldowns.delete(skillId);
-    }
-    for (const skillId of unlockedIds) {
-      const definition = registry.get(skillId);
-      if (!definition) continue;
-      const view = definition.resolveVariant(null);
-      combat.addSkill({
-        id: view.id,
-        name: view.name,
-        description: view.description,
-        type: view.category,
-        category: view.category,
-        targeting: view.targeting,
-        ...view.params,
-        manaCost: view.costs.mp || 0,
-        staminaCost: view.costs.stamina || 0,
-        effectType: view.vfx?.effect || view.id
-      });
-      if (previousCooldowns.has(skillId)) {
-        combat.skillCooldowns.set(skillId, previousCooldowns.get(skillId));
-      }
-    }
-    this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: player });
-    this.gatheringPuppetSystem?.initializeCharges?.();
-    return true;
+    return this.s09ClassSelectionCoordinator.syncUnlockedClassSkills();
   }
 
-  /** AbilitySystem 的 Demo 编排出口；未处理返回 null，由框架回退 CombatSystem。 */
+  /** AbilitySystem 的 Demo 出口；职业专属行为由 S09 coordinator 处理。 */
   executeAbility(context = {}) {
-    const { skillId, caster, targetPosition, params = {}, view = {} } = context;
-    if (skillId === 'gathering_puppet') {
-      const nodeEntity = this._findResourceNodeNear(targetPosition, 72);
-      const result = this.gatheringPuppetSystem?.summon?.({
-        nodeEntity,
-        duration: params.duration,
-        backlashDamage: params.backlashDamage || 15
-      });
-      if (!result?.ok) {
-        this._showScreenTip(`无法召唤采集傀儡：${result?.code || '目标无效'}`);
-        return false;
-      }
-      return true;
-    }
-
-    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
-    const isRangedLure = resolver?.hasRuleOverride?.(
-      caster?.id, 'gather.rangedGuardLure', { scene: this, targetPosition }
-    ) === true;
-    if (isRangedLure && view.tags?.includes?.('ranged') && this.currentSceneId === 'S09') {
-      const guard = this._findGuardNear(targetPosition, 180);
-      if (guard && this.aiSystem?.lureToPosition?.(guard, targetPosition, { duration: 8 })) {
-        this._showScreenTip('箭矢声响引开了粮仓哨兵，抓紧时间行动。');
-        return true;
-      }
-    }
-    return null;
+    return this.s09ClassSelectionCoordinator.executeAbility(context);
   }
 
   _findResourceNodeNear(position, radius = 72) {
-    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
-    let nearest = null;
-    let nearestDistance = radius;
-    for (const entity of this.entities || []) {
-      if (!entity?.getComponent?.('resourceNode')) continue;
-      const transform = entity.getComponent('transform');
-      if (!transform) continue;
-      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
-      if (distance <= nearestDistance) {
-        nearest = entity;
-        nearestDistance = distance;
-      }
-    }
-    return nearest;
+    return this.s09ClassSelectionCoordinator.findResourceNodeNear(position, radius);
   }
 
   _findGuardNear(position, radius = 180) {
-    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
-    let nearest = null;
-    let nearestDistance = radius;
-    for (const enemy of this.enemies || []) {
-      if (!enemy?.tags?.includes?.('s09GranaryGuard') || this._isEntityDead(enemy)) continue;
-      const transform = enemy.getComponent?.('transform');
-      if (!transform) continue;
-      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
-      if (distance <= nearestDistance) {
-        nearest = enemy;
-        nearestDistance = distance;
-      }
-    }
-    return nearest;
+    return this.s09ClassSelectionCoordinator.findGuardNear(position, radius);
   }
 
   onGatheringPuppetEvent(event, data = {}) {
-    if (event === 'summoned') this._showScreenTip('采集傀儡已开始工作，本检查点仅可召唤一次。');
-    else if (event === 'destroyed' || event === 'expired') {
-      this._showScreenTip('采集傀儡被摧毁，产物取消并受到反噬。');
-    }
+    return this.s09ClassSelectionCoordinator.handleGatheringPuppetEvent(event, data);
   }
 
   onAbilityEvent(_event, _data = {}) {}
 
   /** 安装统一成长面板；UI 只经 ViewModel 调用成长领域命令。 */
   _installProgressionUI(gameLoader) {
-    const progressionSystem = gameLoader?.progressionSystem;
-    const player = this.playerEntity;
-    if (!progressionSystem || !player || !this.uiSystem || !this.uiClickHandler || !this.inputManager) return;
-
-    this._grantStarterProgressionPoints(progressionSystem, player.id);
-
-    const viewModel = new ProgressionViewModel({ progressionSystem });
-    viewModel.setCharacter(player);
-
-    const margin = 20;
-    const width = Math.min(800, Math.max(320, this.logicalWidth - margin * 2));
-    const height = Math.min(560, Math.max(360, this.logicalHeight - margin * 2));
-    const panel = new ProgressionPanel({
-      viewModel,
-      isMobile: this.isMobileLayout,
-      x: Math.round((this.logicalWidth - width) / 2),
-      y: Math.round((this.logicalHeight - height) / 2),
-      width,
-      height,
-      zIndex: 150
-    });
-    const hotkeyId = 'progression-panel';
-    const togglePanel = () => {
-      if (this.dialogueSystem?.isDialogueActive() || this.itemGainedPopup?.visible || this._classConfirm) return;
-      const selectedClass = this.playerEntity?.getComponent?.('stats')?.class;
-      if (!['warrior', 'archer', 'strategist'].includes(selectedClass)) {
-        this._showScreenTip('加入黄巾并确认职业后才能打开角色成长');
-        return;
-      }
-      if (panel.visible) {
-        panel.hide();
-      } else {
-        this.backpackPanel?.hide?.();
-        panel.show();
-      }
-    };
-
-    this.uiSystem.registerPanel('progression', panel);
-    this.uiClickHandler.registerElement(panel);
-    // 't' 同时是 InputHints/手柄绑定表中的技能树虚拟动作；展示文案仍由 InputHints 生成。
-    this.inputManager.registerHotkey(hotkeyId, ['t', 'T'], togglePanel);
-    Object.assign(this.context.ui, { progression: panel });
-    this.progressionViewModel = viewModel;
-    this.progressionPanel = panel;
-    this._installCityStateSummaryUI(gameLoader);
-
-    this.resourceScope?.track(() => {
-      this.inputManager?.unregisterHotkey?.(hotkeyId);
-      this.uiClickHandler?.unregisterElement?.(panel);
-      this.uiSystem?.unregisterPanel?.('progression');
-      if (this.context.ui.progression === panel) this.context.ui.progression = null;
-      if (this.progressionPanel === panel) this.progressionPanel = null;
-      if (this.progressionViewModel === viewModel) this.progressionViewModel = null;
-    });
+    return this.sanguoProgressionPresentationCoordinator.installProgressionUI(gameLoader);
   }
 
-  /** 安装 S09 只读城市摘要；面板只接收快照，不读取或修改 Blackboard。 */
+  /** S09 城市摘要属于饥民/CityState 表现投影；保留 Scene 兼容入口。 */
   _installCityStateSummaryUI(gameLoader) {
-    if (!gameLoader?.blackboard || !this.uiSystem) return;
-    const compact = this.isMobileLayout === true;
-    const width = compact ? Math.min(224, this.logicalWidth - 24) : 270;
-    const height = compact ? 112 : 126;
-    const panel = new CityStateSummaryPanel({
-      x: compact ? 12 : this.logicalWidth - width - 16,
-      y: 12,
-      width,
-      height,
-      compact,
-      visible: false,
-      zIndex: 45,
-      resolveImage: imageId => this.assetManager?.getAsset?.(imageId) || null
-    });
-    this.uiSystem.registerPanel('cityStateSummary', panel);
-    Object.assign(this.context.ui, { cityStateSummary: panel });
-    this.cityStateSummaryPanel = panel;
-    this._updateCityStateSummary();
-
-    this.resourceScope?.track(() => {
-      this.uiSystem?.unregisterPanel?.('cityStateSummary');
-      if (this.context.ui.cityStateSummary === panel) this.context.ui.cityStateSummary = null;
-      if (this.cityStateSummaryPanel === panel) this.cityStateSummaryPanel = null;
-    });
+    return this.s09RefugeeCoordinator.installCitySummaryUI(gameLoader);
   }
 
   _updateCityStateSummary() {
-    const panel = this.cityStateSummaryPanel;
-    if (!panel) return;
-    if (this.currentSceneId !== 'S09') {
-      panel.hide();
-      return;
-    }
-    const context = this.s09RefugeeCoordinator._getS09CityContext();
-    if (!context) {
-      panel.hide();
-      return;
-    }
-    const conflict = context.storyState.s09RefugeeConflict || {};
-    const silenceEvent = (context.storyState.delayedConsequences || [])
-      .find(event => event?.type === S09_SILENCE_EVENT_TYPE);
-    const branchLabels = {
-      hardline: '强硬控制',
-      appease: conflict.result === 'foodRestored' ? '安抚采集成功' : '安抚采集遇袭',
-      silence: silenceEvent?.status === 'completed' ? '沉默（粮食已归零）' : '沉默（后果待结算）'
-    };
-    let refugeeStatus = '尚未发生';
-    if (conflict.branch) refugeeStatus = branchLabels[conflict.branch] || conflict.branch;
-    else if (conflict.donationCommitted) refugeeStatus = '已捐粮，等待抉择';
-    else if (conflict.status === 'started') refugeeStatus = '争斗处理中';
-    else if (conflict.status === 'ready') refugeeStatus = '现场已出现';
-
-    panel.setSnapshot({
-      cityName: context.city.name,
-      resources: context.city.resources,
-      damageRatio: context.city.damageRatio,
-      morale: context.city.morale,
-      reputation: context.blackboard.get('reputation'),
-      currentDay: this.timeSystem?.getCurrentDay?.() || context.storyState.currentDay || 1,
-      refugeeStatus,
-      icons: {
-        morale: 's09.ui.morale',
-        reputation: 's09.ui.reputation',
-        story: 's09.ui.storyChoice'
-      }
-    });
-    panel.show();
+    return this.s09RefugeeCoordinator.updateCitySummary();
   }
 
   /** 新档只在成长账本首次建立前发放四类独立起始点；读档永不发放。 */
   _grantStarterProgressionPoints(progressionSystem, characterId) {
-    if (!this._progressionBootstrap?.isNewGame || !characterId) return;
-    if (progressionSystem.states.has(characterId) || progressionSystem.ledgers.has(characterId)) return;
-    progressionSystem.grantPoints(characterId, 'skill', 1);
-    progressionSystem.grantPoints(characterId, 'talent', 1);
-    progressionSystem.grantPoints(characterId, 'unit', 1);
-    progressionSystem.grantPoints(characterId, 'passive', 1);
+    return this.sanguoProgressionPresentationCoordinator.grantStarterProgressionPoints(
+      progressionSystem,
+      characterId
+    );
   }
 
   /** Scene 只装配通用空间 action；所有业务触发器均由 descriptor command 执行。 */
@@ -1560,7 +1206,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   /** 职业事实到玩家基础动画外观挂点的唯一投影入口。 */
   _syncPlayerClassAppearance(classId = null) {
-    return this._playerFactory?.applyClassAppearance?.(this, this.playerEntity, classId) === true;
+    return this.s09ClassSelectionCoordinator.syncPlayerClassAppearance(classId);
   }
 
   /** S09 职业确认表现由专属 coordinator 拥有；保留触发器兼容入口。 */
@@ -1576,188 +1222,35 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.s09ClassSelectionCoordinator.updateConfirmationHover();
   }
 
-  /** SceneInputFlow 的 MODAL_UI 出口；弹窗存在时无条件吞掉世界输入。 */
-  handleModalInput({ inputManager, gamepad } = {}) {
-    if (this.endingPresentationView?.visible) {
-      return this.endingPresentationView.handleInput(
-        this.s11s14SceneCoordinator._createEndingInputContext({ inputManager, gamepad })
-      );
-    }
-    if (this.cargoTransferView?.visible) {
-      return this.cargoTransferView.handleInput({
-        inputManager,
-        gamepad,
-        viewWidth: this.logicalWidth,
-        viewHeight: this.logicalHeight
-      });
-    }
-    if (this.s03s14BattleCoordinator.isInputLayerVisible('result')) {
-      return this.s03s14BattleCoordinator.handleInputLayer('result', {
-        inputManager,
-        gamepad,
-        viewWidth: this.logicalWidth,
-        viewHeight: this.logicalHeight
-      });
-    }
-    if (this.irreversibleChoiceView?.visible) {
-      return this.irreversibleChoiceView.handleInput({
-        inputManager,
-        gamepad,
-        viewWidth: this.logicalWidth,
-        viewHeight: this.logicalHeight
-      });
-    }
-    if (this.s03s14BattleCoordinator.isInputLayerVisible('mode')) {
-      return this.s03s14BattleCoordinator.handleInputLayer('mode', {
-        inputManager,
-        gamepad,
-        viewWidth: this.logicalWidth,
-        viewHeight: this.logicalHeight
-      });
-    }
-    return this.s09ClassSelectionCoordinator.handleConfirmationInput({ inputManager, gamepad });
+  /** 框架 MODAL_UI 钩子；Demo UI 的优先级分发由生命周期协调器拥有并吞掉世界输入。 */
+  handleModalInput(context = {}) {
+    return this.sanguoSceneLifecycleCoordinator.handleModalInput(context);
   }
 
-  /** 保留旧 update 调用点，只更新 hover；点击和键位统一由 SceneInputFlow 处理。 */
   _updateClassConfirmation() {
-    this._updateClassConfirmationHover();
+    return this.s09ClassSelectionCoordinator.updateConfirmation();
   }
 
   async _confirmClassSelection(classId) {
-    const result = await this._executeScenarioCommand('scenario.command', {
-      operation: 'class.select',
-      classId
-    }, `class-select:${this.playerEntity?.id || 'unknown'}:${classId}`);
-    if (!result?.ok) return false;
-    this._classConfirm = null;
-    this._presentClassSelectionCommitted(result.value?.classType || classId);
-    return true;
+    return this.s09ClassSelectionCoordinator.confirmSelection(classId);
   }
 
   _presentClassSelectionCommitted(classType) {
-    this._syncPlayerClassAppearance(classType);
-    this._s09AudioDirector?.playFeedback?.('classSelected');
-    const className = ClassNames[classType] || classType;
-    this.notificationSystem?.addNotification?.(`你选择了${className}，初始能力和装备已发放`, 'success');
-    this.gameLoader?.triggerSystem?.fire('classSelected', { class: classType, className });
-    console.log('%c[DDScene] S09 职业检查点已提交:', 'color:#4CAF50', className);
+    return this.s09ClassSelectionCoordinator.presentSelectionCommitted(classType);
   }
 
-  /** 渲染职业确认窗口；提示文本始终由 InputHints 根据当前设备生成。 */
   _renderClassConfirmation(ctx) {
-    const cf = this._classConfirm;
-    if (!cf) return;
-    const { w, h, px, py, btnW, btnH, btnY, confirmX, cancelX } = this._classModalLayout();
-
-    ctx.save();
-    ctx.fillStyle = 'rgba(0,0,0,0.62)';
-    ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-    ctx.fillStyle = 'rgba(16,24,40,0.97)';
-    ctx.strokeStyle = '#d6b85f';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.roundRect(px, py, w, h, 10);
-    ctx.fill();
-    ctx.stroke();
-
-    const classIcon = this.assetManager?.getAsset?.(`s09.ui.class.${cf.classId}`);
-    const classIconReady = classIcon && (classIcon.complete !== false)
-      && (classIcon.naturalWidth || classIcon.width || 0) > 0;
-    if (classIconReady) ctx.drawImage(classIcon, px + 16, py + 12, 38, 38);
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 20px Arial';
-    ctx.fillText('确认职业选择', px + w / 2, py + 18);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = '15px Arial';
-    ctx.fillText(`确定选择「${cf.className}」吗？选择后不可更改。`, px + w / 2, py + 57);
-    ctx.fillStyle = '#d6d9df';
-    ctx.font = '14px Arial';
-    ctx.fillText(cf.description, px + w / 2, py + 88);
-    if (this._classSelectionBusy) {
-      ctx.fillStyle = '#f0cf77';
-      ctx.fillText('正在创建职业检查点……', px + w / 2, py + 116);
-    }
-
-    ctx.fillStyle = cf.confirmHover ? '#5dba68' : '#4CAF50';
-    ctx.beginPath();
-    ctx.roundRect(confirmX, btnY, btnW, btnH, 6);
-    ctx.fill();
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold 14px Arial';
-    ctx.fillText(`确认（${InputHints.key('confirm')}）`, confirmX + btnW / 2, btnY + 11);
-
-    ctx.fillStyle = cf.cancelHover ? '#555' : '#3a3a3a';
-    ctx.beginPath();
-    ctx.roundRect(cancelX, btnY, btnW, btnH, 6);
-    ctx.fill();
-    ctx.strokeStyle = '#888';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.fillText(`取消（${InputHints.key('modalCancel')}）`, cancelX + btnW / 2, btnY + 11);
-    ctx.restore();
+    return this.s09ClassSelectionCoordinator.renderConfirmation(ctx);
   }
 
-  /**
-   * 三国运行时配置钩子：世界/流式投影已由父类提交，历史配置消费者仅在此装配。
-   */
+  /** 父类世界加载稳定钩子；三国配置消费者由 Demo 世界协调器拥有。 */
   configureWorldRuntimeFromLoad(_result) {
-    // 所有 runtime consumer 先在 shadow 中解析；全部成功后一次替换。
-    const weatherView = this.gameLoader?.getConfigConsumer?.('runtime.weather');
-    const weatherConfig = weatherView?.get('system.weather');
-    if (!weatherConfig) throw new Error('runtime weather consumer missing');
-    const nextWeatherSystem = new WeatherSystem(weatherConfig);
-    const nextTimeSystem = new TimeSystem(this.gameLoader?.runtimeConfigSnapshot?.system?.time || {});
-
-    const sceneData = this._worldLoadSession?.getSceneData?.(this.currentSceneId);
-    const sceneConsumption = sceneData
-      ? this.gameLoader?.configConsumptionRegistry?.buildSources?.({ scene: sceneData }, {
-        revision: this.gameLoader?.runtimeConfigSnapshot?.definitionRevision || 0,
-        requirements: sceneData?.gameplay?.campfire
-          ? { paths: [{ pathPattern: 'scene.gameplay.campfire.**', required: true }] }
-          : null
-      })
-      : null;
-    const campfireView = sceneConsumption?.getConsumer?.('scene.gameplay');
-    const campfireConfig = campfireView?.get('scene.gameplay.campfire');
-    if (campfireConfig) {
-      const validationService = new SceneCampfireService({ configView: campfireConfig });
-      validationService.dispose();
-    }
-
-    this.weatherSystem = nextWeatherSystem;
-    this.timeSystem = nextTimeSystem;
-    this._sceneConsumptionSnapshot = sceneConsumption;
-    if (campfireConfig) this._campfireService.configure(campfireConfig);
+    return this.sanguoWorldRuntimeCoordinator.configureWorldRuntimeFromLoad();
   }
 
-  /** 三国内战与剧情界面的最高层表现；领域状态仅以只读快照绘制。 */
+  /** 框架渲染稳定钩子；三国 UI 层的排序由 Demo 生命周期协调器拥有。 */
   renderPostPipeline(ctx) {
-    this.context.services.diagnostics?.renderCollisionShapes(ctx, {
-      enabled: this.debugShowCollisionPolygons,
-      camera: this.camera,
-      terrains: this._terrains,
-      label: 'DDScene'
-    });
-    this._renderTeleportFade(ctx);
-    // 战中 HUD 与救援 HUD 只绘制领域系统的不可变快照。
-    this.s03s14BattleCoordinator.renderLayer('hud', ctx, this.logicalWidth, this.logicalHeight);
-    this.rescueObjectiveView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
-    // 职业确认窗口（最上层，半透明遮罩 + 面板）
-    this._renderClassConfirmation(ctx);
-    // 战役模式确认优先于其他场景弹窗，且不直接修改领域状态。
-    this.s03s14BattleCoordinator.renderLayer('mode', ctx, this.logicalWidth, this.logicalHeight);
-    // 路线选择只发命令；互斥、幂等和 checkpoint 由场景领域事务拥有。
-    this.irreversibleChoiceView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
-    // 战果面板最后绘制并吞掉全部世界输入，关闭只影响 UI 可见性。
-    this.s03s14BattleCoordinator.renderLayer('result', ctx, this.logicalWidth, this.logicalHeight);
-    // 货舱面板只发转移命令，实际库存与货舱事务由 VehicleLogisticsSystem 提交。
-    this.cargoTransferView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
-    // 终局演出是最高层只读表现，仅通过命令请求宿主动作。
-    this.endingPresentationView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
+    return this.sanguoSceneLifecycleCoordinator.renderPostPipeline(ctx);
   }
 
 }

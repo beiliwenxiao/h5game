@@ -1,6 +1,8 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+import { CityStateSummaryPanel } from '../../../src/ui/CityStateSummaryPanel.js';
 
 export const S09_REFUGEE_DIALOGUE_ID = 'dialogue.s09.refugeeConflict';
+export const S09_SILENCE_EVENT_TYPE = 's09.silenceFoodCollapse';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -123,6 +125,79 @@ export class S09RefugeeCoordinator extends SceneFlowCoordinator {
       ? cityStates.find(entry => entry?.id === 'city.s09_guangzong_camp') || null
       : null;
     return blackboard && storyState && city ? { blackboard, storyState, city } : null;
+  }
+
+  /** S09 只读城市摘要只投影已提交的 Blackboard 状态，不参与领域写入。 */
+  installCitySummaryUI(gameLoader) {
+    const scene = this.scene;
+    if (!gameLoader?.blackboard || !scene.uiSystem) return false;
+    const compact = scene.isMobileLayout === true;
+    const width = compact ? Math.min(224, scene.logicalWidth - 24) : 270;
+    const height = compact ? 112 : 126;
+    const panel = new CityStateSummaryPanel({
+      x: compact ? 12 : scene.logicalWidth - width - 16,
+      y: 12,
+      width,
+      height,
+      compact,
+      visible: false,
+      zIndex: 45,
+      resolveImage: imageId => scene.assetManager?.getAsset?.(imageId) || null
+    });
+    scene.uiSystem.registerPanel('cityStateSummary', panel);
+    Object.assign(scene.context.ui, { cityStateSummary: panel });
+    scene.cityStateSummaryPanel = panel;
+    this.updateCitySummary();
+    scene.resourceScope?.track(() => {
+      scene.uiSystem?.unregisterPanel?.('cityStateSummary');
+      if (scene.context.ui.cityStateSummary === panel) scene.context.ui.cityStateSummary = null;
+      if (scene.cityStateSummaryPanel === panel) scene.cityStateSummaryPanel = null;
+    });
+    return true;
+  }
+
+  updateCitySummary() {
+    const scene = this.scene;
+    const panel = scene.cityStateSummaryPanel;
+    if (!panel) return false;
+    if (scene.currentSceneId !== 'S09') {
+      panel.hide();
+      return false;
+    }
+    const context = this._getS09CityContext();
+    if (!context) {
+      panel.hide();
+      return false;
+    }
+    const conflict = context.storyState.s09RefugeeConflict || {};
+    const silenceEvent = (context.storyState.delayedConsequences || [])
+      .find(event => event?.type === S09_SILENCE_EVENT_TYPE);
+    const branchLabels = {
+      hardline: '强硬控制',
+      appease: conflict.result === 'foodRestored' ? '安抚采集成功' : '安抚采集遇袭',
+      silence: silenceEvent?.status === 'completed' ? '沉默（粮食已归零）' : '沉默（后果待结算）'
+    };
+    let refugeeStatus = '尚未发生';
+    if (conflict.branch) refugeeStatus = branchLabels[conflict.branch] || conflict.branch;
+    else if (conflict.donationCommitted) refugeeStatus = '已捐粮，等待抉择';
+    else if (conflict.status === 'started') refugeeStatus = '争斗处理中';
+    else if (conflict.status === 'ready') refugeeStatus = '现场已出现';
+    panel.setSnapshot({
+      cityName: context.city.name,
+      resources: context.city.resources,
+      damageRatio: context.city.damageRatio,
+      morale: context.city.morale,
+      reputation: context.blackboard.get('reputation'),
+      currentDay: scene.timeSystem?.getCurrentDay?.() || context.storyState.currentDay || 1,
+      refugeeStatus,
+      icons: {
+        morale: 's09.ui.morale',
+        reputation: 's09.ui.reputation',
+        story: 's09.ui.storyChoice'
+      }
+    });
+    panel.show();
+    return true;
   }
 
   /** S09 历史采粮政策参与通用 GatheringSystem 的 prepare/commit/rollback 链。 */

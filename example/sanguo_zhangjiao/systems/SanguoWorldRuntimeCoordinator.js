@@ -1,4 +1,7 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
+import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
+import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -22,9 +25,97 @@ export class SanguoWorldRuntimeCoordinator extends SceneFlowCoordinator {
       extractRegionDynamicState,
       clearRegionRuntime,
       commitRegionTarget,
-      restoreRegionDraft
+      restoreRegionDraft,
+      getSceneVehicleDefinitions,
+      ensureSceneVehicleEntities,
+      disposeSceneVehicles,
+      disposeAllSceneVehicles,
+      resolveVehicleInventoryOwnerId,
+      captureSceneVehicleStates,
+      validateSceneVehicleStates,
+      restoreSceneVehicleStates,
+      configureWorldRuntimeFromLoad,
+      getDeathDropPresentation,
+      forwardCommittedSceneEnter
     }, { name: 'SanguoWorldRuntimeCoordinator' });
   }
+}
+
+/** 载具定义与运行态以当前 SceneVehicleRuntime 为唯一 store；此处只负责 Demo 世界编排。 */
+function getSceneVehicleDefinitions(sceneId = this.currentSceneId) {
+  return this._sceneVehicleRuntime.getDefinitions(sceneId);
+}
+
+function ensureSceneVehicleEntities(sceneId = this.currentSceneId) {
+  return this._sceneVehicleRuntime.ensure(sceneId);
+}
+
+function disposeSceneVehicles(sceneId, definitionId = null) {
+  return this._sceneVehicleRuntime.disposeScene(sceneId, definitionId);
+}
+
+function disposeAllSceneVehicles() {
+  return this._sceneVehicleRuntime.disposeAll();
+}
+
+function resolveVehicleInventoryOwnerId(inventory) {
+  return this._sceneVehicleRuntime.resolveInventoryOwnerId(inventory);
+}
+
+function captureSceneVehicleStates(sceneId = this.currentSceneId) {
+  return this._sceneVehicleRuntime.capture(sceneId);
+}
+
+function validateSceneVehicleStates(sceneId, states, logisticsState = null) {
+  return this._sceneVehicleRuntime.validate(sceneId, states, logisticsState);
+}
+
+function restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) {
+  return this._sceneVehicleRuntime.restore(sceneId, states, logisticsState);
+}
+
+/** 世界投影完成后的历史配置消费者；仅替换已完整解析并验证的运行时实例。 */
+function configureWorldRuntimeFromLoad() {
+  const weatherView = this.gameLoader?.getConfigConsumer?.('runtime.weather');
+  const weatherConfig = weatherView?.get('system.weather');
+  if (!weatherConfig) throw new Error('runtime weather consumer missing');
+  const nextWeatherSystem = new WeatherSystem(weatherConfig);
+  const nextTimeSystem = new TimeSystem(this.gameLoader?.runtimeConfigSnapshot?.system?.time || {});
+  const sceneData = this._worldLoadSession?.getSceneData?.(this.currentSceneId);
+  const sceneConsumption = sceneData
+    ? this.gameLoader?.configConsumptionRegistry?.buildSources?.({ scene: sceneData }, {
+      revision: this.gameLoader?.runtimeConfigSnapshot?.definitionRevision || 0,
+      requirements: sceneData?.gameplay?.campfire
+        ? { paths: [{ pathPattern: 'scene.gameplay.campfire.**', required: true }] }
+        : null
+    })
+    : null;
+  const campfireView = sceneConsumption?.getConsumer?.('scene.gameplay');
+  const campfireConfig = campfireView?.get('scene.gameplay.campfire');
+  if (campfireConfig) {
+    const validationService = new SceneCampfireService({ configView: campfireConfig });
+    validationService.dispose();
+  }
+  this.weatherSystem = nextWeatherSystem;
+  this.timeSystem = nextTimeSystem;
+  this._sceneConsumptionSnapshot = sceneConsumption;
+  if (campfireConfig) this._campfireService.configure(campfireConfig);
+}
+
+async function forwardCommittedSceneEnter(sceneId) {
+  if (!sceneId || !this.gameLoader?.triggerSystem?.fire) return false;
+  await this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
+  return true;
+}
+
+function getDeathDropPresentation() {
+  return {
+    imageId: 'world.loot.deathDrop',
+    assetId: 'world.loot.deathDrop',
+    width: 48,
+    height: 40,
+    name: '遗失物资'
+  };
 }
 
 function createStreamingStateProvider() {

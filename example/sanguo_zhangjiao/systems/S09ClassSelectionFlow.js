@@ -251,6 +251,130 @@ const methods = {
     console.log('%c[S09ClassSelectionCoordinator] S09 职业检查点已提交:', 'color:#4CAF50', className);
   },
 
+  executeAbility(context = {}) {
+    const { skillId, caster, targetPosition, params = {}, view = {} } = context;
+    if (skillId === 'gathering_puppet') {
+      const nodeEntity = this.findResourceNodeNear(targetPosition, 72);
+      const result = this.gatheringPuppetSystem?.summon?.({
+        nodeEntity,
+        duration: params.duration,
+        backlashDamage: params.backlashDamage || 15
+      });
+      if (!result?.ok) {
+        this._showScreenTip(`无法召唤采集傀儡：${result?.code || '目标无效'}`);
+        return false;
+      }
+      return true;
+    }
+    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
+    const isRangedLure = resolver?.hasRuleOverride?.(
+      caster?.id, 'gather.rangedGuardLure', { scene: this.$scene, targetPosition }
+    ) === true;
+    if (isRangedLure && view.tags?.includes?.('ranged') && this.currentSceneId === 'S09') {
+      const guard = this.findGuardNear(targetPosition, 180);
+      if (guard && this.aiSystem?.lureToPosition?.(guard, targetPosition, { duration: 8 })) {
+        this._showScreenTip('箭矢声响引开了粮仓哨兵，抓紧时间行动。');
+        return true;
+      }
+    }
+    return null;
+  },
+
+  findResourceNodeNear(position, radius = 72) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
+    let nearest = null;
+    let nearestDistance = radius;
+    for (const entity of this.entities || []) {
+      if (!entity?.getComponent?.('resourceNode')) continue;
+      const transform = entity.getComponent('transform');
+      if (!transform) continue;
+      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
+      if (distance <= nearestDistance) {
+        nearest = entity;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  },
+
+  findGuardNear(position, radius = 180) {
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return null;
+    let nearest = null;
+    let nearestDistance = radius;
+    for (const enemy of this.enemies || []) {
+      if (!enemy?.tags?.includes?.('s09GranaryGuard') || this._isEntityDead(enemy)) continue;
+      const transform = enemy.getComponent?.('transform');
+      if (!transform) continue;
+      const distance = Math.hypot(position.x - transform.position.x, position.y - transform.position.y);
+      if (distance <= nearestDistance) {
+        nearest = enemy;
+        nearestDistance = distance;
+      }
+    }
+    return nearest;
+  },
+
+  handleGatheringPuppetEvent(event) {
+    if (event === 'summoned') this._showScreenTip('采集傀儡已开始工作，本检查点仅可召唤一次。');
+    else if (event === 'destroyed' || event === 'expired') {
+      this._showScreenTip('采集傀儡被摧毁，产物取消并受到反噬。');
+    }
+  },
+
+  /** 将 EffectResolver 的职业技能投影到兼容快捷栏；定义仍由 SkillRegistry 拥有。 */
+  syncUnlockedClassSkills() {
+    const player = this.playerEntity;
+    const combat = player?.getComponent?.('combat');
+    const resolver = this.gameLoader?.progressionSystem?.effectResolver;
+    const registry = this.gameLoader?.skillRegistry;
+    if (!combat || !resolver || !registry || !player?.id) return false;
+    const canonicalIds = new Set(['cleave', 'arrow_shot', 'talisman_water', 'gathering_puppet', 'power_jump']);
+    const removedLegacyIds = new Set(['flame_palm', 'ice_finger', 'inferno_palm', 'heal', 'meditation']);
+    const unlockedIds = new Set(resolver.getUnlockedSkills(player.id).filter(id => canonicalIds.has(id)));
+    const previousCooldowns = new Map(combat.skillCooldowns || []);
+    combat.skills = (combat.skills || []).filter(skill =>
+      !canonicalIds.has(skill?.id) && !removedLegacyIds.has(skill?.id)
+    );
+    for (const skillId of [...canonicalIds, ...removedLegacyIds]) {
+      combat.skillCooldowns.delete(skillId);
+    }
+    for (const skillId of unlockedIds) {
+      const definition = registry.get(skillId);
+      if (!definition) continue;
+      const view = definition.resolveVariant(null);
+      combat.addSkill({
+        id: view.id,
+        name: view.name,
+        description: view.description,
+        type: view.category,
+        category: view.category,
+        targeting: view.targeting,
+        ...view.params,
+        manaCost: view.costs.mp || 0,
+        staminaCost: view.costs.stamina || 0,
+        effectType: view.vfx?.effect || view.id
+      });
+      if (previousCooldowns.has(skillId)) {
+        combat.skillCooldowns.set(skillId, previousCooldowns.get(skillId));
+      }
+    }
+    this.gatheringPuppetSystem?.configure?.({ effectResolver: resolver, owner: player });
+    this.gatheringPuppetSystem?.initializeCharges?.();
+    return true;
+  },
+
+  ensureClassSystem() {
+    const system = this.context?.systems?.classes
+      || this._gameplaySystemAssembler?.getSharedSystems?.()?.classSystem
+      || null;
+    if (system) this.classSystem = system;
+    return system;
+  },
+
+  syncPlayerClassAppearance(classId = null) {
+    return this._playerFactory?.applyClassAppearance?.(this.$scene, this.playerEntity, classId) === true;
+  },
+
   renderConfirmation(ctx) {
     const confirmation = this._classConfirm;
     if (!confirmation) return;

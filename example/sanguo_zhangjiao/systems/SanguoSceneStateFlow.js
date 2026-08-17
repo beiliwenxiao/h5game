@@ -9,7 +9,12 @@ const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(val
  */
 export class SanguoSceneStateFlow extends SceneFlowCoordinator {
   constructor(scene) {
-    super(scene, { captureSceneSaveState, restoreSceneSaveState, handleWorldItemPicked }, {
+    super(scene, {
+      captureSceneSaveState,
+      restoreSceneSaveState,
+      handleWorldItemPicked,
+      handleEquipmentChanged
+    }, {
       name: 'SanguoSceneStateFlow'
     });
   }
@@ -125,6 +130,25 @@ function handleWorldItemPicked(item) {
   this._tutorialFlow.notify('itemPicked', { item });
   this.gameLoader.triggerSystem.fire('itemPickup', { item: itemId, id: itemId });
   console.log('[DDScene] itemPickup:', itemId);
+  return true;
+}
+
+/** 已提交的装备变更只投影为内容 trigger，不持有装备事实。 */
+function handleEquipmentChanged(info = null) {
+  if (!this.gameLoader) return false;
+  const equipment = this.playerEntity?.getComponent?.('equipment');
+  const slots = equipment?.slots || {};
+  const rawSlot = info?.slot || (slots.mainhand ? 'mainhand' : 'weapon');
+  const slot = rawSlot === 'mainhand' ? 'weapon' : rawSlot;
+  const isUnequip = info?.action === 'unequip';
+  const changed = isUnequip
+    ? (info?.oldItem || null)
+    : (info?.item || slots[rawSlot] || slots.mainhand || slots.weapon || null);
+  this.gameLoader.triggerSystem.fire(isUnequip ? 'unequipItem' : 'equipItem', {
+    slot,
+    rawSlot,
+    item: changed ? (changed.id || changed.name || '') : ''
+  });
   return true;
 }
 

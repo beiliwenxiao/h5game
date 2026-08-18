@@ -42,8 +42,13 @@ export class DebugPanel {
     this._lastFpsTime = performance.now();
   }
 
-  /** 切换显示/隐藏；关闭始终允许，任何打开动作都必须通过 RuntimeConfig 门禁。 */
+  /** 切换显示/隐藏；暂停时保留面板作为唯一恢复入口。 */
   toggle() {
+    if (this.visible && this._getActiveScene()?.isPaused === true) {
+      this._syncPauseButton();
+      console.warn('[DebugPanel] 游戏逻辑已暂停，请先恢复后再关闭调试面板');
+      return true;
+    }
     if (!this.visible && !this.isDebugEnabled()) return false;
     const before = {
       visible: this.visible,
@@ -102,6 +107,37 @@ export class DebugPanel {
     return !this.visible;
   }
 
+  _getActiveScene() {
+    return this.getSceneManager?.()?.getCurrentScene?.() || this.getScene?.() || null;
+  }
+
+  _toggleGameLoops() {
+    const scene = this._getActiveScene();
+    if (!scene) return false;
+    if (scene.isPaused) scene.resume?.();
+    else scene.pause?.();
+    this._syncPauseButton();
+    return scene.isPaused === true;
+  }
+
+  _syncPauseButton() {
+    if (!this._el) return;
+    const paused = this._getActiveScene()?.isPaused === true;
+    const state = this._el.querySelector('#dp-loop-state');
+    const button = this._el.querySelector('#dp-toggle-loops');
+    const close = this._el.querySelector('.dp-close');
+    if (state) state.textContent = paused ? '已暂停' : '运行中';
+    if (button) {
+      button.textContent = paused ? '▶ 恢复所有游戏逻辑' : '⏸ 暂停所有游戏逻辑';
+      button.setAttribute('aria-pressed', String(paused));
+      button.classList.toggle('is-paused', paused);
+    }
+    if (close) {
+      close.disabled = paused;
+      close.title = paused ? '请先恢复游戏逻辑' : '关闭';
+    }
+  }
+
   /** 接收 SceneDiagnostics 的持久记录投影，不拥有或清空记录。 */
   setDiagnosticRecords(records = []) {
     this.diagnosticRecords = records;
@@ -140,6 +176,13 @@ export class DebugPanel {
           <div class="dp-row"><span>纹理内存:</span><span id="dp-texmem">--</span></div>
           <div class="dp-row"><span>当前幕:</span><span id="dp-act">--</span></div>
           <div class="dp-row"><span>教程阶段:</span><span id="dp-phase">--</span></div>
+        </div>
+        <div class="dp-section dp-actions">
+          <div class="dp-title">游戏循环</div>
+          <div class="dp-row"><span>状态:</span><span id="dp-loop-state">运行中</span></div>
+          <div class="dp-btn-row">
+            <button id="dp-toggle-loops" type="button" aria-pressed="false">⏸ 暂停所有游戏逻辑</button>
+          </div>
         </div>
         <div class="dp-section">
           <div class="dp-title">玩家属性</div>
@@ -223,6 +266,7 @@ export class DebugPanel {
     document.body.appendChild(el);
     this._el = el;
     this._bindEvents();
+    this._syncPauseButton();
     this._renderDiagnosticRecords();
   }
 
@@ -248,6 +292,8 @@ export class DebugPanel {
         padding:4px 8px; background:#2a3a2a; border:1px solid #4CAF50; color:#fff;
         border-radius:3px; cursor:pointer; font-size:11px; }
       #debug-panel .dp-actions button:hover { background:#3a5a3a; }
+      #debug-panel .dp-actions button.is-paused { background:#5a351f; border-color:#ff9800; }
+      #debug-panel .dp-close:disabled { color:#777; cursor:not-allowed; }
       #debug-panel .dp-btn-row { display:flex; gap:4px; margin-bottom:4px; flex-wrap:wrap; }
       #debug-panel .dp-actions select { flex:1; min-width:0; }
       #debug-panel .dp-check-row { display:flex; align-items:center; gap:7px; color:#fff; cursor:pointer; }
@@ -260,6 +306,7 @@ export class DebugPanel {
   _bindEvents() {
     const el = this._el;
     el.querySelector('.dp-close').addEventListener('click', () => this.toggle());
+    el.querySelector('#dp-toggle-loops').addEventListener('click', () => this._toggleGameLoops());
     el.querySelector('#dp-prev-event').addEventListener('click', () => this._prevEvent());
     el.querySelector('#dp-next-event').addEventListener('click', () => this._nextEvent());
     el.querySelector('#dp-fire-event').addEventListener('click', () => this._fireEvent());
@@ -377,7 +424,8 @@ export class DebugPanel {
   /** 刷新信息显示 */
   _updateInfo() {
     if (!this._el) return;
-    const scene = this.getScene();
+    this._syncPauseButton();
+    const scene = this._getActiveScene();
     if (!scene) return;
 
     // 使用主游戏循环桥接的真实 FPS；桥接尚未就绪时回退到面板刷新率

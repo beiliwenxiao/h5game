@@ -154,7 +154,12 @@ function handleEquipmentChanged(info = null) {
 
 function validateSceneSaveState(data) {
   const battleValidation = this.s03s14BattleCoordinator.validateSnapshot(data);
-  if (!battleValidation.ok) return failure('battleState', `战役运行状态校验失败: ${battleValidation.code}`, battleValidation.code, battleValidation.path);
+  if (!battleValidation.ok) {
+    const detail = battleValidation.code === 'unknownBattleId'
+      ? `：${battleValidation.battleId || '缺少 battleId'}（定义=${battleValidation.hasDefinition === true ? '已注册' : '未注册'}，流程=${battleValidation.hasFlow === true ? '已注册' : '未注册'}）`
+      : '';
+    return failure('battleState', `战役运行状态校验失败: ${battleValidation.code}${detail}`, battleValidation.code, battleValidation.path);
+  }
   if (data.rescueState) {
     if (!this.rescueSystem) return failure('rescueState', '救援运行时尚未就绪', 'rescueRuntimeUnavailable');
     const check = this.rescueSystem.validateSerialized(data.rescueState);

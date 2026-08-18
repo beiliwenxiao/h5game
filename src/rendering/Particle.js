@@ -38,6 +38,8 @@ export class Particle {
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
     this.shape = config.shape || 'circle'; // circle / streak / ripple
+    // 行为语义必须显式传递；颜色仅是表现参数。保留旧 #ff* 调用方的兼容推断。
+    this.isFire = config.isFire === true || (config.isFire == null && typeof config.color === 'string' && config.color.startsWith('#ff'));
     this.renderLayer = config.renderLayer || 'effects';
     this.sortY = Number.isFinite(config.sortY) ? config.sortY : this.position.y;
     this.active = true;
@@ -67,7 +69,7 @@ export class Particle {
     this.velocity.y *= this.friction;
 
     // 火焰粒子特殊效果：随着上升，水平摆动增加（形成火舌）
-    if (this.color.startsWith('#ff')) {
+    if (this.isFire) {
       const lifeRatio = this.life / this.maxLife;
       const ageRatio = 1 - lifeRatio; // 0到1，0是刚生成，1是快消失
       
@@ -133,7 +135,7 @@ export class Particle {
       ctx.beginPath();
       ctx.ellipse(screenX, screenY, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
-    } else if (this.color && this.color.startsWith('#ff')) {
+    } else if (this.isFire) {
       // 火焰粒子：径向渐变发光
       const glowGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, safeSize * 1.5);
       glowGradient.addColorStop(0, this.color);
@@ -175,6 +177,7 @@ export class Particle {
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
     this.shape = config.shape || 'circle';
+    this.isFire = config.isFire === true || (config.isFire == null && typeof config.color === 'string' && config.color.startsWith('#ff'));
     this.renderLayer = config.renderLayer || 'effects';
     this.sortY = Number.isFinite(config.sortY) ? config.sortY : this.position.y;
     this.active = true;

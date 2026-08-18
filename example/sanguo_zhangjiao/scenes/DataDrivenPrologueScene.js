@@ -607,11 +607,30 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
   update(deltaTime) {
     if (!this.isActive) return;
+    if (this.isPaused) {
+      this.discardPausedInput?.();
+      return;
+    }
 
     // 顶层输入流程必须在本场景读取 E/N/反引号之前启动；同帧 super.update 会被守卫跳过。
     this._beginInputFrame(deltaTime);
 
-    // 轮盘已在帧首处理 LB 输入；冻结剧情与环境更新，但保留后续帧的手柄轮询以接收松开沿。
+    // 必须在任何提前返回或 inputManager.update() 之前读取，否则本帧按下状态会被清空。
+    const debugPanelKeyPressed = !!this.inputManager?.isKeyPressed?.('`');
+    if (debugPanelKeyPressed) {
+      console.log('[DDScene][DebugPanel] update 捕获反引号，准备切换面板', {
+        scene: this.name,
+        isActive: this.isActive,
+        isPaused: this.isPaused,
+        isTransitioning: this.isTransitioning,
+        transitionPhase: this.transitionPhase,
+        panelExists: !!this.debugPanel,
+        visibleBefore: this.debugPanel?.visible ?? false
+      });
+      this._toggleDebugPanel();
+    }
+
+    // 轮盘已在帧首处理 LB 输入；冻结剧情与环境更新，但保留调试面板和后续帧的手柄轮询。
     if (this.isSkillWheelWorldPaused) {
       this._inputFlow?.flush?.();
       return;
@@ -620,17 +639,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 传送淡黑效果更新
     this._updateTeleportFade(deltaTime);
 
-    // 必须在任何 inputManager.update() 之前读取，否则本帧按下状态会被清空
-    const debugPanelKeyPressed = !!this.inputManager?.isKeyPressed?.('`');
-
     if (this.isTransitioning &&
         (this.transitionPhase === 'show_text' || this.transitionPhase === 'switch_scene')) {
-      if (debugPanelKeyPressed) {
-        console.warn('[DDScene][DebugPanel] 反引号已收到，但当前过场阶段会提前结束本帧', {
-          transitionPhase: this.transitionPhase,
-          isTransitioning: this.isTransitioning
-        });
-      }
       // 转场提前返回只结束本次输入编排，绝不调用 inputManager.update() 清帧。
       this._inputFlow?.releaseFrame?.();
       return;
@@ -644,20 +654,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // Demo 环境、时间、职业 UI 与领域入口通知由协调器处理；输入和转场控制仍留在 Scene 顶层。
     this.sanguoSceneLifecycleCoordinator.updateBeforeBase(deltaTime);
-
-    // 调试面板快捷键：反引号 `
-    if (debugPanelKeyPressed) {
-      console.log('[DDScene][DebugPanel] update 捕获反引号，准备切换面板', {
-        scene: this.name,
-        isActive: this.isActive,
-        isPaused: this.isPaused,
-        isTransitioning: this.isTransitioning,
-        transitionPhase: this.transitionPhase,
-        panelExists: !!this.debugPanel,
-        visibleBefore: this.debugPanel?.visible ?? false
-      });
-      this._toggleDebugPanel();
-    }
 
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
     // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调

@@ -1235,7 +1235,8 @@ export class Scene1Terrain {
   renderGround(ctx) {
     // 编辑器中删除了地形椭圆：不渲染草地底层，只保留水池、背景图片和 shape
     if (this._hasTerrainEllipse === false) {
-      this._buildGroundDecoCache(); // 装饰层草地仍需构建缓存
+      // 离屏 Canvas 绘制可能很重，不能在 RAF 渲染路径同步执行。
+      this._scheduleTerrainCacheBuild({ combined: false });
       this._renderWaterPatches(ctx);
       this._renderEditorBackgroundImages(ctx);
       this._renderEditorShapes(ctx);   // shape 在背景图片之上，可遮挡底层图片
@@ -1253,16 +1254,34 @@ export class Scene1Terrain {
     // 确保有地形椭圆数据（无编辑器椭圆时用 terrain 默认生成）
     this._ensureTerrainEllipseData();
 
-    // 数据驱动渲染地形椭圆（纯色 / 图片 / 切片 + 边缘淡化）
+    // 缓存尚未准备好时直接绘制；缓存构建延后至浏览器空闲期，避免阻塞当前 RAF。
     this._renderTerrainEllipse(ctx);
-    // 素材加载完成后尝试构建草地装饰缓存与合并地面缓存
-    this._buildGroundDecoCache();
-    this._buildCombinedGroundCache();
+    this._scheduleTerrainCacheBuild();
     this._renderWaterPatches(ctx);
     // 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
     // shape 在背景图片之上渲染，可遮挡底层图片
     this._renderEditorShapes(ctx);
+  }
+
+  /** 将一次性离屏缓存构建移出渲染帧，未完成前继续使用直接绘制回退。 @private */
+  _scheduleTerrainCacheBuild({ combined = true } = {}) {
+    // 无地形椭圆的场景只需草地装饰缓存，不能因为延迟任务反向生成默认椭圆。
+    this._terrainCacheBuildCombined = this._terrainCacheBuildCombined === true || combined === true;
+    if (this._terrainCacheBuildScheduled) return;
+    this._terrainCacheBuildScheduled = true;
+    const build = () => {
+      const buildCombined = this._terrainCacheBuildCombined === true;
+      this._terrainCacheBuildScheduled = false;
+      this._terrainCacheBuildCombined = false;
+      this._buildGroundDecoCache();
+      if (buildCombined) this._buildCombinedGroundCache();
+    };
+    if (typeof globalThis.requestIdleCallback === 'function') {
+      globalThis.requestIdleCallback(build, { timeout: 500 });
+    } else {
+      globalThis.setTimeout(build, 0);
+    }
   }
 
   /**

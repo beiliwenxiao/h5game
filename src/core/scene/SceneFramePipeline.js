@@ -61,7 +61,11 @@ export class SceneFramePipeline {
     const inputFlow = services.input;
     const hudUpdater = services.hud;
     const runtime = context?.runtime?.sceneRuntime || null;
-    if (!scene.isActive || scene.isPaused) return;
+    if (!scene.isActive) return;
+    if (scene.isPaused) {
+      scene.discardPausedInput?.();
+      return;
+    }
     const frameToken = runtime?.beginFrame?.() || null;
 
     // 帧管线只调用 Runtime 阶段入口；兼容 Scene 字段不再参与生命周期调度。
@@ -269,9 +273,24 @@ export class SceneFramePipeline {
     }
     floatingTextManager.update(deltaTime);
     if (scene.notificationSystem) scene.notificationSystem.update(deltaTime);
+    const particleProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
+      ? scene._framePerformanceProfile.current
+      : null;
+    const particleUpdateStartedAt = particleProfile ? performance.now() : 0;
     particleSystem.update(deltaTime);
+    if (particleProfile) {
+      particleProfile.particleUpdate = performance.now() - particleUpdateStartedAt;
+      particleProfile.activeParticles = particleSystem.getActiveCount?.() || 0;
+    }
     // 特效区域粒子生成
-    if (effectZoneRenderer) effectZoneRenderer.update(deltaTime);
+    if (effectZoneRenderer) {
+      const effectZoneStartedAt = particleProfile ? performance.now() : 0;
+      effectZoneRenderer.update(deltaTime);
+      if (particleProfile) {
+        particleProfile.effectZoneEmit = performance.now() - effectZoneStartedAt;
+        particleProfile.effectZones = effectZoneRenderer.getZoneCount?.() || 0;
+      }
+    }
 
     // 更新武器渲染器
     if (weaponRenderer) {

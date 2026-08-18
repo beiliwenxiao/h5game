@@ -491,7 +491,7 @@
     }
   },
   "system": {
-    "debug": false,
+    "debug": true,
     "login": {
       "title": "三国张角传",
       "subtitle": "苍天已死，黄天当立",

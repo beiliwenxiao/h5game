@@ -601,12 +601,38 @@ export class BaseGameSceneSetup extends Scene {
   /** 子场景覆盖以恢复剧情/世界状态。 */
   restoreSceneSaveState(_data) {}
 
+  discardPausedInput() {
+    this.inputManager?.clear?.();
+    this._inputFlow?.releaseFrame?.();
+  }
+
   pause() {
+    if (this.isPaused) return false;
     this.isPaused = true;
+    this.discardPausedInput();
+
+    const audioManager = this.audioManager || this.assetManager?.getAudioManager?.() || null;
+    this._pausedAudioManager = audioManager;
+    this._pausedAudioWasMuted = audioManager?.muted === true;
+    this._pausedMusicWasPlaying = !!audioManager?.currentMusic && !audioManager.currentMusic.paused;
+    if (audioManager && !this._pausedAudioWasMuted) audioManager.setMuted?.(true);
+    return true;
   }
 
   resume() {
+    if (!this.isPaused) return false;
+
+    const audioManager = this._pausedAudioManager || this.audioManager || this.assetManager?.getAudioManager?.() || null;
+    if (audioManager && !this._pausedAudioWasMuted) {
+      audioManager.setMuted?.(false);
+      if (!this._pausedMusicWasPlaying) audioManager.pauseMusic?.();
+    }
+    this._pausedAudioManager = null;
+    this._pausedAudioWasMuted = false;
+    this._pausedMusicWasPlaying = false;
     this.isPaused = false;
+    this.discardPausedInput();
+    return true;
   }
 
   /**

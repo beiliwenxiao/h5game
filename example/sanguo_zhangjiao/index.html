@@ -2222,7 +2222,10 @@
                     await saveCurrentGame({ silent: true });
                 }
                 clearInterval(autosaveTimer);
-                autosaveTimer = setInterval(() => { void autoSaveCurrentGame({ reason: 'interval' }); }, AUTO_SAVE_INTERVAL_MS);
+                autosaveTimer = setInterval(() => {
+                    if (sceneManager?.getCurrentScene?.()?.isPaused === true) return;
+                    void autoSaveCurrentGame({ reason: 'interval' });
+                }, AUTO_SAVE_INTERVAL_MS);
                 
                 // 隐藏加载屏幕
                 loadingScreen.style.display = 'none';
@@ -2275,6 +2278,55 @@
         window.__ddShowTips = (title, text) => showTips(title, text);
         window.__ddHideTips = () => hideTips();
         
+        // 触控按键在页面加载后固定存在；缓存 DOM 查询并按 1% 冷却进度刷新样式，
+        // 避免每个 RAF 重复 selector、布局无效化与 Canvas 图标扫描。
+        const _skillCooldownButtons = [...document.querySelectorAll('.action-btn.skill[data-skill]')];
+        const _moveCooldownButtons = {
+            flight: document.getElementById('act-flight'),
+            throw: document.getElementById('act-throw'),
+            block: document.getElementById('act-block')
+        };
+        const _cooldownVisualState = new WeakMap();
+        const _potionIconState = { health: null, mana: null };
+        let _potionInventory = null;
+        let _nextPotionScanAt = 0;
+
+        function updateCooldownVisual(button, cdMs, totalMs, { readyFilter = '', coolingFilter = '' } = {}) {
+            if (!button) return;
+            const remaining = Math.max(0, Number(cdMs) || 0);
+            const total = Math.max(1, Number(totalMs) || 1);
+            const ratio = Math.min(1, remaining / total);
+            const display = remaining >= 1000
+                ? `${Math.ceil(remaining / 1000)}`
+                : `${Math.ceil(remaining / 100) / 10}`;
+            const signature = remaining > 0
+                ? `cooling:${Math.ceil(ratio * 100)}:${display}:${coolingFilter}`
+                : `ready:${readyFilter}`;
+            if (_cooldownVisualState.get(button) === signature) return;
+            _cooldownVisualState.set(button, signature);
+
+            const overlay = button.querySelector('.skill-cd-overlay');
+            const cdText = button.querySelector('.skill-cd-text');
+            if (remaining > 0) {
+                button.classList.add('on-cd');
+                button.style.filter = coolingFilter;
+                if (overlay) {
+                    overlay.style.display = 'block';
+                    const degrees = Math.ceil(ratio * 100) * 3.6;
+                    overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${degrees}deg, transparent ${degrees}deg)`;
+                }
+                if (cdText) {
+                    cdText.style.display = 'block';
+                    cdText.textContent = display;
+                }
+                return;
+            }
+            button.classList.remove('on-cd');
+            button.style.filter = readyFilter;
+            if (overlay) overlay.style.display = 'none';
+            if (cdText) cdText.style.display = 'none';
+        }
+
         // 更新技能按钮冷却状态（技能3/4/5 = data-skill 0/1/2）
         function updateSkillButtonCooldowns() {
             const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
@@ -2282,139 +2334,58 @@
             const combat = cs.playerEntity.getComponent('combat');
             const stats = cs.playerEntity.getComponent('stats');
             if (!combat || !combat.skills) return;
-            
+
             const currentTime = performance.now();
-            const skillBtns = document.querySelectorAll('.action-btn.skill[data-skill]');
-            skillBtns.forEach(btn => {
+            for (const btn of _skillCooldownButtons) {
                 const idx = parseInt(btn.dataset.skill, 10);
                 const skill = combat.skills[idx];
-                if (!skill) return;
-                
-                const cdRemainingMs = combat.getSkillCooldownRemaining(skill.id, currentTime);
-                const cdRemaining = cdRemainingMs / 1000; // 转为秒
-                const overlay = btn.querySelector('.skill-cd-overlay');
-                const cdText = btn.querySelector('.skill-cd-text');
-                
-                // 蓝量不足：按钮灰色
+                if (!skill) continue;
+                const cdMs = combat.getSkillCooldownRemaining(skill.id, currentTime);
                 const noMana = stats && skill.manaCost && stats.mp < skill.manaCost;
-                if (noMana && cdRemaining <= 0) {
-                    btn.style.filter = 'grayscale(1) opacity(0.5)';
-                } else if (cdRemaining <= 0) {
-                    btn.style.filter = '';
-                }
-                
-                if (cdRemaining > 0) {
-                    btn.classList.add('on-cd');
-                    btn.style.filter = 'grayscale(0.7) opacity(0.6)';
-                    // 计算冷却进度（剩余比例），用 conic-gradient 做扇形遮罩
-                    const total = skill.cooldown || 1;
-                    const ratio = Math.min(1, cdRemaining / total); // 1=刚开始冷却, 0=冷却结束
-                    if (overlay) {
-                        overlay.style.display = 'block';
-                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
-                    }
-                    if (cdText) {
-                        cdText.style.display = 'block';
-                        cdText.textContent = cdRemaining >= 1 ? Math.ceil(cdRemaining) : cdRemaining.toFixed(1);
-                    }
-                } else {
-                    btn.classList.remove('on-cd');
-                    if (overlay) overlay.style.display = 'none';
-                    if (cdText) cdText.style.display = 'none';
-                }
-            });
+                updateCooldownVisual(btn, cdMs, (skill.cooldown || 1) * 1000, {
+                    readyFilter: noMana ? 'grayscale(1) opacity(0.5)' : '',
+                    coolingFilter: 'grayscale(0.7) opacity(0.6)'
+                });
+            }
         }
         
-        // 更新轻功和投掷按钮的冷却动画
+        // 更新轻功、投掷和格挡按钮的冷却动画
         function updateMoveCooldowns() {
             const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
             if (!cs) return;
-            
-            // 轻功冷却
-            const flightBtn = document.getElementById('act-flight');
-            if (flightBtn && cs.flightSystem) {
-                const cdMs = cs.flightSystem.getCooldownRemaining();
-                const totalMs = cs.flightSystem.getCooldownTotal();
-                const overlay = flightBtn.querySelector('.skill-cd-overlay');
-                const cdText = flightBtn.querySelector('.skill-cd-text');
-                if (cdMs > 0) {
-                    flightBtn.classList.add('on-cd');
-                    const ratio = cdMs / totalMs;
-                    if (overlay) {
-                        overlay.style.display = 'block';
-                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
-                    }
-                    if (cdText) {
-                        cdText.style.display = 'block';
-                        const sec = cdMs / 1000;
-                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
-                    }
-                } else {
-                    flightBtn.classList.remove('on-cd');
-                    if (overlay) overlay.style.display = 'none';
-                    if (cdText) cdText.style.display = 'none';
-                }
+            if (cs.flightSystem) {
+                updateCooldownVisual(
+                    _moveCooldownButtons.flight,
+                    cs.flightSystem.getCooldownRemaining(),
+                    cs.flightSystem.getCooldownTotal()
+                );
             }
-            
-            // 投掷冷却
-            const throwBtn = document.getElementById('act-throw');
-            if (throwBtn && cs.weaponRenderer) {
-                const cdMs = cs.weaponRenderer.getThrowCooldownRemaining();
-                const totalMs = cs.weaponRenderer.getThrowCooldownTotal();
-                const overlay = throwBtn.querySelector('.skill-cd-overlay');
-                const cdText = throwBtn.querySelector('.skill-cd-text');
-                if (cdMs > 0) {
-                    throwBtn.classList.add('on-cd');
-                    const ratio = cdMs / totalMs;
-                    if (overlay) {
-                        overlay.style.display = 'block';
-                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
-                    }
-                    if (cdText) {
-                        cdText.style.display = 'block';
-                        const sec = cdMs / 1000;
-                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
-                    }
-                } else {
-                    throwBtn.classList.remove('on-cd');
-                    if (overlay) overlay.style.display = 'none';
-                    if (cdText) cdText.style.display = 'none';
-                }
+            if (cs.weaponRenderer) {
+                updateCooldownVisual(
+                    _moveCooldownButtons.throw,
+                    cs.weaponRenderer.getThrowCooldownRemaining(),
+                    cs.weaponRenderer.getThrowCooldownTotal()
+                );
             }
-            
-            // 格挡冷却
-            const blockBtn = document.getElementById('act-block');
-            if (blockBtn && cs.combatSystem) {
-                const cdMs = cs.combatSystem.getBlockCooldownRemaining();
-                const totalMs = cs.combatSystem.getBlockCooldownTotal();
-                const overlay = blockBtn.querySelector('.skill-cd-overlay');
-                const cdText = blockBtn.querySelector('.skill-cd-text');
-                if (cdMs > 0) {
-                    blockBtn.classList.add('on-cd');
-                    const ratio = cdMs / totalMs;
-                    if (overlay) {
-                        overlay.style.display = 'block';
-                        overlay.style.background = `conic-gradient(from 0deg, rgba(0,0,0,0.75) ${ratio * 360}deg, transparent ${ratio * 360}deg)`;
-                    }
-                    if (cdText) {
-                        cdText.style.display = 'block';
-                        const sec = cdMs / 1000;
-                        cdText.textContent = sec >= 1 ? Math.ceil(sec) : sec.toFixed(1);
-                    }
-                } else {
-                    blockBtn.classList.remove('on-cd');
-                    if (overlay) overlay.style.display = 'none';
-                    if (cdText) cdText.style.display = 'none';
-                }
+            if (cs.combatSystem) {
+                updateCooldownVisual(
+                    _moveCooldownButtons.block,
+                    cs.combatSystem.getBlockCooldownRemaining(),
+                    cs.combatSystem.getBlockCooldownTotal()
+                );
             }
         }
         
         // 更新红瓶/蓝瓶按钮：PC 风格图标 + 剩余数量
-        const _potionIconState = { health: null, mana: null };
         function updatePotionButtons() {
             const cs = sceneManager ? sceneManager.getCurrentScene() : scene;
             const player = cs && cs.playerEntity;
             const inv = player && player.getComponent && player.getComponent('inventory');
+            const now = performance.now();
+            // 背包不变时最多每 250ms 重新扫描；实际物品使用的即时反馈仍由场景 UI 负责。
+            if (_potionInventory === inv && now < _nextPotionScanAt) return;
+            _potionInventory = inv;
+            _nextPotionScanAt = now + 250;
             
             const defs = [
                 { id: 'hb-hp', effect: 'heal', placeholderId: 'health_potion', key: 'health' },
@@ -2461,8 +2432,84 @@
             }
         }
         
-        // 游戏循环：每个 RAF 都更新和渲染，避免手工限帧造成位移台阶。
+        function beginFramePerformanceProfile(targetScene, currentTime) {
+            if (!targetScene?.debugMode) return null;
+            const profile = targetScene._framePerformanceProfile || (targetScene._framePerformanceProfile = {
+                windowStartedAt: currentTime,
+                frameCount: 0,
+                sums: {},
+                maximums: {},
+                over16: 0,
+                over33: 0,
+                lastLongLogAt: -Infinity,
+                current: null
+            });
+            profile.current = { startedAt: performance.now() };
+            return profile;
+        }
+
+        function recordFramePhase(profile, name, startedAt) {
+            if (profile) profile.current[name] = performance.now() - startedAt;
+        }
+
+        function finishFramePerformanceProfile(profile, targetScene, currentTime) {
+            if (!profile?.current) return;
+            const sample = profile.current;
+            sample.total = performance.now() - sample.startedAt;
+            profile.frameCount++;
+            if (sample.total > 16.7) profile.over16++;
+            if (sample.total > 33.3) profile.over33++;
+            for (const [name, value] of Object.entries(sample)) {
+                if (name === 'startedAt' || typeof value !== 'number') continue;
+                profile.sums[name] = (profile.sums[name] || 0) + value;
+                profile.maximums[name] = Math.max(profile.maximums[name] || 0, value);
+            }
+            if (sample.total > 33.3 && currentTime - profile.lastLongLogAt >= 1000) {
+                profile.lastLongLogAt = currentTime;
+                console.warn('[DDScene][FrameProfile][长帧]', {
+                    sceneId: targetScene?.currentSceneId || targetScene?.name,
+                    milliseconds: Number(sample.total.toFixed(2)),
+                    phases: Object.fromEntries(Object.entries(sample)
+                        .filter(([name]) => name !== 'startedAt' && name !== 'total')
+                        .map(([name, value]) => [name, typeof value === 'number' ? Number(value.toFixed(2)) : value]))
+                });
+            }
+            if (currentTime - profile.windowStartedAt < 1000) return;
+            const average = name => Number(((profile.sums[name] || 0) / Math.max(1, profile.frameCount)).toFixed(2));
+            const maximum = name => Number((profile.maximums[name] || 0).toFixed(2));
+            console.info('[DDScene][FrameProfile][1秒汇总]', {
+                sceneId: targetScene?.currentSceneId || targetScene?.name,
+                frames: profile.frameCount,
+                over16ms: profile.over16,
+                over33ms: profile.over33,
+                total: { average: average('total'), max: maximum('total') },
+                update: { average: average('sceneUpdate'), max: maximum('sceneUpdate') },
+                render: { average: average('sceneRender'), max: maximum('sceneRender') },
+                hostUi: { average: average('hostUi'), max: maximum('hostUi') },
+                canvasClear: { average: average('canvasClear'), max: maximum('canvasClear') },
+                particles: { average: average('particleUpdate'), max: maximum('particleUpdate'), active: sample.activeParticles || 0, zones: sample.effectZones || 0 },
+                worldQueue: {
+                    build: { average: average('worldQueueBuild'), max: maximum('worldQueueBuild') },
+                    sort: { average: average('worldQueueSort'), max: maximum('worldQueueSort') },
+                    draw: { average: average('worldQueueDraw'), max: maximum('worldQueueDraw') },
+                    length: sample.worldQueueLength || 0,
+                    entities: sample.visibleEntityCount || 0,
+                    depthParticles: sample.worldDepthParticleCount || 0
+                }
+            });
+            profile.windowStartedAt = currentTime;
+            profile.frameCount = 0;
+            profile.sums = {};
+            profile.maximums = {};
+            profile.over16 = 0;
+            profile.over33 = 0;
+            profile.current = null;
+        }
+
+        // 游戏循环：暂停时保留 RAF 和 DebugPanel DOM 循环，但定格当前 Canvas，
+        // 不再运行 SceneManager、渲染管线、宿主 UI 或存档封面更新。
         function gameLoop(currentTime) {
+            const profiledScene = sceneManager?.getCurrentScene?.() || scene;
             // 页面切换或长任务后的异常间隔最多推进 50ms，避免实体瞬移。
             const deltaTime = Math.min(Math.max((currentTime - lastTime) / 1000, 0), 0.05);
             lastTime = currentTime;
@@ -2475,16 +2522,30 @@
                 frameCount = 0;
                 fpsTime = 0;
             }
+
+            if (profiledScene?.isPaused === true) {
+                profiledScene.gameLoopFps = fps;
+                profiledScene.discardPausedInput?.();
+                requestAnimationFrame(gameLoop);
+                return;
+            }
+
+            const frameProfile = beginFramePerformanceProfile(profiledScene, currentTime);
             
             // 清空物理 backing，并恢复到项目逻辑坐标系后再绘制。
+            const canvasClearStartedAt = frameProfile ? performance.now() : 0;
             displayScaler.beginFrame(ctx, '#2a2a2a');
+            recordFramePhase(frameProfile, 'canvasClear', canvasClearStartedAt);
             
             // 更新和渲染场景
             if (sceneManager) {
+                const sceneUpdateStartedAt = frameProfile ? performance.now() : 0;
                 sceneManager.update(deltaTime);
+                recordFramePhase(frameProfile, 'sceneUpdate', sceneUpdateStartedAt);
+                const sceneRenderStartedAt = frameProfile ? performance.now() : 0;
                 sceneManager.render(ctx);
-                
-                // 更新技能按钮冷却状态
+                recordFramePhase(frameProfile, 'sceneRender', sceneRenderStartedAt);
+                const hostUiStartedAt = frameProfile ? performance.now() : 0;
                 updateSkillButtonCooldowns();
                 // 更新轻功/投掷按钮冷却状态
                 updateMoveCooldowns();
@@ -2559,10 +2620,14 @@
                 if (scene) {
                     updateDebugInfo();
                 }
+                recordFramePhase(frameProfile, 'hostUi', hostUiStartedAt);
             }
             
             // 仅在本帧已完整绘制且不处于淡黑过渡时更新存档封面缓存。
+            const savePreviewStartedAt = frameProfile ? performance.now() : 0;
             updateRenderedSavePreview();
+            recordFramePhase(frameProfile, 'savePreview', savePreviewStartedAt);
+            finishFramePerformanceProfile(frameProfile, profiledScene, currentTime);
             requestAnimationFrame(gameLoop);
         }
         

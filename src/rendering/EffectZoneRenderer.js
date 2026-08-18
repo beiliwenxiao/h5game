@@ -49,6 +49,7 @@ const EFFECT_PRESETS = {
     size: zone.particleSize || 6,
     color: zone.particleColor || '#ff6622',
     alpha: zone.particleAlpha || 0.8,
+    isFire: true,
     spawnBias: 'bottom'
   }),
   water: (zone) => ({
@@ -180,6 +181,7 @@ export class EffectZoneRenderer {
       size: preset.size * (0.7 + Math.random() * 0.6),
       color: preset.color,
       alpha: preset.alpha,
+      isFire: preset.isFire === true,
       gravity: preset.gravity,
       friction: preset.friction,
       shape: preset.shape || 'circle',  // circle / streak / ripple

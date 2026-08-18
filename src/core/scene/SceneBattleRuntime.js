@@ -444,8 +444,17 @@ export class SceneBattleRuntime {
       const check = probe.deserialize(data.battleState);
       const battleId = data.battleState.definition?.battleId;
       if (!check.ok) return { ok: false, code: check.code, path: 'battleState' };
-      if (!this.definitions.has(battleId) || !this.getFlowByBattle(battleId)) {
-        return { ok: false, code: 'unknownBattleId', path: 'battleState.definition.battleId' };
+      const hasDefinition = this.definitions.has(battleId);
+      const hasFlow = !!this.getFlowByBattle(battleId);
+      if (!hasDefinition || !hasFlow) {
+        return {
+          ok: false,
+          code: 'unknownBattleId',
+          path: 'battleState.definition.battleId',
+          battleId: battleId || null,
+          hasDefinition,
+          hasFlow
+        };
       }
     }
     if (data.battlefieldRuntimeState) {

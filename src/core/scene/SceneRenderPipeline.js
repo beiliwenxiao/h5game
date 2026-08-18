@@ -135,6 +135,10 @@ export class SceneRenderPipeline {
       : (context?.world?.terrain ? [context.world.terrain] : []);
     const camera = context?.camera?.instance || null;
     const particleSystem = context?.presentation?.particleSystem || null;
+    const frameProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
+      ? scene._framePerformanceProfile.current
+      : null;
+    const queueBuildStartedAt = frameProfile ? performance.now() : 0;
     const queue = this._worldQueue;
     queue.length = 0;
 
@@ -166,12 +170,22 @@ export class SceneRenderPipeline {
       queue.push(item);
     }
 
+    if (frameProfile) {
+      frameProfile.worldQueueBuild = performance.now() - queueBuildStartedAt;
+      frameProfile.worldQueueLength = queue.length;
+      frameProfile.visibleEntityCount = entityItemCount;
+      frameProfile.worldDepthParticleCount = queue.filter(item => item.type === 'particle').length;
+    }
+    const queueSortStartedAt = frameProfile ? performance.now() : 0;
     queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
+    if (frameProfile) frameProfile.worldQueueSort = performance.now() - queueSortStartedAt;
+    const queueDrawStartedAt = frameProfile ? performance.now() : 0;
     for (let i = 0, len = queue.length; i < len; i++) {
       const item = queue[i];
       if (item.type === 'entity') scene.renderEntity(ctx, item.entity);
       else item.render?.();
     }
+    if (frameProfile) frameProfile.worldQueueDraw = performance.now() - queueDrawStartedAt;
 
     if (terrains.length === 0) return;
     for (const terrain of terrains) terrain.renderCliffs?.(ctx);

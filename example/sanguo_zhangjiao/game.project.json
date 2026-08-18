@@ -166,6 +166,23 @@
     "maxOperations": 256,
     "definitions": [
       {
+        "id": "construction.s01.small_shelter",
+        "name": "篝火旁的小庇护所",
+        "costs": [
+          {
+            "itemId": "resource.wood",
+            "quantity": 3
+          }
+        ],
+        "requiredProficiency": 0,
+        "requiredToolType": null,
+        "duration": 6,
+        "maxDurability": 60,
+        "experience": 5,
+        "manned": false,
+        "imageId": "s01.environment.smallShelter"
+      },
+      {
         "id": "construction.campfire",
         "name": "营地火堆",
         "costs": [
@@ -262,6 +279,11 @@
     ],
     "sites": [
       {
+        "id": "site.s01.small_shelter",
+        "sceneId": "S01",
+        "definitionId": "construction.s01.small_shelter"
+      },
+      {
         "id": "site.s06.field_barricade",
         "sceneId": "S06",
         "definitionId": "construction.barricade"
@@ -313,6 +335,29 @@
       "unlockedScenes": [
         "S01"
       ],
+      "s01Survival": {
+        "campfireLit": false,
+        "axeFound": false,
+        "berriesGathered": false,
+        "berryEaten": false,
+        "campfireExtinguished": false,
+        "firstWolfSpotted": false,
+        "woodGathered": false,
+        "firstWolfKilled": false,
+        "wolfSkinned": false,
+        "backpackCrafted": false,
+        "meatCooked": false,
+        "shelterCompleted": false,
+        "overnightCompleted": false,
+        "firestarterAcquired": false,
+        "riverCrossed": false,
+        "cliffReached": false,
+        "pursuit": {
+          "active": false,
+          "spawned": 0,
+          "killed": 0
+        }
+      },
       "delayedConsequences": [],
       "storyTags": [],
       "hiddenClues": [],
@@ -2643,6 +2688,10 @@
         "label": "showTip"
       },
       {
+        "value": "s01Survival",
+        "label": "s01Survival"
+      },
+      {
         "value": "startDialogue",
         "label": "startDialogue"
       },
@@ -2727,7 +2776,22 @@
   "commands": [
     {"id":"story.s01.specialFaint.prepare","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"}]},"writes":[{"target":"story","path":"pendingDefeatResolution","value":"specialFaint"},{"target":"story","path":"specialFaintRescueType","value":{"$get":"payload.rescueType","default":"passerby"}}]}},
     {"id":"story.s01.specialFaint.clear","commandType":"state.transaction","transaction":{"when":{"path":"story.pendingDefeatResolution","equals":"specialFaint"},"writes":[{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null}]}},
-    {"id":"story.s01.complete","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"tutorials":["s01.move","s01.attack","s01.pickup","s01.jump","s01.gather"]}]},"writes":[{"target":"story","path":"s01Completed","value":true},{"target":"story","path":"currentSceneId","value":"S02"},{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null},{"target":"story","path":"unlockedScenes","value":{"$appendUnique":{"source":{"$get":"story.unlockedScenes","default":[]},"values":["S02"]}}}],"inventory":{"type":"batchAdd","entries":[{"itemId":"resource.wood","quantity":3},{"itemId":"resource.herb","quantity":2}]},"travel":{"sceneId":"S02","spawnRef":"player","transition":"fadeBlack"}}},
+    {"id":"story.s01.campfireLit","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":false}]},"writes":[{"target":"story","path":"s01Survival.campfireLit","value":true}]}},
+    {"id":"story.s01.findAxe","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":true},{"path":"story.s01Survival.axeFound","equals":false}]},"writes":[{"target":"story","path":"s01Survival.axeFound","value":true}],"inventory":{"type":"batchAdd","entries":[{"itemId":"tool.worn_axe","quantity":1,"item":{"instanceId":"S01-tool-axe-1"}}]}}},
+    {"id":"story.s01.berriesGathered","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.axeFound","equals":true},{"path":"story.s01Survival.berriesGathered","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berriesGathered","value":true}]}},
+    {"id":"story.s01.berryEaten","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berriesGathered","equals":true},{"path":"story.s01Survival.berryEaten","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berryEaten","value":true},{"target":"story","path":"s01Survival.campfireExtinguished","value":true}]}},
+    {"id":"story.s01.firstWolfSpotted","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berryEaten","equals":true},{"path":"story.s01Survival.firstWolfSpotted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.firstWolfSpotted","value":true}]}},
+    {"id":"story.s01.woodGathered","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berryEaten","equals":true},{"path":"story.s01Survival.woodGathered","equals":false}]},"writes":[{"target":"story","path":"s01Survival.woodGathered","value":true}]}},
+    {"id":"story.s01.firstWolfKilled","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.firstWolfSpotted","equals":true},{"path":"story.s01Survival.firstWolfKilled","equals":false}]},"writes":[{"target":"story","path":"s01Survival.firstWolfKilled","value":true}]}},
+    {"id":"story.s01.wolfSkinned","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.firstWolfKilled","equals":true},{"path":"story.s01Survival.wolfSkinned","equals":false},{"inventory":{"toolType":"skinningKnife"}}]},"writes":[{"target":"story","path":"s01Survival.wolfSkinned","value":true}]}},
+    {"id":"story.s01.craftBackpack","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.wolfSkinned","equals":true},{"path":"story.s01Survival.backpackCrafted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.backpackCrafted","value":true}],"inventory":{"type":"batchExchange","removeEntries":[{"itemId":"resource.wood","quantity":2},{"itemId":"resource.wolf_hide","quantity":1}],"addEntries":[{"itemId":"item.small_backpack","quantity":1}]}}},
+    {"id":"story.s01.cookMeat","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.backpackCrafted","equals":true},{"path":"story.s01Survival.meatCooked","equals":false}]},"writes":[{"target":"story","path":"s01Survival.meatCooked","value":true}],"inventory":{"type":"batchExchange","removeEntries":[{"itemId":"resource.raw_wolf_meat","quantity":1},{"itemId":"resource.wood","quantity":1}],"addEntries":[{"itemId":"food.roasted_wolf_meat","quantity":1}]}}},
+    {"id":"story.s01.shelterCompleted","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.meatCooked","equals":true},{"path":"story.s01Survival.shelterCompleted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.shelterCompleted","value":true}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S01.shelterCompleted","sceneId":"S01"}}},
+    {"id":"story.s01.overnight","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.shelterCompleted","equals":true},{"path":"story.s01Survival.overnightCompleted","equals":false}]},"writes":[{"target":"story","path":"currentDay","value":2},{"target":"story","path":"s01Survival.overnightCompleted","value":true},{"target":"story","path":"s01Survival.firestarterAcquired","value":true},{"target":"story","path":"s01Survival.pursuit","value":{"active":true,"spawned":3,"killed":0}}],"inventory":{"type":"batchAdd","entries":[{"itemId":"story.s01.firestarter","quantity":1}]},"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S01.secondDay","sceneId":"S01"}}},
+    {"id":"story.s01.chase.kill","commandType":"state.transaction","transaction":{"when":{"path":"story.s01Survival.pursuit.active","equals":true},"writes":[{"target":"story","path":"s01Survival.pursuit.killed","value":{"$add":[{"$get":"story.s01Survival.pursuit.killed","default":0},1]}},{"target":"story","path":"s01Survival.pursuit.spawned","value":{"$min":[20,{"$add":[{"$get":"story.s01Survival.pursuit.spawned","default":3},2]}]}}]}},
+    {"id":"story.s01.riverCrossed","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.pursuit.active","equals":true},{"path":"story.s01Survival.riverCrossed","equals":false}]},"writes":[{"target":"story","path":"s01Survival.riverCrossed","value":true}]}},
+    {"id":"story.s01.cliffReached","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.riverCrossed","equals":true},{"path":"story.s01Survival.cliffReached","equals":false}]},"writes":[{"target":"story","path":"s01Survival.cliffReached","value":true}]}},
+    {"id":"story.s01.complete","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.cliffReached","equals":true}]},"writes":[{"target":"story","path":"s01Completed","value":true},{"target":"story","path":"s01Survival.pursuit.active","value":false},{"target":"story","path":"currentSceneId","value":"S02"},{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null},{"target":"story","path":"unlockedScenes","value":{"$appendUnique":{"source":{"$get":"story.unlockedScenes","default":[]},"values":["S02"]}}}],"travel":{"sceneId":"S02","spawnRef":"player","transition":"fadeBlack"}}},
     {"id":"story.s02.summons.accept","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":false}]},"writes":[{"target":"story","path":"s02SummonsAccepted","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S02.summonsAccepted"}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S02.summonsAccepted","sceneId":"S02"}}},
     {"id":"story.s02.travel","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":true}]},"travel":{"sceneId":"S09","spawnRef":"player"}}},
     {"id":"story.s09.enlist","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.joinedYellowTurban","equals":false}]},"writes":[{"target":"story","path":"joinedYellowTurban","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S09.enlisted"},{"target":"blackboard","path":"joinedYellowTurban","value":true}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.enlisted","sceneId":"S09"}}},
@@ -2741,98 +2805,76 @@
   "triggers": [
     {
       "id": "trg_s01_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {}
-      },
+      "when": { "type": "sceneEnter", "params": { "sceneId": "S01" } },
       "do": [
-        {
-          "action": "spawnPlacements",
-          "params": {
-            "selector": {
-              "group": "S01-initial"
-            }
-          }
-        }
+        { "action": "spawnPlacements", "params": { "selector": { "group": "S01-initial" } }, "await": true },
+        { "action": "s01Survival", "params": { "operation": "reconcilePursuit" }, "await": true },
+        { "action": "showTip", "params": { "text": "寒风吹过荒原，你被冻醒了。使用 {move} 起身活动，靠近熄灭的篝火。" } }
       ],
-      "once": true
-    },
-    {
-      "id": "trg_s01_choose_not_flee",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "state.transaction",
-          "params": {
-            "definitionId": "story.s01.specialFaint.prepare",
-            "rescueType": "passerby"
-          }
-        },
-        {
-          "action": "spawnPlacements",
-          "params": {
-            "selector": {
-              "group": "S01-bandits"
-            }
-          },
-          "await": true
-        }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_s01_clear_special_faint",
-      "when": {
-        "type": "waveCleared",
-        "params": {
-          "group": "S01-bandits"
-        }
-      },
-      "do": [
-        {
-          "action": "state.transaction",
-          "params": {
-            "definitionId": "story.s01.specialFaint.clear"
-          }
-        }
-      ],
-      "once": true
+      "once": false,
+      "cooldown": 1
     },
     {
       "id": "trg_s01_light_campfire",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "when": { "type": "interact", "params": {} },
       "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "scenarioId": "scenario.command.campfire.ignite",
-            "operation": "campfire.ignite"
-          }
-        }
+        { "action": "scenario.command", "params": { "scenarioId": "scenario.command.campfire.ignite", "operation": "campfire.ignite" }, "await": true },
+        { "action": "s01Survival", "params": { "operation": "campfireLit" }, "await": true }
       ],
       "once": true
     },
     {
-      "id": "trg_s01_exit_s02",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "state.transaction",
-          "params": {
-            "definitionId": "story.s01.complete"
-          },
-          "await": true
-        }
-      ],
+      "id": "trg_s01_craft_backpack",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "craftBackpack" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_cook_meat",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "cookMeat" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_build_shelter",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "construction.command", "params": { "operation": "construction.start.s01", "definitionId": "construction.s01.small_shelter", "siteId": "site.s01.small_shelter" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_shelter_completed",
+      "when": { "type": "construction.constructionCompleted", "params": { "siteId": "site.s01.small_shelter" } },
+      "do": [ { "action": "s01Survival", "params": { "operation": "shelterCompleted" }, "await": true } ],
+      "once": true
+    },
+    {
+      "id": "trg_s01_overnight",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "overnight" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_river_crossed",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "riverCrossed" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_cliff_reached",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "cliffReached" }, "await": true } ],
+      "once": false,
+      "cooldown": 1
+    },
+    {
+      "id": "trg_s01_climb_vine",
+      "when": { "type": "interact", "params": {} },
+      "do": [ { "action": "s01Survival", "params": { "operation": "climbVine" }, "await": true } ],
       "once": false,
       "cooldown": 1
     },
@@ -4540,152 +4582,85 @@
   "tutorials": [
     {
       "id": "s01.move",
-      "title": "移动",
+      "title": "寒风中醒来",
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 0,
-      "steps": [
-        {
-          "text": "使用 {move} 移动，离开火堆附近。"
-        }
-      ],
-      "movementRule": {
-        "threshold": 60
-      },
+      "steps": [{ "text": "寒风把你冻醒。使用 {move} 起身活动，再靠近熄灭的篝火使用 {interact} 点火。" }],
+      "movementRule": { "threshold": 60 },
       "signalRules": [],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
     },
     {
-      "id": "s01.attack",
-      "title": "攻击",
+      "id": "s01.gather",
+      "title": "徒手寻找食物",
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 1,
-      "steps": [
-        {
-          "text": "使用 {attack} 进行一次攻击。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "attackPerformed",
-          "threshold": 1
-        }
-      ],
+      "steps": [{ "text": "靠近野果丛，使用 {harvest} 徒手采集；采集途中会发现破斧头。" }],
+      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.attack",
+      "title": "猎狼反击",
+      "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
+      "order": 2,
+      "steps": [{ "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。" }],
+      "signalRules": [{ "signal": "attackPerformed", "threshold": 1 }],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
     },
     {
       "id": "s01.pickup",
-      "title": "拾取",
-      "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
-      "order": 2,
-      "steps": [
-        {
-          "text": "靠近物资后使用 {pickup} 拾取。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "itemPicked",
-          "threshold": 1
-        }
-      ],
-      "completionPolicy": "signal",
-      "canSkip": false,
-      "autoTrigger": false
-    },
-    {
-      "id": "s01.jump",
-      "title": "跳跃",
+      "title": "拾取求生物资",
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 3,
-      "steps": [
-        {
-          "text": "使用 {jump} 越过障碍。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "jumpPerformed",
-          "threshold": 1
-        }
-      ],
-      "completionPolicy": "signal",
-      "canSkip": false,
-      "autoTrigger": false
-    },
-    {
-      "id": "s01.gather",
-      "title": "采集",
-      "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
-      "order": 4,
-      "steps": [
-        {
-          "text": "靠近资源节点后使用 {harvest} 开始采集，再按一次可取消。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "gatheringCompleted",
-          "threshold": 1
-        }
-      ],
+      "steps": [{ "text": "靠近剥皮刀或狼肉后使用 {pickup} 拾取。" }],
+      "signalRules": [{ "signal": "itemPicked", "threshold": 1 }],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
     },
     {
       "id": "s01.durability",
-      "title": "工具耐久",
+      "title": "工具与剥皮",
+      "category": "s01-survival",
+      "scope": { "sceneIds": ["S01"] },
+      "order": 4,
+      "steps": [{ "text": "使用 {harvest} 砍柴或剥皮；采集成功才消耗工具耐久。" }],
+      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1, "conditions": [{ "field": "toolInstanceId", "operator": "exists", "value": true }] }],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.jump",
+      "title": "跳石过河",
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 5,
-      "steps": [
-        {
-          "text": "再使用斧头完成一次采集。采集成功才消耗耐久，归零后本次产物仍会保留。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "gatheringCompleted",
-          "threshold": 1,
-          "conditions": [
-            {
-              "field": "toolInstanceId",
-              "operator": "exists",
-              "value": true
-            }
-          ]
-        }
-      ],
+      "steps": [{ "text": "狼群追来后沿河逃跑，使用 {jump} 踩着河中石块到达对岸。" }],
+      "signalRules": [{ "signal": "jumpPerformed", "threshold": 1 }],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
     },
     {
       "id": "s01.capacity",
-      "title": "背包容量",
+      "title": "六格背包与攀藤",
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 6,
-      "steps": [
-        {
-          "text": "再完成一次采集。系统只结算背包可容纳的数量，溢出资源会留在节点中。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "gatheringCompleted",
-          "threshold": 1
-        }
-      ],
+      "steps": [{ "text": "六格小背包满时溢出物会留在原处。抵达山崖后使用 {climb} 攀上藤蔓逃往 S02。" }],
+      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4720,6 +4695,91 @@
         "type": "material",
         "subType": "iron",
         "maxStack": 99
+      },
+      {
+        "id": "resource.wild_berry",
+        "name": "荒野酸果",
+        "type": "consumable",
+        "subType": "food",
+        "maxStack": 10,
+        "usable": true,
+        "capabilities": ["consumable"],
+        "effect": { "type": "heal", "value": 4 },
+        "imageId": "s01.resource.wildBerryNode",
+        "sprite": { "width": 36, "height": 32 }
+      },
+      {
+        "id": "tool.skinning_knife",
+        "name": "旧剥皮刀",
+        "type": "tool",
+        "toolType": "skinningKnife",
+        "maxStack": 1,
+        "durability": 8,
+        "maxDurability": 8,
+        "imageId": "s01.tool.skinningKnife",
+        "sprite": { "width": 42, "height": 42 }
+      },
+      {
+        "id": "resource.raw_wolf_meat",
+        "name": "生狼肉",
+        "type": "material",
+        "subType": "food",
+        "maxStack": 10,
+        "imageId": "s01.item.rawWolfMeat",
+        "sprite": { "width": 42, "height": 34 }
+      },
+      {
+        "id": "resource.wolf_hide",
+        "name": "狼皮",
+        "type": "material",
+        "subType": "hide",
+        "maxStack": 10,
+        "imageId": "s01.item.wolfHide",
+        "sprite": { "width": 48, "height": 38 }
+      },
+      {
+        "id": "item.small_backpack",
+        "name": "六格小背包",
+        "type": "story",
+        "subType": "container",
+        "maxStack": 1,
+        "imageId": "s01.item.smallBackpack",
+        "sprite": { "width": 44, "height": 48 }
+      },
+      {
+        "id": "food.roasted_wolf_meat",
+        "name": "烤狼肉",
+        "type": "consumable",
+        "subType": "food",
+        "maxStack": 5,
+        "usable": true,
+        "capabilities": ["consumable"],
+        "effect": { "type": "heal", "value": 28 },
+        "imageId": "s01.food.roastedWolfMeat",
+        "sprite": { "width": 44, "height": 36 }
+      },
+      {
+        "id": "story.s01.firestarter",
+        "name": "保存好的火种",
+        "type": "story",
+        "subType": "quest",
+        "maxStack": 1,
+        "questBound": true,
+        "imageId": "s01.story.firestarter",
+        "sprite": { "width": 40, "height": 42 }
+      },
+      {
+        "id": "story.s01.small_shelter",
+        "name": "小庇护所",
+        "type": "story",
+        "subType": "worldProp",
+        "maxStack": 1,
+        "worldProp": true,
+        "imageId": "s01.environment.smallShelter",
+        "width": 154,
+        "height": 112,
+        "showName": false,
+        "sprite": { "width": 154, "height": 112, "isStatic": true }
       },
       {
         "id": "story.s09.bread",
@@ -4996,6 +5056,44 @@
     ],
     "resourceNodes": [
       {
+        "id": "node.wild_berry",
+        "schemaVersion": 1,
+        "name": "野果丛",
+        "resourceType": "berry",
+        "itemId": "resource.wild_berry",
+        "remaining": 4,
+        "maxRemaining": 4,
+        "yieldPerGather": 2,
+        "gatherDuration": 1.6,
+        "interactionRadius": 72,
+        "requiredToolType": null,
+        "refreshDays": 0,
+        "guardUnitIds": [],
+        "riskEvents": [],
+        "damageRatio": 0,
+        "imageId": "s01.resource.wildBerryNode",
+        "sprite": { "width": 68, "height": 58, "isStatic": true }
+      },
+      {
+        "id": "node.wolf_carcass",
+        "schemaVersion": 1,
+        "name": "野狼尸体",
+        "resourceType": "hide",
+        "itemId": "resource.wolf_hide",
+        "remaining": 1,
+        "maxRemaining": 1,
+        "yieldPerGather": 1,
+        "gatherDuration": 1.8,
+        "interactionRadius": 70,
+        "requiredToolType": "skinningKnife",
+        "refreshDays": 0,
+        "guardUnitIds": [],
+        "riskEvents": [],
+        "damageRatio": 0,
+        "imageId": "s01.enemy.wolf",
+        "sprite": { "width": 66, "height": 42, "isStatic": true }
+      },
+      {
         "id": "node.dry_wood",
         "schemaVersion": 1,
         "name": "枯木",
@@ -5112,6 +5210,24 @@
       }
     ],
     "enemies": [
+      {
+        "id": "enemy.s01_wolf",
+        "templateId": "wild_wolf",
+        "name": "饥饿野狼",
+        "level": 1,
+        "stats": {
+          "maxHp": 32,
+          "attack": 5,
+          "defense": 1,
+          "speed": 88
+        },
+        "aiType": "aggressive",
+        "lootTable": [
+          { "itemId": "resource.raw_wolf_meat", "chance": 1, "minQuantity": 1, "maxQuantity": 1 }
+        ],
+        "imageId": "s01.enemy.wolf",
+        "sprite": { "width": 68, "height": 48, "isStatic": true }
+      },
       {
         "id": "enemy.s01_bandit",
         "templateId": "bandit",

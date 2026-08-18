@@ -122,6 +122,8 @@ export class ScenePlacementRuntime {
     if (condition.exists === true && value === undefined) return false;
     if (condition.exists === false && value !== undefined) return false;
     if (Object.prototype.hasOwnProperty.call(condition, 'equals') && value !== condition.equals) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'gte') && !(Number(value) >= Number(condition.gte))) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'lte') && !(Number(value) <= Number(condition.lte))) return false;
     if (Array.isArray(condition.in) && !condition.in.includes(value)) return false;
     return true;
   }

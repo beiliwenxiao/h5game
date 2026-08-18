@@ -75,7 +75,9 @@ function updateBeforeBase(deltaTime) {
 function updateAfterBase(deltaTime) {
   // 施工进度只会在 S06/S10 推进；S10 工事实体也仅属于 S10。
   // 避免其他场景每帧序列化营建状态、遍历工事并扫描 EntityStore。
-  if (this.currentSceneId === 'S06' || this.currentSceneId === 'S10') {
+  if (this.currentSceneId === 'S01') {
+    this._s01s02Coordinator.update(deltaTime);
+  } else if (this.currentSceneId === 'S06' || this.currentSceneId === 'S10') {
     this.s10ConstructionCoordinator._updateConstructionRuntime(deltaTime);
   }
   if (this.currentSceneId === 'S10') {

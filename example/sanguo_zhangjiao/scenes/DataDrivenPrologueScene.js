@@ -110,7 +110,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     // 火堆服务只保存运行态；表现参数由当前 canonical scene gameplay consumer 发布后配置。
     this._campfireService = new SceneCampfireService({
+      now: () => this.simulationClock?.now?.() ?? performance.now(),
       onIgnited: () => this.gameLoader?.triggerSystem?.fire?.('campfireLit', { sceneId: this.currentSceneId }),
+      onExtinguished: () => this.gameLoader?.triggerSystem?.fire?.('campfireExtinguished', { sceneId: this.currentSceneId }),
       logger: console
     });
     this.context.services.campfire = this._campfireService;
@@ -811,6 +813,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 实际拾取提交后的稳定 Scene 入口；S01–S14 状态映射由 Demo coordinator 拥有。 */
   onWorldItemPicked(item) {
     return this.sanguoSceneStateFlow.handleWorldItemPicked(item);
+  }
+
+  /** 已提交的物品使用先保留框架表现，再交给 S01 历史流程协调器。 */
+  onItemUsed(item, healAmount, manaAmount) {
+    const result = super.onItemUsed(item, healAmount, manaAmount);
+    void this._s01s02Coordinator.handleItemUsed(item);
+    return result;
+  }
+
+  /** CombatSystem 的统一击杀出口；历史狼群规则不进入框架战斗系统。 */
+  onEnemyKilled(entity) {
+    void this._s01s02Coordinator.handleEnemyKilled(entity);
   }
 
   /**

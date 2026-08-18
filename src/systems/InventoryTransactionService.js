@@ -205,6 +205,7 @@ export class InventoryTransactionService {
     else if (operation.type === 'transfer') result = this._commitTransfer(operation);
     else if (operation.type === 'batchAdd') result = this._commitBatchAdd(operation);
     else if (operation.type === 'batchRemove') result = this._commitBatchRemove(operation);
+    else if (operation.type === 'batchExchange') result = this._commitBatchExchange(operation);
     else result = { ok: false, code: 'unsupportedOperation', accepted: 0 };
 
     if (operation.operationId) this.results.set(operation.operationId, { fingerprint, result: { ...result } });
@@ -313,6 +314,55 @@ export class InventoryTransactionService {
     };
   }
 
+  _commitBatchExchange({ inventory, removeEntries = [], addEntries = [] } = {}) {
+    if (!inventory || !Array.isArray(removeEntries) || !Array.isArray(addEntries)
+      || removeEntries.length === 0 || addEntries.length === 0) {
+      return { ok: false, code: 'invalidInput', accepted: 0 };
+    }
+    const removals = removeEntries
+      .map(entry => ({ itemId: entry?.itemId, quantity: positiveInteger(entry?.quantity) }))
+      .filter(entry => entry.itemId && entry.quantity > 0);
+    const additions = addEntries
+      .map(entry => ({ item: entry?.item, quantity: positiveInteger(entry?.quantity) }))
+      .filter(entry => entry.item?.id && entry.quantity > 0);
+    if (removals.length === 0 || additions.length === 0) {
+      return { ok: false, code: 'invalidInput', accepted: 0 };
+    }
+    for (const entry of removals) {
+      if (this.previewRemove(inventory, entry.itemId, entry.quantity).remainder > 0) {
+        return { ok: false, code: 'insufficientItems', accepted: 0, removeEntries: removals };
+      }
+    }
+
+    const before = snapshotInventory(inventory);
+    try {
+      for (const entry of removals) {
+        if (inventory.removeItem(entry.itemId, entry.quantity) !== entry.quantity) {
+          throw Object.assign(new Error('removeCommitMismatch'), { code: 'commitMismatch' });
+        }
+      }
+      const preview = this.previewBatchAdd(inventory, additions);
+      if (preview.remainder > 0) {
+        throw Object.assign(new Error('insufficientCapacity'), { code: preview.reason || 'insufficientCapacity' });
+      }
+      for (const entry of additions) {
+        if (inventory.addItem(entry.item, entry.quantity) !== entry.quantity) {
+          throw Object.assign(new Error('addCommitMismatch'), { code: 'commitMismatch' });
+        }
+      }
+      return {
+        ok: true,
+        code: null,
+        accepted: additions.reduce((sum, entry) => sum + entry.quantity, 0),
+        removed: removals,
+        added: additions.map(entry => ({ itemId: entry.item.id, quantity: entry.quantity }))
+      };
+    } catch (error) {
+      restoreInventory(inventory, before);
+      return { ok: false, code: error.code || 'commitMismatch', accepted: 0 };
+    }
+  }
+
   _inventoryId(inventory) {
     if (!inventory || typeof inventory !== 'object') return 'none';
     if (!this.inventoryIds.has(inventory)) this.inventoryIds.set(inventory, `inventory-${nextInventoryId++}`);
@@ -329,6 +379,12 @@ export class InventoryTransactionService {
           item: itemKey(entry?.item || { id: entry?.itemId }),
           quantity: positiveInteger(entry?.quantity)
         }))
+        : [],
+      removeEntries: Array.isArray(operation.removeEntries)
+        ? operation.removeEntries.map(entry => ({ itemId: entry?.itemId, quantity: positiveInteger(entry?.quantity) }))
+        : [],
+      addEntries: Array.isArray(operation.addEntries)
+        ? operation.addEntries.map(entry => ({ item: itemKey(entry?.item), quantity: positiveInteger(entry?.quantity) }))
         : [],
       allowPartial: operation.allowPartial !== false
     });

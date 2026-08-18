@@ -176,11 +176,25 @@ export class CanonicalStateTransactionService {
       const inventorySpec = variant.inventory || transaction.inventory;
       if (inventorySpec) {
         if (!this.inventoryTransactions || !inventory) throw Object.assign(new Error('inventory transaction service unavailable'), { code: 'inventoryUnavailable' });
-        const entries = this._value(inventorySpec.entries || [], env).map(entry => inventorySpec.type === 'batchAdd'
-          ? { item: this.getItem(entry.itemId), quantity: entry.quantity }
-          : { itemId: entry.itemId, quantity: entry.quantity });
-        inventoryOperation = this.inventoryTransactions.commit({ type: inventorySpec.type, inventory, entries,
-          allowPartial: false, operationId: `${command.operationId}:inventory` });
+        if (inventorySpec.type === 'batchExchange') {
+          const removeEntries = this._value(inventorySpec.removeEntries || [], env)
+            .map(entry => ({ itemId: entry.itemId, quantity: entry.quantity }));
+          const addEntries = this._value(inventorySpec.addEntries || [], env)
+            .map(entry => ({
+              item: { ...this.getItem(entry.itemId), ...(entry.item || {}) },
+              quantity: entry.quantity
+            }));
+          inventoryOperation = this.inventoryTransactions.commit({
+            type: 'batchExchange', inventory, removeEntries, addEntries,
+            operationId: `${command.operationId}:inventory`
+          });
+        } else {
+          const entries = this._value(inventorySpec.entries || [], env).map(entry => inventorySpec.type === 'batchAdd'
+            ? { item: { ...this.getItem(entry.itemId), ...(entry.item || {}) }, quantity: entry.quantity }
+            : { itemId: entry.itemId, quantity: entry.quantity });
+          inventoryOperation = this.inventoryTransactions.commit({ type: inventorySpec.type, inventory, entries,
+            allowPartial: false, operationId: `${command.operationId}:inventory` });
+        }
         if (!inventoryOperation.ok) throw Object.assign(new Error(inventoryOperation.code), { code: inventoryOperation.code });
       }
       blackboard.set('storyState', env.story);

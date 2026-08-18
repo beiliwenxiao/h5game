@@ -228,6 +228,7 @@ export class SceneGameplaySystemAssembler {
     );
     if (offItemProjection) scene.sceneRuntime.addDisposer(offItemProjection, 'projection:itemLifecycle');
 
+    scene.combatSystem.setOnKillCallback?.(entity => scene.onEnemyKilled?.(entity));
     scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
       const policy = scene.context?.services?.defeatPolicy;
       const resolution = policy?.resolve?.({ player })

@@ -3471,6 +3471,56 @@
       "assetId": "s12.structure.secretPassage", "imageId": "s12.structure.secretPassage", "category": "city-structure", "usage": ["S12", "rescue", "secret-passage"],
       "sourceFile": "assets/images/s12/secret-passage.svg", "runtime2D": { "path": "assets/images/s12/secret-passage.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s12.structure.secretPassage" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 120, "height": 80 }, "animations": [], "targetPhase": "P4", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.resource.wildBerryNode", "imageId": "s01.resource.wildBerryNode", "category": "resource-node", "usage": ["S01", "berry", "food"],
+      "sourceFile": "assets/images/s01/wild-berry-node.svg", "runtime2D": { "path": "assets/images/s01/wild-berry-node.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.resource.wildBerryNode" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 68, "height": 58 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.tool.skinningKnife", "imageId": "s01.tool.skinningKnife", "category": "tool", "usage": ["S01", "skinning", "pickup"],
+      "sourceFile": "assets/images/s01/skinning-knife.svg", "runtime2D": { "path": "assets/images/s01/skinning-knife.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.tool.skinningKnife" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 42, "height": 42 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.enemy.wolf", "imageId": "s01.enemy.wolf", "category": "character-static", "usage": ["S01", "enemy", "wolf-pursuit"],
+      "sourceFile": "assets/images/s01/wild-wolf.svg", "runtime2D": { "path": "assets/images/s01/wild-wolf.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.enemy.wolf" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 68, "height": 48 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.item.rawWolfMeat", "imageId": "s01.item.rawWolfMeat", "category": "item", "usage": ["S01", "loot", "raw-food"],
+      "sourceFile": "assets/images/s01/raw-wolf-meat.svg", "runtime2D": { "path": "assets/images/s01/raw-wolf-meat.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.item.rawWolfMeat" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 42, "height": 34 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.item.wolfHide", "imageId": "s01.item.wolfHide", "category": "item", "usage": ["S01", "hide", "crafting"],
+      "sourceFile": "assets/images/s01/wolf-hide.svg", "runtime2D": { "path": "assets/images/s01/wolf-hide.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.item.wolfHide" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 38 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.item.smallBackpack", "imageId": "s01.item.smallBackpack", "category": "item", "usage": ["S01", "backpack", "crafting"],
+      "sourceFile": "assets/images/s01/small-backpack.svg", "runtime2D": { "path": "assets/images/s01/small-backpack.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.item.smallBackpack" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 44, "height": 48 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.food.roastedWolfMeat", "imageId": "s01.food.roastedWolfMeat", "category": "item", "usage": ["S01", "food", "healing"],
+      "sourceFile": "assets/images/s01/roasted-wolf-meat.svg", "runtime2D": { "path": "assets/images/s01/roasted-wolf-meat.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.food.roastedWolfMeat" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 44, "height": 36 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.environment.smallShelter", "imageId": "s01.environment.smallShelter", "category": "environment-building", "usage": ["S01", "shelter", "construction"],
+      "sourceFile": "assets/images/s01/small-shelter.svg", "runtime2D": { "path": "assets/images/s01/small-shelter.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.environment.smallShelter" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 154, "height": 112 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.story.firestarter", "imageId": "s01.story.firestarter", "category": "story-item", "usage": ["S01", "firestarter", "second-day"],
+      "sourceFile": "assets/images/s01/firestarter.svg", "runtime2D": { "path": "assets/images/s01/firestarter.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.story.firestarter" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 40, "height": 42 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.environment.cliffVine", "imageId": "s01.environment.cliffVine", "category": "environment-module", "usage": ["S01", "climb", "exit"],
+      "sourceFile": "assets/images/s01/cliff-vine.svg", "runtime2D": { "path": "assets/images/s01/cliff-vine.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.environment.cliffVine" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 92, "height": 170 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     }
   ]
 }

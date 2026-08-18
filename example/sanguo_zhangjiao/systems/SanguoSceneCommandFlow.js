@@ -70,6 +70,7 @@ const commandMethods = {
   },
 
   handleGatheringEvent(event, data = {}) {
+    void this._s01s02Coordinator.handleGatheringEvent(event, data);
     if ((event === 'completed' || event === 'interrupted')
       && data.toolBroken === true
       && this._s05MinePendingSettlements.has(data.operationId)) {

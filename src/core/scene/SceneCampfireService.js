@@ -357,6 +357,7 @@ export class SceneCampfireService {
     this.now = config.now || (() => performance.now());
     this.random = config.random || Math.random;
     this.onIgnited = config.onIgnited || null;
+    this.onExtinguished = config.onExtinguished || null;
     this.logger = config.logger || console;
     this._fogCanvas = null;
     if (config.configView) this.configure(config.configView);
@@ -457,6 +458,15 @@ export class SceneCampfireService {
 
   lightCampfire(options = {}) {
     return this.ignite(options);
+  }
+
+  extinguish({ emitEvent = true, runtime = {} } = {}) {
+    if (!this.isConfigured()) return false;
+    this._bindRuntime(runtime);
+    if (!this.isLit()) return true;
+    campfireFeatureMethods._restoreCampfireState.call(this, false);
+    if (emitEvent) this.onExtinguished?.(this.getPosition());
+    return true;
   }
 
   update(deltaTime, runtime = {}) {

@@ -54,6 +54,7 @@ export class DemoPlayerFactory {
       },
       skills: createDefaultSkills(),
       equipment: {},
+      inventorySlots: 6,
       inventory: []
     });
 

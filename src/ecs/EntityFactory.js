@@ -158,7 +158,7 @@ export class EntityFactory {
     
     // 添加背包组件
     entity.addComponent(new InventoryComponent({
-      maxSlots: 30,
+      maxSlots: Math.max(1, Math.floor(Number(characterData.inventorySlots) || 30)),
       items: characterData.inventory || []
     }));
     

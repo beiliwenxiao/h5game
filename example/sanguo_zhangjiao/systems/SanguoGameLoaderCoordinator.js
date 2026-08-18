@@ -143,12 +143,21 @@ function configureSharedClassEffects(gameLoader) {
       requiredProficiencyType: 'construction',
       itemResolver: itemId => cloneData(itemRegistry?.get?.(itemId) || null),
       createCheckpoint: checkpoint => this.s10ConstructionCoordinator._checkpointConstructionRepair(checkpoint),
+      onEvent: (event, data) => trigger('construction', event, {
+        ...data,
+        siteId: data?.structure?.siteId || data?.siteId || null
+      }),
       validateSite: ({ siteId, definition }) => {
         const site = constructionSites.get(siteId);
         if (!site || site.sceneId !== this.currentSceneId || site.definitionId !== definition.id) {
           return { ok: false, code: 'invalidSite' };
         }
         const story = gameLoader.blackboard?.get?.('storyState') || {};
+        if (site.sceneId === 'S01') {
+          return story.s01Survival?.meatCooked === true
+            ? { ok: true }
+            : { ok: false, code: 'constructionSiteLocked' };
+        }
         if (site.sceneId === 'S06') {
           const rescueSucceeded = story.zhangManchengSurvived === true
             && story.rescueResults?.[S05_ZHANG_MANCHENG_RESCUE_ID]?.survived === true;
@@ -188,12 +197,17 @@ function configureSharedClassEffects(gameLoader) {
 }
 
 function registerGameLoaderActions(triggerSystem) {
-  return registerSceneTriggerActions(triggerSystem, {
+  const registered = registerSceneTriggerActions(triggerSystem, {
     spawnPlacements: selector => this.context.services.placements?.spawn(selector),
     weatherSystem: this.weatherSystem,
     timeSystem: this.timeSystem,
     logger: console
   });
+  triggerSystem.registerAction('s01Survival', (params = {}, _context = {}, event = {}) => (
+    this._s01s02Coordinator.handleAction(params, event.params || {})
+  ));
+  registered.push('s01Survival');
+  return registered;
 }
 
 export default SanguoGameLoaderCoordinator;

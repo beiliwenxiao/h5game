@@ -37,6 +37,7 @@ export class BottomControlBar extends UIElement {
     });
 
     this.entity = null;
+    this.now = typeof options.now === 'function' ? options.now : () => performance.now();
 
     // 显示配置（移动端可隐藏血球/蓝球和数字快捷键）
     this.showOrbs = options.showOrbs !== false;
@@ -501,7 +502,7 @@ export class BottomControlBar extends UIElement {
     this.renderSkillIcon(ctx, skill, x, y, size);
     
     // 冷却遮罩
-    const currentTime = performance.now();
+    const currentTime = this.now();
     const cooldownMs = combatComponent.getSkillCooldownRemaining(skill.id, currentTime);
     const cooldown = cooldownMs / 1000; // 转换为秒
     

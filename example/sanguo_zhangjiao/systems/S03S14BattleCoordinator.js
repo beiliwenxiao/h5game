@@ -187,6 +187,7 @@ export class S03S14BattleCoordinator {
       width: Math.min(500, scene.logicalWidth - 32), title: '波才限时救援'
     });
     const rescueSystem = new RescueSystem({
+      now: () => scene.simulationClock?.nowSeconds?.() ?? performance.now() / 1000,
       onEvent: (event, data) => {
         if (event === 'rescueStarted' || event === 'rescueStageAdvanced') {
           rescueObjectiveView.setSnapshot(data);

@@ -2335,7 +2335,7 @@
             const stats = cs.playerEntity.getComponent('stats');
             if (!combat || !combat.skills) return;
 
-            const currentTime = performance.now();
+            const currentTime = cs.simulationClock?.now?.() ?? performance.now();
             for (const btn of _skillCooldownButtons) {
                 const idx = parseInt(btn.dataset.skill, 10);
                 const skill = combat.skills[idx];

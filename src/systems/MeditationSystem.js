@@ -26,6 +26,7 @@ export class MeditationSystem {
     this.healPercent = config.healPercent ?? 0.1;
     this.manaPercent = config.manaPercent ?? 0.1;
     this.tickInterval = config.tickInterval ?? 1.0;
+    this.now = typeof config.now === 'function' ? config.now : () => performance.now();
     
     // 打坐状态
     this.active = false;
@@ -72,7 +73,7 @@ export class MeditationSystem {
       return false;
     }
     
-    const currentTime = performance.now() / 1000;
+    const currentTime = this.now() / 1000;
     this.active = true;
     this.startTime = currentTime;
     this.lastTickTime = currentTime;
@@ -119,7 +120,7 @@ export class MeditationSystem {
     this.checkMovementInterrupt(playerEntity);
     if (!this.active) return;
     
-    const currentTime = performance.now() / 1000;
+    const currentTime = this.now() / 1000;
     const stats = playerEntity.getComponent('stats');
     const transform = playerEntity.getComponent('transform');
     

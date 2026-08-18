@@ -1396,7 +1396,8 @@ const s13s14Methods = {
     if (!this.vehicleWeaponSystem) {
       this.vehicleWeaponSystem = new VehicleWeaponSystem({
         vehicleSystem: this.vehicleSystem,
-        vehicleLogisticsSystem: this.vehicleLogisticsSystem
+        vehicleLogisticsSystem: this.vehicleLogisticsSystem,
+        now: () => this.$scene?.simulationClock?.now?.() ?? performance.now()
       });
     }
     const component = catapult?.getComponent?.('vehicle');

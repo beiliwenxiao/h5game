@@ -62,6 +62,7 @@ import { SceneWorldPresentation } from '../../../src/core/scene/SceneWorldPresen
 import { ScenePanelLayout } from '../../../src/core/scene/ScenePanelLayout.js';
 import { SceneRenderPipeline } from '../../../src/core/scene/SceneRenderPipeline.js';
 import { SceneFramePipeline } from '../../../src/core/scene/SceneFramePipeline.js';
+import { PausableClock } from '../../../src/core/scene/PausableClock.js';
 import { GameSceneRuntime } from '../../../src/core/scene/GameSceneRuntime.js';
 import { SceneItemGainedFlow } from '../../../src/core/scene/SceneItemGainedFlow.js';
 import { SceneAimPresentation } from '../../../src/core/scene/SceneAimPresentation.js';
@@ -118,6 +119,7 @@ export class BaseGameSceneSetup extends Scene {
   constructor(sceneData = {}) {
     super(sceneData.name || 'DataDrivenPrologueScene');
     this.isPaused = false;
+    this.simulationClock = new PausableClock();
     // 独立于系统菜单暂停；技能轮盘仍需在暂停期间持续轮询 LB 松开沿。
     this.isSkillWheelWorldPaused = false;
     this.sceneManager = null;
@@ -608,6 +610,7 @@ export class BaseGameSceneSetup extends Scene {
 
   pause() {
     if (this.isPaused) return false;
+    this.simulationClock?.pause?.();
     this.isPaused = true;
     this.discardPausedInput();
 
@@ -630,6 +633,7 @@ export class BaseGameSceneSetup extends Scene {
     this._pausedAudioManager = null;
     this._pausedAudioWasMuted = false;
     this._pausedMusicWasPlaying = false;
+    this.simulationClock?.resume?.();
     this.isPaused = false;
     this.discardPausedInput();
     return true;

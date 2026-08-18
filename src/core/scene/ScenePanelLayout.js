@@ -114,6 +114,7 @@ export class ScenePanelLayout {
       // 平台差异由 UI 策略决定（移动端隐藏血球/蓝球和数字快捷键）
       showOrbs: barOptions.showOrbs,
       showHotkeyNumbers: barOptions.showHotkeyNumbers,
+      now: () => scene.simulationClock?.now?.() ?? performance.now(),
       onSkillClick: (skill) => {
         scene.onSkillClicked(skill);
       },

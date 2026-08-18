@@ -44,6 +44,7 @@ export class CombatSystem {
     this.weaponRenderer = config.weaponRenderer;
     this.enemyWeaponRenderer = config.enemyWeaponRenderer;
     this.floatingTextManager = config.floatingTextManager;
+    this.now = typeof config.now === 'function' ? config.now : () => performance.now();
     this.effectAmountFilter = typeof config.effectAmountFilter === 'function'
       ? config.effectAmountFilter
       : null;
@@ -184,7 +185,7 @@ export class CombatSystem {
    * @param {Array<Entity>} entities - 实体列表
    */
   update(deltaTime, entities) {
-    const currentTime = performance.now();
+    const currentTime = this.now();
     
     // 清理过期的格挡标记（超过0.5秒）
     this.cleanupBlockedAttacks(currentTime);
@@ -259,7 +260,7 @@ export class CombatSystem {
    * @returns {boolean} 是否成功激活
    */
   activateBlock() {
-    const now = performance.now();
+    const now = this.now();
     // 冷却检查
     if (now - this._activeBlock.lastUseTime < this._activeBlock.cooldownMs) {
       return false;
@@ -279,7 +280,7 @@ export class CombatSystem {
    * @returns {number}
    */
   getBlockCooldownRemaining() {
-    const elapsed = performance.now() - this._activeBlock.lastUseTime;
+    const elapsed = this.now() - this._activeBlock.lastUseTime;
     return Math.max(0, this._activeBlock.cooldownMs - elapsed);
   }
 
@@ -297,7 +298,7 @@ export class CombatSystem {
    */
   isBlocking() {
     if (!this._activeBlock.active) return false;
-    if (performance.now() - this._activeBlock.startTime >= this._activeBlock.duration) {
+    if (this.now() - this._activeBlock.startTime >= this._activeBlock.duration) {
       this._activeBlock.active = false;
       return false;
     }
@@ -737,7 +738,7 @@ export class CombatSystem {
     // 检查敌人攻击是否被格挡
     if (attacker.type === 'enemy' && target.type === 'player') {
       // 主动格挡检查（优先级最高）
-      const now = performance.now();
+      const now = this.now();
       if (this._activeBlock.active && (now - this._activeBlock.startTime < this._activeBlock.duration)) {
         // 主动格挡生效
         if (targetTransform && this.floatingTextManager) {
@@ -2123,7 +2124,7 @@ export class CombatSystem {
     // 如果从未使用过，冷却完成
     if (lastUseTime === 0) return 1;
     
-    const time = currentTime !== null ? currentTime : performance.now();
+    const time = currentTime !== null ? currentTime : this.now();
     const remaining = combat.getSkillCooldownRemaining(skill.id, time);
     const progress = 1 - (remaining / skill.cooldown);
     
@@ -2349,7 +2350,7 @@ export class CombatSystem {
     // 如果从未攻击过，冷却完成
     if (combat.lastAttackTime === 0) return 1;
     
-    const time = currentTime !== null ? currentTime : performance.now();
+    const time = currentTime !== null ? currentTime : this.now();
     const remaining = combat.getAttackCooldownRemaining(time);
     const progress = 1 - (remaining / combat.attackCooldown);
     
@@ -2391,7 +2392,7 @@ export class CombatSystem {
       allyMorale: 100,
       enemyMorale: 100,
       battleState: 'ongoing', // 'ongoing', 'ally_victory', 'enemy_victory'
-      startTime: performance.now()
+      startTime: this.now()
     };
 
     // 为所有单位设置阵营标记
@@ -2675,7 +2676,7 @@ export class CombatSystem {
     if (!this.largeBattle) return;
 
     this.largeBattle.active = false;
-    this.largeBattle.endTime = performance.now();
+    this.largeBattle.endTime = this.now();
     this.largeBattle.duration = (this.largeBattle.endTime - this.largeBattle.startTime) / 1000;
 
     // 触发战斗结束事件（可以被外部监听）
@@ -2820,7 +2821,7 @@ export class CombatSystem {
     const playerTransform = this.playerEntity.getComponent('transform');
     if (!playerTransform) return;
     
-    const currentTime = performance.now();
+    const currentTime = this.now();
     
     // 检查玩家武器是否被禁用
     if (this.weaponRenderer.disabled && this.weaponRenderer.disabled.active) {
@@ -3321,7 +3322,7 @@ export class CombatSystem {
    * @param {Array} entities - 实体列表
    */
   updateCombatState(deltaTime, entities) {
-    const currentTime = performance.now() / 1000;
+    const currentTime = this.now() / 1000;
     const hasNearby = this.checkNearbyEnemies(entities);
     
     if (hasNearby) {
@@ -3374,7 +3375,7 @@ export class CombatSystem {
    */
   enterCombat() {
     this.combatState.inCombat = true;
-    this.combatState.lastCombatTime = performance.now() / 1000;
+    this.combatState.lastCombatTime = this.now() / 1000;
     this.combatState.combatExitTimer = this.combatState.combatExitDelay;
     
     if (this.onEnterCombatCallback) {

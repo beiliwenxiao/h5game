@@ -16,7 +16,8 @@
  */
 
 export class WeaponRenderer {
-  constructor() {
+  constructor(options = {}) {
+    this.now = typeof options.now === 'function' ? options.now : () => performance.now();
     // 武器配置
     this.weaponConfigs = {
       'wooden_sword': {
@@ -112,7 +113,7 @@ export class WeaponRenderer {
    */
   update(deltaTime, currentTime) {
     // 更新眩晕状态
-    if (this.stunned.active && performance.now() >= this.stunned.endTime) {
+    if (this.stunned.active && this.now() >= this.stunned.endTime) {
       this.stunned.active = false;
       console.log('武器眩晕恢复，可以格挡了');
     }
@@ -800,7 +801,7 @@ export class WeaponRenderer {
     }
     
     // 冷却检查
-    const nowMs = performance.now();
+    const nowMs = this.now();
     if (nowMs - this._lastThrowTime < this._throwCooldownMs) {
       return false;
     }
@@ -850,7 +851,7 @@ export class WeaponRenderer {
     this.thrownWeapon.hitEnemies = []; // 记录已命中的敌人
     this.thrownWeapon.throwTime = currentTime || 0; // 记录投掷时间
     this.thrownWeapon.ownerEntity = playerEntity; // 记录所有者
-    this._lastThrowTime = performance.now(); // 记录冷却开始时间
+    this._lastThrowTime = this.now(); // 记录冷却开始时间
     
     // 如果有目标实体，标记为最终目标
     if (targetEntity) {
@@ -942,7 +943,7 @@ export class WeaponRenderer {
    * @returns {number} 剩余冷却时间，0 表示已就绪
    */
   getThrowCooldownRemaining() {
-    const elapsed = performance.now() - this._lastThrowTime;
+    const elapsed = this.now() - this._lastThrowTime;
     return Math.max(0, this._throwCooldownMs - elapsed);
   }
 

@@ -41,15 +41,17 @@ export class SceneGameplaySystemAssembler {
 
   initialize({ zoneCallbacks = {} } = {}) {
     const scene = this.scene;
+    const now = () => scene.simulationClock?.now?.() ?? performance.now();
 
     scene.combatEffects = new CombatEffects(scene.particleSystem);
     scene.skillEffects = new SkillEffects(scene.particleSystem);
-    scene.weaponRenderer = new WeaponRenderer();
+    scene.weaponRenderer = new WeaponRenderer({ now });
     scene.enemyWeaponRenderer = new EnemyWeaponRenderer();
     scene.flightSystem = new FlightSystem({
       particleSystem: scene.particleSystem,
       floatingTextManager: scene.floatingTextManager,
-      camera: scene.camera
+      camera: scene.camera,
+      now
     });
     scene.jumpSystem = new JumpSystem();
     scene.locomotionSystem = new LocomotionSystem({
@@ -64,7 +66,8 @@ export class SceneGameplaySystemAssembler {
       skillEffects: scene.skillEffects,
       weaponRenderer: scene.weaponRenderer,
       enemyWeaponRenderer: scene.enemyWeaponRenderer,
-      floatingTextManager: scene.floatingTextManager
+      floatingTextManager: scene.floatingTextManager,
+      now
     });
     scene.combatSystem.onMeditationSkill = skill => scene.onSkillClicked(skill);
     scene.combatSystem.onSkillAimRequest = index => scene.enterPCAimMode('skill', index);
@@ -105,6 +108,7 @@ export class SceneGameplaySystemAssembler {
     scene.pickupSystem = new PickupSystem({
       commandGateway: scene.sceneRuntime?.commandGateway,
       resolveActorId: entity => entity?.id || null,
+      now,
       onResult: result => {
         if (!result?.ok && result?.code !== 'inventoryFull') {
           scene.notificationSystem?.addWarning?.(result?.error?.message || result?.code || '拾取失败');
@@ -238,7 +242,7 @@ export class SceneGameplaySystemAssembler {
       });
     });
 
-    scene.meditationSystem = new MeditationSystem();
+    scene.meditationSystem = new MeditationSystem({ now });
 
     scene.meditationSystem.init({
       inputManager: scene.inputManager,
@@ -342,6 +346,7 @@ export class SceneGameplaySystemAssembler {
     const abilitySystem = new AbilitySystem({
       skillRegistry,
       effectResolver,
+      now: () => scene.simulationClock?.now?.() ?? performance.now(),
       executor: context => {
         const locomotionHandled = scene.locomotionSystem?.execute?.(context);
         if (locomotionHandled !== undefined && locomotionHandled !== null) return locomotionHandled;

@@ -25,6 +25,7 @@ export class FlightSystem {
     this.particleSystem = options.particleSystem || null;
     this.floatingTextManager = options.floatingTextManager || null;
     this.camera = options.camera || null;
+    this.now = typeof options.now === 'function' ? options.now : () => performance.now();
     
     // 飞行状态
     this.isFlying = false;
@@ -113,7 +114,7 @@ export class FlightSystem {
     }
     
     // 冷却检查
-    const now = performance.now();
+    const now = this.now();
     if (now - this._lastFlightTime < this._cooldownMs) {
       return false;
     }
@@ -298,7 +299,7 @@ export class FlightSystem {
 
       this.isFlying = false;
       this.flyingData = null;
-      this._lastFlightTime = performance.now(); // 记录冷却开始时间
+      this._lastFlightTime = this.now(); // 记录冷却开始时间
       
       // 恢复相机自动跟随：落地后带缓冲地平滑移动到玩家新位置
       if (this.camera) {
@@ -448,7 +449,7 @@ export class FlightSystem {
    */
   getCooldownRemaining() {
     if (this.isFlying) return this._cooldownMs; // 飞行中视为满冷却
-    const elapsed = performance.now() - this._lastFlightTime;
+    const elapsed = this.now() - this._lastFlightTime;
     return Math.max(0, this._cooldownMs - elapsed);
   }
 

@@ -162,7 +162,14 @@ async function configureWorldRuntimeFromLoad() {
   this.weatherSystem = nextWeatherSystem;
   this.timeSystem = nextTimeSystem;
   this._sceneConsumptionSnapshot = sceneConsumption;
-  if (campfireConfig) this._campfireService.configure(campfireConfig);
+  if (campfireConfig) {
+    this._campfireService.configure(campfireConfig);
+    const campfireImageId = this._campfireService.configView?.imageId || 'vfx.freePixel.fire';
+    const fireAsset = this.assetManager?.resolveManifestAsset?.(campfireImageId, '2d');
+    this._campfireService.setFireImage(
+      this.assetManager?.getAsset?.(fireAsset?.key || campfireImageId) || null
+    );
+  }
 }
 
 async function forwardCommittedSceneEnter(sceneId) {

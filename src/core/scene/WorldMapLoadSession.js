@@ -13,6 +13,23 @@ function abortError() {
   return error;
 }
 
+function awaitWithSignal(promise, signal) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(abortError());
+    };
+    const cleanup = () => signal.removeEventListener?.('abort', onAbort);
+    signal.addEventListener?.('abort', onAbort, { once: true });
+    promise.then(
+      value => { cleanup(); resolve(value); },
+      error => { cleanup(); reject(error); }
+    );
+  });
+}
+
 function formatErrorMessage(error) {
   if (error instanceof Error) return error.message;
   const nestedMessage = error?.message || error?.errors?.[0]?.message || error?.error?.message;
@@ -117,6 +134,7 @@ export class WorldMapLoadSession {
     const sceneOutcomes = new Map(loaded);
     for (const [sceneId, outcome] of loaded) {
       errors.push(...outcome.errors.map(entry => ({ ...entry, sceneId })));
+      warnings.push(...(outcome.warnings || []));
       if (outcome.data) this._sceneData.set(sceneId, outcome.data);
     }
 
@@ -145,15 +163,28 @@ export class WorldMapLoadSession {
     return this._sceneData.get(sceneId) || null;
   }
 
-  async loadSceneData(sceneId, project = this._lastResult?.project || null) {
+  async loadSceneData(sceneId, projectOrOptions = this._lastResult?.project || null, maybeOptions = {}) {
     if (this._disposed) throw abortError();
-    const outcome = await this._getScenePromise(sceneId, project);
+    const options = projectOrOptions && typeof projectOrOptions === 'object'
+      && Object.prototype.hasOwnProperty.call(projectOrOptions, 'signal')
+      ? projectOrOptions
+      : maybeOptions;
+    const project = options === projectOrOptions
+      ? this._lastResult?.project || null
+      : projectOrOptions;
+    if (options.signal?.aborted) throw abortError();
+    const outcome = await this._getScenePromise(sceneId, project, options);
+    if (options.signal?.aborted) throw abortError();
     if (!outcome?.data) {
       const error = new Error(outcome?.errors?.[0]?.message || `场景 ${sceneId} 加载失败`);
       error.errors = outcome?.errors || [];
       throw error;
     }
     this._sceneData.set(sceneId, outcome.data);
+    if (this._lastResult) {
+      this._lastResult.sceneProvenance[sceneId] = this._generationSnapshot?.getProvenance?.(sceneId) || null;
+      this._lastResult.warnings.push(...(outcome.warnings || []));
+    }
     const chunk = this._lastResult?.chunks?.find(entry => entry.sceneId === sceneId);
     if (chunk && !chunk.sceneData) {
       chunk.sceneData = outcome.data;
@@ -218,38 +249,58 @@ export class WorldMapLoadSession {
     return this._projectPromises.get(projectUrl);
   }
 
-  _getScenePromise(sceneId, project) {
+  _getScenePromise(sceneId, project, { signal = null } = {}) {
     if (!this._scenePromises.has(sceneId)) {
+      let promise;
       if (this._generationSnapshot) {
-        const record = this._generationSnapshot.getRecord(sceneId);
-        const promise = record
-          ? Promise.resolve({ data: record.data, errors: [] })
-          : Promise.resolve({
-            data: null,
-            errors: [errorRecord('scene', new Error(`场景不在当前 repository snapshot: ${sceneId}`), {
-              loader: 'repository', sceneId
-            })]
+        promise = Promise.resolve()
+          .then(() => this.repository.loadScene(sceneId, {
+            snapshot: this._generationSnapshot,
+            signal
+          }))
+          .then(result => {
+            if (!result?.ok) {
+              return {
+                data: null,
+                errors: (result?.errors || []).map(error => errorRecord('scene', error, {
+                  loader: 'repository', sceneId, category: error.category, source: error.source
+                })),
+                warnings: result?.warnings || []
+              };
+            }
+            return { data: result.record.data, errors: [], warnings: result.warnings || [] };
+          })
+          .catch(error => {
+            if (error?.name === 'AbortError') throw error;
+            return {
+              data: null,
+              errors: [errorRecord('scene', error, { loader: 'repository', sceneId })],
+              warnings: []
+            };
           });
-        this._scenePromises.set(sceneId, promise);
-        return promise;
+      } else {
+        promise = Promise.resolve()
+          .then(() => this.loadScene(sceneId, project))
+          .then(data => ({ data, errors: [], warnings: [] }))
+          .catch(async primaryError => {
+            if (primaryError?.name === 'AbortError') throw primaryError;
+            const errors = [errorRecord('scene', primaryError, { loader: 'primary' })];
+            if (typeof this.loadSceneFallback !== 'function') return { data: null, errors, warnings: [] };
+            try {
+              const data = await this.loadSceneFallback(sceneId, project, primaryError);
+              return { data, errors, warnings: [] };
+            } catch (fallbackError) {
+              errors.push(errorRecord('scene', fallbackError, { loader: 'fallback' }));
+              return { data: null, errors, warnings: [] };
+            }
+          });
       }
-      const promise = Promise.resolve()
-        .then(() => this.loadScene(sceneId, project))
-        .then(data => ({ data, errors: [] }))
-        .catch(async primaryError => {
-          const errors = [errorRecord('scene', primaryError, { loader: 'primary' })];
-          if (typeof this.loadSceneFallback !== 'function') return { data: null, errors };
-          try {
-            const data = await this.loadSceneFallback(sceneId, project, primaryError);
-            return { data, errors };
-          } catch (fallbackError) {
-            errors.push(errorRecord('scene', fallbackError, { loader: 'fallback' }));
-            return { data: null, errors };
-          }
-        });
       this._scenePromises.set(sceneId, promise);
+      promise.catch(() => {
+        if (this._scenePromises.get(sceneId) === promise) this._scenePromises.delete(sceneId);
+      });
     }
-    return this._scenePromises.get(sceneId);
+    return awaitWithSignal(this._scenePromises.get(sceneId), signal);
   }
 
   _chunkSpecs(worldIndex, region) {

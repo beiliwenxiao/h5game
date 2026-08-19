@@ -92,7 +92,9 @@ InputManager 继续采集设备状态；InputActionRouter 生成统一事件并�
 
 载具运行态快照固定由内容定义重建组件后恢复：`VehicleComponent` 的 schema 必须严格校验 `vehicleType/hp/destroyed/seats/logistics`，`deserialize()` 先完整 validate/prepare、失败零修改，调用方必须检查返回值。Cargo 首次摧毁只允许一个稳定 operationId 和一个确定性 DeathDrop；掉落实体、Cargo、Vehicle 与物流 ledger 必须处于同一回滚边界。DeathDrop 存档只保存 `deathId/stacks/position` 等业务事实，图片由场景注入稳定 `imageId/assetId`，不得把表现资源变成存档事实源。
 
-`WorldMapLoadSession` 只预载入口/目标场景，邻近八格由 core manager 的异步 sceneResolver 按需读取磁盘 JSON；跨 Region 必须先完成 detached manager 的目标九宫格加载与校验，再清理旧区并激活。九宫格实体生成按 physical `chunk.sceneId` 匹配 placement：SXX-CNN 与 SXX 只共享业务状态 namespace，不得用归一后的 SXX 过滤附属 chunk 内容；首次进入、自然跨界、传送和跨 Region 激活都要为当前 loaded chunks 做幂等生成。剩余门槛是浏览器连续跨界/远距传送、失败保持旧区、两轮 save/load 等价、SXX-CNN namespace、100 实体性能和内存验收。
+`WorldMapLoadSession` 只预载入口/目标场景：`CanonicalSceneRepository.refresh()` 只读取并校验 `game.project.json` 与 `_scene_order.json` 的目录 closure，不得遍历读取全部场景正文；九宫格 `sceneResolver` 请求具体 `sceneId` 时才读取、校验并在当前 generation 内去重。Manifest 注册只建立稳定 ID 索引，不等于全量资源 I/O；每个 chunk 必须在 `LoadedChunk.prepare()` 前根据可见 layer、placement/registry 定义及当前 scene usage 收集并加载所需稳定 ID，`imageAssets` 仅是编辑器路径映射，不能作为全量使用清单。资源加载失败必须使九宫格 prepare 失败并保留旧投影；没有 lease/refcount 前，chunk unload 不得直接删除可能由相邻块共享的图片缓存。
+
+跨 Region 必须先完成 detached manager 的目标九宫格加载与校验，再清理旧区并激活。九宫格实体生成按 physical `chunk.sceneId` 匹配 placement：SXX-CNN 与 SXX 只共享业务状态 namespace，不得用归一后的 SXX 过滤附属 chunk 内容；首次进入、自然跨界、传送和跨 Region 激活都要为当前 loaded chunks 做幂等生成。剩余门槛是浏览器连续跨界/远距传送、失败保持旧区、两轮 save/load 等价、SXX-CNN namespace、100 实体性能和内存验收。
 
 ### 8. 旧系统兼容适配器（已完成）
 

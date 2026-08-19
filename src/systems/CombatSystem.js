@@ -516,30 +516,36 @@ export class CombatSystem {
    */
   renderDamageNumbers(ctx) {
     if (this.damageNumbers.length === 0) return;
-    
+
+    const currentTime = this.now();
     // 调试日志（每秒只输出一次）
-    if (!this._lastDamageNumberLog || performance.now() - this._lastDamageNumberLog > 1000) {
+    if (this._lastDamageNumberLog == null || currentTime - this._lastDamageNumberLog > 1000) {
       console.log(`[renderDamageNumbers] 正在渲染 ${this.damageNumbers.length} 个伤害数字`);
-      this._lastDamageNumberLog = performance.now();
+      this._lastDamageNumberLog = currentTime;
     }
-    
+
     ctx.save();
-    
+
     for (const dn of this.damageNumbers) {
       // 转换为屏幕坐标
       const screenPos = this.worldToScreen({ x: dn.x, y: dn.y });
-      
-      // 调试：输出屏幕坐标
-      if (dn.damageType === '武器碰撞') {
+      const isWeaponCollision = typeof dn.damageType === 'string'
+        && dn.damageType.startsWith('武器碰撞');
+
+      // 调试：武器碰撞可能持续多帧，坐标日志最多每秒输出一次。
+      if (isWeaponCollision
+        && (this._lastWeaponCollisionRenderLog == null
+          || currentTime - this._lastWeaponCollisionRenderLog > 1000)) {
         console.log(`[renderDamageNumbers] 武器碰撞伤害 世界坐标:(${dn.x.toFixed(0)}, ${dn.y.toFixed(0)}) -> 屏幕坐标:(${screenPos.x.toFixed(0)}, ${screenPos.y.toFixed(0)})`);
+        this._lastWeaponCollisionRenderLog = currentTime;
       }
-      
+
       // 计算透明度（根据生命周期）
       const alpha = dn.life / dn.maxLife;
-      
+
       // 计算缩放（开始时放大，然后缩小）
       const scale = alpha > 0.8 ? 1.0 + (1.0 - alpha) * 2 : 1.0;
-      
+
       // 绘制数字
       ctx.globalAlpha = alpha;
       // 根据伤害类型选择颜色
@@ -547,7 +553,7 @@ export class CombatSystem {
         ctx.fillStyle = '#00ff00'; // 治疗为绿色
       } else if (dn.damage === 0) {
         ctx.fillStyle = '#aaaaaa'; // 0伤害（格挡/Miss）为灰色
-      } else if (dn.damageType === '武器碰撞') {
+      } else if (isWeaponCollision) {
         ctx.fillStyle = '#ff6666'; // 武器碰撞为红色
       } else {
         ctx.fillStyle = '#ffff00'; // 普通伤害为黄色
@@ -556,7 +562,7 @@ export class CombatSystem {
       ctx.font = `bold ${Math.floor(24 * scale)}px Arial`;
       ctx.textAlign = 'center';
       ctx.lineWidth = 4;
-      
+
       // 构建显示文本：如果有伤害类型，显示"类型 -数值"，否则只显示"-数值"
       let text;
       if (dn.isHeal) {
@@ -575,13 +581,13 @@ export class CombatSystem {
       } else {
         text = `-${dn.damage}`;
       }
-      
+
       // 描边
       ctx.strokeText(text, screenPos.x, screenPos.y);
       // 填充
       ctx.fillText(text, screenPos.x, screenPos.y);
     }
-    
+
     ctx.restore();
   }
 
@@ -1157,12 +1163,20 @@ export class CombatSystem {
    * @param {string} damageType - 伤害类型（可选）
    */
   showDamageNumber(position, damage, damageType = null) {
-    // 调试日志
-    console.log(`[showDamageNumber] 位置: (${position?.x?.toFixed(0)}, ${position?.y?.toFixed(0)}), 伤害: ${damage}, 类型: ${damageType}`);
-    
+    const currentTime = this.now();
+    const shouldLog = this._lastDamageNumberCreateLog == null
+      || currentTime - this._lastDamageNumberCreateLog > 1000;
+    // 调试日志保留，但高频群战时最多每秒输出一组。
+    if (shouldLog) {
+      console.log(`[showDamageNumber] 位置: (${position?.x?.toFixed(0)}, ${position?.y?.toFixed(0)}), 伤害: ${damage}, 类型: ${damageType}`);
+      this._lastDamageNumberCreateLog = currentTime;
+    }
+
     // 武器碰撞的伤害数字显示在更高的位置，避免重叠
-    const yOffset = damageType === '武器碰撞' ? -50 : -20;
-    
+    const isWeaponCollision = typeof damageType === 'string'
+      && damageType.startsWith('武器碰撞');
+    const yOffset = isWeaponCollision ? -50 : -20;
+
     const damageNumber = {
       x: position.x,
       y: position.y + yOffset, // 从实体上方开始
@@ -1172,9 +1186,9 @@ export class CombatSystem {
       maxLife: 3.0,
       velocity: { x: (Math.random() - 0.5) * 20, y: -50 } // 向上飘动
     };
-    
+
     this.damageNumbers.push(damageNumber);
-    console.log(`[showDamageNumber] damageNumbers数组长度: ${this.damageNumbers.length}`);
+    if (shouldLog) console.log(`[showDamageNumber] damageNumbers数组长度: ${this.damageNumbers.length}`);
   }
 
   /**

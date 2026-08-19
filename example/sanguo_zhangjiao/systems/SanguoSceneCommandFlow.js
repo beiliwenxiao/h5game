@@ -19,6 +19,8 @@ const commandMethods = {
     const scenePolicy = this.prepareSceneGatheringSettlement(context);
     if (scenePolicy?.ok === false || scenePolicy?.idempotent === true) return scenePolicy;
     const { operationId, node } = context;
+    if (this.currentSceneId === 'S01'
+      && ['resource.wild_berry', 'resource.wolf_hide'].includes(node?.itemId)) return scenePolicy;
     const resourceType = node?.resourceType;
     if (!operationId || !['wood', 'iron', 'food', 'herb'].includes(resourceType)) return scenePolicy;
     const blackboard = this.gameLoader?.blackboard;

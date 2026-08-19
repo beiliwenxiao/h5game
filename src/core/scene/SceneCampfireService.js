@@ -30,7 +30,7 @@ const campfireFeatureMethods = {
     this.fog.active = true;
   },
 
-  /** 点燃火堆并创建火焰粒子（7 组发射器）。 */
+  /** 点燃火堆，并按配置创建可选火焰粒子发射器。 */
   lightCampfire({ emitEvent = true } = {}) {
     if (this.campfire.lit) return;
     this.campfire.lit = true;
@@ -114,18 +114,23 @@ const campfireFeatureMethods = {
       const playerTransform = this.playerEntity?.getComponent?.('transform');
       const viewBounds = this.camera.getViewBounds();
       if (playerTransform) {
-        const playerScreenX = playerTransform.position.x - viewBounds.left;
-        const playerScreenY = playerTransform.position.y - viewBounds.top;
-        const lightRadius = 150;
+        // 雾是低频柔化层，以半分辨率离屏合成后放大；像素处理量降为 1/4，
+        // 不改变世界坐标、光照半径或 Story 状态。
+        const renderScale = 0.5;
+        const fogWidth = Math.max(1, Math.ceil(width * renderScale));
+        const fogHeight = Math.max(1, Math.ceil(height * renderScale));
+        const playerScreenX = (playerTransform.position.x - viewBounds.left) * renderScale;
+        const playerScreenY = (playerTransform.position.y - viewBounds.top) * renderScale;
+        const lightRadius = 150 * renderScale;
         if (!this._fogCanvas) this._fogCanvas = this.createCanvas();
-        if (this._fogCanvas.width !== width || this._fogCanvas.height !== height) {
-          this._fogCanvas.width = width;
-          this._fogCanvas.height = height;
+        if (this._fogCanvas.width !== fogWidth || this._fogCanvas.height !== fogHeight) {
+          this._fogCanvas.width = fogWidth;
+          this._fogCanvas.height = fogHeight;
         }
         const fogCtx = this._fogCanvas.getContext('2d');
-        fogCtx.clearRect(0, 0, width, height);
+        fogCtx.clearRect(0, 0, fogWidth, fogHeight);
         fogCtx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
-        fogCtx.fillRect(0, 0, width, height);
+        fogCtx.fillRect(0, 0, fogWidth, fogHeight);
         fogCtx.globalCompositeOperation = 'destination-out';
 
         const yScale = 0.6;
@@ -142,9 +147,9 @@ const campfireFeatureMethods = {
         fogCtx.fill();
         fogCtx.restore();
         if (this.campfire.lit) {
-          const campScreenX = this.campfire.x - viewBounds.left;
-          const campScreenY = this.campfire.y - viewBounds.top;
-          const campLightRadius = this.presentation.lightRadius;
+          const campScreenX = (this.campfire.x - viewBounds.left) * renderScale;
+          const campScreenY = (this.campfire.y - viewBounds.top) * renderScale;
+          const campLightRadius = this.presentation.lightRadius * renderScale;
           fogCtx.save();
           fogCtx.translate(campScreenX, campScreenY);
           fogCtx.scale(1, yScale);
@@ -160,7 +165,7 @@ const campfireFeatureMethods = {
         }
 
         fogCtx.globalCompositeOperation = 'source-over';
-        ctx.drawImage(this._fogCanvas, 0, 0);
+        ctx.drawImage(this._fogCanvas, 0, 0, fogWidth, fogHeight, 0, 0, width, height);
       } else {
         ctx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
         ctx.fillRect(0, 0, width, height);
@@ -371,38 +376,72 @@ export class SceneCampfireService {
     const sprite = source.sprite;
     const fog = source.fog;
     const presentation = source.presentation;
-    if (!sprite || !fog || !presentation || !Array.isArray(source.particlePresets) || source.particlePresets.length === 0) {
+    if (!sprite || !fog || !presentation || !Array.isArray(source.particlePresets)) {
       throw new TypeError('campfire config view is incomplete');
     }
+
     const next = deepFreeze(cloneCanonicalValue(source));
-    this.initialFogOpacity = Number(next.initialFogOpacity);
-    if (!Number.isFinite(this.initialFogOpacity) || this.initialFogOpacity < 0 || this.initialFogOpacity > 1) {
+    const initialFogOpacity = Number(next.initialFogOpacity);
+    if (!Number.isFinite(initialFogOpacity) || initialFogOpacity < 0 || initialFogOpacity > 1) {
       throw new TypeError('campfire.initialFogOpacity must be between 0 and 1');
     }
-    Object.assign(this.campfire, {
+    const spriteState = {
       frameWidth: requirePositive(sprite.frameWidth, 'campfire.sprite.frameWidth'),
       frameHeight: requirePositive(sprite.frameHeight, 'campfire.sprite.frameHeight'),
       frameCols: Math.floor(requirePositive(sprite.frameCols, 'campfire.sprite.frameCols')),
       frameRows: Math.floor(requirePositive(sprite.frameRows, 'campfire.sprite.frameRows')),
       frameCount: Math.floor(requirePositive(sprite.frameCount, 'campfire.sprite.frameCount')),
       frameDuration: requirePositive(sprite.frameDuration, 'campfire.sprite.frameDuration')
-    });
-    this.fog = {
-      opacity: this.campfire.lit ? 0 : this.initialFogOpacity,
-      targetOpacity: this.campfire.lit ? 0 : this.initialFogOpacity,
+    };
+    if (spriteState.frameCols * spriteState.frameRows < spriteState.frameCount) {
+      throw new RangeError('campfire.sprite frame grid cannot cover frameCount');
+    }
+    const fogState = {
+      opacity: this.campfire.lit ? 0 : initialFogOpacity,
+      targetOpacity: this.campfire.lit ? 0 : initialFogOpacity,
       fadeSpeed: requirePositive(fog.fadeSpeed, 'campfire.fog.fadeSpeed'),
       color: String(fog.color),
       active: fog.active !== false
     };
-    this.particlePresets = next.particlePresets;
-    this.labels = next.labels;
-    this.presentation = deepFreeze({
+    next.particlePresets.forEach((preset, index) => {
+      const path = `campfire.particlePresets[${index}]`;
+      requirePositive(preset.rate, `${path}.rate`);
+      requirePositive(preset.life, `${path}.life`);
+      requirePositive(preset.size, `${path}.size`);
+      if (!Number.isFinite(Number(preset.vy))) throw new TypeError(`${path}.vy must be a finite number`);
+      const alpha = Number(preset.alpha);
+      if (!Number.isFinite(alpha) || alpha < 0 || alpha > 1) {
+        throw new TypeError(`${path}.alpha must be between 0 and 1`);
+      }
+      if (typeof preset.color !== 'string' || preset.color.length === 0) {
+        throw new TypeError(`${path}.color must be a non-empty string`);
+      }
+    });
+    const presentationState = deepFreeze({
       lightRadius: requirePositive(presentation.lightRadius, 'campfire.presentation.lightRadius'),
       fireWidth: requirePositive(presentation.fireWidth, 'campfire.presentation.fireWidth'),
       fireHeight: requirePositive(presentation.fireHeight, 'campfire.presentation.fireHeight'),
       collisionWidth: requirePositive(presentation.collisionWidth, 'campfire.presentation.collisionWidth'),
       collisionHeight: requirePositive(presentation.collisionHeight, 'campfire.presentation.collisionHeight')
     });
+    const keepsCurrentImage = this.configView?.imageId === next.imageId;
+    if (keepsCurrentImage && this.campfire.fireImage) {
+      this._validateFireImageDimensions(this.campfire.fireImage, spriteState);
+    }
+
+    this.initialFogOpacity = initialFogOpacity;
+    Object.assign(this.campfire, spriteState, {
+      currentFrame: this.campfire.currentFrame % spriteState.frameCount,
+      frameTime: 0
+    });
+    if (!keepsCurrentImage) {
+      this.campfire.fireImage = null;
+      this.campfire.imageLoaded = false;
+    }
+    this.fog = fogState;
+    this.particlePresets = next.particlePresets;
+    this.labels = next.labels;
+    this.presentation = presentationState;
     this.configView = next;
     this._fogCanvas = null;
     return this.configView;
@@ -431,7 +470,21 @@ export class SceneCampfireService {
     return { x: this.campfire.x, y: this.campfire.y };
   }
 
+  _validateFireImageDimensions(image, sprite = this.campfire) {
+    const width = Number(image?.naturalWidth || image?.videoWidth || image?.width);
+    const height = Number(image?.naturalHeight || image?.videoHeight || image?.height);
+    if (!(width > 0) || !(height > 0)) return;
+    const requiredWidth = sprite.frameWidth * sprite.frameCols;
+    const requiredHeight = sprite.frameHeight * sprite.frameRows;
+    if (width < requiredWidth || height < requiredHeight) {
+      throw new RangeError(
+        `campfire image ${width}x${height} cannot cover sprite grid ${requiredWidth}x${requiredHeight}`
+      );
+    }
+  }
+
   setFireImage(image) {
+    if (image) this._validateFireImageDimensions(image);
     this.campfire.fireImage = image || null;
     this.campfire.imageLoaded = !!image;
   }

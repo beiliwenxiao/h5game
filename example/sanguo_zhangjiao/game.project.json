@@ -2809,7 +2809,7 @@
       "do": [
         { "action": "spawnPlacements", "params": { "selector": { "group": "S01-initial" } }, "await": true },
         { "action": "s01Survival", "params": { "operation": "reconcilePursuit" }, "await": true },
-        { "action": "showTip", "params": { "text": "寒风吹过荒原，你被冻醒了。使用 {move} 起身活动，靠近熄灭的篝火。" } }
+        { "action": "s01Survival", "params": { "operation": "presentEntry" }, "await": true }
       ],
       "once": false,
       "cooldown": 1
@@ -2818,6 +2818,7 @@
       "id": "trg_s01_light_campfire",
       "when": { "type": "interact", "params": {} },
       "do": [
+        { "action": "s01Survival", "params": { "operation": "ensureMovedAfterWake" }, "await": true },
         { "action": "scenario.command", "params": { "scenarioId": "scenario.command.campfire.ignite", "operation": "campfire.ignite" }, "await": true },
         { "action": "s01Survival", "params": { "operation": "campfireLit" }, "await": true }
       ],
@@ -4703,7 +4704,7 @@
         "subType": "food",
         "maxStack": 10,
         "usable": true,
-        "capabilities": ["consumable"],
+        "capabilities": [{ "id": "consumable" }],
         "effect": { "type": "heal", "value": 4 },
         "imageId": "s01.resource.wildBerryNode",
         "sprite": { "width": 36, "height": 32 }
@@ -4753,7 +4754,7 @@
         "subType": "food",
         "maxStack": 5,
         "usable": true,
-        "capabilities": ["consumable"],
+        "capabilities": [{ "id": "consumable" }],
         "effect": { "type": "heal", "value": 28 },
         "imageId": "s01.food.roastedWolfMeat",
         "sprite": { "width": 44, "height": 36 }
@@ -5059,7 +5060,7 @@
         "id": "node.wild_berry",
         "schemaVersion": 1,
         "name": "野果丛",
-        "resourceType": "berry",
+        "resourceType": "food",
         "itemId": "resource.wild_berry",
         "remaining": 4,
         "maxRemaining": 4,
@@ -5078,7 +5079,7 @@
         "id": "node.wolf_carcass",
         "schemaVersion": 1,
         "name": "野狼尸体",
-        "resourceType": "hide",
+        "resourceType": "food",
         "itemId": "resource.wolf_hide",
         "remaining": 1,
         "maxRemaining": 1,

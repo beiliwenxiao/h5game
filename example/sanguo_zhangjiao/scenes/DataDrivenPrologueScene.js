@@ -24,6 +24,10 @@
 import { BaseGameScene } from './BaseGameScene.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { SceneStreamingRuntime } from '../../../src/core/scene/SceneStreamingRuntime.js';
+import {
+  collectManifestUsageAssetIds,
+  collectSceneAssetIds
+} from '../../../src/core/scene/SceneAssetCollector.js';
 import { RegionCoordinator } from '../../../src/core/scene/RegionCoordinator.js';
 import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
@@ -70,6 +74,23 @@ import { SanguoWorldRuntimeCoordinator } from '../systems/SanguoWorldRuntimeCoor
 import { SanguoGameLoaderCoordinator } from '../systems/SanguoGameLoaderCoordinator.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
+function awaitWithAbort(promise, signal, message) {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(new Error(message));
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(new Error(message));
+    };
+    const cleanup = () => signal.removeEventListener?.('abort', onAbort);
+    signal.addEventListener?.('abort', onAbort, { once: true });
+    promise.then(
+      value => { cleanup(); resolve(value); },
+      error => { cleanup(); reject(error); }
+    );
+  });
+}
 
 export class DataDrivenPrologueScene extends BaseGameScene {
   // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
@@ -139,6 +160,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.terrain = null;
     this.worldStreamingManager = null;
     this._detachWorldStreaming = null;
+    this._assetManifestReady = new Promise((resolve, reject) => {
+      this._resolveAssetManifestReady = resolve;
+      this._rejectAssetManifestReady = reject;
+    });
+    // Promise 仍由 chunk prepare 正式 await；此分支只避免初始化提前失败产生未处理拒绝。
+    this._assetManifestReady.catch(() => {});
     this._worldStreamingRuntime = new SceneStreamingRuntime({
       createTerrain: ({ chunk, chunkWidth, chunkHeight, sceneData }) => new Scene1Terrain({
         centerX: chunkWidth / 2,
@@ -148,8 +175,30 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         editorSceneId: chunk.sceneId,
         worldOffset: chunk.origin,
         skipEditorLoad: true,
-        sceneData
+        sceneData,
+        resolveImageAsset: imageId => this.assetManager?.resolveManifestAsset?.(imageId, '2d') || null,
+        getLoadedImage: imageId => {
+          const key = this.assetManager?.resolveManifestAsset?.(imageId, '2d')?.key || imageId;
+          return this.assetManager?.getAsset?.(key, '2d') || null;
+        }
       }),
+      prepareChunkAssets: async ({ sceneId, sceneNamespace, sceneData, signal }) => {
+        await awaitWithAbort(
+          this._assetManifestReady,
+          signal,
+          `Chunk ${sceneId} 等待 Manifest 时加载已取消`
+        );
+        if (signal?.aborted) throw new Error(`Chunk ${sceneId} 资源加载已取消`);
+        const assetIds = collectSceneAssetIds({
+          sceneData,
+          registries: this.gameLoader?.registries || {}
+        });
+        for (const id of collectManifestUsageAssetIds(
+          this.assetManager?.manifestEntries,
+          [sceneId, sceneNamespace]
+        )) assetIds.add(id);
+        await this.assetManager?.loadAssets?.(assetIds, { mode: '2d', signal, required: true });
+      },
       getPosition: () => this.playerEntity?.getComponent?.('transform')?.position || null,
       getCurrentSceneId: () => this.currentSceneId,
       getRuntime: () => this.sceneRuntime,
@@ -585,9 +634,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this.currentSceneId = entry.sceneId;
         this._currentRegionIndex = entry.regionIndex;
         this._prologueOffset = entry.offset;
-        this._campfireService.setPosition(
-          this._worldLoadSession.projector.project({ x: 350, y: 250 }, entry.offset)
-        );
+        const entryCampfire = this._worldLoadSession.findSpawn(entry.sceneId, 'campfire');
+        if (entryCampfire && Number.isFinite(entryCampfire.x) && Number.isFinite(entryCampfire.y)) {
+          this._campfireService.setPosition(entryCampfire);
+        }
         await this._initializeWorldStreaming(validated);
         return validated;
       });
@@ -654,15 +704,25 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       this._playerCtxSynced = true;
     }
 
+    const frameProfile = this.debugMode === true && this._framePerformanceProfile?.current
+      ? this._framePerformanceProfile.current
+      : null;
+
     // Demo 环境、时间、职业 UI 与领域入口通知由协调器处理；输入和转场控制仍留在 Scene 顶层。
+    let phaseStartedAt = frameProfile ? performance.now() : 0;
     this.sanguoSceneLifecycleCoordinator.updateBeforeBase(deltaTime);
+    if (frameProfile) frameProfile.updateDemoBeforeBase = performance.now() - phaseStartedAt;
 
     // 通用可玩管线（移动/战斗/相机含 postCameraUpdate/渲染系统/粒子等）
     // 注：基类 super.update 内部已驱动 this.gameLoader.update（timer 触发器），此处无需重复调
+    phaseStartedAt = frameProfile ? performance.now() : 0;
     super.update(deltaTime);
+    if (frameProfile) frameProfile.updateBaseFrame = performance.now() - phaseStartedAt;
 
     // 基类完成通用帧后，再由 Demo coordinator 驱动营建、载具、救援、结局和领域观察。
+    phaseStartedAt = frameProfile ? performance.now() : 0;
     this.sanguoSceneLifecycleCoordinator.updateAfterBase(deltaTime);
+    if (frameProfile) frameProfile.updateDemoAfterBase = performance.now() - phaseStartedAt;
   }
 
   /** 波次事件由放置点 coordinator 扫描分组，Scene 仅注入 trigger 与死亡谓词。 */

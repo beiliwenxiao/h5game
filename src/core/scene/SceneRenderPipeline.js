@@ -4,6 +4,10 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
+const WORLD_PHASE_NAMES = Object.freeze([
+  'renderBackground', 'renderPickups', 'renderWorldObjects', 'renderWorldEffects'
+]);
+
 /**
  * SceneRenderPipeline - Canvas 2D 场景渲染编排（框架级）
  *
@@ -56,6 +60,28 @@ export class SceneRenderPipeline {
       (scene, ctx) => { if (scene.isTransitioning) scene.renderTransition(ctx); },
       (scene, ctx) => { if (scene.performanceMonitor?.enabled) scene.performanceMonitor.render(ctx); }
     ];
+    this.screenLayerNames = config?.screenLayerNames || Object.freeze([
+      'renderAtmosphere',
+      'renderClickScreenMarkers',
+      'renderSkillEffects',
+      'renderCombatEffects',
+      'renderFloatingText',
+      'renderTutorial',
+      'renderDialogue',
+      'renderCombatUi',
+      'renderBottomControlBar',
+      'renderBlockButton',
+      'renderJumpButton',
+      'renderFlightButton',
+      'renderThrowButton',
+      'renderBagButton',
+      'renderSettingsButton',
+      'renderPlayerHud',
+      'renderMinimap',
+      'renderCombatState',
+      'renderTransition',
+      'renderPerformanceMonitor'
+    ]);
     this.modalLayers = config?.modalLayers || [
       (_scene, ctx) => this.context?.ui?.backpack?.render?.(ctx),
       // 统一成长面板属于模态 UI，只从显式 SceneContext 读取。
@@ -88,7 +114,11 @@ export class SceneRenderPipeline {
 
     const camera = context?.camera?.instance || null;
     const player = context?.player?.entity || null;
-    if (scene.performanceMonitor?.enabled) {
+    const frameProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
+      ? scene._framePerformanceProfile.current
+      : null;
+    const trackDrawCalls = scene.performanceMonitor?.shouldTrackDrawCalls?.() === true;
+    if (trackDrawCalls) {
       scene._drawCallCount = 0;
       if (scene._drawCallProxied && scene._drawCallProxyContext !== ctx) {
         scene._teardownDrawCallCounter?.();
@@ -114,13 +144,43 @@ export class SceneRenderPipeline {
     }
     ctx.translate(-viewBounds.left, -viewBounds.top);
 
-    for (const layer of this.worldLayers) layer(scene, ctx);
+    for (let index = 0; index < this.worldLayers.length; index++) {
+      const startedAt = frameProfile ? performance.now() : 0;
+      this.worldLayers[index](scene, ctx);
+      if (frameProfile) {
+        const name = WORLD_PHASE_NAMES[index] || `renderWorldLayer${index}`;
+        frameProfile[name] = performance.now() - startedAt;
+      }
+    }
     ctx.restore();
 
-    for (const layer of this.screenLayers) layer(scene, ctx);
+    if (this.screenLayers.length > 0) {
+      const atmosphereStartedAt = frameProfile ? performance.now() : 0;
+      this.screenLayers[0](scene, ctx);
+      if (frameProfile) {
+        const name = this.screenLayerNames[0] || 'renderScreenLayer0';
+        frameProfile[name] = performance.now() - atmosphereStartedAt;
+      }
+    }
+    const screenUiStartedAt = frameProfile ? performance.now() : 0;
+    for (let index = 1; index < this.screenLayers.length; index++) {
+      const layerStartedAt = frameProfile ? performance.now() : 0;
+      this.screenLayers[index](scene, ctx);
+      if (frameProfile) {
+        const name = this.screenLayerNames[index] || `renderScreenLayer${index}`;
+        frameProfile[name] = performance.now() - layerStartedAt;
+      }
+    }
+    if (frameProfile) frameProfile.renderScreenUi = performance.now() - screenUiStartedAt;
+
     // 模态层固定高于常规 HUD，防止背包与获得物品弹窗被覆盖。
+    const modalStartedAt = frameProfile ? performance.now() : 0;
     for (const layer of this.modalLayers) layer(scene, ctx);
+    if (frameProfile) frameProfile.renderModalUi = performance.now() - modalStartedAt;
+
+    const postStartedAt = frameProfile ? performance.now() : 0;
     scene.renderPostPipeline?.(ctx);
+    if (frameProfile) frameProfile.renderPostPipeline = performance.now() - postStartedAt;
   }
 
   renderWorldObjects(ctx) {

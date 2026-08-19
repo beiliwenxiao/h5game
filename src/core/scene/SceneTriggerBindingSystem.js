@@ -14,12 +14,18 @@ export class SceneTriggerBindingSystem {
   constructor({
     triggerSystem = null,
     getPlayer = null,
+    getConditionRoot = null,
+    isTutorialCompleted = null,
     resolveDynamicTarget = null,
     logger = null,
     onPromptChange = null
   } = {}) {
     this.triggerSystem = triggerSystem;
     this.getPlayer = typeof getPlayer === 'function' ? getPlayer : () => null;
+    this.getConditionRoot = typeof getConditionRoot === 'function' ? getConditionRoot : () => undefined;
+    this.isTutorialCompleted = typeof isTutorialCompleted === 'function'
+      ? isTutorialCompleted
+      : () => false;
     this.resolveDynamicTarget = typeof resolveDynamicTarget === 'function' ? resolveDynamicTarget : null;
     this.logger = typeof logger === 'function' ? logger : null;
     this.onPromptChange = typeof onPromptChange === 'function' ? onPromptChange : null;
@@ -71,6 +77,10 @@ export class SceneTriggerBindingSystem {
     for (const binding of this.bindings) {
       const eventType = this._eventType(binding);
       if (!['approach', 'enter', 'leave'].includes(eventType)) continue;
+      if (!this._isBindingActive(binding)) {
+        this._inside.set(binding.id, false);
+        continue;
+      }
       const inside = this._contains(binding, position.x, position.y);
       const wasInside = this._inside.get(binding.id) === true;
       this._inside.set(binding.id, inside);
@@ -87,6 +97,7 @@ export class SceneTriggerBindingSystem {
   _updatePrompt(position) {
     const candidate = this.bindings
       .filter(binding => this._eventType(binding) === 'interact' && binding.prompt && !this._completedBindings.has(binding.id))
+      .filter(binding => this._isBindingActive(binding))
       .filter(binding => {
         const definition = this.triggerSystem?.getById?.(binding.triggerId);
         return !definition?.once || !this.triggerSystem.hasFiredOnce?.(binding.triggerId);
@@ -114,12 +125,19 @@ export class SceneTriggerBindingSystem {
     if (!player) return false;
     const candidates = this.bindings
       .filter(binding => this._eventType(binding) === 'interact' && this._contains(binding, player.x, player.y))
-      .filter(binding => !isPointer || !event.world || this._contains(binding, event.world.x, event.world.y, true))
-      .sort((a, b) => this._distanceSq(a, player) - this._distanceSq(b, player));
-    for (const binding of candidates) {
-      if (this._fire(binding, 'interact')) return true;
-    }
-    return false;
+      .filter(binding => this._isBindingActive(binding))
+      .filter(binding => !this._completedBindings.has(binding.id))
+      .filter(binding => {
+        const definition = this.triggerSystem?.getById?.(binding.triggerId);
+        return !definition?.once || !this.triggerSystem.hasFiredOnce?.(binding.triggerId);
+      })
+      .filter(binding => !isPointer || !event.world || this._contains(binding, event.world.x, event.world.y, true));
+    if (candidates.length === 0) return false;
+
+    const binding = candidates.find(candidate => candidate.id === this._activePromptBindingId)
+      || candidates.sort((a, b) => this._distanceSq(a, player) - this._distanceSq(b, player))[0];
+    this._fire(binding, 'interact');
+    return true;
   }
 
   /** 当前是否有空间 trigger 占用交互提示。 */
@@ -151,11 +169,46 @@ export class SceneTriggerBindingSystem {
     return existed;
   }
 
+  _isBindingActive(binding) {
+    if (!binding?.activeWhen) return true;
+    try {
+      return this._evaluateCondition(binding.activeWhen);
+    } catch (error) {
+      this.logger?.('activeConditionError', binding, error);
+      return false;
+    }
+  }
+
+  /** activeWhen 与 placement spawnWhen 共享基础比较语义，并支持组合及教学完成状态。 */
+  _evaluateCondition(condition) {
+    if (!condition || typeof condition !== 'object') return true;
+    if (Array.isArray(condition.all)) return condition.all.every(item => this._evaluateCondition(item));
+    if (Array.isArray(condition.any)) return condition.any.some(item => this._evaluateCondition(item));
+    if (condition.not) return !this._evaluateCondition(condition.not);
+    if (condition.tutorialId) {
+      const completed = this.isTutorialCompleted(String(condition.tutorialId));
+      return completed === (condition.completed !== false);
+    }
+
+    let value = this.getConditionRoot(condition.blackboardKey || 'storyState');
+    for (const segment of String(condition.path || '').split('.').filter(Boolean)) {
+      value = value && typeof value === 'object' ? value[segment] : undefined;
+    }
+    if (condition.exists === true && value === undefined) return false;
+    if (condition.exists === false && value !== undefined) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'equals') && value !== condition.equals) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'gte') && !(Number(value) >= Number(condition.gte))) return false;
+    if (Object.prototype.hasOwnProperty.call(condition, 'lte') && !(Number(value) <= Number(condition.lte))) return false;
+    if (Array.isArray(condition.in) && !condition.in.includes(value)) return false;
+    return true;
+  }
+
   _eventType(binding) {
     return this.triggerSystem?.getById?.(binding.triggerId)?.when?.type || '';
   }
 
   _fire(binding, eventType = this._eventType(binding)) {
+    if (!this._isBindingActive(binding)) return false;
     if (!binding.triggerId) {
       this.logger?.('missingTriggerId', binding);
       return false;
@@ -179,10 +232,6 @@ export class SceneTriggerBindingSystem {
     };
     const fired = this.triggerSystem.fireById(binding.triggerId, eventType, params);
     const definition = this.triggerSystem.getById?.(binding.triggerId);
-    if (fired && definition?.once) {
-      this._completedBindings.add(binding.id);
-      if (this._activePromptBindingId === binding.id) this._setActivePrompt(null);
-    }
     if (!fired && !definition) this.logger?.('missingTrigger', binding);
     return fired;
   }

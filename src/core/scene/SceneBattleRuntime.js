@@ -440,21 +440,29 @@ export class SceneBattleRuntime {
 
   validateSnapshot(data = {}) {
     if (data.battleState) {
+      const battleState = data.battleState;
       const probe = new BattleSystem();
-      const check = probe.deserialize(data.battleState);
-      const battleId = data.battleState.definition?.battleId;
+      const check = probe.deserialize(battleState);
       if (!check.ok) return { ok: false, code: check.code, path: 'battleState' };
-      const hasDefinition = this.definitions.has(battleId);
-      const hasFlow = !!this.getFlowByBattle(battleId);
-      if (!hasDefinition || !hasFlow) {
-        return {
-          ok: false,
-          code: 'unknownBattleId',
-          path: 'battleState.definition.battleId',
-          battleId: battleId || null,
-          hasDefinition,
-          hasFlow
-        };
+      const isEmptyIdle = battleState.state === BattleState.IDLE
+        && battleState.definition == null
+        && battleState.mode == null
+        && battleState.frozenResult == null
+        && (battleState.operations?.length || 0) === 0;
+      if (!isEmptyIdle) {
+        const battleId = battleState.definition?.battleId;
+        const hasDefinition = this.definitions.has(battleId);
+        const hasFlow = !!this.getFlowByBattle(battleId);
+        if (!hasDefinition || !hasFlow) {
+          return {
+            ok: false,
+            code: 'unknownBattleId',
+            path: 'battleState.definition.battleId',
+            battleId: battleId || null,
+            hasDefinition,
+            hasFlow
+          };
+        }
       }
     }
     if (data.battlefieldRuntimeState) {

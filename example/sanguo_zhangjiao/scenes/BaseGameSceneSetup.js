@@ -773,6 +773,10 @@ export class BaseGameSceneSetup extends Scene {
     this._sceneTriggerBindings?.dispose();
     this._sceneTriggerBindings = new SceneTriggerBindingSystem({
       getPlayer: () => this.playerEntity,
+      getConditionRoot: key => this.gameLoader?.blackboard?.get?.(key),
+      isTutorialCompleted: tutorialId => this._tutorialFlow?.isCompleted?.(tutorialId)
+        ?? this.tutorialSystem?.isTutorialCompleted?.(tutorialId)
+        ?? false,
       resolveDynamicTarget: (targetId, binding) => {
         const entity = this.entityStore?.all?.find?.(candidate => candidate?.id === targetId);
         const transform = entity?.getComponent?.('transform');

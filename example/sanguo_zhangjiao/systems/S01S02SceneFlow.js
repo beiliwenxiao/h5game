@@ -52,7 +52,9 @@ export class S01S02Coordinator {
   async handleGatheringEvent(event, data = {}) {
     if (this.scene.currentSceneId !== 'S01') return false;
     const survival = this._story().s01Survival || {};
-    if (event === 'progress' && data.resourceType === 'berry'
+    const isBerry = data.itemId === 'resource.wild_berry';
+    const isWolfHide = data.itemId === 'resource.wolf_hide';
+    if (event === 'progress' && isBerry
       && Number(data.progress) >= 0.45 && !survival.axeFound && !this.pendingAxeDiscovery) {
       this.pendingAxeDiscovery = true;
       const result = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
@@ -78,7 +80,7 @@ export class S01S02Coordinator {
       return result.ok === true;
     }
     if (event !== 'completed') return false;
-    if (data.resourceType === 'berry') {
+    if (isBerry) {
       const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
       if (result.ok) this.scene._showScreenTip('野果已经采到。打开背包吃下野果，先填饱肚子。', { title: '饥饿' });
       return result.ok === true;
@@ -93,7 +95,7 @@ export class S01S02Coordinator {
       }
       return result.ok === true;
     }
-    if (data.resourceType === 'hide') {
+    if (isWolfHide) {
       const result = await this._submit('story.s01.wolfSkinned', {}, 'story:s01:wolf-skinned');
       if (result.ok) {
         this.scene._showScreenTip('你用剥皮刀取下狼皮。不同职业以后会用各自技能改善战斗、采集与求生；眼下先用狼皮和木材做一个六格小背包。', { title: '职业技能与制作' });
@@ -151,8 +153,9 @@ export class S01S02Coordinator {
   }
 
   async handleConstructionEvent(event, data = {}) {
+    const siteId = data?.siteId || data?.structure?.siteId;
     if (this.scene.currentSceneId !== 'S01' || event !== 'constructionCompleted'
-      || data.structure?.siteId !== 'site.s01.small_shelter') return false;
+      || siteId !== 'site.s01.small_shelter') return false;
     const rollback = this.pendingConstructionRollback;
     const result = await this._submit('story.s01.shelterCompleted', {}, 'story:s01:shelter-completed');
     this.pendingConstructionRollback = null;
@@ -223,6 +226,24 @@ export class S01S02Coordinator {
 
   async handleAction(params = {}, eventData = {}) {
     const operation = params.operation || params.type;
+    if (operation === 'presentEntry') {
+      const survival = this._story().s01Survival || {};
+      if (survival.campfireLit === true) return true;
+      const moved = this.scene._tutorialFlow?.isCompleted?.('s01.move') === true;
+      this.scene._showScreenTip(moved
+        ? '身体已经活动开了。靠近熄灭的篝火，使用 {interact} 点火。'
+        : '寒风吹过荒原，你被冻醒了。使用 {move} 起身活动，靠近熄灭的篝火。', {
+        title: moved ? '点燃篝火' : '寒风中醒来'
+      });
+      return true;
+    }
+    if (operation === 'ensureMovedAfterWake') {
+      if (this.scene._tutorialFlow?.isCompleted?.('s01.move') === true) return true;
+      this.scene._showScreenTip('寒风让四肢僵硬。先使用 {move} 活动身体，再回来点燃篝火。', {
+        title: '先活动身体'
+      });
+      return false;
+    }
     if (operation === 'campfireLit') {
       const result = await this._submit('story.s01.campfireLit', {}, 'story:s01:campfire-lit');
       if (result.ok) {
@@ -234,17 +255,69 @@ export class S01S02Coordinator {
       return result.ok === true;
     }
     if (operation === 'craftBackpack') {
+      const survival = this._story().s01Survival || {};
+      if (survival.backpackCrafted === true) {
+        this.scene._showScreenTip('六格小背包已经制作完成，不需要重复消耗材料。', { title: '制作已完成' });
+        return { ok: true, status: 'blocked' };
+      }
+      if (survival.wolfSkinned !== true) {
+        this.scene._showScreenTip('先击败野狼并用剥皮刀处理狼尸，取得狼皮后才能制作背包。', { title: '缺少狼皮' });
+        return { ok: true, status: 'blocked' };
+      }
+      const inventory = this.scene.playerEntity?.getComponent?.('inventory');
+      if (!inventory?.getItemCount) {
+        this.scene._showScreenTip('背包系统尚未就绪，制作没有开始。', { title: '制作失败' });
+        return { ok: false, code: 'inventoryUnavailable' };
+      }
+      const woodCount = inventory.getItemCount('resource.wood');
+      const hideCount = inventory.getItemCount('resource.wolf_hide');
+      const missing = [];
+      if (woodCount < 2) missing.push(`木材还缺 ${2 - woodCount} 份（现有 ${woodCount}/2）`);
+      if (hideCount < 1) missing.push(`狼皮还缺 ${1 - hideCount} 张（现有 ${hideCount}/1）`);
+      if (missing.length > 0) {
+        this.scene._showScreenTip(`制作六格小背包需要木材 2 份、狼皮 1 张；${missing.join('，')}。`, { title: '材料不足' });
+        return { ok: true, status: 'blocked' };
+      }
       const result = await this._submit('story.s01.craftBackpack', {}, 'story:s01:craft-backpack');
-      if (result.ok) this.scene._showScreenTip('你把狼皮与木条缝扎成一个六格小背包。接着在篝火旁烤制狼肉。', { title: '六格小背包' });
-      return result.ok === true;
+      if (!result.ok) {
+        this.scene._showScreenTip(`制作结算失败：${result.code || 'unknown'}。材料和剧情状态未改变，请重试。`, { title: '制作失败' });
+        return result;
+      }
+      this.scene._showScreenTip('你把狼皮与木条缝扎成一个六格小背包。接着在篝火旁烤制狼肉。', { title: '六格小背包' });
+      return { ok: true };
     }
     if (operation === 'cookMeat') {
-      const result = await this._submit('story.s01.cookMeat', {}, 'story:s01:cook-meat');
-      if (result.ok) {
-        this.scene._campfireService?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
-        this.scene._showScreenTip('你添柴重新点旺篝火，狼肉烤熟了。烤狼肉可以在受伤时恢复生命；现在用木材搭一座小庇护所。', { title: '烤狼肉' });
+      const survival = this._story().s01Survival || {};
+      if (survival.meatCooked === true) {
+        this.scene._showScreenTip('狼肉已经烤熟，不需要重复消耗木材和生肉。', { title: '烹饪已完成' });
+        return { ok: true, status: 'blocked' };
       }
-      return result.ok === true;
+      if (survival.backpackCrafted !== true) {
+        this.scene._showScreenTip('先用狼皮和木材制作六格小背包，再回到篝火旁烤制狼肉。', { title: '先制作背包' });
+        return { ok: true, status: 'blocked' };
+      }
+      const inventory = this.scene.playerEntity?.getComponent?.('inventory');
+      if (!inventory?.getItemCount) {
+        this.scene._showScreenTip('背包系统尚未就绪，烹饪没有开始。', { title: '烹饪失败' });
+        return { ok: false, code: 'inventoryUnavailable' };
+      }
+      const meatCount = inventory.getItemCount('resource.raw_wolf_meat');
+      const woodCount = inventory.getItemCount('resource.wood');
+      const missing = [];
+      if (meatCount < 1) missing.push(`生狼肉还缺 ${1 - meatCount} 份（现有 ${meatCount}/1）`);
+      if (woodCount < 1) missing.push(`木材还缺 ${1 - woodCount} 份（现有 ${woodCount}/1）`);
+      if (missing.length > 0) {
+        this.scene._showScreenTip(`烤制狼肉需要生狼肉 1 份、木材 1 份；${missing.join('，')}。`, { title: '材料不足' });
+        return { ok: true, status: 'blocked' };
+      }
+      const result = await this._submit('story.s01.cookMeat', {}, 'story:s01:cook-meat');
+      if (!result.ok) {
+        this.scene._showScreenTip(`烹饪结算失败：${result.code || 'unknown'}。材料和剧情状态未改变，请重试。`, { title: '烹饪失败' });
+        return result;
+      }
+      this.scene._campfireService?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
+      this.scene._showScreenTip('你添柴重新点旺篝火，狼肉烤熟了。烤狼肉可以在受伤时恢复生命；现在用木材搭一座小庇护所。', { title: '烤狼肉' });
+      return { ok: true };
     }
     if (operation === 'buildShelter') return this.startShelterConstruction(params);
     if (operation === 'shelterCompleted') return this.handleConstructionEvent('constructionCompleted', eventData);
@@ -276,9 +349,14 @@ export class S01S02Coordinator {
 
   _startVineClimb() {
     if (this.pendingClimb || this._story().s01Survival?.cliffReached !== true) return false;
+    const climbTarget = this.scene.resolveClimbTarget?.({ entity: this.scene.playerEntity });
+    if (!climbTarget?.targetPosition) {
+      this.scene._showScreenTip('没有找到当前山崖藤蔓的有效攀爬目标，请重新靠近藤蔓。', { title: '无法攀爬' });
+      return false;
+    }
     const started = this.scene.locomotionSystem?.climbSystem?.startClimb?.(
       this.scene.playerEntity,
-      { x: 1135, y: 86 },
+      climbTarget.targetPosition,
       { duration: 1.8, peakHeight: 38 }
     );
     if (!started) return false;

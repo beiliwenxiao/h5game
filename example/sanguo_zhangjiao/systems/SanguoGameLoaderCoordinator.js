@@ -63,11 +63,10 @@ function initializeGameLoader() {
           throw new Error('场景 AssetManager 不支持稳定资源 Manifest');
         }
         const manifestResult = this.assetManager.registerManifest(gameLoader.project.assetManifest);
-        if (manifestResult.queued > 0) await this.assetManager.loadAll();
-        const fireAsset = this.assetManager.resolveManifestAsset?.('vfx.freePixel.fire', '2d');
-        this._campfireService.setFireImage(
-          this.assetManager.getAsset?.(fireAsset?.key || 'vfx.freePixel.fire') || null
-        );
+        this._resolveAssetManifestReady?.(manifestResult);
+        this._resolveAssetManifestReady = null;
+        this._rejectAssetManifestReady = null;
+        console.log('[DDScene][Assets] Manifest 索引完成，等待九宫格按需加载', manifestResult);
         this.entityRenderer2D?.clearCaches?.();
         const currentClass = this.playerEntity?.getComponent?.('stats')?.class || this.playerEntity?.class;
         this.s09ClassSelectionCoordinator.syncPlayerClassAppearance(currentClass);
@@ -96,10 +95,16 @@ function initializeGameLoader() {
       console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
       return gameLoader;
     })).catch(this.resourceScope.guard(error => {
+      this._rejectAssetManifestReady?.(error);
+      this._resolveAssetManifestReady = null;
+      this._rejectAssetManifestReady = null;
       console.error('[DDScene][GameLoader] 加载失败:', error);
       throw error;
     }));
   } catch (error) {
+    this._rejectAssetManifestReady?.(error);
+    this._resolveAssetManifestReady = null;
+    this._rejectAssetManifestReady = null;
     console.warn('[DDScene][GameLoader] 初始化失败:', error);
     this._gameLoaderReady = Promise.reject(error);
     this._gameLoaderReady.catch(() => {});
@@ -203,9 +208,13 @@ function registerGameLoaderActions(triggerSystem) {
     timeSystem: this.timeSystem,
     logger: console
   });
-  triggerSystem.registerAction('s01Survival', (params = {}, _context = {}, event = {}) => (
-    this._s01s02Coordinator.handleAction(params, event.params || {})
-  ));
+  triggerSystem.registerAction('s01Survival', async (params = {}, _context = {}, event = {}) => {
+    const handled = await this._s01s02Coordinator.handleAction(params, event.params || {});
+    if (handled && typeof handled === 'object' && typeof handled.ok === 'boolean') return handled;
+    return handled === true
+      ? { ok: true }
+      : { ok: false, code: 's01SurvivalRejected' };
+  });
   registered.push('s01Survival');
   return registered;
 }

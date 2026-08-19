@@ -6,13 +6,14 @@
   "backgroundColor": "#4b4337",
   "gameplay": {
     "campfire": {
+      "imageId": "vfx.freePixel.fire",
       "initialFogOpacity": 1,
       "fog": { "fadeSpeed": 0.4, "color": "rgba(30, 30, 40,", "active": true },
-      "sprite": { "frameWidth": 164.5, "frameHeight": 237.33333333333334, "frameCols": 4, "frameRows": 3, "frameCount": 12, "frameDuration": 0.16 },
+      "sprite": { "frameWidth": 100, "frameHeight": 100, "frameCols": 8, "frameRows": 8, "frameCount": 64, "frameDuration": 0.16 },
       "particlePresets": [
-        { "rate": 6, "vy": -50, "life": 250, "size": 8.5, "color": "#ffaa22", "alpha": 0.85 },
-        { "rate": 8, "vy": -35, "life": 200, "size": 6, "color": "#ff8833", "alpha": 0.8 },
-        { "rate": 10, "vy": -100, "life": 350, "size": 3.5, "color": "#ffee44", "alpha": 0.9 }
+        { "rate": 18, "vy": -34, "life": 550, "size": 7, "color": "#ffb23f", "alpha": 0.9 },
+        { "rate": 10, "vy": -24, "life": 800, "size": 11, "color": "#ef6b2e", "alpha": 0.75 },
+        { "rate": 5, "vy": -42, "life": 900, "size": 4, "color": "#ffd66b", "alpha": 0.85 }
       ],
       "labels": { "unlit": "熄灭的火堆", "ignite": "{interact}点燃" },
       "presentation": { "lightRadius": 150, "fireWidth": 40, "fireHeight": 60, "collisionWidth": 40, "collisionHeight": 22.5 }
@@ -83,14 +84,14 @@
     {
       "id": "S01-logic", "name": "生存流程交互", "visible": true, "locked": false,
       "objects": [
-        { "id": "S01-binding-light-campfire", "type": "trigger", "name": "点燃篝火", "triggerId": "trg_s01_light_campfire", "x": 580, "y": 495, "width": 42, "height": 42, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 100, "pointerRadius": 38, "prompt": "{interact}点燃篝火" },
-        { "id": "S01-binding-craft-backpack", "type": "trigger", "name": "制作六格小背包", "triggerId": "trg_s01_craft_backpack", "x": 505, "y": 455, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-craft-marker", "radius": 90, "pointerRadius": 42, "prompt": "{interact}用狼皮和木材制作六格小背包" },
-        { "id": "S01-binding-cook-meat", "type": "trigger", "name": "烤制狼肉", "triggerId": "trg_s01_cook_meat", "x": 610, "y": 500, "width": 60, "height": 60, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 80, "pointerRadius": 36, "prompt": "{interact}添柴烤制狼肉" },
-        { "id": "S01-binding-build-shelter", "type": "trigger", "name": "搭建小庇护所", "triggerId": "trg_s01_build_shelter", "x": 650, "y": 435, "width": 150, "height": 115, "event": "interact", "targetMode": "id", "target": "S01-shelter-site", "radius": 105, "pointerRadius": 58, "prompt": "{interact}用木材搭建小庇护所" },
-        { "id": "S01-binding-overnight", "type": "trigger", "name": "在庇护所过夜", "triggerId": "trg_s01_overnight", "x": 795, "y": 485, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-shelter-rest", "radius": 72, "pointerRadius": 40, "prompt": "{interact}进入小庇护所过夜" },
-        { "id": "S01-binding-river-crossed", "type": "trigger", "name": "确认越过河道", "triggerId": "trg_s01_river_crossed", "x": 760, "y": 165, "width": 130, "height": 90, "event": "interact", "targetMode": "id", "target": "S01-river-far-bank", "radius": 90, "pointerRadius": 50, "prompt": "{interact}确认已跳石过河" },
-        { "id": "S01-binding-cliff-reached", "type": "trigger", "name": "抵达山崖", "triggerId": "trg_s01_cliff_reached", "x": 1010, "y": 80, "width": 130, "height": 120, "event": "interact", "targetMode": "id", "target": "S01-cliff-base", "radius": 95, "pointerRadius": 52, "prompt": "{interact}查看山崖藤蔓" },
-        { "id": "S01-binding-climb-vine", "type": "trigger", "name": "攀藤逃往 S02", "triggerId": "trg_s01_climb_vine", "x": 1090, "y": 20, "width": 92, "height": 170, "event": "interact", "targetMode": "id", "target": "S01-cliff-vine", "radius": 100, "pointerRadius": 54, "prompt": "{climb}攀上藤蔓逃往 S02" }
+        { "id": "S01-binding-light-campfire", "type": "trigger", "name": "点燃篝火", "triggerId": "trg_s01_light_campfire", "x": 580, "y": 495, "width": 42, "height": 42, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 100, "pointerRadius": 38, "prompt": "{interact}点燃篝火", "activeWhen": { "all": [{ "tutorialId": "s01.move", "completed": true }, { "path": "s01Survival.campfireLit", "equals": false }] } },
+        { "id": "S01-binding-craft-backpack", "type": "trigger", "name": "制作六格小背包", "triggerId": "trg_s01_craft_backpack", "x": 505, "y": 455, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-craft-marker", "radius": 90, "pointerRadius": 42, "prompt": "{interact}用狼皮和木材制作六格小背包", "activeWhen": { "all": [{ "path": "s01Survival.wolfSkinned", "equals": true }, { "path": "s01Survival.backpackCrafted", "equals": false }] } },
+        { "id": "S01-binding-cook-meat", "type": "trigger", "name": "烤制狼肉", "triggerId": "trg_s01_cook_meat", "x": 610, "y": 500, "width": 60, "height": 60, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 80, "pointerRadius": 36, "prompt": "{interact}添柴烤制狼肉", "activeWhen": { "all": [{ "path": "s01Survival.backpackCrafted", "equals": true }, { "path": "s01Survival.meatCooked", "equals": false }] } },
+        { "id": "S01-binding-build-shelter", "type": "trigger", "name": "搭建小庇护所", "triggerId": "trg_s01_build_shelter", "x": 650, "y": 435, "width": 150, "height": 115, "event": "interact", "targetMode": "id", "target": "S01-shelter-site", "radius": 105, "pointerRadius": 58, "prompt": "{interact}用木材搭建小庇护所", "activeWhen": { "all": [{ "path": "s01Survival.meatCooked", "equals": true }, { "path": "s01Survival.shelterCompleted", "equals": false }] } },
+        { "id": "S01-binding-overnight", "type": "trigger", "name": "在庇护所过夜", "triggerId": "trg_s01_overnight", "x": 795, "y": 485, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-shelter-rest", "radius": 72, "pointerRadius": 40, "prompt": "{interact}进入小庇护所过夜", "activeWhen": { "all": [{ "path": "s01Survival.shelterCompleted", "equals": true }, { "path": "s01Survival.overnightCompleted", "equals": false }] } },
+        { "id": "S01-binding-river-crossed", "type": "trigger", "name": "确认越过河道", "triggerId": "trg_s01_river_crossed", "x": 760, "y": 165, "width": 130, "height": 90, "event": "interact", "targetMode": "id", "target": "S01-river-far-bank", "radius": 90, "pointerRadius": 50, "prompt": "{interact}确认已跳石过河", "activeWhen": { "all": [{ "path": "s01Survival.pursuit.active", "equals": true }, { "path": "s01Survival.riverCrossed", "equals": false }] } },
+        { "id": "S01-binding-cliff-reached", "type": "trigger", "name": "抵达山崖", "triggerId": "trg_s01_cliff_reached", "x": 1010, "y": 80, "width": 130, "height": 120, "event": "interact", "targetMode": "id", "target": "S01-cliff-base", "radius": 95, "pointerRadius": 52, "prompt": "{interact}查看山崖藤蔓", "activeWhen": { "all": [{ "path": "s01Survival.riverCrossed", "equals": true }, { "path": "s01Survival.cliffReached", "equals": false }] } },
+        { "id": "S01-binding-climb-vine", "type": "trigger", "name": "攀藤逃往 S02", "triggerId": "trg_s01_climb_vine", "x": 1090, "y": 20, "width": 92, "height": 170, "event": "interact", "targetMode": "id", "target": "S01-cliff-vine", "radius": 100, "pointerRadius": 54, "prompt": "{climb}攀上藤蔓逃往 S02", "activeWhen": { "path": "s01Survival.cliffReached", "equals": true } }
       ]
     }
   ],
@@ -112,6 +113,7 @@
   "updatedAt": "2026-08-19T00:00:00.000Z",
   "atlases": [],
   "imageAssets": {
-    "s01.environment.droughtWildernessGround": { "src": "../example/sanguo_zhangjiao/assets/images/s01/drought-wilderness-ground.svg", "name": "S01 干旱荒原地貌" }
+    "s01.environment.droughtWildernessGround": { "src": "../example/sanguo_zhangjiao/assets/images/s01/drought-wilderness-ground.svg", "name": "S01 干旱荒原地貌" },
+    "s01.environment.cliffVine": { "src": "../example/sanguo_zhangjiao/assets/images/s01/cliff-vine.svg", "name": "逃生藤蔓" }
   }
 }

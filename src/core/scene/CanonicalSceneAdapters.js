@@ -27,15 +27,16 @@ export class FetchDiskSceneAdapter {
     this.fetchImpl = boundFetch;
   }
 
-  readProject() { return this._read(this.projectUrl); }
-  readSceneOrder() { return this._read(`${this.sceneBaseUrl}_scene_order.json`); }
-  readScene(sceneId) { return this._read(`${this.sceneBaseUrl}${encodeURIComponent(sceneId)}.json`); }
+  readProject(options) { return this._read(this.projectUrl, options); }
+  readSceneOrder(options) { return this._read(`${this.sceneBaseUrl}_scene_order.json`, options); }
+  readScene(sceneId, options) { return this._read(`${this.sceneBaseUrl}${encodeURIComponent(sceneId)}.json`, options); }
 
-  async _read(source) {
+  async _read(source, { signal = null } = {}) {
     let response;
     try {
-      response = await this.fetchImpl(source, { cache: 'no-store' });
+      response = await this.fetchImpl(source, { cache: 'no-store', signal });
     } catch (error) {
+      if (signal?.aborted || error?.name === 'AbortError') throw error;
       return { ok: false, source, category: ContentErrorCategory.UNREADABLE, error };
     }
     if (!response?.ok) {

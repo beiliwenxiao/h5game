@@ -19,6 +19,7 @@ export class SceneStreamingRuntime {
     getRuntime = null,
     onProjection = null,
     onChunkUnload = null,
+    prepareChunkAssets = null,
     onTransition = null,
     onError = null
   } = {}) {
@@ -29,6 +30,7 @@ export class SceneStreamingRuntime {
     this.getRuntime = getRuntime;
     this.onProjection = onProjection;
     this.onChunkUnload = onChunkUnload;
+    this.prepareChunkAssets = typeof prepareChunkAssets === 'function' ? prepareChunkAssets : null;
     this.onTransition = onTransition;
     this.onError = onError;
     this.manager = null;
@@ -46,9 +48,15 @@ export class SceneStreamingRuntime {
     const manager = new this.WorldStreamingManagerClass();
     const configured = manager.configureRegion(worldIndex, {
       regionRef: region.id,
-      sceneResolver: sceneId => session?.loadSceneData?.(sceneId)
-        || session?.getSceneData?.(sceneId)
-        || null,
+      sceneResolver: (sceneId, context = {}) => session?.loadSceneData?.(sceneId, {
+        signal: context.signal || null
+      }) || null,
+      onChunkLoad: this.prepareChunkAssets
+        ? async (col, row, sceneId, origin, _savedState, context) => {
+          await this.prepareChunkAssets({ col, row, sceneId, origin, ...context });
+          return null;
+        }
+        : null,
       onChunkUnload: null
     });
     if (!configured.ok) {

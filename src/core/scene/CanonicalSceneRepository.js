@@ -34,9 +34,10 @@ function normalizeRead(read, source) {
 }
 
 export class CanonicalSceneRepositorySnapshot {
+  #ids;
   #records;
 
-  constructor({ revision, diskRevision, refreshedAt, project, sceneOrder, ids, records, listProvenance }) {
+  constructor({ revision, diskRevision, refreshedAt, project, sceneOrder, ids, listProvenance, generation, allowFallback }) {
     this.revision = revision;
     this.diskRevision = diskRevision;
     this.refreshedAt = refreshedAt;
@@ -44,11 +45,16 @@ export class CanonicalSceneRepositorySnapshot {
     this.sceneOrder = deepFreeze(clone(sceneOrder));
     this.ids = Object.freeze(ids.slice());
     this.listProvenance = deepFreeze(clone(listProvenance));
-    this.#records = new Map(records.map(record => [record.sceneId, deepFreeze(record)]));
+    this.generation = generation;
+    this.allowFallback = allowFallback;
+    this.#ids = new Set(this.ids);
+    this.#records = new Map();
     Object.freeze(this);
   }
 
-  has(sceneId) { return this.#records.has(sceneId); }
+  /** has 表示 ID 属于当前磁盘 closure，不代表正文已经读取。 */
+  has(sceneId) { return this.#ids.has(sceneId); }
+  hasRecord(sceneId) { return this.#records.has(sceneId); }
   getScene(sceneId) { return this.#records.get(sceneId)?.data || null; }
   getRecord(sceneId) { return this.#records.get(sceneId) || null; }
   getProvenance(sceneId) {
@@ -57,9 +63,15 @@ export class CanonicalSceneRepositorySnapshot {
     const { data, ...provenance } = record;
     return provenance;
   }
+
+  _storeRecord(record) {
+    if (!record?.sceneId || !this.#ids.has(record.sceneId)) return false;
+    this.#records.set(record.sceneId, deepFreeze(record));
+    return true;
+  }
 }
 
-/** 磁盘列表决定 ID closure、磁盘同 ID 内容优先且只允许受限 fallback 的场景仓库。 */
+/** 磁盘列表决定 ID closure；场景正文只在九宫格请求对应 sceneId 时读取。 */
 export class CanonicalSceneRepository {
   constructor({ diskAdapter, cacheAdapter = null, validator = null, mode = 'runtime', now = () => Date.now() } = {}) {
     if (!diskAdapter) throw new TypeError('CanonicalSceneRepository requires diskAdapter');
@@ -71,6 +83,7 @@ export class CanonicalSceneRepository {
     this._snapshot = null;
     this._revision = 0;
     this._generation = 0;
+    this._sceneLoads = new WeakMap();
   }
 
   get snapshot() { return this._snapshot; }
@@ -85,7 +98,7 @@ export class CanonicalSceneRepository {
     const project = projectResult.value;
 
     const orderRead = normalizeRead(await this.diskAdapter.readSceneOrder(), '<scene-order>');
-    let orderResult = this._validateRead(orderRead, 'validateSceneOrder', { project });
+    const orderResult = this._validateRead(orderRead, 'validateSceneOrder', { project });
     let sceneOrder;
     let ids;
     let listProvenance;
@@ -109,17 +122,6 @@ export class CanonicalSceneRepository {
     }
     const closureErrors = this._validateClosure(project, ids, orderRead.source || '<scene-order>');
     if (closureErrors.length > 0) return this._failed(closureErrors);
-
-    const stagedCache = new Map();
-    const warnings = [];
-    const outcomes = await Promise.all(ids.map(sceneId => this._loadScene({
-      sceneId, project, refreshedAt, allowFallback, stagedCache
-    })));
-    const errors = outcomes.flatMap(outcome => outcome.ok ? [] : outcome.errors);
-    if (errors.length > 0) return this._failed(errors);
-    const records = outcomes.map(outcome => outcome.record);
-    for (const outcome of outcomes) warnings.push(...outcome.warnings);
-
     if (generation !== this._generation) {
       return this._failed([normalizeContentError({
         code: 'refreshSuperseded', path: '', message: '场景仓库 refresh 已被更新 generation 取代'
@@ -128,8 +130,7 @@ export class CanonicalSceneRepository {
 
     const diskRevision = [
       projectRead.revision || 'project-unversioned',
-      listProvenance.diskRevision || 'list-unversioned',
-      ...records.map(record => `${record.sceneId}:${record.diskRevision || 'unversioned'}`)
+      listProvenance.diskRevision || 'list-unversioned'
     ].join('|');
     const snapshot = new CanonicalSceneRepositorySnapshot({
       revision: ++this._revision,
@@ -138,19 +139,63 @@ export class CanonicalSceneRepository {
       project,
       sceneOrder,
       ids,
-      records,
-      listProvenance
+      listProvenance,
+      generation,
+      allowFallback
     });
     this._snapshot = snapshot;
-    const cacheErrors = this._synchronizeCache(ids, stagedCache);
+    this._sceneLoads.set(snapshot, new Map());
+    const cacheErrors = this._synchronizeCache(ids, new Map());
     return {
       ok: true,
       snapshot,
       errors: [],
-      warnings,
+      warnings: [],
       cacheErrors,
-      degraded: cacheErrors.length > 0 || warnings.length > 0
+      degraded: cacheErrors.length > 0
     };
+  }
+
+  async loadScene(sceneId, { snapshot = this._snapshot, signal = null } = {}) {
+    this._throwIfAborted(signal, sceneId);
+    if (!snapshot || !snapshot.has(sceneId)) {
+      return this._sceneFailure('sceneOutsideSnapshotClosure', `场景不在当前 repository snapshot: ${sceneId}`, sceneId);
+    }
+    if (snapshot !== this._snapshot) {
+      return this._sceneFailure('sceneSnapshotSuperseded', `场景仓库 snapshot 已被更新 generation 取代: ${sceneId}`, sceneId, 'superseded');
+    }
+    const existing = snapshot.getRecord(sceneId);
+    if (existing) return { ok: true, record: existing, warnings: [], cacheErrors: [] };
+
+    const loads = this._sceneLoads.get(snapshot) || new Map();
+    if (!this._sceneLoads.has(snapshot)) this._sceneLoads.set(snapshot, loads);
+    if (!loads.has(sceneId)) {
+      const promise = (async () => {
+        const stagedCache = new Map();
+        const outcome = await this._loadScene({
+          sceneId,
+          project: snapshot.project,
+          refreshedAt: snapshot.refreshedAt,
+          allowFallback: snapshot.allowFallback,
+          stagedCache,
+          signal
+        });
+        this._throwIfAborted(signal, sceneId);
+        if (!outcome.ok) return { ...outcome, cacheErrors: [] };
+        if (snapshot !== this._snapshot) {
+          return this._sceneFailure('sceneSnapshotSuperseded', `场景 ${sceneId} 完成读取前 snapshot 已被替换`, sceneId, 'superseded');
+        }
+        snapshot._storeRecord(outcome.record);
+        const cacheErrors = this._synchronizeCache(snapshot.ids, stagedCache);
+        return { ...outcome, cacheErrors };
+      })();
+      loads.set(sceneId, promise);
+      promise.then(
+        result => { if (!result?.ok && loads.get(sceneId) === promise) loads.delete(sceneId); },
+        () => { if (loads.get(sceneId) === promise) loads.delete(sceneId); }
+      );
+    }
+    return loads.get(sceneId);
   }
 
   _validateRead(read, method, context = {}) {
@@ -180,8 +225,12 @@ export class CanonicalSceneRepository {
     }, { phase: ContentPhase.REFERENCE, source, category: ContentErrorCategory.REFERENCE_FAILED }));
   }
 
-  async _loadScene({ sceneId, project, refreshedAt, allowFallback, stagedCache }) {
-    const read = normalizeRead(await this.diskAdapter.readScene(sceneId), `<scene:${sceneId}>`);
+  async _loadScene({ sceneId, project, refreshedAt, allowFallback, stagedCache, signal = null }) {
+    const read = normalizeRead(
+      await this.diskAdapter.readScene(sceneId, { signal }),
+      `<scene:${sceneId}>`
+    );
+    this._throwIfAborted(signal, sceneId);
     const result = this._validateRead(read, 'validateScene', { sceneId, project });
     if (result.ok) {
       const data = deepFreeze(clone(result.value));
@@ -251,6 +300,22 @@ export class CanonicalSceneRepository {
       }),
       warnings: [warning]
     };
+  }
+
+  _throwIfAborted(signal, sceneId) {
+    if (!signal?.aborted) return;
+    const error = new Error(`场景 ${sceneId} 加载已取消`);
+    error.name = 'AbortError';
+    throw error;
+  }
+
+  _sceneFailure(code, message, sceneId, category = ContentErrorCategory.REFERENCE_FAILED) {
+    const error = normalizeContentError({ code, path: `scenes.${sceneId}`, message }, {
+      phase: ContentPhase.READ,
+      source: '<repository>',
+      category
+    });
+    return { ok: false, errors: [error], warnings: [], cacheErrors: [] };
   }
 
   _canFallback(category) { return FALLBACK_CATEGORIES.has(category); }

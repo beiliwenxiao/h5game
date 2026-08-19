@@ -1,4 +1,4 @@
-import { deepFreeze } from '../CanonicalSnapshot.js';
+import { cloneCanonicalValue, deepFreeze } from '../CanonicalSnapshot.js';
 import { normalizeSceneObjectSelector } from './SceneObjectSelector.js';
 
 const finite = value => value !== null && value !== '' && Number.isFinite(Number(value));
@@ -23,7 +23,10 @@ export function createSpatialTriggerBinding(source = {}) {
     ...(finite(source.height) ? { height: Number(source.height) } : {}),
     ...(finite(source.radius) ? { radius: Number(source.radius) } : {}),
     ...(finite(source.pointerRadius) ? { pointerRadius: Number(source.pointerRadius) } : {}),
-    ...(typeof source.prompt === 'string' ? { prompt: source.prompt } : {})
+    ...(typeof source.prompt === 'string' ? { prompt: source.prompt } : {}),
+    ...(source.activeWhen && typeof source.activeWhen === 'object'
+      ? { activeWhen: cloneCanonicalValue(source.activeWhen) }
+      : {})
   };
   return deepFreeze(binding);
 }

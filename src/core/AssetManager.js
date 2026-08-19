@@ -39,6 +39,10 @@ export class AssetManager {
         this.manifestEntries = new Map();
         this.manifestAliases = new Map();
         this._manifestQueuedKeys = new Set();
+        this._inflightAssets = new Map();
+        this._inflightImages = new Map();
+        this._activeLoadBatches = 0;
+        this._loadGeneration = 0;
 
         // 占位符资源生成器
         this.placeholderAssets = new PlaceholderAssets();
@@ -77,19 +81,20 @@ export class AssetManager {
     }
 
     /**
-     * 注册经过内容校验的 Asset Manifest，并为 image 模式建立稳定 ID 加载队列。
-     * 重复注册同一 Manifest 不会重复排队。
+     * 注册经过内容校验的 Asset Manifest。默认只建立稳定 ID 索引，不触发 I/O；
+     * 旧调用方如确需全量队列，必须显式传入 enqueueImages:true。
      * @param {{assets:Array<Object>}} manifest
-     * @param {{basePath?:string}} options
-     * @returns {{registered:number, queued:number}}
+     * @param {{basePath?:string,enqueueImages?:boolean}} options
+     * @returns {{registered:number,indexed:number,queued:number}}
      */
-    registerManifest(manifest, { basePath = '' } = {}) {
+    registerManifest(manifest, { basePath = '', enqueueImages = false } = {}) {
         if (!manifest || !Array.isArray(manifest.assets)) {
             throw new TypeError('AssetManager.registerManifest: manifest.assets 必须是数组');
         }
         if (!this._multiBackendAssets) this._multiBackendAssets = new Map();
 
         let registered = 0;
+        let indexed = 0;
         let queued = 0;
         for (const entry of manifest.assets) {
             if (!entry?.assetId) continue;
@@ -98,15 +103,17 @@ export class AssetManager {
             for (const id of ids) {
                 this.manifestEntries.set(id, entry);
                 this.manifestAliases.set(id, key);
+                indexed++;
             }
             registered++;
 
             if (entry.runtime2D?.mode !== 'image' || !entry.runtime2D.path) continue;
             const rawPath = `${basePath || ''}${entry.runtime2D.path}`;
             const url = this.resolveAssetPath(rawPath);
-            const descriptor = { name: key, type: 'image', url, backends: ['2d', '3d'], manifestEntry: entry };
+            const descriptor = { name: key, key, type: 'image', url, backends: ['2d', '3d'], manifestEntry: entry };
             for (const id of ids) this._multiBackendAssets.set(id, [descriptor]);
 
+            if (!enqueueImages) continue;
             const alreadyQueued = this._manifestQueuedKeys.has(key)
                 || this.loadQueue.some(asset => asset.type === 'image' && asset.key === key);
             if (!this.images.has(key) && !alreadyQueued) {
@@ -115,7 +122,7 @@ export class AssetManager {
                 queued++;
             }
         }
-        return { registered, queued };
+        return { registered, indexed, queued };
     }
 
     /** @returns {Object|null} */
@@ -203,26 +210,27 @@ export class AssetManager {
             return;
         }
 
-        this.isLoading = true;
-        this.loadedCount = 0;
-        this.loadProgress = 0;
+        const batch = this.loadQueue.splice(0, this.loadQueue.length);
+        this._beginLoadBatch(batch.length);
 
-        console.log(`AssetManager: Loading ${this.totalCount} assets...`);
+        console.log(`AssetManager: Loading ${batch.length} queued assets...`);
 
-        const promises = this.loadQueue.map(asset => this.loadAssetWithFallback(asset));
-        
+        const promises = batch.map(async asset => {
+            await this.loadAssetWithFallback(asset);
+            this._markLoadItemComplete();
+        });
+
         try {
             await Promise.all(promises);
-            console.log('AssetManager: All assets loaded successfully');
+            console.log('AssetManager: All queued assets loaded successfully');
         } catch (error) {
             console.error('AssetManager: Failed to load some assets', error);
-            
+
             // 尝试加载占位符资源作为降级方案
             console.warn('AssetManager: Loading placeholder assets as fallback');
             this.loadPlaceholderAssets();
         } finally {
-            this.isLoading = false;
-            this.loadQueue = [];
+            this._endLoadBatch();
         }
     }
 
@@ -242,9 +250,7 @@ export class AssetManager {
                 this.createFallbackImage(asset.key);
             }
             
-            // 继续加载，不抛出错误
-            this.loadedCount++;
-            this.loadProgress = this.loadedCount / this.totalCount;
+            // 继续加载，不抛出错误；批次进度由调用方统一提交。
         }
     }
 
@@ -273,25 +279,98 @@ export class AssetManager {
     }
 
     /**
-     * 加载单个资源
-     * @param {object} asset - 资源对象
-     * @returns {Promise<void>}
+     * 加载单个资源。字符串参数按 Manifest 稳定 ID 解析；对象参数保留旧队列兼容。
+     * @param {object|string} asset - 资源描述符或稳定 assetId/imageId
+     * @param {{mode?:'2d'|'3d',signal?:AbortSignal,required?:boolean}} options
+     * @returns {Promise<*>}
      */
-    async loadAsset(asset) {
+    async loadAsset(asset, { mode = '2d', signal = null, required = true } = {}) {
+        const manifestRequest = typeof asset === 'string';
+        const descriptor = manifestRequest ? this.resolveManifestAsset(asset, mode) : asset;
+        if (!descriptor?.key || !descriptor?.type || !descriptor?.url) {
+            if (!required) return null;
+            throw new Error(`AssetManager: 未找到可加载资源 ${String(asset)}`);
+        }
+        if (signal?.aborted) throw new Error(`AssetManager: 资源加载已取消 ${descriptor.key}`);
+
+        const key = this.manifestAliases.get(descriptor.key) || descriptor.key;
+        const cached = descriptor.type === 'audio' ? this.audio.get(key) : this.images.get(key);
+        if (cached) return cached;
+
+        const inflightKey = `${descriptor.type}:${key}`;
+        let promise = this._inflightAssets.get(inflightKey);
+        if (!promise) {
+            promise = (async () => {
+                if (descriptor.type === 'image' || descriptor.type === 'texture') {
+                    return this.loadImage(key, descriptor.url);
+                }
+                if (descriptor.type === 'audio') return this.loadAudioFile(key, descriptor.url);
+                throw new Error(`AssetManager: 不支持按需加载类型 ${descriptor.type}`);
+            })();
+            this._inflightAssets.set(inflightKey, promise);
+            promise.finally(() => {
+                if (this._inflightAssets.get(inflightKey) === promise) this._inflightAssets.delete(inflightKey);
+            }).catch(() => {});
+        }
+
         try {
-            if (asset.type === 'image') {
-                await this.loadImage(asset.key, asset.url);
-            } else if (asset.type === 'audio') {
-                await this.loadAudioFile(asset.key, asset.url);
-            }
-            
-            this.loadedCount++;
-            this.loadProgress = this.loadedCount / this.totalCount;
-            
-            console.log(`AssetManager: Loaded ${asset.key} (${this.loadedCount}/${this.totalCount})`);
+            const result = await promise;
+            if (signal?.aborted) throw new Error(`AssetManager: 资源加载已取消 ${key}`);
+            return result;
         } catch (error) {
-            console.error(`AssetManager: Failed to load ${asset.key}`, error);
+            console.error(`AssetManager: Failed to load ${key}`, error);
             throw error;
+        }
+    }
+
+    /** 按稳定 ID 并行加载一个 chunk 所需资源；不会扫描或加载整个 Manifest。 */
+    async loadAssets(assetIds, options = {}) {
+        const candidates = assetIds == null
+            ? []
+            : typeof assetIds[Symbol.iterator] === 'function'
+                ? [...assetIds]
+                : [];
+        const ids = [...new Set(candidates
+            .filter(id => typeof id === 'string' && id.trim())
+            .map(id => id.trim()))];
+        if (ids.length === 0) return { loaded: [], count: 0 };
+        this._beginLoadBatch(ids.length);
+        console.log(`AssetManager: Loading ${ids.length} targeted assets...`);
+        try {
+            const loaded = await Promise.all(ids.map(async id => {
+                const result = await this.loadAsset(id, options);
+                this._markLoadItemComplete();
+                console.log(`AssetManager: Loaded ${id} (${this.loadedCount}/${this.totalCount})`);
+                return result;
+            }));
+            console.log('AssetManager: Targeted assets loaded successfully');
+            return { loaded, count: loaded.length };
+        } finally {
+            this._endLoadBatch();
+        }
+    }
+
+    _beginLoadBatch(total) {
+        if (this._activeLoadBatches === 0) {
+            this.loadedCount = 0;
+            this.totalCount = 0;
+            this.loadProgress = 0;
+        }
+        this._activeLoadBatches++;
+        this.totalCount += Math.max(0, Number(total) || 0);
+        this.isLoading = true;
+    }
+
+    _markLoadItemComplete() {
+        this.loadedCount++;
+        this.loadProgress = this.totalCount > 0 ? this.loadedCount / this.totalCount : 1;
+    }
+
+    _endLoadBatch() {
+        this._activeLoadBatches = Math.max(0, this._activeLoadBatches - 1);
+        this.isLoading = this._activeLoadBatches > 0;
+        if (!this.isLoading && this.totalCount > 0) {
+            this.loadProgress = this.loadedCount / this.totalCount;
         }
     }
 
@@ -302,20 +381,36 @@ export class AssetManager {
      * @returns {Promise<HTMLImageElement>}
      */
     loadImage(key, url) {
-        return new Promise((resolve, reject) => {
+        const resolvedKey = this.manifestAliases.get(key) || key;
+        const cached = this.images.get(resolvedKey);
+        if (cached) return Promise.resolve(cached);
+        const existing = this._inflightImages.get(resolvedKey);
+        if (existing) return existing;
+
+        const generation = this._loadGeneration;
+        const promise = new Promise((resolve, reject) => {
             const img = new Image();
-            
+
             img.onload = () => {
-                this.images.set(key, img);
+                if (generation !== this._loadGeneration) {
+                    reject(new Error(`AssetManager: 已取消过期图片加载 ${resolvedKey}`));
+                    return;
+                }
+                this.images.set(resolvedKey, img);
                 resolve(img);
             };
-            
+
             img.onerror = () => {
                 reject(new Error(`Failed to load image: ${url}`));
             };
-            
+
             img.src = url;
         });
+        this._inflightImages.set(resolvedKey, promise);
+        promise.finally(() => {
+            if (this._inflightImages.get(resolvedKey) === promise) this._inflightImages.delete(resolvedKey);
+        }).catch(() => {});
+        return promise;
     }
 
     /**
@@ -471,6 +566,10 @@ export class AssetManager {
         this.manifestEntries.clear();
         this.manifestAliases.clear();
         this._manifestQueuedKeys.clear();
+        this._loadGeneration++;
+        this._inflightAssets.clear();
+        this._inflightImages.clear();
+        this._activeLoadBatches = 0;
         this._multiBackendAssets?.clear?.();
         this.loadQueue = [];
         this.loadedCount = 0;

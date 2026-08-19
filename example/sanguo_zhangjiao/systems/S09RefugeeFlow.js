@@ -80,24 +80,28 @@ export class S09RefugeeCoordinator extends SceneFlowCoordinator {
   constructor(scene) {
     super(scene, methods, { name: 'S09RefugeeCoordinator' });
     this._unauthorizedHarvestOperations = new Set();
+    this._nextDueStoryEventCheckAt = 0;
   }
 
   _onGameDayChanged(currentDay) {
     const day = Math.max(1, Math.floor(Number(currentDay) || 0));
     if (!day) return Promise.resolve(false);
     return Promise.resolve(this._submit('story.s09.day.advance', { day }))
-      .then(result => result?.ok === true ? this._processDueStoryEvents() : false);
+      .then(result => result?.ok === true ? this._processDueStoryEvents({ force: true }) : false);
   }
 
-  _processDueStoryEvents() {
+  _processDueStoryEvents({ force = false } = {}) {
     if (this._dueStoryEventsPromise) return this._dueStoryEventsPromise;
+    const now = this.scene.simulationClock?.now?.() ?? performance.now();
+    if (!force && now < this._nextDueStoryEventCheckAt) return false;
+    this._nextDueStoryEventCheckAt = now + 1000;
     const scene = this.scene;
     const storyState = scene.gameLoader?.blackboard?.get?.('storyState') || {};
     const currentDay = Math.max(0, Number(storyState.currentDay) || 0);
     const hasDueEvent = (storyState.delayedConsequences || []).some(event => (
       event?.status === 'pending' && Number(event?.dueDay) <= currentDay
     ));
-    if (!hasDueEvent) return Promise.resolve(false);
+    if (!hasDueEvent) return false;
     this._dueStoryEventsPromise = Promise.resolve(this._submit('story.s09.delayed.resolve'))
       .then(result => result?.ok === true)
       .finally(() => { this._dueStoryEventsPromise = null; });

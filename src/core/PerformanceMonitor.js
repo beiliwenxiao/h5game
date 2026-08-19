@@ -63,22 +63,38 @@ export class PerformanceMonitor {
     this.graphHeight = 60;
     this.graphWidth = 200;
     this.measurement = null;
+    this.drawCallTracking = options.drawCallTracking === true;
     this._longTaskObserver = null;
     this._memoryRequestInFlight = false;
+    this._metricsRevision = 0;
+    this._renderedMetricsRevision = -1;
+    this._fpsElement = null;
+    this._lastFpsText = null;
+    this._lastFpsColor = null;
   }
 
   setEnabled(enabled) {
     this.enabled = enabled === true;
+    if (this.enabled) this._renderedMetricsRevision = -1;
   }
 
   toggle() {
-    this.enabled = !this.enabled;
+    this.setEnabled(!this.enabled);
+  }
+
+  setDrawCallTracking(enabled) {
+    this.drawCallTracking = enabled === true;
+  }
+
+  shouldTrackDrawCalls() {
+    return this.drawCallTracking
+      || (this.measurement?.status === 'running'
+        && this.measurement?.metadata?.captureDrawCalls === true);
   }
 
   /** 开始一次明确标识的真实运行采样；不会创建测试页面或模拟设备数据。 */
   startMeasurement(metadata = {}) {
     this.stopMeasurement();
-    this.enabled = true;
     const start = now();
     this.measurement = {
       status: 'running',
@@ -190,12 +206,12 @@ export class PerformanceMonitor {
   }
 
   startTimer(name) {
-    if (!this.enabled) return;
+    if (!this.enabled && this.measurement?.status !== 'running') return;
     this.timers.set(name, now());
   }
 
   endTimer(name) {
-    if (!this.enabled) return 0;
+    if (!this.enabled && this.measurement?.status !== 'running') return 0;
     const startTime = this.timers.get(name);
     if (startTime === undefined) return 0;
     const elapsed = now() - startTime;
@@ -204,12 +220,14 @@ export class PerformanceMonitor {
   }
 
   update(deltaTime, gameState = {}) {
-    if (!this.enabled) return;
+    const isMeasuring = this.measurement?.status === 'running';
+    if (!this.enabled && !isMeasuring) return;
     const frameTime = Math.max(0, Number(deltaTime) || 0) * 1000;
     this.frameCount++;
     this.frameTimes.push(frameTime);
     if (this.frameTimes.length > this.maxFrameTimeSamples) this.frameTimes.shift();
     this.lastUpdateTime += Math.max(0, Number(deltaTime) || 0);
+    let metricsUpdated = false;
     if (this.lastUpdateTime >= this.updateInterval) {
       this.metrics.fps = Math.round(this.frameCount / this.lastUpdateTime);
       this.metrics.frameTime = average(this.frameTimes);
@@ -221,6 +239,8 @@ export class PerformanceMonitor {
       }
       this.frameCount = 0;
       this.lastUpdateTime = 0;
+      this._metricsRevision++;
+      metricsUpdated = true;
     }
     for (const key of [
       'entityCount', 'visibleEntityCount', 'drawCalls', 'drawCallsPerFrame', 'textureMemory',
@@ -231,10 +251,13 @@ export class PerformanceMonitor {
     const usedHeapSize = globalThis.performance?.memory?.usedJSHeapSize;
     if (Number.isFinite(usedHeapSize)) this.metrics.memoryUsage = Math.round(usedHeapSize / MB);
     this._recordMeasurementFrame(frameTime, gameState);
-    const snapshot = this.getMeasurementSnapshot();
-    if (snapshot) {
-      this.metrics.onePercentLowFps = snapshot.frame.onePercentLowFps;
-      this.metrics.longTaskCount = snapshot.longTasks.count;
+    // 1% low 需要排序样本，只随 HUD 指标刷新周期计算，不进入每帧热路径。
+    if (metricsUpdated && this.measurement) {
+      const snapshot = this.getMeasurementSnapshot();
+      if (snapshot) {
+        this.metrics.onePercentLowFps = snapshot.frame.onePercentLowFps;
+        this.metrics.longTaskCount = snapshot.longTasks.count;
+      }
     }
   }
 
@@ -287,11 +310,24 @@ export class PerformanceMonitor {
   }
 
   render(_ctx) {
-    if (!this.enabled) return;
-    const fpsEl = document.getElementById('fps');
+    if (!this.enabled || typeof document === 'undefined') return;
+    if (this._renderedMetricsRevision === this._metricsRevision) return;
+    if (!this._fpsElement || this._fpsElement.isConnected === false) {
+      this._fpsElement = document.getElementById('fps');
+    }
+    const fpsEl = this._fpsElement;
     if (!fpsEl) return;
-    fpsEl.textContent = this.metrics.fps;
-    fpsEl.style.color = this.metrics.fps >= 50 ? '#4CAF50' : (this.metrics.fps >= 30 ? '#FFC107' : '#F44336');
+    const text = String(this.metrics.fps);
+    const color = this.metrics.fps >= 50 ? '#4CAF50' : (this.metrics.fps >= 30 ? '#FFC107' : '#F44336');
+    if (text !== this._lastFpsText) {
+      fpsEl.textContent = text;
+      this._lastFpsText = text;
+    }
+    if (color !== this._lastFpsColor) {
+      fpsEl.style.color = color;
+      this._lastFpsColor = color;
+    }
+    this._renderedMetricsRevision = this._metricsRevision;
   }
 
   getDisplayLines() {
@@ -356,6 +392,8 @@ export class PerformanceMonitor {
     this.history.fps = [];
     this.history.frameTime = [];
     this.timers.clear();
+    this._metricsRevision++;
+    this._renderedMetricsRevision = -1;
   }
 
   exportData() {
@@ -377,6 +415,7 @@ export class PerformanceMonitor {
   dispose() {
     this.stopMeasurement();
     this.timers.clear();
+    this._fpsElement = null;
   }
 
   _formatBytes(bytes) {

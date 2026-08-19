@@ -49,6 +49,12 @@ export class Scene1Terrain {
     // 世界偏移量（大地图 chunk 原点）
     this.worldOffset = config.worldOffset || { x: 0, y: 0 };
     this._sceneObjectProjector = config.projector || new SceneObjectProjector();
+    this.resolveImageAsset = typeof config.resolveImageAsset === 'function'
+      ? config.resolveImageAsset
+      : () => null;
+    this.getLoadedImage = typeof config.getLoadedImage === 'function'
+      ? config.getLoadedImage
+      : () => null;
 
     // 盆地中心 = 火堆位置
     this.centerX = config.centerX ?? 350;
@@ -171,11 +177,13 @@ export class Scene1Terrain {
     this._editorBackgroundImages = [];
     this._depthSortedImages = [];
 
-    this._loadImages();
+    const hasCanonicalSceneData = !!(config.sceneData && Array.isArray(config.sceneData.layers));
+    // canonical chunk 图片已在流式 prepare 阶段按稳定 ID 加载；仅无场景数据的旧程序化地形加载四张 legacy 图。
+    if (!hasCanonicalSceneData) this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
     // 世界会话可直接注入已经加载的完整数据，避免 terrain 自己再次读取缓存/文件。
-    if (config.sceneData && Array.isArray(config.sceneData.layers)) {
+    if (hasCanonicalSceneData) {
       this._editorSceneId = config.editorSceneId || config.sceneData.id || 'scene_Prologue';
       this._applySceneData(config.sceneData);
     } else if (!config.skipEditorLoad) {
@@ -213,18 +221,20 @@ export class Scene1Terrain {
       gameId,
       sceneId,
       worldOffset: { ...this.worldOffset },
-      initialCollisionShapes: this._collisionShapes.length
+      initialCollisionShapes: this._collisionShapes.length,
+      precedence: 'disk-first'
     });
 
-    // 优先从 localStorage 读取（浏览器编辑器联动）
-    const scene = loadSceneFromStorage(gameId, sceneId);
-    
-    if (scene) {
+    const applyScene = (scene, source) => {
+      if (!scene) return false;
       this._applySceneData(scene);
-      console.log('[Scene1Terrain][Collision] 已应用 localStorage 场景数据', {
-        sceneId,
+      this._grassCanvas = null;
+      console.log(`[Scene1Terrain][Collision] 已应用${source}场景数据`, {
+        requestedSceneId: sceneId,
+        loadedSceneId: scene.id || null,
         layerCount: scene.layers?.length || 0,
         collisionShapeCount: this._collisionShapes.length,
+        worldOffset: { ...this.worldOffset },
         collisionShapes: this._collisionShapes.map(shape => ({
           id: shape.id || null,
           shapeType: shape.shapeType,
@@ -233,33 +243,26 @@ export class Scene1Terrain {
           y: shape.y
         }))
       });
-      return;
-    }
+      return true;
+    };
 
-    // localStorage 没有时，从文件加载编辑器导出的 JSON（安卓打包后 fallback）
-    console.log('[Scene1Terrain][Collision] localStorage 无完整场景，开始异步加载 JSON 文件', { sceneId });
-    loadSceneFromFile(sceneId).then(s => {
-      if (s) {
-        this._applySceneData(s);
-        this._grassCanvas = null;
-        console.log('[Scene1Terrain][Collision] 异步场景 JSON 应用成功', {
-          requestedSceneId: sceneId,
-          loadedSceneId: s.id || null,
-          layerCount: s.layers?.length || 0,
-          collisionShapeCount: this._collisionShapes.length,
-          worldOffset: { ...this.worldOffset },
-          collisionShapes: this._collisionShapes.map(shape => ({
-            id: shape.id || null,
-            shapeType: shape.shapeType,
-            points: shape.points?.length || 0,
-            x: shape.x,
-            y: shape.y
-          }))
-        });
-      } else {
-        console.warn('[Scene1Terrain][Collision] 异步加载失败：未找到有效场景 JSON', { sceneId });
+    // canonical 磁盘 JSON 始终优先；localStorage 仅在磁盘不可用时作 fallback，
+    // 与 CanonicalSceneRepository 的运行时事实源顺序保持一致。
+    loadSceneFromFile(sceneId).then(scene => {
+      if (applyScene(scene, '磁盘')) return;
+      const cached = loadSceneFromStorage(gameId, sceneId);
+      if (applyScene(cached, ' localStorage fallback ')) return;
+      console.warn('[Scene1Terrain][Collision] 磁盘与 localStorage 均无有效场景数据', { sceneId });
+    }).catch(error => {
+      console.warn('[Scene1Terrain][Collision] 磁盘场景加载异常，尝试 localStorage fallback', {
+        sceneId,
+        error
+      });
+      const cached = loadSceneFromStorage(gameId, sceneId);
+      if (!applyScene(cached, ' localStorage fallback ')) {
+        console.warn('[Scene1Terrain][Collision] localStorage fallback 也无有效场景数据', { sceneId });
       }
-    }).catch(e => console.warn('[Scene1Terrain][Collision] 加载编辑器 JSON 异常', { sceneId, error: e }));
+    });
   }
 
   /**
@@ -417,16 +420,15 @@ export class Scene1Terrain {
             // 其它 shape 使用与碰撞相同的世界投影结果。
             this._editorShapes.push(projectedObj);
           } else if (obj.type === 'image' && obj.imageId) {
-            // 从 imageAssets 获取图片 src
-            const asset = scene.imageAssets && scene.imageAssets[obj.imageId];
-            if (asset && asset.src) {
-              // 修正路径：编辑器保存的路径是相对于编辑器页面的
-              // 游戏运行时需要转为相对于游戏页面的路径
-              let src = asset.src;
-              // 去掉编辑器相对前缀（如 "../example/sanguo_zhangjiao/"）
-              const assetsIdx = src.indexOf('assets/');
-              if (assetsIdx !== -1) {
-                src = src.substring(assetsIdx);
+            // 场景局部 imageAssets 用于编辑器预览；运行时缺项时回退同一稳定 ID 的 Manifest。
+            const sceneAsset = scene.imageAssets && scene.imageAssets[obj.imageId];
+            const manifestAsset = this.resolveImageAsset(obj.imageId);
+            let src = sceneAsset?.src || manifestAsset?.url || null;
+            if (src) {
+              // 编辑器保存路径相对 editor 页面；Manifest URL 已由 AssetManager 解析。
+              if (sceneAsset?.src) {
+                const assetsIdx = src.indexOf('assets/');
+                if (assetsIdx !== -1) src = src.substring(assetsIdx);
               }
               const imageEntry = {
                 id: obj.id || null,
@@ -467,10 +469,25 @@ export class Scene1Terrain {
           }
         }
       }
-      // 同一加载链处理地面图片与深度图片；两者只在绘制阶段分流。
+      // 同一加载链处理地面图片与深度图片；优先复用九宫格 prepare 已加载的 AssetManager 图片。
       for (const sceneImage of [...this._editorBackgroundImages, ...this._depthSortedImages]) {
+        const loadedImage = sceneImage.imageId ? this.getLoadedImage(sceneImage.imageId) : null;
+        if (loadedImage) {
+          sceneImage._img = loadedImage;
+          sceneImage._loaded = true;
+          this._scheduleVectorBackgroundCache();
+          continue;
+        }
+        if (sceneImage.imageId) {
+          console.warn(`Scene1Terrain: 九宫格 prepare 后仍缺少稳定图片 ${sceneImage.imageId}`);
+          continue;
+        }
         const img = new Image();
-        img.onload = () => { sceneImage._img = img; sceneImage._loaded = true; };
+        img.onload = () => {
+          sceneImage._img = img;
+          sceneImage._loaded = true;
+          this._scheduleVectorBackgroundCache();
+        };
         img.src = sceneImage.src;
       }
 
@@ -1449,12 +1466,69 @@ export class Scene1Terrain {
   }
   
   /**
+   * 把单张 SVG 背景的栅格化移出 RAF。缓存任务会验证图片对象仍属于当前场景数据，
+   * 防止异步旧任务覆盖 Region/场景切换后的新背景。
+   * @private
+   */
+  _scheduleVectorBackgroundCache() {
+    if (!Array.isArray(this._editorBackgroundImages) || this._editorBackgroundImages.length !== 1) return;
+    const bgImg = this._editorBackgroundImages[0];
+    if (!bgImg?._loaded || !bgImg._img) return;
+    const source = String(bgImg._img.currentSrc || bgImg._img.src || '');
+    if (!/\.svg(?:$|[?#])/i.test(source)) return;
+
+    const cacheWidth = Math.max(1, Math.ceil(bgImg.width));
+    const cacheHeight = Math.max(1, Math.ceil(bgImg.height));
+    const signature = `${source}|${cacheWidth}x${cacheHeight}|${bgImg.opacity ?? 1}`;
+    if ((this._bgImageCache && this._bgImageCacheSignature === signature) ||
+        this._bgImageCachePendingSignature === signature) return;
+
+    this._bgImageCachePendingSignature = signature;
+    const sourceImage = bgImg._img;
+    const build = () => {
+      const isCurrent = this._bgImageCachePendingSignature === signature &&
+        this._editorBackgroundImages?.length === 1 &&
+        this._editorBackgroundImages[0] === bgImg &&
+        bgImg._loaded === true && bgImg._img === sourceImage;
+      if (!isCurrent) {
+        if (this._bgImageCachePendingSignature === signature) this._bgImageCachePendingSignature = null;
+        return;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = cacheWidth;
+      canvas.height = cacheHeight;
+      const gctx = canvas.getContext('2d');
+      if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
+      gctx.drawImage(sourceImage, 0, 0, cacheWidth, cacheHeight);
+
+      // 构建结束后再次检查，避免同步栅格化期间场景数据已被替换。
+      if (this._bgImageCachePendingSignature !== signature ||
+          this._editorBackgroundImages?.[0] !== bgImg) {
+        if (this._bgImageCachePendingSignature === signature) this._bgImageCachePendingSignature = null;
+        return;
+      }
+      this._bgImageCache = canvas;
+      this._bgImageCacheX = bgImg.x;
+      this._bgImageCacheY = bgImg.y;
+      this._bgImageCacheSignature = signature;
+      this._bgImageCachePendingSignature = null;
+    };
+
+    if (typeof globalThis.requestIdleCallback === 'function') {
+      globalThis.requestIdleCallback(build, { timeout: 250 });
+    } else {
+      globalThis.setTimeout(build, 0);
+    }
+  }
+
+  /**
    * 渲染编辑器中的背景图片（带离屏缓存）
    * @private
    */
   _renderEditorBackgroundImages(ctx) {
     if (!this._editorBackgroundImages || this._editorBackgroundImages.length === 0) return;
-    
+
     // 检查所有图片是否加载完成
     const allLoaded = this._editorBackgroundImages.every(bg => bg._loaded);
     if (!allLoaded) {
@@ -1468,11 +1542,27 @@ export class Scene1Terrain {
       }
       return;
     }
-    
-    // 单张场景背景直接绘制：避免先压入 1×逻辑缓存再放大到 DPR backing。
-    // 这样以后用相同 imageId 替换 2×/4×源图时，不会在缓存阶段丢失细节。
+
+    // SVG 场景背景不得在 RAF 内同步创建栅格缓存。资源加载后即调度空闲任务；
+    // 缓存就绪前只保留直接绘制回退，后续固定绘制 Canvas 位图。
     if (this._editorBackgroundImages.length === 1) {
       const bgImg = this._editorBackgroundImages[0];
+      const source = String(bgImg._img?.currentSrc || bgImg._img?.src || '');
+      const isVector = /\.svg(?:$|[?#])/i.test(source);
+      if (isVector) {
+        const cacheWidth = Math.max(1, Math.ceil(bgImg.width));
+        const cacheHeight = Math.max(1, Math.ceil(bgImg.height));
+        const signature = `${source}|${cacheWidth}x${cacheHeight}|${bgImg.opacity ?? 1}`;
+        this._scheduleVectorBackgroundCache();
+        if (this._bgImageCache && this._bgImageCacheSignature === signature) {
+          ctx.drawImage(
+            this._bgImageCache,
+            0, 0, this._bgImageCache.width, this._bgImageCache.height,
+            bgImg.x, bgImg.y, bgImg.width, bgImg.height
+          );
+          return;
+        }
+      }
       ctx.save();
       if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
       ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
@@ -1492,7 +1582,7 @@ export class Scene1Terrain {
       }
       const cacheW = Math.ceil(maxX - minX) + 2;
       const cacheH = Math.ceil(maxY - minY) + 2;
-      
+
       if (cacheW <= 4096 && cacheH <= 4096) {
         const canvas = document.createElement('canvas');
         canvas.width = cacheW;
@@ -1500,20 +1590,20 @@ export class Scene1Terrain {
         const gctx = canvas.getContext('2d');
         const offsetX = minX - 1;
         const offsetY = minY - 1;
-        
+
         for (const bgImg of this._editorBackgroundImages) {
           gctx.save();
           if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
           gctx.drawImage(bgImg._img, bgImg.x - offsetX, bgImg.y - offsetY, bgImg.width, bgImg.height);
           gctx.restore();
         }
-        
+
         this._bgImageCache = canvas;
         this._bgImageCacheX = offsetX;
         this._bgImageCacheY = offsetY;
       }
     }
-    
+
     // 使用缓存绘制
     if (this._bgImageCache) {
       ctx.drawImage(this._bgImageCache, this._bgImageCacheX, this._bgImageCacheY);

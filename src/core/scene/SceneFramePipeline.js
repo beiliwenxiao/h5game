@@ -66,6 +66,10 @@ export class SceneFramePipeline {
       scene.discardPausedInput?.();
       return;
     }
+    const frameProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
+      ? scene._framePerformanceProfile.current
+      : null;
+    let phaseStartedAt = frameProfile ? performance.now() : 0;
     const frameToken = runtime?.beginFrame?.() || null;
 
     // 帧管线只调用 Runtime 阶段入口；兼容 Scene 字段不再参与生命周期调度。
@@ -88,9 +92,15 @@ export class SceneFramePipeline {
 
     // 运行时优先输入阶段保留旧扩展 hook 的准确位置。
     runtime?.runFramePhase?.(FramePhase.PRIORITY_INPUT, deltaTime, { scene, frameToken });
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameInput = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
 
-    // 性能监控：关闭时不读取高精度时钟。
-    const monitorEnabled = scene.performanceMonitor?.enabled === true;
+    // 性能 HUD 或显式 P6.2 采样激活时才读取高精度时钟。
+    const monitorEnabled = scene.performanceMonitor?.enabled === true
+      || scene.performanceMonitor?.measurement?.status === 'running';
     const updateStartTime = monitorEnabled ? performance.now() : 0;
 
     // 调试：输出update调用
@@ -153,6 +163,12 @@ export class SceneFramePipeline {
       }
     }
 
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFramePreparation = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
+
     // 更新所有实体
     // 运行时系统阶段按 frame token 去重；旧 ECS 更新顺序保持在下方。
     runtime?.runFramePhase?.(FramePhase.SYSTEMS, deltaTime, {
@@ -165,6 +181,11 @@ export class SceneFramePipeline {
     gatheringPuppetSystem?.update?.(deltaTime);
     for (const entity of entities) {
       entity.update(deltaTime);
+    }
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameEntities = now - phaseStartedAt;
+      phaseStartedAt = now;
     }
 
     // UI 点击处理
@@ -229,6 +250,11 @@ export class SceneFramePipeline {
 
     // 相机后处理钩子（子类可覆盖，如限制相机在大地图边缘）
     scene.postCameraUpdate();
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameMovementCollision = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
 
     // 处理敌人选中
     scene.handleEnemySelection();
@@ -258,6 +284,11 @@ export class SceneFramePipeline {
 
     // 更新装备系统
     equipmentSystem.update(deltaTime, entities);
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameAiCombat = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
 
     // 更新序章系统
     scene.tutorialSystem.update(deltaTime, scene.getGameState());
@@ -265,6 +296,11 @@ export class SceneFramePipeline {
     // 任务状态只能由 Authority command 驱动；过期检查同样通过 quest.expire command 提交。
     // 数据驱动触发器（timer 类）——仅当场景调用过 initGameLoader 才存在
     if (scene.gameLoader) scene.gameLoader.update(deltaTime);
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameGameplay = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
 
     // 更新特效（使用节流）
     if (scene.performanceOptimizer.shouldUpdate('effects')) {
@@ -312,6 +348,11 @@ export class SceneFramePipeline {
         pickupSystem.checkWeaponPickup(player);
       }
     }
+    if (frameProfile) {
+      const now = performance.now();
+      frameProfile.updateFrameEffects = now - phaseStartedAt;
+      phaseStartedAt = now;
+    }
 
     // 对话输入在系统更新后消费，保持打字机和选项节点原有顺序。
     if (inputFlow) inputFlow.afterSystems();
@@ -349,6 +390,9 @@ export class SceneFramePipeline {
         drawCallsPerFrame: scene._drawCallCount || 0,
         textureMemory: scene._estimateTextureMemory()
       });
+    }
+    if (frameProfile) {
+      frameProfile.updateFrameUiCleanup = performance.now() - phaseStartedAt;
     }
   }
 

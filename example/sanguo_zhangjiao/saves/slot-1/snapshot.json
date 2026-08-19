@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787073845238,
+  "createdAt": 1787165057099,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -20,8 +20,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1965.67,
-          "y": 1268.51,
+          "x": 1885,
+          "y": 1275,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -68,8 +68,8 @@
         "signalProgress": {},
         "movementOrigins": {
           "s01.move": {
-            "x": 1965.67,
-            "y": 1268.51
+            "x": 1885,
+            "y": 1275
           }
         }
       },
@@ -260,6 +260,29 @@
             },
             "hiddenClues": [],
             "month": 3,
+            "s01Survival": {
+              "axeFound": false,
+              "backpackCrafted": false,
+              "berriesGathered": false,
+              "berryEaten": false,
+              "campfireExtinguished": false,
+              "campfireLit": false,
+              "cliffReached": false,
+              "firestarterAcquired": false,
+              "firstWolfKilled": false,
+              "firstWolfSpotted": false,
+              "meatCooked": false,
+              "overnightCompleted": false,
+              "pursuit": {
+                "active": false,
+                "killed": 0,
+                "spawned": 0
+              },
+              "riverCrossed": false,
+              "shelterCompleted": false,
+              "wolfSkinned": false,
+              "woodGathered": false
+            },
             "storyTags": [],
             "unlockedScenes": [
               "S01"
@@ -275,10 +298,15 @@
         "triggers": {
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
-          "firedOnce": [
-            "trg_s01_spawn_initial"
-          ],
-          "cooldowns": {},
+          "firedOnce": [],
+          "cooldowns": {
+            "trg_s01_spawn_initial": {
+              "definitionRevision": 1,
+              "remaining": 350,
+              "nextDue": 1000,
+              "duration": 1000
+            }
+          },
           "timers": [],
           "ledger": {
             "version": 1,
@@ -287,12 +315,12 @@
                 "triggerId": "trg_s01_spawn_initial",
                 "definitionRevision": 1,
                 "operationId": "trigger:1:trg_s01_spawn_initial:1",
-                "fingerprint": "sha256-71b05e19eab4014ed8cadf0be363ea634410a8b879752992e4cd72f6a8a70d5d",
+                "fingerprint": "sha256-8d995a1bf26a394700bb5fb0dd8a3ade8b4e24142627a6e7cceb23ddbb747959",
                 "status": "succeeded",
-                "actionIndex": 0,
+                "actionIndex": 2,
                 "result": {
                   "ok": true,
-                  "operationId": "trigger:1:trg_s01_spawn_initial:1",
+                  "operationId": "trigger:1:trg_s01_spawn_initial:1:action:2",
                   "status": "succeeded",
                   "committed": true,
                   "code": null,
@@ -301,31 +329,7 @@
                 },
                 "startedAt": 0,
                 "finishedAt": 0,
-                "ledgerRevision": 4
-              },
-              {
-                "triggerId": "trg_s01_choose_not_flee",
-                "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
-              },
-              {
-                "triggerId": "trg_s01_clear_special_faint",
-                "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "ledgerRevision": 6
               },
               {
                 "triggerId": "trg_s01_light_campfire",
@@ -340,7 +344,91 @@
                 "ledgerRevision": 1
               },
               {
-                "triggerId": "trg_s01_exit_s02",
+                "triggerId": "trg_s01_craft_backpack",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_cook_meat",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_build_shelter",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_shelter_completed",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_overnight",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_river_crossed",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_cliff_reached",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_climb_vine",
                 "definitionRevision": 1,
                 "operationId": null,
                 "fingerprint": null,
@@ -1348,221 +1436,8 @@
                 "demoDynamic": {
                   "schemaVersion": 2,
                   "sceneNamespace": "S01",
-                  "resourceNodes": [
-                    {
-                      "id": "S01-node-wood-1",
-                      "state": {
-                        "schemaVersion": 1,
-                        "resourceType": "wood",
-                        "itemId": "resource.wood",
-                        "remaining": 12,
-                        "maxRemaining": 12,
-                        "yieldPerGather": 3,
-                        "gatherDuration": 1.8,
-                        "requiredToolType": "axe",
-                        "refreshDays": 0,
-                        "refreshProgressDays": 0,
-                        "guardUnitIds": [],
-                        "riskEvents": [
-                          {
-                            "id": "risk.dry_wood_noise",
-                            "type": "noise",
-                            "chance": 0.3,
-                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
-                            "payload": {
-                              "alert": 1
-                            }
-                          }
-                        ],
-                        "damageRatio": 0,
-                        "depleted": false
-                      }
-                    },
-                    {
-                      "id": "S01-node-wood-2",
-                      "state": {
-                        "schemaVersion": 1,
-                        "resourceType": "wood",
-                        "itemId": "resource.wood",
-                        "remaining": 12,
-                        "maxRemaining": 12,
-                        "yieldPerGather": 3,
-                        "gatherDuration": 1.8,
-                        "requiredToolType": "axe",
-                        "refreshDays": 0,
-                        "refreshProgressDays": 0,
-                        "guardUnitIds": [],
-                        "riskEvents": [
-                          {
-                            "id": "risk.dry_wood_noise",
-                            "type": "noise",
-                            "chance": 0.3,
-                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
-                            "payload": {
-                              "alert": 1
-                            }
-                          }
-                        ],
-                        "damageRatio": 0,
-                        "depleted": false
-                      }
-                    },
-                    {
-                      "id": "S01-node-wood-3",
-                      "state": {
-                        "schemaVersion": 1,
-                        "resourceType": "wood",
-                        "itemId": "resource.wood",
-                        "remaining": 12,
-                        "maxRemaining": 12,
-                        "yieldPerGather": 3,
-                        "gatherDuration": 1.8,
-                        "requiredToolType": "axe",
-                        "refreshDays": 0,
-                        "refreshProgressDays": 0,
-                        "guardUnitIds": [],
-                        "riskEvents": [
-                          {
-                            "id": "risk.dry_wood_noise",
-                            "type": "noise",
-                            "chance": 0.3,
-                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
-                            "payload": {
-                              "alert": 1
-                            }
-                          }
-                        ],
-                        "damageRatio": 0,
-                        "depleted": false
-                      }
-                    },
-                    {
-                      "id": "S01-node-herb-1",
-                      "state": {
-                        "schemaVersion": 1,
-                        "resourceType": "herb",
-                        "itemId": "resource.herb",
-                        "remaining": 8,
-                        "maxRemaining": 8,
-                        "yieldPerGather": 2,
-                        "gatherDuration": 1.2,
-                        "requiredToolType": null,
-                        "refreshDays": 0,
-                        "refreshProgressDays": 0,
-                        "guardUnitIds": [],
-                        "riskEvents": [
-                          {
-                            "id": "risk.wild_herb_rustle",
-                            "type": "wildlife",
-                            "chance": 0.2,
-                            "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
-                            "payload": {
-                              "alert": 1
-                            }
-                          }
-                        ],
-                        "damageRatio": 0,
-                        "depleted": false
-                      }
-                    },
-                    {
-                      "id": "S01-node-herb-2",
-                      "state": {
-                        "schemaVersion": 1,
-                        "resourceType": "herb",
-                        "itemId": "resource.herb",
-                        "remaining": 8,
-                        "maxRemaining": 8,
-                        "yieldPerGather": 2,
-                        "gatherDuration": 1.2,
-                        "requiredToolType": null,
-                        "refreshDays": 0,
-                        "refreshProgressDays": 0,
-                        "guardUnitIds": [],
-                        "riskEvents": [
-                          {
-                            "id": "risk.wild_herb_rustle",
-                            "type": "wildlife",
-                            "chance": 0.2,
-                            "message": "草丛突然剧烈晃动，你听见不远处传来异响。",
-                            "payload": {
-                              "alert": 1
-                            }
-                          }
-                        ],
-                        "damageRatio": 0,
-                        "depleted": false
-                      }
-                    }
-                  ],
-                  "placementStates": [
-                    {
-                      "id": "S01-node-wood-1",
-                      "state": {
-                        "kind": "resourceNode",
-                        "removed": false,
-                        "position": {
-                          "x": 1710,
-                          "y": 1110
-                        }
-                      }
-                    },
-                    {
-                      "id": "S01-node-wood-2",
-                      "state": {
-                        "kind": "resourceNode",
-                        "removed": false,
-                        "position": {
-                          "x": 1615,
-                          "y": 1005
-                        }
-                      }
-                    },
-                    {
-                      "id": "S01-node-wood-3",
-                      "state": {
-                        "kind": "resourceNode",
-                        "removed": false,
-                        "position": {
-                          "x": 2055,
-                          "y": 1060
-                        }
-                      }
-                    },
-                    {
-                      "id": "S01-node-herb-1",
-                      "state": {
-                        "kind": "resourceNode",
-                        "removed": false,
-                        "position": {
-                          "x": 1795,
-                          "y": 1035
-                        }
-                      }
-                    },
-                    {
-                      "id": "S01-node-herb-2",
-                      "state": {
-                        "kind": "resourceNode",
-                        "removed": false,
-                        "position": {
-                          "x": 2005,
-                          "y": 980
-                        }
-                      }
-                    },
-                    {
-                      "id": "S01-pickup-worn-axe",
-                      "state": {
-                        "kind": "item",
-                        "removed": true,
-                        "position": {
-                          "x": 1919.72,
-                          "y": 1318.78
-                        }
-                      }
-                    }
-                  ],
+                  "resourceNodes": [],
+                  "placementStates": [],
                   "deathDrops": [],
                   "s10StructureStates": [],
                   "vehicleStates": []
@@ -1675,7 +1550,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 120.04999999999995
+          "elapsed": 120.64999999999941
         }
       }
     }

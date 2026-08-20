@@ -87,7 +87,13 @@ export class SceneGameLoaderBridge {
     const player = this.getPlayer();
     if (player) loader.updateContext({ player });
     if (sceneId && this._isActive(token, loader)) {
-      triggerSystem.fire('sceneEnter', { sceneId });
+      const sceneEnterResult = await triggerSystem.fireAndWait('sceneEnter', { sceneId });
+      if (!sceneEnterResult.ok) {
+        const error = new Error(`SceneGameLoaderBridge sceneEnter failed: ${sceneId}`);
+        error.code = 'sceneEnterTriggerFailed';
+        error.records = sceneEnterResult.records;
+        throw error;
+      }
     }
     return loader;
   }
@@ -141,7 +147,7 @@ export class SceneGameLoaderBridge {
   _registerScopeActions(triggerSystem) {
     const scope = this.scope;
     if (typeof scope?._toggleDebugPanel === 'function') {
-      triggerSystem.registerAction('toggleDebug', () => scope._toggleDebugPanel());
+      triggerSystem.registerAction('toggleDebug', () => scope._toggleDebugPanel() !== false);
     }
   }
 

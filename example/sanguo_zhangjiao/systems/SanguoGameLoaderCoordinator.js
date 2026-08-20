@@ -80,7 +80,6 @@ function initializeGameLoader() {
       if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
       await this._worldLoadPromise;
       if (!this.currentSceneId) throw new Error('ProjectWorldIndex 未提供有效启动入口');
-      await gameLoader.triggerSystem.fire('sceneEnter', { sceneId: this.currentSceneId });
       const placementRuntime = this.context.services.placements;
       const placementValidation = placementRuntime?.validateProjection?.()
         || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placements', message: '场景放置运行时尚未就绪' }] };
@@ -91,6 +90,15 @@ function initializeGameLoader() {
       const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
       this.timeSystem?.setCurrentDay?.(storyDay);
       this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
+      const sceneEnterResult = await gameLoader.triggerSystem.fireAndWait('sceneEnter', {
+        sceneId: this.currentSceneId
+      });
+      if (!sceneEnterResult.ok) {
+        const error = new Error(`sceneEnter 触发器执行失败: ${this.currentSceneId}`);
+        error.code = 'sceneEnterTriggerFailed';
+        error.records = sceneEnterResult.records;
+        throw error;
+      }
       if (this._progressionBootstrap?.isNewGame
         && !this.dialogueSystem?.isDialogueActive?.()) {
         this._tutorialFlow.showNext();

@@ -26,12 +26,15 @@ function errorResult(operationId, triggerId, error, code = null) {
 }
 
 function normalizeLegacyResult(value, operationId, triggerId) {
-  if (value?.ok === false) {
+  if (value === false || value?.ok === false) {
+    const rejection = value === false
+      ? { code: 'actionRejected', message: 'legacy action returned false' }
+      : value;
     return {
-      ...errorResult(operationId, triggerId, value.error || value, value.code || 'actionRejected'),
-      status: value.status || 'failed', committed: value.committed === true,
-      stateId: value.stateId || `trigger:${triggerId}`,
-      stateRevision: Number.isInteger(value.stateRevision) ? value.stateRevision : null
+      ...errorResult(operationId, triggerId, rejection.error || rejection, rejection.code || 'actionRejected'),
+      status: rejection.status || 'failed', committed: rejection.committed === true,
+      stateId: rejection.stateId || `trigger:${triggerId}`,
+      stateRevision: Number.isInteger(rejection.stateRevision) ? rejection.stateRevision : null
     };
   }
   return {

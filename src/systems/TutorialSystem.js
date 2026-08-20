@@ -116,7 +116,7 @@ export class TutorialSystem {
   }
 
   notify(signal, payload = {}, scope = null) {
-    if (!this.enabled || !signal) return false;
+    if (!this.enabled || !signal || payload?.ok === false || payload?.committed === false) return false;
     const candidates = [...this.definitionRepository.values()]
       .filter(definition => definition.completionPolicy === 'signal'
         && matchesScope(definition, scope)

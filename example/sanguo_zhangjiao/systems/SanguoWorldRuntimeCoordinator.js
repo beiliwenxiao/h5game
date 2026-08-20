@@ -173,9 +173,13 @@ async function configureWorldRuntimeFromLoad() {
 }
 
 async function forwardCommittedSceneEnter(sceneId) {
-  if (!sceneId || !this.gameLoader?.triggerSystem?.fire) return false;
-  await this.gameLoader.triggerSystem.fire('sceneEnter', { sceneId });
-  return true;
+  const triggerSystem = this.gameLoader?.triggerSystem;
+  if (!sceneId || typeof triggerSystem?.fireAndWait !== 'function') return false;
+  const result = await triggerSystem.fireAndWait('sceneEnter', { sceneId });
+  if (!result.ok) {
+    console.warn(`[SanguoWorldRuntimeCoordinator] sceneEnter 触发器执行失败: ${sceneId}`, result.records);
+  }
+  return result.ok;
 }
 
 function getDeathDropPresentation() {

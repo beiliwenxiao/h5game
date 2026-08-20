@@ -116,8 +116,11 @@ function restoreSceneSaveState(data = {}) {
 
 function handleWorldItemPicked(item) {
   if (!this.gameLoader || !item) return false;
+  const committed = item.pickupCommitted === true || item.picked === true;
+  if (!committed) return false;
   if (!this._firedPickups) this._firedPickups = new Set();
-  const uid = item.placementId || item._pickUid || item.entityId || item.id;
+  const uid = item.pickupEventId || item.operationId
+    || item.placementId || item._pickUid || item.entityId || item.id;
   if (item.placementId && item.picked === true) {
     this.context.services.placements?.addPendingPlacementState?.(
       item.placementId,
@@ -127,8 +130,21 @@ function handleWorldItemPicked(item) {
   if (!uid || this._firedPickups.has(uid)) return false;
   this._firedPickups.add(uid);
   const itemId = item.itemId || item.id;
-  this._tutorialFlow.notify('itemPicked', { item });
-  this.gameLoader.triggerSystem.fire('itemPickup', { item: itemId, id: itemId });
+  const event = {
+    ok: true,
+    committed: true,
+    operationId: item.operationId || null,
+    groundId: item.groundId || null,
+    item
+  };
+  this._tutorialFlow.notify('itemPicked', event);
+  this.gameLoader.triggerSystem.fire('itemPickup', {
+    item: itemId,
+    id: itemId,
+    operationId: event.operationId,
+    groundId: event.groundId,
+    committed: true
+  });
   console.log('[DDScene] itemPickup:', itemId);
   return true;
 }

@@ -72,6 +72,7 @@ const commandMethods = {
   },
 
   handleGatheringEvent(event, data = {}) {
+    if (event === 'completed' && (data.ok !== true || data.committed !== true)) return false;
     void this._s01s02Coordinator.handleGatheringEvent(event, data);
     if ((event === 'completed' || event === 'interrupted')
       && data.toolBroken === true

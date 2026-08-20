@@ -218,7 +218,14 @@ export class ItemLifecycleService {
             ok: true,
             value: { action: 'pickup', groundId: command.payload.groundId, accepted: result.accepted,
               remainder: deathDrop.stacks.reduce((sum, stack) => sum + stack.quantity, 0), picked },
-            finalize: () => this._finalizePickup(worldItem, actor, picked, worldItem.picked)
+            finalize: () => this._finalizePickup({
+              worldItem,
+              actor,
+              picked,
+              complete: worldItem.picked,
+              operationId: command.operationId,
+              groundId: command.payload.groundId
+            })
           };
         },
         rollback: () => {
@@ -259,7 +266,14 @@ export class ItemLifecycleService {
         const picked = [{ definitionId, quantity: result.accepted }];
         return { ok: true, value: { action: 'pickup', groundId: command.payload.groundId,
           accepted: result.accepted, remainder, picked },
-        finalize: () => this._finalizePickup(worldItem, actor, picked, worldItem.picked) };
+        finalize: () => this._finalizePickup({
+          worldItem,
+          actor,
+          picked,
+          complete: worldItem.picked,
+          operationId: command.operationId,
+          groundId: command.payload.groundId
+        }) };
       },
       rollback: () => {
         restoreInventory(inventory, beforeInventory);
@@ -273,11 +287,24 @@ export class ItemLifecycleService {
     };
   }
 
-  _finalizePickup(worldItem, actor, picked, complete) {
+  _finalizePickup({ worldItem, actor, picked, complete, operationId, groundId }) {
+    const placementId = worldItem?.placementId || null;
+    const entityId = worldItem?.entityId || worldItem?.id || null;
     if (complete) this.removeWorldEntity(worldItem);
-    for (const entry of picked) {
+    for (let index = 0; index < picked.length; index++) {
+      const entry = picked[index];
       const definition = this._definition(entry.definitionId);
-      const item = { ...definition, quantity: entry.quantity };
+      const item = {
+        ...definition,
+        quantity: entry.quantity,
+        pickupCommitted: true,
+        operationId,
+        pickupEventId: `${operationId}:${entry.definitionId}:${index}`,
+        groundId,
+        placementId,
+        entityId,
+        picked: complete === true
+      };
       try { this.onItemGained(item, actor); } catch (error) { console.warn('Item gained presentation failed', error); }
       try { this.onWorldItemPicked(item, actor); } catch (error) { console.warn('World pickup presentation failed', error); }
     }

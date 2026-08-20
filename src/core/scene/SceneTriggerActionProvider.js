@@ -28,25 +28,25 @@ export function registerSceneTriggerActions(triggerSystem, {
   if (typeof weatherSystem?.setWeather === 'function') {
     register('setWeather', (params = {}) => {
       if (!params.type) return false;
-      weatherSystem.setWeather(params.type, params);
-      return true;
+      return weatherSystem.setWeather(params.type, params) !== false;
     });
   }
   if (typeof timeSystem?.setTimePeriod === 'function') {
     register('setTime', (params = {}) => {
       if (!params.period) return false;
-      timeSystem.setTimePeriod(params.period);
-      return true;
+      return timeSystem.setTimePeriod(params.period) !== false;
     });
   }
-  register('completeScene', (params = {}) => {
+  register('completeScene', async (params = {}) => {
     const sceneId = params.sceneId || params.scene;
     if (!sceneId) {
       logger.warn?.('completeScene: 缺少 sceneId');
-      return false;
+      return { ok: false, code: 'sceneIdRequired', committed: false };
     }
-    triggerSystem.fire('sceneComplete', { sceneId });
-    return true;
+    const result = await triggerSystem.fireAndWait('sceneComplete', { sceneId });
+    return result.ok
+      ? { ok: true, committed: true }
+      : { ok: false, code: 'sceneCompleteRejected', committed: false };
   });
   return registered;
 }

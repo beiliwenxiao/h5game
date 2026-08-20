@@ -45,8 +45,9 @@ export class SceneNpcInteractionFlow {
       const inRange = this._updateRange(transform, playerTransform, npcComponent);
       if (npcComponent.interactionTrigger !== 'approach') continue;
       if (inRange && !npcComponent.interacted) {
-        npcComponent.interacted = true;
-        return this._interact(npc, npcComponent, dialogueSystem);
+        const succeeded = this._interact(npc, npcComponent, dialogueSystem);
+        npcComponent.interacted = succeeded === true;
+        return succeeded;
       }
       if (!inRange) npcComponent.interacted = false;
     }
@@ -83,15 +84,20 @@ export class SceneNpcInteractionFlow {
   }
 
   _interact(npc, npcComponent, dialogueSystem) {
-    this.onInteract(npcComponent.npcId, npc, npcComponent);
     const dialogueId = npcComponent.dialogueId;
     const dialogueDone = !!(dialogueId && dialogueSystem?.hasCompleted?.(dialogueId));
     const canTalk = !!(dialogueId && dialogueSystem?.startDialogue
       && (npcComponent.repeatableDialogue || !dialogueDone));
-    if (canTalk) return dialogueSystem.startDialogue(dialogueId) !== false;
+    if (canTalk) {
+      const started = dialogueSystem.startDialogue(dialogueId) !== false;
+      if (started) this.onInteract(npcComponent.npcId, npc, npcComponent);
+      return started;
+    }
 
     if (npcComponent.shopId && this.getShopSystem()?.openShop) {
-      return this.getShopSystem().openShop(npcComponent.shopId) !== false;
+      const opened = this.getShopSystem().openShop(npcComponent.shopId) !== false;
+      if (opened) this.onInteract(npcComponent.npcId, npc, npcComponent);
+      return opened;
     }
     if (!dialogueDone) return false;
     this._showIdleText(npc, npcComponent);

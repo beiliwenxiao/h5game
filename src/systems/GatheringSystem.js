@@ -215,7 +215,7 @@ export class GatheringSystem {
 
     const risk = this._resolveRisk(session, terminalEvent);
     const success = {
-      ok: true, code: terminalEvent === 'completed' ? null : reason, reason, terminalEvent,
+      ok: true, committed: true, code: terminalEvent === 'completed' ? null : reason, reason, terminalEvent,
       operationId: session.operationId, accepted: result.accepted,
       remainder: result.remainder, nodeRemaining: session.node.remaining,
       toolBroken, toolInstanceId: session.tool?.instanceId || null, risk

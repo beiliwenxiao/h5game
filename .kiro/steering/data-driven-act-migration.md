@@ -37,6 +37,8 @@ fileMatchPattern: '{**/DataDrivenPrologueScene*,**/BaseGameScene*,**/TriggerActi
 | `dialogueEnd{id}` | `SceneGameLoaderBridge` 对 `dialogueSystem.onEnd` 的唯一订阅 | 对话结束 → 给物品 |
 | `sceneComplete{sceneId}` | 数据驱动触发器 `fire('sceneComplete')` | 区块流程推进 |
 
+以上事件表示**已成立事实**，不是输入尝试：物品事件只能在库存、地面对象、checkpoint 与 state revision 全部提交成功后发布；位置事件只能在玩家实际 Transform 进入目标范围后发布；NPC `interact` 只能在对话或商店成功启动后发布。`TriggerSystem.fire()/fireById()` 返回的是 accepted/consumed，不是业务成功；需要成功结果时必须使用 `fireAndWait()`、`triggerSucceeded` 或 ledger。
+
 ## 运行时约束
 
 - 默认入口和微信小游戏入口只注册 `DataDrivenPrologueScene`。

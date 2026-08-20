@@ -114,7 +114,7 @@ export class SceneTriggerBindingSystem {
     this.onPromptChange?.(binding?.prompt || '', binding || null);
   }
 
-  /** 处理统一交互事件；成功执行时返回 true，由 InputActionRouter 消费。 */
+  /** 处理统一交互事件；存在有效候选时返回 true 并消费输入，不代表后续业务动作已提交成功。 */
   handleInteract(event) {
     if (this._disposed || !this.triggerSystem) return false;
     const isKey = event?.type === InputEventType.KEY_PRESS && event.key === 'e';

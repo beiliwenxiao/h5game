@@ -54,18 +54,6 @@ export class S01S02Coordinator {
     const survival = this._story().s01Survival || {};
     const isBerry = data.itemId === 'resource.wild_berry';
     const isWolfHide = data.itemId === 'resource.wolf_hide';
-    if (event === 'progress' && isBerry
-      && Number(data.progress) >= 0.45 && !survival.axeFound && !this.pendingAxeDiscovery) {
-      this.pendingAxeDiscovery = true;
-      const result = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
-      this.pendingAxeDiscovery = false;
-      if (result.ok) {
-        this.scene._showScreenTip('采集过程中，发现了树丛中有一把破斧头。', {
-          title: '发现工具', persist: true
-        });
-      }
-      return result.ok === true;
-    }
     if (event === 'progress' && data.resourceType === 'wood'
       && Number(data.progress) >= 0.45 && !survival.firstWolfSpotted && !this.pendingWolfDiscovery) {
       this.pendingWolfDiscovery = true;
@@ -81,8 +69,32 @@ export class S01S02Coordinator {
     }
     if (event !== 'completed') return false;
     if (isBerry) {
+      // 当前版本新游戏必须先提交“斧头已落地”，再由 placement 生成地面物品。
+      // 旧快照若只有 axeFound（历史上已直接入包）而没有 axeDropped，不重复生成第二把。
+      const legacyAxeAlreadyGranted = survival.axeFound === true && survival.axeDropped !== true;
+      let axeDropped = survival.axeDropped === true;
+      if (!axeDropped && !legacyAxeAlreadyGranted && !this.pendingAxeDiscovery) {
+        this.pendingAxeDiscovery = true;
+        try {
+          const axeResult = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
+          axeDropped = axeResult.ok === true;
+          if (!axeDropped) return false;
+        } finally {
+          this.pendingAxeDiscovery = false;
+        }
+      }
+      if (axeDropped) await this._spawnGroup('S01-worn-axe');
       const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
-      if (result.ok) this.scene._showScreenTip('野果已经采到。打开背包吃下野果，先填饱肚子。', { title: '饥饿' });
+      if (result.ok) {
+        const berryCount = Math.max(0, Number(data.accepted) || 0);
+        const axeMessage = axeDropped
+          ? '；树丛里掉出一把破旧斧头，靠近后使用 {pickup} 拾取。'
+          : '。';
+        this.scene._showScreenTip(
+          `荒野酸果 ×${berryCount} 已放入背包${axeMessage}`,
+          { title: '采集完成', persist: true }
+        );
+      }
       return result.ok === true;
     }
     if (data.resourceType === 'wood') {
@@ -230,11 +242,20 @@ export class S01S02Coordinator {
       const survival = this._story().s01Survival || {};
       if (survival.campfireLit === true) return true;
       const moved = this.scene._tutorialFlow?.isCompleted?.('s01.move') === true;
+      const wakeDialogueId = 'dialogue.s01.wake';
+      if (!moved && !this.scene.dialogueSystem?.hasCompleted?.(wakeDialogueId)) {
+        if (this.scene.dialogueSystem?.isDialogueActive?.()) return true;
+        if (this.scene.dialogueSystem?.startDialogue?.(wakeDialogueId, { sceneId: 'S01' })) return true;
+      }
       this.scene._showScreenTip(moved
         ? '身体已经活动开了。靠近熄灭的篝火，使用 {interact} 点火。'
         : '寒风吹过荒原，你被冻醒了。使用 {move} 起身活动，靠近熄灭的篝火。', {
         title: moved ? '点燃篝火' : '寒风中醒来'
       });
+      return true;
+    }
+    if (operation === 'beginTutorial') {
+      this.scene._tutorialFlow?.showNext?.();
       return true;
     }
     if (operation === 'ensureMovedAfterWake') {

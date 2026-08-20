@@ -80,7 +80,7 @@ function initializeGameLoader() {
       if (this._gameLoaderBridge !== bridge || bridge.loader !== gameLoader) return gameLoader;
       await this._worldLoadPromise;
       if (!this.currentSceneId) throw new Error('ProjectWorldIndex 未提供有效启动入口');
-      gameLoader.triggerSystem.fire('sceneEnter', { sceneId: this.currentSceneId });
+      await gameLoader.triggerSystem.fire('sceneEnter', { sceneId: this.currentSceneId });
       const placementRuntime = this.context.services.placements;
       const placementValidation = placementRuntime?.validateProjection?.()
         || { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placements', message: '场景放置运行时尚未就绪' }] };
@@ -91,7 +91,10 @@ function initializeGameLoader() {
       const storyDay = gameLoader.blackboard?.get?.('storyState')?.currentDay;
       this.timeSystem?.setCurrentDay?.(storyDay);
       this._sceneTriggerBindings?.setTriggerSystem(gameLoader.triggerSystem);
-      if (this._progressionBootstrap?.isNewGame) this._tutorialFlow.showNext();
+      if (this._progressionBootstrap?.isNewGame
+        && !this.dialogueSystem?.isDialogueActive?.()) {
+        this._tutorialFlow.showNext();
+      }
       console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
       return gameLoader;
     })).catch(this.resourceScope.guard(error => {

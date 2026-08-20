@@ -19,6 +19,11 @@ import { UIElement } from './UIElement.js';
 import { ItemIconRenderer } from './ItemIconRenderer.js';
 import { InputHints } from '../core/input/InputHints.js';
 
+const EMPTY_POTION_ITEMS = Object.freeze([
+  Object.freeze({ id: 'health_potion', type: 'consumable', effect: Object.freeze({ type: 'heal' }) }),
+  Object.freeze({ id: 'mana_potion', type: 'consumable', effect: Object.freeze({ type: 'restore_mana' }) })
+]);
+
 /**
  * 底部控制栏
  */
@@ -99,6 +104,11 @@ export class BottomControlBar extends UIElement {
 
     // 是否使用 UI 编辑器的子控件独立布局（true 时不画整体背景条）
     this._hasSubLayout = false;
+    this._frameNow = 0;
+    this._hotkeyScheme = null;
+    this._hotkeyLabels = [];
+    this._potionSummaries = [{ count: 0, item: null }, { count: 0, item: null }];
+    this._orbGradientCache = null;
   }
 
   /**
@@ -178,6 +188,10 @@ export class BottomControlBar extends UIElement {
     
     if (!this.entity) return;
 
+    this._frameNow = this.now();
+    this._preparePotionSummaries(this.entity.getComponent('inventory'));
+    this._prepareHotkeyLabels();
+
     ctx.save();
 
     // 渲染背景（使用子控件独立布局时不画整体背景条）
@@ -185,18 +199,95 @@ export class BottomControlBar extends UIElement {
       this.renderBackground(ctx);
     }
     
-    // 渲染血球
+    // 渲染血球与蓝球，同帧只解析一次 StatsComponent
     if (this.showOrbs) {
-      this.renderHpOrb(ctx);
-      
-      // 渲染蓝球
-      this.renderMpOrb(ctx);
+      const stats = this.entity.getComponent('stats');
+      this.renderHpOrb(ctx, stats);
+      this.renderMpOrb(ctx, stats);
     }
     
     // 渲染技能槽
     this.renderSkillSlots(ctx);
 
     ctx.restore();
+  }
+
+  _preparePotionSummaries(inventory) {
+    const health = this._potionSummaries[0];
+    const mana = this._potionSummaries[1];
+    health.count = 0;
+    health.item = null;
+    mana.count = 0;
+    mana.item = null;
+    if (!inventory) return;
+
+    const slots = Array.isArray(inventory.slots) ? inventory.slots : null;
+    if (slots) {
+      for (let index = 0; index < slots.length; index++) {
+        const slot = slots[index];
+        const item = slot?.item;
+        if (!item || item.type !== 'consumable' || !item.usable || !item.effect) continue;
+        const summary = item.effect.type === 'heal'
+          ? health
+          : item.effect.type === 'restore_mana' ? mana : null;
+        if (!summary) continue;
+        if (!summary.item) summary.item = item;
+        summary.count += slot.quantity;
+      }
+      return;
+    }
+
+    // 兼容只暴露旧 getAllItems() 的库存实现。
+    const items = inventory.getAllItems?.() || [];
+    for (let index = 0; index < items.length; index++) {
+      const slot = items[index]?.slot;
+      const item = slot?.item;
+      if (!item || item.type !== 'consumable' || !item.usable || !item.effect) continue;
+      const summary = item.effect.type === 'heal'
+        ? health
+        : item.effect.type === 'restore_mana' ? mana : null;
+      if (!summary) continue;
+      if (!summary.item) summary.item = item;
+      summary.count += slot.quantity;
+    }
+  }
+
+  _prepareHotkeyLabels() {
+    const scheme = InputHints.scheme;
+    if (this._hotkeyScheme === scheme && this._hotkeyLabels.length === this.skillSlots.length) return;
+    this._hotkeyScheme = scheme;
+    this._hotkeyLabels.length = this.skillSlots.length;
+    for (let index = 0; index < this.skillSlots.length; index++) {
+      const slot = this.skillSlots[index];
+      this._hotkeyLabels[index] = slot.hintAction ? InputHints.key(slot.hintAction) : slot.hotkey;
+    }
+  }
+
+  _getOrbGradients(ctx) {
+    const hpX = this.x + this.hpOrb.x;
+    const hpY = this.y + this.hpOrb.y;
+    const mpX = this.x + this.mpOrb.x;
+    const mpY = this.y + this.mpOrb.y;
+    const signature = `${hpX}:${hpY}:${this.hpOrb.radius}:${mpX}:${mpY}:${this.mpOrb.radius}`;
+    if (this._orbGradientCache?.ctx === ctx && this._orbGradientCache.signature === signature) {
+      return this._orbGradientCache;
+    }
+    const hpGlow = ctx.createRadialGradient(hpX, hpY, 0, hpX, hpY, this.hpOrb.radius + 10);
+    hpGlow.addColorStop(0, this.hpOrb.glowColor);
+    hpGlow.addColorStop(0.7, this.hpOrb.color);
+    hpGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    const mpGlow = ctx.createRadialGradient(mpX, mpY, 0, mpX, mpY, this.mpOrb.radius + 10);
+    mpGlow.addColorStop(0, this.mpOrb.glowColor);
+    mpGlow.addColorStop(0.7, this.mpOrb.color);
+    mpGlow.addColorStop(1, 'rgba(0, 102, 255, 0)');
+    const hpFill = ctx.createLinearGradient(hpX, hpY - this.hpOrb.radius, hpX, hpY + this.hpOrb.radius);
+    hpFill.addColorStop(0, '#ff6666');
+    hpFill.addColorStop(1, '#cc0000');
+    const mpFill = ctx.createLinearGradient(mpX, mpY - this.mpOrb.radius, mpX, mpY + this.mpOrb.radius);
+    mpFill.addColorStop(0, '#6699ff');
+    mpFill.addColorStop(1, '#0044cc');
+    this._orbGradientCache = { ctx, signature, hpGlow, mpGlow, hpFill, mpFill };
+    return this._orbGradientCache;
   }
 
   /**
@@ -221,22 +312,16 @@ export class BottomControlBar extends UIElement {
    * 渲染血球
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
-  renderHpOrb(ctx) {
-    if (!this.entity) return;
-    
-    const stats = this.entity.getComponent('stats');
-    if (!stats) return;
-    
+  renderHpOrb(ctx, stats = this.entity?.getComponent?.('stats')) {
+    if (!this.entity || !stats) return;
+
     const hpRatio = stats.maxHp > 0 ? stats.hp / stats.maxHp : 0;
     const orbX = this.x + this.hpOrb.x;
     const orbY = this.y + this.hpOrb.y;
     const radius = this.hpOrb.radius;
     
-    // 外发光效果
-    const gradient = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, radius + 10);
-    gradient.addColorStop(0, this.hpOrb.glowColor);
-    gradient.addColorStop(0.7, this.hpOrb.color);
-    gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    // 外发光效果（位置和半径不变时复用 CanvasGradient）
+    const gradient = this._getOrbGradients(ctx).hpGlow;
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -259,11 +344,7 @@ export class BottomControlBar extends UIElement {
       const fillHeight = radius * 2 * hpRatio;
       const fillY = orbY + radius - fillHeight;
       
-      const hpGradient = ctx.createLinearGradient(orbX, fillY, orbX, orbY + radius);
-      hpGradient.addColorStop(0, '#ff6666');
-      hpGradient.addColorStop(1, '#cc0000');
-      
-      ctx.fillStyle = hpGradient;
+      ctx.fillStyle = this._getOrbGradients(ctx).hpFill;
       ctx.fillRect(orbX - radius, fillY, radius * 2, fillHeight);
       
       ctx.restore();
@@ -294,22 +375,16 @@ export class BottomControlBar extends UIElement {
    * 渲染蓝球
    * @param {CanvasRenderingContext2D} ctx - 渲染上下文
    */
-  renderMpOrb(ctx) {
-    if (!this.entity) return;
-    
-    const stats = this.entity.getComponent('stats');
-    if (!stats) return;
-    
+  renderMpOrb(ctx, stats = this.entity?.getComponent?.('stats')) {
+    if (!this.entity || !stats) return;
+
     const mpRatio = stats.maxMp > 0 ? stats.mp / stats.maxMp : 0;
     const orbX = this.x + this.mpOrb.x;
     const orbY = this.y + this.mpOrb.y;
     const radius = this.mpOrb.radius;
     
-    // 外发光效果
-    const gradient = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, radius + 10);
-    gradient.addColorStop(0, this.mpOrb.glowColor);
-    gradient.addColorStop(0.7, this.mpOrb.color);
-    gradient.addColorStop(1, 'rgba(0, 102, 255, 0)');
+    // 外发光效果（位置和半径不变时复用 CanvasGradient）
+    const gradient = this._getOrbGradients(ctx).mpGlow;
     
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -332,11 +407,7 @@ export class BottomControlBar extends UIElement {
       const fillHeight = radius * 2 * mpRatio;
       const fillY = orbY + radius - fillHeight;
       
-      const mpGradient = ctx.createLinearGradient(orbX, fillY, orbX, orbY + radius);
-      mpGradient.addColorStop(0, '#6699ff');
-      mpGradient.addColorStop(1, '#0044cc');
-      
-      ctx.fillStyle = mpGradient;
+      ctx.fillStyle = this._getOrbGradients(ctx).mpFill;
       ctx.fillRect(orbX - radius, fillY, radius * 2, fillHeight);
       
       ctx.restore();
@@ -371,7 +442,6 @@ export class BottomControlBar extends UIElement {
     if (!this.entity) return;
     
     const combat = this.entity.getComponent('combat');
-    const inventory = this.entity.getComponent('inventory');
     
     for (let i = 0; i < this.skillSlots.length; i++) {
       const slot = this.skillSlots[i];
@@ -397,17 +467,17 @@ export class BottomControlBar extends UIElement {
       
       // 渲染内容
       if (slot.isPotion) {
-        this.renderPotionSlot(ctx, slotX, slotY, slot.size, i, inventory);
+        this.renderPotionSlot(ctx, slotX, slotY, slot.size, i, this._potionSummaries[i]);
       } else if (combat && combat.skills) {
         const skill = combat.skills[slot.skillIndex];
         if (skill) {
-          this.renderSkill(ctx, skill, slotX, slotY, slot.size, combat);
+          this.renderSkill(ctx, skill, slotX, slotY, slot.size, combat, this._frameNow);
         }
       }
       
-      // 快捷键提示（槽下方）—— 手柄连接时显示手柄按钮名
+      // 快捷键提示（槽下方）—— 当前输入方案变化时才重新解析
       if (this.showHotkeyNumbers) {
-        const hotkeyText = slot.hintAction ? InputHints.key(slot.hintAction) : slot.hotkey;
+        const hotkeyText = this._hotkeyLabels[i] || slot.hotkey;
         ctx.fillStyle = '#ffd479';
         ctx.font = 'bold 11px Arial';
         ctx.textAlign = 'center';
@@ -436,23 +506,9 @@ export class BottomControlBar extends UIElement {
   /**
    * 渲染药水快捷槽
    */
-  renderPotionSlot(ctx, x, y, size, slotIndex, inventory) {
-    const isHealth = slotIndex === 0;
-    const effectType = isHealth ? 'heal' : 'restore_mana';
-    
-    // 查找背包中对应效果的消耗品（第一个匹配的物品 + 总数量）
-    let potionCount = 0;
-    let potionItem = null;
-    if (inventory) {
-      const items = inventory.getAllItems();
-      for (const { slot } of items) {
-        if (slot.item && slot.item.type === 'consumable' && slot.item.usable &&
-            slot.item.effect && slot.item.effect.type === effectType) {
-          if (!potionItem) potionItem = slot.item;
-          potionCount += slot.quantity;
-        }
-      }
-    }
+  renderPotionSlot(ctx, x, y, size, slotIndex, summary) {
+    const potionCount = summary?.count || 0;
+    const potionItem = summary?.item || null;
     
     ctx.save();
     
@@ -474,11 +530,7 @@ export class BottomControlBar extends UIElement {
     } else {
       // 空槽 - 半透明占位图标
       ctx.globalAlpha = 0.3;
-      const placeholderItem = {
-        id: isHealth ? 'health_potion' : 'mana_potion',
-        type: 'consumable',
-        effect: { type: effectType }
-      };
+      const placeholderItem = EMPTY_POTION_ITEMS[slotIndex];
       ItemIconRenderer.drawIcon(ctx, placeholderItem, x, y, size * 0.8);
       ctx.globalAlpha = 1.0;
     }
@@ -495,14 +547,13 @@ export class BottomControlBar extends UIElement {
    * @param {number} size - 尺寸
    * @param {Object} combatComponent - 战斗组件
    */
-  renderSkill(ctx, skill, x, y, size, combatComponent) {
+  renderSkill(ctx, skill, x, y, size, combatComponent, currentTime = this._frameNow || this.now()) {
     const halfSize = size / 2;
     
     // 技能图标（简化为图形）
     this.renderSkillIcon(ctx, skill, x, y, size);
     
     // 冷却遮罩
-    const currentTime = this.now();
     const cooldownMs = combatComponent.getSkillCooldownRemaining(skill.id, currentTime);
     const cooldown = cooldownMs / 1000; // 转换为秒
     

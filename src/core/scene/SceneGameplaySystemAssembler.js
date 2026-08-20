@@ -32,6 +32,7 @@ import { CombatEffects } from '../../rendering/CombatEffects.js';
 import { SkillEffects } from '../../rendering/SkillEffects.js';
 import { WeaponRenderer } from '../../rendering/WeaponRenderer.js';
 import { EnemyWeaponRenderer } from '../../rendering/EnemyWeaponRenderer.js';
+import { GatheringProgressPresenter } from '../../ui/GatheringProgressPresenter.js';
 
 export class SceneGameplaySystemAssembler {
   constructor(scene) {
@@ -120,6 +121,7 @@ export class SceneGameplaySystemAssembler {
       weaponRenderer: scene.weaponRenderer,
       commandGateway: scene.sceneRuntime?.commandGateway
     });
+    scene.gatheringProgressPresenter = new GatheringProgressPresenter();
     scene.gatheringSystem = new GatheringSystem({
       inventoryTransactions: scene.inventoryTransactions,
       itemResolver: (itemId, resourceType) => scene.gameLoader?.registries?.items?.get?.(itemId) || {
@@ -291,6 +293,7 @@ export class SceneGameplaySystemAssembler {
       ['gameplay.collision', scene.collisionSystem],
       ['gameplay.inventoryTransactions', scene.inventoryTransactions],
       ['gameplay.pickup', scene.pickupSystem],
+      ['gameplay.gatheringProgress', scene.gatheringProgressPresenter, 'dispose'],
       ['gameplay.gathering', scene.gatheringSystem],
       ['gameplay.gatheringPuppet', scene.gatheringPuppetSystem, 'dispose'],
       ['gameplay.playerDefeat', scene.playerDefeatService],
@@ -322,7 +325,8 @@ export class SceneGameplaySystemAssembler {
     const presentationFields = {
       combatEffects: 'combatEffects', skillEffects: 'skillEffects', weaponRenderer: 'weaponRenderer',
       enemyWeaponRenderer: 'enemyWeaponRenderer', particleSystem: 'particleSystem',
-      floatingTextManager: 'floatingTextManager', effectZoneRenderer: 'effectZoneRenderer'
+      floatingTextManager: 'floatingTextManager', effectZoneRenderer: 'effectZoneRenderer',
+      gatheringProgress: 'gatheringProgressPresenter'
     };
     const projections = [];
     for (const [key, field] of Object.entries(systemFields)) {

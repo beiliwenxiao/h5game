@@ -83,6 +83,11 @@ export class Minimap extends UIElement {
     this.npcPositions = [];
     // 相机视野范围
     this.viewBounds = null;
+    this._followCacheKey = null;
+    this._renderTransform = {
+      offsetX: 0, offsetY: 0, scaleX: 0, scaleY: 0,
+      clipLeft: 0, clipTop: 0, clipRight: 0, clipBottom: 0
+    };
   }
 
   /**
@@ -135,6 +140,7 @@ export class Minimap extends UIElement {
   zoomIn() {
     if (this._zoomLevel > 0) {
       this._zoomLevel--;
+      this._followCacheKey = null;
       this._invalidateCache();
     }
   }
@@ -143,6 +149,7 @@ export class Minimap extends UIElement {
   zoomOut() {
     if (this._zoomLevel < this._maxZoomLevel) {
       this._zoomLevel++;
+      this._followCacheKey = null;
       this._invalidateCache();
     }
   }
@@ -349,24 +356,18 @@ export class Minimap extends UIElement {
    */
   _worldToMinimap(worldPos) {
     if (!this._mapCache || this._drawW === 0) return null;
-
-    const worldW = this._worldMaxX - this._worldMinX;
-    const worldH = this._worldMaxY - this._worldMinY;
-    if (worldW <= 0 || worldH <= 0) return null;
-
-    const relX = (worldPos.x - this._worldMinX) / worldW;
-    const relY = (worldPos.y - this._worldMinY) / worldH;
-
-    // 地图缓存在面板中居中的偏移
-    const innerW = this.width - this.padding * 2;
-    const innerH = this.height - this.padding * 2;
-    const offsetX = this.x + this.padding + (innerW - this._drawW) / 2;
-    const offsetY = this.y + this.padding + (innerH - this._drawH) / 2;
-
+    const transform = this._renderTransform;
     return {
-      x: offsetX + relX * this._drawW,
-      y: offsetY + relY * this._drawH
+      x: transform.offsetX + (worldPos.x - this._worldMinX) * transform.scaleX,
+      y: transform.offsetY + (worldPos.y - this._worldMinY) * transform.scaleY
     };
+  }
+
+  _isMarkerVisible(x, y) {
+    const transform = this._renderTransform;
+    const margin = this.markerSize;
+    return x + margin >= transform.clipLeft && x - margin <= transform.clipRight
+      && y + margin >= transform.clipTop && y - margin <= transform.clipBottom;
   }
 
   /**
@@ -374,11 +375,35 @@ export class Minimap extends UIElement {
    * @param {number} deltaTime - ms
    */
   update(deltaTime) {
-    // 对于跟随玩家/相机的缩放级别，持续使缓存过期（由 cooldown 节流）
+    // 跟随玩家/相机的缩放级别只在窗口跨过至少一个小地图像素时失效，
+    // 避免静止或亚像素移动每帧递增版本。
     if (this._zoomLevel < 2) {
-      this._invalidateCache();
+      const followKey = this._getFollowCacheKey();
+      if (followKey !== this._followCacheKey) {
+        this._followCacheKey = followKey;
+        this._invalidateCache();
+      }
     }
     this._tryBuildCache(deltaTime);
+  }
+
+  _getFollowCacheKey() {
+    let centerX;
+    let centerY;
+    if (this._zoomLevel === 0 && this.viewBounds) {
+      centerX = (this.viewBounds.left + this.viewBounds.right) / 2;
+      centerY = (this.viewBounds.top + this.viewBounds.bottom) / 2;
+    } else if (this._zoomLevel === 1 && this.playerPosition) {
+      centerX = this.playerPosition.x;
+      centerY = this.playerPosition.y;
+    } else {
+      return `zoom:${this._zoomLevel}`;
+    }
+    const worldW = Math.max(1, this._worldMaxX - this._worldMinX);
+    const worldH = Math.max(1, this._worldMaxY - this._worldMinY);
+    const stepX = Math.max(1, worldW / Math.max(1, this._drawW || this.width));
+    const stepY = Math.max(1, worldH / Math.max(1, this._drawH || this.height));
+    return `${this._zoomLevel}:${Math.floor(centerX / stepX)}:${Math.floor(centerY / stepY)}`;
   }
 
   /**
@@ -407,6 +432,15 @@ export class Minimap extends UIElement {
       const innerH = this.height - this.padding * 2;
       const offsetX = this.x + this.padding + (innerW - this._drawW) / 2;
       const offsetY = this.y + this.padding + (innerH - this._drawH) / 2;
+      const transform = this._renderTransform;
+      transform.offsetX = offsetX;
+      transform.offsetY = offsetY;
+      transform.scaleX = this._drawW / Math.max(1, this._worldMaxX - this._worldMinX);
+      transform.scaleY = this._drawH / Math.max(1, this._worldMaxY - this._worldMinY);
+      transform.clipLeft = this.x + this.padding;
+      transform.clipTop = this.y + this.padding;
+      transform.clipRight = transform.clipLeft + innerW;
+      transform.clipBottom = transform.clipTop + innerH;
 
       // 裁剪
       ctx.save();
@@ -444,47 +478,57 @@ export class Minimap extends UIElement {
 
   _renderViewBounds(ctx) {
     if (!this.viewBounds) return;
-    const tl = this._worldToMinimap({ x: this.viewBounds.left, y: this.viewBounds.top });
-    const br = this._worldToMinimap({ x: this.viewBounds.right, y: this.viewBounds.bottom });
-    if (!tl || !br) return;
+    const transform = this._renderTransform;
+    const left = transform.offsetX + (this.viewBounds.left - this._worldMinX) * transform.scaleX;
+    const top = transform.offsetY + (this.viewBounds.top - this._worldMinY) * transform.scaleY;
+    const right = transform.offsetX + (this.viewBounds.right - this._worldMinX) * transform.scaleX;
+    const bottom = transform.offsetY + (this.viewBounds.bottom - this._worldMinY) * transform.scaleY;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    ctx.strokeRect(left, top, right - left, bottom - top);
   }
 
   _renderPlayerMarker(ctx) {
     if (!this.playerPosition) return;
-    const pos = this._worldToMinimap(this.playerPosition);
-    if (!pos) return;
+    const transform = this._renderTransform;
+    const x = transform.offsetX + (this.playerPosition.x - this._worldMinX) * transform.scaleX;
+    const y = transform.offsetY + (this.playerPosition.y - this._worldMinY) * transform.scaleY;
+    if (!this._isMarkerVisible(x, y)) return;
     ctx.fillStyle = this.playerColor;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, this.markerSize, 0, Math.PI * 2);
+    ctx.arc(x, y, this.markerSize, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, this.markerSize, 0, Math.PI * 2);
+    ctx.arc(x, y, this.markerSize, 0, Math.PI * 2);
     ctx.stroke();
   }
 
   _renderEnemyMarkers(ctx) {
     ctx.fillStyle = this.enemyColor;
-    for (const pos of this.enemyPositions) {
-      const p = this._worldToMinimap(pos);
-      if (!p) continue;
+    const transform = this._renderTransform;
+    for (let index = 0; index < this.enemyPositions.length; index++) {
+      const pos = this.enemyPositions[index];
+      const x = transform.offsetX + (pos.x - this._worldMinX) * transform.scaleX;
+      const y = transform.offsetY + (pos.y - this._worldMinY) * transform.scaleY;
+      if (!this._isMarkerVisible(x, y)) continue;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, this.markerSize - 1, 0, Math.PI * 2);
+      ctx.arc(x, y, this.markerSize - 1, 0, Math.PI * 2);
       ctx.fill();
     }
   }
 
   _renderNPCMarkers(ctx) {
     ctx.fillStyle = this.npcColor;
-    for (const pos of this.npcPositions) {
-      const p = this._worldToMinimap(pos);
-      if (!p) continue;
+    const transform = this._renderTransform;
+    for (let index = 0; index < this.npcPositions.length; index++) {
+      const pos = this.npcPositions[index];
+      const x = transform.offsetX + (pos.x - this._worldMinX) * transform.scaleX;
+      const y = transform.offsetY + (pos.y - this._worldMinY) * transform.scaleY;
+      if (!this._isMarkerVisible(x, y)) continue;
       ctx.beginPath();
-      ctx.arc(p.x, p.y, this.markerSize - 1, 0, Math.PI * 2);
+      ctx.arc(x, y, this.markerSize - 1, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -518,6 +562,7 @@ export class Minimap extends UIElement {
     if (!this.visible || !this.containsPoint(x, y)) return false;
     // 循环切换：0 → 1 → 2 → 0
     this._zoomLevel = (this._zoomLevel + 1) % (this._maxZoomLevel + 1);
+    this._followCacheKey = null;
     this._invalidateCache();
     return true;
   }

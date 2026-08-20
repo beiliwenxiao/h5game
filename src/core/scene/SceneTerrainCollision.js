@@ -34,6 +34,7 @@ const SCENE_OBJECT_PROJECTOR = new SceneObjectProjector();
  *   const zones = SceneTerrainCollision.collectBuffZones(terrains);
  */
 const EMPTY_SPATIAL_ITEMS = Object.freeze([]);
+const EMPTY_OPTIONS = Object.freeze({});
 
 export class SceneTerrainCollision {
   /**
@@ -109,13 +110,19 @@ export class SceneTerrainCollision {
    * 旧椭圆盆地只是视觉地形，不再作为任何 terrain 的物理边界。
    */
   resolveTerrains(terrains, entities, { entityRadius = null } = {}) {
-    const list = (terrains || []).filter(Boolean);
-    if (list.length === 0) return;
-    for (const terrain of list) {
-      this.resolveEntities(terrain, entities, {
-        ...(entityRadius == null ? {} : { entityRadius })
-      });
+    if (!terrains || terrains.length === 0) return;
+    const options = entityRadius == null ? EMPTY_OPTIONS : { entityRadius };
+    for (let index = 0; index < terrains.length; index++) {
+      const terrain = terrains[index];
+      if (!terrain) continue;
+      this.resolveEntities(terrain, entities, options);
     }
+  }
+
+  /** 显式使动态碰撞体变更后的 terrain 索引失效。 */
+  invalidate(terrain) {
+    if (!terrain) return false;
+    return this._spatialCache.delete(terrain);
   }
 
   /**

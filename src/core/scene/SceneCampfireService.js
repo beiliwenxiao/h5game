@@ -112,7 +112,7 @@ const campfireFeatureMethods = {
     if (totalFogOpacity > 0.01) {
       ctx.save();
       const playerTransform = this.playerEntity?.getComponent?.('transform');
-      const viewBounds = this.camera.getViewBounds();
+      const viewBounds = this.viewBounds || this.camera.getViewBounds();
       if (playerTransform) {
         // 雾是低频柔化层，以半分辨率离屏合成后放大；像素处理量降为 1/4，
         // 不改变世界坐标、光照半径或 Story 状态。
@@ -122,46 +122,38 @@ const campfireFeatureMethods = {
         const playerScreenX = (playerTransform.position.x - viewBounds.left) * renderScale;
         const playerScreenY = (playerTransform.position.y - viewBounds.top) * renderScale;
         const lightRadius = 150 * renderScale;
-        if (!this._fogCanvas) this._fogCanvas = this.createCanvas();
+        if (!this._fogCanvas) {
+          this._fogCanvas = this.createCanvas();
+          this._fogContext = this._fogCanvas.getContext('2d');
+        }
         if (this._fogCanvas.width !== fogWidth || this._fogCanvas.height !== fogHeight) {
           this._fogCanvas.width = fogWidth;
           this._fogCanvas.height = fogHeight;
         }
-        const fogCtx = this._fogCanvas.getContext('2d');
-        fogCtx.clearRect(0, 0, fogWidth, fogHeight);
+        const fogCtx = this._fogContext || (this._fogContext = this._fogCanvas.getContext('2d'));
+        // copy 一次覆盖完整离屏层，避免 clearRect + source-over 两次全屏像素写入。
+        fogCtx.globalCompositeOperation = 'copy';
         fogCtx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
         fogCtx.fillRect(0, 0, fogWidth, fogHeight);
         fogCtx.globalCompositeOperation = 'destination-out';
 
         const yScale = 0.6;
-        fogCtx.save();
-        fogCtx.translate(playerScreenX, playerScreenY);
-        fogCtx.scale(1, yScale);
-        const gradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, lightRadius);
-        gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-        gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
-        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        fogCtx.fillStyle = gradient;
-        fogCtx.beginPath();
-        fogCtx.arc(0, 0, lightRadius, 0, Math.PI * 2);
-        fogCtx.fill();
-        fogCtx.restore();
+        const playerMask = this._getFogMask('player', lightRadius, yScale);
+        fogCtx.drawImage(
+          playerMask,
+          playerScreenX - playerMask.width / 2,
+          playerScreenY - playerMask.height / 2
+        );
         if (this.campfire.lit) {
           const campScreenX = (this.campfire.x - viewBounds.left) * renderScale;
           const campScreenY = (this.campfire.y - viewBounds.top) * renderScale;
           const campLightRadius = this.presentation.lightRadius * renderScale;
-          fogCtx.save();
-          fogCtx.translate(campScreenX, campScreenY);
-          fogCtx.scale(1, yScale);
-          const campGradient = fogCtx.createRadialGradient(0, 0, 0, 0, 0, campLightRadius);
-          campGradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
-          campGradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
-          campGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-          fogCtx.fillStyle = campGradient;
-          fogCtx.beginPath();
-          fogCtx.arc(0, 0, campLightRadius, 0, Math.PI * 2);
-          fogCtx.fill();
-          fogCtx.restore();
+          const campMask = this._getFogMask('campfire', campLightRadius, yScale);
+          fogCtx.drawImage(
+            campMask,
+            campScreenX - campMask.width / 2,
+            campScreenY - campMask.height / 2
+          );
         }
 
         fogCtx.globalCompositeOperation = 'source-over';
@@ -365,6 +357,19 @@ export class SceneCampfireService {
     this.onExtinguished = config.onExtinguished || null;
     this.logger = config.logger || console;
     this._fogCanvas = null;
+    this._fogContext = null;
+    this._fogMasks = new Map();
+    this._renderContext = null;
+    this._campfireRenderItems = [
+      {
+        type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0,
+        render: () => campfireFeatureMethods.renderCampfireBottom.call(this, this._renderContext)
+      },
+      {
+        type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0,
+        render: () => campfireFeatureMethods.renderCampfireTop.call(this, this._renderContext)
+      }
+    ];
     if (config.configView) this.configure(config.configView);
   }
 
@@ -444,7 +449,38 @@ export class SceneCampfireService {
     this.presentation = presentationState;
     this.configView = next;
     this._fogCanvas = null;
+    this._fogContext = null;
+    this._fogMasks.clear();
     return this.configView;
+  }
+
+  _getFogMask(kind, radius, yScale) {
+    const safeRadius = Math.max(1, Number(radius) || 1);
+    const safeYScale = Math.max(0.01, Number(yScale) || 1);
+    const key = `${kind}:${safeRadius}:${safeYScale}`;
+    const cached = this._fogMasks.get(key);
+    if (cached) return cached;
+
+    const canvas = this.createCanvas();
+    canvas.width = Math.max(2, Math.ceil(safeRadius * 2) + 2);
+    canvas.height = Math.max(2, Math.ceil(safeRadius * 2 * safeYScale) + 2);
+    const maskCtx = canvas.getContext('2d');
+    maskCtx.translate(canvas.width / 2, canvas.height / 2);
+    maskCtx.scale(1, safeYScale);
+    const gradient = maskCtx.createRadialGradient(0, 0, 0, 0, 0, safeRadius);
+    gradient.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    if (kind === 'campfire') {
+      gradient.addColorStop(0.4, 'rgba(0, 0, 0, 0.8)');
+    } else {
+      gradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.6)');
+    }
+    gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    maskCtx.fillStyle = gradient;
+    maskCtx.beginPath();
+    maskCtx.arc(0, 0, safeRadius, 0, Math.PI * 2);
+    maskCtx.fill();
+    this._fogMasks.set(key, canvas);
+    return canvas;
   }
 
   isConfigured() { return this.configView !== null; }
@@ -455,6 +491,7 @@ export class SceneCampfireService {
     this.weatherSystem = runtime.weatherSystem || null;
     this.playerEntity = runtime.playerEntity || null;
     this.camera = runtime.camera || null;
+    this.viewBounds = runtime.viewBounds || null;
     this.flightSystem = runtime.flightSystem || null;
     this.logicalWidth = Number(runtime.width) || this.logicalWidth || 1280;
     this.logicalHeight = Number(runtime.height) || this.logicalHeight || 720;
@@ -538,14 +575,12 @@ export class SceneCampfireService {
   appendRenderItems(queue, ctx, runtime = {}) {
     if (!this.isConfigured() || !Array.isArray(queue)) return false;
     this._bindRuntime(runtime);
-    queue.push({
-      type: 'campfire_bottom', y: this.campfire.y, sortPriority: 0,
-      render: () => campfireFeatureMethods.renderCampfireBottom.call(this, ctx)
-    });
-    queue.push({
-      type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0,
-      render: () => campfireFeatureMethods.renderCampfireTop.call(this, ctx)
-    });
+    this._renderContext = ctx;
+    const bottom = this._campfireRenderItems[0];
+    const top = this._campfireRenderItems[1];
+    bottom.y = this.campfire.y;
+    top.y = this.campfire.y - 1;
+    queue.push(bottom, top);
     return true;
   }
 
@@ -561,6 +596,9 @@ export class SceneCampfireService {
     if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
     this.campfire.emitterSmoke = null;
     this._fogCanvas = null;
+    this._fogContext = null;
+    this._renderContext = null;
+    this._fogMasks.clear();
   }
 }
 

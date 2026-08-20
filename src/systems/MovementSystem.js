@@ -312,21 +312,17 @@ export class MovementSystem {
    */
   findEnemyAtPosition(position, entities) {
     const clickRadius = 30;
-    const enemies = entities.filter(e => e.type === 'enemy' && !e.isDead);
-    
-    for (const enemy of enemies) {
+    const clickRadiusSquared = clickRadius * clickRadius;
+    for (let index = 0, length = entities?.length || 0; index < length; index++) {
+      const enemy = entities[index];
+      if (enemy?.type !== 'enemy' || enemy.isDead) continue;
       const transform = enemy.getComponent('transform');
       if (!transform) continue;
-      
+
       const dx = transform.position.x - position.x;
       const dy = transform.position.y - position.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance <= clickRadius) {
-        return enemy;
-      }
+      if (dx * dx + dy * dy <= clickRadiusSquared) return enemy;
     }
-    
     return null;
   }
 

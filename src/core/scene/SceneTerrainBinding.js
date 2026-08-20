@@ -145,6 +145,7 @@ export class SceneTerrainBinding {
         terrain._collisionShapes.splice(index, 1);
       }
     }
+    scene._terrainCollision?.invalidate?.(terrain);
     if (!enabled) return true;
     if (!shape || typeof shape !== 'object') return false;
 

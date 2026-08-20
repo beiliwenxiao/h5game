@@ -34,6 +34,15 @@ export class CollisionSystem {
     this.widthRatio = config.widthRatio ?? 0.8;
     this.heightRatio = config.heightRatio ?? 0.75;
     this.collidableLayers = config.collidableLayers ?? ['player', 'enemy'];
+    this.broadPhaseThreshold = Math.max(2, config.broadPhaseThreshold ?? 24);
+    this.broadPhaseCellSize = Math.max(32, config.broadPhaseCellSize ?? 64);
+    this._collidableLayers = new Set(this.collidableLayers);
+    this._collidableBuffer = [];
+    this._transformBuffer = [];
+    this._broadPhaseGrid = new Map();
+    this._bucketPool = [];
+    this._usedBucketCount = 0;
+    this._pairBuffer = [];
     
     // 碰撞回调列表
     this.onCollisionCallbacks = [];
@@ -52,51 +61,124 @@ export class CollisionSystem {
    * @param {Array} entities - 实体列表
    */
   update(entities) {
-    const collidable = entities.filter(e => 
-      !e.isDead && !e.isDying && this.collidableLayers.includes(e.type)
-    );
-    
+    const collidable = this._collidableBuffer;
+    const transforms = this._transformBuffer;
+    collidable.length = 0;
+    transforms.length = 0;
+
+    for (let index = 0, length = entities?.length || 0; index < length; index++) {
+      const entity = entities[index];
+      if (!entity || entity.isDead || entity.isDying || !this._collidableLayers.has(entity.type)) continue;
+      const transform = entity.getComponent?.('transform');
+      if (!transform) continue;
+      collidable.push(entity);
+      transforms.push(transform);
+    }
+
+    const count = collidable.length;
+    if (count < 2) return;
     const radius = this.entityRadius * this.widthRatio;
     const halfHeight = this.entityRadius * this.heightRatio;
-    
-    for (let i = 0; i < collidable.length; i++) {
-      const a = collidable[i];
-      const ta = a.getComponent('transform');
-      if (!ta) continue;
-      
-      for (let j = i + 1; j < collidable.length; j++) {
-        const b = collidable[j];
-        const tb = b.getComponent('transform');
-        if (!tb) continue;
-        
-        // AABB 检测
-        const dx = ta.position.x - tb.position.x;
-        const dy = ta.position.y - tb.position.y;
-        
-        if (Math.abs(dx) < radius * 2 && Math.abs(dy) < halfHeight * 2) {
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          if (distance === 0) continue;
-          
-          const nx = dx / distance;
-          const ny = dy / distance;
-          const overlapX = (radius * 2) - Math.abs(dx);
-          const overlapY = (halfHeight * 2) - Math.abs(dy);
-          const push = Math.min(overlapX, overlapY) / 2;
-          
-          if (Math.abs(overlapX) < Math.abs(overlapY)) {
-            ta.position.x += nx * push;
-            tb.position.x -= nx * push;
-          } else {
-            ta.position.y += ny * push;
-            tb.position.y -= ny * push;
-          }
-          
-          // 触发回调
-          for (const cb of this.onCollisionCallbacks) {
-            cb(a, b);
-          }
+
+    if (count < this.broadPhaseThreshold) {
+      for (let i = 0; i < count; i++) {
+        for (let j = i + 1; j < count; j++) {
+          this._resolvePair(collidable[i], transforms[i], collidable[j], transforms[j], radius, halfHeight);
         }
       }
+      return;
+    }
+
+    this._buildBroadPhase(transforms, Math.max(this.broadPhaseCellSize, radius * 2, halfHeight * 2));
+    const pairs = this._pairBuffer;
+    pairs.length = 0;
+    for (const [cellX, column] of this._broadPhaseGrid) {
+      for (const [cellY, bucket] of column) {
+        this._appendBucketPairs(bucket, bucket, count, true);
+        this._appendNeighborPairs(cellX, cellY, bucket, count);
+      }
+    }
+    // 保留旧双循环按实体索引处理的稳定顺序，避免回调及推开结果随机化。
+    pairs.sort((a, b) => a - b);
+    for (let index = 0; index < pairs.length; index++) {
+      const key = pairs[index];
+      const i = Math.floor(key / count);
+      const j = key - i * count;
+      this._resolvePair(collidable[i], transforms[i], collidable[j], transforms[j], radius, halfHeight);
+    }
+  }
+
+  _buildBroadPhase(transforms, cellSize) {
+    this._broadPhaseGrid.clear();
+    this._usedBucketCount = 0;
+    this._activeBroadPhaseCellSize = cellSize;
+    for (let index = 0; index < transforms.length; index++) {
+      const position = transforms[index].position;
+      const cellX = Math.floor(position.x / cellSize);
+      const cellY = Math.floor(position.y / cellSize);
+      let column = this._broadPhaseGrid.get(cellX);
+      if (!column) this._broadPhaseGrid.set(cellX, (column = new Map()));
+      let bucket = column.get(cellY);
+      if (!bucket) {
+        bucket = this._bucketPool[this._usedBucketCount] || [];
+        this._bucketPool[this._usedBucketCount++] = bucket;
+        bucket.length = 0;
+        column.set(cellY, bucket);
+      }
+      bucket.push(index);
+    }
+  }
+
+  _appendNeighborPairs(cellX, cellY, bucket, count) {
+    // 只访问“后方”四格，每个候选对恰好生成一次，无需 Set 去重。
+    this._appendGridPair(cellX + 1, cellY, bucket, count);
+    this._appendGridPair(cellX - 1, cellY + 1, bucket, count);
+    this._appendGridPair(cellX, cellY + 1, bucket, count);
+    this._appendGridPair(cellX + 1, cellY + 1, bucket, count);
+  }
+
+  _appendGridPair(cellX, cellY, bucket, count) {
+    const other = this._broadPhaseGrid.get(cellX)?.get(cellY);
+    if (other) this._appendBucketPairs(bucket, other, count, false);
+  }
+
+  _appendBucketPairs(first, second, count, sameBucket) {
+    for (let a = 0; a < first.length; a++) {
+      const start = sameBucket ? a + 1 : 0;
+      for (let b = start; b < second.length; b++) {
+        let i = first[a];
+        let j = second[b];
+        if (i === j) continue;
+        if (i > j) [i, j] = [j, i];
+        this._pairBuffer.push(i * count + j);
+      }
+    }
+  }
+
+  _resolvePair(a, ta, b, tb, radius, halfHeight) {
+    const dx = ta.position.x - tb.position.x;
+    const dy = ta.position.y - tb.position.y;
+    const overlapX = (radius * 2) - Math.abs(dx);
+    const overlapY = (halfHeight * 2) - Math.abs(dy);
+    if (overlapX <= 0 || overlapY <= 0) return;
+
+    const distanceSquared = dx * dx + dy * dy;
+    if (distanceSquared === 0) return;
+    const distance = Math.sqrt(distanceSquared);
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const push = Math.min(overlapX, overlapY) / 2;
+
+    if (overlapX < overlapY) {
+      ta.position.x += nx * push;
+      tb.position.x -= nx * push;
+    } else {
+      ta.position.y += ny * push;
+      tb.position.y -= ny * push;
+    }
+
+    for (let index = 0; index < this.onCollisionCallbacks.length; index++) {
+      this.onCollisionCallbacks[index](a, b);
     }
   }
 
@@ -105,6 +187,7 @@ export class CollisionSystem {
    * @param {string[]} layers - 实体类型数组
    */
   setCollidableLayers(layers) {
-    this.collidableLayers = layers;
+    this.collidableLayers = Array.isArray(layers) ? layers : [];
+    this._collidableLayers = new Set(this.collidableLayers);
   }
 }

@@ -26,16 +26,19 @@ export class SceneRenderPipeline {
       (_scene, ctx) => this._renderWorldEffects(ctx)
     ];
     this.screenLayers = config?.screenLayers || [
-      (scene, ctx) => (this.context?.services?.campfire
-        ? this.context.services.campfire.renderAtmosphere(ctx, {
-          timeSystem: scene.timeSystem,
-          weatherSystem: scene.weatherSystem,
-          playerEntity: this.context?.player?.entity || null,
-          camera: this.context?.camera?.instance || null,
-          width: scene.logicalWidth,
-          height: scene.logicalHeight
-        })
-        : scene.renderFogLayer(ctx)),
+      (scene, ctx) => {
+        const campfire = this.context?.services?.campfire;
+        if (!campfire) return scene.renderFogLayer(ctx);
+        const runtime = this._atmosphereRuntime;
+        runtime.timeSystem = scene.timeSystem;
+        runtime.weatherSystem = scene.weatherSystem;
+        runtime.playerEntity = this.context?.player?.entity || null;
+        runtime.camera = this.context?.camera?.instance || null;
+        runtime.viewBounds = this._viewBounds || null;
+        runtime.width = scene.logicalWidth;
+        runtime.height = scene.logicalHeight;
+        return campfire.renderAtmosphere(ctx, runtime);
+      },
       (scene, ctx) => (this.context?.services?.worldInteraction
         ? this.context.services.worldInteraction.renderClickScreenMarkers(ctx)
         : scene._renderClickScreenMarkers(ctx)),
@@ -95,6 +98,12 @@ export class SceneRenderPipeline {
     this._worldQueue = [];
     this._entityQueueItems = [];
     this._entitySortBuffer = [];
+    this._terrainBuffer = [];
+    this._atmosphereRuntime = {
+      timeSystem: null, weatherSystem: null, playerEntity: null,
+      camera: null, viewBounds: null, width: 0, height: 0
+    };
+    this._campfireRenderRuntime = { particleSystem: null, width: 0, height: 0 };
   }
 
   render(ctx) {
@@ -187,12 +196,15 @@ export class SceneRenderPipeline {
     const scene = this.scene;
     const context = this.context || scene.context || null;
     const entities = context?.entities?.all || [];
-    const worldTerrains = Array.isArray(context?.world?.terrains)
-      ? context.world.terrains.filter(Boolean)
-      : [];
-    const terrains = worldTerrains.length > 0
-      ? worldTerrains
-      : (context?.world?.terrain ? [context.world.terrain] : []);
+    const terrains = this._terrainBuffer;
+    terrains.length = 0;
+    const worldTerrains = context?.world?.terrains;
+    if (Array.isArray(worldTerrains)) {
+      for (let index = 0; index < worldTerrains.length; index++) {
+        if (worldTerrains[index]) terrains.push(worldTerrains[index]);
+      }
+    }
+    if (terrains.length === 0 && context?.world?.terrain) terrains.push(context.world.terrain);
     const camera = context?.camera?.instance || null;
     const particleSystem = context?.presentation?.particleSystem || null;
     const frameProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
@@ -204,11 +216,11 @@ export class SceneRenderPipeline {
 
     for (const terrain of terrains) terrain.renderBelowDecorations?.(ctx);
     const campfire = context?.services?.campfire || null;
-    campfire?.appendRenderItems?.(queue, ctx, {
-      particleSystem,
-      width: scene.logicalWidth,
-      height: scene.logicalHeight
-    });
+    const campfireRuntime = this._campfireRenderRuntime;
+    campfireRuntime.particleSystem = particleSystem;
+    campfireRuntime.width = scene.logicalWidth;
+    campfireRuntime.height = scene.logicalHeight;
+    campfire?.appendRenderItems?.(queue, ctx, campfireRuntime);
     for (const terrain of terrains) terrain.collectDecorations?.(queue, ctx, this._viewBounds);
     particleSystem?.collectDepthSorted?.(queue, ctx, camera, this._viewBounds);
 
@@ -231,10 +243,14 @@ export class SceneRenderPipeline {
     }
 
     if (frameProfile) {
+      let depthParticleCount = 0;
+      for (let index = 0; index < queue.length; index++) {
+        if (queue[index]?.type === 'particle') depthParticleCount++;
+      }
       frameProfile.worldQueueBuild = performance.now() - queueBuildStartedAt;
       frameProfile.worldQueueLength = queue.length;
       frameProfile.visibleEntityCount = entityItemCount;
-      frameProfile.worldDepthParticleCount = queue.filter(item => item.type === 'particle').length;
+      frameProfile.worldDepthParticleCount = depthParticleCount;
     }
     const queueSortStartedAt = frameProfile ? performance.now() : 0;
     queue.sort((a, b) => (a.y - b.y) || ((a.sortPriority || 0) - (b.sortPriority || 0)));
@@ -319,6 +335,7 @@ export class SceneRenderPipeline {
       worldPresentation.renderBlockShield(ctx);
     }
     particleSystem.render(ctx, camera);
+    presentation.gatheringProgress?.render?.(ctx);
     if (scene._debugParticleFrames > 0) {
       console.log('【渲染】粒子系统活跃粒子数:', particleSystem.getActiveCount());
       scene._debugParticleFrames--;

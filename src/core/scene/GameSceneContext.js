@@ -60,7 +60,8 @@ const GROUP_DEFAULTS = Object.freeze({
     enemyWeaponRenderer: null,
     particleSystem: null,
     floatingTextManager: null,
-    effectZoneRenderer: null
+    effectZoneRenderer: null,
+    gatheringProgress: null
   }),
   services: Object.freeze({}),
   lifecycle: Object.freeze({ scope: null, coordinator: null, state: 'idle' })

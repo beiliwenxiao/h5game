@@ -88,21 +88,13 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
   }
 
   onGatheringEvent(event, data = {}) {
-    if (event === 'started' || event === 'progress') {
-      const percent = Math.max(0, Math.min(100, Math.floor((Number(data.progress) || 0) * 100)));
-      if (event === 'progress' && this._lastGatheringProgressPercent === percent) return;
-      this._lastGatheringProgressPercent = percent;
-      const capacity = Number.isFinite(data.capacity) ? data.capacity : 0;
-      const expected = Number.isFinite(data.expectedYield) ? data.expectedYield : 0;
-      const tool = data.toolDurability == null
-        ? '无需工具'
-        : `工具 ${data.toolDurability}/${data.toolMaxDurability}`;
-      this._hintPresenter?.showScreen?.(
-        `采集中 ${percent}% · 预计获得 ${expected} · 背包可收 ${capacity} · ${tool} · {interact}取消`,
-        { title: '采集', persist: true, owner: 'gathering' }
-      );
-      return;
-    }
+    this.context?.presentation?.gatheringProgress?.handleEvent?.(
+      event,
+      data,
+      this.gatheringSystem?.session?.actor || null
+    );
+    // 采集进行态只使用玩家头顶世界进度条，不再占用全局文字提示槽。
+    if (event === 'started' || event === 'progress') return;
 
     this._lastGatheringProgressPercent = null;
     this._hintPresenter?.hideScreen?.('gathering');

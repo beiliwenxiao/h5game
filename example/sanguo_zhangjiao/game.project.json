@@ -338,6 +338,7 @@
       "s01Survival": {
         "campfireLit": false,
         "axeFound": false,
+        "axeDropped": false,
         "berriesGathered": false,
         "berryEaten": false,
         "campfireExtinguished": false,
@@ -2536,6 +2537,22 @@
   ],
   "dialogues": [
     {
+      "id": "dialogue.s01.wake",
+      "title": "寒风中醒来",
+      "startNode": "start",
+      "nodes": {
+        "start": {
+          "speaker": "旁白",
+          "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
+          "nextNode": "move"
+        },
+        "move": {
+          "speaker": "旁白",
+          "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。"
+        }
+      }
+    },
+    {
       "id": "dialogue.s02.zhangjiaoSummons",
       "title": "张角召见",
       "startNode": "start",
@@ -2777,7 +2794,7 @@
     {"id":"story.s01.specialFaint.prepare","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"}]},"writes":[{"target":"story","path":"pendingDefeatResolution","value":"specialFaint"},{"target":"story","path":"specialFaintRescueType","value":{"$get":"payload.rescueType","default":"passerby"}}]}},
     {"id":"story.s01.specialFaint.clear","commandType":"state.transaction","transaction":{"when":{"path":"story.pendingDefeatResolution","equals":"specialFaint"},"writes":[{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null}]}},
     {"id":"story.s01.campfireLit","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":false}]},"writes":[{"target":"story","path":"s01Survival.campfireLit","value":true}]}},
-    {"id":"story.s01.findAxe","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":true},{"path":"story.s01Survival.axeFound","equals":false}]},"writes":[{"target":"story","path":"s01Survival.axeFound","value":true}],"inventory":{"type":"batchAdd","entries":[{"itemId":"tool.worn_axe","quantity":1,"item":{"instanceId":"S01-tool-axe-1"}}]}}},
+    {"id":"story.s01.findAxe","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":true},{"path":"story.s01Survival.axeFound","equals":false}]},"writes":[{"target":"story","path":"s01Survival.axeFound","value":true},{"target":"story","path":"s01Survival.axeDropped","value":true}]}},
     {"id":"story.s01.berriesGathered","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.axeFound","equals":true},{"path":"story.s01Survival.berriesGathered","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berriesGathered","value":true}]}},
     {"id":"story.s01.berryEaten","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berriesGathered","equals":true},{"path":"story.s01Survival.berryEaten","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berryEaten","value":true},{"target":"story","path":"s01Survival.campfireExtinguished","value":true}]}},
     {"id":"story.s01.firstWolfSpotted","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berryEaten","equals":true},{"path":"story.s01Survival.firstWolfSpotted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.firstWolfSpotted","value":true}]}},
@@ -2813,6 +2830,17 @@
       ],
       "once": false,
       "cooldown": 1
+    },
+    {
+      "id": "trg_s01_begin_tutorial_after_wake",
+      "when": {
+        "type": "dialogueEnd",
+        "params": { "id": "dialogue.s01.wake" }
+      },
+      "do": [
+        { "action": "s01Survival", "params": { "operation": "beginTutorial" }, "await": true }
+      ],
+      "once": true
     },
     {
       "id": "trg_s01_light_campfire",
@@ -4600,7 +4628,7 @@
       "category": "s01-survival",
       "scope": { "sceneIds": ["S01"] },
       "order": 1,
-      "steps": [{ "text": "靠近野果丛，使用 {harvest} 徒手采集；采集途中会发现破斧头。" }],
+      "steps": [{ "text": "靠近野果丛，使用 {harvest} 徒手采集；采集完成后破旧斧头会掉在地上，靠近后使用 {pickup} 拾取。" }],
       "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
       "completionPolicy": "signal",
       "canSkip": false,

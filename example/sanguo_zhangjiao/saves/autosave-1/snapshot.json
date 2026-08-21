@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787158987820,
+  "createdAt": 1787335406010,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -9,7 +9,7 @@
     "level": 1,
     "currentSceneId": "S01",
     "location": "S01 区域",
-    "reason": "system-menu",
+    "reason": "interval",
     "previewFile": "thumbnail.jpg"
   },
   "data": {
@@ -21,8 +21,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1782.2087619355855,
-          "y": 1168.2711956287826,
+          "x": 1814.2832861370514,
+          "y": 1248.8387356499163,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -69,14 +69,53 @@
         "currentTutorialId": "s01.gather",
         "currentStepIndex": 0,
         "signalProgress": {},
-        "movementOrigins": {}
+        "movementOrigins": {
+          "s01.move": {
+            "x": 1885,
+            "y": 1275
+          }
+        }
       },
       "dialogue": {
         "currentDialogueId": null,
         "currentNodeId": null,
         "variables": {},
-        "history": [],
-        "completedDialogues": []
+        "history": [
+          {
+            "type": "node",
+            "nodeId": "start",
+            "speaker": "旁白",
+            "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
+            "timestamp": 1787334263782
+          },
+          {
+            "type": "start",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1787334263783
+          },
+          {
+            "type": "node",
+            "nodeId": "start",
+            "speaker": "旁白",
+            "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
+            "timestamp": 1787334504235
+          },
+          {
+            "type": "node",
+            "nodeId": "move",
+            "speaker": "旁白",
+            "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。",
+            "timestamp": 1787334505954
+          },
+          {
+            "type": "end",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1787334506771
+          }
+        ],
+        "completedDialogues": [
+          "dialogue.s01.wake"
+        ]
       },
       "quests": {
         "schemaVersion": 1,
@@ -259,6 +298,7 @@
             "hiddenClues": [],
             "month": 3,
             "s01Survival": {
+              "axeDropped": false,
               "axeFound": false,
               "backpackCrafted": false,
               "berriesGathered": false,
@@ -297,6 +337,7 @@
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
           "firedOnce": [
+            "trg_s01_begin_tutorial_after_wake",
             "trg_s01_light_campfire"
           ],
           "cooldowns": {
@@ -332,44 +373,56 @@
                 "ledgerRevision": 6
               },
               {
+                "triggerId": "trg_s01_begin_tutorial_after_wake",
+                "definitionRevision": 1,
+                "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                "fingerprint": "sha256-89982fed2edacb86ad8c2926244cd53b93af0160c1d11abb43e9532dfea03539",
+                "status": "succeeded",
+                "actionIndex": 0,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_begin_tutorial_after_wake",
+                  "stateRevision": null
+                },
+                "startedAt": 2467.1000000000004,
+                "finishedAt": 2500.4000000000005,
+                "ledgerRevision": 4
+              },
+              {
                 "triggerId": "trg_s01_light_campfire",
                 "definitionRevision": 1,
-                "operationId": "trigger:1:trg_s01_light_campfire:2",
-                "fingerprint": "sha256-447a70884248ccb476794b57f0df9801a9a7eb4b6d3a6ebdc46ba15f81439b7a",
+                "operationId": "trigger:1:trg_s01_light_campfire:3",
+                "fingerprint": "sha256-838fb007f933a3408dfc6d11d43fac1c2e811cb449cecec7681805f7b5cbd54b",
                 "status": "succeeded",
                 "actionIndex": 2,
                 "result": {
                   "ok": true,
-                  "operationId": "trigger:1:trg_s01_light_campfire:2:action:2",
+                  "operationId": "trigger:1:trg_s01_light_campfire:3:action:2",
                   "status": "succeeded",
                   "committed": true,
                   "code": null,
                   "stateId": "trigger:trg_s01_light_campfire",
                   "stateRevision": null
                 },
-                "startedAt": 3800,
-                "finishedAt": 3850,
+                "startedAt": 4484.100000000001,
+                "finishedAt": 4517.500000000001,
                 "ledgerRevision": 6
               },
               {
                 "triggerId": "trg_s01_craft_backpack",
                 "definitionRevision": 1,
-                "operationId": "trigger:1:trg_s01_craft_backpack:4",
-                "fingerprint": "sha256-d8390fd37e52082bfa50cd9b7731f07fd8883d129de9af3c962d9b916c248dff",
-                "status": "failed",
-                "actionIndex": 0,
-                "result": {
-                  "ok": false,
-                  "operationId": "trigger:1:trg_s01_craft_backpack:4",
-                  "status": "failed",
-                  "committed": false,
-                  "code": "s01SurvivalRejected",
-                  "stateId": "trigger:trg_s01_craft_backpack",
-                  "stateRevision": null
-                },
-                "startedAt": 13432.500000000058,
-                "finishedAt": 13482.500000000058,
-                "ledgerRevision": 13
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
               },
               {
                 "triggerId": "trg_s01_cook_meat",
@@ -1598,7 +1651,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 156.7323999999669
+          "elapsed": 343.74430000008556
         }
       }
     }

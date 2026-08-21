@@ -50,7 +50,7 @@ export class SceneEditorCanvas {
     }
 
     // === 相邻场景参考层（半透明，不可交互）===
-    if (editor.showNeighbors && editor.neighborScenes.length > 0) {
+    if (!editor.eventFilter?.isFiltering() && editor.showNeighbors && editor.neighborScenes.length > 0) {
       this._renderNeighborScenes(ctx);
     }
 
@@ -68,8 +68,10 @@ export class SceneEditorCanvas {
       }
       // 遮罩层不再自动画森林环带椭圆：边缘透明由地形椭圆 shape 的 edgeFade 提供
 
-      // 渲染该图层的所有对象
-      for (const obj of layer.objects) this._renderObject(ctx, obj);
+      // 渲染该图层的当前视图对象
+      for (const obj of layer.objects) {
+        if (editor.eventFilter?.isObjectVisible(obj) !== false) this._renderObject(ctx, obj);
+      }
     }
 
     // 绘制网格和辅助方框（在所有图层之上）
@@ -991,7 +993,9 @@ export class SceneEditorCanvas {
     const allObjects = [];
     for (const layer of editor.sceneData.layers) {
       if (!layer.visible) continue;
-      for (const obj of (layer.objects || [])) allObjects.push(obj);
+      for (const obj of (layer.objects || [])) {
+        if (editor.eventFilter?.isObjectVisible(obj) !== false) allObjects.push(obj);
+      }
     }
 
     ctx.save();
@@ -1070,6 +1074,7 @@ export class SceneEditorCanvas {
     const handleSize = 8 / editor.viewport.scale;
 
     for (const obj of editor.selectedObjects) {
+      if (editor.eventFilter?.isObjectVisible(obj) === false) continue;
       let x, y, w, h;
 
       if (obj.type === 'decoration') {

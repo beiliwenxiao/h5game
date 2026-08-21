@@ -441,3 +441,11 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - 椭圆中心 `cy` = 编辑器椭圆中心 = 游戏 `centerY - 32`；渲染半径直接用椭圆 `width/2, height/2`（不减 20 余量，20 余量只用于碰撞/装饰的 basinRadiusX/Y）
 - 森林环带的边缘过渡效果现由椭圆 `edgeFade` 替代
 - 改椭圆填充/特效后清 `_combinedGroundCache = null` 强制重建
+
+## 当前场景事件视图筛选
+
+- `SceneEditorEventFilter` 是纯编辑器内存投影：横向事件条按 `layers[]` 下标再按 `layer.objects[]` 下标稳定排序，支持“全部 / 推导阶段 / 单事件”。“全部”表示关闭过滤并显示完整场景；切换场景必须恢复“全部 + 不包含关联对象”。
+- 场景没有 canonical `phase/order/sequence` 字段时，阶段只可从 binding 的 `activeWhen` 正向条件或项目定义首个 action 域推导，并明确标注为编辑器阶段；阶段 ID、选择和“显示关联对象”状态禁止进入 sceneData、history、保存、导出或 canonical transaction。
+- 事件/阶段过滤只显示所选 trigger binding；启用“显示关联对象”后，复用 `SceneObjectSelector` 解析 binding 的 `targetMode/target` 及 action 显式声明的 selector、targetId/objectId、group、ref/npcRef/enemyRef、entity/actor/vehicle ID。只有显式 group selector 才扩展整组，不得因对象自身带 group 自动扩大。
+- 关联解析使用有界 Set 闭包并防循环；编辑器找不到的稳定目标显示为“运行时动态目标”，不得伪造场景对象。属性面板的目标候选始终读取 canonical 全对象，不受视图筛选影响。
+- Canvas 渲染、触发器连线、命中测试、全选、框选、拖动、缩放、关联拾取必须消费同一可见对象投影；筛选切换要取消旧拖动/缩放/连线状态并清除隐藏 selection。图层计数显示“可见数/总数”，过滤态禁止会重排隐藏对象的批量深度操作，其他批量操作只处理当前可见候选。

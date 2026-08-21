@@ -50,6 +50,7 @@ export class SceneEditorHistory {
     this.redoStack.push(JSON.stringify(editor.sceneData));
     editor.sceneData = JSON.parse(this.undoStack.pop());
     editor.selectedObjects = [];
+    editor.eventFilter?.rebuild({ preserveSelection: true });
     editor.layers.updateLayerList();
     editor.ui.updateObjectProperties();
     editor.ui.updateObjectCount();
@@ -66,6 +67,7 @@ export class SceneEditorHistory {
     this.undoStack.push(JSON.stringify(editor.sceneData));
     editor.sceneData = JSON.parse(this.redoStack.pop());
     editor.selectedObjects = [];
+    editor.eventFilter?.rebuild({ preserveSelection: true });
     editor.layers.updateLayerList();
     editor.ui.updateObjectProperties();
     editor.ui.updateObjectCount();

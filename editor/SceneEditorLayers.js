@@ -160,6 +160,10 @@ export class SceneEditorLayers {
     const editor = this.editor;
     const layer = editor.sceneData.layers[editor.activeLayerIndex];
     if (!layer) return;
+    if (editor.eventFilter?.isFiltering()) {
+      editor.ui.showToast('事件筛选状态下禁止批量调整深度，请先选择“全部”', 'warn');
+      return;
+    }
 
     const keys = new Set();
     for (const obj of layer.objects) {
@@ -215,11 +219,21 @@ export class SceneEditorLayers {
     const layer = editor.sceneData.layers[editor.activeLayerIndex];
     if (!layer) return;
 
+    const candidates = editor.eventFilter?.filterObjects(layer.objects) || layer.objects;
+    if (candidates.length === 0) {
+      editor.ui.showToast(`图层"${layer.name}"中没有当前可见对象`, 'error');
+      return;
+    }
+    const candidateSet = new Set(candidates);
     const seen = new Set();
     const unique = [];
     let removed = 0;
 
     for (const obj of layer.objects) {
+      if (!candidateSet.has(obj)) {
+        unique.push(obj);
+        continue;
+      }
       const key = obj.decoKey || obj.sliceKey || obj.name || obj.type;
       const posKey = `${key}_${Math.round(obj.x)}_${Math.round(obj.y)}`;
       if (seen.has(posKey)) {
@@ -237,6 +251,7 @@ export class SceneEditorLayers {
 
     layer.objects = unique;
     editor.selectedObjects = [];
+    editor.eventFilter?.rebuild({ preserveSelection: true });
     editor.ui.showToast(`已去除 ${removed} 个重复对象`);
     this.updateLayerList();
     editor.ui.updateObjectCount();
@@ -253,8 +268,9 @@ export class SceneEditorLayers {
     const layer = editor.sceneData.layers[editor.activeLayerIndex];
     if (!layer) return;
 
-    if (layer.objects.length === 0) {
-      editor.ui.showToast(`图层"${layer.name}"中没有对象`, 'error');
+    const candidates = editor.eventFilter?.filterObjects(layer.objects) || layer.objects;
+    if (candidates.length === 0) {
+      editor.ui.showToast(`图层"${layer.name}"中没有当前可见对象`, 'error');
       return;
     }
 
@@ -268,7 +284,7 @@ export class SceneEditorLayers {
     if (offsetX === 0 && offsetY === 0) return;
 
     editor.history.saveHistory();
-    for (const obj of layer.objects) {
+    for (const obj of candidates) {
       if (Number.isFinite(obj.x)) obj.x = Math.round(obj.x + offsetX);
       if (Number.isFinite(obj.y)) obj.y = Math.round(obj.y + offsetY);
       if (Array.isArray(obj.points)) {
@@ -280,7 +296,7 @@ export class SceneEditorLayers {
       if (Number.isFinite(obj.sortY)) obj.sortY += offsetY;
     }
 
-    editor.ui.showToast(`已偏移"${layer.name}"中 ${layer.objects.length} 个对象 (${offsetX}, ${offsetY})`);
+    editor.ui.showToast(`已偏移"${layer.name}"中 ${candidates.length} 个当前可见对象 (${offsetX}, ${offsetY})`);
     editor.ui.updateObjectProperties();
     editor.render();
   }
@@ -317,7 +333,9 @@ export class SceneEditorLayers {
       item.className = 'layer-item' + (isActive ? ' active' : '') + (hasSelectedObj ? ' has-selected' : '');
       item.dataset.index = actualIndex;
 
-      const objCount = layer.objects.length;
+      const totalCount = layer.objects.length;
+      const visibleCount = editor.eventFilter?.filterObjects(layer.objects).length ?? totalCount;
+      const objCount = editor.eventFilter?.isFiltering() ? `${visibleCount}/${totalCount}` : String(totalCount);
       const btnBase = 'display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:3px;cursor:pointer;margin-right:3px;font-size:13px;border:1px solid;';
       const visStyle = layer.visible
         ? `${btnBase}background:#2a4a2a;border-color:#4a8a4a;`

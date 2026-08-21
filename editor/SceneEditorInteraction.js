@@ -74,6 +74,7 @@ export class SceneEditorInteraction {
 
       for (let i = layer.objects.length - 1; i >= 0; i--) {
         const obj = layer.objects[i];
+        if (editor.eventFilter?.isObjectVisible(obj) === false) continue;
 
         if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'slice' || obj.type === 'fill' || obj.type === 'deco') {
           if (x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height) {
@@ -703,7 +704,9 @@ export class SceneEditorInteraction {
       const linkedTriggers = [];
       for (const layer of editor.sceneData.layers) {
         for (const obj of (layer.objects || [])) {
-          if (obj.type === 'trigger' && obj.target && this.matchesLinkTarget(clicked, obj.target, obj.targetMode)) {
+          if (obj.type === 'trigger' && obj.target &&
+              editor.eventFilter?.isObjectVisible(obj) !== false &&
+              this.matchesLinkTarget(clicked, obj.target, obj.targetMode)) {
             linkedTriggers.push(obj);
           }
         }
@@ -1121,7 +1124,7 @@ export class SceneEditorInteraction {
     const allObjects = [];
     for (const layer of layers) {
       if (!layer || !layer.objects || layer.locked || !layer.visible) continue;
-      allObjects.push(...layer.objects);
+      allObjects.push(...(editor.eventFilter?.filterObjects(layer.objects) || layer.objects));
     }
     editor.selectedObjects = allObjects;
     editor.canvas.render();
@@ -1362,6 +1365,7 @@ export class SceneEditorInteraction {
     for (const layer of editor.sceneData.layers) {
       if (!layer || layer.locked || !layer.visible || !layer.objects) continue;
       for (const obj of layer.objects) {
+        if (editor.eventFilter?.isObjectVisible(obj) === false) continue;
         if (selected.includes(obj)) continue;
         if (this._isObjectInRect(obj, left, top, right, bottom)) {
           selected.push(obj);

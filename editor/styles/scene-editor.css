@@ -125,3 +125,16 @@
   border-left: 1px solid rgba(255,255,255,0.3);
   border-right: 1px solid rgba(255,255,255,0.3);
 }
+
+/* 当前场景事件视图：仅投影编辑器可见对象，不修改 canonical 场景数据 */
+.scene-event-filter-bar { display: flex; align-items: center; gap: 7px; min-height: 38px; padding: 5px 8px; background: #111b34; border-bottom: 1px solid #2a3a5e; flex-shrink: 0; min-width: 0; }
+.scene-event-filter-title { flex-shrink: 0; color: #e8c46a; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.scene-event-filter-scroll { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; padding-bottom: 2px; flex: 1; }
+.scene-event-filter-item { flex: 0 0 auto; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 9px; border: 1px solid #40517f; border-radius: 13px; background: #26365f; color: #dbe4ff; cursor: pointer; font-size: 11px; }
+.scene-event-filter-item:hover { background: #354a80; border-color: #6683c5; }
+.scene-event-filter-item.phase { background: #3d315d; border-color: #755c9f; color: #eadcff; }
+.scene-event-filter-item.event { background: #263e4c; border-color: #477486; color: #d7f4ff; }
+.scene-event-filter-item.active { background: #4CAF50; border-color: #7ee483; color: #071807; font-weight: 700; }
+.scene-event-filter-related { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: #c8d2ea; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.scene-event-filter-related input { margin: 0; }
+.scene-event-filter-status { flex-shrink: 0; min-width: 42px; color: #8fa3ca; font-size: 10px; white-space: nowrap; text-align: right; }

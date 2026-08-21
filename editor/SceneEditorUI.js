@@ -150,6 +150,7 @@ export class SceneEditorUI {
           <div class="editor-resizer" id="editor-resizer-left"></div>
           
           <div class="editor-canvas-area">
+            <div id="editor-scene-event-filter" class="scene-event-filter-bar" aria-label="当前场景事件视图筛选"></div>
             <div class="canvas-container" id="editor-canvas-container">
               <canvas id="editor-canvas"></canvas>
               <canvas id="editor-overlay"></canvas>
@@ -240,6 +241,7 @@ export class SceneEditorUI {
     editor.layers.updateLayerList();
     this._initAssetTabs();
     this._initResizers();
+    editor.eventFilter?.bindUI();
     this.refreshBattleFlowFields();
   }
 
@@ -521,6 +523,7 @@ export class SceneEditorUI {
     const obj = { id: 'obj_' + Date.now(), ...objData };
     layer.objects.push(obj);
     this.updateObjectCount();
+    editor.eventFilter?.rebuild({ preserveSelection: true });
     editor.history.saveHistory();
     editor.render();
     return obj;
@@ -544,6 +547,7 @@ export class SceneEditorUI {
     }
 
     editor.selectedObjects = [];
+    editor.eventFilter?.rebuild({ preserveSelection: true });
     this.updateObjectProperties();
     this.updateObjectCount();
     editor.history.saveHistory();
@@ -666,8 +670,7 @@ export class SceneEditorUI {
             obj.event = definition.when?.type || obj.event || 'interact';
             obj.name = obj.name || definition.id;
           }
-          this.updateObjectProperties();
-          editor.render();
+          editor.eventFilter?.rebuild({ preserveSelection: true, notify: true });
           return;
         }
 
@@ -804,6 +807,11 @@ export class SceneEditorUI {
           obj._decoRef[prop] = value;
         }
 
+        if (obj.type === 'trigger' && ['id', 'name', 'triggerId', 'targetMode', 'target'].includes(prop)) {
+          editor.eventFilter?.rebuild({ preserveSelection: true });
+          editor.eventFilter?.sanitizeInteractionState();
+          editor.layers.updateLayerList();
+        }
         editor.render();
       });
     });

@@ -30,6 +30,7 @@ import { SceneEditorInteraction } from './SceneEditorInteraction.js';
 import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
+import { SceneEditorEventFilter } from './SceneEditorEventFilter.js';
 import { sceneDataLoader, getGlobalImages } from './SceneDataLoader.js';
 import { summarizeTrigger } from '../src/systems/TriggerCatalog.js';
 import {
@@ -160,6 +161,7 @@ export class SceneEditor {
     this.layers = new SceneEditorLayers(this);
     this.history = new SceneEditorHistory(this);
     this.history.setMaxSize(historyCfg.maxSize || 50);
+    this.eventFilter = new SceneEditorEventFilter(this);
     this.ui = new SceneEditorUI(this);
     this.canvas = new SceneEditorCanvas(this);
     this.interactionModule = new SceneEditorInteraction(this);
@@ -192,6 +194,7 @@ export class SceneEditor {
   }
 
   refreshTriggerReferences() {
+    this.eventFilter.rebuild({ preserveSelection: true });
     this.ui.updateObjectProperties();
     this.render();
   }
@@ -455,6 +458,8 @@ export class SceneEditor {
     this.selectedAtlasId = null;
     this.activeLayerIndex = 0;
     this.history.reset();
+    // 场景切换恢复“全部显示 + 不包含关联对象”，筛选状态不进入场景数据或历史。
+    this.eventFilter.reset(this.sceneData);
 
     // 更新 UI
     const nameInput = document.getElementById('editor-scene-name');

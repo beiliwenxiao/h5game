@@ -46,7 +46,7 @@ const campfireFeatureMethods = {
         particleConfig: {
           position: { x: firePoint.x, y: firePoint.y },
           velocity: { x: 0, y: vy },
-          life, size, color, alpha, isFire: true, gravity: 0, friction: 0.95
+          life, size, color, alpha, gravity: 0, friction: 0.95
         }
       })
     );
@@ -102,12 +102,7 @@ const campfireFeatureMethods = {
     const timeFogAdd = this.timeSystem?.enabled ? this.timeSystem.getFogOpacity() : 0;
     const weatherFogAdd = this.weatherSystem ? this.weatherSystem.getFogAdd() : 0;
     const baseFogOpacity = this.fog.active ? this.fog.opacity : 0;
-    const timeFogOpacity = Math.min(1, Math.max(0, timeFogAdd * 0.3));
-    const weatherFogOpacity = Math.min(1, Math.max(0, weatherFogAdd));
-    const totalFogOpacity = Math.min(1, 1
-      - (1 - Math.min(1, Math.max(0, baseFogOpacity)))
-      * (1 - timeFogOpacity)
-      * (1 - weatherFogOpacity));
+    const totalFogOpacity = Math.min(1, baseFogOpacity + timeFogAdd * 0.3 + weatherFogAdd);
 
     if (totalFogOpacity > 0.01) {
       ctx.save();

@@ -10,7 +10,12 @@
  */
 export class CanvasDisplayScaler {
   constructor(canvas, {
-    logicalWidth = 1280, logicalHeight = 720, scaleMode = 'fit', maxDpr = 2, maxBackingScale = 2
+    logicalWidth = 1280,
+    logicalHeight = 720,
+    scaleMode = 'fit',
+    maxDpr = 2,
+    maxBackingScale = 2,
+    imageSmoothingQuality = 'low'
   } = {}) {
     if (!canvas) throw new TypeError('CanvasDisplayScaler requires a canvas');
     this.canvas = canvas;
@@ -22,6 +27,9 @@ export class CanvasDisplayScaler {
     this.scaleMode = ['stretch', 'window'].includes(scaleMode) ? scaleMode : 'fit';
     this.maxDpr = Math.max(1, Number(maxDpr) || 1);
     this.maxBackingScale = Math.max(1, Number(maxBackingScale) || 1);
+    this.imageSmoothingQuality = ['low', 'medium', 'high'].includes(imageSmoothingQuality)
+      ? imageSmoothingQuality
+      : 'low';
   }
 
   resize(width, height) {
@@ -66,7 +74,7 @@ export class CanvasDisplayScaler {
     else ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     ctx.setTransform(this.canvas.width / this.logicalWidth, 0, 0, this.canvas.height / this.logicalHeight, 0, 0);
     ctx.imageSmoothingEnabled = true;
-    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+    if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = this.imageSmoothingQuality;
   }
 }
 

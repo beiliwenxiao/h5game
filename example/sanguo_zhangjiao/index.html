@@ -30,7 +30,8 @@
         #gameCanvas {
             border: 2px solid #4CAF50;
             background-color: #2a2a2a;
-            image-rendering: auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
             width: 100%;
             height: 100%;
         }
@@ -951,10 +952,14 @@
             logicalWidth: logicalResolution.width,
             logicalHeight: logicalResolution.height,
             scaleMode: logicalResolution.scaleMode,
-            maxDpr: 2
+            // Canvas2D window 模式保持与 0.0.2 相同的 CSS 像素 backing。
+            // DPR=2 会把栅格像素量放大 4 倍，并把成本推迟到 RAF 回调后的浏览器绘制阶段。
+            maxDpr: 1,
+            maxBackingScale: 1,
+            imageSmoothingQuality: 'low'
         });
         
-        // window 模式：逻辑视口跟随窗口尺寸，世界 1 单位 = 1 CSS 像素，不做缩放；backing 仍按 DPR 提升清晰度。
+        // window 模式：世界、相机、UI 与输入使用窗口 CSS 像素；Canvas backing 保持 1:1，避免高 DPR 栅格化长任务。
         function resizeCanvas() {
             const display = displayScaler.resize();
             gameContainer.style.setProperty('--game-display-width', `${display.cssWidth}px`);
@@ -2462,8 +2467,63 @@
             }
         }
         
-        function beginFramePerformanceProfile(targetScene, currentTime) {
+        function createFrameCadenceCounters() {
+            return {
+                rafCallbacks: 0,
+                activeCallbacks: 0,
+                pausedCallbacks: 0,
+                hiddenCallbacks: 0,
+                focusedCallbacks: 0,
+                unfocusedCallbacks: 0,
+                intervalCount: 0,
+                intervalSum: 0,
+                intervalMax: 0,
+                over16: 0,
+                over33: 0,
+                over50: 0,
+                rawDeltaMax: 0,
+                clampedDeltaFrames: 0,
+                timerProbeCount: 0,
+                timerDelaySum: 0,
+                timerDelayMax: 0,
+                timerOver33: 0,
+                longTaskCount: 0,
+                longTaskTotal: 0,
+                longTaskMax: 0
+            };
+        }
+
+        function createLongTaskCounters() {
+            return { count: 0, total: 0, max: 0 };
+        }
+
+        let frameLongTaskObserver = null;
+        let frameLongTaskSupported = false;
+        function ensureFrameLongTaskObserver() {
+            if (frameLongTaskObserver || typeof PerformanceObserver === 'undefined') return;
+            try {
+                frameLongTaskObserver = new PerformanceObserver(list => {
+                    const targetScene = sceneManager?.getCurrentScene?.() || scene;
+                    const profile = targetScene?._framePerformanceProfile;
+                    if (!targetScene?.debugMode || !profile?.longTasks) return;
+                    for (const entry of list.getEntries()) {
+                        const duration = Number(entry.duration) || 0;
+                        profile.longTasks.count++;
+                        profile.longTasks.total += duration;
+                        profile.longTasks.max = Math.max(profile.longTasks.max, duration);
+                    }
+                });
+                frameLongTaskObserver.observe({ entryTypes: ['longtask'] });
+                frameLongTaskSupported = true;
+            } catch (_error) {
+                frameLongTaskObserver = null;
+                frameLongTaskSupported = false;
+            }
+        }
+
+        function getFramePerformanceProfile(targetScene, currentTime) {
             if (!targetScene?.debugMode) return null;
+            ensureFrameLongTaskObserver();
             const profile = targetScene._framePerformanceProfile || (targetScene._framePerformanceProfile = {
                 windowStartedAt: currentTime,
                 frameCount: 0,
@@ -2472,8 +2532,62 @@
                 over16: 0,
                 over33: 0,
                 lastLongLogAt: -Infinity,
+                lastRafAt: null,
+                timerProbePending: false,
+                cadence: createFrameCadenceCounters(),
+                longTasks: createLongTaskCounters(),
                 current: null
             });
+            profile.cadence ||= createFrameCadenceCounters();
+            profile.longTasks ||= createLongTaskCounters();
+            return profile;
+        }
+
+        function recordFrameCadence(targetScene, currentTime, { paused = false, rawDeltaMs = 0, clamped = false } = {}) {
+            const profile = getFramePerformanceProfile(targetScene, currentTime);
+            if (!profile) return null;
+            const cadence = profile.cadence;
+            cadence.rafCallbacks++;
+            if (paused) cadence.pausedCallbacks++;
+            else cadence.activeCallbacks++;
+            if (document.visibilityState !== 'visible') cadence.hiddenCallbacks++;
+            if (document.hasFocus?.()) cadence.focusedCallbacks++;
+            else cadence.unfocusedCallbacks++;
+            if (Number.isFinite(rawDeltaMs)) cadence.rawDeltaMax = Math.max(cadence.rawDeltaMax, rawDeltaMs);
+            if (clamped) cadence.clampedDeltaFrames++;
+            if (Number.isFinite(profile.lastRafAt)) {
+                const interval = Math.max(0, currentTime - profile.lastRafAt);
+                cadence.intervalCount++;
+                cadence.intervalSum += interval;
+                cadence.intervalMax = Math.max(cadence.intervalMax, interval);
+                if (interval > 16.7) cadence.over16++;
+                if (interval > 33.3) cadence.over33++;
+                if (interval > 50) cadence.over50++;
+            }
+            profile.lastRafAt = currentTime;
+
+            // 每个 RAF 最多安排一个轻量 16ms timer。它与 RAF cadence 对比可区分
+            // “主线程整体阻塞/节流”与“宿主只节流 requestAnimationFrame”。
+            if (!profile.timerProbePending) {
+                profile.timerProbePending = true;
+                const scheduledAt = performance.now();
+                const cadenceAtSchedule = cadence;
+                setTimeout(() => {
+                    profile.timerProbePending = false;
+                    if (profile.cadence !== cadenceAtSchedule) return;
+                    const delay = Math.max(0, performance.now() - scheduledAt);
+                    cadenceAtSchedule.timerProbeCount++;
+                    cadenceAtSchedule.timerDelaySum += delay;
+                    cadenceAtSchedule.timerDelayMax = Math.max(cadenceAtSchedule.timerDelayMax, delay);
+                    if (delay > 33.3) cadenceAtSchedule.timerOver33++;
+                }, 16);
+            }
+            return profile;
+        }
+
+        function beginFramePerformanceProfile(targetScene, currentTime) {
+            const profile = getFramePerformanceProfile(targetScene, currentTime);
+            if (!profile) return null;
             profile.current = { startedAt: performance.now() };
             return profile;
         }
@@ -2529,15 +2643,54 @@
                     { sceneId, milliseconds: Number(sample.total.toFixed(2)), dominant, hotDetails, unattributed: Number(unattributed.toFixed(2)), phases }
                 );
             }
-            if (currentTime - profile.windowStartedAt < 1000) return;
+            const windowElapsed = currentTime - profile.windowStartedAt;
+            if (windowElapsed < 1000) return;
             const average = name => Number(((profile.sums[name] || 0) / Math.max(1, profile.frameCount)).toFixed(2));
             const maximum = name => Number((profile.maximums[name] || 0).toFixed(2));
+            const cadence = profile.cadence;
+            const intervalAverage = cadence.intervalCount > 0
+                ? Number((cadence.intervalSum / cadence.intervalCount).toFixed(2))
+                : 0;
+            const timerDelayAverage = cadence.timerProbeCount > 0
+                ? Number((cadence.timerDelaySum / cadence.timerProbeCount).toFixed(2))
+                : 0;
+            const effectiveFps = Number((profile.frameCount * 1000 / Math.max(1, windowElapsed)).toFixed(1));
+            const rafFps = Number((cadence.rafCallbacks * 1000 / Math.max(1, windowElapsed)).toFixed(1));
             console.info('[DDScene][FrameProfile][1秒汇总]', {
                 sceneId: targetScene?.currentSceneId || targetScene?.name,
                 frames: profile.frameCount,
-                over16ms: profile.over16,
-                over33ms: profile.over33,
-                total: { average: average('total'), max: maximum('total') },
+                fps: effectiveFps,
+                rafCallbacks: cadence.rafCallbacks,
+                rafFps,
+                over16ms: cadence.over16,
+                over33ms: cadence.over33,
+                over50ms: cadence.over50,
+                cpuOver16ms: profile.over16,
+                cpuOver33ms: profile.over33,
+                cadence: {
+                    interval: { average: intervalAverage, max: Number(cadence.intervalMax.toFixed(2)) },
+                    timerProbe: {
+                        target: 16,
+                        average: timerDelayAverage,
+                        max: Number(cadence.timerDelayMax.toFixed(2)),
+                        over33ms: cadence.timerOver33,
+                        samples: cadence.timerProbeCount
+                    },
+                    activeCallbacks: cadence.activeCallbacks,
+                    pausedCallbacks: cadence.pausedCallbacks,
+                    hiddenCallbacks: cadence.hiddenCallbacks,
+                    focusedCallbacks: cadence.focusedCallbacks,
+                    unfocusedCallbacks: cadence.unfocusedCallbacks,
+                    rawDeltaMax: Number(cadence.rawDeltaMax.toFixed(2)),
+                    clampedDeltaFrames: cadence.clampedDeltaFrames
+                },
+                longTasks: {
+                    supported: frameLongTaskSupported,
+                    count: profile.longTasks.count,
+                    total: Number(profile.longTasks.total.toFixed(2)),
+                    max: Number(profile.longTasks.max.toFixed(2))
+                },
+                total: { average: average('total'), max: maximum('total'), meaning: 'cpuWorkMs' },
                 update: { average: average('sceneUpdate'), max: maximum('sceneUpdate') },
                 render: { average: average('sceneRender'), max: maximum('sceneRender') },
                 hostUi: { average: average('hostUi'), max: maximum('hostUi') },
@@ -2604,6 +2757,8 @@
             profile.maximums = {};
             profile.over16 = 0;
             profile.over33 = 0;
+            profile.cadence = createFrameCadenceCounters();
+            profile.longTasks = createLongTaskCounters();
             profile.current = null;
         }
 
@@ -2611,20 +2766,27 @@
         // 不再运行 SceneManager、渲染管线、宿主 UI 或存档封面更新。
         function gameLoop(currentTime) {
             const profiledScene = sceneManager?.getCurrentScene?.() || scene;
+            const rawDeltaTime = Math.max((currentTime - lastTime) / 1000, 0);
             // 页面切换或长任务后的异常间隔最多推进 50ms，避免实体瞬移。
-            const deltaTime = Math.min(Math.max((currentTime - lastTime) / 1000, 0), 0.05);
+            const deltaTime = Math.min(rawDeltaTime, 0.05);
             lastTime = currentTime;
-            
-            // 计算 FPS
+
+            // FPS 使用真实 RAF 墙钟时间；模拟更新仍使用上面的安全钳制 delta。
             frameCount++;
-            fpsTime += deltaTime;
+            fpsTime += rawDeltaTime;
             if (fpsTime >= 1.0) {
-                fps = frameCount;
+                fps = Math.round(frameCount / fpsTime);
                 frameCount = 0;
                 fpsTime = 0;
             }
 
-            if (profiledScene?.isPaused === true) {
+            const isPaused = profiledScene?.isPaused === true;
+            recordFrameCadence(profiledScene, currentTime, {
+                paused: isPaused,
+                rawDeltaMs: rawDeltaTime * 1000,
+                clamped: rawDeltaTime > 0.05
+            });
+            if (isPaused) {
                 profiledScene.gameLoopFps = fps;
                 profiledScene.discardPausedInput?.();
                 requestAnimationFrame(gameLoop);
@@ -3047,6 +3209,7 @@
                 // 覆盖层与主 canvas 同像素尺寸，绘制坐标 = canvas 像素坐标
                 cvs.width = gameCanvas.width;
                 cvs.height = gameCanvas.height;
+                if (active) render();
             }
             resize();
             window.addEventListener('resize', () => setTimeout(resize, 50));
@@ -3144,27 +3307,24 @@
                 jctx.fill();
             }
             
-            function loop() {
-                render();
-                requestAnimationFrame(loop);
-            }
-            loop();
-            
             function start(clientX, clientY) {
                 const p = clientToCanvas(clientX, clientY);
                 centerX = p.x; centerY = p.y;
                 curX = p.x; curY = p.y;
                 active = true;
+                render();
             }
             function move(clientX, clientY) {
                 if (!active) return;
                 const p = clientToCanvas(clientX, clientY);
                 curX = p.x; curY = p.y;
                 updateDirection(curX - centerX, curY - centerY);
+                render();
             }
             function end() {
                 active = false;
                 releaseAll();
+                render();
             }
             
             // 触摸事件

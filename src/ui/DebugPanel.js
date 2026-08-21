@@ -40,6 +40,8 @@ export class DebugPanel {
     this._fps = 0;
     this._frames = 0;
     this._lastFpsTime = performance.now();
+    this._lastInfoUpdateAt = -Infinity;
+    this._infoRefreshInterval = 250;
   }
 
   /** 切换显示/隐藏；暂停时保留面板作为唯一恢复入口。 */
@@ -402,12 +404,16 @@ export class DebugPanel {
 
   /** 启动刷新循环 */
   _startLoop() {
-    const tick = () => {
+    const tick = now => {
       if (!this.visible) return;
       this._updateFps();
-      this._updateInfo();
+      if (now - this._lastInfoUpdateAt >= this._infoRefreshInterval) {
+        this._lastInfoUpdateAt = now;
+        this._updateInfo();
+      }
       this._rafId = requestAnimationFrame(tick);
     };
+    this._lastInfoUpdateAt = -Infinity;
     this._rafId = requestAnimationFrame(tick);
   }
 

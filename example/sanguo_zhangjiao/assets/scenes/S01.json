@@ -6,14 +6,18 @@
   "backgroundColor": "#4b4337",
   "gameplay": {
     "campfire": {
-      "imageId": "vfx.freePixel.fire",
-      "initialFogOpacity": 1,
+      "imageId": "s01.vfx.campfireFlame",
+      "initialFogOpacity": 0.85,
       "fog": { "fadeSpeed": 0.4, "color": "rgba(30, 30, 40,", "active": true },
-      "sprite": { "frameWidth": 100, "frameHeight": 100, "frameCols": 8, "frameRows": 8, "frameCount": 64, "frameDuration": 0.16 },
+      "sprite": { "frameWidth": 164.5, "frameHeight": 237.33333333333334, "frameCols": 4, "frameRows": 3, "frameCount": 12, "frameDuration": 0.16 },
       "particlePresets": [
-        { "rate": 18, "vy": -34, "life": 550, "size": 7, "color": "#ffb23f", "alpha": 0.9 },
-        { "rate": 10, "vy": -24, "life": 800, "size": 11, "color": "#ef6b2e", "alpha": 0.75 },
-        { "rate": 5, "vy": -42, "life": 900, "size": 4, "color": "#ffd66b", "alpha": 0.85 }
+        { "rate": 6, "vy": -50, "life": 250, "size": 8.5, "color": "#ffaa22", "alpha": 0.85 },
+        { "rate": 8, "vy": -35, "life": 200, "size": 6, "color": "#ff8833", "alpha": 0.8 },
+        { "rate": 4, "vy": -120, "life": 400, "size": 4.5, "color": "#ffffee", "alpha": 1 },
+        { "rate": 10, "vy": -100, "life": 350, "size": 3.5, "color": "#ffee44", "alpha": 0.9 },
+        { "rate": 8, "vy": -80, "life": 300, "size": 2.5, "color": "#ff9933", "alpha": 0.85 },
+        { "rate": 6, "vy": -60, "life": 250, "size": 2, "color": "#ff5522", "alpha": 0.8 },
+        { "rate": 12, "vy": -40, "life": 200, "size": 2, "color": "#ff6633", "alpha": 0.7 }
       ],
       "labels": { "unlit": "熄灭的火堆", "ignite": "{interact}点燃" },
       "presentation": { "lightRadius": 150, "fireWidth": 40, "fireHeight": 60, "collisionWidth": 40, "collisionHeight": 22.5 }
@@ -85,7 +89,7 @@
     {
       "id": "S01-logic", "name": "生存流程交互", "visible": true, "locked": false,
       "objects": [
-        { "id": "S01-binding-light-campfire", "type": "trigger", "name": "点燃篝火", "triggerId": "trg_s01_light_campfire", "x": 580, "y": 495, "width": 42, "height": 42, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 100, "pointerRadius": 38, "prompt": "{interact}点燃篝火", "activeWhen": { "all": [{ "tutorialId": "s01.move", "completed": true }, { "path": "s01Survival.campfireLit", "equals": false }] } },
+        { "id": "S01-binding-light-campfire", "type": "trigger", "name": "点燃篝火", "triggerId": "trg_s01_light_campfire", "x": 580, "y": 495, "width": 42, "height": 42, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 60, "pointerRadius": 80, "prompt": "{interact}点燃篝火", "activeWhen": { "all": [{ "tutorialId": "s01.move", "completed": true }, { "path": "s01Survival.campfireLit", "equals": false }] } },
         { "id": "S01-binding-craft-backpack", "type": "trigger", "name": "制作六格小背包", "triggerId": "trg_s01_craft_backpack", "x": 505, "y": 455, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-craft-marker", "radius": 90, "pointerRadius": 42, "prompt": "{interact}用狼皮和木材制作六格小背包", "activeWhen": { "all": [{ "path": "s01Survival.wolfSkinned", "equals": true }, { "path": "s01Survival.backpackCrafted", "equals": false }] } },
         { "id": "S01-binding-cook-meat", "type": "trigger", "name": "烤制狼肉", "triggerId": "trg_s01_cook_meat", "x": 610, "y": 500, "width": 60, "height": 60, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 80, "pointerRadius": 36, "prompt": "{interact}添柴烤制狼肉", "activeWhen": { "all": [{ "path": "s01Survival.backpackCrafted", "equals": true }, { "path": "s01Survival.meatCooked", "equals": false }] } },
         { "id": "S01-binding-build-shelter", "type": "trigger", "name": "搭建小庇护所", "triggerId": "trg_s01_build_shelter", "x": 650, "y": 435, "width": 150, "height": 115, "event": "interact", "targetMode": "id", "target": "S01-shelter-site", "radius": 105, "pointerRadius": 58, "prompt": "{interact}用木材搭建小庇护所", "activeWhen": { "all": [{ "path": "s01Survival.meatCooked", "equals": true }, { "path": "s01Survival.shelterCompleted", "equals": false }] } },

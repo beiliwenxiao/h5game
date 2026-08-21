@@ -120,7 +120,11 @@ export class SystemEditor {
       if (this.canonicalSession) {
         this.canonicalSession.patch('system', this._data);
         const result = await this.canonicalSession.save();
-        if (!result?.committed) throw new Error(result?.errors?.[0]?.message || result?.error || 'canonical 提交失败');
+        if (!result?.committed) {
+          const firstError = result?.errors?.[0];
+          const detail = [firstError?.path, firstError?.message].filter(Boolean).join(': ');
+          throw new Error(detail || result?.error || 'canonical 提交失败');
+        }
         this._showToast(result.degraded ? '磁盘已提交，缓存/通知同步降级' : '已保存到 canonical 配置');
         return result;
       }

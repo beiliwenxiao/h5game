@@ -361,6 +361,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 
 ### 提交边界
 - canonical 项目与场景只通过 Vite dev server `POST /api/canonical-transaction` 提交；普通 `/api/save-file` 明确拒绝 `game.project.json` 与 `assets/scenes/*.json`。
+- 参与跨定义引用闭包的 `$ref` registry entry（如 `battles/rescues/extensions.endings`）必须同时保留被引用文档已有的稳定 `id`；编辑器不得按数组下标、时间戳或随机值生成身份，也不得因当前只编辑 `system` 字段而跳过完整项目校验。保存错误提示必须包含首个 validation `path`，以便定位阻断项。
 - transaction endpoint 只接受当前项目 closure 内 JSON 路径；在仓库独占锁内以 temp、备份和恢复 journal 提交 change set。磁盘 commit point 之前失败恢复原文件并保持 localStorage 不变，commit point 之后的缓存失败不得回滚磁盘。
 - `GET /api/read-file?path=xxx` — 读取文件内容
 - `POST /api/save-file` — 仅写入非 canonical 编辑器配置或资源文件

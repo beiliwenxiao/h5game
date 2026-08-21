@@ -13,6 +13,95 @@
   "presentation": {
     "$ref": "config/presentation.json"
   },
+  "extensions": {
+    "endings": {
+      "$ref": "config/endings.json",
+      "id": "sanguo-zhangjiao-endings-v1"
+    },
+    "sanguoZhangjiao": {
+      "s09RefugeeConflict": {
+        "appeaseFood": 30,
+        "consequenceDelayDays": 1,
+        "damagePauseDays": 1,
+        "donationFood": 20,
+        "donationMorale": 5,
+        "hardlineEscapeChance": 0.35,
+        "hardlineMorale": 10,
+        "minimumCityDamageRatio": 0.4
+      }
+    }
+  },
+  "system": {
+    "debug": true,
+    "loading": {
+      "backgroundColor": "#1a1a1a",
+      "icon": "",
+      "loadingText": "加载中...",
+      "progressBarColor": "#4CAF50,#8BC34A",
+      "steps": [
+        {
+          "delay": 0,
+          "progress": 0,
+          "text": "初始化 ECS 系统..."
+        },
+        {
+          "delay": 0,
+          "progress": 25,
+          "text": "加载核心系统..."
+        },
+        {
+          "delay": 0,
+          "progress": 50,
+          "text": "创建场景管理器..."
+        },
+        {
+          "delay": 0,
+          "progress": 60,
+          "text": "注册场景..."
+        },
+        {
+          "delay": 0,
+          "progress": 75,
+          "text": "初始化玩家实体..."
+        },
+        {
+          "delay": 0,
+          "progress": 90,
+          "text": "进入第一幕..."
+        },
+        {
+          "delay": 0,
+          "progress": 100,
+          "text": "完成！"
+        }
+      ],
+      "subtitle": "三月荒原",
+      "title": "三国张角传",
+      "titleColor": "#4caf50"
+    },
+    "login": {
+      "backgroundAssetId": "ui.login.mainBackground",
+      "backgroundColor": "#111111",
+      "backgroundImage": "assets/images/main_bg.jpg",
+      "buttonColor": "#4b6728",
+      "description": "乱世将起，你的选择将改变众人的命运。",
+      "panelColor": "",
+      "showDescription": false,
+      "subtitle": "苍天已死，黄天当立",
+      "textColor": "#ffffff",
+      "title": "三国张角传",
+      "titleColor": "#e7c778"
+    },
+    "time": {
+      "enabled": true,
+      "startTime": 120
+    },
+    "weather": {
+      "default": "clear",
+      "particles": {},
+      "transitionSpeed": 0.5
+    }
+  },
   "progression": {
     "profile": "arpg",
     "primary": "skillTree",
@@ -27,21 +116,21 @@
       "unitTalent",
       "passiveBoard"
     ],
-    "graphIds": {
-      "unitTalent": "unit-talent",
-      "passiveBoard": "global-passive"
-    },
     "pointPools": {
+      "passive": "independent",
       "skill": "independent",
       "talent": "independent",
-      "unit": "independent",
-      "passive": "independent"
+      "unit": "independent"
     },
     "unlock": {
+      "passiveBoard": "classSelected",
       "skillTree": "classSelected",
       "talentTree": "classSelected",
-      "unitTalent": "classSelected",
-      "passiveBoard": "classSelected"
+      "unitTalent": "classSelected"
+    },
+    "graphIds": {
+      "passiveBoard": "global-passive",
+      "unitTalent": "unit-talent"
     },
     "graphs": [
       {
@@ -76,136 +165,132 @@
       "schemaVersion": 1,
       "maxCompletedOperations": 256,
       "types": {
-        "gathering": {
-          "name": "采集",
-          "maxLevel": 5,
-          "thresholds": [
-            0,
-            20,
-            55,
-            105,
-            170
-          ],
-          "experiencePerUnit": 2
-        },
         "construction": {
-          "name": "营建",
+          "experiencePerUnit": 1,
           "maxLevel": 5,
+          "name": "营建",
           "thresholds": [
             0,
             30,
             80,
             150,
             240
-          ],
-          "experiencePerUnit": 1
+          ]
+        },
+        "gathering": {
+          "experiencePerUnit": 2,
+          "maxLevel": 5,
+          "name": "采集",
+          "thresholds": [
+            0,
+            20,
+            55,
+            105,
+            170
+          ]
         }
       }
     },
     "battleRewards": {
-      "intervention": [
-        {
-          "pool": "unit",
-          "amount": 1
-        }
-      ],
-      "victory": [
-        {
-          "pool": "unit",
-          "amount": 1
-        }
-      ],
       "byScene": {
         "S03": [
           {
-            "pool": "skill",
-            "amount": 1
+            "amount": 1,
+            "pool": "skill"
           }
         ],
         "S04": [
           {
-            "pool": "talent",
-            "amount": 1
+            "amount": 1,
+            "pool": "talent"
           }
         ],
         "S05": [
           {
-            "pool": "passive",
-            "amount": 1
+            "amount": 1,
+            "pool": "passive"
           }
         ],
         "S07": [
           {
-            "pool": "passive",
-            "amount": 1
+            "amount": 1,
+            "pool": "passive"
           }
         ],
         "S11": [
           {
-            "pool": "talent",
-            "amount": 1
+            "amount": 1,
+            "pool": "talent"
           }
         ],
         "S12": [
           {
-            "pool": "skill",
-            "amount": 1
+            "amount": 1,
+            "pool": "skill"
           }
         ],
         "S13": [
           {
-            "pool": "passive",
-            "amount": 1
+            "amount": 1,
+            "pool": "passive"
           }
         ]
-      }
+      },
+      "intervention": [
+        {
+          "amount": 1,
+          "pool": "unit"
+        }
+      ],
+      "victory": [
+        {
+          "amount": 1,
+          "pool": "unit"
+        }
+      ]
     }
   },
   "construction": {
-    "schemaVersion": 1,
-    "maxOperations": 256,
     "definitions": [
       {
-        "id": "construction.s01.small_shelter",
-        "name": "篝火旁的小庇护所",
         "costs": [
           {
             "itemId": "resource.wood",
             "quantity": 3
           }
         ],
-        "requiredProficiency": 0,
-        "requiredToolType": null,
         "duration": 6,
-        "maxDurability": 60,
         "experience": 5,
+        "id": "construction.s01.small_shelter",
+        "imageId": "s01.environment.smallShelter",
         "manned": false,
-        "imageId": "s01.environment.smallShelter"
+        "maxDurability": 60,
+        "name": "篝火旁的小庇护所",
+        "requiredProficiency": 0,
+        "requiredToolType": null
       },
       {
-        "id": "construction.campfire",
-        "name": "营地火堆",
         "costs": [
           {
             "itemId": "resource.wood",
             "quantity": 8
           }
         ],
+        "duration": 30,
+        "experience": 10,
+        "id": "construction.campfire",
+        "imageId": "s10.construction.campfire",
+        "manned": false,
+        "maxDurability": 100,
+        "name": "营地火堆",
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
-        "duration": 30,
-        "maxDurability": 100,
-        "experience": 10,
-        "manned": false,
-        "imageId": "s10.construction.campfire",
         "warEffects": {
-          "moraleBonus": 8,
-          "hungerDrainMultiplier": 0.8
+          "hungerDrainMultiplier": 0.8,
+          "moraleBonus": 8
         }
       },
       {
-        "id": "construction.barricade",
-        "name": "拒马",
         "costs": [
           {
             "itemId": "resource.wood",
@@ -216,20 +301,20 @@
             "quantity": 2
           }
         ],
+        "duration": 60,
+        "experience": 20,
+        "id": "construction.barricade",
+        "imageId": "s10.construction.barricade",
+        "manned": false,
+        "maxDurability": 180,
+        "name": "拒马",
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
-        "duration": 60,
-        "maxDurability": 180,
-        "experience": 20,
-        "manned": false,
-        "imageId": "s10.construction.barricade",
         "warEffects": {
           "enemyAdvanceSpeedMultiplier": 0.82
         }
       },
       {
-        "id": "construction.simple_wall",
-        "name": "简易壁垒",
         "costs": [
           {
             "itemId": "resource.wood",
@@ -240,21 +325,21 @@
             "quantity": 6
           }
         ],
+        "duration": 90,
+        "experience": 30,
+        "id": "construction.simple_wall",
+        "imageId": "s10.construction.simpleWall",
+        "manned": false,
+        "maxDurability": 300,
+        "name": "简易壁垒",
         "requiredProficiency": 1,
         "requiredToolType": "shovel",
-        "duration": 90,
-        "maxDurability": 300,
-        "experience": 30,
-        "manned": false,
-        "imageId": "s10.construction.simpleWall",
         "warEffects": {
-          "friendlyDefenseMultiplier": 1.15,
-          "destroyedDefenseMultiplier": 0.8
+          "destroyedDefenseMultiplier": 0.8,
+          "friendlyDefenseMultiplier": 1.15
         }
       },
       {
-        "id": "construction.arrow_tower",
-        "name": "箭楼",
         "costs": [
           {
             "itemId": "resource.wood",
@@ -265,358 +350,319 @@
             "quantity": 10
           }
         ],
+        "duration": 180,
+        "experience": 50,
+        "id": "construction.arrow_tower",
+        "imageId": "s10.construction.arrowTower",
+        "manned": true,
+        "maxDurability": 400,
+        "name": "箭楼",
         "requiredProficiency": 2,
         "requiredToolType": "shovel",
-        "duration": 180,
-        "maxDurability": 400,
-        "experience": 50,
-        "manned": true,
-        "imageId": "s10.construction.arrowTower",
         "warEffects": {
           "friendlyCasualtyMultiplier": 0.85
         }
       }
     ],
+    "maxOperations": 256,
+    "schemaVersion": 1,
     "sites": [
       {
+        "definitionId": "construction.s01.small_shelter",
         "id": "site.s01.small_shelter",
-        "sceneId": "S01",
-        "definitionId": "construction.s01.small_shelter"
+        "sceneId": "S01"
       },
       {
+        "definitionId": "construction.barricade",
         "id": "site.s06.field_barricade",
-        "sceneId": "S06",
-        "definitionId": "construction.barricade"
+        "sceneId": "S06"
       },
       {
+        "definitionId": "construction.campfire",
         "id": "site.s10.campfire",
-        "sceneId": "S10",
-        "definitionId": "construction.campfire"
+        "sceneId": "S10"
       },
       {
+        "definitionId": "construction.barricade",
         "id": "site.s10.barricade",
-        "sceneId": "S10",
-        "definitionId": "construction.barricade"
+        "sceneId": "S10"
       },
       {
+        "definitionId": "construction.simple_wall",
         "id": "site.s10.simple_wall",
-        "sceneId": "S10",
-        "definitionId": "construction.simple_wall"
+        "sceneId": "S10"
       },
       {
+        "definitionId": "construction.arrow_tower",
         "id": "site.s10.arrow_tower",
-        "sceneId": "S10",
-        "definitionId": "construction.arrow_tower"
+        "sceneId": "S10"
       }
     ]
   },
-  "extensions": {
-    "endings": {
-      "$ref": "config/endings.json"
+  "battles": [
+    {
+      "$ref": "config/battles/S03.json",
+      "id": "battle.s03.yingchuan"
     },
-    "sanguoZhangjiao": {
-      "s09RefugeeConflict": {
-        "minimumCityDamageRatio": 0.4,
-        "donationFood": 20,
-        "donationMorale": 5,
-        "damagePauseDays": 1,
-        "hardlineMorale": 10,
-        "hardlineEscapeChance": 0.35,
-        "appeaseFood": 30,
-        "consequenceDelayDays": 1
-      }
+    {
+      "$ref": "config/battles/S04.json",
+      "id": "battle.s04.changshe"
+    },
+    {
+      "$ref": "config/battles/S05.json",
+      "id": "battle.s05_wancheng_outskirts"
+    },
+    {
+      "$ref": "config/battles/S07.json",
+      "id": "battle.s07_xihua_delay"
+    },
+    {
+      "$ref": "config/battles/S11.json",
+      "id": "battle.s11.guangzong"
+    },
+    {
+      "$ref": "config/battles/S12.json",
+      "id": "battle.s12.xiaquyang"
+    },
+    {
+      "$ref": "config/battles/S13.json",
+      "id": "battle.s13.jingshan"
     }
-  },
-  "variables": {
-    "storyState": {
-      "month": 3,
-      "currentDay": 1,
-      "currentSceneId": "S01",
-      "unlockedScenes": [
-        "S01"
-      ],
-      "s01Survival": {
-        "campfireLit": false,
-        "axeFound": false,
-        "axeDropped": false,
-        "berriesGathered": false,
-        "berryEaten": false,
-        "campfireExtinguished": false,
-        "firstWolfSpotted": false,
-        "woodGathered": false,
-        "firstWolfKilled": false,
-        "wolfSkinned": false,
-        "backpackCrafted": false,
-        "meatCooked": false,
-        "shelterCompleted": false,
-        "overnightCompleted": false,
-        "firestarterAcquired": false,
-        "riverCrossed": false,
-        "cliffReached": false,
-        "pursuit": {
-          "active": false,
-          "spawned": 0,
-          "killed": 0
-        }
-      },
-      "delayedConsequences": [],
-      "storyTags": [],
-      "hiddenClues": [],
-      "endingInputs": {
-        "cumulativeGathering": {
-          "wood": 0,
-          "iron": 0,
-          "food": 0,
-          "herb": 0
-        },
-        "gatheringOperations": [],
-        "cityMaintenanceLevel": 0,
-        "allowedCityDestruction": false,
-        "resourceConstructionScore": 0
-      }
+  ],
+  "rescues": [
+    {
+      "$ref": "config/rescues/S04.json",
+      "id": "rescue.s04.bocai"
     },
+    {
+      "$ref": "config/rescues/S05.json",
+      "id": "rescue.s05.zhangMancheng"
+    },
+    {
+      "$ref": "config/rescues/S11.json",
+      "id": "rescue.s11.zhangLiang"
+    },
+    {
+      "$ref": "config/rescues/S12.json",
+      "id": "rescue.s12.zhangBao"
+    }
+  ],
+  "variables": {
+    "appliedBattleResultIds": [],
     "cityStates": [
       {
-        "schemaVersion": 1,
-        "id": "city.s09_guangzong_camp",
-        "name": "广宗粥棚营地",
-        "factionId": "yellow_turban",
-        "buildingLevel": 1,
-        "resources": {
-          "food": 60,
-          "wood": 20,
-          "iron": 0,
-          "herb": 10
-        },
-        "damageRatio": 0.45,
         "buildingDamage": {
           "granary.s09": 0.6
         },
+        "buildingLevel": 1,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.45,
+        "factionId": "yellow_turban",
+        "id": "city.s09_guangzong_camp",
         "morale": 35,
-        "damagePausedUntilDay": 0
+        "name": "广宗粥棚营地",
+        "resources": {
+          "food": 60,
+          "herb": 10,
+          "iron": 0,
+          "wood": 20
+        },
+        "schemaVersion": 1
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s03_yingchuan",
-        "name": "颍川官军屯城",
-        "factionId": "han_government",
+        "buildingDamage": {},
         "buildingLevel": 2,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0,
+        "factionId": "han_government",
+        "id": "city.s03_yingchuan",
+        "morale": 40,
+        "name": "颍川官军屯城",
         "resources": {
           "food": 80,
-          "wood": 50,
+          "herb": 30,
           "iron": 40,
-          "herb": 30
+          "wood": 50
         },
-        "damageRatio": 0,
-        "buildingDamage": {},
-        "morale": 40,
-        "damagePausedUntilDay": 0
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s04_changshe",
-        "name": "长社官军营垒",
-        "factionId": "han_government",
-        "buildingLevel": 2,
-        "resources": {
-          "food": 45,
-          "wood": 20,
-          "iron": 18,
-          "herb": 16
-        },
-        "damageRatio": 0.3,
         "buildingDamage": {
           "palisade.s04": 0.45
         },
+        "buildingLevel": 2,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.3,
+        "factionId": "han_government",
+        "id": "city.s04_changshe",
         "morale": 48,
-        "damagePausedUntilDay": 0
+        "name": "长社官军营垒",
+        "resources": {
+          "food": 45,
+          "herb": 16,
+          "iron": 18,
+          "wood": 20
+        },
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s05_wancheng",
-        "name": "宛城",
-        "factionId": "han_government",
+        "buildingDamage": {},
         "buildingLevel": 2,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.18,
+        "factionId": "han_government",
+        "id": "city.s05_wancheng",
+        "morale": 52,
+        "name": "宛城",
         "resources": {
           "food": 55,
-          "wood": 24,
+          "herb": 12,
           "iron": 48,
-          "herb": 12
+          "wood": 24
         },
-        "damageRatio": 0.18,
-        "buildingDamage": {},
-        "morale": 52,
-        "damagePausedUntilDay": 0
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s07_xihua",
-        "name": "西华",
-        "factionId": "han_government",
-        "buildingLevel": 1,
-        "resources": {
-          "food": 38,
-          "wood": 22,
-          "iron": 16,
-          "herb": 9
-        },
-        "damageRatio": 0.12,
         "buildingDamage": {
           "palisade.s07": 0.2
         },
+        "buildingLevel": 1,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.12,
+        "factionId": "han_government",
+        "id": "city.s07_xihua",
         "morale": 58,
-        "damagePausedUntilDay": 0
+        "name": "西华",
+        "resources": {
+          "food": 38,
+          "herb": 9,
+          "iron": 16,
+          "wood": 22
+        },
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s10_guangcheng_camp",
-        "name": "广城溪畔营地",
-        "factionId": "yellow_turban",
+        "buildingDamage": {},
         "buildingLevel": 1,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.22,
+        "factionId": "yellow_turban",
+        "id": "city.s10_guangcheng_camp",
+        "morale": 54,
+        "name": "广城溪畔营地",
         "resources": {
           "food": 42,
-          "wood": 46,
+          "herb": 16,
           "iron": 14,
-          "herb": 16
+          "wood": 46
         },
-        "damageRatio": 0.22,
-        "buildingDamage": {},
-        "morale": 54,
-        "damagePausedUntilDay": 0
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s11_guangzong",
-        "name": "广宗",
-        "factionId": "yellow_turban",
-        "buildingLevel": 2,
-        "resources": {
-          "food": 48,
-          "wood": 20,
-          "iron": 8,
-          "herb": 14
-        },
-        "damageRatio": 0.35,
         "buildingDamage": {
           "gate.s11.west": 0.3
         },
+        "buildingLevel": 2,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.35,
+        "factionId": "yellow_turban",
+        "id": "city.s11_guangzong",
         "morale": 72,
-        "damagePausedUntilDay": 0
+        "name": "广宗",
+        "resources": {
+          "food": 48,
+          "herb": 14,
+          "iron": 8,
+          "wood": 20
+        },
+        "schemaVersion": 2
       },
       {
-        "schemaVersion": 2,
-        "id": "city.s12_xiaquyang",
-        "name": "下曲阳",
-        "factionId": "yellow_turban",
-        "buildingLevel": 2,
-        "resources": {
-          "food": 32,
-          "wood": 18,
-          "iron": 12,
-          "herb": 10
-        },
-        "damageRatio": 0.28,
         "buildingDamage": {
           "gate.s12.yamen": 0
         },
+        "buildingLevel": 2,
+        "damagePausedUntilDay": 0,
+        "damageRatio": 0.28,
+        "factionId": "yellow_turban",
+        "id": "city.s12_xiaquyang",
         "morale": 55,
-        "damagePausedUntilDay": 0
+        "name": "下曲阳",
+        "resources": {
+          "food": 32,
+          "herb": 10,
+          "iron": 12,
+          "wood": 18
+        },
+        "schemaVersion": 2
       }
     ],
-    "warState": {
-      "battles": {},
-      "casualties": {}
-    },
-    "appliedBattleResultIds": [],
-    "warResourceNodeStates": [],
     "reputation": 50,
     "resourcePermissions": {
       "S09": {
         "food": false
       }
-    }
-  },
-  "system": {
-    "debug": true,
-    "login": {
-      "title": "三国张角传",
-      "subtitle": "苍天已死，黄天当立",
-      "description": "乱世将起，你的选择将改变众人的命运。",
-      "showDescription": false,
-      "backgroundAssetId": "ui.login.mainBackground",
-      "backgroundImage": "assets/images/main_bg.jpg",
-      "backgroundColor": "#111111",
-      "textColor": "#ffffff",
-      "titleColor": "#e7c778",
-      "panelColor": "",
-      "buttonColor": "#4b6728"
     },
-    "time": {
-      "enabled": true,
-      "startTime": 120
-    },
-    "loading": {
-      "title": "三国张角传",
-      "subtitle": "三月荒原",
-      "loadingText": "加载中...",
-      "icon": "",
-      "backgroundColor": "#1a1a1a",
-      "titleColor": "#4CAF50",
-      "progressBarColor": "#4CAF50,#8BC34A",
-      "steps": [
-        {
-          "progress": 0,
-          "text": "初始化 ECS 系统...",
-          "delay": 500
+    "storyState": {
+      "currentDay": 1,
+      "currentSceneId": "S01",
+      "delayedConsequences": [],
+      "endingInputs": {
+        "allowedCityDestruction": false,
+        "cityMaintenanceLevel": 0,
+        "cumulativeGathering": {
+          "food": 0,
+          "herb": 0,
+          "iron": 0,
+          "wood": 0
         },
-        {
-          "progress": 25,
-          "text": "加载核心系统...",
-          "delay": 500
+        "gatheringOperations": [],
+        "resourceConstructionScore": 0
+      },
+      "hiddenClues": [],
+      "month": 3,
+      "s01Survival": {
+        "axeDropped": false,
+        "axeFound": false,
+        "backpackCrafted": false,
+        "berriesGathered": false,
+        "berryEaten": false,
+        "campfireExtinguished": false,
+        "campfireLit": false,
+        "cliffReached": false,
+        "firestarterAcquired": false,
+        "firstWolfKilled": false,
+        "firstWolfSpotted": false,
+        "meatCooked": false,
+        "overnightCompleted": false,
+        "pursuit": {
+          "active": false,
+          "killed": 0,
+          "spawned": 0
         },
-        {
-          "progress": 50,
-          "text": "创建场景管理器...",
-          "delay": 300
-        },
-        {
-          "progress": 60,
-          "text": "注册场景...",
-          "delay": 500
-        },
-        {
-          "progress": 75,
-          "text": "初始化玩家实体...",
-          "delay": 0
-        },
-        {
-          "progress": 90,
-          "text": "进入第一幕...",
-          "delay": 500
-        },
-        {
-          "progress": 100,
-          "text": "完成！",
-          "delay": 500
-        }
+        "riverCrossed": false,
+        "shelterCompleted": false,
+        "wolfSkinned": false,
+        "woodGathered": false
+      },
+      "storyTags": [],
+      "unlockedScenes": [
+        "S01"
       ]
     },
-    "weather": {
-      "default": "clear",
-      "transitionSpeed": 0.5,
-      "particles": {}
+    "warResourceNodeStates": [],
+    "warState": {
+      "battles": {},
+      "casualties": {}
     }
   },
   "worldMap": {
     "entrySceneId": "S01",
     "regions": [
       {
-        "id": "region-a",
-        "name": "A区·干旱平原",
-        "chunkWidth": 1280,
         "chunkHeight": 720,
+        "chunkWidth": 1280,
         "cols": 20,
-        "rows": 20,
         "grid": [
           [
             null,
@@ -1058,15 +1104,15 @@
             null,
             null
           ]
-        ]
+        ],
+        "id": "region-a",
+        "name": "A区·干旱平原",
+        "rows": 20
       },
       {
-        "id": "region-b",
-        "name": "B区·冀州营地与战场",
-        "chunkWidth": 1280,
         "chunkHeight": 720,
+        "chunkWidth": 1280,
         "cols": 20,
-        "rows": 20,
         "grid": [
           [
             null,
@@ -1508,15 +1554,15 @@
             null,
             null
           ]
-        ]
+        ],
+        "id": "region-b",
+        "name": "B区·冀州营地与战场",
+        "rows": 20
       },
       {
-        "id": "region-c",
-        "name": "C区·豫州颍川战线",
-        "chunkWidth": 1280,
         "chunkHeight": 720,
+        "chunkWidth": 1280,
         "cols": 20,
-        "rows": 20,
         "grid": [
           [
             null,
@@ -1958,15 +2004,15 @@
             null,
             null
           ]
-        ]
+        ],
+        "id": "region-c",
+        "name": "C区·豫州颍川战线",
+        "rows": 20
       },
       {
-        "id": "region-d",
-        "name": "D区·精山与结局之地",
-        "chunkWidth": 1280,
         "chunkHeight": 720,
+        "chunkWidth": 1280,
         "cols": 20,
-        "rows": 20,
         "grid": [
           [
             null,
@@ -2408,522 +2454,599 @@
             null,
             null
           ]
-        ]
+        ],
+        "id": "region-d",
+        "name": "D区·精山与结局之地",
+        "rows": 20
       }
     ]
   },
   "scenes": [
     {
       "id": "S01",
-      "worldMap": "region-a",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-a"
     },
     {
       "id": "S02",
-      "worldMap": "region-a",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-a"
     },
     {
       "id": "S03",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S04",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S05",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S06",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S07",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S08",
-      "worldMap": "region-c",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-c"
     },
     {
       "id": "S09",
-      "worldMap": "region-b",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-b"
     },
     {
       "id": "S10",
-      "worldMap": "region-b",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-b"
     },
     {
       "id": "S11",
-      "worldMap": "region-b",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-b"
     },
     {
       "id": "S12",
-      "worldMap": "region-b",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-b"
     },
     {
       "id": "S13",
-      "worldMap": "region-d",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
+      "worldMap": "region-d"
     },
     {
       "id": "S14",
-      "worldMap": "region-d",
+      "previewOnly": false,
       "productionState": "playable",
-      "previewOnly": false
-    }
-  ],
-  "battles": [
-    {
-      "$ref": "config/battles/S03.json"
-    },
-    {
-      "$ref": "config/battles/S04.json"
-    },
-    {
-      "$ref": "config/battles/S05.json"
-    },
-    {
-      "$ref": "config/battles/S07.json"
-    },
-    {
-      "$ref": "config/battles/S11.json"
-    },
-    {
-      "$ref": "config/battles/S12.json"
-    },
-    {
-      "$ref": "config/battles/S13.json"
-    }
-  ],
-  "rescues": [
-    {
-      "$ref": "config/rescues/S04.json"
-    },
-    {
-      "$ref": "config/rescues/S05.json"
-    },
-    {
-      "$ref": "config/rescues/S11.json"
-    },
-    {
-      "$ref": "config/rescues/S12.json"
+      "worldMap": "region-d"
     }
   ],
   "dialogues": [
     {
       "id": "dialogue.s01.wake",
-      "title": "寒风中醒来",
-      "startNode": "start",
       "nodes": {
-        "start": {
-          "speaker": "旁白",
-          "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-          "nextNode": "move"
-        },
         "move": {
           "speaker": "旁白",
           "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。"
+        },
+        "start": {
+          "nextNode": "move",
+          "speaker": "旁白",
+          "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。"
         }
-      }
+      },
+      "startNode": "start",
+      "title": "寒风中醒来"
     },
     {
       "id": "dialogue.s02.zhangjiaoSummons",
-      "title": "张角召见",
-      "startNode": "start",
       "nodes": {
-        "start": {
-          "speaker": "黄巾信使",
-          "text": "你终于到了。张角正在粥棚营地召集仍愿救民的人。",
-          "nextNode": "accept"
-        },
         "accept": {
           "speaker": "你",
           "text": "我会前去赴约。先把这里能用的物资收拾妥当。"
+        },
+        "start": {
+          "nextNode": "accept",
+          "speaker": "黄巾信使",
+          "text": "你终于到了。张角正在粥棚营地召集仍愿救民的人。"
         }
-      }
+      },
+      "startNode": "start",
+      "title": "张角召见"
     },
     {
       "id": "dialogue.s09.enlistment",
-      "title": "加入黄巾",
-      "startNode": "start",
       "nodes": {
-        "start": {
-          "speaker": "张角",
-          "text": "苍生困于饥疫，空有一人之勇救不了天下。你可愿留下，与我们一道护送粮药、救济流民？",
-          "nextNode": "answer"
-        },
         "answer": {
+          "nextNode": "choose",
           "speaker": "你",
-          "text": "我愿加入黄巾，但愿手中所学真能让百姓活下去。",
-          "nextNode": "choose"
+          "text": "我愿加入黄巾，但愿手中所学真能让百姓活下去。"
         },
         "choose": {
           "speaker": "张角",
           "text": "去看三面军旗。张梁授战士之法，张宝授弓手之法；若愿研习符法军略，便来承军师之责。职业一旦确认，不可更改。"
+        },
+        "start": {
+          "nextNode": "answer",
+          "speaker": "张角",
+          "text": "苍生困于饥疫，空有一人之勇救不了天下。你可愿留下，与我们一道护送粮药、救济流民？"
         }
-      }
+      },
+      "startNode": "start",
+      "title": "加入黄巾"
     },
     {
       "id": "dialogue.s09.refugeeConflict",
-      "title": "饥民争斗",
-      "startNode": "start",
       "nodes": {
-        "start": {
-          "speaker": "断臂饥民",
-          "text": "残兵护着最后几块饼，妇人抱紧孩子，地上两个人已经没了声息。断臂汉子把半块饼攥得发白。",
-          "nextNode": "donationOffer"
-        },
-        "donationOffer": {
-          "speaker": "断臂饥民",
-          "text": "再没有粮，今晚就会有人为这一口吃的拼命。你若拿得出二十份粮食，至少能让大家先停手。",
-          "choices": [
-            {
-              "id": "donate_food",
-              "text": "捐出粮食 ×20",
-              "nextNode": "donationProcessing"
-            },
-            {
-              "id": "defer",
-              "text": "我还需要准备",
-              "nextNode": "deferred"
-            }
-          ]
-        },
-        "donationProcessing": {
-          "speaker": "你",
-          "text": "先清点粮食，任何一项无法落实都不能让现场留下半笔账。",
-          "nextNode": "donationProcessing"
-        },
-        "donationFailed": {
-          "speaker": "断臂饥民",
-          "text": "粮食还不够，或检查点没能安全写入。刚才的粮食、士气和城市状态都没有改变。",
-          "choices": [
-            {
-              "id": "retry_donation",
-              "text": "再次尝试捐出粮食 ×20",
-              "nextNode": "donationProcessing"
-            },
-            {
-              "id": "defer",
-              "text": "稍后再来",
-              "nextNode": "deferred"
-            }
-          ]
-        },
-        "deferred": {
-          "speaker": "你",
-          "text": "我先去准备粮食。现场仍会保留，之后可以回来继续处理。"
-        },
-        "branchChoice": {
-          "speaker": "断臂饥民",
-          "text": "众人暂时停手，却都等着你决定接下来怎么办。这个选择无法撤回。",
-          "choices": [
-            {
-              "id": "hardline",
-              "text": "强硬：命残兵控制人群",
-              "nextNode": "branchProcessing"
-            },
-            {
-              "id": "appease",
-              "text": "安抚采集：带人寻找燃料与散粮",
-              "nextNode": "branchProcessing"
-            },
-            {
-              "id": "silence",
-              "text": "沉默：不再介入",
-              "nextNode": "branchProcessing"
-            }
-          ]
-        },
-        "branchProcessing": {
-          "speaker": "你",
-          "text": "决定正在写入检查点……",
-          "nextNode": "branchProcessing"
-        },
-        "hardlineResult": {
+        "appeaseScoutResult": {
           "speaker": "黄巾残兵",
-          "text": "残兵列成一线压住人群。争斗停了，营中士气暂时回升；但这份强硬也可能逼得一些人在夜里离开。"
+          "text": "没有可用的斧头，队伍在荒地拖延太久，官军斥候已经循声赶来！"
         },
         "appeaseSuccessResult": {
           "speaker": "妇人",
           "text": "斧头还能用。众人带回燃料和散粮，营地粮食增加了三十份。"
         },
-        "appeaseScoutResult": {
+        "branchChoice": {
+          "choices": [
+            {
+              "id": "hardline",
+              "nextNode": "branchProcessing",
+              "text": "强硬：命残兵控制人群"
+            },
+            {
+              "id": "appease",
+              "nextNode": "branchProcessing",
+              "text": "安抚采集：带人寻找燃料与散粮"
+            },
+            {
+              "id": "silence",
+              "nextNode": "branchProcessing",
+              "text": "沉默：不再介入"
+            }
+          ],
+          "speaker": "断臂饥民",
+          "text": "众人暂时停手，却都等着你决定接下来怎么办。这个选择无法撤回。"
+        },
+        "branchProcessing": {
+          "nextNode": "branchProcessing",
+          "speaker": "你",
+          "text": "决定正在写入检查点……"
+        },
+        "deferred": {
+          "speaker": "你",
+          "text": "我先去准备粮食。现场仍会保留，之后可以回来继续处理。"
+        },
+        "donationFailed": {
+          "choices": [
+            {
+              "id": "retry_donation",
+              "nextNode": "donationProcessing",
+              "text": "再次尝试捐出粮食 ×20"
+            },
+            {
+              "id": "defer",
+              "nextNode": "deferred",
+              "text": "稍后再来"
+            }
+          ],
+          "speaker": "断臂饥民",
+          "text": "粮食还不够，或检查点没能安全写入。刚才的粮食、士气和城市状态都没有改变。"
+        },
+        "donationOffer": {
+          "choices": [
+            {
+              "id": "donate_food",
+              "nextNode": "donationProcessing",
+              "text": "捐出粮食 ×20"
+            },
+            {
+              "id": "defer",
+              "nextNode": "deferred",
+              "text": "我还需要准备"
+            }
+          ],
+          "speaker": "断臂饥民",
+          "text": "再没有粮，今晚就会有人为这一口吃的拼命。你若拿得出二十份粮食，至少能让大家先停手。"
+        },
+        "donationProcessing": {
+          "nextNode": "donationProcessing",
+          "speaker": "你",
+          "text": "先清点粮食，任何一项无法落实都不能让现场留下半笔账。"
+        },
+        "hardlineResult": {
           "speaker": "黄巾残兵",
-          "text": "没有可用的斧头，队伍在荒地拖延太久，官军斥候已经循声赶来！"
+          "text": "残兵列成一线压住人群。争斗停了，营中士气暂时回升；但这份强硬也可能逼得一些人在夜里离开。"
         },
         "silenceResult": {
           "speaker": "断臂饥民",
           "text": "你没有回答。汉子把饼藏回怀里；到下一游戏日，沉默的代价才会显现。"
+        },
+        "start": {
+          "nextNode": "donationOffer",
+          "speaker": "断臂饥民",
+          "text": "残兵护着最后几块饼，妇人抱紧孩子，地上两个人已经没了声息。断臂汉子把半块饼攥得发白。"
         }
-      }
+      },
+      "startNode": "start",
+      "title": "饥民争斗"
     }
   ],
   "quests": [],
   "triggerCatalog": {
     "actions": [
       {
-        "value": "spawnPlacements",
-        "label": "spawnPlacements"
+        "label": "spawnPlacements",
+        "value": "spawnPlacements"
       },
       {
-        "value": "spawnGroup",
-        "label": "spawnGroup"
+        "label": "spawnGroup",
+        "value": "spawnGroup"
       },
       {
-        "value": "teleportToChunk",
-        "label": "teleportToChunk"
+        "label": "teleportToChunk",
+        "value": "teleportToChunk"
       },
       {
-        "value": "showTip",
-        "label": "showTip"
+        "label": "showTip",
+        "value": "showTip"
       },
       {
-        "value": "s01Survival",
-        "label": "s01Survival"
+        "label": "s01Survival",
+        "value": "s01Survival"
       },
       {
-        "value": "startDialogue",
-        "label": "startDialogue"
+        "label": "startDialogue",
+        "value": "startDialogue"
       },
       {
-        "value": "advanceGameDay",
-        "label": "advanceGameDay"
+        "label": "advanceGameDay",
+        "value": "advanceGameDay"
       },
       {
-        "value": "autoSave",
-        "label": "autoSave"
+        "label": "autoSave",
+        "value": "autoSave"
       },
       {
-        "value": "switchScene",
-        "label": "switchScene"
+        "label": "switchScene",
+        "value": "switchScene"
       },
       {
-        "value": "toggleDebug",
-        "label": "toggleDebug"
+        "label": "toggleDebug",
+        "value": "toggleDebug"
       },
       {
-        "value": "setWeather",
-        "label": "setWeather"
+        "label": "setWeather",
+        "value": "setWeather"
       },
       {
-        "value": "setTime",
-        "label": "setTime"
+        "label": "setTime",
+        "value": "setTime"
       },
       {
-        "value": "selectClass",
-        "label": "selectClass"
+        "label": "selectClass",
+        "value": "selectClass"
       },
       {
-        "value": "completeScene",
-        "label": "completeScene"
+        "label": "completeScene",
+        "value": "completeScene"
       },
       {
-        "value": "dismissPopup",
-        "label": "dismissPopup"
+        "label": "dismissPopup",
+        "value": "dismissPopup"
       },
       {
-        "value": "world.teleport",
-        "label": "world.teleport"
+        "label": "world.teleport",
+        "value": "world.teleport"
       },
       {
-        "value": "checkpoint.request",
-        "label": "checkpoint.request"
+        "label": "checkpoint.request",
+        "value": "checkpoint.request"
       },
       {
-        "value": "dialogue.command",
-        "label": "dialogue.command"
+        "label": "dialogue.command",
+        "value": "dialogue.command"
       },
       {
-        "value": "tutorial.command",
-        "label": "tutorial.command"
+        "label": "tutorial.command",
+        "value": "tutorial.command"
       },
       {
-        "value": "scenario.command",
-        "label": "scenario.command"
+        "label": "scenario.command",
+        "value": "scenario.command"
       },
       {
-        "value": "battle.command",
-        "label": "battle.command"
+        "label": "battle.command",
+        "value": "battle.command"
       },
       {
-        "value": "rescue.command",
-        "label": "rescue.command"
+        "label": "rescue.command",
+        "value": "rescue.command"
       },
       {
-        "value": "construction.command",
-        "label": "construction.command"
+        "label": "construction.command",
+        "value": "construction.command"
       },
       {
-        "value": "vehicle.command",
-        "label": "vehicle.command"
+        "label": "vehicle.command",
+        "value": "vehicle.command"
       },
       {
-        "value": "ending.command",
-        "label": "ending.command"
+        "label": "ending.command",
+        "value": "ending.command"
       }
     ]
   },
-  "commands": [
-    {"id":"story.s01.specialFaint.prepare","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"}]},"writes":[{"target":"story","path":"pendingDefeatResolution","value":"specialFaint"},{"target":"story","path":"specialFaintRescueType","value":{"$get":"payload.rescueType","default":"passerby"}}]}},
-    {"id":"story.s01.specialFaint.clear","commandType":"state.transaction","transaction":{"when":{"path":"story.pendingDefeatResolution","equals":"specialFaint"},"writes":[{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null}]}},
-    {"id":"story.s01.campfireLit","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":false}]},"writes":[{"target":"story","path":"s01Survival.campfireLit","value":true}]}},
-    {"id":"story.s01.findAxe","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.campfireLit","equals":true},{"path":"story.s01Survival.axeFound","equals":false}]},"writes":[{"target":"story","path":"s01Survival.axeFound","value":true},{"target":"story","path":"s01Survival.axeDropped","value":true}]}},
-    {"id":"story.s01.berriesGathered","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.axeFound","equals":true},{"path":"story.s01Survival.berriesGathered","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berriesGathered","value":true}]}},
-    {"id":"story.s01.berryEaten","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berriesGathered","equals":true},{"path":"story.s01Survival.berryEaten","equals":false}]},"writes":[{"target":"story","path":"s01Survival.berryEaten","value":true},{"target":"story","path":"s01Survival.campfireExtinguished","value":true}]}},
-    {"id":"story.s01.firstWolfSpotted","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berryEaten","equals":true},{"path":"story.s01Survival.firstWolfSpotted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.firstWolfSpotted","value":true}]}},
-    {"id":"story.s01.woodGathered","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.berryEaten","equals":true},{"path":"story.s01Survival.woodGathered","equals":false}]},"writes":[{"target":"story","path":"s01Survival.woodGathered","value":true}]}},
-    {"id":"story.s01.firstWolfKilled","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.firstWolfSpotted","equals":true},{"path":"story.s01Survival.firstWolfKilled","equals":false}]},"writes":[{"target":"story","path":"s01Survival.firstWolfKilled","value":true}]}},
-    {"id":"story.s01.wolfSkinned","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.firstWolfKilled","equals":true},{"path":"story.s01Survival.wolfSkinned","equals":false},{"inventory":{"toolType":"skinningKnife"}}]},"writes":[{"target":"story","path":"s01Survival.wolfSkinned","value":true}]}},
-    {"id":"story.s01.craftBackpack","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.wolfSkinned","equals":true},{"path":"story.s01Survival.backpackCrafted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.backpackCrafted","value":true}],"inventory":{"type":"batchExchange","removeEntries":[{"itemId":"resource.wood","quantity":2},{"itemId":"resource.wolf_hide","quantity":1}],"addEntries":[{"itemId":"item.small_backpack","quantity":1}]}}},
-    {"id":"story.s01.cookMeat","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.backpackCrafted","equals":true},{"path":"story.s01Survival.meatCooked","equals":false}]},"writes":[{"target":"story","path":"s01Survival.meatCooked","value":true}],"inventory":{"type":"batchExchange","removeEntries":[{"itemId":"resource.raw_wolf_meat","quantity":1},{"itemId":"resource.wood","quantity":1}],"addEntries":[{"itemId":"food.roasted_wolf_meat","quantity":1}]}}},
-    {"id":"story.s01.shelterCompleted","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.meatCooked","equals":true},{"path":"story.s01Survival.shelterCompleted","equals":false}]},"writes":[{"target":"story","path":"s01Survival.shelterCompleted","value":true}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S01.shelterCompleted","sceneId":"S01"}}},
-    {"id":"story.s01.overnight","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.shelterCompleted","equals":true},{"path":"story.s01Survival.overnightCompleted","equals":false}]},"writes":[{"target":"story","path":"currentDay","value":2},{"target":"story","path":"s01Survival.overnightCompleted","value":true},{"target":"story","path":"s01Survival.firestarterAcquired","value":true},{"target":"story","path":"s01Survival.pursuit","value":{"active":true,"spawned":3,"killed":0}}],"inventory":{"type":"batchAdd","entries":[{"itemId":"story.s01.firestarter","quantity":1}]},"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S01.secondDay","sceneId":"S01"}}},
-    {"id":"story.s01.chase.kill","commandType":"state.transaction","transaction":{"when":{"path":"story.s01Survival.pursuit.active","equals":true},"writes":[{"target":"story","path":"s01Survival.pursuit.killed","value":{"$add":[{"$get":"story.s01Survival.pursuit.killed","default":0},1]}},{"target":"story","path":"s01Survival.pursuit.spawned","value":{"$min":[20,{"$add":[{"$get":"story.s01Survival.pursuit.spawned","default":3},2]}]}}]}},
-    {"id":"story.s01.riverCrossed","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.pursuit.active","equals":true},{"path":"story.s01Survival.riverCrossed","equals":false}]},"writes":[{"target":"story","path":"s01Survival.riverCrossed","value":true}]}},
-    {"id":"story.s01.cliffReached","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.s01Survival.riverCrossed","equals":true},{"path":"story.s01Survival.cliffReached","equals":false}]},"writes":[{"target":"story","path":"s01Survival.cliffReached","value":true}]}},
-    {"id":"story.s01.complete","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S01"},{"path":"story.s01Survival.cliffReached","equals":true}]},"writes":[{"target":"story","path":"s01Completed","value":true},{"target":"story","path":"s01Survival.pursuit.active","value":false},{"target":"story","path":"currentSceneId","value":"S02"},{"target":"story","path":"pendingDefeatResolution","value":null},{"target":"story","path":"specialFaintRescueType","value":null},{"target":"story","path":"unlockedScenes","value":{"$appendUnique":{"source":{"$get":"story.unlockedScenes","default":[]},"values":["S02"]}}}],"travel":{"sceneId":"S02","spawnRef":"player","transition":"fadeBlack"}}},
-    {"id":"story.s02.summons.accept","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":false}]},"writes":[{"target":"story","path":"s02SummonsAccepted","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S02.summonsAccepted"}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S02.summonsAccepted","sceneId":"S02"}}},
-    {"id":"story.s02.travel","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S02"},{"path":"story.s02SummonsAccepted","equals":true}]},"travel":{"sceneId":"S09","spawnRef":"player"}}},
-    {"id":"story.s09.enlist","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.joinedYellowTurban","equals":false}]},"writes":[{"target":"story","path":"joinedYellowTurban","value":true},{"target":"story","path":"lastCheckpointId","value":"checkpoint.S09.enlisted"},{"target":"blackboard","path":"joinedYellowTurban","value":true}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.enlisted","sceneId":"S09"}}},
-    {"id":"story.s09.day.advance","commandType":"state.transaction","transaction":{"writes":[{"target":"story","path":"currentDay","value":{"$get":"payload.day"}}]}},
-    {"id":"story.s09.delayed.resolve","commandType":"state.transaction","transaction":{"delayed":{"path":"delayedConsequences","currentDayPath":"story.currentDay"},"selector":{"$get":"event.type"},"variants":{"s09.silenceFoodCollapse":{"writes":[{"target":"city","cityId":"city.s09_guangzong_camp","path":"resources.food","value":0},{"target":"story","path":"hiddenClues","value":{"$appendUnique":{"source":{"$get":"story.hiddenClues","default":[]},"values":["s09.refugees.breadArmClue"]}}}],"outcome":"foodCollapsed"},"s09.hardlineEscape":{"writes":[{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"hardlineEscapeOccurred":{"$get":"event.payload.willEscape"},"hardlineEscapeDay":{"$get":"story.currentDay"}}]}}],"outcome":{"$if":[{"$get":"event.payload.willEscape"},"escapeOccurred","noEscape"]}}}}},
-    {"id":"story.s09.refugee.prepare","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"cityStates.0.damageRatio","gte":0.4},{"path":"cityStates.0.buildingDamage.granary.s09","gte":0.000001}]},"writes":[{"target":"story","path":"s09RefugeeConflict","value":{"$if":[{"$get":"story.s09RefugeeConflict"},{"$get":"story.s09RefugeeConflict"},{"status":"available","triggeredDay":{"$get":"story.currentDay","default":1},"donationCommitted":false,"branch":null,"result":null,"presentationActive":true}]}}]}},
-    {"id":"story.s09.refugee.start","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.s09RefugeeConflict.status","equals":"available"}]},"writes":[{"target":"story","path":"s09RefugeeConflict.status","value":"started"}]}},
-    {"id":"story.s09.refugee.donate","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.s09RefugeeConflict.donationCommitted","equals":false},{"inventory":{"itemId":"resource.food","quantity":20}}]},"writes":[{"target":"city","cityId":"city.s09_guangzong_camp","path":"morale","value":{"$min":[100,{"$add":[{"$get":"cityStates.0.morale"},5]}]}},{"target":"city","cityId":"city.s09_guangzong_camp","path":"damagePausedUntilDay","value":{"$add":[{"$get":"story.currentDay","default":1},1]}},{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"status":"donated","donationCommitted":true,"donationOperationId":{"$get":"payload.operationId","default":"donation"},"donationDay":{"$get":"story.currentDay","default":1}}]}}],"inventory":{"type":"batchRemove","entries":[{"itemId":"resource.food","quantity":20}]},"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.refugeeDonation","sceneId":"S09"}}},
-    {"id":"story.s09.refugee.branch","commandType":"state.transaction","transaction":{"when":{"all":[{"path":"story.currentSceneId","equals":"S09"},{"path":"story.s09RefugeeConflict.donationCommitted","equals":true}]},"variantDefinitions":{"donate_food":"story.s09.refugee.donate","retry_donation":"story.s09.refugee.donate"},"selector":{"$get":"payload.event.choiceId"},"variants":{"hardline":{"writes":[{"target":"city","cityId":"city.s09_guangzong_camp","path":"morale","value":{"$min":[100,{"$add":[{"$get":"cityStates.0.morale"},10]}]}},{"target":"story","path":"storyTags","value":{"$appendUnique":{"source":{"$get":"story.storyTags","default":[]},"values":["s09.refugees.hardline","s09.refugees.strictCommander"]}}},{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"status":"resolved","branch":"hardline","result":"hardlineEscapeScheduled","hardlineEscapeOccurred":{"$chance":0.35}}]}},{"target":"story","path":"delayedConsequences","value":{"$concat":[{"$get":"story.delayedConsequences","default":[]},[{"id":"story:S09:hardline-escape","type":"s09.hardlineEscape","dueDay":{"$add":[{"$get":"story.currentDay","default":1},1]},"status":"pending","payload":{"willEscape":{"$get":"story.s09RefugeeConflict.hardlineEscapeOccurred"}}}]]}}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.refugeeBranch.hardline","sceneId":"S09"}},"appease":{"writes":[{"target":"story","path":"storyTags","value":{"$appendUnique":{"source":{"$get":"story.storyTags","default":[]},"values":["s09.refugees.appeasedWithGathering"]}}},{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"status":"resolved","branch":"appease","result":"foodRestored"}]}}],"when":{"inventory":{"toolType":"axe"}},"onPreconditionFailed":{"writes":[{"target":"story","path":"storyTags","value":{"$appendUnique":{"source":{"$get":"story.storyTags","default":[]},"values":["s09.refugees.appeaseScout"]}}},{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"status":"resolved","branch":"appease","result":"scoutTriggered","scoutTriggered":true}]}}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.refugeeBranch.appeaseScout","sceneId":"S09"}},"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.refugeeBranch.appease","sceneId":"S09"}},"silence":{"writes":[{"target":"story","path":"storyTags","value":{"$appendUnique":{"source":{"$get":"story.storyTags","default":[]},"values":["s09.refugees.silence"]}}},{"target":"story","path":"s09RefugeeConflict","value":{"$merge":[{"$get":"story.s09RefugeeConflict"},{"status":"resolved","branch":"silence","result":"delayedFoodCollapse"}]}},{"target":"story","path":"delayedConsequences","value":{"$concat":[{"$get":"story.delayedConsequences","default":[]},[{"id":"story:S09:silence-food-collapse","type":"s09.silenceFoodCollapse","dueDay":{"$add":[{"$get":"story.currentDay","default":1},1]},"status":"pending"}]]}}],"checkpoint":{"reason":"checkpoint","checkpointId":"checkpoint.S09.refugeeBranch.silence","sceneId":"S09"}}}}}
-  ],
   "triggers": [
     {
-      "id": "trg_s01_spawn_initial",
-      "when": { "type": "sceneEnter", "params": { "sceneId": "S01" } },
-      "do": [
-        { "action": "spawnPlacements", "params": { "selector": { "group": "S01-initial" } }, "await": true },
-        { "action": "s01Survival", "params": { "operation": "reconcilePursuit" }, "await": true },
-        { "action": "s01Survival", "params": { "operation": "presentEntry" }, "await": true }
-      ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_begin_tutorial_after_wake",
-      "when": {
-        "type": "dialogueEnd",
-        "params": { "id": "dialogue.s01.wake" }
-      },
-      "do": [
-        { "action": "s01Survival", "params": { "operation": "beginTutorial" }, "await": true }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_s01_light_campfire",
-      "when": { "type": "interact", "params": {} },
-      "do": [
-        { "action": "s01Survival", "params": { "operation": "ensureMovedAfterWake" }, "await": true },
-        { "action": "scenario.command", "params": { "scenarioId": "scenario.command.campfire.ignite", "operation": "campfire.ignite" }, "await": true },
-        { "action": "s01Survival", "params": { "operation": "campfireLit" }, "await": true }
-      ],
-      "once": true
-    },
-    {
-      "id": "trg_s01_craft_backpack",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "craftBackpack" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_cook_meat",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "cookMeat" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_build_shelter",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "construction.command", "params": { "operation": "construction.start.s01", "definitionId": "construction.s01.small_shelter", "siteId": "site.s01.small_shelter" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_shelter_completed",
-      "when": { "type": "construction.constructionCompleted", "params": { "siteId": "site.s01.small_shelter" } },
-      "do": [ { "action": "s01Survival", "params": { "operation": "shelterCompleted" }, "await": true } ],
-      "once": true
-    },
-    {
-      "id": "trg_s01_overnight",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "overnight" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_river_crossed",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "riverCrossed" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_cliff_reached",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "cliffReached" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s01_climb_vine",
-      "when": { "type": "interact", "params": {} },
-      "do": [ { "action": "s01Survival", "params": { "operation": "climbVine" }, "await": true } ],
-      "once": false,
-      "cooldown": 1
-    },
-    {
-      "id": "trg_s02_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S02"
-        }
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
+          "params": {
+            "selector": {
+              "group": "S01-initial"
+            }
+          }
+        },
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "reconcilePursuit"
+          }
+        },
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "presentEntry"
+          }
+        }
+      ],
+      "id": "trg_s01_spawn_initial",
+      "once": false,
+      "when": {
+        "params": {
+          "sceneId": "S01"
+        },
+        "type": "sceneEnter"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "beginTutorial"
+          }
+        }
+      ],
+      "id": "trg_s01_begin_tutorial_after_wake",
+      "once": true,
+      "when": {
+        "params": {
+          "id": "dialogue.s01.wake"
+        },
+        "type": "dialogueEnd"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "ensureMovedAfterWake"
+          }
+        },
+        {
+          "action": "scenario.command",
+          "await": true,
+          "params": {
+            "operation": "campfire.ignite",
+            "scenarioId": "scenario.command.campfire.ignite"
+          }
+        },
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "campfireLit"
+          }
+        }
+      ],
+      "id": "trg_s01_light_campfire",
+      "once": true,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "craftBackpack"
+          }
+        }
+      ],
+      "id": "trg_s01_craft_backpack",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "cookMeat"
+          }
+        }
+      ],
+      "id": "trg_s01_cook_meat",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "construction.command",
+          "await": true,
+          "params": {
+            "definitionId": "construction.s01.small_shelter",
+            "operation": "construction.start.s01",
+            "siteId": "site.s01.small_shelter"
+          }
+        }
+      ],
+      "id": "trg_s01_build_shelter",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "shelterCompleted"
+          }
+        }
+      ],
+      "id": "trg_s01_shelter_completed",
+      "once": true,
+      "when": {
+        "params": {
+          "siteId": "site.s01.small_shelter"
+        },
+        "type": "construction.constructionCompleted"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "overnight"
+          }
+        }
+      ],
+      "id": "trg_s01_overnight",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "riverCrossed"
+          }
+        }
+      ],
+      "id": "trg_s01_river_crossed",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "cliffReached"
+          }
+        }
+      ],
+      "id": "trg_s01_cliff_reached",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "climbVine"
+          }
+        }
+      ],
+      "id": "trg_s01_climb_vine",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S02-initial"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -2932,14 +3055,17 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s02_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S02"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s02_zhangjiao_summons",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "startDialogue",
@@ -2948,70 +3074,67 @@
           }
         }
       ],
+      "id": "trg_s02_zhangjiao_summons",
       "once": true,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s02_accept_summons",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "dialogue.s02.zhangjiaoSummons"
-        }
-      },
       "do": [
         {
           "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s02.summons.accept"
-          },
-          "await": true
+          }
         },
         {
           "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s02.travel"
-          },
-          "await": true
+          }
         }
       ],
-      "once": true
+      "id": "trg_s02_accept_summons",
+      "once": true,
+      "when": {
+        "params": {
+          "id": "dialogue.s02.zhangjiaoSummons"
+        },
+        "type": "dialogueEnd"
+      }
     },
     {
-      "id": "trg_s02_travel_s09",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s02.travel"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s02_travel_s09",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s09_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S09"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S09-initial"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -3020,78 +3143,81 @@
           }
         }
       ],
-      "once": true
-    },
-    {
-      "id": "trg_s09_prepare_refugee_conflict",
+      "id": "trg_s09_spawn_initial",
+      "once": true,
       "when": {
-        "type": "sceneEnter",
         "params": {
           "sceneId": "S09"
-        }
-      },
-      "do": [
-        {
-          "action": "state.transaction",
-          "params": {
-            "definitionId": "story.s09.refugee.prepare"
-          },
-          "await": true
-        }
-      ],
-      "once": false
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s09_start_refugee_conflict",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
       "do": [
         {
           "action": "state.transaction",
+          "await": true,
+          "params": {
+            "definitionId": "story.s09.refugee.prepare"
+          }
+        }
+      ],
+      "id": "trg_s09_prepare_refugee_conflict",
+      "once": false,
+      "when": {
+        "params": {
+          "sceneId": "S09"
+        },
+        "type": "sceneEnter"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
+          "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s09.refugee.start"
-          },
-          "await": true
+          }
         },
         {
           "action": "dialogue.command",
+          "await": true,
           "params": {
             "dialogueId": "dialogue.s09.refugeeConflict",
             "operation": "start"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s09_start_refugee_conflict",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s09_refugee_choice",
-      "when": {
-        "type": "dialogueChoice",
-        "params": {
-          "id": "dialogue.s09.refugeeConflict"
-        }
-      },
       "do": [
         {
           "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s09.refugee.branch"
-          },
-          "await": true
+          }
         }
       ],
-      "once": false
+      "id": "trg_s09_refugee_choice",
+      "once": false,
+      "when": {
+        "params": {
+          "id": "dialogue.s09.refugeeConflict"
+        },
+        "type": "dialogueChoice"
+      }
     },
     {
-      "id": "trg_s09_zhangjiao_enlistment",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "startDialogue",
@@ -3100,100 +3226,99 @@
           }
         }
       ],
+      "id": "trg_s09_zhangjiao_enlistment",
       "once": true,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s09_accept_enlistment",
-      "when": {
-        "type": "dialogueEnd",
-        "params": {
-          "id": "dialogue.s09.enlistment"
-        }
-      },
       "do": [
         {
           "action": "state.transaction",
+          "await": true,
           "params": {
             "definitionId": "story.s09.enlist"
-          },
-          "await": true
+          }
         }
       ],
-      "once": true
+      "id": "trg_s09_accept_enlistment",
+      "once": true,
+      "when": {
+        "params": {
+          "id": "dialogue.s09.enlistment"
+        },
+        "type": "dialogueEnd"
+      }
     },
     {
-      "id": "trg_s09_class_warrior",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "if": {
-        "flag": "joinedYellowTurban"
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
           "params": {
             "classId": "warrior",
-            "scenarioId": "scenario.command.class.confirm",
-            "operation": "class.confirm"
+            "operation": "class.confirm",
+            "scenarioId": "scenario.command.class.confirm"
           }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
-      "id": "trg_s09_class_archer",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "id": "trg_s09_class_warrior",
       "if": {
         "flag": "joinedYellowTurban"
       },
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
           "params": {
             "classId": "archer",
-            "scenarioId": "scenario.command.class.confirm",
-            "operation": "class.confirm"
+            "operation": "class.confirm",
+            "scenarioId": "scenario.command.class.confirm"
           }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
-      "id": "trg_s09_class_strategist",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "id": "trg_s09_class_archer",
       "if": {
         "flag": "joinedYellowTurban"
       },
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
           "params": {
             "classId": "strategist",
-            "scenarioId": "scenario.command.class.confirm",
-            "operation": "class.confirm"
+            "operation": "class.confirm",
+            "scenarioId": "scenario.command.class.confirm"
           }
         }
       ],
+      "id": "trg_s09_class_strategist",
+      "if": {
+        "flag": "joinedYellowTurban"
+      },
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s09_class_selected_feedback",
-      "when": {
-        "type": "classSelected",
-        "params": {}
-      },
       "do": [
         {
           "action": "showTip",
@@ -3202,53 +3327,51 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s09_class_selected_feedback",
+      "once": true,
+      "when": {
+        "params": {},
+        "type": "classSelected"
+      }
     },
     {
-      "id": "trg_s09_travel_s03",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.yuzhou.travel",
-            "operation": "yuzhou.travel"
-          },
-          "await": true
+            "operation": "yuzhou.travel",
+            "scenarioId": "scenario.command.yuzhou.travel"
+          }
         }
       ],
+      "id": "trg_s09_travel_s03",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s03_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S03"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S03-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S03-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -3257,90 +3380,90 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s03_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S03"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s03_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s03.yingchuan",
             "operation": "battle.open.s03"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s03_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s03_exit_s04",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.exit.s03",
-            "operation": "exit.s03"
-          },
-          "await": true
+            "operation": "exit.s03",
+            "scenarioId": "scenario.command.exit.s03"
+          }
         }
       ],
+      "id": "trg_s03_exit_s04",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s04_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S04"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S04-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S04-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S04-bocai-rescue"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S04-herbs"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -3349,276 +3472,276 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s04_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S04"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s04_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s04.changshe",
             "operation": "battle.open.s04"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s04_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "rescue.command",
+          "params": {
+            "operation": "rescue.start.s04",
+            "rescueId": "rescue.s04.bocai"
+          }
+        }
+      ],
       "id": "trg_s04_start_bocai_rescue",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
           "params": {
-            "rescueId": "rescue.s04.bocai",
-            "operation": "rescue.start.s04"
+            "operation": "rescue.advance.s04",
+            "rescueId": "rescue.s04.bocai"
           }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s04_bocai_evacuation",
+      "once": false,
       "when": {
-        "type": "enter",
-        "params": {}
-      },
+        "params": {},
+        "type": "enter"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
-          "action": "rescue.command",
+          "action": "scenario.command",
+          "await": true,
           "params": {
-            "rescueId": "rescue.s04.bocai",
-            "operation": "rescue.advance.s04"
+            "operation": "route.choose",
+            "scenarioId": "scenario.command.route.choose"
           }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s04_choose_yuzhou_route",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.route.choose",
-            "operation": "route.choose"
-          },
-          "await": true
+            "operation": "mine.prepare",
+            "scenarioId": "scenario.command.mine.prepare"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s05_claim_pickaxe",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.mine.prepare",
-            "operation": "mine.prepare"
-          },
-          "await": true
+            "operation": "mine.status",
+            "scenarioId": "scenario.command.mine.status"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s05_mine_status",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.mine.status",
-            "operation": "mine.status"
-          },
-          "await": true
+            "operation": "mine.retreat",
+            "scenarioId": "scenario.command.mine.retreat"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s05_mine_retreat",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "scenarioId": "scenario.command.mine.retreat",
-            "operation": "mine.retreat"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s05_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s05_wancheng_outskirts",
             "operation": "battle.open.s05"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s05_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s05_start_zhang_mancheng_rescue",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
           "params": {
-            "rescueId": "rescue.s05.zhangMancheng",
-            "operation": "rescue.start.s05"
+            "operation": "rescue.start.s05",
+            "rescueId": "rescue.s05.zhangMancheng"
           }
         }
       ],
+      "id": "trg_s05_start_zhang_mancheng_rescue",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "scenario.command",
+          "params": {
+            "operation": "exit.s05",
+            "scenarioId": "scenario.command.exit.s05"
+          }
+        }
+      ],
       "id": "trg_s05_exit_s06",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
           "params": {
-            "scenarioId": "scenario.command.exit.s05",
-            "operation": "exit.s05"
+            "operation": "defense.choose",
+            "scenarioId": "scenario.command.defense.choose"
           }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s06_defense_choice",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "scenarioId": "scenario.command.defense.choose",
-            "operation": "defense.choose"
-          }
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s06_field_construction",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "construction.command",
+          "await": true,
           "params": {
             "definitionId": "construction.barricade",
             "operation": "construction.start.s06"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s06_field_construction",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s06_complete_recall",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.recall.s06",
-            "operation": "recall.s06"
-          },
-          "await": true
+            "operation": "recall.s06",
+            "scenarioId": "scenario.command.recall.s06"
+          }
         }
       ],
+      "id": "trg_s06_complete_recall",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s07_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S07"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S07-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S07-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -3627,117 +3750,117 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s07_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S07"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s07_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s07_xihua_delay",
             "operation": "battle.open.s07"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s07_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s07_commit_delay_north",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
+            "operation": "delay.commit",
             "pointId": "north",
-            "scenarioId": "scenario.command.delay.commit",
-            "operation": "delay.commit"
-          },
-          "await": true
+            "scenarioId": "scenario.command.delay.commit"
+          }
         }
       ],
+      "id": "trg_s07_commit_delay_north",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s07_commit_delay_center",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
+            "operation": "delay.commit",
             "pointId": "center",
-            "scenarioId": "scenario.command.delay.commit",
-            "operation": "delay.commit"
-          },
-          "await": true
+            "scenarioId": "scenario.command.delay.commit"
+          }
         }
       ],
+      "id": "trg_s07_commit_delay_center",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s07_commit_delay_south",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
+            "operation": "delay.commit",
             "pointId": "south",
-            "scenarioId": "scenario.command.delay.commit",
-            "operation": "delay.commit"
-          },
-          "await": true
+            "scenarioId": "scenario.command.delay.commit"
+          }
         }
       ],
+      "id": "trg_s07_commit_delay_south",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s07_exit_s08",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
+            "operation": "exit.s07",
+            "scenarioId": "scenario.command.exit.s07",
             "sceneId": "S08",
             "spawnRef": "player",
-            "transition": "fadeBlack",
-            "scenarioId": "scenario.command.exit.s07",
-            "operation": "exit.s07"
-          },
-          "await": true
+            "transition": "fadeBlack"
+          }
         }
       ],
+      "id": "trg_s07_exit_s08",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s08_enter",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S08"
-        }
-      },
       "do": [
         {
           "action": "showTip",
@@ -3746,58 +3869,58 @@
           }
         }
       ],
-      "once": true
-    },
-    {
-      "id": "trg_s08_retreat_choice",
+      "id": "trg_s08_enter",
+      "once": true,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "sceneId": "S08",
-            "cartId": "S08-retreat-cart",
-            "scenarioId": "scenario.command.retreat.choose",
-            "operation": "retreat.choose"
-          },
-          "await": true
-        }
-      ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
-      "id": "trg_s08_complete_recall",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "sceneId": "S08",
-            "exitId": "S08-recall-exit",
-            "scenarioId": "scenario.command.recall.s08",
-            "operation": "recall.s08"
-          },
-          "await": true
-        }
-      ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
-      "id": "trg_s10_enter",
-      "when": {
-        "type": "sceneEnter",
         "params": {
-          "sceneId": "S10"
+          "sceneId": "S08"
+        },
+        "type": "sceneEnter"
+      }
+    },
+    {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "scenario.command",
+          "await": true,
+          "params": {
+            "cartId": "S08-retreat-cart",
+            "operation": "retreat.choose",
+            "scenarioId": "scenario.command.retreat.choose",
+            "sceneId": "S08"
+          }
         }
-      },
+      ],
+      "id": "trg_s08_retreat_choice",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "scenario.command",
+          "await": true,
+          "params": {
+            "exitId": "S08-recall-exit",
+            "operation": "recall.s08",
+            "scenarioId": "scenario.command.recall.s08",
+            "sceneId": "S08"
+          }
+        }
+      ],
+      "id": "trg_s08_complete_recall",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
       "do": [
         {
           "action": "showTip",
@@ -3806,203 +3929,203 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s10_enter",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S10"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "scenario.command",
+          "await": true,
+          "params": {
+            "operation": "story.death",
+            "scenarioId": "scenario.command.story.death"
+          }
+        }
+      ],
       "id": "trg_s10_zhangjiao_death",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.story.death",
-            "operation": "story.death"
-          },
-          "await": true
+            "operation": "camp.inspect",
+            "scenarioId": "scenario.command.camp.inspect"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s10_acknowledge_temporary_camp",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.camp.inspect",
-            "operation": "camp.inspect"
-          },
-          "await": true
+            "operation": "camp.relocate",
+            "scenarioId": "scenario.command.camp.relocate"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s10_complete_relocation",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "scenario.command",
-          "params": {
-            "scenarioId": "scenario.command.camp.relocate",
-            "operation": "camp.relocate"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s10_build_campfire",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "construction.command",
+          "await": true,
           "params": {
             "definitionId": "construction.campfire",
+            "operation": "construction.start.s10",
             "siteId": "site.s10.campfire",
-            "siteKey": "campfire",
-            "operation": "construction.start.s10"
-          },
-          "await": true
+            "siteKey": "campfire"
+          }
         }
       ],
+      "id": "trg_s10_build_campfire",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s10_build_barricade",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "construction.command",
+          "await": true,
           "params": {
             "definitionId": "construction.barricade",
+            "operation": "construction.start.s10",
             "siteId": "site.s10.barricade",
-            "siteKey": "barricade",
-            "operation": "construction.start.s10"
-          },
-          "await": true
+            "siteKey": "barricade"
+          }
         }
       ],
+      "id": "trg_s10_build_barricade",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s10_build_simple_wall",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "construction.command",
+          "await": true,
           "params": {
             "definitionId": "construction.simple_wall",
+            "operation": "construction.start.s10",
             "siteId": "site.s10.simple_wall",
-            "siteKey": "simpleWall",
-            "operation": "construction.start.s10"
-          },
-          "await": true
+            "siteKey": "simpleWall"
+          }
         }
       ],
+      "id": "trg_s10_build_simple_wall",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s10_build_arrow_tower",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "construction.command",
+          "await": true,
           "params": {
             "definitionId": "construction.arrow_tower",
+            "operation": "construction.start.s10",
             "siteId": "site.s10.arrow_tower",
-            "siteKey": "arrowTower",
-            "operation": "construction.start.s10"
-          },
-          "await": true
+            "siteKey": "arrowTower"
+          }
         }
       ],
+      "id": "trg_s10_build_arrow_tower",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s10_exit_s11",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "scenarioId": "scenario.command.exit.s10",
-            "operation": "exit.s10"
-          },
-          "await": true
+            "operation": "exit.s10",
+            "scenarioId": "scenario.command.exit.s10"
+          }
         }
       ],
+      "id": "trg_s10_exit_s11",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s11_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S11"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S11-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S11-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S11-zhang-liang-rescue"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -4011,262 +4134,262 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s11_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S11"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s11_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s11.guangzong",
             "operation": "battle.open.s11"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s11_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "rescue.command",
+          "await": true,
+          "params": {
+            "operation": "start",
+            "rescueId": "rescue.s11.zhangLiang"
+          }
+        }
+      ],
       "id": "trg_s11_start_zhang_liang_rescue",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
+            "operation": "completeStage",
             "rescueId": "rescue.s11.zhangLiang",
-            "operation": "start"
-          },
-          "await": true
+            "stageId": "light-beacon"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s11_light_beacon",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "rescue.command",
-          "params": {
-            "rescueId": "rescue.s11.zhangLiang",
-            "stageId": "light-beacon",
-            "operation": "completeStage"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s11_rally_guards",
-      "when": {
-        "type": "enter",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
-            "rescueId": "rescue.s11.zhangLiang",
-            "stageId": "rally-guards",
+            "operation": "completeStage",
             "placementGroup": "S11-rescue-guards",
-            "operation": "completeStage"
-          },
-          "await": true
+            "rescueId": "rescue.s11.zhangLiang",
+            "stageId": "rally-guards"
+          }
         }
       ],
+      "id": "trg_s11_rally_guards",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "enter"
+      }
     },
     {
+      "do": [
+        {
+          "action": "rescue.command",
+          "await": true,
+          "params": {
+            "operation": "recordWave",
+            "rescueId": "rescue.s11.zhangLiang",
+            "waveNumber": 1
+          }
+        }
+      ],
       "id": "trg_s11_assassin_wave_1_defeated",
+      "once": true,
       "when": {
-        "type": "waveCleared",
         "params": {
           "group": "S11-assassin-wave-1"
-        }
-      },
+        },
+        "type": "waveCleared"
+      }
+    },
+    {
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
-            "waveNumber": 1,
+            "operation": "recordWave",
             "rescueId": "rescue.s11.zhangLiang",
-            "operation": "recordWave"
-          },
-          "await": true
+            "waveNumber": 2
+          }
         }
       ],
-      "once": true
-    },
-    {
       "id": "trg_s11_assassin_wave_2_defeated",
+      "once": true,
       "when": {
-        "type": "waveCleared",
         "params": {
           "group": "S11-assassin-wave-2"
-        }
-      },
+        },
+        "type": "waveCleared"
+      }
+    },
+    {
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
-            "waveNumber": 2,
+            "operation": "recordWave",
             "rescueId": "rescue.s11.zhangLiang",
-            "operation": "recordWave"
-          },
-          "await": true
+            "waveNumber": 3
+          }
         }
       ],
-      "once": true
-    },
-    {
       "id": "trg_s11_assassin_wave_3_defeated",
+      "once": true,
       "when": {
-        "type": "waveCleared",
         "params": {
           "group": "S11-assassin-wave-3"
-        }
-      },
+        },
+        "type": "waveCleared"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
-            "waveNumber": 3,
+            "operation": "completeStage",
             "rescueId": "rescue.s11.zhangLiang",
-            "operation": "recordWave"
-          },
-          "await": true
+            "stageId": "breakout-west-gate"
+          }
         }
       ],
-      "once": true
-    },
-    {
       "id": "trg_s11_west_gate_breakout",
-      "when": {
-        "type": "enter",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "rescue.command",
-          "params": {
-            "rescueId": "rescue.s11.zhangLiang",
-            "stageId": "breakout-west-gate",
-            "operation": "completeStage"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "enter"
+      }
     },
     {
-      "id": "trg_s11_interact_horse",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.25,
       "do": [
         {
           "action": "vehicle.command",
+          "await": true,
           "params": {
-            "vehicleId": "vehicle.s11.breakoutHorse",
-            "operation": "interact"
-          },
-          "await": true
+            "operation": "interact",
+            "vehicleId": "vehicle.s11.breakoutHorse"
+          }
         }
       ],
+      "id": "trg_s11_interact_horse",
       "once": false,
-      "cooldown": 0.25
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s11_exit_s12",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "sceneId": "S12",
+            "operation": "exit.s11",
             "scenarioId": "scenario.command.exit.s11",
-            "operation": "exit.s11"
-          },
-          "await": true
+            "sceneId": "S12"
+          }
         }
       ],
+      "id": "trg_s11_exit_s12",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s12_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S12"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S12-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S12-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S12-zhang-bao-rescue"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S12-bocai-allies"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S12-zhang-liang-reinforcements"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -4275,172 +4398,172 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s12_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S12"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s12_choose_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s12.xiaquyang",
             "operation": "battle.open.s12"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s12_choose_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "rescue.command",
+          "await": true,
+          "params": {
+            "operation": "start",
+            "rescueId": "rescue.s12.zhangBao"
+          }
+        }
+      ],
       "id": "trg_s12_start_zhang_bao_rescue",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
+            "operation": "completeStage",
             "rescueId": "rescue.s12.zhangBao",
-            "operation": "start"
-          },
-          "await": true
+            "stageId": "open-secret-passage"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.5
-    },
-    {
       "id": "trg_s12_open_secret_passage",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "rescue.command",
-          "params": {
-            "rescueId": "rescue.s12.zhangBao",
-            "stageId": "open-secret-passage",
-            "operation": "completeStage"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.5,
+      "do": [
+        {
+          "action": "vehicle.command",
+          "await": true,
+          "params": {
+            "operation": "useEntrance",
+            "vehicleId": "vehicle.s12.siegeLadder"
+          }
+        }
+      ],
       "id": "trg_s12_use_ladder",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "vehicle.command",
-          "params": {
-            "vehicleId": "vehicle.s12.siegeLadder",
-            "operation": "useEntrance"
-          },
-          "await": true
-        }
-      ],
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s12_burn_ladder",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "vehicle.command",
+          "await": true,
           "params": {
             "damageType": "fire",
-            "vehicleId": "vehicle.s12.siegeLadder",
-            "operation": "destroy"
-          },
-          "await": true
+            "operation": "destroy",
+            "vehicleId": "vehicle.s12.siegeLadder"
+          }
         }
       ],
+      "id": "trg_s12_burn_ladder",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s12_zhang_bao_evacuation",
-      "when": {
-        "type": "enter",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "rescue.command",
+          "await": true,
           "params": {
+            "operation": "completeStage",
             "rescueId": "rescue.s12.zhangBao",
-            "stageId": "escort-zhang-bao",
-            "operation": "completeStage"
-          },
-          "await": true
+            "stageId": "escort-zhang-bao"
+          }
         }
       ],
+      "id": "trg_s12_zhang_bao_evacuation",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "enter"
+      }
     },
     {
-      "id": "trg_s12_exit_final_route",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
             "eligibleSceneId": "S13",
             "fallbackSceneId": "S14",
-            "scenarioId": "scenario.command.exit.s12",
-            "operation": "exit.s12"
-          },
-          "await": true
+            "operation": "exit.s12",
+            "scenarioId": "scenario.command.exit.s12"
+          }
         }
       ],
+      "id": "trg_s12_exit_final_route",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s13_spawn_initial",
-      "when": {
-        "type": "sceneEnter",
-        "params": {
-          "sceneId": "S13"
-        }
-      },
       "do": [
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S13-yellow-turban"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "spawnPlacements",
+          "await": true,
           "params": {
             "selector": {
               "group": "S13-han-army"
             }
-          },
-          "await": true
+          }
         },
         {
           "action": "showTip",
@@ -4449,163 +4572,170 @@
           }
         }
       ],
-      "once": true
+      "id": "trg_s13_spawn_initial",
+      "once": true,
+      "when": {
+        "params": {
+          "sceneId": "S13"
+        },
+        "type": "sceneEnter"
+      }
     },
     {
-      "id": "trg_s13_choose_final_battle_mode",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "battle.command",
+          "await": true,
           "params": {
             "battleId": "battle.s13.jingshan",
             "operation": "battle.open.s13"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s13_choose_final_battle_mode",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s13_exit_s14",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "scenario.command",
+          "await": true,
           "params": {
-            "sceneId": "S14",
+            "operation": "exit.s13",
             "scenarioId": "scenario.command.exit.s13",
-            "operation": "exit.s13"
-          },
-          "await": true
+            "sceneId": "S14"
+          }
         }
       ],
+      "id": "trg_s13_exit_s14",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.2,
+      "do": [
+        {
+          "action": "vehicle.command",
+          "await": false,
+          "params": {
+            "operation": "openCargo",
+            "vehicleId": "vehicle.s14.lastCart"
+          }
+        }
+      ],
       "id": "trg_s14_open_cargo_transfer",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "vehicle.command",
-          "params": {
-            "vehicleId": "vehicle.s14.lastCart",
-            "operation": "openCargo"
-          },
-          "await": false
-        }
-      ],
       "once": false,
-      "cooldown": 0.2
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s14_resolve_last_cart",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "vehicle.command",
+          "await": true,
           "params": {
-            "vehicleId": "vehicle.s14.lastCart",
             "divergenceKind": "cart",
-            "operation": "resolveDivergence"
-          },
-          "await": true
+            "operation": "resolveDivergence",
+            "vehicleId": "vehicle.s14.lastCart"
+          }
         }
       ],
+      "id": "trg_s14_resolve_last_cart",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s14_resolve_catapult",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 0.5,
       "do": [
         {
           "action": "vehicle.command",
+          "await": true,
           "params": {
-            "vehicleId": "vehicle.s14.catapult",
             "divergenceKind": "catapult",
-            "operation": "resolveDivergence"
-          },
-          "await": true
+            "operation": "resolveDivergence",
+            "vehicleId": "vehicle.s14.catapult"
+          }
         }
       ],
+      "id": "trg_s14_resolve_catapult",
       "once": false,
-      "cooldown": 0.5
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
+      "cooldown": 0.35,
+      "do": [
+        {
+          "action": "vehicle.command",
+          "await": true,
+          "params": {
+            "operation": "operateWeapon",
+            "vehicleId": "vehicle.s14.catapult"
+          }
+        }
+      ],
       "id": "trg_s14_operate_catapult",
+      "once": false,
       "when": {
-        "type": "interact",
-        "params": {}
-      },
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 0.2,
       "do": [
         {
           "action": "vehicle.command",
+          "await": false,
           "params": {
-            "vehicleId": "vehicle.s14.catapult",
-            "operation": "operateWeapon"
-          },
-          "await": true
+            "operation": "leaveSeat",
+            "vehicleId": "vehicle.s14.catapult"
+          }
         }
       ],
-      "once": false,
-      "cooldown": 0.35
-    },
-    {
       "id": "trg_s14_leave_catapult",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
-      "do": [
-        {
-          "action": "vehicle.command",
-          "params": {
-            "vehicleId": "vehicle.s14.catapult",
-            "operation": "leaveSeat"
-          },
-          "await": false
-        }
-      ],
       "once": false,
-      "cooldown": 0.2
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     },
     {
-      "id": "trg_s14_commit_ending",
-      "when": {
-        "type": "interact",
-        "params": {}
-      },
+      "cooldown": 1,
       "do": [
         {
           "action": "ending.command",
+          "await": true,
           "params": {
             "checkpointId": "checkpoint.S14.preEnding",
             "endingId": "sanguo-zhangjiao-endings-v1",
             "operation": "resolve"
-          },
-          "await": true
+          }
         }
       ],
+      "id": "trg_s14_commit_ending",
       "once": false,
-      "cooldown": 1
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
     }
   ],
   "tutorials": [
@@ -4613,11 +4743,21 @@
       "id": "s01.move",
       "title": "寒风中醒来",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 0,
-      "steps": [{ "text": "寒风把你冻醒。使用 {move} 起身活动，再靠近熄灭的篝火使用 {interact} 点火。" }],
-      "movementRule": { "threshold": 60 },
+      "steps": [
+        {
+          "text": "寒风把你冻醒。使用 {move} 起身活动，再靠近熄灭的篝火使用 {interact} 点火。"
+        }
+      ],
       "signalRules": [],
+      "movementRule": {
+        "threshold": 60
+      },
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4626,10 +4766,23 @@
       "id": "s01.gather",
       "title": "徒手寻找食物",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 1,
-      "steps": [{ "text": "靠近野果丛，使用 {harvest} 徒手采集；采集完成后破旧斧头会掉在地上，靠近后使用 {pickup} 拾取。" }],
-      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
+      "steps": [
+        {
+          "text": "靠近野果丛，使用 {harvest} 徒手采集；采集完成后破旧斧头会掉在地上，靠近后使用 {pickup} 拾取。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "gatheringCompleted",
+          "threshold": 1
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4638,10 +4791,23 @@
       "id": "s01.attack",
       "title": "猎狼反击",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 2,
-      "steps": [{ "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。" }],
-      "signalRules": [{ "signal": "attackPerformed", "threshold": 1 }],
+      "steps": [
+        {
+          "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "attackPerformed",
+          "threshold": 1
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4650,10 +4816,23 @@
       "id": "s01.pickup",
       "title": "拾取求生物资",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 3,
-      "steps": [{ "text": "靠近剥皮刀或狼肉后使用 {pickup} 拾取。" }],
-      "signalRules": [{ "signal": "itemPicked", "threshold": 1 }],
+      "steps": [
+        {
+          "text": "靠近剥皮刀或狼肉后使用 {pickup} 拾取。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "itemPicked",
+          "threshold": 1
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4662,10 +4841,30 @@
       "id": "s01.durability",
       "title": "工具与剥皮",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 4,
-      "steps": [{ "text": "使用 {harvest} 砍柴或剥皮；采集成功才消耗工具耐久。" }],
-      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1, "conditions": [{ "field": "toolInstanceId", "operator": "exists", "value": true }] }],
+      "steps": [
+        {
+          "text": "使用 {harvest} 砍柴或剥皮；采集成功才消耗工具耐久。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "gatheringCompleted",
+          "threshold": 1,
+          "conditions": [
+            {
+              "field": "toolInstanceId",
+              "operator": "exists",
+              "value": true
+            }
+          ]
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4674,10 +4873,23 @@
       "id": "s01.jump",
       "title": "跳石过河",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 5,
-      "steps": [{ "text": "狼群追来后沿河逃跑，使用 {jump} 踩着河中石块到达对岸。" }],
-      "signalRules": [{ "signal": "jumpPerformed", "threshold": 1 }],
+      "steps": [
+        {
+          "text": "狼群追来后沿河逃跑，使用 {jump} 踩着河中石块到达对岸。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "jumpPerformed",
+          "threshold": 1
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4686,10 +4898,23 @@
       "id": "s01.capacity",
       "title": "六格背包与攀藤",
       "category": "s01-survival",
-      "scope": { "sceneIds": ["S01"] },
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "order": 6,
-      "steps": [{ "text": "六格小背包满时溢出物会留在原处。抵达山崖后使用 {climb} 攀上藤蔓逃往 S02。" }],
-      "signalRules": [{ "signal": "gatheringCompleted", "threshold": 1 }],
+      "steps": [
+        {
+          "text": "六格小背包满时溢出物会留在原处。抵达山崖后使用 {climb} 攀上藤蔓逃往 S02。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "gatheringCompleted",
+          "threshold": 1
+        }
+      ],
       "completionPolicy": "signal",
       "canSkip": false,
       "autoTrigger": false
@@ -4701,392 +4926,778 @@
         "id": "resource.wood",
         "name": "木材",
         "type": "material",
-        "subType": "wood",
-        "maxStack": 99
+        "maxStack": 99,
+        "subType": "wood"
       },
       {
         "id": "resource.herb",
         "name": "草药",
         "type": "material",
-        "subType": "herb",
-        "maxStack": 99
+        "maxStack": 99,
+        "subType": "herb"
       },
       {
         "id": "resource.food",
         "name": "粮食",
         "type": "material",
-        "subType": "food",
-        "maxStack": 99
+        "maxStack": 99,
+        "subType": "food"
       },
       {
         "id": "resource.iron",
         "name": "铁料",
         "type": "material",
-        "subType": "iron",
-        "maxStack": 99
+        "maxStack": 99,
+        "subType": "iron"
       },
       {
         "id": "resource.wild_berry",
         "name": "荒野酸果",
         "type": "consumable",
-        "subType": "food",
-        "maxStack": 10,
-        "usable": true,
-        "capabilities": [{ "id": "consumable" }],
-        "effect": { "type": "heal", "value": 4 },
         "imageId": "s01.resource.wildBerryNode",
-        "sprite": { "width": 36, "height": 32 }
+        "capabilities": [
+          {
+            "id": "consumable"
+          }
+        ],
+        "effect": {
+          "type": "heal",
+          "value": 4
+        },
+        "maxStack": 10,
+        "sprite": {
+          "height": 32,
+          "width": 36
+        },
+        "subType": "food",
+        "usable": true
       },
       {
         "id": "tool.skinning_knife",
         "name": "旧剥皮刀",
         "type": "tool",
-        "toolType": "skinningKnife",
-        "maxStack": 1,
+        "imageId": "s01.tool.skinningKnife",
         "durability": 8,
         "maxDurability": 8,
-        "imageId": "s01.tool.skinningKnife",
-        "sprite": { "width": 42, "height": 42 }
+        "maxStack": 1,
+        "sprite": {
+          "height": 42,
+          "width": 42
+        },
+        "toolType": "skinningKnife"
       },
       {
         "id": "resource.raw_wolf_meat",
         "name": "生狼肉",
         "type": "material",
-        "subType": "food",
-        "maxStack": 10,
         "imageId": "s01.item.rawWolfMeat",
-        "sprite": { "width": 42, "height": 34 }
+        "maxStack": 10,
+        "sprite": {
+          "height": 34,
+          "width": 42
+        },
+        "subType": "food"
       },
       {
         "id": "resource.wolf_hide",
         "name": "狼皮",
         "type": "material",
-        "subType": "hide",
-        "maxStack": 10,
         "imageId": "s01.item.wolfHide",
-        "sprite": { "width": 48, "height": 38 }
+        "maxStack": 10,
+        "sprite": {
+          "height": 38,
+          "width": 48
+        },
+        "subType": "hide"
       },
       {
         "id": "item.small_backpack",
         "name": "六格小背包",
         "type": "story",
-        "subType": "container",
-        "maxStack": 1,
         "imageId": "s01.item.smallBackpack",
-        "sprite": { "width": 44, "height": 48 }
+        "maxStack": 1,
+        "sprite": {
+          "height": 48,
+          "width": 44
+        },
+        "subType": "container"
       },
       {
         "id": "food.roasted_wolf_meat",
         "name": "烤狼肉",
         "type": "consumable",
-        "subType": "food",
-        "maxStack": 5,
-        "usable": true,
-        "capabilities": [{ "id": "consumable" }],
-        "effect": { "type": "heal", "value": 28 },
         "imageId": "s01.food.roastedWolfMeat",
-        "sprite": { "width": 44, "height": 36 }
+        "capabilities": [
+          {
+            "id": "consumable"
+          }
+        ],
+        "effect": {
+          "type": "heal",
+          "value": 28
+        },
+        "maxStack": 5,
+        "sprite": {
+          "height": 36,
+          "width": 44
+        },
+        "subType": "food",
+        "usable": true
       },
       {
         "id": "story.s01.firestarter",
         "name": "保存好的火种",
         "type": "story",
-        "subType": "quest",
+        "imageId": "s01.story.firestarter",
         "maxStack": 1,
         "questBound": true,
-        "imageId": "s01.story.firestarter",
-        "sprite": { "width": 40, "height": 42 }
+        "sprite": {
+          "height": 42,
+          "width": 40
+        },
+        "subType": "quest"
       },
       {
         "id": "story.s01.small_shelter",
         "name": "小庇护所",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s01.environment.smallShelter",
-        "width": 154,
         "height": 112,
+        "maxStack": 1,
         "showName": false,
-        "sprite": { "width": 154, "height": 112, "isStatic": true }
+        "sprite": {
+          "height": 112,
+          "isStatic": true,
+          "width": 154
+        },
+        "subType": "worldProp",
+        "width": 154,
+        "worldProp": true
       },
       {
         "id": "story.s09.bread",
         "name": "断臂饥民的半块饼",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s09.story.bread",
-        "width": 48,
         "height": 36,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 48,
           "height": 36,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 48
+        },
+        "subType": "worldProp",
+        "width": 48,
+        "worldProp": true
       },
       {
         "id": "salvage.torn_cloth",
         "name": "破损帐布",
         "type": "material",
-        "subType": "salvage",
-        "maxStack": 1
+        "maxStack": 1,
+        "subType": "salvage"
       },
       {
         "id": "salvage.broken_utensil",
         "name": "破损军需器具",
         "type": "material",
-        "subType": "salvage",
-        "maxStack": 1
+        "maxStack": 1,
+        "subType": "salvage"
       },
       {
         "id": "tool.worn_axe",
         "name": "破旧斧头",
         "type": "tool",
-        "toolType": "axe",
-        "maxStack": 1,
+        "imageId": "s01.tool.wornAxe",
         "durability": 8,
         "maxDurability": 8,
-        "imageId": "s01.tool.wornAxe",
+        "maxStack": 1,
         "sprite": {
-          "width": 40,
-          "height": 40
-        }
+          "height": 40,
+          "width": 40
+        },
+        "toolType": "axe"
       },
       {
         "id": "story.s05.mine_collapse",
         "name": "矿坑封路塌方",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s05.environment.mineCollapse",
-        "width": 170,
         "height": 95,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 170,
           "height": 95,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 170
+        },
+        "subType": "worldProp",
+        "width": 170,
+        "worldProp": true
       },
       {
         "id": "tool.worn_pickaxe",
         "name": "破旧铁镐",
         "type": "tool",
-        "toolType": "pickaxe",
-        "maxStack": 1,
+        "imageId": "s05.tool.wornPickaxe",
         "durability": 1,
         "maxDurability": 1,
-        "imageId": "s05.tool.wornPickaxe",
+        "maxStack": 1,
         "sprite": {
-          "width": 48,
-          "height": 48
-        }
+          "height": 48,
+          "width": 48
+        },
+        "toolType": "pickaxe"
       },
       {
         "id": "tool.worn_shovel",
         "name": "开裂的旧铲",
         "type": "tool",
-        "toolType": "shovel",
-        "maxStack": 1,
+        "imageId": "tool.wornShovel",
         "durability": 1,
         "maxDurability": 1,
-        "imageId": "tool.wornShovel",
+        "maxStack": 1,
         "sprite": {
-          "width": 48,
-          "height": 48
-        }
+          "height": 48,
+          "width": 48
+        },
+        "toolType": "shovel"
       },
       {
         "id": "tool.shovel",
         "name": "营建铁铲",
         "type": "tool",
-        "toolType": "shovel",
-        "maxStack": 1,
+        "imageId": "tool.shovel",
         "durability": 12,
         "maxDurability": 12,
-        "imageId": "tool.shovel",
+        "maxStack": 1,
         "sprite": {
-          "width": 48,
-          "height": 48
-        }
+          "height": 48,
+          "width": 48
+        },
+        "toolType": "shovel"
       },
       {
         "id": "construction.s10.campfire",
         "name": "已建营地火堆",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s10.construction.campfire",
-        "width": 80,
         "height": 72,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 80,
           "height": 72,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 80
+        },
+        "subType": "worldProp",
+        "width": 80,
+        "worldProp": true
       },
       {
         "id": "construction.s10.barricade",
         "name": "已建拒马",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s10.construction.barricade",
-        "width": 128,
         "height": 84,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 128,
           "height": 84,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 128
+        },
+        "subType": "worldProp",
+        "width": 128,
+        "worldProp": true
       },
       {
         "id": "construction.s10.simple_wall",
         "name": "已建简易壁垒",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s10.construction.simpleWall",
-        "width": 150,
         "height": 100,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 150,
           "height": 100,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 150
+        },
+        "subType": "worldProp",
+        "width": 150,
+        "worldProp": true
       },
       {
         "id": "construction.s10.arrow_tower",
         "name": "已建箭楼",
         "type": "story",
-        "subType": "worldProp",
-        "maxStack": 1,
-        "worldProp": true,
         "imageId": "s10.construction.arrowTower",
-        "width": 140,
         "height": 180,
+        "maxStack": 1,
         "showName": false,
         "sprite": {
-          "width": 140,
           "height": 180,
-          "isStatic": true
-        }
+          "isStatic": true,
+          "width": 140
+        },
+        "subType": "worldProp",
+        "width": 140,
+        "worldProp": true
       },
       {
         "id": "iron_sword",
         "name": "黄巾铁剑",
         "type": "equipment",
-        "subType": "weapon",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "attack": 5
-        }
+        },
+        "subType": "weapon"
       },
       {
         "id": "leather_armor",
         "name": "黄巾皮甲",
         "type": "equipment",
-        "subType": "armor",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "defense": 3
-        }
+        },
+        "subType": "armor"
       },
       {
         "id": "wooden_shield",
         "name": "木盾",
         "type": "equipment",
-        "subType": "shield",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "defense": 2
-        }
+        },
+        "subType": "shield"
       },
       {
         "id": "short_bow",
         "name": "短弓",
         "type": "equipment",
-        "subType": "weapon",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "attack": 4,
           "range": 260
-        }
+        },
+        "subType": "weapon"
       },
       {
         "id": "leather_vest",
         "name": "轻便皮背心",
         "type": "equipment",
-        "subType": "armor",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "defense": 2,
           "speed": 3
-        }
+        },
+        "subType": "armor"
       },
       {
         "id": "wooden_arrow",
         "name": "木箭",
         "type": "equipment",
-        "subType": "ammo",
         "maxStack": 99,
         "rarity": 1,
-        "stats": {}
+        "stats": {},
+        "subType": "ammo"
       },
       {
         "id": "strategist_talisman_staff",
         "name": "符杖",
         "type": "equipment",
-        "subType": "weapon",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "magicAttack": 5
-        }
+        },
+        "subType": "weapon"
       },
       {
         "id": "strategist_robe",
         "name": "军师道袍",
         "type": "equipment",
-        "subType": "armor",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "maxMp": 20
-        }
+        },
+        "subType": "armor"
       },
       {
         "id": "strategist_talisman",
         "name": "护身符",
         "type": "equipment",
-        "subType": "accessory",
         "maxStack": 1,
         "rarity": 1,
         "stats": {
           "defense": 1,
           "manaRegen": 1
-        }
+        },
+        "subType": "accessory"
+      }
+    ],
+    "enemies": [
+      {
+        "aiType": "aggressive",
+        "id": "enemy.s01_wolf",
+        "imageId": "s01.enemy.wolf",
+        "level": 1,
+        "lootTable": [
+          {
+            "chance": 1,
+            "itemId": "resource.raw_wolf_meat",
+            "maxQuantity": 1,
+            "minQuantity": 1
+          }
+        ],
+        "name": "饥饿野狼",
+        "sprite": {
+          "height": 48,
+          "isStatic": true,
+          "width": 68
+        },
+        "stats": {
+          "attack": 5,
+          "defense": 1,
+          "maxHp": 32,
+          "speed": 88
+        },
+        "templateId": "wild_wolf"
+      },
+      {
+        "aiType": "aggressive",
+        "id": "enemy.s01_bandit",
+        "level": 1,
+        "lootTable": [],
+        "name": "荒野盗匪",
+        "stats": {
+          "attack": 6,
+          "defense": 1,
+          "maxHp": 45,
+          "speed": 65
+        },
+        "templateId": "bandit"
+      },
+      {
+        "aiType": "aggressive",
+        "id": "enemy.s02_scavenger",
+        "level": 1,
+        "lootTable": [],
+        "name": "营地拾荒者",
+        "stats": {
+          "attack": 5,
+          "defense": 1,
+          "maxHp": 38,
+          "speed": 58
+        },
+        "templateId": "scavenger"
+      },
+      {
+        "aiActive": false,
+        "aiType": "aggressive",
+        "id": "enemy.s09_granary_guard",
+        "imageId": "s09.character.granaryGuard",
+        "level": 2,
+        "lootTable": [],
+        "name": "粮仓哨兵",
+        "sprite": {
+          "height": 76,
+          "isStatic": true,
+          "width": 56
+        },
+        "stats": {
+          "attack": 8,
+          "defense": 3,
+          "maxHp": 70,
+          "speed": 62
+        },
+        "templateId": "yellow_turban_guard"
+      },
+      {
+        "aiType": "aggressive",
+        "id": "enemy.s09_refugee_scout",
+        "imageId": "s09.character.governmentScout",
+        "level": 2,
+        "lootTable": [],
+        "name": "官军斥候",
+        "sprite": {
+          "height": 76,
+          "isStatic": true,
+          "width": 58
+        },
+        "stats": {
+          "attack": 9,
+          "defense": 2,
+          "maxHp": 58,
+          "speed": 82
+        },
+        "templateId": "government_scout"
+      },
+      {
+        "aiActive": false,
+        "aiType": "battleFormation",
+        "factionId": "yellow_turban",
+        "id": "enemy.s03_yellow_turban_soldier",
+        "imageId": "s03.unit.yellowTurbanSoldier",
+        "level": 2,
+        "lootTable": [],
+        "name": "颍川黄巾先军",
+        "sprite": {
+          "height": 64,
+          "isStatic": true,
+          "width": 48
+        },
+        "stats": {
+          "attack": 8,
+          "defense": 3,
+          "maxHp": 70,
+          "speed": 60
+        },
+        "templateId": "yellow_turban_soldier"
+      },
+      {
+        "aiActive": false,
+        "aiType": "battleFormation",
+        "factionId": "han_government",
+        "id": "enemy.s03_han_soldier",
+        "imageId": "s03.unit.hanSoldier",
+        "level": 2,
+        "lootTable": [],
+        "name": "颍川官军守军",
+        "sprite": {
+          "height": 64,
+          "isStatic": true,
+          "width": 48
+        },
+        "stats": {
+          "attack": 9,
+          "defense": 4,
+          "maxHp": 72,
+          "speed": 58
+        },
+        "templateId": "han_soldier"
+      },
+      {
+        "aiActive": false,
+        "aiType": "defensive",
+        "faction": "friendly",
+        "factionId": "yellow_turban",
+        "id": "enemy.s04_bocai",
+        "imageId": "s03.unit.yellowTurbanSoldier",
+        "level": 4,
+        "lootTable": [],
+        "name": "波才",
+        "sprite": {
+          "height": 74,
+          "isStatic": true,
+          "width": 56
+        },
+        "stats": {
+          "attack": 10,
+          "defense": 6,
+          "maxHp": 120,
+          "speed": 72
+        },
+        "templateId": "yellow_turban_commander"
+      },
+      {
+        "aiActive": false,
+        "aiType": "defensive",
+        "faction": "friendly",
+        "factionId": "yellow_turban",
+        "id": "enemy.s05_zhang_mancheng",
+        "imageId": "s05.character.zhangMancheng",
+        "level": 4,
+        "lootTable": [],
+        "name": "张曼成",
+        "sprite": {
+          "height": 82,
+          "isStatic": true,
+          "width": 60
+        },
+        "stats": {
+          "attack": 12,
+          "defense": 7,
+          "maxHp": 150,
+          "speed": 70
+        },
+        "templateId": "yellow_turban_commander"
+      },
+      {
+        "aiActive": false,
+        "aiType": "battleFormation",
+        "factionId": "han_government",
+        "id": "enemy.s05_qin_jie",
+        "imageId": "s05.character.qinJie",
+        "level": 4,
+        "lootTable": [],
+        "name": "秦颉",
+        "sprite": {
+          "height": 82,
+          "isStatic": true,
+          "width": 60
+        },
+        "stats": {
+          "attack": 13,
+          "defense": 8,
+          "maxHp": 170,
+          "speed": 68
+        },
+        "templateId": "han_commander"
+      }
+    ],
+    "npcs": [
+      {
+        "faction": "friendly",
+        "id": "npc.s02_messenger",
+        "idleText": "信使正在等待你整理行装。",
+        "interaction": {
+          "prompt": "{interact}接受张角召见",
+          "radius": 84,
+          "trigger": "interact"
+        },
+        "name": "黄巾信使",
+        "title": "张角使者"
+      },
+      {
+        "dialogueId": "dialogue.s09.enlistment",
+        "faction": "friendly",
+        "id": "npc.s09_zhangjiao",
+        "idleText": "张角正在粥棚旁查看伤民名册。",
+        "imageId": "s09.character.zhangjiao",
+        "interaction": {
+          "prompt": "{interact}与张角交谈并加入黄巾",
+          "radius": 100,
+          "trigger": "interact"
+        },
+        "name": "张角",
+        "renderStyle": "zhangjiao",
+        "sprite": {
+          "height": 88,
+          "isStatic": true,
+          "width": 64
+        },
+        "title": "大贤良师"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_zhangliang",
+        "idleText": "张梁守在战士军旗旁，等待新兵确认道路。",
+        "imageId": "s09.character.zhangliang",
+        "interaction": {
+          "prompt": "{interact}了解战士职业",
+          "radius": 84,
+          "trigger": "interact"
+        },
+        "name": "张梁",
+        "renderStyle": "zhangliang",
+        "sprite": {
+          "height": 82,
+          "isStatic": true,
+          "width": 60
+        },
+        "title": "战士教官"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_zhangbao",
+        "idleText": "张宝正在弓手军旗旁整理短弓与木箭。",
+        "imageId": "s09.character.zhangbao",
+        "interaction": {
+          "prompt": "{interact}了解弓手职业",
+          "radius": 84,
+          "trigger": "interact"
+        },
+        "name": "张宝",
+        "renderStyle": "zhangbao",
+        "sprite": {
+          "height": 82,
+          "isStatic": true,
+          "width": 60
+        },
+        "title": "弓手教官"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_refugee_soldier",
+        "imageId": "s09.character.woundedSoldier",
+        "name": "黄巾残兵",
+        "renderStyle": "wounded_soldier",
+        "sprite": {
+          "height": 70,
+          "isStatic": true,
+          "width": 58
+        },
+        "title": "负伤残兵"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_refugee_woman",
+        "imageId": "s09.character.refugeeWoman",
+        "name": "逃难妇人",
+        "renderStyle": "refugee_woman",
+        "sprite": {
+          "height": 70,
+          "isStatic": true,
+          "width": 54
+        },
+        "title": "饥民"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_refugee_child",
+        "imageId": "s09.character.refugeeChild",
+        "name": "饥饿孩童",
+        "renderStyle": "refugee_child",
+        "sprite": {
+          "height": 54,
+          "isStatic": true,
+          "width": 42
+        },
+        "title": "饥民"
+      },
+      {
+        "faction": "neutral",
+        "id": "npc.s09_refugee_dead",
+        "imageId": "s09.character.refugeeDead",
+        "name": "死去的饥民",
+        "renderStyle": "refugee_dead",
+        "sprite": {
+          "height": 34,
+          "isStatic": true,
+          "width": 82
+        },
+        "title": "死者"
+      },
+      {
+        "faction": "friendly",
+        "id": "npc.s09_one_armed_refugee",
+        "imageId": "s09.character.oneArmedRefugee",
+        "name": "断臂饥民",
+        "renderStyle": "one_armed_refugee",
+        "sprite": {
+          "height": 72,
+          "isStatic": true,
+          "width": 56
+        },
+        "title": "持饼饥民"
       }
     ],
     "resourceNodes": [
       {
-        "id": "node.wild_berry",
         "schemaVersion": 1,
+        "id": "node.wild_berry",
         "name": "野果丛",
         "resourceType": "food",
         "itemId": "resource.wild_berry",
@@ -5101,11 +5712,15 @@
         "riskEvents": [],
         "damageRatio": 0,
         "imageId": "s01.resource.wildBerryNode",
-        "sprite": { "width": 68, "height": 58, "isStatic": true }
+        "sprite": {
+          "height": 58,
+          "isStatic": true,
+          "width": 68
+        }
       },
       {
-        "id": "node.wolf_carcass",
         "schemaVersion": 1,
+        "id": "node.wolf_carcass",
         "name": "野狼尸体",
         "resourceType": "food",
         "itemId": "resource.wolf_hide",
@@ -5120,11 +5735,15 @@
         "riskEvents": [],
         "damageRatio": 0,
         "imageId": "s01.enemy.wolf",
-        "sprite": { "width": 66, "height": 42, "isStatic": true }
+        "sprite": {
+          "height": 42,
+          "isStatic": true,
+          "width": 66
+        }
       },
       {
-        "id": "node.dry_wood",
         "schemaVersion": 1,
+        "id": "node.dry_wood",
         "name": "枯木",
         "resourceType": "wood",
         "itemId": "resource.wood",
@@ -5150,14 +5769,14 @@
         "damageRatio": 0,
         "imageId": "s01.resource.dryWoodNode",
         "sprite": {
-          "width": 64,
           "height": 56,
-          "isStatic": true
+          "isStatic": true,
+          "width": 64
         }
       },
       {
-        "id": "node.wild_herb",
         "schemaVersion": 1,
+        "id": "node.wild_herb",
         "name": "野生草药",
         "resourceType": "herb",
         "itemId": "resource.herb",
@@ -5183,14 +5802,14 @@
         "damageRatio": 0,
         "imageId": "s04.resource.herbNode",
         "sprite": {
-          "width": 64,
           "height": 56,
-          "isStatic": true
+          "isStatic": true,
+          "width": 64
         }
       },
       {
-        "id": "node.s09_granary_food",
         "schemaVersion": 1,
+        "id": "node.s09_granary_food",
         "name": "受损粮仓散粮",
         "resourceType": "food",
         "itemId": "resource.food",
@@ -5209,14 +5828,14 @@
         "damageRatio": 0.6,
         "imageId": "s09.resource.foodNode",
         "sprite": {
-          "width": 72,
           "height": 58,
-          "isStatic": true
+          "isStatic": true,
+          "width": 72
         }
       },
       {
-        "id": "node.s05_iron_ore",
         "schemaVersion": 1,
+        "id": "node.s05_iron_ore",
         "name": "宛城铁矿",
         "resourceType": "iron",
         "itemId": "resource.iron",
@@ -5232,348 +5851,10 @@
         "damageRatio": 0,
         "imageId": "s05.resource.ironOre",
         "sprite": {
-          "width": 64,
           "height": 56,
-          "isStatic": true
+          "isStatic": true,
+          "width": 64
         }
-      }
-    ],
-    "enemies": [
-      {
-        "id": "enemy.s01_wolf",
-        "templateId": "wild_wolf",
-        "name": "饥饿野狼",
-        "level": 1,
-        "stats": {
-          "maxHp": 32,
-          "attack": 5,
-          "defense": 1,
-          "speed": 88
-        },
-        "aiType": "aggressive",
-        "lootTable": [
-          { "itemId": "resource.raw_wolf_meat", "chance": 1, "minQuantity": 1, "maxQuantity": 1 }
-        ],
-        "imageId": "s01.enemy.wolf",
-        "sprite": { "width": 68, "height": 48, "isStatic": true }
-      },
-      {
-        "id": "enemy.s01_bandit",
-        "templateId": "bandit",
-        "name": "荒野盗匪",
-        "level": 1,
-        "stats": {
-          "maxHp": 45,
-          "attack": 6,
-          "defense": 1,
-          "speed": 65
-        },
-        "aiType": "aggressive",
-        "lootTable": []
-      },
-      {
-        "id": "enemy.s02_scavenger",
-        "templateId": "scavenger",
-        "name": "营地拾荒者",
-        "level": 1,
-        "stats": {
-          "maxHp": 38,
-          "attack": 5,
-          "defense": 1,
-          "speed": 58
-        },
-        "aiType": "aggressive",
-        "lootTable": []
-      },
-      {
-        "id": "enemy.s09_granary_guard",
-        "templateId": "yellow_turban_guard",
-        "name": "粮仓哨兵",
-        "level": 2,
-        "stats": {
-          "maxHp": 70,
-          "attack": 8,
-          "defense": 3,
-          "speed": 62
-        },
-        "aiType": "aggressive",
-        "aiActive": false,
-        "lootTable": [],
-        "imageId": "s09.character.granaryGuard",
-        "sprite": {
-          "width": 56,
-          "height": 76,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s09_refugee_scout",
-        "templateId": "government_scout",
-        "name": "官军斥候",
-        "level": 2,
-        "stats": {
-          "maxHp": 58,
-          "attack": 9,
-          "defense": 2,
-          "speed": 82
-        },
-        "aiType": "aggressive",
-        "lootTable": [],
-        "imageId": "s09.character.governmentScout",
-        "sprite": {
-          "width": 58,
-          "height": 76,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s03_yellow_turban_soldier",
-        "templateId": "yellow_turban_soldier",
-        "name": "颍川黄巾先军",
-        "level": 2,
-        "stats": {
-          "maxHp": 70,
-          "attack": 8,
-          "defense": 3,
-          "speed": 60
-        },
-        "aiType": "battleFormation",
-        "aiActive": false,
-        "factionId": "yellow_turban",
-        "lootTable": [],
-        "imageId": "s03.unit.yellowTurbanSoldier",
-        "sprite": {
-          "width": 48,
-          "height": 64,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s03_han_soldier",
-        "templateId": "han_soldier",
-        "name": "颍川官军守军",
-        "level": 2,
-        "stats": {
-          "maxHp": 72,
-          "attack": 9,
-          "defense": 4,
-          "speed": 58
-        },
-        "aiType": "battleFormation",
-        "aiActive": false,
-        "factionId": "han_government",
-        "lootTable": [],
-        "imageId": "s03.unit.hanSoldier",
-        "sprite": {
-          "width": 48,
-          "height": 64,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s04_bocai",
-        "templateId": "yellow_turban_commander",
-        "name": "波才",
-        "level": 4,
-        "stats": {
-          "maxHp": 120,
-          "attack": 10,
-          "defense": 6,
-          "speed": 72
-        },
-        "aiType": "defensive",
-        "aiActive": false,
-        "faction": "friendly",
-        "factionId": "yellow_turban",
-        "lootTable": [],
-        "imageId": "s03.unit.yellowTurbanSoldier",
-        "sprite": {
-          "width": 56,
-          "height": 74,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s05_zhang_mancheng",
-        "templateId": "yellow_turban_commander",
-        "name": "张曼成",
-        "level": 4,
-        "stats": {
-          "maxHp": 150,
-          "attack": 12,
-          "defense": 7,
-          "speed": 70
-        },
-        "aiType": "defensive",
-        "aiActive": false,
-        "faction": "friendly",
-        "factionId": "yellow_turban",
-        "lootTable": [],
-        "imageId": "s05.character.zhangMancheng",
-        "sprite": {
-          "width": 60,
-          "height": 82,
-          "isStatic": true
-        }
-      },
-      {
-        "id": "enemy.s05_qin_jie",
-        "templateId": "han_commander",
-        "name": "秦颉",
-        "level": 4,
-        "stats": {
-          "maxHp": 170,
-          "attack": 13,
-          "defense": 8,
-          "speed": 68
-        },
-        "aiType": "battleFormation",
-        "aiActive": false,
-        "factionId": "han_government",
-        "lootTable": [],
-        "imageId": "s05.character.qinJie",
-        "sprite": {
-          "width": 60,
-          "height": 82,
-          "isStatic": true
-        }
-      }
-    ],
-    "npcs": [
-      {
-        "id": "npc.s02_messenger",
-        "name": "黄巾信使",
-        "title": "张角使者",
-        "faction": "friendly",
-        "idleText": "信使正在等待你整理行装。",
-        "interaction": {
-          "radius": 84,
-          "prompt": "{interact}接受张角召见",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "npc.s09_zhangjiao",
-        "name": "张角",
-        "title": "大贤良师",
-        "faction": "friendly",
-        "dialogueId": "dialogue.s09.enlistment",
-        "imageId": "s09.character.zhangjiao",
-        "sprite": {
-          "width": 64,
-          "height": 88,
-          "isStatic": true
-        },
-        "renderStyle": "zhangjiao",
-        "idleText": "张角正在粥棚旁查看伤民名册。",
-        "interaction": {
-          "radius": 100,
-          "prompt": "{interact}与张角交谈并加入黄巾",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "npc.s09_zhangliang",
-        "name": "张梁",
-        "title": "战士教官",
-        "faction": "friendly",
-        "imageId": "s09.character.zhangliang",
-        "sprite": {
-          "width": 60,
-          "height": 82,
-          "isStatic": true
-        },
-        "renderStyle": "zhangliang",
-        "idleText": "张梁守在战士军旗旁，等待新兵确认道路。",
-        "interaction": {
-          "radius": 84,
-          "prompt": "{interact}了解战士职业",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "npc.s09_zhangbao",
-        "name": "张宝",
-        "title": "弓手教官",
-        "faction": "friendly",
-        "imageId": "s09.character.zhangbao",
-        "sprite": {
-          "width": 60,
-          "height": 82,
-          "isStatic": true
-        },
-        "renderStyle": "zhangbao",
-        "idleText": "张宝正在弓手军旗旁整理短弓与木箭。",
-        "interaction": {
-          "radius": 84,
-          "prompt": "{interact}了解弓手职业",
-          "trigger": "interact"
-        }
-      },
-      {
-        "id": "npc.s09_refugee_soldier",
-        "name": "黄巾残兵",
-        "title": "负伤残兵",
-        "faction": "friendly",
-        "imageId": "s09.character.woundedSoldier",
-        "sprite": {
-          "width": 58,
-          "height": 70,
-          "isStatic": true
-        },
-        "renderStyle": "wounded_soldier"
-      },
-      {
-        "id": "npc.s09_refugee_woman",
-        "name": "逃难妇人",
-        "title": "饥民",
-        "faction": "friendly",
-        "imageId": "s09.character.refugeeWoman",
-        "sprite": {
-          "width": 54,
-          "height": 70,
-          "isStatic": true
-        },
-        "renderStyle": "refugee_woman"
-      },
-      {
-        "id": "npc.s09_refugee_child",
-        "name": "饥饿孩童",
-        "title": "饥民",
-        "faction": "friendly",
-        "imageId": "s09.character.refugeeChild",
-        "sprite": {
-          "width": 42,
-          "height": 54,
-          "isStatic": true
-        },
-        "renderStyle": "refugee_child"
-      },
-      {
-        "id": "npc.s09_refugee_dead",
-        "name": "死去的饥民",
-        "title": "死者",
-        "faction": "neutral",
-        "imageId": "s09.character.refugeeDead",
-        "sprite": {
-          "width": 82,
-          "height": 34,
-          "isStatic": true
-        },
-        "renderStyle": "refugee_dead"
-      },
-      {
-        "id": "npc.s09_one_armed_refugee",
-        "name": "断臂饥民",
-        "title": "持饼饥民",
-        "faction": "friendly",
-        "imageId": "s09.character.oneArmedRefugee",
-        "sprite": {
-          "width": 56,
-          "height": 72,
-          "isStatic": true
-        },
-        "renderStyle": "one_armed_refugee"
       }
     ]
   },
@@ -5584,5 +5865,1241 @@
         "schemaVersion": 1
       }
     }
-  }
+  },
+  "commands": [
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.specialFaint.prepare",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "pendingDefeatResolution",
+            "target": "story",
+            "value": "specialFaint"
+          },
+          {
+            "path": "specialFaintRescueType",
+            "target": "story",
+            "value": {
+              "$get": "payload.rescueType",
+              "default": "passerby"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.specialFaint.clear",
+      "transaction": {
+        "when": {
+          "equals": "specialFaint",
+          "path": "story.pendingDefeatResolution"
+        },
+        "writes": [
+          {
+            "path": "pendingDefeatResolution",
+            "target": "story",
+            "value": null
+          },
+          {
+            "path": "specialFaintRescueType",
+            "target": "story",
+            "value": null
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.campfireLit",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.campfireLit"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.campfireLit",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.findAxe",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.axeFound"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.axeFound",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.axeDropped",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.berriesGathered",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeFound"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.berriesGathered"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.berriesGathered",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.berryEaten",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.berriesGathered"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.berryEaten"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.berryEaten",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.campfireExtinguished",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.firstWolfSpotted",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.berryEaten"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.firstWolfSpotted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.firstWolfSpotted",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.woodGathered",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.berryEaten"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.woodGathered"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.woodGathered",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.firstWolfKilled",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.firstWolfSpotted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.firstWolfKilled"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.firstWolfKilled",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.wolfSkinned",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.firstWolfKilled"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfSkinned"
+            },
+            {
+              "inventory": {
+                "toolType": "skinningKnife"
+              }
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.wolfSkinned",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.craftBackpack",
+      "transaction": {
+        "inventory": {
+          "addEntries": [
+            {
+              "itemId": "item.small_backpack",
+              "quantity": 1
+            }
+          ],
+          "removeEntries": [
+            {
+              "itemId": "resource.wood",
+              "quantity": 2
+            },
+            {
+              "itemId": "resource.wolf_hide",
+              "quantity": 1
+            }
+          ],
+          "type": "batchExchange"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfSkinned"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.backpackCrafted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.backpackCrafted",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.cookMeat",
+      "transaction": {
+        "inventory": {
+          "addEntries": [
+            {
+              "itemId": "food.roasted_wolf_meat",
+              "quantity": 1
+            }
+          ],
+          "removeEntries": [
+            {
+              "itemId": "resource.raw_wolf_meat",
+              "quantity": 1
+            },
+            {
+              "itemId": "resource.wood",
+              "quantity": 1
+            }
+          ],
+          "type": "batchExchange"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.backpackCrafted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.meatCooked"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.meatCooked",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.shelterCompleted",
+      "transaction": {
+        "checkpoint": {
+          "checkpointId": "checkpoint.S01.shelterCompleted",
+          "reason": "checkpoint",
+          "sceneId": "S01"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.meatCooked"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.shelterCompleted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.shelterCompleted",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.overnight",
+      "transaction": {
+        "checkpoint": {
+          "checkpointId": "checkpoint.S01.secondDay",
+          "reason": "checkpoint",
+          "sceneId": "S01"
+        },
+        "inventory": {
+          "entries": [
+            {
+              "itemId": "story.s01.firestarter",
+              "quantity": 1
+            }
+          ],
+          "type": "batchAdd"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.shelterCompleted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.overnightCompleted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "currentDay",
+            "target": "story",
+            "value": 2
+          },
+          {
+            "path": "s01Survival.overnightCompleted",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.firestarterAcquired",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.pursuit",
+            "target": "story",
+            "value": {
+              "active": true,
+              "killed": 0,
+              "spawned": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.chase.kill",
+      "transaction": {
+        "when": {
+          "equals": true,
+          "path": "story.s01Survival.pursuit.active"
+        },
+        "writes": [
+          {
+            "path": "s01Survival.pursuit.killed",
+            "target": "story",
+            "value": {
+              "$add": [
+                {
+                  "$get": "story.s01Survival.pursuit.killed",
+                  "default": 0
+                },
+                1
+              ]
+            }
+          },
+          {
+            "path": "s01Survival.pursuit.spawned",
+            "target": "story",
+            "value": {
+              "$min": [
+                20,
+                {
+                  "$add": [
+                    {
+                      "$get": "story.s01Survival.pursuit.spawned",
+                      "default": 3
+                    },
+                    2
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.riverCrossed",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.pursuit.active"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.riverCrossed"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.riverCrossed",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.cliffReached",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.riverCrossed"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.cliffReached"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.cliffReached",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.complete",
+      "transaction": {
+        "travel": {
+          "sceneId": "S02",
+          "spawnRef": "player",
+          "transition": "fadeBlack"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.cliffReached"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Completed",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.pursuit.active",
+            "target": "story",
+            "value": false
+          },
+          {
+            "path": "currentSceneId",
+            "target": "story",
+            "value": "S02"
+          },
+          {
+            "path": "pendingDefeatResolution",
+            "target": "story",
+            "value": null
+          },
+          {
+            "path": "specialFaintRescueType",
+            "target": "story",
+            "value": null
+          },
+          {
+            "path": "unlockedScenes",
+            "target": "story",
+            "value": {
+              "$appendUnique": {
+                "source": {
+                  "$get": "story.unlockedScenes",
+                  "default": []
+                },
+                "values": [
+                  "S02"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s02.summons.accept",
+      "transaction": {
+        "checkpoint": {
+          "checkpointId": "checkpoint.S02.summonsAccepted",
+          "reason": "checkpoint",
+          "sceneId": "S02"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S02",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": false,
+              "path": "story.s02SummonsAccepted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s02SummonsAccepted",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "lastCheckpointId",
+            "target": "story",
+            "value": "checkpoint.S02.summonsAccepted"
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s02.travel",
+      "transaction": {
+        "travel": {
+          "sceneId": "S09",
+          "spawnRef": "player"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S02",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s02SummonsAccepted"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.enlist",
+      "transaction": {
+        "checkpoint": {
+          "checkpointId": "checkpoint.S09.enlisted",
+          "reason": "checkpoint",
+          "sceneId": "S09"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S09",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": false,
+              "path": "story.joinedYellowTurban"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "joinedYellowTurban",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "lastCheckpointId",
+            "target": "story",
+            "value": "checkpoint.S09.enlisted"
+          },
+          {
+            "path": "joinedYellowTurban",
+            "target": "blackboard",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.day.advance",
+      "transaction": {
+        "writes": [
+          {
+            "path": "currentDay",
+            "target": "story",
+            "value": {
+              "$get": "payload.day"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.delayed.resolve",
+      "transaction": {
+        "delayed": {
+          "currentDayPath": "story.currentDay",
+          "path": "delayedConsequences"
+        },
+        "selector": {
+          "$get": "event.type"
+        },
+        "variants": {
+          "s09.hardlineEscape": {
+            "outcome": {
+              "$if": [
+                {
+                  "$get": "event.payload.willEscape"
+                },
+                "escapeOccurred",
+                "noEscape"
+              ]
+            },
+            "writes": [
+              {
+                "path": "s09RefugeeConflict",
+                "target": "story",
+                "value": {
+                  "$merge": [
+                    {
+                      "$get": "story.s09RefugeeConflict"
+                    },
+                    {
+                      "hardlineEscapeDay": {
+                        "$get": "story.currentDay"
+                      },
+                      "hardlineEscapeOccurred": {
+                        "$get": "event.payload.willEscape"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "s09.silenceFoodCollapse": {
+            "outcome": "foodCollapsed",
+            "writes": [
+              {
+                "cityId": "city.s09_guangzong_camp",
+                "path": "resources.food",
+                "target": "city",
+                "value": 0
+              },
+              {
+                "path": "hiddenClues",
+                "target": "story",
+                "value": {
+                  "$appendUnique": {
+                    "source": {
+                      "$get": "story.hiddenClues",
+                      "default": []
+                    },
+                    "values": [
+                      "s09.refugees.breadArmClue"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.refugee.prepare",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S09",
+              "path": "story.currentSceneId"
+            },
+            {
+              "gte": 0.4,
+              "path": "cityStates.0.damageRatio"
+            },
+            {
+              "gte": 0.000001,
+              "path": "cityStates.0.buildingDamage.granary.s09"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s09RefugeeConflict",
+            "target": "story",
+            "value": {
+              "$if": [
+                {
+                  "$get": "story.s09RefugeeConflict"
+                },
+                {
+                  "$get": "story.s09RefugeeConflict"
+                },
+                {
+                  "branch": null,
+                  "donationCommitted": false,
+                  "presentationActive": true,
+                  "result": null,
+                  "status": "available",
+                  "triggeredDay": {
+                    "$get": "story.currentDay",
+                    "default": 1
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.refugee.start",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S09",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": "available",
+              "path": "story.s09RefugeeConflict.status"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s09RefugeeConflict.status",
+            "target": "story",
+            "value": "started"
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.refugee.donate",
+      "transaction": {
+        "checkpoint": {
+          "checkpointId": "checkpoint.S09.refugeeDonation",
+          "reason": "checkpoint",
+          "sceneId": "S09"
+        },
+        "inventory": {
+          "entries": [
+            {
+              "itemId": "resource.food",
+              "quantity": 20
+            }
+          ],
+          "type": "batchRemove"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S09",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": false,
+              "path": "story.s09RefugeeConflict.donationCommitted"
+            },
+            {
+              "inventory": {
+                "itemId": "resource.food",
+                "quantity": 20
+              }
+            }
+          ]
+        },
+        "writes": [
+          {
+            "cityId": "city.s09_guangzong_camp",
+            "path": "morale",
+            "target": "city",
+            "value": {
+              "$min": [
+                100,
+                {
+                  "$add": [
+                    {
+                      "$get": "cityStates.0.morale"
+                    },
+                    5
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "cityId": "city.s09_guangzong_camp",
+            "path": "damagePausedUntilDay",
+            "target": "city",
+            "value": {
+              "$add": [
+                {
+                  "$get": "story.currentDay",
+                  "default": 1
+                },
+                1
+              ]
+            }
+          },
+          {
+            "path": "s09RefugeeConflict",
+            "target": "story",
+            "value": {
+              "$merge": [
+                {
+                  "$get": "story.s09RefugeeConflict"
+                },
+                {
+                  "donationCommitted": true,
+                  "donationDay": {
+                    "$get": "story.currentDay",
+                    "default": 1
+                  },
+                  "donationOperationId": {
+                    "$get": "payload.operationId",
+                    "default": "donation"
+                  },
+                  "status": "donated"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s09.refugee.branch",
+      "transaction": {
+        "selector": {
+          "$get": "payload.event.choiceId"
+        },
+        "variantDefinitions": {
+          "donate_food": "story.s09.refugee.donate",
+          "retry_donation": "story.s09.refugee.donate"
+        },
+        "variants": {
+          "appease": {
+            "checkpoint": {
+              "checkpointId": "checkpoint.S09.refugeeBranch.appease",
+              "reason": "checkpoint",
+              "sceneId": "S09"
+            },
+            "onPreconditionFailed": {
+              "checkpoint": {
+                "checkpointId": "checkpoint.S09.refugeeBranch.appeaseScout",
+                "reason": "checkpoint",
+                "sceneId": "S09"
+              },
+              "writes": [
+                {
+                  "path": "storyTags",
+                  "target": "story",
+                  "value": {
+                    "$appendUnique": {
+                      "source": {
+                        "$get": "story.storyTags",
+                        "default": []
+                      },
+                      "values": [
+                        "s09.refugees.appeaseScout"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "path": "s09RefugeeConflict",
+                  "target": "story",
+                  "value": {
+                    "$merge": [
+                      {
+                        "$get": "story.s09RefugeeConflict"
+                      },
+                      {
+                        "branch": "appease",
+                        "result": "scoutTriggered",
+                        "scoutTriggered": true,
+                        "status": "resolved"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            "when": {
+              "inventory": {
+                "toolType": "axe"
+              }
+            },
+            "writes": [
+              {
+                "path": "storyTags",
+                "target": "story",
+                "value": {
+                  "$appendUnique": {
+                    "source": {
+                      "$get": "story.storyTags",
+                      "default": []
+                    },
+                    "values": [
+                      "s09.refugees.appeasedWithGathering"
+                    ]
+                  }
+                }
+              },
+              {
+                "path": "s09RefugeeConflict",
+                "target": "story",
+                "value": {
+                  "$merge": [
+                    {
+                      "$get": "story.s09RefugeeConflict"
+                    },
+                    {
+                      "branch": "appease",
+                      "result": "foodRestored",
+                      "status": "resolved"
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "hardline": {
+            "checkpoint": {
+              "checkpointId": "checkpoint.S09.refugeeBranch.hardline",
+              "reason": "checkpoint",
+              "sceneId": "S09"
+            },
+            "writes": [
+              {
+                "cityId": "city.s09_guangzong_camp",
+                "path": "morale",
+                "target": "city",
+                "value": {
+                  "$min": [
+                    100,
+                    {
+                      "$add": [
+                        {
+                          "$get": "cityStates.0.morale"
+                        },
+                        10
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "storyTags",
+                "target": "story",
+                "value": {
+                  "$appendUnique": {
+                    "source": {
+                      "$get": "story.storyTags",
+                      "default": []
+                    },
+                    "values": [
+                      "s09.refugees.hardline",
+                      "s09.refugees.strictCommander"
+                    ]
+                  }
+                }
+              },
+              {
+                "path": "s09RefugeeConflict",
+                "target": "story",
+                "value": {
+                  "$merge": [
+                    {
+                      "$get": "story.s09RefugeeConflict"
+                    },
+                    {
+                      "branch": "hardline",
+                      "hardlineEscapeOccurred": {
+                        "$chance": 0.35
+                      },
+                      "result": "hardlineEscapeScheduled",
+                      "status": "resolved"
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "delayedConsequences",
+                "target": "story",
+                "value": {
+                  "$concat": [
+                    {
+                      "$get": "story.delayedConsequences",
+                      "default": []
+                    },
+                    [
+                      {
+                        "dueDay": {
+                          "$add": [
+                            {
+                              "$get": "story.currentDay",
+                              "default": 1
+                            },
+                            1
+                          ]
+                        },
+                        "id": "story:S09:hardline-escape",
+                        "payload": {
+                          "willEscape": {
+                            "$get": "story.s09RefugeeConflict.hardlineEscapeOccurred"
+                          }
+                        },
+                        "status": "pending",
+                        "type": "s09.hardlineEscape"
+                      }
+                    ]
+                  ]
+                }
+              }
+            ]
+          },
+          "silence": {
+            "checkpoint": {
+              "checkpointId": "checkpoint.S09.refugeeBranch.silence",
+              "reason": "checkpoint",
+              "sceneId": "S09"
+            },
+            "writes": [
+              {
+                "path": "storyTags",
+                "target": "story",
+                "value": {
+                  "$appendUnique": {
+                    "source": {
+                      "$get": "story.storyTags",
+                      "default": []
+                    },
+                    "values": [
+                      "s09.refugees.silence"
+                    ]
+                  }
+                }
+              },
+              {
+                "path": "s09RefugeeConflict",
+                "target": "story",
+                "value": {
+                  "$merge": [
+                    {
+                      "$get": "story.s09RefugeeConflict"
+                    },
+                    {
+                      "branch": "silence",
+                      "result": "delayedFoodCollapse",
+                      "status": "resolved"
+                    }
+                  ]
+                }
+              },
+              {
+                "path": "delayedConsequences",
+                "target": "story",
+                "value": {
+                  "$concat": [
+                    {
+                      "$get": "story.delayedConsequences",
+                      "default": []
+                    },
+                    [
+                      {
+                        "dueDay": {
+                          "$add": [
+                            {
+                              "$get": "story.currentDay",
+                              "default": 1
+                            },
+                            1
+                          ]
+                        },
+                        "id": "story:S09:silence-food-collapse",
+                        "status": "pending",
+                        "type": "s09.silenceFoodCollapse"
+                      }
+                    ]
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S09",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s09RefugeeConflict.donationCommitted"
+            }
+          ]
+        }
+      }
+    }
+  ]
 }

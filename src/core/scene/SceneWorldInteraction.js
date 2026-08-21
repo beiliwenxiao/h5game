@@ -17,7 +17,6 @@ export class SceneWorldInteraction {
     this.scene = scene;
     this.entityStore = entityStore;
     this.feedbackRenderer = options.feedbackRenderer || ClickFeedbackRenderer;
-    this.document = options.document || globalThis.document;
     this.clickRings = [];
   }
 
@@ -167,54 +166,24 @@ export class SceneWorldInteraction {
     }
   }
 
-  /** 右键点击正式反馈；详细坐标日志仅在 debugMode 下输出。 */
-  debugRightClick() {
+  /** 右键移动的正式落点反馈，仅绘制绿色世界光圈。 */
+  showRightClickFeedback() {
     const scene = this.scene;
     const input = scene.inputManager;
     const mouseScreen = input.getMousePosition();
     const mouseWorld = input.getMouseWorldPosition();
-    const cameraWorldPos = scene.camera?.screenToWorld(mouseScreen.x, mouseScreen.y) || null;
-    const playerPos = scene.playerEntity?.getComponent('transform')?.position || null;
+    const targetPos = scene.camera?.screenToWorld(mouseScreen.x, mouseScreen.y) || mouseWorld;
 
-    if (scene.debugMode) {
-      const viewBounds = scene.camera?.getViewBounds() || null;
-      const rawMouse = input.mouse;
-      console.log('=== 右键点击调试 ===');
-      console.log('屏幕坐标 (mouse.x/y):', mouseScreen.x.toFixed(1), mouseScreen.y.toFixed(1));
-      console.log('InputManager worldX/Y:', mouseWorld.x.toFixed(1), mouseWorld.y.toFixed(1));
-      console.log('Camera.screenToWorld:', cameraWorldPos ? `${cameraWorldPos.x.toFixed(1)}, ${cameraWorldPos.y.toFixed(1)}` : 'N/A');
-      console.log('相机位置:', scene.camera ? `${scene.camera.position.x.toFixed(1)}, ${scene.camera.position.y.toFixed(1)}` : 'N/A');
-      console.log('相机尺寸:', scene.camera ? `${scene.camera.width} x ${scene.camera.height}` : 'N/A');
-      console.log('视野边界:', viewBounds ? `L=${viewBounds.left} T=${viewBounds.top} R=${viewBounds.right} B=${viewBounds.bottom}` : 'N/A');
-      console.log('InputManager cameraX/Y:', input.cameraX?.toFixed(1), input.cameraY?.toFixed(1));
-      console.log('玩家位置:', playerPos ? `${playerPos.x.toFixed(1)}, ${playerPos.y.toFixed(1)}` : 'N/A');
-      const canvas = this.document?.getElementById('gameCanvas');
-      const rect = canvas?.getBoundingClientRect();
-      console.log('Canvas尺寸:', scene.logicalWidth, 'x', scene.logicalHeight, '| canvas.width:', canvas?.width, '| rect:', rect ? `left=${rect.left.toFixed(1)} top=${rect.top.toFixed(1)} w=${rect.width.toFixed(1)} h=${rect.height.toFixed(1)}` : 'N/A');
-      console.log('原始 clientX/Y:', rawMouse._rawClientX, rawMouse._rawClientY);
-      console.log('==================');
-    }
-
-    const targetPos = cameraWorldPos || mouseWorld;
     this.clickRings.push(this.feedbackRenderer.createRing({
       worldX: targetPos.x,
-      worldY: targetPos.y,
-      screenX: mouseScreen.x,
-      screenY: mouseScreen.y,
-      playerX: playerPos?.x || 0,
-      playerY: playerPos?.y || 0
+      worldY: targetPos.y
     }));
   }
 
   renderClickRings(ctx) {
     if (this.clickRings.length === 0) return;
     this.clickRings = this.feedbackRenderer.prune(this.clickRings);
-    this.feedbackRenderer.renderWorldRings(ctx, this.clickRings, this.scene.debugMode);
-  }
-
-  renderClickScreenMarkers(ctx) {
-    if (!this.scene.debugMode) return;
-    this.feedbackRenderer.renderScreenMarkers(ctx, this.clickRings);
+    this.feedbackRenderer.renderWorldRings(ctx, this.clickRings);
   }
 
   handleEnemySelection() {

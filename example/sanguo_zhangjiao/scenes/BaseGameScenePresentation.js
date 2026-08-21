@@ -41,16 +41,12 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     return this._ensureWorldInteraction().handleTeleport();
   }
 
-  _debugRightClick() {
-    return this._ensureWorldInteraction().debugRightClick();
+  _showRightClickFeedback() {
+    return this._ensureWorldInteraction().showRightClickFeedback();
   }
 
   _renderClickRings(ctx) {
     return this._ensureWorldInteraction().renderClickRings(ctx);
-  }
-
-  _renderClickScreenMarkers(ctx) {
-    return this._ensureWorldInteraction().renderClickScreenMarkers(ctx);
   }
 
   handleWeaponThrow() {

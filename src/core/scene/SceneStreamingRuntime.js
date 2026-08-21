@@ -35,6 +35,8 @@ export class SceneStreamingRuntime {
     this.onError = onError;
     this.manager = null;
     this.terrainsByChunk = new Map();
+    this._preparedTerrains = new WeakMap();
+    this._terrainPreparationPromises = new WeakMap();
     this.detach = null;
   }
 
@@ -76,24 +78,118 @@ export class SceneStreamingRuntime {
       manager.unloadAll({ preserveState: false });
       throw new Error(loaded.errors?.[0]?.message || '初始九宫格加载失败');
     }
+    try {
+      await this._prepareLoadedTerrains(manager);
+    } catch (error) {
+      this._releaseTerrainMap(this._preparedTerrains.get(manager));
+      this._preparedTerrains.delete(manager);
+      manager.unloadAll({ preserveState: false });
+      throw error;
+    }
     return manager;
+  }
+
+  _createTerrain(chunk, manager) {
+    return this.createTerrain?.({
+      chunk,
+      manager,
+      chunkWidth: manager.chunkWidth,
+      chunkHeight: manager.chunkHeight,
+      sceneData: cloneSceneData(chunk.sceneData)
+    }) || null;
+  }
+
+  async _prepareLoadedTerrains(manager) {
+    const pending = this._terrainPreparationPromises.get(manager);
+    if (pending) return pending;
+    const operation = this._prepareLoadedTerrainsNow(manager).finally(() => {
+      if (this._terrainPreparationPromises.get(manager) === operation) {
+        this._terrainPreparationPromises.delete(manager);
+      }
+    });
+    this._terrainPreparationPromises.set(manager, operation);
+    return operation;
+  }
+
+  async _prepareLoadedTerrainsNow(manager) {
+    if (!manager) return new Map();
+    let terrainMap = this._preparedTerrains.get(manager);
+    if (!terrainMap) {
+      terrainMap = new Map();
+      this._preparedTerrains.set(manager, terrainMap);
+    }
+
+    const chunks = [...manager.getLoadedChunks().values()];
+    const activeKeys = new Set(chunks.map(chunk => chunk.key));
+    for (const [key, terrain] of terrainMap) {
+      if (activeKeys.has(key)) continue;
+      terrain?.releaseStaticCaches?.();
+      terrainMap.delete(key);
+    }
+
+    const created = [];
+    try {
+      for (const chunk of chunks) {
+        if (terrainMap.has(chunk.key)) continue;
+        const terrain = this._createTerrain(chunk, manager);
+        if (!terrain) continue;
+        terrainMap.set(chunk.key, terrain);
+        created.push({ key: chunk.key, terrain });
+      }
+      await Promise.all(created.map(({ terrain }) => terrain.prepareStaticCaches?.()));
+      return terrainMap;
+    } catch (error) {
+      for (const { key, terrain } of created) {
+        terrain?.releaseStaticCaches?.();
+        terrainMap.delete(key);
+      }
+      throw error;
+    }
+  }
+
+  _createStreamingAdapter(manager) {
+    return {
+      serialize: (...args) => manager.serialize(...args),
+      validateSerialized: (...args) => manager.validateSerialized(...args),
+      deserialize: (...args) => manager.deserialize(...args),
+      update: async (...args) => {
+        const result = await manager.update(...args);
+        if (result?.ok) await this._prepareLoadedTerrains(manager);
+        return result;
+      }
+    };
+  }
+
+  _releaseTerrainMap(terrainMap) {
+    if (!terrainMap) return;
+    for (const terrain of terrainMap.values()) terrain?.releaseStaticCaches?.();
+    terrainMap.clear();
   }
 
   async initialize({ worldResult, targetSceneId = null, session = null, preparedManager = null, stateProviders = [] } = {}) {
     const manager = preparedManager || await this.prepare({
       worldResult, targetSceneId, session, stateProviders
     });
+    const preparedTerrains = this._preparedTerrains.get(manager)
+      || await this._prepareLoadedTerrains(manager);
     this.dispose();
-    manager.onChunkUnload = (col, row, chunk) => this.onChunkUnload?.({ col, row, chunk, manager });
+    manager.onChunkUnload = (col, row, chunk) => {
+      const terrain = preparedTerrains.get(chunk?.key);
+      terrain?.releaseStaticCaches?.();
+      preparedTerrains.delete(chunk?.key);
+      this.onChunkUnload?.({ col, row, chunk, manager });
+    };
     this.manager = manager;
-    this.terrainsByChunk.clear();
+    this.terrainsByChunk = preparedTerrains;
     this.syncProjection();
 
     const runtime = this.getRuntime?.();
-    this.detach = runtime?.attachWorldStreaming?.(manager, {
+    const streamingAdapter = this._createStreamingAdapter(manager);
+    this.detach = runtime?.attachWorldStreaming?.(streamingAdapter, {
       getPosition: () => this.getPosition?.() || null,
       onTransition: async transition => {
         if (transition?.unchanged) return;
+        this.terrainsByChunk = this._preparedTerrains.get(manager) || preparedTerrains;
         this.syncProjection();
         await this.onTransition?.({ transition, manager });
       },
@@ -107,20 +203,10 @@ export class SceneStreamingRuntime {
     if (!manager) return null;
     const chunks = [...manager.getLoadedChunks().values()];
     const activeKeys = new Set(chunks.map(chunk => chunk.key));
-    for (const key of this.terrainsByChunk.keys()) {
-      if (!activeKeys.has(key)) this.terrainsByChunk.delete(key);
-    }
-
-    for (const chunk of chunks) {
-      if (this.terrainsByChunk.has(chunk.key)) continue;
-      const terrain = this.createTerrain?.({
-        chunk,
-        manager,
-        chunkWidth: manager.chunkWidth,
-        chunkHeight: manager.chunkHeight,
-        sceneData: cloneSceneData(chunk.sceneData)
-      });
-      if (terrain) this.terrainsByChunk.set(chunk.key, terrain);
+    for (const [key, terrain] of this.terrainsByChunk) {
+      if (activeKeys.has(key)) continue;
+      terrain?.releaseStaticCaches?.();
+      this.terrainsByChunk.delete(key);
     }
 
     const terrains = chunks.map(chunk => this.terrainsByChunk.get(chunk.key)).filter(Boolean);
@@ -135,9 +221,15 @@ export class SceneStreamingRuntime {
   dispose() {
     this.detach?.();
     this.detach = null;
-    this.manager?.unloadAll?.({ preserveState: false });
+    const manager = this.manager;
+    this._releaseTerrainMap(this.terrainsByChunk);
+    if (manager) {
+      this._preparedTerrains.delete(manager);
+      this._terrainPreparationPromises.delete(manager);
+    }
+    manager?.unloadAll?.({ preserveState: false });
     this.manager = null;
-    this.terrainsByChunk.clear();
+    this.terrainsByChunk = new Map();
   }
 }
 

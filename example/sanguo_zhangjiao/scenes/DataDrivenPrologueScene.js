@@ -209,6 +209,18 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this.terrain = terrain;
         this.context.world.terrain = terrain;
         this.context.world.terrains = terrains;
+        if (this.minimap) {
+          if (this._worldIndex &&
+              (this.minimap._worldIndex !== this._worldIndex || this.minimap._regionRef !== manager.regionId)) {
+            this.minimap.setWorldIndex(this._worldIndex, manager.regionId);
+          }
+          const playerPosition = this.playerEntity?.getComponent?.('transform')?.position;
+          if (playerPosition) this.minimap.setPlayerPosition(playerPosition);
+          if (typeof this.camera?.getViewBounds === 'function') {
+            this.minimap.setViewBounds(this.camera.getViewBounds());
+          }
+          this._terrainBinding.updateMinimap(this.minimap);
+        }
         this.context.services.placements?.setProjection(chunks.flatMap(chunk => chunk.placements || []));
         const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
         const triggerBindings = chunks.flatMap(chunk => chunk.triggerBindings || []);

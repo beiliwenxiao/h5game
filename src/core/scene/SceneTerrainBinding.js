@@ -163,24 +163,24 @@ export class SceneTerrainBinding {
   updateMinimap(minimap) {
     const scene = this.scene;
     if (!minimap) return;
-    const minimapTerrains = Array.isArray(minimap._terrains) ? minimap._terrains : [];
-    if (minimapTerrains.length === 0) {
-      if (scene._terrains && scene._terrains.length > 0) minimap.setTerrains(scene._terrains);
-      else if (scene.terrain) minimap.setTerrain(scene.terrain);
+    const sourceTerrains = scene._terrains?.length > 0
+      ? scene._terrains
+      : (scene.terrain ? [scene.terrain] : []);
+    const currentTerrains = Array.isArray(minimap._terrains) ? minimap._terrains : [];
+    const terrainSetChanged = sourceTerrains.length !== currentTerrains.length
+      || sourceTerrains.some((terrain, index) => terrain !== currentTerrains[index]);
+    if (terrainSetChanged) minimap.setTerrains(sourceTerrains);
+
+    let cacheRevisionChanged = false;
+    for (const terrain of sourceTerrains) {
+      const revision = terrain.staticCacheRevision ?? 0;
+      if (terrain._minimapCacheRevision === revision) continue;
+      terrain._minimapCacheRevision = revision;
+      cacheRevisionChanged = true;
     }
-    for (const terrain of (minimap._terrains || [])) {
-      if (terrain._combinedGroundCache && !terrain._minimapCacheNotified) {
-        terrain._minimapCacheNotified = true;
-        minimap._invalidateCache();
-      }
-      if (terrain._groundDecoCache && !terrain._minimapDecoNotified) {
-        terrain._minimapDecoNotified = true;
-        minimap._invalidateCache();
-      }
-      if (terrain._bgImageCache && !terrain._minimapBgImgNotified) {
-        terrain._minimapBgImgNotified = true;
-        minimap._invalidateCache();
-      }
+    if (cacheRevisionChanged && !terrainSetChanged) minimap._invalidateCache();
+    if (terrainSetChanged || cacheRevisionChanged || !minimap._mapCache) {
+      minimap.prepareBackgroundCache?.();
     }
   }
 }

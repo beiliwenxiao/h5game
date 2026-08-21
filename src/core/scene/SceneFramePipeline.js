@@ -192,12 +192,12 @@ export class SceneFramePipeline {
     if (services.worldInteraction) services.worldInteraction.handleUIClick();
     else scene.handleUIClick();
 
-    // 右键点击调试：显示光圈 + 输出坐标日志
+    // 右键移动的正式落点反馈（绿色光圈）
     if (inputManager.isMouseClicked() &&
         inputManager.getMouseButton() === 2 &&
         !inputManager.isMouseClickHandled()) {
-      if (services.worldInteraction) services.worldInteraction.debugRightClick();
-      else scene._debugRightClick();
+      if (services.worldInteraction) services.worldInteraction.showRightClickFeedback();
+      else scene._showRightClickFeedback();
     }
 
     // 旧的 Ctrl+左键瞬移已改为：按 Ctrl 进入轻功瞄准、左键确认（见 updatePCAimMode）

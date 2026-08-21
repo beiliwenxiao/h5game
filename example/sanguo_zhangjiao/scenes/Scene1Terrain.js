@@ -55,6 +55,13 @@ export class Scene1Terrain {
     this.getLoadedImage = typeof config.getLoadedImage === 'function'
       ? config.getLoadedImage
       : () => null;
+    this._cacheLifecycleToken = 0;
+    this._staticCacheRevision = 0;
+    this._staticCachePrepared = false;
+    this._released = false;
+    this._belowDecoCache = null;
+    this._belowDecoCacheX = 0;
+    this._belowDecoCacheY = 0;
 
     // 盆地中心 = 火堆位置
     this.centerX = config.centerX ?? 350;
@@ -475,7 +482,6 @@ export class Scene1Terrain {
         if (loadedImage) {
           sceneImage._img = loadedImage;
           sceneImage._loaded = true;
-          this._scheduleVectorBackgroundCache();
           continue;
         }
         if (sceneImage.imageId) {
@@ -483,10 +489,11 @@ export class Scene1Terrain {
           continue;
         }
         const img = new Image();
+        const lifecycleToken = this._cacheLifecycleToken;
         img.onload = () => {
+          if (this._released || lifecycleToken !== this._cacheLifecycleToken) return;
           sceneImage._img = img;
           sceneImage._loaded = true;
-          this._scheduleVectorBackgroundCache();
         };
         img.src = sceneImage.src;
       }
@@ -1044,6 +1051,100 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx
    * @param {{left:number,top:number,right:number,bottom:number}} [viewBounds] 可选相机世界视野
    */
+  get staticCacheRevision() {
+    return this._staticCacheRevision;
+  }
+
+  _waitForImage(image, signal = null) {
+    if (!image || typeof image.addEventListener !== 'function') return Promise.resolve();
+    if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+    if (image.complete && image.naturalWidth === 0) {
+      return Promise.reject(new Error('Scene1Terrain: 静态缓存图片加载失败'));
+    }
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        image.removeEventListener('load', onLoad);
+        image.removeEventListener('error', onError);
+        signal?.removeEventListener?.('abort', onAbort);
+      };
+      const onLoad = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error('Scene1Terrain: 静态缓存图片加载失败')); };
+      const onAbort = () => { cleanup(); reject(new Error('Scene1Terrain: 静态缓存准备已取消')); };
+      image.addEventListener('load', onLoad, { once: true });
+      image.addEventListener('error', onError, { once: true });
+      signal?.addEventListener?.('abort', onAbort, { once: true });
+      if (signal?.aborted) onAbort();
+    });
+  }
+
+  /** 九宫格加载阶段调用：等待静态图片并一次生成地面、图片和装饰缓存。 */
+  async prepareStaticCaches({ signal = null } = {}) {
+    if (this._staticCachePrepared && !this._released) return this._staticCacheRevision;
+    const lifecycleToken = this._cacheLifecycleToken;
+    this._released = false;
+    const sceneImages = [
+      ...(this._editorBackgroundImages || []),
+      ...(this._depthSortedImages || [])
+    ];
+    const imageSet = new Set([
+      ...sceneImages.map(entry => entry?._img),
+      this._terrainEllipse?._img,
+      ...Object.values(this.images || {})
+    ].filter(Boolean));
+    await Promise.all([...imageSet].map(image => this._waitForImage(image, signal)));
+    if (signal?.aborted || lifecycleToken !== this._cacheLifecycleToken || this._released) {
+      throw new Error('Scene1Terrain: 静态缓存准备已取消');
+    }
+    for (const entry of sceneImages) {
+      if (entry?._img) entry._loaded = true;
+    }
+    this._buildBackgroundImageCache();
+    this._buildGroundDecoCache();
+    this._buildBelowDecoCache();
+    if (this._hasTerrainEllipse !== false) this._buildCombinedGroundCache();
+    this._staticCachePrepared = true;
+    this._staticCacheRevision++;
+    return this._staticCacheRevision;
+  }
+
+  _releaseCanvas(canvas) {
+    if (!canvas) return;
+    try {
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch (error) { /* best-effort Canvas release */ }
+  }
+
+  /** 释放仅属于表现层的 Canvas；不写入 chunk 状态或存档。 */
+  releaseStaticCaches() {
+    if (this._released) return;
+    this._released = true;
+    this._cacheLifecycleToken++;
+    this._staticCachePrepared = false;
+    this._terrainCacheBuildScheduled = false;
+    this._terrainCacheBuildCombined = false;
+    this._bgImageCachePendingSignature = null;
+    const canvases = [
+      this._combinedGroundCache,
+      this._groundDecoCache,
+      this._belowDecoCache,
+      this._bgImageCache,
+      this._grassCanvas,
+      this._cliffCanvas
+    ];
+    for (const canvas of new Set(canvases.filter(Boolean))) this._releaseCanvas(canvas);
+    this._combinedGroundCache = null;
+    this._groundDecoCache = null;
+    this._belowDecoCache = null;
+    this._bgImageCache = null;
+    this._grassCanvas = null;
+    this._cliffCanvas = null;
+    this._bgImageCacheSignature = null;
+    this._decorationQueueEntries = [];
+    this._decorationQueueGroundCache = null;
+    this._staticCacheRevision++;
+  }
+
   collectDecorations(renderQueue, ctx, viewBounds = null) {
     // 装饰物、图集切片、深度图片和 ground cache 都是静态数据。仅在引用变化或 Canvas
     // 上下文变化时重建队列项，正常帧只追加已缓存对象，避免创建闭包和包装对象。
@@ -1143,21 +1244,13 @@ export class Scene1Terrain {
    * 只在图片加载完成且缓存不存在时构建一次
    * @private
    */
-  _buildGroundDecoCache() {
-    if (this._groundDecoCache || !this.loaded.mountain) return;
-    
-    // 收集所有非碰撞装饰物
-    const groundDecos = this.decorations.filter(d => {
-      if (d.belowEntities) return false;
-      const sprite = this.decoSprites[d.key];
-      return sprite && !sprite.collide;
-    });
-    
-    if (groundDecos.length === 0) return;
-    
-    // 计算包围盒
+  _buildDecorationLayerCache(predicate) {
+    if (!this.loaded.mountain || !this.images.mountain) return null;
+    const entries = this.decorations.filter(deco => predicate(deco, this.decoSprites[deco.key]));
+    if (entries.length === 0) return null;
+
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const deco of groundDecos) {
+    for (const deco of entries) {
       const sprite = this.decoSprites[deco.key];
       const { w, h } = this._decoRenderSize(deco, sprite);
       const dx = deco.x - w / 2;
@@ -1167,37 +1260,53 @@ export class Scene1Terrain {
       maxX = Math.max(maxX, dx + w);
       maxY = Math.max(maxY, dy + h);
     }
-    
+
     const cacheW = Math.ceil(maxX - minX) + 4;
     const cacheH = Math.ceil(maxY - minY) + 4;
-    
-    // 限制缓存大小避免内存爆炸
-    if (cacheW > 4096 || cacheH > 4096) return;
-    
+    if (cacheW > 4096 || cacheH > 4096) return null;
+
     const canvas = document.createElement('canvas');
     canvas.width = cacheW;
     canvas.height = cacheH;
     const gctx = canvas.getContext('2d');
-    
-    // 偏移到缓存坐标系
     const offsetX = minX - 2;
     const offsetY = minY - 2;
-    
-    for (const deco of groundDecos) {
+    for (const deco of entries) {
       const sprite = this.decoSprites[deco.key];
       const { w, h } = this._decoRenderSize(deco, sprite);
-      const dx = deco.x - w / 2 - offsetX;
-      const dy = deco.y - h - offsetY;
       gctx.drawImage(
         this.images.mountain,
         sprite.sx, sprite.sy, sprite.sw, sprite.sh,
-        dx, dy, w, h
+        deco.x - w / 2 - offsetX,
+        deco.y - h - offsetY,
+        w, h
       );
     }
-    
-    this._groundDecoCache = canvas;
-    this._groundDecoCacheX = offsetX;
-    this._groundDecoCacheY = offsetY;
+    return { canvas, x: offsetX, y: offsetY };
+  }
+
+  /** 构建非碰撞地面装饰缓存。 */
+  _buildGroundDecoCache() {
+    if (this._groundDecoCache) return;
+    const cache = this._buildDecorationLayerCache((deco, sprite) =>
+      !deco.belowEntities && sprite && !sprite.collide
+    );
+    if (!cache) return;
+    this._groundDecoCache = cache.canvas;
+    this._groundDecoCacheX = cache.x;
+    this._groundDecoCacheY = cache.y;
+  }
+
+  /** 构建固定在所有实体下方的装饰缓存。 */
+  _buildBelowDecoCache() {
+    if (this._belowDecoCache) return;
+    const cache = this._buildDecorationLayerCache((deco, sprite) =>
+      deco.belowEntities === true && !!sprite
+    );
+    if (!cache) return;
+    this._belowDecoCache = cache.canvas;
+    this._belowDecoCacheX = cache.x;
+    this._belowDecoCacheY = cache.y;
   }
 
   /**
@@ -1205,6 +1314,10 @@ export class Scene1Terrain {
    * @param {CanvasRenderingContext2D} ctx 已应用相机变换
    */
   renderBelowDecorations(ctx) {
+    if (this._belowDecoCache) {
+      ctx.drawImage(this._belowDecoCache, this._belowDecoCacheX, this._belowDecoCacheY);
+      return;
+    }
     for (const deco of this.decorations) {
       if (!deco.belowEntities) continue;
       this._renderDecoration(ctx, deco);
@@ -1252,8 +1365,8 @@ export class Scene1Terrain {
   renderGround(ctx) {
     // 编辑器中删除了地形椭圆：不渲染草地底层，只保留水池、背景图片和 shape
     if (this._hasTerrainEllipse === false) {
-      // 离屏 Canvas 绘制可能很重，不能在 RAF 渲染路径同步执行。
-      this._scheduleTerrainCacheBuild({ combined: false });
+      // 流式九宫格在发布 projection 前已生成静态缓存；这里只保留非流式兼容调度。
+      if (!this._staticCachePrepared) this._scheduleTerrainCacheBuild({ combined: false });
       this._renderWaterPatches(ctx);
       this._renderEditorBackgroundImages(ctx);
       this._renderEditorShapes(ctx);   // shape 在背景图片之上，可遮挡底层图片
@@ -1271,9 +1384,9 @@ export class Scene1Terrain {
     // 确保有地形椭圆数据（无编辑器椭圆时用 terrain 默认生成）
     this._ensureTerrainEllipseData();
 
-    // 缓存尚未准备好时直接绘制；缓存构建延后至浏览器空闲期，避免阻塞当前 RAF。
+    // 缓存尚未准备好时直接绘制；仅非流式兼容路径允许延后构建。
     this._renderTerrainEllipse(ctx);
-    this._scheduleTerrainCacheBuild();
+    if (!this._staticCachePrepared) this._scheduleTerrainCacheBuild();
     this._renderWaterPatches(ctx);
     // 渲染编辑器中保存的背景图片（使用离屏缓存）
     this._renderEditorBackgroundImages(ctx);
@@ -1287,7 +1400,9 @@ export class Scene1Terrain {
     this._terrainCacheBuildCombined = this._terrainCacheBuildCombined === true || combined === true;
     if (this._terrainCacheBuildScheduled) return;
     this._terrainCacheBuildScheduled = true;
+    const lifecycleToken = this._cacheLifecycleToken;
     const build = () => {
+      if (this._released || lifecycleToken !== this._cacheLifecycleToken) return;
       const buildCombined = this._terrainCacheBuildCombined === true;
       this._terrainCacheBuildScheduled = false;
       this._terrainCacheBuildCombined = false;
@@ -1465,61 +1580,47 @@ export class Scene1Terrain {
     console.log(`Scene1Terrain: 合并地面缓存已构建 (${cacheW}x${cacheH})`);
   }
   
-  /**
-   * 把单张 SVG 背景的栅格化移出 RAF。缓存任务会验证图片对象仍属于当前场景数据，
-   * 防止异步旧任务覆盖 Region/场景切换后的新背景。
-   * @private
-   */
-  _scheduleVectorBackgroundCache() {
-    if (!Array.isArray(this._editorBackgroundImages) || this._editorBackgroundImages.length !== 1) return;
-    const bgImg = this._editorBackgroundImages[0];
-    if (!bgImg?._loaded || !bgImg._img) return;
-    const source = String(bgImg._img.currentSrc || bgImg._img.src || '');
-    if (!/\.svg(?:$|[?#])/i.test(source)) return;
+  /** 九宫格准备阶段一次合并普通背景图片；渲染帧只消费缓存。 */
+  _buildBackgroundImageCache() {
+    if (this._bgImageCache || !Array.isArray(this._editorBackgroundImages) ||
+        this._editorBackgroundImages.length === 0 ||
+        !this._editorBackgroundImages.every(bg => bg._loaded && bg._img)) return;
 
-    const cacheWidth = Math.max(1, Math.ceil(bgImg.width));
-    const cacheHeight = Math.max(1, Math.ceil(bgImg.height));
-    const signature = `${source}|${cacheWidth}x${cacheHeight}|${bgImg.opacity ?? 1}`;
-    if ((this._bgImageCache && this._bgImageCacheSignature === signature) ||
-        this._bgImageCachePendingSignature === signature) return;
-
-    this._bgImageCachePendingSignature = signature;
-    const sourceImage = bgImg._img;
-    const build = () => {
-      const isCurrent = this._bgImageCachePendingSignature === signature &&
-        this._editorBackgroundImages?.length === 1 &&
-        this._editorBackgroundImages[0] === bgImg &&
-        bgImg._loaded === true && bgImg._img === sourceImage;
-      if (!isCurrent) {
-        if (this._bgImageCachePendingSignature === signature) this._bgImageCachePendingSignature = null;
-        return;
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = cacheWidth;
-      canvas.height = cacheHeight;
-      const gctx = canvas.getContext('2d');
-      if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
-      gctx.drawImage(sourceImage, 0, 0, cacheWidth, cacheHeight);
-
-      // 构建结束后再次检查，避免同步栅格化期间场景数据已被替换。
-      if (this._bgImageCachePendingSignature !== signature ||
-          this._editorBackgroundImages?.[0] !== bgImg) {
-        if (this._bgImageCachePendingSignature === signature) this._bgImageCachePendingSignature = null;
-        return;
-      }
-      this._bgImageCache = canvas;
-      this._bgImageCacheX = bgImg.x;
-      this._bgImageCacheY = bgImg.y;
-      this._bgImageCacheSignature = signature;
-      this._bgImageCachePendingSignature = null;
-    };
-
-    if (typeof globalThis.requestIdleCallback === 'function') {
-      globalThis.requestIdleCallback(build, { timeout: 250 });
-    } else {
-      globalThis.setTimeout(build, 0);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const bg of this._editorBackgroundImages) {
+      minX = Math.min(minX, bg.x);
+      minY = Math.min(minY, bg.y);
+      maxX = Math.max(maxX, bg.x + bg.width);
+      maxY = Math.max(maxY, bg.y + bg.height);
     }
+    const cacheW = Math.ceil(maxX - minX) + 2;
+    const cacheH = Math.ceil(maxY - minY) + 2;
+    if (cacheW > 4096 || cacheH > 4096) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = cacheW;
+    canvas.height = cacheH;
+    const gctx = canvas.getContext('2d');
+    const offsetX = minX - 1;
+    const offsetY = minY - 1;
+    for (const bgImg of this._editorBackgroundImages) {
+      gctx.save();
+      if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
+      gctx.drawImage(
+        bgImg._img,
+        bgImg.x - offsetX,
+        bgImg.y - offsetY,
+        bgImg.width,
+        bgImg.height
+      );
+      gctx.restore();
+    }
+    this._bgImageCache = canvas;
+    this._bgImageCacheX = offsetX;
+    this._bgImageCacheY = offsetY;
+    this._bgImageCacheSignature = this._editorBackgroundImages
+      .map(bg => `${bg.imageId || bg.src}|${bg.width}x${bg.height}|${bg.opacity ?? 1}`)
+      .join(';');
   }
 
   /**
@@ -1528,85 +1629,18 @@ export class Scene1Terrain {
    */
   _renderEditorBackgroundImages(ctx) {
     if (!this._editorBackgroundImages || this._editorBackgroundImages.length === 0) return;
-
-    // 检查所有图片是否加载完成
-    const allLoaded = this._editorBackgroundImages.every(bg => bg._loaded);
-    if (!allLoaded) {
-      // 还有图片没加载完，逐个画已加载的
-      for (const bgImg of this._editorBackgroundImages) {
-        if (!bgImg._loaded || !bgImg._img) continue;
-        ctx.save();
-        if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
-        ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
-        ctx.restore();
-      }
+    if (this._bgImageCache) {
+      ctx.drawImage(this._bgImageCache, this._bgImageCacheX, this._bgImageCacheY);
       return;
     }
 
-    // SVG 场景背景不得在 RAF 内同步创建栅格缓存。资源加载后即调度空闲任务；
-    // 缓存就绪前只保留直接绘制回退，后续固定绘制 Canvas 位图。
-    if (this._editorBackgroundImages.length === 1) {
-      const bgImg = this._editorBackgroundImages[0];
-      const source = String(bgImg._img?.currentSrc || bgImg._img?.src || '');
-      const isVector = /\.svg(?:$|[?#])/i.test(source);
-      if (isVector) {
-        const cacheWidth = Math.max(1, Math.ceil(bgImg.width));
-        const cacheHeight = Math.max(1, Math.ceil(bgImg.height));
-        const signature = `${source}|${cacheWidth}x${cacheHeight}|${bgImg.opacity ?? 1}`;
-        this._scheduleVectorBackgroundCache();
-        if (this._bgImageCache && this._bgImageCacheSignature === signature) {
-          ctx.drawImage(
-            this._bgImageCache,
-            0, 0, this._bgImageCache.width, this._bgImageCache.height,
-            bgImg.x, bgImg.y, bgImg.width, bgImg.height
-          );
-          return;
-        }
-      }
+    // 非流式兼容路径：缓存尚未准备时只直接绘制，不在 RAF 内创建 Canvas。
+    for (const bgImg of this._editorBackgroundImages) {
+      if (!bgImg._loaded || !bgImg._img) continue;
       ctx.save();
       if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
       ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
       ctx.restore();
-      return;
-    }
-
-    // 多张背景全部加载完成后，构建离屏缓存
-    if (!this._bgImageCache) {
-      // 计算包围盒
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const bg of this._editorBackgroundImages) {
-        minX = Math.min(minX, bg.x);
-        minY = Math.min(minY, bg.y);
-        maxX = Math.max(maxX, bg.x + bg.width);
-        maxY = Math.max(maxY, bg.y + bg.height);
-      }
-      const cacheW = Math.ceil(maxX - minX) + 2;
-      const cacheH = Math.ceil(maxY - minY) + 2;
-
-      if (cacheW <= 4096 && cacheH <= 4096) {
-        const canvas = document.createElement('canvas');
-        canvas.width = cacheW;
-        canvas.height = cacheH;
-        const gctx = canvas.getContext('2d');
-        const offsetX = minX - 1;
-        const offsetY = minY - 1;
-
-        for (const bgImg of this._editorBackgroundImages) {
-          gctx.save();
-          if (bgImg.opacity !== undefined) gctx.globalAlpha = bgImg.opacity;
-          gctx.drawImage(bgImg._img, bgImg.x - offsetX, bgImg.y - offsetY, bgImg.width, bgImg.height);
-          gctx.restore();
-        }
-
-        this._bgImageCache = canvas;
-        this._bgImageCacheX = offsetX;
-        this._bgImageCacheY = offsetY;
-      }
-    }
-
-    // 使用缓存绘制
-    if (this._bgImageCache) {
-      ctx.drawImage(this._bgImageCache, this._bgImageCacheX, this._bgImageCacheY);
     }
   }
 

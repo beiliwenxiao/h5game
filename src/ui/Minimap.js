@@ -58,8 +58,17 @@ export class Minimap extends UIElement {
     // 项目世界索引是边界和 chunk 尺寸的唯一来源。
     this._worldIndex = options.worldIndex || null;
     this._regionRef = options.regionRef ?? null;
-    // 缩略图离屏 canvas
+    // 九宫格缩略图缓存保存完整已加载范围；缩放/跟随只改变裁剪窗口。
     this._mapCache = null;
+    this._fullWorldMinX = 0;
+    this._fullWorldMinY = 0;
+    this._fullWorldMaxX = 0;
+    this._fullWorldMaxY = 0;
+    this._cacheScale = 1;
+    this._sourceX = 0;
+    this._sourceY = 0;
+    this._sourceW = 0;
+    this._sourceH = 0;
     // 缓存脏标记版本号
     this._cacheVersion = 0;
     // 上次成功构建时的版本
@@ -83,7 +92,6 @@ export class Minimap extends UIElement {
     this.npcPositions = [];
     // 相机视野范围
     this.viewBounds = null;
-    this._followCacheKey = null;
     this._renderTransform = {
       offsetX: 0, offsetY: 0, scaleX: 0, scaleY: 0,
       clipLeft: 0, clipTop: 0, clipRight: 0, clipBottom: 0
@@ -96,6 +104,7 @@ export class Minimap extends UIElement {
    */
   setTerrains(terrains) {
     this._terrains = terrains || [];
+    this._frameSizeSet = false;
     this._invalidateCache();
   }
 
@@ -103,6 +112,7 @@ export class Minimap extends UIElement {
   setWorldIndex(worldIndex, regionRef = null) {
     this._worldIndex = worldIndex || null;
     this._regionRef = regionRef ?? worldIndex?.getEntry?.()?.regionId ?? null;
+    this._frameSizeSet = false;
     this._invalidateCache();
   }
 
@@ -116,6 +126,7 @@ export class Minimap extends UIElement {
     } else {
       this._terrains = [];
     }
+    this._frameSizeSet = false;
     this._invalidateCache();
   }
 
@@ -126,7 +137,7 @@ export class Minimap extends UIElement {
 
   /** 释放缩略图缓存（场景离开时调用） */
   dispose() {
-    this._mapCache = null;
+    this._releaseMapCache();
     this._terrains = [];
     this._builtVersion = -1;
   }
@@ -140,8 +151,7 @@ export class Minimap extends UIElement {
   zoomIn() {
     if (this._zoomLevel > 0) {
       this._zoomLevel--;
-      this._followCacheKey = null;
-      this._invalidateCache();
+      this._updateViewport();
     }
   }
 
@@ -149,99 +159,157 @@ export class Minimap extends UIElement {
   zoomOut() {
     if (this._zoomLevel < this._maxZoomLevel) {
       this._zoomLevel++;
-      this._followCacheKey = null;
-      this._invalidateCache();
+      this._updateViewport();
     }
   }
 
+  /** 九宫格加载完成后主动生成一次完整缩略图背景缓存。 */
+  prepareBackgroundCache() {
+    this._rebuildCooldown = 0;
+    this._tryBuildCache(0);
+    this._updateViewport();
+    return !!this._mapCache;
+  }
+
   /**
-   * 尝试构建/重建缩略图缓存
-   * 遍历所有 terrain，将其地面内容渲染到一张离屏 canvas（按 mapScale 缩小）
+   * 构建完整九宫格缩略图。玩家移动和缩放只改变源矩形，不重画 terrain。
    * @param {number} deltaTime - 帧间隔 ms
    */
   _tryBuildCache(deltaTime) {
-    // 冷却中不重建
+    if (this._builtVersion === this._cacheVersion && this._mapCache) return;
     if (this._rebuildCooldown > 0) {
       this._rebuildCooldown -= deltaTime;
       return;
     }
-
-    // 已经是最新则跳过
-    if (this._builtVersion === this._cacheVersion && this._mapCache) return;
-
     if (this._terrains.length === 0) return;
 
-    // 检查是否有至少一个 terrain 准备好了可渲染的内容
-    let anyReady = false;
-    for (const t of this._terrains) {
-      if (t._combinedGroundCache || t._groundDecoCache || t.loaded.mountain ||
-          t._bgImageCache ||
-          (t._editorBackgroundImages && t._editorBackgroundImages.some(bg => bg._loaded))) {
-        anyReady = true;
-        break;
-      }
-    }
-    if (!anyReady) {
-      this._rebuildCooldown = this._rebuildInterval;
-      return;
-    }
-
-    // 先计算全部 terrain 包围盒（zoom=2 最小缩放用）
-    let fullMinX = Infinity, fullMinY = Infinity, fullMaxX = -Infinity, fullMaxY = -Infinity;
     const region = this._worldIndex?.getRegion?.(this._regionRef);
     if (!region) return;
     const chunkW = region.chunkWidth;
     const chunkH = region.chunkHeight;
+    let fullMinX = Infinity, fullMinY = Infinity, fullMaxX = -Infinity, fullMaxY = -Infinity;
+    for (const terrain of this._terrains) {
+      const ox = terrain.worldOffset?.x || 0;
+      const oy = terrain.worldOffset?.y || 0;
+      fullMinX = Math.min(fullMinX, ox);
+      fullMinY = Math.min(fullMinY, oy);
+      fullMaxX = Math.max(fullMaxX, ox + chunkW);
+      fullMaxY = Math.max(fullMaxY, oy + chunkH);
+    }
+    const fullW = fullMaxX - fullMinX;
+    const fullH = fullMaxY - fullMinY;
+    if (fullW <= 0 || fullH <= 0) return;
 
-    for (const t of this._terrains) {
-      const ox = t.worldOffset ? t.worldOffset.x : 0;
-      const oy = t.worldOffset ? t.worldOffset.y : 0;
-      const left = ox;
-      const top = oy;
-      const right = ox + chunkW;
-      const bottom = oy + chunkH;
-      if (left < fullMinX) fullMinX = left;
-      if (top < fullMinY) fullMinY = top;
-      if (right > fullMaxX) fullMaxX = right;
-      if (bottom > fullMaxY) fullMaxY = bottom;
+    if (!this._frameSizeSet) {
+      const maxDim = Math.max(this.width, this.height);
+      const fullAspect = fullW / fullH;
+      if (fullAspect >= 1) {
+        this.width = maxDim;
+        this.height = Math.round(maxDim / fullAspect);
+      } else {
+        this.height = maxDim;
+        this.width = Math.round(maxDim * fullAspect);
+      }
+      if (this._anchorRight !== undefined) this.x = this._anchorRight - this.width;
+      this._frameSizeSet = true;
     }
 
-    // 根据缩放级别决定显示范围
+    const innerW = Math.max(1, this.width - this.padding * 2);
+    const innerH = Math.max(1, this.height - this.padding * 2);
+    let cacheScale = Math.max(
+      this.mapScale,
+      innerW / Math.max(1, chunkW),
+      innerH / Math.max(1, chunkH)
+    );
+    const maxCacheDimension = 2048;
+    cacheScale = Math.min(
+      cacheScale,
+      maxCacheDimension / fullW,
+      maxCacheDimension / fullH
+    );
+    const cacheW = Math.max(1, Math.ceil(fullW * cacheScale));
+    const cacheH = Math.max(1, Math.ceil(fullH * cacheScale));
+    const canvas = document.createElement('canvas');
+    canvas.width = cacheW;
+    canvas.height = cacheH;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(cacheScale, cacheScale);
+    ctx.translate(-fullMinX, -fullMinY);
+
+    for (const terrain of this._terrains) {
+      const ox = terrain.worldOffset?.x || 0;
+      const oy = terrain.worldOffset?.y || 0;
+      ctx.fillStyle = terrain.sceneBackgroundColor || '#1f1a14';
+      ctx.fillRect(ox, oy, chunkW, chunkH);
+      if (terrain._combinedGroundCache) {
+        ctx.drawImage(
+          terrain._combinedGroundCache,
+          terrain._combinedGroundCacheX,
+          terrain._combinedGroundCacheY
+        );
+      } else {
+        terrain._renderWaterPatches?.(ctx);
+        if (terrain._bgImageCache) {
+          ctx.drawImage(terrain._bgImageCache, terrain._bgImageCacheX, terrain._bgImageCacheY);
+        }
+      }
+      if (terrain._belowDecoCache) {
+        ctx.drawImage(terrain._belowDecoCache, terrain._belowDecoCacheX, terrain._belowDecoCacheY);
+      }
+      if (terrain._groundDecoCache) {
+        ctx.drawImage(terrain._groundDecoCache, terrain._groundDecoCacheX, terrain._groundDecoCacheY);
+      }
+    }
+
+    this._releaseMapCache();
+    this._mapCache = canvas;
+    this._fullWorldMinX = fullMinX;
+    this._fullWorldMinY = fullMinY;
+    this._fullWorldMaxX = fullMaxX;
+    this._fullWorldMaxY = fullMaxY;
+    this._cacheScale = cacheScale;
+    this._builtVersion = this._cacheVersion;
+    this._rebuildCooldown = this._rebuildInterval;
+  }
+
+  _releaseMapCache() {
+    if (!this._mapCache) return;
+    try {
+      this._mapCache.width = 0;
+      this._mapCache.height = 0;
+    } catch (error) { /* best-effort Canvas release */ }
+    this._mapCache = null;
+  }
+
+  _updateViewport() {
+    if (!this._mapCache) return;
+    const region = this._worldIndex?.getRegion?.(this._regionRef);
+    if (!region) return;
+    const chunkW = region.chunkWidth;
+    const chunkH = region.chunkHeight;
     let minX, minY, maxX, maxY;
     if (this._zoomLevel === 0 && this.viewBounds) {
-      // 最大缩放：显示本屏范围 + 10%
-      const vb = this.viewBounds;
-      const vw = vb.right - vb.left;
-      const vh = vb.bottom - vb.top;
-      const expand = 0.1;
-      minX = vb.left - vw * expand;
-      minY = vb.top - vh * expand;
-      maxX = vb.right + vw * expand;
-      maxY = vb.bottom + vh * expand;
+      const vw = this.viewBounds.right - this.viewBounds.left;
+      const vh = this.viewBounds.bottom - this.viewBounds.top;
+      minX = this.viewBounds.left - vw * 0.1;
+      minY = this.viewBounds.top - vh * 0.1;
+      maxX = this.viewBounds.right + vw * 0.1;
+      maxY = this.viewBounds.bottom + vh * 0.1;
     } else if (this._zoomLevel === 1 && this.playerPosition) {
-      // 中间级别：以玩家为中心显示 3×3 chunk 范围
-      const px = this.playerPosition.x;
-      const py = this.playerPosition.y;
-      const halfW = chunkW * 1.5;
-      const halfH = chunkH * 1.5;
-      minX = px - halfW;
-      minY = py - halfH;
-      maxX = px + halfW;
-      maxY = py + halfH;
+      minX = this.playerPosition.x - chunkW * 1.5;
+      minY = this.playerPosition.y - chunkH * 1.5;
+      maxX = this.playerPosition.x + chunkW * 1.5;
+      maxY = this.playerPosition.y + chunkH * 1.5;
     } else {
-      // 最小缩放（zoom=2）：显示全部
-      minX = fullMinX;
-      minY = fullMinY;
-      maxX = fullMaxX;
-      maxY = fullMaxY;
+      minX = this._fullWorldMinX;
+      minY = this._fullWorldMinY;
+      maxX = this._fullWorldMaxX;
+      maxY = this._fullWorldMaxY;
     }
-
-    // clamp 到全部范围
-    if (minX < fullMinX) minX = fullMinX;
-    if (minY < fullMinY) minY = fullMinY;
-    if (maxX > fullMaxX) maxX = fullMaxX;
-    if (maxY > fullMaxY) maxY = fullMaxY;
-
+    minX = Math.max(minX, this._fullWorldMinX);
+    minY = Math.max(minY, this._fullWorldMinY);
+    maxX = Math.min(maxX, this._fullWorldMaxX);
+    maxY = Math.min(maxY, this._fullWorldMaxY);
     const worldW = maxX - minX;
     const worldH = maxY - minY;
     if (worldW <= 0 || worldH <= 0) return;
@@ -250,103 +318,15 @@ export class Minimap extends UIElement {
     this._worldMinY = minY;
     this._worldMaxX = maxX;
     this._worldMaxY = maxY;
-
-    // 外框尺寸固定为九宫格（全部 terrain）比例，只计算一次
-    if (!this._frameSizeSet) {
-      const fullW = fullMaxX - fullMinX;
-      const fullH = fullMaxY - fullMinY;
-      if (fullW > 0 && fullH > 0) {
-        const maxDim = Math.max(this.width, this.height);
-        const fullAspect = fullW / fullH;
-        if (fullAspect >= 1) {
-          this.width = maxDim;
-          this.height = Math.round(maxDim / fullAspect);
-        } else {
-          this.height = maxDim;
-          this.width = Math.round(maxDim * fullAspect);
-        }
-        if (this._anchorRight !== undefined) {
-          this.x = this._anchorRight - this.width;
-        }
-        this._frameSizeSet = true;
-      }
-    }
-
-    // 计算缩略图实际尺寸
-    const innerW = this.width - this.padding * 2;
-    const innerH = this.height - this.padding * 2;
-    const scaleX = innerW / worldW;
-    const scaleY = innerH / worldH;
-    const scale = Math.min(scaleX, scaleY);
-
-    const drawW = Math.max(1, Math.floor(worldW * scale));
-    const drawH = Math.max(1, Math.floor(worldH * scale));
-    this._drawW = drawW;
-    this._drawH = drawH;
-
-    // 创建离屏 canvas
-    const canvas = document.createElement('canvas');
-    canvas.width = drawW;
-    canvas.height = drawH;
-    const ctx = canvas.getContext('2d');
-
-    // 缩放变换：世界坐标 → 缩略图像素
-    ctx.scale(scale, scale);
-    ctx.translate(-minX, -minY);
-
-    // 逐个 terrain 渲染背景层 + 装饰层
-    for (const t of this._terrains) {
-      // --- 区块背景色（填满整个 chunk 格子，与编辑器一致）---
-      const bgColor = t.sceneBackgroundColor || '#1f1a14';
-      const ox = t.worldOffset ? t.worldOffset.x : 0;
-      const oy = t.worldOffset ? t.worldOffset.y : 0;
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(ox, oy, chunkW, chunkH);
-
-      // --- 背景层 ---
-      if (t._combinedGroundCache) {
-        // 有合并缓存直接绘制（包含地形椭圆 + 水池 + 背景图片）
-        ctx.drawImage(
-          t._combinedGroundCache,
-          t._combinedGroundCacheX,
-          t._combinedGroundCacheY
-        );
-      } else {
-        // 缓存未就绪，逐步渲染各层
-        if (t.loaded.mountain) {
-          ctx.save();
-          t._ensureTerrainEllipseData();
-          t._renderTerrainEllipse(ctx);
-          ctx.restore();
-        }
-        t._renderWaterPatches(ctx);
-        // 背景图片（编辑器中放置的图片对象）
-        if (t._bgImageCache) {
-          ctx.drawImage(t._bgImageCache, t._bgImageCacheX, t._bgImageCacheY);
-        } else if (t._editorBackgroundImages && t._editorBackgroundImages.length > 0) {
-          for (const bgImg of t._editorBackgroundImages) {
-            if (!bgImg._loaded || !bgImg._img) continue;
-            ctx.save();
-            if (bgImg.opacity !== undefined) ctx.globalAlpha = bgImg.opacity;
-            ctx.drawImage(bgImg._img, bgImg.x, bgImg.y, bgImg.width, bgImg.height);
-            ctx.restore();
-          }
-        }
-      }
-
-      // --- 装饰层（草地/灌木等非碰撞装饰物的离屏缓存）---
-      if (t._groundDecoCache) {
-        ctx.drawImage(
-          t._groundDecoCache,
-          t._groundDecoCacheX,
-          t._groundDecoCacheY
-        );
-      }
-    }
-
-    this._mapCache = canvas;
-    this._builtVersion = this._cacheVersion;
-    this._rebuildCooldown = this._rebuildInterval;
+    const innerW = Math.max(1, this.width - this.padding * 2);
+    const innerH = Math.max(1, this.height - this.padding * 2);
+    const displayScale = Math.min(innerW / worldW, innerH / worldH);
+    this._drawW = Math.max(1, Math.floor(worldW * displayScale));
+    this._drawH = Math.max(1, Math.floor(worldH * displayScale));
+    this._sourceX = Math.max(0, (minX - this._fullWorldMinX) * this._cacheScale);
+    this._sourceY = Math.max(0, (minY - this._fullWorldMinY) * this._cacheScale);
+    this._sourceW = Math.min(this._mapCache.width - this._sourceX, worldW * this._cacheScale);
+    this._sourceH = Math.min(this._mapCache.height - this._sourceY, worldH * this._cacheScale);
   }
 
   /**
@@ -370,40 +350,10 @@ export class Minimap extends UIElement {
       && y + margin >= transform.clipTop && y - margin <= transform.clipBottom;
   }
 
-  /**
-   * 更新（每帧调用，节流重建缓存）
-   * @param {number} deltaTime - ms
-   */
+  /** 更新动态标记和裁剪窗口；不重画九宫格背景。 */
   update(deltaTime) {
-    // 跟随玩家/相机的缩放级别只在窗口跨过至少一个小地图像素时失效，
-    // 避免静止或亚像素移动每帧递增版本。
-    if (this._zoomLevel < 2) {
-      const followKey = this._getFollowCacheKey();
-      if (followKey !== this._followCacheKey) {
-        this._followCacheKey = followKey;
-        this._invalidateCache();
-      }
-    }
     this._tryBuildCache(deltaTime);
-  }
-
-  _getFollowCacheKey() {
-    let centerX;
-    let centerY;
-    if (this._zoomLevel === 0 && this.viewBounds) {
-      centerX = (this.viewBounds.left + this.viewBounds.right) / 2;
-      centerY = (this.viewBounds.top + this.viewBounds.bottom) / 2;
-    } else if (this._zoomLevel === 1 && this.playerPosition) {
-      centerX = this.playerPosition.x;
-      centerY = this.playerPosition.y;
-    } else {
-      return `zoom:${this._zoomLevel}`;
-    }
-    const worldW = Math.max(1, this._worldMaxX - this._worldMinX);
-    const worldH = Math.max(1, this._worldMaxY - this._worldMinY);
-    const stepX = Math.max(1, worldW / Math.max(1, this._drawW || this.width));
-    const stepY = Math.max(1, worldH / Math.max(1, this._drawH || this.height));
-    return `${this._zoomLevel}:${Math.floor(centerX / stepX)}:${Math.floor(centerY / stepY)}`;
+    this._updateViewport();
   }
 
   /**
@@ -448,7 +398,13 @@ export class Minimap extends UIElement {
       ctx.rect(this.x + this.padding, this.y + this.padding, innerW, innerH);
       ctx.clip();
 
-      ctx.drawImage(this._mapCache, offsetX, offsetY);
+      if (this._sourceW > 0 && this._sourceH > 0) {
+        ctx.drawImage(
+          this._mapCache,
+          this._sourceX, this._sourceY, this._sourceW, this._sourceH,
+          offsetX, offsetY, this._drawW, this._drawH
+        );
+      }
 
       // 视野框
       this._renderViewBounds(ctx);
@@ -562,8 +518,7 @@ export class Minimap extends UIElement {
     if (!this.visible || !this.containsPoint(x, y)) return false;
     // 循环切换：0 → 1 → 2 → 0
     this._zoomLevel = (this._zoomLevel + 1) % (this._maxZoomLevel + 1);
-    this._followCacheKey = null;
-    this._invalidateCache();
+    this._updateViewport();
     return true;
   }
 

@@ -39,9 +39,6 @@ export class SceneRenderPipeline {
         runtime.height = scene.logicalHeight;
         return campfire.renderAtmosphere(ctx, runtime);
       },
-      (scene, ctx) => (this.context?.services?.worldInteraction
-        ? this.context.services.worldInteraction.renderClickScreenMarkers(ctx)
-        : scene._renderClickScreenMarkers(ctx)),
       (scene, ctx) => this.context?.presentation?.skillEffects
         ?.render?.(ctx, this.context?.camera?.instance || null),
       (_scene) => this.context?.presentation?.combatEffects?.render?.(),
@@ -65,7 +62,6 @@ export class SceneRenderPipeline {
     ];
     this.screenLayerNames = config?.screenLayerNames || Object.freeze([
       'renderAtmosphere',
-      'renderClickScreenMarkers',
       'renderSkillEffects',
       'renderCombatEffects',
       'renderFloatingText',
@@ -122,7 +118,6 @@ export class SceneRenderPipeline {
     }
 
     const camera = context?.camera?.instance || null;
-    const player = context?.player?.entity || null;
     const frameProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
       ? scene._framePerformanceProfile.current
       : null;
@@ -137,20 +132,12 @@ export class SceneRenderPipeline {
       scene._teardownDrawCallCounter?.();
       scene._drawCallCount = 0;
     }
-    if (scene._debugNextRender) {
-      console.log('【渲染】render方法被调用, isActive=', scene.isActive, 'isPaused=', scene.isPaused);
-    }
 
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, scene.logicalWidth, scene.logicalHeight);
     ctx.save();
     const viewBounds = camera.getViewBounds();
     this._viewBounds = viewBounds;
-    if (scene._debugNextRender) {
-      console.log('【渲染】相机位置:', camera.position.x, camera.position.y, '视野边界:', viewBounds);
-      console.log('【渲染】玩家位置:', player ? player.getComponent('transform')?.position : 'no player');
-      scene._debugNextRender = false;
-    }
     ctx.translate(-viewBounds.left, -viewBounds.top);
 
     for (let index = 0; index < this.worldLayers.length; index++) {

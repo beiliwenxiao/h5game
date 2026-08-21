@@ -275,6 +275,7 @@ export class ScenePanelLayout {
     // ProjectWorldIndex 是小地图边界与 chunk 尺寸的唯一来源。
     if (scene._worldIndex) {
       scene.minimap.setWorldIndex(scene._worldIndex, scene._worldRegion?.id);
+      scene.minimap.prepareBackgroundCache();
     }
 
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小

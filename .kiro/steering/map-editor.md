@@ -335,7 +335,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - `game.project.json.presentation.$ref` 指向当前游戏唯一的 presentation profile；《三国张角传》使用 `config/presentation.json`。禁止把目标逻辑分辨率、像素比例、网格、角色视觉/占地尺寸、方向数和移动端最小字号再复制到 `editor-defaults.json` 或场景类常量。
 - 运行时 Camera 和 IsometricRenderer 使用运行时逻辑视口与 profile 的 world 参数；CSS 只负责物理显示适配。编辑器经 `SceneEditor.setPresentationProfile()` 仍以 profile 的 `logicalResolution` 作为新场景 fallback，不重写已存在场景尺寸。浏览器主 Canvas 必须通过 `CanvasDisplayScaler` 将逻辑视口与物理 backing 分离：世界、相机、UI 和输入使用逻辑坐标，backing 按 CSS 尺寸与 DPR 提升。禁止把 `canvas.width/height` 当作逻辑尺寸，也禁止为提高清晰度修改 chunk/场景坐标。鼠标与触摸必须从 CSS rect 映射到 `canvas.logicalWidth/logicalHeight`。
 - 《三国张角传》正式主表现的 `logicalResolution.scaleMode` 固定为 `window`：逻辑视口跟随窗口 CSS 像素，1 世界单位 = 1 CSS 像素，不做等比或非等比缩放，可见世界范围随窗口变大。`logicalResolution.width/height` 仅作为编辑器新场景 fallback 与无 scaler 时的兜底，不再是运行时视口尺寸。宿主 `resizeCanvas()` 必须把 `resize()` 返回的 `logicalWidth/logicalHeight` 传给 `SceneManager.setRenderSize()` 和 `scene.onResize()`；场景 `onResize()` 不得忽略入参改用固定分辨率，`_initCanvas` 也不得把 scaler 已设置的 `canvas.logicalWidth/logicalHeight` 重置回参考分辨率。因视口可大于单个 chunk，场景背景不保证铺满画面，超出部分显示场景背景色。
-- 单张全屏或场景级背景必须从源图直接绘制到主 Canvas，禁止先压入 1×离屏缓存再二次缩放；多图合并缓存才允许使用离屏缓存。《三国张角传》的场景背景标准尺寸固定为 chunk 尺寸 `1280×720`，不要求制作 `2560×1440` 或 2×/4× 背景源图；DPR backing 只改善显示采样，不改变资源规格，也不用于虚构额外纹理细节。背景目标位置与尺寸尽量使用整数逻辑像素，避免无必要的亚像素二次插值。
+- 运行时九宫格加载必须在发布 terrain projection 前，把普通 `type:'image'` 背景、非碰撞装饰和 `belowEntities` 装饰预生成到离屏缓存；RAF 只允许消费缓存，不得同步创建或重建大 Canvas。单张场景级背景也在此阶段栅格化一次，背景源图标准尺寸仍固定为 chunk 尺寸 `1280×720`，不要求制作 `2560×1440` 或 2×/4× 资源；DPR backing 只改善显示采样。`depthSort:true` 图片与碰撞装饰必须继续参与实体 Y-sort，不能为了合并缓存破坏遮挡语义。
 - `type:'spawn', ref:'player'` 的坐标语义固定为玩家脚底中心。编辑器必须按 `actors.player.visual` 向锚点上方绘制视觉框，并按 `actors.player.footprint` 在脚底绘制占地椭圆；固定 16px 图标只表示可选择的逻辑锚点，不能代表玩家实际尺寸。运行时 worldOffset 只改变世界坐标，相机会把玩家投影到屏幕视口，因此不得用运行时屏幕像素位置反推或改写编辑器局部出生坐标。
 - 场景构图样板用 `presentationProfile`、`composition`、`assetBudget` 和 `productionState` 标明规格、动线、预算与阶段。尚未进入主流程的样板必须设置 `previewOnly:true`，可登记在 `_scene_order.json.scenes`，但不得加入 `order` 自动推进数组。
 
@@ -372,9 +372,10 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 | 缓存 | 内容 | 构建时机 |
 |------|------|---------|
 | `_grassCanvas` | 椭圆草地铺面纹理 | 首次渲染且图集加载完成后 |
-| `_groundDecoCache` | 所有非碰撞装饰物（草/灌木） | 图集加载完成后 |
-| `_bgImageCache` | 编辑器背景图片合并 | 所有背景图加载完成后 |
-| `_combinedGroundCache` | 上述全部合并（森林环带+草地+水池+背景图） | 所有资源就绪后 |
+| `_groundDecoCache` | 所有非碰撞装饰物（草/灌木） | 九宫格 Terrain 准备阶段，图集就绪后 |
+| `_belowDecoCache` | 所有固定在实体下方的装饰物 | 九宫格 Terrain 准备阶段，图集就绪后 |
+| `_bgImageCache` | 编辑器普通背景图片合并 | 九宫格 Terrain 准备阶段，所有背景图就绪后 |
+| `_combinedGroundCache` | 地形椭圆+水池+背景图 | 九宫格 Terrain 准备阶段，所有资源就绪后 |
 
 ### 合并地面缓存（`_buildCombinedGroundCache`）
 - 将森林环带、草地铺面、水池、背景图片全部渲染到一张离屏 Canvas

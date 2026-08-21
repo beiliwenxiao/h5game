@@ -39,6 +39,15 @@ function eventLabel(record) {
   return binding.name || binding.triggerId || record.id;
 }
 
+function isPersistentVisualLayer(layer) {
+  const id = text(layer?.id).toLowerCase();
+  const name = text(layer?.name).toLowerCase();
+  if (['layer_bg', 'layer_background', 'layer_fill', 'layer_deco', 'layer_decoration'].includes(id)) return true;
+  if (/(^|[_-])(bg|background|fill|deco|decoration|decorations)($|[_-])/.test(id)) return true;
+  return name.includes('背景') || name.includes('装饰') ||
+    name.includes('background') || name.includes('decoration');
+}
+
 export class SceneEditorEventFilter {
   constructor(editor) {
     this.editor = editor;
@@ -167,6 +176,13 @@ export class SceneEditorEventFilter {
     }
     const selectedEvents = this._selectedEvents();
     const visible = new Set(selectedEvents.map(event => event.binding));
+    // 单事件调试仍保留地貌上下文；只投影视觉层对象，不扩大其他逻辑层。
+    if (this.state.mode === 'event') {
+      for (const layer of this.sceneData?.layers || []) {
+        if (!isPersistentVisualLayer(layer)) continue;
+        for (const object of layer.objects || []) visible.add(object);
+      }
+    }
     if (this.state.includeRelated) this._resolveRelatedObjects(selectedEvents, visible);
     this.visibleObjects = visible;
   }

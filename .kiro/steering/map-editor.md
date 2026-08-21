@@ -449,3 +449,5 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - 事件/阶段过滤只显示所选 trigger binding；启用“显示关联对象”后，复用 `SceneObjectSelector` 解析 binding 的 `targetMode/target` 及 action 显式声明的 selector、targetId/objectId、group、ref/npcRef/enemyRef、entity/actor/vehicle ID。只有显式 group selector 才扩展整组，不得因对象自身带 group 自动扩大。
 - 关联解析使用有界 Set 闭包并防循环；编辑器找不到的稳定目标显示为“运行时动态目标”，不得伪造场景对象。属性面板的目标候选始终读取 canonical 全对象，不受视图筛选影响。
 - Canvas 渲染、触发器连线、命中测试、全选、框选、拖动、缩放、关联拾取必须消费同一可见对象投影；筛选切换要取消旧拖动/缩放/连线状态并清除隐藏 selection。图层计数显示“可见数/总数”，过滤态禁止会重排隐藏对象的批量深度操作，其他批量操作只处理当前可见候选。
+- 事件条必须限制在 `.editor-canvas-area` 宽度内，使用 `minmax(0,1fr)`、`min-width:0` 和内部横向滚动；事件数量增加时不得撑宽编辑器。事件条下方提供独立拖动轨道，滑块只同步事件列表的 `scrollLeft`，不修改场景数据、Canvas 尺寸或编辑器布局宽度。
+- 事件视图重建 chips 时必须先保存并恢复横向 `scrollLeft`；切换阶段、单事件或“显示关联对象”不得把拖动滑块重置到起点。该位置仍是编辑器会话内存状态，只有加载另一场景时重置，不进入 sceneData/history/save。

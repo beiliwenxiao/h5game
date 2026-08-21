@@ -1,124 +1,1162 @@
 {
   "id": "S01",
-  "name": "S01 寒风荒野求生",
-  "width": 1280,
-  "height": 720,
-  "backgroundColor": "#4b4337",
-  "gameplay": {
-    "campfire": {
-      "imageId": "s01.vfx.campfireFlame",
-      "initialFogOpacity": 0.85,
-      "fog": { "fadeSpeed": 0.4, "color": "rgba(30, 30, 40,", "active": true },
-      "sprite": { "frameWidth": 164.5, "frameHeight": 237.33333333333334, "frameCols": 4, "frameRows": 3, "frameCount": 12, "frameDuration": 0.16 },
-      "particlePresets": [
-        { "rate": 6, "vy": -50, "life": 250, "size": 8.5, "color": "#ffaa22", "alpha": 0.85 },
-        { "rate": 8, "vy": -35, "life": 200, "size": 6, "color": "#ff8833", "alpha": 0.8 },
-        { "rate": 4, "vy": -120, "life": 400, "size": 4.5, "color": "#ffffee", "alpha": 1 },
-        { "rate": 10, "vy": -100, "life": 350, "size": 3.5, "color": "#ffee44", "alpha": 0.9 },
-        { "rate": 8, "vy": -80, "life": 300, "size": 2.5, "color": "#ff9933", "alpha": 0.85 },
-        { "rate": 6, "vy": -60, "life": 250, "size": 2, "color": "#ff5522", "alpha": 0.8 },
-        { "rate": 12, "vy": -40, "life": 200, "size": 2, "color": "#ff6633", "alpha": 0.7 }
-      ],
-      "labels": { "unlit": "熄灭的火堆", "ignite": "{interact}点燃" },
-      "presentation": { "lightRadius": 150, "fireWidth": 40, "fireHeight": 60, "collisionWidth": 40, "collisionHeight": 22.5 }
-    }
-  },
   "layers": [
     {
-      "id": "layer_bg", "name": "寒风荒野背景", "visible": true, "locked": false,
+      "id": "layer_bg",
+      "locked": false,
+      "name": "寒风荒野背景",
       "objects": [
-        { "id": "S01-bg-environment", "type": "image", "x": 0, "y": 0, "width": 1280, "height": 720, "rotation": 0, "imageId": "s01.environment.droughtWildernessGround", "name": "S01 干旱荒原地貌", "semanticRole": "sceneBackground", "state": "greybox-detailed", "visualDescription": "寒冷荒原、中央余烬营地、东侧河道跳石、东北山路与藤蔓断崖；图片不承载业务碰撞。" }
-      ]
+        {
+          "height": 720,
+          "id": "S01-bg-environment",
+          "imageId": "s01.environment.droughtWildernessGround",
+          "name": "S01 干旱荒原地貌",
+          "rotation": 0,
+          "semanticRole": "sceneBackground",
+          "state": "greybox-detailed",
+          "type": "image",
+          "visualDescription": "寒冷荒原、中央余烬营地、东侧河道跳石、东北山路与藤蔓断崖；图片不承载业务碰撞。",
+          "width": 1280,
+          "x": 0,
+          "y": 0
+        }
+      ],
+      "visible": true
     },
     {
-      "id": "layer_routes", "name": "求生与逃亡路线", "visible": true, "locked": false,
+      "id": "layer_routes",
+      "locked": false,
+      "name": "求生与逃亡路线",
       "objects": [
-        { "id": "S01-camp-zone", "type": "shape", "shapeType": "ellipse", "name": "篝火求生区", "x": 420, "y": 390, "width": 320, "height": 230, "fillMode": "color", "fill": "#b87936", "opacity": 0.16, "stroke": "#d99b50", "strokeWidth": 2, "walkable": true, "semanticRole": "gameplayZone" },
-        { "id": "S01-river", "type": "shape", "shapeType": "polygon", "name": "寒冷河道", "points": [[0,210],[1280,185],[1280,290],[0,320]], "fillMode": "color", "fill": "#405b62", "opacity": 0.72, "stroke": "#718b8d", "strokeWidth": 3, "collide": true, "semanticRole": "water" },
-        { "id": "S01-hillside-route", "type": "shape", "shapeType": "polygon", "name": "上山逃亡路", "points": [[760,245],[860,210],[1000,115],[1190,80],[1220,160],[1040,220],[900,285]], "fillMode": "color", "fill": "#8a7754", "opacity": 0.55, "stroke": "#b8a06c", "strokeWidth": 2, "walkable": true, "semanticRole": "travelRoute" },
-        { "id": "S01-stepping-stone-1", "type": "shape", "shapeType": "ellipse", "name": "跳石一", "x": 570, "y": 268, "width": 72, "height": 34, "fillMode": "color", "fill": "#81796b", "opacity": 1, "stroke": "#aaa08e", "strokeWidth": 2, "walkable": true, "semanticRole": "steppingStone" },
-        { "id": "S01-stepping-stone-2", "type": "shape", "shapeType": "ellipse", "name": "跳石二", "x": 650, "y": 238, "width": 68, "height": 32, "fillMode": "color", "fill": "#81796b", "opacity": 1, "stroke": "#aaa08e", "strokeWidth": 2, "walkable": true, "semanticRole": "steppingStone" },
-        { "id": "S01-stepping-stone-3", "type": "shape", "shapeType": "ellipse", "name": "跳石三", "x": 730, "y": 210, "width": 72, "height": 34, "fillMode": "color", "fill": "#81796b", "opacity": 1, "stroke": "#aaa08e", "strokeWidth": 2, "walkable": true, "semanticRole": "steppingStone" },
-        { "id": "S01-craft-marker", "type": "region", "name": "简易制作点", "x": 505, "y": 455, "width": 70, "height": 70, "semanticRole": "craftingPoint" },
-        { "id": "S01-shelter-site", "type": "region", "name": "小庇护所施工点", "x": 650, "y": 435, "width": 150, "height": 115, "semanticRole": "constructionSite" },
-        { "id": "S01-shelter-rest", "type": "region", "name": "庇护所休息处", "x": 790, "y": 475, "width": 75, "height": 75, "semanticRole": "restPoint" },
-        { "id": "S01-river-far-bank", "type": "region", "name": "河道对岸", "x": 760, "y": 165, "width": 130, "height": 90, "semanticRole": "travelCheckpoint" },
-        { "id": "S01-cliff-base", "type": "region", "name": "山崖脚", "x": 1010, "y": 80, "width": 130, "height": 120, "semanticRole": "travelCheckpoint" },
-        { "id": "S01-cliff-vine", "type": "image", "name": "逃生藤蔓", "x": 1090, "y": 20, "width": 92, "height": 170, "imageId": "s01.environment.cliffVine", "semanticRole": "climbSurface", "climbTarget": { "x": 1135, "y": 86 }, "prompt": "{climb}攀上藤蔓逃离狼群", "depthSort": true, "sortY": 190 }
-      ]
+        {
+          "fill": "#b87936",
+          "fillMode": "color",
+          "height": 230,
+          "id": "S01-camp-zone",
+          "name": "篝火求生区",
+          "opacity": 0.16,
+          "semanticRole": "gameplayZone",
+          "shapeType": "ellipse",
+          "stroke": "#d99b50",
+          "strokeWidth": 2,
+          "type": "shape",
+          "walkable": true,
+          "width": 320,
+          "x": 420,
+          "y": 390
+        },
+        {
+          "collide": true,
+          "fill": "#405b62",
+          "fillMode": "color",
+          "id": "S01-river",
+          "name": "寒冷河道",
+          "opacity": 0.72,
+          "points": [
+            [
+              0,
+              210
+            ],
+            [
+              1280,
+              185
+            ],
+            [
+              1280,
+              290
+            ],
+            [
+              0,
+              320
+            ]
+          ],
+          "semanticRole": "water",
+          "shapeType": "polygon",
+          "stroke": "#718b8d",
+          "strokeWidth": 3,
+          "type": "shape"
+        },
+        {
+          "fill": "#8a7754",
+          "fillMode": "color",
+          "id": "S01-hillside-route",
+          "name": "上山逃亡路",
+          "opacity": 0.55,
+          "points": [
+            [
+              760,
+              245
+            ],
+            [
+              860,
+              210
+            ],
+            [
+              1000,
+              115
+            ],
+            [
+              1190,
+              80
+            ],
+            [
+              1220,
+              160
+            ],
+            [
+              1040,
+              220
+            ],
+            [
+              900,
+              285
+            ]
+          ],
+          "semanticRole": "travelRoute",
+          "shapeType": "polygon",
+          "stroke": "#b8a06c",
+          "strokeWidth": 2,
+          "type": "shape",
+          "walkable": true
+        },
+        {
+          "fill": "#81796b",
+          "fillMode": "color",
+          "height": 34,
+          "id": "S01-stepping-stone-1",
+          "name": "跳石一",
+          "opacity": 1,
+          "semanticRole": "steppingStone",
+          "shapeType": "ellipse",
+          "stroke": "#aaa08e",
+          "strokeWidth": 2,
+          "type": "shape",
+          "walkable": true,
+          "width": 72,
+          "x": 570,
+          "y": 268
+        },
+        {
+          "fill": "#81796b",
+          "fillMode": "color",
+          "height": 32,
+          "id": "S01-stepping-stone-2",
+          "name": "跳石二",
+          "opacity": 1,
+          "semanticRole": "steppingStone",
+          "shapeType": "ellipse",
+          "stroke": "#aaa08e",
+          "strokeWidth": 2,
+          "type": "shape",
+          "walkable": true,
+          "width": 68,
+          "x": 650,
+          "y": 238
+        },
+        {
+          "fill": "#81796b",
+          "fillMode": "color",
+          "height": 34,
+          "id": "S01-stepping-stone-3",
+          "name": "跳石三",
+          "opacity": 1,
+          "semanticRole": "steppingStone",
+          "shapeType": "ellipse",
+          "stroke": "#aaa08e",
+          "strokeWidth": 2,
+          "type": "shape",
+          "walkable": true,
+          "width": 72,
+          "x": 730,
+          "y": 210
+        },
+        {
+          "height": 70,
+          "id": "S01-craft-marker",
+          "name": "简易制作点",
+          "semanticRole": "craftingPoint",
+          "type": "region",
+          "width": 70,
+          "x": 505,
+          "y": 455
+        },
+        {
+          "height": 115,
+          "id": "S01-shelter-site",
+          "name": "小庇护所施工点",
+          "semanticRole": "constructionSite",
+          "type": "region",
+          "width": 150,
+          "x": 650,
+          "y": 435
+        },
+        {
+          "height": 75,
+          "id": "S01-shelter-rest",
+          "name": "庇护所休息处",
+          "semanticRole": "restPoint",
+          "type": "region",
+          "width": 75,
+          "x": 790,
+          "y": 475
+        },
+        {
+          "height": 90,
+          "id": "S01-river-far-bank",
+          "name": "河道对岸",
+          "semanticRole": "travelCheckpoint",
+          "type": "region",
+          "width": 130,
+          "x": 760,
+          "y": 165
+        },
+        {
+          "height": 120,
+          "id": "S01-cliff-base",
+          "name": "山崖脚",
+          "semanticRole": "travelCheckpoint",
+          "type": "region",
+          "width": 130,
+          "x": 1010,
+          "y": 80
+        },
+        {
+          "climbTarget": {
+            "x": 1135,
+            "y": 86
+          },
+          "depthSort": true,
+          "height": 170,
+          "id": "S01-cliff-vine",
+          "imageId": "s01.environment.cliffVine",
+          "name": "逃生藤蔓",
+          "prompt": "{climb}攀上藤蔓逃离狼群",
+          "semanticRole": "climbSurface",
+          "sortY": 190,
+          "type": "image",
+          "width": 92,
+          "x": 1090,
+          "y": 20
+        }
+      ],
+      "visible": true
     },
-
     {
-      "id": "S01-spawns", "name": "出生与动态放置", "visible": true, "locked": false,
+      "id": "S01-spawns",
+      "locked": false,
+      "name": "出生与动态放置",
       "objects": [
-        { "id": "S01-spawn-player", "type": "spawn", "ref": "player", "x": 605, "y": 555 },
-        { "id": "S01-spawn-campfire", "type": "spawn", "ref": "campfire", "group": "S01-initial", "x": 599, "y": 515 },
-        { "id": "S01-node-berry-1", "type": "ref", "kind": "resourceNode", "ref": "node.wild_berry", "group": "S01-berries", "tags": ["resource","berry"], "x": 455, "y": 430, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.campfireLit", "equals": true } },
-        { "id": "S01-pickup-worn-axe", "type": "ref", "kind": "item", "ref": "tool.worn_axe", "group": "S01-worn-axe", "x": 495, "y": 445, "overrides": { "instanceId": "S01-tool-axe-1" }, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.axeDropped", "equals": true } },
-        { "id": "S01-node-wood-1", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-wood", "tags": ["resource","wood"], "x": 365, "y": 380, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.berryEaten", "equals": true } },
-        { "id": "S01-node-wood-2", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-wood", "tags": ["resource","wood"], "x": 300, "y": 470, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.berryEaten", "equals": true } },
-        { "id": "S01-node-wood-3", "type": "ref", "kind": "resourceNode", "ref": "node.dry_wood", "group": "S01-wood", "tags": ["resource","wood"], "x": 790, "y": 390, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.berryEaten", "equals": true } },
-        { "id": "S01-pickup-skinning-knife", "type": "ref", "kind": "item", "ref": "tool.skinning_knife", "group": "S01-skinning-knife", "x": 405, "y": 410, "overrides": { "instanceId": "S01-tool-skinning-knife-1" }, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.woodGathered", "equals": true } },
-        { "id": "S01-first-wolf-1", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-first-wolf", "tags": ["wolf","tutorial-wolf"], "x": 835, "y": 410, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.firstWolfSpotted", "equals": true } },
-        { "id": "S01-first-wolf-carcass-1", "type": "ref", "kind": "resourceNode", "ref": "node.wolf_carcass", "group": "S01-first-wolf-remains", "tags": ["resource","hide","wolf-carcass"], "x": 835, "y": 410, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.firstWolfKilled", "equals": true } },
-        { "id": "S01-first-wolf-meat-1", "type": "ref", "kind": "item", "ref": "resource.raw_wolf_meat", "group": "S01-first-wolf-remains", "tags": ["loot","wolf-meat"], "x": 870, "y": 420, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.firstWolfKilled", "equals": true } },
-        { "id": "S01-small-shelter-1", "type": "ref", "kind": "item", "ref": "story.s01.small_shelter", "group": "S01-small-shelter", "x": 720, "y": 520, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.shelterCompleted", "equals": true } },
-        { "id": "S01-chase-wolf-1", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 350, "y": 610, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 1 } },
-        { "id": "S01-chase-wolf-2", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 455, "y": 650, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 2 } },
-        { "id": "S01-chase-wolf-3", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 565, "y": 625, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 3 } },
-        { "id": "S01-chase-wolf-4", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 275, "y": 570, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 4 } },
-        { "id": "S01-chase-wolf-5", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 410, "y": 565, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 5 } },
-        { "id": "S01-chase-wolf-6", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 535, "y": 590, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 6 } },
-        { "id": "S01-chase-wolf-7", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 205, "y": 520, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 7 } },
-        { "id": "S01-chase-wolf-8", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 330, "y": 525, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 8 } },
-        { "id": "S01-chase-wolf-9", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 465, "y": 540, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 9 } },
-        { "id": "S01-chase-wolf-10", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 150, "y": 470, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 10 } },
-        { "id": "S01-chase-wolf-11", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 260, "y": 455, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 11 } },
-        { "id": "S01-chase-wolf-12", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 380, "y": 475, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 12 } },
-        { "id": "S01-chase-wolf-13", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 95, "y": 420, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 13 } },
-        { "id": "S01-chase-wolf-14", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 215, "y": 405, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 14 } },
-        { "id": "S01-chase-wolf-15", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 335, "y": 425, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 15 } },
-        { "id": "S01-chase-wolf-16", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 70, "y": 365, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 16 } },
-        { "id": "S01-chase-wolf-17", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 185, "y": 350, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 17 } },
-        { "id": "S01-chase-wolf-18", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 300, "y": 370, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 18 } },
-        { "id": "S01-chase-wolf-19", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 115, "y": 320, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 19 } },
-        { "id": "S01-chase-wolf-20", "type": "ref", "kind": "enemy", "ref": "enemy.s01_wolf", "group": "S01-chase-wolves", "tags": ["wolf","pursuit"], "x": 240, "y": 305, "spawnWhen": { "blackboardKey": "storyState", "path": "s01Survival.pursuit.spawned", "gte": 20 } }
-      ]
+        {
+          "id": "S01-spawn-player",
+          "ref": "player",
+          "type": "spawn",
+          "x": 605,
+          "y": 555
+        },
+        {
+          "group": "S01-initial",
+          "id": "S01-spawn-campfire",
+          "ref": "campfire",
+          "type": "spawn",
+          "x": 599,
+          "y": 515
+        },
+        {
+          "group": "S01-berries",
+          "id": "S01-node-berry-1",
+          "kind": "resourceNode",
+          "ref": "node.wild_berry",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.campfireLit"
+          },
+          "tags": [
+            "resource",
+            "berry"
+          ],
+          "type": "ref",
+          "x": 455,
+          "y": 430
+        },
+        {
+          "group": "S01-worn-axe",
+          "id": "S01-pickup-worn-axe",
+          "kind": "item",
+          "overrides": {
+            "instanceId": "S01-tool-axe-1"
+          },
+          "ref": "tool.worn_axe",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.axeDropped"
+          },
+          "type": "ref",
+          "x": 495,
+          "y": 445
+        },
+        {
+          "group": "S01-wood",
+          "id": "S01-node-wood-1",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.berryEaten"
+          },
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "type": "ref",
+          "x": 365,
+          "y": 380
+        },
+        {
+          "group": "S01-wood",
+          "id": "S01-node-wood-2",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.berryEaten"
+          },
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "type": "ref",
+          "x": 300,
+          "y": 470
+        },
+        {
+          "group": "S01-wood",
+          "id": "S01-node-wood-3",
+          "kind": "resourceNode",
+          "ref": "node.dry_wood",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.berryEaten"
+          },
+          "tags": [
+            "resource",
+            "wood"
+          ],
+          "type": "ref",
+          "x": 790,
+          "y": 390
+        },
+        {
+          "group": "S01-skinning-knife",
+          "id": "S01-pickup-skinning-knife",
+          "kind": "item",
+          "overrides": {
+            "instanceId": "S01-tool-skinning-knife-1"
+          },
+          "ref": "tool.skinning_knife",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.woodGathered"
+          },
+          "type": "ref",
+          "x": 405,
+          "y": 410
+        },
+        {
+          "group": "S01-first-wolf",
+          "id": "S01-first-wolf-1",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.firstWolfSpotted"
+          },
+          "tags": [
+            "wolf",
+            "tutorial-wolf"
+          ],
+          "type": "ref",
+          "x": 835,
+          "y": 410
+        },
+        {
+          "group": "S01-first-wolf-remains",
+          "id": "S01-first-wolf-carcass-1",
+          "kind": "resourceNode",
+          "ref": "node.wolf_carcass",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.firstWolfKilled"
+          },
+          "tags": [
+            "resource",
+            "hide",
+            "wolf-carcass"
+          ],
+          "type": "ref",
+          "x": 835,
+          "y": 410
+        },
+        {
+          "group": "S01-first-wolf-remains",
+          "id": "S01-first-wolf-meat-1",
+          "kind": "item",
+          "ref": "resource.raw_wolf_meat",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.firstWolfKilled"
+          },
+          "tags": [
+            "loot",
+            "wolf-meat"
+          ],
+          "type": "ref",
+          "x": 870,
+          "y": 420
+        },
+        {
+          "group": "S01-small-shelter",
+          "id": "S01-small-shelter-1",
+          "kind": "item",
+          "ref": "story.s01.small_shelter",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.shelterCompleted"
+          },
+          "type": "ref",
+          "x": 720,
+          "y": 520
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-1",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 1,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 350,
+          "y": 610
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-2",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 2,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 455,
+          "y": 650
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-3",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 3,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 565,
+          "y": 625
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-4",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 4,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 275,
+          "y": 570
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-5",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 5,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 410,
+          "y": 565
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-6",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 6,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 535,
+          "y": 590
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-7",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 7,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 205,
+          "y": 520
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-8",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 8,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 330,
+          "y": 525
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-9",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 9,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 465,
+          "y": 540
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-10",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 10,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 150,
+          "y": 470
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-11",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 11,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 260,
+          "y": 455
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-12",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 12,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 380,
+          "y": 475
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-13",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 13,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 95,
+          "y": 420
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-14",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 14,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 215,
+          "y": 405
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-15",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 15,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 335,
+          "y": 425
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-16",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 16,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 70,
+          "y": 365
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-17",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 17,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 185,
+          "y": 350
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-18",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 18,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 300,
+          "y": 370
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-19",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 19,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 115,
+          "y": 320
+        },
+        {
+          "group": "S01-chase-wolves",
+          "id": "S01-chase-wolf-20",
+          "kind": "enemy",
+          "ref": "enemy.s01_wolf",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "gte": 20,
+            "path": "s01Survival.pursuit.spawned"
+          },
+          "tags": [
+            "wolf",
+            "pursuit"
+          ],
+          "type": "ref",
+          "x": 240,
+          "y": 305
+        }
+      ],
+      "visible": true
     },
-
     {
-      "id": "S01-logic", "name": "生存流程交互", "visible": true, "locked": false,
+      "id": "S01-logic",
+      "locked": false,
+      "name": "生存流程交互",
       "objects": [
-        { "id": "S01-binding-light-campfire", "type": "trigger", "name": "点燃篝火", "triggerId": "trg_s01_light_campfire", "x": 580, "y": 495, "width": 42, "height": 42, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 60, "pointerRadius": 80, "anchorOffsetY": -15, "prompt": "{interact}点燃篝火", "activeWhen": { "all": [{ "tutorialId": "s01.move", "completed": true }, { "path": "s01Survival.campfireLit", "equals": false }] } },
-        { "id": "S01-binding-craft-backpack", "type": "trigger", "name": "制作六格小背包", "triggerId": "trg_s01_craft_backpack", "x": 505, "y": 455, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-craft-marker", "radius": 90, "pointerRadius": 42, "prompt": "{interact}用狼皮和木材制作六格小背包", "activeWhen": { "all": [{ "path": "s01Survival.wolfSkinned", "equals": true }, { "path": "s01Survival.backpackCrafted", "equals": false }] } },
-        { "id": "S01-binding-cook-meat", "type": "trigger", "name": "烤制狼肉", "triggerId": "trg_s01_cook_meat", "x": 610, "y": 500, "width": 60, "height": 60, "event": "interact", "targetMode": "id", "target": "S01-spawn-campfire", "radius": 80, "pointerRadius": 36, "prompt": "{interact}添柴烤制狼肉", "activeWhen": { "all": [{ "path": "s01Survival.backpackCrafted", "equals": true }, { "path": "s01Survival.meatCooked", "equals": false }] } },
-        { "id": "S01-binding-build-shelter", "type": "trigger", "name": "搭建小庇护所", "triggerId": "trg_s01_build_shelter", "x": 650, "y": 435, "width": 150, "height": 115, "event": "interact", "targetMode": "id", "target": "S01-shelter-site", "radius": 105, "pointerRadius": 58, "prompt": "{interact}用木材搭建小庇护所", "activeWhen": { "all": [{ "path": "s01Survival.meatCooked", "equals": true }, { "path": "s01Survival.shelterCompleted", "equals": false }] } },
-        { "id": "S01-binding-overnight", "type": "trigger", "name": "在庇护所过夜", "triggerId": "trg_s01_overnight", "x": 795, "y": 485, "width": 70, "height": 70, "event": "interact", "targetMode": "id", "target": "S01-shelter-rest", "radius": 72, "pointerRadius": 40, "prompt": "{interact}进入小庇护所过夜", "activeWhen": { "all": [{ "path": "s01Survival.shelterCompleted", "equals": true }, { "path": "s01Survival.overnightCompleted", "equals": false }] } },
-        { "id": "S01-binding-river-crossed", "type": "trigger", "name": "确认越过河道", "triggerId": "trg_s01_river_crossed", "x": 760, "y": 165, "width": 130, "height": 90, "event": "interact", "targetMode": "id", "target": "S01-river-far-bank", "radius": 90, "pointerRadius": 50, "prompt": "{interact}确认已跳石过河", "activeWhen": { "all": [{ "path": "s01Survival.pursuit.active", "equals": true }, { "path": "s01Survival.riverCrossed", "equals": false }] } },
-        { "id": "S01-binding-cliff-reached", "type": "trigger", "name": "抵达山崖", "triggerId": "trg_s01_cliff_reached", "x": 1010, "y": 80, "width": 130, "height": 120, "event": "interact", "targetMode": "id", "target": "S01-cliff-base", "radius": 95, "pointerRadius": 52, "prompt": "{interact}查看山崖藤蔓", "activeWhen": { "all": [{ "path": "s01Survival.riverCrossed", "equals": true }, { "path": "s01Survival.cliffReached", "equals": false }] } },
-        { "id": "S01-binding-climb-vine", "type": "trigger", "name": "攀藤逃往 S02", "triggerId": "trg_s01_climb_vine", "x": 1090, "y": 20, "width": 92, "height": 170, "event": "interact", "targetMode": "id", "target": "S01-cliff-vine", "radius": 100, "pointerRadius": 54, "prompt": "{climb}攀上藤蔓逃往 S02", "activeWhen": { "path": "s01Survival.cliffReached", "equals": true } }
-      ]
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "completed": true,
+                "tutorialId": "s01.move"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.campfireLit"
+              }
+            ]
+          },
+          "anchorOffsetY": -15,
+          "event": "interact",
+          "height": 42,
+          "id": "S01-binding-light-campfire",
+          "name": "点燃篝火",
+          "pointerRadius": 80,
+          "prompt": "{interact}点燃篝火",
+          "radius": 60,
+          "target": "S01-spawn-campfire",
+          "targetMode": "id",
+          "triggerId": "trg_s01_light_campfire",
+          "type": "trigger",
+          "width": 42,
+          "x": 580,
+          "y": 495
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.wolfSkinned"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.backpackCrafted"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 70,
+          "id": "S01-binding-craft-backpack",
+          "name": "制作六格小背包",
+          "pointerRadius": 42,
+          "prompt": "{interact}用狼皮和木材制作六格小背包",
+          "radius": 90,
+          "target": "S01-craft-marker",
+          "targetMode": "id",
+          "triggerId": "trg_s01_craft_backpack",
+          "type": "trigger",
+          "width": 70,
+          "x": 505,
+          "y": 455
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.backpackCrafted"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.meatCooked"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 60,
+          "id": "S01-binding-cook-meat",
+          "name": "烤制狼肉",
+          "pointerRadius": 36,
+          "prompt": "{interact}添柴烤制狼肉",
+          "radius": 80,
+          "target": "S01-spawn-campfire",
+          "targetMode": "id",
+          "triggerId": "trg_s01_cook_meat",
+          "type": "trigger",
+          "width": 60,
+          "x": 610,
+          "y": 500
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.meatCooked"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.shelterCompleted"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 115,
+          "id": "S01-binding-build-shelter",
+          "name": "搭建小庇护所",
+          "pointerRadius": 58,
+          "prompt": "{interact}用木材搭建小庇护所",
+          "radius": 105,
+          "target": "S01-shelter-site",
+          "targetMode": "id",
+          "triggerId": "trg_s01_build_shelter",
+          "type": "trigger",
+          "width": 150,
+          "x": 650,
+          "y": 435
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.shelterCompleted"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.overnightCompleted"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 70,
+          "id": "S01-binding-overnight",
+          "name": "在庇护所过夜",
+          "pointerRadius": 40,
+          "prompt": "{interact}进入小庇护所过夜",
+          "radius": 72,
+          "target": "S01-shelter-rest",
+          "targetMode": "id",
+          "triggerId": "trg_s01_overnight",
+          "type": "trigger",
+          "width": 70,
+          "x": 795,
+          "y": 485
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.pursuit.active"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.riverCrossed"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 90,
+          "id": "S01-binding-river-crossed",
+          "name": "确认越过河道",
+          "pointerRadius": 50,
+          "prompt": "{interact}确认已跳石过河",
+          "radius": 90,
+          "target": "S01-river-far-bank",
+          "targetMode": "id",
+          "triggerId": "trg_s01_river_crossed",
+          "type": "trigger",
+          "width": 130,
+          "x": 760,
+          "y": 165
+        },
+        {
+          "activeWhen": {
+            "all": [
+              {
+                "equals": true,
+                "path": "s01Survival.riverCrossed"
+              },
+              {
+                "equals": false,
+                "path": "s01Survival.cliffReached"
+              }
+            ]
+          },
+          "event": "interact",
+          "height": 120,
+          "id": "S01-binding-cliff-reached",
+          "name": "抵达山崖",
+          "pointerRadius": 52,
+          "prompt": "{interact}查看山崖藤蔓",
+          "radius": 95,
+          "target": "S01-cliff-base",
+          "targetMode": "id",
+          "triggerId": "trg_s01_cliff_reached",
+          "type": "trigger",
+          "width": 130,
+          "x": 1010,
+          "y": 80
+        },
+        {
+          "activeWhen": {
+            "equals": true,
+            "path": "s01Survival.cliffReached"
+          },
+          "event": "interact",
+          "height": 170,
+          "id": "S01-binding-climb-vine",
+          "name": "攀藤逃往 S02",
+          "pointerRadius": 54,
+          "prompt": "{climb}攀上藤蔓逃往 S02",
+          "radius": 100,
+          "target": "S01-cliff-vine",
+          "targetMode": "id",
+          "triggerId": "trg_s01_climb_vine",
+          "type": "trigger",
+          "width": 92,
+          "x": 1090,
+          "y": 20
+        }
+      ],
+      "visible": true
     }
   ],
-  "decorations": [],
+  "assetBudget": {
+    "actorVariants": 2,
+    "audioLayers": 2,
+    "environmentModules": 12,
+    "interactiveProps": 10,
+    "vfx": 3
+  },
+  "backgroundColor": "#4b4337",
   "colliders": [],
-  "productionState": "greybox",
-  "previewOnly": false,
-  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
   "composition": {
+    "cameraFrame": {
+      "height": 720,
+      "width": 1280
+    },
     "complexity": "medium",
     "focalPoint": "S01-spawn-campfire",
-    "primaryRoute": ["S01-spawn-player","S01-spawn-campfire","S01-node-berry-1","S01-node-wood-1","S01-river-far-bank","S01-cliff-vine"],
-    "cameraFrame": { "width": 1280, "height": 720 }
+    "primaryRoute": [
+      "S01-spawn-player",
+      "S01-spawn-campfire",
+      "S01-node-berry-1",
+      "S01-node-wood-1",
+      "S01-river-far-bank",
+      "S01-cliff-vine"
+    ]
   },
-  "assetBudget": { "environmentModules": 12, "actorVariants": 2, "interactiveProps": 10, "vfx": 3, "audioLayers": 2 },
-  "type": "terrain",
-  "sceneType": "worldChunk",
-  "worldMap": "region-a",
-  "updatedAt": "2026-08-19T00:00:00.000Z",
-  "atlases": [],
+  "decorations": [],
+  "gameplay": {
+    "campfire": {
+      "fog": {
+        "active": true,
+        "color": "rgba(30, 30, 40,",
+        "fadeSpeed": 0.4
+      },
+      "imageId": "s01.vfx.campfireFlame",
+      "initialFogOpacity": 0.85,
+      "labels": {
+        "ignite": "{interact}点燃",
+        "unlit": "熄灭的火堆"
+      },
+      "particlePresets": [
+        {
+          "alpha": 0.85,
+          "color": "#ffaa22",
+          "life": 250,
+          "rate": 6,
+          "size": 8.5,
+          "vy": -50
+        },
+        {
+          "alpha": 0.8,
+          "color": "#ff8833",
+          "life": 200,
+          "rate": 8,
+          "size": 6,
+          "vy": -35
+        },
+        {
+          "alpha": 1,
+          "color": "#ffffee",
+          "life": 400,
+          "rate": 4,
+          "size": 4.5,
+          "vy": -120
+        },
+        {
+          "alpha": 0.9,
+          "color": "#ffee44",
+          "life": 350,
+          "rate": 10,
+          "size": 3.5,
+          "vy": -100
+        },
+        {
+          "alpha": 0.85,
+          "color": "#ff9933",
+          "life": 300,
+          "rate": 8,
+          "size": 2.5,
+          "vy": -80
+        },
+        {
+          "alpha": 0.8,
+          "color": "#ff5522",
+          "life": 250,
+          "rate": 6,
+          "size": 2,
+          "vy": -60
+        },
+        {
+          "alpha": 0.7,
+          "color": "#ff6633",
+          "life": 200,
+          "rate": 12,
+          "size": 2,
+          "vy": -40
+        }
+      ],
+      "presentation": {
+        "collisionHeight": 22.5,
+        "collisionWidth": 40,
+        "fireHeight": 60,
+        "fireWidth": 40,
+        "lightRadius": 150
+      },
+      "sprite": {
+        "frameCols": 4,
+        "frameCount": 12,
+        "frameDuration": 0.16,
+        "frameHeight": 237.33333333333334,
+        "frameRows": 3,
+        "frameWidth": 164.5
+      }
+    }
+  },
+  "height": 720,
   "imageAssets": {
-    "s01.environment.droughtWildernessGround": { "src": "../example/sanguo_zhangjiao/assets/images/s01/drought-wilderness-ground.svg", "name": "S01 干旱荒原地貌" },
-    "s01.environment.cliffVine": { "src": "../example/sanguo_zhangjiao/assets/images/s01/cliff-vine.svg", "name": "逃生藤蔓" }
-  }
+    "s01.environment.cliffVine": {
+      "name": "逃生藤蔓",
+      "src": "../example/sanguo_zhangjiao/assets/images/s01/cliff-vine.svg"
+    },
+    "s01.environment.droughtWildernessGround": {
+      "name": "S01 干旱荒原地貌",
+      "src": "../example/sanguo_zhangjiao/assets/images/s01/drought-wilderness-ground.svg"
+    }
+  },
+  "name": "S01 寒风荒野求生",
+  "presentationProfile": "sanguo-zhangjiao-presentation-v1",
+  "previewOnly": false,
+  "productionState": "greybox",
+  "sceneType": "worldChunk",
+  "type": "terrain",
+  "updatedAt": "2026-08-19T00:00:00.000Z",
+  "width": 1280,
+  "worldMap": "region-a"
 }

@@ -47,10 +47,12 @@ export class SceneEditorEventFilter {
     this.phases = [];
     this.visibleObjects = null;
     this.dynamicTargets = [];
+    this._scrollLeft = 0;
     this._bound = false;
   }
   reset(sceneData = this.editor.sceneData) {
     this.sceneData = sceneData;
+    this._scrollLeft = 0;
     this.state = { mode: 'all', selectedPhaseId: '', selectedBindingId: '', includeRelated: false };
     this.rebuild({ preserveSelection: false });
   }
@@ -267,6 +269,8 @@ export class SceneEditorEventFilter {
   renderBar() {
     const bar = document.getElementById('editor-scene-event-filter');
     if (!bar) return;
+    const previousScroll = bar.querySelector('.scene-event-filter-scroll');
+    if (previousScroll) this._scrollLeft = previousScroll.scrollLeft;
     bar.replaceChildren();
 
     const title = document.createElement('span');
@@ -360,7 +364,11 @@ export class SceneEditorEventFilter {
       scroll.scrollLeft = (offset / travel) * maxScroll;
     };
 
-    scroll.addEventListener('scroll', updateThumb, { passive: true });
+    const onScroll = () => {
+      this._scrollLeft = scroll.scrollLeft;
+      updateThumb();
+    };
+    scroll.addEventListener('scroll', onScroll, { passive: true });
     track.addEventListener('pointerdown', event => {
       if (event.target === thumb || track.classList.contains('disabled')) return;
       event.preventDefault();
@@ -390,8 +398,14 @@ export class SceneEditorEventFilter {
       thumb.addEventListener('pointerup', onEnd);
       thumb.addEventListener('pointercancel', onEnd);
     });
-    updateThumb();
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(updateThumb);
+    const restoreScroll = () => {
+      const { maxScroll } = metrics();
+      scroll.scrollLeft = Math.max(0, Math.min(maxScroll, this._scrollLeft));
+      this._scrollLeft = scroll.scrollLeft;
+      updateThumb();
+    };
+    restoreScroll();
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restoreScroll);
   }
 }
 

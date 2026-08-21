@@ -138,3 +138,61 @@
 .scene-event-filter-related { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: #c8d2ea; font-size: 11px; white-space: nowrap; cursor: pointer; }
 .scene-event-filter-related input { margin: 0; }
 .scene-event-filter-status { flex-shrink: 0; min-width: 42px; color: #8fa3ca; font-size: 10px; white-space: nowrap; text-align: right; }
+
+/* 事件条使用固定容器和独立拖动轨道，内容再多也不增加编辑器宽度 */
+.scene-event-filter-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(26px, auto) 7px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.scene-event-filter-title { grid-column: 1; grid-row: 1; align-self: center; }
+.scene-event-filter-scroll {
+  grid-column: 2;
+  grid-row: 1;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+}
+.scene-event-filter-scroll::-webkit-scrollbar { display: none; }
+.scene-event-filter-related { grid-column: 3; grid-row: 1; align-self: center; }
+.scene-event-filter-status { grid-column: 4; grid-row: 1; align-self: center; }
+.scene-event-filter-drag-track {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  position: relative;
+  height: 5px;
+  margin: 1px 2px 0;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #0a1020;
+  box-shadow: inset 0 0 0 1px #2d3b62;
+  cursor: pointer;
+  touch-action: none;
+}
+.scene-event-filter-drag-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  min-width: 32px;
+  border-radius: 3px;
+  background: #6683c5;
+  cursor: grab;
+  touch-action: none;
+  will-change: transform;
+}
+.scene-event-filter-drag-thumb:hover { background: #82a1e7; }
+.scene-event-filter-drag-thumb.dragging { background: #7ee483; cursor: grabbing; }
+.scene-event-filter-drag-track.disabled { opacity: 0.35; cursor: default; }
+.scene-event-filter-drag-track.disabled .scene-event-filter-drag-thumb { cursor: default; }
+.scene-event-filter-bar { column-gap: 7px; row-gap: 2px; }
+.editor-canvas-area { max-width: 100%; overflow: hidden; }

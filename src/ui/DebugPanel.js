@@ -220,6 +220,10 @@ export class DebugPanel {
             <input type="checkbox" id="dp-show-buffzones" ${this.getScene()?.debugShowBuffZones ? 'checked' : ''}>
             显示 Buff 多边形
           </label>
+          <label class="dp-check-row">
+            <input type="checkbox" id="dp-show-trigger-hotspots" ${this.getScene()?.debugShowTriggerHotspots ? 'checked' : ''}>
+            显示交互热点范围
+          </label>
         </div>
         <div class="dp-section dp-actions">
           <div class="dp-title">手柄</div>
@@ -325,6 +329,12 @@ export class DebugPanel {
       if (!scene) return;
       scene.debugShowBuffZones = event.target.checked;
       console.log('[DebugPanel] Buff 多边形显示:', event.target.checked ? '开启' : '关闭');
+    });
+    el.querySelector('#dp-show-trigger-hotspots').addEventListener('change', (event) => {
+      const scene = this.getScene();
+      if (!scene) return;
+      scene.debugShowTriggerHotspots = event.target.checked;
+      console.log('[DebugPanel] 交互热点范围显示:', event.target.checked ? '开启' : '关闭');
     });
     el.querySelector('#dp-gamepad-panel').addEventListener('click', () => {
       const scene = this.getScene();
@@ -501,6 +511,8 @@ export class DebugPanel {
     if (collisionToggle) collisionToggle.checked = scene.debugShowCollisionPolygons === true;
     const buffZoneToggle = this._el.querySelector('#dp-show-buffzones');
     if (buffZoneToggle) buffZoneToggle.checked = scene.debugShowBuffZones === true;
+    const triggerHotspotToggle = this._el.querySelector('#dp-show-trigger-hotspots');
+    if (triggerHotspotToggle) triggerHotspotToggle.checked = scene.debugShowTriggerHotspots === true;
 
     // 触发器事件
     const gl = scene.gameLoader;

@@ -81,6 +81,7 @@ import { SceneLifecycleCoordinator } from '../../../src/core/scene/SceneLifecycl
 import { SceneInventoryFlow } from '../../../src/core/scene/SceneInventoryFlow.js';
 import { SceneHudUpdater } from '../../../src/core/scene/SceneHudUpdater.js';
 import { SceneTriggerBindingSystem } from '../../../src/core/scene/SceneTriggerBindingSystem.js';
+import { createEntitySpatialTarget } from '../../../src/core/scene/SceneSpatialGeometry.js';
 import { SceneInputFlow } from '../../../src/core/input/SceneInputFlow.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
@@ -779,25 +780,10 @@ export class BaseGameSceneSetup extends Scene {
         ?? false,
       resolveDynamicTarget: (targetId, binding) => {
         const entity = this.entityStore?.all?.find?.(candidate => candidate?.id === targetId);
-        const transform = entity?.getComponent?.('transform');
-        if (!entity || !transform?.position) return null;
+        if (!entity) return null;
         const sceneId = entity.vehicleSceneId || entity.sceneId || this.currentSceneId || '';
         if (binding?.sceneId && sceneId && binding.sceneId !== sceneId) return null;
-        const sprite = entity.getComponent?.('sprite');
-        const width = Math.max(1, Number(sprite?.width) || 1);
-        const height = Math.max(1, Number(sprite?.height) || 1);
-        return {
-          id: entity.id,
-          type: 'entity',
-          sceneId,
-          entityId: entity.id,
-          dynamicTarget: true,
-          x: transform.position.x - width / 2,
-          y: transform.position.y - height / 2,
-          width,
-          height,
-          center: { x: transform.position.x, y: transform.position.y }
-        };
+        return createEntitySpatialTarget(entity, { sceneId });
       },
       logger: (reason, binding) => console.warn(`BaseGameScene: 场景触发器绑定 ${reason}`, binding?.id),
       onPromptChange: prompt => {

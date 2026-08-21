@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787329994976,
+  "createdAt": 1787332842906,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -83,12 +83,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1787329993243
+            "timestamp": 1787332841183
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1787329993244
+            "timestamp": 1787332841184
           }
         ],
         "completedDialogues": []
@@ -1576,7 +1576,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.2001000000007
+          "elapsed": 121.18349999999975
         }
       }
     }

@@ -23,6 +23,8 @@ export function createSpatialTriggerBinding(source = {}) {
     ...(finite(source.height) ? { height: Number(source.height) } : {}),
     ...(finite(source.radius) ? { radius: Number(source.radius) } : {}),
     ...(finite(source.pointerRadius) ? { pointerRadius: Number(source.pointerRadius) } : {}),
+    ...(finite(source.anchorOffsetX) ? { anchorOffsetX: Number(source.anchorOffsetX) } : {}),
+    ...(finite(source.anchorOffsetY) ? { anchorOffsetY: Number(source.anchorOffsetY) } : {}),
     ...(typeof source.prompt === 'string' ? { prompt: source.prompt } : {}),
     ...(source.activeWhen && typeof source.activeWhen === 'object'
       ? { activeWhen: cloneCanonicalValue(source.activeWhen) }

@@ -314,6 +314,82 @@ export class SceneDiagnostics {
     return true;
   }
 
+  /** 绘制空间 trigger 的只读热点快照，不执行条件动作或修改交互状态。 */
+  renderTriggerHotspots(ctx, {
+    enabled = false,
+    camera = null,
+    hotspots = []
+  } = {}) {
+    if (!enabled || !camera || !Array.isArray(hotspots) || hotspots.length === 0) return false;
+
+    ctx.save();
+    const viewBounds = camera.getViewBounds();
+    ctx.translate(-viewBounds.left, -viewBounds.top);
+    ctx.lineWidth = 2;
+    ctx.font = '12px sans-serif';
+    ctx.textBaseline = 'bottom';
+
+    for (const hotspot of hotspots) {
+      const anchor = hotspot?.anchor;
+      if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) continue;
+      const color = hotspot.inside ? '#00e5ff' : hotspot.active ? '#39d353' : '#ff5d5d';
+      const radius = Math.max(0, Number(hotspot.radius) || 0);
+      const pointerRadius = Math.max(0, Number(hotspot.pointerRadius) || 0);
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      if (radius > 0) {
+        ctx.beginPath();
+        ctx.arc(anchor.x, anchor.y, radius, 0, Math.PI * 2);
+        ctx.globalAlpha = hotspot.active ? 0.12 : 0.06;
+        ctx.fill();
+        ctx.globalAlpha = hotspot.active ? 0.9 : 0.45;
+        ctx.stroke();
+      } else if (hotspot.bounds) {
+        ctx.globalAlpha = hotspot.active ? 0.9 : 0.45;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeRect(hotspot.bounds.x, hotspot.bounds.y, hotspot.bounds.width, hotspot.bounds.height);
+      }
+
+      if (pointerRadius > 0 && pointerRadius !== radius) {
+        ctx.beginPath();
+        ctx.arc(anchor.x, anchor.y, pointerRadius, 0, Math.PI * 2);
+        ctx.globalAlpha = hotspot.active ? 0.85 : 0.35;
+        ctx.strokeStyle = '#ffb020';
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(anchor.x - 5, anchor.y);
+      ctx.lineTo(anchor.x + 5, anchor.y);
+      ctx.moveTo(anchor.x, anchor.y - 5);
+      ctx.lineTo(anchor.x, anchor.y + 5);
+      ctx.stroke();
+
+      const label = hotspot.prompt || hotspot.bindingId || hotspot.triggerId;
+      if (label) {
+        const text = `${hotspot.active ? '' : '[未激活] '}${label}`;
+        const width = ctx.measureText(text).width + 8;
+        ctx.globalAlpha = 0.72;
+        ctx.fillStyle = '#101418';
+        ctx.fillRect(anchor.x + 7, anchor.y - 21, width, 18);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = color;
+        ctx.fillText(text, anchor.x + 11, anchor.y - 6);
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([]);
+    ctx.restore();
+    return true;
+  }
+
   checkTerrainCollision({
     terrainBinding = null,
     terrains = [],

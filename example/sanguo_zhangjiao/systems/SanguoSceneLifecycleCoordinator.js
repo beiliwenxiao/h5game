@@ -249,6 +249,14 @@ function renderPostPipeline(ctx) {
     terrains: this._terrains,
     label: 'DDScene'
   });
+  const triggerBindings = this.context.services.triggerBindings;
+  this.context.services.diagnostics?.renderTriggerHotspots(ctx, {
+    enabled: this.debugShowTriggerHotspots === true,
+    camera: this.camera,
+    hotspots: this.debugShowTriggerHotspots === true
+      ? triggerBindings?.getDebugHotspotSnapshot?.() || []
+      : []
+  });
   this._renderTeleportFade(ctx);
   this.s03s14BattleCoordinator.renderLayer('hud', ctx, this.logicalWidth, this.logicalHeight);
   this.rescueObjectiveView?.render?.(ctx, this.logicalWidth, this.logicalHeight);

@@ -12,6 +12,7 @@ export class SceneWorldPresentation {
     this.scene = scene;
     this.itemRenderer = options.itemRenderer || ItemSpriteRenderer;
     this.getAssetManager = options.getAssetManager || (() => this.scene.assetManager || null);
+    this.getRenderOffset = options.getRenderOffset || (() => ({ x: 0, y: 0 }));
   }
 
   renderBackground(ctx) {
@@ -65,8 +66,9 @@ export class SceneWorldPresentation {
   _renderPickupList(ctx, items) {
     for (const item of items) {
       if (item.picked) continue;
-      const x = item.x;
-      const y = item.y;
+      const offset = this.getRenderOffset(item) || { x: 0, y: 0 };
+      const x = item.x + (Number(offset.x) || 0);
+      const y = item.y + (Number(offset.y) || 0);
       // 优先使用内容定义的稳定 imageId/assetId；其次手绘画法；最后通用兜底圆点。
       if (!this._drawPickupImage(ctx, item, x, y)
         && !this.itemRenderer.draw(ctx, item.id, x, y)) {

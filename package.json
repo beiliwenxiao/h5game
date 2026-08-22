@@ -1,6 +1,6 @@
 {
   "name": "yijian18-engine",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "description": "YiJian18-Engine Real-time Combat MMRPG Game Engine",
   "type": "module",
   "scripts": {

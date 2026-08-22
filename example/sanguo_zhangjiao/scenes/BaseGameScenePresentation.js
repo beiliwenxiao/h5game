@@ -206,11 +206,6 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     return SceneEntityState.isDead(entity, this.context?.entities?.all || this.entities);
   }
 
-  /** 扫描迁移期兼容对象列表中的已拾取对象；提交与领域反应仍由观察器回调拥有。 */
-  _checkItemPickupEvents() {
-    return this._pickedObjectObserver?.scan?.() || 0;
-  }
-
   /** 限制相机不超出当前 ProjectWorldIndex 中活动 Region 的派生边界。 */
   clampCameraToWorldBounds() {
     const world = this.context?.world || {};
@@ -309,7 +304,10 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
 
   _ensureEntityRenderer() {
     if (!this.entityRenderer2D) {
-      this.entityRenderer2D = new EntityRenderer2D(this.assetManager, getNpcRenderStyle);
+      this.entityRenderer2D = new EntityRenderer2D(this.assetManager, getNpcRenderStyle, {
+        getRenderOffset: entity => this.context?.presentation?.worldItemEvents?.getRenderOffset?.(entity)
+          || { x: 0, y: 0 }
+      });
     }
     return this.entityRenderer2D;
   }

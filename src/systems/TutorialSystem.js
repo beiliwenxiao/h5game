@@ -117,41 +117,41 @@ export class TutorialSystem {
 
   notify(signal, payload = {}, scope = null) {
     if (!this.enabled || !signal || payload?.ok === false || payload?.committed === false) return false;
-    const candidates = [...this.definitionRepository.values()]
-      .filter(definition => definition.completionPolicy === 'signal'
-        && matchesScope(definition, scope)
-        && !this.completedTutorials.has(definition.id))
-      .sort((left, right) => left.order - right.order || right.priority - left.priority);
-    for (const definition of candidates) {
-      for (const rule of definition.signalRules) {
-        if (rule.signal !== signal || !this._matchesSignalRule(rule, payload)) continue;
-        const key = `${definition.id}:${rule.id || signal}`;
-        const count = (this.signalProgress.get(key) || 0) + 1;
-        this.signalProgress.set(key, count);
-        if (count < Math.max(1, Number(rule.threshold) || 1)) return false;
-        this.completeTutorial(definition.id);
-        return true;
-      }
+    // 教程是 committed event 的辅助消费者，只允许当前已显示教程消费信号。
+    // 禁止一个事件在后台提前完成尚未激活、尚未展示的未来教程。
+    const definition = this.currentTutorial;
+    if (!definition
+      || definition.completionPolicy !== 'signal'
+      || !matchesScope(definition, scope)
+      || this.completedTutorials.has(definition.id)) return false;
+    for (const rule of definition.signalRules) {
+      if (rule.signal !== signal || !this._matchesSignalRule(rule, payload)) continue;
+      const key = `${definition.id}:${rule.id || signal}`;
+      const count = (this.signalProgress.get(key) || 0) + 1;
+      this.signalProgress.set(key, count);
+      if (count < Math.max(1, Number(rule.threshold) || 1)) return false;
+      this.completeTutorial(definition.id);
+      return true;
     }
     return false;
   }
 
   updateMovement(position, category = null, scope = null) {
     if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) return false;
-    const definition = [...this.definitionRepository.values()]
-      .filter(value => (!category || value.category === category)
-        && matchesScope(value, scope)
-        && value.completionPolicy === 'signal'
-        && value.movementRule && !this.completedTutorials.has(value.id))
-      .sort((left, right) => left.order - right.order)[0];
-    if (!definition) return false;
+    const definition = this.currentTutorial;
+    if (!definition
+      || (category && definition.category !== category)
+      || !matchesScope(definition, scope)
+      || definition.completionPolicy !== 'signal'
+      || !definition.movementRule
+      || this.completedTutorials.has(definition.id)) return false;
     const origin = this.movementOrigins.get(definition.id);
     if (!origin) {
       this.movementOrigins.set(definition.id, { x: position.x, y: position.y });
       return false;
     }
     const distance = Math.hypot(position.x - origin.x, position.y - origin.y);
-    if (distance <= Math.max(0, Number(definition.movementRule.threshold) || 0)) return false;
+    if (distance < Math.max(0, Number(definition.movementRule.threshold) || 0)) return false;
     this.completeTutorial(definition.id);
     return true;
   }

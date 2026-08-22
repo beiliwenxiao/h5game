@@ -8,7 +8,7 @@
  * @blog      https://blog.csdn.net/beiliwenxiao
  * @repo      https://github.com/beiliwenxiao/yijian18-engine
  *            https://gitee.com/coderaaa/yijian18-engine
- */
+ **/
 
 /**
  * ProgressiveTipsConditions - 渐进式提示条件判断器

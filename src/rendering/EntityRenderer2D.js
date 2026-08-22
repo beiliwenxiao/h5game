@@ -11,9 +11,10 @@ export class EntityRenderer2D {
    * @param {object} assetManager 提供 getAsset(key) 的资源管理器
    * @param {(styleKey: string) => Function | null} getRenderStyle 返回代码绘制样式的函数
    */
-  constructor(assetManager, getRenderStyle = () => null) {
+  constructor(assetManager, getRenderStyle = () => null, options = {}) {
     this.assetManager = assetManager;
     this.getRenderStyle = typeof getRenderStyle === 'function' ? getRenderStyle : () => null;
+    this.getRenderOffset = options.getRenderOffset || (() => ({ x: 0, y: 0 }));
     this._readyImageCache = new Map();
     this._renderStyleCache = new Map();
     this._nameMeasureCache = new WeakMap();
@@ -33,9 +34,10 @@ export class EntityRenderer2D {
     const stats = entity.getComponent?.('stats');
     const npc = entity.getComponent?.('npc');
     const position = transform.position;
-    const x = position.x;
+    const offset = this.getRenderOffset(entity) || { x: 0, y: 0 };
+    const x = position.x + (Number(offset.x) || 0);
     const elevation = position.elevation || 0;
-    const y = position.y - elevation;
+    const y = position.y - elevation + (Number(offset.y) || 0);
     const width = sprite?.width || 32;
     const height = sprite?.height || 32;
 

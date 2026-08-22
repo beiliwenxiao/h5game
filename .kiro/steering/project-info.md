@@ -5,7 +5,7 @@
 ## 1. 项目与交付物
 
 - **引擎**：YiJian18-Engine，跨平台 2D/3D ECS 游戏引擎。
-- **根 npm 包**：`yijian18-engine@0.0.1`，ES Module，MIT。
+- **根 npm 包**：`yijian18-engine@0.0.3`，ES Module，MIT。
 - **当前唯一 Demo**：`example/sanguo_zhangjiao/`，作品名固定为 **《三国张角传》**。
 - **Demo 配置版本**：`game.project.json` 为 `schemaVersion: 1`、`meta.version: 3`、`meta.schema: 3`、campaign `sanguo-zhangjiao-s01-s14`；它与 npm 包版本不是同一版本层。
 - **作者**：刘枭（beiliwenxiao），邮箱 `beiliwenxiao@qq.com`。

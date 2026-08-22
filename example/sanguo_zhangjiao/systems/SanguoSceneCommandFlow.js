@@ -71,14 +71,15 @@ const commandMethods = {
     return result?.ok !== false;
   },
 
-  handleGatheringEvent(event, data = {}) {
+  async handleGatheringEvent(event, data = {}) {
     if (event === 'completed' && (data.ok !== true || data.committed !== true)) return false;
-    void this._s01s02Coordinator.handleGatheringEvent(event, data);
+    const s01Result = await this._s01s02Coordinator.handleGatheringEvent(event, data);
+    if (event === 'completed' && this.currentSceneId === 'S01'
+      && data.itemId === 'resource.wild_berry' && s01Result !== true) return false;
     if ((event === 'completed' || event === 'interrupted')
       && data.toolBroken === true
       && this._s05MinePendingSettlements.has(data.operationId)) {
-      void this.s05SceneCoordinator._finalizeS05MineCollapse(data);
-      return true;
+      await this.s05SceneCoordinator._finalizeS05MineCollapse(data);
     }
     if (event === 'completed' && this.s09RefugeeCoordinator.hasUnauthorizedHarvest(data.operationId)) {
       this._showScreenTip('未获许可取走粮食：声望 -5，粮仓哨兵已被惊动。');
@@ -92,7 +93,16 @@ const commandMethods = {
       });
       return true;
     }
+    // S01 剧情事务、placement 和 reveal event 全部成立后，教程辅助分支才消费完成信号。
     if (event === 'completed') this._tutorialFlow.notify('gatheringCompleted', data);
+    return true;
+  },
+
+  /** reveal 补偿成功后恢复被延后的纯辅助分支，不重复提交采集业务事实。 */
+  resumeGatheringAfterReveal(data = {}) {
+    if (this.currentSceneId !== 'S01') return false;
+    this.grantGatheringProficiency(data);
+    this._tutorialFlow.notify('gatheringCompleted', data);
     return true;
   },
 

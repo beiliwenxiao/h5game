@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787335406010,
+  "createdAt": 1787387962004,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -21,8 +21,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1814.2832861370514,
-          "y": 1248.8387356499163,
+          "x": 1759.3950441087122,
+          "y": 1195.4882222883268,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -69,12 +69,7 @@
         "currentTutorialId": "s01.gather",
         "currentStepIndex": 0,
         "signalProgress": {},
-        "movementOrigins": {
-          "s01.move": {
-            "x": 1885,
-            "y": 1275
-          }
-        }
+        "movementOrigins": {}
       },
       "dialogue": {
         "currentDialogueId": null,
@@ -1651,7 +1646,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 343.74430000008556
+          "elapsed": 359.04620000009254
         }
       }
     }

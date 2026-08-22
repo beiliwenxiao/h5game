@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787165959049,
+  "createdAt": 1787386162016,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -21,8 +21,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1885,
-          "y": 1275,
+          "x": 1759.3950441087122,
+          "y": 1195.4882222883268,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -62,24 +62,55 @@
         "equipment": {}
       },
       "tutorial": {
-        "completedTutorials": [],
+        "completedTutorials": [
+          "s01.move"
+        ],
         "enabled": true,
-        "currentTutorialId": "s01.move",
+        "currentTutorialId": "s01.gather",
         "currentStepIndex": 0,
         "signalProgress": {},
-        "movementOrigins": {
-          "s01.move": {
-            "x": 1885,
-            "y": 1275
-          }
-        }
+        "movementOrigins": {}
       },
       "dialogue": {
         "currentDialogueId": null,
         "currentNodeId": null,
         "variables": {},
-        "history": [],
-        "completedDialogues": []
+        "history": [
+          {
+            "type": "node",
+            "nodeId": "start",
+            "speaker": "旁白",
+            "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
+            "timestamp": 1787334263782
+          },
+          {
+            "type": "start",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1787334263783
+          },
+          {
+            "type": "node",
+            "nodeId": "start",
+            "speaker": "旁白",
+            "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
+            "timestamp": 1787334504235
+          },
+          {
+            "type": "node",
+            "nodeId": "move",
+            "speaker": "旁白",
+            "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。",
+            "timestamp": 1787334505954
+          },
+          {
+            "type": "end",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1787334506771
+          }
+        ],
+        "completedDialogues": [
+          "dialogue.s01.wake"
+        ]
       },
       "quests": {
         "schemaVersion": 1,
@@ -262,12 +293,13 @@
             "hiddenClues": [],
             "month": 3,
             "s01Survival": {
+              "axeDropped": false,
               "axeFound": false,
               "backpackCrafted": false,
               "berriesGathered": false,
               "berryEaten": false,
               "campfireExtinguished": false,
-              "campfireLit": false,
+              "campfireLit": true,
               "cliffReached": false,
               "firestarterAcquired": false,
               "firstWolfKilled": false,
@@ -299,12 +331,15 @@
         "triggers": {
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
-          "firedOnce": [],
+          "firedOnce": [
+            "trg_s01_begin_tutorial_after_wake",
+            "trg_s01_light_campfire"
+          ],
           "cooldowns": {
             "trg_s01_spawn_initial": {
               "definitionRevision": 1,
               "remaining": 0,
-              "nextDue": 1000,
+              "nextDue": 0,
               "duration": 1000
             }
           },
@@ -333,16 +368,44 @@
                 "ledgerRevision": 6
               },
               {
+                "triggerId": "trg_s01_begin_tutorial_after_wake",
+                "definitionRevision": 1,
+                "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                "fingerprint": "sha256-89982fed2edacb86ad8c2926244cd53b93af0160c1d11abb43e9532dfea03539",
+                "status": "succeeded",
+                "actionIndex": 0,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_begin_tutorial_after_wake",
+                  "stateRevision": null
+                },
+                "startedAt": 2467.1000000000004,
+                "finishedAt": 2500.4000000000005,
+                "ledgerRevision": 4
+              },
+              {
                 "triggerId": "trg_s01_light_campfire",
                 "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "operationId": "trigger:1:trg_s01_light_campfire:3",
+                "fingerprint": "sha256-838fb007f933a3408dfc6d11d43fac1c2e811cb449cecec7681805f7b5cbd54b",
+                "status": "succeeded",
+                "actionIndex": 2,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_light_campfire:3:action:2",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_light_campfire",
+                  "stateRevision": null
+                },
+                "startedAt": 4484.100000000001,
+                "finishedAt": 4517.500000000001,
+                "ledgerRevision": 6
               },
               {
                 "triggerId": "trg_s01_craft_backpack",
@@ -1437,8 +1500,40 @@
                 "demoDynamic": {
                   "schemaVersion": 2,
                   "sceneNamespace": "S01",
-                  "resourceNodes": [],
-                  "placementStates": [],
+                  "resourceNodes": [
+                    {
+                      "id": "S01-node-berry-1",
+                      "state": {
+                        "schemaVersion": 1,
+                        "resourceType": "food",
+                        "itemId": "resource.wild_berry",
+                        "remaining": 4,
+                        "maxRemaining": 4,
+                        "yieldPerGather": 2,
+                        "gatherDuration": 1.6,
+                        "requiredToolType": null,
+                        "refreshDays": 0,
+                        "refreshProgressDays": 0,
+                        "guardUnitIds": [],
+                        "riskEvents": [],
+                        "damageRatio": 0,
+                        "depleted": false
+                      }
+                    }
+                  ],
+                  "placementStates": [
+                    {
+                      "id": "S01-node-berry-1",
+                      "state": {
+                        "kind": "resourceNode",
+                        "removed": false,
+                        "position": {
+                          "x": 1735,
+                          "y": 1150
+                        }
+                      }
+                    }
+                  ],
                   "deathDrops": [],
                   "s10StructureStates": [],
                   "vehicleStates": []
@@ -1448,7 +1543,7 @@
           ]
         },
         "regionStates": [],
-        "campfireLit": false,
+        "campfireLit": true,
         "firedPickups": [],
         "clearedGroups": [],
         "defeatState": {
@@ -1470,7 +1565,7 @@
         },
         "puppetState": {
           "schemaVersion": 1,
-          "chargesRemaining": null,
+          "chargesRemaining": 0,
           "nextSequence": 1,
           "active": null
         },
@@ -1551,7 +1646,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 123.89999999999645
+          "elapsed": 358.47950000009246
         }
       }
     }

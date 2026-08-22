@@ -13,6 +13,9 @@ export class S01S02Coordinator {
     this.pendingAxeDiscovery = false;
     this.pendingWolfDiscovery = false;
     this.pendingClimb = false;
+    this.pendingPlacementReveals = new Map();
+    this.pendingRevealRetryElapsed = 0;
+    this.pendingRevealRetryInFlight = false;
   }
 
   _story() {
@@ -32,6 +35,126 @@ export class S01S02Coordinator {
 
   _spawnGroup(group) {
     return this.scene.context.services.placements?.spawn?.({ group });
+  }
+
+  _rememberPendingReveal(request) {
+    const previous = this.pendingPlacementReveals.get(request.placementId);
+    this.pendingPlacementReveals.set(request.placementId, {
+      ...request,
+      attempts: previous?.attempts || request.attempts || 0
+    });
+  }
+
+  async _revealPlacement(group, placementId, payload = {}, operationId = null, options = {}) {
+    const pending = this.pendingPlacementReveals.get(placementId);
+    const request = {
+      group,
+      placementId,
+      payload,
+      operationId: operationId || `world-item:revealed:${placementId}`,
+      target: pending?.target || null,
+      onRecovered: pending?.onRecovered || options.onRecovered || null,
+      revealed: pending?.revealed === true,
+      attempts: pending?.attempts || 0
+    };
+    if (request.revealed) {
+      this.pendingPlacementReveals.delete(placementId);
+      return true;
+    }
+    let target = request.target;
+    if (!target) {
+      let result;
+      try {
+        result = await this._spawnGroup(group);
+      } catch (error) {
+        this._rememberPendingReveal(request);
+        console.warn('[S01S02Coordinator] 物品放置执行失败', { group, placementId, error });
+        return false;
+      }
+      target = result?.entities?.find?.(
+        entity => entity?.placementId === placementId || entity?.id === placementId
+      ) || null;
+      if (result?.ok !== true || (result.errors || []).length > 0
+        || Number(result?.counts?.total) <= 0 || !target) {
+        this._rememberPendingReveal(request);
+        console.warn('[S01S02Coordinator] 物品放置未完整成立', { group, placementId, result });
+        return false;
+      }
+      request.target = target;
+    }
+
+    const position = target.getComponent?.('transform')?.position || target;
+    if (!Number.isFinite(position?.x) || !Number.isFinite(position?.y)) {
+      this._rememberPendingReveal(request);
+      console.warn('[S01S02Coordinator] 物品放置缺少世界坐标', { group, placementId });
+      return false;
+    }
+
+    let published;
+    try {
+      published = await this.scene.publishApplicationEvent?.('worldItem.revealed', {
+        placementId,
+        entityId: target.entityId || target.id || null,
+        groundId: target.entityId || target.id || placementId,
+        definitionId: target.definitionId || target.itemId || target.id || null,
+        name: target.name || payload.name || '物品',
+        position: { x: position.x, y: position.y },
+        reason: payload.reason || 'discovery',
+        ...payload
+      }, {
+        operationId: request.operationId,
+        sceneId: this.scene.currentSceneId
+      });
+    } catch (error) {
+      this._rememberPendingReveal(request);
+      console.warn('[S01S02Coordinator] 物品发现事件发布异常', placementId, error);
+      return false;
+    }
+    if (published?.ok !== true) {
+      this._rememberPendingReveal(request);
+      console.warn('[S01S02Coordinator] 物品发现事件发布失败', placementId, published?.code);
+      return false;
+    }
+    this.pendingPlacementReveals.delete(placementId);
+    return true;
+  }
+
+  async _retryPendingPlacementReveal() {
+    if (this.pendingRevealRetryInFlight || this.pendingPlacementReveals.size === 0) return false;
+    const request = this.pendingPlacementReveals.values().next().value;
+    request.attempts += 1;
+    this.pendingPlacementReveals.set(request.placementId, request);
+    this.pendingRevealRetryInFlight = true;
+    try {
+      if (request.revealed !== true) {
+        const revealed = await this._revealPlacement(
+          request.group,
+          request.placementId,
+          request.payload,
+          request.operationId,
+          { onRecovered: request.onRecovered }
+        );
+        if (!revealed) return false;
+        request.revealed = true;
+      }
+      if (request.onRecovered) {
+        try {
+          const recovered = await request.onRecovered();
+          if (recovered === false) {
+            this._rememberPendingReveal(request);
+            return false;
+          }
+        } catch (error) {
+          this._rememberPendingReveal(request);
+          console.warn('[S01S02Coordinator] 物品发现后续补偿异常', request.placementId, error);
+          return false;
+        }
+      }
+      this.pendingPlacementReveals.delete(request.placementId);
+      return true;
+    } finally {
+      this.pendingRevealRetryInFlight = false;
+    }
   }
 
   resolve() {
@@ -69,43 +192,72 @@ export class S01S02Coordinator {
     }
     if (event !== 'completed') return false;
     if (isBerry) {
-      // 当前版本新游戏必须先提交“斧头已落地”，再由 placement 生成地面物品。
-      // 旧快照若只有 axeFound（历史上已直接入包）而没有 axeDropped，不重复生成第二把。
-      const legacyAxeAlreadyGranted = survival.axeFound === true && survival.axeDropped !== true;
-      let axeDropped = survival.axeDropped === true;
-      if (!axeDropped && !legacyAxeAlreadyGranted && !this.pendingAxeDiscovery) {
+      const axePlacementId = 'S01-pickup-worn-axe';
+      const needsAxeReveal = survival.axeDropped !== true;
+      const hasPendingAxeReveal = this.pendingPlacementReveals.has(axePlacementId);
+      const completeBerryGathering = async (recovered = false) => {
+        const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
+        if (result.ok) {
+          const berryCount = Math.max(0, Number(data.accepted) || 0);
+          this.scene._showScreenTip(
+            `荒野酸果 ×${berryCount} 已放入背包。`,
+            { title: '采集完成' }
+          );
+          if (recovered) {
+            this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
+          }
+        }
+        return result.ok === true;
+      };
+
+      if (this.pendingAxeDiscovery) return false;
+      if (needsAxeReveal || hasPendingAxeReveal) {
         this.pendingAxeDiscovery = true;
         try {
-          const axeResult = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
-          axeDropped = axeResult.ok === true;
-          if (!axeDropped) return false;
+          if (needsAxeReveal) {
+            const axeResult = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
+            if (axeResult.ok !== true) return false;
+          }
+          const revealed = await this._revealPlacement(
+            'S01-worn-axe',
+            axePlacementId,
+            {
+              name: '破旧斧头',
+              message: '发现：破旧斧头掉落在地上。',
+              reason: 'discovery',
+              jumpHeight: 18,
+              sparkleCount: 9
+            },
+            'world-item:revealed:S01-pickup-worn-axe',
+            { onRecovered: () => completeBerryGathering(true) }
+          );
+          if (!revealed) return false;
         } finally {
           this.pendingAxeDiscovery = false;
         }
+      } else {
+        // 恢复后只确保 placement 存在；restore 不重播“新发现”提示和动画。
+        await this._spawnGroup('S01-worn-axe');
       }
-      if (axeDropped) await this._spawnGroup('S01-worn-axe');
-      const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
-      if (result.ok) {
-        const berryCount = Math.max(0, Number(data.accepted) || 0);
-        const axeMessage = axeDropped
-          ? '；树丛里掉出一把破旧斧头，靠近后使用 {pickup} 拾取。'
-          : '。';
-        this.scene._showScreenTip(
-          `荒野酸果 ×${berryCount} 已放入背包${axeMessage}`,
-          { title: '采集完成', persist: true }
-        );
-      }
-      return result.ok === true;
+      return completeBerryGathering(false);
     }
     if (data.resourceType === 'wood') {
       const result = await this._submit('story.s01.woodGathered', {}, 'story:s01:wood-gathered');
       if (result.ok) {
-        await this._spawnGroup('S01-skinning-knife');
-        this.scene._showScreenTip('枯枝下露出一把还能使用的剥皮刀。靠近后使用 {pickup} 拾取，再对付野狼。', {
-          title: '发现剥皮刀'
-        });
+        return this._revealPlacement(
+          'S01-skinning-knife',
+          'S01-pickup-skinning-knife',
+          { name: '剥皮刀', message: '发现：剥皮刀掉落在地上。', reason: 'discovery' },
+          'world-item:revealed:S01-pickup-skinning-knife',
+          {
+            onRecovered: () => {
+              this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
+              return true;
+            }
+          }
+        );
       }
-      return result.ok === true;
+      return false;
     }
     if (isWolfHide) {
       const result = await this._submit('story.s01.wolfSkinned', {}, 'story:s01:wolf-skinned');
@@ -143,10 +295,21 @@ export class S01S02Coordinator {
     if (entity.id === 'S01-first-wolf-1') {
       const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
       if (!result.ok) return false;
-      await this._spawnGroup('S01-first-wolf-remains');
-      this.scene._showScreenTip('野狼倒下，狼肉已经掉落。拾取狼肉，再用剥皮刀处理狼尸取得狼皮。', {
-        title: '猎狼与剥皮'
-      });
+      const showWolfLootTip = () => {
+        this.scene._showScreenTip('野狼倒下。再用剥皮刀处理狼尸取得狼皮。', {
+          title: '猎狼与剥皮'
+        });
+        return true;
+      };
+      const revealed = await this._revealPlacement(
+        'S01-first-wolf-remains',
+        'S01-first-wolf-meat-1',
+        { name: '生狼肉', message: '生狼肉掉落在地上。', reason: 'enemyLoot' },
+        'world-item:revealed:S01-first-wolf-meat-1',
+        { onRecovered: showWolfLootTip }
+      );
+      if (!revealed) return false;
+      showWolfLootTip();
       return true;
     }
     if (!entity.id.startsWith(CHASE_WOLF_PREFIX)) return false;
@@ -388,10 +551,24 @@ export class S01S02Coordinator {
 
   update(deltaTime) {
     if (this.scene.currentSceneId !== 'S01') return;
+    const dt = Math.max(0, Number(deltaTime) || 0);
+    if (this.pendingPlacementReveals.size > 0 && !this.pendingRevealRetryInFlight) {
+      const pending = this.pendingPlacementReveals.values().next().value;
+      const retryInterval = Math.min(5, 0.75 * (2 ** Math.min(3, pending?.attempts || 0)));
+      this.pendingRevealRetryElapsed += dt;
+      if (this.pendingRevealRetryElapsed >= retryInterval) {
+        this.pendingRevealRetryElapsed = 0;
+        void this._retryPendingPlacementReveal().catch(error => {
+          console.warn('[S01S02Coordinator] 待发布物品发现补偿失败', error);
+        });
+      }
+    } else if (this.pendingPlacementReveals.size === 0) {
+      this.pendingRevealRetryElapsed = 0;
+    }
     if (this.scene.constructionSystem && !this.scene._constructionCheckpointBusy) {
       const pending = this.scene.constructionSystem.getPending('site.s01.small_shelter');
       const willComplete = pending?.status === 'active'
-        && pending.elapsed + Math.max(0, Number(deltaTime) || 0) >= pending.duration;
+        && pending.elapsed + dt >= pending.duration;
       if (willComplete) {
         this.pendingConstructionRollback = this.scene.s10ConstructionCoordinator?._captureConstructionRollback?.();
       }

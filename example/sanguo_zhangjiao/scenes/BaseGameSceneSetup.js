@@ -59,6 +59,8 @@ import { SceneDialogueFlow } from '../../../src/core/scene/SceneDialogueFlow.js'
 import { SceneWorldInteraction } from '../../../src/core/scene/SceneWorldInteraction.js';
 import { SceneSkillActions } from '../../../src/core/scene/SceneSkillActions.js';
 import { SceneWorldPresentation } from '../../../src/core/scene/SceneWorldPresentation.js';
+import { SceneApplicationEventBridge } from '../../../src/core/scene/SceneApplicationEventBridge.js';
+import { SceneWorldItemEventPresenter } from '../../../src/core/scene/SceneWorldItemEventPresenter.js';
 import { ScenePanelLayout } from '../../../src/core/scene/ScenePanelLayout.js';
 import { SceneRenderPipeline } from '../../../src/core/scene/SceneRenderPipeline.js';
 import { SceneFramePipeline } from '../../../src/core/scene/SceneFramePipeline.js';
@@ -771,6 +773,46 @@ export class BaseGameSceneSetup extends Scene {
       onCreated: () => console.log('BaseGameScene: 创建新玩家实体')
     });
     this.seedItemLifecycleProjection();
+
+    const worldItemEvents = new SceneWorldItemEventPresenter({
+      particleSystem: this.particleSystem,
+      resolveTarget: payload => {
+        const ids = new Set([payload.placementId, payload.entityId, payload.groundId].filter(Boolean));
+        return [...this.pickupItems, ...this.equipmentItems, ...this.entities]
+          .find(value => ids.has(value?.placementId) || ids.has(value?.entityId) || ids.has(value?.id)) || null;
+      },
+      notify: ({ message }) => {
+        if (this.notificationSystem?.addSuccess) this.notificationSystem.addSuccess(message);
+        else this._showScreenTip?.(message, { title: '发现物品', owner: 'world-item-event' });
+      }
+    });
+    this.context.presentation.worldItemEvents = worldItemEvents;
+    this.context.services.worldItemEvents = worldItemEvents;
+    this.sceneRuntime.registerSystem('presentation.worldItemEvents', worldItemEvents, {
+      order: 705,
+      updateHook: 'update',
+      disposeHook: 'dispose'
+    });
+    const applicationEventBridge = new SceneApplicationEventBridge({
+      notificationBus: this.sceneRuntime.notificationBus,
+      presenter: worldItemEvents,
+      onContentEvent: event => this.onApplicationEvent?.(event),
+      onAuxiliaryEvent: event => {
+        const signal = event.payload?.tutorialSignal
+          || (event.type === 'item.picked' ? 'itemPicked' : null);
+        if (signal) this._tutorialFlow?.notify?.(signal, {
+          ...event.payload,
+          eventId: event.eventId,
+          operationId: event.operationId,
+          ok: true,
+          committed: true
+        });
+      }
+    });
+    applicationEventBridge.bind();
+    this.context.services.applicationEvents = applicationEventBridge;
+    this.resourceScope.track(() => applicationEventBridge.dispose());
+
     this._sceneTriggerBindings?.dispose();
     this._sceneTriggerBindings = new SceneTriggerBindingSystem({
       getPlayer: () => this.playerEntity,

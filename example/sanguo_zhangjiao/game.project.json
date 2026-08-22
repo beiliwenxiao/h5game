@@ -4774,37 +4774,12 @@
       "order": 1,
       "steps": [
         {
-          "text": "靠近野果丛，使用 {harvest} 徒手采集；采集完成后破旧斧头会掉在地上，靠近后使用 {pickup} 拾取。"
+          "text": "靠近野果丛，使用 {harvest} 徒手采集。"
         }
       ],
       "signalRules": [
         {
           "signal": "gatheringCompleted",
-          "threshold": 1
-        }
-      ],
-      "completionPolicy": "signal",
-      "canSkip": false,
-      "autoTrigger": false
-    },
-    {
-      "id": "s01.attack",
-      "title": "猎狼反击",
-      "category": "s01-survival",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 2,
-      "steps": [
-        {
-          "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "attackPerformed",
           "threshold": 1
         }
       ],
@@ -4821,15 +4796,47 @@
           "S01"
         ]
       },
-      "order": 3,
+      "order": 2,
       "steps": [
         {
-          "text": "靠近剥皮刀或狼肉后使用 {pickup} 拾取。"
+          "text": "靠近地上的破旧斧头，使用 {pickup} 拾取。"
         }
       ],
       "signalRules": [
         {
           "signal": "itemPicked",
+          "threshold": 1,
+          "conditions": [
+            {
+              "field": "placementId",
+              "operator": "equals",
+              "value": "S01-pickup-worn-axe"
+            }
+          ]
+        }
+      ],
+      "completionPolicy": "signal",
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.attack",
+      "title": "猎狼反击",
+      "category": "s01-survival",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 3,
+      "steps": [
+        {
+          "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。"
+        }
+      ],
+      "signalRules": [
+        {
+          "signal": "attackPerformed",
           "threshold": 1
         }
       ],
@@ -5959,6 +5966,35 @@
             },
             {
               "equals": false,
+              "path": "story.s01Survival.axeDropped"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.axeDropped",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.axeFound",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeDropped"
+            },
+            {
+              "equals": false,
               "path": "story.s01Survival.axeFound"
             }
           ]
@@ -5966,11 +6002,6 @@
         "writes": [
           {
             "path": "s01Survival.axeFound",
-            "target": "story",
-            "value": true
-          },
-          {
-            "path": "s01Survival.axeDropped",
             "target": "story",
             "value": true
           }
@@ -5985,7 +6016,7 @@
           "all": [
             {
               "equals": true,
-              "path": "story.s01Survival.axeFound"
+              "path": "story.s01Survival.axeDropped"
             },
             {
               "equals": false,

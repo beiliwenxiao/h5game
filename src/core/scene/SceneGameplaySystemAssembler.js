@@ -88,6 +88,15 @@ export class SceneGameplaySystemAssembler {
           if (!entity) continue;
           scene.entityStore.add(entity);
           scene.entityStore.addEquipmentItem(entity);
+          void scene.publishApplicationEvent?.('item.dropped', {
+            entityId: entity.id,
+            groundId: entity.id,
+            definitionId,
+            name: item.name || definitionId,
+            quantity: Math.max(1, Math.floor(Number(item.quantity) || 1)),
+            position: { x: position.x, y: position.y },
+            reason: 'enemyLoot'
+          }, { operationId: `combat-drop-revealed:${entity.id}` });
         } catch (error) {
           console.warn('SceneGameplaySystemAssembler: loot projection failed', error);
         }
@@ -111,9 +120,15 @@ export class SceneGameplaySystemAssembler {
       resolveActorId: entity => entity?.id || null,
       now,
       onResult: result => {
-        if (!result?.ok && result?.code !== 'inventoryFull') {
-          scene.notificationSystem?.addWarning?.(result?.error?.message || result?.code || '拾取失败');
-        }
+        if (result?.ok) return;
+        const capacityMessages = {
+          inventoryFull: '背包已满，无法拾取',
+          resourceCapacityFull: '资源容量已满，无法拾取',
+          insufficientCapacity: '背包容量不足，无法拾取'
+        };
+        scene.notificationSystem?.addWarning?.(
+          capacityMessages[result?.code] || result?.error?.message || result?.code || '拾取失败'
+        );
       }
     });
     scene.pickupSystem.init({
@@ -218,8 +233,7 @@ export class SceneGameplaySystemAssembler {
       playerDefeatService: scene.playerDefeatService,
       onEquipmentChanged: (messages, info) => scene.onEquipmentChanged?.(messages, info),
       onItemUsed: ({ item, heal, mana }) => scene.onItemUsed?.(item, heal, mana),
-      onItemGained: (item, player) => scene.onItemGained?.(item, player),
-      onWorldItemPicked: (item, player) => scene.onWorldItemPicked?.(item, player)
+      onItemGained: (item, player) => scene.onItemGained?.(item, player)
     });
     for (const commandType of Object.values(ITEM_LIFECYCLE_COMMANDS)) {
       scene.sceneRuntime?.registerCommandHandler?.(commandType, scene.itemLifecycleService);

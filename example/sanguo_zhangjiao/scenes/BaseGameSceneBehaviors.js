@@ -59,6 +59,7 @@ import { SceneDialogueFlow } from '../../../src/core/scene/SceneDialogueFlow.js'
 import { SceneWorldInteraction } from '../../../src/core/scene/SceneWorldInteraction.js';
 import { SceneSkillActions } from '../../../src/core/scene/SceneSkillActions.js';
 import { SceneWorldPresentation } from '../../../src/core/scene/SceneWorldPresentation.js';
+import { SceneApplicationEventService } from '../../../src/core/scene/SceneApplicationEventService.js';
 import { ScenePanelLayout } from '../../../src/core/scene/ScenePanelLayout.js';
 import { SceneRenderPipeline } from '../../../src/core/scene/SceneRenderPipeline.js';
 import { SceneFramePipeline } from '../../../src/core/scene/SceneFramePipeline.js';
@@ -160,6 +161,27 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
       operationId,
       payload
     }, options);
+  }
+
+  /** 仅在调用方已确认业务事实成立后，经权威网关发布 application event。 */
+  publishApplicationEvent(eventType, payload = {}, options = {}) {
+    const actorRef = options.actorId || this.playerEntity?.id;
+    if (!actorRef || !this.sceneRuntime?.commandGateway) {
+      return Promise.resolve({ ok: false, code: 'applicationEventGatewayUnavailable' });
+    }
+    this._applicationEventSequence = (Number(this._applicationEventSequence) || 0) + 1;
+    return this.sceneRuntime.commandGateway.execute({
+      intentType: 'scene.applicationEvent',
+      actorRef,
+      operationId: options.operationId
+        || `application-event:${eventType}:${this._applicationEventSequence}`,
+      payload: {
+        eventType,
+        sceneId: options.sceneId || this.currentSceneId || this.editorSceneId || null,
+        reason: options.reason || payload.reason || 'runtime',
+        payload
+      }
+    });
   }
 
   getItemLifecycleProjection(actorId = this.playerEntity?.id) {
@@ -281,6 +303,8 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
     this.sceneRuntime = new GameSceneRuntime({
       onError: (phase, name, error) => console.warn(`BaseGameScene runtime ${phase} [${name}]`, error)
     });
+    this.applicationEventService = new SceneApplicationEventService();
+    this.sceneRuntime.registerCommandHandler('scene.applicationEvent', this.applicationEventService);
     this.questSystem.setCommandGateway(this.sceneRuntime.commandGateway);
     for (const commandType of Object.values(QUEST_COMMANDS)) {
       this.sceneRuntime.registerCommandHandler(commandType, this.questSystem);
@@ -456,7 +480,12 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
 
   /** @private 懒创建通用世界表现服务。 */
   _ensureWorldPresentation() {
-    if (!this._worldPresentation) this._worldPresentation = new SceneWorldPresentation(this);
+    if (!this._worldPresentation) {
+      this._worldPresentation = new SceneWorldPresentation(this, {
+        getRenderOffset: item => this.context?.presentation?.worldItemEvents?.getRenderOffset?.(item)
+          || { x: 0, y: 0 }
+      });
+    }
     return this._worldPresentation;
   }
 

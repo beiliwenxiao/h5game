@@ -806,16 +806,8 @@
       "objects": [
         {
           "activeWhen": {
-            "all": [
-              {
-                "completed": true,
-                "tutorialId": "s01.move"
-              },
-              {
-                "equals": false,
-                "path": "s01Survival.campfireLit"
-              }
-            ]
+            "equals": false,
+            "path": "s01Survival.campfireLit"
           },
           "anchorOffsetY": -15,
           "event": "interact",

@@ -37,7 +37,7 @@ export class Particle {
     this.initialAlpha = this.alpha;
     this.gravity = config.gravity || 0;
     this.friction = config.friction !== undefined ? config.friction : 1;
-    this.shape = config.shape || 'circle'; // circle / streak / ripple
+    this.shape = config.shape || 'circle'; // circle / streak / ripple / star
     // 行为语义必须显式传递；颜色仅是表现参数。保留旧 #ff* 调用方的兼容推断。
     this.isFire = config.isFire === true || (config.isFire == null && typeof config.color === 'string' && config.color.startsWith('#ff'));
     this.renderLayer = config.renderLayer || 'effects';
@@ -135,6 +135,22 @@ export class Particle {
       ctx.beginPath();
       ctx.ellipse(screenX, screenY, rx, ry, 0, 0, Math.PI * 2);
       ctx.stroke();
+    } else if (this.shape === 'star') {
+      // 物品发现星光：五角星，纯表现且不参与世界几何。
+      const outer = safeSize * 1.45;
+      const inner = safeSize * 0.62;
+      ctx.fillStyle = this.color || '#ffe27a';
+      ctx.beginPath();
+      for (let index = 0; index < 10; index++) {
+        const radius = index % 2 === 0 ? outer : inner;
+        const angle = -Math.PI / 2 + index * Math.PI / 5;
+        const x = screenX + Math.cos(angle) * radius;
+        const y = screenY + Math.sin(angle) * radius;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
     } else if (this.isFire) {
       // 火焰粒子：径向渐变发光
       const glowGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, safeSize * 1.5);

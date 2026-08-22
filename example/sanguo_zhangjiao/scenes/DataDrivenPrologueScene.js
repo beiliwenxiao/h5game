@@ -33,7 +33,6 @@ import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
 import { SceneNavigationProjection } from '../../../src/core/scene/SceneNavigationProjection.js';
 import { SceneWorldQuery } from '../../../src/core/scene/SceneWorldQuery.js';
-import { ScenePickedObjectObserver } from '../../../src/core/scene/ScenePickedObjectObserver.js';
 import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime.js';
 import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
@@ -151,11 +150,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       showIdleText: ({ npc, text }) => this._presentNpcIdleText(npc, text)
     });
     this.context.services.npcInteraction = this._npcInteractionFlow;
-    this._pickedObjectObserver = new ScenePickedObjectObserver({
-      lists: [() => this.pickupItems, () => this.equipmentItems],
-      onPicked: value => this.onWorldItemPicked(value)
-    });
-    this.context.services.pickedObjectObserver = this._pickedObjectObserver;
 
     this.terrain = null;
     this.worldStreamingManager = null;
@@ -765,7 +759,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   onGatheringEvent(event, data = {}) {
     if (!this.sanguoSceneCommandCoordinator.shouldForwardGatheringEvent(event, data)) return;
     super.onGatheringEvent(event, data);
-    this.sanguoSceneCommandCoordinator.handleGatheringEvent(event, data);
+    void this.sanguoSceneCommandCoordinator.handleGatheringEvent(event, data).catch(error => {
+      console.error('[DataDrivenPrologueScene] 采集提交后流程异常:', error);
+      this.notificationSystem?.addError?.('采集已结算，但后续剧情处理失败；系统会保留已提交资源并允许后续补偿。');
+    });
   }
 
   /**
@@ -882,7 +879,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.sanguoSceneStateFlow.restoreSceneSaveState(data);
   }
 
-  /** 实际拾取提交后的稳定 Scene 入口；S01–S14 状态映射由 Demo coordinator 拥有。 */
+  /** 唯一提交后 application event 入口；历史剧情派生由 Demo coordinator 处理。 */
+  onApplicationEvent(event) {
+    return this.sanguoSceneStateFlow.handleApplicationEvent(event);
+  }
+
+  /** 迁移兼容入口；正式拾取事实来自 PostCommitNotificationBus 的 item.picked。 */
   onWorldItemPicked(item) {
     return this.sanguoSceneStateFlow.handleWorldItemPicked(item);
   }

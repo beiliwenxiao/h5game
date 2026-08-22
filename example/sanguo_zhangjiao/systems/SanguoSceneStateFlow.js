@@ -12,6 +12,7 @@ export class SanguoSceneStateFlow extends SceneFlowCoordinator {
     super(scene, {
       captureSceneSaveState,
       restoreSceneSaveState,
+      handleApplicationEvent,
       handleWorldItemPicked,
       handleEquipmentChanged
     }, {
@@ -114,39 +115,75 @@ function restoreSceneSaveState(data = {}) {
   };
 }
 
-function handleWorldItemPicked(item) {
-  if (!this.gameLoader || !item) return false;
-  const committed = item.pickupCommitted === true || item.picked === true;
-  if (!committed) return false;
+async function handleApplicationEvent(event = {}) {
+  if (!this.gameLoader || event.type !== 'item.picked') return false;
+  const payload = event.payload || {};
+  const itemId = payload.itemId || payload.item?.id || payload.definitionId;
+  if (!itemId) return false;
   if (!this._firedPickups) this._firedPickups = new Set();
-  const uid = item.pickupEventId || item.operationId
-    || item.placementId || item._pickUid || item.entityId || item.id;
-  if (item.placementId && item.picked === true) {
+  const uid = [event.operationId || event.eventId, payload.definitionId || itemId,
+    payload.instanceId || payload.groundId || 'stack'].join(':');
+
+  if (payload.placementId && payload.complete === true) {
     this.context.services.placements?.addPendingPlacementState?.(
-      item.placementId,
+      payload.placementId,
       { kind: 'item', removed: true, quantity: 0 }
     );
   }
-  if (!uid || this._firedPickups.has(uid)) return false;
+  if (this._firedPickups.has(uid)) return false;
+
+  if (this.currentSceneId === 'S01'
+    && payload.placementId === 'S01-pickup-worn-axe'
+    && payload.complete === true
+    && this.gameLoader.blackboard?.get?.('storyState')?.s01Survival?.axeFound !== true) {
+    const actorRef = this.playerEntity?.id;
+    const gateway = this.sceneRuntime?.commandGateway;
+    if (!actorRef || !gateway) return false;
+    const result = await gateway.execute({
+      intentType: 'state.transaction',
+      actorRef,
+      operationId: `${event.operationId || event.eventId}:story:s01:axe-found`,
+      payload: { definitionId: 'story.s01.axeFound' }
+    });
+    if (result?.ok !== true) {
+      this.notificationSystem?.addError?.('破旧斧头拾取剧情结算失败，请重试或读档。');
+      return false;
+    }
+  }
+
   this._firedPickups.add(uid);
-  const itemId = item.itemId || item.id;
-  const event = {
-    ok: true,
-    committed: true,
-    operationId: item.operationId || null,
-    groundId: item.groundId || null,
-    item
-  };
-  this._tutorialFlow.notify('itemPicked', event);
   this.gameLoader.triggerSystem.fire('itemPickup', {
     item: itemId,
     id: itemId,
-    operationId: event.operationId,
-    groundId: event.groundId,
+    operationId: event.operationId || null,
+    eventId: event.eventId,
+    groundId: payload.groundId || null,
+    placementId: payload.placementId || null,
     committed: true
   });
-  console.log('[DDScene] itemPickup:', itemId);
+  console.log('[DDScene] itemPickup committed:', itemId);
   return true;
+}
+
+/** 仅供尚未迁移调用方使用；正式路径由 PostCommitNotificationBus 的 item.picked 事件进入。 */
+function handleWorldItemPicked(item) {
+  if (!item || (item.pickupCommitted !== true && item.picked !== true)) return false;
+  return handleApplicationEvent.call(this, {
+    eventId: item.pickupEventId || item.operationId || item.entityId || item.id,
+    operationId: item.operationId || item.pickupEventId || item.id,
+    type: 'item.picked',
+    payload: {
+      groundId: item.groundId || null,
+      placementId: item.placementId || null,
+      entityId: item.entityId || null,
+      complete: item.picked === true,
+      definitionId: item.definitionId || item.id,
+      itemId: item.itemId || item.id,
+      instanceId: item.instanceId || null,
+      quantity: item.quantity || 1,
+      item
+    }
+  });
 }
 
 /** 已提交的装备变更只投影为内容 trigger，不持有装备事实。 */

@@ -94,7 +94,6 @@ export class ItemLifecycleService {
     this.onEquipmentChanged = config.onEquipmentChanged || (() => {});
     this.onItemUsed = config.onItemUsed || (() => {});
     this.onItemGained = config.onItemGained || (() => {});
-    this.onWorldItemPicked = config.onWorldItemPicked || (() => {});
     this.stateType = 'itemLifecycle';
     this.stateId = command => `item-lifecycle:${command.actorId}`;
   }
@@ -210,7 +209,11 @@ export class ItemLifecycleService {
               && (!entry.item.instanceId || value.instanceId === entry.item.instanceId));
             if (stack) {
               deathDrop.take(stack.id, entry.accepted);
-              picked.push({ definitionId: stack.definitionId, quantity: entry.accepted });
+              picked.push({
+                definitionId: stack.definitionId,
+                item: clone(entry.item),
+                quantity: entry.accepted
+              });
             }
           });
           worldItem.picked = deathDrop.isEmpty();
@@ -218,6 +221,12 @@ export class ItemLifecycleService {
             ok: true,
             value: { action: 'pickup', groundId: command.payload.groundId, accepted: result.accepted,
               remainder: deathDrop.stacks.reduce((sum, stack) => sum + stack.quantity, 0), picked },
+            applicationEvents: this._createPickupEvents({
+              worldItem,
+              picked,
+              complete: worldItem.picked,
+              groundId: command.payload.groundId
+            }),
             finalize: () => this._finalizePickup({
               worldItem,
               actor,
@@ -241,9 +250,26 @@ export class ItemLifecycleService {
     if (!definition) return { ok: false, code: 'itemDefinitionMissing' };
     const requested = Math.min(quantityOf(command.payload.quantity) || Infinity,
       quantityOf(projection?.quantity ?? worldItem.quantity) || 1);
-    const runtimeItem = projection?.instanceId
-      ? { ...definition, instanceId: projection.instanceId, ...(projection.mutable || {}) }
-      : definition;
+    const rawInstanceId = projection?.instanceId ?? worldItem.instanceId ?? null;
+    if (rawInstanceId !== null && (typeof rawInstanceId !== 'string' || !rawInstanceId.trim())) {
+      return { ok: false, code: 'invalidInstanceId' };
+    }
+    const instanceId = typeof rawInstanceId === 'string' ? rawInstanceId.trim() : null;
+    if (instanceId && requested !== 1) return { ok: false, code: 'invalidInstanceQuantity' };
+    if (instanceId && (inventory.slots || []).some(stack => stack?.item?.instanceId === instanceId)) {
+      return { ok: false, code: 'duplicateInstanceId' };
+    }
+    const runtimeItem = {
+      ...definition,
+      definitionId,
+      ...(worldItem.imageId !== undefined ? { imageId: worldItem.imageId } : {}),
+      ...(worldItem.assetId !== undefined ? { assetId: worldItem.assetId } : {}),
+      ...(worldItem.sprite !== undefined ? { sprite: clone(worldItem.sprite) } : {}),
+      ...mutableStateOf(definition),
+      ...mutableStateOf(worldItem),
+      ...mutableStateOf(projection?.mutable),
+      ...(instanceId ? { instanceId } : {})
+    };
     const preview = this.inventoryTransactions.previewAdd(inventory, runtimeItem, requested);
     if (preview.accepted <= 0) return { ok: false, code: preview.reason || 'inventoryFull' };
     return {
@@ -263,17 +289,26 @@ export class ItemLifecycleService {
         }
         worldItem.quantity = Math.max(0, quantityOf(worldItem.quantity || requested) - result.accepted);
         worldItem.picked = (projection ? projection.quantity : worldItem.quantity) <= 0;
-        const picked = [{ definitionId, quantity: result.accepted }];
-        return { ok: true, value: { action: 'pickup', groundId: command.payload.groundId,
-          accepted: result.accepted, remainder, picked },
-        finalize: () => this._finalizePickup({
-          worldItem,
-          actor,
-          picked,
-          complete: worldItem.picked,
-          operationId: command.operationId,
-          groundId: command.payload.groundId
-        }) };
+        const picked = [{ definitionId, item: clone(runtimeItem), quantity: result.accepted }];
+        return {
+          ok: true,
+          value: { action: 'pickup', groundId: command.payload.groundId,
+            accepted: result.accepted, remainder, picked },
+          applicationEvents: this._createPickupEvents({
+            worldItem,
+            picked,
+            complete: worldItem.picked,
+            groundId: command.payload.groundId
+          }),
+          finalize: () => this._finalizePickup({
+            worldItem,
+            actor,
+            picked,
+            complete: worldItem.picked,
+            operationId: command.operationId,
+            groundId: command.payload.groundId
+          })
+        };
       },
       rollback: () => {
         restoreInventory(inventory, beforeInventory);
@@ -287,26 +322,72 @@ export class ItemLifecycleService {
     };
   }
 
+  _createPickupEvents({ worldItem, picked, complete, groundId }) {
+    const placementId = worldItem?.placementId || null;
+    const entityId = worldItem?.entityId || worldItem?.id || null;
+    const position = worldItem?.getComponent?.('transform')?.position || worldItem;
+    const worldPosition = Number.isFinite(position?.x) && Number.isFinite(position?.y)
+      ? { x: position.x, y: position.y }
+      : null;
+    return (picked || []).map(entry => {
+      const runtimeItem = entry.item || {};
+      const definitionId = entry.definitionId || runtimeItem.definitionId || runtimeItem.id;
+      return {
+        type: 'item.picked',
+        payload: {
+          groundId,
+          placementId,
+          entityId,
+          complete: complete === true,
+          definitionId,
+          itemId: runtimeItem.id || definitionId,
+          instanceId: runtimeItem.instanceId || null,
+          name: runtimeItem.name || definitionId,
+          imageId: runtimeItem.imageId || runtimeItem.assetId || null,
+          quantity: entry.quantity,
+          position: worldPosition,
+          worldPosition,
+          tutorialSignal: 'itemPicked',
+          item: {
+            id: runtimeItem.id || definitionId,
+            definitionId,
+            instanceId: runtimeItem.instanceId || null,
+            name: runtimeItem.name || definitionId,
+            type: runtimeItem.type || null,
+            subType: runtimeItem.subType || null,
+            imageId: runtimeItem.imageId || null,
+            assetId: runtimeItem.assetId || null,
+            quantity: entry.quantity,
+            ...mutableStateOf(runtimeItem)
+          }
+        }
+      };
+    });
+  }
+
   _finalizePickup({ worldItem, actor, picked, complete, operationId, groundId }) {
     const placementId = worldItem?.placementId || null;
     const entityId = worldItem?.entityId || worldItem?.id || null;
     if (complete) this.removeWorldEntity(worldItem);
     for (let index = 0; index < picked.length; index++) {
       const entry = picked[index];
-      const definition = this._definition(entry.definitionId);
+      const definition = this._definition(entry.definitionId) || {};
+      const runtimeItem = entry.item ? clone(entry.item) : {};
+      const definitionId = entry.definitionId || runtimeItem.definitionId || runtimeItem.id;
       const item = {
         ...definition,
+        ...runtimeItem,
+        definitionId,
         quantity: entry.quantity,
         pickupCommitted: true,
         operationId,
-        pickupEventId: `${operationId}:${entry.definitionId}:${index}`,
+        pickupEventId: `${operationId}:${definitionId}:${index}`,
         groundId,
         placementId,
         entityId,
         picked: complete === true
       };
       try { this.onItemGained(item, actor); } catch (error) { console.warn('Item gained presentation failed', error); }
-      try { this.onWorldItemPicked(item, actor); } catch (error) { console.warn('World pickup presentation failed', error); }
     }
   }
 
@@ -395,7 +476,21 @@ export class ItemLifecycleService {
             action: 'drop', groundId: draft.id, definitionId,
             instanceId: found.item.instanceId || null, quantity: requested,
             position: { x: position.x, y: position.y }
-          }
+          },
+          applicationEvents: [{
+            type: 'item.dropped',
+            payload: {
+              groundId: draft.id,
+              entityId: draft.id,
+              definitionId,
+              itemId: found.item.id || definitionId,
+              instanceId: found.item.instanceId || null,
+              name: found.item.name || definition.name || definitionId,
+              quantity: requested,
+              position: { x: position.x, y: position.y },
+              reason: command.payload.reason || 'manualDrop'
+            }
+          }]
         };
       },
       rollback: () => {
@@ -589,6 +684,9 @@ export class ItemLifecycleService {
       commit: () => {
         result = this.playerDefeatService.resolve({ player: actor, deathId, resolution, deferFinalize: true });
         if (!result?.ok) return result || { ok: false, code: 'defeatCommitFailed' };
+        const dropPosition = result.drop?.getComponent?.('transform')?.position
+          || result.drop?.position
+          || null;
         return {
           ok: true,
           value: {
@@ -598,7 +696,17 @@ export class ItemLifecycleService {
           },
           applicationEvents: [{
             type: result.type === 'specialFaint' ? 'item.specialFaintResolved' : 'item.deathDropCreated',
-            payload: { deathId: result.deathId, dropId: result.drop?.id || null, loot }
+            payload: {
+              deathId: result.deathId,
+              dropId: result.drop?.id || null,
+              entityId: result.drop?.id || null,
+              name: '遗失物资',
+              loot,
+              stacks: clone(result.stacks || []),
+              position: dropPosition ? { x: dropPosition.x, y: dropPosition.y } : null,
+              reason: result.type === 'specialFaint' ? 'specialFaint' : 'deathDrop',
+              announce: result.type !== 'specialFaint'
+            }
           }],
           finalize: () => result.finalize?.()
         };

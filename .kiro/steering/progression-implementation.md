@@ -72,6 +72,14 @@ CombatSystem      表现与伤害结算（作为执行器被调用）
 
 - `ClassSystem` 的职业效果来源固定为 `class:<characterId>`；`selectClass`、`restoreClass`、`clearClass` 和 `syncClassSource` 必须维护同一稳定来源，禁止使用会随实体重建变化的临时 ID。
 - `InventoryTransactionService.configureEffects({ effectResolver, getEntityId, baseResourceCapacity })` 是资源容量效果的统一入口；material/resource 的容量预检消费 `resourceCapacity`，不得在 Demo 另写职业容量分支。
+- plain world item 拾取时，`ItemLifecycleService` 必须从 world item 与 `ItemProjectionComponent` 统一解析 `instanceId`，并只把定义字段、稳定 `imageId/assetId`、sprite 和 `durability/binding/charges/container` 可变状态写入库存；位置、placement 等世界字段不得进入库存。工具获得提示只能在库存、世界对象、checkpoint 和 state revision 全部提交后的 finalize 阶段显示，失败或命令排队阶段不得提前提示。
+- `PickupSystem.onResult` 只负责失败反馈：`inventoryFull/resourceCapacityFull/insufficientCapacity` 必须显示明确的容量原因；成功提示仍由 `ItemLifecycleService` finalize 后的 `SceneItemGainedFlow` 发布，禁止在输入或 scheduled 阶段重复提示。
+- 普通拾取、主动丢弃、战利品、DeathDrop 与剧情发现统一经 `CommandGateway → LocalAuthorityAdapter → PostCommitNotificationBus` 发布 `item.picked`、`item.dropped`、`item.deathDropCreated` 或 `worldItem.revealed`；Trigger、教程、通知、音效、跳跃和星光都是 committed application event 的辅助消费者，失败不得回滚已经成立的业务事实，也不得以 `TriggerSystem.fire()/fireById()` 的 accepted 结果冒充提交成功。
+- `ScenePlacementRuntime.spawn()` 的 `ok:true` 只表示调用完成；剧情发现必须同时确认 `errors.length===0`、`counts.total>0` 且目标位于本次 `entities`，再发布 reveal。`matchedPlacements` 只表示选择器命中，不能证明对象真实生成。restore/rebuild 只恢复表现，不发布新发现事件。
+- 剧情事务已提交但 placement/reveal 暂时失败时，只允许在当前运行会话维护有界职责的 pending reveal 补偿，并使用稳定 operationId 退避重试；补偿成功后再恢复被延后的教程/熟练度等辅助 continuation。pending reveal 不进入存档，冷启动或 restore 只按已提交 StoryState 静默重建对象，禁止把恢复对象重新播成“新发现”。
+- 掉落跳跃只能通过 `SceneWorldItemEventPresenter.getRenderOffset()` 修改绘制偏移，禁止修改 plain item 的 `x/y` 或 ECS Transform，否则会污染拾取距离、点击、Y-sort 和存档。一次性星光复用 `ParticleSystem.emitBurst()` 的 `shape:'star'`，不创建持续 effectZone；同批多物品按 eventId 去重并错峰表现。
+- `TutorialSystem.notify()` 只允许当前已显示教程消费 committed 信号，禁止事件在后台提前完成未来教程。教程只负责说明和完成反馈，不拥有剧情、库存、placement 或 StoryState。
+- S01 `story.s01.findAxe` 只提交 `axeDropped:true`；`story.s01.axeFound` 只由 `S01-pickup-worn-axe` 的 committed `item.picked` 派生并提交 `axeFound:true`。`berriesGathered` 前置检查 `axeDropped`，不得再把“落地/发现”和“已拾取”合并为同一字段。
 - `GatheringSystem` 区分 `owner` 与 `actor`：库存、工具和职业效果属于 owner，距离、移动中断和实际采集主体属于 actor。玩家本人采集时两者相同，傀儡采集时不得把产物写入傀儡。
 - `GatheringSystem` 只发出采集业务事件；`GatheringProgressPresenter` 是只读世界空间表现，started/progress 按实际 actor 的 Transform/Sprite 在头顶绘制，completed/interrupted 必须清理。禁止用全局文字提示逐帧显示百分比，也禁止 Presenter 持有库存、节点或采集业务状态。
 - 场景策略通过 `GatheringSystem.setSettlementPolicy()` 参与 `prepare → inventory/node/tool commit → policy commit`；策略前置失败必须零修改，策略提交失败必须回滚库存、节点、工具和策略状态并释放内部 operationId。

@@ -23,9 +23,9 @@ export class SceneItemGainedFlow {
     this.queue = [];
   }
 
-  /** 将一件已入背包的食物或装备加入待处理队列。 */
+  /** 将一件已入背包的装备、消耗品或工具加入待处理队列。 */
   onItemGained(item, player = null) {
-    if (!item || (item.type !== 'equipment' && item.type !== 'consumable')) return;
+    if (!item || !['equipment', 'consumable', 'tool'].includes(item.type)) return;
 
     const scene = this.scene;
     const quantity = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';

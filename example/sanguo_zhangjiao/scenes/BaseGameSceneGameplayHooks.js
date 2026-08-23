@@ -52,7 +52,9 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
   }
 
   isPlayerActionLocked() {
-    return this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true;
+    return this.playerEntity?.isDead === true
+      || Boolean(this.playerDeathCountdown?.pending)
+      || this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true;
   }
 
   /** 基础攻击默认只在战斗状态开放；具体场景可覆盖以支持训练或可破坏物。 */

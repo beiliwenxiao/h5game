@@ -395,20 +395,6 @@
           "y": 410
         },
         {
-          "group": "S01-small-shelter",
-          "id": "S01-small-shelter-1",
-          "kind": "item",
-          "ref": "story.s01.small_shelter",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "equals": true,
-            "path": "s01Survival.shelterCompleted"
-          },
-          "type": "ref",
-          "x": 681.9982370742024,
-          "y": 490.068467429877
-        },
-        {
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-1",
           "kind": "enemy",
@@ -418,10 +404,7 @@
             "gte": 1,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 350,
           "y": 610
@@ -436,10 +419,7 @@
             "gte": 2,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 455,
           "y": 650
@@ -454,10 +434,7 @@
             "gte": 3,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 565,
           "y": 625
@@ -472,10 +449,7 @@
             "gte": 4,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 275,
           "y": 570
@@ -490,10 +464,7 @@
             "gte": 5,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 410,
           "y": 565
@@ -508,10 +479,7 @@
             "gte": 6,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 535,
           "y": 590
@@ -526,10 +494,7 @@
             "gte": 7,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 205,
           "y": 520
@@ -544,10 +509,7 @@
             "gte": 8,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 330,
           "y": 525
@@ -562,10 +524,7 @@
             "gte": 9,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 465,
           "y": 540
@@ -580,10 +539,7 @@
             "gte": 10,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 150,
           "y": 470
@@ -598,10 +554,7 @@
             "gte": 11,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 260,
           "y": 455
@@ -616,10 +569,7 @@
             "gte": 12,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 380,
           "y": 475
@@ -634,10 +584,7 @@
             "gte": 13,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 95,
           "y": 420
@@ -652,10 +599,7 @@
             "gte": 14,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 215,
           "y": 405
@@ -670,10 +614,7 @@
             "gte": 15,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 335,
           "y": 425
@@ -688,10 +629,7 @@
             "gte": 16,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 70,
           "y": 365
@@ -706,10 +644,7 @@
             "gte": 17,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 185,
           "y": 350
@@ -724,10 +659,7 @@
             "gte": 18,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 300,
           "y": 370
@@ -742,10 +674,7 @@
             "gte": 19,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 115,
           "y": 320
@@ -760,13 +689,24 @@
             "gte": 20,
             "path": "s01Survival.pursuit.spawned"
           },
-          "tags": [
-            "wolf",
-            "pursuit"
-          ],
+          "tags": ["wolf", "pursuit"],
           "type": "ref",
           "x": 240,
           "y": 305
+        },
+        {
+          "group": "S01-small-shelter",
+          "id": "S01-small-shelter-1",
+          "kind": "item",
+          "ref": "story.s01.small_shelter",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.shelterCompleted"
+          },
+          "type": "ref",
+          "x": 681.9982370742024,
+          "y": 490.068467429877
         }
       ],
       "visible": true
@@ -811,24 +751,24 @@
             "all": [
               {
                 "equals": true,
-                "path": "s01Survival.wolfSkinned"
+                "path": "s01Survival.meatCooked"
               },
               {
                 "equals": false,
-                "path": "s01Survival.backpackCrafted"
+                "path": "s01Survival.wolfGearCrafted"
               }
             ]
           },
           "event": "interact",
           "height": 70,
-          "id": "S01-binding-craft-backpack",
-          "name": "制作六格小背包",
+          "id": "S01-binding-craft-wolf-gear",
+          "name": "制作狼皮装备",
           "pointerRadius": 42,
-          "prompt": "{interact}用狼皮和木材制作六格小背包",
+          "prompt": "{interact}制作狼皮背心和狼皮护腕",
           "radius": 90,
           "target": "S01-craft-marker",
           "targetMode": "id",
-          "triggerId": "trg_s01_craft_backpack",
+          "triggerId": "trg_s01_craft_wolf_gear",
           "type": "trigger",
           "width": 70,
           "x": 505,
@@ -848,10 +788,6 @@
               {
                 "equals": false,
                 "path": "s01Survival.firstWolfSpotted"
-              },
-              {
-                "equals": false,
-                "path": "s01Survival.backpackCrafted"
               }
             ]
           },
@@ -875,7 +811,7 @@
             "all": [
               {
                 "equals": true,
-                "path": "s01Survival.backpackCrafted"
+                "path": "s01Survival.wolfSkinned"
               },
               {
                 "equals": false,
@@ -904,6 +840,10 @@
               {
                 "equals": true,
                 "path": "s01Survival.meatCooked"
+              },
+              {
+                "equals": true,
+                "path": "s01Survival.wolfGearCrafted"
               },
               {
                 "equals": false,
@@ -1020,7 +960,7 @@
           "id": "S01-binding-climb-vine",
           "name": "攀藤逃往 S02",
           "pointerRadius": 54,
-          "prompt": "{climb}攀上藤蔓逃往 S02",
+          "prompt": "{climb}攀上藤蔓逃离狼群",
           "radius": 100,
           "target": "S01-cliff-vine",
           "targetMode": "id",

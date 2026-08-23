@@ -203,8 +203,16 @@ export class SceneGameplaySystemAssembler {
       inventoryTransactions: scene.inventoryTransactions,
       entityFactory: scene.entityFactory,
       entityStore: scene.entityStore,
-      revivePlayer: player => scene.combatSystem.revivePlayer(player, { hp: 1, mp: 1 }),
-      respawnResolver: context => scene.resolvePlayerRespawnPosition?.(context) || null,
+      revivePlayer: player => scene.combatSystem.revivePlayer(player),
+      respawnResolver: ({ player, resolution } = {}) => {
+        if (resolution?.type !== 'specialFaint') {
+          const position = player?.getComponent?.('transform')?.position;
+          return Number.isFinite(position?.x) && Number.isFinite(position?.y)
+            ? { x: position.x, y: position.y, label: '倒下的位置' }
+            : null;
+        }
+        return scene.resolvePlayerRespawnPosition?.({ player, resolution }) || null;
+      },
       getDeathDropPresentation: context => scene.getDeathDropPresentation?.(context) || {},
       onResolved: result => {
         const policy = scene.context?.services?.defeatPolicy;
@@ -220,14 +228,36 @@ export class SceneGameplaySystemAssembler {
       payload: { deathId, resolution, checkpointId: `checkpoint.${deathId}` }
     }) || { ok: false, code: 'deathCommandUnavailable' };
     scene.playerDeathCountdown = new PlayerDeathCountdown({
-      durationSeconds: 10,
+      durationSeconds: 5,
       show: text => scene._showScreenTip?.(text, { title: '死亡', owner: 'playerDeath', persist: true }),
       hide: () => scene._hintPresenter?.hideScreen?.('playerDeath'),
+      onAwaitConfirmation: () => {
+        const view = scene.irreversibleChoiceView;
+        if (!view) return false;
+        view.open({
+          title: '确认复活',
+          description: '等待结束。确认后将在倒下的位置恢复生命与法力。',
+          warning: '确认前角色保持死亡状态，世界操作已锁定',
+          allowCancel: false,
+          selectedId: 'revive',
+          choices: [{
+            id: 'revive',
+            label: '原地复活',
+            consequences: ['恢复全部生命与法力', '结算死亡资源损失', '死亡掉落留在原地']
+          }]
+        });
+        return true;
+      },
       onComplete: executePlayerDeath
     });
     scene.sceneRuntime?.onUpdate?.(deltaTime => scene.playerDeathCountdown?.update(deltaTime));
     scene.sceneRuntime?.addDisposer?.(
-      () => scene.playerDeathCountdown?.dispose?.(),
+      () => {
+        const reviveChoiceOpen = scene.irreversibleChoiceView?.snapshot?.choices
+          ?.some?.(choice => choice?.id === 'revive') === true;
+        scene.playerDeathCountdown?.dispose?.();
+        if (reviveChoiceOpen) scene.irreversibleChoiceView?.close?.();
+      },
       'player-death-countdown'
     );
 

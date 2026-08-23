@@ -3561,7 +3561,7 @@
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 42, "height": 42 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     },
     {
-      "assetId": "s01.enemy.wolf", "imageId": "s01.enemy.wolf", "category": "character-static", "usage": ["S01", "enemy", "wolf-pursuit"],
+      "assetId": "s01.enemy.wolf", "imageId": "s01.enemy.wolf", "category": "character-static", "usage": ["S01", "enemy", "tutorial-wolf", "corpse-harvest", "wolf-pursuit"],
       "sourceFile": "assets/images/s01/wild-wolf.svg", "runtime2D": { "path": "assets/images/s01/wild-wolf.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.enemy.wolf" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 68, "height": 48 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     },
@@ -3576,9 +3576,14 @@
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 48, "height": 38 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     },
     {
-      "assetId": "s01.item.smallBackpack", "imageId": "s01.item.smallBackpack", "category": "item", "usage": ["S01", "backpack", "crafting"],
-      "sourceFile": "assets/images/s01/small-backpack.svg", "runtime2D": { "path": "assets/images/s01/small-backpack.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.item.smallBackpack" },
-      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 44, "height": 48 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+      "assetId": "s01.equipment.wolfHideVest", "imageId": "s01.equipment.wolfHideVest", "category": "equipment", "usage": ["S01", "armor", "crafting"],
+      "sourceFile": "assets/images/s01/wolf-hide-vest.svg", "runtime2D": { "path": "assets/images/s01/wolf-hide-vest.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.equipment.wolfHideVest" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 46, "height": 52 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.equipment.wolfHideBracers", "imageId": "s01.equipment.wolfHideBracers", "category": "equipment", "usage": ["S01", "accessory", "crafting"],
+      "sourceFile": "assets/images/s01/wolf-hide-bracers.svg", "runtime2D": { "path": "assets/images/s01/wolf-hide-bracers.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.equipment.wolfHideBracers" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 48, "height": 40 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     },
     {
       "assetId": "s01.food.roastedWolfMeat", "imageId": "s01.food.roastedWolfMeat", "category": "item", "usage": ["S01", "food", "healing"],

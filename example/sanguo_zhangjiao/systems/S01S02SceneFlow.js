@@ -2,9 +2,11 @@ const SPECIAL_FAINT_LABELS = Object.freeze({
   passerby: '路人救援', patrol: '小股官兵救援', temporaryCamp: '临时扎营'
 });
 
-const CHASE_WOLF_PREFIX = 'S01-chase-wolf-';
 const REFUEL_PROGRESS_OWNER = 'campfireRefuel';
 const REFUEL_DURATION_SECONDS = 1;
+const CHASE_WOLF_PREFIX = 'S01-chase-wolf-';
+const MAX_CHASE_WOLVES = 20;
+const PURSUIT_RECONCILE_INTERVAL_SECONDS = 0.75;
 
 /** P1.1/P1.3 S01 生存流程协调器；领域写入统一提交 canonical command。 */
 export class S01S02Coordinator {
@@ -14,6 +16,8 @@ export class S01S02Coordinator {
     this.sequence = 0;
     this.refuelCampfireInFlight = null;
     this.refuelCampfireProgress = null;
+    this.pursuitReconcileElapsed = 0;
+    this.pursuitReconcileInFlight = false;
     this.pendingAxeDiscovery = false;
     this.initialToolRevealPending = false;
     this.initialToolRevealRetryElapsed = 0;
@@ -79,13 +83,17 @@ export class S01S02Coordinator {
     return true;
   }
 
-  _activateFirstWolf(wolf = this.scene.entityStore?.getById?.('S01-first-wolf-1')) {
+  _activateWolf(wolf) {
     const player = this.scene.playerEntity;
     if (!wolf || !player || wolf.isDead || wolf.isDying) return false;
     const combat = wolf.getComponent?.('combat');
     if (!combat || this.scene.aiSystem?.activateAI?.(wolf, 'aggressive') !== true) return false;
     if (!combat.hasTarget?.() || combat.target !== player) combat.setTarget?.(player);
     return true;
+  }
+
+  _activateFirstWolf(wolf = this.scene.entityStore?.getById?.('S01-first-wolf-1')) {
+    return this._activateWolf(wolf);
   }
 
   _createFirstWolfContinuation() {
@@ -160,6 +168,44 @@ export class S01S02Coordinator {
       result,
       target
     };
+  }
+
+  async _reconcileWolfPursuit() {
+    const pursuit = this._story().s01Survival?.pursuit;
+    if (this.scene.currentSceneId !== 'S01' || pursuit?.active !== true) return true;
+    if (this.pursuitReconcileInFlight) return true;
+
+    this.pursuitReconcileInFlight = true;
+    try {
+      const spawned = Math.min(MAX_CHASE_WOLVES, Math.max(0, Math.floor(Number(pursuit.spawned) || 0)));
+      const result = await this._spawnGroup('S01-chase-wolves');
+      if (result?.ok !== true || (result.errors || []).length > 0) {
+        console.warn('[S01S02Coordinator] 追逐狼放置未完整成立，等待补偿', result);
+        return false;
+      }
+
+      const missing = [];
+      for (let index = 1; index <= spawned; index += 1) {
+        const entityId = `${CHASE_WOLF_PREFIX}${index}`;
+        const wolf = this.scene.entityStore?.getById?.(entityId);
+        if (!wolf) {
+          missing.push(entityId);
+          continue;
+        }
+        if (wolf.isDead || wolf.isDying || !wolf.getComponent?.('combat')) continue;
+        this._activateWolf(wolf);
+      }
+      if (missing.length > 0) {
+        console.warn('[S01S02Coordinator] 追逐狼仍有缺失，等待补偿', missing);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.warn('[S01S02Coordinator] 追逐狼补偿异常', error);
+      return false;
+    } finally {
+      this.pursuitReconcileInFlight = false;
+    }
   }
 
   _presentS01GatherTutorial() {
@@ -434,7 +480,7 @@ export class S01S02Coordinator {
     if (isWolfHide) {
       const result = await this._submit('story.s01.wolfSkinned', {}, 'story:s01:wolf-skinned');
       if (result.ok) {
-        this.scene._showScreenTip('狼皮已收好。带上木材，到制作点做一个六格小背包。', { title: '获得狼皮' });
+        this.scene._showScreenTip('狼皮已经剥下。带一份木材回到篝火旁烤制狼肉。', { title: '获得狼皮' });
       }
       return result.ok === true;
     }
@@ -482,7 +528,7 @@ export class S01S02Coordinator {
       return result.ok === true;
     }
     if (item.id === 'food.roasted_wolf_meat') {
-      this.scene._showScreenTip('烤狼肉恢复了生命。剩下的木材足够在篝火旁搭一座小庇护所。', {
+      this.scene._showScreenTip('烤狼肉恢复了生命。', {
         title: '恢复生命'
       });
       return true;
@@ -492,28 +538,27 @@ export class S01S02Coordinator {
 
   async handleEnemyKilled(entity) {
     if (this.scene.currentSceneId !== 'S01' || !entity?.id) return false;
-    if (entity.id === 'S01-first-wolf-1') {
-      const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
+    if (entity.id.startsWith(CHASE_WOLF_PREFIX)) {
+      const result = await this._submit(
+        'story.s01.chase.kill',
+        {},
+        `story:s01:chase-kill:${entity.id}`
+      );
       if (!result.ok) return false;
-      const corpse = this.scene.context.services.corpses?.capture?.(entity);
-      if (!corpse || !entity.getComponent?.('resourceNode')) return false;
-      this.scene._showScreenTip('野狼倒下了。背包里有剥皮刀时，靠近尸体，{harvest}剥取狼皮。', {
-        title: '猎狼与剥皮'
-      });
+      await this._reconcileWolfPursuit();
       return true;
     }
-    if (!entity.id.startsWith(CHASE_WOLF_PREFIX)) return false;
-    const result = await this._submit('story.s01.chase.kill', { wolfId: entity.id }, `story:s01:chase-kill:${entity.id}`);
-    if (result.ok) await this._reconcileWolfPursuit();
-    return result.ok === true;
-  }
-
-  async _reconcileWolfPursuit() {
-    const pursuit = this._story().s01Survival?.pursuit || {};
-    const count = Math.min(20, Math.max(0, Math.floor(Number(pursuit.spawned) || 0)));
-    if (count <= 0) return true;
-    const placementIds = Array.from({ length: count }, (_, index) => `${CHASE_WOLF_PREFIX}${index + 1}`);
-    await this.scene.context.services.placements?.spawn?.({ placementIds });
+    if (entity.id !== 'S01-first-wolf-1') return false;
+    const corpse = this.scene.context.services.corpses?.capture?.(entity);
+    if (!corpse || !entity.getComponent?.('resourceNode')) {
+      console.warn('[S01S02Coordinator] 首狼死亡后尸体采集节点未成立，暂不提交击杀剧情');
+      return false;
+    }
+    const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
+    if (!result.ok) return false;
+    this.scene._showScreenTip('野狼倒下了。靠近贴地的狼尸，使用剥皮刀通过 {harvest} 剥取两份狼皮。', {
+      title: '猎狼与剥皮'
+    });
     return true;
   }
 
@@ -539,8 +584,8 @@ export class S01S02Coordinator {
   async startShelterConstruction() {
     if (this.scene.currentSceneId !== 'S01' || !this.scene.constructionSystem) return false;
     const survival = this._story().s01Survival || {};
-    if (!survival.backpackCrafted || !survival.meatCooked) {
-      this.scene._showScreenTip('先制作六格小背包并烤好狼肉，再用木材搭建庇护所。', { title: '准备不足' });
+    if (!survival.meatCooked || !survival.wolfGearCrafted) {
+      this.scene._showScreenTip('先烤制狼肉，再制作狼皮背心和狼皮护腕，之后才能搭建庇护所。', { title: '准备不足' });
       return false;
     }
     const siteId = 'site.s01.small_shelter';
@@ -731,6 +776,10 @@ export class S01S02Coordinator {
 
   async handleAction(params = {}, eventData = {}) {
     const operation = params.operation || params.type;
+    if (operation === 'reconcilePursuit') {
+      await this._reconcileWolfPursuit();
+      return true;
+    }
     if (operation === 'presentEntry') {
       const survival = this._story().s01Survival || {};
       this._applyS01WeatherPhase(survival);
@@ -779,14 +828,14 @@ export class S01S02Coordinator {
       return true;
     }
     if (operation === 'refuelCampfire') return this.refuelCampfire();
-    if (operation === 'craftBackpack') {
+    if (operation === 'craftWolfGear') {
       const survival = this._story().s01Survival || {};
-      if (survival.backpackCrafted === true) {
-        this.scene._showScreenTip('六格小背包已经制作完成，不需要重复消耗材料。', { title: '制作已完成' });
+      if (survival.wolfGearCrafted === true) {
+        this.scene._showScreenTip('狼皮背心和狼皮护腕已经制作完成。', { title: '制作已完成' });
         return { ok: true, status: 'blocked' };
       }
-      if (survival.wolfSkinned !== true) {
-        this.scene._showScreenTip('先击败野狼并用剥皮刀处理狼尸，取得狼皮后才能制作背包。', { title: '缺少狼皮' });
+      if (survival.meatCooked !== true) {
+        this.scene._showScreenTip('先回到篝火旁烤制狼肉，再处理剩余狼皮。', { title: '先烤狼肉' });
         return { ok: true, status: 'blocked' };
       }
       const inventory = this.scene.playerEntity?.getComponent?.('inventory');
@@ -794,21 +843,19 @@ export class S01S02Coordinator {
         this.scene._showScreenTip('背包系统尚未就绪，制作没有开始。', { title: '制作失败' });
         return { ok: false, code: 'inventoryUnavailable' };
       }
-      const woodCount = inventory.getItemCount('resource.wood');
       const hideCount = inventory.getItemCount('resource.wolf_hide');
-      const missing = [];
-      if (woodCount < 2) missing.push(`木材还缺 ${2 - woodCount} 份（现有 ${woodCount}/2）`);
-      if (hideCount < 1) missing.push(`狼皮还缺 ${1 - hideCount} 张（现有 ${hideCount}/1）`);
-      if (missing.length > 0) {
-        this.scene._showScreenTip(`制作六格小背包需要木材 2 份、狼皮 1 张；${missing.join('，')}。`, { title: '材料不足' });
+      if (hideCount < 2) {
+        this.scene._showScreenTip(`制作狼皮背心和狼皮护腕需要狼皮 2 份，现有 ${hideCount}/2。`, { title: '材料不足' });
         return { ok: true, status: 'blocked' };
       }
-      const result = await this._submit('story.s01.craftBackpack', {}, 'story:s01:craft-backpack');
+      const result = await this._submit('story.s01.craftWolfGear', {}, 'story:s01:craft-wolf-gear');
       if (!result.ok) {
-        this.scene._showScreenTip(`制作结算失败：${result.code || 'unknown'}。材料和剧情状态未改变，请重试。`, { title: '制作失败' });
+        this.scene._showScreenTip(`制作结算失败：${result.code || 'unknown'}。狼皮和剧情状态未改变，请重试。`, { title: '制作失败' });
         return result;
       }
-      this.scene._showScreenTip('你把狼皮与木条缝扎成一个六格小背包。接着在篝火旁烤制狼肉。', { title: '六格小背包' });
+      this.scene._showScreenTip('你将狼皮裁成背心和护腕。两件装备已经放入背包，可以在装备栏中穿戴；接下来搭建小庇护所。', {
+        title: '狼皮装备完成'
+      });
       return { ok: true };
     }
     if (operation === 'cookMeat') {
@@ -817,8 +864,8 @@ export class S01S02Coordinator {
         this.scene._showScreenTip('狼肉已经烤熟，不需要重复消耗木材和生肉。', { title: '烹饪已完成' });
         return { ok: true, status: 'blocked' };
       }
-      if (survival.backpackCrafted !== true) {
-        this.scene._showScreenTip('先用狼皮和木材制作六格小背包，再回到篝火旁烤制狼肉。', { title: '先制作背包' });
+      if (survival.wolfSkinned !== true) {
+        this.scene._showScreenTip('先靠近第一只野狼的尸体，用剥皮刀取下狼皮。', { title: '先处理狼尸' });
         return { ok: true, status: 'blocked' };
       }
       const inventory = this.scene.playerEntity?.getComponent?.('inventory');
@@ -846,7 +893,7 @@ export class S01S02Coordinator {
       if (ignited !== true) {
         console.warn('[S01S02Coordinator] 烹饪事务已提交，但篝火重燃表现失败');
       }
-      this.scene._showScreenTip('你添柴重新点旺篝火，狼肉烤熟了。烤狼肉可以在受伤时恢复生命；现在用木材搭一座小庇护所。', { title: '烤狼肉' });
+      this.scene._showScreenTip('你添柴重新点旺篝火，狼肉已经烤熟。接下来到制作点把两份狼皮做成背心和护腕。', { title: '烤狼肉' });
       return { ok: true };
     }
     if (operation === 'buildShelter') return this.startShelterConstruction(params);
@@ -856,9 +903,12 @@ export class S01S02Coordinator {
       if (!result.ok) return false;
       this.scene.timeSystem?.setCurrentDay?.(2);
       this._applyS01WeatherPhase(this._story().s01Survival || {}, { force: true });
-      await this._reconcileWolfPursuit();
-      this.scene._showScreenTip('漫长的一夜过去。你收好火种，三只闻到肉香的野狼追了过来——赶紧沿河道逃跑！杀死一只会引来两只，最多二十只。', {
-        title: '第二天：狼群追逐', persist: true
+      const reconciled = await this._reconcileWolfPursuit();
+      if (!reconciled) {
+        console.warn('[S01S02Coordinator] 过夜追杀事实已提交，追逐狼将在后续帧补偿');
+      }
+      this.scene._showScreenTip('天刚放亮，三只野狼已经循着气味追来！不要恋战；每杀一只还会引来两只，最多二十只。沿河逃跑，{jump}跳石过河，再攀上山崖藤蔓。', {
+        title: '狼群追杀：赶紧逃跑', persist: true
       });
       return true;
     }
@@ -873,7 +923,6 @@ export class S01S02Coordinator {
       return result.ok === true;
     }
     if (operation === 'climbVine') return this._startVineClimb();
-    if (operation === 'reconcilePursuit') return this._reconcileWolfPursuit();
     return false;
   }
 
@@ -910,6 +959,16 @@ export class S01S02Coordinator {
     const tutorialFlow = this.scene._tutorialFlow;
     const survival = this._story().s01Survival || {};
     this._applyS01WeatherPhase(survival);
+    if (survival.pursuit?.active === true) {
+      this.pursuitReconcileElapsed += dt;
+      if (this.pursuitReconcileElapsed >= PURSUIT_RECONCILE_INTERVAL_SECONDS
+        && !this.pursuitReconcileInFlight) {
+        this.pursuitReconcileElapsed = 0;
+        void this._reconcileWolfPursuit();
+      }
+    } else {
+      this.pursuitReconcileElapsed = 0;
+    }
     const pickupNeedsRecovery = tutorialFlow
       && survival.campfireLit === true
       && survival.axeDropped === true

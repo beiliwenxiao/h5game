@@ -124,7 +124,7 @@ export class IrreversibleChoiceView extends UIElement {
     ctx.fillText(this.snapshot.description || '选择确认后不可更改。', layout.x + layout.width / 2, layout.y + 56);
     ctx.fillStyle = '#efb45c';
     ctx.font = '12px Arial';
-    ctx.fillText('选择不可逆，请确认后果', layout.x + layout.width / 2, layout.y + 82);
+    ctx.fillText(this.snapshot.warning || '选择不可逆，请确认后果', layout.x + layout.width / 2, layout.y + 82);
     layout.cards.forEach((box, index) => this._renderChoice(ctx, box, this.snapshot.choices[index]));
     ctx.fillStyle = this.busy ? '#f0cf77' : '#c9c9c9';
     ctx.font = '13px Arial';

@@ -904,7 +904,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return result;
   }
 
-  /** CombatSystem 的统一击杀出口；历史狼群规则不进入框架战斗系统。 */
+  /** CombatSystem 的统一击杀出口；首狼尸体与剥皮任务由 Demo coordinator 编排。 */
   onEnemyKilled(entity) {
     void this._s01s02Coordinator.handleEnemyKilled(entity);
   }

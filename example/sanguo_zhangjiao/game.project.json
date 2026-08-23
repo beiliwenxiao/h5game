@@ -626,7 +626,6 @@
         "axeFound": false,
         "skinningKnifeFound": false,
         "initialToolsPicked": false,
-        "backpackCrafted": false,
         "berriesGathered": false,
         "berryEaten": false,
         "berryGatherCount": 0,
@@ -639,16 +638,19 @@
         "firstWolfSpotted": false,
         "meatCooked": false,
         "overnightCompleted": false,
-        "wolfWeatherCleared": false,
-        "wolfWeatherCountdownStarted": false,
         "pursuit": {
           "active": false,
           "killed": 0,
           "spawned": 0
         },
+        "wolfWeatherCleared": false,
+        "wolfWeatherCountdownStarted": false,
         "riverCrossed": false,
         "shelterCompleted": false,
+        "wolfBracersCrafted": false,
+        "wolfGearCrafted": false,
         "wolfSkinned": false,
+        "wolfVestCrafted": false,
         "woodGathered": false
       },
       "storyTags": [],
@@ -2895,11 +2897,11 @@
           "action": "s01Survival",
           "await": true,
           "params": {
-            "operation": "craftBackpack"
+            "operation": "craftWolfGear"
           }
         }
       ],
-      "id": "trg_s01_craft_backpack",
+      "id": "trg_s01_craft_wolf_gear",
       "once": false,
       "when": {
         "params": {},
@@ -4916,7 +4918,7 @@
       "order": 6,
       "steps": [
         {
-          "text": "狼群追来后，{jump}跳过河中石块，逃到对岸。"
+          "text": "狼群追来后，使用 {jump} 跳过河中石块逃到对岸。"
         }
       ],
       "signalRules": [
@@ -4931,7 +4933,7 @@
     },
     {
       "id": "s01.capacity",
-      "title": "六格背包与攀藤",
+      "title": "容量规划与攀藤",
       "category": "s01-survival",
       "scope": {
         "sceneIds": [
@@ -5064,16 +5066,40 @@
         "subType": "hide"
       },
       {
-        "id": "item.small_backpack",
-        "name": "六格小背包",
-        "type": "story",
-        "imageId": "s01.item.smallBackpack",
+        "id": "equipment.s01.wolf_hide_vest",
+        "name": "狼皮背心",
+        "type": "equipment",
+        "imageId": "s01.equipment.wolfHideVest",
+        "assetId": "s01.equipment.wolfHideVest",
         "maxStack": 1,
+        "rarity": 1,
         "sprite": {
-          "height": 48,
-          "width": 44
+          "height": 52,
+          "width": 46
         },
-        "subType": "container"
+        "stats": {
+          "defense": 2,
+          "maxHp": 6
+        },
+        "subType": "armor"
+      },
+      {
+        "id": "equipment.s01.wolf_hide_bracers",
+        "name": "狼皮护腕",
+        "type": "equipment",
+        "imageId": "s01.equipment.wolfHideBracers",
+        "assetId": "s01.equipment.wolfHideBracers",
+        "maxStack": 1,
+        "rarity": 1,
+        "sprite": {
+          "height": 40,
+          "width": 48
+        },
+        "stats": {
+          "attack": 1,
+          "defense": 1
+        },
+        "subType": "accessory"
       },
       {
         "id": "food.roasted_wolf_meat",
@@ -5909,13 +5935,14 @@
         "name": "野狼尸体",
         "resourceType": "food",
         "itemId": "resource.wolf_hide",
-        "remaining": 1,
-        "maxRemaining": 1,
-        "yieldPerGather": 1,
+        "remaining": 2,
+        "maxRemaining": 2,
+        "yieldPerGather": 2,
         "gatherDuration": 1.8,
         "interactionRadius": 70,
         "requiredToolType": "skinningKnife",
         "refreshDays": 0,
+        "refreshMode": "none",
         "guardUnitIds": [],
         "riskEvents": [],
         "damageRatio": 0,
@@ -6517,50 +6544,6 @@
     },
     {
       "commandType": "state.transaction",
-      "id": "story.s01.craftBackpack",
-      "transaction": {
-        "inventory": {
-          "addEntries": [
-            {
-              "itemId": "item.small_backpack",
-              "quantity": 1
-            }
-          ],
-          "removeEntries": [
-            {
-              "itemId": "resource.wood",
-              "quantity": 2
-            },
-            {
-              "itemId": "resource.wolf_hide",
-              "quantity": 1
-            }
-          ],
-          "type": "batchExchange"
-        },
-        "when": {
-          "all": [
-            {
-              "equals": true,
-              "path": "story.s01Survival.wolfSkinned"
-            },
-            {
-              "equals": false,
-              "path": "story.s01Survival.backpackCrafted"
-            }
-          ]
-        },
-        "writes": [
-          {
-            "path": "s01Survival.backpackCrafted",
-            "target": "story",
-            "value": true
-          }
-        ]
-      }
-    },
-    {
-      "commandType": "state.transaction",
       "id": "story.s01.cookMeat",
       "transaction": {
         "inventory": {
@@ -6586,7 +6569,7 @@
           "all": [
             {
               "equals": true,
-              "path": "story.s01Survival.backpackCrafted"
+              "path": "story.s01Survival.wolfSkinned"
             },
             {
               "equals": false,
@@ -6597,6 +6580,60 @@
         "writes": [
           {
             "path": "s01Survival.meatCooked",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.craftWolfGear",
+      "transaction": {
+        "inventory": {
+          "addEntries": [
+            {
+              "itemId": "equipment.s01.wolf_hide_vest",
+              "quantity": 1
+            },
+            {
+              "itemId": "equipment.s01.wolf_hide_bracers",
+              "quantity": 1
+            }
+          ],
+          "removeEntries": [
+            {
+              "itemId": "resource.wolf_hide",
+              "quantity": 2
+            }
+          ],
+          "type": "batchExchange"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.meatCooked"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfGearCrafted"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.wolfVestCrafted",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.wolfBracersCrafted",
+            "target": "story",
+            "value": true
+          },
+          {
+            "path": "s01Survival.wolfGearCrafted",
             "target": "story",
             "value": true
           }
@@ -6617,6 +6654,10 @@
             {
               "equals": true,
               "path": "story.s01Survival.meatCooked"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfGearCrafted"
             },
             {
               "equals": false,
@@ -6696,8 +6737,16 @@
       "id": "story.s01.chase.kill",
       "transaction": {
         "when": {
-          "equals": true,
-          "path": "story.s01Survival.pursuit.active"
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.pursuit.active"
+            },
+            {
+              "lte": 19,
+              "path": "story.s01Survival.pursuit.killed"
+            }
+          ]
         },
         "writes": [
           {
@@ -6706,8 +6755,7 @@
             "value": {
               "$add": [
                 {
-                  "$get": "story.s01Survival.pursuit.killed",
-                  "default": 0
+                  "$get": "story.s01Survival.pursuit.killed"
                 },
                 1
               ]
@@ -6722,8 +6770,7 @@
                 {
                   "$add": [
                     {
-                      "$get": "story.s01Survival.pursuit.spawned",
-                      "default": 3
+                      "$get": "story.s01Survival.pursuit.spawned"
                     },
                     2
                   ]
@@ -6740,6 +6787,10 @@
       "transaction": {
         "when": {
           "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.overnightCompleted"
+            },
             {
               "equals": true,
               "path": "story.s01Survival.pursuit.active"
@@ -6812,11 +6863,6 @@
             "value": true
           },
           {
-            "path": "s01Survival.pursuit.active",
-            "target": "story",
-            "value": false
-          },
-          {
             "path": "currentSceneId",
             "target": "story",
             "value": "S02"
@@ -6830,6 +6876,11 @@
             "path": "specialFaintRescueType",
             "target": "story",
             "value": null
+          },
+          {
+            "path": "s01Survival.pursuit.active",
+            "target": "story",
+            "value": false
           },
           {
             "path": "unlockedScenes",

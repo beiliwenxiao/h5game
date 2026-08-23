@@ -112,6 +112,20 @@ const commandMethods = {
   },
 
   handleIrreversibleChoice(command = {}) {
+    const deathCountdown = this.playerDeathCountdown;
+    if (deathCountdown?.awaitingConfirmation === true) {
+      if (command.type !== 'selectChoice' || command.choiceId !== 'revive') return true;
+      const view = this.irreversibleChoiceView;
+      view?.setBusy?.(true);
+      return deathCountdown.confirm().then(result => {
+        if (result?.ok) view?.close?.();
+        else {
+          view?.setBusy?.(false);
+          this._showScreenTip('复活结算失败，资源和死亡状态未改变，请再次确认。', { title: '复活失败' });
+        }
+        return result?.ok === true;
+      });
+    }
     if (this.currentSceneId === 'S06') return this.s06SceneCoordinator._handleS06DefenseChoiceCommand(command);
     if (this.currentSceneId === 'S08') return this.s07s08Coordinator._handleS08RetreatChoiceCommand(command);
     if (this.currentSceneId === 'S14') return this.s11s14SceneCoordinator._handleS14FinalDoctrineCommand(command);

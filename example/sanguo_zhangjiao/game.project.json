@@ -637,6 +637,8 @@
         "firstWolfSpotted": false,
         "meatCooked": false,
         "overnightCompleted": false,
+        "wolfWeatherCleared": false,
+        "wolfWeatherCountdownStarted": false,
         "pursuit": {
           "active": false,
           "killed": 0,
@@ -6268,6 +6270,72 @@
     },
     {
       "commandType": "state.transaction",
+      "id": "story.s01.beginWolfWeatherWait",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeFound"
+            },
+            {
+              "gte": 3,
+              "path": "story.s01Survival.campfireRefuelCount"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfWeatherCountdownStarted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfWeatherCleared"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.wolfWeatherCountdownStarted",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.wolfWeatherCleared",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfWeatherCountdownStarted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfWeatherCleared"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.wolfWeatherCleared",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
       "id": "story.s01.firstWolfSpotted",
       "transaction": {
         "when": {
@@ -6275,6 +6343,10 @@
             {
               "equals": true,
               "path": "story.s01Survival.axeFound"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfWeatherCleared"
             },
             {
               "equals": false,

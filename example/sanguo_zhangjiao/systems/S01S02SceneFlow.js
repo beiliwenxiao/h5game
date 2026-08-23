@@ -16,6 +16,10 @@ export class S01S02Coordinator {
     this.pendingPlacementReveals = new Map();
     this.pendingRevealRetryElapsed = 0;
     this.pendingRevealRetryInFlight = false;
+    this.wolfWeatherElapsed = 0;
+    this.wolfWeatherTransitionRequested = false;
+    this.wolfWeatherResolutionBusy = false;
+    this.s01WeatherPhaseInitialized = false;
   }
 
   _story() {
@@ -35,6 +39,84 @@ export class S01S02Coordinator {
 
   _spawnGroup(group) {
     return this.scene.context.services.placements?.spawn?.({ group });
+  }
+
+  _applyS01WeatherPhase(survival = this._story().s01Survival || {}, { force = false } = {}) {
+    if (this.scene.currentSceneId !== 'S01' || (this.s01WeatherPhaseInitialized && !force)) return false;
+    const weatherCleared = survival.wolfWeatherCleared === true;
+    this.scene.timeSystem?.setTimePeriod?.(weatherCleared ? 'morning' : 'night');
+    this.scene.weatherSystem?.setWeather?.(weatherCleared ? 'clear' : 'heavyFog', { immediate: true });
+    this.s01WeatherPhaseInitialized = true;
+    return true;
+  }
+
+  _createFirstWolfContinuation() {
+    return {
+      mode: 'spawnContinuation',
+      group: 'S01-first-wolf',
+      placementId: 'S01-first-wolf-1',
+      attempts: 0,
+      onRecovered: () => this._presentFirstWolfAttackTutorial()
+    };
+  }
+
+  _presentFirstWolfAttackTutorial() {
+    this.scene._tutorialFlow?.complete?.('s01.chopWood');
+    this.scene._showScreenTip('天色放晴时，灌木后突然窜出一只野狼！使用 {attack} 反击。', {
+      title: '野狼来袭', persist: true
+    });
+    return true;
+  }
+
+  async _spawnFirstWolfAfterWeatherClear() {
+    const survival = this._story().s01Survival || {};
+    if (survival.firstWolfSpotted === true) return true;
+    const result = await this._submit('story.s01.firstWolfSpotted', {}, 'story:s01:first-wolf-spotted');
+    if (result.ok !== true) return false;
+
+    const continuation = this._createFirstWolfContinuation();
+    const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
+    if (!placement.ok) {
+      this._rememberPendingReveal(continuation);
+      console.warn('[S01S02Coordinator] 晴朗后野狼放置进入退避补偿', placement);
+      return true;
+    }
+    this.pendingPlacementReveals.delete(continuation.placementId);
+    return this._presentFirstWolfAttackTutorial();
+  }
+
+  async _beginWolfWeatherWait() {
+    const survival = this._story().s01Survival || {};
+    if (survival.wolfWeatherCleared === true || survival.wolfWeatherCountdownStarted === true) return true;
+    if (survival.axeFound !== true || Number(survival.campfireRefuelCount) < 3) return false;
+    const result = await this._submit('story.s01.beginWolfWeatherWait', {}, 'story:s01:begin-wolf-weather-wait');
+    if (result.ok !== true) return false;
+    this.wolfWeatherElapsed = 0;
+    this.wolfWeatherTransitionRequested = false;
+    this.scene._showScreenTip('三份木材让篝火足以撑到天亮。守住火堆，等待 10 秒后的晴朗早晨。', {
+      title: '等待天亮'
+    });
+    return true;
+  }
+
+  async _resolveWolfWeatherWait() {
+    const survival = this._story().s01Survival || {};
+    if (survival.wolfWeatherCleared === true) return this._spawnFirstWolfAfterWeatherClear();
+    if (survival.wolfWeatherCountdownStarted !== true) return false;
+
+    if (!this.wolfWeatherTransitionRequested) {
+      this.wolfWeatherTransitionRequested = true;
+      this.scene.timeSystem?.setTimePeriod?.('morning');
+      this.scene.weatherSystem?.setWeather?.('clear', { immediate: true });
+    }
+    const weatherIsClear = this.scene.weatherSystem?.currentWeather === 'clear'
+      && this.scene.weatherSystem?.targetWeather === 'clear';
+    if (!weatherIsClear) return false;
+
+    const result = await this._submit('story.s01.wolfWeatherCleared', {}, 'story:s01:wolf-weather-cleared');
+    if (result.ok !== true) return false;
+    this._applyS01WeatherPhase(this._story().s01Survival || {}, { force: true });
+    return this._spawnFirstWolfAfterWeatherClear();
   }
 
   async _ensureSpawnedPlacement(group, placementId) {
@@ -293,24 +375,8 @@ export class S01S02Coordinator {
 
   async handleGatheringEvent(event, data = {}) {
     if (this.scene.currentSceneId !== 'S01') return false;
-    const survival = this._story().s01Survival || {};
     const isBerry = data.itemId === 'resource.wild_berry';
     const isWolfHide = data.itemId === 'resource.wolf_hide';
-    if (event === 'progress' && data.resourceType === 'wood'
-      && Number(data.progress) >= 0.45 && !survival.firstWolfSpotted && !this.pendingWolfDiscovery) {
-      this.pendingWolfDiscovery = true;
-      const result = await this._submit('story.s01.firstWolfSpotted', {}, 'story:s01:first-wolf-spotted');
-      this.pendingWolfDiscovery = false;
-      if (result.ok) {
-        await this._spawnGroup('S01-first-wolf');
-        // 玩家已实际砍柴并成功触发野狼事件；结束操作教学，让攻击教学在野狼出现时立即接续。
-        this.scene._tutorialFlow?.complete?.('s01.chopWood');
-        this.scene._showScreenTip('砍柴途中，灌木后突然窜出一只野狼！使用 {attack} 反击。', {
-          title: '野狼来袭', persist: true
-        });
-      }
-      return result.ok === true;
-    }
     if (event !== 'completed') return false;
     if (isBerry) {
       const gatheringOperationId = data.operationId || data.gatheringOperationId
@@ -561,6 +627,13 @@ export class S01S02Coordinator {
       return { ok: true, warning: 'fuelProjectionFailed' };
     }
     this.scene._showScreenTip('你把一份枯木投入火堆，火焰又旺了一些。', { title: '添柴成功' });
+    const updatedSurvival = this._story().s01Survival || {};
+    if (Number(updatedSurvival.campfireRefuelCount) >= 3) {
+      const waitStarted = await this._beginWolfWeatherWait();
+      if (!waitStarted && updatedSurvival.wolfWeatherCleared !== true) {
+        console.warn('[S01S02Coordinator] 三次添柴后未能提交天气等待状态');
+      }
+    }
     return { ok: true };
   }
 
@@ -568,6 +641,7 @@ export class S01S02Coordinator {
     const operation = params.operation || params.type;
     if (operation === 'presentEntry') {
       const survival = this._story().s01Survival || {};
+      this._applyS01WeatherPhase(survival);
       if (survival.campfireLit === true) return true;
       const moved = this.scene._tutorialFlow?.isCompleted?.('s01.move') === true;
       const wakeDialogueId = 'dialogue.s01.wake';
@@ -733,6 +807,26 @@ export class S01S02Coordinator {
     const dt = Math.max(0, Number(deltaTime) || 0);
     const tutorialFlow = this.scene._tutorialFlow;
     const survival = this._story().s01Survival || {};
+    this._applyS01WeatherPhase(survival);
+    if (survival.wolfWeatherCountdownStarted === true && survival.wolfWeatherCleared !== true) {
+      this.wolfWeatherElapsed += dt;
+      if (this.wolfWeatherElapsed >= 10 && !this.wolfWeatherResolutionBusy) {
+        this.wolfWeatherResolutionBusy = true;
+        void this._resolveWolfWeatherWait().catch(error => {
+          console.warn('[S01S02Coordinator] 晴朗天气阶段结算失败', error);
+        }).finally(() => {
+          this.wolfWeatherResolutionBusy = false;
+        });
+      }
+    } else if (survival.wolfWeatherCleared === true
+      && survival.firstWolfSpotted !== true && !this.wolfWeatherResolutionBusy) {
+      this.wolfWeatherResolutionBusy = true;
+      void this._resolveWolfWeatherWait().catch(error => {
+        console.warn('[S01S02Coordinator] 晴朗后野狼补偿失败', error);
+      }).finally(() => {
+        this.wolfWeatherResolutionBusy = false;
+      });
+    }
     const campfireLit = survival.campfireLit === true;
     const gatherNeedsRecovery = tutorialFlow && campfireLit
       && tutorialFlow.isCompleted?.('s01.gather') !== true

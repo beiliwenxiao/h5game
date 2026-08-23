@@ -84,7 +84,7 @@ export class EntityLifecycleSystem {
     const deadEntities = [];
     for (let i = entities.length - 1; i >= 0; i--) {
       const entity = entities[i];
-      if (!entity?.isDead || this.protectedEntities.has(entity)) continue;
+      if (!entity?.isDead || entity.isCorpse === true || this.protectedEntities.has(entity)) continue;
       deadEntities.push(entity);
       this.onBeforeRemove?.(entity);
     }

@@ -69,7 +69,8 @@ function captureSceneSaveState() {
       seenEnemies.add(enemy.id);
       const stats = enemy.getComponent?.('stats');
       const transform = enemy.getComponent?.('transform');
-      placementStates.set(enemy.id, withPlacementSignature(enemy.id, {
+      const corpseState = this.context.services.corpses?.capture?.(enemy);
+      placementStates.set(enemy.id, withPlacementSignature(enemy.id, corpseState || {
         kind: 'enemy', removed: this._isEntityDead(enemy),
         hp: Math.max(0, Number(stats?.hp) || 0),
         position: transform ? { x: transform.position.x, y: transform.position.y } : null,

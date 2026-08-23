@@ -119,6 +119,76 @@ export class SceneTerrainCollision {
     }
   }
 
+  /**
+   * 只读查询一个世界坐标是否会被 terrain 阻挡，不修改实体或坐标。
+   * 判定顺序与 resolveEntities 一致：walkable 只覆盖编辑器 collide shape，
+   * 水池和树木仍保持独立物理阻挡。
+   */
+  isPositionBlocked(terrain, x, y, { entityRadius = null } = {}) {
+    if (!terrain || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const radius = entityRadius == null ? this.entityRadius : Math.max(0, Number(entityRadius) || 0);
+    const trees = terrain.getTreeColliders ? terrain.getTreeColliders() : [];
+    const shapes = terrain._collisionShapes || [];
+    const walkables = terrain._walkableShapes || [];
+    const ponds = terrain.waterPatches || [];
+    const spatial = this._getSpatialIndex(terrain, trees, shapes, walkables, ponds, radius);
+
+    const nearbyPonds = this._querySpatial(spatial.ponds, x, y);
+    for (let index = 0; index < nearbyPonds.length; index++) {
+      const pond = nearbyPonds[index];
+      const rx = Number(pond?.rx) || 0;
+      const ry = Number(pond?.ry) || 0;
+      if (rx <= 0 || ry <= 0) continue;
+      const nx = (x - pond.x) / rx;
+      const ny = (y - pond.y) / ry;
+      if (nx * nx + ny * ny < 1) return true;
+    }
+
+    const nearbyTrees = this._querySpatial(spatial.trees, x, y);
+    for (let index = 0; index < nearbyTrees.length; index++) {
+      const tree = nearbyTrees[index];
+      const minimumDistance = (Number(tree?.r) || 0) + radius;
+      const dx = x - tree.x;
+      const dy = y - tree.y;
+      if (dx * dx + dy * dy < minimumDistance * minimumDistance) return true;
+    }
+
+    let isWalkable = false;
+    const nearbyWalkables = this._querySpatial(spatial.walkables, x, y);
+    for (let index = 0; index < nearbyWalkables.length; index++) {
+      if (this._pointInShape(nearbyWalkables[index], x, y)) {
+        isWalkable = true;
+        break;
+      }
+    }
+    if (!isWalkable) {
+      for (let index = 0; index < spatial.unboundedWalkables.length; index++) {
+        if (this._pointInShape(spatial.unboundedWalkables[index], x, y)) {
+          isWalkable = true;
+          break;
+        }
+      }
+    }
+    if (isWalkable) return false;
+
+    const nearbyShapes = this._querySpatial(spatial.shapes, x, y);
+    for (let index = 0; index < nearbyShapes.length; index++) {
+      if (this._pointInShape(nearbyShapes[index], x, y)) return true;
+    }
+    for (let index = 0; index < spatial.unboundedShapes.length; index++) {
+      if (this._pointInShape(spatial.unboundedShapes[index], x, y)) return true;
+    }
+    return false;
+  }
+
+  /** 多 terrain 只读阻挡聚合；任一 terrain 命中即阻挡。 */
+  isAnyPositionBlocked(terrains, x, y, options = EMPTY_OPTIONS) {
+    for (let index = 0; index < (terrains?.length || 0); index++) {
+      if (this.isPositionBlocked(terrains[index], x, y, options)) return true;
+    }
+    return false;
+  }
+
   /** 显式使动态碰撞体变更后的 terrain 索引失效。 */
   invalidate(terrain) {
     if (!terrain) return false;

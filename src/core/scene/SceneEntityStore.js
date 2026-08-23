@@ -63,6 +63,15 @@ export class SceneEntityStore {
     return entity;
   }
 
+  /** 保留实体和稳定索引，仅移出活动敌人分类。 */
+  reclassifyAsCorpse(entity) {
+    if (!entity) return false;
+    this.add(entity);
+    removeFrom(this.enemies, entity);
+    this._index(entity);
+    return true;
+  }
+
   addPickup(item) {
     if (!item) return null;
     addUnique(this.pickups, item);

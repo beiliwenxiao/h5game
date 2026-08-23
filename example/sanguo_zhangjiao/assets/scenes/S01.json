@@ -395,43 +395,6 @@
           "y": 410
         },
         {
-          "group": "S01-first-wolf-remains",
-          "id": "S01-first-wolf-carcass-1",
-          "kind": "resourceNode",
-          "ref": "node.wolf_carcass",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "equals": true,
-            "path": "s01Survival.firstWolfKilled"
-          },
-          "tags": [
-            "resource",
-            "hide",
-            "wolf-carcass"
-          ],
-          "type": "ref",
-          "x": 835,
-          "y": 410
-        },
-        {
-          "group": "S01-first-wolf-remains",
-          "id": "S01-first-wolf-meat-1",
-          "kind": "item",
-          "ref": "resource.raw_wolf_meat",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "equals": true,
-            "path": "s01Survival.firstWolfKilled"
-          },
-          "tags": [
-            "loot",
-            "wolf-meat"
-          ],
-          "type": "ref",
-          "x": 870,
-          "y": 420
-        },
-        {
           "group": "S01-small-shelter",
           "id": "S01-small-shelter-1",
           "kind": "item",

@@ -55,6 +55,7 @@ export class ScenePlacementRuntime {
     this.scope = config.scope || null;
     this.entityStore = config.entityStore;
     this.aiSystem = config.aiSystem || null;
+    this.corpseRuntime = config.corpseRuntime || null;
     this.getWorldPromise = config.getWorldPromise || (() => null);
     this.getLoadedChunks = config.getLoadedChunks || (() => new Map());
     this.getRegistries = config.getRegistries || (() => ({}));
@@ -329,9 +330,9 @@ export class ScenePlacementRuntime {
 
   applyPendingToExisting(values = []) {
     for (const value of values) {
-      this.applyPendingResourceNodeState(value);
       const placementId = value?.placementId || value?.id;
       this.applyPendingPlacementState(value, this._findPlacement(placementId) || { id: placementId });
+      this.applyPendingResourceNodeState(value);
     }
   }
 
@@ -344,6 +345,12 @@ export class ScenePlacementRuntime {
       : this._findPlacement(placementId);
     if (!currentPlacement) return false;
     if (state.placementSignature !== getPlacementSignature(currentPlacement)) {
+      this.pendingPlacementStates.delete(placementId);
+      return false;
+    }
+    const shouldRestoreCorpse = state.kind === 'corpse'
+      || (state.kind === 'enemy' && state.removed === true);
+    if (shouldRestoreCorpse && this.corpseRuntime?.retain?.(value, state) === true) {
       this.pendingPlacementStates.delete(placementId);
       return false;
     }
@@ -408,8 +415,8 @@ export class ScenePlacementRuntime {
   }
 
   _handleSpawn(detail) {
-    if (detail.kind === 'resourceNode') this.applyPendingResourceNodeState(detail.entity);
     if (this.applyPendingPlacementState(detail.entity, detail.placement)) return;
+    this.applyPendingResourceNodeState(detail.entity);
     if (detail.kind === 'item' && detail.definition?.worldProp === true) this.onWorldPropSpawn?.(detail);
     this.onSpawn?.(detail);
   }

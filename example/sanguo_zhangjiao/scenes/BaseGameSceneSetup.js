@@ -188,6 +188,7 @@ export class BaseGameSceneSetup extends Scene {
       EffectZoneRenderer,
       SceneTerrainCollision
     });
+    this.context.world.terrainBinding = this._terrainBinding;
 
     // 调试面板、性能采样和 Canvas 观测由框架诊断服务统一管理。
     this._diagnostics = new SceneDiagnostics(this);
@@ -726,6 +727,7 @@ export class BaseGameSceneSetup extends Scene {
 
     // 初始化编辑器场景地形（所有幕通用，如果编辑器有该场景数据就加载渲染）
     this._initEditorTerrain();
+    this.context.world.terrainBinding = this._terrainBinding;
     this.context.world.terrain = this.terrain;
 
     // 初始化输入管理器

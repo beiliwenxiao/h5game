@@ -48,6 +48,8 @@ export class SceneFramePipeline {
     const services = context?.services || {};
     const systems = context?.systems || {};
     const presentation = context?.presentation || {};
+    const world = context?.world || {};
+    const terrainBinding = world.terrainBinding || null;
     const entities = context?.entities?.all || [];
     const player = context?.player?.entity || null;
     const inputManager = context?.input?.manager || null;
@@ -275,7 +277,21 @@ export class SceneFramePipeline {
       movementSystem.restoreContactLockAnchor?.(player);
     }
     const movementContact = movementResult?.playerBlocked === true || pushedByEntity || pushedByTerrain;
-    movementSystem.setMovementContact?.(player, movementContact);
+    let rerouted = false;
+    if (movementContact && player && combatSystem?.isInCombat?.() !== true) {
+      const dynamicEntityBlocked = collisionSystem.createPositionBlocker?.(entities, {
+        ignoreEntity: player
+      }) || (() => false);
+      const isBlocked = (x, y) => movementSystem.canMoveTo?.(x, y, player) === false
+        || terrainBinding?.isPositionBlocked?.(x, y, { radius: 12 }) === true
+        || dynamicEntityBlocked(x, y);
+      rerouted = movementSystem.tryRerouteAfterContact?.(player, {
+        inCombat: false,
+        isBlocked
+      }) === true;
+    }
+    // 非战斗 A* 不可达（以及战斗状态）才回退短时接触锁，避免每帧重复重规划。
+    movementSystem.setMovementContact?.(player, movementContact && !rerouted);
 
     // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，
     // 避免相机长期落后一帧并放大不均匀 deltaTime 造成的画面跳动。

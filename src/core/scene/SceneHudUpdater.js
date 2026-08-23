@@ -70,8 +70,10 @@ export class SceneHudUpdater {
   }
 
   updatePanels(dt = 0) {
-    if (!this._shouldUpdate('ui')) return;
     const ui = this.getUI() || {};
+    // 决策弹窗倒计时属于业务可见时间，必须逐帧推进，不能被普通 HUD 节流拉长。
+    ui.itemGainedPopup?.update?.(dt);
+    if (!this._shouldUpdate('ui')) return;
     const updated = this._updatedPanels;
     const panels = this._panelBuffer;
     updated.clear();

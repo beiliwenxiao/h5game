@@ -21,11 +21,12 @@ export class SceneItemGainedFlow {
     this.executeIntent = typeof options.executeIntent === 'function' ? options.executeIntent : null;
     this.onQueueDrained = options.onQueueDrained || (() => {});
     this.queue = [];
+    this.disposed = false;
   }
 
   /** 将一件已入背包的装备、消耗品或工具加入待处理队列。 */
   onItemGained(item, player = null) {
-    if (!item || !['equipment', 'consumable', 'tool'].includes(item.type)) return;
+    if (this.disposed || !item || !['equipment', 'consumable', 'tool'].includes(item.type)) return;
 
     const scene = this.scene;
     const quantity = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';
@@ -41,6 +42,7 @@ export class SceneItemGainedFlow {
 
   /** 显示队首物品；队列处理完毕时派发完成回调。 */
   showNext() {
+    if (this.disposed || !this.scene) return;
     const scene = this.scene;
     const popup = scene.itemGainedPopup;
     if (this.queue.length === 0) {
@@ -60,13 +62,21 @@ export class SceneItemGainedFlow {
     const actions = [];
     if (primaryLabel) {
       actions.push({
+        id: 'primary',
         label: primaryLabel,
         color: '#3a7d3a',
         onClick: () => advance(() => this.handlePrimary(item, player))
       });
     }
-    actions.push({ label: '放入背包', color: '#4a4a55', onClick: () => advance() });
     actions.push({
+      id: 'store',
+      label: '放入背包',
+      color: '#4a4a55',
+      autoTriggerSeconds: 5,
+      onClick: () => advance()
+    });
+    actions.push({
+      id: 'drop',
       label: '丢弃',
       color: '#864040',
       onClick: () => advance(() => this._drop(item))
@@ -77,9 +87,23 @@ export class SceneItemGainedFlow {
 
   /** 当前弹窗的一个决策完成后，再显示 FIFO 中的下一件，避免并发命令交叠。 */
   async _advanceAfterDecision(operation = null) {
+    if (this.disposed || !this.scene) return;
     this.scene.itemGainedPopup?.hide();
     if (typeof operation === 'function') await Promise.resolve(operation());
-    this.showNext();
+    if (!this.disposed) this.showNext();
+  }
+
+  cancel() {
+    this.queue.length = 0;
+    this.scene?.itemGainedPopup?.hide();
+  }
+
+  dispose() {
+    if (this.disposed) return false;
+    this.cancel();
+    this.disposed = true;
+    this.scene = null;
+    return true;
   }
 
   /** 丢弃本次已提交获得的数量；实际地面实体与事件由 item.drop 权威事务生成。 */

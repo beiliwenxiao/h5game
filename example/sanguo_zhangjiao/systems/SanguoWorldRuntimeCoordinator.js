@@ -3,6 +3,7 @@ import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalScene
 import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
+import { getPlacementSignature } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 
@@ -299,15 +300,19 @@ function captureStreamedChunkState(chunk) {
     const transform = value?.getComponent?.('transform');
     const stats = value?.getComponent?.('stats');
     const position = transform?.position || (Number.isFinite(value?.x) ? { x: value.x, y: value.y } : null);
+    const corpseState = this.context.services.corpses?.capture?.(value);
     placementStates.push({
       id,
       state: {
-        kind: placement.kind || 'entity',
-        removed: value.picked === true || this._isEntityDead(value),
-        ...(Number.isFinite(value?.quantity) ? { quantity: Math.max(0, Math.floor(value.quantity)) } : {}),
-        ...(Number.isFinite(stats?.hp) ? { hp: Math.max(0, Number(stats.hp)) } : {}),
-        ...(position ? { position: { x: Number(position.x) || 0, y: Number(position.y) || 0 } } : {}),
-        ...(placement.kind === 'enemy' ? { ai: this.aiSystem?.getRuntimeState?.(value) || null } : {})
+        ...(corpseState || {
+          kind: placement.kind || 'entity',
+          removed: value.picked === true || this._isEntityDead(value),
+          ...(Number.isFinite(value?.quantity) ? { quantity: Math.max(0, Math.floor(value.quantity)) } : {}),
+          ...(Number.isFinite(stats?.hp) ? { hp: Math.max(0, Number(stats.hp)) } : {}),
+          ...(position ? { position: { x: Number(position.x) || 0, y: Number(position.y) || 0 } } : {}),
+          ...(placement.kind === 'enemy' ? { ai: this.aiSystem?.getRuntimeState?.(value) || null } : {})
+        }),
+        placementSignature: getPlacementSignature(placement)
       }
     });
   }

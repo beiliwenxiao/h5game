@@ -5524,6 +5524,10 @@
     "enemies": [
       {
         "aiType": "aggressive",
+        "corpse": {
+          "name": "野狼尸体",
+          "resourceNodeRef": "node.wolf_carcass"
+        },
         "id": "enemy.s01_wolf",
         "imageId": "s01.enemy.wolf",
         "level": 1,

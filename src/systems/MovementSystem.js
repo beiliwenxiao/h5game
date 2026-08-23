@@ -15,6 +15,8 @@
  * 移动系统 - 处理实体的移动逻辑
  */
 
+import { PathfindingSystem } from './PathfindingSystem.js';
+
 /**
  * 移动系统
  * 处理键盘移动、点击移动、碰撞检测和相机跟随
@@ -43,6 +45,18 @@ export class MovementSystem {
       ? Math.max(0.01, contactLockDuration)
       : 0.5;
     this._contactLocks = new WeakMap();
+    this.pathfindingSystem = config.pathfindingSystem || new PathfindingSystem();
+    this.pathfindingCellSize = Math.max(8, Number(config.pathfindingCellSize) || 32);
+    this.pathfindingMaxVisited = Math.max(64, Number(config.pathfindingMaxVisited) || 2048);
+    this.axisLookAheadDistance = Math.max(
+      this.pathfindingCellSize * 4,
+      Number(config.axisLookAheadDistance) || this.pathfindingCellSize * 6
+    );
+    this.rerouteCooldownDuration = Math.max(0.05, Number(config.rerouteCooldownDuration) || 0.2);
+    this.axisDirectionDotThreshold = Math.max(-1, Math.min(1,
+      Number(config.axisDirectionDotThreshold) || 0.8
+    ));
+    this._navigationStates = new WeakMap();
     
     // 地图边界（默认无限大）
     this.mapBounds = config.mapBounds || {
@@ -90,6 +104,128 @@ export class MovementSystem {
    */
   setMoveIntentRouter(router) {
     this.moveIntentRouter = typeof router === 'function' ? router : null;
+  }
+
+  _getNavigationState(entity, create = false) {
+    let state = entity ? this._navigationStates.get(entity) : null;
+    if (!state && create && entity) {
+      state = {
+        source: null,
+        goal: null,
+        direction: null,
+        magnitude: 0,
+        autoPathActive: false,
+        rerouteCooldown: 0,
+        generation: 0
+      };
+      this._navigationStates.set(entity, state);
+    }
+    return state || null;
+  }
+
+  _advanceNavigationState(entity, deltaTime) {
+    const state = this._getNavigationState(entity);
+    if (!state || state.rerouteCooldown <= 0) return;
+    state.rerouteCooldown = Math.max(0,
+      state.rerouteCooldown - Math.max(0, Number(deltaTime) || 0)
+    );
+  }
+
+  _setAxisNavigationIntent(entity, movement, x, y, magnitude) {
+    const length = Math.hypot(x, y);
+    if (!entity || !movement || length <= 0 || magnitude <= 0) return { sameDirection: false, state: null };
+    const direction = { x: x / length, y: y / length };
+    const state = this._getNavigationState(entity, true);
+    const sameDirection = state.source === 'axis' && state.direction
+      && state.direction.x * direction.x + state.direction.y * direction.y >= this.axisDirectionDotThreshold;
+    if (!sameDirection) {
+      state.generation++;
+      state.autoPathActive = false;
+      state.rerouteCooldown = 0;
+    }
+    state.source = 'axis';
+    state.goal = null;
+    state.direction = direction;
+    state.magnitude = magnitude;
+    return { sameDirection, state };
+  }
+
+  _setPointerNavigationIntent(entity, goal) {
+    if (!entity || !goal) return null;
+    const state = this._getNavigationState(entity, true);
+    state.source = 'pointer';
+    state.goal = { x: goal.x, y: goal.y };
+    state.direction = null;
+    state.magnitude = 1;
+    state.autoPathActive = false;
+    state.rerouteCooldown = 0;
+    state.generation++;
+    return state;
+  }
+
+  _cancelNavigationIntent(entity, source = null) {
+    const state = this._getNavigationState(entity);
+    if (!state || (source && state.source !== source)) return false;
+    this._navigationStates.delete(entity);
+    return true;
+  }
+
+  /**
+   * 玩家在非战斗接触障碍后，按最近一次统一移动 intent 进行一次有界 A* 重规划。
+   * @returns {boolean} 是否已提交自动绕行路径
+   */
+  tryRerouteAfterContact(entity, { inCombat = false, isBlocked = null } = {}) {
+    if (!entity || inCombat || typeof isBlocked !== 'function'
+      || this.isContactMovementLocked(entity) || !this.pathfindingSystem) return false;
+    const transform = entity.getComponent?.('transform');
+    const movement = entity.getComponent?.('movement');
+    const state = this._getNavigationState(entity);
+    if (!transform || !movement || !state?.source || state.rerouteCooldown > 0) return false;
+
+    const start = { x: transform.position.x, y: transform.position.y };
+    let goal = state.goal;
+    if (state.source === 'axis' && state.direction) {
+      goal = {
+        x: start.x + state.direction.x * this.axisLookAheadDistance,
+        y: start.y + state.direction.y * this.axisLookAheadDistance
+      };
+    }
+    if (!goal) return false;
+
+    const distance = Math.hypot(goal.x - start.x, goal.y - start.y);
+    const margin = Math.max(this.pathfindingCellSize * 4,
+      Math.min(384, distance * 0.35 + this.pathfindingCellSize * 2));
+    const bounds = {
+      minX: Number.isFinite(this.mapBounds.minX)
+        ? Math.max(this.mapBounds.minX, Math.min(start.x, goal.x) - margin)
+        : Math.min(start.x, goal.x) - margin,
+      minY: Number.isFinite(this.mapBounds.minY)
+        ? Math.max(this.mapBounds.minY, Math.min(start.y, goal.y) - margin)
+        : Math.min(start.y, goal.y) - margin,
+      maxX: Number.isFinite(this.mapBounds.maxX)
+        ? Math.min(this.mapBounds.maxX, Math.max(start.x, goal.x) + margin)
+        : Math.max(start.x, goal.x) + margin,
+      maxY: Number.isFinite(this.mapBounds.maxY)
+        ? Math.min(this.mapBounds.maxY, Math.max(start.y, goal.y) + margin)
+        : Math.max(start.y, goal.y) + margin
+    };
+    const path = this.pathfindingSystem.findPath({
+      start,
+      goal,
+      bounds,
+      isBlocked,
+      cellSize: this.pathfindingCellSize,
+      maxVisited: this.pathfindingMaxVisited,
+      allowDiagonal: true
+    });
+    state.rerouteCooldown = this.rerouteCooldownDuration;
+    if (!Array.isArray(path) || path.length === 0) return false;
+
+    movement.setPath(path);
+    const sprite = entity.getComponent?.('sprite');
+    if (sprite && sprite.currentAnimation !== 'walk') sprite.playAnimation?.('walk');
+    state.autoPathActive = true;
+    return true;
   }
 
   /** 仅锁定实体移动，不影响攻击、交互或 UI。 */
@@ -271,8 +407,12 @@ export class MovementSystem {
   update(deltaTime, entities) {
     const player = this.playerEntity || entities.find(e => e.type === 'player');
     this._advanceContactLock(player, deltaTime);
+    this._advanceNavigationState(player, deltaTime);
     for (const entity of entities) {
-      if (entity !== player) this._advanceContactLock(entity, deltaTime);
+      if (entity !== player) {
+        this._advanceContactLock(entity, deltaTime);
+        this._advanceNavigationState(entity, deltaTime);
+      }
     }
 
     // 更新输入管理器的相机位置（用于坐标转换）
@@ -344,7 +484,18 @@ export class MovementSystem {
     if (!movement || movement.enabled === false
       || (!routedToVehicle && this.isMovementLocked(playerEntity))) return;
 
+    if (routedToVehicle) this._cancelNavigationIntent(playerEntity);
     if (magnitude > 0) {
+      let navigation = null;
+      if (!routedToVehicle) {
+        navigation = this._setAxisNavigationIntent(entity, movement, vx, vy, magnitude);
+        // 同方向持续轴输入不得覆盖正在执行的自动绕行路径。
+        if (navigation.sameDirection && navigation.state?.autoPathActive
+          && movement.movementType === 'path' && movement.targetPosition) {
+          if (sprite && sprite.currentAnimation !== 'walk') sprite.playAnimation('walk');
+          return;
+        }
+      }
       let speed = movement.speed;
       if (!routedToVehicle && this.statusEffectSystem) {
         speed = this.statusEffectSystem.getModifiedStats(playerEntity).speed;
@@ -354,6 +505,13 @@ export class MovementSystem {
       return;
     }
 
+    if (!routedToVehicle) {
+      const state = this._getNavigationState(entity);
+      if (state?.source === 'axis') {
+        if (state.autoPathActive && movement.movementType === 'path') movement.clearPath();
+        this._cancelNavigationIntent(entity, 'axis');
+      }
+    }
     if (movement.movementType === 'keyboard') {
       movement.stop();
       if (sprite?.useAnimatedSprite) sprite.setWalking(false);
@@ -379,7 +537,7 @@ export class MovementSystem {
       return;
     }
     const target = this._resolveMoveTarget(playerEntity, { type: 'move', source: 'pointer' });
-    const { movement, sprite, routedToVehicle } = target;
+    const { entity, movement, sprite, routedToVehicle } = target;
     if (!movement || movement.enabled === false
       || (!routedToVehicle && this.isMovementLocked(playerEntity))) return;
     if (movement.movementType === 'keyboard') return;
@@ -390,6 +548,8 @@ export class MovementSystem {
       : this.inputManager.getMouseWorldPosition();
     if (this.findEnemyAtPosition(clickPos, entities)) return;
 
+    if (routedToVehicle) this._cancelNavigationIntent(playerEntity);
+    else this._setPointerNavigationIntent(entity, clickPos);
     movement.setPath([clickPos]);
     if (sprite && sprite.currentAnimation !== 'walk') sprite.playAnimation('walk');
     this.inputManager.markMouseClickHandled();
@@ -468,6 +628,7 @@ export class MovementSystem {
           // 移动到下一个路径点
           const hasMore = movement.moveToNextPathPoint();
           if (!hasMore) {
+            this._cancelNavigationIntent(entity);
             // 路径结束，切换到待机动画
             if (sprite && sprite.useAnimatedSprite) {
               sprite.setWalking(false);

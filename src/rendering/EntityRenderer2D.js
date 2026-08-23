@@ -40,9 +40,17 @@ export class EntityRenderer2D {
     const y = position.y - elevation + (Number(offset.y) || 0);
     const width = sprite?.width || 32;
     const height = sprite?.height || 32;
+    const isCorpse = entity.isCorpse === true;
 
     if (!sprite || sprite.visible !== false) {
       ctx.save();
+      if (isCorpse) {
+        const centerY = y - height / 2;
+        ctx.translate(x, centerY);
+        ctx.rotate(Math.PI / 2);
+        ctx.translate(-x, -centerY);
+        ctx.globalAlpha *= 0.86;
+      }
       if (sprite?.alpha !== undefined) ctx.globalAlpha *= sprite.alpha;
       this._renderSprite(ctx, entity, sprite, npc, x, y, width, height);
       this._renderAppearanceLayers(ctx, sprite, x, y);
@@ -50,9 +58,11 @@ export class EntityRenderer2D {
     }
 
     this._renderResourceAmount(ctx, entity.getComponent?.('resourceNode'), x, y, height);
-    this._renderName(ctx, entity, npc, x, y, height);
-    this._renderInteractionPrompt(ctx, npc, x, y);
-    this._renderHealthBar(ctx, stats, npc, x, y, height);
+    if (!isCorpse) {
+      this._renderName(ctx, entity, npc, x, y, height);
+      this._renderInteractionPrompt(ctx, npc, x, y);
+      this._renderHealthBar(ctx, stats, npc, x, y, height);
+    }
   }
 
   /** 兼容以 renderEntity 命名的场景渲染管线。 */

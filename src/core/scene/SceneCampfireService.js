@@ -569,7 +569,8 @@ export class SceneCampfireService {
         render: () => campfireFeatureMethods.renderCampfireBottom.call(this, this._renderContext)
       },
       {
-        type: 'campfire_top', y: this.campfire.y - 1, sortPriority: 0,
+        // 与 bottom 使用同一 Y，再以 priority 保证火焰绘制在木柴之上、同脚点实体之前。
+        type: 'campfire_top', y: this.campfire.y, sortPriority: 1,
         render: () => campfireFeatureMethods.renderCampfireTop.call(this, this._renderContext)
       }
     ];
@@ -899,7 +900,7 @@ export class SceneCampfireService {
     const bottom = this._campfireRenderItems[0];
     const top = this._campfireRenderItems[1];
     bottom.y = this.campfire.y;
-    top.y = this.campfire.y - 1;
+    top.y = this.campfire.y;
     queue.push(bottom, top);
     return true;
   }

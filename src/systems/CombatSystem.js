@@ -142,6 +142,8 @@ export class CombatSystem {
       : () => false;
     // 击杀回调（敌人死亡时触发，供数据驱动 kill 事件源 / 任务计数用）
     this.onKillCallback = null;
+    // 尸体保留回调由场景运行时注入，CombatSystem 不解释具体怪物或采集定义。
+    this.onCorpseCreateCallback = null;
     
     console.log('CombatSystem: Initialized');
   }
@@ -969,6 +971,7 @@ export class CombatSystem {
         if (target.type === 'player') this.handleDeath(target, damageEvent);
         else {
           this.spawnLoot(target);
+          this._retainCorpse(target);
           this.triggerDeathEffect(target);
         }
       }
@@ -2187,16 +2190,21 @@ export class CombatSystem {
     if (entity.type === 'player') {
       this.handlePlayerDeath(entity, deathEvent);
     } else {
+      // 先在实际死亡位置转换尸体，再发布击杀事实；剧情消费者此时可立即访问尸体。
+      const retainedCorpse = this._retainCorpse(entity);
+
       // 通知击杀（数据驱动 kill 事件源 / 任务计数）
       this._notifyKill(entity);
 
       // 敌人死亡，生成掉落物
       this.spawnLoot(entity);
       
-      // 延迟移除
-      setTimeout(() => {
-        this.removeDeadEntity(entity);
-      }, 1000); // 等待死亡动画播放完成
+      // 未接入尸体运行时的旧场景仍按原行为延迟移除。
+      if (!retainedCorpse) {
+        setTimeout(() => {
+          this.removeDeadEntity(entity);
+        }, 1000); // 等待死亡动画播放完成
+      }
     }
   }
 
@@ -2269,6 +2277,29 @@ export class CombatSystem {
    */
   setLootDropCallback(callback) {
     this.onLootDrop = callback;
+  }
+
+  /**
+   * 注入敌人尸体保留器。返回 true 表示已在世界中保留尸体。
+   * @param {(entity:Entity)=>boolean} callback
+   */
+  setOnCorpseCreateCallback(callback) {
+    this.onCorpseCreateCallback = typeof callback === 'function' ? callback : null;
+  }
+
+  _retainCorpse(entity) {
+    if (!entity || entity.type === 'player' || entity._corpseRetained === true) {
+      return entity?._corpseRetained === true;
+    }
+    if (!this.onCorpseCreateCallback) return false;
+    try {
+      const retained = this.onCorpseCreateCallback(entity) === true;
+      if (retained) entity._corpseRetained = true;
+      return retained;
+    } catch (error) {
+      console.warn('CombatSystem: 尸体保留失败，回退旧清理流程', error);
+      return false;
+    }
   }
 
   /**

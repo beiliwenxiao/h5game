@@ -18,10 +18,12 @@ const GROUP_DEFAULTS = Object.freeze({
     container: null,
     ability: null,
     combat: null,
+    pathfinding: null,
     movement: null,
     equipment: null,
     ai: null,
     collision: null,
+    corpses: null,
     pickup: null,
     gathering: null,
     gatheringPuppet: null,
@@ -50,7 +52,13 @@ const GROUP_DEFAULTS = Object.freeze({
     progression: null,
     cityStateSummary: null
   }),
-  world: Object.freeze({ terrain: null, terrains: null, region: null, worldIndex: null }),
+  world: Object.freeze({
+    terrain: null,
+    terrains: null,
+    terrainBinding: null,
+    region: null,
+    worldIndex: null
+  }),
   presentation: Object.freeze({
     renderer: null,
     hints: null,

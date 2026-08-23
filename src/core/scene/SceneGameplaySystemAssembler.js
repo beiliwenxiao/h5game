@@ -6,6 +6,7 @@
  */
 import { CombatSystem } from '../../systems/CombatSystem.js';
 import { MovementSystem } from '../../systems/MovementSystem.js';
+import { PathfindingSystem } from '../../systems/PathfindingSystem.js';
 import { EquipmentSystem } from '../../systems/EquipmentSystem.js';
 import { AISystem } from '../../systems/AISystem.js';
 import { CollisionSystem } from '../../systems/CollisionSystem.js';
@@ -16,6 +17,7 @@ import { GatheringPuppetSystem } from '../../systems/GatheringPuppetSystem.js';
 import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
 import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
 import { PlayerDeathCountdown } from './PlayerDeathCountdown.js';
+import { SceneCorpseRuntime } from './SceneCorpseRuntime.js';
 import { ItemLifecycleService, ITEM_LIFECYCLE_COMMANDS } from '../../systems/ItemLifecycleService.js';
 import { ToolRepairService } from '../../systems/ToolRepairService.js';
 import { MeditationSystem } from '../../systems/MeditationSystem.js';
@@ -105,15 +107,27 @@ export class SceneGameplaySystemAssembler {
       }
     });
 
+    scene.pathfindingSystem = new PathfindingSystem({
+      cellSize: 32,
+      maxVisited: 2048,
+      goalSearchRadius: 4
+    });
     scene.movementSystem = new MovementSystem({
       inputManager: scene.inputManager,
       camera: scene.camera,
       jumpSystem: scene.jumpSystem,
+      pathfindingSystem: scene.pathfindingSystem,
+      pathfindingCellSize: 32,
       isMovementLocked: entity => scene.locomotionSystem?.isBusy?.(entity) === true
     });
     scene.equipmentSystem = new EquipmentSystem();
     scene.aiSystem = new AISystem();
     scene.collisionSystem = new CollisionSystem();
+    scene.corpseRuntime = new SceneCorpseRuntime({
+      entityStore: scene.entityStore,
+      aiSystem: scene.aiSystem
+    });
+    scene.combatSystem.setOnCorpseCreateCallback(entity => scene.corpseRuntime.retain(entity));
 
     const inventoryTransactionsOwned = !scene.inventoryTransactions;
     scene.inventoryTransactions = scene.inventoryTransactions || new InventoryTransactionService();
@@ -350,10 +364,12 @@ export class SceneGameplaySystemAssembler {
       ['gameplay.jump', scene.jumpSystem, 'cleanup'],
       ['gameplay.locomotion', scene.locomotionSystem, 'cleanup'],
       ['gameplay.combat', scene.combatSystem],
+      ['gameplay.pathfinding', scene.pathfindingSystem],
       ['gameplay.movement', scene.movementSystem],
       ['gameplay.equipment', scene.equipmentSystem],
       ['gameplay.ai', scene.aiSystem],
       ['gameplay.collision', scene.collisionSystem],
+      ['gameplay.corpses', scene.corpseRuntime, 'dispose'],
       ['gameplay.inventoryTransactions', scene.inventoryTransactions],
       ['gameplay.pickup', scene.pickupSystem],
       ['gameplay.gatheringProgress', scene.gatheringProgressPresenter, 'dispose'],
@@ -378,8 +394,9 @@ export class SceneGameplaySystemAssembler {
       }
     }));
     const systemFields = {
-      ability: 'abilitySystem', combat: 'combatSystem', movement: 'movementSystem',
-      equipment: 'equipmentSystem', ai: 'aiSystem', collision: 'collisionSystem',
+      ability: 'abilitySystem', combat: 'combatSystem', pathfinding: 'pathfindingSystem',
+      movement: 'movementSystem', equipment: 'equipmentSystem', ai: 'aiSystem', collision: 'collisionSystem',
+      corpses: 'corpseRuntime',
       pickup: 'pickupSystem', gathering: 'gatheringSystem', gatheringPuppet: 'gatheringPuppetSystem',
       meditation: 'meditationSystem', zoneEffect: 'zoneEffectSystem', meleeAttack: 'meleeAttackSystem',
       flight: 'flightSystem', jump: 'jumpSystem', locomotion: 'locomotionSystem',
@@ -402,6 +419,7 @@ export class SceneGameplaySystemAssembler {
       projections.push({ target: scene.context?.presentation, key, instance: scene[field] });
       projections.push({ target: scene, key: field, instance: scene[field] });
     }
+    projections.push({ target: scene.context?.services, key: 'corpses', instance: scene.corpseRuntime });
     return Object.freeze({
       id: 'gameplay-core',
       registrations: Object.freeze(registrations),

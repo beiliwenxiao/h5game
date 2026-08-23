@@ -492,21 +492,11 @@ export class S01S02Coordinator {
     if (entity.id === 'S01-first-wolf-1') {
       const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
       if (!result.ok) return false;
-      const showWolfLootTip = () => {
-        this.scene._showScreenTip('野狼倒下了。背包里有剥皮刀时，靠近尸体，{harvest}剥取狼皮。', {
-          title: '猎狼与剥皮'
-        });
-        return true;
-      };
-      const revealed = await this._revealPlacement(
-        'S01-first-wolf-remains',
-        'S01-first-wolf-meat-1',
-        { name: '生狼肉', message: '生狼肉掉落在地上。', reason: 'enemyLoot' },
-        'world-item:revealed:S01-first-wolf-meat-1',
-        { onRecovered: showWolfLootTip }
-      );
-      if (!revealed) return false;
-      showWolfLootTip();
+      const corpse = this.context.services.corpses?.capture?.(entity);
+      if (!corpse || !entity.getComponent?.('resourceNode')) return false;
+      this.scene._showScreenTip('野狼倒下了。背包里有剥皮刀时，靠近尸体，{harvest}剥取狼皮。', {
+        title: '猎狼与剥皮'
+      });
       return true;
     }
     if (!entity.id.startsWith(CHASE_WOLF_PREFIX)) return false;

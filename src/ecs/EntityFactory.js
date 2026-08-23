@@ -266,12 +266,24 @@ export class EntityFactory {
       offsetY: -10
     }));
     
-    // 存储敌人信息
+    // 存储敌人信息；所有敌人默认保留尸体，具体内容可追加采集定义或专用表现。
     entity.name = enemyData.name;
+    entity.contentId = enemyData.contentId || enemyData.id || null;
+    entity.definitionId = enemyData.contentId || enemyData.id || null;
     entity.templateId = enemyData.templateId;
     entity.renderStyle = enemyData.renderStyle || null;
     entity.aiType = enemyData.aiType || 'passive';
     entity.lootTable = enemyData.lootTable || [];
+    const corpseDefinition = enemyData.corpse && typeof enemyData.corpse === 'object'
+      ? enemyData.corpse
+      : {};
+    entity.corpseDefinition = {
+      ...corpseDefinition,
+      name: corpseDefinition.name || `${enemyData.name || '怪物'}尸体`,
+      ...(corpseDefinition.resourceNode
+        ? { resourceNode: JSON.parse(JSON.stringify(corpseDefinition.resourceNode)) }
+        : {})
+    };
     
     // 添加敌人标签
     entity.tags = entity.tags || [];

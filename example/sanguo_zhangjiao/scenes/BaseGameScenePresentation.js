@@ -350,6 +350,7 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
 
     this._panelLayout?.clearTouchControlsForBackpack?.();
     this._touchControlsDimmed = false;
+    this._itemGainedFlow?.dispose?.();
     this._diagnostics.dispose();
 
     this._inputFlow?.dispose();

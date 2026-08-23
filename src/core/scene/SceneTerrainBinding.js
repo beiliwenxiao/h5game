@@ -129,6 +129,20 @@ export class SceneTerrainBinding {
   }
 
   /**
+   * 对当前全部 terrain 执行只读阻挡查询，供移动规划复用正式碰撞几何。
+   * terrain 数据已经是世界坐标；此处不得再次应用 worldOffset。
+   */
+  isPositionBlocked(x, y, { radius = null } = {}) {
+    const scene = this.scene;
+    const terrains = scene._terrains?.length ? scene._terrains : (scene.terrain ? [scene.terrain] : []);
+    if (terrains.length === 0 || !this.SceneTerrainCollision) return false;
+    if (!scene._terrainCollision) scene._terrainCollision = new this.SceneTerrainCollision({ entityRadius: 12 });
+    return scene._terrainCollision.isAnyPositionBlocked(terrains, x, y, {
+      entityRadius: radius
+    });
+  }
+
+  /**
    * 按场景局部坐标安装或移除运行时碰撞体。
    * 动态工事、塌方等表现可以与静态场景共用同一碰撞解算器，且 worldOffset 只应用一次。
    */

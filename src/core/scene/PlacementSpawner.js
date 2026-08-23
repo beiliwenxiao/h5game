@@ -168,6 +168,17 @@ export class PlacementSpawner {
 
       try {
         const data = mergeOverrides(definition, placement.overrides);
+        if (kind === 'enemy' && data.corpse?.resourceNodeRef) {
+          const resourceNode = registryGet(registries, 'resourceNode', data.corpse.resourceNodeRef);
+          if (!resourceNode) {
+            errors.push({ kind, ref: placement.ref, placement, reason: 'corpseResourceNodeNotFound' });
+            continue;
+          }
+          data.corpse = {
+            ...data.corpse,
+            resourceNode: mergeOverrides(resourceNode, data.corpse.resourceNode)
+          };
+        }
         data.position = { x: Number(placement.x) || 0, y: Number(placement.y) || 0 };
         const entity = this._spawn(kind, data, placement);
         if (!entity) {

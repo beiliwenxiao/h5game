@@ -163,23 +163,55 @@ export class CollisionSystem {
     if (overlapX <= 0 || overlapY <= 0) return;
 
     const distanceSquared = dx * dx + dy * dy;
-    if (distanceSquared === 0) return;
-    const distance = Math.sqrt(distanceSquared);
-    const nx = dx / distance;
-    const ny = dy / distance;
-    const push = Math.min(overlapX, overlapY) / 2;
-
-    if (overlapX < overlapY) {
-      ta.position.x += nx * push;
-      tb.position.x -= nx * push;
+    if (distanceSquared === 0) {
+      // 完全重合时使用稳定实体 ID 选择推出方向，避免接触漏报和永久叠位。
+      const direction = String(a?.id || '').localeCompare(String(b?.id || '')) <= 0 ? -1 : 1;
+      ta.position.y += direction * halfHeight;
+      tb.position.y -= direction * halfHeight;
     } else {
-      ta.position.y += ny * push;
-      tb.position.y -= ny * push;
+      const distance = Math.sqrt(distanceSquared);
+      const nx = dx / distance;
+      const ny = dy / distance;
+      const push = Math.min(overlapX, overlapY) / 2;
+
+      if (overlapX < overlapY) {
+        ta.position.x += nx * push;
+        tb.position.x -= nx * push;
+      } else {
+        ta.position.y += ny * push;
+        tb.position.y -= ny * push;
+      }
     }
 
     for (let index = 0; index < this.onCollisionCallbacks.length; index++) {
       this.onCollisionCallbacks[index](a, b);
     }
+  }
+
+  /**
+   * 捕获本帧活动碰撞实体的位置，生成供寻路使用的只读 blocker。
+   * 快照避免 A* 每个节点重复扫描 Entity/Component。
+   */
+  createPositionBlocker(entities, { ignoreEntity = null } = {}) {
+    const obstacles = [];
+    for (let index = 0; index < (entities?.length || 0); index++) {
+      const entity = entities[index];
+      if (!entity || entity === ignoreEntity || entity.isDead || entity.isDying
+        || !this._collidableLayers.has(entity.type)) continue;
+      const position = entity.getComponent?.('transform')?.position;
+      if (position) obstacles.push({ x: position.x, y: position.y });
+    }
+    const halfWidth = this.entityRadius * this.widthRatio * 2;
+    const halfHeight = this.entityRadius * this.heightRatio * 2;
+    return (x, y) => {
+      for (let index = 0; index < obstacles.length; index++) {
+        const obstacle = obstacles[index];
+        if (Math.abs(x - obstacle.x) < halfWidth && Math.abs(y - obstacle.y) < halfHeight) {
+          return true;
+        }
+      }
+      return false;
+    };
   }
 
   /**

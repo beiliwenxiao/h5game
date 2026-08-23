@@ -250,7 +250,8 @@ export class ScenePanelLayout {
     if (scene.throwButton) scene.uiClickHandler.registerElement(scene.throwButton);
     if (scene.blockButton) scene.uiClickHandler.registerElement(scene.blockButton);
 
-    // 注册面板到 UISystem（统一管理悬停等）
+    // 注册面板到 UISystem（统一管理悬停；倒计时由 SceneHudUpdater 逐帧驱动）
+    scene.uiSystem.registerPanel('itemGainedPopup', scene.itemGainedPopup);
     scene.uiSystem.registerPanel('backpack', scene.backpackPanel);
     scene.uiSystem.registerPanel('bottomControl', scene.bottomControlBar);
     scene.uiSystem.registerPanel('dialogue', scene.dialogueBox);

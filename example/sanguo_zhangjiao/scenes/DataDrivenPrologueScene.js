@@ -499,6 +499,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       entityFactory: this.entityFactory,
       entityStore: this.entityStore,
       aiSystem: this.aiSystem,
+      corpseRuntime: this.context.services.corpses || this.corpseRuntime,
       assetManager: this.assetManager,
       getWorldPromise: () => this._worldLoadPromise,
       getLoadedChunks: () => this.worldStreamingManager?.getLoadedChunks?.() || new Map(),

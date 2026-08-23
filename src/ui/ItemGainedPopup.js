@@ -38,7 +38,8 @@ const RARITY_COLORS = ['#ffffff', '#1eff00', '#0070dd', '#a335ee', '#ff8000'];
 const PAD = 8;        // 内边距
 const ICON_SIZE = 48; // 图标框边长
 const ROW_H = 18;     // 属性对比行高
-const BTN_H = 34;     // 按钮高度
+const BTN_H = 44;     // 按钮高度（为自动入包倒计时保留第二行）
+const AUTO_STORE_SECONDS = 5;
 
 export class ItemGainedPopup extends UIElement {
   constructor(options = {}) {
@@ -59,6 +60,9 @@ export class ItemGainedPopup extends UIElement {
     this.showStore = false;
     this.actions = [];
     this._buttons = []; // [{x,y,w,h,action}]
+    this._autoStoreAction = null;
+    this._autoStoreRemaining = 0;
+    this._actionPending = false;
     // 底部锚点：设置后 show() 会把弹窗底边对齐到 anchorBottom 上方（紧贴底部控制栏）
     this.anchorBottom = options.anchorBottom || null;
     this.anchorGap = options.anchorGap != null ? options.anchorGap : 8;
@@ -70,6 +74,8 @@ export class ItemGainedPopup extends UIElement {
    * @param {Object} cfg - { item, comparison, actions }
    */
   show(cfg = {}) {
+    this._resetAutoStore();
+    this._buttons = [];
     this.item = cfg.item || null;
     this.comparison = Array.isArray(cfg.comparison) ? cfg.comparison : [];
     this.primaryLabel = cfg.primaryLabel || '装备';
@@ -77,11 +83,19 @@ export class ItemGainedPopup extends UIElement {
     this.onStore = cfg.onStore || null;
     this.showStore = cfg.showStore === true && this.onStore !== null;
     const legacyActions = [];
-    if (this.onPrimary) legacyActions.push({ label: this.primaryLabel, color: '#3a7d3a', onClick: this.onPrimary });
-    if (this.showStore) legacyActions.push({ label: '放入背包', color: '#4a4a55', onClick: this.onStore });
+    if (this.onPrimary) legacyActions.push({ id: 'primary', label: this.primaryLabel, color: '#3a7d3a', onClick: this.onPrimary });
+    if (this.showStore) legacyActions.push({
+      id: 'store', label: '放入背包', color: '#4a4a55', onClick: this.onStore,
+      autoTriggerSeconds: AUTO_STORE_SECONDS
+    });
     this.actions = (Array.isArray(cfg.actions) ? cfg.actions : legacyActions)
       .filter(action => action && typeof action.label === 'string' && typeof action.onClick === 'function')
       .slice(0, 3);
+    this._autoStoreAction = this.actions.find(action => action.id === 'store'
+      && Number(action.autoTriggerSeconds) > 0) || null;
+    this._autoStoreRemaining = this._autoStoreAction
+      ? Math.max(0, Number(this._autoStoreAction.autoTriggerSeconds) || AUTO_STORE_SECONDS)
+      : 0;
     this.remaining = cfg.remaining || 0; // 队列中还剩待处理的件数
     // 高度随对比行数自适应（紧凑布局，尽量矮）
     const rows = this.comparison.length;
@@ -103,6 +117,43 @@ export class ItemGainedPopup extends UIElement {
     this.showStore = false;
     this.actions = [];
     this._buttons = [];
+    this._resetAutoStore();
+  }
+
+  update(deltaTime) {
+    if (!this.visible || !this._autoStoreAction || this._actionPending) return;
+    this._autoStoreRemaining = Math.max(0, this._autoStoreRemaining - Math.max(0, Number(deltaTime) || 0));
+    if (this._autoStoreRemaining <= 0) this._activateAction(this._autoStoreAction);
+  }
+
+  _resetAutoStore() {
+    this._autoStoreAction = null;
+    this._autoStoreRemaining = 0;
+    this._actionPending = false;
+  }
+
+  _actionLabel(action) {
+    if (action !== this._autoStoreAction || this._autoStoreRemaining <= 0) return action.label;
+    const seconds = Math.max(1, Math.ceil(this._autoStoreRemaining));
+    return `${action.label}\n${seconds}秒后自动放入背包`;
+  }
+
+  _activateAction(action) {
+    if (!this.visible || this._actionPending || typeof action?.onClick !== 'function') return false;
+    this._actionPending = true;
+    this._autoStoreAction = null;
+    this._autoStoreRemaining = 0;
+    try {
+      const result = action.onClick();
+      if (result && typeof result.catch === 'function') {
+        result.catch(error => console.warn('ItemGainedPopup: action failed', error));
+      }
+      return true;
+    } catch (error) {
+      this._actionPending = false;
+      console.warn('ItemGainedPopup: action failed', error);
+      return false;
+    }
   }
 
   /** 稀有度颜色 */
@@ -193,7 +244,7 @@ export class ItemGainedPopup extends UIElement {
     const btnW = (width - 24 - gap * Math.max(0, actions.length - 1)) / Math.max(1, actions.length);
     actions.forEach((action, index) => {
       this._drawButton(ctx, btnX + index * (btnW + gap), btnY, btnW, BTN_H,
-        action.label, action.color || '#4a4a55', action.onClick);
+        this._actionLabel(action), action.color || '#4a4a55', action);
     });
 
     ctx.restore();
@@ -209,10 +260,19 @@ export class ItemGainedPopup extends UIElement {
     this._roundRect(ctx, bx, by, bw, bh, 6);
     ctx.stroke();
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px "Microsoft YaHei", Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, bx + bw / 2, by + bh / 2);
+    const lines = String(label || '').split('\n');
+    if (lines.length > 1) {
+      ctx.font = 'bold 12px "Microsoft YaHei", Arial';
+      ctx.fillText(lines[0], bx + bw / 2, by + bh / 2 - 8);
+      ctx.font = '9px "Microsoft YaHei", Arial';
+      ctx.fillStyle = '#e8e8e8';
+      ctx.fillText(lines[1], bx + bw / 2, by + bh / 2 + 9);
+    } else {
+      ctx.font = 'bold 14px "Microsoft YaHei", Arial';
+      ctx.fillText(lines[0], bx + bw / 2, by + bh / 2);
+    }
     ctx.textAlign = 'left';
     this._buttons.push({ x: bx, y: by, w: bw, h: bh, action });
   }
@@ -222,7 +282,7 @@ export class ItemGainedPopup extends UIElement {
     if (button === 'left') {
       for (const b of this._buttons) {
         if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
-          b.action();
+          this._activateAction(b.action);
           return true;
         }
       }

@@ -97,7 +97,7 @@
       "startTime": 120
     },
     "weather": {
-      "default": "clear",
+      "default": "breeze",
       "particles": {},
       "transitionSpeed": 0.5
     }
@@ -4801,7 +4801,8 @@
       ],
       "completionPolicy": "signal",
       "canSkip": false,
-      "autoTrigger": false
+      "autoTrigger": false,
+      "autoAdvance": false
     },
     {
       "id": "s01.pickup",

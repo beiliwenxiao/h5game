@@ -405,6 +405,18 @@ export class S01S02Coordinator {
         }
         return result.ok === true;
       };
+      const completeAxeReveal = async (recovered = false) => {
+        if (!await completeBerryGathering(recovered)) return false;
+        const tutorialFlow = this.scene._tutorialFlow;
+        if (tutorialFlow) {
+          if (!tutorialFlow.isCompleted?.('s01.pickup') && !tutorialFlow.isCurrent?.('s01.pickup')) {
+            tutorialFlow.showNext?.();
+          }
+        } else {
+          this.scene._showScreenTip('靠近地上的破旧斧头，使用 {pickup} 拾取。', { title: '拾取物资' });
+        }
+        return true;
+      };
 
       if (this.pendingAxeDiscovery) return false;
       if (needsAxeReveal || hasPendingAxeReveal) {
@@ -425,17 +437,18 @@ export class S01S02Coordinator {
               sparkleCount: 9
             },
             'world-item:revealed:S01-pickup-worn-axe',
-            { onRecovered: () => completeBerryGathering(true) }
+            { onRecovered: () => completeAxeReveal(true) }
           );
           if (!revealed) return false;
         } finally {
           this.pendingAxeDiscovery = false;
         }
       } else {
-        // 恢复后只确保 placement 存在；restore 不重播“新发现”提示和动画。
-        await this._spawnGroup('S01-worn-axe');
+        // 恢复后也必须确认斧头实体已实际生成，才能提示玩家拾取。
+        const restored = await this._ensureSpawnedPlacement('S01-worn-axe', axePlacementId);
+        if (!restored.ok) return false;
       }
-      return completeBerryGathering(false);
+      return completeAxeReveal(false);
     }
     if (data.resourceType === 'wood') {
       const result = await this._submit('story.s01.woodGathered', {}, 'story:s01:wood-gathered');

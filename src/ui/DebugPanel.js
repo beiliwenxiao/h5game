@@ -362,7 +362,7 @@ export class DebugPanel {
       console.log('[DebugPanel] 手柄按键图:', scene.gamepadPanel.visible ? '显示' : '隐藏');
     });
     el.querySelector('#dp-weather-apply').addEventListener('click', () => {
-      const scene = this.getScene();
+      const scene = this._getActiveScene();
       if (!scene || !scene.weatherSystem) return;
       const type = el.querySelector('#dp-weather-select').value;
       scene.weatherSystem.setWeather(type);

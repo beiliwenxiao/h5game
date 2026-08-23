@@ -6430,6 +6430,12 @@
               "path": "story.s01Survival.axeFound"
             },
             {
+              "inventory": {
+                "itemId": "resource.wood",
+                "quantity": 3
+              }
+            },
+            {
               "equals": false,
               "path": "story.s01Survival.woodGathered"
             }

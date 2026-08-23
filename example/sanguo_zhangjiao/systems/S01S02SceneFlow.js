@@ -417,7 +417,15 @@ export class S01S02Coordinator {
       return true;
     }
     if (data.resourceType === 'wood') {
+      const inventory = this.scene.playerEntity?.getComponent?.('inventory');
+      const woodCount = Math.max(0, Number(inventory?.getItemCount?.('resource.wood')) || 0);
+      if (woodCount < 3) return true;
       const result = await this._submit('story.s01.woodGathered', {}, 'story:s01:wood-gathered');
+      if (result.ok) {
+        this.scene._showScreenTip('木材已经够三根了。靠近火堆，{interact}可以添柴。', {
+          title: '返回火堆'
+        });
+      }
       return result.ok === true;
     }
     if (isWolfHide) {
@@ -485,7 +493,7 @@ export class S01S02Coordinator {
       const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
       if (!result.ok) return false;
       const showWolfLootTip = () => {
-        this.scene._showScreenTip('野狼倒下了。靠近尸体，{harvest}用剥皮刀剥取狼皮。', {
+        this.scene._showScreenTip('野狼倒下了。背包里有剥皮刀时，靠近尸体，{harvest}剥取狼皮。', {
           title: '猎狼与剥皮'
         });
         return true;

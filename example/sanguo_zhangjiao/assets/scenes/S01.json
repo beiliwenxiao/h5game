@@ -372,6 +372,14 @@
           "group": "S01-first-wolf",
           "id": "S01-first-wolf-1",
           "kind": "enemy",
+          "overrides": {
+            "stats": {
+              "attack": 5,
+              "defense": 1,
+              "maxHp": 28,
+              "speed": 88
+            }
+          },
           "ref": "enemy.s01_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",

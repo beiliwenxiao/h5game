@@ -83,7 +83,8 @@ CombatSystem      表现与伤害结算（作为执行器被调用）
 - 屏幕教程与普通事件必须串行：`SceneHintPresenter` 中 `owner:'tutorial'` 优先显示，普通 screen 提示进入有界 FIFO 队列；教程完成后再继续队列。普通 screen 可声明 `onHidden`，只在其真正关闭（包括自动或显式关闭）后安全回调；同 owner 替换、被教程抢占、队列淘汰或 scene dispose 都不视为已完成。叙事动机与操作教学必须用该回调串行，且只有领域状态与必要 placement 均成功成立后才可展示教学；回调属于表现层，不拥有或回滚已提交业务事实。
 - S01 砍柴教程只在 `berryEaten` 已提交、`S01-wood` placement 成功后显示；先以普通 screen 说明篝火熄灭与燃料动机，screen 真正关闭后才显示操作教学。木材采集达到野狼触发阈值且 `firstWolfSpotted` 提交后，结束当前砍柴教学并按顺序接续攻击教学，避免玩家在攻击教学出现前已击杀野狼而导致信号丢失；读档恢复只静默重建木材与教程，不重播叙事 screen。
 - S01 `story.s01.findAxe` 只提交 `axeDropped:true`；`story.s01.axeFound` 只由 `S01-pickup-worn-axe` 的 committed `item.picked` 派生并提交 `axeFound:true`。`berriesGathered` 前置检查 `axeDropped`，不得再把“落地/发现”和“已拾取”合并为同一字段。
-- `GatheringSystem` 区分 `owner` 与 `actor`：库存、工具和职业效果属于 owner，距离、移动中断和实际采集主体属于 actor。玩家本人采集时两者相同，傀儡采集时不得把产物写入傀儡。
+- `GatheringSystem` 区分 `owner` 与 `actor`：库存、工具和职业效果属于 owner，距离、移动中断和实际采集主体属于 actor。玩家本人采集时两者相同，傀儡采集时不得把产物写入傀儡。采集时长固定为 `max(0.1, effectDuration / toolGatherSpeed / (owner.StatsComponent.speed / 100))`；工具缺失或非法速度回退 `1`，角色速度缺失或非法回退 `100`。
+- 工具维修只能通过权威 `item.repair` 命令，以 `(itemId, instanceId)` 精确定位独立实例，禁止按定义 ID 批量或模糊修复。服务必须先预检耐久和全部材料，再原子扣料、恢复耐久、创建 checkpoint、提交 state revision，全部成功后才能发布 `item.repair.committed` / `item.repaired`；任一步失败必须还原材料与耐久且不得显示成功提示。`gatherSpeed`、修复材料和功能说明属于只读定义，只有 `durability` 属于工具实例运行状态。
 - `GatheringSystem` 只发出采集业务事件；`GatheringProgressPresenter` 是只读世界空间表现，started/progress 按实际 actor 的 Transform/Sprite 在头顶绘制，completed/interrupted 必须清理。禁止用全局文字提示逐帧显示百分比，也禁止 Presenter 持有库存、节点或采集业务状态。
 - 场景策略通过 `GatheringSystem.setSettlementPolicy()` 参与 `prepare → inventory/node/tool commit → policy commit`；策略前置失败必须零修改，策略提交失败必须回滚库存、节点、工具和策略状态并释放内部 operationId。
 - 采集成功 operationId 由 `GatheringSystem` 持久化为有界幂等记录；重放不得再次增加库存、扣节点/工具、触发风险或应用场景政策。
@@ -168,7 +169,7 @@ MOVE     右键
 - `constraint: null` 取消内置约束，传对象可覆盖；用 `hasOwnProperty` 区分「显式 null」与「未传」。
 - `InputEvent.consume()` 只能成功一次，重复调用返回 `false`。
 - 指针事件被攻击之前的处理者消费时，自动调用 `markMouseClickHandled()`，桥接尚未迁移的 `MeleeAttackSystem`。攻击与移动消费时不标记。
-- `enqueueInteract()` 让 E 键、移动端交互/采集按钮、触屏和手柄 A/X 产生完全相同的 canonical 交互事件；资源采集只在前序空间 Trigger、NPC 和世界拾取均未消费时由同一事件回退到 `harvestByFacing()`，不得绑定独立 F 键或由移动端按钮直调采集系统。
+- `enqueueInteract()` 让 E 键、移动端交互/采集按钮、触屏和手柄 A/X 产生完全相同的 canonical 交互事件；PC 无 Ctrl/Shift 的左键也必须进入同一拾取/采集后备链路。资源采集只在前序空间 Trigger、NPC 和世界拾取均未消费时由同一事件回退到 `harvestByFacing()`，不得绑定独立 F 键或由任一平台按钮直调采集系统。没有可交互的物品或资源时才允许左键继续进入攻击处理。
 - `SceneInputFlow.onModalInput({ inputManager, gamepad })` 在弹窗和世界输入之前执行；职业确认等场景模态必须通过该入口统一消费键鼠、触屏和手柄输入，不能在场景 update 末尾再建第二条输入路径。
 - 正式 Demo 的教程表现只允许走场景 `SceneHintPresenter`；宿主 `setupSceneCallbacks()` 不得再次注册 `TutorialSystem.onShow/onHide`，也不得保留带“上一步/下一步/完成”按钮的第二套 DOM 教程面板。保留的 DOM `tips-panel` 只是 SceneHintPresenter 的渲染出口，必须调用 `InputHints.formatHtml()`，禁止把 `{move}`、`{interact}` 等 token 原样显示。
 - `describeLastFrame()` 输出每个事件的消费者，排查争抢不用加日志。

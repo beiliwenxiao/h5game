@@ -67,11 +67,15 @@ export class SceneWorldInteraction {
     if (this.handleGatheringCancel(event)) return true;
 
     if (event.type === InputEventType.POINTER_DOWN) {
-      if (!event.world || event.button === 2) return false;
-      return this.tryClickPickup(event.world.x, event.world.y, { operationId: `input-${event.id}` });
+      if (event.button !== 0) return false;
+      return this.tryCanonicalInteract({
+        operationId: `input-${event.id}`,
+        device: event.device,
+        world: event.world || null
+      });
     }
     if (event.type === InputEventType.KEY_PRESS && String(event.key).toLowerCase() === 'e') {
-      return this.tryRangePickup({ operationId: `input-${event.id}`, device: event.device });
+      return this.tryCanonicalInteract({ operationId: `input-${event.id}`, device: event.device });
     }
     return false;
   }
@@ -94,7 +98,11 @@ export class SceneWorldInteraction {
     return handled;
   }
 
-  tryRangePickup(request = {}) {
+  /**
+   * 统一 E、PC 左键与虚拟交互的拾取/采集后备链路。
+   * 空间 trigger 与 NPC 已在输入路由的前序 handler 消费；此处只处理地面物品和资源节点。
+   */
+  tryCanonicalInteract(request = {}) {
     const scene = this.scene;
     if (!scene.playerEntity || !scene.pickupSystem) return false;
     const result = scene.pickupSystem.requestPickup({
@@ -107,32 +115,17 @@ export class SceneWorldInteraction {
     const picked = (result.scheduled || 0) > 0
       || (result.pickedItems?.length || 0) > 0
       || (result.removedEntities?.length || 0) > 0;
-    return picked || this.scene.harvestByFacing?.({ silent: true }) === true;
+    return picked || scene.harvestByFacing?.({ silent: true }) === true;
   }
 
-  tryClickPickup(worldX, worldY, request = {}) {
-    const scene = this.scene;
-    if (!scene.playerEntity || !scene.pickupSystem) return false;
-    const isHit = (x, y) => Math.hypot(x - worldX, y - worldY) <= 30;
-    let hit = scene.pickupItems.some(item => !item.picked && isHit(item.x, item.y));
-    if (!hit) {
-      hit = scene.equipmentItems.some(item => {
-        if (item.picked) return false;
-        const position = item.getComponent?.('transform')?.position;
-        return isHit(position?.x ?? item.x, position?.y ?? item.y);
-      });
-    }
-    if (!hit) return false;
+  /** 兼容旧调用；E 与范围交互均走唯一 canonical 链路。 */
+  tryRangePickup(request = {}) {
+    return this.tryCanonicalInteract(request);
+  }
 
-    const result = scene.pickupSystem.requestPickup({
-      playerEntity: scene.playerEntity,
-      pickupItems: scene.pickupItems,
-      equipmentItems: scene.equipmentItems,
-      ...request
-    });
-    this._applyPickupResult(result);
-    // 命中物品即消费指针，背包已满时也不能穿透成攻击。
-    return true;
+  /** 兼容旧调用；左键不再以命中半径分叉，改为与 E 使用同一候选集合。 */
+  tryClickPickup(worldX, worldY, request = {}) {
+    return this.tryCanonicalInteract({ ...request, world: { x: worldX, y: worldY } });
   }
 
   _applyPickupResult(result = {}) {

@@ -16,6 +16,7 @@ import { GatheringPuppetSystem } from '../../systems/GatheringPuppetSystem.js';
 import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
 import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
 import { ItemLifecycleService, ITEM_LIFECYCLE_COMMANDS } from '../../systems/ItemLifecycleService.js';
+import { ToolRepairService } from '../../systems/ToolRepairService.js';
 import { MeditationSystem } from '../../systems/MeditationSystem.js';
 import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
 import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
@@ -235,6 +236,19 @@ export class SceneGameplaySystemAssembler {
       onItemUsed: ({ item, heal, mana }) => scene.onItemUsed?.(item, heal, mana),
       onItemGained: (item, player) => scene.onItemGained?.(item, player)
     });
+    scene.toolRepairService = new ToolRepairService({
+      inventoryTransactions: scene.inventoryTransactions,
+      resolveActor: id => resolveEntity(id),
+      resolveDefinition: id => scene.itemRuntimeFactory?.resolveDefinition?.(id)
+        || scene.gameLoader?.definitionRepository?.get?.('items', id)
+        || scene.gameLoader?.definitionRepository?.get?.('equipment', id)
+        || scene.gameLoader?.registries?.items?.get?.(id)
+        || null,
+      createCheckpoint: checkpoint => scene.requestAutoSave?.({
+        reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: scene.currentSceneId
+      })
+    });
+    scene.sceneRuntime?.registerCommandHandler?.('item.repair', scene.toolRepairService);
     for (const commandType of Object.values(ITEM_LIFECYCLE_COMMANDS)) {
       scene.sceneRuntime?.registerCommandHandler?.(commandType, scene.itemLifecycleService);
     }
@@ -243,6 +257,11 @@ export class SceneGameplaySystemAssembler {
       (_current, event) => event.payload?.projection || null
     );
     if (offItemProjection) scene.sceneRuntime.addDisposer(offItemProjection, 'projection:itemLifecycle');
+    const offToolRepairProjection = scene.sceneRuntime?.projectionStore?.registerReducer?.(
+      scene.toolRepairService.stateType,
+      (_current, event) => event.payload?.projection || null
+    );
+    if (offToolRepairProjection) scene.sceneRuntime.addDisposer(offToolRepairProjection, 'projection:toolRepair');
 
     scene.combatSystem.setOnKillCallback?.(entity => scene.onEnemyKilled?.(entity));
     scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
@@ -312,6 +331,7 @@ export class SceneGameplaySystemAssembler {
       ['gameplay.gatheringPuppet', scene.gatheringPuppetSystem, 'dispose'],
       ['gameplay.playerDefeat', scene.playerDefeatService],
       ['gameplay.itemLifecycle', scene.itemLifecycleService],
+      ['gameplay.toolRepair', scene.toolRepairService],
       ['gameplay.meditation', scene.meditationSystem],
       ['gameplay.zoneEffect', scene.zoneEffectSystem],
       ['gameplay.meleeAttack', scene.meleeAttackSystem, 'cleanup']
@@ -334,6 +354,7 @@ export class SceneGameplaySystemAssembler {
       meditation: 'meditationSystem', zoneEffect: 'zoneEffectSystem', meleeAttack: 'meleeAttackSystem',
       flight: 'flightSystem', jump: 'jumpSystem', locomotion: 'locomotionSystem',
       playerDefeat: 'playerDefeatService', itemLifecycle: 'itemLifecycleService',
+      toolRepair: 'toolRepairService',
       inventoryTransactions: 'inventoryTransactions'
     };
     const presentationFields = {

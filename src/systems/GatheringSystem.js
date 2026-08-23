@@ -84,14 +84,20 @@ export class GatheringSystem {
 
     const tool = this._findTool(inventory, node.requiredToolType);
     if (node.requiredToolType && !tool) return { ok: false, code: 'toolRequired', toolType: node.requiredToolType };
-    const duration = this.effectResolver
+    const effectDuration = this.effectResolver
       ? this.effectResolver.getValue(owner.id, 'gather.duration', node.gatherDuration, {
         player: owner, owner, actor, nodeEntity, node, resourceType: node.resourceType
       })
       : node.gatherDuration;
-    const resolvedDuration = Math.max(0.1, Number(duration) || node.gatherDuration);
+    const normalizedEffectDuration = Math.max(0.1, Number(effectDuration) || node.gatherDuration);
+    const toolGatherSpeed = Number(tool?.gatherSpeed) > 0 ? Number(tool.gatherSpeed) : 1;
+    const playerSpeed = Number(owner.getComponent?.('stats')?.speed);
+    const normalizedPlayerSpeed = playerSpeed > 0 ? playerSpeed : 100;
+    const playerSpeedMultiplier = normalizedPlayerSpeed / 100;
+    const resolvedDuration = Math.max(0.1, normalizedEffectDuration / toolGatherSpeed / playerSpeedMultiplier);
     this.session = {
       player: owner, owner, actor, nodeEntity, node, inventory, tool,
+      effectDuration: normalizedEffectDuration, toolGatherSpeed, playerSpeed: normalizedPlayerSpeed, playerSpeedMultiplier,
       elapsed: Math.min(resolvedDuration, Math.max(0, Number(elapsed) || 0)),
       duration: resolvedDuration,
       startPosition: { x: actorTransform.position.x, y: actorTransform.position.y },
@@ -129,7 +135,8 @@ export class GatheringSystem {
 
   describe() {
     if (!this.session) return null;
-    const { owner, actor, nodeEntity, node, inventory, tool, elapsed, duration, operationId } = this.session;
+    const { owner, actor, nodeEntity, node, inventory, tool, elapsed, duration, operationId,
+      effectDuration, toolGatherSpeed, playerSpeed, playerSpeedMultiplier } = this.session;
     const requestedYield = Math.min(node.remaining, node.yieldPerGather);
     const item = this.itemResolver(node.itemId, node.resourceType);
     const capacity = this.inventoryTransactions.previewAdd(inventory, item, requestedYield).accepted;
@@ -143,6 +150,10 @@ export class GatheringSystem {
       elapsed,
       duration,
       progress: duration > 0 ? elapsed / duration : 1,
+      effectDuration,
+      toolGatherSpeed,
+      playerSpeed,
+      playerSpeedMultiplier,
       requestedYield,
       capacity,
       expectedYield: Math.min(requestedYield, capacity),

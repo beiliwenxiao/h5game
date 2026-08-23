@@ -746,7 +746,9 @@ export class InventoryPanel extends UIElement {
     
     const item = slot.item;
     const tooltipWidth = 280;
-    const tooltipHeight = 200;
+    const isTool = typeof item.toolType === 'string' && item.toolType.length > 0;
+    const toolLineCount = isTool ? (Number(item.durability) <= 0 ? 4 : 3) : 0;
+    const tooltipHeight = 200 + toolLineCount * 14;
     
     // 获取canvas尺寸
     const canvas = document.getElementById('gameCanvas');
@@ -892,6 +894,27 @@ export class InventoryPanel extends UIElement {
       }
     }
     
+    // 工具属性：功能、耐久和速度属于定义/实例状态，只读展示。
+    if (isTool) {
+      const maxDurability = Number(item.maxDurability) || 0;
+      const durability = Math.max(0, Number(item.durability) || 0);
+      ctx.fillStyle = '#7fd6ff';
+      ctx.font = '10px Arial';
+      ctx.fillText(`功能: ${item.functionDescription || `用于${item.toolType}`}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      ctx.fillStyle = durability <= 0 ? '#ff7777' : '#ffffff';
+      ctx.fillText(`耐久: ${durability}/${maxDurability}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      ctx.fillStyle = '#a9e59b';
+      ctx.fillText(`采集速度: ×${Number(item.gatherSpeed) > 0 ? item.gatherSpeed : 1}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      if (durability <= 0) {
+        ctx.fillStyle = '#ff7777';
+        ctx.fillText('工具已损坏，可锻造修复', tooltipX + 10, tooltipY + yOffset);
+        yOffset += 14;
+      }
+    }
+
     // 特殊属性（穿刺、多重箭等）
     if (item.pierce) {
       ctx.fillStyle = '#ff8800';
@@ -1105,6 +1128,8 @@ export class InventoryPanel extends UIElement {
             this.handleSlotLeftClick(this.itemDetailSlot, true);
           } else if (btn.action === 'use') {
             this.useItem(this.itemDetailSlot);
+          } else if (btn.action === 'repair') {
+            this.repairItem(this.itemDetailSlot);
           } else if (btn.action === 'drop') {
             this.dropItem(this.itemDetailSlot);
           }
@@ -1177,7 +1202,9 @@ export class InventoryPanel extends UIElement {
         case 'use':
           this.useItem(slotIndex);
           break;
-          
+        case 'repair':
+          this.repairItem(slotIndex);
+          break;
         case 'drop':
           this.dropItem(slotIndex);
           break;
@@ -1205,6 +1232,18 @@ export class InventoryPanel extends UIElement {
       itemId: item.id,
       instanceId: item.instanceId || null,
       quantity: 1
+    });
+  }
+
+  repairItem(slotIndex) {
+    const inventory = this.entity?.getComponent?.('inventory');
+    const item = inventory?.getSlot?.(slotIndex)?.item;
+    if (!item?.instanceId || !this.onIntent) return;
+    const maxDurability = Number(item.maxDurability) || 0;
+    if (maxDurability <= 0 || Number(item.durability) >= maxDurability) return;
+    return this.onIntent('item.repair', {
+      itemId: item.id,
+      instanceId: item.instanceId
     });
   }
 
@@ -1291,8 +1330,10 @@ export class InventoryPanel extends UIElement {
     const item = slot.item;
 
     // 面板位置：背包面板顶部居中
-    const pw = 220;
-    const ph = 140;
+    const isTool = typeof item.toolType === 'string' && item.toolType.length > 0;
+    const isRepairable = isTool && item.instanceId && Number(item.maxDurability) > 0
+      && Number(item.durability) < Number(item.maxDurability);
+    const ph = isTool ? 182 : 140;
     const px = this.x + Math.round((this.width - pw) / 2);
     const py = this.y - ph - 6;
 
@@ -1334,12 +1375,28 @@ export class InventoryPanel extends UIElement {
       yOff += 14;
     }
 
+    if (typeof item.toolType === 'string' && item.toolType) {
+      ctx.fillStyle = '#7fd6ff';
+      ctx.fillText(`功能: ${item.functionDescription || `用于${item.toolType}`}`, px + 10, py + yOff);
+      yOff += 14;
+      ctx.fillStyle = Number(item.durability) <= 0 ? '#ff7777' : '#ffffff';
+      ctx.fillText(`耐久: ${Math.max(0, Number(item.durability) || 0)}/${Number(item.maxDurability) || 0}`, px + 10, py + yOff);
+      yOff += 14;
+      ctx.fillStyle = '#a9e59b';
+      ctx.fillText(`采集速度: ×${Number(item.gatherSpeed) > 0 ? item.gatherSpeed : 1}`, px + 10, py + yOff);
+      yOff += 14;
+    }
+
     // 按钮：装备/使用 + 丢弃
     const btnY = py + ph - 32;
     const btnH = 24;
     this.itemDetailButtons = [];
 
-    if (item.type === 'equipment') {
+    if (isRepairable) {
+      const b1 = { label: '锻造修复', action: 'repair', x: px + 12, y: btnY, width: 92, height: btnH };
+      const b2 = { label: '丢弃', action: 'drop', x: px + 120, y: btnY, width: 70, height: btnH };
+      this.itemDetailButtons.push(b1, b2);
+    } else if (item.type === 'equipment') {
       const b1 = { label: '装备', action: 'equip', x: px + 20, y: btnY, width: 70, height: btnH };
       const b2 = { label: '丢弃', action: 'drop', x: px + 120, y: btnY, width: 70, height: btnH };
       this.itemDetailButtons.push(b1, b2);
@@ -1440,6 +1497,10 @@ export class InventoryPanel extends UIElement {
         label: '使用',
         action: 'use'
       });
+    }
+    if (slot.item.instanceId && Number(slot.item.maxDurability) > 0
+      && Number(slot.item.durability) < Number(slot.item.maxDurability)) {
+      this.contextMenu.options.push({ label: '锻造修复', action: 'repair' });
     }
     
     this.contextMenu.options.push({

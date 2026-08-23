@@ -4998,9 +4998,27 @@
         "id": "tool.skinning_knife",
         "name": "旧剥皮刀",
         "type": "tool",
+        "description": "刃口磨损的旧剥皮刀。",
+        "functionDescription": "用于剥取兽皮和处理猎物。",
         "imageId": "s01.tool.skinningKnife",
         "durability": 8,
         "maxDurability": 8,
+        "gatherSpeed": 1,
+        "repairCosts": [
+          { "itemId": "resource.iron", "quantity": 1 }
+        ],
+        "capabilities": [
+          {
+            "id": "durable",
+            "strategyId": "item.durable.standard",
+            "parameters": { "maxDurability": 8 }
+          },
+          {
+            "id": "tool",
+            "strategyId": "item.tool.gathering",
+            "parameters": { "toolType": "skinningKnife", "gatherSpeed": 1 }
+          }
+        ],
         "maxStack": 1,
         "sprite": {
           "height": 42,
@@ -5131,9 +5149,27 @@
         "id": "tool.worn_axe",
         "name": "破旧斧头",
         "type": "tool",
+        "description": "斧刃钝化、木柄裂纹遍布的旧斧。",
+        "functionDescription": "用于砍伐树木。",
         "imageId": "s01.tool.wornAxe",
         "durability": 8,
         "maxDurability": 8,
+        "gatherSpeed": 1,
+        "repairCosts": [
+          { "itemId": "resource.iron", "quantity": 1 }
+        ],
+        "capabilities": [
+          {
+            "id": "durable",
+            "strategyId": "item.durable.standard",
+            "parameters": { "maxDurability": 8 }
+          },
+          {
+            "id": "tool",
+            "strategyId": "item.tool.gathering",
+            "parameters": { "toolType": "axe", "gatherSpeed": 1 }
+          }
+        ],
         "maxStack": 1,
         "sprite": {
           "height": 40,
@@ -5162,9 +5198,27 @@
         "id": "tool.worn_pickaxe",
         "name": "破旧铁镐",
         "type": "tool",
+        "description": "仅剩一次可用力道的破旧铁镐。",
+        "functionDescription": "用于开采铁矿。",
         "imageId": "s05.tool.wornPickaxe",
         "durability": 1,
         "maxDurability": 1,
+        "gatherSpeed": 1,
+        "repairCosts": [
+          { "itemId": "resource.iron", "quantity": 1 }
+        ],
+        "capabilities": [
+          {
+            "id": "durable",
+            "strategyId": "item.durable.standard",
+            "parameters": { "maxDurability": 1 }
+          },
+          {
+            "id": "tool",
+            "strategyId": "item.tool.gathering",
+            "parameters": { "toolType": "pickaxe", "gatherSpeed": 1 }
+          }
+        ],
         "maxStack": 1,
         "sprite": {
           "height": 48,
@@ -5176,9 +5230,27 @@
         "id": "tool.worn_shovel",
         "name": "开裂的旧铲",
         "type": "tool",
+        "description": "铲面开裂，仍可勉强完成一次施工。",
+        "functionDescription": "用于修筑临时工事。",
         "imageId": "tool.wornShovel",
         "durability": 1,
         "maxDurability": 1,
+        "gatherSpeed": 1,
+        "repairCosts": [
+          { "itemId": "resource.iron", "quantity": 1 }
+        ],
+        "capabilities": [
+          {
+            "id": "durable",
+            "strategyId": "item.durable.standard",
+            "parameters": { "maxDurability": 1 }
+          },
+          {
+            "id": "tool",
+            "strategyId": "item.tool.gathering",
+            "parameters": { "toolType": "shovel", "gatherSpeed": 1 }
+          }
+        ],
         "maxStack": 1,
         "sprite": {
           "height": 48,
@@ -5190,9 +5262,27 @@
         "id": "tool.shovel",
         "name": "营建铁铲",
         "type": "tool",
+        "description": "铲刃结实的营建铁铲。",
+        "functionDescription": "用于修筑和维修工事。",
         "imageId": "tool.shovel",
         "durability": 12,
         "maxDurability": 12,
+        "gatherSpeed": 1,
+        "repairCosts": [
+          { "itemId": "resource.iron", "quantity": 1 }
+        ],
+        "capabilities": [
+          {
+            "id": "durable",
+            "strategyId": "item.durable.standard",
+            "parameters": { "maxDurability": 12 }
+          },
+          {
+            "id": "tool",
+            "strategyId": "item.tool.gathering",
+            "parameters": { "toolType": "shovel", "gatherSpeed": 1 }
+          }
+        ],
         "maxStack": 1,
         "sprite": {
           "height": 48,

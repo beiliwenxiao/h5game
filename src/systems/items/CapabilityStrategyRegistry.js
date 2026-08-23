@@ -190,11 +190,17 @@ export function createStandardCapabilityStrategyRegistry() {
       project: ({ parameters, runtimeState }) => ({ capacity: parameters.capacity,
         count: list(mutable(runtimeState, 'container', [])).length }) })
     .register({ capabilityId: 'tool', strategyId: 'item.tool.gathering',
-      parametersSchema: { toolType: { type: 'string', required: true } },
+      parametersSchema: {
+        toolType: { type: 'string', required: true },
+        gatherSpeed: { type: 'number', min: Number.MIN_VALUE }
+      },
       requires: ['durable'],
       conflictsWith: ['stackable'],
-      project: ({ parameters, runtimeState }) => ({ toolType: parameters.toolType,
-        durability: mutable(runtimeState, 'durability') }) })
+      project: ({ parameters, runtimeState }) => ({
+        toolType: parameters.toolType,
+        gatherSpeed: parameters.gatherSpeed ?? 1,
+        durability: mutable(runtimeState, 'durability')
+      }) })
     .register({ capabilityId: 'durable', strategyId: 'item.durable.standard',
       parametersSchema: { maxDurability: { type: 'integer', required: true, min: 1 } },
       conflictsWith: ['stackable'],

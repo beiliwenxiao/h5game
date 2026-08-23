@@ -116,6 +116,14 @@ function restoreSceneSaveState(data = {}) {
 }
 
 async function handleApplicationEvent(event = {}) {
+  if (event.type === 'item.repaired') {
+    const payload = event.payload || {};
+    this.notificationSystem?.addNotification?.(
+      `已锻造修复 ${payload.name || payload.itemId || '工具'}（${payload.durability}/${payload.maxDurability}）`,
+      'success'
+    );
+    return { ok: true, itemId: payload.itemId || null, repaired: true };
+  }
   if (!this.gameLoader || event.type !== 'item.picked') {
     return { ok: true, ignored: true, code: 'applicationEventNotHandled' };
   }

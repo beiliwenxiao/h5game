@@ -755,7 +755,9 @@ export class PlayerInfoPanel extends UIElement {
     if (!item) return;
     
     const tooltipWidth = 280;
-    const tooltipHeight = 200;
+    const isTool = typeof item.toolType === 'string' && item.toolType.length > 0;
+    const toolLineCount = isTool ? (Number(item.durability) <= 0 ? 4 : 3) : 0;
+    const tooltipHeight = 200 + toolLineCount * 14;
     
     // 获取canvas尺寸
     const canvasWidth = ctx.canvas.width;
@@ -879,6 +881,27 @@ export class PlayerInfoPanel extends UIElement {
       }
     }
     
+    // 工具属性
+    if (typeof item.toolType === 'string' && item.toolType) {
+      const maxDurability = Number(item.maxDurability) || 0;
+      const durability = Math.max(0, Number(item.durability) || 0);
+      ctx.fillStyle = '#7fd6ff';
+      ctx.font = '11px Arial';
+      ctx.fillText(`功能: ${item.functionDescription || `用于${item.toolType}`}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      ctx.fillStyle = durability <= 0 ? '#ff7777' : '#ffffff';
+      ctx.fillText(`耐久: ${durability}/${maxDurability}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      ctx.fillStyle = '#a9e59b';
+      ctx.fillText(`采集速度: ×${Number(item.gatherSpeed) > 0 ? item.gatherSpeed : 1}`, tooltipX + 10, tooltipY + yOffset);
+      yOffset += 14;
+      if (durability <= 0) {
+        ctx.fillStyle = '#ff7777';
+        ctx.fillText('工具已损坏，可锻造修复', tooltipX + 10, tooltipY + yOffset);
+        yOffset += 14;
+      }
+    }
+
     // 特殊属性（穿刺、多重箭等）
     if (item.pierce) {
       ctx.fillStyle = '#ff8800';

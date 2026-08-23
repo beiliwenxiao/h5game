@@ -191,11 +191,18 @@ export class LocalAuthorityAdapter extends AuthorityPort {
     const context = this._createContext(serializedCommand, operationFingerprint, stateId, rngTransaction);
     if (context.preparedStateRevision?.ok === false) {
       rngTransaction.rollback();
-      const result = rejectedResult(serializedCommand.operationId, context.preparedStateRevision.code, {
+      const revisionError = {
         stateId,
         current: context.preparedStateRevision.current,
-        expected: context.preparedStateRevision.expected
-      });
+        ...(context.preparedStateRevision.expected === undefined
+          ? {}
+          : { expected: context.preparedStateRevision.expected })
+      };
+      const result = rejectedResult(
+        serializedCommand.operationId,
+        context.preparedStateRevision.code,
+        revisionError
+      );
       this._finalizeLedger(claim, result);
       return Object.freeze(result);
     }

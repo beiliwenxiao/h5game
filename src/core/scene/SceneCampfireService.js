@@ -674,8 +674,7 @@ export class SceneCampfireService {
     const preserveFuel = previousFuel.enabled === true
       && fuelConfiguration.enabled === true
       && previousFuel.itemId === fuelConfiguration.itemId
-      && previousFuel.secondsPerUnit === fuelConfiguration.secondsPerUnit
-      && previousFuel.maxUnits === fuelConfiguration.maxUnits;
+      && previousFuel.secondsPerUnit === fuelConfiguration.secondsPerUnit;
     const initialSeconds = fuelConfiguration.initialUnits * fuelConfiguration.secondsPerUnit;
     this.fuel = {
       ...fuelConfiguration,

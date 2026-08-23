@@ -5144,7 +5144,7 @@
           },
           "embers": { "color": "#ffb04a", "radius": 1.8, "frequency": 2.1, "minAlpha": 0.18, "maxAlpha": 0.85, "offsetX": 0, "offsetY": -18, "offsets": [[-13, -8, 0.8], [8, -16, 1.1], [15, -6, 1.5], [-4, -23, 1.9]] },
           "fog": { "active": true, "color": "rgba(30, 30, 40,", "fadeSpeed": 0.4 },
-          "fuel": { "enabled": true, "initialUnits": 1, "itemId": "resource.wood", "maxUnits": 100, "secondsPerUnit": 100, "startOnIgnite": false },
+          "fuel": { "enabled": true, "initialUnits": 1, "itemId": "resource.wood", "maxUnits": 10, "secondsPerUnit": 100, "startOnIgnite": false },
           "initialFogOpacity": 0.85,
           "labels": { "ignite": "{interact}点燃", "unlit": "熄灭的火堆" },
           "particlePresets": [
@@ -6354,7 +6354,19 @@
             },
             {
               "equals": true,
+              "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "equals": true,
               "path": "story.s01Survival.axeFound"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.firstWolfSpotted"
+            },
+            {
+              "lte": 2,
+              "path": "story.s01Survival.campfireRefuelCount"
             }
           ]
         },
@@ -6381,8 +6393,16 @@
         "when": {
           "all": [
             {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
               "equals": true,
-              "path": "story.s01Survival.axeFound"
+              "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "gte": 3,
+              "path": "story.s01Survival.campfireRefuelCount"
             },
             {
               "equals": false,

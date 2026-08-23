@@ -77,6 +77,46 @@ function drawVisualLayer(ctx, layer, image, x, y) {
 }
 
 const campfireFeatureMethods = {
+  _stopEmberParticles() {
+    for (const emitter of this.campfire.emberEmitters || []) emitter.active = false;
+    this.campfire.emberEmitters = [];
+  },
+
+  _startEmberParticles() {
+    campfireFeatureMethods._stopEmberParticles.call(this);
+    if (!this.particleSystem || this.campfire.lit || !this.campfire.hasBeenIgnited) return false;
+    const offsets = this.embers.offsets.length > 0 ? this.embers.offsets : [[0, 0, 0]];
+    const rate = Math.max(0.15, this.embers.frequency / offsets.length);
+    const interval = 1 / rate;
+    this.campfire.emberEmitters = offsets.map(([offsetX, offsetY, phase], index) => {
+      const emitter = this.particleSystem.createEmitter({
+        position: {
+          x: this.campfire.x + this.embers.offsetX + offsetX,
+          y: this.campfire.y + this.embers.offsetY + offsetY
+        },
+        rate,
+        duration: Infinity,
+        particleConfig: {
+          position: { x: this.campfire.x, y: this.campfire.y },
+          velocity: { x: 0, y: -4 - phase * 1.5 },
+          life: Math.max(320, 360 + this.embers.radius * 80),
+          size: this.embers.radius * (0.75 + (index % 3) * 0.18),
+          color: this.embers.color,
+          alpha: this.embers.maxAlpha,
+          gravity: 0,
+          friction: 0.96,
+          isFire: true,
+          renderLayer: 'worldDepth',
+          sortY: this.campfire.y
+        }
+      });
+      // 首个余烬下一帧立即闪现，其余按相位错开，形成间歇闪烁而非连续火焰。
+      emitter.accumulator = index === 0 ? interval : interval * index / offsets.length;
+      return emitter;
+    });
+    return true;
+  },
+
   _restoreCampfireState(lit) {
     if (lit) {
       if (!this.campfire.lit) this.lightCampfire({ emitEvent: false });
@@ -94,11 +134,14 @@ const campfireFeatureMethods = {
     this.fog.opacity = this.initialFogOpacity;
     this.fog.targetOpacity = this.initialFogOpacity;
     this.fog.active = true;
+    campfireFeatureMethods._startEmberParticles.call(this);
   },
 
   /** 点燃火堆，并按配置创建可选火焰粒子发射器。 */
   lightCampfire({ emitEvent = true } = {}) {
     if (this.campfire.lit) return;
+    const relighting = this.campfire.hasBeenIgnited === true;
+    campfireFeatureMethods._stopEmberParticles.call(this);
     this.campfire.lit = true;
     this.campfire.hasBeenIgnited = true;
     this.campfire.emitters = [];
@@ -126,7 +169,8 @@ const campfireFeatureMethods = {
     this.fog.opacity = this.initialFogOpacity;
     this.fog.targetOpacity = this.initialFogOpacity;
     this.fog.active = true;
-    if (this.fuel.enabled === true && this.fuel.startOnIgnite === true && this.fuel.remainingSeconds > 0) {
+    if (this.fuel.enabled === true && this.fuel.remainingSeconds > 0
+      && (this.fuel.startOnIgnite === true || relighting)) {
       this.fuel.active = true;
     }
     if (emitEvent) this.onIgnited?.();
@@ -153,7 +197,19 @@ const campfireFeatureMethods = {
         this.campfire.currentFrame = (this.campfire.currentFrame + 1) % this.campfire.frameCount;
       }
     }
-    if (!this.campfire.lit) return;
+    if (!this.campfire.lit) {
+      if (this.campfire.hasBeenIgnited && this.campfire.emberEmitters.length === 0) {
+        campfireFeatureMethods._startEmberParticles.call(this);
+      }
+      this.campfire.emberEmitters.forEach((emitter, index) => {
+        const [offsetX, offsetY] = this.embers.offsets[index] || [0, 0];
+        emitter.position.x = this.campfire.x + this.embers.offsetX + offsetX;
+        emitter.position.y = this.campfire.y + this.embers.offsetY + offsetY;
+        emitter.particleConfig.sortY = this.campfire.y;
+        this.particleSystem.updateEmitter(emitter, deltaTime);
+      });
+      return;
+    }
     const time = this.now() / 1000;
     this.campfire.emitters.forEach((emitter, index) => {
       if (!emitter) return;
@@ -524,6 +580,7 @@ export class SceneCampfireService {
       lit: false,
       hasBeenIgnited: false,
       emitters: [],
+      emberEmitters: [],
       emitterSmoke: null,
       fireImage: null,
       imageLoaded: false,
@@ -691,6 +748,10 @@ export class SceneCampfireService {
     const previousImages = this.layerImages;
     this.visualLayers = visualLayers;
     this.embers = emberState;
+    campfireFeatureMethods._stopEmberParticles.call(this);
+    if (!this.campfire.lit && this.campfire.hasBeenIgnited) {
+      campfireFeatureMethods._startEmberParticles.call(this);
+    }
     this.layerImages = Object.fromEntries(Object.entries(visualLayers).map(([key, layer]) => [
       key,
       previousImages?.[key] && previousLayers?.[key]?.imageId === layer.imageId ? previousImages[key] : null
@@ -793,6 +854,13 @@ export class SceneCampfireService {
     return this.campfire.lit === true;
   }
 
+  /** 已点燃视为幂等成功；未点燃时，有燃料配置就必须至少剩余一份木柴。 */
+  canIgnite() {
+    if (!this.isConfigured()) return false;
+    if (this.isLit()) return true;
+    return this.fuel.enabled !== true || this.getFuelSnapshot().units > 0;
+  }
+
   getFuelSnapshot() {
     const fuel = this.fuel;
     const units = fuel.enabled && fuel.secondsPerUnit > 0
@@ -842,6 +910,9 @@ export class SceneCampfireService {
     this._bindRuntime(runtime);
     campfireFeatureMethods._restoreCampfireState.call(this, lit === true);
     this.campfire.hasBeenIgnited = lit === true || hasBeenIgnited === true;
+    if (!lit && this.campfire.hasBeenIgnited) {
+      campfireFeatureMethods._startEmberParticles.call(this);
+    }
     if (this.fuel.enabled !== true) return true;
     const maximumSeconds = this.fuel.maxUnits * this.fuel.secondsPerUnit;
     const legacySeconds = this.fuel.initialUnits * this.fuel.secondsPerUnit;
@@ -854,8 +925,9 @@ export class SceneCampfireService {
   }
 
   ignite({ emitEvent = true, runtime = {} } = {}) {
-    if (!this.isConfigured()) return false;
+    if (!this.canIgnite()) return false;
     this._bindRuntime(runtime);
+    if (this.isLit()) return true;
     campfireFeatureMethods.lightCampfire.call(this, { emitEvent });
     return true;
   }
@@ -914,6 +986,7 @@ export class SceneCampfireService {
   dispose() {
     for (const emitter of this.campfire.emitters || []) emitter.active = false;
     this.campfire.emitters.length = 0;
+    campfireFeatureMethods._stopEmberParticles.call(this);
     if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
     this.campfire.emitterSmoke = null;
     this.campfire.fireImage = null;

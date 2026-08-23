@@ -597,6 +597,22 @@ export class S01S02Coordinator {
 
   async _refuelCampfireOnce() {
     if (this.scene.currentSceneId !== 'S01') return false;
+    const fuel = this.scene._campfireService;
+    const currentFuel = fuel?.getFuelSnapshot?.();
+    if (fuel?.isLit?.() !== true && Number(currentFuel?.units) > 0) {
+      const ignited = fuel.ignite({ runtime: { particleSystem: this.scene.particleSystem } });
+      if (ignited) {
+        this.scene._showScreenTip('余烬重新燃起，火焰再次照亮了周围。', { title: '篝火重燃' });
+        const reignitedSurvival = this._story().s01Survival || {};
+        if (Number(reignitedSurvival.campfireRefuelCount) >= 3
+          && reignitedSurvival.firstWolfSpotted !== true) {
+          await this._spawnFirstWolfAfterThirdRefuel();
+        }
+        return { ok: true, status: 'reignited' };
+      }
+      this.scene._showScreenTip('篝火暂时无法点燃，请稍后再试。', { title: '点燃失败' });
+      return { ok: false, code: 'campfireIgniteFailed' };
+    }
     const survival = this._story().s01Survival || {};
     if (survival.firstWolfSpotted === true) return { ok: true, status: 'blocked' };
     if (Number(survival.campfireRefuelCount) >= 3) {
@@ -607,7 +623,6 @@ export class S01S02Coordinator {
       });
       return { ok: false, code: 'firstWolfSpawnFailed' };
     }
-    const fuel = this.scene._campfireService;
     if (fuel?.canAddFuelUnits?.(1) !== true) {
       this.scene._showScreenTip('篝火燃料已满，暂时不需要再添木材。', { title: '无需添柴' });
       return { ok: true, status: 'blocked' };
@@ -627,9 +642,13 @@ export class S01S02Coordinator {
       console.error('[S01S02Coordinator] 添柴事务已提交但燃料投影未写入');
       return { ok: true, warning: 'fuelProjectionFailed' };
     }
-    this.scene._showScreenTip('你把一份枯木投入火堆，火焰又旺了一些。', { title: '添柴成功' });
+    this.scene._showScreenTip(fuel.isLit()
+      ? '你把一份枯木投入火堆，火焰又旺了一些。'
+      : '你把一份枯木放进余烬中。再次靠近火堆，{interact}即可重新点燃。', {
+      title: fuel.isLit() ? '添柴成功' : '木柴已放入'
+    });
     const updatedSurvival = this._story().s01Survival || {};
-    if (Number(updatedSurvival.campfireRefuelCount) >= 3) {
+    if (fuel.isLit() && Number(updatedSurvival.campfireRefuelCount) >= 3) {
       const wolfSpawned = await this._spawnFirstWolfAfterThirdRefuel();
       if (!wolfSpawned) {
         console.warn('[S01S02Coordinator] 三次添柴后未能生成并激活首狼');
@@ -749,7 +768,12 @@ export class S01S02Coordinator {
         this.scene._showScreenTip(`烹饪结算失败：${result.code || 'unknown'}。材料和剧情状态未改变，请重试。`, { title: '烹饪失败' });
         return result;
       }
-      this.scene._campfireService?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
+      const campfire = this.scene._campfireService;
+      if (campfire?.canAddFuelUnits?.(1) === true) campfire.addFuelUnits(1);
+      const ignited = campfire?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
+      if (ignited !== true) {
+        console.warn('[S01S02Coordinator] 烹饪事务已提交，但篝火重燃表现失败');
+      }
       this.scene._showScreenTip('你添柴重新点旺篝火，狼肉烤熟了。烤狼肉可以在受伤时恢复生命；现在用木材搭一座小庇护所。', { title: '烤狼肉' });
       return { ok: true };
     }

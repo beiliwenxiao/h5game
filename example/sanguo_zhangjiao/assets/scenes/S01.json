@@ -860,7 +860,7 @@
           "id": "S01-binding-refuel-campfire",
           "name": "给篝火添柴",
           "pointerRadius": 36,
-          "prompt": "{interact}投入木材延长燃烧",
+          "prompt": "{interact}添柴或重新点燃篝火",
           "radius": 80,
           "target": "S01-spawn-campfire",
           "targetMode": "id",

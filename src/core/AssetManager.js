@@ -43,6 +43,7 @@ export class AssetManager {
         this._inflightImages = new Map();
         this._activeLoadBatches = 0;
         this._loadGeneration = 0;
+        this._loadProgressListeners = new Set();
 
         // 占位符资源生成器
         this.placeholderAssets = new PlaceholderAssets();
@@ -350,6 +351,47 @@ export class AssetManager {
         }
     }
 
+    /**
+     * 返回当前真实资源批次的只读快照。
+     * @returns {{completed:number,total:number,progress:number,isLoading:boolean}}
+     */
+    getLoadSnapshot() {
+        const completed = Math.max(0, Number(this.loadedCount) || 0);
+        const total = Math.max(0, Number(this.totalCount) || 0);
+        const progress = total > 0 ? Math.min(1, completed / total) : 0;
+        return Object.freeze({
+            completed,
+            total,
+            progress,
+            isLoading: this.isLoading
+        });
+    }
+
+    /**
+     * 订阅真实资源批次进度；返回的函数用于注销监听。
+     * @param {(snapshot:{completed:number,total:number,progress:number,isLoading:boolean})=>void} listener
+     * @returns {()=>void}
+     */
+    onLoadProgress(listener) {
+        if (typeof listener !== 'function') {
+            throw new TypeError('AssetManager.onLoadProgress: listener 必须是函数');
+        }
+        this._loadProgressListeners.add(listener);
+        return () => this._loadProgressListeners.delete(listener);
+    }
+
+    _emitLoadProgress() {
+        if (this._loadProgressListeners.size === 0) return;
+        const snapshot = this.getLoadSnapshot();
+        for (const listener of [...this._loadProgressListeners]) {
+            try {
+                listener(snapshot);
+            } catch (error) {
+                console.warn('AssetManager: load progress listener failed', error);
+            }
+        }
+    }
+
     _beginLoadBatch(total) {
         if (this._activeLoadBatches === 0) {
             this.loadedCount = 0;
@@ -359,11 +401,13 @@ export class AssetManager {
         this._activeLoadBatches++;
         this.totalCount += Math.max(0, Number(total) || 0);
         this.isLoading = true;
+        this._emitLoadProgress();
     }
 
     _markLoadItemComplete() {
         this.loadedCount++;
         this.loadProgress = this.totalCount > 0 ? this.loadedCount / this.totalCount : 1;
+        this._emitLoadProgress();
     }
 
     _endLoadBatch() {
@@ -372,6 +416,7 @@ export class AssetManager {
         if (!this.isLoading && this.totalCount > 0) {
             this.loadProgress = this.loadedCount / this.totalCount;
         }
+        this._emitLoadProgress();
     }
 
     /**
@@ -570,11 +615,13 @@ export class AssetManager {
         this._inflightAssets.clear();
         this._inflightImages.clear();
         this._activeLoadBatches = 0;
+        this.isLoading = false;
         this._multiBackendAssets?.clear?.();
         this.loadQueue = [];
         this.loadedCount = 0;
         this.totalCount = 0;
         this.loadProgress = 0;
+        this._emitLoadProgress();
         console.log('AssetManager: All assets cleared');
     }
 

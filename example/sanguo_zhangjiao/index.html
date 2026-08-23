@@ -910,6 +910,7 @@
         // 场景管理器
         let sceneManager = null;
         let assetManager = null;
+        let detachAssetLoadProgress = null;
         
         // UI组件
         let dialogueBox = null;
@@ -2188,8 +2189,15 @@
 
                 await nextStep(); // 步骤 1
                 // 创建并初始化 AssetManager
+                detachAssetLoadProgress?.();
+                detachAssetLoadProgress = null;
                 assetManager = new AssetManager();
                 assetManager.setAssetBasePath('assets/');
+                detachAssetLoadProgress = assetManager.onLoadProgress(({ completed, total }) => {
+                    if (total <= 0) return;
+                    const progress = Math.min(100, Math.max(0, (completed / total) * 100));
+                    updateLoading(progress, `资源加载中... ${completed}/${total}`);
+                });
                 assetManager.loadPlaceholderAssets();
 
                 await nextStep(); // 步骤 2

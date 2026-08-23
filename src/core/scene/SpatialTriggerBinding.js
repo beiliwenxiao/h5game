@@ -16,6 +16,7 @@ export function createSpatialTriggerBinding(source = {}) {
     type: 'trigger',
     triggerId: String(source.triggerId || '').trim(),
     sceneId: String(source.sceneId || '').trim(),
+    ...(typeof source.enabled === 'boolean' ? { enabled: source.enabled } : {}),
     selector,
     ...(finite(source.x) ? { x: Number(source.x) } : {}),
     ...(finite(source.y) ? { y: Number(source.y) } : {}),

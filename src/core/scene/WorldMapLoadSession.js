@@ -329,6 +329,7 @@ export class WorldMapLoadSession {
         col: chunk.col
       });
       if (object.type === 'trigger') {
+        if (object.enabled === false) continue;
         triggerBindings.push(createSpatialTriggerBinding(projected));
         continue;
       }

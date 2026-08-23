@@ -93,6 +93,7 @@ export class LoadedChunk {
         if (!object) continue;
         const projected = this._projectObject(object);
         if (object.type === 'trigger') {
+          if (object.enabled === false) continue;
           triggerBindings.push(createSpatialTriggerBinding(projected));
           continue;
         }

@@ -269,7 +269,7 @@ export class TriggerSystem {
         failedTriggerIds: failedRecords.map(record => record.triggerId),
         status: result.ok ? 'resolved' : 'failed',
         code: result.ok ? null : 'allCandidatesFailed'
-      });
+      }, { openPanel: false });
     }
     return result;
   }
@@ -586,7 +586,8 @@ export class TriggerSystem {
         seed: this.ctx.authorityRng?.snapshot?.() || this.ctx.rng?.snapshot?.() || this.ctx.seed || null
       });
       if (this.isDebugEnabled()) {
-        this.sceneDiagnostics?.recordTriggerFailure?.(envelope, { openPanel: true });
+        // 失败诊断仍保留在 DebugPanel 中，但业务事件失败不得打断玩家流程并强制展开面板。
+        this.sceneDiagnostics?.recordTriggerFailure?.(envelope, { openPanel: false });
       }
       this._emit('actionFailed', trigger, this.isDebugEnabled()
         ? envelope

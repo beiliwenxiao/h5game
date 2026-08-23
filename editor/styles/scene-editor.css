@@ -135,14 +135,17 @@
 .scene-event-filter-item.phase { background: #3d315d; border-color: #755c9f; color: #eadcff; }
 .scene-event-filter-item.event { background: #263e4c; border-color: #477486; color: #d7f4ff; }
 .scene-event-filter-item.active { background: #4CAF50; border-color: #7ee483; color: #071807; font-weight: 700; }
-.scene-event-filter-related { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: #c8d2ea; font-size: 11px; white-space: nowrap; cursor: pointer; }
-.scene-event-filter-related input { margin: 0; }
+.scene-event-filter-all-visible, .scene-event-filter-related { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: #c8d2ea; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.scene-event-filter-all-visible input, .scene-event-filter-related input { margin: 0; }
+.scene-event-filter-event-entry { display: inline-flex; align-items: center; gap: 3px; flex: 0 0 auto; }
+.scene-event-filter-event-entry > input { margin: 0; cursor: pointer; }
+.scene-event-filter-event-entry > input:disabled { opacity: .45; cursor: not-allowed; }
 .scene-event-filter-status { flex-shrink: 0; min-width: 42px; color: #8fa3ca; font-size: 10px; white-space: nowrap; text-align: right; }
 
 /* 事件条使用固定容器和独立拖动轨道，内容再多也不增加编辑器宽度 */
 .scene-event-filter-bar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   grid-template-rows: minmax(26px, auto) 7px;
   width: 100%;
   max-width: 100%;
@@ -152,8 +155,9 @@
   box-sizing: border-box;
 }
 .scene-event-filter-title { grid-column: 1; grid-row: 1; align-self: center; }
+.scene-event-filter-all-visible { grid-column: 2; grid-row: 1; align-self: center; }
 .scene-event-filter-scroll {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 1;
   width: 100%;
   max-width: 100%;
@@ -163,8 +167,8 @@
   overscroll-behavior-inline: contain;
 }
 .scene-event-filter-scroll::-webkit-scrollbar { display: none; }
-.scene-event-filter-related { grid-column: 3; grid-row: 1; align-self: center; }
-.scene-event-filter-status { grid-column: 4; grid-row: 1; align-self: center; }
+.scene-event-filter-related { grid-column: 4; grid-row: 1; align-self: center; }
+.scene-event-filter-status { grid-column: 5; grid-row: 1; align-self: center; }
 .scene-event-filter-drag-track {
   grid-column: 1 / -1;
   grid-row: 2;

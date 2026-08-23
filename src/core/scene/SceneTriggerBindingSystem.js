@@ -53,7 +53,7 @@ export class SceneTriggerBindingSystem {
     const ids = new Set();
     this.sceneObjects = Array.isArray(sceneObjects) ? sceneObjects : [];
     this.bindings = (bindings || []).flatMap(rawBinding => {
-      if (!rawBinding || rawBinding.type !== 'trigger') return [];
+      if (!rawBinding || rawBinding.type !== 'trigger' || rawBinding.enabled === false) return [];
       let binding;
       try {
         binding = createSpatialTriggerBinding(rawBinding);
@@ -240,6 +240,7 @@ export class SceneTriggerBindingSystem {
   }
 
   _isBindingActive(binding) {
+    if (binding?.enabled === false) return false;
     if (!binding?.activeWhen) return true;
     try {
       return this._evaluateCondition(binding.activeWhen);

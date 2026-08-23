@@ -646,7 +646,7 @@
             cursor: pointer;
         }
         .save-picker-cancel { background: rgba(255,255,255,.12); }
-        #overwrite-confirm-accept { background: #8a342f; }
+        #overwrite-confirm-accept.danger { background: #8a342f; }
         .save-picker-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .login-action:disabled, .save-picker-confirm:disabled, .save-picker-cancel:disabled {
             cursor: not-allowed;
@@ -1023,6 +1023,7 @@
         const newGameGenderMale = document.getElementById('new-game-gender-male');
         const newGameGenderNote = document.getElementById('new-game-gender-note');
         const overwriteConfirmModal = document.getElementById('overwrite-confirm-modal');
+        const overwriteConfirmTitle = document.getElementById('overwrite-confirm-title');
         const overwriteConfirmMessage = document.getElementById('overwrite-confirm-message');
         const overwriteConfirmAccept = document.getElementById('overwrite-confirm-accept');
         const overwriteConfirmCancel = document.getElementById('overwrite-confirm-cancel');
@@ -1398,11 +1399,13 @@
                 cardMeta.append(level, time);
                 details.append(title, location, cardMeta);
                 option.append(buildSavePreview(entry, shortLabel), details);
-                option.addEventListener('click', () => selectSaveEntry(value));
+                option.addEventListener('click', () => {
+                    if (selectSaveEntry(value) && mode !== 'manualSave') void confirmSavePicker();
+                });
                 option.addEventListener('keydown', event => {
                     if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        selectSaveEntry(value);
+                        if (selectSaveEntry(value) && mode !== 'manualSave') void confirmSavePicker();
                     } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                         event.preventDefault();
                         moveSaveSelection(event.key === 'ArrowDown' ? 1 : -1);
@@ -1457,14 +1460,17 @@
             return !overwriteConfirmModal.classList.contains('hidden');
         }
 
-        function requestOverwriteConfirmation(index) {
+        function requestSaveActionConfirmation({ title, message, acceptLabel, danger = false }) {
             if (pendingOverwriteConfirmation) return pendingOverwriteConfirmation.promise;
 
             let resolveConfirmation;
             const promise = new Promise(resolve => { resolveConfirmation = resolve; });
             pendingOverwriteConfirmation = { promise, resolve: resolveConfirmation };
             overwriteConfirmOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-            overwriteConfirmMessage.textContent = `手动存档 ${index} 已有进度，覆盖后将无法恢复。`;
+            overwriteConfirmTitle.textContent = title;
+            overwriteConfirmMessage.textContent = message;
+            overwriteConfirmAccept.textContent = acceptLabel;
+            overwriteConfirmAccept.classList.toggle('danger', danger);
             savePickerPanel.setAttribute('inert', '');
             overwriteConfirmModal.classList.remove('hidden');
             overwriteConfirmModal.setAttribute('aria-hidden', 'false');
@@ -1473,6 +1479,27 @@
                 if (isOverwriteConfirmationOpen()) overwriteConfirmAccept.focus();
             });
             return promise;
+        }
+
+        function requestOverwriteConfirmation(index, { startGame = false } = {}) {
+            return requestSaveActionConfirmation({
+                title: '覆盖已有存档？',
+                message: `手动存档 ${index} 已有进度，覆盖后将无法恢复。`,
+                acceptLabel: startGame ? '开始游戏' : '确认覆盖',
+                danger: true
+            });
+        }
+
+        function requestStartGameConfirmation(mode, selection, entry = null) {
+            const slotLabel = selection.kind === 'auto' ? `自动存档 ${selection.index}` : `手动存档 ${selection.index}`;
+            const message = mode === 'continue'
+                ? `将读取${slotLabel}${entry?.info?.meta?.characterName ? `（${entry.info.meta.characterName}）` : ''}并进入游戏。`
+                : `将在${slotLabel}开始新的游戏。`;
+            return requestSaveActionConfirmation({
+                title: '开始游戏？',
+                message,
+                acceptLabel: '开始游戏'
+            });
         }
 
         function settleOverwriteConfirmation(result, { restoreFocus = !result } = {}) {
@@ -1485,10 +1512,11 @@
             if (overwriteConfirmModal.contains(document.activeElement)) document.activeElement.blur();
             overwriteConfirmModal.classList.add('hidden');
             overwriteConfirmModal.setAttribute('aria-hidden', 'true');
+            overwriteConfirmAccept.classList.remove('danger');
             savePickerPanel.removeAttribute('inert');
             menuPadIndex = 0;
             pending?.resolve(Boolean(result));
-            if (restoreFocus && opener?.isConnected && isSavePickerOpen()) {
+            if (restoreFocus && opener?.isConnected && !loginScreen.classList.contains('hidden')) {
                 requestAnimationFrame(() => opener.focus());
             }
         }
@@ -1808,6 +1836,8 @@
                         setLoginMessage('存档为空，请选择 开始游戏。');
                         return;
                     }
+                    const confirmed = await requestStartGameConfirmation('continue', selection, entry);
+                    if (!confirmed || !isSavePickerOpen()) return;
                     startGameFromSelection('continue', selection);
                     return;
                 }
@@ -1815,7 +1845,7 @@
                 // 开始游戏与手动保存只能写入手动栏位，自动位绝不允许被覆盖。
                 if (selection.kind !== 'manual') return;
                 if (entry.exists) {
-                    const confirmed = await requestOverwriteConfirmation(selection.index);
+                    const confirmed = await requestOverwriteConfirmation(selection.index, { startGame: mode === 'new' });
                     if (!confirmed || !isSavePickerOpen()) return;
                 }
 
@@ -1828,6 +1858,10 @@
                     setLoginMessage(message);
                     if (isSavePickerOpen()) renderSaveSlots('manualSave');
                     return;
+                }
+                if (!entry.exists) {
+                    const confirmed = await requestStartGameConfirmation('new', selection, entry);
+                    if (!confirmed || !isSavePickerOpen()) return;
                 }
                 startGameFromSelection('new', selection);
             } finally {
@@ -1895,13 +1929,17 @@
             setLoginMessage('浏览器不允许网页主动关闭，请关闭当前标签页。');
         }
 
-        document.getElementById('login-continue').addEventListener('click', () => {
+        document.getElementById('login-continue').addEventListener('click', async () => {
             const selection = refreshContinueGameAction();
             if (!selection) {
                 setLoginMessage('没有可读取的有效存档，请选择 开始游戏。');
                 return;
             }
-            startGameFromSelection('continue', selection);
+            const entry = selection.kind === 'auto'
+                ? saveGames.getAutoSlots().find(slot => slot.index === selection.index)
+                : saveGames.listSlots().find(slot => slot.index === selection.index);
+            const confirmed = await requestStartGameConfirmation('continue', selection, entry);
+            if (confirmed && !loginScreen.classList.contains('hidden')) startGameFromSelection('continue', selection);
         });
         document.getElementById('login-start').addEventListener('click', () => {
             setLoginMessage('请设置昵称与性别。');

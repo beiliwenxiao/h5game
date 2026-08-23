@@ -807,9 +807,10 @@ export class SceneEditorUI {
           obj._decoRef[prop] = value;
         }
 
-        if (obj.type === 'trigger' && ['id', 'name', 'triggerId', 'targetMode', 'target'].includes(prop)) {
+        if (obj.type === 'trigger' && ['id', 'name', 'triggerId', 'targetMode', 'target', 'enabled'].includes(prop)) {
           editor.eventFilter?.rebuild({ preserveSelection: true });
-          editor.eventFilter?.sanitizeInteractionState();
+          // enabled=false 时保留右侧属性入口，避免隐藏后无法重新启用；画布投影仍立即移除。
+          if (prop !== 'enabled') editor.eventFilter?.sanitizeInteractionState();
           editor.layers.updateLayerList();
         }
         editor.render();
@@ -1167,6 +1168,7 @@ export class SceneEditorUI {
     const legacyFields = ['actionType', 'actionParams', 'conditions', 'once', 'cooldown'].filter(key => obj[key] !== undefined);
     return `
       <div class="property-row"><label>名称:</label><input type="text" value="${escapeHtml(obj.name || '')}" data-prop="name"></div>
+      <div class="property-row"><label>是否显示:</label><input type="checkbox" data-prop="enabled" ${obj.enabled !== false ? 'checked' : ''} title="关闭后运行时不显示提示，也不执行该事件"></div>
       <div class="property-row"><label>项目行为:</label><select data-prop="triggerId">${options}</select></div>
       <div class="property-row"><label>行为摘要:</label><textarea rows="2" disabled style="width:100%;color:${dangling ? '#ef5350' : '#c9d4ef'}">${escapeHtml(summary)}</textarea></div>
       ${dangling ? '<div class="property-row"><small style="color:#ef5350;">⚠ triggerId 在 game.project.json 中不存在，运行时不会执行。</small></div>' : ''}

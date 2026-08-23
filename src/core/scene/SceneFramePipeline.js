@@ -6,6 +6,22 @@
 
 import { FramePhase } from './GameSceneRuntime.js';
 
+const COLLISION_POSITION_EPSILON_SQUARED = 0.0001;
+
+function capturePosition(entity) {
+  const position = entity?.getComponent?.('transform')?.position;
+  return position ? { x: position.x, y: position.y } : null;
+}
+
+function positionChanged(before, entity) {
+  if (!before) return false;
+  const position = entity?.getComponent?.('transform')?.position;
+  if (!position) return false;
+  const dx = position.x - before.x;
+  const dy = position.y - before.y;
+  return dx * dx + dy * dy > COLLISION_POSITION_EPSILON_SQUARED;
+}
+
 /**
  * SceneFramePipeline - 游戏场景帧更新编排（框架级）
  *
@@ -224,6 +240,7 @@ export class SceneFramePipeline {
     }
 
     // 更新移动系统：打坐或采集只锁玩家，AI/其他实体继续移动。
+    let movementResult;
     if ((meditationSystem.isActive() || playerActionLocked) && player) {
       // 锁定期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
       if (scene._meditationEntitySource !== entities ||
@@ -234,19 +251,31 @@ export class SceneFramePipeline {
         scene._meditationPlayer = player;
         scene._meditationMovableEntities = entities.filter(entity => entity !== player);
       }
-      movementSystem.update(deltaTime, scene._meditationMovableEntities);
+      movementResult = movementSystem.update(deltaTime, scene._meditationMovableEntities);
 
       // 移动中断检测由 meditationSystem.update 处理
     } else {
       // 正常更新所有实体
-      movementSystem.update(deltaTime, entities);
+      movementResult = movementSystem.update(deltaTime, entities);
     }
 
+    const contactWasLocked = movementSystem.isContactMovementLocked?.(player) === true;
+    const beforeEntityCollision = capturePosition(player);
     // 检查实体之间的碰撞
     collisionSystem.update(entities);
+    const pushedByEntity = positionChanged(beforeEntityCollision, player);
 
+    const beforeTerrainCollision = capturePosition(player);
     // 检查地形碰撞（编辑器场景有 terrain 时生效）
     scene.checkTerrainCollision();
+    const pushedByTerrain = positionChanged(beforeTerrainCollision, player);
+
+    // 已处于碰撞停顿且本帧再次被推出时固定玩家和镜头锚点；碰撞器仍可把其他实体推出。
+    if (contactWasLocked && (pushedByEntity || pushedByTerrain)) {
+      movementSystem.restoreContactLockAnchor?.(player);
+    }
+    const movementContact = movementResult?.playerBlocked === true || pushedByEntity || pushedByTerrain;
+    movementSystem.setMovementContact?.(player, movementContact);
 
     // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，
     // 避免相机长期落后一帧并放大不均匀 deltaTime 造成的画面跳动。

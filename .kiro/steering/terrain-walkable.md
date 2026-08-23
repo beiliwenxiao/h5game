@@ -42,3 +42,12 @@ SceneEditorUI.js 中 `_buildShapeProperties` 末尾：
 ```
 
 互斥逻辑在 `data-prop` change 处理器中：勾选 collide 时 `obj.walkable = false`，反之亦然。取消勾选则两个都为 false（普通装饰形状）。
+## 玩家碰撞停顿
+
+玩家移动被地图/瓦片阻挡，或实体碰撞、地形碰撞首次把玩家推出时，统一由 `SceneFramePipeline` 汇总接触信号并调用 `MovementSystem.setMovementContact()`：
+
+- 默认只锁定玩家移动 0.5 秒，立即清空速度、点击路径和移动动画；键盘、触屏、手柄与右键移动共用同一锁，不得建立输入旁路
+- 锁只影响移动，不修改全局暂停，也不禁用攻击、交互或 UI；AI 和其他实体继续更新
+- 首次推出后以碰撞解算得到的合法位置作为锚点；锁定期间再次被实体或地形推出时恢复该锚点，再由相机跟随最终位置，避免画面连续往返波动
+- `MovementSystem.update()` 负责报告地图/瓦片 `playerBlocked`，实体与地形推出由管线在各碰撞阶段前后比较玩家坐标；不得用渲染坐标或 worldOffset 重复推导
+- 持续接触使用边沿锁存，不在每帧无限叠加计时；锁到期后再次发生推出才开始下一次停顿

@@ -38,6 +38,11 @@ export class MovementSystem {
     this.moveIntentRouter = typeof config.moveIntentRouter === 'function'
       ? config.moveIntentRouter
       : null;
+    const contactLockDuration = Number(config.contactLockDuration);
+    this.contactLockDuration = Number.isFinite(contactLockDuration)
+      ? Math.max(0.01, contactLockDuration)
+      : 0.5;
+    this._contactLocks = new WeakMap();
     
     // 地图边界（默认无限大）
     this.mapBounds = config.mapBounds || {
@@ -85,6 +90,75 @@ export class MovementSystem {
    */
   setMoveIntentRouter(router) {
     this.moveIntentRouter = typeof router === 'function' ? router : null;
+  }
+
+  /** 仅锁定实体移动，不影响攻击、交互或 UI。 */
+  isContactMovementLocked(entity) {
+    return Boolean(entity) && Number(this._contactLocks.get(entity)?.remaining) > 0;
+  }
+
+  _isEntityMovementLocked(entity) {
+    return this.isContactMovementLocked(entity) || this.isMovementLocked(entity);
+  }
+
+  _stopEntityMovement(entity) {
+    const movement = entity?.getComponent?.('movement');
+    const sprite = entity?.getComponent?.('sprite');
+    movement?.clearPath?.();
+    if (sprite?.useAnimatedSprite) sprite.setWalking(false);
+    if (sprite && sprite.currentAnimation !== 'idle') sprite.playAnimation?.('idle');
+  }
+
+  _advanceContactLock(entity, deltaTime) {
+    if (!entity) return;
+    const state = this._contactLocks.get(entity);
+    if (!state || state.remaining <= 0) return;
+    state.remaining = Math.max(0, state.remaining - Math.max(0, Number(deltaTime) || 0));
+    if (state.remaining === 0) {
+      state.contactActive = false;
+      state.anchor = null;
+    }
+  }
+
+  /**
+   * 报告本帧玩家是否被阻挡或推出。接触从无到有时启动一次短时移动锁。
+   * @returns {boolean} 本次是否新启动锁
+   */
+  setMovementContact(entity, active, duration = this.contactLockDuration) {
+    if (!entity) return false;
+    let state = this._contactLocks.get(entity);
+    if (!state) {
+      if (!active) return false;
+      state = { remaining: 0, contactActive: false, anchor: null };
+      this._contactLocks.set(entity, state);
+    }
+    if (!active) {
+      state.contactActive = false;
+      if (state.remaining <= 0) this._contactLocks.delete(entity);
+      return false;
+    }
+    if (state.contactActive || state.remaining > 0) {
+      state.contactActive = true;
+      return false;
+    }
+
+    const position = entity.getComponent?.('transform')?.position;
+    state.remaining = Math.max(0.01, Number(duration) || this.contactLockDuration);
+    state.contactActive = true;
+    state.anchor = position ? { x: position.x, y: position.y } : null;
+    this._stopEntityMovement(entity);
+    return true;
+  }
+
+  /** 锁定期间抵消后续碰撞修正，使镜头与玩家保持在首次合法落点。 */
+  restoreContactLockAnchor(entity) {
+    const state = entity ? this._contactLocks.get(entity) : null;
+    const position = entity?.getComponent?.('transform')?.position;
+    if (!state?.anchor || state.remaining <= 0 || !position) return false;
+    const changed = position.x !== state.anchor.x || position.y !== state.anchor.y;
+    position.x = state.anchor.x;
+    position.y = state.anchor.y;
+    return changed;
   }
 
   _resolveMoveTarget(playerEntity, intent) {
@@ -195,6 +269,12 @@ export class MovementSystem {
    * @param {Array<Entity>} entities - 实体列表
    */
   update(deltaTime, entities) {
+    const player = this.playerEntity || entities.find(e => e.type === 'player');
+    this._advanceContactLock(player, deltaTime);
+    for (const entity of entities) {
+      if (entity !== player) this._advanceContactLock(entity, deltaTime);
+    }
+
     // 更新输入管理器的相机位置（用于坐标转换）
     // 注意：camera.update() 由外部（BaseGameScene）调用并做后处理（如 clamp），
     // 这里只负责同步相机位置到 InputManager
@@ -210,13 +290,15 @@ export class MovementSystem {
     this.handleClickMovement(entities);
     
     // 更新所有实体的移动
+    let playerBlocked = false;
     for (const entity of entities) {
-      this.updateEntityMovement(entity, deltaTime);
+      const blocked = this.updateEntityMovement(entity, deltaTime);
+      if (entity === player && blocked === true) playerBlocked = true;
     }
 
     // 楼层 portal 检测（只对玩家生效）
-    const player = this.playerEntity || entities.find(e => e.type === 'player');
     if (player) this._checkPortals(player);
+    return { playerBlocked };
   }
 
   /**
@@ -228,6 +310,10 @@ export class MovementSystem {
 
     const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
     if (!playerEntity) return;
+    if (this.isContactMovementLocked(playerEntity)) {
+      this._stopEntityMovement(playerEntity);
+      return;
+    }
 
     // 方向输入统一来自 InputManager；触屏虚拟摇杆和手柄均在采集层映射到这里。
     let vx = 0;
@@ -287,6 +373,11 @@ export class MovementSystem {
 
     const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
     if (!playerEntity) return;
+    if (this.isContactMovementLocked(playerEntity)) {
+      this._stopEntityMovement(playerEntity);
+      this.inputManager.markMouseClickHandled();
+      return;
+    }
     const target = this._resolveMoveTarget(playerEntity, { type: 'move', source: 'pointer' });
     const { movement, sprite, routedToVehicle } = target;
     if (!movement || movement.enabled === false
@@ -341,13 +432,10 @@ export class MovementSystem {
     // 远程玩家的移动由网络同步控制，不走本地 MovementSystem
     if (entity.isRemote) return;
 
-    // 位移能力期间坐标由对应执行器推进，避免普通移动重复叠加。
-    if (this.isMovementLocked(entity)) {
-      movement.velocity.x = 0;
-      movement.velocity.y = 0;
-      movement.clearPath?.();
-      if (sprite?.useAnimatedSprite) sprite.setWalking(false);
-      return;
+    // 位移能力或碰撞停顿期间坐标由对应执行器/锁定锚点拥有，避免普通移动重复叠加。
+    if (this._isEntityMovementLocked(entity)) {
+      this._stopEntityMovement(entity);
+      return false;
     }
     
     // 如果实体被武器钉住，不能移动
@@ -410,7 +498,12 @@ export class MovementSystem {
       if (canMove) {
         transform.setPosition(newX, newY);
       } else {
-        // 碰撞，停止移动
+        // 玩家首次撞到地图/瓦片障碍时立即停住；管线会据此启动 0.5 秒移动锁。
+        if (entity === this.playerEntity || entity.type === 'player') {
+          this._stopEntityMovement(entity);
+          return true;
+        }
+        // 非玩家保持旧行为：路径移动撞墙后停止。
         if (movement.movementType === 'path') {
           movement.clearPath();
           if (sprite && sprite.useAnimatedSprite) {
@@ -422,6 +515,7 @@ export class MovementSystem {
         }
       }
     }
+    return false;
   }
 
   /**

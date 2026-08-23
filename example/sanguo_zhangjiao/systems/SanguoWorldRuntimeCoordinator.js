@@ -523,7 +523,7 @@ async function validateRegionTarget({ request, result, shadowSession }) {
 function extractRegionDynamicState(sceneState = {}) {
   const keys = [
     'worldStreamingState',
-    'campfireLit', 'firedPickups', 'clearedGroups',
+    'campfireLit', 'campfireState', 'firedPickups', 'clearedGroups',
     'gatheringState', 'puppetState', 'gatheringPolicyOperations'
   ];
   const state = {};

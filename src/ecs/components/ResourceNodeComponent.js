@@ -13,8 +13,14 @@ export class ResourceNodeComponent extends Component {
     this.gatherDuration = Math.max(0.1, Number(config.gatherDuration) || 1);
     this.interactionRadius = Math.max(1, Number(config.interactionRadius) || 72);
     this.requiredToolType = config.requiredToolType || null;
+    // 旧 refreshDays 仅用于兼容历史存档；不会隐式启用实时刷新。
     this.refreshDays = Math.max(0, Math.floor(Number(config.refreshDays) || 0));
     this.refreshProgressDays = Math.max(0, Math.floor(Number(config.refreshProgressDays) || 0));
+    this.refreshMode = config.refreshMode === 'timed' ? 'timed' : 'none';
+    this.refreshIntervalSeconds = this.refreshMode === 'timed'
+      ? Math.max(0.1, Number(config.refreshIntervalSeconds) || 0.1)
+      : Math.max(0, Number(config.refreshIntervalSeconds) || 0);
+    this.refreshElapsedSeconds = Math.max(0, Number(config.refreshElapsedSeconds) || 0);
     this.guardUnitIds = Array.isArray(config.guardUnitIds) ? [...config.guardUnitIds] : [];
     this.riskEvents = Array.isArray(config.riskEvents)
       ? config.riskEvents
@@ -28,7 +34,23 @@ export class ResourceNodeComponent extends Component {
         }))
       : [];
     this.damageRatio = Math.min(1, Math.max(0, Number(config.damageRatio) || 0));
-    this.depleted = this.remaining <= 0;
+    this.depleted = config.depleted === true || this.remaining <= 0;
+  }
+
+  /**
+   * 在节点耗尽后按显式秒数刷新；默认 none，旧 refreshDays 不会触发该路径。
+   * @returns {boolean} 本帧是否完成了资源恢复
+   */
+  updateRefresh(deltaTime) {
+    if (!this.depleted || this.refreshMode !== 'timed' || this.refreshIntervalSeconds <= 0) return false;
+    const elapsed = Math.max(0, Number(deltaTime) || 0);
+    if (elapsed <= 0) return false;
+    this.refreshElapsedSeconds += elapsed;
+    if (this.refreshElapsedSeconds < this.refreshIntervalSeconds) return false;
+    this.remaining = this.maxRemaining;
+    this.depleted = false;
+    this.refreshElapsedSeconds = 0;
+    return true;
   }
 
   serialize() {
@@ -43,6 +65,9 @@ export class ResourceNodeComponent extends Component {
       requiredToolType: this.requiredToolType,
       refreshDays: this.refreshDays,
       refreshProgressDays: this.refreshProgressDays,
+      refreshMode: this.refreshMode,
+      refreshIntervalSeconds: this.refreshIntervalSeconds,
+      refreshElapsedSeconds: this.refreshElapsedSeconds,
       guardUnitIds: [...this.guardUnitIds],
       riskEvents: this.riskEvents.map(event => ({ ...event, payload: { ...event.payload } })),
       damageRatio: this.damageRatio,
@@ -53,6 +78,15 @@ export class ResourceNodeComponent extends Component {
   deserialize(data = {}) {
     if (Number.isInteger(data.remaining) && data.remaining >= 0) this.remaining = data.remaining;
     if (Number.isInteger(data.refreshProgressDays) && data.refreshProgressDays >= 0) this.refreshProgressDays = data.refreshProgressDays;
+    if (data.refreshMode === 'timed' || data.refreshMode === 'none') this.refreshMode = data.refreshMode;
+    if (Number.isFinite(data.refreshIntervalSeconds) && data.refreshIntervalSeconds >= 0) {
+      this.refreshIntervalSeconds = this.refreshMode === 'timed'
+        ? Math.max(0.1, data.refreshIntervalSeconds)
+        : data.refreshIntervalSeconds;
+    }
+    if (Number.isFinite(data.refreshElapsedSeconds) && data.refreshElapsedSeconds >= 0) {
+      this.refreshElapsedSeconds = data.refreshElapsedSeconds;
+    }
     if (Number.isFinite(data.damageRatio)) this.damageRatio = Math.min(1, Math.max(0, data.damageRatio));
     this.depleted = data.depleted === true || this.remaining <= 0;
   }

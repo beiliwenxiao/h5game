@@ -89,23 +89,21 @@ export class S01S02Coordinator {
 
   _presentS01WoodGatherMotivation() {
     return this.scene._showScreenTip(
-      '野果暂时填饱了肚子，但寒风吹散余火，篝火熄灭了。寒夜里没有火撑不了多久，得用破旧斧头砍些枯木重新添火。',
+      '破旧斧头刚入手，篝火里的燃料只够燃烧 100 秒。寒夜里必须立刻砍些枯木添火，才能让火堆继续燃烧。',
       {
-        title: '篝火熄灭',
+        title: '燃料即将耗尽',
         onHidden: () => this._presentS01WoodGatherTutorial()
       }
     );
   }
 
-  _createWoodGatherContinuation({ presentMotivation = false } = {}) {
+  _createWoodGatherContinuation() {
     return {
       mode: 'spawnContinuation',
       group: 'S01-wood',
       placementId: 'S01-node-wood-1',
       attempts: 0,
-      onRecovered: () => presentMotivation
-        ? this._presentS01WoodGatherMotivation()
-        : this._presentS01WoodGatherTutorial()
+      onRecovered: () => this._presentS01WoodGatherTutorial()
     };
   }
 
@@ -114,7 +112,7 @@ export class S01S02Coordinator {
     const survival = this._story().s01Survival || {};
     const needsRecovery = this.scene.currentSceneId === 'S01'
       && tutorialFlow
-      && survival.berryEaten === true
+      && survival.axeFound === true
       && survival.woodGathered !== true
       && tutorialFlow.isCompleted?.('s01.pickup') === true
       && tutorialFlow.isCompleted?.('s01.chopWood') !== true
@@ -315,20 +313,29 @@ export class S01S02Coordinator {
     }
     if (event !== 'completed') return false;
     if (isBerry) {
+      const gatheringOperationId = data.operationId || data.gatheringOperationId
+        || `node:${data.nodeId || data.entityId || 'wild-berry'}:${++this.sequence}`;
+      const counted = await this._submit(
+        'story.s01.berryGathered',
+        {},
+        `story:s01:berry-gathered:${gatheringOperationId}`
+      );
+      if (counted.ok !== true) return false;
+
+      const currentSurvival = this._story().s01Survival || {};
+      const berryGatherCount = Math.max(0, Math.floor(Number(currentSurvival.berryGatherCount) || 0));
+      const berryCount = Math.max(0, Number(data.accepted) || 0);
+      this.scene._showScreenTip(`荒野酸果 ×${berryCount} 已放入背包。`, { title: '采集完成' });
+      if (berryGatherCount < 2) return true;
+
       const axePlacementId = 'S01-pickup-worn-axe';
-      const needsAxeReveal = survival.axeDropped !== true;
+      const needsAxeReveal = currentSurvival.axeDropped !== true;
       const hasPendingAxeReveal = this.pendingPlacementReveals.has(axePlacementId);
       const completeBerryGathering = async (recovered = false) => {
+        if (this._story().s01Survival?.berriesGathered === true) return true;
         const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
-        if (result.ok) {
-          const berryCount = Math.max(0, Number(data.accepted) || 0);
-          this.scene._showScreenTip(
-            `荒野酸果 ×${berryCount} 已放入背包。`,
-            { title: '采集完成' }
-          );
-          if (recovered) {
-            this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
-          }
+        if (result.ok && recovered) {
+          this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
         }
         return result.ok === true;
       };
@@ -392,22 +399,26 @@ export class S01S02Coordinator {
     return false;
   }
 
+  async onAxePickupCommitted() {
+    if (this.scene.currentSceneId !== 'S01') return false;
+    const fuelStarted = this.scene._campfireService?.startFuelCountdown?.() === true;
+    const continuation = this._createWoodGatherContinuation();
+    const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
+    if (!placement.ok) {
+      this._rememberPendingReveal(continuation);
+      console.warn('[S01S02Coordinator] 斧头拾取后木材放置进入退避补偿', placement);
+      return fuelStarted;
+    }
+    this.pendingPlacementReveals.delete(continuation.placementId);
+    this._presentS01WoodGatherMotivation();
+    return true;
+  }
+
   async handleItemUsed(item = {}) {
     if (this.scene.currentSceneId !== 'S01') return false;
     if (item.id === 'resource.wild_berry') {
       const result = await this._submit('story.s01.berryEaten', {}, 'story:s01:berry-eaten');
-      if (!result.ok) return false;
-      this.scene._campfireService?.extinguish?.();
-      const continuation = this._createWoodGatherContinuation({ presentMotivation: true });
-      const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
-      if (!placement.ok) {
-        this._rememberPendingReveal(continuation);
-        console.warn('[S01S02Coordinator] 篝火熄灭后木材放置进入退避补偿', placement);
-        return true;
-      }
-      this.pendingPlacementReveals.delete(continuation.placementId);
-      this._presentS01WoodGatherMotivation();
-      return true;
+      return result.ok === true;
     }
     if (item.id === 'food.roasted_wolf_meat') {
       this.scene._showScreenTip('烤狼肉恢复了生命。剩下的木材足够在篝火旁搭一座小庇护所。', {
@@ -527,6 +538,32 @@ export class S01S02Coordinator {
     return true;
   }
 
+  async refuelCampfire() {
+    if (this.scene.currentSceneId !== 'S01') return false;
+    const fuel = this.scene._campfireService;
+    if (fuel?.canAddFuelUnits?.(1) !== true) {
+      this.scene._showScreenTip('篝火燃料已满，暂时不需要再添木材。', { title: '无需添柴' });
+      return { ok: true, status: 'blocked' };
+    }
+    const inventory = this.scene.playerEntity?.getComponent?.('inventory');
+    if (!inventory?.getItemCount || inventory.getItemCount('resource.wood') < 1) {
+      this.scene._showScreenTip('背包里没有可用木材，先用破旧斧头砍些枯木。', { title: '木材不足' });
+      return { ok: true, status: 'blocked' };
+    }
+    const result = await this._submit('story.s01.refuelCampfire', {}, `story:s01:refuel:${++this.sequence}`);
+    if (result.ok !== true) {
+      this.scene._showScreenTip(`添柴结算失败：${result.code || 'unknown'}。木材没有被消耗。`, { title: '添柴失败' });
+      return result;
+    }
+    // 容量已在提交前预检；失败不回滚已提交木材，而是保留明确诊断。
+    if (fuel.addFuelUnits(1) !== true) {
+      console.error('[S01S02Coordinator] 添柴事务已提交但燃料投影未写入');
+      return { ok: true, warning: 'fuelProjectionFailed' };
+    }
+    this.scene._showScreenTip('你把一份枯木投入火堆，火焰又旺了一些。', { title: '添柴成功' });
+    return { ok: true };
+  }
+
   async handleAction(params = {}, eventData = {}) {
     const operation = params.operation || params.type;
     if (operation === 'presentEntry') {
@@ -579,6 +616,7 @@ export class S01S02Coordinator {
       }
       return true;
     }
+    if (operation === 'refuelCampfire') return this.refuelCampfire();
     if (operation === 'craftBackpack') {
       const survival = this._story().s01Survival || {};
       if (survival.backpackCrafted === true) {
@@ -703,7 +741,7 @@ export class S01S02Coordinator {
       this._rememberPendingReveal(this._createCampfireContinuation());
     }
     const woodTutorialNeedsRecovery = tutorialFlow
-      && survival.berryEaten === true
+      && survival.axeFound === true
       && survival.woodGathered !== true
       && tutorialFlow.isCompleted?.('s01.pickup') === true
       && tutorialFlow.isCompleted?.('s01.chopWood') !== true

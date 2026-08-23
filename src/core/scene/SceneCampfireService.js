@@ -12,12 +12,38 @@ function requirePositive(value, path) {
   return number;
 }
 
+function createFuelConfiguration(config = {}) {
+  const enabled = config?.enabled === true;
+  if (!enabled) {
+    return {
+      enabled: false, itemId: null, secondsPerUnit: 0, initialUnits: 0, maxUnits: 0,
+      startOnIgnite: false
+    };
+  }
+  if (typeof config.itemId !== 'string' || !config.itemId.trim()) {
+    throw new TypeError('campfire.fuel.itemId must be a non-empty string');
+  }
+  const secondsPerUnit = requirePositive(config.secondsPerUnit, 'campfire.fuel.secondsPerUnit');
+  const maxUnits = Math.max(1, Math.floor(requirePositive(config.maxUnits, 'campfire.fuel.maxUnits')));
+  const initialUnits = Math.min(maxUnits, Math.max(0, Math.floor(Number(config.initialUnits) || 0)));
+  return {
+    enabled: true,
+    itemId: config.itemId,
+    secondsPerUnit,
+    initialUnits,
+    maxUnits,
+    startOnIgnite: config.startOnIgnite === true
+  };
+}
+
 const campfireFeatureMethods = {
   _restoreCampfireState(lit) {
     if (lit) {
       if (!this.campfire.lit) this.lightCampfire({ emitEvent: false });
-      this.fog.opacity = 0;
-      this.fog.targetOpacity = 0;
+      // 点燃只通过火堆的径向遮罩透光，不能清除整张全屏迷雾。
+      this.fog.opacity = this.initialFogOpacity;
+      this.fog.targetOpacity = this.initialFogOpacity;
+      this.fog.active = true;
       return;
     }
     for (const emitter of this.campfire.emitters || []) emitter.active = false;
@@ -55,7 +81,13 @@ const campfireFeatureMethods = {
     }
 
     this.logger?.debug?.('SceneCampfireService: campfire particle emitters created');
-    this.fog.targetOpacity = 0;
+    // 雾保持存在，由 renderFogLayer 的 campfire mask 仅在火堆周围开洞。
+    this.fog.opacity = this.initialFogOpacity;
+    this.fog.targetOpacity = this.initialFogOpacity;
+    this.fog.active = true;
+    if (this.fuel.enabled === true && this.fuel.startOnIgnite === true && this.fuel.remainingSeconds > 0) {
+      this.fuel.active = true;
+    }
     if (emitEvent) this.onIgnited?.();
   },
 
@@ -267,22 +299,45 @@ const campfireFeatureMethods = {
     ctx.beginPath(); ctx.moveTo(x + 20, y - 5); ctx.lineTo(x - 20, y - 25); ctx.stroke();
     ctx.restore();
 
-    if (!this.campfire.imageLoaded || !this.campfire.fireImage) return;
-    const col = this.campfire.currentFrame % this.campfire.frameCols;
-    const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
-    const frameX = col * this.campfire.frameWidth;
-    const frameY = row * this.campfire.frameHeight;
-    const fireWidth = this.presentation.fireWidth;
-    const fireHeight = this.presentation.fireHeight;
-    const fireX = x - fireWidth / 2;
-    const fireY = y - fireHeight - 5;
-    ctx.globalAlpha = 0.9;
-    ctx.drawImage(
-      this.campfire.fireImage,
-      frameX, frameY, this.campfire.frameWidth, this.campfire.frameHeight,
-      fireX, fireY, fireWidth, fireHeight
-    );
-    ctx.globalAlpha = 1.0;
+    if (this.campfire.imageLoaded && this.campfire.fireImage) {
+      const col = this.campfire.currentFrame % this.campfire.frameCols;
+      const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
+      const frameX = col * this.campfire.frameWidth;
+      const frameY = row * this.campfire.frameHeight;
+      const fireWidth = this.presentation.fireWidth;
+      const fireHeight = this.presentation.fireHeight;
+      const fireX = x - fireWidth / 2;
+      const fireY = y - fireHeight - 5;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(
+        this.campfire.fireImage,
+        frameX, frameY, this.campfire.frameWidth, this.campfire.frameHeight,
+        fireX, fireY, fireWidth, fireHeight
+      );
+      ctx.globalAlpha = 1.0;
+    }
+    campfireFeatureMethods.renderFuelStatus.call(this, ctx);
+  },
+
+  renderFuelStatus(ctx) {
+    if (this.fuel.enabled !== true || this.fuel.active !== true) return;
+    const fuel = this.getFuelSnapshot();
+    const seconds = Math.ceil(fuel.remainingSeconds);
+    const x = this.campfire.x;
+    const y = this.campfire.y - this.presentation.fireHeight - 20;
+    ctx.save();
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const lines = [`燃烧 ${seconds} 秒`, `木材 ${fuel.units}/${fuel.maxUnits}`];
+    const width = Math.max(...lines.map(line => ctx.measureText(line).width)) + 12;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+    ctx.fillRect(x - width / 2, y - 31, width, 34);
+    ctx.fillStyle = '#ffe4a3';
+    ctx.fillText(lines[0], x, y - 16);
+    ctx.fillStyle = '#d7f0b1';
+    ctx.fillText(lines[1], x, y - 2);
+    ctx.restore();
   },
 
   checkCampfireCollision() {
@@ -336,6 +391,10 @@ export class SceneCampfireService {
       frameDuration: 1
     };
     this.fog = { opacity: 0, targetOpacity: 0, fadeSpeed: 0, color: '', active: false };
+    this.fuel = {
+      enabled: false, itemId: null, secondsPerUnit: 0, initialUnits: 0, maxUnits: 0,
+      startOnIgnite: false, remainingSeconds: 0, active: false
+    };
     this.particlePresets = Object.freeze([]);
     this.labels = Object.freeze({});
     this.presentation = Object.freeze({ lightRadius: 1, fireWidth: 1, fireHeight: 1, collisionWidth: 1, collisionHeight: 1 });
@@ -376,6 +435,7 @@ export class SceneCampfireService {
     const sprite = source.sprite;
     const fog = source.fog;
     const presentation = source.presentation;
+    const fuelConfiguration = createFuelConfiguration(source.fuel);
     if (!sprite || !fog || !presentation || !Array.isArray(source.particlePresets)) {
       throw new TypeError('campfire config view is incomplete');
     }
@@ -439,6 +499,20 @@ export class SceneCampfireService {
       this.campfire.imageLoaded = false;
     }
     this.fog = fogState;
+    const previousFuel = this.fuel;
+    const preserveFuel = previousFuel.enabled === true
+      && fuelConfiguration.enabled === true
+      && previousFuel.itemId === fuelConfiguration.itemId
+      && previousFuel.secondsPerUnit === fuelConfiguration.secondsPerUnit
+      && previousFuel.maxUnits === fuelConfiguration.maxUnits;
+    const initialSeconds = fuelConfiguration.initialUnits * fuelConfiguration.secondsPerUnit;
+    this.fuel = {
+      ...fuelConfiguration,
+      remainingSeconds: preserveFuel
+        ? Math.min(fuelConfiguration.maxUnits * fuelConfiguration.secondsPerUnit, Math.max(0, previousFuel.remainingSeconds))
+        : initialSeconds,
+      active: preserveFuel ? previousFuel.active === true : false
+    };
     this.particlePresets = next.particlePresets;
     this.labels = next.labels;
     this.presentation = presentationState;
@@ -525,13 +599,59 @@ export class SceneCampfireService {
     return this.campfire.lit === true;
   }
 
-  snapshot() {
-    return { lit: this.isLit() };
+  getFuelSnapshot() {
+    const fuel = this.fuel;
+    const units = fuel.enabled && fuel.secondsPerUnit > 0
+      ? Math.min(fuel.maxUnits, Math.ceil(Math.max(0, fuel.remainingSeconds) / fuel.secondsPerUnit))
+      : 0;
+    return {
+      enabled: fuel.enabled === true,
+      itemId: fuel.itemId,
+      secondsPerUnit: fuel.secondsPerUnit,
+      maxUnits: fuel.maxUnits,
+      units,
+      remainingSeconds: Math.max(0, fuel.remainingSeconds),
+      active: fuel.active === true
+    };
   }
 
-  restore({ lit = false } = {}, runtime = {}) {
+  startFuelCountdown() {
+    if (!this.isLit() || this.fuel.enabled !== true || this.fuel.remainingSeconds <= 0) return false;
+    this.fuel.active = true;
+    return true;
+  }
+
+  canAddFuelUnits(units = 1) {
+    const amount = Math.max(0, Math.floor(Number(units) || 0));
+    if (amount <= 0 || this.fuel.enabled !== true || this.fuel.secondsPerUnit <= 0) return false;
+    return this.fuel.remainingSeconds + amount * this.fuel.secondsPerUnit
+      <= this.fuel.maxUnits * this.fuel.secondsPerUnit;
+  }
+
+  addFuelUnits(units = 1) {
+    const amount = Math.max(0, Math.floor(Number(units) || 0));
+    if (!this.canAddFuelUnits(amount)) return false;
+    this.fuel.remainingSeconds += amount * this.fuel.secondsPerUnit;
+    if (this.isLit()) this.fuel.active = true;
+    return true;
+  }
+
+  snapshot() {
+    return { lit: this.isLit(), fuel: this.getFuelSnapshot() };
+  }
+
+  restore({ lit = false, fuel = null } = {}, runtime = {}) {
     this._bindRuntime(runtime);
-    return campfireFeatureMethods._restoreCampfireState.call(this, lit === true);
+    campfireFeatureMethods._restoreCampfireState.call(this, lit === true);
+    if (this.fuel.enabled !== true) return true;
+    const maximumSeconds = this.fuel.maxUnits * this.fuel.secondsPerUnit;
+    const legacySeconds = this.fuel.initialUnits * this.fuel.secondsPerUnit;
+    const restoredSeconds = Number.isFinite(fuel?.remainingSeconds)
+      ? fuel.remainingSeconds
+      : legacySeconds;
+    this.fuel.remainingSeconds = Math.min(maximumSeconds, Math.max(0, restoredSeconds));
+    this.fuel.active = lit === true && fuel?.active === true && this.fuel.remainingSeconds > 0;
+    return true;
   }
 
   ignite({ emitEvent = true, runtime = {} } = {}) {
@@ -558,6 +678,13 @@ export class SceneCampfireService {
     if (!this.isConfigured()) return;
     this._bindRuntime(runtime);
     campfireFeatureMethods.updateCampfireAnimation.call(this, deltaTime);
+    if (this.campfire.lit && this.fuel.enabled === true && this.fuel.active === true) {
+      this.fuel.remainingSeconds = Math.max(0, this.fuel.remainingSeconds - Math.max(0, Number(deltaTime) || 0));
+      if (this.fuel.remainingSeconds <= 0) {
+        this.fuel.active = false;
+        this.extinguish({ runtime });
+      }
+    }
     campfireFeatureMethods.updateFog.call(this, deltaTime);
   }
 

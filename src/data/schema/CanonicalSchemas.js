@@ -137,6 +137,9 @@ export const RESOURCE_NODE_SCHEMA = {
     remaining: nonNegativeInteger(true),
     refreshDays: nonNegativeInteger(true),
     refreshProgressDays: nonNegativeInteger(),
+    refreshMode: { type: FieldType.STRING, enum: ['none', 'timed'] },
+    refreshIntervalSeconds: { type: FieldType.NUMBER, min: 0 },
+    refreshElapsedSeconds: { type: FieldType.NUMBER, min: 0 },
     guardUnitIds: { type: FieldType.ARRAY, required: true, itemType: FieldType.STRING },
     damageRatio: ratioField(true),
     sceneId: { type: FieldType.STRING, minLength: 1 },
@@ -176,6 +179,8 @@ export const RESOURCE_NODE_DEFINITION_SCHEMA = {
     interactionRadius: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
     requiredToolType: { nullable: true },
     refreshDays: nonNegativeInteger(true),
+    refreshMode: { type: FieldType.STRING, enum: ['none', 'timed'] },
+    refreshIntervalSeconds: { type: FieldType.NUMBER, min: 0 },
     guardUnitIds: { type: FieldType.ARRAY, required: true, itemType: FieldType.STRING },
     riskEvents: { type: FieldType.ARRAY, itemSchema: 'resourceNodeRiskEvent' },
     damageRatio: ratioField(true)

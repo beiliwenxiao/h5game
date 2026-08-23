@@ -1025,6 +1025,20 @@ export class SceneEditorUI {
         <option value="approach" ${ovIt.trigger === 'approach' ? 'selected' : ''}>靠近自动</option>
       </select></div>`;
     }
+    if (obj.kind === 'resourceNode') {
+      const ov = obj.overrides || {};
+      html += '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;">' +
+        '<label style="color:#7cf;font-weight:bold;" title="仅覆盖本处资源节点；动态耗尽和刷新进度不会写入场景 JSON">本处资源规则</label></div>';
+      html += `<div class="property-row"><label>当前数量:</label><input type="number" value="${ov.remaining != null ? ov.remaining : ''}" min="0" data-prop="overrides.remaining" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>最大数量:</label><input type="number" value="${ov.maxRemaining != null ? ov.maxRemaining : ''}" min="0" data-prop="overrides.maxRemaining" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>单次产量:</label><input type="number" value="${ov.yieldPerGather != null ? ov.yieldPerGather : ''}" min="1" data-prop="overrides.yieldPerGather" placeholder="留空=用库定义"></div>`;
+      html += `<div class="property-row"><label>刷新规则:</label><select data-prop="overrides.refreshMode">
+        <option value="" ${!ov.refreshMode ? 'selected' : ''}>（用库定义）</option>
+        <option value="none" ${ov.refreshMode === 'none' ? 'selected' : ''}>不可刷新</option>
+        <option value="timed" ${ov.refreshMode === 'timed' ? 'selected' : ''}>定时刷新</option>
+      </select></div>`;
+      html += `<div class="property-row"><label>刷新间隔(秒):</label><input type="number" value="${ov.refreshIntervalSeconds != null ? ov.refreshIntervalSeconds : ''}" min="0.1" step="0.1" data-prop="overrides.refreshIntervalSeconds" placeholder="留空=用库定义"></div>`;
+    }
     return html;
   }
 

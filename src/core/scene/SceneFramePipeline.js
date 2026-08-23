@@ -181,6 +181,10 @@ export class SceneFramePipeline {
     gatheringPuppetSystem?.update?.(deltaTime);
     for (const entity of entities) {
       entity.update(deltaTime);
+      const resourceNode = entity.getComponent?.('resourceNode');
+      if (resourceNode?.updateRefresh?.(deltaTime) === true) {
+        services.placements?.addPendingResourceNodeState?.(entity.id, resourceNode.serialize());
+      }
     }
     if (frameProfile) {
       const now = performance.now();

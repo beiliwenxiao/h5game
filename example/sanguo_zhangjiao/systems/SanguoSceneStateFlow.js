@@ -63,6 +63,7 @@ function captureSceneSaveState() {
       regionId, state: cloneData(state)
     })),
     campfireLit: this._campfireService.snapshot().lit,
+    campfireState: this._campfireService.snapshot(),
     firedPickups: [...(this._firedPickups || [])],
     clearedGroups: [...(this._clearedGroups || [])],
     ...(hasWorldStreaming ? {} : {
@@ -166,6 +167,12 @@ async function handleApplicationEvent(event = {}) {
         code: result?.code || 'axeFoundTransactionFailed',
         message: result?.error?.message || '破旧斧头拾取剧情结算失败'
       };
+    }
+    try {
+      await this._s01s02Coordinator?.onAxePickupCommitted?.();
+    } catch (error) {
+      // 斧头和 StoryState 已提交；后续燃料表现或放置失败只能自行补偿，不能回滚事实。
+      console.warn('[SanguoSceneStateFlow] S01 斧头后续流程启动失败', error);
     }
   }
 
@@ -400,7 +407,7 @@ function applySceneSaveState(data) {
     this._classConfirm = null;
     this._classSelectionBusy = false;
     this._campfireService.restore(
-      { lit: data.campfireLit === true },
+      data.campfireState || { lit: data.campfireLit === true },
       { particleSystem: this.particleSystem }
     );
     this._tutorialFlow.resetMovementOrigin(

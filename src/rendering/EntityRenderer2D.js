@@ -49,6 +49,7 @@ export class EntityRenderer2D {
       ctx.restore();
     }
 
+    this._renderResourceAmount(ctx, entity.getComponent?.('resourceNode'), x, y, height);
     this._renderName(ctx, entity, npc, x, y, height);
     this._renderInteractionPrompt(ctx, npc, x, y);
     this._renderHealthBar(ctx, stats, npc, x, y, height);
@@ -215,6 +216,24 @@ export class EntityRenderer2D {
     ctx.beginPath();
     ctx.arc(x, y - 5, 10, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  _renderResourceAmount(ctx, node, x, y, height) {
+    if (!node || !Number.isFinite(node.maxRemaining) || node.maxRemaining < 0) return;
+    const remaining = Math.max(0, Math.floor(Number(node.remaining) || 0));
+    const maximum = Math.max(0, Math.floor(Number(node.maxRemaining) || 0));
+    const label = `${remaining}/${maximum}`;
+    const textY = y - height - 28;
+    ctx.save();
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const width = ctx.measureText(label).width + 10;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.68)';
+    ctx.fillRect(x - width / 2, textY - 15, width, 17);
+    ctx.fillStyle = remaining > 0 ? '#d8f3b2' : '#f1a4a4';
+    ctx.fillText(label, x, textY - 2);
+    ctx.restore();
   }
 
   _renderName(ctx, entity, npc, x, y, height) {

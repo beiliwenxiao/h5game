@@ -627,6 +627,8 @@
         "backpackCrafted": false,
         "berriesGathered": false,
         "berryEaten": false,
+        "berryGatherCount": 0,
+        "campfireRefuelCount": 0,
         "campfireExtinguished": false,
         "campfireLit": false,
         "cliffReached": false,
@@ -2922,6 +2924,24 @@
       "cooldown": 1,
       "do": [
         {
+          "action": "s01Survival",
+          "await": true,
+          "params": {
+            "operation": "refuelCampfire"
+          }
+        }
+      ],
+      "id": "trg_s01_refuel_campfire",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "interact"
+      }
+    },
+    {
+      "cooldown": 1,
+      "do": [
+        {
           "action": "construction.command",
           "await": true,
           "params": {
@@ -4816,7 +4836,7 @@
     },
     {
       "id": "s01.chopWood",
-      "title": "篝火熄灭",
+      "title": "燃料即将耗尽",
       "category": "s01-survival",
       "scope": {
         "sceneIds": [
@@ -4826,7 +4846,7 @@
       "order": 3,
       "steps": [
         {
-          "text": "篝火熄灭了，寒夜里没有火撑不了多久。靠近枯木，使用 {harvest} 用破旧斧头砍柴，为篝火添燃料。"
+          "text": "篝火燃料只够燃烧 100 秒。靠近枯木，使用 {harvest} 用破旧斧头砍柴，再回到火堆旁添木材。"
         }
       ],
       "signalRules": [],
@@ -5820,6 +5840,7 @@
         "interactionRadius": 72,
         "requiredToolType": null,
         "refreshDays": 0,
+        "refreshMode": "none",
         "guardUnitIds": [],
         "riskEvents": [],
         "damageRatio": 0,
@@ -5866,6 +5887,7 @@
         "interactionRadius": 76,
         "requiredToolType": "axe",
         "refreshDays": 0,
+        "refreshMode": "none",
         "guardUnitIds": [],
         "riskEvents": [
           {
@@ -6057,6 +6079,38 @@
     },
     {
       "commandType": "state.transaction",
+      "id": "story.s01.berryGathered",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.campfireLit"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.berryGatherCount",
+            "target": "story",
+            "value": {
+              "$add": [
+                {
+                  "$get": "story.s01Survival.berryGatherCount"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
       "id": "story.s01.findAxe",
       "transaction": {
         "when": {
@@ -6068,6 +6122,10 @@
             {
               "equals": true,
               "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "gte": 2,
+              "path": "story.s01Survival.berryGatherCount"
             },
             {
               "equals": false,
@@ -6124,6 +6182,10 @@
               "path": "story.s01Survival.axeDropped"
             },
             {
+              "gte": 2,
+              "path": "story.s01Survival.berryGatherCount"
+            },
+            {
               "equals": false,
               "path": "story.s01Survival.berriesGathered"
             }
@@ -6159,11 +6221,47 @@
             "path": "s01Survival.berryEaten",
             "target": "story",
             "value": true
-          },
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.refuelCampfire",
+      "transaction": {
+        "inventory": {
+          "type": "batchRemove",
+          "entries": [
+            {
+              "itemId": "resource.wood",
+              "quantity": 1
+            }
+          ]
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeFound"
+            }
+          ]
+        },
+        "writes": [
           {
-            "path": "s01Survival.campfireExtinguished",
+            "path": "s01Survival.campfireRefuelCount",
             "target": "story",
-            "value": true
+            "value": {
+              "$add": [
+                {
+                  "$get": "story.s01Survival.campfireRefuelCount"
+                },
+                1
+              ]
+            }
           }
         ]
       }
@@ -6176,7 +6274,7 @@
           "all": [
             {
               "equals": true,
-              "path": "story.s01Survival.berryEaten"
+              "path": "story.s01Survival.axeFound"
             },
             {
               "equals": false,
@@ -6201,7 +6299,7 @@
           "all": [
             {
               "equals": true,
-              "path": "story.s01Survival.berryEaten"
+              "path": "story.s01Survival.axeFound"
             },
             {
               "equals": false,

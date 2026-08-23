@@ -1,6 +1,6 @@
 /**
- * GatheringProgressPresenter - 采集会话的世界空间头顶进度表现。
- * 只消费 GatheringSystem 事件，不持有或修改采集、库存与节点业务状态。
+ * GatheringProgressPresenter - 世界空间头顶动作进度表现。
+ * 默认消费 GatheringSystem 事件，也允许其他短时动作使用独立 owner；只读表现不持有业务状态。
  */
 export class GatheringProgressPresenter {
   constructor({ width = 84, height = 9, offsetY = 18 } = {}) {
@@ -8,18 +8,30 @@ export class GatheringProgressPresenter {
     this.height = Math.max(4, Number(height) || 9);
     this.offsetY = Math.max(0, Number(offsetY) || 18);
     this.actor = null;
+    this.owner = null;
     this.progress = 0;
     this.visible = false;
   }
 
-  handleEvent(event, data = {}, actor = null) {
-    if (event === 'started' || event === 'progress') {
+  handleEvent(event, data = {}, actor = null, owner = 'gathering') {
+    const normalizedOwner = owner || 'gathering';
+    if (event === 'started') {
+      this.owner = normalizedOwner;
+      this.actor = actor || null;
+      this.progress = Math.max(0, Math.min(1, Number(data.progress) || 0));
+      this.visible = Boolean(this.actor);
+      return this.visible;
+    }
+    if (event === 'progress') {
+      if (this.owner !== normalizedOwner) return false;
       this.actor = actor || this.actor;
       this.progress = Math.max(0, Math.min(1, Number(data.progress) || 0));
       this.visible = Boolean(this.actor);
       return this.visible;
     }
-    if (event === 'completed' || event === 'interrupted') this.clear();
+    if ((event === 'completed' || event === 'interrupted') && this.owner === normalizedOwner) {
+      this.clear();
+    }
     return false;
   }
 
@@ -57,6 +69,7 @@ export class GatheringProgressPresenter {
 
   clear() {
     this.actor = null;
+    this.owner = null;
     this.progress = 0;
     this.visible = false;
   }

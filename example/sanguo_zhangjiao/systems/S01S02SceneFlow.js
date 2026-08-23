@@ -3,6 +3,8 @@ const SPECIAL_FAINT_LABELS = Object.freeze({
 });
 
 const CHASE_WOLF_PREFIX = 'S01-chase-wolf-';
+const REFUEL_PROGRESS_OWNER = 'campfireRefuel';
+const REFUEL_DURATION_SECONDS = 1;
 
 /** P1.1/P1.3 S01 生存流程协调器；领域写入统一提交 canonical command。 */
 export class S01S02Coordinator {
@@ -11,6 +13,7 @@ export class S01S02Coordinator {
     this.scene = scene;
     this.sequence = 0;
     this.refuelCampfireInFlight = null;
+    this.refuelCampfireProgress = null;
     this.pendingAxeDiscovery = false;
     this.initialToolRevealPending = false;
     this.initialToolRevealRetryElapsed = 0;
@@ -492,7 +495,7 @@ export class S01S02Coordinator {
     if (entity.id === 'S01-first-wolf-1') {
       const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
       if (!result.ok) return false;
-      const corpse = this.context.services.corpses?.capture?.(entity);
+      const corpse = this.scene.context.services.corpses?.capture?.(entity);
       if (!corpse || !entity.getComponent?.('resourceNode')) return false;
       this.scene._showScreenTip('野狼倒下了。背包里有剥皮刀时，靠近尸体，{harvest}剥取狼皮。', {
         title: '猎狼与剥皮'
@@ -586,13 +589,82 @@ export class S01S02Coordinator {
     return true;
   }
 
+  _canShowRefuelProgress() {
+    if (this.scene.currentSceneId !== 'S01' || !this.scene.playerEntity) return false;
+    const fuel = this.scene._campfireService;
+    const currentFuel = fuel?.getFuelSnapshot?.();
+    if (fuel?.isLit?.() !== true && Number(currentFuel?.units) > 0) return false;
+    const survival = this._story().s01Survival || {};
+    if (survival.firstWolfSpotted === true || Number(survival.campfireRefuelCount) >= 3) return false;
+    if (fuel?.canAddFuelUnits?.(1) !== true) return false;
+    const inventory = this.scene.playerEntity.getComponent?.('inventory');
+    return inventory?.getItemCount?.('resource.wood') >= 1
+      && Boolean(this.scene.context?.presentation?.gatheringProgress);
+  }
+
+  _showRefuelProgress(event, progress = 0, actor = this.scene.playerEntity) {
+    return this.scene.context?.presentation?.gatheringProgress?.handleEvent?.(
+      event,
+      { progress },
+      actor,
+      REFUEL_PROGRESS_OWNER
+    ) === true;
+  }
+
   refuelCampfire() {
     if (this.refuelCampfireInFlight) return this.refuelCampfireInFlight;
-    const pending = this._refuelCampfireOnce().finally(() => {
+    if (!this._canShowRefuelProgress()) {
+      const pending = this._refuelCampfireOnce().finally(() => {
+        if (this.refuelCampfireInFlight === pending) this.refuelCampfireInFlight = null;
+      });
+      this.refuelCampfireInFlight = pending;
+      return pending;
+    }
+
+    let resolveAction;
+    let rejectAction;
+    const action = new Promise((resolve, reject) => {
+      resolveAction = resolve;
+      rejectAction = reject;
+    });
+    const session = {
+      actor: this.scene.playerEntity,
+      elapsed: 0,
+      duration: REFUEL_DURATION_SECONDS,
+      committing: false,
+      resolve: resolveAction,
+      reject: rejectAction
+    };
+    this.refuelCampfireProgress = session;
+    this._showRefuelProgress('started', 0, session.actor);
+
+    const pending = action.finally(() => {
+      if (this.refuelCampfireProgress === session) {
+        this._showRefuelProgress('completed', 1, session.actor);
+        this.refuelCampfireProgress = null;
+      }
       if (this.refuelCampfireInFlight === pending) this.refuelCampfireInFlight = null;
     });
     this.refuelCampfireInFlight = pending;
     return pending;
+  }
+
+  _updateRefuelProgress(deltaTime) {
+    const session = this.refuelCampfireProgress;
+    if (!session || session.committing) return;
+    if (!session.actor || this.scene.currentSceneId !== 'S01') {
+      this._showRefuelProgress('interrupted', 0, session.actor);
+      this.refuelCampfireProgress = null;
+      session.resolve({ ok: false, code: 'refuelInterrupted' });
+      return;
+    }
+    session.elapsed = Math.min(session.duration, session.elapsed + Math.max(0, Number(deltaTime) || 0));
+    const progress = session.duration > 0 ? session.elapsed / session.duration : 1;
+    this._showRefuelProgress('progress', progress, session.actor);
+    if (progress < 1) return;
+
+    session.committing = true;
+    void this._refuelCampfireOnce().then(session.resolve, session.reject);
   }
 
   async _refuelCampfireOnce() {
@@ -824,8 +896,17 @@ export class S01S02Coordinator {
   }
 
   update(deltaTime) {
-    if (this.scene.currentSceneId !== 'S01') return;
+    if (this.scene.currentSceneId !== 'S01') {
+      const session = this.refuelCampfireProgress;
+      if (session && !session.committing) {
+        this._showRefuelProgress('interrupted', 0, session.actor);
+        this.refuelCampfireProgress = null;
+        session.resolve({ ok: false, code: 'refuelInterrupted' });
+      }
+      return;
+    }
     const dt = Math.max(0, Number(deltaTime) || 0);
+    this._updateRefuelProgress(dt);
     const tutorialFlow = this.scene._tutorialFlow;
     const survival = this._story().s01Survival || {};
     this._applyS01WeatherPhase(survival);

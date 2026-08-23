@@ -223,7 +223,11 @@ export class SceneRenderPipeline {
         this._entityQueueItems[entityItemCount] = item;
       }
       entityItemCount++;
-      item.y = terrains.length > 0 ? position.y : position.y - (position.z || 0) * 0.01;
+      const corpseSortOffset = entity.isCorpse === true
+        ? Number(entity.corpseDefinition?.presentation?.sortYOffset) || 0
+        : 0;
+      item.y = (terrains.length > 0 ? position.y : position.y - (position.z || 0) * 0.01)
+        + corpseSortOffset;
       item.sortPriority = 2;
       item.entity = entity;
       queue.push(item);

@@ -5526,6 +5526,12 @@
         "aiType": "aggressive",
         "corpse": {
           "name": "野狼尸体",
+          "presentation": {
+            "alpha": 0.86,
+            "offsetY": 0,
+            "rotationDegrees": 0,
+            "sortYOffset": -48
+          },
           "resourceNodeRef": "node.wolf_carcass"
         },
         "id": "enemy.s01_wolf",

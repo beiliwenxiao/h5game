@@ -102,7 +102,8 @@ const campfireFeatureMethods = {
           life: Math.max(320, 360 + this.embers.radius * 80),
           size: this.embers.radius * (0.75 + (index % 3) * 0.18),
           color: this.embers.color,
-          alpha: this.embers.maxAlpha,
+          alpha: Math.min(1, this.embers.maxAlpha * 1.15),
+          blendMode: 'lighter',
           gravity: 0,
           friction: 0.96,
           isFire: true,
@@ -156,9 +157,7 @@ const campfireFeatureMethods = {
         particleConfig: {
           position: { x: firePoint.x, y: firePoint.y },
           velocity: { x: 0, y: vy },
-          life, size, color,
-          alpha: Math.min(1, alpha * 1.15),
-          blendMode: 'lighter',
+          life, size, color, alpha,
           gravity: 0, friction: 0.95
         }
       })

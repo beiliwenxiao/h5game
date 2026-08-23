@@ -42,18 +42,34 @@ export class EntityRenderer2D {
     const height = sprite?.height || 32;
     const isCorpse = entity.isCorpse === true;
 
+    const corpsePresentation = isCorpse && entity.corpseDefinition?.presentation
+      ? entity.corpseDefinition.presentation
+      : null;
+    const corpseOffsetX = Number(corpsePresentation?.offsetX) || 0;
+    const corpseOffsetY = Number(corpsePresentation?.offsetY) || 0;
+    const renderX = x + corpseOffsetX;
+    const renderY = y + corpseOffsetY;
+
     if (!sprite || sprite.visible !== false) {
       ctx.save();
       if (isCorpse) {
-        const centerY = y - height / 2;
-        ctx.translate(x, centerY);
-        ctx.rotate(Math.PI / 2);
-        ctx.translate(-x, -centerY);
-        ctx.globalAlpha *= 0.86;
+        const rotationDegrees = Number.isFinite(Number(corpsePresentation?.rotationDegrees))
+          ? Number(corpsePresentation.rotationDegrees)
+          : 90;
+        if (rotationDegrees !== 0) {
+          const centerY = renderY - height / 2;
+          ctx.translate(renderX, centerY);
+          ctx.rotate(rotationDegrees * Math.PI / 180);
+          ctx.translate(-renderX, -centerY);
+        }
+        const corpseAlpha = Number(corpsePresentation?.alpha);
+        ctx.globalAlpha *= Number.isFinite(corpseAlpha)
+          ? Math.max(0, Math.min(1, corpseAlpha))
+          : 0.86;
       }
       if (sprite?.alpha !== undefined) ctx.globalAlpha *= sprite.alpha;
-      this._renderSprite(ctx, entity, sprite, npc, x, y, width, height);
-      this._renderAppearanceLayers(ctx, sprite, x, y);
+      this._renderSprite(ctx, entity, sprite, npc, renderX, renderY, width, height);
+      this._renderAppearanceLayers(ctx, sprite, renderX, renderY);
       ctx.restore();
     }
 

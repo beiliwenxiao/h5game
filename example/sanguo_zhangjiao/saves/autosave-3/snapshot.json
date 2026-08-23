@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787419597562,
+  "createdAt": 1787470743280,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -9,7 +9,8 @@
     "level": 1,
     "currentSceneId": "S01",
     "location": "S01 区域",
-    "reason": "interval",
+    "reason": "checkpoint",
+    "checkpointId": "checkpoint.player-death-1",
     "previewFile": "thumbnail.jpg"
   },
   "data": {
@@ -21,8 +22,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1885,
-          "y": 1275,
+          "x": 1927,
+          "y": 1299,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -40,9 +41,9 @@
           "baseDefense": 5,
           "baseSpeed": 100,
           "maxHp": 100,
-          "hp": 10,
+          "hp": 100,
           "maxMp": 100,
-          "mp": 10,
+          "mp": 100,
           "maxStamina": 100,
           "stamina": 100,
           "staminaRegen": 12,
@@ -58,20 +59,51 @@
           "gold": 0,
           "attributeEffects": null
         },
-        "inventory": [],
+        "inventory": [
+          {
+            "definitionId": "resource.wild_berry",
+            "quantity": 2
+          },
+          {
+            "definitionId": "tool.worn_axe",
+            "instanceId": "S01-tool-axe-1",
+            "mutable": {
+              "durability": 5
+            }
+          },
+          {
+            "definitionId": "resource.wood",
+            "quantity": 1
+          }
+        ],
         "equipment": {}
       },
       "tutorial": {
-        "completedTutorials": [],
+        "completedTutorials": [
+          "s01.move",
+          "s01.gather",
+          "s01.pickup",
+          "s01.chopWood",
+          "s01.attack"
+        ],
         "enabled": true,
-        "currentTutorialId": null,
+        "currentTutorialId": "s01.durability",
         "currentStepIndex": 0,
-        "signalProgress": {},
-        "movementOrigins": {}
+        "signalProgress": {
+          "s01.gather:gatheringCompleted": 1,
+          "s01.pickup:itemPicked": 1,
+          "s01.attack:attackPerformed": 1
+        },
+        "movementOrigins": {
+          "s01.move": {
+            "x": 1885,
+            "y": 1275
+          }
+        }
       },
       "dialogue": {
-        "currentDialogueId": "dialogue.s01.wake",
-        "currentNodeId": "start",
+        "currentDialogueId": null,
+        "currentNodeId": null,
         "variables": {},
         "history": [
           {
@@ -79,15 +111,29 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1787401589750
+            "timestamp": 1787470665354
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1787401589750
+            "timestamp": 1787470665354
+          },
+          {
+            "type": "node",
+            "nodeId": "move",
+            "speaker": "旁白",
+            "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。",
+            "timestamp": 1787470668288
+          },
+          {
+            "type": "end",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1787470668587
           }
         ],
-        "completedDialogues": []
+        "completedDialogues": [
+          "dialogue.s01.wake"
+        ]
       },
       "quests": {
         "schemaVersion": 1,
@@ -262,25 +308,31 @@
                 "food": 0,
                 "herb": 0,
                 "iron": 0,
-                "wood": 0
+                "wood": 9
               },
-              "gatheringOperations": [],
+              "gatheringOperations": [
+                "gather-3",
+                "gather-4",
+                "gather-5"
+              ],
               "resourceConstructionScore": 0
             },
             "hiddenClues": [],
             "month": 3,
             "s01Survival": {
-              "axeDropped": false,
-              "axeFound": false,
+              "axeDropped": true,
+              "axeFound": true,
               "backpackCrafted": false,
-              "berriesGathered": false,
+              "berriesGathered": true,
               "berryEaten": false,
+              "berryGatherCount": 2,
               "campfireExtinguished": false,
-              "campfireLit": false,
+              "campfireLit": true,
+              "campfireRefuelCount": 7,
               "cliffReached": false,
               "firestarterAcquired": false,
               "firstWolfKilled": false,
-              "firstWolfSpotted": false,
+              "firstWolfSpotted": true,
               "meatCooked": false,
               "overnightCompleted": false,
               "pursuit": {
@@ -291,7 +343,9 @@
               "riverCrossed": false,
               "shelterCompleted": false,
               "wolfSkinned": false,
-              "woodGathered": false
+              "wolfWeatherCleared": true,
+              "wolfWeatherCountdownStarted": true,
+              "woodGathered": true
             },
             "storyTags": [],
             "unlockedScenes": [
@@ -308,12 +362,21 @@
         "triggers": {
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
-          "firedOnce": [],
+          "firedOnce": [
+            "trg_s01_begin_tutorial_after_wake",
+            "trg_s01_light_campfire"
+          ],
           "cooldowns": {
             "trg_s01_spawn_initial": {
               "definitionRevision": 1,
-              "remaining": 950,
+              "remaining": 0,
               "nextDue": 1000,
+              "duration": 1000
+            },
+            "trg_s01_refuel_campfire": {
+              "definitionRevision": 1,
+              "remaining": 0,
+              "nextDue": 73144.09999999998,
               "duration": 1000
             }
           },
@@ -344,26 +407,42 @@
               {
                 "triggerId": "trg_s01_begin_tutorial_after_wake",
                 "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                "fingerprint": "sha256-89982fed2edacb86ad8c2926244cd53b93af0160c1d11abb43e9532dfea03539",
+                "status": "succeeded",
+                "actionIndex": 0,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_begin_tutorial_after_wake",
+                  "stateRevision": null
+                },
+                "startedAt": 3150.4000000000087,
+                "finishedAt": 3183.800000000003,
+                "ledgerRevision": 4
               },
               {
                 "triggerId": "trg_s01_light_campfire",
                 "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "operationId": "trigger:1:trg_s01_light_campfire:3",
+                "fingerprint": "sha256-72a9187127fc169bde7feac8c393db5ae8909b346772d5b9312d8c8e27c1d825",
+                "status": "succeeded",
+                "actionIndex": 1,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_light_campfire:3:action:1",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_light_campfire",
+                  "stateRevision": null
+                },
+                "startedAt": 4267.300000000003,
+                "finishedAt": 4283.900000000009,
+                "ledgerRevision": 5
               },
               {
                 "triggerId": "trg_s01_craft_backpack",
@@ -388,6 +467,26 @@
                 "startedAt": null,
                 "finishedAt": null,
                 "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_refuel_campfire",
+                "definitionRevision": 1,
+                "operationId": "trigger:1:trg_s01_refuel_campfire:10",
+                "fingerprint": "sha256-cab47f553c00631fb2f81411226e56c828380dbad41b5bd78d05ac7d49e508c8",
+                "status": "succeeded",
+                "actionIndex": 0,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_refuel_campfire:10",
+                  "status": "succeeded",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "trigger:trg_s01_refuel_campfire",
+                  "stateRevision": null
+                },
+                "startedAt": 72127.49999999997,
+                "finishedAt": 72144.09999999998,
+                "ledgerRevision": 22
               },
               {
                 "triggerId": "trg_s01_build_shelter",
@@ -1458,9 +1557,235 @@
                 "demoDynamic": {
                   "schemaVersion": 2,
                   "sceneNamespace": "S01",
-                  "resourceNodes": [],
-                  "placementStates": [],
-                  "deathDrops": [],
+                  "resourceNodes": [
+                    {
+                      "id": "S01-node-berry-1",
+                      "state": {
+                        "schemaVersion": 1,
+                        "resourceType": "food",
+                        "itemId": "resource.wild_berry",
+                        "remaining": 0,
+                        "maxRemaining": 4,
+                        "yieldPerGather": 2,
+                        "gatherDuration": 1.6,
+                        "requiredToolType": null,
+                        "refreshDays": 0,
+                        "refreshProgressDays": 0,
+                        "refreshMode": "none",
+                        "refreshIntervalSeconds": 0,
+                        "refreshElapsedSeconds": 0,
+                        "guardUnitIds": [],
+                        "riskEvents": [],
+                        "damageRatio": 0,
+                        "depleted": true
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-1",
+                      "state": {
+                        "schemaVersion": 1,
+                        "resourceType": "wood",
+                        "itemId": "resource.wood",
+                        "remaining": 9,
+                        "maxRemaining": 12,
+                        "yieldPerGather": 3,
+                        "gatherDuration": 1.8,
+                        "requiredToolType": "axe",
+                        "refreshDays": 0,
+                        "refreshProgressDays": 0,
+                        "refreshMode": "none",
+                        "refreshIntervalSeconds": 0,
+                        "refreshElapsedSeconds": 0,
+                        "guardUnitIds": [],
+                        "riskEvents": [
+                          {
+                            "id": "risk.dry_wood_noise",
+                            "type": "noise",
+                            "chance": 0.3,
+                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                            "payload": {
+                              "alert": 1
+                            }
+                          }
+                        ],
+                        "damageRatio": 0,
+                        "depleted": false
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-2",
+                      "state": {
+                        "schemaVersion": 1,
+                        "resourceType": "wood",
+                        "itemId": "resource.wood",
+                        "remaining": 6,
+                        "maxRemaining": 12,
+                        "yieldPerGather": 3,
+                        "gatherDuration": 1.8,
+                        "requiredToolType": "axe",
+                        "refreshDays": 0,
+                        "refreshProgressDays": 0,
+                        "refreshMode": "none",
+                        "refreshIntervalSeconds": 0,
+                        "refreshElapsedSeconds": 0,
+                        "guardUnitIds": [],
+                        "riskEvents": [
+                          {
+                            "id": "risk.dry_wood_noise",
+                            "type": "noise",
+                            "chance": 0.3,
+                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                            "payload": {
+                              "alert": 1
+                            }
+                          }
+                        ],
+                        "damageRatio": 0,
+                        "depleted": false
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-3",
+                      "state": {
+                        "schemaVersion": 1,
+                        "resourceType": "wood",
+                        "itemId": "resource.wood",
+                        "remaining": 12,
+                        "maxRemaining": 12,
+                        "yieldPerGather": 3,
+                        "gatherDuration": 1.8,
+                        "requiredToolType": "axe",
+                        "refreshDays": 0,
+                        "refreshProgressDays": 0,
+                        "refreshMode": "none",
+                        "refreshIntervalSeconds": 0,
+                        "refreshElapsedSeconds": 0,
+                        "guardUnitIds": [],
+                        "riskEvents": [
+                          {
+                            "id": "risk.dry_wood_noise",
+                            "type": "noise",
+                            "chance": 0.3,
+                            "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                            "payload": {
+                              "alert": 1
+                            }
+                          }
+                        ],
+                        "damageRatio": 0,
+                        "depleted": false
+                      }
+                    }
+                  ],
+                  "placementStates": [
+                    {
+                      "id": "S01-node-berry-1",
+                      "state": {
+                        "kind": "resourceNode",
+                        "removed": false,
+                        "position": {
+                          "x": 1735,
+                          "y": 1150
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-1",
+                      "state": {
+                        "kind": "resourceNode",
+                        "removed": false,
+                        "position": {
+                          "x": 1645,
+                          "y": 1100
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-2",
+                      "state": {
+                        "kind": "resourceNode",
+                        "removed": false,
+                        "position": {
+                          "x": 1580,
+                          "y": 1190
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-node-wood-3",
+                      "state": {
+                        "kind": "resourceNode",
+                        "removed": false,
+                        "position": {
+                          "x": 2070,
+                          "y": 1110
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-first-wolf-1",
+                      "state": {
+                        "kind": "enemy",
+                        "removed": false,
+                        "hp": 2,
+                        "position": {
+                          "x": 1925.766933111007,
+                          "y": 1221.1147018338254
+                        },
+                        "ai": {
+                          "active": true,
+                          "aiType": "aggressive",
+                          "lure": null
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-pickup-skinning-knife",
+                      "state": {
+                        "kind": "item",
+                        "removed": true,
+                        "position": {
+                          "x": 1685,
+                          "y": 1130
+                        }
+                      }
+                    },
+                    {
+                      "id": "S01-pickup-worn-axe",
+                      "state": {
+                        "kind": "item",
+                        "removed": true,
+                        "quantity": 0
+                      }
+                    }
+                  ],
+                  "deathDrops": [
+                    {
+                      "id": "death-drop-player-death-1",
+                      "position": {
+                        "x": 1892.3631544999955,
+                        "y": 1128.9363041548202,
+                        "z": 1128.9363041548202,
+                        "elevation": 0
+                      },
+                      "state": {
+                        "schemaVersion": 2,
+                        "deathId": "player-death-1",
+                        "stacks": [
+                          {
+                            "id": "resource.wild_berry-0",
+                            "definitionId": "resource.wild_berry",
+                            "quantity": 2
+                          },
+                          {
+                            "id": "resource.wood-1",
+                            "definitionId": "resource.wood",
+                            "quantity": 1
+                          }
+                        ]
+                      }
+                    }
+                  ],
                   "s10StructureStates": [],
                   "vehicleStates": []
                 }
@@ -1469,18 +1794,130 @@
           ]
         },
         "regionStates": [],
-        "campfireLit": false,
-        "firedPickups": [],
+        "campfireLit": true,
+        "campfireState": {
+          "lit": true,
+          "fuel": {
+            "enabled": true,
+            "itemId": "resource.wood",
+            "secondsPerUnit": 100,
+            "maxUnits": 100,
+            "units": 8,
+            "remainingSeconds": 739.2907999999849,
+            "active": true
+          }
+        },
+        "firedPickups": [
+          "input-11:S01-pickup-worn-axe:tool.worn_axe:S01-tool-axe-1"
+        ],
         "clearedGroups": [],
         "defeatState": {
           "schemaVersion": 2,
-          "nextDeathSequence": 1,
-          "resolvedDeathIds": []
+          "nextDeathSequence": 2,
+          "resolvedDeathIds": [
+            "player-death-1"
+          ]
         },
         "gatheringState": {
           "schemaVersion": 1,
-          "nextOperationSequence": 1,
-          "completedOperations": []
+          "nextOperationSequence": 6,
+          "completedOperations": [
+            {
+              "operationId": "gather-1",
+              "result": {
+                "ok": true,
+                "committed": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-1",
+                "accepted": 2,
+                "remainder": 0,
+                "nodeRemaining": 2,
+                "toolBroken": false,
+                "toolInstanceId": null,
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-2",
+              "result": {
+                "ok": true,
+                "committed": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-2",
+                "accepted": 2,
+                "remainder": 0,
+                "nodeRemaining": 0,
+                "toolBroken": false,
+                "toolInstanceId": null,
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-3",
+              "result": {
+                "ok": true,
+                "committed": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-3",
+                "accepted": 3,
+                "remainder": 0,
+                "nodeRemaining": 9,
+                "toolBroken": false,
+                "toolInstanceId": "S01-tool-axe-1",
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-4",
+              "result": {
+                "ok": true,
+                "committed": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-4",
+                "accepted": 3,
+                "remainder": 0,
+                "nodeRemaining": 9,
+                "toolBroken": false,
+                "toolInstanceId": "S01-tool-axe-1",
+                "risk": null
+              }
+            },
+            {
+              "operationId": "gather-5",
+              "result": {
+                "ok": true,
+                "committed": true,
+                "code": null,
+                "reason": "completed",
+                "terminalEvent": "completed",
+                "operationId": "gather-5",
+                "accepted": 3,
+                "remainder": 0,
+                "nodeRemaining": 6,
+                "toolBroken": false,
+                "toolInstanceId": "S01-tool-axe-1",
+                "risk": {
+                  "triggered": true,
+                  "id": "risk.dry_wood_noise",
+                  "type": "noise",
+                  "message": "枯木断裂的巨响传向荒野，附近可能有敌人注意到这里。",
+                  "payload": {
+                    "alert": 1
+                  },
+                  "nodeId": "S01-node-wood-2",
+                  "operationId": "gather-5"
+                }
+              }
+            }
+          ]
         },
         "locomotionState": {
           "schemaVersion": 1,
@@ -1497,8 +1934,104 @@
         },
         "proficiencyState": {
           "schemaVersion": 1,
-          "characters": [],
-          "completedOperations": []
+          "characters": [
+            {
+              "characterId": "refugee",
+              "proficiencies": {
+                "gathering": {
+                  "level": 2,
+                  "experience": 26
+                }
+              }
+            }
+          ],
+          "completedOperations": [
+            {
+              "operationId": "gathering:gather-1",
+              "fingerprint": "[\"refugee\",\"gathering\",4]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-1",
+                "amountRequested": 4,
+                "amountApplied": 4,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 4,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-2",
+              "fingerprint": "[\"refugee\",\"gathering\",4]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-2",
+                "amountRequested": 4,
+                "amountApplied": 4,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 8,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-3",
+              "fingerprint": "[\"refugee\",\"gathering\",6]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-3",
+                "amountRequested": 6,
+                "amountApplied": 6,
+                "previousLevel": 1,
+                "level": 1,
+                "experience": 14,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-4",
+              "fingerprint": "[\"refugee\",\"gathering\",6]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-4",
+                "amountRequested": 6,
+                "amountApplied": 6,
+                "previousLevel": 1,
+                "level": 2,
+                "experience": 20,
+                "leveledUp": true,
+                "idempotent": false
+              }
+            },
+            {
+              "operationId": "gathering:gather-5",
+              "fingerprint": "[\"refugee\",\"gathering\",6]",
+              "result": {
+                "ok": true,
+                "characterId": "refugee",
+                "type": "gathering",
+                "operationId": "gathering:gather-5",
+                "amountRequested": 6,
+                "amountApplied": 6,
+                "previousLevel": 2,
+                "level": 2,
+                "experience": 26,
+                "leveledUp": false,
+                "idempotent": false
+              }
+            }
+          ]
         },
         "constructionState": {
           "schemaVersion": 1,
@@ -1572,7 +2105,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 120.04999999999995
+          "elapsed": 136.40250000000879
         }
       }
     }

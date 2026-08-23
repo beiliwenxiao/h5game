@@ -11,6 +11,8 @@ export class S01S02Coordinator {
     this.scene = scene;
     this.sequence = 0;
     this.pendingAxeDiscovery = false;
+    this.initialToolRevealPending = false;
+    this.initialToolRevealRetryElapsed = 0;
     this.pendingWolfDiscovery = false;
     this.pendingClimb = false;
     this.pendingPlacementReveals = new Map();
@@ -39,6 +41,32 @@ export class S01S02Coordinator {
 
   _spawnGroup(group) {
     return this.scene.context.services.placements?.spawn?.({ group });
+  }
+
+  async _revealInitialToolKit() {
+    const survival = this._story().s01Survival || {};
+    const axe = survival.axeFound === true
+      ? { ok: true, created: false }
+      : await this._ensureSpawnedPlacement('S01-worn-axe', 'S01-pickup-worn-axe');
+    if (!axe.ok) return false;
+    const knife = survival.skinningKnifeFound === true
+      ? { ok: true, created: false }
+      : await this._ensureSpawnedPlacement('S01-skinning-knife', 'S01-pickup-skinning-knife');
+    if (!knife.ok) return false;
+    this.initialToolRevealPending = false;
+    this.initialToolRevealRetryElapsed = 0;
+    return this._presentS01PickupTutorial();
+  }
+
+  _presentS01PickupTutorial() {
+    const tutorialFlow = this.scene._tutorialFlow;
+    if (!tutorialFlow) {
+      this.scene._showScreenTip('你发现了一些物品，{pickup}拾取。', { title: '发现物品' });
+      return true;
+    }
+    if (tutorialFlow.isCompleted?.('s01.pickup') || tutorialFlow.isCurrent?.('s01.pickup')) return true;
+    tutorialFlow.showNext?.();
+    return tutorialFlow.isCurrent?.('s01.pickup') === true;
   }
 
   _applyS01WeatherPhase(survival = this._story().s01Survival || {}, { force = false } = {}) {
@@ -143,9 +171,10 @@ export class S01S02Coordinator {
   }
 
   _presentS01GatherTutorial() {
+    if (this._story().s01Survival?.initialToolsPicked !== true) return false;
     const tutorialFlow = this.scene._tutorialFlow;
     if (!tutorialFlow) {
-      this.scene._showScreenTip('火光驱散寒意，你却听见肚子咕咕作响。靠近野果丛，使用 {harvest} 徒手采集野果。', {
+      this.scene._showScreenTip('火光驱散寒意，你却听见肚子咕咕作响。靠近野果丛，{harvest}徒手采集野果。', {
         title: '寻找食物'
       });
       return true;
@@ -156,22 +185,23 @@ export class S01S02Coordinator {
   }
 
   _presentS01WoodGatherTutorial() {
+    if (this._story().s01Survival?.berriesGathered !== true) return false;
     const tutorialFlow = this.scene._tutorialFlow;
     if (!tutorialFlow) {
-      this.scene._showScreenTip('靠近枯木，使用 {harvest} 用破旧斧头砍柴，为篝火添燃料。', {
+      this.scene._showScreenTip('靠近枯木，{harvest}用破旧斧头砍柴，为篝火添燃料。', {
         title: '收集燃料'
       });
       return true;
     }
     if (tutorialFlow.isCompleted?.('s01.chopWood') || tutorialFlow.isCurrent?.('s01.chopWood')) return true;
-    if (!tutorialFlow.isCompleted?.('s01.pickup')) return false;
+    if (!tutorialFlow.isCompleted?.('s01.gather')) return false;
     tutorialFlow.showNext?.();
     return tutorialFlow.isCurrent?.('s01.chopWood') === true;
   }
 
   _presentS01WoodGatherMotivation() {
     return this.scene._showScreenTip(
-      '破旧斧头刚入手，篝火里的燃料只够燃烧 100 秒。寒夜里必须立刻砍些枯木添火，才能让火堆继续燃烧。',
+      '篝火燃料不多了。先砍些枯木，再回火堆添柴。',
       {
         title: '燃料即将耗尽',
         onHidden: () => this._presentS01WoodGatherTutorial()
@@ -194,9 +224,9 @@ export class S01S02Coordinator {
     const survival = this._story().s01Survival || {};
     const needsRecovery = this.scene.currentSceneId === 'S01'
       && tutorialFlow
-      && survival.axeFound === true
+      && survival.berriesGathered === true
       && survival.woodGathered !== true
-      && tutorialFlow.isCompleted?.('s01.pickup') === true
+      && tutorialFlow.isCompleted?.('s01.gather') === true
       && tutorialFlow.isCompleted?.('s01.chopWood') !== true
       && tutorialFlow.isCurrent?.('s01.chopWood') !== true;
     if (!needsRecovery) return false;
@@ -388,104 +418,56 @@ export class S01S02Coordinator {
       );
       if (counted.ok !== true) return false;
 
-      const currentSurvival = this._story().s01Survival || {};
-      const berryGatherCount = Math.max(0, Math.floor(Number(currentSurvival.berryGatherCount) || 0));
+      const berryGatherCount = Math.max(0, Math.floor(Number(this._story().s01Survival?.berryGatherCount) || 0));
       const berryCount = Math.max(0, Number(data.accepted) || 0);
       this.scene._showScreenTip(`荒野酸果 ×${berryCount} 已放入背包。`, { title: '采集完成' });
       if (berryGatherCount < 2) return true;
-
-      const axePlacementId = 'S01-pickup-worn-axe';
-      const needsAxeReveal = currentSurvival.axeDropped !== true;
-      const hasPendingAxeReveal = this.pendingPlacementReveals.has(axePlacementId);
-      const completeBerryGathering = async (recovered = false) => {
-        if (this._story().s01Survival?.berriesGathered === true) return true;
-        const result = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
-        if (result.ok && recovered) {
-          this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
-        }
-        return result.ok === true;
-      };
-      const completeAxeReveal = async (recovered = false) => {
-        if (!await completeBerryGathering(recovered)) return false;
-        const tutorialFlow = this.scene._tutorialFlow;
-        if (tutorialFlow) {
-          if (!tutorialFlow.isCompleted?.('s01.pickup') && !tutorialFlow.isCurrent?.('s01.pickup')) {
-            tutorialFlow.showNext?.();
-          }
-        } else {
-          this.scene._showScreenTip('靠近地上的破旧斧头，使用 {pickup} 拾取。', { title: '拾取物资' });
-        }
-        return true;
-      };
-
-      if (this.pendingAxeDiscovery) return false;
-      if (needsAxeReveal || hasPendingAxeReveal) {
-        this.pendingAxeDiscovery = true;
-        try {
-          if (needsAxeReveal) {
-            const axeResult = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
-            if (axeResult.ok !== true) return false;
-          }
-          const revealed = await this._revealPlacement(
-            'S01-worn-axe',
-            axePlacementId,
-            {
-              name: '破旧斧头',
-              message: '发现：破旧斧头掉落在地上。',
-              reason: 'discovery',
-              jumpHeight: 18,
-              sparkleCount: 9
-            },
-            'world-item:revealed:S01-pickup-worn-axe',
-            { onRecovered: () => completeAxeReveal(true) }
-          );
-          if (!revealed) return false;
-        } finally {
-          this.pendingAxeDiscovery = false;
-        }
-      } else {
-        // 恢复后也必须确认斧头实体已实际生成，才能提示玩家拾取。
-        const restored = await this._ensureSpawnedPlacement('S01-worn-axe', axePlacementId);
-        if (!restored.ok) return false;
-      }
-      return completeAxeReveal(false);
+      const completed = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
+      if (completed.ok !== true) return false;
+      await this.onBerriesGatheredCommitted();
+      return true;
     }
     if (data.resourceType === 'wood') {
       const result = await this._submit('story.s01.woodGathered', {}, 'story:s01:wood-gathered');
-      if (result.ok) {
-        return this._revealPlacement(
-          'S01-skinning-knife',
-          'S01-pickup-skinning-knife',
-          { name: '剥皮刀', message: '发现：剥皮刀掉落在地上。', reason: 'discovery' },
-          'world-item:revealed:S01-pickup-skinning-knife',
-          {
-            onRecovered: () => {
-              this.scene.sanguoSceneCommandCoordinator?.resumeGatheringAfterReveal?.(data);
-              return true;
-            }
-          }
-        );
-      }
-      return false;
+      return result.ok === true;
     }
     if (isWolfHide) {
       const result = await this._submit('story.s01.wolfSkinned', {}, 'story:s01:wolf-skinned');
       if (result.ok) {
-        this.scene._showScreenTip('你用剥皮刀取下狼皮。不同职业以后会用各自技能改善战斗、采集与求生；眼下先用狼皮和木材做一个六格小背包。', { title: '职业技能与制作' });
+        this.scene._showScreenTip('狼皮已收好。带上木材，到制作点做一个六格小背包。', { title: '获得狼皮' });
       }
       return result.ok === true;
     }
     return false;
   }
 
-  async onAxePickupCommitted() {
-    if (this.scene.currentSceneId !== 'S01') return false;
+  async onInitialToolsPickedCommitted() {
+    if (this.scene.currentSceneId !== 'S01'
+      || this._story().s01Survival?.initialToolsPicked !== true) return false;
+    this.scene._tutorialFlow?.complete?.('s01.pickup');
+    const fuelStarted = this.scene._campfireService?.startFuelCountdown?.() === true;
+    const continuation = this._createCampfireContinuation();
+    const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
+    if (!placement.ok) {
+      this._rememberPendingReveal(continuation);
+      console.warn('[S01S02Coordinator] 双工具拾取后野果放置进入退避补偿', placement);
+      return fuelStarted;
+    }
+    this.pendingPlacementReveals.delete(continuation.placementId);
+    if (!this._presentS01GatherTutorial()) this._rememberPendingReveal(continuation);
+    return true;
+  }
+
+  async onBerriesGatheredCommitted() {
+    if (this.scene.currentSceneId !== 'S01'
+      || this._story().s01Survival?.berriesGathered !== true) return false;
+    this.scene._tutorialFlow?.complete?.('s01.gather');
     const fuelStarted = this.scene._campfireService?.startFuelCountdown?.() === true;
     const continuation = this._createWoodGatherContinuation();
     const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
     if (!placement.ok) {
       this._rememberPendingReveal(continuation);
-      console.warn('[S01S02Coordinator] 斧头拾取后木材放置进入退避补偿', placement);
+      console.warn('[S01S02Coordinator] 野果采集完成后木材放置进入退避补偿', placement);
       return fuelStarted;
     }
     this.pendingPlacementReveals.delete(continuation.placementId);
@@ -514,7 +496,7 @@ export class S01S02Coordinator {
       const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
       if (!result.ok) return false;
       const showWolfLootTip = () => {
-        this.scene._showScreenTip('野狼倒下。再用剥皮刀处理狼尸取得狼皮。', {
+        this.scene._showScreenTip('野狼倒下了。靠近尸体，{harvest}用剥皮刀剥取狼皮。', {
           title: '猎狼与剥皮'
         });
         return true;
@@ -689,17 +671,13 @@ export class S01S02Coordinator {
         console.warn('[S01S02Coordinator] 篝火表现启动失败，业务状态已提交', error);
       }
 
-      const continuation = this._createCampfireContinuation();
-      const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
-      if (!placement.ok) {
-        this._rememberPendingReveal(continuation);
-        console.warn('[S01S02Coordinator] 篝火已点燃，野果放置进入退避补偿', placement);
-        return true;
-      }
-      if (!this._presentS01GatherTutorial()) {
-        this._rememberPendingReveal(continuation);
-      } else {
-        this.pendingPlacementReveals.delete(continuation.placementId);
+      const toolState = await this._submit('story.s01.findAxe', {}, 'story:s01:find-axe');
+      if (toolState.ok !== true) return false;
+      this.initialToolRevealPending = true;
+      try {
+        await this._revealInitialToolKit();
+      } catch (error) {
+        console.warn('[S01S02Coordinator] 篝火工具包放置进入退避补偿', error);
       }
       return true;
     }
@@ -821,6 +799,32 @@ export class S01S02Coordinator {
     const tutorialFlow = this.scene._tutorialFlow;
     const survival = this._story().s01Survival || {};
     this._applyS01WeatherPhase(survival);
+    const pickupNeedsRecovery = tutorialFlow
+      && survival.campfireLit === true
+      && survival.axeDropped === true
+      && survival.initialToolsPicked !== true
+      && tutorialFlow.isCompleted?.('s01.pickup') !== true
+      && tutorialFlow.isCurrent?.('s01.pickup') !== true;
+    if (pickupNeedsRecovery) this.initialToolRevealPending = true;
+    if (survival.initialToolsPicked === true
+      && tutorialFlow?.isCompleted?.('s01.pickup') !== true) {
+      tutorialFlow?.complete?.('s01.pickup');
+    }
+    if (survival.berriesGathered === true
+      && tutorialFlow?.isCompleted?.('s01.gather') !== true) {
+      tutorialFlow?.complete?.('s01.gather');
+    }
+    if (this.initialToolRevealPending) {
+      this.initialToolRevealRetryElapsed += dt;
+      if (this.initialToolRevealRetryElapsed >= 0.75) {
+        this.initialToolRevealRetryElapsed = 0;
+        void this._revealInitialToolKit().catch(error => {
+          console.warn('[S01S02Coordinator] 篝火工具包补偿失败', error);
+        });
+      }
+    } else {
+      this.initialToolRevealRetryElapsed = 0;
+    }
     if (survival.wolfWeatherCountdownStarted === true && survival.wolfWeatherCleared !== true) {
       this.wolfWeatherElapsed += dt;
       if (this.wolfWeatherElapsed >= 10 && !this.wolfWeatherResolutionBusy) {
@@ -840,17 +844,18 @@ export class S01S02Coordinator {
         this.wolfWeatherResolutionBusy = false;
       });
     }
-    const campfireLit = survival.campfireLit === true;
-    const gatherNeedsRecovery = tutorialFlow && campfireLit
+    const gatherNeedsRecovery = tutorialFlow
+      && survival.initialToolsPicked === true
+      && survival.berriesGathered !== true
       && tutorialFlow.isCompleted?.('s01.gather') !== true
       && tutorialFlow.isCurrent?.('s01.gather') !== true;
     if (gatherNeedsRecovery && !this.pendingPlacementReveals.has('S01-node-berry-1')) {
       this._rememberPendingReveal(this._createCampfireContinuation());
     }
     const woodTutorialNeedsRecovery = tutorialFlow
-      && survival.axeFound === true
+      && survival.berriesGathered === true
       && survival.woodGathered !== true
-      && tutorialFlow.isCompleted?.('s01.pickup') === true
+      && tutorialFlow.isCompleted?.('s01.gather') === true
       && tutorialFlow.isCompleted?.('s01.chopWood') !== true
       && tutorialFlow.isCurrent?.('s01.chopWood') !== true;
     if (woodTutorialNeedsRecovery && !this.pendingPlacementReveals.has('S01-node-wood-1')) {

@@ -15,6 +15,7 @@ import { GatheringSystem } from '../../systems/GatheringSystem.js';
 import { GatheringPuppetSystem } from '../../systems/GatheringPuppetSystem.js';
 import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
 import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
+import { PlayerDeathCountdown } from './PlayerDeathCountdown.js';
 import { ItemLifecycleService, ITEM_LIFECYCLE_COMMANDS } from '../../systems/ItemLifecycleService.js';
 import { ToolRepairService } from '../../systems/ToolRepairService.js';
 import { MeditationSystem } from '../../systems/MeditationSystem.js';
@@ -188,7 +189,7 @@ export class SceneGameplaySystemAssembler {
       inventoryTransactions: scene.inventoryTransactions,
       entityFactory: scene.entityFactory,
       entityStore: scene.entityStore,
-      revivePlayer: player => scene.combatSystem.revivePlayer(player),
+      revivePlayer: player => scene.combatSystem.revivePlayer(player, { hp: 1, mp: 1 }),
       respawnResolver: context => scene.resolvePlayerRespawnPosition?.(context) || null,
       getDeathDropPresentation: context => scene.getDeathDropPresentation?.(context) || {},
       onResolved: result => {
@@ -197,6 +198,24 @@ export class SceneGameplaySystemAssembler {
         scene.onPlayerDefeatResolved?.(result);
       }
     });
+
+    const executePlayerDeath = ({ player, deathId, resolution }) => scene.sceneRuntime?.commandGateway?.execute?.({
+      intentType: ITEM_LIFECYCLE_COMMANDS.DEATH_DROP,
+      actorRef: player.id,
+      operationId: `death:${player.id}:${deathId}`,
+      payload: { deathId, resolution, checkpointId: `checkpoint.${deathId}` }
+    }) || { ok: false, code: 'deathCommandUnavailable' };
+    scene.playerDeathCountdown = new PlayerDeathCountdown({
+      durationSeconds: 10,
+      show: text => scene._showScreenTip?.(text, { title: '死亡', owner: 'playerDeath', persist: true }),
+      hide: () => scene._hintPresenter?.hideScreen?.('playerDeath'),
+      onComplete: executePlayerDeath
+    });
+    scene.sceneRuntime?.onUpdate?.(deltaTime => scene.playerDeathCountdown?.update(deltaTime));
+    scene.sceneRuntime?.addDisposer?.(
+      () => scene.playerDeathCountdown?.dispose?.(),
+      'player-death-countdown'
+    );
 
     const resolveEntity = id => scene.entityStore?.all?.find?.(entity => entity?.id === id)
       || (scene.playerEntity?.id === id ? scene.playerEntity : null);
@@ -264,18 +283,29 @@ export class SceneGameplaySystemAssembler {
     if (offToolRepairProjection) scene.sceneRuntime.addDisposer(offToolRepairProjection, 'projection:toolRepair');
 
     scene.combatSystem.setOnKillCallback?.(entity => scene.onEnemyKilled?.(entity));
-    scene.combatSystem.setOnPlayerDeathCallback?.(({ player }) => {
+    scene.combatSystem.setOnPlayerDeathCallback?.(({ player, deathEvent }) => {
       const policy = scene.context?.services?.defeatPolicy;
       const resolution = policy?.resolve?.({ player })
         || scene.resolvePlayerDefeatResolution?.({ player })
         || { type: 'normalDeath' };
       const deathId = `player-death-${scene.playerDefeatService.nextDeathSequence}`;
-      return scene.sceneRuntime?.commandGateway?.execute?.({
-        intentType: ITEM_LIFECYCLE_COMMANDS.DEATH_DROP,
-        actorRef: player.id,
-        operationId: `death:${player.id}:${deathId}`,
-        payload: { deathId, resolution, checkpointId: `checkpoint.${deathId}` }
+      if (resolution.type === 'specialFaint') {
+        void Promise.resolve(executePlayerDeath({ player, deathId, resolution })).catch(error => {
+          console.warn('SceneGameplaySystemAssembler: 特殊昏迷结算失败', error);
+        });
+        return { ok: true, pending: true };
+      }
+      if (scene.playerDeathCountdown?.pending) {
+        return { ok: true, pending: true, idempotent: true };
+      }
+      const countdownStarted = scene.playerDeathCountdown?.start({
+        player, deathId, resolution, deathEvent
       });
+      if (countdownStarted) return { ok: true, pending: true };
+      void Promise.resolve(executePlayerDeath({ player, deathId, resolution })).catch(error => {
+        console.warn('SceneGameplaySystemAssembler: 普通死亡直接结算失败', error);
+      });
+      return { ok: true, pending: true };
     });
 
     scene.meditationSystem = new MeditationSystem({ now });

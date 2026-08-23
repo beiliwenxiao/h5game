@@ -60,6 +60,26 @@ describe('EditorSceneCommandService atomic command chain', () => {
     expect(calls[0][1]).toEqual([expect.objectContaining({ operation: 'replace', path: 'custom/canonical/S01.json' })]);
     expect(result.value.scenes.S01.marker).toBe(command);
   });
+  it('rootPaths 保存把受影响 canonical 场景同步到 fallback cache', async () => {
+    const cache = new MemorySceneCacheAdapter();
+    const { service, model, calls } = harness({ cacheAdapter: cache });
+    const candidate = model.getCandidate();
+    candidate.scenes.S01.marker = 'edited-through-root-path';
+
+    const result = await service.save(PROJECT_PATH, {
+      rootPaths: ['scenes.S01.layers[0].objects[0]']
+    });
+
+    expect(result).toMatchObject({ ok: true, committed: true });
+    expect(calls[0][1]).toEqual([
+      expect.objectContaining({ operation: 'replace', path: 'example/game/assets/scenes/S01.json' })
+    ]);
+    expect(cache.get('S01')).toMatchObject({
+      sceneId: 'S01', eligible: true,
+      canonicalData: expect.objectContaining({ marker: 'edited-through-root-path' })
+    });
+  });
+
   it('rename 原子更新支持引用、新文件/list/project 并移除旧缓存', async () => {
     const cache = new MemorySceneCacheAdapter({ S01: { sceneId: 'S01', eligible: true } });
     const { service, documentService, calls } = harness({ cacheAdapter: cache });

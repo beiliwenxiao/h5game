@@ -478,8 +478,10 @@ export class EntityFactory {
       width: spCfg.width || spCfg.frameWidth || data.width || 64,
       height: spCfg.height || spCfg.frameHeight || data.height || 64,
       defaultAnimation: 'idle',
-      isStatic: spCfg.isStatic === true || Boolean(stableId)
+      isStatic: spCfg.isStatic === true || Boolean(stableId),
+      visible: spCfg.visible !== false
     });
+    sprite.visible = spCfg.visible !== false;
     sprite.scale = spCfg.scale || data.scale || 1;
     sprite.addAnimation('idle', { frames: [0], frameRate: 1, loop: true });
     entity.addComponent(sprite);

@@ -15,6 +15,36 @@ function normalizeStateEntries(entries = []) {
     .map(entry => [entry.id, JSON.parse(JSON.stringify(entry.state))]);
 }
 
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value === undefined ? null : value);
+}
+
+/**
+ * 生成与 canonical 放置定义绑定的稳定签名。
+ * 投影后的 placement 必须优先使用 _localX/_localY，避免 worldOffset 参与存档兼容判断。
+ */
+export function getPlacementSignature(placement = {}) {
+  const localX = Number.isFinite(placement._localX) ? placement._localX : placement.x;
+  const localY = Number.isFinite(placement._localY) ? placement._localY : placement.y;
+  return stableSerialize({
+    version: 1,
+    id: placement.id || null,
+    sceneId: placement.sceneId || null,
+    type: placement.type || null,
+    kind: placement.kind || null,
+    ref: placement.ref || null,
+    group: placement.group || null,
+    overrides: placement.overrides || null,
+    spawnWhen: placement.spawnWhen || null,
+    x: Number.isFinite(localX) ? localX : null,
+    y: Number.isFinite(localY) ? localY : null
+  });
+}
+
 /**
  * 场景放置点的唯一运行时：拥有投影、生成幂等、pending 状态、出生点消费与原子重建。
  * 具体游戏只注入条件数据源和生成后的剧情索引副作用。
@@ -36,8 +66,7 @@ export class ScenePlacementRuntime {
     this.getCamera = config.getCamera || (() => null);
     this.consumeInitialPlayerSpawn = config.consumeInitialPlayerSpawn || (() => {});
     this.getPlayerStartMode = config.getPlayerStartMode || (() => 'restore');
-    this.onCampfireSpawn = config.onCampfireSpawn || null;
-    this.getCampfirePosition = config.getCampfirePosition || (() => null);
+    this.onWorldPropSpawn = config.onWorldPropSpawn || null;
     this.syncProjection = config.syncProjection || (() => false);
     this.clearProjectionBindings = config.clearProjectionBindings || (() => {});
     this.getReadyGate = config.getReadyGate || (() => null);
@@ -214,8 +243,6 @@ export class ScenePlacementRuntime {
 
   applySpawnPoints({ sceneId = this.getCurrentSceneId(), applyPlayer = false } = {}) {
     const scenePlacements = this.placements.filter(placement => placement.sceneId === sceneId);
-    const campfireSpawn = scenePlacements.find(placement => placement.type === 'spawn' && placement.ref === 'campfire');
-    if (campfireSpawn) this.onCampfireSpawn?.(campfireSpawn);
 
     let playerMoved = false;
     if (applyPlayer) {
@@ -237,10 +264,9 @@ export class ScenePlacementRuntime {
       sceneId,
       playerStartMode: this.getPlayerStartMode(),
       playerMoved,
-      player: this.getPlayer()?.getComponent?.('transform')?.position,
-      campfire: this.getCampfirePosition()
+      player: this.getPlayer()?.getComponent?.('transform')?.position
     });
-    return { playerMoved, campfireSpawn: campfireSpawn || null };
+    return { playerMoved };
   }
 
   getSpawnPoint(sceneId, ref = 'player') {
@@ -304,7 +330,8 @@ export class ScenePlacementRuntime {
   applyPendingToExisting(values = []) {
     for (const value of values) {
       this.applyPendingResourceNodeState(value);
-      this.applyPendingPlacementState(value, { id: value?.placementId || value?.id });
+      const placementId = value?.placementId || value?.id;
+      this.applyPendingPlacementState(value, this._findPlacement(placementId) || { id: placementId });
     }
   }
 
@@ -312,6 +339,14 @@ export class ScenePlacementRuntime {
     const placementId = placement?.id || value?.placementId || value?.id;
     const state = this.pendingPlacementStates.get(placementId);
     if (!placementId || !state) return false;
+    const currentPlacement = placement?.id === placementId && placement?.type
+      ? placement
+      : this._findPlacement(placementId);
+    if (!currentPlacement) return false;
+    if (state.placementSignature !== getPlacementSignature(currentPlacement)) {
+      this.pendingPlacementStates.delete(placementId);
+      return false;
+    }
     if (state.removed === true) {
       value.picked = state.kind === 'item' || value.picked === true;
       value.isDead = state.kind === 'enemy' || value.isDead === true;
@@ -346,6 +381,11 @@ export class ScenePlacementRuntime {
     return true;
   }
 
+  _findPlacement(placementId) {
+    if (!placementId) return null;
+    return this.placements.find(placement => placement?.id === placementId) || null;
+  }
+
 
   forgetPlacements(ids = []) {
     return this.spawner.forgetPlacements(ids);
@@ -370,6 +410,7 @@ export class ScenePlacementRuntime {
   _handleSpawn(detail) {
     if (detail.kind === 'resourceNode') this.applyPendingResourceNodeState(detail.entity);
     if (this.applyPendingPlacementState(detail.entity, detail.placement)) return;
+    if (detail.kind === 'item' && detail.definition?.worldProp === true) this.onWorldPropSpawn?.(detail);
     this.onSpawn?.(detail);
   }
 

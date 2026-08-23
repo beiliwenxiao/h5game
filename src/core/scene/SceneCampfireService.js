@@ -36,6 +36,46 @@ function createFuelConfiguration(config = {}) {
   };
 }
 
+function normalizeVisualLayer(layer = {}, path) {
+  const imageId = typeof layer.imageId === 'string' ? layer.imageId.trim() : '';
+  if (!imageId) throw new TypeError(`${path}.imageId must be a non-empty string`);
+  const pivot = layer.pivot || {};
+  const pivotX = Number.isFinite(Number(pivot.x)) ? Number(pivot.x) : 0.5;
+  const pivotY = Number.isFinite(Number(pivot.y)) ? Number(pivot.y) : 1;
+  if (pivotX < 0 || pivotX > 1 || pivotY < 0 || pivotY > 1) {
+    throw new RangeError(`${path}.pivot must be between 0 and 1`);
+  }
+  return Object.freeze({
+    imageId,
+    width: requirePositive(layer.width, `${path}.width`),
+    height: requirePositive(layer.height, `${path}.height`),
+    pivot: Object.freeze({ x: pivotX, y: pivotY }),
+    offsetX: Number.isFinite(Number(layer.offsetX)) ? Number(layer.offsetX) : 0,
+    offsetY: Number.isFinite(Number(layer.offsetY)) ? Number(layer.offsetY) : 0
+  });
+}
+
+function normalizeVisualLayers(source = {}) {
+  return deepFreeze({
+    base: normalizeVisualLayer(source.base, 'campfire.base'),
+    logs: normalizeVisualLayer(source.logs, 'campfire.logs'),
+    stoneRing: normalizeVisualLayer(source.stoneRing, 'campfire.stoneRing'),
+    flame: normalizeVisualLayer(source.flame, 'campfire.flame')
+  });
+}
+
+function drawVisualLayer(ctx, layer, image, x, y) {
+  if (!layer || !image) return false;
+  ctx.drawImage(
+    image,
+    x - layer.width * layer.pivot.x + layer.offsetX,
+    y - layer.height * layer.pivot.y + layer.offsetY,
+    layer.width,
+    layer.height
+  );
+  return true;
+}
+
 const campfireFeatureMethods = {
   _restoreCampfireState(lit) {
     if (lit) {
@@ -60,6 +100,7 @@ const campfireFeatureMethods = {
   lightCampfire({ emitEvent = true } = {}) {
     if (this.campfire.lit) return;
     this.campfire.lit = true;
+    this.campfire.hasBeenIgnited = true;
     this.campfire.emitters = [];
 
     const fireBaseY = this.campfire.y - 15;
@@ -197,6 +238,64 @@ const campfireFeatureMethods = {
   renderCampfireBottom(ctx) {
     const x = this.campfire.x;
     const y = this.campfire.y;
+    if (this.visualLayers?.base) {
+      drawVisualLayer(ctx, this.visualLayers.stoneRing, this.layerImages.stoneRing, x, y);
+      drawVisualLayer(ctx, this.visualLayers.base, this.layerImages.base, x, y);
+      drawVisualLayer(ctx, this.visualLayers.logs, this.layerImages.logs, x, y);
+      if (this.campfire.lit) {
+        const flame = this.visualLayers.flame;
+        const glowY = y - flame.height * 0.42 + flame.offsetY;
+        const radius = this.presentation.lightRadius * 0.22;
+        const glow = ctx.createRadialGradient(x, glowY, 0, x, glowY, radius);
+        glow.addColorStop(0, 'rgba(255, 200, 0, 0.38)');
+        glow.addColorStop(0.5, 'rgba(255, 100, 0, 0.18)');
+        glow.addColorStop(1, 'rgba(255, 50, 0, 0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath();
+        ctx.arc(x, glowY, radius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const time = this.now() / 1000;
+        const ember = this.embers;
+        ctx.save();
+        for (const [offsetX, offsetY, phase] of ember.offsets) {
+          const alpha = ember.minAlpha + (ember.maxAlpha - ember.minAlpha)
+            * Math.max(0, Math.sin(time * (ember.frequency + phase) + phase));
+          const radius = ember.radius * (0.6 + 0.4 * Math.max(0, Math.sin(time * 3 + phase)));
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = ember.color;
+          ctx.beginPath();
+          ctx.arc(x + ember.offsetX + offsetX, y + ember.offsetY + offsetY, radius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      return;
+    }
+    const drawStoneRing = () => {
+      const stoneCount = 12;
+      ctx.save();
+      for (let index = 0; index < stoneCount; index++) {
+        const angle = (Math.PI * 2 * index) / stoneCount;
+        const stoneX = x + Math.cos(angle) * 38;
+        const stoneY = y - 6 + Math.sin(angle) * 13;
+        const radiusX = 5 + (index % 3) * 0.8;
+        const radiusY = 3.5 + (index % 2) * 0.6;
+        ctx.fillStyle = index % 2 === 0 ? '#756b5a' : '#665d50';
+        ctx.beginPath();
+        ctx.ellipse(stoneX, stoneY, radiusX, radiusY, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(42, 35, 29, 0.72)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(198, 187, 161, 0.42)';
+        ctx.beginPath();
+        ctx.ellipse(stoneX - 1.2, stoneY - 0.9, Math.max(1.2, radiusX * 0.42), 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    };
+    drawStoneRing();
     if (!this.campfire.lit) {
       ctx.save();
       ctx.beginPath();
@@ -229,6 +328,16 @@ const campfireFeatureMethods = {
       dotGradient.addColorStop(1, 'rgba(255, 50, 20, 0)');
       ctx.fillStyle = dotGradient;
       ctx.beginPath(); ctx.arc(x, y - 15, dotRadius, 0, Math.PI * 2); ctx.fill();
+      const emberOffsets = [[-13, -8, 0.8], [8, -16, 1.1], [15, -6, 1.5], [-4, -23, 1.9]];
+      for (const [offsetX, offsetY, phase] of emberOffsets) {
+        const sparkAlpha = 0.2 + 0.65 * Math.max(0, Math.sin(time * (2.1 + phase) + phase));
+        const sparkRadius = 1 + 0.8 * Math.max(0, Math.sin(time * 3.2 + phase));
+        ctx.globalAlpha = sparkAlpha;
+        ctx.fillStyle = '#ffb04a';
+        ctx.beginPath();
+        ctx.arc(x + offsetX, y - 15 + offsetY, sparkRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
       return;
     }
@@ -261,6 +370,40 @@ const campfireFeatureMethods = {
   renderCampfireTop(ctx) {
     const x = this.campfire.x;
     const y = this.campfire.y;
+    if (this.visualLayers?.flame) {
+      if (!this.campfire.lit) {
+        if (!this.campfire.hasBeenIgnited) {
+          ctx.save();
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 4;
+          ctx.fillText(this.labels.unlit, x, y - 55);
+          ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
+          ctx.restore();
+        }
+        return;
+      }
+      const flame = this.visualLayers.flame;
+      if (this.campfire.imageLoaded && this.campfire.fireImage) {
+        const col = this.campfire.currentFrame % this.campfire.frameCols;
+        const row = Math.floor(this.campfire.currentFrame / this.campfire.frameCols);
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.drawImage(
+          this.campfire.fireImage,
+          col * this.campfire.frameWidth, row * this.campfire.frameHeight,
+          this.campfire.frameWidth, this.campfire.frameHeight,
+          x - flame.width * flame.pivot.x + flame.offsetX,
+          y - flame.height * flame.pivot.y + flame.offsetY,
+          flame.width, flame.height
+        );
+        ctx.restore();
+      }
+      campfireFeatureMethods.renderFuelStatus.call(this, ctx);
+      return;
+    }
     if (!this.campfire.lit) {
       ctx.save();
       ctx.beginPath();
@@ -277,14 +420,16 @@ const campfireFeatureMethods = {
       ctx.beginPath(); ctx.moveTo(x + 15, y - 7); ctx.lineTo(x + 5, y - 27); ctx.stroke();
       ctx.restore();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px Arial';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = '#000000';
-      ctx.shadowBlur = 4;
-      ctx.fillText(this.labels.unlit, x, y - 55);
-      ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
-      ctx.shadowBlur = 0;
+      if (!this.campfire.hasBeenIgnited) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.fillText(this.labels.unlit, x, y - 55);
+        ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
+        ctx.shadowBlur = 0;
+      }
       return;
     }
 
@@ -377,6 +522,7 @@ export class SceneCampfireService {
       x: Number(config.position?.x) || 0,
       y: Number(config.position?.y) || 0,
       lit: false,
+      hasBeenIgnited: false,
       emitters: [],
       emitterSmoke: null,
       fireImage: null,
@@ -398,6 +544,9 @@ export class SceneCampfireService {
     this.particlePresets = Object.freeze([]);
     this.labels = Object.freeze({});
     this.presentation = Object.freeze({ lightRadius: 1, fireWidth: 1, fireHeight: 1, collisionWidth: 1, collisionHeight: 1 });
+    this.visualLayers = Object.freeze({});
+    this.layerImages = Object.create(null);
+    this.embers = Object.freeze({ color: '#ffb04a', radius: 1, frequency: 1, minAlpha: 0, maxAlpha: 1, offsetX: 0, offsetY: 0, offsets: [] });
     this.configView = null;
     this.formatHint = config.formatHint || (text => InputHints.format(text));
     this.createCanvas = config.createCanvas || (() => {
@@ -432,7 +581,8 @@ export class SceneCampfireService {
       ? configView.get('scene.gameplay.campfire', configView.get('gameplay.campfire'))
       : configView;
     if (!source || typeof source !== 'object') throw new TypeError('campfire config view is required');
-    const sprite = source.sprite;
+    const flame = source.flame || {};
+    const sprite = flame.sprite || source.sprite;
     const fog = source.fog;
     const presentation = source.presentation;
     const fuelConfiguration = createFuelConfiguration(source.fuel);
@@ -441,6 +591,27 @@ export class SceneCampfireService {
     }
 
     const next = deepFreeze(cloneCanonicalValue(source));
+    const visualLayers = normalizeVisualLayers(next);
+    const ember = next.embers || {};
+    if (!Array.isArray(ember.offsets) || ember.offsets.length === 0) {
+      throw new TypeError('campfire.embers.offsets must contain at least one ember');
+    }
+    const emberState = deepFreeze({
+      color: typeof ember.color === 'string' && ember.color ? ember.color : '#ffb04a',
+      radius: requirePositive(ember.radius, 'campfire.embers.radius'),
+      frequency: requirePositive(ember.frequency, 'campfire.embers.frequency'),
+      minAlpha: Math.max(0, Math.min(1, Number(ember.minAlpha))),
+      maxAlpha: Math.max(0, Math.min(1, Number(ember.maxAlpha))),
+      offsetX: Number.isFinite(Number(ember.offsetX)) ? Number(ember.offsetX) : 0,
+      offsetY: Number.isFinite(Number(ember.offsetY)) ? Number(ember.offsetY) : -18,
+      offsets: ember.offsets.map((entry, index) => {
+        if (!Array.isArray(entry) || entry.length < 3 || !entry.slice(0, 3).every(Number.isFinite)) {
+          throw new TypeError(`campfire.embers.offsets[${index}] must be [x, y, phase]`);
+        }
+        return Object.freeze([entry[0], entry[1], entry[2]]);
+      })
+    });
+    if (emberState.minAlpha > emberState.maxAlpha) throw new RangeError('campfire.embers minAlpha cannot exceed maxAlpha');
     const initialFogOpacity = Number(next.initialFogOpacity);
     if (!Number.isFinite(initialFogOpacity) || initialFogOpacity < 0 || initialFogOpacity > 1) {
       throw new TypeError('campfire.initialFogOpacity must be between 0 and 1');
@@ -484,7 +655,7 @@ export class SceneCampfireService {
       collisionWidth: requirePositive(presentation.collisionWidth, 'campfire.presentation.collisionWidth'),
       collisionHeight: requirePositive(presentation.collisionHeight, 'campfire.presentation.collisionHeight')
     });
-    const keepsCurrentImage = this.configView?.imageId === next.imageId;
+    const keepsCurrentImage = this.visualLayers?.flame?.imageId === visualLayers.flame.imageId;
     if (keepsCurrentImage && this.campfire.fireImage) {
       this._validateFireImageDimensions(this.campfire.fireImage, spriteState);
     }
@@ -516,6 +687,14 @@ export class SceneCampfireService {
     this.particlePresets = next.particlePresets;
     this.labels = next.labels;
     this.presentation = presentationState;
+    const previousLayers = this.visualLayers;
+    const previousImages = this.layerImages;
+    this.visualLayers = visualLayers;
+    this.embers = emberState;
+    this.layerImages = Object.fromEntries(Object.entries(visualLayers).map(([key, layer]) => [
+      key,
+      previousImages?.[key] && previousLayers?.[key]?.imageId === layer.imageId ? previousImages[key] : null
+    ]));
     this.configView = next;
     this._fogCanvas = null;
     this._fogContext = null;
@@ -576,6 +755,20 @@ export class SceneCampfireService {
     return { x: this.campfire.x, y: this.campfire.y };
   }
 
+  getPresentationImageIds() {
+    return Object.freeze(Object.fromEntries(Object.entries(this.visualLayers)
+      .map(([key, layer]) => [key, layer.imageId])));
+  }
+
+  setPresentationImages(images = {}) {
+    for (const [key, layer] of Object.entries(this.visualLayers)) {
+      const image = images[key] || null;
+      if (key === 'flame') this.setFireImage(image);
+      else this.layerImages[key] = image;
+      if (!image) this.logger?.warn?.(`SceneCampfireService: missing configured ${key} image ${layer.imageId}`);
+    }
+  }
+
   _validateFireImageDimensions(image, sprite = this.campfire) {
     const width = Number(image?.naturalWidth || image?.videoWidth || image?.width);
     const height = Number(image?.naturalHeight || image?.videoHeight || image?.height);
@@ -592,6 +785,7 @@ export class SceneCampfireService {
   setFireImage(image) {
     if (image) this._validateFireImageDimensions(image);
     this.campfire.fireImage = image || null;
+    this.layerImages.flame = image || null;
     this.campfire.imageLoaded = !!image;
   }
 
@@ -637,12 +831,17 @@ export class SceneCampfireService {
   }
 
   snapshot() {
-    return { lit: this.isLit(), fuel: this.getFuelSnapshot() };
+    return {
+      lit: this.isLit(),
+      hasBeenIgnited: this.campfire.hasBeenIgnited === true,
+      fuel: this.getFuelSnapshot()
+    };
   }
 
-  restore({ lit = false, fuel = null } = {}, runtime = {}) {
+  restore({ lit = false, hasBeenIgnited = false, fuel = null } = {}, runtime = {}) {
     this._bindRuntime(runtime);
     campfireFeatureMethods._restoreCampfireState.call(this, lit === true);
+    this.campfire.hasBeenIgnited = lit === true || hasBeenIgnited === true;
     if (this.fuel.enabled !== true) return true;
     const maximumSeconds = this.fuel.maxUnits * this.fuel.secondsPerUnit;
     const legacySeconds = this.fuel.initialUnits * this.fuel.secondsPerUnit;
@@ -717,6 +916,11 @@ export class SceneCampfireService {
     this.campfire.emitters.length = 0;
     if (this.campfire.emitterSmoke) this.campfire.emitterSmoke.active = false;
     this.campfire.emitterSmoke = null;
+    this.campfire.fireImage = null;
+    this.campfire.imageLoaded = false;
+    this.configView = null;
+    this.visualLayers = Object.freeze({});
+    this.layerImages = Object.create(null);
     this._fogCanvas = null;
     this._fogContext = null;
     this._renderContext = null;

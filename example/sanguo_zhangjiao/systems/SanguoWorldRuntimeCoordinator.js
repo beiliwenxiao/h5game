@@ -133,6 +133,19 @@ function restoreSceneVehicleStates(sceneId, states = [], logisticsState = null) 
   return this._sceneVehicleRuntime.restore(sceneId, states, logisticsState);
 }
 
+function findSceneCampfireDefinition(sceneData = {}, registries = {}) {
+  const itemRegistry = registries?.items;
+  const getItem = id => typeof itemRegistry?.get === 'function' ? itemRegistry.get(id) : itemRegistry?.[id];
+  for (const layer of sceneData.layers || []) {
+    for (const placement of layer.objects || []) {
+      if (placement?.type !== 'ref' || placement.kind !== 'item' || !placement.ref) continue;
+      const definition = getItem(placement.ref);
+      if (definition?.worldProp === true && definition.semanticRole === 'campfire') return definition;
+    }
+  }
+  return null;
+}
+
 /** 世界投影完成后的历史配置消费者；仅替换已完整解析并验证的运行时实例。 */
 async function configureWorldRuntimeFromLoad() {
   // 必须等待 GameLoader 完全就绪后才能访问配置消费者
@@ -145,30 +158,25 @@ async function configureWorldRuntimeFromLoad() {
   const nextWeatherSystem = new WeatherSystem(weatherConfig);
   const nextTimeSystem = new TimeSystem(this.gameLoader?.runtimeConfigSnapshot?.system?.time || {});
   const sceneData = this._worldLoadSession?.getSceneData?.(this.currentSceneId);
-  const sceneConsumption = sceneData
-    ? this.gameLoader?.configConsumptionRegistry?.buildSources?.({ scene: sceneData }, {
-      revision: this.gameLoader?.runtimeConfigSnapshot?.definitionRevision || 0,
-      requirements: sceneData?.gameplay?.campfire
-        ? { paths: [{ pathPattern: 'scene.gameplay.campfire.**', required: true }] }
-        : null
-    })
-    : null;
-  const campfireView = sceneConsumption?.getConsumer?.('scene.gameplay');
-  const campfireConfig = campfireView?.get('scene.gameplay.campfire');
+  const campfireDefinition = findSceneCampfireDefinition(sceneData, this.gameLoader?.registries);
+  const campfireConfig = campfireDefinition?.campfirePresentation || null;
   if (campfireConfig) {
     const validationService = new SceneCampfireService({ configView: campfireConfig });
     validationService.dispose();
   }
   this.weatherSystem = nextWeatherSystem;
   this.timeSystem = nextTimeSystem;
-  this._sceneConsumptionSnapshot = sceneConsumption;
+  this._sceneConsumptionSnapshot = null;
   if (campfireConfig) {
     this._campfireService.configure(campfireConfig);
-    const campfireImageId = this._campfireService.configView?.imageId || 'vfx.freePixel.fire';
-    const fireAsset = this.assetManager?.resolveManifestAsset?.(campfireImageId, '2d');
-    this._campfireService.setFireImage(
-      this.assetManager?.getAsset?.(fireAsset?.key || campfireImageId) || null
-    );
+    const imageIds = this._campfireService.getPresentationImageIds();
+    const layerImages = Object.fromEntries(await Promise.all(Object.entries(imageIds).map(async ([layer, imageId]) => [
+      layer,
+      await this.assetManager.loadAsset(imageId, { required: true })
+    ])));
+    this._campfireService.setPresentationImages(layerImages);
+  } else {
+    this._campfireService.dispose();
   }
 }
 

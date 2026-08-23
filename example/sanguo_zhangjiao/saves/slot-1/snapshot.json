@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787468771471,
+  "createdAt": 1787495194216,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1787468769505
+            "timestamp": 1787495192234
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1787468769505
+            "timestamp": 1787495192234
           }
         ],
         "completedDialogues": []
@@ -282,6 +282,7 @@
               "firestarterAcquired": false,
               "firstWolfKilled": false,
               "firstWolfSpotted": false,
+              "initialToolsPicked": false,
               "meatCooked": false,
               "overnightCompleted": false,
               "pursuit": {
@@ -291,6 +292,7 @@
               },
               "riverCrossed": false,
               "shelterCompleted": false,
+              "skinningKnifeFound": false,
               "wolfSkinned": false,
               "wolfWeatherCleared": false,
               "wolfWeatherCountdownStarted": false,
@@ -1474,7 +1476,19 @@
                   "schemaVersion": 2,
                   "sceneNamespace": "S01",
                   "resourceNodes": [],
-                  "placementStates": [],
+                  "placementStates": [
+                    {
+                      "id": "S01-spawn-campfire",
+                      "state": {
+                        "kind": "item",
+                        "removed": false,
+                        "position": {
+                          "x": 1879,
+                          "y": 1235
+                        }
+                      }
+                    }
+                  ],
                   "deathDrops": [],
                   "s10StructureStates": [],
                   "vehicleStates": []
@@ -1487,6 +1501,7 @@
         "campfireLit": false,
         "campfireState": {
           "lit": false,
+          "hasBeenIgnited": false,
           "fuel": {
             "enabled": true,
             "itemId": "resource.wood",
@@ -1599,7 +1614,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.88359999999955
+          "elapsed": 121.91689999999858
         }
       }
     }

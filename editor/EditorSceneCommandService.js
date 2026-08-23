@@ -396,7 +396,12 @@ export class EditorSceneCommandService {
       }
     };
     if (prepared.removedSceneId) attempt(prepared.removedSceneId, () => this.cacheAdapter.delete(prepared.removedSceneId));
-    for (const sceneId of prepared.changedSceneIds) {
+    const sceneIds = new Set(prepared.changedSceneIds);
+    for (const rootPath of prepared.changedRootPaths || []) {
+      const sceneId = /^scenes\.([^.\[]+)/.exec(rootPath)?.[1];
+      if (sceneId) sceneIds.add(sceneId);
+    }
+    for (const sceneId of sceneIds) {
       const scene = canonical.scenes[sceneId];
       if (scene) attempt(sceneId, () => this.cacheAdapter.set(
         sceneId,

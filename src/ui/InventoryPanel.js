@@ -1331,6 +1331,7 @@ export class InventoryPanel extends UIElement {
 
     // 面板位置：背包面板顶部居中
     const isTool = typeof item.toolType === 'string' && item.toolType.length > 0;
+    const pw = 220;
     const isRepairable = isTool && item.instanceId && Number(item.maxDurability) > 0
       && Number(item.durability) < Number(item.maxDurability);
     const ph = isTool ? 182 : 140;

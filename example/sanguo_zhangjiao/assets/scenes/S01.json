@@ -256,8 +256,9 @@
         {
           "group": "S01-initial",
           "id": "S01-spawn-campfire",
-          "ref": "campfire",
-          "type": "spawn",
+          "kind": "item",
+          "ref": "story.s01.campfire",
+          "type": "ref",
           "x": 599,
           "y": 515
         },
@@ -269,7 +270,7 @@
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
-            "path": "s01Survival.campfireLit"
+            "path": "s01Survival.initialToolsPicked"
           },
           "tags": [
             "resource",
@@ -293,8 +294,8 @@
             "path": "s01Survival.axeDropped"
           },
           "type": "ref",
-          "x": 495,
-          "y": 445
+          "x": 643.0902302404213,
+          "y": 506.54777584920544
         },
         {
           "group": "S01-wood",
@@ -304,7 +305,7 @@
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
-            "path": "s01Survival.axeFound"
+            "path": "s01Survival.berriesGathered"
           },
           "tags": [
             "resource",
@@ -322,7 +323,7 @@
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
-            "path": "s01Survival.axeFound"
+            "path": "s01Survival.berriesGathered"
           },
           "tags": [
             "resource",
@@ -340,7 +341,7 @@
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
-            "path": "s01Survival.axeFound"
+            "path": "s01Survival.berriesGathered"
           },
           "tags": [
             "resource",
@@ -361,11 +362,11 @@
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
-            "path": "s01Survival.woodGathered"
+            "path": "s01Survival.axeDropped"
           },
           "type": "ref",
-          "x": 405,
-          "y": 410
+          "x": 556.4157161712299,
+          "y": 493.4111732763789
         },
         {
           "group": "S01-first-wolf",
@@ -433,8 +434,8 @@
             "path": "s01Survival.shelterCompleted"
           },
           "type": "ref",
-          "x": 720,
-          "y": 520
+          "x": 681.9982370742024,
+          "y": 490.068467429877
         },
         {
           "group": "S01-chase-wolves",
@@ -808,8 +809,8 @@
           "activeWhen": {
             "all": [
               {
-                "tutorialId": "s01.move",
-                "completed": true
+                "completed": true,
+                "tutorialId": "s01.move"
               },
               {
                 "blackboardKey": "storyState",
@@ -1052,6 +1053,13 @@
         }
       ],
       "visible": true
+    },
+    {
+      "id": "layer_placement",
+      "locked": false,
+      "name": "放置层",
+      "objects": [],
+      "visible": true
     }
   ],
   "assetBudget": {
@@ -1080,102 +1088,7 @@
     ]
   },
   "decorations": [],
-  "gameplay": {
-    "campfire": {
-      "fog": {
-        "active": true,
-        "color": "rgba(30, 30, 40,",
-        "fadeSpeed": 0.4
-      },
-      "fuel": {
-        "enabled": true,
-        "itemId": "resource.wood",
-        "secondsPerUnit": 100,
-        "initialUnits": 1,
-        "maxUnits": 100,
-        "startOnIgnite": false
-      },
-      "imageId": "s01.vfx.campfireFlame",
-      "initialFogOpacity": 0.85,
-      "labels": {
-        "ignite": "{interact}点燃",
-        "unlit": "熄灭的火堆"
-      },
-      "particlePresets": [
-        {
-          "alpha": 0.85,
-          "color": "#ffaa22",
-          "life": 250,
-          "rate": 6,
-          "size": 8.5,
-          "vy": -50
-        },
-        {
-          "alpha": 0.8,
-          "color": "#ff8833",
-          "life": 200,
-          "rate": 8,
-          "size": 6,
-          "vy": -35
-        },
-        {
-          "alpha": 1,
-          "color": "#ffffee",
-          "life": 400,
-          "rate": 4,
-          "size": 4.5,
-          "vy": -120
-        },
-        {
-          "alpha": 0.9,
-          "color": "#ffee44",
-          "life": 350,
-          "rate": 10,
-          "size": 3.5,
-          "vy": -100
-        },
-        {
-          "alpha": 0.85,
-          "color": "#ff9933",
-          "life": 300,
-          "rate": 8,
-          "size": 2.5,
-          "vy": -80
-        },
-        {
-          "alpha": 0.8,
-          "color": "#ff5522",
-          "life": 250,
-          "rate": 6,
-          "size": 2,
-          "vy": -60
-        },
-        {
-          "alpha": 0.7,
-          "color": "#ff6633",
-          "life": 200,
-          "rate": 12,
-          "size": 2,
-          "vy": -40
-        }
-      ],
-      "presentation": {
-        "collisionHeight": 22.5,
-        "collisionWidth": 40,
-        "fireHeight": 60,
-        "fireWidth": 40,
-        "lightRadius": 300
-      },
-      "sprite": {
-        "frameCols": 4,
-        "frameCount": 12,
-        "frameDuration": 0.16,
-        "frameHeight": 237.33333333333334,
-        "frameRows": 3,
-        "frameWidth": 164.5
-      }
-    }
-  },
+  "gameplay": {},
   "height": 720,
   "imageAssets": {
     "s01.environment.cliffVine": {

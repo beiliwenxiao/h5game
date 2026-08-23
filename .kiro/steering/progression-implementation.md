@@ -81,10 +81,10 @@ CombatSystem      表现与伤害结算（作为执行器被调用）
 - `TutorialSystem.notify()` 只允许当前已显示教程消费 committed 信号，禁止事件在后台提前完成未来教程。教程只负责说明和完成反馈，不拥有剧情、库存、placement 或 StoryState。教程定义默认完成后按顺序推进；需要等待空间发现或领域提交的关卡必须声明 `autoAdvance:false`，并仅在后续领域事实与所需 placement 均成功成立后显式调用 `SceneTutorialFlow.showNext()`。
 - `movementRule.mode:'anyMovement'` 表示当前教程显示后的一次真实 Transform 位移即完成；`SceneTutorialFlow` 用相邻帧坐标做基线，`epsilon` 仅用于过滤浮点抖动。按键被碰撞拦住、未产生坐标变化时不得完成；该模式不累计 `threshold`。
 - 屏幕教程与普通事件必须串行：`SceneHintPresenter` 中 `owner:'tutorial'` 优先显示，普通 screen 提示进入有界 FIFO 队列；教程完成后再继续队列。普通 screen 可声明 `onHidden`，只在其真正关闭（包括自动或显式关闭）后安全回调；同 owner 替换、被教程抢占、队列淘汰或 scene dispose 都不视为已完成。叙事动机与操作教学必须用该回调串行，且只有领域状态与必要 placement 均成功成立后才可展示教学；回调属于表现层，不拥有或回滚已提交业务事实。
-- S01 砍柴教程只在 `axeFound` 已提交、`S01-wood` placement 成功且篝火燃料倒计时已开始后显示；先以普通 screen 说明“燃料只够 100 秒，需要砍柴添火”，screen 真正关闭后才显示操作教学。首只野狼不得由采集进度直接触发：开场以 `TimeSystem` 的 `night` 与合法天气 `heavyFog` 表现夜晚，三次成功添柴提交 `wolfWeatherCountdownStarted` 后仅在既有 `S01S02Coordinator.update(deltaTime)` 累计 10 秒；随后切换为 `morning` 与 `clear`，确认天气已晴朗并提交 `wolfWeatherCleared` 后才允许 `firstWolfSpotted` 提交和生成野狼。野狼 placement 失败只走有界 continuation 补偿，不能回滚已提交剧情或让教程停滞；读档只按已提交天气阶段恢复视觉并从等待入口继续，不重播叙事 screen。
+- S01 砍柴教程只在 `berriesGathered` 已提交、`S01-wood` placement 成功且篝火燃料倒计时已开始后显示；先以普通 screen 说明“燃料只够 100 秒，需要砍柴添火”，screen 真正关闭后才显示操作教学。首只野狼不得由采集进度直接触发：开场以 `TimeSystem` 的 `night` 与合法天气 `heavyFog` 表现夜晚，三次成功添柴提交 `wolfWeatherCountdownStarted` 后仅在既有 `S01S02Coordinator.update(deltaTime)` 累计 10 秒；随后切换为 `morning` 与 `clear`，确认天气已晴朗并提交 `wolfWeatherCleared` 后才允许 `firstWolfSpotted` 提交和生成野狼。野狼 placement 失败只走有界 continuation 补偿，不能回滚已提交剧情或让教程停滞；读档只按已提交天气阶段恢复视觉并从等待入口继续，不重播叙事 screen。
 - `ResourceNodeComponent` 的刷新必须显式声明 `refreshMode:'none'|'timed'`；旧 `refreshDays` 仅作存档兼容，绝不隐式转为实时刷新。实时刷新仅在耗尽节点的既有实体帧遍历中累计 `refreshElapsedSeconds`，到期恢复数量并将运行态写入 `ScenePlacementRuntime`，禁止为每个节点创建计时器或第二次实体遍历。资源数量 `remaining/maxRemaining` 是只读世界表现，编辑器只写静态定义或 placement override，不写耗尽/计时运行态。
 - `SceneCampfireService` 的燃料为可存档运行态：点燃后全屏雾保持，只有火堆 `lightRadius` 径向遮罩透光；燃料倒计时只能在既有 `update(deltaTime)` 内推进，耗尽时调用既有 extinguish。添柴必须先完成库存扣除的 canonical 事务，再调用已预检的 `addFuelUnits()`；燃料文本即使火焰图片未加载也必须照常绘制。
-- S01 `story.s01.findAxe` 只提交 `axeDropped:true`；`story.s01.axeFound` 只由 `S01-pickup-worn-axe` 的 committed `item.picked` 派生并提交 `axeFound:true`。`berriesGathered` 前置检查 `axeDropped`，不得再把“落地/发现”和“已拾取”合并为同一字段。
+- S01 `story.s01.findAxe` 只提交 `axeDropped:true`；`story.s01.axeFound` 与 `story.s01.skinningKnifeFound` 分别只由破旧斧头、旧剥皮刀的 committed `item.picked` 派生。两者都成立后才能提交聚合事实 `initialToolsPicked:true`、完成 `s01.pickup` 并生成野果；`berriesGathered` 必须以该聚合事实为前置，木材与砍柴教学只能在 `berriesGathered:true` 后出现。不得把“落地/发现”“单件拾取”和“双工具均已拾取”合并为同一字段。
 - `GatheringSystem` 区分 `owner` 与 `actor`：库存、工具和职业效果属于 owner，距离、移动中断和实际采集主体属于 actor。玩家本人采集时两者相同，傀儡采集时不得把产物写入傀儡。采集时长固定为 `max(0.1, effectDuration / toolGatherSpeed / (owner.StatsComponent.speed / 100))`；工具缺失或非法速度回退 `1`，角色速度缺失或非法回退 `100`。
 - 工具维修只能通过权威 `item.repair` 命令，以 `(itemId, instanceId)` 精确定位独立实例，禁止按定义 ID 批量或模糊修复。服务必须先预检耐久和全部材料，再原子扣料、恢复耐久、创建 checkpoint、提交 state revision，全部成功后才能发布 `item.repair.committed` / `item.repaired`；任一步失败必须还原材料与耐久且不得显示成功提示。`gatherSpeed`、修复材料和功能说明属于只读定义，只有 `durability` 属于工具实例运行状态。
 - `GatheringSystem` 只发出采集业务事件；`GatheringProgressPresenter` 是只读世界空间表现，started/progress 按实际 actor 的 Transform/Sprite 在头顶绘制，completed/interrupted 必须清理。禁止用全局文字提示逐帧显示百分比，也禁止 Presenter 持有库存、节点或采集业务状态。
@@ -362,3 +362,10 @@ S11 为 Demo 迁移验证：旧张角 Demo 通过新架构运行、逐个切换 
 - 不删除调试日志、`handleTeleport`、`lastSpacePressed`；调试信息迁移时原样保留。
 - Demo 角色、火堆、剧情和中文内容留在 example；框架模块不硬编码 Demo 内容。
 - 每阶段运行 diagnostics，不自动构建、不运行测试、不修改 desktop、不创建测试页面。
+
+
+## 火堆世界物件与表现定义
+
+- 火堆必须是 `library.items` 中 `worldProp:true` 的物品定义；场景只用 `type:'ref' / kind:'item'` 放置该物品，并以 `semanticRole:'campfire'` 让具体 Demo 适配器绑定既有 `SceneCampfireService`。禁止再用 `type:'spawn', ref:'campfire'` 把它作为场景逻辑特例。
+- 基础灰烬、木头、石圈、火焰的稳定 `imageId`、尺寸、pivot、偏移、火焰帧参数、余烬、雾、燃料、碰撞和光照都归入物品的 `campfirePresentation`。`SceneCampfireService` 只消费这份已验证表现定义和已投影一次的世界坐标，不读取场景 `gameplay.campfire`，也不得硬编码木头或石圈几何。
+- 火堆 worldProp 的实体可保留为交互/场景锚点，但 `sprite.visible:false`，避免它与服务绘制的分层表现重复渲染。进入场景时必须按 Manifest 稳定 ID 预载所有表现层；切换到没有火堆定义的场景必须释放服务配置，避免旧火堆残留。

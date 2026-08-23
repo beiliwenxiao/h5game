@@ -966,7 +966,7 @@ export class CombatSystem {
       const sprite = target.getComponent('sprite');
       if (sprite && appliedDamage > 0) this.playHitEffect(target);
       if (!wasDead && isDead && context.deferDeathEffects !== true) {
-        if (target.type === 'player') this.handleDeath(target);
+        if (target.type === 'player') this.handleDeath(target, damageEvent);
         else {
           this.spawnLoot(target);
           this.triggerDeathEffect(target);
@@ -2165,7 +2165,7 @@ export class CombatSystem {
    * 处理死亡
    * @param {Entity} entity - 实体
    */
-  handleDeath(entity) {
+  handleDeath(entity, deathEvent = null) {
     console.log(`${entity.name || entity.id} 死亡`);
     
     // 标记为正在死亡
@@ -2185,7 +2185,7 @@ export class CombatSystem {
     
     // 如果是玩家死亡
     if (entity.type === 'player') {
-      this.handlePlayerDeath(entity);
+      this.handlePlayerDeath(entity, deathEvent);
     } else {
       // 通知击杀（数据驱动 kill 事件源 / 任务计数）
       this._notifyKill(entity);
@@ -2275,20 +2275,20 @@ export class CombatSystem {
    * 处理玩家死亡
    * @param {Entity} player - 玩家实体
    */
-  handlePlayerDeath(player) {
+  handlePlayerDeath(player, deathEvent = null) {
     console.log('玩家死亡，进入统一失败结算');
     this.clearTarget();
     player.isDead = true;
     if (this.onPlayerDeathCallback) {
       try {
-        const handled = this.onPlayerDeathCallback({ player });
+        const handled = this.onPlayerDeathCallback({ player, deathEvent });
         if (handled === true || handled?.ok === true) return handled;
       } catch (error) {
         console.warn('CombatSystem: 玩家死亡回调执行失败，使用默认复活', error);
       }
     }
     const deathId = `player-death-fallback-${Date.now()}`;
-    setTimeout(() => this.revivePlayer(player), 5000);
+    setTimeout(() => this.revivePlayer(player, { hp: 1, mp: 1 }), 10000);
     return { ok: true, fallback: true, deathId };
   }
 
@@ -2296,14 +2296,16 @@ export class CombatSystem {
    * 复活玩家
    * @param {Entity} player - 玩家实体
    */
-  revivePlayer(player) {
+  revivePlayer(player, { hp = null, mp = null } = {}) {
     const stats = player.getComponent('stats');
     if (!stats) return;
     
     console.log('玩家复活');
     
-    // 恢复生命值和魔法值
+    // 默认维持旧 API 的满状态复活；普通死亡由统一失败结算明确传入 1/1。
     stats.fullRestore();
+    if (Number.isFinite(hp)) stats.hp = Math.max(0, Math.min(stats.maxHp, Math.floor(hp)));
+    if (Number.isFinite(mp)) stats.mp = Math.max(0, Math.min(stats.maxMp, Math.floor(mp)));
     
     // 清除死亡标记
     player.isDying = false;

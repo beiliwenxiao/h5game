@@ -1,7 +1,21 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
+import { getPlacementSignature } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { S09_REFUGEE_DIALOGUE_ID } from './S09RefugeeFlow.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
+
+const S01_INITIAL_TOOL_PICKUPS = Object.freeze({
+  'S01-pickup-worn-axe': Object.freeze({
+    stateKey: 'axeFound',
+    definitionId: 'story.s01.axeFound',
+    label: '破旧斧头'
+  }),
+  'S01-pickup-skinning-knife': Object.freeze({
+    stateKey: 'skinningKnifeFound',
+    definitionId: 'story.s01.skinningKnifeFound',
+    label: '旧剥皮刀'
+  })
+});
 
 /**
  * Demo-owned S01–S14 scene state composition. The coordinator deliberately owns
@@ -30,14 +44,23 @@ function captureSceneSaveState() {
     if (node) resourceNodeStates.set(entity.id, node.serialize());
   }
   const deathDrops = this._deathDrops.capture();
-  const placementStates = new Map(pendingPlacementState.placementStates);
+  const placements = this.context.services.placements;
+  const placementById = new Map((placements?.getPlacements?.() || [])
+    .filter(placement => typeof placement?.id === 'string')
+    .map(placement => [placement.id, placement]));
+  const withPlacementSignature = (placementId, state) => {
+    const placement = placementById.get(placementId);
+    return placement ? { ...state, placementSignature: getPlacementSignature(placement) } : state;
+  };
+  const placementStates = new Map([...pendingPlacementState.placementStates]
+    .map(([placementId, state]) => [placementId, withPlacementSignature(placementId, state)]));
   for (const item of this.pickupItems || []) {
     const placementId = item?.placementId;
     if (!placementId) continue;
-    placementStates.set(placementId, {
+    placementStates.set(placementId, withPlacementSignature(placementId, {
       kind: 'item', removed: item.picked === true,
       quantity: Math.max(0, Math.floor(Number(item.quantity) || 0))
-    });
+    }));
   }
   const seenEnemies = new Set();
   for (const list of Object.values(this._groupEnemies || {})) {
@@ -46,12 +69,12 @@ function captureSceneSaveState() {
       seenEnemies.add(enemy.id);
       const stats = enemy.getComponent?.('stats');
       const transform = enemy.getComponent?.('transform');
-      placementStates.set(enemy.id, {
+      placementStates.set(enemy.id, withPlacementSignature(enemy.id, {
         kind: 'enemy', removed: this._isEntityDead(enemy),
         hp: Math.max(0, Number(stats?.hp) || 0),
         position: transform ? { x: transform.position.x, y: transform.position.y } : null,
         ai: this.aiSystem?.getRuntimeState?.(enemy) || null
-      });
+      }));
     }
   }
   const hasWorldStreaming = !!this.worldStreamingManager;
@@ -145,34 +168,57 @@ async function handleApplicationEvent(event = {}) {
     return { ok: true, idempotent: true, code: 'itemPickupAlreadyConsumed' };
   }
 
-  if (this.currentSceneId === 'S01'
-    && payload.placementId === 'S01-pickup-worn-axe'
-    && payload.complete === true
-    && this.gameLoader.blackboard?.get?.('storyState')?.s01Survival?.axeFound !== true) {
+  const initialTool = this.currentSceneId === 'S01' && payload.complete === true
+    ? S01_INITIAL_TOOL_PICKUPS[payload.placementId]
+    : null;
+  if (initialTool) {
     const actorRef = this.playerEntity?.id;
     const gateway = this.sceneRuntime?.commandGateway;
     if (!actorRef || !gateway) {
-      return { ok: false, code: 'storyCommandUnavailable', message: 'S01 斧头剧情命令入口不可用' };
+      return { ok: false, code: 'storyCommandUnavailable', message: 'S01 工具剧情命令入口不可用' };
     }
-    const result = await gateway.execute({
-      intentType: 'state.transaction',
-      actorRef,
-      operationId: `${event.operationId || event.eventId}:story:s01:axe-found`,
-      payload: { definitionId: 'story.s01.axeFound' }
-    });
-    if (result?.ok !== true) {
-      this.notificationSystem?.addError?.('破旧斧头拾取剧情结算失败，请重试或读档。');
-      return {
-        ok: false,
-        code: result?.code || 'axeFoundTransactionFailed',
-        message: result?.error?.message || '破旧斧头拾取剧情结算失败'
-      };
+    const operationBase = event.operationId || event.eventId || uid;
+    let survival = this.gameLoader.blackboard?.get?.('storyState')?.s01Survival || {};
+    if (survival[initialTool.stateKey] !== true) {
+      const result = await gateway.execute({
+        intentType: 'state.transaction',
+        actorRef,
+        operationId: `${operationBase}:story:s01:${initialTool.stateKey}`,
+        payload: { definitionId: initialTool.definitionId }
+      });
+      if (result?.ok !== true) {
+        this.notificationSystem?.addError?.(`${initialTool.label}拾取剧情结算失败，请重试或读档。`);
+        return {
+          ok: false,
+          code: result?.code || 'initialToolFoundTransactionFailed',
+          message: result?.error?.message || `${initialTool.label}拾取剧情结算失败`
+        };
+      }
+      survival = this.gameLoader.blackboard?.get?.('storyState')?.s01Survival || {};
     }
-    try {
-      await this._s01s02Coordinator?.onAxePickupCommitted?.();
-    } catch (error) {
-      // 斧头和 StoryState 已提交；后续燃料表现或放置失败只能自行补偿，不能回滚事实。
-      console.warn('[SanguoSceneStateFlow] S01 斧头后续流程启动失败', error);
+    if (survival.axeFound === true && survival.skinningKnifeFound === true) {
+      if (survival.initialToolsPicked !== true) {
+        const result = await gateway.execute({
+          intentType: 'state.transaction',
+          actorRef,
+          operationId: `${operationBase}:story:s01:initial-tools-picked`,
+          payload: { definitionId: 'story.s01.initialToolsPicked' }
+        });
+        if (result?.ok !== true) {
+          this.notificationSystem?.addError?.('求生工具拾取剧情结算失败，请重试或读档。');
+          return {
+            ok: false,
+            code: result?.code || 'initialToolsPickedTransactionFailed',
+            message: result?.error?.message || '求生工具拾取剧情结算失败'
+          };
+        }
+      }
+      try {
+        await this._s01s02Coordinator?.onInitialToolsPickedCommitted?.();
+      } catch (error) {
+        // 双工具事实已提交；后续燃料表现或放置失败只能自行补偿，不能回滚事实。
+        console.warn('[SanguoSceneStateFlow] S01 双工具后续流程启动失败', error);
+      }
     }
   }
 

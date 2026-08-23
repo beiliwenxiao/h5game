@@ -514,8 +514,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getCamera: () => this.camera,
       consumeInitialPlayerSpawn: () => { this._initialPlayerSpawnPending = false; },
       getPlayerStartMode: () => this._playerStartMode,
-      onCampfireSpawn: spawn => this._campfireService.setPosition(spawn),
-      getCampfirePosition: () => this._campfireService.getPosition(),
+      onWorldPropSpawn: detail => {
+        if (detail.definition?.semanticRole !== 'campfire') return;
+        this._campfireService.setPosition(detail.definition.position);
+      },
       syncProjection: () => this._syncWorldStreamingProjection(),
       clearProjectionBindings: () => this._sceneTriggerBindings?.setBindings?.([]),
       getReadyGate: () => this._worldReadyGate,
@@ -649,10 +651,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         this.currentSceneId = entry.sceneId;
         this._currentRegionIndex = entry.regionIndex;
         this._prologueOffset = entry.offset;
-        const entryCampfire = this._worldLoadSession.findSpawn(entry.sceneId, 'campfire');
-        if (entryCampfire && Number.isFinite(entryCampfire.x) && Number.isFinite(entryCampfire.y)) {
-          this._campfireService.setPosition(entryCampfire);
-        }
         await this._initializeWorldStreaming(validated);
         return validated;
       });

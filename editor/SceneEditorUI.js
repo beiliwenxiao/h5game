@@ -1005,6 +1005,9 @@ export class SceneEditorUI {
     let html = '<div class="property-row" style="border-top:1px solid #333;margin-top:6px;padding-top:6px;"></div>';
     html += `<div class="property-row"><label>类型:</label><input value="${obj.kind || ''}" disabled></div>`;
     html += `<div class="property-row"><label>引用定义ID:</label><input value="${obj.ref || ''}" disabled title="明细在内容库中编辑"></div>`;
+    if (obj.kind === 'item') {
+      html += '<div class="property-row"><label>物品属性:</label><span style="color:#9ab;font-size:11px;">在左侧「物品」列表点击此定义，可编辑图片、尺寸和世界物件表现</span></div>';
+    }
     html += `<div class="property-row"><label>名称:</label><input value="${obj.name || ''}" disabled></div>`;
     html += `<div class="property-row"><label title="触发器可按组名批量放置同组物品">组名:</label><input type="text" value="${obj.group || ''}" data-prop="group" placeholder="如 act1_pickups"></div>`;
     html += `<div class="property-row"><label title="多个标签用英文逗号分隔；触发器可按标签批量放置物品">标签:</label><input type="text" value="${tags}" data-prop="tags" placeholder="如 教程, 食物"></div>`;

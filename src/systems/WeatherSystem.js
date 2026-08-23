@@ -15,6 +15,7 @@ export class WeatherSystem {
   constructor(config = null) {
     this.currentWeather = config?.default ?? null;
     this.targetWeather = this.currentWeather;
+    this.debugOverrideWeather = null;
     this.transitionProgress = 1;
     this.transitionSpeed = Number.isFinite(Number(config?.transitionSpeed))
       ? Number(config.transitionSpeed)
@@ -60,6 +61,32 @@ export class WeatherSystem {
     }
   }
 
+  setDebugWeatherOverride(type) {
+    if (!this.weatherDefs[type]) return false;
+    this.debugOverrideWeather = type;
+    this._particles.length = 0;
+    this._fogClouds.length = 0;
+    this._sunbeams.length = 0;
+    this._lightningTimer = 0;
+    this._lightningFlash = 0;
+    return true;
+  }
+
+  clearDebugWeatherOverride() {
+    if (!this.debugOverrideWeather) return false;
+    this.debugOverrideWeather = null;
+    this._particles.length = 0;
+    this._fogClouds.length = 0;
+    this._sunbeams.length = 0;
+    this._lightningTimer = 0;
+    this._lightningFlash = 0;
+    return true;
+  }
+
+  getVisualWeather() {
+    return this.debugOverrideWeather || this.targetWeather;
+  }
+
   setRegionWeather(regionId, weather) {
     const r = this.regions.find(r => r.id === regionId);
     if (r) r.weather = weather;
@@ -67,6 +94,7 @@ export class WeatherSystem {
   }
 
   getFogAdd() {
+    if (this.debugOverrideWeather) return this.weatherDefs[this.debugOverrideWeather]?.fogAdd || 0;
     const cur = this.weatherDefs[this.currentWeather] || {};
     const tar = this.weatherDefs[this.targetWeather] || {};
     const t = this.transitionProgress;
@@ -82,7 +110,7 @@ export class WeatherSystem {
       if (this.transitionProgress >= 1) this.currentWeather = this.targetWeather;
     }
 
-    const weather = this.targetWeather;
+    const weather = this.getVisualWeather();
     const def = this.weatherDefs[weather];
 
     // 晴天光束
@@ -217,7 +245,7 @@ export class WeatherSystem {
 
   // ─── 渲染 ───
   render(ctx, width, height) {
-    const weather = this.targetWeather;
+    const weather = this.getVisualWeather();
     const alpha = Math.min(1, this.transitionProgress);
 
     // 晴天光束

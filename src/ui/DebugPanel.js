@@ -263,6 +263,7 @@ export class DebugPanel {
               <option value="storm">雷暴</option>
             </select>
             <button id="dp-weather-apply">应用</button>
+            <button id="dp-weather-restore">恢复剧情天气</button>
           </div>
         </div>
         <div class="dp-section dp-actions">
@@ -365,8 +366,17 @@ export class DebugPanel {
       const scene = this._getActiveScene();
       if (!scene || !scene.weatherSystem) return;
       const type = el.querySelector('#dp-weather-select').value;
-      scene.weatherSystem.setWeather(type);
-      console.log('[DebugPanel] 天气切换:', type);
+      const applied = scene.weatherSystem.setDebugWeatherOverride?.(type)
+        ?? scene.weatherSystem.setWeather?.(type);
+      if (applied === false) return;
+      console.log('[DebugPanel] 调试天气覆盖:', type);
+    });
+
+    el.querySelector('#dp-weather-restore').addEventListener('click', () => {
+      const scene = this._getActiveScene();
+      if (!scene?.weatherSystem) return;
+      scene.weatherSystem.clearDebugWeatherOverride?.();
+      console.log('[DebugPanel] 恢复剧情天气');
     });
 
     // 动态加载场景列表到跳转下拉
@@ -546,13 +556,16 @@ export class DebugPanel {
     const ws = scene.weatherSystem;
     if (ws) {
       const fogAdd = ws.getFogAdd().toFixed(2);
+      const debugWeather = ws.debugOverrideWeather || null;
+      const storyWeather = `剧情: ${ws.currentWeather}`
+        + (ws.currentWeather !== ws.targetWeather ? ` → ${ws.targetWeather}` : '');
       this._el.querySelector('#dp-weather').innerHTML =
-        `当前: ${ws.currentWeather}` +
-        (ws.currentWeather !== ws.targetWeather ? ` → ${ws.targetWeather}` : '') +
-        `<br>雾叠加: ${fogAdd}`;
-      // 同步下拉框
+        (debugWeather ? `调试覆盖: ${debugWeather}<br>${storyWeather}` : storyWeather)
+        + `<br>雾叠加: ${fogAdd}`;
+      // 有调试覆盖时保持其选择；未覆盖时跟随剧情目标天气。
       const sel = this._el.querySelector('#dp-weather-select');
-      if (sel && sel.value !== ws.targetWeather) sel.value = ws.targetWeather;
+      const selectedWeather = debugWeather || ws.targetWeather;
+      if (sel && sel.value !== selectedWeather) sel.value = selectedWeather;
     } else {
       this._el.querySelector('#dp-weather').textContent = '未加载';
     }

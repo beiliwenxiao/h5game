@@ -97,7 +97,7 @@
       "startTime": 120
     },
     "weather": {
-      "default": "breeze",
+      "default": "clear",
       "particles": {},
       "transitionSpeed": 0.5
     }
@@ -624,6 +624,8 @@
       "s01Survival": {
         "axeDropped": false,
         "axeFound": false,
+        "skinningKnifeFound": false,
+        "initialToolsPicked": false,
         "backpackCrafted": false,
         "berriesGathered": false,
         "berryEaten": false,
@@ -4765,7 +4767,7 @@
       "order": 0,
       "steps": [
         {
-          "text": "寒风把你冻醒。使用 {move} 起身活动。"
+          "text": "寒风把你冻醒。{move}起身活动。"
         }
       ],
       "signalRules": [],
@@ -4779,8 +4781,8 @@
       "autoTrigger": false
     },
     {
-      "id": "s01.gather",
-      "title": "徒手寻找食物",
+      "id": "s01.pickup",
+      "title": "拾取求生物资",
       "category": "s01-survival",
       "scope": {
         "sceneIds": [
@@ -4790,7 +4792,28 @@
       "order": 1,
       "steps": [
         {
-          "text": "靠近野果丛，使用 {harvest} 徒手采集。"
+          "text": "你发现了一些物品，{pickup}拾取。"
+        }
+      ],
+      "signalRules": [],
+      "completionPolicy": "manual",
+      "autoAdvance": false,
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.gather",
+      "title": "徒手寻找食物",
+      "category": "s01-survival",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 2,
+      "steps": [
+        {
+          "text": "靠近野果丛，{harvest}徒手采集野果。"
         }
       ],
       "signalRules": [
@@ -4805,41 +4828,8 @@
       "autoAdvance": false
     },
     {
-      "id": "s01.pickup",
-      "title": "拾取求生物资",
-      "category": "s01-survival",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 2,
-      "steps": [
-        {
-          "text": "靠近地上的破旧斧头，使用 {pickup} 拾取。"
-        }
-      ],
-      "signalRules": [
-        {
-          "signal": "itemPicked",
-          "threshold": 1,
-          "conditions": [
-            {
-              "field": "placementId",
-              "operator": "equals",
-              "value": "S01-pickup-worn-axe"
-            }
-          ]
-        }
-      ],
-      "completionPolicy": "signal",
-      "autoAdvance": false,
-      "canSkip": false,
-      "autoTrigger": false
-    },
-    {
       "id": "s01.chopWood",
-      "title": "燃料即将耗尽",
+      "title": "篝火燃料",
       "category": "s01-survival",
       "scope": {
         "sceneIds": [
@@ -4849,7 +4839,7 @@
       "order": 3,
       "steps": [
         {
-          "text": "篝火燃料只够燃烧 100 秒。靠近枯木，使用 {harvest} 用破旧斧头砍柴，再回到火堆旁添木材。"
+          "text": "篝火快熄灭了。{harvest}砍取枯木，再回火堆添柴。"
         }
       ],
       "signalRules": [],
@@ -4869,7 +4859,7 @@
       "order": 4,
       "steps": [
         {
-          "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。"
+          "text": "野狼出现后，{attack}反击。"
         }
       ],
       "signalRules": [
@@ -4884,7 +4874,7 @@
     },
     {
       "id": "s01.durability",
-      "title": "工具与剥皮",
+      "title": "工具使用",
       "category": "s01-survival",
       "scope": {
         "sceneIds": [
@@ -4894,7 +4884,7 @@
       "order": 5,
       "steps": [
         {
-          "text": "使用 {harvest} 砍柴或剥皮；采集成功才消耗工具耐久。"
+          "text": "用破旧斧头砍取枯木；用剥皮刀剥取狼皮。"
         }
       ],
       "signalRules": [
@@ -4926,7 +4916,7 @@
       "order": 6,
       "steps": [
         {
-          "text": "狼群追来后沿河逃跑，使用 {jump} 踩着河中石块到达对岸。"
+          "text": "狼群追来后，{jump}跳过河中石块，逃到对岸。"
         }
       ],
       "signalRules": [
@@ -4951,7 +4941,7 @@
       "order": 7,
       "steps": [
         {
-          "text": "六格小背包满时溢出物会留在原处。抵达山崖后使用 {climb} 攀上藤蔓逃往 S02。"
+          "text": "背包满时，多余物资会留在原地。到达山崖后，{climb}沿藤蔓逃往 S02。"
         }
       ],
       "signalRules": [
@@ -5119,6 +5109,55 @@
           "width": 40
         },
         "subType": "quest"
+      },
+      {
+        "id": "story.s01.campfire",
+        "name": "熄灭的火堆",
+        "type": "story",
+        "subType": "worldProp",
+        "worldProp": true,
+        "semanticRole": "campfire",
+        "imageId": "s01.prop.campfireBase",
+        "assetId": "s01.prop.campfireBase",
+        "width": 72,
+        "height": 36,
+        "maxStack": 1,
+        "showName": false,
+        "sprite": {
+          "width": 72,
+          "height": 36,
+          "isStatic": true,
+          "visible": false
+        },
+        "campfirePresentation": {
+          "base": { "imageId": "s01.prop.campfireBase", "width": 72, "height": 36, "pivot": { "x": 0.5, "y": 1 }, "offsetX": 0, "offsetY": 0 },
+          "logs": { "imageId": "s01.prop.campfireLogs", "width": 68, "height": 38, "pivot": { "x": 0.5, "y": 1 }, "offsetX": 0, "offsetY": -2 },
+          "stoneRing": { "imageId": "s01.prop.campfireStoneRing", "width": 92, "height": 38, "pivot": { "x": 0.5, "y": 1 }, "offsetX": 0, "offsetY": 2 },
+          "flame": {
+            "imageId": "s01.vfx.campfireFlame",
+            "width": 40,
+            "height": 60,
+            "pivot": { "x": 0.5, "y": 1 },
+            "offsetX": 0,
+            "offsetY": -7,
+            "sprite": { "frameCols": 4, "frameCount": 12, "frameDuration": 0.16, "frameHeight": 237.33333333333334, "frameRows": 3, "frameWidth": 164.5 }
+          },
+          "embers": { "color": "#ffb04a", "radius": 1.8, "frequency": 2.1, "minAlpha": 0.18, "maxAlpha": 0.85, "offsetX": 0, "offsetY": -18, "offsets": [[-13, -8, 0.8], [8, -16, 1.1], [15, -6, 1.5], [-4, -23, 1.9]] },
+          "fog": { "active": true, "color": "rgba(30, 30, 40,", "fadeSpeed": 0.4 },
+          "fuel": { "enabled": true, "initialUnits": 1, "itemId": "resource.wood", "maxUnits": 100, "secondsPerUnit": 100, "startOnIgnite": false },
+          "initialFogOpacity": 0.85,
+          "labels": { "ignite": "{interact}点燃", "unlit": "熄灭的火堆" },
+          "particlePresets": [
+            { "alpha": 0.85, "color": "#ffaa22", "life": 250, "rate": 6, "size": 8.5, "vy": -50 },
+            { "alpha": 0.8, "color": "#ff8833", "life": 200, "rate": 8, "size": 6, "vy": -35 },
+            { "alpha": 1, "color": "#ffffee", "life": 400, "rate": 4, "size": 4.5, "vy": -120 },
+            { "alpha": 0.9, "color": "#ffee44", "life": 350, "rate": 10, "size": 3.5, "vy": -100 },
+            { "alpha": 0.85, "color": "#ff9933", "life": 300, "rate": 8, "size": 2.5, "vy": -80 },
+            { "alpha": 0.8, "color": "#ff5522", "life": 250, "rate": 6, "size": 2, "vy": -60 },
+            { "alpha": 0.7, "color": "#ff6633", "life": 200, "rate": 12, "size": 2, "vy": -40 }
+          ],
+          "presentation": { "collisionHeight": 22.5, "collisionWidth": 40, "fireHeight": 60, "fireWidth": 40, "lightRadius": 300 }
+        }
       },
       {
         "id": "story.s01.small_shelter",
@@ -6093,6 +6132,10 @@
             {
               "equals": true,
               "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.initialToolsPicked"
             }
           ]
         },
@@ -6125,10 +6168,6 @@
             {
               "equals": true,
               "path": "story.s01Survival.campfireLit"
-            },
-            {
-              "gte": 2,
-              "path": "story.s01Survival.berryGatherCount"
             },
             {
               "equals": false,
@@ -6176,13 +6215,79 @@
     },
     {
       "commandType": "state.transaction",
+      "id": "story.s01.skinningKnifeFound",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeDropped"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.skinningKnifeFound"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.skinningKnifeFound",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.initialToolsPicked",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeFound"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.skinningKnifeFound"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.initialToolsPicked"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.initialToolsPicked",
+            "target": "story",
+            "value": true
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
       "id": "story.s01.berriesGathered",
       "transaction": {
         "when": {
           "all": [
             {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
               "equals": true,
-              "path": "story.s01Survival.axeDropped"
+              "path": "story.s01Survival.initialToolsPicked"
             },
             {
               "gte": 2,
@@ -6271,72 +6376,6 @@
     },
     {
       "commandType": "state.transaction",
-      "id": "story.s01.beginWolfWeatherWait",
-      "transaction": {
-        "when": {
-          "all": [
-            {
-              "equals": "S01",
-              "path": "story.currentSceneId"
-            },
-            {
-              "equals": true,
-              "path": "story.s01Survival.axeFound"
-            },
-            {
-              "gte": 3,
-              "path": "story.s01Survival.campfireRefuelCount"
-            },
-            {
-              "equals": false,
-              "path": "story.s01Survival.wolfWeatherCountdownStarted"
-            },
-            {
-              "equals": false,
-              "path": "story.s01Survival.wolfWeatherCleared"
-            }
-          ]
-        },
-        "writes": [
-          {
-            "path": "s01Survival.wolfWeatherCountdownStarted",
-            "target": "story",
-            "value": true
-          }
-        ]
-      }
-    },
-    {
-      "commandType": "state.transaction",
-      "id": "story.s01.wolfWeatherCleared",
-      "transaction": {
-        "when": {
-          "all": [
-            {
-              "equals": "S01",
-              "path": "story.currentSceneId"
-            },
-            {
-              "equals": true,
-              "path": "story.s01Survival.wolfWeatherCountdownStarted"
-            },
-            {
-              "equals": false,
-              "path": "story.s01Survival.wolfWeatherCleared"
-            }
-          ]
-        },
-        "writes": [
-          {
-            "path": "s01Survival.wolfWeatherCleared",
-            "target": "story",
-            "value": true
-          }
-        ]
-      }
-    },
-    {
-      "commandType": "state.transaction",
       "id": "story.s01.firstWolfSpotted",
       "transaction": {
         "when": {
@@ -6344,10 +6383,6 @@
             {
               "equals": true,
               "path": "story.s01Survival.axeFound"
-            },
-            {
-              "equals": true,
-              "path": "story.s01Survival.wolfWeatherCleared"
             },
             {
               "equals": false,

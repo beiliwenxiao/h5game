@@ -156,7 +156,10 @@ const campfireFeatureMethods = {
         particleConfig: {
           position: { x: firePoint.x, y: firePoint.y },
           velocity: { x: 0, y: vy },
-          life, size, color, alpha, gravity: 0, friction: 0.95
+          life, size, color,
+          alpha: Math.min(1, alpha * 1.15),
+          blendMode: 'lighter',
+          gravity: 0, friction: 0.95
         }
       })
     );

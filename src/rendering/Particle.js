@@ -41,6 +41,7 @@ export class Particle {
     // 行为语义必须显式传递；颜色仅是表现参数。保留旧 #ff* 调用方的兼容推断。
     this.isFire = config.isFire === true || (config.isFire == null && typeof config.color === 'string' && config.color.startsWith('#ff'));
     this.renderLayer = config.renderLayer || 'effects';
+    this.blendMode = config.blendMode || 'source-over';
     this.sortY = Number.isFinite(config.sortY) ? config.sortY : this.position.y;
     this.active = true;
     // 记录初始位置，供 3D 渲染器做坐标映射
@@ -112,6 +113,7 @@ export class Particle {
     if (!isFinite(screenX) || !isFinite(screenY)) return;
 
     ctx.save();
+    ctx.globalCompositeOperation = this.blendMode;
     ctx.globalAlpha = this.alpha;
     
     const safeSize = Math.max(0.1, this.size || 1);
@@ -195,6 +197,7 @@ export class Particle {
     this.shape = config.shape || 'circle';
     this.isFire = config.isFire === true || (config.isFire == null && typeof config.color === 'string' && config.color.startsWith('#ff'));
     this.renderLayer = config.renderLayer || 'effects';
+    this.blendMode = config.blendMode || 'source-over';
     this.sortY = Number.isFinite(config.sortY) ? config.sortY : this.position.y;
     this.active = true;
     // 记录初始位置，供 3D 渲染器做坐标映射

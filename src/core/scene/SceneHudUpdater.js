@@ -31,6 +31,8 @@ export class SceneHudUpdater {
     this.getEntities = typeof getEntities === 'function' ? getEntities : GET_ENTITIES;
     this.performanceOptimizer = performanceOptimizer;
     this._enemyPositions = null;
+    this._panelBuffer = [null, null, null, null];
+    this._updatedPanels = new Set();
   }
 
   _shouldUpdate(channel) {
@@ -41,16 +43,17 @@ export class SceneHudUpdater {
   updateCooldowns() {
     const ui = this.getUI() || {};
     const systems = this.getSystems() || {};
-    const pairs = [
-      [ui.flightButton, systems.flightSystem || systems.flight, 'getCooldownRemaining', 'getCooldownTotal'],
-      [ui.throwButton, systems.weaponRenderer || systems.throw, 'getThrowCooldownRemaining', 'getThrowCooldownTotal'],
-      [ui.blockButton, systems.combatSystem || systems.combat, 'getBlockCooldownRemaining', 'getBlockCooldownTotal']
-    ];
+    this._updateCooldown(ui.flightButton, systems.flightSystem || systems.flight,
+      'getCooldownRemaining', 'getCooldownTotal');
+    this._updateCooldown(ui.throwButton, systems.weaponRenderer || systems.throw,
+      'getThrowCooldownRemaining', 'getThrowCooldownTotal');
+    this._updateCooldown(ui.blockButton, systems.combatSystem || systems.combat,
+      'getBlockCooldownRemaining', 'getBlockCooldownTotal');
+  }
 
-    for (const [button, system, remaining, total] of pairs) {
-      if (!button?.setCooldown || typeof system?.[remaining] !== 'function') continue;
-      button.setCooldown(system[remaining](), system[total]?.());
-    }
+  _updateCooldown(button, system, remaining, total) {
+    if (!button?.setCooldown || typeof system?.[remaining] !== 'function') return;
+    button.setCooldown(system[remaining](), system[total]?.());
   }
 
   updateDialogue(dt = 0) {
@@ -69,13 +72,15 @@ export class SceneHudUpdater {
   updatePanels(dt = 0) {
     if (!this._shouldUpdate('ui')) return;
     const ui = this.getUI() || {};
-    const updated = new Set();
-    for (const panel of [
-      ui.backpackPanel || ui.backpack,
-      ui.bottomControlBar,
-      ui.playerStatusHUD,
-      ui.gamepadPanel
-    ]) {
+    const updated = this._updatedPanels;
+    const panels = this._panelBuffer;
+    updated.clear();
+    panels[0] = ui.backpackPanel || ui.backpack;
+    panels[1] = ui.bottomControlBar;
+    panels[2] = ui.playerStatusHUD;
+    panels[3] = ui.gamepadPanel;
+    for (let index = 0; index < panels.length; index++) {
+      const panel = panels[index];
       if (!panel || updated.has(panel)) continue;
       updated.add(panel);
       panel.update?.(dt);
@@ -104,7 +109,8 @@ export class SceneHudUpdater {
     if (playerTransform) minimap.setPlayerPosition?.(playerTransform.position);
 
     if (!this._enemyPositions || this._shouldUpdate('minimap')) {
-      const positions = [];
+      const positions = this._enemyPositions || [];
+      positions.length = 0;
       for (const entity of entityArray(this.getEntities())) {
         if (entity?.type !== 'enemy' || entity.isDead || entity.isDying) continue;
         const transform = entity.getComponent?.('transform');

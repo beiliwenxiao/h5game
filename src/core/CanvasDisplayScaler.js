@@ -68,10 +68,12 @@ export class CanvasDisplayScaler {
     };
   }
 
-  beginFrame(ctx, clearColor = null) {
+  beginFrame(ctx, clearColor = null, clear = true) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (clearColor) { ctx.fillStyle = clearColor; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); }
-    else ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (clear) {
+      if (clearColor) { ctx.fillStyle = clearColor; ctx.fillRect(0, 0, this.canvas.width, this.canvas.height); }
+      else ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
     ctx.setTransform(this.canvas.width / this.logicalWidth, 0, 0, this.canvas.height / this.logicalHeight, 0, 0);
     ctx.imageSmoothingEnabled = true;
     if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = this.imageSmoothingQuality;

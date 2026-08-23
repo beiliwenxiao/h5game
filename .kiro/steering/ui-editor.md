@@ -1,5 +1,6 @@
 ---
 inclusion: auto
+description: UI 编辑器组件、布局配置与移动端和桌面端 UI 接线约定。
 ---
 
 # UI 编辑器组件管理指南

@@ -927,6 +927,11 @@
         let fpsTime = 0;
         let projectConfig = null;
         let gameStarted = false;
+        let initGamePromise = null;
+        let gameLoopRunning = false;
+        let gameLoopRafId = null;
+        let gameLoopGeneration = 0;
+        let gameLoopStartCount = 0;
         let activeSaveSlot = 1; // 当前选择的手动栏位；自动存档使用三个独立轮换栏位。
         let autosaveTimer = null;
         const AUTO_SAVE_INTERVAL_MS = 15 * 60 * 1000;
@@ -1816,6 +1821,8 @@
         function startGameFromSelection(mode, selection) {
             closeSavePicker({ restoreFocus: false });
             setLoginMessage('');
+            // 加载阶段 sceneManager 尚未稳定，必须先用 Promise 锁阻止第二次初始化。
+            if (initGamePromise) return;
             if (gameStarted || sceneManager) {
                 const bootCommand = {
                     mode,
@@ -1829,7 +1836,8 @@
             if (selection.kind === 'manual') activeSaveSlot = selection.index;
             loginScreen.classList.add('hidden');
             loadingScreen.style.display = 'flex';
-            initGame({ loadSave: mode === 'continue', saveSelection: selection });
+            initGamePromise = initGame({ loadSave: mode === 'continue', saveSelection: selection });
+            void initGamePromise.finally(() => { initGamePromise = null; });
         }
 
         async function openSystemMenu() {
@@ -2250,8 +2258,8 @@
                 await nextStep(); // 步骤 6（完成）
                 gameStarted = true;
 
-                // 先启动循环，等待首个完整渲染帧后才创建新游戏初始存档，避免透明 Canvas 被 JPEG 编码为黑图。
-                requestAnimationFrame(gameLoop);
+                // 先启动唯一游戏循环，等待首个完整渲染帧后才创建新游戏初始存档，避免透明 Canvas 被 JPEG 编码为黑图。
+                startGameLoop();
                 if (!options.loadSave) {
                     await waitForRenderedSavePreview();
                     await saveCurrentGame({ silent: true });
@@ -2624,12 +2632,20 @@
                     'activeParticles', 'effectZones', 'worldQueueLength',
                     'visibleEntityCount', 'worldDepthParticleCount'
                 ]);
-                const hotDetails = Object.entries(sample)
+                const aggregateNames = new Set([
+                    'updateDemoBeforeBase', 'updateBaseFrame', 'updateDemoAfterBase',
+                    'renderScreenUi'
+                ]);
+                const detailEntries = Object.entries(sample)
                     .filter(([name, value]) => name !== 'startedAt' && name !== 'total'
                         && !topLevelNames.includes(name) && !counterNames.has(name)
                         && typeof value === 'number' && value > 0)
-                    .sort((left, right) => right[1] - left[1])
-                    .slice(0, 3)
+                    .sort((left, right) => right[1] - left[1]);
+                const hotDetails = detailEntries.slice(0, 3)
+                    .map(([name, value]) => ({ name, value }));
+                const leafHotDetails = detailEntries
+                    .filter(([name]) => !aggregateNames.has(name))
+                    .slice(0, 6)
                     .map(([name, value]) => ({ name, value }));
                 const topLevelText = topLevelNames
                     .map(name => `${name}=${(Number(sample[name]) || 0).toFixed(2)}ms`)
@@ -2637,10 +2653,22 @@
                 const detailText = hotDetails.length > 0
                     ? hotDetails.map(item => `${item.name}=${item.value.toFixed(2)}ms`).join('，')
                     : '无';
+                const leafDetailText = leafHotDetails.length > 0
+                    ? leafHotDetails.map(item => `${item.name}=${item.value.toFixed(2)}ms`).join('，')
+                    : '无';
                 const sceneId = targetScene?.currentSceneId || targetScene?.name;
                 console.warn(
-                    `[DDScene][FrameProfile][长帧] ${sceneId} ${sample.total.toFixed(2)}ms；顶层 ${topLevelText}；子阶段热点 ${detailText}；未归因=${unattributed.toFixed(2)}ms`,
-                    { sceneId, milliseconds: Number(sample.total.toFixed(2)), dominant, hotDetails, unattributed: Number(unattributed.toFixed(2)), phases }
+                    `[DDScene][FrameProfile][长帧] ${sceneId} ${sample.total.toFixed(2)}ms；顶层 ${topLevelText}；聚合热点 ${detailText}；叶子热点 ${leafDetailText}；未归因=${unattributed.toFixed(2)}ms`,
+                    {
+                        sceneId,
+                        milliseconds: Number(sample.total.toFixed(2)),
+                        dominant,
+                        hotDetails,
+                        leafHotDetails,
+                        unattributed: Number(unattributed.toFixed(2)),
+                        loop: { generation: gameLoopGeneration, starts: gameLoopStartCount },
+                        phases
+                    }
                 );
             }
             const windowElapsed = currentTime - profile.windowStartedAt;
@@ -2660,6 +2688,12 @@
                 sceneId: targetScene?.currentSceneId || targetScene?.name,
                 frames: profile.frameCount,
                 fps: effectiveFps,
+                loop: {
+                    running: gameLoopRunning,
+                    generation: gameLoopGeneration,
+                    starts: gameLoopStartCount,
+                    scheduled: gameLoopRafId !== null
+                },
                 rafCallbacks: cadence.rafCallbacks,
                 rafFps,
                 over16ms: cadence.over16,
@@ -2762,7 +2796,27 @@
             profile.current = null;
         }
 
-        // 游戏循环：暂停时保留 RAF 和 DebugPanel DOM 循环，但定格当前 Canvas，
+        function scheduleNextGameFrame() {
+            if (!gameLoopRunning || gameLoopRafId !== null) return false;
+            const generation = gameLoopGeneration;
+            gameLoopRafId = requestAnimationFrame(currentTime => {
+                if (!gameLoopRunning || generation !== gameLoopGeneration) return;
+                gameLoopRafId = null;
+                gameLoop(currentTime);
+            });
+            return true;
+        }
+
+        function startGameLoop() {
+            if (gameLoopRunning) return false;
+            gameLoopRunning = true;
+            gameLoopGeneration++;
+            gameLoopStartCount++;
+            lastTime = performance.now();
+            return scheduleNextGameFrame();
+        }
+
+        // 游戏循环：暂停时保留唯一 RAF 和 DebugPanel DOM 循环，但定格当前 Canvas，
         // 不再运行 SceneManager、渲染管线、宿主 UI 或存档封面更新。
         function gameLoop(currentTime) {
             const profiledScene = sceneManager?.getCurrentScene?.() || scene;
@@ -2789,15 +2843,16 @@
             if (isPaused) {
                 profiledScene.gameLoopFps = fps;
                 profiledScene.discardPausedInput?.();
-                requestAnimationFrame(gameLoop);
+                scheduleNextGameFrame();
                 return;
             }
 
             const frameProfile = beginFramePerformanceProfile(profiledScene, currentTime);
             
-            // 清空物理 backing，并恢复到项目逻辑坐标系后再绘制。
+            // 活动场景的 RenderPipeline 会完整覆盖逻辑画面；这里只恢复变换，避免物理 backing 与逻辑画面双重全屏填充。
             const canvasClearStartedAt = frameProfile ? performance.now() : 0;
-            displayScaler.beginFrame(ctx, '#2a2a2a');
+            const shouldClearBacking = !profiledScene || profiledScene.isActive === false;
+            displayScaler.beginFrame(ctx, '#2a2a2a', shouldClearBacking);
             recordFramePhase(frameProfile, 'canvasClear', canvasClearStartedAt);
             
             // 更新和渲染场景
@@ -2895,7 +2950,7 @@
                 frameProfile.current.savePreview = 0;
             }
             finishFramePerformanceProfile(frameProfile, profiledScene, currentTime);
-            requestAnimationFrame(gameLoop);
+            scheduleNextGameFrame();
         }
         
         // 更新调试信息（向新 DebugPanel 暴露主游戏循环 FPS + 刷新技能栏）
@@ -3391,8 +3446,8 @@
                     // 交互按钮直接进入统一 InputActionRouter；不再夹带旧 N 场景推进。
                     enqueueSceneInteract();
                 } else if (btn.dataset.act === 'axe') {
-                    // 斧头/采集按钮
-                    if (currentScene.harvestByFacing) currentScene.harvestByFacing();
+                    // 斧头/采集按钮是统一交互按钮的兼容 UI 别名。
+                    enqueueSceneInteract();
                 } else if (btn.dataset.act === 'flight') {
                     // 轻功现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.act === 'jump') {
@@ -3736,9 +3791,8 @@
                         // 交互按钮直接进入统一 InputActionRouter。
                         enqueueSceneInteract();
                     } else if (btn.dataset.act === 'axe') {
-                        // 斧头/采集按钮
-                        const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
-                        if (currentScene && currentScene.harvestByFacing) currentScene.harvestByFacing();
+                        // 斧头/采集按钮是统一交互按钮的兼容 UI 别名。
+                        enqueueSceneInteract();
                     } else if (btn.dataset.act === 'block') {
                         // 格挡按钮：直接激活
                         const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;

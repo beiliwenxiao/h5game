@@ -547,7 +547,9 @@ export const TUTORIAL_SIGNAL_RULE_SCHEMA = {
 export const TUTORIAL_MOVEMENT_RULE_SCHEMA = {
   id: 'tutorialMovementRule',
   fields: {
-    threshold: { type: FieldType.NUMBER, required: true, min: 0 }
+    mode: { type: FieldType.STRING, enum: ['distance', 'anyMovement'] },
+    threshold: { type: FieldType.NUMBER, required: true, min: 0 },
+    epsilon: { type: FieldType.NUMBER, min: 0 }
   }
 };
 

@@ -54,7 +54,8 @@ export class DemoPlayerFactory {
       },
       skills: createDefaultSkills(),
       equipment: {},
-      inventorySlots: 6,
+      // S01 默认背包固定显示 6×4 格；容量规则仍由 InventoryComponent 管理。
+      inventorySlots: 24,
       inventory: []
     });
 

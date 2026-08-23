@@ -25,14 +25,33 @@ export class SceneEntityStore {
       all: { value: [], enumerable: true },
       enemies: { value: [], enumerable: true },
       pickups: { value: [], enumerable: true },
-      equipmentItems: { value: [], enumerable: true }
+      equipmentItems: { value: [], enumerable: true },
+      _byId: { value: new Map(), enumerable: false }
     });
     this.player = null;
+  }
+
+  getById(id) {
+    return id == null ? null : (this._byId.get(String(id)) || null);
+  }
+
+  _index(entity) {
+    if (entity?.id != null && String(entity.id)) this._byId.set(String(entity.id), entity);
+  }
+
+  _unindex(entity) {
+    if (entity?.id == null) return;
+    const id = String(entity.id);
+    if (this._byId.get(id) !== entity) return;
+    const replacement = this.all.findLast(candidate => candidate?.id != null && String(candidate.id) === id);
+    if (replacement) this._byId.set(id, replacement);
+    else this._byId.delete(id);
   }
 
   add(entity) {
     if (!entity) return null;
     addUnique(this.all, entity);
+    this._index(entity);
     if (entity.type === 'player') this.player = entity;
     return entity;
   }
@@ -62,6 +81,7 @@ export class SceneEntityStore {
     const removedEnemy = removeFrom(this.enemies, entity);
     const removedPickup = removeFrom(this.pickups, entity);
     const removedEquipment = removeFrom(this.equipmentItems, entity);
+    if (removed) this._unindex(entity);
     if (this.player === entity) this.player = null;
     return removed || removedEnemy || removedPickup || removedEquipment;
   }
@@ -78,6 +98,7 @@ export class SceneEntityStore {
         }
       }
     }
+    for (const entity of removed) this._unindex(entity);
     if (targets.has(this.player)) this.player = null;
     return removed;
   }
@@ -105,6 +126,7 @@ export class SceneEntityStore {
     this.enemies.length = 0;
     this.pickups.length = 0;
     this.equipmentItems.length = 0;
+    this._byId.clear();
     this.player = null;
   }
 }

@@ -37,6 +37,105 @@ export class S01S02Coordinator {
     return this.scene.context.services.placements?.spawn?.({ group });
   }
 
+  async _ensureSpawnedPlacement(group, placementId) {
+    let result;
+    try {
+      result = await this._spawnGroup(group);
+    } catch (error) {
+      return { ok: false, code: 'placementSpawnFailed', error, result: null };
+    }
+    const spawnedTarget = (result?.entities || []).find(
+      entity => entity?.placementId === placementId || entity?.id === placementId
+    ) || null;
+    const existingTarget = this.scene.entityStore?.getById?.(placementId) || null;
+    const target = spawnedTarget || existingTarget;
+    if (result?.ok !== true || (result.errors || []).length > 0 || !target) {
+      return { ok: false, code: 'placementNotReady', result, target: null };
+    }
+    return {
+      ok: true,
+      created: Number(result?.counts?.total) > 0 && Boolean(spawnedTarget),
+      result,
+      target
+    };
+  }
+
+  _presentS01GatherTutorial() {
+    const tutorialFlow = this.scene._tutorialFlow;
+    if (!tutorialFlow) {
+      this.scene._showScreenTip('火光驱散寒意，你却听见肚子咕咕作响。靠近野果丛，使用 {harvest} 徒手采集野果。', {
+        title: '寻找食物'
+      });
+      return true;
+    }
+    if (tutorialFlow.isCompleted?.('s01.gather') || tutorialFlow.isCurrent?.('s01.gather')) return true;
+    tutorialFlow.showNext?.();
+    return tutorialFlow.isCurrent?.('s01.gather') === true;
+  }
+
+  _presentS01WoodGatherTutorial() {
+    const tutorialFlow = this.scene._tutorialFlow;
+    if (!tutorialFlow) {
+      this.scene._showScreenTip('靠近枯木，使用 {harvest} 用破旧斧头砍柴，为篝火添燃料。', {
+        title: '收集燃料'
+      });
+      return true;
+    }
+    if (tutorialFlow.isCompleted?.('s01.chopWood') || tutorialFlow.isCurrent?.('s01.chopWood')) return true;
+    if (!tutorialFlow.isCompleted?.('s01.pickup')) return false;
+    tutorialFlow.showNext?.();
+    return tutorialFlow.isCurrent?.('s01.chopWood') === true;
+  }
+
+  _presentS01WoodGatherMotivation() {
+    return this.scene._showScreenTip(
+      '野果暂时填饱了肚子，但寒风吹散余火，篝火熄灭了。寒夜里没有火撑不了多久，得用破旧斧头砍些枯木重新添火。',
+      {
+        title: '篝火熄灭',
+        onHidden: () => this._presentS01WoodGatherTutorial()
+      }
+    );
+  }
+
+  _createWoodGatherContinuation({ presentMotivation = false } = {}) {
+    return {
+      mode: 'spawnContinuation',
+      group: 'S01-wood',
+      placementId: 'S01-node-wood-1',
+      attempts: 0,
+      onRecovered: () => presentMotivation
+        ? this._presentS01WoodGatherMotivation()
+        : this._presentS01WoodGatherTutorial()
+    };
+  }
+
+  deferS01WoodGatherTutorialRecovery() {
+    const tutorialFlow = this.scene._tutorialFlow;
+    const survival = this._story().s01Survival || {};
+    const needsRecovery = this.scene.currentSceneId === 'S01'
+      && tutorialFlow
+      && survival.berryEaten === true
+      && survival.woodGathered !== true
+      && tutorialFlow.isCompleted?.('s01.pickup') === true
+      && tutorialFlow.isCompleted?.('s01.chopWood') !== true
+      && tutorialFlow.isCurrent?.('s01.chopWood') !== true;
+    if (!needsRecovery) return false;
+    if (!this.pendingPlacementReveals.has('S01-node-wood-1')) {
+      this._rememberPendingReveal(this._createWoodGatherContinuation());
+    }
+    return true;
+  }
+
+  _createCampfireContinuation() {
+    return {
+      mode: 'spawnContinuation',
+      group: 'S01-berries',
+      placementId: 'S01-node-berry-1',
+      attempts: 0,
+      onRecovered: () => this._presentS01GatherTutorial()
+    };
+  }
+
   _rememberPendingReveal(request) {
     const previous = this.pendingPlacementReveals.get(request.placementId);
     this.pendingPlacementReveals.set(request.placementId, {
@@ -126,6 +225,28 @@ export class S01S02Coordinator {
     this.pendingPlacementReveals.set(request.placementId, request);
     this.pendingRevealRetryInFlight = true;
     try {
+      if (request.mode === 'spawnContinuation') {
+        const placement = await this._ensureSpawnedPlacement(request.group, request.placementId);
+        if (!placement.ok) {
+          this._rememberPendingReveal(request);
+          return false;
+        }
+        if (request.onRecovered) {
+          try {
+            const recovered = await request.onRecovered(placement.target);
+            if (recovered === false) {
+              this._rememberPendingReveal(request);
+              return false;
+            }
+          } catch (error) {
+            this._rememberPendingReveal(request);
+            console.warn('[S01S02Coordinator] 放置后续补偿异常', request.placementId, error);
+            return false;
+          }
+        }
+        this.pendingPlacementReveals.delete(request.placementId);
+        return true;
+      }
       if (request.revealed !== true) {
         const revealed = await this._revealPlacement(
           request.group,
@@ -184,6 +305,8 @@ export class S01S02Coordinator {
       this.pendingWolfDiscovery = false;
       if (result.ok) {
         await this._spawnGroup('S01-first-wolf');
+        // 玩家已实际砍柴并成功触发野狼事件；结束操作教学，让攻击教学在野狼出现时立即接续。
+        this.scene._tutorialFlow?.complete?.('s01.chopWood');
         this.scene._showScreenTip('砍柴途中，灌木后突然窜出一只野狼！使用 {attack} 反击。', {
           title: '野狼来袭', persist: true
         });
@@ -275,10 +398,15 @@ export class S01S02Coordinator {
       const result = await this._submit('story.s01.berryEaten', {}, 'story:s01:berry-eaten');
       if (!result.ok) return false;
       this.scene._campfireService?.extinguish?.();
-      await this._spawnGroup('S01-wood');
-      this.scene._showScreenTip('野果暂时填饱了肚子，但寒风吹散余火，篝火熄灭了。用破斧头砍些枯木。', {
-        title: '篝火熄灭'
-      });
+      const continuation = this._createWoodGatherContinuation({ presentMotivation: true });
+      const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
+      if (!placement.ok) {
+        this._rememberPendingReveal(continuation);
+        console.warn('[S01S02Coordinator] 篝火熄灭后木材放置进入退避补偿', placement);
+        return true;
+      }
+      this.pendingPlacementReveals.delete(continuation.placementId);
+      this._presentS01WoodGatherMotivation();
       return true;
     }
     if (item.id === 'food.roasted_wolf_meat') {
@@ -411,9 +539,9 @@ export class S01S02Coordinator {
         if (this.scene.dialogueSystem?.startDialogue?.(wakeDialogueId, { sceneId: 'S01' })) return true;
       }
       this.scene._showScreenTip(moved
-        ? '身体已经活动开了。靠近熄灭的篝火，使用 {interact} 点火。'
-        : '寒风吹过荒原，你被冻醒了。使用 {move} 起身活动，靠近熄灭的篝火。', {
-        title: moved ? '点燃篝火' : '寒风中醒来'
+        ? '身体已经活动开了。四下看看，寻找能取暖的东西。'
+        : '寒风吹过荒原，你被冻醒了。使用 {move} 起身活动。', {
+        title: moved ? '寻找取暖处' : '寒风中醒来'
       });
       return true;
     }
@@ -423,20 +551,33 @@ export class S01S02Coordinator {
     }
     if (operation === 'ensureMovedAfterWake') {
       if (this.scene._tutorialFlow?.isCompleted?.('s01.move') === true) return true;
-      this.scene._showScreenTip('寒风让四肢僵硬。先使用 {move} 活动身体，再回来点燃篝火。', {
+      this.scene._showScreenTip('寒风让四肢僵硬。先使用 {move} 活动身体。', {
         title: '先活动身体'
       });
       return false;
     }
     if (operation === 'campfireLit') {
       const result = await this._submit('story.s01.campfireLit', {}, 'story:s01:campfire-lit');
-      if (result.ok) {
-        await this._spawnGroup('S01-berries');
-        this.scene._showScreenTip('火光驱散寒意，你却听见肚子咕咕作响。靠近野果丛，使用 {harvest} 徒手采集野果。', {
-          title: '寻找食物'
-        });
+      if (result.ok !== true) return false;
+      try {
+        this.scene._campfireService?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
+      } catch (error) {
+        console.warn('[S01S02Coordinator] 篝火表现启动失败，业务状态已提交', error);
       }
-      return result.ok === true;
+
+      const continuation = this._createCampfireContinuation();
+      const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
+      if (!placement.ok) {
+        this._rememberPendingReveal(continuation);
+        console.warn('[S01S02Coordinator] 篝火已点燃，野果放置进入退避补偿', placement);
+        return true;
+      }
+      if (!this._presentS01GatherTutorial()) {
+        this._rememberPendingReveal(continuation);
+      } else {
+        this.pendingPlacementReveals.delete(continuation.placementId);
+      }
+      return true;
     }
     if (operation === 'craftBackpack') {
       const survival = this._story().s01Survival || {};
@@ -552,6 +693,24 @@ export class S01S02Coordinator {
   update(deltaTime) {
     if (this.scene.currentSceneId !== 'S01') return;
     const dt = Math.max(0, Number(deltaTime) || 0);
+    const tutorialFlow = this.scene._tutorialFlow;
+    const survival = this._story().s01Survival || {};
+    const campfireLit = survival.campfireLit === true;
+    const gatherNeedsRecovery = tutorialFlow && campfireLit
+      && tutorialFlow.isCompleted?.('s01.gather') !== true
+      && tutorialFlow.isCurrent?.('s01.gather') !== true;
+    if (gatherNeedsRecovery && !this.pendingPlacementReveals.has('S01-node-berry-1')) {
+      this._rememberPendingReveal(this._createCampfireContinuation());
+    }
+    const woodTutorialNeedsRecovery = tutorialFlow
+      && survival.berryEaten === true
+      && survival.woodGathered !== true
+      && tutorialFlow.isCompleted?.('s01.pickup') === true
+      && tutorialFlow.isCompleted?.('s01.chopWood') !== true
+      && tutorialFlow.isCurrent?.('s01.chopWood') !== true;
+    if (woodTutorialNeedsRecovery && !this.pendingPlacementReveals.has('S01-node-wood-1')) {
+      this._rememberPendingReveal(this._createWoodGatherContinuation());
+    }
     if (this.pendingPlacementReveals.size > 0 && !this.pendingRevealRetryInFlight) {
       const pending = this.pendingPlacementReveals.values().next().value;
       const retryInterval = Math.min(5, 0.75 * (2 ** Math.min(3, pending?.attempts || 0)));

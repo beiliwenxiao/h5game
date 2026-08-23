@@ -51,8 +51,8 @@ export class SceneItemGainedFlow {
 
     const { item, player } = this.queue.shift();
     const isEquipment = item.type === 'equipment';
-    const primaryLabel = isEquipment ? '装备'
-      : (item.type === 'consumable' && item.usable ? '使用' : null);
+    const primaryLabel = isEquipment ? '立即装备'
+      : (item.type === 'consumable' && item.usable ? '立即使用' : null);
     const comparison = isEquipment
       ? SceneEquipmentFlow.computeComparison(item, player)
       : [];
@@ -61,11 +61,12 @@ export class SceneItemGainedFlow {
       item,
       comparison,
       primaryLabel: primaryLabel || '放入背包',
+      showStore: Boolean(primaryLabel),
       remaining: this.queue.length,
       onPrimary: primaryLabel
         ? () => { this.handlePrimary(item, player); this.showNext(); }
         : () => this.showNext(),
-      onStore: () => this.showNext()
+      onStore: primaryLabel ? () => this.showNext() : null
     });
   }
 

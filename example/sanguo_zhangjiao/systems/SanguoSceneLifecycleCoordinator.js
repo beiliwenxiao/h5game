@@ -46,6 +46,11 @@ function initializeEnteredRuntime() {
 }
 
 function updateBeforeBase(deltaTime) {
+  const frameProfile = this.debugMode === true && this._framePerformanceProfile?.current
+    ? this._framePerformanceProfile.current
+    : null;
+  let phaseStartedAt = frameProfile ? performance.now() : 0;
+
   this._campfireService.update(deltaTime, {
     particleSystem: this.particleSystem,
     timeSystem: this.timeSystem,
@@ -56,6 +61,11 @@ function updateBeforeBase(deltaTime) {
     width: this.logicalWidth,
     height: this.logicalHeight
   });
+  if (frameProfile) {
+    const now = performance.now();
+    frameProfile.updateDemoCampfire = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
 
   if (this.weatherSystem) this.weatherSystem.update(deltaTime);
   if (this.timeSystem) {
@@ -65,11 +75,36 @@ function updateBeforeBase(deltaTime) {
     if (currentDay !== previousDay) this.s09RefugeeCoordinator._onGameDayChanged(currentDay);
   }
   this.s09RefugeeCoordinator._processDueStoryEvents();
+  if (frameProfile) {
+    const now = performance.now();
+    frameProfile.updateDemoTimeStory = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
+
   this._updateCityStateSummary();
   this._updateClassConfirmation();
+  if (frameProfile) {
+    const now = performance.now();
+    frameProfile.updateDemoSceneUi = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
+
   this.context.services.npcInteraction?.updatePresence?.();
+  if (frameProfile) {
+    const now = performance.now();
+    frameProfile.updateDemoNpcPresence = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
+
   this._sceneTriggerBindings?.update();
+  if (frameProfile) {
+    const now = performance.now();
+    frameProfile.updateDemoTriggerBindings = now - phaseStartedAt;
+    phaseStartedAt = now;
+  }
+
   this.updateClimbPrompt();
+  if (frameProfile) frameProfile.updateDemoClimbPrompt = performance.now() - phaseStartedAt;
 }
 
 function updateAfterBase(deltaTime) {
@@ -93,7 +128,6 @@ function updateAfterBase(deltaTime) {
   this.s05SceneCoordinator._updateS05ZhangManchengRescue(deltaTime);
   this.s11s14SceneCoordinator._updateS11S12Runtime();
   this.endingPresentationView?.update?.(deltaTime * 1000);
-  this._checkItemPickupEvents();
   this.observeWaveEvents();
   this.observeTutorialEventSources();
   this._campfireService.resolvePlayerCollision({

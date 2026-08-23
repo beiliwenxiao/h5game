@@ -54,10 +54,34 @@ export class SceneDiagnostics {
 
   recordTriggerFailure(envelope, { openPanel = true } = {}) {
     if (!this.isDebugEnabled()) return false;
-    this.records.push(envelope);
+    return this._recordDiagnostic(envelope, { openPanel });
+  }
+
+  recordEventConflict(record, { openPanel = record?.status === 'failed' } = {}) {
+    const failed = record?.status === 'failed' || (record?.failedTriggerIds?.length || 0) > 0;
+    return this._recordDiagnostic({ ...record, type: 'eventConflict' }, {
+      openPanel,
+      retainWithoutDebug: failed
+    });
+  }
+
+  recordApplicationEventConsumerFailure(record, { openPanel = false } = {}) {
+    return this._recordDiagnostic({ ...record, type: 'applicationEventConsumerFailure' }, {
+      openPanel,
+      retainWithoutDebug: true
+    });
+  }
+
+  _recordDiagnostic(record, { openPanel = false, retainWithoutDebug = false } = {}) {
+    const debugEnabled = this.isDebugEnabled();
+    if (!debugEnabled && !retainWithoutDebug) return false;
+    this.records.push(record);
+    const limit = debugEnabled ? 128 : 16;
+    if (this.records.length > limit) this.records.splice(0, this.records.length - limit);
+    if (!debugEnabled) return true;
     const panel = this._ensureDebugPanel();
     panel.setDiagnosticRecords(this.records);
-    panel.recordFailure(envelope);
+    panel.recordFailure(record);
     if (openPanel) panel.show();
     return true;
   }
@@ -460,6 +484,7 @@ export class SceneDiagnostics {
     this.beginReleaseAudit();
     this.scene.performanceMonitor?.dispose?.();
     this.teardownDrawCallCounter();
+    this.records.length = 0;
     const scene = this.scene;
     if (!scene.debugPanel) return;
     console.log('[BaseGameScene][DebugPanel] 场景退出，清理调试面板', {

@@ -116,10 +116,12 @@ function restoreSceneSaveState(data = {}) {
 }
 
 async function handleApplicationEvent(event = {}) {
-  if (!this.gameLoader || event.type !== 'item.picked') return false;
+  if (!this.gameLoader || event.type !== 'item.picked') {
+    return { ok: true, ignored: true, code: 'applicationEventNotHandled' };
+  }
   const payload = event.payload || {};
   const itemId = payload.itemId || payload.item?.id || payload.definitionId;
-  if (!itemId) return false;
+  if (!itemId) return { ok: true, ignored: true, code: 'itemIdMissing' };
   if (!this._firedPickups) this._firedPickups = new Set();
   const uid = [event.operationId || event.eventId, payload.definitionId || itemId,
     payload.instanceId || payload.groundId || 'stack'].join(':');
@@ -130,7 +132,9 @@ async function handleApplicationEvent(event = {}) {
       { kind: 'item', removed: true, quantity: 0 }
     );
   }
-  if (this._firedPickups.has(uid)) return false;
+  if (this._firedPickups.has(uid)) {
+    return { ok: true, idempotent: true, code: 'itemPickupAlreadyConsumed' };
+  }
 
   if (this.currentSceneId === 'S01'
     && payload.placementId === 'S01-pickup-worn-axe'
@@ -138,7 +142,9 @@ async function handleApplicationEvent(event = {}) {
     && this.gameLoader.blackboard?.get?.('storyState')?.s01Survival?.axeFound !== true) {
     const actorRef = this.playerEntity?.id;
     const gateway = this.sceneRuntime?.commandGateway;
-    if (!actorRef || !gateway) return false;
+    if (!actorRef || !gateway) {
+      return { ok: false, code: 'storyCommandUnavailable', message: 'S01 斧头剧情命令入口不可用' };
+    }
     const result = await gateway.execute({
       intentType: 'state.transaction',
       actorRef,
@@ -147,12 +153,15 @@ async function handleApplicationEvent(event = {}) {
     });
     if (result?.ok !== true) {
       this.notificationSystem?.addError?.('破旧斧头拾取剧情结算失败，请重试或读档。');
-      return false;
+      return {
+        ok: false,
+        code: result?.code || 'axeFoundTransactionFailed',
+        message: result?.error?.message || '破旧斧头拾取剧情结算失败'
+      };
     }
   }
 
-  this._firedPickups.add(uid);
-  this.gameLoader.triggerSystem.fire('itemPickup', {
+  const dispatch = await this.gameLoader.triggerSystem.fireCoordinated('itemPickup', {
     item: itemId,
     id: itemId,
     operationId: event.operationId || null,
@@ -161,8 +170,18 @@ async function handleApplicationEvent(event = {}) {
     placementId: payload.placementId || null,
     committed: true
   });
+  if (dispatch.ok !== true) {
+    return {
+      ok: false,
+      code: 'itemPickupTriggerFailed',
+      message: `itemPickup Trigger 执行失败: ${itemId}`,
+      dispatch
+    };
+  }
+
+  this._firedPickups.add(uid);
   console.log('[DDScene] itemPickup committed:', itemId);
-  return true;
+  return { ok: true, itemId, dispatch };
 }
 
 /** 仅供尚未迁移调用方使用；正式路径由 PostCommitNotificationBus 的 item.picked 事件进入。 */
@@ -381,7 +400,10 @@ function applySceneSaveState(data) {
     );
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
     void this.sanguoSceneNavigationCoordinator.projectEntryRuntime(this.currentSceneId);
-    this.resourceScope?.setTimeout(() => this._tutorialFlow.showNext(), 0);
+    this.resourceScope?.setTimeout(() => {
+      const deferredTutorialRecovery = this._s01s02Coordinator?.deferS01WoodGatherTutorialRecovery?.() === true;
+      if (!deferredTutorialRecovery) this._tutorialFlow.showNext();
+    }, 0);
     return { ok: true, errors: [] };
   } catch (error) {
     return failure('', error?.message || String(error), 'sceneStateRestoreFailed');

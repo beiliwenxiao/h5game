@@ -2868,14 +2868,6 @@
           }
         },
         {
-          "action": "scenario.command",
-          "await": true,
-          "params": {
-            "operation": "campfire.ignite",
-            "scenarioId": "scenario.command.campfire.ignite"
-          }
-        },
-        {
           "action": "s01Survival",
           "await": true,
           "params": {
@@ -4751,14 +4743,16 @@
       "order": 0,
       "steps": [
         {
-          "text": "寒风把你冻醒。使用 {move} 起身活动，再靠近熄灭的篝火使用 {interact} 点火。"
+          "text": "寒风把你冻醒。使用 {move} 起身活动。"
         }
       ],
       "signalRules": [],
       "movementRule": {
-        "threshold": 60
+        "mode": "anyMovement",
+        "threshold": 0
       },
       "completionPolicy": "signal",
+      "autoAdvance": false,
       "canSkip": false,
       "autoTrigger": false
     },
@@ -4816,6 +4810,27 @@
         }
       ],
       "completionPolicy": "signal",
+      "autoAdvance": false,
+      "canSkip": false,
+      "autoTrigger": false
+    },
+    {
+      "id": "s01.chopWood",
+      "title": "篝火熄灭",
+      "category": "s01-survival",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 3,
+      "steps": [
+        {
+          "text": "篝火熄灭了，寒夜里没有火撑不了多久。靠近枯木，使用 {harvest} 用破旧斧头砍柴，为篝火添燃料。"
+        }
+      ],
+      "signalRules": [],
+      "completionPolicy": "manual",
       "canSkip": false,
       "autoTrigger": false
     },
@@ -4828,7 +4843,7 @@
           "S01"
         ]
       },
-      "order": 3,
+      "order": 4,
       "steps": [
         {
           "text": "野狼出现后使用 {attack} 反击。攻击只有实际发动后才计入教学。"
@@ -4853,7 +4868,7 @@
           "S01"
         ]
       },
-      "order": 4,
+      "order": 5,
       "steps": [
         {
           "text": "使用 {harvest} 砍柴或剥皮；采集成功才消耗工具耐久。"
@@ -4885,7 +4900,7 @@
           "S01"
         ]
       },
-      "order": 5,
+      "order": 6,
       "steps": [
         {
           "text": "狼群追来后沿河逃跑，使用 {jump} 踩着河中石块到达对岸。"
@@ -4910,7 +4925,7 @@
           "S01"
         ]
       },
-      "order": 6,
+      "order": 7,
       "steps": [
         {
           "text": "六格小背包满时溢出物会留在原处。抵达山崖后使用 {climb} 攀上藤蔓逃往 S02。"

@@ -114,6 +114,19 @@ export class InventoryComponent extends Component {
   }
 
   /**
+   * 只扩不缩地确保背包具有至少指定数量的槽位，保留全部现有物品。
+   * @param {number} minimumSlots
+   * @returns {boolean} 是否扩容
+   */
+  ensureSlotCapacity(minimumSlots) {
+    const target = Math.max(0, Math.floor(Number(minimumSlots) || 0));
+    if (target <= this.maxSlots) return false;
+    this.slots.push(...new Array(target - this.maxSlots).fill(null));
+    this.maxSlots = target;
+    return true;
+  }
+
+  /**
    * 添加物品到背包
    * @param {Object} item - 物品数据
    * @param {number} quantity - 数量

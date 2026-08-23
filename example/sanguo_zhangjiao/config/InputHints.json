@@ -133,11 +133,11 @@
     },
     "harvest": {
       "pc": {
-        "key": "F",
+        "key": "E",
         "kind": "key"
       },
-      "android": "采集按钮",
-      "padKey": "f",
+      "android": "交互按钮",
+      "padKey": "e",
       "padFallback": "未绑定"
     },
     "potionHp": {

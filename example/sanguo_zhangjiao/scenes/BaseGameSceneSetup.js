@@ -765,7 +765,8 @@ export class BaseGameSceneSetup extends Scene {
       context: this.context,
       playerFactory: this._playerFactory,
       panelLayout,
-      lifecycleSystem: this.entityLifecycleSystem
+      lifecycleSystem: this.entityLifecycleSystem,
+      minimumInventorySlots: 24
     });
     this.context.lifecycle.player = this.playerLifecycle;
     this.playerEntity = this.playerLifecycle.createOrInherit(data || {}, {
@@ -795,6 +796,7 @@ export class BaseGameSceneSetup extends Scene {
     });
     const applicationEventBridge = new SceneApplicationEventBridge({
       notificationBus: this.sceneRuntime.notificationBus,
+      diagnostics: this._diagnostics,
       presenter: worldItemEvents,
       onContentEvent: event => this.onApplicationEvent?.(event),
       onAuxiliaryEvent: event => {
@@ -810,6 +812,7 @@ export class BaseGameSceneSetup extends Scene {
       }
     });
     applicationEventBridge.bind();
+    this.sceneRuntime.onUpdate(deltaTime => applicationEventBridge.update(deltaTime));
     this.context.services.applicationEvents = applicationEventBridge;
     this.resourceScope.track(() => applicationEventBridge.dispose());
 
@@ -821,7 +824,7 @@ export class BaseGameSceneSetup extends Scene {
         ?? this.tutorialSystem?.isTutorialCompleted?.(tutorialId)
         ?? false,
       resolveDynamicTarget: (targetId, binding) => {
-        const entity = this.entityStore?.all?.find?.(candidate => candidate?.id === targetId);
+        const entity = this.entityStore?.getById?.(targetId);
         if (!entity) return null;
         const sceneId = entity.vehicleSceneId || entity.sceneId || this.currentSceneId || '';
         if (binding?.sceneId && sceneId && binding.sceneId !== sceneId) return null;

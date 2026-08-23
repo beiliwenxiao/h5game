@@ -5,7 +5,7 @@
 
 /** 统一拥有玩家创建/继承、绑定和 EntityLifecycleSystem 接线。 */
 export class ScenePlayerLifecycle {
-  constructor({ scene, context, playerFactory, panelLayout, lifecycleSystem } = {}) {
+  constructor({ scene, context, playerFactory, panelLayout, lifecycleSystem, minimumInventorySlots = 0 } = {}) {
     if (!scene) throw new TypeError('ScenePlayerLifecycle requires scene');
     if (!context?.entities) throw new TypeError('ScenePlayerLifecycle requires context');
     const createPlayer = typeof playerFactory === 'function' ? playerFactory : playerFactory?.create;
@@ -18,6 +18,7 @@ export class ScenePlayerLifecycle {
     this.playerFactory = playerFactory;
     this.panelLayout = panelLayout;
     this.lifecycleSystem = lifecycleSystem;
+    this.minimumInventorySlots = Math.max(0, Math.floor(Number(minimumInventorySlots) || 0));
     this._createPlayer = createPlayer.bind(playerFactory);
     this._protectedPlayer = null;
     this._previousBeforeRemove = null;
@@ -29,6 +30,7 @@ export class ScenePlayerLifecycle {
     const inherited = data?.playerEntity || null;
     const player = inherited || this._createPlayer(this.scene, data || {});
     if (!player) throw new Error('playerFactory did not return an entity');
+    this._ensureMinimumInventorySlots(player);
 
     this.context.entities.add(player);
     this.context.entities.player = player;
@@ -40,6 +42,12 @@ export class ScenePlayerLifecycle {
     this._bindPlayer(player, Boolean(inherited));
     if (!inherited) options.onCreated?.(player);
     return player;
+  }
+
+  _ensureMinimumInventorySlots(player) {
+    if (this.minimumInventorySlots <= 0) return false;
+    return player?.getComponent?.('inventory')
+      ?.ensureSlotCapacity?.(this.minimumInventorySlots) === true;
   }
 
   _bindPlayer(player, inherited) {

@@ -43,6 +43,26 @@ export function validateTriggerDefinition(trigger, project = null) {
   if (!trigger?.id || typeof trigger.id !== 'string') errors.push('id 必须是非空字符串');
   if (!trigger?.when?.type) errors.push('when.type 不能为空');
   if (!Array.isArray(trigger?.do)) errors.push('do 必须是数组');
+  if (trigger?.coordination !== undefined) {
+    const coordination = trigger.coordination;
+    if (!coordination || typeof coordination !== 'object' || Array.isArray(coordination)) {
+      errors.push('coordination 必须是对象');
+    } else {
+      if (typeof coordination.group !== 'string' || !coordination.group.trim()) {
+        errors.push('coordination.group 必须是非空字符串');
+      }
+      if (coordination.priority !== undefined && !Number.isInteger(coordination.priority)) {
+        errors.push('coordination.priority 必须是整数');
+      }
+      const policy = coordination.policy ?? 'broadcast';
+      if (!['broadcast', 'firstSuccess'].includes(policy)) {
+        errors.push('coordination.policy 仅允许 broadcast 或 firstSuccess');
+      }
+      if (policy === 'firstSuccess' && !coordination.group?.trim?.()) {
+        errors.push('firstSuccess 必须声明 coordination.group');
+      }
+    }
+  }
   const known = new Set(getTriggerActions(project).map(item => item.value));
   for (const [index, action] of (trigger?.do || []).entries()) if (!known.has(action?.action)) errors.push(`do[${index}].action 未登记: ${action?.action || ''}`);
   return errors;

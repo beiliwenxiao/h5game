@@ -351,7 +351,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.23_
     - _Requirements: 2.12, 3.4, 3.7, 3.10_
 
-  - [~] 3.25 迁移 Dialogue、Tutorial、Teleport、Checkpoint 与薄 Scene 边界
+  - [ ] 3.25 迁移 Dialogue、Tutorial、Teleport、Checkpoint 与薄 Scene 边界
     - DialogueSystem 唯一拥有 session/node/history/completed；choice 只发标准 dialogueChoice，Trigger chain 成功后才推进。保留 repeatable、idleText、商店/任务交互优先级和 completed save/load。
     - Tutorial definitions 完整保存步骤、signal rules、阈值、文案和 completion policy；TutorialSystem 只持运行态，`project.tutorials` 不再被普通 Trigger 双重解释。
     - world.teleport 只调用 ChunkNavigator/RegionCoordinator，checkpoint.request 只调用 SaveGameService/SnapshotManager；目标失败保持旧 Region/位置/Story/Trigger ledger。
@@ -374,7 +374,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 当前 QuestPanel/Tracker 接取/放弃/提交/追踪可观察结果作为迁移 golden；不保留硬编码示例内容_
     - _Requirements: 2.7, 2.10, 2.12, 3.3, 3.4, 3.7, 3.10_
 
-  - [-]* 3.27 为 QuestRuntimeState 与 QuestTransactionService 增加属性测试（可选）
+  - [ ]* 3.27 为 QuestRuntimeState 与 QuestTransactionService 增加属性测试（可选）
     - **Property 10: Fix Checking** - Sole QuestResolver and Atomic Reward Settlement
     - 生成 QuestDefinition/QuestRuntimeState、重复 ID、objective signals、time/repeat/reward、state revision/operation 与阶段故障，与纯 QuestResolver/Transaction Service model 比较 runtime state、remaining、state revision、settlement、committed notifications 和 checkpoint。
     - _Depends on: 3.26_
@@ -476,7 +476,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Depends on: 3.36_
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 3.10, 3.11, 3.12_
 
-  - [~] 3.38 执行 P6.2 性能和稳定性的明确实测验收
+  - [ ] 3.38 执行 P6.2 性能和稳定性的明确实测验收
     - 在 S11 记录版本、设备/浏览器、分辨率、requested/actual backend、至少 100 个活动 ECS 实体、采样区间、平均 FPS、1% low、长任务和 draw calls；只有平均帧率实测 ≥60 才标通过。
     - 在同一 Region 连续跨界前后记录内存与峰值；只有实测峰值 `<100MB`，并确认 owner/listener/timer/resource/async token 无新增残留才标通过。
     - 从同一 AuthoritySnapshot、seed、fake clocks 和 commands 分别运行 2D/3D，比较 service-owned state、ordered committed notifications、state revision、RNG counters 和 projection；只有 canonical diff=0 才标通过。
@@ -488,7 +488,7 @@ wave 6 的 3.15 同时依赖 wave 5 的 3.4 与 wave 4 的 3.6；3.23 在 3.22 �
     - _Preservation: 性能优化不得改变业务状态、ordered committed notification 顺序、输入优先级或表现资源边界_
     - _Requirements: 2.1, 2.11, 2.12, 3.9, 3.10, 3.12_
 
-- [~] 4. Checkpoint - 确保所有自动化检查与实测边界状态明确
+- [ ] 4. Checkpoint - 确保所有自动化检查与实测边界状态明确
   - _Depends on: 3.38_
   - 运行受影响模块的 diagnostics 与针对性 Vitest 单次执行（使用 `--run`），确认任务 1 的 Property 1、任务 2 的 Property 2、分域 unit/PBT/integration 和审计门禁均通过。
   - 不自动扩大为全量测试、coverage、生产 build 或 dev server；如需扩大验证范围，先由用户决定。

@@ -11,6 +11,7 @@ export class SceneTutorialFlow {
     this.scheduler = config.scheduler || (callback => setTimeout(callback, 0));
     this._presentationBound = false;
     this._panelVisibility = new Map();
+    this._lastMovementPosition = null;
   }
 
   bindPresentation() {
@@ -18,7 +19,10 @@ export class SceneTutorialFlow {
     if (!presenter) return false;
     this.tutorialSystem.onShow(data => presenter.show?.(data));
     this.tutorialSystem.onHide(() => presenter.hide?.());
-    this.tutorialSystem.onComplete(() => this.scheduler(() => this.showNext()));
+    this.tutorialSystem.onComplete((_tutorialId, definition) => {
+      if (definition?.autoAdvance === false) return;
+      this.scheduler(() => this.showNext());
+    });
     this._presentationBound = true;
     return true;
   }
@@ -29,8 +33,10 @@ export class SceneTutorialFlow {
 
   complete(tutorialId) {
     if (!tutorialId || this.isCompleted(tutorialId)) return false;
+    const definition = this.tutorialSystem.getTutorial(tutorialId);
     this.tutorialSystem.completeTutorial(tutorialId);
-    if (!this.tutorialSystem.isShowingTutorial()) this.showNext();
+    if (!this._presentationBound && definition?.autoAdvance !== false
+      && !this.tutorialSystem.isShowingTutorial()) this.showNext();
     return true;
   }
 
@@ -49,14 +55,20 @@ export class SceneTutorialFlow {
 
   resetMovementOrigin(position = null) {
     const scope = this.getScope();
-    const definition = this.tutorialSystem.getAllTutorials()
-      .find(value => this._matchesScope(value, scope)
+    const definition = this.tutorialSystem.getCurrentTutorial()
+      || this.tutorialSystem.getAllTutorials().find(value => this._matchesScope(value, scope)
         && value.movementRule && !this.isCompleted(value.id));
     this.tutorialSystem.resetMovementOrigin(definition?.id || null, position);
+    this._lastMovementPosition = this._copyPosition(position);
   }
 
   updateMovement(position, options = {}) {
+    const definition = this.tutorialSystem.getCurrentTutorial();
+    if (definition?.movementRule?.mode === 'anyMovement' && this._lastMovementPosition) {
+      this.tutorialSystem.resetMovementOrigin(definition.id, this._lastMovementPosition);
+    }
     const completed = this.tutorialSystem.updateMovement(position, null, this.getScope());
+    this._lastMovementPosition = this._copyPosition(position);
     if (completed) options.onComplete?.({ position });
     return completed;
   }
@@ -79,6 +91,13 @@ export class SceneTutorialFlow {
 
   resetObservedSources() {
     this._panelVisibility.clear();
+    this._lastMovementPosition = null;
+  }
+
+  _copyPosition(position) {
+    return Number.isFinite(position?.x) && Number.isFinite(position?.y)
+      ? { x: position.x, y: position.y }
+      : null;
   }
 
   _normalizePanels(panels) {

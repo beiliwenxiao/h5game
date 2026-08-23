@@ -153,9 +153,25 @@ export class DebugPanel {
   _renderDiagnosticRecords() {
     const target = this._el?.querySelector?.('#dp-trigger-failures');
     if (!target) return;
-    const failures = this.diagnosticRecords.filter(record => record?.type === 'triggerFailure');
-    target.textContent = failures.length
-      ? failures.slice(-5).map(record => `${record.triggerId} #${record.action?.index} ${record.reason}`).join('\n')
+    const records = this.diagnosticRecords.filter(record => [
+      'triggerFailure', 'eventConflict', 'applicationEventConsumerFailure'
+    ].includes(record?.type));
+    const format = record => {
+      if (record.type === 'triggerFailure') {
+        return `[触发失败] ${record.triggerId} #${record.action?.index ?? '-'} ${record.reason || record.code || 'unknown'}`;
+      }
+      if (record.type === 'eventConflict') {
+        const winners = record.winnerTriggerIds?.join(',') || '-';
+        const failed = record.failedTriggerIds?.join(',') || '-';
+        return `[事件仲裁] ${record.eventType || '?'} ${record.status || '?'} 胜出:${winners} 失败:${failed}`;
+      }
+      const retry = record.consumer === 'content'
+        ? ` ${record.exhausted ? '重试耗尽' : `重试 ${record.attempt}/${record.maxRetries}`}`
+        : '';
+      return `[事件消费] ${record.eventType || '?'} ${record.consumer || '?'} ${record.code || 'failed'}${retry}`;
+    };
+    target.textContent = records.length
+      ? records.slice(-8).map(format).join('\n')
       : '--';
   }
 
@@ -199,7 +215,7 @@ export class DebugPanel {
           <div id="dp-triggers">--</div>
         </div>
         <div class="dp-section">
-          <div class="dp-title">触发器失败诊断</div>
+          <div class="dp-title">事件冲突与失败诊断</div>
           <pre id="dp-trigger-failures">--</pre>
         </div>
         <div class="dp-section">

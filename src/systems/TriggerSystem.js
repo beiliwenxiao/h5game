@@ -12,8 +12,18 @@ import { createTriggerFailureEnvelope, TriggerExecutionError } from './TriggerFa
 
 const REENTRY_POLICIES = new Set(['reject', 'queue', 'restart']);
 const CATCH_UP_POLICIES = new Set(['resume', 'skip', 'single', 'all']);
+const COORDINATION_POLICIES = new Set(['broadcast', 'firstSuccess']);
 const hasText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
+
+const coordinationOf = trigger => {
+  const value = trigger?.coordination || {};
+  return {
+    group: hasText(value.group) ? value.group.trim() : null,
+    priority: Number.isInteger(value.priority) ? value.priority : 0,
+    policy: hasText(value.policy) ? value.policy : 'broadcast'
+  };
+};
 
 function errorResult(operationId, triggerId, error, code = null) {
   return {
@@ -77,6 +87,8 @@ export class TriggerSystem {
     this._listeners = [];
     this._active = new Map();
     this._queues = new Map();
+    this._coordinationTails = new Map();
+    this._coordinationGeneration = 0;
     this._operationSequence = 0;
     this._eventSequence = 0;
   }
@@ -128,6 +140,7 @@ export class TriggerSystem {
     if (this._triggersById.has(trigger.id)) throw new Error(`TriggerSystem.register: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
     const policy = this._reentryPolicy(trigger);
     if (!REENTRY_POLICIES.has(policy)) throw new Error(`TriggerSystem.register: ${trigger.id}.reentryPolicy 非法`);
+    this._validateCoordinationDefinition(trigger);
     this.triggers.push(trigger);
     this._triggersById.set(trigger.id, trigger);
     this.ledger.registerIdle(trigger.id, this.definitionRevision);
@@ -137,10 +150,14 @@ export class TriggerSystem {
 
   registerAll(list = []) {
     const seen = new Set(this._triggersById.keys());
+    const coordinationPolicies = this._coordinationPolicyIndex(this.triggers);
     for (const trigger of list) {
       if (!trigger || !hasText(trigger.id)) throw new Error('TriggerSystem.registerAll: trigger.id 必须是非空字符串');
       if (!trigger.when?.type) throw new Error(`TriggerSystem.registerAll: ${trigger.id}.when.type 不能为空`);
       if (seen.has(trigger.id)) throw new Error(`TriggerSystem.registerAll: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
+      const policy = this._reentryPolicy(trigger);
+      if (!REENTRY_POLICIES.has(policy)) throw new Error(`TriggerSystem.registerAll: ${trigger.id}.reentryPolicy 非法`);
+      this._validateCoordinationDefinition(trigger, coordinationPolicies);
       seen.add(trigger.id);
     }
     for (const trigger of list) this.register(trigger);
@@ -151,6 +168,8 @@ export class TriggerSystem {
     this._triggersById.clear();
     this._active.clear();
     this._queues.clear();
+    this._coordinationGeneration += 1;
+    this._coordinationTails.clear();
     this._firedOnce.clear();
     this._cooldowns = Object.create(null);
     this._timers = [];
@@ -173,6 +192,86 @@ export class TriggerSystem {
       accepted: requests.length,
       records
     };
+  }
+
+  /**
+   * 对同一内容事件执行确定性仲裁；旧 fire/fireById 保持原有 accepted 语义。
+   * 未配置 coordination 的 trigger 各自作为 broadcast 候选，行为保持兼容。
+   */
+  async fireCoordinated(whenType, params = {}) {
+    const matched = this.triggers
+      .map((trigger, index) => ({ trigger, index, coordination: coordinationOf(trigger) }))
+      .filter(candidate => candidate.trigger.when?.type === whenType
+        && this._matchParams(candidate.trigger.when.params, params));
+    if (matched.length === 0) {
+      return {
+        ok: true, accepted: 0, succeeded: 0, failed: 0, skipped: 0,
+        winners: [], records: [], matchedTriggerIds: []
+      };
+    }
+
+    const groups = new Map();
+    for (const candidate of matched) {
+      const key = candidate.coordination.group
+        ? `${whenType}:group:${candidate.coordination.group}`
+        : `${whenType}:trigger:${candidate.trigger.id}`;
+      const group = groups.get(key) || {
+        key,
+        group: candidate.coordination.group,
+        policy: candidate.coordination.policy,
+        candidates: []
+      };
+      group.candidates.push(candidate);
+      groups.set(key, group);
+    }
+
+    const generation = this._coordinationGeneration;
+    const groupResults = await Promise.all([...groups.values()].map(group => (
+      this._enqueueCoordinationGroup(group.key, async () => {
+        if (generation !== this._coordinationGeneration) {
+          return {
+            ok: true,
+            entries: group.candidates.map(candidate => ({
+              triggerId: candidate.trigger.id,
+              operationId: null,
+              status: 'skipped',
+              code: 'coordinationReset'
+            }))
+          };
+        }
+        return this._runCoordinatedGroup(group, whenType, params);
+      })
+    )));
+    const records = groupResults.flatMap(result => result.entries || []);
+    const succeededRecords = records.filter(record => record.status === 'succeeded');
+    const failedRecords = records.filter(record => record.status === 'failed');
+    const skippedRecords = records.filter(record => record.status === 'skipped');
+    const result = {
+      ok: groupResults.every(group => group.ok !== false),
+      accepted: succeededRecords.length + failedRecords.length,
+      succeeded: succeededRecords.length,
+      failed: failedRecords.length,
+      skipped: skippedRecords.length,
+      winners: groupResults.flatMap(group => group.winners || []),
+      records,
+      matchedTriggerIds: matched.map(candidate => candidate.trigger.id)
+    };
+    if (matched.length > 1 || failedRecords.length > 0
+      || skippedRecords.some(record => record.code === 'skippedByConflictPolicy')) {
+      this.sceneDiagnostics?.recordEventConflict?.({
+        type: 'eventConflict',
+        eventType: whenType,
+        eventId: params.eventId || null,
+        operationId: params.operationId || null,
+        matchedTriggerIds: result.matchedTriggerIds,
+        winnerTriggerIds: result.winners,
+        skippedTriggerIds: skippedRecords.map(record => record.triggerId),
+        failedTriggerIds: failedRecords.map(record => record.triggerId),
+        status: result.ok ? 'resolved' : 'failed',
+        code: result.ok ? null : 'allCandidatesFailed'
+      });
+    }
+    return result;
   }
 
   fire(whenType, params = {}) {
@@ -242,6 +341,84 @@ export class TriggerSystem {
     return true;
   }
 
+  async _enqueueCoordinationGroup(key, run) {
+    const previous = this._coordinationTails.get(key) || Promise.resolve();
+    const current = previous.catch(() => null).then(run);
+    this._coordinationTails.set(key, current);
+    try {
+      return await current;
+    } finally {
+      if (this._coordinationTails.get(key) === current) this._coordinationTails.delete(key);
+    }
+  }
+
+  async _runCoordinatedGroup(group, whenType, params) {
+    const candidates = [...group.candidates].sort((left, right) => (
+      right.coordination.priority - left.coordination.priority || left.index - right.index
+    ));
+    const entries = [];
+    const winners = [];
+    for (let index = 0; index < candidates.length; index++) {
+      const candidate = candidates[index];
+      const sourceOperationId = hasText(params.operationId)
+        ? params.operationId
+        : (hasText(params.eventId) ? params.eventId : null);
+      const eventParams = sourceOperationId
+        ? { ...params, operationId: `${sourceOperationId}:trigger:${candidate.trigger.id}` }
+        : params;
+      const request = this._enqueueRun(candidate.trigger, { type: whenType, params: eventParams });
+      if (!request) {
+        entries.push({
+          triggerId: candidate.trigger.id,
+          operationId: null,
+          status: 'skipped',
+          code: 'notEligible'
+        });
+        continue;
+      }
+      const settled = await request.completion;
+      if (settled?.skipped) {
+        entries.push({
+          triggerId: candidate.trigger.id,
+          operationId: request.operationId,
+          status: 'skipped',
+          code: settled.code || 'notEligible'
+        });
+        continue;
+      }
+      const record = settled?.record || this.ledger.get(candidate.trigger.id);
+      const succeeded = settled?.value?.ok === true && record?.status === 'succeeded';
+      entries.push({
+        triggerId: candidate.trigger.id,
+        operationId: request.operationId,
+        status: succeeded ? 'succeeded' : 'failed',
+        code: succeeded ? null : (record?.result?.code || settled?.error?.code || 'triggerFailed'),
+        record
+      });
+      if (!succeeded) continue;
+      winners.push(candidate.trigger.id);
+      if (group.policy !== 'firstSuccess') continue;
+      for (const skipped of candidates.slice(index + 1)) {
+        entries.push({
+          triggerId: skipped.trigger.id,
+          operationId: null,
+          status: 'skipped',
+          code: 'skippedByConflictPolicy'
+        });
+      }
+      break;
+    }
+    const attempted = entries.filter(entry => entry.status !== 'skipped');
+    const succeeded = entries.filter(entry => entry.status === 'succeeded');
+    return {
+      ok: group.policy === 'firstSuccess'
+        ? (succeeded.length > 0 || attempted.length === 0)
+        : entries.every(entry => entry.status !== 'failed'),
+      winners,
+      entries
+    };
+  }
+
   _tryRun(trigger, event) {
     return Boolean(this._enqueueRun(trigger, event));
   }
@@ -283,32 +460,54 @@ export class TriggerSystem {
       triggerId: trigger.id, definitionRevision: this.definitionRevision, sequence, eventType: event?.type
     });
     if (!hasText(operationId)) throw new TypeError('Trigger operationIdFactory must return a stable non-empty ID');
+    let resolveCompletion;
+    const completion = new Promise(resolve => { resolveCompletion = resolve; });
     return {
-      event, operationId,
-      fingerprint: this._operationFingerprint(trigger, operationId)
+      event,
+      operationId,
+      fingerprint: this._operationFingerprint(trigger, operationId),
+      completion,
+      resolveCompletion
     };
   }
 
   _startExecution(trigger, request) {
     const token = { cancelled: false, promise: null };
     this._active.set(trigger.id, token);
-    token.promise = this._execute(trigger, request, token)
-      .finally(() => {
-        if (this._active.get(trigger.id) !== token) return;
-        this._active.delete(trigger.id);
-        const queue = this._queues.get(trigger.id) || [];
-        const next = queue.shift();
-        if (queue.length) this._queues.set(trigger.id, queue);
-        else this._queues.delete(trigger.id);
-        if (next && !(trigger.once && this._firedOnce.has(trigger.id))) this._startExecution(trigger, next);
-      });
-    // fireAndWait() observes the same execution record as asynchronous callers.
-    // Keep rejection in token.promise for lifecycle callers while returning a settled
-    // request record for aggregate signal dispatch.
-    request.completion = token.promise.then(
-      value => ({ value, record: this.ledger.get(trigger.id) }),
-      error => ({ error, record: this.ledger.get(trigger.id) })
-    );
+    const executionPromise = this._execute(trigger, request, token);
+    token.promise = executionPromise.then(
+      value => {
+        request.resolveCompletion({ value, record: clone(this.ledger.get(trigger.id)) });
+        return value;
+      },
+      error => {
+        request.resolveCompletion({ error, record: clone(this.ledger.get(trigger.id)) });
+        throw error;
+      }
+    ).finally(() => {
+      if (this._active.get(trigger.id) !== token) return;
+      this._active.delete(trigger.id);
+      const queue = this._queues.get(trigger.id) || [];
+      const next = queue.shift();
+      if (trigger.once && this._firedOnce.has(trigger.id)) {
+        this._queues.delete(trigger.id);
+        const record = clone(this.ledger.get(trigger.id));
+        for (const skipped of [next, ...queue].filter(Boolean)) {
+          skipped.resolveCompletion({
+            value: null,
+            record,
+            skipped: true,
+            code: 'onceAlreadyFired'
+          });
+        }
+        return;
+      }
+      if (queue.length) this._queues.set(trigger.id, queue);
+      else this._queues.delete(trigger.id);
+      if (next) this._startExecution(trigger, next);
+    });
+    // debug 模式会保留 TriggerExecutionError；显式观察避免无人等待时产生未处理拒绝。
+    token.promise.catch(() => {});
   }
 
   async _execute(trigger, request, token) {
@@ -642,6 +841,8 @@ export class TriggerSystem {
     for (const active of this._active.values()) active.cancelled = true;
     this._active.clear();
     this._queues.clear();
+    this._coordinationGeneration += 1;
+    this._coordinationTails.clear();
     this.ledger = nextLedger;
     this._firedOnce = nextOnce;
     this._cooldowns = nextCooldowns;
@@ -674,6 +875,47 @@ export class TriggerSystem {
       nextDue: this.monotonicClock.now() + interval,
       remaining: interval
     };
+  }
+
+  _coordinationPolicyIndex(triggers = []) {
+    const index = new Map();
+    for (const trigger of triggers) {
+      if (trigger?.coordination === undefined) continue;
+      const coordination = coordinationOf(trigger);
+      if (!coordination.group || !trigger.when?.type) continue;
+      index.set(`${trigger.when.type}:${coordination.group}`, coordination.policy);
+    }
+    return index;
+  }
+
+  _validateCoordinationDefinition(trigger, policyIndex = null) {
+    const raw = trigger?.coordination;
+    if (raw === undefined) return true;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.coordination 必须是对象`);
+    }
+    if (!hasText(raw.group)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.coordination.group 必须是非空字符串`);
+    }
+    if (raw.priority !== undefined && !Number.isInteger(raw.priority)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.coordination.priority 必须是整数`);
+    }
+    const policy = raw.policy === undefined ? 'broadcast' : raw.policy;
+    if (!COORDINATION_POLICIES.has(policy)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.coordination.policy 非法`);
+    }
+    if (policy === 'firstSuccess' && !hasText(raw.group)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id} 的 firstSuccess 必须声明 coordination.group`);
+    }
+    const group = raw.group.trim();
+    const key = `${trigger.when.type}:${group}`;
+    const policies = policyIndex || this._coordinationPolicyIndex(this.triggers);
+    const existing = policies.get(key);
+    if (existing && existing !== policy) {
+      throw new Error(`TriggerSystem.register: ${trigger.id} 与 ${key} 组内 coordination.policy 不一致`);
+    }
+    policies.set(key, policy);
+    return true;
   }
 
   _reentryPolicy(trigger) { return trigger.reentryPolicy || trigger.reentry || 'reject'; }

@@ -75,10 +75,10 @@ export class SceneNpcInteractionFlow {
   }
 
   _updateRange(transform, playerTransform, npcComponent) {
-    const inRange = Math.hypot(
-      transform.position.x - playerTransform.position.x,
-      transform.position.y - playerTransform.position.y
-    ) <= (npcComponent.interactionRadius || 60);
+    const dx = transform.position.x - playerTransform.position.x;
+    const dy = transform.position.y - playerTransform.position.y;
+    const radius = npcComponent.interactionRadius || 60;
+    const inRange = dx * dx + dy * dy <= radius * radius;
     npcComponent.inRange = inRange;
     return inRange;
   }

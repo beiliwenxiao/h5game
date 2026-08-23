@@ -806,17 +806,26 @@
       "objects": [
         {
           "activeWhen": {
-            "equals": false,
-            "path": "s01Survival.campfireLit"
+            "all": [
+              {
+                "tutorialId": "s01.move",
+                "completed": true
+              },
+              {
+                "blackboardKey": "storyState",
+                "equals": false,
+                "path": "s01Survival.campfireLit"
+              }
+            ]
           },
-          "anchorOffsetY": -15,
+          "anchorOffsetY": 0,
           "event": "interact",
           "height": 42,
           "id": "S01-binding-light-campfire",
           "name": "点燃篝火",
           "pointerRadius": 80,
           "prompt": "{interact}点燃篝火",
-          "radius": 60,
+          "radius": 72,
           "target": "S01-spawn-campfire",
           "targetMode": "id",
           "triggerId": "trg_s01_light_campfire",

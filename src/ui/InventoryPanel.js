@@ -148,30 +148,9 @@ export class InventoryPanel extends UIElement {
             const slots = projection.equipment || {};
             return { slots, getEquipment: slot => slots[slot] || null };
           }
-          if (type === 'inventory') {
-            const inventory = projection.inventory || {};
-            const slots = inventory.slots || [];
-            const filters = {
-              all: () => true,
-              equipment: item => item.type === 'equipment' || ['weapon', 'armor', 'helmet', 'boots', 'gloves', 'accessory'].includes(item.type),
-              consumable: item => item.type === 'consumable',
-              material: item => item.type === 'material' || item.type === 'resource',
-              quest: item => item.type === 'quest'
-            };
-            return {
-              slots,
-              filters,
-              maxSlots: inventory.maxSlots || slots.length,
-              currentFilter: this.currentFilter,
-              getSlot: index => slots[index] || null,
-              getUsedSlotCount: () => slots.reduce((count, slot) => count + (slot ? 1 : 0), 0),
-              getAllItems: () => slots.map((slot, index) => ({ slot, index })).filter(entry => entry.slot),
-              setFilter: filter => { if (filters[filter]) this.currentFilter = filter; },
-              getItemCount: itemId => slots.reduce((sum, stack) => (
-                stack?.item?.id === itemId ? sum + stack.quantity : sum
-              ), 0)
-            };
-          }
+          // 物品获得事务直接提交到 InventoryComponent；旧的只读投影尚未刷新时
+          // 不得覆盖真实库存，否则会出现“已获得但背包空白”的错误状态。
+          if (type === 'inventory') return target.getComponent?.('inventory') || null;
           return target.getComponent?.(type);
         };
       }

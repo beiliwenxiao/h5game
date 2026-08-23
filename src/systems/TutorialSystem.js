@@ -150,8 +150,15 @@ export class TutorialSystem {
       this.movementOrigins.set(definition.id, { x: position.x, y: position.y });
       return false;
     }
-    const distance = Math.hypot(position.x - origin.x, position.y - origin.y);
-    if (distance < Math.max(0, Number(definition.movementRule.threshold) || 0)) return false;
+    const deltaX = position.x - origin.x;
+    const deltaY = position.y - origin.y;
+    if (definition.movementRule.mode === 'anyMovement') {
+      const epsilon = Math.max(0.001, Number(definition.movementRule.epsilon) || 0.01);
+      if (deltaX * deltaX + deltaY * deltaY <= epsilon * epsilon) return false;
+    } else {
+      const threshold = Math.max(0, Number(definition.movementRule.threshold) || 0);
+      if (Math.hypot(deltaX, deltaY) < threshold) return false;
+    }
     this.completeTutorial(definition.id);
     return true;
   }

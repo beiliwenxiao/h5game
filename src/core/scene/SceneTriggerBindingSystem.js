@@ -8,6 +8,8 @@ import { normalizeSceneObjectSelector, resolveSceneObjects } from './SceneObject
 import { createSpatialTriggerBinding } from './SpatialTriggerBinding.js';
 import { resolveSceneSpatialGeometry } from './SceneSpatialGeometry.js';
 
+const EMPTY_TARGETS = Object.freeze([]);
+
 /**
  * 场景空间触发器绑定：只处理已投影到世界坐标的 binding，行为始终由 TriggerSystem 执行。
  */
@@ -34,6 +36,9 @@ export class SceneTriggerBindingSystem {
     this.sceneObjects = [];
     this._inside = new Map();
     this._completedBindings = new Set();
+    this._selectors = new Map();
+    this._staticSpatialContexts = new Map();
+    this._spatialContexts = new Map();
     this._activePromptBindingId = null;
     this._disposed = false;
   }
@@ -66,7 +71,15 @@ export class SceneTriggerBindingSystem {
     this._setActivePrompt(null);
     this._inside.clear();
     this._completedBindings.clear();
-    for (const binding of this.bindings) this._inside.set(binding.id, false);
+    this._selectors.clear();
+    this._staticSpatialContexts.clear();
+    this._spatialContexts.clear();
+    for (const binding of this.bindings) {
+      this._inside.set(binding.id, false);
+      const selector = binding.selector || normalizeSceneObjectSelector({ sceneId: binding.sceneId });
+      this._selectors.set(binding.id, selector);
+      this._staticSpatialContexts.set(binding.id, this._createStaticSpatialContext(binding, selector));
+    }
     return this;
   }
 
@@ -74,20 +87,16 @@ export class SceneTriggerBindingSystem {
     if (this._disposed || !this.triggerSystem) return 0;
     const position = this._playerPosition();
     if (!position) return 0;
-    const spatialContexts = new Map();
-    const resolveSpatial = binding => {
-      if (!spatialContexts.has(binding.id)) spatialContexts.set(binding.id, this._resolveSpatialContext(binding));
-      return spatialContexts.get(binding.id);
-    };
+    this._spatialContexts.clear();
     let fired = 0;
     for (const binding of this.bindings) {
       const eventType = this._eventType(binding);
-      if (!['approach', 'enter', 'leave'].includes(eventType)) continue;
+      if (eventType !== 'approach' && eventType !== 'enter' && eventType !== 'leave') continue;
       if (!this._isBindingActive(binding)) {
         this._inside.set(binding.id, false);
         continue;
       }
-      const spatial = resolveSpatial(binding);
+      const spatial = this._resolveSpatialCached(binding);
       const inside = this._contains(binding, position.x, position.y, false, spatial);
       const wasInside = this._inside.get(binding.id) === true;
       this._inside.set(binding.id, inside);
@@ -97,23 +106,33 @@ export class SceneTriggerBindingSystem {
         if (this._fire(binding, eventType, spatial)) fired++;
       }
     }
-    this._updatePrompt(position, resolveSpatial);
+    this._updatePrompt(position);
     return fired;
   }
 
-  _updatePrompt(position, resolveSpatial = binding => this._resolveSpatialContext(binding)) {
-    const candidate = this.bindings
-      .filter(binding => this._eventType(binding) === 'interact' && binding.prompt && !this._completedBindings.has(binding.id))
-      .filter(binding => this._isBindingActive(binding))
-      .filter(binding => {
-        const definition = this.triggerSystem?.getById?.(binding.triggerId);
-        return !definition?.once || !this.triggerSystem.hasFiredOnce?.(binding.triggerId);
-      })
-      .map(binding => ({ binding, spatial: resolveSpatial(binding) }))
-      .filter(candidate => this._contains(candidate.binding, position.x, position.y, false, candidate.spatial))
-      .sort((a, b) => this._distanceSq(a.binding, position, a.spatial)
-        - this._distanceSq(b.binding, position, b.spatial))[0]?.binding || null;
-    this._setActivePrompt(candidate);
+  _resolveSpatialCached(binding) {
+    if (!this._spatialContexts.has(binding.id)) {
+      this._spatialContexts.set(binding.id, this._resolveSpatialContext(binding));
+    }
+    return this._spatialContexts.get(binding.id);
+  }
+
+  _updatePrompt(position) {
+    let bestBinding = null;
+    let bestDistance = Infinity;
+    for (const binding of this.bindings) {
+      if (this._eventType(binding) !== 'interact' || !binding.prompt
+        || this._completedBindings.has(binding.id) || !this._isBindingActive(binding)) continue;
+      const definition = this.triggerSystem?.getById?.(binding.triggerId);
+      if (definition?.once && this.triggerSystem.hasFiredOnce?.(binding.triggerId)) continue;
+      const spatial = this._resolveSpatialCached(binding);
+      if (!this._contains(binding, position.x, position.y, false, spatial)) continue;
+      const distance = this._distanceSq(binding, position, spatial);
+      if (distance >= bestDistance) continue;
+      bestBinding = binding;
+      bestDistance = distance;
+    }
+    this._setActivePrompt(bestBinding);
   }
 
   _setActivePrompt(binding) {
@@ -132,9 +151,11 @@ export class SceneTriggerBindingSystem {
 
     const player = this._playerPosition();
     if (!player) return false;
+    // 一次交互使用同一批空间快照，避免提示与执行在动态/静态目标间切换。
+    this._spatialContexts.clear();
     const candidates = this.bindings
       .filter(binding => this._eventType(binding) === 'interact')
-      .map(binding => ({ binding, spatial: this._resolveSpatialContext(binding) }))
+      .map(binding => ({ binding, spatial: this._resolveSpatialCached(binding) }))
       .filter(candidate => this._contains(candidate.binding, player.x, player.y, false, candidate.spatial))
       .filter(candidate => this._isBindingActive(candidate.binding))
       .filter(candidate => !this._completedBindings.has(candidate.binding.id))
@@ -197,6 +218,9 @@ export class SceneTriggerBindingSystem {
     this.sceneObjects = [];
     this._inside.clear();
     this._completedBindings.clear();
+    this._selectors.clear();
+    this._staticSpatialContexts.clear();
+    this._spatialContexts.clear();
   }
 
   dispose() {
@@ -290,38 +314,49 @@ export class SceneTriggerBindingSystem {
   }
 
   _selector(binding) {
-    return normalizeSceneObjectSelector(binding.selector || { sceneId: binding.sceneId });
+    return this._selectors.get(binding.id)
+      || binding.selector
+      || normalizeSceneObjectSelector({ sceneId: binding.sceneId });
   }
 
   _resolveDynamicTargets(binding, selector = this._selector(binding)) {
-    if (!this.resolveDynamicTarget || selector.mode !== 'id' || !selector.value) return [];
+    if (!this.resolveDynamicTarget || selector.mode !== 'id' || !selector.value) return EMPTY_TARGETS;
     try {
       const resolved = this.resolveDynamicTarget(selector.value, binding, selector);
+      if (!resolved) return EMPTY_TARGETS;
       const targets = Array.isArray(resolved) ? resolved : [resolved];
       return targets.filter(target => target?.id === selector.value
         && (!selector.sceneId || !target.sceneId || target.sceneId === selector.sceneId));
     } catch (error) {
       this.logger?.('dynamicTargetError', binding, error);
-      return [];
+      return EMPTY_TARGETS;
     }
   }
 
-  _resolveTargets(binding, selector = this._selector(binding)) {
-    const dynamicTargets = this._resolveDynamicTargets(binding, selector);
-    if (dynamicTargets.length > 0) return dynamicTargets;
-    return resolveSceneObjects(this.sceneObjects.filter(object => object !== binding), selector);
-  }
-
-  /** 每个 binding 操作只解析一次目标，命中、排序、提示和事件共用同一空间快照。 */
-  _resolveSpatialContext(binding) {
-    const selector = this._selector(binding);
-    const targets = selector.value ? this._resolveTargets(binding, selector) : [];
+  _createStaticSpatialContext(binding, selector = this._selector(binding)) {
+    const targets = selector.value ? resolveSceneObjects(this.sceneObjects, selector) : EMPTY_TARGETS;
     const geometry = resolveSceneSpatialGeometry(targets[0] || binding, {
       fallback: binding,
       offsetX: binding.anchorOffsetX,
       offsetY: binding.anchorOffsetY
     });
     return { selector, targets, geometry };
+  }
+
+  /** 每帧只探测 O(1) 动态 ID；不存在动态实体时直接复用 setBindings 阶段的静态空间快照。 */
+  _resolveSpatialContext(binding) {
+    const selector = this._selector(binding);
+    const dynamicTargets = this._resolveDynamicTargets(binding, selector);
+    if (dynamicTargets.length === 0) {
+      return this._staticSpatialContexts.get(binding.id)
+        || this._createStaticSpatialContext(binding, selector);
+    }
+    const geometry = resolveSceneSpatialGeometry(dynamicTargets[0], {
+      fallback: binding,
+      offsetX: binding.anchorOffsetX,
+      offsetY: binding.anchorOffsetY
+    });
+    return { selector, targets: dynamicTargets, geometry };
   }
 
   _playerPosition() {
@@ -341,7 +376,11 @@ export class SceneTriggerBindingSystem {
   _contains(binding, x, y, pointer = false, spatial = null) {
     const geometry = this._geometry(binding, spatial);
     const radius = Math.max(0, Number(pointer ? (binding.pointerRadius ?? binding.radius) : binding.radius) || 0);
-    if (radius > 0) return Math.hypot(x - geometry.anchor.x, y - geometry.anchor.y) <= radius;
+    if (radius > 0) {
+      const deltaX = x - geometry.anchor.x;
+      const deltaY = y - geometry.anchor.y;
+      return deltaX * deltaX + deltaY * deltaY <= radius * radius;
+    }
     return x >= geometry.x && x <= geometry.x + geometry.width
       && y >= geometry.y && y <= geometry.y + geometry.height;
   }

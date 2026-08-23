@@ -160,6 +160,10 @@ export class SceneTerrainBinding {
     return true;
   }
 
+  /**
+   * 同步小地图 terrain 引用，不建立或重建静态缩略图。
+   * HUD 每帧调用本方法；背景缓存只能由区域激活提交后的显式入口建立。
+   */
   updateMinimap(minimap) {
     const scene = this.scene;
     if (!minimap) return;
@@ -170,18 +174,6 @@ export class SceneTerrainBinding {
     const terrainSetChanged = sourceTerrains.length !== currentTerrains.length
       || sourceTerrains.some((terrain, index) => terrain !== currentTerrains[index]);
     if (terrainSetChanged) minimap.setTerrains(sourceTerrains);
-
-    let cacheRevisionChanged = false;
-    for (const terrain of sourceTerrains) {
-      const revision = terrain.staticCacheRevision ?? 0;
-      if (terrain._minimapCacheRevision === revision) continue;
-      terrain._minimapCacheRevision = revision;
-      cacheRevisionChanged = true;
-    }
-    if (cacheRevisionChanged && !terrainSetChanged) minimap._invalidateCache();
-    if (terrainSetChanged || cacheRevisionChanged || !minimap._mapCache) {
-      minimap.prepareBackgroundCache?.();
-    }
   }
 }
 

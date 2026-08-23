@@ -270,12 +270,10 @@ export class ScenePanelLayout {
     });
     // 记录右边锚点（resize 后重新定位用）
     scene.minimap._anchorRight = scene.logicalWidth - 10;
-    // terrain 绑定与缩略图缓存失效由通用 binding 管理。
+    // HUD 组合只同步引用和世界边界；静态缩略图由区域激活提交后显式建立。
     scene._terrainBinding.updateMinimap(scene.minimap);
-    // ProjectWorldIndex 是小地图边界与 chunk 尺寸的唯一来源。
     if (scene._worldIndex) {
       scene.minimap.setWorldIndex(scene._worldIndex, scene._worldRegion?.id);
-      scene.minimap.prepareBackgroundCache();
     }
 
     // 应用 UI 编辑器保存的布局（百分比 → 逻辑坐标），覆盖默认位置/大小

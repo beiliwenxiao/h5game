@@ -153,6 +153,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
     this.terrain = null;
     this.worldStreamingManager = null;
+    // 每次 Region 激活只允许显式建立一次小地图静态缩略图。
+    this._minimapBackgroundActivation = null;
     this._detachWorldStreaming = null;
     this._assetManifestReady = new Promise((resolve, reject) => {
       this._resolveAssetManifestReady = resolve;
@@ -214,6 +216,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
             this.minimap.setViewBounds(this.camera.getViewBounds());
           }
           this._terrainBinding.updateMinimap(this.minimap);
+          // projection commit 是唯一静态缩略图入口：同一 manager/Region 后续刷新只同步引用。
+          const activation = this._minimapBackgroundActivation;
+          if (activation?.manager !== manager || activation.regionId !== manager.regionId) {
+            this._minimapBackgroundActivation = { manager, regionId: manager.regionId };
+            this.minimap.prepareBackgroundCache();
+          }
         }
         this.context.services.placements?.setProjection(chunks.flatMap(chunk => chunk.placements || []));
         const sceneObjects = chunks.flatMap(chunk => chunk.sceneObjects || []);
@@ -443,6 +451,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this._terrains = [];
     this._worldRegion = null;
     this._teleportFade = null;
+    this._minimapBackgroundActivation = null;
 
     // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
     const scope = this.resourceScope;

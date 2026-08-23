@@ -1561,18 +1561,35 @@
             return !!(gameStarted && current && !current._fadeOverlayTransition?.active);
         }
 
+        /**
+         * 主画布复制会触发同步缩放/GPU 回读，必须避开游戏 RAF。
+         * requestIdleCallback 不可用时延后一个任务队列；保存仍等待同一 in-flight Promise。
+         */
+        function deferSavePreviewCapture() {
+            return new Promise(resolve => {
+                const run = () => resolve();
+                if (typeof window.requestIdleCallback === 'function') {
+                    window.requestIdleCallback(run, { timeout: 750 });
+                } else {
+                    setTimeout(run, 0);
+                }
+            });
+        }
+
         /** 按需异步缓存有效画面，并唤醒等待首帧存档的调用方。 */
         function updateRenderedSavePreview() {
             if (!canUseCurrentFrameForSavePreview()) return Promise.resolve(null);
             if (savePreviewCaptureInFlight) return savePreviewCaptureInFlight;
             const generation = savePreviewCaptureGeneration;
-            const capture = encodeCanvasSavePreview().then(preview => {
-                if (!preview || generation !== savePreviewCaptureGeneration) return null;
-                lastRenderedSavePreview = preview;
-                for (const resolve of renderedPreviewWaiters) resolve(preview);
-                renderedPreviewWaiters.clear();
-                return preview;
-            });
+            const capture = deferSavePreviewCapture()
+                .then(() => generation === savePreviewCaptureGeneration ? encodeCanvasSavePreview() : null)
+                .then(preview => {
+                    if (!preview || generation !== savePreviewCaptureGeneration) return null;
+                    lastRenderedSavePreview = preview;
+                    for (const resolve of renderedPreviewWaiters) resolve(preview);
+                    renderedPreviewWaiters.clear();
+                    return preview;
+                });
             const pending = capture.finally(() => {
                 if (savePreviewCaptureInFlight === pending) savePreviewCaptureInFlight = null;
             });

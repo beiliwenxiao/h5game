@@ -56,18 +56,42 @@ export class SceneItemGainedFlow {
     const comparison = isEquipment
       ? SceneEquipmentFlow.computeComparison(item, player)
       : [];
-
-    popup.show({
-      item,
-      comparison,
-      primaryLabel: primaryLabel || '放入背包',
-      showStore: Boolean(primaryLabel),
-      remaining: this.queue.length,
-      onPrimary: primaryLabel
-        ? () => { this.handlePrimary(item, player); this.showNext(); }
-        : () => this.showNext(),
-      onStore: primaryLabel ? () => this.showNext() : null
+    const advance = operation => this._advanceAfterDecision(operation);
+    const actions = [];
+    if (primaryLabel) {
+      actions.push({
+        label: primaryLabel,
+        color: '#3a7d3a',
+        onClick: () => advance(() => this.handlePrimary(item, player))
+      });
+    }
+    actions.push({ label: '放入背包', color: '#4a4a55', onClick: () => advance() });
+    actions.push({
+      label: '丢弃',
+      color: '#864040',
+      onClick: () => advance(() => this._drop(item))
     });
+
+    popup.show({ item, comparison, actions, remaining: this.queue.length });
+  }
+
+  /** 当前弹窗的一个决策完成后，再显示 FIFO 中的下一件，避免并发命令交叠。 */
+  async _advanceAfterDecision(operation = null) {
+    this.scene.itemGainedPopup?.hide();
+    if (typeof operation === 'function') await Promise.resolve(operation());
+    this.showNext();
+  }
+
+  /** 丢弃本次已提交获得的数量；实际地面实体与事件由 item.drop 权威事务生成。 */
+  _drop(item) {
+    if (!this.executeIntent) return Promise.resolve({ ok: false, code: 'unavailable' });
+    const quantity = item.instanceId ? 1 : Math.max(1, Math.floor(Number(item.quantity) || 1));
+    return Promise.resolve(this.executeIntent('item.drop', {
+      itemId: item.id,
+      instanceId: item.instanceId || null,
+      quantity,
+      reason: 'itemGainedPopup'
+    }));
   }
 
   /** 保留给场景兼容入口的装备预览计算。 */

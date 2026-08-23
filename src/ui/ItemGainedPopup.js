@@ -18,11 +18,12 @@
  *   - 装备类：与当前对应槽位装备的属性对比
  *       · 属性增加 → 箭头向上 ▲ + 红色 + 「+N」
  *       · 属性减少 → 箭头向下 ▼ + 绿色 + 「-N」
- *   - 两个按钮：主操作（装备/使用）+ 放入背包
+ *   - 工具/普通物品：放入背包 + 丢弃
+ *   - 装备/可使用物品：立即装备/立即使用 + 放入背包 + 丢弃
  *
  * 用法（BaseGameScene）：
- *   popup.show({ item, comparison, primaryLabel, onPrimary, onStore });
- *   comparison: [{ name:'攻击', diff:+3 }, ...]
+ *   popup.show({ item, comparison, actions });
+ *   actions: [{ label, color, onClick }]
  */
 
 import { UIElement } from './UIElement.js';
@@ -56,6 +57,7 @@ export class ItemGainedPopup extends UIElement {
     this.onPrimary = null;
     this.onStore = null;
     this.showStore = false;
+    this.actions = [];
     this._buttons = []; // [{x,y,w,h,action}]
     // 底部锚点：设置后 show() 会把弹窗底边对齐到 anchorBottom 上方（紧贴底部控制栏）
     this.anchorBottom = options.anchorBottom || null;
@@ -63,8 +65,9 @@ export class ItemGainedPopup extends UIElement {
   }
 
   /**
-   * 显示弹窗
-   * @param {Object} cfg - { item, comparison, primaryLabel, onPrimary, onStore, showStore }
+   * 显示弹窗。
+   * `actions` 是正式 API；旧 primary/store 字段仅作兼容转换。
+   * @param {Object} cfg - { item, comparison, actions }
    */
   show(cfg = {}) {
     this.item = cfg.item || null;
@@ -73,6 +76,12 @@ export class ItemGainedPopup extends UIElement {
     this.onPrimary = cfg.onPrimary || null;
     this.onStore = cfg.onStore || null;
     this.showStore = cfg.showStore === true && this.onStore !== null;
+    const legacyActions = [];
+    if (this.onPrimary) legacyActions.push({ label: this.primaryLabel, color: '#3a7d3a', onClick: this.onPrimary });
+    if (this.showStore) legacyActions.push({ label: '放入背包', color: '#4a4a55', onClick: this.onStore });
+    this.actions = (Array.isArray(cfg.actions) ? cfg.actions : legacyActions)
+      .filter(action => action && typeof action.label === 'string' && typeof action.onClick === 'function')
+      .slice(0, 3);
     this.remaining = cfg.remaining || 0; // 队列中还剩待处理的件数
     // 高度随对比行数自适应（紧凑布局，尽量矮）
     const rows = this.comparison.length;
@@ -92,6 +101,7 @@ export class ItemGainedPopup extends UIElement {
     this.item = null;
     this.comparison = [];
     this.showStore = false;
+    this.actions = [];
     this._buttons = [];
   }
 
@@ -174,20 +184,17 @@ export class ItemGainedPopup extends UIElement {
       cursorY += 4;
     }
 
-    // 装备/使用才提供“放入背包”分支；工具等已入包物品只保留确认按钮。
+    // 可按物品类型配置 2 或 3 个动作；按钮均分一行，避免把已提交库存再次入包。
     this._buttons = [];
+    const actions = this.actions;
     const btnY = y + this.height - BTN_H - PAD;
-    const gap = 10;
+    const gap = 6;
     const btnX = x + 12;
-    const btnW = this.showStore ? (width - 12 * 2 - gap) / 2 : width - 24;
-    this._drawButton(ctx, btnX, btnY, btnW, BTN_H, this.primaryLabel, '#3a7d3a', () => {
-      if (this.onPrimary) this.onPrimary();
+    const btnW = (width - 24 - gap * Math.max(0, actions.length - 1)) / Math.max(1, actions.length);
+    actions.forEach((action, index) => {
+      this._drawButton(ctx, btnX + index * (btnW + gap), btnY, btnW, BTN_H,
+        action.label, action.color || '#4a4a55', action.onClick);
     });
-    if (this.showStore) {
-      this._drawButton(ctx, btnX + btnW + gap, btnY, btnW, BTN_H, '放入背包', '#4a4a55', () => {
-        this.onStore?.();
-      });
-    }
 
     ctx.restore();
   }

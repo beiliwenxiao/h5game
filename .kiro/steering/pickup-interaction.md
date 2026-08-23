@@ -50,58 +50,33 @@ updateMouseAngle → handlePickupClick() → meleeAttackSystem.update() → ... 
 点击世界坐标优先用 `this.camera.screenToWorld(screenX, screenY)`，相机不存在时回退 `inputManager.getMouseWorldPosition()`（与 `_debugRightClick` 一致）。
 
 
-## 获得物品弹窗（食物/装备）
+## 获得物品弹窗
 
 ### 功能
-拾取或获得「食物(consumable)/装备(equipment)」时，弹出带图标的小窗口 + 左侧系统文字提示。
-- 窗口：物品图标（稀有度边框）、名称（稀有度色）、描述、属性对比、两个按钮（主操作 + 放入背包）
-- **属性对比配色约定（涨红跌绿）**：增加 → 箭头向上 ▲ + 红色(`#ff4d4d`) + `+N`；减少 → 箭头向下 ▼ + 绿色(`#3cc46a`) + `-N`
+已提交入包的装备（`equipment`）、可使用物品（`consumable && usable`）和工具（`tool`）进入 `SceneItemGainedFlow` FIFO 弹窗。窗口显示图标、名称、描述和装备对比，并按物品能力提供动作：
+
+- 装备：`立即装备`、`放入背包`、`丢弃`。
+- 可使用物品：`立即使用`、`放入背包`、`丢弃`。
+- 工具或无立即操作物品：`放入背包`、`丢弃`。
+
+“放入背包”只确认并继续下一件，绝不重复执行入包事务；“丢弃”统一提交 `item.drop`，由权威事务移除本次获得数量、创建地面物品，并仅在 checkpoint/state revision 成功后发布 `item.dropped`。立即装备/使用同样只经 `item.equip`/`item.use` 权威命令，禁止弹窗直接修改库存、角色属性或装备。
 
 ### 组件 `src/ui/ItemGainedPopup.js`（继承 UIElement）
-- `show({ item, comparison, primaryLabel, onPrimary, onStore })` / `hide()`
-- `comparison`：`[{ name:'攻击', diff:+3 }, ...]`，diff>0 涨红↑、diff<0 跌绿↓
-- 复用 `ItemIconRenderer.drawIcon()` 画图标（失败回退首字占位）
-- `handleMouseClick` 内做按钮命中检测；zIndex=260（高于其它面板，UIClickHandler 按 zIndex 降序派发，优先拿到点击）
-- 高度随对比行数自适应
+- 正式 API：`show({ item, comparison, actions, remaining })` / `hide()`；`actions` 最多三个 `{ label, color, onClick }`，按数量均分按钮宽度。
+- 旧 `primaryLabel/onPrimary/onStore/showStore` 仅作兼容转换；新代码必须使用 `actions`。
+- `comparison`：`[{ name:'攻击', diff:+3 }, ...]`，diff>0 涨红↑、diff<0 跌绿↓。
+- 复用 `ItemIconRenderer.drawIcon()` 绘制图标；`handleMouseClick` 负责动作命中并拦截弹窗范围内点击，防止穿透世界。
 
-### 触发流程（两条路径，统一走 `BaseGameScene.onItemGained(item, player)`）
-1. **拾取**：`PickupSystem.onPickup(cb)` 钩子 → 在 BaseGameScene 注册 `this.pickupSystem.onPickup((item,p)=>this.onItemGained(item,p))`。注意：拾取时 `PickupSystem.pickupItem` **已把物品加入背包**，所以"放入背包"按钮=仅关闭窗口。
-2. **得到（奖励/对话）**：`TriggerActions.giveReward` 每加一件物品后调用 `ctx.onItemGained(item, player)`。链路：`giveReward` → `ctx.onItemGained` ←(GameLoader setContext 透传 `deps.onItemGained`)← `DataDrivenPrologueScene._initGameLoader` 传入 `onItemGained:(item,p)=>this.onItemGained(...)`。
+### 触发与队列
+1. 物品必须先经 `ItemLifecycleService` 完整提交到库存，再通过 `item.picked` 的 application event 调用 `SceneItemGainedFlow.onItemGained(item, player)`；奖励同样在其权威库存事务提交后才可调用。
+2. 每件物品先显示“获得”通知，再加入 FIFO；仅当当前弹窗不可见时显示队首。
+3. 点击立即装备、立即使用或丢弃时，`SceneItemGainedFlow._advanceAfterDecision()` 先隐藏当前弹窗、等待对应命令完成，再显示下一件，避免同一角色的命令并发。失败仍保留已提交库存，并继续处理下一件。
+4. 队列耗尽时隐藏弹窗并调用 `gainedPopupClosed` 流程回调；该 UI 回调不是库存成功的业务证据。
 
-### onItemGained 逻辑（BaseGameScene）
-- 只对 `type==='equipment'` 或 `'consumable'` 弹窗
-- 左侧系统提示：`this.notificationSystem.addNotification('获得 xxx', ...)`（NotificationSystem 渲染于左上 HUD 下方 x:10,y:96）
-- 装备：`_computeEquipComparison(item, player)` 预览"新装备 stats vs 当前槽位装备 stats"差值（**不真正装备**）；主按钮"装备"
-- 可用消耗品：主按钮"使用"
-- 主按钮动作 `_onGainedPopupPrimary`：
-  - 装备：从背包 `removeItem` → `EquipmentSystem.equipItem(player, targetSlot, item)`（穿上+重算属性，旧装备放回背包）→ 属性变化提示 → `_refreshEquipmentPanels`
-  - 消耗品：在 `inventory.slots` 定位 → `inventoryPanel.useItem(idx)` 应用效果
-
-### 关键点/复用
-- **槽位映射**：`{weapon:'mainhand', shield:'offhand', ammo:'offhand', ring:'ring1'}`，其余 subType 即槽位名；用 `EquipmentComponent.isValidEquipmentForSlot` 校验
-- **面板刷新**：面板持有玩家实体引用并每帧从中渲染，装备后调 `setPlayer`/`setEntity` 重设即可（不是 updatePlayer/updateInventory）
-- **渲染顺序**：BaseGameScene.render 末尾显式 `notificationSystem.render(ctx)` 再 `itemGainedPopup.render(ctx)`（弹窗最上层）；update 里 `notificationSystem.update(deltaTime)` 过期清理
-- **点击注册**：弹窗注册进 `uiClickHandler`（仅可见时接收点击，按钮外点击不拦截）；通知系统不可交互，不注册点击
-- 新弹窗/系统提示是框架级能力，其他 demo 复用同一套 `PickupSystem.onPickup` + `giveReward` 的 `ctx.onItemGained` 钩子即可接入
-
-
-## 获得物品弹窗——连续拾取队列
-
-### 需求
-连续拾取多件食物/装备时，新物品不覆盖当前弹窗，而是**排队逐个弹出**让用户依次选择。
-
-### 实现（BaseGameScene）
-- 维护 `this._gainedQueue = [{item, player}, ...]`
-- `onItemGained(item, player)`：每件都发左侧系统提示；把 `{item, player}` **压入队列**；仅当 `itemGainedPopup.visible === false` 时才 `_showNextGained()` 弹出队首（避免打断正在处理的那件）
-- `_showNextGained()`：`q.shift()` 出队一件 → 算 `comparison`/`primaryLabel` → `popup.show({..., remaining: q.length})`；三个按钮回调（装备/使用、放入背包）处理完统一调 `_showNextGained()` 推进；队列空则 `popup.hide()`
-- `_onGainedPopupPrimary` **不再自己 hide/show**（含装备失败的提前 return 分支也不 hide），显示推进完全交给 `_showNextGained` 收尾，避免 hide 后又 show 的抖动，也保证装备失败仍推进到下一件
-
-### 弹窗（ItemGainedPopup）
-- `show({ remaining })` 存 `this.remaining`；`render` 在右上角画「还有 N 件」提示队列剩余
-
-### 关键点
-- 入队判断用 `popup.visible`；正在显示时只入队不弹，靠按钮回调驱动出队，形成"处理一件→弹下一件"的链
-- 系统文字提示（NotificationSystem）与队列解耦：每件拾取都即时提示，不受逐个弹窗节奏影响
+### 关键约束
+- 弹窗中所有业务动作复用 `BaseGameScene.submitItemIntent()` → `CommandGateway` → `LocalAuthorityAdapter`；不创建第二条库存、装备、使用或丢弃路径。
+- 装备成功的最终变化仍经 `BaseGameScene.onEquipmentChanged(messages, info)` 发出；使用和丢弃的表现只消费对应 committed application event。
+- 对无 `instanceId` 的可堆叠物品，丢弃数量取本次获得数量；因同定义堆叠没有物理实例边界，不能承诺从既有堆叠中区分具体来源。
 
 ## 掉落物/无图源实体：sprite 图源留空避免刷警告（通用规则）
 `renderEntity` 的序列帧分支条件是 `sprite.spriteSheet` 为真时才 `getAsset()`。若给实体设了**不存在的占位图名**（如 `'loot_sprite'`、`'npc_sprite'`），会每帧 `getAsset` 失败刷 `AssetManager: Image 'xxx' not found`。

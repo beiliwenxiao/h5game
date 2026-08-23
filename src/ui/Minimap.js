@@ -350,9 +350,8 @@ export class Minimap extends UIElement {
       && y + margin >= transform.clipTop && y - margin <= transform.clipBottom;
   }
 
-  /** 更新动态标记和裁剪窗口；不重画九宫格背景。 */
-  update(deltaTime) {
-    this._tryBuildCache(deltaTime);
+  /** 更新动态标记和裁剪窗口；背景缓存只能由区域激活时显式建立。 */
+  update() {
     this._updateViewport();
   }
 

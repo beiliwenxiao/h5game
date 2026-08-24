@@ -190,6 +190,21 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                                 gameId: this.currentGameId || 'sanguo_zhangjiao',
                                 canonicalSession: this._canonicalEditorSession('project'),
                                 getSceneList: () => this.dataManager.getGameScenes(this.currentGameId),
+                                getSceneDocuments: () => {
+                                    let scenes = {};
+                                    try {
+                                        scenes = {
+                                            ...this.documentService.requireProject(this._canonicalProjectPath()).getCommittedSnapshot().scenes
+                                        };
+                                    } catch (error) {
+                                        console.warn('TriggerEditor: 获取 committed 场景快照失败', error);
+                                    }
+                                    const currentScene = this.sceneEditor?.sceneData;
+                                    if (this.currentSceneId && currentScene?.id === this.currentSceneId) {
+                                        scenes[this.currentSceneId] = currentScene;
+                                    }
+                                    return Object.values(scenes);
+                                },
                                 getPlacementOptions: () => {
                                     const sceneData = this.sceneEditor?.sceneData;
                                     const sceneId = this.currentSceneId || sceneData?.id || '';

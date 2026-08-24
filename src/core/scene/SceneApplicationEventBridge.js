@@ -169,7 +169,7 @@ export class SceneApplicationEventBridge {
       status: 'failed',
       code: outcome.code || 'consumerFailed',
       message: outcome.message || 'application event consumer failed'
-    }, { openPanel: retry.exhausted === true });
+    }, { openPanel: false });
   }
 
   _trimPendingEvents() {

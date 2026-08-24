@@ -445,6 +445,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 ## 当前场景事件视图筛选
 
 - `SceneEditorEventFilter` 是纯编辑器内存投影：横向事件条按 `layers[]` 下标再按 `layer.objects[]` 下标稳定排序，支持“全部 / 推导阶段 / 单事件”。“全部”表示关闭阶段/单事件过滤并显示完整场景；“显示全部”及每个事件旁的复选框只控制当前编辑器会话中的 trigger binding 显隐，默认全选，切换场景时恢复“全部 + 全选事件 + 不包含关联对象”，禁止进入 sceneData、history、保存、导出或 canonical transaction。
+- TriggerEditor 的“场景关联”不是只检查 `when.params.sceneId`：必须取 canonical 场景 `type:'trigger'` binding 形成的 `sceneId -> triggerId` 反向索引、运行条件 `when.params.sceneId` 与显式编辑器归属 `editorScope.sceneIds` 的并集。反向索引读取 committed canonical 场景快照，并允许当前未保存场景覆盖同 ID 投影；禁止按 `trg_s01_*` 等 ID 前缀、action 参数或无 provenance 的 localStorage 猜测归属。`editorScope.sceneIds` 只服务编辑器组织，不改变 TriggerSystem 运行匹配；事件视图只统计画布空间 binding，因此其数量可以小于 TriggerEditor 的场景关联总数。
 - 右侧“选中对象”属性栏的“是否显示”不是事件条临时筛选，而是 canonical binding 字段 `enabled`（缺省视为 `true`）。`enabled:false` 必须从编辑器画布投影中移除，并在场景加载投影、`SceneTriggerBindingSystem.setBindings()` 和活动判断中统一拒绝，使该空间事件不显示提示、不进入调试热点且不执行；事件条仍保留事件名称作为重新选中和启用入口，其临时显隐框置灰，且不得改写 `enabled`。
 - 场景没有 canonical `phase/order/sequence` 字段时，阶段只可从 binding 的 `activeWhen` 正向条件或项目定义首个 action 域推导，并明确标注为编辑器阶段；阶段 ID、选择和“显示关联对象”状态禁止进入 sceneData、history、保存、导出或 canonical transaction。
 - 事件/阶段过滤只显示所选 trigger binding；启用“显示关联对象”后，复用 `SceneObjectSelector` 解析 binding 的 `targetMode/target` 及 action 显式声明的 selector、targetId/objectId、group、ref/npcRef/enemyRef、entity/actor/vehicle ID。只有显式 group selector 才扩展整组，不得因对象自身带 group 自动扩大。

@@ -2857,6 +2857,11 @@
           }
         }
       ],
+      "editorScope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "id": "trg_s01_begin_tutorial_after_wake",
       "once": true,
       "when": {
@@ -2974,6 +2979,11 @@
           }
         }
       ],
+      "editorScope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
       "id": "trg_s01_shelter_completed",
       "once": true,
       "when": {

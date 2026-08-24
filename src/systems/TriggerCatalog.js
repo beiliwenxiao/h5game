@@ -43,6 +43,18 @@ export function validateTriggerDefinition(trigger, project = null) {
   if (!trigger?.id || typeof trigger.id !== 'string') errors.push('id 必须是非空字符串');
   if (!trigger?.when?.type) errors.push('when.type 不能为空');
   if (!Array.isArray(trigger?.do)) errors.push('do 必须是数组');
+  if (trigger?.editorScope !== undefined) {
+    const editorScope = trigger.editorScope;
+    if (!editorScope || typeof editorScope !== 'object' || Array.isArray(editorScope)) {
+      errors.push('editorScope 必须是对象');
+    } else if (!Array.isArray(editorScope.sceneIds)) {
+      errors.push('editorScope.sceneIds 必须是数组');
+    } else {
+      const normalized = editorScope.sceneIds.map(sceneId => typeof sceneId === 'string' ? sceneId.trim() : '');
+      if (normalized.some(sceneId => !sceneId)) errors.push('editorScope.sceneIds 只能包含非空字符串');
+      if (new Set(normalized).size !== normalized.length) errors.push('editorScope.sceneIds 不允许重复');
+    }
+  }
   if (trigger?.coordination !== undefined) {
     const coordination = trigger.coordination;
     if (!coordination || typeof coordination !== 'object' || Array.isArray(coordination)) {

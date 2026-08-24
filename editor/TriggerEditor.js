@@ -37,6 +37,8 @@ export class TriggerEditor {
     this.schemaFields = this.canonicalSession?.fields || null;
     // 场景列表由编辑器入口按当前游戏动态提供，禁止由触发器引用反推。
     this.getSceneList = typeof options.getSceneList === 'function' ? options.getSceneList : () => [];
+    // canonical 场景文档由编辑器入口注入；当前未保存场景可覆盖同 ID 的 committed 快照。
+    this.getSceneDocuments = typeof options.getSceneDocuments === 'function' ? options.getSceneDocuments : () => [];
     // 当前场景的完整放置点由场景编辑器显式注入，供物品生成动作可视化选择。
     this.getPlacementOptions = typeof options.getPlacementOptions === 'function' ? options.getPlacementOptions : () => [];
     this.onSaved = typeof options.onSaved === 'function' ? options.onSaved : null;
@@ -257,8 +259,8 @@ export class TriggerEditor {
             <option value="enabled">启用</option>
             <option value="disabled">停用</option>
           </select>
-          <select id="trg-filter-scene" title="筛选场景" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
-            <option value="">全部场景</option>
+          <select id="trg-filter-scene" title="按空间 binding、when.params.sceneId 与 editorScope.sceneIds 的并集筛选" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部场景关联</option>
           </select>
           <select id="trg-filter-when" title="筛选触发时机" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
             <option value="">全部时机</option>
@@ -273,6 +275,7 @@ export class TriggerEditor {
           <button id="trg-save" class="primary">💾 保存到工程</button>
           <span class="trg-hint">数据 → ${this.projectPath}</span>
         </div>
+        <div class="trg-association-summary" id="trg-association-summary"></div>
         <div class="trg-main">
           <div class="trg-list" id="trg-list"></div>
           <div class="trg-detail" id="trg-detail"></div>
@@ -307,6 +310,7 @@ export class TriggerEditor {
       .trg-toolbar button{padding:7px 12px;background:#3a4a7e;border:none;border-radius:4px;color:#fff;cursor:pointer;}
       .trg-toolbar button.primary{background:#4CAF50;color:#000;font-weight:bold;}
       .trg-hint{margin-left:auto;color:#8aa;font-size:12px;}
+      .trg-association-summary{min-height:20px;padding:4px 16px;background:#111a30;border-bottom:1px solid #253451;color:#93a8cc;font-size:11px;box-sizing:border-box;}
       .trg-main{flex:1;display:flex;overflow:hidden;}
       .trg-list{width:240px;background:#111a30;border-right:1px solid #2a3a5e;overflow-y:auto;}
       .trg-item{padding:10px 14px;border-bottom:1px solid #1e2b47;cursor:pointer;display:flex;align-items:center;gap:6px;}
@@ -314,8 +318,9 @@ export class TriggerEditor {
       .trg-item.active{background:#2a3a6e;}
       .trg-item.disabled{opacity:0.45;}
       .trg-item .trg-status{font-size:10px;flex-shrink:0;}
-      .trg-item .tid{font-weight:bold;font-size:13px;}
+      .trg-item .tid{font-weight:bold;font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;}
       .trg-item .twhen{font-size:11px;color:#9ab;}
+      .trg-origin{margin-left:auto;flex-shrink:0;padding:2px 5px;border:1px solid #53678f;border-radius:8px;color:#b9c8e6;font-size:9px;white-space:nowrap;}
       .trg-detail{flex:1;padding:16px;overflow-y:auto;}
       .trg-detail .row{margin-bottom:10px;}
       .trg-detail label{display:block;font-size:12px;color:#9ab;margin-bottom:3px;}
@@ -342,31 +347,78 @@ export class TriggerEditor {
 
   // ---- 列表 ----
 
+  _buildSceneAssociationIndex() {
+    const byScene = new Map();
+    let documents = [];
+    try {
+      const source = this.getSceneDocuments();
+      documents = Array.isArray(source) ? source : Object.values(source || {});
+    } catch (error) {
+      console.warn('TriggerEditor: 获取 canonical 场景文档失败', error);
+    }
+    for (const scene of documents) {
+      const sceneId = String(scene?.id || '').trim();
+      if (!sceneId) continue;
+      const triggerIds = new Set();
+      for (const layer of scene.layers || []) {
+        for (const binding of layer?.objects || []) {
+          if (binding?.type === 'trigger' && String(binding.triggerId || '').trim()) {
+            triggerIds.add(String(binding.triggerId).trim());
+          }
+        }
+      }
+      byScene.set(sceneId, triggerIds);
+    }
+    return byScene;
+  }
+
+  _getTriggerAssociation(trigger, sceneId, associationIndex) {
+    const spatial = associationIndex.get(sceneId)?.has(trigger?.id) === true;
+    const condition = trigger?.when?.params?.sceneId === sceneId;
+    const editorScope = Array.isArray(trigger?.editorScope?.sceneIds)
+      && trigger.editorScope.sceneIds.includes(sceneId);
+    return { spatial, condition, editorScope, associated: spatial || condition || editorScope };
+  }
+
+  _renderAssociationSummary(sceneId, associationIndex) {
+    const summary = this.container.querySelector('#trg-association-summary');
+    if (!summary) return;
+    if (!sceneId) {
+      summary.textContent = `全部触发器 ${this.triggers.length} 个；场景关联按空间 binding、场景条件和编辑器归属合并。`;
+      return;
+    }
+    const stats = { spatial: 0, condition: 0, editorScope: 0, total: 0 };
+    for (const trigger of this.triggers) {
+      const association = this._getTriggerAssociation(trigger, sceneId, associationIndex);
+      if (association.spatial) stats.spatial++;
+      if (association.condition) stats.condition++;
+      if (association.editorScope) stats.editorScope++;
+      if (association.associated) stats.total++;
+    }
+    summary.textContent = `${sceneId}：空间绑定 ${stats.spatial}，场景条件 ${stats.condition}，编辑归属 ${stats.editorScope}，合并后 ${stats.total} 个关联触发器。`;
+  }
+
   _renderList() {
     const list = this.container.querySelector('#trg-list');
     if (!list) return;
 
-    // 读取筛选条件
     const filterEnabled = this.container.querySelector('#trg-filter-enabled')?.value || '';
     const filterScene = this.container.querySelector('#trg-filter-scene')?.value || '';
     const filterWhen = this.container.querySelector('#trg-filter-when')?.value || '';
     const filterDo = this.container.querySelector('#trg-filter-do')?.value || '';
+    const associationIndex = this._buildSceneAssociationIndex();
 
-    // 更新场景下拉选项（从触发器数据中收集）
     this._updateSceneFilter();
+    this._renderAssociationSummary(filterScene, associationIndex);
 
-    // 筛选触发器
-    const filtered = this.triggers.filter((t, i) => {
-      if (filterEnabled === 'enabled' && t.enabled === false) return false;
-      if (filterEnabled === 'disabled' && t.enabled !== false) return false;
-      if (filterScene) {
-        const tScene = t.when?.params?.sceneId || '';
-        if (tScene !== filterScene) return false;
-      }
-      if (filterWhen && t.when?.type !== filterWhen) return false;
+    const filtered = this.triggers.filter((trigger) => {
+      if (filterEnabled === 'enabled' && trigger.enabled === false) return false;
+      if (filterEnabled === 'disabled' && trigger.enabled !== false) return false;
+      if (filterScene && !this._getTriggerAssociation(trigger, filterScene, associationIndex).associated) return false;
+      if (filterWhen && trigger.when?.type !== filterWhen) return false;
       if (filterDo) {
-        const doList = Array.isArray(t.do) ? t.do : [];
-        if (!doList.some(d => (d.action || d.type || d) === filterDo)) return false;
+        const doList = Array.isArray(trigger.do) ? trigger.do : [];
+        if (!doList.some(action => (action.action || action.type || action) === filterDo)) return false;
       }
       return true;
     });
@@ -376,25 +428,34 @@ export class TriggerEditor {
       return;
     }
     list.innerHTML = '';
-    filtered.forEach((t) => {
-      const i = this.triggers.indexOf(t);
+    filtered.forEach((trigger) => {
+      const index = this.triggers.indexOf(trigger);
       const item = document.createElement('div');
-      const disabled = t.enabled === false;
-      item.className = 'trg-item' + (i === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
-      const whenLabel = (WHEN_TYPES.find(w => w.v === t.when?.type) || {}).label || t.when?.type || '?';
+      const disabled = trigger.enabled === false;
+      item.className = 'trg-item' + (index === this.selectedIndex ? ' active' : '') + (disabled ? ' disabled' : '');
+      const whenLabel = (WHEN_TYPES.find(event => event.v === trigger.when?.type) || {}).label || trigger.when?.type || '?';
       const statusIcon = disabled ? '⏸' : '▶';
-      item.innerHTML = `<span class="trg-status" data-toggle="${i}">${statusIcon}</span><div class="tid">${t.id || '(未命名)'}</div><div class="twhen">when: ${whenLabel}</div>`;
-      item.querySelector('.trg-status').addEventListener('click', (e) => {
-        e.stopPropagation();
+      const association = filterScene ? this._getTriggerAssociation(trigger, filterScene, associationIndex) : null;
+      const origins = association ? [
+        association.spatial ? '空间' : '',
+        association.condition ? '条件' : '',
+        association.editorScope ? '归属' : ''
+      ].filter(Boolean) : [];
+      const originHtml = origins.length
+        ? `<span class="trg-origin" title="场景关联来源：${origins.join('、')}">${origins.join('+')}</span>`
+        : '';
+      item.innerHTML = `<span class="trg-status" data-toggle="${index}">${statusIcon}</span><div class="tid">${this._escapeHtml(trigger.id || '(未命名)')}</div><div class="twhen">when: ${this._escapeHtml(whenLabel)}</div>${originHtml}`;
+      item.querySelector('.trg-status').addEventListener('click', (event) => {
+        event.stopPropagation();
         this._commitDetail();
-        t.enabled = t.enabled === false ? undefined : false;
-        if (t.enabled === undefined) delete t.enabled;
+        trigger.enabled = trigger.enabled === false ? undefined : false;
+        if (trigger.enabled === undefined) delete trigger.enabled;
         this._renderList();
         this._renderDetail();
       });
       item.addEventListener('click', () => {
         this._commitDetail();
-        this.selectedIndex = i;
+        this.selectedIndex = index;
         this._renderList();
         this._renderDetail();
       });
@@ -416,16 +477,21 @@ export class TriggerEditor {
       console.warn('TriggerEditor: 获取场景列表失败', e);
     }
 
-    // 保留旧触发器中已删除的场景引用，避免筛选值和历史数据被静默抹掉。
+    // 保留已删除场景的运行条件与显式编辑器归属，避免历史引用被静默抹掉。
     for (const trigger of this.triggers) {
-      const sceneId = trigger.when?.params?.sceneId;
-      if (sceneId && !scenes.has(sceneId)) scenes.set(sceneId, `${sceneId}（旧引用）`);
+      const referencedSceneIds = [
+        trigger.when?.params?.sceneId,
+        ...(Array.isArray(trigger.editorScope?.sceneIds) ? trigger.editorScope.sceneIds : [])
+      ];
+      for (const sceneId of referencedSceneIds) {
+        if (sceneId && !scenes.has(sceneId)) scenes.set(sceneId, `${sceneId}（旧引用）`);
+      }
     }
 
-    let options = '<option value="">全部场景</option>';
+    let options = '<option value="">全部场景关联</option>';
     for (const [sceneId, sceneName] of scenes) {
       const selected = sceneId === currentValue ? 'selected' : '';
-      options += `<option value="${sceneId}" ${selected}>${sceneName}</option>`;
+      options += `<option value="${this._escapeHtml(sceneId)}" ${selected}>${this._escapeHtml(sceneName)}</option>`;
     }
     select.innerHTML = options;
   }
@@ -575,8 +641,25 @@ export class TriggerEditor {
         </div>`;
     });
 
+    const scopeSceneIds = Array.isArray(t.editorScope?.sceneIds) ? t.editorScope.sceneIds : [];
+    const scopeScenes = new Map();
+    try {
+      for (const scene of this.getSceneList()) {
+        if (scene?.id) scopeScenes.set(scene.id, scene.name || scene.id);
+      }
+    } catch (error) {
+      console.warn('TriggerEditor: 获取编辑器归属场景失败', error);
+    }
+    for (const sceneId of scopeSceneIds) {
+      if (!scopeScenes.has(sceneId)) scopeScenes.set(sceneId, `${sceneId}（旧引用）`);
+    }
+    const scopeOptions = [...scopeScenes].map(([sceneId, sceneName]) => (
+      `<option value="${this._escapeHtml(sceneId)}"${scopeSceneIds.includes(sceneId) ? ' selected' : ''}>${this._escapeHtml(sceneName)}</option>`
+    )).join('');
+
     panel.innerHTML = `
-      <div class="row"><label>ID</label><input type="text" id="d-id" value="${t.id || ''}"></div>
+      <div class="row"><label>ID</label><input type="text" id="d-id" value="${this._escapeHtml(t.id || '')}"></div>
+      <div class="row"><label>编辑器归属场景（可多选，不改变运行条件）</label><select id="d-editor-scope-scenes" multiple size="${Math.min(6, Math.max(3, scopeScenes.size))}">${scopeOptions}</select></div>
       <div class="row"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="d-enabled" ${t.enabled !== false ? 'checked' : ''}> 启用</label></div>
       <div class="row"><label>触发时机 when.type</label><select id="d-when-type">${whenOpts}</select></div>
       ${timerRow}
@@ -616,6 +699,10 @@ export class TriggerEditor {
         this._commitDetail();
         this._renderDetail();
       });
+    });
+    panel.querySelector('#d-editor-scope-scenes')?.addEventListener('change', () => {
+      this._commitDetail();
+      this._renderList();
     });
     // 启用/停用变化时即时刷新列表图标
     panel.querySelector('#d-enabled').addEventListener('change', () => {
@@ -696,6 +783,16 @@ export class TriggerEditor {
     if (!t || !panel || !panel.querySelector('#d-id')) return;
 
     t.id = panel.querySelector('#d-id').value.trim() || t.id;
+    const scopeSceneSelect = panel.querySelector('#d-editor-scope-scenes');
+    const scopeSceneIds = scopeSceneSelect
+      ? [...scopeSceneSelect.selectedOptions].map(option => option.value.trim()).filter(Boolean)
+      : [];
+    if (scopeSceneIds.length) {
+      t.editorScope = { ...(t.editorScope || {}), sceneIds: [...new Set(scopeSceneIds)] };
+    } else if (t.editorScope) {
+      delete t.editorScope.sceneIds;
+      if (Object.keys(t.editorScope).length === 0) delete t.editorScope;
+    }
     // enabled：未勾选 = false（停用），勾选 = 删除字段（默认启用）
     const enabledEl = panel.querySelector('#d-enabled');
     if (enabledEl && !enabledEl.checked) {
@@ -735,18 +832,21 @@ export class TriggerEditor {
 
   _addTrigger() {
     this._commitDetail();
+    const selectedSceneId = this.container.querySelector('#trg-filter-scene')?.value || '';
+    const editorScope = selectedSceneId ? { editorScope: { sceneIds: [selectedSceneId] } } : {};
     if (this.target === 'tutorials') {
       // 引导默认：进入场景时显示一句提示（showTip）
       const id = 'tut_' + Date.now().toString(36);
       this.triggers.push({
         id,
+        ...editorScope,
         when: { type: 'sceneEnter', params: {} },
         do: [{ action: 'showTip', params: { text: '提示文本' } }],
         once: true
       });
     } else {
       const id = 'trg_' + Date.now().toString(36);
-      this.triggers.push({ id, when: { type: 'sceneEnter', params: {} }, do: [], once: true });
+      this.triggers.push({ id, ...editorScope, when: { type: 'sceneEnter', params: {} }, do: [], once: true });
     }
     this.selectedIndex = this.triggers.length - 1;
     this._renderList();
@@ -759,6 +859,11 @@ export class TriggerEditor {
     this.selectedIndex = Math.min(this.selectedIndex, this.triggers.length - 1);
     this._renderList();
     this._renderDetail();
+  }
+
+  _escapeHtml(value) {
+    return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   _json(v) {

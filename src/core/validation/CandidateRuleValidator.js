@@ -38,7 +38,7 @@ function referenceArray(owner, field, targetIds, path, label, errors) {
   });
 }
 
-function validateSceneEventDependencyGraph(sceneEvents, sceneEventIds, errors) {
+function validateSceneEventDependencyGraph(sceneEvents, sceneEventIds, errors, label = 'SceneEvent', arrayPath = 'sceneEvents') {
   const byId = new Map(list(sceneEvents)
     .filter(event => typeof event?.id === 'string' && event.id.trim())
     .map(event => [event.id, event]));
@@ -46,7 +46,7 @@ function validateSceneEventDependencyGraph(sceneEvents, sceneEventIds, errors) {
   const visited = new Set();
   const visit = id => {
     if (visiting.has(id)) {
-      errors.push(makeError('sceneEventDependencyCycle', `sceneEvents.${id}.dependsOn`, `SceneEvent 依赖形成循环: ${id}`));
+      errors.push(makeError('sceneEventDependencyCycle', `${arrayPath}.${id}.dependsOn`, `${label} 依赖形成循环: ${id}`));
       return;
     }
     if (visited.has(id)) return;
@@ -137,50 +137,74 @@ export class CandidateRuleValidator {
     const tutorialIds = stableIds(candidate?.tutorials, 'tutorials', errors);
     const questIds = stableIds(candidate?.quests, 'quests', errors);
     const triggerIds = stableIds(candidate?.triggers, 'triggers', errors);
-    const sceneEventIds = stableIds(candidate?.sceneEvents, 'sceneEvents', errors);
-    const sceneEventsById = new Map(list(candidate?.sceneEvents)
-      .filter(event => typeof event?.id === 'string' && event.id.trim())
-      .map(event => [event.id, event]));
+
+    // ★ FlowGroup 双读兼容：flowGroups 优先，缺失时回退 sceneEvents（旧名）
+    // 使用 Set 合并去重：flowGroups 的 id 覆盖 sceneEvents 的 id
+    const flowGroupsList = list(candidate?.flowGroups);
+    const sceneEventsList = list(candidate?.sceneEvents);
+    const flowGroupMap = new Map();
+    [...sceneEventsList, ...flowGroupsList].forEach(item => {
+      if (item && typeof item.id === 'string' && item.id.trim()) flowGroupMap.set(item.id, item);
+    });
+    const flowGroupsAll = Array.from(flowGroupMap.values());
+    const flowGroupIds = stableIds(flowGroupsAll, (flowGroupsList.length ? 'flowGroups' : (sceneEventsList.length ? 'sceneEvents' : 'flowGroups')), errors);
+    const flowGroupsById = new Map(flowGroupsAll.map(fg => [fg.id, fg]));
+
+    // 数组展示名：新格式用 flowGroups 下标，旧格式用 sceneEvents 下标
+    const fgArrayPath = flowGroupsList.length ? 'flowGroups' : 'sceneEvents';
+    const fgLabel = 'FlowGroup(SceneEvent)';
 
     const eventOrderByScene = new Map();
-    list(candidate?.sceneEvents).forEach((sceneEvent, index) => {
-      const path = `sceneEvents[${index}]`;
-      const scopedSceneIds = list(sceneEvent?.scope?.sceneIds);
+    flowGroupsAll.forEach((flowGroup, index) => {
+      const path = `${fgArrayPath}[${index}]`;
+      const scopedSceneIds = list(flowGroup?.scope?.sceneIds);
       scopedSceneIds.forEach((sceneId, sceneIndex) => {
         if (!sceneIds.has(sceneId)) {
           errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds[${sceneIndex}]`, `场景不存在: ${String(sceneId)}`));
           return;
         }
         const orders = eventOrderByScene.get(sceneId) || new Map();
-        if (orders.has(sceneEvent.order)) {
-          errors.push(makeError('duplicateSceneEventOrder', `${path}.order`, `${sceneId} 中 SceneEvent.order ${sceneEvent.order} 与 ${orders.get(sceneEvent.order)} 重复`));
+        if (orders.has(flowGroup.order)) {
+          errors.push(makeError('duplicateSceneEventOrder', `${path}.order`, `${sceneId} 中 ${fgLabel}.order ${flowGroup.order} 与 ${orders.get(flowGroup.order)} 重复`));
         } else {
-          orders.set(sceneEvent.order, sceneEvent.id);
+          orders.set(flowGroup.order, flowGroup.id);
           eventOrderByScene.set(sceneId, orders);
         }
       });
-      referenceArray(sceneEvent, 'dependsOn', sceneEventIds, path, '前置 SceneEvent', errors);
-      if (list(sceneEvent?.dependsOn).includes(sceneEvent?.id)) {
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.dependsOn`, 'SceneEvent 不得依赖自身'));
+      referenceArray(flowGroup, 'dependsOn', flowGroupIds, path, `前置 ${fgLabel}`, errors);
+      if (list(flowGroup?.dependsOn).includes(flowGroup?.id)) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.dependsOn`, `${fgLabel} 不得依赖自身`));
       }
     });
-    validateSceneEventDependencyGraph(candidate?.sceneEvents, sceneEventIds, errors);
+    validateSceneEventDependencyGraph(flowGroupsAll, flowGroupIds, errors, fgLabel, fgArrayPath);
 
     list(candidate?.triggers).forEach((trigger, index) => {
-      if (!own(trigger, 'sceneEventId')) return;
-      const event = sceneEventsById.get(trigger.sceneEventId);
-      if (!event) {
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `triggers[${index}].sceneEventId`, `SceneEvent 不存在: ${String(trigger.sceneEventId)}`));
+      // 双字段校验：flowGroupId 优先，sceneEventId 次之；两者都存在但不一致时报错
+      const hasFlowGroup = own(trigger, 'flowGroupId');
+      const hasSceneEvent = own(trigger, 'sceneEventId');
+      if (!hasFlowGroup && !hasSceneEvent) return;
+      const fgId = (hasFlowGroup ? String(trigger.flowGroupId || '') : '') || String(trigger.sceneEventId || '');
+      const path = hasFlowGroup ? `triggers[${index}].flowGroupId` : `triggers[${index}].sceneEventId`;
+      if (hasFlowGroup && hasSceneEvent && String(trigger.flowGroupId || '') !== String(trigger.sceneEventId || '')) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `triggers[${index}]`, `${fgLabel} 双字段不一致: flowGroupId=${String(trigger.flowGroupId)}, sceneEventId=${String(trigger.sceneEventId)}`));
         return;
       }
-      const eventScenes = new Set(list(event.scope?.sceneIds));
+      if (!fgId) return;
+      const fg = flowGroupsById.get(fgId);
+      if (!fg) {
+        const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `${fgLabel} 不存在: ${fgId}${suffix}`));
+        return;
+      }
+      const fgScenes = new Set(list(fg.scope?.sceneIds));
       const triggerScenes = [
         trigger.when?.params?.sceneId,
         ...list(trigger.editorScope?.sceneIds)
       ].filter(Boolean);
       triggerScenes.forEach(sceneId => {
-        if (!eventScenes.has(sceneId)) {
-          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `triggers[${index}].sceneEventId`, `Trigger 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
+        if (!fgScenes.has(sceneId)) {
+          const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `Trigger 场景 ${sceneId} 不属于 ${fgLabel} ${fg.id}${suffix}`));
         }
       });
     });
@@ -201,16 +225,27 @@ export class CandidateRuleValidator {
           'Tutorial 完成后不允许自动展示下一项；下一项必须由事件 action 显式调用'
         ));
       }
-      if (!own(tutorial, 'sceneEventId')) return;
-      const event = sceneEventsById.get(tutorial.sceneEventId);
-      if (!event) {
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.sceneEventId`, `SceneEvent 不存在: ${String(tutorial.sceneEventId)}`));
+      const hasFlowGroup = own(tutorial, 'flowGroupId');
+      const hasSceneEvent = own(tutorial, 'sceneEventId');
+      if (!hasFlowGroup && !hasSceneEvent) return;
+      const fgId = (hasFlowGroup ? String(tutorial.flowGroupId || '') : '') || String(tutorial.sceneEventId || '');
+      const fieldPath = hasFlowGroup ? `${path}.flowGroupId` : `${path}.sceneEventId`;
+      if (hasFlowGroup && hasSceneEvent && String(tutorial.flowGroupId || '') !== String(tutorial.sceneEventId || '')) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `${fgLabel} 双字段不一致: flowGroupId=${String(tutorial.flowGroupId)}, sceneEventId=${String(tutorial.sceneEventId)}`));
         return;
       }
-      const eventScenes = new Set(list(event.scope?.sceneIds));
+      if (!fgId) return;
+      const fg = flowGroupsById.get(fgId);
+      if (!fg) {
+        const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, fieldPath, `${fgLabel} 不存在: ${fgId}${suffix}`));
+        return;
+      }
+      const fgScenes = new Set(list(fg.scope?.sceneIds));
       list(tutorial.scope?.sceneIds).forEach(sceneId => {
-        if (!eventScenes.has(sceneId)) {
-          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
+        if (!fgScenes.has(sceneId)) {
+          const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 ${fgLabel} ${fg.id}${suffix}`));
         }
       });
     });
@@ -416,7 +451,10 @@ export class CandidateRuleValidator {
         errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${path}.do`, 'trigger.do 必须为数组'));
       } else {
         const stepIds = new Set();
-        const requiresStableSteps = typeof trigger?.sceneEventId === 'string' && trigger.sceneEventId.trim();
+        const requiresStableSteps = Boolean(
+          (typeof trigger?.flowGroupId === 'string' && trigger.flowGroupId.trim())
+          || (typeof trigger?.sceneEventId === 'string' && trigger.sceneEventId.trim())
+        );
         trigger.do.forEach((action, actionIndex) => {
           const actionPath = `${path}.do[${actionIndex}]`;
           rejectExecutableContent(action, actionPath, errors);
@@ -428,7 +466,7 @@ export class CandidateRuleValidator {
           }
           const stepId = typeof action?.stepId === 'string' ? action.stepId.trim() : '';
           if (requiresStableSteps && !stepId) {
-            errors.push(makeError(ValidationCode.MISSING_FIELD, `${actionPath}.stepId`, '已归属 SceneEvent 的动作必须声明稳定 stepId'));
+            errors.push(makeError(ValidationCode.MISSING_FIELD, `${actionPath}.stepId`, '已归属 FlowGroup(SceneEvent) 的动作必须声明稳定 stepId'));
           } else if (stepId && stepIds.has(stepId)) {
             errors.push(makeError(ValidationCode.DUPLICATE_ID, `${actionPath}.stepId`, `重复的 stepId: ${stepId}`));
           }

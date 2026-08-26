@@ -233,7 +233,7 @@ export function validateTriggerDefinition(trigger, project = null) {
 
   const known = new Set(getTriggerActions(project).map(item => item.value));
   const stepIds = new Set();
-  const requiresStableSteps = Boolean(text(trigger?.sceneEventId));
+  const requiresStableSteps = Boolean(text(trigger?.flowGroupId) || text(trigger?.sceneEventId));
   for (const [index, action] of (trigger?.do || []).entries()) {
     const path = `do[${index}]`;
     if (!known.has(action?.action)) errors.push(`${path}.action 未登记: ${action?.action || ''}`);

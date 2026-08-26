@@ -33,7 +33,10 @@ const matchesScope = (definition, scope = null) => {
 export class TutorialSystem {
   constructor(config = {}) {
     // definitions 属于不可变 Repository；本系统只借用索引并拥有运行进度。
+    // 兼容期内优先 flowGroupDefinitions，回退 sceneEventDefinitions。
+    const fgDefs = config.flowGroupDefinitions ?? config.sceneEventDefinitions ?? [];
     this.definitionRepository = TutorialDefinitionRepository.from(config.definitions || [], {
+      flowGroupDefinitions: fgDefs,
       sceneEventDefinitions: config.sceneEventDefinitions || []
     });
     
@@ -102,14 +105,36 @@ export class TutorialSystem {
     return true;
   }
 
-  replaceDefinitions(definitions = [], sceneEventDefinitions = undefined) {
+  replaceDefinitions(definitions = [], flowGroupDefinitionsOrLegacy = undefined, sceneEventDefinitions = undefined) {
     if (!Array.isArray(definitions)) throw new TypeError('Tutorial definitions must be an array');
-    const events = sceneEventDefinitions === undefined
-      ? this.definitionRepository.sceneEventDefinitions
-      : sceneEventDefinitions;
+    // 兼容两种签名：(defs, flowGroupDefs) 或 (defs, undefined, sceneEventDefs) 或旧版 (defs, sceneEventDefs)
+    let fgDefs;
+    if (flowGroupDefinitionsOrLegacy !== undefined) {
+      // 传入的第二个参数：若是对象数组且有 id 字段，视为 flowGroup/sceneEvent 定义
+      const candidate = flowGroupDefinitionsOrLegacy;
+      if (Array.isArray(candidate)) {
+        fgDefs = candidate;
+      } else {
+        fgDefs = sceneEventDefinitions ?? this.definitionRepository.flowGroupDefinitions;
+      }
+    } else if (sceneEventDefinitions !== undefined) {
+      fgDefs = sceneEventDefinitions;
+    } else {
+      fgDefs = this.definitionRepository.flowGroupDefinitions;
+    }
     return this.setDefinitionRepository(new TutorialDefinitionRepository(definitions, {
-      sceneEventDefinitions: events
+      flowGroupDefinitions: fgDefs,
+      sceneEventDefinitions: Array.isArray(sceneEventDefinitions) ? sceneEventDefinitions : fgDefs
     }));
+  }
+
+  /** 返回 FlowGroup 只读定义；Tutorial 的宏观顺序直接继承该目录。 */
+  getFlowGroupDefinitions() {
+    return this.definitionRepository.getFlowGroupDefinitions();
+  }
+  /** @deprecated 使用 getFlowGroupDefinitions() */
+  getSceneEventDefinitions() {
+    return this.definitionRepository.getSceneEventDefinitions();
   }
 
   /**

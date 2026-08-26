@@ -67,9 +67,13 @@ export class SceneTriggerBindingSystem {
       }
       const definition = this.triggerSystem?.getById?.(binding.triggerId);
       if (definition && !this._matchesSceneEventReference(binding, definition)) {
+        const expected = this._resolveFlowGroupId(definition);
+        const actual = this._resolveFlowGroupId(binding);
         this.logger?.('sceneEventMismatch', binding, {
-          expectedSceneEventId: String(definition.sceneEventId || ''),
-          actualSceneEventId: binding.sceneEventId || ''
+          expectedFlowGroupId: expected,
+          expectedSceneEventId: expected,
+          actualFlowGroupId: actual,
+          actualSceneEventId: actual
         });
       }
       ids.add(binding.id);
@@ -200,7 +204,8 @@ export class SceneTriggerBindingSystem {
       return Object.freeze({
         bindingId: binding.id,
         triggerId: binding.triggerId,
-        sceneEventId: binding.sceneEventId || '',
+        flowGroupId: this._resolveFlowGroupId(binding),
+        sceneEventId: this._resolveFlowGroupId(binding),
         sceneId: binding.sceneId,
         eventType: this._eventType(binding),
         prompt: binding.prompt || '',
@@ -247,11 +252,20 @@ export class SceneTriggerBindingSystem {
     return existed;
   }
 
+  _resolveFlowGroupId(obj) {
+    if (!obj) return '';
+    const fromFg = typeof obj.flowGroupId === 'string' ? obj.flowGroupId.trim() : '';
+    if (fromFg) return fromFg;
+    return typeof obj.sceneEventId === 'string' ? obj.sceneEventId.trim() : '';
+  }
+
   _matchesSceneEventReference(binding, definition = this.triggerSystem?.getById?.(binding?.triggerId)) {
     if (!definition) return false;
-    const expectedSceneEventId = String(definition.sceneEventId || '');
-    const actualSceneEventId = String(binding?.sceneEventId || '');
-    return expectedSceneEventId === actualSceneEventId;
+    // 空值视为不参与外键校验（等价于无归属的 Trigger，允许在任何场景下 binding）
+    const expected = this._resolveFlowGroupId(definition);
+    if (!expected) return true;
+    const actual = this._resolveFlowGroupId(binding);
+    return expected === actual;
   }
 
   _isBindingActive(binding) {
@@ -296,9 +310,13 @@ export class SceneTriggerBindingSystem {
   _fire(binding, eventType = this._eventType(binding), spatial = this._resolveSpatialContext(binding)) {
     const definition = this.triggerSystem?.getById?.(binding.triggerId);
     if (!this._matchesSceneEventReference(binding, definition)) {
+      const expected = this._resolveFlowGroupId(definition);
+      const actual = this._resolveFlowGroupId(binding);
       this.logger?.('sceneEventMismatch', binding, {
-        expectedSceneEventId: String(definition?.sceneEventId || ''),
-        actualSceneEventId: binding.sceneEventId || ''
+        expectedFlowGroupId: expected,
+        expectedSceneEventId: expected,
+        actualFlowGroupId: actual,
+        actualSceneEventId: actual
       });
       return false;
     }
@@ -328,7 +346,8 @@ export class SceneTriggerBindingSystem {
         center: { ...geometry.center }
       },
       triggerId: binding.triggerId,
-      sceneEventId: binding.sceneEventId || '',
+      flowGroupId: this._resolveFlowGroupId(binding),
+      sceneEventId: this._resolveFlowGroupId(binding),
       bindingId: binding.id,
       sceneId: binding.sceneId
     };

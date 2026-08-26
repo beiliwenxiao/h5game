@@ -7,9 +7,21 @@ import {
   normalizeSceneObjectSelector,
   resolveSceneObjects
 } from '../src/core/scene/SceneObjectSelector.js';
-import { SceneEventProjectIndex } from './SceneEventProjectIndex.js';
+import { FlowGroupProjectIndex as _FGIndex, SceneEventProjectIndex } from './SceneEventProjectIndex.js';
+
+const FlowGroupProjectIndex = _FGIndex || SceneEventProjectIndex;
 
 const SELECTOR_MODES = ['id', 'group', 'tag', 'name', 'type', 'ref'];
+const _resolveFgId = obj => {
+  if (!obj) return '';
+  const t = v => String(v ?? '').trim();
+  const fromFg = t(obj.flowGroupId);
+  return fromFg ? fromFg : t(obj.sceneEventId);
+};
+const _syncFgState = (state, fgId) => {
+  state.flowGroupId = fgId;
+  state.sceneEventId = fgId;
+};
 
 function asList(value) {
   return Array.isArray(value) ? value : value == null ? [] : [value];
@@ -52,16 +64,20 @@ function isPersistentVisualLayer(layer) {
 export class SceneEditorEventFilter {
   constructor(editor) {
     this.editor = editor;
+    // selectedFlowGroupId 和 selectedSceneEventId 通过 _syncFgState 始终保持同值；旧变量名保留兼容
     this.state = {
       mode: 'all',
+      selectedFlowGroupId: '',
       selectedSceneEventId: '',
       selectedTriggerId: '',
       selectedBindingId: '',
       includeRelated: false
     };
     this.events = [];
-    this.phases = [];
-    this.projectIndex = new SceneEventProjectIndex();
+    // flowGroups（新名）= phases（旧名），同一数组引用双别名
+    this.flowGroups = [];
+    this.phases = this.flowGroups;
+    this.projectIndex = new FlowGroupProjectIndex();
     this.hiddenBindingIds = new Set();
     this.visibleObjects = null;
     this.dynamicTargets = [];
@@ -74,6 +90,7 @@ export class SceneEditorEventFilter {
     this.hiddenBindingIds.clear();
     this.state = {
       mode: 'all',
+      selectedFlowGroupId: '',
       selectedSceneEventId: '',
       selectedTriggerId: '',
       selectedBindingId: '',
@@ -84,11 +101,11 @@ export class SceneEditorEventFilter {
 
   rebuild({ preserveSelection = true, notify = false } = {}) {
     this.sceneData = this.editor.sceneData;
-    const previousSceneEventId = preserveSelection ? this.state.selectedSceneEventId : '';
+    const previousSceneEventId = preserveSelection ? _resolveFgId(this.state) : '';
     const previousTriggerId = preserveSelection ? this.state.selectedTriggerId : '';
     const previousBindingId = preserveSelection ? this.state.selectedBindingId : '';
     const project = this.editor.getProjectDefinitions?.() || {};
-    this.projectIndex = new SceneEventProjectIndex(project, {
+    this.projectIndex = new FlowGroupProjectIndex(project, {
       sceneDocuments: this.sceneData ? [this.sceneData] : []
     });
     const records = [];
@@ -109,26 +126,32 @@ export class SceneEditorEventFilter {
     }
 
     const projection = this.projectIndex.getSceneProjection(this.sceneData?.id, records);
-    this.phases = projection.groups.map(group => ({
-      id: group.id,
-      label: group.sceneEvent.name || group.id,
-      sceneEvent: group.sceneEvent,
-      triggers: group.triggers,
-      tutorials: group.tutorials,
-      events: group.bindings
+    // FlowGroup 双字段：每个 phase 同时挂 flowGroup + sceneEvent 属性（兼容旧代码读 sceneEvent）
+    this.flowGroups.splice(0, this.flowGroups.length, ...projection.groups.map(group => {
+      const fg = group.flowGroup || group.sceneEvent || null;
+      return {
+        id: group.id,
+        label: (fg?.name || group.id),
+        flowGroup: fg,
+        sceneEvent: fg,
+        triggers: group.triggers,
+        tutorials: group.tutorials,
+        events: group.bindings
+      };
     }));
     if (projection.unassigned.length) {
       const triggerIds = new Set(projection.unassigned.map(record => record.definition?.id).filter(Boolean));
-      this.phases.push({
+      this.flowGroups.push({
         id: '__unassigned__',
-        label: '未归属 SceneEvent',
+        label: '未归属 FlowGroup(SceneEvent)',
+        flowGroup: null,
         sceneEvent: null,
         triggers: this.projectIndex.triggers.filter(trigger => triggerIds.has(trigger.id)),
         tutorials: [],
         events: projection.unassigned
       });
     }
-    this.events = this.phases.flatMap(phase => phase.events.map(record => {
+    this.events = this.flowGroups.flatMap(phase => phase.events.map(record => {
       record.phaseId = phase.id;
       return record;
     }));
@@ -137,12 +160,13 @@ export class SceneEditorEventFilter {
     for (const id of this.hiddenBindingIds) {
       if (!currentIds.has(id)) this.hiddenBindingIds.delete(id);
     }
-    this.state.selectedSceneEventId = this.phases.some(phase => phase.id === previousSceneEventId)
-      ? previousSceneEventId : '';
+    const fgExists = this.flowGroups.some(phase => phase.id === previousSceneEventId);
+    _syncFgState(this.state, fgExists ? previousSceneEventId : '');
     this.state.selectedTriggerId = this.projectIndex.getTrigger(previousTriggerId)
       ? previousTriggerId : '';
     this.state.selectedBindingId = currentIds.has(previousBindingId) ? previousBindingId : '';
     if (this.state.mode === 'sceneEvent' && !this.state.selectedSceneEventId) this.state.mode = 'all';
+    if (this.state.mode === 'flowGroup' && !this.state.selectedFlowGroupId) this.state.mode = 'all';
     if (this.state.mode === 'trigger' && !this.state.selectedTriggerId) this.state.mode = 'all';
     if (this.state.mode === 'binding' && !this.state.selectedBindingId) this.state.mode = 'all';
     this._recomputeProjection();
@@ -180,16 +204,22 @@ export class SceneEditorEventFilter {
 
   selectAll() {
     this.state.mode = 'all';
-    this.state.selectedSceneEventId = '';
+    _syncFgState(this.state, '');
     this.state.selectedTriggerId = '';
     this.state.selectedBindingId = '';
     this._applySelection();
   }
 
+  /** @deprecated 使用 selectFlowGroup */
   selectPhase(sceneEventId) {
-    if (!this.phases.some(phase => phase.id === sceneEventId)) return;
-    this.state.mode = 'sceneEvent';
-    this.state.selectedSceneEventId = sceneEventId;
+    return this.selectFlowGroup(sceneEventId);
+  }
+
+  selectFlowGroup(flowGroupId) {
+    if (!this.flowGroups.some(phase => phase.id === flowGroupId)) return;
+    this.state.mode = 'flowGroup';
+    // sceneEvent 模式同时兼容（旧代码可能硬编码判断 mode==='sceneEvent'）
+    _syncFgState(this.state, flowGroupId);
     this.state.selectedTriggerId = '';
     this.state.selectedBindingId = '';
     this._applySelection();
@@ -199,7 +229,8 @@ export class SceneEditorEventFilter {
     const definition = this.projectIndex.getTrigger(triggerId);
     if (!definition) return;
     this.state.mode = 'trigger';
-    this.state.selectedSceneEventId = text(definition.sceneEventId) || '__unassigned__';
+    const fgId = _resolveFgId(definition) || '__unassigned__';
+    _syncFgState(this.state, fgId);
     this.state.selectedTriggerId = triggerId;
     this.state.selectedBindingId = '';
     this._applySelection();
@@ -211,7 +242,8 @@ export class SceneEditorEventFilter {
     this.state.mode = 'binding';
     this.state.selectedBindingId = bindingId;
     this.state.selectedTriggerId = record.definition?.id || '';
-    this.state.selectedSceneEventId = record.phaseId;
+    const fgId = record.phaseId || '';
+    _syncFgState(this.state, fgId);
     this._applySelection();
     // 即使 canonical enabled=false 导致画布不绘制，也允许从事件条重新选中并在右侧恢复。
     this.editor.selectedObjects = [record.binding];

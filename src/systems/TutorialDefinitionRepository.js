@@ -1,4 +1,8 @@
-import { SceneEventDefinitionRepository } from '../core/scene/SceneEventDefinitionRepository.js';
+import { FlowGroupDefinitionRepository } from '../core/scene/FlowGroupDefinitionRepository.js';
+import { resolveFlowGroupId } from '../migration/SceneEventToFlowGroupMigrator.js';
+
+// @deprecated 兼容别名（旧名 SceneEventDefinitionRepository → 新名 FlowGroupDefinitionRepository）
+const SceneEventDefinitionRepository = FlowGroupDefinitionRepository;
 
 /**
  * Tutorial definitions 的不可变只读索引。
@@ -25,10 +29,13 @@ function normalizeDefinition(input) {
   if (!input?.id || typeof input.id !== 'string') {
     throw new TypeError(`Invalid TutorialDefinition: ${String(input?.id)}`);
   }
+  // 双读：flowGroupId 优先，回退 sceneEventId；归一化后两者同时写（保证旧代码读取兼容）
+  const fgId = resolveFlowGroupId(input);
   return deepFreeze({
     ...cloneValue(input),
     id: input.id,
-    sceneEventId: typeof input.sceneEventId === 'string' ? input.sceneEventId.trim() : '',
+    flowGroupId: fgId,
+    sceneEventId: fgId,
     title: input.title || '教程',
     description: input.description || '',
     steps: Array.isArray(input.steps) ? cloneValue(input.steps) : [],
@@ -47,8 +54,16 @@ function normalizeDefinition(input) {
 }
 
 export class TutorialDefinitionRepository {
-  constructor(definitions = [], { sceneEventDefinitions = [] } = {}) {
-    this.sceneEventDefinitions = SceneEventDefinitionRepository.from(sceneEventDefinitions);
+  /**
+   * @param flowGroupDefinitions  FlowGroupDefinition[]（新命名）
+   * @param sceneEventDefinitions SceneEventDefinition[]（兼容旧名，优先级低于 flowGroupDefinitions）
+   */
+  constructor(definitions = [], { flowGroupDefinitions, sceneEventDefinitions } = {}) {
+    const fgDefs = Array.isArray(flowGroupDefinitions) && flowGroupDefinitions.length > 0
+      ? flowGroupDefinitions
+      : (sceneEventDefinitions || []);
+    this.flowGroupDefinitions = FlowGroupDefinitionRepository.from(fgDefs);
+    this.sceneEventDefinitions = this.flowGroupDefinitions; // 兼容：同引用别名
     this._definitions = new Map();
     this._definitionIndexes = new Map();
     for (const [index, input] of definitions.entries()) {
@@ -56,8 +71,9 @@ export class TutorialDefinitionRepository {
       if (this._definitions.has(definition.id)) {
         throw new TypeError(`Invalid or duplicate TutorialDefinition: ${definition.id}`);
       }
-      if (definition.sceneEventId && !this.sceneEventDefinitions.has(definition.sceneEventId)) {
-        throw new TypeError(`TutorialDefinition ${definition.id} 引用了未知 SceneEvent: ${definition.sceneEventId}`);
+      const fgId = definition.flowGroupId || definition.sceneEventId;
+      if (fgId && !this.flowGroupDefinitions.has(fgId)) {
+        throw new TypeError(`TutorialDefinition ${definition.id} 引用了未知 FlowGroup(SceneEvent): ${fgId}`);
       }
       this._definitions.set(definition.id, definition);
       this._definitionIndexes.set(definition.id, index);
@@ -76,21 +92,23 @@ export class TutorialDefinitionRepository {
   has(id) { return this._definitions.has(id); }
   values() { return this._definitions.values(); }
   all() { return Object.freeze([...this._definitions.values()]); }
-  getSceneEventDefinitions() { return this.sceneEventDefinitions.all(); }
+  getFlowGroupDefinitions() { return this.flowGroupDefinitions.all(); }
+  /** @deprecated 使用 getFlowGroupDefinitions() */
+  getSceneEventDefinitions() { return this.flowGroupDefinitions.all(); }
 
   compare(left, right) {
     if (left === right) return 0;
-    const leftEvent = left?.sceneEventId && this.sceneEventDefinitions.has(left.sceneEventId)
-      ? left.sceneEventId : '';
-    const rightEvent = right?.sceneEventId && this.sceneEventDefinitions.has(right.sceneEventId)
-      ? right.sceneEventId : '';
-    if (leftEvent && rightEvent && leftEvent !== rightEvent) {
-      const eventOrder = this.sceneEventDefinitions.compareIds(leftEvent, rightEvent);
-      if (eventOrder !== 0) return eventOrder;
-    } else if (leftEvent !== rightEvent) {
-      return leftEvent ? -1 : 1;
+    const leftFgId = (left?.flowGroupId || left?.sceneEventId) || '';
+    const rightFgId = (right?.flowGroupId || right?.sceneEventId) || '';
+    const leftFg = leftFgId && this.flowGroupDefinitions.has(leftFgId) ? leftFgId : '';
+    const rightFg = rightFgId && this.flowGroupDefinitions.has(rightFgId) ? rightFgId : '';
+    if (leftFg && rightFg && leftFg !== rightFg) {
+      const fgOrder = this.flowGroupDefinitions.compareIds(leftFg, rightFg);
+      if (fgOrder !== 0) return fgOrder;
+    } else if (leftFg !== rightFg) {
+      return leftFg ? -1 : 1;
     }
-    if (!leftEvent && !rightEvent && left.order !== right.order) return left.order - right.order;
+    if (!leftFg && !rightFg && left.order !== right.order) return left.order - right.order;
     return right.priority - left.priority
       || (this._definitionIndexes.get(left.id) ?? 0) - (this._definitionIndexes.get(right.id) ?? 0)
       || left.id.localeCompare(right.id);
@@ -101,7 +119,7 @@ export class TutorialDefinitionRepository {
     const definitions = [...this._definitions.values(), { ...input, id }]
       .filter((definition, index, all) => all.findLastIndex(item => item.id === definition.id) === index);
     return new TutorialDefinitionRepository(definitions, {
-      sceneEventDefinitions: this.sceneEventDefinitions
+      flowGroupDefinitions: this.flowGroupDefinitions
     });
   }
 }

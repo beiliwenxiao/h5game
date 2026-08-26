@@ -1,7 +1,12 @@
 const asList = value => Array.isArray(value) ? value : [];
 const text = value => String(value ?? '').trim();
+const _resolveFgId = obj => {
+  if (!obj) return '';
+  const fromFg = text(obj.flowGroupId);
+  return fromFg ? fromFg : text(obj.sceneEventId);
+};
 
-/** Tutorial 详情编辑器；宏观顺序继承 SceneEvent，只管理本定义与 steps[]。 */
+/** Tutorial 详情编辑器；宏观顺序继承 FlowGroup(SceneEvent)，只管理本定义与 steps[]。 */
 export class TutorialEditorPanel {
   constructor(editor) {
     this.editor = editor;
@@ -9,12 +14,16 @@ export class TutorialEditorPanel {
 
   render(panel, tutorial) {
     const escape = value => this.editor._escapeHtml(value);
-    const sceneEvents = [...(this.editor.project.sceneEvents || [])]
-      .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
-    const eventOptions = sceneEvents.map(sceneEvent => (
-      `<option value="${escape(sceneEvent.id)}"${tutorial.sceneEventId === sceneEvent.id ? ' selected' : ''}>${escape(`${Number(sceneEvent.order || 0) + 1}. ${sceneEvent.name || sceneEvent.id}`)}</option>`
+    // FlowGroup 双读：flowGroups 优先，缺失时回退 sceneEvents（旧名）
+    const flowGroupsRaw = [...(this.editor.project.flowGroups || []), ...(this.editor.project.flowGroups ? [] : (this.editor.project.sceneEvents || []))];
+    const fgMap = new Map();
+    flowGroupsRaw.forEach(fg => { if (fg?.id) fgMap.set(fg.id, fg); });
+    const flowGroups = [...fgMap.values()].sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
+    const tutorialFgId = _resolveFgId(tutorial);
+    const eventOptions = flowGroups.map(fg => (
+      `<option value="${escape(fg.id)}"${tutorialFgId === fg.id ? ' selected' : ''}>${escape(`${Number(fg.order || 0) + 1}. ${fg.name || fg.id}`)}</option>`
     )).join('');
-    const selectedEvent = sceneEvents.find(sceneEvent => sceneEvent.id === tutorial.sceneEventId);
+    const selectedEvent = flowGroups.find(fg => fg.id === tutorialFgId);
     const scopedSceneIds = new Set(asList(tutorial.scope?.sceneIds));
     const scenes = new Map();
     for (const scene of this.editor._getScenes()) {
@@ -31,13 +40,13 @@ export class TutorialEditorPanel {
     panel.innerHTML = `
       <div class="trg-definition-heading">
         <strong>Tutorial 教学表现</strong>
-        <span>所属 SceneEvent ${escape(selectedEvent?.name || tutorial.sceneEventId || '未归属')} 只用于组织与静态排序；展示必须由事件 action 显式调用 tutorial.command(show, tutorialId)</span>
+        <span>所属 FlowGroup(SceneEvent) ${escape(selectedEvent?.name || tutorialFgId || '未归属')} 只用于组织与静态排序；展示必须由事件 action 显式调用 tutorial.command(show, tutorialId)</span>
       </div>
       <div class="row"><label>ID</label><input type="text" id="d-tutorial-id" value="${escape(tutorial.id || '')}"></div>
       <div class="row"><label>标题</label><input type="text" id="d-tutorial-title" value="${escape(tutorial.title || '')}"></div>
       <div class="row"><label>说明</label><textarea id="d-tutorial-description">${escape(tutorial.description || '')}</textarea></div>
-      <div class="row"><label>所属 SceneEvent（仅用于组织，不自动展示）</label><select id="d-tutorial-event"><option value="">-- 选择 SceneEvent --</option>${eventOptions}</select></div>
-      <div class="row"><label>场景 scope（必须属于 SceneEvent scope）</label><select id="d-tutorial-scenes" multiple size="${Math.min(7, Math.max(3, scenes.size))}">${sceneOptions}</select></div>
+      <div class="row"><label>所属 FlowGroup 剧情流程（旧名 SceneEvent，仅用于组织不自动展示）</label><select id="d-tutorial-event"><option value="">-- 选择 FlowGroup --</option>${eventOptions}</select></div>
+      <div class="row"><label>场景 scope（必须属于 FlowGroup scope）</label><select id="d-tutorial-scenes" multiple size="${Math.min(7, Math.max(3, scenes.size))}">${sceneOptions}</select></div>
       <div class="row"><label>分类 category</label><input type="text" id="d-tutorial-category" value="${escape(tutorial.category || 'general')}"></div>
       <div class="row"><label>完成策略</label><select id="d-tutorial-policy">
         <option value="allSteps"${tutorial.completionPolicy === 'allSteps' ? ' selected' : ''}>完成全部步骤</option>
@@ -49,7 +58,7 @@ export class TutorialEditorPanel {
         <label><input type="checkbox" id="d-tutorial-skip"${tutorial.canSkip !== false ? ' checked' : ''}> 可跳过</label>
       </div>
       <div class="row"><label>展示入口</label><div class="do-result-semantics">只允许 Trigger 事件动作 <code>tutorial.command</code> 以 <code>operation: "show"</code> 和稳定 <code>tutorialId</code> 显式展示；场景加载、读档、帧更新和上一教程完成均不会自动弹出。</div></div>
-      <div class="row"><label>同一 SceneEvent 内优先级 priority（高值先展示）</label><input type="number" id="d-tutorial-priority" value="${Number(tutorial.priority || 0)}"></div>
+      <div class="row"><label>同一 FlowGroup 内优先级 priority（高值先展示）</label><input type="number" id="d-tutorial-priority" value="${Number(tutorial.priority || 0)}"></div>
       <div class="row"><label>信号规则 signalRules（JSON 数组，可空）</label><textarea id="d-tutorial-signals">${tutorial.signalRules ? escape(JSON.stringify(tutorial.signalRules, null, 2)) : ''}</textarea></div>
       <div class="row"><label>移动规则 movementRule（JSON 对象，可空）</label><textarea id="d-tutorial-movement">${tutorial.movementRule ? escape(JSON.stringify(tutorial.movementRule, null, 2)) : ''}</textarea></div>
       <div class="row">
@@ -72,11 +81,13 @@ export class TutorialEditorPanel {
       this.render(panel, tutorial);
     });
     panel.querySelector('#d-tutorial-event')?.addEventListener('change', event => {
-      const sceneEventId = text(event.target.value);
+      const fgId = text(event.target.value);
       this.commit(tutorial, panel);
-      tutorial.sceneEventId = sceneEventId;
-      const sceneEvent = sceneEvents.find(candidate => candidate.id === sceneEventId);
-      if (sceneEvent) tutorial.scope = { ...(tutorial.scope || {}), sceneIds: [...asList(sceneEvent.scope?.sceneIds)] };
+      // 双写保证兼容
+      tutorial.flowGroupId = fgId;
+      tutorial.sceneEventId = fgId;
+      const flowGroup = flowGroups.find(candidate => candidate.id === fgId);
+      if (flowGroup) tutorial.scope = { ...(tutorial.scope || {}), sceneIds: [...asList(flowGroup.scope?.sceneIds)] };
       this.editor._renderList();
       this.render(panel, tutorial);
     });
@@ -89,7 +100,10 @@ export class TutorialEditorPanel {
     const description = text(panel.querySelector('#d-tutorial-description').value);
     if (description) tutorial.description = description;
     else delete tutorial.description;
-    tutorial.sceneEventId = text(panel.querySelector('#d-tutorial-event').value);
+    // 双写保证兼容
+    const fgId = text(panel.querySelector('#d-tutorial-event').value);
+    tutorial.flowGroupId = fgId;
+    tutorial.sceneEventId = fgId;
     tutorial.category = text(panel.querySelector('#d-tutorial-category').value) || 'general';
     tutorial.completionPolicy = panel.querySelector('#d-tutorial-policy').value || 'allSteps';
     tutorial.pauseGame = panel.querySelector('#d-tutorial-pause').checked;
@@ -122,17 +136,21 @@ export class TutorialEditorPanel {
     return true;
   }
 
-  create(sceneEventId = '') {
+  create(preferredFlowGroupId = '') {
     const tutorials = this.editor.project.tutorials || [];
-    const sceneEvent = (this.editor.project.sceneEvents || []).find(candidate => candidate.id === sceneEventId)
-      || this.editor.project.sceneEvents?.[0];
+    // FlowGroup 双读：flowGroups 优先，缺失时回退 sceneEvents（旧名）
+    const flowGroups = [...(this.editor.project.flowGroups || []), ...(this.editor.project.flowGroups ? [] : (this.editor.project.sceneEvents || []))];
+    const sceneEvent = flowGroups.find(candidate => candidate.id === preferredFlowGroupId)
+      || flowGroups[0];
     const id = this.editor._nextStableId('tutorial', tutorials);
+    const fgId = sceneEvent?.id || '';
     return {
       id,
       title: '新教学',
       description: '',
       category: 'general',
-      sceneEventId: sceneEvent?.id || '',
+      flowGroupId: fgId,
+      sceneEventId: fgId,
       scope: { sceneIds: [...asList(sceneEvent?.scope?.sceneIds)] },
       steps: [{ id: `${id}-step-001`, text: '提示文本' }],
       completionPolicy: 'allSteps',
@@ -154,7 +172,8 @@ export class TutorialEditorPanel {
       else if (ids.has(id)) errors.push(`${path}.id 重复: ${id}`);
       else ids.add(id);
       if (!text(tutorial?.title)) errors.push(`${path}.title 不能为空`);
-      if (!eventIds.has(tutorial?.sceneEventId)) errors.push(`${path}.sceneEventId 未登记: ${tutorial?.sceneEventId || '空'}`);
+      const fgId = _resolveFgId(tutorial);
+      if (fgId && !eventIds.has(fgId)) errors.push(`${path}.flowGroupId(sceneEventId) 未登记: ${fgId}`);
       if (tutorial?.autoTrigger === true) errors.push(`${path}.autoTrigger 不允许自动触发，请使用事件 action 显式展示`);
       if (tutorial?.autoAdvance === true) errors.push(`${path}.autoAdvance 不允许自动推进，请由下一事件显式展示`);
       if (!asList(tutorial?.steps).length) errors.push(`${path}.steps 至少需要一个步骤`);

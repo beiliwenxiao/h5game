@@ -20,6 +20,8 @@ import { CandidateRuleValidator } from './validation/CandidateRuleValidator.js';
 import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { SceneEventDefinitionRepository } from './scene/SceneEventDefinitionRepository.js';
+import { FlowGroupDefinitionRepository } from './scene/FlowGroupDefinitionRepository.js';
+import { normalizeProjectForRuntime } from '../migration/SceneEventToFlowGroupMigrator.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
 import { createStandardActionDescriptorRegistry } from '../systems/ActionDescriptorRegistry.js';
 import { CommandAdapter } from '../systems/CommandAdapter.js';
@@ -72,7 +74,9 @@ export class GameLoader {
     this.actionDescriptorRegistry = actionDescriptorRegistry || createStandardActionDescriptorRegistry();
     this.scenarioDefinitionIndex = ScenarioDefinitionIndex.empty();
     this.triggerGraph = TriggerGraph.fromSnapshot(Object.freeze({ project: Object.freeze({}), definitionRevision: 0 }));
-    this.sceneEventDefinitionRepository = SceneEventDefinitionRepository.empty();
+    // 双轨初始化：flowGroupDefinitionRepository 为主，sceneEventDefinitionRepository 作为同引用别名（兼容旧代码）
+    this.flowGroupDefinitionRepository = FlowGroupDefinitionRepository.empty();
+    this.sceneEventDefinitionRepository = this.flowGroupDefinitionRepository;
     this.commandAdapter = null;
     this._definitionRevision = 0;
     this.blackboard = new Blackboard();
@@ -427,12 +431,15 @@ export class GameLoader {
   }
 
   _buildShadowDraft({ snapshot, repository, runtimeConfig }, deps = {}) {
-    const project = snapshot.project;
+    // ★ FlowGroup 兼容归一化：内存补齐 flowGroups/flowGroupId（不修改源 JSON）
+    const project = normalizeProjectForRuntime(snapshot.project);
     const blackboard = new Blackboard();
     blackboard.init(project.variables || {});
     const registries = createStandardRegistries(repository);
     const battleIntegration = this._createBattleIntegration(project, deps);
-    const sceneEventDefinitionRepository = SceneEventDefinitionRepository.from(project.sceneEvents || []);
+    // 主仓库 flowGroups；sceneEventDefinitionRepository 保持同引用别名，兼容读取旧代码
+    const flowGroupDefinitionRepository = FlowGroupDefinitionRepository.from(project.flowGroups || []);
+    const sceneEventDefinitionRepository = flowGroupDefinitionRepository;
     const triggerGraph = TriggerGraph.fromSnapshot(snapshot);
     const scenarioDefinitionIndex = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph });
     const commandAdapter = deps.commandAdapter || (deps.commandGateway ? new CommandAdapter({
@@ -453,6 +460,7 @@ export class GameLoader {
       bindingReferenceResolver: deps.triggerBindingReferenceResolver,
       operationFingerprintValidator: deps.triggerOperationFingerprintValidator,
       sceneEventDefinitionRepository,
+      flowGroupDefinitionRepository,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
@@ -473,6 +481,7 @@ export class GameLoader {
       registries,
       definitionRepository: repository,
       sceneEventDefinitionRepository,
+      flowGroupDefinitionRepository,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
@@ -481,9 +490,11 @@ export class GameLoader {
     const progression = this._buildProgressionDraft(project, deps);
     const configConsumption = this.configConsumptionRegistry.build(snapshot);
     const context = {
-      snapshot, repository, runtimeConfig, configConsumption,
+      snapshot: { ...snapshot, project },
+      repository, runtimeConfig, configConsumption,
       scenarioDefinitionIndex, triggerGraph, commandAdapter,
       sceneEventDefinitionRepository,
+      flowGroupDefinitionRepository,
       blackboard, triggerSystem, registries
     };
     const consumerDrafts = this._buildExternalConsumerDrafts(project, deps, context);
@@ -501,6 +512,7 @@ export class GameLoader {
       scenarioDefinitionIndex: this.scenarioDefinitionIndex,
       triggerGraph: this.triggerGraph,
       sceneEventDefinitionRepository: this.sceneEventDefinitionRepository,
+      flowGroupDefinitionRepository: this.flowGroupDefinitionRepository,
       commandAdapter: this.commandAdapter,
       registries: this.registries,
       blackboard: this.blackboard,
@@ -534,6 +546,7 @@ export class GameLoader {
         scenarioDefinitionIndex: draft.scenarioDefinitionIndex,
         triggerGraph: draft.triggerGraph,
         sceneEventDefinitionRepository: draft.sceneEventDefinitionRepository,
+        flowGroupDefinitionRepository: draft.flowGroupDefinitionRepository,
         commandAdapter: draft.commandAdapter,
         registries: draft.registries,
         blackboard: draft.blackboard,

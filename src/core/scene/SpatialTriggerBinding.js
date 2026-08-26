@@ -11,11 +11,16 @@ export function createSpatialTriggerBinding(source = {}) {
     value: source.target,
     sceneId: source.sceneId
   });
+  // flowGroupId（新名）+ sceneEventId（旧名）双字段同值写入，保证旧代码双读
+  const fgId = (typeof source.flowGroupId === 'string' && source.flowGroupId.trim())
+    ? String(source.flowGroupId).trim()
+    : (String(source.sceneEventId || '').trim());
   const binding = {
     id: String(source.id || '').trim(),
     type: 'trigger',
     triggerId: String(source.triggerId || '').trim(),
-    sceneEventId: String(source.sceneEventId || '').trim(),
+    flowGroupId: fgId,
+    sceneEventId: fgId,
     sceneId: String(source.sceneId || '').trim(),
     ...(typeof source.enabled === 'boolean' ? { enabled: source.enabled } : {}),
     selector,

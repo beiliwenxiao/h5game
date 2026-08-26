@@ -101,6 +101,9 @@ export class TriggerSystem {
     this.sceneDiagnostics = ctx.sceneDiagnostics || ctx.services?.diagnostics || this.sceneDiagnostics;
     this.sceneEventDefinitionRepository = ctx.sceneEventDefinitionRepository
       || this.sceneEventDefinitionRepository;
+    this.flowGroupDefinitionRepository = ctx.flowGroupDefinitionRepository
+      || this.sceneEventDefinitionRepository
+      || this.flowGroupDefinitionRepository;
     this.definitionRevision = ctx.runtimeConfig?.definitionRevision
       ?? ctx.definitionRepository?.definitionRevision
       ?? this.definitionRevision;
@@ -116,6 +119,12 @@ export class TriggerSystem {
     this.sceneDiagnostics = patch.sceneDiagnostics || patch.services?.diagnostics || this.sceneDiagnostics;
     if (Object.prototype.hasOwnProperty.call(patch, 'sceneEventDefinitionRepository')) {
       this.sceneEventDefinitionRepository = patch.sceneEventDefinitionRepository || null;
+      this.flowGroupDefinitionRepository = patch.flowGroupDefinitionRepository
+        || this.sceneEventDefinitionRepository
+        || this.flowGroupDefinitionRepository;
+    } else if (Object.prototype.hasOwnProperty.call(patch, 'flowGroupDefinitionRepository')) {
+      this.flowGroupDefinitionRepository = patch.flowGroupDefinitionRepository || null;
+      this.sceneEventDefinitionRepository = this.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
     }
     this.expr.setContext(this.ctx);
   }
@@ -141,13 +150,20 @@ export class TriggerSystem {
   }
 
   _validateSceneEventReference(trigger) {
-    if (trigger?.sceneEventId === undefined) return true;
-    if (!hasText(trigger.sceneEventId)) {
-      throw new Error(`TriggerSystem.register: ${trigger?.id || '<unknown>'}.sceneEventId 必须是非空字符串`);
+    // 双字段兼容：flowGroupId 优先，回退 sceneEventId
+    const hasFg = Object.prototype.hasOwnProperty.call(trigger, 'flowGroupId');
+    const hasSe = Object.prototype.hasOwnProperty.call(trigger, 'sceneEventId');
+    if (!hasFg && !hasSe) return true;
+    const fgId = typeof trigger?.flowGroupId === 'string' ? trigger.flowGroupId.trim() : '';
+    const seId = typeof trigger?.sceneEventId === 'string' ? trigger.sceneEventId.trim() : '';
+    const resolved = fgId || seId;
+    const label = hasFg ? 'flowGroupId' : 'sceneEventId';
+    if (!resolved) {
+      throw new Error(`TriggerSystem.register: ${trigger?.id || '<unknown>'}.${label} 必须是非空字符串（兼容 sceneEventId）`);
     }
-    if (this.sceneEventDefinitionRepository?.has
-      && !this.sceneEventDefinitionRepository.has(trigger.sceneEventId)) {
-      throw new Error(`TriggerSystem.register: ${trigger.id}.sceneEventId 未登记 "${trigger.sceneEventId}"`);
+    const repo = this.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
+    if (repo?.has && !repo.has(resolved)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.${label} 未登记 "${resolved}"（FlowGroup / SceneEvent）`);
     }
     return true;
   }
@@ -945,7 +961,7 @@ export class TriggerSystem {
 
   _validateActionStepDefinitions(trigger) {
     const identities = new Set();
-    const requiresStableSteps = hasText(trigger?.sceneEventId);
+    const requiresStableSteps = hasText(trigger?.flowGroupId) || hasText(trigger?.sceneEventId);
     for (const [index, action] of (trigger?.do || []).entries()) {
       const stepId = hasText(action?.stepId) ? action.stepId.trim() : '';
       if (requiresStableSteps && !stepId) {

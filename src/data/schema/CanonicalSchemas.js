@@ -558,6 +558,7 @@ export const TUTORIAL_MOVEMENT_RULE_SCHEMA = {
   }
 };
 
+/** @deprecated 使用 FLOW_GROUP_SCOPE_SCHEMA */
 export const SCENE_EVENT_SCOPE_SCHEMA = {
   id: 'sceneEventScope',
   fields: {
@@ -565,6 +566,7 @@ export const SCENE_EVENT_SCOPE_SCHEMA = {
   }
 };
 
+/** @deprecated 使用 FLOW_GROUP_DEFINITION_SCHEMA */
 export const SCENE_EVENT_DEFINITION_SCHEMA = {
   id: 'sceneEventDefinition',
   fields: {
@@ -576,6 +578,41 @@ export const SCENE_EVENT_DEFINITION_SCHEMA = {
     dependsOn: { type: FieldType.ARRAY, itemType: FieldType.STRING },
     activeWhen: { type: FieldType.OBJECT },
     completionWhen: { type: FieldType.OBJECT }
+  }
+};
+
+export const FLOW_GROUP_SCOPE_SCHEMA = {
+  id: 'flowGroupScope',
+  fields: {
+    sceneIds: { type: FieldType.ARRAY, required: true, minItems: 1, itemType: FieldType.STRING }
+  }
+};
+
+export const FLOW_GROUP_CONTROL_SCHEMA = {
+  id: 'flowGroupControl',
+  fields: {
+    autoActivate: { type: FieldType.BOOLEAN },
+    autoComplete: { type: FieldType.BOOLEAN },
+    repeatable: { type: FieldType.BOOLEAN },
+    maxProgress: { type: FieldType.INTEGER, min: 0 },
+    notifyProgressEvery: { type: FieldType.INTEGER, min: 1 }
+  }
+};
+
+export const FLOW_GROUP_DEFINITION_SCHEMA = {
+  id: 'flowGroupDefinition',
+  fields: {
+    id: idField(),
+    name: { type: FieldType.STRING, required: true, minLength: 1 },
+    description: { type: FieldType.STRING },
+    scope: { type: FieldType.OBJECT, required: true, schema: 'flowGroupScope' },
+    order: { type: FieldType.INTEGER, required: true, min: 0 },
+    dependsOn: { type: FieldType.ARRAY, itemType: FieldType.STRING },
+    activeWhen: { type: FieldType.OBJECT },
+    completionWhen: { type: FieldType.OBJECT },
+    control: { type: FieldType.OBJECT, schema: 'flowGroupControl' },
+    // 兼容旧名：允许 sceneEvent 项目载入后双读（normalizeProject 后写入 flowGroups）
+    sceneEventId: { type: FieldType.STRING, deprecated: true, description: '兼容旧字段别名，写入后即视为 flowGroupId' }
   }
 };
 
@@ -593,9 +630,10 @@ export const TUTORIAL_DEFINITION_SCHEMA = {
     title: { type: FieldType.STRING, required: true, minLength: 1 },
     description: { type: FieldType.STRING },
     category: { type: FieldType.STRING, required: true, minLength: 1 },
-    sceneEventId: { type: FieldType.STRING, minLength: 1 },
+    flowGroupId: { type: FieldType.STRING, minLength: 1 },
+    sceneEventId: { type: FieldType.STRING, minLength: 1, deprecated: true, description: '已弃用，使用 flowGroupId' },
     scope: { type: FieldType.OBJECT, schema: 'tutorialScope' },
-    // 已迁移 Tutorial 继承 SceneEvent.order；旧定义仍可保留 order 作为兼容回退。
+    // 已迁移 Tutorial 继承 FlowGroup.order；旧定义仍可保留 order 作为兼容回退。
     order: { type: FieldType.INTEGER, min: 0 },
     steps: { type: FieldType.ARRAY, required: true, minItems: 1, itemSchema: 'tutorialStep' },
     signalRules: { type: FieldType.ARRAY, itemSchema: 'tutorialSignalRule' },
@@ -694,8 +732,10 @@ export const GAME_PROJECT_SCHEMA = {
     scenes: { type: FieldType.ARRAY, required: true },
     dialogues: { type: FieldType.ARRAY, required: true },
     quests: { type: FieldType.ARRAY, required: true },
-    // 增量接入：已迁移内容以 SceneEvent 作为唯一宏观流程身份；未迁移场景仍可暂不声明。
-    sceneEvents: { type: FieldType.ARRAY, itemSchema: 'sceneEventDefinition' },
+    // 剧情流程分组（新名）：作为统一宏观流程身份标识；未迁移场景仍可暂不声明。
+    flowGroups: { type: FieldType.ARRAY, itemSchema: 'flowGroupDefinition' },
+    // 增量接入（旧名，已弃用）：保留一个版本兼容，内部 normalizeProjectForRuntime 自动迁移为 flowGroups
+    sceneEvents: { type: FieldType.ARRAY, itemSchema: 'sceneEventDefinition', deprecated: true, description: '已弃用，使用 flowGroups' },
     triggerCatalog: { type: FieldType.OBJECT },
     triggers: { type: FieldType.ARRAY, required: true },
     tutorials: { type: FieldType.ARRAY, required: true, itemSchema: 'tutorialDefinition' },
@@ -733,6 +773,9 @@ export const CANONICAL_SCHEMAS = [
   TUTORIAL_MOVEMENT_RULE_SCHEMA,
   SCENE_EVENT_SCOPE_SCHEMA,
   SCENE_EVENT_DEFINITION_SCHEMA,
+  FLOW_GROUP_SCOPE_SCHEMA,
+  FLOW_GROUP_CONTROL_SCHEMA,
+  FLOW_GROUP_DEFINITION_SCHEMA,
   TUTORIAL_SCOPE_SCHEMA,
   TUTORIAL_DEFINITION_SCHEMA,
   GAME_PROJECT_META_SCHEMA,

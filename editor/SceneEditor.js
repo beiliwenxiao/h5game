@@ -180,9 +180,34 @@ export class SceneEditor {
     });
   }
 
+  getProjectDefinitions() {
+    try {
+      const definitions = this.options.getProjectDefinitions?.();
+      if (definitions && typeof definitions === 'object') return definitions;
+      return { sceneEvents: [], triggers: this.options.getProjectTriggers?.() || [], tutorials: [] };
+    } catch (error) {
+      console.warn('SceneEditor: 获取项目事件定义失败', error);
+      return { sceneEvents: [], triggers: [], tutorials: [] };
+    }
+  }
+
+  getProjectSceneEvents() {
+    const values = this.getProjectDefinitions().sceneEvents;
+    return Array.isArray(values) ? values : [];
+  }
+
   getProjectTriggers() {
-    try { return this.options.getProjectTriggers?.() || []; }
-    catch (error) { console.warn('SceneEditor: 获取项目触发器失败', error); return []; }
+    const values = this.getProjectDefinitions().triggers;
+    return Array.isArray(values) ? values : [];
+  }
+
+  getProjectTutorials() {
+    const values = this.getProjectDefinitions().tutorials;
+    return Array.isArray(values) ? values : [];
+  }
+
+  getProjectSceneEvent(id) {
+    return this.getProjectSceneEvents().find(sceneEvent => sceneEvent?.id === id) || null;
   }
 
   getProjectTrigger(id) {

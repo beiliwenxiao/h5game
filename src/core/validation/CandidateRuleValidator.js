@@ -38,6 +38,28 @@ function referenceArray(owner, field, targetIds, path, label, errors) {
   });
 }
 
+function validateSceneEventDependencyGraph(sceneEvents, sceneEventIds, errors) {
+  const byId = new Map(list(sceneEvents)
+    .filter(event => typeof event?.id === 'string' && event.id.trim())
+    .map(event => [event.id, event]));
+  const visiting = new Set();
+  const visited = new Set();
+  const visit = id => {
+    if (visiting.has(id)) {
+      errors.push(makeError('sceneEventDependencyCycle', `sceneEvents.${id}.dependsOn`, `SceneEvent 依赖形成循环: ${id}`));
+      return;
+    }
+    if (visited.has(id)) return;
+    visiting.add(id);
+    for (const dependencyId of list(byId.get(id)?.dependsOn)) {
+      if (sceneEventIds.has(dependencyId)) visit(dependencyId);
+    }
+    visiting.delete(id);
+    visited.add(id);
+  };
+  for (const id of byId.keys()) visit(id);
+}
+
 const EXECUTABLE_CONTENT_FIELDS = new Set([
   'execute', 'handler', 'callback', 'modulePath', 'className', 'function',
   'code', 'script', 'sourceCode', 'eval', 'adapter'
@@ -115,6 +137,68 @@ export class CandidateRuleValidator {
     const tutorialIds = stableIds(candidate?.tutorials, 'tutorials', errors);
     const questIds = stableIds(candidate?.quests, 'quests', errors);
     const triggerIds = stableIds(candidate?.triggers, 'triggers', errors);
+    const sceneEventIds = stableIds(candidate?.sceneEvents, 'sceneEvents', errors);
+    const sceneEventsById = new Map(list(candidate?.sceneEvents)
+      .filter(event => typeof event?.id === 'string' && event.id.trim())
+      .map(event => [event.id, event]));
+
+    const eventOrderByScene = new Map();
+    list(candidate?.sceneEvents).forEach((sceneEvent, index) => {
+      const path = `sceneEvents[${index}]`;
+      const scopedSceneIds = list(sceneEvent?.scope?.sceneIds);
+      scopedSceneIds.forEach((sceneId, sceneIndex) => {
+        if (!sceneIds.has(sceneId)) {
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds[${sceneIndex}]`, `场景不存在: ${String(sceneId)}`));
+          return;
+        }
+        const orders = eventOrderByScene.get(sceneId) || new Map();
+        if (orders.has(sceneEvent.order)) {
+          errors.push(makeError('duplicateSceneEventOrder', `${path}.order`, `${sceneId} 中 SceneEvent.order ${sceneEvent.order} 与 ${orders.get(sceneEvent.order)} 重复`));
+        } else {
+          orders.set(sceneEvent.order, sceneEvent.id);
+          eventOrderByScene.set(sceneId, orders);
+        }
+      });
+      referenceArray(sceneEvent, 'dependsOn', sceneEventIds, path, '前置 SceneEvent', errors);
+      if (list(sceneEvent?.dependsOn).includes(sceneEvent?.id)) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.dependsOn`, 'SceneEvent 不得依赖自身'));
+      }
+    });
+    validateSceneEventDependencyGraph(candidate?.sceneEvents, sceneEventIds, errors);
+
+    list(candidate?.triggers).forEach((trigger, index) => {
+      if (!own(trigger, 'sceneEventId')) return;
+      const event = sceneEventsById.get(trigger.sceneEventId);
+      if (!event) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `triggers[${index}].sceneEventId`, `SceneEvent 不存在: ${String(trigger.sceneEventId)}`));
+        return;
+      }
+      const eventScenes = new Set(list(event.scope?.sceneIds));
+      const triggerScenes = [
+        trigger.when?.params?.sceneId,
+        ...list(trigger.editorScope?.sceneIds)
+      ].filter(Boolean);
+      triggerScenes.forEach(sceneId => {
+        if (!eventScenes.has(sceneId)) {
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `triggers[${index}].sceneEventId`, `Trigger 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
+        }
+      });
+    });
+
+    list(candidate?.tutorials).forEach((tutorial, index) => {
+      if (!own(tutorial, 'sceneEventId')) return;
+      const event = sceneEventsById.get(tutorial.sceneEventId);
+      if (!event) {
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `tutorials[${index}].sceneEventId`, `SceneEvent 不存在: ${String(tutorial.sceneEventId)}`));
+        return;
+      }
+      const eventScenes = new Set(list(event.scope?.sceneIds));
+      list(tutorial.scope?.sceneIds).forEach(sceneId => {
+        if (!eventScenes.has(sceneId)) {
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `tutorials[${index}].scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
+        }
+      });
+    });
 
     const libraryIds = {};
     for (const [kind, definitions] of Object.entries(candidate?.library || {})) {
@@ -165,6 +249,10 @@ export class CandidateRuleValidator {
       ...list(candidate?.actionCatalog?.actions),
       ...list(candidate?.actions)
     ];
+    const actionDescriptorsById = new Map(actionDefinitions
+      .filter(isObject)
+      .map(descriptor => [descriptor.value || descriptor.id, descriptor])
+      .filter(([id]) => typeof id === 'string' && id.trim()));
     const actionIds = new Set([
       ...DEFAULT_TRIGGER_ACTION_IDS,
       ...actionDefinitions
@@ -199,6 +287,21 @@ export class CandidateRuleValidator {
               `${actionPath}.action`,
               `未登记的 action: ${String(action?.action)}`
             ));
+          }
+          const catalogDescriptor = actionDescriptorsById.get(action?.action);
+          const operations = list(catalogDescriptor?.operations);
+          if (operations.length > 0) {
+            const operationId = action?.params?.operation;
+            const operationIds = new Set(operations
+              .map(operation => typeof operation === 'string' ? operation : operation?.value || operation?.id)
+              .filter(Boolean));
+            if (typeof operationId !== 'string' || !operationId.trim() || !operationIds.has(operationId)) {
+              errors.push(makeError(
+                ValidationCode.INVALID_REFERENCE,
+                `${actionPath}.params.operation`,
+                `未登记的 operation: ${String(operationId)}`
+              ));
+            }
           }
           const referenceContract = standardActionReferences[action?.action];
           if (referenceContract) {
@@ -297,6 +400,8 @@ export class CandidateRuleValidator {
       if (!Array.isArray(trigger?.do)) {
         errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${path}.do`, 'trigger.do 必须为数组'));
       } else {
+        const stepIds = new Set();
+        const requiresStableSteps = typeof trigger?.sceneEventId === 'string' && trigger.sceneEventId.trim();
         trigger.do.forEach((action, actionIndex) => {
           const actionPath = `${path}.do[${actionIndex}]`;
           rejectExecutableContent(action, actionPath, errors);
@@ -306,7 +411,16 @@ export class CandidateRuleValidator {
           if (own(action, 'params') && !isObject(action.params)) {
             errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${actionPath}.params`, 'action.params 必须为对象'));
           }
-          if (own(action, 'await') && typeof action.await !== 'boolean') {
+          const stepId = typeof action?.stepId === 'string' ? action.stepId.trim() : '';
+          if (requiresStableSteps && !stepId) {
+            errors.push(makeError(ValidationCode.MISSING_FIELD, `${actionPath}.stepId`, '已归属 SceneEvent 的动作必须声明稳定 stepId'));
+          } else if (stepId && stepIds.has(stepId)) {
+            errors.push(makeError(ValidationCode.DUPLICATE_ID, `${actionPath}.stepId`, `重复的 stepId: ${stepId}`));
+          }
+          if (stepId) stepIds.add(stepId);
+          if (requiresStableSteps && own(action, 'await')) {
+            errors.push(makeError('legacyAwaitNotAllowed', `${actionPath}.await`, 'await 已废弃；TriggerSystem 始终严格串行等待并在失败时短路'));
+          } else if (own(action, 'await') && typeof action.await !== 'boolean') {
             errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${actionPath}.await`, 'action.await 必须为布尔值'));
           }
         });
@@ -395,6 +509,46 @@ export class CandidateRuleValidator {
       if (own(descriptor, 'paramsSchema') && !isObject(descriptor.paramsSchema) && typeof descriptor.paramsSchema !== 'string') {
         errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${path}.paramsSchema`, 'paramsSchema 必须为对象或 schema id'));
       }
+      const operationIds = new Set();
+      list(descriptor.operations).forEach((operation, operationIndex) => {
+        const operationPath = `${path}.operations[${operationIndex}]`;
+        if (!isObject(operation)) {
+          errors.push(makeError(ValidationCode.TYPE_MISMATCH, operationPath, 'operation descriptor 必须为对象'));
+          return;
+        }
+        rejectExecutableContent(operation, operationPath, errors);
+        const operationValue = typeof operation.value === 'string' ? operation.value.trim() : '';
+        const operationLegacyId = typeof operation.id === 'string' ? operation.id.trim() : '';
+        if (operationValue && operationLegacyId && operationValue !== operationLegacyId) {
+          errors.push(makeError(
+            ValidationCode.INVALID_REFERENCE,
+            `${operationPath}.id`,
+            `operation.id 必须与 operation.value 一致: ${operationLegacyId} !== ${operationValue}`
+          ));
+        }
+        const operationId = operationValue || operationLegacyId;
+        if (!operationId) {
+          errors.push(makeError(ValidationCode.MISSING_FIELD, `${operationPath}.value`, 'operation 必须声明非空稳定 value/id'));
+        } else if (operationIds.has(operationId)) {
+          errors.push(makeError(ValidationCode.DUPLICATE_ID, `${operationPath}.value`, `重复的 operation: ${operationId}`));
+        } else {
+          operationIds.add(operationId);
+        }
+        if (typeof operation.label !== 'string' || !operation.label.trim()) {
+          errors.push(makeError(ValidationCode.MISSING_FIELD, `${operationPath}.label`, 'operation 必须声明中文可读 label'));
+        }
+        if (!own(operation, 'paramsSchema')) {
+          errors.push(makeError(ValidationCode.MISSING_FIELD, `${operationPath}.paramsSchema`, 'operation 必须声明 paramsSchema'));
+        } else if (!isObject(operation.paramsSchema) && typeof operation.paramsSchema !== 'string') {
+          errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${operationPath}.paramsSchema`, 'operation paramsSchema 必须为对象或 schema id'));
+        }
+        if (!own(operation, 'resultSemantics')) {
+          errors.push(makeError(ValidationCode.MISSING_FIELD, `${operationPath}.resultSemantics`, 'operation 必须声明 resultSemantics'));
+        } else if (typeof operation.resultSemantics !== 'string'
+          && !isObject(operation.resultSemantics)) {
+          errors.push(makeError(ValidationCode.TYPE_MISMATCH, `${operationPath}.resultSemantics`, 'resultSemantics 必须为字符串或对象'));
+        }
+      });
     });
 
     const commandDefinitions = Array.isArray(candidate?.commands)

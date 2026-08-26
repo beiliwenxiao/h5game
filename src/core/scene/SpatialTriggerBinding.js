@@ -15,6 +15,7 @@ export function createSpatialTriggerBinding(source = {}) {
     id: String(source.id || '').trim(),
     type: 'trigger',
     triggerId: String(source.triggerId || '').trim(),
+    sceneEventId: String(source.sceneEventId || '').trim(),
     sceneId: String(source.sceneId || '').trim(),
     ...(typeof source.enabled === 'boolean' ? { enabled: source.enabled } : {}),
     selector,

@@ -65,6 +65,13 @@ export class SceneTriggerBindingSystem {
         console.warn('SceneTriggerBindingSystem: binding.id/triggerId 缺失或 id 重复', binding.id);
         return [];
       }
+      const definition = this.triggerSystem?.getById?.(binding.triggerId);
+      if (definition && !this._matchesSceneEventReference(binding, definition)) {
+        this.logger?.('sceneEventMismatch', binding, {
+          expectedSceneEventId: String(definition.sceneEventId || ''),
+          actualSceneEventId: binding.sceneEventId || ''
+        });
+      }
       ids.add(binding.id);
       return [binding];
     });
@@ -193,6 +200,7 @@ export class SceneTriggerBindingSystem {
       return Object.freeze({
         bindingId: binding.id,
         triggerId: binding.triggerId,
+        sceneEventId: binding.sceneEventId || '',
         sceneId: binding.sceneId,
         eventType: this._eventType(binding),
         prompt: binding.prompt || '',
@@ -239,8 +247,15 @@ export class SceneTriggerBindingSystem {
     return existed;
   }
 
+  _matchesSceneEventReference(binding, definition = this.triggerSystem?.getById?.(binding?.triggerId)) {
+    if (!definition) return false;
+    const expectedSceneEventId = String(definition.sceneEventId || '');
+    const actualSceneEventId = String(binding?.sceneEventId || '');
+    return expectedSceneEventId === actualSceneEventId;
+  }
+
   _isBindingActive(binding) {
-    if (binding?.enabled === false) return false;
+    if (binding?.enabled === false || !this._matchesSceneEventReference(binding)) return false;
     if (!binding?.activeWhen) return true;
     try {
       return this._evaluateCondition(binding.activeWhen);
@@ -279,6 +294,14 @@ export class SceneTriggerBindingSystem {
   }
 
   _fire(binding, eventType = this._eventType(binding), spatial = this._resolveSpatialContext(binding)) {
+    const definition = this.triggerSystem?.getById?.(binding.triggerId);
+    if (!this._matchesSceneEventReference(binding, definition)) {
+      this.logger?.('sceneEventMismatch', binding, {
+        expectedSceneEventId: String(definition?.sceneEventId || ''),
+        actualSceneEventId: binding.sceneEventId || ''
+      });
+      return false;
+    }
     if (!this._isBindingActive(binding)) return false;
     if (!binding.triggerId) {
       this.logger?.('missingTriggerId', binding);
@@ -305,11 +328,11 @@ export class SceneTriggerBindingSystem {
         center: { ...geometry.center }
       },
       triggerId: binding.triggerId,
+      sceneEventId: binding.sceneEventId || '',
       bindingId: binding.id,
       sceneId: binding.sceneId
     };
     const fired = this.triggerSystem.fireById(binding.triggerId, eventType, params);
-    const definition = this.triggerSystem.getById?.(binding.triggerId);
     if (!fired && !definition) this.logger?.('missingTrigger', binding);
     return fired;
   }

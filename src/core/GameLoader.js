@@ -19,6 +19,7 @@ import { CanonicalCandidatePipeline } from './validation/CanonicalCandidatePipel
 import { CandidateRuleValidator } from './validation/CandidateRuleValidator.js';
 import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
+import { SceneEventDefinitionRepository } from './scene/SceneEventDefinitionRepository.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
 import { createStandardActionDescriptorRegistry } from '../systems/ActionDescriptorRegistry.js';
 import { CommandAdapter } from '../systems/CommandAdapter.js';
@@ -71,6 +72,7 @@ export class GameLoader {
     this.actionDescriptorRegistry = actionDescriptorRegistry || createStandardActionDescriptorRegistry();
     this.scenarioDefinitionIndex = ScenarioDefinitionIndex.empty();
     this.triggerGraph = TriggerGraph.fromSnapshot(Object.freeze({ project: Object.freeze({}), definitionRevision: 0 }));
+    this.sceneEventDefinitionRepository = SceneEventDefinitionRepository.empty();
     this.commandAdapter = null;
     this._definitionRevision = 0;
     this.blackboard = new Blackboard();
@@ -333,9 +335,13 @@ export class GameLoader {
     const tutorialSystem = deps.tutorialSystem;
     if (tutorialSystem && Array.isArray(project.tutorials)) {
       const previous = tutorialSystem.getAllTutorials?.() || [];
+      const previousSceneEvents = tutorialSystem.getSceneEventDefinitions?.() || [];
       drafts.push({
-        commit: () => tutorialSystem.replaceDefinitions(project.tutorials),
-        rollback: () => tutorialSystem.replaceDefinitions(previous)
+        commit: () => tutorialSystem.replaceDefinitions(
+          project.tutorials,
+          context.sceneEventDefinitionRepository
+        ),
+        rollback: () => tutorialSystem.replaceDefinitions(previous, previousSceneEvents)
       });
     }
 
@@ -426,6 +432,7 @@ export class GameLoader {
     blackboard.init(project.variables || {});
     const registries = createStandardRegistries(repository);
     const battleIntegration = this._createBattleIntegration(project, deps);
+    const sceneEventDefinitionRepository = SceneEventDefinitionRepository.from(project.sceneEvents || []);
     const triggerGraph = TriggerGraph.fromSnapshot(snapshot);
     const scenarioDefinitionIndex = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph });
     const commandAdapter = deps.commandAdapter || (deps.commandGateway ? new CommandAdapter({
@@ -445,6 +452,7 @@ export class GameLoader {
       serviceReferenceResolver: deps.triggerServiceReferenceResolver,
       bindingReferenceResolver: deps.triggerBindingReferenceResolver,
       operationFingerprintValidator: deps.triggerOperationFingerprintValidator,
+      sceneEventDefinitionRepository,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
@@ -464,6 +472,7 @@ export class GameLoader {
       battleClient: battleIntegration.client,
       registries,
       definitionRepository: repository,
+      sceneEventDefinitionRepository,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
@@ -474,6 +483,7 @@ export class GameLoader {
     const context = {
       snapshot, repository, runtimeConfig, configConsumption,
       scenarioDefinitionIndex, triggerGraph, commandAdapter,
+      sceneEventDefinitionRepository,
       blackboard, triggerSystem, registries
     };
     const consumerDrafts = this._buildExternalConsumerDrafts(project, deps, context);
@@ -490,6 +500,7 @@ export class GameLoader {
       configConsumptionSnapshot: this.configConsumptionSnapshot,
       scenarioDefinitionIndex: this.scenarioDefinitionIndex,
       triggerGraph: this.triggerGraph,
+      sceneEventDefinitionRepository: this.sceneEventDefinitionRepository,
       commandAdapter: this.commandAdapter,
       registries: this.registries,
       blackboard: this.blackboard,
@@ -522,6 +533,7 @@ export class GameLoader {
         configConsumptionSnapshot: draft.configConsumption,
         scenarioDefinitionIndex: draft.scenarioDefinitionIndex,
         triggerGraph: draft.triggerGraph,
+        sceneEventDefinitionRepository: draft.sceneEventDefinitionRepository,
         commandAdapter: draft.commandAdapter,
         registries: draft.registries,
         blackboard: draft.blackboard,

@@ -27,6 +27,7 @@ export class EditorInteractionBase {
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
+                this._projectDefinitions = { sceneEvents: [], triggers: [], tutorials: [] };
                 this._projectTriggers = [];
                 this._projectBattles = [];
                 this._presentationProfile = null;
@@ -187,10 +188,11 @@ export class EditorInteractionBase {
             _sceneEditorOptions() {
                 return {
                     getSceneList: () => this.dataManager.getGameScenes(this.currentGameId),
-                    getProjectTriggers: () => this._projectTriggers,
+                    getProjectDefinitions: () => this._projectDefinitions,
+                    getProjectTriggers: () => this._projectDefinitions.triggers,
                     getBattleDefinitions: () => this._projectBattles,
                     presentationProfile: this._presentationProfile,
-                    openTriggerEditor: triggerId => this._openTriggerEditor(triggerId),
+                    openTriggerEditor: (definitionId, target = 'triggers') => this._openTriggerEditor(definitionId, target),
                     previewTrigger: (binding, trigger) => {
                         const message = trigger
                             ? `${binding.triggerId}：${this.sceneEditor?.getTriggerSummary(binding.triggerId) || ''}`
@@ -210,7 +212,12 @@ export class EditorInteractionBase {
                         const data = response.ok ? await response.json() : null;
                         project = data?.ok && data.content ? JSON.parse(data.content) : null;
                     }
-                    this._projectTriggers = Array.isArray(project?.triggers) ? project.triggers : [];
+                    this._projectDefinitions = {
+                        sceneEvents: Array.isArray(project?.sceneEvents) ? project.sceneEvents : [],
+                        triggers: Array.isArray(project?.triggers) ? project.triggers : [],
+                        tutorials: Array.isArray(project?.tutorials) ? project.tutorials : []
+                    };
+                    this._projectTriggers = this._projectDefinitions.triggers;
                     const battleEntries = Array.isArray(project?.battles) ? project.battles : [];
                     this._projectBattles = (await Promise.all(battleEntries.map(async entry => {
                         if (entry?.battleId) return entry;
@@ -235,7 +242,8 @@ export class EditorInteractionBase {
                     }
                 } catch (error) {
                     console.warn('[Editor] 加载项目触发器/战役/表现规格失败', error);
-                    this._projectTriggers = [];
+                    this._projectDefinitions = { sceneEvents: [], triggers: [], tutorials: [] };
+                    this._projectTriggers = this._projectDefinitions.triggers;
                     this._projectBattles = [];
                     this._presentationProfile = null;
                 }
@@ -244,11 +252,11 @@ export class EditorInteractionBase {
                 return this._projectTriggers;
             }
 
-            async _openTriggerEditor(triggerId) {
+            async _openTriggerEditor(definitionId, target = 'triggers') {
                 this.showPage('trigger-editor');
                 await this.triggerEditor?.init?.();
-                if (triggerId && !this.triggerEditor?.selectById?.(triggerId)) {
-                    this.sceneEditor?.ui?.showToast(`项目中不存在触发器 ${triggerId}`, 'error');
+                if (definitionId && !this.triggerEditor?.selectById?.(definitionId, target)) {
+                    this.sceneEditor?.ui?.showToast(`项目中不存在 ${target === 'sceneEvents' ? 'SceneEvent' : target === 'tutorials' ? 'Tutorial' : 'Trigger'} ${definitionId}`, 'error');
                 }
             }
 

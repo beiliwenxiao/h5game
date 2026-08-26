@@ -7,6 +7,7 @@ import {
   normalizeSceneObjectSelector,
   resolveSceneObjects
 } from '../src/core/scene/SceneObjectSelector.js';
+import { SceneEventProjectIndex } from './SceneEventProjectIndex.js';
 
 const SELECTOR_MODES = ['id', 'group', 'tag', 'name', 'type', 'ref'];
 
@@ -51,9 +52,16 @@ function isPersistentVisualLayer(layer) {
 export class SceneEditorEventFilter {
   constructor(editor) {
     this.editor = editor;
-    this.state = { mode: 'all', selectedPhaseId: '', selectedBindingId: '', includeRelated: false };
+    this.state = {
+      mode: 'all',
+      selectedSceneEventId: '',
+      selectedTriggerId: '',
+      selectedBindingId: '',
+      includeRelated: false
+    };
     this.events = [];
     this.phases = [];
+    this.projectIndex = new SceneEventProjectIndex();
     this.hiddenBindingIds = new Set();
     this.visibleObjects = null;
     this.dynamicTargets = [];
@@ -64,16 +72,25 @@ export class SceneEditorEventFilter {
     this.sceneData = sceneData;
     this._scrollLeft = 0;
     this.hiddenBindingIds.clear();
-    this.state = { mode: 'all', selectedPhaseId: '', selectedBindingId: '', includeRelated: false };
+    this.state = {
+      mode: 'all',
+      selectedSceneEventId: '',
+      selectedTriggerId: '',
+      selectedBindingId: '',
+      includeRelated: false
+    };
     this.rebuild({ preserveSelection: false });
   }
 
   rebuild({ preserveSelection = true, notify = false } = {}) {
     this.sceneData = this.editor.sceneData;
-    const previousPhase = preserveSelection ? this.state.selectedPhaseId : '';
-    const previousBinding = preserveSelection ? this.state.selectedBindingId : '';
-    const definitions = new Map((this.editor.getProjectTriggers?.() || [])
-      .filter(Boolean).map(definition => [definition.id, definition]));
+    const previousSceneEventId = preserveSelection ? this.state.selectedSceneEventId : '';
+    const previousTriggerId = preserveSelection ? this.state.selectedTriggerId : '';
+    const previousBindingId = preserveSelection ? this.state.selectedBindingId : '';
+    const project = this.editor.getProjectDefinitions?.() || {};
+    this.projectIndex = new SceneEventProjectIndex(project, {
+      sceneDocuments: this.sceneData ? [this.sceneData] : []
+    });
     const records = [];
     for (let layerIndex = 0; layerIndex < (this.sceneData?.layers || []).length; layerIndex++) {
       const layer = this.sceneData.layers[layerIndex];
@@ -81,41 +98,56 @@ export class SceneEditorEventFilter {
         const binding = layer.objects[objectIndex];
         if (binding?.type !== 'trigger') continue;
         const id = text(binding.id) || `binding-${layerIndex}-${objectIndex}`;
-        records.push({ id, binding, definition: definitions.get(binding.triggerId) || null, layerIndex, objectIndex });
+        records.push({
+          id,
+          binding,
+          definition: this.projectIndex.getTrigger(binding.triggerId),
+          layerIndex,
+          objectIndex
+        });
       }
     }
-    this.events = records;
-    const currentIds = new Set(records.map(record => record.id));
+
+    const projection = this.projectIndex.getSceneProjection(this.sceneData?.id, records);
+    this.phases = projection.groups.map(group => ({
+      id: group.id,
+      label: group.sceneEvent.name || group.id,
+      sceneEvent: group.sceneEvent,
+      triggers: group.triggers,
+      tutorials: group.tutorials,
+      events: group.bindings
+    }));
+    if (projection.unassigned.length) {
+      const triggerIds = new Set(projection.unassigned.map(record => record.definition?.id).filter(Boolean));
+      this.phases.push({
+        id: '__unassigned__',
+        label: '未归属 SceneEvent',
+        sceneEvent: null,
+        triggers: this.projectIndex.triggers.filter(trigger => triggerIds.has(trigger.id)),
+        tutorials: [],
+        events: projection.unassigned
+      });
+    }
+    this.events = this.phases.flatMap(phase => phase.events.map(record => {
+      record.phaseId = phase.id;
+      return record;
+    }));
+
+    const currentIds = new Set(this.events.map(record => record.id));
     for (const id of this.hiddenBindingIds) {
       if (!currentIds.has(id)) this.hiddenBindingIds.delete(id);
     }
-    this.phases = this._derivePhases(records);
-    if (!records.some(record => record.id === previousBinding)) this.state.selectedBindingId = '';
-    if (!this.phases.some(phase => phase.id === previousPhase)) this.state.selectedPhaseId = '';
-    if (this.state.mode === 'event' && !this.state.selectedBindingId) this.state.mode = 'all';
-    if (this.state.mode === 'phase' && !this.state.selectedPhaseId) this.state.mode = 'all';
+    this.state.selectedSceneEventId = this.phases.some(phase => phase.id === previousSceneEventId)
+      ? previousSceneEventId : '';
+    this.state.selectedTriggerId = this.projectIndex.getTrigger(previousTriggerId)
+      ? previousTriggerId : '';
+    this.state.selectedBindingId = currentIds.has(previousBindingId) ? previousBindingId : '';
+    if (this.state.mode === 'sceneEvent' && !this.state.selectedSceneEventId) this.state.mode = 'all';
+    if (this.state.mode === 'trigger' && !this.state.selectedTriggerId) this.state.mode = 'all';
+    if (this.state.mode === 'binding' && !this.state.selectedBindingId) this.state.mode = 'all';
     this._recomputeProjection();
     this.renderBar();
     if (notify) this._notifyViewChanged();
-  }
-
-  _derivePhases(records) {
-    const phases = [];
-    let current = null;
-    for (const record of records) {
-      const activeAnchor = conditionAnchor(record.binding.activeWhen);
-      const firstAction = record.definition?.do?.[0];
-      const actionName = text(firstAction?.action);
-      const actionDomain = actionName ? actionName.split('.')[0] : '';
-      const signature = activeAnchor || (actionDomain ? `动作 · ${actionDomain}` : '主流程');
-      if (!current || current.signature !== signature) {
-        current = { id: `phase-${phases.length + 1}`, label: signature, signature, events: [] };
-        phases.push(current);
-      }
-      current.events.push(record);
-      record.phaseId = current.id;
-    }
-    return phases;
   }
 
   getState() {
@@ -148,15 +180,27 @@ export class SceneEditorEventFilter {
 
   selectAll() {
     this.state.mode = 'all';
-    this.state.selectedPhaseId = '';
+    this.state.selectedSceneEventId = '';
+    this.state.selectedTriggerId = '';
     this.state.selectedBindingId = '';
     this._applySelection();
   }
 
-  selectPhase(phaseId) {
-    if (!this.phases.some(phase => phase.id === phaseId)) return;
-    this.state.mode = 'phase';
-    this.state.selectedPhaseId = phaseId;
+  selectPhase(sceneEventId) {
+    if (!this.phases.some(phase => phase.id === sceneEventId)) return;
+    this.state.mode = 'sceneEvent';
+    this.state.selectedSceneEventId = sceneEventId;
+    this.state.selectedTriggerId = '';
+    this.state.selectedBindingId = '';
+    this._applySelection();
+  }
+
+  selectTrigger(triggerId) {
+    const definition = this.projectIndex.getTrigger(triggerId);
+    if (!definition) return;
+    this.state.mode = 'trigger';
+    this.state.selectedSceneEventId = text(definition.sceneEventId) || '__unassigned__';
+    this.state.selectedTriggerId = triggerId;
     this.state.selectedBindingId = '';
     this._applySelection();
   }
@@ -164,9 +208,10 @@ export class SceneEditorEventFilter {
   selectEvent(bindingId) {
     const record = this.events.find(event => event.id === bindingId);
     if (!record) return;
-    this.state.mode = 'event';
+    this.state.mode = 'binding';
     this.state.selectedBindingId = bindingId;
-    this.state.selectedPhaseId = record.phaseId;
+    this.state.selectedTriggerId = record.definition?.id || '';
+    this.state.selectedSceneEventId = record.phaseId;
     this._applySelection();
     // 即使 canonical enabled=false 导致画布不绘制，也允许从事件条重新选中并在右侧恢复。
     this.editor.selectedObjects = [record.binding];
@@ -186,11 +231,15 @@ export class SceneEditorEventFilter {
     this._notifyViewChanged();
   }
   _selectedEvents() {
-    if (this.state.mode === 'event') {
+    if (this.state.mode === 'binding') {
       return this.events.filter(event => event.id === this.state.selectedBindingId);
     }
-    if (this.state.mode === 'phase') {
-      return this.events.filter(event => event.phaseId === this.state.selectedPhaseId);
+    if (this.state.mode === 'trigger') {
+      return this.events.filter(event => event.definition?.id === this.state.selectedTriggerId
+        || event.binding?.triggerId === this.state.selectedTriggerId);
+    }
+    if (this.state.mode === 'sceneEvent') {
+      return this.events.filter(event => event.phaseId === this.state.selectedSceneEventId);
     }
     return this.events;
   }
@@ -212,8 +261,8 @@ export class SceneEditorEventFilter {
       ? new Set(this._allObjects().filter(object => object?.type !== 'trigger'))
       : new Set();
     for (const event of selectedEvents) visible.add(event.binding);
-    // 单事件调试仍保留地貌上下文；只投影视觉层对象，不扩大其他逻辑层。
-    if (this.state.mode === 'event') {
+    // 任一三层聚焦视图都保留地貌上下文；只投影视觉层对象，不扩大其他逻辑层。
+    if (this.state.mode !== 'all') {
       for (const layer of this.sceneData?.layers || []) {
         if (!isPersistentVisualLayer(layer)) continue;
         for (const object of layer.objects || []) visible.add(object);
@@ -310,11 +359,24 @@ export class SceneEditorEventFilter {
     if (!bar || this._bound) return;
     this._bound = true;
     bar.addEventListener('click', event => {
+      const editButton = event.target.closest('button[data-editor-target]');
+      if (editButton) {
+        this.editor.options.openTriggerEditor?.(editButton.dataset.definitionId, editButton.dataset.editorTarget);
+        return;
+      }
       const button = event.target.closest('button[data-filter-mode]');
       if (!button) return;
       if (button.dataset.filterMode === 'all') this.selectAll();
-      else if (button.dataset.filterMode === 'phase') this.selectPhase(button.dataset.phaseId);
-      else if (button.dataset.filterMode === 'event') this.selectEvent(button.dataset.bindingId);
+      else if (button.dataset.filterMode === 'sceneEvent') this.selectPhase(button.dataset.sceneEventId);
+      else if (button.dataset.filterMode === 'trigger') this.selectTrigger(button.dataset.triggerId);
+      else if (button.dataset.filterMode === 'binding') this.selectEvent(button.dataset.bindingId);
+    });
+    bar.addEventListener('dblclick', event => {
+      const button = event.target.closest('button[data-filter-mode="sceneEvent"], button[data-filter-mode="trigger"]');
+      if (!button) return;
+      const target = button.dataset.filterMode === 'sceneEvent' ? 'sceneEvents' : 'triggers';
+      const id = button.dataset.sceneEventId || button.dataset.triggerId;
+      this.editor.options.openTriggerEditor?.(id, target);
     });
     bar.addEventListener('change', event => {
       if (event.target.id === 'editor-event-filter-all-visible') {
@@ -337,8 +399,8 @@ export class SceneEditorEventFilter {
 
     const title = document.createElement('span');
     title.className = 'scene-event-filter-title';
-    title.textContent = '事件视图';
-    title.title = '阶段由 activeWhen 或首个动作域推导，仅影响编辑器视图，不写入场景 JSON';
+    title.textContent = 'SceneEvent 流程';
+    title.title = '按 SceneEvent.order 展示宏观流程；Trigger 使用定义顺序与协调优先级；Tutorial 继承 SceneEvent 顺序并保留 steps[]';
     bar.appendChild(title);
 
     const showAll = document.createElement('label');
@@ -366,36 +428,76 @@ export class SceneEditorEventFilter {
 
     for (let phaseIndex = 0; phaseIndex < this.phases.length; phaseIndex++) {
       const phase = this.phases[phaseIndex];
+      const sceneEvent = phase.sceneEvent;
       const phaseButton = document.createElement('button');
       phaseButton.type = 'button';
-      phaseButton.dataset.filterMode = 'phase';
-      phaseButton.dataset.phaseId = phase.id;
-      phaseButton.className = `scene-event-filter-item phase${this.state.mode === 'phase' && this.state.selectedPhaseId === phase.id ? ' active' : ''}`;
-      phaseButton.textContent = `阶段 ${phaseIndex + 1} · ${phase.label} (${phase.events.length})`;
-      phaseButton.title = '编辑器推导阶段；按场景图层与对象顺序排列';
+      phaseButton.dataset.filterMode = 'sceneEvent';
+      phaseButton.dataset.sceneEventId = phase.id;
+      phaseButton.className = `scene-event-filter-item scene-event${this.state.mode === 'sceneEvent' && this.state.selectedSceneEventId === phase.id ? ' active' : ''}`;
+      const orderLabel = sceneEvent ? `E${Number(sceneEvent.order) + 1}` : 'E?';
+      phaseButton.textContent = `${orderLabel} · ${phase.label}`;
+      phaseButton.title = sceneEvent
+        ? `SceneEvent ${sceneEvent.id}\n依赖: ${(sceneEvent.dependsOn || []).join(', ') || '无'}\nTrigger ${phase.triggers.length} 个，Tutorial ${phase.tutorials.length} 个\n双击打开定义`
+        : '尚未迁移到 SceneEvent 的空间 binding';
       scroll.appendChild(phaseButton);
-      for (const record of phase.events) {
+
+      const appendBindingEntry = record => {
         const eventEntry = document.createElement('div');
-        eventEntry.className = 'scene-event-filter-event-entry';
+        eventEntry.className = `scene-event-filter-event-entry${record.sceneEventMismatch ? ' mismatch' : ''}`;
         const visibility = document.createElement('input');
         visibility.type = 'checkbox';
         visibility.dataset.eventVisibility = record.id;
         visibility.checked = !this.hiddenBindingIds.has(record.id) && record.binding.enabled !== false;
         visibility.disabled = record.binding.enabled === false;
-        visibility.setAttribute('aria-label', `显示事件 ${eventLabel(record)}`);
+        visibility.setAttribute('aria-label', `显示空间 binding ${eventLabel(record)}`);
         visibility.title = record.binding.enabled === false
-          ? '右侧“是否显示”已关闭；点击事件名称后可在属性栏重新启用'
-          : '仅控制此事件在编辑器中的显示，不写入场景 JSON';
-        const eventButton = document.createElement('button');
-        eventButton.type = 'button';
-        eventButton.dataset.filterMode = 'event';
-        eventButton.dataset.bindingId = record.id;
-        eventButton.className = `scene-event-filter-item event${this.state.mode === 'event' && this.state.selectedBindingId === record.id ? ' active' : ''}`;
-        eventButton.textContent = eventLabel(record);
-        eventButton.title = `${record.binding.triggerId || '未绑定'} · ${record.definition?.when?.type || record.binding.event || '?'}`;
-        eventEntry.append(visibility, eventButton);
+          ? '右侧“是否显示”已关闭；点击 binding 名称后可在属性栏重新启用'
+          : '仅控制此空间 binding 在编辑器中的显示，不写入场景 JSON';
+        const bindingButton = document.createElement('button');
+        bindingButton.type = 'button';
+        bindingButton.dataset.filterMode = 'binding';
+        bindingButton.dataset.bindingId = record.id;
+        bindingButton.className = `scene-event-filter-item binding${this.state.mode === 'binding' && this.state.selectedBindingId === record.id ? ' active' : ''}`;
+        bindingButton.textContent = `空间 · ${eventLabel(record)}`;
+        bindingButton.title = record.sceneEventMismatch
+          ? `SceneEvent 外键不一致：binding=${record.binding.sceneEventId || '空'}，Trigger=${record.definition?.sceneEventId || '空'}`
+          : `${record.binding.triggerId || '未绑定'} · ${record.definition?.when?.type || record.binding.event || '?'}`;
+        eventEntry.append(visibility, bindingButton);
         scroll.appendChild(eventEntry);
+      };
+
+      const representedBindings = new Set();
+      phase.triggers.forEach((trigger, triggerIndex) => {
+        const triggerButton = document.createElement('button');
+        triggerButton.type = 'button';
+        triggerButton.dataset.filterMode = 'trigger';
+        triggerButton.dataset.triggerId = trigger.id;
+        triggerButton.className = `scene-event-filter-item trigger${this.state.mode === 'trigger' && this.state.selectedTriggerId === trigger.id ? ' active' : ''}`;
+        const priority = Number(trigger.coordination?.priority) || 0;
+        triggerButton.textContent = `T${triggerIndex + 1} · ${trigger.name || trigger.id} · do[${(trigger.do || []).length}]`;
+        triggerButton.title = `Trigger ${trigger.id}\nwhen: ${trigger.when?.type || '?'}\n协调组: ${trigger.coordination?.group || '独立'}\npriority: ${priority}\n定义顺序: ${this.projectIndex.triggers.indexOf(trigger) + 1}\n双击打开定义`;
+        scroll.appendChild(triggerButton);
+        for (const record of phase.events.filter(item => item.definition?.id === trigger.id)) {
+          representedBindings.add(record.id);
+          appendBindingEntry(record);
+        }
+      });
+
+      for (const record of phase.events) {
+        if (!representedBindings.has(record.id)) appendBindingEntry(record);
       }
+
+      phase.tutorials.forEach((tutorial, tutorialIndex) => {
+        const tutorialButton = document.createElement('button');
+        tutorialButton.type = 'button';
+        tutorialButton.dataset.editorTarget = 'tutorials';
+        tutorialButton.dataset.definitionId = tutorial.id;
+        tutorialButton.className = 'scene-event-filter-item tutorial';
+        const stepTexts = (tutorial.steps || []).map((step, index) => `${index + 1}. ${step.text || step.id || '未命名步骤'}`);
+        tutorialButton.textContent = `教学${tutorialIndex + 1} · ${tutorial.title || tutorial.id} · ${stepTexts.length}步`;
+        tutorialButton.title = `Tutorial ${tutorial.id}\n继承 ${phase.id} 顺序\n${stepTexts.join('\n') || '无步骤'}\n点击打开教学定义`;
+        scroll.appendChild(tutorialButton);
+      });
     }
     bar.appendChild(scroll);
 

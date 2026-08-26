@@ -4,19 +4,6 @@ import { S09_REFUGEE_DIALOGUE_ID } from './S09RefugeeFlow.js';
 
 const cloneData = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
-const S01_INITIAL_TOOL_PICKUPS = Object.freeze({
-  'S01-pickup-worn-axe': Object.freeze({
-    stateKey: 'axeFound',
-    definitionId: 'story.s01.axeFound',
-    label: '破旧斧头'
-  }),
-  'S01-pickup-skinning-knife': Object.freeze({
-    stateKey: 'skinningKnifeFound',
-    definitionId: 'story.s01.skinningKnifeFound',
-    label: '旧剥皮刀'
-  })
-});
-
 /**
  * Demo-owned S01–S14 scene state composition. The coordinator deliberately owns
  * no gameplay rules: it invokes the scene's existing, explicitly injected systems.
@@ -149,8 +136,25 @@ async function handleApplicationEvent(event = {}) {
     );
     return { ok: true, itemId: payload.itemId || null, repaired: true };
   }
-  if (!this.gameLoader || event.type !== 'item.picked') {
-    return { ok: true, ignored: true, code: 'applicationEventNotHandled' };
+  if (!this.gameLoader) {
+    return { ok: true, ignored: true, code: 'gameLoaderUnavailable' };
+  }
+  if (event.type !== 'item.picked') {
+    const dispatch = await this.gameLoader.triggerSystem.fireCoordinated(event.type, {
+      ...(event.payload || {}),
+      eventId: event.eventId || null,
+      operationId: event.operationId || event.eventId || null,
+      committed: true
+    });
+    if (dispatch.ok !== true) {
+      return {
+        ok: false,
+        code: 'applicationEventTriggerFailed',
+        message: `${event.type || 'unknown'} Trigger 执行失败`,
+        dispatch
+      };
+    }
+    return { ok: true, eventType: event.type, dispatch };
   }
   const payload = event.payload || {};
   const itemId = payload.itemId || payload.item?.id || payload.definitionId;
@@ -169,60 +173,6 @@ async function handleApplicationEvent(event = {}) {
     return { ok: true, idempotent: true, code: 'itemPickupAlreadyConsumed' };
   }
 
-  const initialTool = this.currentSceneId === 'S01' && payload.complete === true
-    ? S01_INITIAL_TOOL_PICKUPS[payload.placementId]
-    : null;
-  if (initialTool) {
-    const actorRef = this.playerEntity?.id;
-    const gateway = this.sceneRuntime?.commandGateway;
-    if (!actorRef || !gateway) {
-      return { ok: false, code: 'storyCommandUnavailable', message: 'S01 工具剧情命令入口不可用' };
-    }
-    const operationBase = event.operationId || event.eventId || uid;
-    let survival = this.gameLoader.blackboard?.get?.('storyState')?.s01Survival || {};
-    if (survival[initialTool.stateKey] !== true) {
-      const result = await gateway.execute({
-        intentType: 'state.transaction',
-        actorRef,
-        operationId: `${operationBase}:story:s01:${initialTool.stateKey}`,
-        payload: { definitionId: initialTool.definitionId }
-      });
-      if (result?.ok !== true) {
-        this.notificationSystem?.addError?.(`${initialTool.label}拾取剧情结算失败，请重试或读档。`);
-        return {
-          ok: false,
-          code: result?.code || 'initialToolFoundTransactionFailed',
-          message: result?.error?.message || `${initialTool.label}拾取剧情结算失败`
-        };
-      }
-      survival = this.gameLoader.blackboard?.get?.('storyState')?.s01Survival || {};
-    }
-    if (survival.axeFound === true && survival.skinningKnifeFound === true) {
-      if (survival.initialToolsPicked !== true) {
-        const result = await gateway.execute({
-          intentType: 'state.transaction',
-          actorRef,
-          operationId: `${operationBase}:story:s01:initial-tools-picked`,
-          payload: { definitionId: 'story.s01.initialToolsPicked' }
-        });
-        if (result?.ok !== true) {
-          this.notificationSystem?.addError?.('求生工具拾取剧情结算失败，请重试或读档。');
-          return {
-            ok: false,
-            code: result?.code || 'initialToolsPickedTransactionFailed',
-            message: result?.error?.message || '求生工具拾取剧情结算失败'
-          };
-        }
-      }
-      try {
-        await this._s01s02Coordinator?.onInitialToolsPickedCommitted?.();
-      } catch (error) {
-        // 双工具事实已提交；后续燃料表现或放置失败只能自行补偿，不能回滚事实。
-        console.warn('[SanguoSceneStateFlow] S01 双工具后续流程启动失败', error);
-      }
-    }
-  }
-
   const dispatch = await this.gameLoader.triggerSystem.fireCoordinated('itemPickup', {
     item: itemId,
     id: itemId,
@@ -230,6 +180,8 @@ async function handleApplicationEvent(event = {}) {
     eventId: event.eventId,
     groundId: payload.groundId || null,
     placementId: payload.placementId || null,
+    complete: payload.complete === true,
+    quantity: Math.max(0, Number(payload.quantity) || 0),
     committed: true
   });
   if (dispatch.ok !== true) {

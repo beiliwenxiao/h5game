@@ -75,6 +75,7 @@ export class TriggerSystem {
     this.serviceReferenceResolver = config.serviceReferenceResolver || null;
     this.bindingReferenceResolver = config.bindingReferenceResolver || null;
     this.operationFingerprintValidator = config.operationFingerprintValidator || null;
+    this.sceneEventDefinitionRepository = config.sceneEventDefinitionRepository || null;
     this.runtimeConfig = config.runtimeConfig || null;
     this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     this.sceneDiagnostics = config.sceneDiagnostics || null;
@@ -98,6 +99,8 @@ export class TriggerSystem {
     this.runtimeConfig = ctx.runtimeConfig || this.runtimeConfig;
     this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     this.sceneDiagnostics = ctx.sceneDiagnostics || ctx.services?.diagnostics || this.sceneDiagnostics;
+    this.sceneEventDefinitionRepository = ctx.sceneEventDefinitionRepository
+      || this.sceneEventDefinitionRepository;
     this.definitionRevision = ctx.runtimeConfig?.definitionRevision
       ?? ctx.definitionRepository?.definitionRevision
       ?? this.definitionRevision;
@@ -111,6 +114,9 @@ export class TriggerSystem {
       this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     }
     this.sceneDiagnostics = patch.sceneDiagnostics || patch.services?.diagnostics || this.sceneDiagnostics;
+    if (Object.prototype.hasOwnProperty.call(patch, 'sceneEventDefinitionRepository')) {
+      this.sceneEventDefinitionRepository = patch.sceneEventDefinitionRepository || null;
+    }
     this.expr.setContext(this.ctx);
   }
 
@@ -134,9 +140,23 @@ export class TriggerSystem {
     for (const [name, fn] of Object.entries(map)) this.registerAction(name, fn);
   }
 
+  _validateSceneEventReference(trigger) {
+    if (trigger?.sceneEventId === undefined) return true;
+    if (!hasText(trigger.sceneEventId)) {
+      throw new Error(`TriggerSystem.register: ${trigger?.id || '<unknown>'}.sceneEventId 必须是非空字符串`);
+    }
+    if (this.sceneEventDefinitionRepository?.has
+      && !this.sceneEventDefinitionRepository.has(trigger.sceneEventId)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.sceneEventId 未登记 "${trigger.sceneEventId}"`);
+    }
+    return true;
+  }
+
   register(trigger) {
     if (!trigger || !hasText(trigger.id)) throw new Error('TriggerSystem.register: trigger.id 必须是非空字符串');
     if (!trigger.when?.type) throw new Error(`TriggerSystem.register: ${trigger.id}.when.type 不能为空`);
+    this._validateSceneEventReference(trigger);
+    this._validateActionStepDefinitions(trigger);
     if (this._triggersById.has(trigger.id)) throw new Error(`TriggerSystem.register: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
     const policy = this._reentryPolicy(trigger);
     if (!REENTRY_POLICIES.has(policy)) throw new Error(`TriggerSystem.register: ${trigger.id}.reentryPolicy 非法`);
@@ -154,6 +174,8 @@ export class TriggerSystem {
     for (const trigger of list) {
       if (!trigger || !hasText(trigger.id)) throw new Error('TriggerSystem.registerAll: trigger.id 必须是非空字符串');
       if (!trigger.when?.type) throw new Error(`TriggerSystem.registerAll: ${trigger.id}.when.type 不能为空`);
+      this._validateSceneEventReference(trigger);
+      this._validateActionStepDefinitions(trigger);
       if (seen.has(trigger.id)) throw new Error(`TriggerSystem.registerAll: 重复 trigger.id "${trigger.id}"（triggers/tutorials 共用命名空间）`);
       const policy = this._reentryPolicy(trigger);
       if (!REENTRY_POLICIES.has(policy)) throw new Error(`TriggerSystem.registerAll: ${trigger.id}.reentryPolicy 非法`);
@@ -601,10 +623,12 @@ export class TriggerSystem {
       return result;
     }
   }
-  _actionOperationId(trigger, action, index, request) {
-    return action?.operationId || ((trigger.do || []).length === 1
-      ? request.operationId
-      : `${request.operationId}:action:${index}`);
+  _actionOperationId(trigger, action, _index, request) {
+    if (hasText(action?.operationId)) return action.operationId.trim();
+    const stepId = hasText(action?.stepId)
+      ? action.stepId.trim()
+      : `legacy-${stableDigest(action || {})}`;
+    return `${request.operationId}:trigger:${trigger.id}:step:${stepId}`;
   }
 
   async _executeAction(trigger, action, index, request) {
@@ -916,6 +940,26 @@ export class TriggerSystem {
       throw new Error(`TriggerSystem.register: ${trigger.id} 与 ${key} 组内 coordination.policy 不一致`);
     }
     policies.set(key, policy);
+    return true;
+  }
+
+  _validateActionStepDefinitions(trigger) {
+    const identities = new Set();
+    const requiresStableSteps = hasText(trigger?.sceneEventId);
+    for (const [index, action] of (trigger?.do || []).entries()) {
+      const stepId = hasText(action?.stepId) ? action.stepId.trim() : '';
+      if (requiresStableSteps && !stepId) {
+        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}].stepId 必须是非空稳定 ID`);
+      }
+      if (requiresStableSteps && Object.prototype.hasOwnProperty.call(action || {}, 'await')) {
+        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}].await 已废弃；动作始终严格串行等待`);
+      }
+      const identity = stepId || `legacy-${stableDigest(action || {})}`;
+      if (identities.has(identity)) {
+        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}] 动作步骤身份重复: ${identity}`);
+      }
+      identities.add(identity);
+    }
     return true;
   }
 

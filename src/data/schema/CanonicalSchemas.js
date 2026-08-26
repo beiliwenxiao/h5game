@@ -558,6 +558,27 @@ export const TUTORIAL_MOVEMENT_RULE_SCHEMA = {
   }
 };
 
+export const SCENE_EVENT_SCOPE_SCHEMA = {
+  id: 'sceneEventScope',
+  fields: {
+    sceneIds: { type: FieldType.ARRAY, required: true, minItems: 1, itemType: FieldType.STRING }
+  }
+};
+
+export const SCENE_EVENT_DEFINITION_SCHEMA = {
+  id: 'sceneEventDefinition',
+  fields: {
+    id: idField(),
+    name: { type: FieldType.STRING, required: true, minLength: 1 },
+    description: { type: FieldType.STRING },
+    scope: { type: FieldType.OBJECT, required: true, schema: 'sceneEventScope' },
+    order: { type: FieldType.INTEGER, required: true, min: 0 },
+    dependsOn: { type: FieldType.ARRAY, itemType: FieldType.STRING },
+    activeWhen: { type: FieldType.OBJECT },
+    completionWhen: { type: FieldType.OBJECT }
+  }
+};
+
 export const TUTORIAL_SCOPE_SCHEMA = {
   id: 'tutorialScope',
   fields: {
@@ -572,8 +593,10 @@ export const TUTORIAL_DEFINITION_SCHEMA = {
     title: { type: FieldType.STRING, required: true, minLength: 1 },
     description: { type: FieldType.STRING },
     category: { type: FieldType.STRING, required: true, minLength: 1 },
+    sceneEventId: { type: FieldType.STRING, minLength: 1 },
     scope: { type: FieldType.OBJECT, schema: 'tutorialScope' },
-    order: { type: FieldType.INTEGER, required: true, min: 0 },
+    // 已迁移 Tutorial 继承 SceneEvent.order；旧定义仍可保留 order 作为兼容回退。
+    order: { type: FieldType.INTEGER, min: 0 },
     steps: { type: FieldType.ARRAY, required: true, minItems: 1, itemSchema: 'tutorialStep' },
     signalRules: { type: FieldType.ARRAY, itemSchema: 'tutorialSignalRule' },
     movementRule: { type: FieldType.OBJECT, schema: 'tutorialMovementRule' },
@@ -670,6 +693,8 @@ export const GAME_PROJECT_SCHEMA = {
     scenes: { type: FieldType.ARRAY, required: true },
     dialogues: { type: FieldType.ARRAY, required: true },
     quests: { type: FieldType.ARRAY, required: true },
+    // 增量接入：已迁移内容以 SceneEvent 作为唯一宏观流程身份；未迁移场景仍可暂不声明。
+    sceneEvents: { type: FieldType.ARRAY, itemSchema: 'sceneEventDefinition' },
     triggerCatalog: { type: FieldType.OBJECT },
     triggers: { type: FieldType.ARRAY, required: true },
     tutorials: { type: FieldType.ARRAY, required: true, itemSchema: 'tutorialDefinition' },
@@ -705,6 +730,8 @@ export const CANONICAL_SCHEMAS = [
   TUTORIAL_SIGNAL_CONDITION_SCHEMA,
   TUTORIAL_SIGNAL_RULE_SCHEMA,
   TUTORIAL_MOVEMENT_RULE_SCHEMA,
+  SCENE_EVENT_SCOPE_SCHEMA,
+  SCENE_EVENT_DEFINITION_SCHEMA,
   TUTORIAL_SCOPE_SCHEMA,
   TUTORIAL_DEFINITION_SCHEMA,
   GAME_PROJECT_META_SCHEMA,

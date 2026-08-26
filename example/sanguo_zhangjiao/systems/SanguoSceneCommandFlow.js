@@ -73,9 +73,24 @@ const commandMethods = {
 
   async handleGatheringEvent(event, data = {}) {
     if (event === 'completed' && (data.ok !== true || data.committed !== true)) return false;
-    const s01Result = await this._s01s02Coordinator.handleGatheringEvent(event, data);
-    if (event === 'completed' && this.currentSceneId === 'S01'
-      && data.itemId === 'resource.wild_berry' && s01Result !== true) return false;
+    if (event === 'completed') {
+      const sourceOperationId = data.operationId || data.gatheringOperationId;
+      if (!sourceOperationId) {
+        console.warn('[SanguoSceneCommandCoordinator] 已提交采集缺少稳定 operationId，未发布 gathering.completed');
+      } else {
+        try {
+          const published = await this.publishApplicationEvent('gathering.completed', cloneData(data), {
+            operationId: `application:gathering.completed:${sourceOperationId}`,
+            sceneId: this.currentSceneId
+          });
+          if (published?.ok !== true) {
+            console.warn('[SanguoSceneCommandCoordinator] gathering.completed 发布失败，采集事实保持已提交', published);
+          }
+        } catch (error) {
+          console.warn('[SanguoSceneCommandCoordinator] gathering.completed 发布异常，采集事实保持已提交', error);
+        }
+      }
+    }
     if ((event === 'completed' || event === 'interrupted')
       && data.toolBroken === true
       && this._s05MinePendingSettlements.has(data.operationId)) {

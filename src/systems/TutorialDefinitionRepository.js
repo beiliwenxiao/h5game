@@ -1,3 +1,5 @@
+import { SceneEventDefinitionRepository } from '../core/scene/SceneEventDefinitionRepository.js';
+
 /**
  * Tutorial definitions 的不可变只读索引。
  * TutorialSystem 只借用该索引并保存运行进度，不拥有可变 definition Map。
@@ -26,6 +28,7 @@ function normalizeDefinition(input) {
   return deepFreeze({
     ...cloneValue(input),
     id: input.id,
+    sceneEventId: typeof input.sceneEventId === 'string' ? input.sceneEventId.trim() : '',
     title: input.title || '教程',
     description: input.description || '',
     steps: Array.isArray(input.steps) ? cloneValue(input.steps) : [],
@@ -44,22 +47,28 @@ function normalizeDefinition(input) {
 }
 
 export class TutorialDefinitionRepository {
-  constructor(definitions = []) {
+  constructor(definitions = [], { sceneEventDefinitions = [] } = {}) {
+    this.sceneEventDefinitions = SceneEventDefinitionRepository.from(sceneEventDefinitions);
     this._definitions = new Map();
-    for (const input of definitions) {
+    this._definitionIndexes = new Map();
+    for (const [index, input] of definitions.entries()) {
       const definition = normalizeDefinition(input);
       if (this._definitions.has(definition.id)) {
         throw new TypeError(`Invalid or duplicate TutorialDefinition: ${definition.id}`);
       }
+      if (definition.sceneEventId && !this.sceneEventDefinitions.has(definition.sceneEventId)) {
+        throw new TypeError(`TutorialDefinition ${definition.id} 引用了未知 SceneEvent: ${definition.sceneEventId}`);
+      }
       this._definitions.set(definition.id, definition);
+      this._definitionIndexes.set(definition.id, index);
     }
     Object.freeze(this);
   }
 
-  static from(definitions = []) {
+  static from(definitions = [], options = {}) {
     return definitions instanceof TutorialDefinitionRepository
       ? definitions
-      : new TutorialDefinitionRepository(definitions);
+      : new TutorialDefinitionRepository(definitions, options);
   }
 
   get size() { return this._definitions.size; }
@@ -67,12 +76,33 @@ export class TutorialDefinitionRepository {
   has(id) { return this._definitions.has(id); }
   values() { return this._definitions.values(); }
   all() { return Object.freeze([...this._definitions.values()]); }
+  getSceneEventDefinitions() { return this.sceneEventDefinitions.all(); }
+
+  compare(left, right) {
+    if (left === right) return 0;
+    const leftEvent = left?.sceneEventId && this.sceneEventDefinitions.has(left.sceneEventId)
+      ? left.sceneEventId : '';
+    const rightEvent = right?.sceneEventId && this.sceneEventDefinitions.has(right.sceneEventId)
+      ? right.sceneEventId : '';
+    if (leftEvent && rightEvent && leftEvent !== rightEvent) {
+      const eventOrder = this.sceneEventDefinitions.compareIds(leftEvent, rightEvent);
+      if (eventOrder !== 0) return eventOrder;
+    } else if (leftEvent !== rightEvent) {
+      return leftEvent ? -1 : 1;
+    }
+    if (!leftEvent && !rightEvent && left.order !== right.order) return left.order - right.order;
+    return right.priority - left.priority
+      || (this._definitionIndexes.get(left.id) ?? 0) - (this._definitionIndexes.get(right.id) ?? 0)
+      || left.id.localeCompare(right.id);
+  }
 
   withDefinition(id, input) {
     if (!id || !input) throw new TypeError('Invalid TutorialDefinition');
     const definitions = [...this._definitions.values(), { ...input, id }]
       .filter((definition, index, all) => all.findLastIndex(item => item.id === definition.id) === index);
-    return new TutorialDefinitionRepository(definitions);
+    return new TutorialDefinitionRepository(definitions, {
+      sceneEventDefinitions: this.sceneEventDefinitions
+    });
   }
 }
 

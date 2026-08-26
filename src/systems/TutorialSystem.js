@@ -33,7 +33,9 @@ const matchesScope = (definition, scope = null) => {
 export class TutorialSystem {
   constructor(config = {}) {
     // definitions 属于不可变 Repository；本系统只借用索引并拥有运行进度。
-    this.definitionRepository = TutorialDefinitionRepository.from(config.definitions || []);
+    this.definitionRepository = TutorialDefinitionRepository.from(config.definitions || [], {
+      sceneEventDefinitions: config.sceneEventDefinitions || []
+    });
     
     // 已完成的教程ID集合
     this.completedTutorials = new Set();
@@ -100,9 +102,14 @@ export class TutorialSystem {
     return true;
   }
 
-  replaceDefinitions(definitions = []) {
+  replaceDefinitions(definitions = [], sceneEventDefinitions = undefined) {
     if (!Array.isArray(definitions)) throw new TypeError('Tutorial definitions must be an array');
-    return this.setDefinitionRepository(new TutorialDefinitionRepository(definitions));
+    const events = sceneEventDefinitions === undefined
+      ? this.definitionRepository.sceneEventDefinitions
+      : sceneEventDefinitions;
+    return this.setDefinitionRepository(new TutorialDefinitionRepository(definitions, {
+      sceneEventDefinitions: events
+    }));
   }
 
   showNext(category = null, scope = null) {
@@ -111,7 +118,7 @@ export class TutorialSystem {
       .filter(definition => (!category || definition.category === category)
         && matchesScope(definition, scope)
         && !this.completedTutorials.has(definition.id))
-      .sort((left, right) => left.order - right.order || right.priority - left.priority)[0];
+      .sort((left, right) => this.definitionRepository.compare(left, right))[0];
     return next ? this.showTutorial(next.id) : false;
   }
 
@@ -431,6 +438,11 @@ export class TutorialSystem {
     return [...this.definitionRepository.values()];
   }
 
+  /** SceneEvent 只读定义；Tutorial 的宏观顺序直接继承该目录。 */
+  getSceneEventDefinitions() {
+    return this.definitionRepository.getSceneEventDefinitions();
+  }
+
   /**
    * 获取当前教程
    * @returns {Object|null} 当前教程对象
@@ -493,10 +505,10 @@ export class TutorialSystem {
       return;
     }
 
-    // autoTrigger 只决定是否按 canonical order/priority 展示，不执行 JavaScript when。
+    // autoTrigger 只决定是否按 SceneEvent 宏观顺序和 Tutorial priority 展示，不执行 JavaScript when。
     const next = Array.from(this.definitionRepository.values())
       .filter(t => t.autoTrigger && !this.completedTutorials.has(t.id))
-      .sort((a, b) => a.order - b.order || b.priority - a.priority)[0];
+      .sort((left, right) => this.definitionRepository.compare(left, right))[0];
     if (next) this.showTutorial(next.id, gameState);
   }
 

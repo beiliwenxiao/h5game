@@ -117,22 +117,18 @@ export class S01S02Coordinator {
     return true;
   }
 
-  async _spawnFirstWolfAfterThirdRefuel() {
+  async _ensureFirstWolfFromCommittedState() {
     if (this.pendingWolfDiscovery) return true;
     this.pendingWolfDiscovery = true;
     try {
       const survival = this._story().s01Survival || {};
-      if (survival.firstWolfSpotted !== true) {
-        if (survival.campfireLit !== true || Number(survival.campfireRefuelCount) < 3) return false;
-        const result = await this._submit('story.s01.firstWolfSpotted', {}, 'story:s01:first-wolf-spotted:v2');
-        if (result.ok !== true) return false;
-      }
+      if (survival.firstWolfSpotted !== true) return false;
 
       const continuation = this._createFirstWolfContinuation();
       const placement = await this._ensureSpawnedPlacement(continuation.group, continuation.placementId);
       if (!placement.ok) {
         this._rememberPendingReveal(continuation);
-        console.warn('[S01S02Coordinator] 第三次添柴后野狼放置进入退避补偿', placement);
+        console.warn('[S01S02Coordinator] 首狼事实已提交，放置进入退避补偿', placement);
         return true;
       }
       if (!this._activateFirstWolf(placement.target)) {
@@ -441,50 +437,75 @@ export class S01S02Coordinator {
     return true;
   }
 
-  async handleGatheringEvent(event, data = {}) {
-    if (this.scene.currentSceneId !== 'S01') return false;
-    const isBerry = data.itemId === 'resource.wild_berry';
-    const isWolfHide = data.itemId === 'resource.wolf_hide';
-    if (event !== 'completed') return false;
-    if (isBerry) {
-      const gatheringOperationId = data.operationId || data.gatheringOperationId
-        || `node:${data.nodeId || data.entityId || 'wild-berry'}:${++this.sequence}`;
-      const counted = await this._submit(
-        'story.s01.berryGathered',
-        {},
-        `story:s01:berry-gathered:${gatheringOperationId}`
-      );
-      if (counted.ok !== true) return false;
+  _readStoryPath(path) {
+    return String(path || '').split('.').filter(Boolean)
+      .reduce((value, key) => value?.[key], this._story());
+  }
 
-      const berryGatherCount = Math.max(0, Math.floor(Number(this._story().s01Survival?.berryGatherCount) || 0));
-      const berryCount = Math.max(0, Number(data.accepted) || 0);
-      this.scene._showScreenTip(`荒野酸果 ×${berryCount} 已放入背包。`, { title: '采集完成' });
-      if (berryGatherCount < 2) return true;
-      const completed = await this._submit('story.s01.berriesGathered', {}, 'story:s01:berries-gathered');
-      if (completed.ok !== true) return false;
-      await this.onBerriesGatheredCommitted();
-      return true;
+  async _commitStoryWhenReady(params = {}, eventData = {}) {
+    if (this.scene.currentSceneId !== 'S01') return { ok: true, status: 'notApplicable' };
+    const definitionId = String(params.definitionId || '').trim();
+    if (!definitionId) return { ok: false, code: 'definitionIdMissing' };
+    if (params.completedPath && this._readStoryPath(params.completedPath) === true) {
+      return { ok: true, status: 'alreadyCommitted' };
     }
-    if (data.resourceType === 'wood') {
+    if (params.storyPath) {
+      const value = this._readStoryPath(params.storyPath);
+      if (params.gte !== undefined && Number(value) < Number(params.gte)) {
+        return { ok: true, status: 'notReady' };
+      }
+      if (params.equals !== undefined && value !== params.equals) {
+        return { ok: true, status: 'notReady' };
+      }
+    }
+    if (params.inventoryItemId) {
       const inventory = this.scene.playerEntity?.getComponent?.('inventory');
-      const woodCount = Math.max(0, Number(inventory?.getItemCount?.('resource.wood')) || 0);
-      if (woodCount < 3) return true;
-      const result = await this._submit('story.s01.woodGathered', {}, 'story:s01:wood-gathered');
-      if (result.ok) {
-        this.scene._showScreenTip('木材已经够三根了。靠近火堆，{interact}可以添柴。', {
-          title: '返回火堆'
-        });
+      if (!inventory?.getItemCount) return { ok: false, code: 'inventoryUnavailable' };
+      const quantity = Math.max(0, Number(inventory.getItemCount(params.inventoryItemId)) || 0);
+      if (quantity < Math.max(0, Number(params.minimumQuantity) || 0)) {
+        return { ok: true, status: 'notReady' };
       }
-      return result.ok === true;
     }
-    if (isWolfHide) {
-      const result = await this._submit('story.s01.wolfSkinned', {}, 'story:s01:wolf-skinned');
-      if (result.ok) {
-        this.scene._showScreenTip('狼皮已经剥下。带一份木材回到篝火旁烤制狼肉。', { title: '获得狼皮' });
-      }
-      return result.ok === true;
+    const sourceOperationId = eventData.operationId || eventData.eventId;
+    if (!sourceOperationId) return { ok: false, code: 'sourceOperationIdMissing' };
+    const result = await this._submit(
+      definitionId,
+      {},
+      `${sourceOperationId}:state:${definitionId}`
+    );
+    if (result.ok === true && params.successTip) {
+      const accepted = Math.max(0, Number(eventData.accepted) || 0);
+      this.scene._showScreenTip(String(params.successTip).replaceAll('{accepted}', String(accepted)), {
+        title: params.successTitle || '目标更新'
+      });
     }
-    return false;
+    return result;
+  }
+
+  _presentWoodGatheredCommitted() {
+    if (this._story().s01Survival?.woodGathered !== true) return false;
+    this.scene._showScreenTip('木材已经够三根了。靠近火堆，{interact}可以添柴。', {
+      title: '返回火堆'
+    });
+    return true;
+  }
+
+  _presentWolfSkinnedCommitted() {
+    if (this._story().s01Survival?.wolfSkinned !== true) return false;
+    this.scene._showScreenTip('狼皮已经剥下。带一份木材回到篝火旁烤制狼肉。', {
+      title: '获得狼皮'
+    });
+    return true;
+  }
+
+  _requestFirstWolfRecovery(sourceOperationId) {
+    if (!sourceOperationId) return Promise.resolve({ ok: false, code: 'sourceOperationIdMissing' });
+    return this.scene.publishApplicationEvent('s01.firstWolfRecoveryRequested', {
+      reason: 'refuelRecovery'
+    }, {
+      operationId: `${sourceOperationId}:first-wolf-recovery`,
+      sceneId: 'S01'
+    });
   }
 
   async onInitialToolsPickedCommitted() {
@@ -538,28 +559,25 @@ export class S01S02Coordinator {
 
   async handleEnemyKilled(entity) {
     if (this.scene.currentSceneId !== 'S01' || !entity?.id) return false;
-    if (entity.id.startsWith(CHASE_WOLF_PREFIX)) {
-      const result = await this._submit(
-        'story.s01.chase.kill',
-        {},
-        `story:s01:chase-kill:${entity.id}`
-      );
-      if (!result.ok) return false;
-      await this._reconcileWolfPursuit();
-      return true;
+    const isChaseWolf = entity.id.startsWith(CHASE_WOLF_PREFIX);
+    const isFirstWolf = entity.id === 'S01-first-wolf-1';
+    if (!isChaseWolf && !isFirstWolf) return false;
+    if (isFirstWolf) {
+      const corpse = this.scene.context.services.corpses?.capture?.(entity);
+      if (!corpse || !entity.getComponent?.('resourceNode')) {
+        console.warn('[S01S02Coordinator] 首狼死亡后尸体采集节点未成立，暂不发布击杀事实');
+        return false;
+      }
     }
-    if (entity.id !== 'S01-first-wolf-1') return false;
-    const corpse = this.scene.context.services.corpses?.capture?.(entity);
-    if (!corpse || !entity.getComponent?.('resourceNode')) {
-      console.warn('[S01S02Coordinator] 首狼死亡后尸体采集节点未成立，暂不提交击杀剧情');
-      return false;
-    }
-    const result = await this._submit('story.s01.firstWolfKilled', {}, 'story:s01:first-wolf-killed');
-    if (!result.ok) return false;
-    this.scene._showScreenTip('野狼倒下了。靠近贴地的狼尸，使用剥皮刀通过 {harvest} 剥取两份狼皮。', {
-      title: '猎狼与剥皮'
+    const published = await this.scene.publishApplicationEvent('enemy.killed', {
+      entityId: entity.id,
+      enemyRole: isFirstWolf ? 'firstWolf' : 'chaseWolf',
+      corpseReady: isFirstWolf
+    }, {
+      operationId: `application:enemy.killed:${entity.id}`,
+      sceneId: 'S01'
     });
-    return true;
+    return published?.ok === true;
   }
 
   async handleConstructionEvent(event, data = {}) {
@@ -656,10 +674,11 @@ export class S01S02Coordinator {
     ) === true;
   }
 
-  refuelCampfire() {
+  refuelCampfire(eventData = {}) {
     if (this.refuelCampfireInFlight) return this.refuelCampfireInFlight;
+    const operationId = eventData.operationId || eventData.eventId || null;
     if (!this._canShowRefuelProgress()) {
-      const pending = this._refuelCampfireOnce().finally(() => {
+      const pending = this._refuelCampfireOnce(operationId).finally(() => {
         if (this.refuelCampfireInFlight === pending) this.refuelCampfireInFlight = null;
       });
       this.refuelCampfireInFlight = pending;
@@ -674,6 +693,7 @@ export class S01S02Coordinator {
     });
     const session = {
       actor: this.scene.playerEntity,
+      operationId,
       elapsed: 0,
       duration: REFUEL_DURATION_SECONDS,
       committing: false,
@@ -709,10 +729,10 @@ export class S01S02Coordinator {
     if (progress < 1) return;
 
     session.committing = true;
-    void this._refuelCampfireOnce().then(session.resolve, session.reject);
+    void this._refuelCampfireOnce(session.operationId).then(session.resolve, session.reject);
   }
 
-  async _refuelCampfireOnce() {
+  async _refuelCampfireOnce(sourceOperationId = null) {
     if (this.scene.currentSceneId !== 'S01') return false;
     const fuel = this.scene._campfireService;
     const currentFuel = fuel?.getFuelSnapshot?.();
@@ -723,7 +743,8 @@ export class S01S02Coordinator {
         const reignitedSurvival = this._story().s01Survival || {};
         if (Number(reignitedSurvival.campfireRefuelCount) >= 3
           && reignitedSurvival.firstWolfSpotted !== true) {
-          await this._spawnFirstWolfAfterThirdRefuel();
+          const recovery = await this._requestFirstWolfRecovery(sourceOperationId);
+          if (recovery?.ok !== true) return recovery;
         }
         return { ok: true, status: 'reignited' };
       }
@@ -733,12 +754,12 @@ export class S01S02Coordinator {
     const survival = this._story().s01Survival || {};
     if (survival.firstWolfSpotted === true) return { ok: true, status: 'blocked' };
     if (Number(survival.campfireRefuelCount) >= 3) {
-      const wolfSpawned = await this._spawnFirstWolfAfterThirdRefuel();
-      if (wolfSpawned) return { ok: true, recovered: true };
-      this.scene._showScreenTip('篝火已经添足木材，野狼暂时没有出现，请稍后重试。', {
-        title: '野狼未出现'
+      const recovery = await this._requestFirstWolfRecovery(sourceOperationId);
+      if (recovery?.ok === true) return { ok: true, recovered: true };
+      this.scene._showScreenTip('篝火已经添足木材，野狼出现事件暂未提交，请再次交互。', {
+        title: '事件提交失败'
       });
-      return { ok: false, code: 'firstWolfSpawnFailed' };
+      return recovery;
     }
     if (fuel?.canAddFuelUnits?.(1) !== true) {
       this.scene._showScreenTip('篝火燃料已满，暂时不需要再添木材。', { title: '无需添柴' });
@@ -749,7 +770,11 @@ export class S01S02Coordinator {
       this.scene._showScreenTip('背包里没有可用木材，先用破旧斧头砍些枯木。', { title: '木材不足' });
       return { ok: true, status: 'blocked' };
     }
-    const result = await this._submit('story.s01.refuelCampfire', {}, `story:s01:refuel:${++this.sequence}`);
+    const result = await this._submit(
+      'story.s01.refuelCampfire',
+      {},
+      sourceOperationId ? `${sourceOperationId}:state:story.s01.refuelCampfire` : `story:s01:refuel:${++this.sequence}`
+    );
     if (result.ok !== true) {
       this.scene._showScreenTip(`添柴结算失败：${result.code || 'unknown'}。木材没有被消耗。`, { title: '添柴失败' });
       return result;
@@ -764,18 +789,57 @@ export class S01S02Coordinator {
       : '你把一份枯木放进余烬中。再次靠近火堆，{interact}即可重新点燃。', {
       title: fuel.isLit() ? '添柴成功' : '木柴已放入'
     });
-    const updatedSurvival = this._story().s01Survival || {};
-    if (fuel.isLit() && Number(updatedSurvival.campfireRefuelCount) >= 3) {
-      const wolfSpawned = await this._spawnFirstWolfAfterThirdRefuel();
-      if (!wolfSpawned) {
-        console.warn('[S01S02Coordinator] 三次添柴后未能生成并激活首狼');
-      }
-    }
     return { ok: true };
   }
 
   async handleAction(params = {}, eventData = {}) {
     const operation = params.operation || params.type;
+    if (operation === 'commitStoryWhenReady') {
+      return this._commitStoryWhenReady(params, eventData);
+    }
+    if (operation === 'afterBerriesGathered') {
+      await this.onBerriesGatheredCommitted();
+      return { ok: true };
+    }
+    if (operation === 'afterInitialToolsPicked') {
+      await this.onInitialToolsPickedCommitted();
+      return { ok: true };
+    }
+    if (operation === 'afterWoodGathered') {
+      this._presentWoodGatheredCommitted();
+      return { ok: true };
+    }
+    if (operation === 'afterWolfSkinned') {
+      this._presentWolfSkinnedCommitted();
+      return { ok: true };
+    }
+    if (operation === 'ensureFirstWolf') {
+      await this._ensureFirstWolfFromCommittedState();
+      return { ok: true };
+    }
+    if (operation === 'afterFirstWolfKilled') {
+      if (this._story().s01Survival?.firstWolfKilled === true) {
+        this.scene._showScreenTip('野狼倒下了。靠近贴地的狼尸，使用剥皮刀通过 {harvest} 剥取两份狼皮。', {
+          title: '猎狼与剥皮'
+        });
+      }
+      return { ok: true };
+    }
+    if (operation === 'recordChaseWolfKilled') {
+      const entityId = String(eventData.entityId || '').trim();
+      const sourceOperationId = eventData.operationId || eventData.eventId;
+      if (!entityId.startsWith(CHASE_WOLF_PREFIX) || !sourceOperationId) {
+        return { ok: false, code: 'chaseWolfEventInvalid' };
+      }
+      const result = await this._submit(
+        'story.s01.chase.kill',
+        {},
+        `${sourceOperationId}:state:story.s01.chase.kill`
+      );
+      if (result.ok !== true) return result;
+      await this._reconcileWolfPursuit();
+      return { ok: true };
+    }
     if (operation === 'reconcilePursuit') {
       await this._reconcileWolfPursuit();
       return true;
@@ -827,7 +891,7 @@ export class S01S02Coordinator {
       }
       return true;
     }
-    if (operation === 'refuelCampfire') return this.refuelCampfire();
+    if (operation === 'refuelCampfire') return this.refuelCampfire(eventData);
     if (operation === 'craftWolfGear') {
       const survival = this._story().s01Survival || {};
       if (survival.wolfGearCrafted === true) {
@@ -995,14 +1059,14 @@ export class S01S02Coordinator {
     } else {
       this.initialToolRevealRetryElapsed = 0;
     }
-    if (Number(survival.campfireRefuelCount) >= 3 && survival.firstWolfSpotted !== true
-      && !this.pendingWolfDiscovery) {
-      void this._spawnFirstWolfAfterThirdRefuel().catch(error => {
-        console.warn('[S01S02Coordinator] 第三次添柴后的首狼补偿失败', error);
-      });
-    }
     if (survival.firstWolfSpotted === true && survival.firstWolfKilled !== true) {
-      this._activateFirstWolf();
+      const firstWolf = this.scene.entityStore?.getById?.('S01-first-wolf-1');
+      if (firstWolf) this._activateFirstWolf(firstWolf);
+      else if (!this.pendingWolfDiscovery && !this.pendingPlacementReveals.has('S01-first-wolf-1')) {
+        void this._ensureFirstWolfFromCommittedState().catch(error => {
+          console.warn('[S01S02Coordinator] 已提交首狼事实的表现恢复失败', error);
+        });
+      }
     }
     const gatherNeedsRecovery = tutorialFlow
       && survival.initialToolsPicked === true

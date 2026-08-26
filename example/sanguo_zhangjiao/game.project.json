@@ -2706,6 +2706,188 @@
     }
   ],
   "quests": [],
+  "sceneEvents": [
+    {
+      "id": "s01.event.awakening",
+      "name": "寒风苏醒与点燃篝火",
+      "description": "进入 S01 后恢复荒原现场，完成移动教学并点燃篝火。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 0,
+      "dependsOn": [],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "currentSceneId",
+        "equals": "S01"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.campfireLit",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.tools",
+      "name": "拾取求生工具",
+      "description": "在篝火显露的物资中拾取破旧斧头和旧剥皮刀。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 1,
+      "dependsOn": ["s01.event.awakening"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.campfireLit",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.initialToolsPicked",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.foraging",
+      "name": "采集野果",
+      "description": "使用既有采集流程取得两次野果，完成初次觅食。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 2,
+      "dependsOn": ["s01.event.tools"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.initialToolsPicked",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.berriesGathered",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.firewood",
+      "name": "砍柴与三次添火",
+      "description": "砍取木材并为篝火添柴三次，引出首只野狼。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 3,
+      "dependsOn": ["s01.event.foraging"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.berriesGathered",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.firstWolfSpotted",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.firstWolf",
+      "name": "猎杀并剥取首狼",
+      "description": "击杀首只野狼并从成立的尸体剥取狼皮。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 4,
+      "dependsOn": ["s01.event.firewood"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.firstWolfSpotted",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.wolfSkinned",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.survivalCraft",
+      "name": "烤肉、制衣与搭建庇护所",
+      "description": "烤制狼肉、制作狼皮装备并完成小庇护所施工。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 5,
+      "dependsOn": ["s01.event.firstWolf"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.wolfSkinned",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.shelterCompleted",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.overnight",
+      "name": "庇护所过夜",
+      "description": "在建成的庇护所过夜，启动狼群追逐。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 6,
+      "dependsOn": ["s01.event.survivalCraft"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.shelterCompleted",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.overnightCompleted",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.riverEscape",
+      "name": "狼群追逐与跳石过河",
+      "description": "在狼群追逐中跳石越河并抵达对岸。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 7,
+      "dependsOn": ["s01.event.overnight"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.pursuit.active",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.riverCrossed",
+        "equals": true
+      }
+    },
+    {
+      "id": "s01.event.cliffEscape",
+      "name": "抵达山崖并攀藤逃生",
+      "description": "抵达山崖后攀藤逃离，完成 S01 生存流程。",
+      "scope": {
+        "sceneIds": ["S01"]
+      },
+      "order": 8,
+      "dependsOn": ["s01.event.riverEscape"],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Survival.riverCrossed",
+        "equals": true
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "path": "s01Completed",
+        "equals": true
+      }
+    }
+  ],
   "triggerCatalog": {
     "actions": [
       {
@@ -2725,8 +2907,180 @@
         "value": "showTip"
       },
       {
-        "label": "s01Survival",
-        "value": "s01Survival"
+        "label": "荒原生存流程",
+        "value": "s01Survival",
+        "operations": [
+          {
+            "id": "commitStoryWhenReady",
+            "value": "commitStoryWhenReady",
+            "label": "条件满足时提交剧情事实",
+            "paramsSchema": {
+              "type": "object",
+              "required": ["operation", "definitionId"],
+              "additionalProperties": false,
+              "properties": {
+                "operation": { "type": "string", "enum": ["commitStoryWhenReady"], "title": "操作" },
+                "definitionId": { "type": "string", "minLength": 1, "title": "状态事务 ID" },
+                "completedPath": { "type": "string", "minLength": 1, "title": "已完成事实路径" },
+                "storyPath": { "type": "string", "minLength": 1, "title": "前置事实路径" },
+                "equals": { "title": "前置事实等于" },
+                "gte": { "type": "number", "title": "前置数值下限" },
+                "inventoryItemId": { "type": "string", "minLength": 1, "title": "背包物品 ID" },
+                "minimumQuantity": { "type": "integer", "minimum": 0, "title": "背包最低数量" },
+                "successTitle": { "type": "string", "minLength": 1, "title": "成功提示标题" },
+                "successTip": { "type": "string", "minLength": 1, "title": "成功提示正文" }
+              }
+            },
+            "resultSemantics": "满足领域条件时提交指定状态事务；条件未满足、已提交或场景不适用时成功空操作；事务失败时短路后续步骤。"
+          },
+          {
+            "id": "afterBerriesGathered",
+            "value": "afterBerriesGathered",
+            "label": "野果目标完成后接续",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["afterBerriesGathered"] } } },
+            "resultSemantics": "开放木材流程并安排教学接续后成功；接续异常时失败并短路。"
+          },
+          {
+            "id": "afterInitialToolsPicked",
+            "value": "afterInitialToolsPicked",
+            "label": "双工具齐全后接续",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["afterInitialToolsPicked"] } } },
+            "resultSemantics": "开放野果采集并接续教学后成功；放置或接续异常时失败并短路。"
+          },
+          {
+            "id": "afterWoodGathered",
+            "value": "afterWoodGathered",
+            "label": "木材目标完成后提示",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["afterWoodGathered"] } } },
+            "resultSemantics": "展示返回篝火添柴的已提交目标提示后成功。"
+          },
+          {
+            "id": "afterWolfSkinned",
+            "value": "afterWolfSkinned",
+            "label": "剥皮完成后提示",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["afterWolfSkinned"] } } },
+            "resultSemantics": "展示烤制狼肉的后续目标提示后成功。"
+          },
+          {
+            "id": "ensureFirstWolf",
+            "value": "ensureFirstWolf",
+            "label": "恢复或生成首只野狼",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["ensureFirstWolf"] } } },
+            "resultSemantics": "按已提交首狼事实恢复放置与攻击状态；辅助对象暂缺时由既有补偿链继续处理。"
+          },
+          {
+            "id": "afterFirstWolfKilled",
+            "value": "afterFirstWolfKilled",
+            "label": "首狼击杀后提示剥皮",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["afterFirstWolfKilled"] } } },
+            "resultSemantics": "首狼击杀事实成立时展示剥皮提示；事实尚未成立时成功空操作。"
+          },
+          {
+            "id": "recordChaseWolfKilled",
+            "value": "recordChaseWolfKilled",
+            "label": "记录追逐狼击杀",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["recordChaseWolfKilled"] } } },
+            "resultSemantics": "校验已提交敌人事件后原子增加追逐压力并恢复狼群；事件身份无效或事务失败时失败。"
+          },
+          {
+            "id": "reconcilePursuit",
+            "value": "reconcilePursuit",
+            "label": "对齐追逐狼运行态",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["reconcilePursuit"] } } },
+            "resultSemantics": "按已提交追逐事实补齐放置与人工智能状态；无活动追逐时成功空操作。"
+          },
+          {
+            "id": "presentEntry",
+            "value": "presentEntry",
+            "label": "展示荒原入场流程",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["presentEntry"] } } },
+            "resultSemantics": "恢复天气并按现有事实展示苏醒对白或目标提示，表现完成后成功。"
+          },
+          {
+            "id": "beginTutorial",
+            "value": "beginTutorial",
+            "label": "开始移动教学",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["beginTutorial"] } } },
+            "resultSemantics": "请求教学流展示按 SceneEvent 顺序排列的下一项教学后成功。"
+          },
+          {
+            "id": "ensureMovedAfterWake",
+            "value": "ensureMovedAfterWake",
+            "label": "确认苏醒后已移动",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["ensureMovedAfterWake"] } } },
+            "resultSemantics": "移动教学已完成时成功；未完成时展示阻断提示并失败，后续动作不执行。"
+          },
+          {
+            "id": "campfireLit",
+            "value": "campfireLit",
+            "label": "点燃篝火并显露工具",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["campfireLit"] } } },
+            "resultSemantics": "提交点火与工具发现事实后启动表现并显露工具；任一必要领域事务失败时失败并短路。"
+          },
+          {
+            "id": "refuelCampfire",
+            "value": "refuelCampfire",
+            "label": "给篝火添柴",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["refuelCampfire"] } } },
+            "resultSemantics": "复用添柴会话与原子事务；成功后更新燃料及计数，材料或前置不足时返回明确阻断或失败。"
+          },
+          {
+            "id": "craftWolfGear",
+            "value": "craftWolfGear",
+            "label": "制作狼皮装备",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["craftWolfGear"] } } },
+            "resultSemantics": "材料与前置满足时原子制作两件狼皮装备；已完成或材料不足为成功阻断，系统或事务错误为失败。"
+          },
+          {
+            "id": "cookMeat",
+            "value": "cookMeat",
+            "label": "烤制狼肉",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["cookMeat"] } } },
+            "resultSemantics": "材料与前置满足时原子交换生肉、木材和熟食；已完成或材料不足为成功阻断，系统或事务错误为失败。"
+          },
+          {
+            "id": "buildShelter",
+            "value": "buildShelter",
+            "label": "开始搭建庇护所",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["buildShelter"] } } },
+            "resultSemantics": "委托既有营建系统启动 S01 庇护所施工，并原样返回营建准入或失败结果。"
+          },
+          {
+            "id": "shelterCompleted",
+            "value": "shelterCompleted",
+            "label": "处理庇护所建成",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["shelterCompleted"] } } },
+            "resultSemantics": "消费已提交的营建完成事件并提交庇护所剧情事实；不匹配或结算失败时返回失败。"
+          },
+          {
+            "id": "overnight",
+            "value": "overnight",
+            "label": "在庇护所过夜",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["overnight"] } } },
+            "resultSemantics": "原子提交次日、火种与追逐事实并创建检查点；成功后恢复天气和狼群，事务失败时短路。"
+          },
+          {
+            "id": "riverCrossed",
+            "value": "riverCrossed",
+            "label": "提交越河事实",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["riverCrossed"] } } },
+            "resultSemantics": "追逐期间首次到达对岸时提交越河事实并提示；事务拒绝或失败时返回失败。"
+          },
+          {
+            "id": "cliffReached",
+            "value": "cliffReached",
+            "label": "提交抵达山崖事实",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["cliffReached"] } } },
+            "resultSemantics": "越河后首次抵达山崖时提交事实并展示攀藤提示；事务拒绝或失败时返回失败。"
+          },
+          {
+            "id": "climbVine",
+            "value": "climbVine",
+            "label": "攀藤完成荒原流程",
+            "paramsSchema": { "type": "object", "required": ["operation"], "additionalProperties": false, "properties": { "operation": { "type": "string", "enum": ["climbVine"] } } },
+            "resultSemantics": "复用攀爬系统启动藤蔓攀爬；完成后由既有旅行事务关闭追逐并前往 S02，准入失败时不推进。"
+          }
+        ]
       },
       {
         "label": "startDialogue",
@@ -2807,6 +3161,28 @@
       {
         "label": "ending.command",
         "value": "ending.command"
+      },
+      {
+        "label": "状态事务 state.transaction",
+        "value": "state.transaction"
+      }
+    ],
+    "events": [
+      {
+        "label": "采集完成 gathering.completed",
+        "value": "gathering.completed"
+      },
+      {
+        "label": "状态事务已提交 state.transaction",
+        "value": "state.transaction"
+      },
+      {
+        "label": "S01 首狼恢复请求 s01.firstWolfRecoveryRequested",
+        "value": "s01.firstWolfRecoveryRequested"
+      },
+      {
+        "label": "敌人死亡已提交 enemy.killed",
+        "value": "enemy.killed"
       }
     ]
   },
@@ -2816,7 +3192,7 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
+          "stepId": "spawn-initial-placements",
           "params": {
             "selector": {
               "group": "S01-initial"
@@ -2825,20 +3201,22 @@
         },
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "reconcile-pursuit",
           "params": {
             "operation": "reconcilePursuit"
           }
         },
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "present-entry",
           "params": {
             "operation": "presentEntry"
           }
         }
       ],
       "id": "trg_s01_spawn_initial",
+      "sceneEventId": "s01.event.awakening",
+      "name": "进入 S01：装配初始场景与恢复追逐",
       "once": false,
       "when": {
         "params": {
@@ -2851,7 +3229,475 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "commit-axe-found",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.axeFound",
+            "completedPath": "s01Survival.axeFound"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_pickup_worn_axe",
+      "sceneEventId": "s01.event.tools",
+      "name": "拾取破旧斧头：提交工具获得事实",
+      "once": false,
+      "when": {
+        "params": {
+          "placementId": "S01-pickup-worn-axe",
+          "complete": true
+        },
+        "type": "itemPickup"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-skinning-knife-found",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.skinningKnifeFound",
+            "completedPath": "s01Survival.skinningKnifeFound"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_pickup_skinning_knife",
+      "sceneEventId": "s01.event.tools",
+      "name": "拾取旧剥皮刀：提交工具获得事实",
+      "once": false,
+      "when": {
+        "params": {
+          "placementId": "S01-pickup-skinning-knife",
+          "complete": true
+        },
+        "type": "itemPickup"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-initial-tools-picked",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.initialToolsPicked",
+            "storyPath": "s01Survival.skinningKnifeFound",
+            "equals": true,
+            "completedPath": "s01Survival.initialToolsPicked"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_axe_found_check_tools",
+      "sceneEventId": "s01.event.tools",
+      "name": "斧头已获得：检查双工具是否齐全",
+      "once": false,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.axeFound"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-initial-tools-picked",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.initialToolsPicked",
+            "storyPath": "s01Survival.axeFound",
+            "equals": true,
+            "completedPath": "s01Survival.initialToolsPicked"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_skinning_knife_found_check_tools",
+      "sceneEventId": "s01.event.tools",
+      "name": "剥皮刀已获得：检查双工具是否齐全",
+      "once": false,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.skinningKnifeFound"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "after-initial-tools-picked",
+          "params": {
+            "operation": "afterInitialToolsPicked"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_initial_tools_picked",
+      "sceneEventId": "s01.event.tools",
+      "name": "双工具齐全：开放野果采集",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.initialToolsPicked"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-berry-gathered",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.berryGathered",
+            "successTitle": "采集完成",
+            "successTip": "荒野酸果 ×{accepted} 已放入背包。"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_gather_berry_completed",
+      "sceneEventId": "s01.event.foraging",
+      "name": "采集野果：记录一次采集",
+      "once": false,
+      "when": {
+        "params": {
+          "itemId": "resource.wild_berry"
+        },
+        "type": "gathering.completed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-berries-gathered",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.berriesGathered",
+            "storyPath": "s01Survival.berryGatherCount",
+            "gte": 2,
+            "completedPath": "s01Survival.berriesGathered"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_berry_count_updated",
+      "sceneEventId": "s01.event.foraging",
+      "name": "野果计数达到两次：完成觅食目标",
+      "once": false,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.berryGathered"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "after-berries-gathered",
+          "params": {
+            "operation": "afterBerriesGathered"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_berries_gathered",
+      "sceneEventId": "s01.event.foraging",
+      "name": "野果目标完成：开放砍柴并启动燃料倒计时",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.berriesGathered"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-wood-gathered",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.woodGathered",
+            "inventoryItemId": "resource.wood",
+            "minimumQuantity": 3,
+            "completedPath": "s01Survival.woodGathered"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_gather_wood_completed",
+      "sceneEventId": "s01.event.firewood",
+      "name": "砍伐树木：木材达到三份",
+      "once": false,
+      "when": {
+        "params": {
+          "resourceType": "wood"
+        },
+        "type": "gathering.completed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "after-wood-gathered",
+          "params": {
+            "operation": "afterWoodGathered"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_wood_gathered",
+      "sceneEventId": "s01.event.firewood",
+      "name": "木材目标完成：提示返回篝火",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.woodGathered"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-wolf-skinned",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.wolfSkinned",
+            "completedPath": "s01Survival.wolfSkinned"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_gather_wolf_hide_completed",
+      "sceneEventId": "s01.event.firstWolf",
+      "name": "剥取狼皮：提交剥皮事实",
+      "once": false,
+      "when": {
+        "params": {
+          "itemId": "resource.wolf_hide"
+        },
+        "type": "gathering.completed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "after-wolf-skinned",
+          "params": {
+            "operation": "afterWolfSkinned"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_wolf_skinned",
+      "sceneEventId": "s01.event.firstWolf",
+      "name": "狼皮剥取完成：提示烤制狼肉",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.wolfSkinned"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-first-wolf-spotted",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.firstWolfSpotted",
+            "storyPath": "s01Survival.campfireRefuelCount",
+            "gte": 3,
+            "completedPath": "s01Survival.firstWolfSpotted"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_refuel_committed",
+      "sceneEventId": "s01.event.firewood",
+      "name": "添柴计数达到三次：提交首狼出现事实",
+      "once": false,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.refuelCampfire"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-first-wolf-spotted",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.firstWolfSpotted",
+            "storyPath": "s01Survival.campfireRefuelCount",
+            "gte": 3,
+            "completedPath": "s01Survival.firstWolfSpotted"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_first_wolf_recovery_requested",
+      "sceneEventId": "s01.event.firewood",
+      "name": "首狼故障恢复：不重复扣除木材",
+      "once": false,
+      "when": {
+        "params": {},
+        "type": "s01.firstWolfRecoveryRequested"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "ensure-first-wolf",
+          "params": {
+            "operation": "ensureFirstWolf"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_first_wolf_spotted",
+      "sceneEventId": "s01.event.firstWolf",
+      "name": "首狼出现事实成立：生成并激活教学狼",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.firstWolfSpotted"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "commit-first-wolf-killed",
+          "params": {
+            "operation": "commitStoryWhenReady",
+            "definitionId": "story.s01.firstWolfKilled",
+            "completedPath": "s01Survival.firstWolfKilled"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_first_wolf_killed",
+      "sceneEventId": "s01.event.firstWolf",
+      "name": "教学狼死亡且尸体成立：提交首狼击杀事实",
+      "once": false,
+      "when": {
+        "params": {
+          "enemyRole": "firstWolf",
+          "corpseReady": true
+        },
+        "type": "enemy.killed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "after-first-wolf-killed",
+          "params": {
+            "operation": "afterFirstWolfKilled"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_first_wolf_killed_committed",
+      "sceneEventId": "s01.event.firstWolf",
+      "name": "首狼击杀事实成立：提示剥皮",
+      "once": true,
+      "when": {
+        "params": {
+          "definitionId": "story.s01.firstWolfKilled"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "record-chase-wolf-killed",
+          "params": {
+            "operation": "recordChaseWolfKilled"
+          }
+        }
+      ],
+      "editorScope": {
+        "sceneIds": ["S01"]
+      },
+      "id": "trg_s01_chase_wolf_killed",
+      "sceneEventId": "s01.event.riverEscape",
+      "name": "追逐狼死亡：增加追逐压力并补充狼群",
+      "once": false,
+      "when": {
+        "params": {
+          "enemyRole": "chaseWolf"
+        },
+        "type": "enemy.killed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "stepId": "begin-tutorial",
           "params": {
             "operation": "beginTutorial"
           }
@@ -2863,6 +3709,8 @@
         ]
       },
       "id": "trg_s01_begin_tutorial_after_wake",
+      "sceneEventId": "s01.event.awakening",
+      "name": "苏醒对白结束：开始移动教学",
       "once": true,
       "when": {
         "params": {
@@ -2875,20 +3723,21 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "ensure-moved-after-wake",
           "params": {
             "operation": "ensureMovedAfterWake"
           }
         },
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "light-campfire",
           "params": {
             "operation": "campfireLit"
           }
         }
       ],
       "id": "trg_s01_light_campfire",
+      "sceneEventId": "s01.event.awakening",
       "once": true,
       "when": {
         "params": {},
@@ -2900,13 +3749,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "craft-wolf-gear",
           "params": {
             "operation": "craftWolfGear"
           }
         }
       ],
       "id": "trg_s01_craft_wolf_gear",
+      "sceneEventId": "s01.event.survivalCraft",
       "once": false,
       "when": {
         "params": {},
@@ -2918,13 +3768,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "cook-meat",
           "params": {
             "operation": "cookMeat"
           }
         }
       ],
       "id": "trg_s01_cook_meat",
+      "sceneEventId": "s01.event.survivalCraft",
       "once": false,
       "when": {
         "params": {},
@@ -2936,13 +3787,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "refuel-campfire",
           "params": {
             "operation": "refuelCampfire"
           }
         }
       ],
       "id": "trg_s01_refuel_campfire",
+      "sceneEventId": "s01.event.firewood",
       "once": false,
       "when": {
         "params": {},
@@ -2954,7 +3806,7 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
+          "stepId": "start-shelter-construction",
           "params": {
             "definitionId": "construction.s01.small_shelter",
             "operation": "construction.start.s01",
@@ -2963,6 +3815,7 @@
         }
       ],
       "id": "trg_s01_build_shelter",
+      "sceneEventId": "s01.event.survivalCraft",
       "once": false,
       "when": {
         "params": {},
@@ -2973,7 +3826,7 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "shelter-completed",
           "params": {
             "operation": "shelterCompleted"
           }
@@ -2985,6 +3838,8 @@
         ]
       },
       "id": "trg_s01_shelter_completed",
+      "sceneEventId": "s01.event.survivalCraft",
+      "name": "庇护所建成：推进过夜目标",
       "once": true,
       "when": {
         "params": {
@@ -2998,13 +3853,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "overnight",
           "params": {
             "operation": "overnight"
           }
         }
       ],
       "id": "trg_s01_overnight",
+      "sceneEventId": "s01.event.overnight",
       "once": false,
       "when": {
         "params": {},
@@ -3016,13 +3872,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "river-crossed",
           "params": {
             "operation": "riverCrossed"
           }
         }
       ],
       "id": "trg_s01_river_crossed",
+      "sceneEventId": "s01.event.riverEscape",
       "once": false,
       "when": {
         "params": {},
@@ -3034,13 +3891,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "cliff-reached",
           "params": {
             "operation": "cliffReached"
           }
         }
       ],
       "id": "trg_s01_cliff_reached",
+      "sceneEventId": "s01.event.cliffEscape",
       "once": false,
       "when": {
         "params": {},
@@ -3052,13 +3910,14 @@
       "do": [
         {
           "action": "s01Survival",
-          "await": true,
+          "stepId": "climb-vine",
           "params": {
             "operation": "climbVine"
           }
         }
       ],
       "id": "trg_s01_climb_vine",
+      "sceneEventId": "s01.event.cliffEscape",
       "once": false,
       "when": {
         "params": {},
@@ -4769,6 +5628,7 @@
   "tutorials": [
     {
       "id": "s01.move",
+      "sceneEventId": "s01.event.awakening",
       "title": "寒风中醒来",
       "category": "s01-survival",
       "scope": {
@@ -4776,9 +5636,9 @@
           "S01"
         ]
       },
-      "order": 0,
       "steps": [
         {
+          "id": "s01.move.step.move",
           "text": "寒风把你冻醒。{move}起身活动。"
         }
       ],
@@ -4794,6 +5654,7 @@
     },
     {
       "id": "s01.pickup",
+      "sceneEventId": "s01.event.tools",
       "title": "拾取求生物资",
       "category": "s01-survival",
       "scope": {
@@ -4801,9 +5662,9 @@
           "S01"
         ]
       },
-      "order": 1,
       "steps": [
         {
+          "id": "s01.pickup.step.pickup",
           "text": "你发现了一些物品，{pickup}拾取。"
         }
       ],
@@ -4815,6 +5676,7 @@
     },
     {
       "id": "s01.gather",
+      "sceneEventId": "s01.event.foraging",
       "title": "徒手寻找食物",
       "category": "s01-survival",
       "scope": {
@@ -4822,9 +5684,9 @@
           "S01"
         ]
       },
-      "order": 2,
       "steps": [
         {
+          "id": "s01.gather.step.harvest",
           "text": "靠近野果丛，{harvest}徒手采集野果。"
         }
       ],
@@ -4841,6 +5703,7 @@
     },
     {
       "id": "s01.chopWood",
+      "sceneEventId": "s01.event.firewood",
       "title": "篝火燃料",
       "category": "s01-survival",
       "scope": {
@@ -4848,9 +5711,9 @@
           "S01"
         ]
       },
-      "order": 3,
       "steps": [
         {
+          "id": "s01.chopWood.step.firewood",
           "text": "篝火快熄灭了。{harvest}砍取枯木，再回火堆添柴。"
         }
       ],
@@ -4861,6 +5724,7 @@
     },
     {
       "id": "s01.attack",
+      "sceneEventId": "s01.event.firstWolf",
       "title": "猎狼反击",
       "category": "s01-survival",
       "scope": {
@@ -4868,9 +5732,9 @@
           "S01"
         ]
       },
-      "order": 4,
       "steps": [
         {
+          "id": "s01.attack.step.attack",
           "text": "野狼出现后，{attack}反击。"
         }
       ],
@@ -4886,6 +5750,7 @@
     },
     {
       "id": "s01.durability",
+      "sceneEventId": "s01.event.firstWolf",
       "title": "工具使用",
       "category": "s01-survival",
       "scope": {
@@ -4893,9 +5758,9 @@
           "S01"
         ]
       },
-      "order": 5,
       "steps": [
         {
+          "id": "s01.durability.step.tools",
           "text": "用破旧斧头砍取枯木；用剥皮刀剥取狼皮。"
         }
       ],
@@ -4918,6 +5783,7 @@
     },
     {
       "id": "s01.jump",
+      "sceneEventId": "s01.event.riverEscape",
       "title": "跳石过河",
       "category": "s01-survival",
       "scope": {
@@ -4925,9 +5791,9 @@
           "S01"
         ]
       },
-      "order": 6,
       "steps": [
         {
+          "id": "s01.jump.step.river",
           "text": "狼群追来后，使用 {jump} 跳过河中石块逃到对岸。"
         }
       ],
@@ -4943,6 +5809,7 @@
     },
     {
       "id": "s01.capacity",
+      "sceneEventId": "s01.event.cliffEscape",
       "title": "容量规划与攀藤",
       "category": "s01-survival",
       "scope": {
@@ -4950,9 +5817,9 @@
           "S01"
         ]
       },
-      "order": 7,
       "steps": [
         {
+          "id": "s01.capacity.step.capacity",
           "text": "背包满时，多余物资会留在原地。到达山崖后，{climb}沿藤蔓逃往 S02。"
         }
       ],

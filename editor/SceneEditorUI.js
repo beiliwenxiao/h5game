@@ -662,6 +662,32 @@ export class SceneEditorUI {
         else if (e.target.type === 'number') value = parseFloat(e.target.value);
         else value = e.target.value;
 
+        if (prop === 'activeWhen' && obj.type === 'trigger') {
+          const text = String(value || '').trim();
+          let nextValue;
+          if (text) {
+            try {
+              nextValue = JSON.parse(text);
+            } catch (error) {
+              e.target.value = obj.activeWhen ? JSON.stringify(obj.activeWhen, null, 2) : '';
+              this.showToast(`activeWhen JSON 格式错误：${error.message}`, 'error');
+              return;
+            }
+            if (!nextValue || typeof nextValue !== 'object' || Array.isArray(nextValue)) {
+              e.target.value = obj.activeWhen ? JSON.stringify(obj.activeWhen, null, 2) : '';
+              this.showToast('activeWhen 必须是 JSON 对象，不能是数组或 null', 'error');
+              return;
+            }
+          }
+          editor.history?.saveHistory?.();
+          if (text) obj.activeWhen = nextValue;
+          else delete obj.activeWhen;
+          e.target.value = text ? JSON.stringify(nextValue, null, 2) : '';
+          editor.eventFilter?.rebuild({ preserveSelection: true, notify: true });
+          editor.render();
+          return;
+        }
+
         // triggerId 是场景空间 binding 到项目行为定义的唯一连接。
         if (prop === 'triggerId' && obj.type === 'trigger') {
           obj.triggerId = String(value || '').trim();
@@ -669,7 +695,13 @@ export class SceneEditorUI {
           if (definition) {
             obj.event = definition.when?.type || obj.event || 'interact';
             obj.name = obj.name || definition.id;
+            const sceneEventId = String(definition.sceneEventId || '').trim();
+            if (sceneEventId) obj.sceneEventId = sceneEventId;
+            else delete obj.sceneEventId;
+          } else {
+            delete obj.sceneEventId;
           }
+          this.updateObjectProperties();
           editor.eventFilter?.rebuild({ preserveSelection: true, notify: true });
           return;
         }
@@ -1111,6 +1143,14 @@ export class SceneEditorUI {
     const triggers = (this.editor.getProjectTriggers?.() || [])
       .filter(trigger => spatialEvents.includes(trigger?.when?.type) || trigger?.id === obj.triggerId);
     const definition = this.editor.getProjectTrigger?.(obj.triggerId);
+    const definitionSceneEventId = String(definition?.sceneEventId || '');
+    const sceneEvent = this.editor.getProjectSceneEvent?.(definitionSceneEventId);
+    const bindingSceneEventId = String(obj.sceneEventId || '');
+    const sceneEventMismatch = bindingSceneEventId !== definitionSceneEventId
+      && Boolean(bindingSceneEventId || definitionSceneEventId);
+    const sceneEventSummary = sceneEvent
+      ? `${sceneEvent.order}. ${sceneEvent.name || sceneEvent.id} (${sceneEvent.id})`
+      : (definitionSceneEventId || '未归属 SceneEvent');
     const dangling = !!obj.triggerId && !definition;
     const invalidSpatialEvent = !!definition && !spatialEvents.includes(definition.when?.type);
     let options = '<option value="">-- 选择项目触发器 --</option>';
@@ -1170,6 +1210,8 @@ export class SceneEditorUI {
       <div class="property-row"><label>名称:</label><input type="text" value="${escapeHtml(obj.name || '')}" data-prop="name"></div>
       <div class="property-row"><label>是否显示:</label><input type="checkbox" data-prop="enabled" ${obj.enabled !== false ? 'checked' : ''} title="关闭后运行时不显示提示，也不执行该事件"></div>
       <div class="property-row"><label>项目行为:</label><select data-prop="triggerId">${options}</select></div>
+      <div class="property-row"><label>逻辑事件:</label><input type="text" value="${escapeHtml(sceneEventSummary)}" disabled title="由所选 Trigger.sceneEventId 唯一派生，场景 binding 不单独排序"></div>
+      ${sceneEventMismatch ? `<div class="property-row"><small style="color:#ef5350;">⚠ binding.sceneEventId “${escapeHtml(bindingSceneEventId)}” 与 Trigger 的 “${escapeHtml(definitionSceneEventId)}” 不一致；重新选择项目行为会自动同步。</small></div>` : ''}
       <div class="property-row"><label>行为摘要:</label><textarea rows="2" disabled style="width:100%;color:${dangling ? '#ef5350' : '#c9d4ef'}">${escapeHtml(summary)}</textarea></div>
       ${dangling ? '<div class="property-row"><small style="color:#ef5350;">⚠ triggerId 在 game.project.json 中不存在，运行时不会执行。</small></div>' : ''}
       ${invalidSpatialEvent ? `<div class="property-row"><small style="color:#ef5350;">⚠ ${escapeHtml(eventType)} 不是空间事件，请在 TriggerEditor 中改为 interact/approach/enter/leave，或删除此场景 binding。</small></div>` : ''}
@@ -1180,6 +1222,8 @@ export class SceneEditorUI {
       <div class="property-row"><label>目标对象:</label><select data-prop="target" style="min-width:0;flex:1;">${targetOptions}</select><button id="editor-pick-target" title="按当前目标方式点击场景对象拾取">🎯</button></div>
       <div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>
       <div class="property-row"><label>操作提示:</label><input type="text" value="${escapeHtml(obj.prompt || '')}" data-prop="prompt" placeholder="如 {interact}点燃"></div>
+      <div class="property-row"><label>生效条件 activeWhen:</label><textarea rows="5" data-prop="activeWhen" placeholder='如 {"blackboardKey":"storyState","path":"s01Survival.berriesGathered","equals":true}' style="width:100%;font-family:monospace;">${obj.activeWhen ? escapeHtml(JSON.stringify(obj.activeWhen, null, 2)) : ''}</textarea></div>
+      <div class="property-row"><small style="color:#8ea4c9;">留空表示始终生效；仅接受 JSON 对象，支持 all/any/not 与 blackboardKey/path/exists/equals/gte/lte/in。</small></div>
       <div class="property-row"><button id="editor-edit-trigger" ${obj.triggerId ? '' : 'disabled'}>编辑行为</button><button id="editor-preview-trigger" ${definition ? '' : 'disabled'}>预演摘要</button></div>
       ${legacyFields.length ? `<div class="property-row"><small style="color:#e8a24a;">旧场景内行为字段已降级为只读兼容数据：${legacyFields.join(', ')}；保存新行为请使用“编辑行为”。</small></div>` : ''}`;
   }

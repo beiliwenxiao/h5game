@@ -604,6 +604,7 @@ export const TUTORIAL_DEFINITION_SCHEMA = {
     pauseGame: { type: FieldType.BOOLEAN },
     canSkip: { type: FieldType.BOOLEAN },
     autoTrigger: { type: FieldType.BOOLEAN },
+    autoAdvance: { type: FieldType.BOOLEAN },
     priority: { type: FieldType.INTEGER }
   }
 };

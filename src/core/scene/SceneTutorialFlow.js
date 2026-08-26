@@ -19,24 +19,24 @@ export class SceneTutorialFlow {
     if (!presenter) return false;
     this.tutorialSystem.onShow(data => presenter.show?.(data));
     this.tutorialSystem.onHide(() => presenter.hide?.());
-    this.tutorialSystem.onComplete((_tutorialId, definition) => {
-      if (definition?.autoAdvance === false) return;
-      this.scheduler(() => this.showNext());
-    });
+    this.tutorialSystem.onComplete(null);
     this._presentationBound = true;
     return true;
   }
 
-  showNext() {
-    return this.tutorialSystem.showNext(null, this.getScope());
+  /** 只有事件动作提供稳定 tutorialId 时才展示。 */
+  show(tutorialId, context = {}) {
+    if (!tutorialId) return false;
+    const explicitContext = context && typeof context === 'object' ? context : {};
+    return this.tutorialSystem.showTutorial(tutorialId, {
+      ...explicitContext,
+      scope: explicitContext.scope ?? this.getScope()
+    });
   }
 
   complete(tutorialId) {
     if (!tutorialId || this.isCompleted(tutorialId)) return false;
-    const definition = this.tutorialSystem.getTutorial(tutorialId);
     this.tutorialSystem.completeTutorial(tutorialId);
-    if (!this._presentationBound && definition?.autoAdvance !== false
-      && !this.tutorialSystem.isShowingTutorial()) this.showNext();
     return true;
   }
 

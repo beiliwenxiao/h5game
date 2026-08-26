@@ -41,7 +41,7 @@ function normalizeDefinition(input) {
     signalRules: Array.isArray(input.signalRules) ? cloneValue(input.signalRules) : [],
     movementRule: input.movementRule ? cloneValue(input.movementRule) : null,
     completionPolicy: input.completionPolicy || 'allSteps',
-    autoAdvance: input.autoAdvance !== false,
+    autoAdvance: input.autoAdvance === true,
     autoTrigger: input.autoTrigger === true
   });
 }

@@ -186,16 +186,31 @@ export class CandidateRuleValidator {
     });
 
     list(candidate?.tutorials).forEach((tutorial, index) => {
+      const path = `tutorials[${index}]`;
+      if (tutorial?.autoTrigger === true) {
+        errors.push(makeError(
+          'tutorialAutoDisplayNotAllowed',
+          `${path}.autoTrigger`,
+          'Tutorial 不允许自动触发；必须由事件 action 显式调用 tutorial.command(show, tutorialId)'
+        ));
+      }
+      if (tutorial?.autoAdvance === true) {
+        errors.push(makeError(
+          'tutorialAutoDisplayNotAllowed',
+          `${path}.autoAdvance`,
+          'Tutorial 完成后不允许自动展示下一项；下一项必须由事件 action 显式调用'
+        ));
+      }
       if (!own(tutorial, 'sceneEventId')) return;
       const event = sceneEventsById.get(tutorial.sceneEventId);
       if (!event) {
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `tutorials[${index}].sceneEventId`, `SceneEvent 不存在: ${String(tutorial.sceneEventId)}`));
+        errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.sceneEventId`, `SceneEvent 不存在: ${String(tutorial.sceneEventId)}`));
         return;
       }
       const eventScenes = new Set(list(event.scope?.sceneIds));
       list(tutorial.scope?.sceneIds).forEach(sceneId => {
         if (!eventScenes.has(sceneId)) {
-          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `tutorials[${index}].scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
+          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 SceneEvent ${event.id}`));
         }
       });
     });

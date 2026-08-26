@@ -31,12 +31,12 @@ export class TutorialEditorPanel {
     panel.innerHTML = `
       <div class="trg-definition-heading">
         <strong>Tutorial 教学表现</strong>
-        <span>宏观顺序继承 SceneEvent ${escape(selectedEvent?.name || tutorial.sceneEventId || '未归属')}；仅拖动内部 steps[]</span>
+        <span>所属 SceneEvent ${escape(selectedEvent?.name || tutorial.sceneEventId || '未归属')} 只用于组织与静态排序；展示必须由事件 action 显式调用 tutorial.command(show, tutorialId)</span>
       </div>
       <div class="row"><label>ID</label><input type="text" id="d-tutorial-id" value="${escape(tutorial.id || '')}"></div>
       <div class="row"><label>标题</label><input type="text" id="d-tutorial-title" value="${escape(tutorial.title || '')}"></div>
       <div class="row"><label>说明</label><textarea id="d-tutorial-description">${escape(tutorial.description || '')}</textarea></div>
-      <div class="row"><label>所属 SceneEvent（决定宏观执行顺序）</label><select id="d-tutorial-event"><option value="">-- 选择 SceneEvent --</option>${eventOptions}</select></div>
+      <div class="row"><label>所属 SceneEvent（仅用于组织，不自动展示）</label><select id="d-tutorial-event"><option value="">-- 选择 SceneEvent --</option>${eventOptions}</select></div>
       <div class="row"><label>场景 scope（必须属于 SceneEvent scope）</label><select id="d-tutorial-scenes" multiple size="${Math.min(7, Math.max(3, scenes.size))}">${sceneOptions}</select></div>
       <div class="row"><label>分类 category</label><input type="text" id="d-tutorial-category" value="${escape(tutorial.category || 'general')}"></div>
       <div class="row"><label>完成策略</label><select id="d-tutorial-policy">
@@ -47,9 +47,8 @@ export class TutorialEditorPanel {
       <div class="row trg-inline-options">
         <label><input type="checkbox" id="d-tutorial-pause"${tutorial.pauseGame === true ? ' checked' : ''}> 暂停游戏</label>
         <label><input type="checkbox" id="d-tutorial-skip"${tutorial.canSkip !== false ? ' checked' : ''}> 可跳过</label>
-        <label><input type="checkbox" id="d-tutorial-auto-trigger"${tutorial.autoTrigger === true ? ' checked' : ''}> 自动触发</label>
-        <label><input type="checkbox" id="d-tutorial-auto-advance"${tutorial.autoAdvance !== false ? ' checked' : ''}> 完成后继续</label>
       </div>
+      <div class="row"><label>展示入口</label><div class="do-result-semantics">只允许 Trigger 事件动作 <code>tutorial.command</code> 以 <code>operation: "show"</code> 和稳定 <code>tutorialId</code> 显式展示；场景加载、读档、帧更新和上一教程完成均不会自动弹出。</div></div>
       <div class="row"><label>同一 SceneEvent 内优先级 priority（高值先展示）</label><input type="number" id="d-tutorial-priority" value="${Number(tutorial.priority || 0)}"></div>
       <div class="row"><label>信号规则 signalRules（JSON 数组，可空）</label><textarea id="d-tutorial-signals">${tutorial.signalRules ? escape(JSON.stringify(tutorial.signalRules, null, 2)) : ''}</textarea></div>
       <div class="row"><label>移动规则 movementRule（JSON 对象，可空）</label><textarea id="d-tutorial-movement">${tutorial.movementRule ? escape(JSON.stringify(tutorial.movementRule, null, 2)) : ''}</textarea></div>
@@ -95,8 +94,8 @@ export class TutorialEditorPanel {
     tutorial.completionPolicy = panel.querySelector('#d-tutorial-policy').value || 'allSteps';
     tutorial.pauseGame = panel.querySelector('#d-tutorial-pause').checked;
     tutorial.canSkip = panel.querySelector('#d-tutorial-skip').checked;
-    tutorial.autoTrigger = panel.querySelector('#d-tutorial-auto-trigger').checked;
-    tutorial.autoAdvance = panel.querySelector('#d-tutorial-auto-advance').checked;
+    tutorial.autoTrigger = false;
+    tutorial.autoAdvance = false;
     tutorial.priority = Number(panel.querySelector('#d-tutorial-priority').value) || 0;
     const sceneIds = [...panel.querySelector('#d-tutorial-scenes').selectedOptions]
       .map(option => text(option.value)).filter(Boolean);
@@ -139,7 +138,8 @@ export class TutorialEditorPanel {
       completionPolicy: 'allSteps',
       pauseGame: false,
       canSkip: true,
-      autoAdvance: true,
+      autoTrigger: false,
+      autoAdvance: false,
       priority: 0
     };
   }
@@ -155,6 +155,8 @@ export class TutorialEditorPanel {
       else ids.add(id);
       if (!text(tutorial?.title)) errors.push(`${path}.title 不能为空`);
       if (!eventIds.has(tutorial?.sceneEventId)) errors.push(`${path}.sceneEventId 未登记: ${tutorial?.sceneEventId || '空'}`);
+      if (tutorial?.autoTrigger === true) errors.push(`${path}.autoTrigger 不允许自动触发，请使用事件 action 显式展示`);
+      if (tutorial?.autoAdvance === true) errors.push(`${path}.autoAdvance 不允许自动推进，请由下一事件显式展示`);
       if (!asList(tutorial?.steps).length) errors.push(`${path}.steps 至少需要一个步骤`);
       asList(tutorial?.steps).forEach((step, stepIndex) => {
         if (!text(step?.text)) errors.push(`${path}.steps[${stepIndex}].text 不能为空`);

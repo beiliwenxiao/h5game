@@ -144,6 +144,9 @@ export class ScenarioCommandService {
     const system = this.tutorialSystem;
     if (!system) return { ok: false, code: 'tutorialSystemUnavailable' };
     if (payload.operation === 'complete') return system.completeTutorial(payload.tutorialId) ?? true;
+    if (payload.operation === 'showStep') {
+      return system.showTutorialStep(payload.tutorialId, payload.tutorialStepId, payload.context || {});
+    }
     if (payload.operation === 'skip') return system.skipTutorial();
     if (payload.operation === 'notify') return system.notify(payload.signal, payload.value || {});
     if (payload.operation && payload.operation !== 'show') return { ok: false, code: 'unsupportedTutorialOperation' };

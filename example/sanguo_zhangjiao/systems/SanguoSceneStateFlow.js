@@ -414,10 +414,6 @@ function applySceneSaveState(data) {
     );
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
     void this.sanguoSceneNavigationCoordinator.projectEntryRuntime(this.currentSceneId);
-    this.resourceScope?.setTimeout(() => {
-      const deferredTutorialRecovery = this._s01s02Coordinator?.deferS01WoodGatherTutorialRecovery?.() === true;
-      if (!deferredTutorialRecovery) this._tutorialFlow.showNext();
-    }, 0);
     return { ok: true, errors: [] };
   } catch (error) {
     return failure('', error?.message || String(error), 'sceneStateRestoreFailed');

@@ -112,14 +112,14 @@ export class TutorialSystem {
     }));
   }
 
-  showNext(category = null, scope = null) {
-    if (this.currentTutorial) return false;
-    const next = [...this.definitionRepository.values()]
-      .filter(definition => (!category || definition.category === category)
-        && matchesScope(definition, scope)
-        && !this.completedTutorials.has(definition.id))
-      .sort((left, right) => this.definitionRepository.compare(left, right))[0];
-    return next ? this.showTutorial(next.id) : false;
+  /**
+   * 兼容旧调用；正式运行禁止按定义顺序猜测下一项教程。
+   * 教程只能由事件动作显式调用 showTutorial(tutorialId)。
+   * @returns {boolean} 始终为 false
+   */
+  showNext() {
+    console.warn('TutorialSystem: showNext 已禁用，请由事件显式调用 showTutorial(tutorialId)');
+    return false;
   }
 
   notify(signal, payload = {}, scope = null) {
@@ -208,11 +208,12 @@ export class TutorialSystem {
       return false;
     }
 
-    // 检查教程是否已完成
+    // 已完成或同一教程已在显示时视为幂等成功，避免事件重放失败。
     if (this.completedTutorials.has(tutorialId)) {
-      console.log(`TutorialSystem: 教程 ${tutorialId} 已完成`);
-      return false;
+      console.log(`TutorialSystem: 教程 ${tutorialId} 已完成，忽略重复展示请求`);
+      return true;
     }
+    if (this.currentTutorial?.id === tutorialId) return true;
 
     // 获取教程
     const tutorial = this.definitionRepository.get(tutorialId);
@@ -237,6 +238,40 @@ export class TutorialSystem {
     // 显示第一步（showStep内部会调用onShowCallback）
     this.showStep(0, context);
 
+    return true;
+  }
+
+  /**
+   * 由事件动作按稳定 step ID 显式展示教程步骤。
+   * 重放已完成、当前步骤或更早步骤时视为幂等成功，不回退表现。
+   * @param {string} tutorialId - 教程 ID
+   * @param {string} tutorialStepId - 教程步骤稳定 ID
+   * @param {Object} context - 上下文数据
+   * @returns {boolean} 是否接受展示请求
+   */
+  showTutorialStep(tutorialId, tutorialStepId, context = {}) {
+    if (!this.enabled || !tutorialId || !tutorialStepId) return false;
+    if (this.completedTutorials.has(tutorialId)) return true;
+
+    const tutorial = this.definitionRepository.get(tutorialId);
+    if (!tutorial) {
+      console.warn(`TutorialSystem: 教程不存在: ${tutorialId}`);
+      return false;
+    }
+    const stepIndex = tutorial.steps.findIndex(step => step?.id === tutorialStepId);
+    if (stepIndex < 0) {
+      console.warn(`TutorialSystem: 教程步骤不存在: ${tutorialId}/${tutorialStepId}`);
+      return false;
+    }
+    if (this.currentTutorial && this.currentTutorial.id !== tutorialId) {
+      console.warn('TutorialSystem: 已有其他教程正在显示:', this.currentTutorial.id);
+      return false;
+    }
+    if (this.currentTutorial?.id === tutorialId && this.currentStepIndex >= stepIndex) return true;
+
+    this.currentTutorial = tutorial;
+    this.pauseGame = tutorial.pauseGame;
+    this.showStep(stepIndex, context);
     return true;
   }
 
@@ -476,14 +511,11 @@ export class TutorialSystem {
   }
 
   /**
-   * 更新教程系统（每帧调用）
-   * @param {number} deltaTime - 时间增量
-   * @param {Object} gameState - 游戏状态
+   * 教程帧更新只保留兼容入口，不允许从定义或游戏状态主动展示教程。
+   * @returns {boolean} 始终为 false
    */
-  update(deltaTime, gameState = {}) {
-    if (!this.enabled) return;
-    // Definition 只包含可序列化规则；系统不执行 JavaScript when/completion callback。
-    this.checkAutoTriggers(gameState);
+  update() {
+    return false;
   }
 
   /**
@@ -491,25 +523,15 @@ export class TutorialSystem {
    * @param {CanvasRenderingContext2D} ctx - Canvas渲染上下文
    */
   render(ctx) {
-    // 教程系统的渲染由 UI 组件（TutorialTooltip）负责
-    // 这个方法保留用于未来可能的扩展
+    // 教程系统的渲染由 UI 组件负责；保留兼容入口。
   }
 
   /**
-   * 检查自动触发的教程
-   * @param {Object} gameState - 游戏状态
+   * 兼容旧 API；autoTrigger 不再具有运行时展示语义。
+   * @returns {boolean} 始终为 false
    */
-  checkAutoTriggers(gameState) {
-    // 如果已有教程在显示，不检查新的触发
-    if (this.currentTutorial) {
-      return;
-    }
-
-    // autoTrigger 只决定是否按 SceneEvent 宏观顺序和 Tutorial priority 展示，不执行 JavaScript when。
-    const next = Array.from(this.definitionRepository.values())
-      .filter(t => t.autoTrigger && !this.completedTutorials.has(t.id))
-      .sort((left, right) => this.definitionRepository.compare(left, right))[0];
-    if (next) this.showTutorial(next.id, gameState);
+  checkAutoTriggers() {
+    return false;
   }
 
   /**
@@ -656,17 +678,10 @@ export class TutorialSystem {
       .map(([key, value]) => [key, Math.max(0, Math.floor(Number(value) || 0))]));
     this.movementOrigins = new Map(Object.entries(progressData.movementOrigins || {})
       .filter(([, value]) => Number.isFinite(value?.x) && Number.isFinite(value?.y)));
-    const active = progressData.currentTutorialId
-      ? this.definitionRepository.get(progressData.currentTutorialId) : null;
-    if (active && !this.completedTutorials.has(active.id)) {
-      this.currentTutorial = active;
-      this.currentStepIndex = Math.min(
-        Math.max(0, Math.floor(Number(progressData.currentStepIndex) || 0)),
-        Math.max(0, active.steps.length - 1)
-      );
-      this.pauseGame = active.pauseGame;
-      this.showStep(this.currentStepIndex);
-    }
+    // 读档只恢复完成与进度事实；恢复行为本身不得重放或激活教程 UI。
+    this.currentTutorial = null;
+    this.currentStepIndex = 0;
+    this.pauseGame = false;
   }
 
   /**

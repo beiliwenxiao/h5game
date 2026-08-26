@@ -99,10 +99,6 @@ function initializeGameLoader() {
         error.records = sceneEnterResult.records;
         throw error;
       }
-      if (this._progressionBootstrap?.isNewGame
-        && !this.dialogueSystem?.isDialogueActive?.()) {
-        this._tutorialFlow.showNext();
-      }
       console.log('%c[DDScene][GameLoader] 装配完成，触发器数量:', 'color:#4CAF50', gameLoader.triggerSystem.triggers.length);
       return gameLoader;
     })).catch(this.resourceScope.guard(error => {

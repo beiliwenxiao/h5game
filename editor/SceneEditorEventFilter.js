@@ -270,11 +270,15 @@ export class SceneEditorEventFilter {
       return this.events.filter(event => event.definition?.id === this.state.selectedTriggerId
         || event.binding?.triggerId === this.state.selectedTriggerId);
     }
-    if (this.state.mode === 'sceneEvent') {
-      return this.events.filter(event => event.phaseId === this.state.selectedSceneEventId);
+    // sceneEvent（旧名）和 flowGroup（新名）两个 mode 都等价命中双读判断
+    if (this.state.mode === 'sceneEvent' || this.state.mode === 'flowGroup') {
+      const fgId = _resolveFgId(this.state);
+      return this.events.filter(event => event.phaseId === fgId);
     }
     return this.events;
   }
+
+  getFlowGroups() { return this.flowGroups.map(phase => ({ ...phase, events: [...phase.events] })); }
 
   _allObjects() {
     return (this.sceneData?.layers || []).flatMap(layer => layer.objects || []);

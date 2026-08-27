@@ -20,7 +20,7 @@
  * - 多步骤教程导航
  */
 
-import { UIElement } from '../../ui/UIElement.js';
+import { UIElement } from './UIElement.js';
 
 export class TutorialTooltip extends UIElement {
   /**

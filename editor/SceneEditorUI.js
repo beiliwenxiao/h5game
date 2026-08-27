@@ -695,10 +695,17 @@ export class SceneEditorUI {
           if (definition) {
             obj.event = definition.when?.type || obj.event || 'interact';
             obj.name = obj.name || definition.id;
-            const sceneEventId = String(definition.sceneEventId || '').trim();
-            if (sceneEventId) obj.sceneEventId = sceneEventId;
-            else delete obj.sceneEventId;
+            // 双写 flowGroupId + sceneEventId（flowGroup 优先）
+            const fgId = String((definition.flowGroupId || definition.sceneEventId) || '').trim();
+            if (fgId) {
+              obj.flowGroupId = fgId;
+              obj.sceneEventId = fgId;
+            } else {
+              delete obj.flowGroupId;
+              delete obj.sceneEventId;
+            }
           } else {
+            delete obj.flowGroupId;
             delete obj.sceneEventId;
           }
           this.updateObjectProperties();
@@ -1143,14 +1150,16 @@ export class SceneEditorUI {
     const triggers = (this.editor.getProjectTriggers?.() || [])
       .filter(trigger => spatialEvents.includes(trigger?.when?.type) || trigger?.id === obj.triggerId);
     const definition = this.editor.getProjectTrigger?.(obj.triggerId);
-    const definitionSceneEventId = String(definition?.sceneEventId || '');
-    const sceneEvent = this.editor.getProjectSceneEvent?.(definitionSceneEventId);
-    const bindingSceneEventId = String(obj.sceneEventId || '');
-    const sceneEventMismatch = bindingSceneEventId !== definitionSceneEventId
-      && Boolean(bindingSceneEventId || definitionSceneEventId);
-    const sceneEventSummary = sceneEvent
-      ? `${sceneEvent.order}. ${sceneEvent.name || sceneEvent.id} (${sceneEvent.id})`
-      : (definitionSceneEventId || '未归属 SceneEvent');
+    // flowGroupId 优先，sceneEventId 回退
+    const resolveFg = o => String(((o?.flowGroupId && String(o.flowGroupId).trim()) || (o?.sceneEventId && String(o.sceneEventId).trim())) || '');
+    const definitionFgId = resolveFg(definition);
+    const flowGroup = this.editor.getProjectFlowGroup?.(definitionFgId) || this.editor.getProjectSceneEvent?.(definitionFgId);
+    const bindingFgId = resolveFg(obj);
+    const fgMismatch = bindingFgId !== definitionFgId
+      && Boolean(bindingFgId || definitionFgId);
+    const fgSummary = flowGroup
+      ? `${flowGroup.order}. ${flowGroup.name || flowGroup.id} (${flowGroup.id})`
+      : (definitionFgId || '未归属 FlowGroup(SceneEvent)');
     const dangling = !!obj.triggerId && !definition;
     const invalidSpatialEvent = !!definition && !spatialEvents.includes(definition.when?.type);
     let options = '<option value="">-- 选择项目触发器 --</option>';
@@ -1210,8 +1219,8 @@ export class SceneEditorUI {
       <div class="property-row"><label>名称:</label><input type="text" value="${escapeHtml(obj.name || '')}" data-prop="name"></div>
       <div class="property-row"><label>是否显示:</label><input type="checkbox" data-prop="enabled" ${obj.enabled !== false ? 'checked' : ''} title="关闭后运行时不显示提示，也不执行该事件"></div>
       <div class="property-row"><label>项目行为:</label><select data-prop="triggerId">${options}</select></div>
-      <div class="property-row"><label>逻辑事件:</label><input type="text" value="${escapeHtml(sceneEventSummary)}" disabled title="由所选 Trigger.sceneEventId 唯一派生，场景 binding 不单独排序"></div>
-      ${sceneEventMismatch ? `<div class="property-row"><small style="color:#ef5350;">⚠ binding.sceneEventId “${escapeHtml(bindingSceneEventId)}” 与 Trigger 的 “${escapeHtml(definitionSceneEventId)}” 不一致；重新选择项目行为会自动同步。</small></div>` : ''}
+      <div class="property-row"><label>剧情流程 FlowGroup(SceneEvent):</label><input type="text" value="${escapeHtml(fgSummary)}" disabled title="由所选 Trigger.flowGroupId 唯一派生，场景 binding 不单独排序。旧字段 sceneEventId 自动同步。"></div>
+      ${fgMismatch ? `<div class="property-row"><small style="color:#ef5350;">⚠ binding.flowGroupId(sceneEventId) “${escapeHtml(bindingFgId)}” 与 Trigger 的 “${escapeHtml(definitionFgId)}” 不一致；重新选择项目行为会自动同步。</small></div>` : ''}
       <div class="property-row"><label>行为摘要:</label><textarea rows="2" disabled style="width:100%;color:${dangling ? '#ef5350' : '#c9d4ef'}">${escapeHtml(summary)}</textarea></div>
       ${dangling ? '<div class="property-row"><small style="color:#ef5350;">⚠ triggerId 在 game.project.json 中不存在，运行时不会执行。</small></div>' : ''}
       ${invalidSpatialEvent ? `<div class="property-row"><small style="color:#ef5350;">⚠ ${escapeHtml(eventType)} 不是空间事件，请在 TriggerEditor 中改为 interact/approach/enter/leave，或删除此场景 binding。</small></div>` : ''}

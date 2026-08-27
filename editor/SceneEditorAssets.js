@@ -329,7 +329,9 @@ export class SceneEditorAssets {
       obj = {
         id: 'trigger_' + rnd, type: 'trigger', name: definition?.id || '触发器',
         triggerId: definition?.id || '',
-        sceneEventId: definition?.sceneEventId || '',
+        // 双写 flowGroupId+sceneEventId 同值，保证旧代码双读
+        flowGroupId: (definition?.flowGroupId || definition?.sceneEventId || ''),
+        sceneEventId: (definition?.flowGroupId || definition?.sceneEventId || ''),
         x: Math.round(x - w / 2), y: Math.round(y - h / 2), width: w, height: h,
         event: definition?.when?.type || 'interact',
         targetMode: 'id',

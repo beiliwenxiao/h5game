@@ -69,11 +69,14 @@ describe('TutorialSystem', () => {
       expect(tutorialSystem.getCurrentTutorial()).toBeDefined();
     });
 
-    it('应该不显示已完成的教程', () => {
+    it('应该不显示已完成的教程（幂等成功但不进入显示态）', () => {
       tutorialSystem.completedTutorials.add('movement_tutorial');
       const result = tutorialSystem.showTutorial('movement_tutorial');
-      
-      expect(result).toBe(false);
+
+      // canonical 收口后：已完成教程的重复 show 请求幂等返回 true（事件重放不打断），
+      // 但绝不重新进入显示态。
+      expect(result).toBe(true);
+      expect(tutorialSystem.isShowingTutorial()).toBe(false);
     });
 
     it('应该不显示不存在的教程', () => {
@@ -200,21 +203,26 @@ describe('TutorialSystem', () => {
   });
 
   describe('自动触发', () => {
-    it('应该在满足条件时自动触发教程', () => {
+    it('canonical 收口后 update 不再按 autoTrigger/triggerCondition 主动展示教程', () => {
+      const triggerCondition = vi.fn(() => true);
       tutorialSystem.registerTutorial('auto_tutorial', {
         title: '自动教程',
         steps: [{ text: '步骤1' }],
         autoTrigger: true,
-        triggerCondition: (state) => state.playerLevel >= 5
+        triggerCondition
       });
 
       tutorialSystem.update(0, { playerLevel: 5 });
-      
-      expect(tutorialSystem.isShowingTutorial()).toBe(true);
+
+      // 帧更新不得展示教程，也不得执行 JavaScript 条件（canonical 安全边界）。
+      expect(tutorialSystem.isShowingTutorial()).toBe(false);
+      expect(triggerCondition).not.toHaveBeenCalled();
+      // 展示唯一途径是事件动作显式调用 showTutorial。
+      expect(tutorialSystem.showTutorial('auto_tutorial')).toBe(true);
       expect(tutorialSystem.getCurrentTutorial().id).toBe('auto_tutorial');
     });
 
-    it('应该按优先级触发教程', () => {
+    it('canonical 收口后优先级只在显式展示互斥时生效，update 不做选择', () => {
       tutorialSystem.registerTutorial('low_priority', {
         title: '低优先级',
         steps: [{ text: '步骤1' }],
@@ -232,7 +240,10 @@ describe('TutorialSystem', () => {
       });
 
       tutorialSystem.update(0, {});
-      
+
+      // 帧更新不选择任何教程；显式展示按调用方指定。
+      expect(tutorialSystem.getCurrentTutorial()).toBeNull();
+      expect(tutorialSystem.showTutorial('high_priority')).toBe(true);
       expect(tutorialSystem.getCurrentTutorial().id).toBe('high_priority');
     });
   });
@@ -326,6 +337,8 @@ describe('TutorialSystem', () => {
         signalRules: [{ signal: 'performed', threshold: 2 }],
         completionPolicy: 'signal', canSkip: false, autoTrigger: false
       }]);
+      // canonical 收口：信号只被当前已显示教程消费，先显式展示再累计。
+      tutorialSystem.showTutorial('canonical');
       expect(tutorialSystem.notify('performed')).toBe(false);
       expect(tutorialSystem.notify('performed')).toBe(true);
       const saved = tutorialSystem.saveProgress();
@@ -410,11 +423,14 @@ describe('TutorialSystem canonical policy boundary', () => {
     ]);
 
     system.update(0, { ready: true });
-    expect(system.getCurrentTutorial()?.id).toBe('signal-only');
-    expect(system.nextStep()).toBe(false);
-    expect(system.isTutorialCompleted('signal-only')).toBe(false);
+    // canonical 收口：帧更新不展示教程（autoTrigger 无运行时语义），JS 条件不执行。
+    expect(system.getCurrentTutorial()).toBeNull();
     expect(triggerCondition).not.toHaveBeenCalled();
     expect(completionCondition).not.toHaveBeenCalled();
+
+    expect(system.showTutorial('signal-only')).toBe(true);
+    expect(system.nextStep()).toBe(false);
+    expect(system.isTutorialCompleted('signal-only')).toBe(false);
 
     expect(system.notify('done')).toBe(true);
     expect(system.isTutorialCompleted('signal-only')).toBe(true);

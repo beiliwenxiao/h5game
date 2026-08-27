@@ -68,9 +68,18 @@ export class TutorialSystem {
     this.onCompleteCallback = null;
     this.signalProgress = new Map();
     this.movementOrigins = new Map();
-    
+
+    // FlowGroup 运行时状态机（可选；GameLoader 装配注入，教程完成 → 组进度+1）
+    this.flowGroupStateMachine = config.flowGroupStateMachine || null;
+
     // 是否启用教程系统
     this.enabled = true;
+  }
+
+  /** 注入 FlowGroup 状态机（GameLoader 装配时调用）。 */
+  setFlowGroupStateMachine(machine) {
+    this.flowGroupStateMachine = machine || null;
+    return true;
   }
 
   /**
@@ -420,7 +429,8 @@ export class TutorialSystem {
     // 如果提供了 tutorialId，直接标记为完成
     if (tutorialId) {
       this.completedTutorials.add(tutorialId);
-      
+      this._notifyFlowGroupProgress(tutorialId);
+
       // 如果是当前教程，也隐藏它
       if (this.currentTutorial && this.currentTutorial.id === tutorialId) {
         // 触发完成回调
@@ -431,7 +441,7 @@ export class TutorialSystem {
       }
       return;
     }
-    
+
     // 否则完成当前教程
     if (!this.currentTutorial) {
       return;
@@ -441,6 +451,7 @@ export class TutorialSystem {
 
     // 标记为已完成
     this.completedTutorials.add(currentTutorialId);
+    this._notifyFlowGroupProgress(currentTutorialId);
 
     // 触发完成回调
     if (this.onCompleteCallback) {
@@ -449,6 +460,22 @@ export class TutorialSystem {
 
     // 隐藏教程
     this.hideTutorial();
+  }
+
+  /** 教程完成 → 所属 FlowGroup 进度+1（状态机异常不得打断教程流程）。 */
+  _notifyFlowGroupProgress(tutorialId) {
+    if (!this.flowGroupStateMachine || !tutorialId) return;
+    try {
+      const definition = this.definitionRepository?.get?.(tutorialId);
+      const flowGroupId = definition
+        ? (typeof definition.flowGroupId === 'string' && definition.flowGroupId.trim()
+          ? definition.flowGroupId
+          : (typeof definition.sceneEventId === 'string' ? definition.sceneEventId : ''))
+        : '';
+      if (flowGroupId) this.flowGroupStateMachine.notifyProgress(flowGroupId, tutorialId, 'tutorial');
+    } catch (error) {
+      console.warn('TutorialSystem: FlowGroup 进度通知失败', error);
+    }
   }
 
   /**

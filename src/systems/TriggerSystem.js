@@ -76,6 +76,8 @@ export class TriggerSystem {
     this.bindingReferenceResolver = config.bindingReferenceResolver || null;
     this.operationFingerprintValidator = config.operationFingerprintValidator || null;
     this.sceneEventDefinitionRepository = config.sceneEventDefinitionRepository || null;
+    this.flowGroupDefinitionRepository = config.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
+    this.flowGroupStateMachine = config.flowGroupStateMachine || null;
     this.runtimeConfig = config.runtimeConfig || null;
     this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     this.sceneDiagnostics = config.sceneDiagnostics || null;
@@ -104,6 +106,7 @@ export class TriggerSystem {
     this.flowGroupDefinitionRepository = ctx.flowGroupDefinitionRepository
       || this.sceneEventDefinitionRepository
       || this.flowGroupDefinitionRepository;
+    this.flowGroupStateMachine = ctx.flowGroupStateMachine || this.flowGroupStateMachine;
     this.definitionRevision = ctx.runtimeConfig?.definitionRevision
       ?? ctx.definitionRepository?.definitionRevision
       ?? this.definitionRevision;
@@ -125,6 +128,9 @@ export class TriggerSystem {
     } else if (Object.prototype.hasOwnProperty.call(patch, 'flowGroupDefinitionRepository')) {
       this.flowGroupDefinitionRepository = patch.flowGroupDefinitionRepository || null;
       this.sceneEventDefinitionRepository = this.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
+    }
+    if (Object.prototype.hasOwnProperty.call(patch, 'flowGroupStateMachine')) {
+      this.flowGroupStateMachine = patch.flowGroupStateMachine || null;
     }
     this.expr.setContext(this.ctx);
   }
@@ -482,12 +488,25 @@ export class TriggerSystem {
     return request;
   }
 
+  /** Trigger 所属 FlowGroup（双字段读取：flowGroupId 优先，回退 sceneEventId）。 */
+  _flowGroupIdOf(trigger) {
+    if (hasText(trigger?.flowGroupId)) return trigger.flowGroupId.trim();
+    if (hasText(trigger?.sceneEventId)) return trigger.sceneEventId.trim();
+    return '';
+  }
+
   _eligible(trigger) {
     if (trigger.enabled === false) return false;
     if (trigger.once && this._firedOnce.has(trigger.id)) return false;
     const cooldown = this._cooldowns[trigger.id];
     if (cooldown && this.monotonicClock.now() < cooldown.nextDue) return false;
     if (trigger.if && !this.expr.eval(trigger.if)) return false;
+    // FlowGroup 状态机门控：locked/dormant/completed 阶段组的 Trigger 不可运行。
+    // 无状态机或无归属的 Trigger（未挂组）不受影响，保持旧行为。
+    if (this.flowGroupStateMachine) {
+      const flowGroupId = this._flowGroupIdOf(trigger);
+      if (flowGroupId && !this.flowGroupStateMachine.isRunnable(flowGroupId)) return false;
+    }
     return true;
   }
 
@@ -601,6 +620,14 @@ export class TriggerSystem {
         const duration = Number(trigger.cooldown) * 1000;
         this._cooldowns[trigger.id] = { nextDue: this.monotonicClock.now() + duration, duration };
       }
+      // FlowGroup 状态机进度通知（trigger 成功 → 组 progress+1）。状态机异常不得打断触发流程。
+      if (this.flowGroupStateMachine) {
+        const flowGroupId = this._flowGroupIdOf(trigger);
+        if (flowGroupId) {
+          try { this.flowGroupStateMachine.notifyProgress(flowGroupId, trigger.id, 'trigger'); }
+          catch (error) { console.warn('TriggerSystem: FlowGroup 进度通知失败', error); }
+        }
+      }
       await this._publishFinal('triggerSucceeded', trigger, record);
       this._emit('triggerEnd', trigger, { operationId: request.operationId, status: 'succeeded', result: technicalResult(lastResult) });
       return lastResult;
@@ -624,8 +651,9 @@ export class TriggerSystem {
         seed: this.ctx.authorityRng?.snapshot?.() || this.ctx.rng?.snapshot?.() || this.ctx.seed || null
       });
       if (this.isDebugEnabled()) {
-        // 失败诊断仍保留在 DebugPanel 中，但业务事件失败不得打断玩家流程并强制展开面板。
-        this.sceneDiagnostics?.recordTriggerFailure?.(envelope, { openPanel: false });
+        // debug 模式下失败诊断必须进入 DebugPanel 并展开面板（debug failure exposure contract）；
+        // 非 debug 由 SceneDiagnostics.recordTriggerFailure 直接拒绝，不打断玩家流程。
+        this.sceneDiagnostics?.recordTriggerFailure?.(envelope, { openPanel: true });
       }
       this._emit('actionFailed', trigger, this.isDebugEnabled()
         ? envelope
@@ -639,12 +667,21 @@ export class TriggerSystem {
       return result;
     }
   }
-  _actionOperationId(trigger, action, _index, request) {
+  /**
+   * action 级 operationId：
+   * - 显式 action.operationId 优先；
+   * - 有 stepId（归属 FlowGroup 的稳定步骤）→ `${request.operationId}:trigger:${id}:step:${stepId}` 稳定身份；
+   * - 无 stepId → 单动作链直接复用 request.operationId，多动作链用 `:action:${index}`
+   *   （可预测格式，命令侧与 property 模型依赖此约定）。
+   */
+  _actionOperationId(trigger, action, index, request) {
     if (hasText(action?.operationId)) return action.operationId.trim();
-    const stepId = hasText(action?.stepId)
-      ? action.stepId.trim()
-      : `legacy-${stableDigest(action || {})}`;
-    return `${request.operationId}:trigger:${trigger.id}:step:${stepId}`;
+    if (hasText(action?.stepId)) {
+      return `${request.operationId}:trigger:${trigger.id}:step:${action.stepId.trim()}`;
+    }
+    return (trigger.do || []).length === 1
+      ? request.operationId
+      : `${request.operationId}:action:${index}`;
   }
 
   async _executeAction(trigger, action, index, request) {

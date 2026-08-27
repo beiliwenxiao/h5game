@@ -484,7 +484,7 @@ export class SceneDiagnostics {
     this.beginReleaseAudit();
     this.scene.performanceMonitor?.dispose?.();
     this.teardownDrawCallCounter();
-    this.records.length = 0;
+    // 诊断记录在 dispose 后保留（最多 128/16 条上限），供场景退出后仍可查询失败诊断。
     const scene = this.scene;
     if (!scene.debugPanel) return;
     console.log('[BaseGameScene][DebugPanel] 场景退出，清理调试面板', {

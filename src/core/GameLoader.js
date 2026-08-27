@@ -21,6 +21,7 @@ import { formatErrors } from './validation/ValidationError.js';
 import { TriggerSystem } from '../systems/TriggerSystem.js';
 import { SceneEventDefinitionRepository } from './scene/SceneEventDefinitionRepository.js';
 import { FlowGroupDefinitionRepository } from './scene/FlowGroupDefinitionRepository.js';
+import { FlowGroupRuntimeStateMachine } from './scene/FlowGroupRuntimeStateMachine.js';
 import { normalizeProjectForRuntime } from '../migration/SceneEventToFlowGroupMigrator.js';
 import { registerDefaultActions } from '../systems/TriggerActions.js';
 import { createStandardActionDescriptorRegistry } from '../systems/ActionDescriptorRegistry.js';
@@ -77,6 +78,8 @@ export class GameLoader {
     // 双轨初始化：flowGroupDefinitionRepository 为主，sceneEventDefinitionRepository 作为同引用别名（兼容旧代码）
     this.flowGroupDefinitionRepository = FlowGroupDefinitionRepository.empty();
     this.sceneEventDefinitionRepository = this.flowGroupDefinitionRepository;
+    // FlowGroup 运行时状态机（装配后由 _buildShadowDraft 替换为绑定黑板的实例）
+    this.flowGroupStateMachine = null;
     this.commandAdapter = null;
     this._definitionRevision = 0;
     this.blackboard = new Blackboard();
@@ -440,6 +443,14 @@ export class GameLoader {
     // 主仓库 flowGroups；sceneEventDefinitionRepository 保持同引用别名，兼容读取旧代码
     const flowGroupDefinitionRepository = FlowGroupDefinitionRepository.from(project.flowGroups || []);
     const sceneEventDefinitionRepository = flowGroupDefinitionRepository;
+    // ★ FlowGroup 运行时状态机（P1）：activeWhen/completionWhen/dependsOn/scope/control 实语义
+    //   - 绑定黑板：变量变化自动重估条件
+    //   - TriggerSystem 准入门控 + 成功进度累计
+    const flowGroupStateMachine = new FlowGroupRuntimeStateMachine({
+      definitions: flowGroupDefinitionRepository,
+      blackboard
+    });
+    flowGroupStateMachine.evaluate();
     const triggerGraph = TriggerGraph.fromSnapshot(snapshot);
     const scenarioDefinitionIndex = ScenarioDefinitionIndex.fromSnapshot(snapshot, { triggerGraph });
     const commandAdapter = deps.commandAdapter || (deps.commandGateway ? new CommandAdapter({
@@ -461,6 +472,7 @@ export class GameLoader {
       operationFingerprintValidator: deps.triggerOperationFingerprintValidator,
       sceneEventDefinitionRepository,
       flowGroupDefinitionRepository,
+      flowGroupStateMachine,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
@@ -482,11 +494,14 @@ export class GameLoader {
       definitionRepository: repository,
       sceneEventDefinitionRepository,
       flowGroupDefinitionRepository,
+      flowGroupStateMachine,
       runtimeConfig,
       sceneDiagnostics: deps.sceneDiagnostics
     });
     registerDefaultActions(triggerSystem);
     triggerSystem.registerAll(project.triggers || []);
+    // TutorialSystem 若由 deps 注入，挂上状态机引用（教程完成 → FlowGroup 进度）。
+    deps.tutorial?.setFlowGroupStateMachine?.(flowGroupStateMachine);
     const progression = this._buildProgressionDraft(project, deps);
     const configConsumption = this.configConsumptionRegistry.build(snapshot);
     const context = {
@@ -495,6 +510,7 @@ export class GameLoader {
       scenarioDefinitionIndex, triggerGraph, commandAdapter,
       sceneEventDefinitionRepository,
       flowGroupDefinitionRepository,
+      flowGroupStateMachine,
       blackboard, triggerSystem, registries
     };
     const consumerDrafts = this._buildExternalConsumerDrafts(project, deps, context);
@@ -513,6 +529,7 @@ export class GameLoader {
       triggerGraph: this.triggerGraph,
       sceneEventDefinitionRepository: this.sceneEventDefinitionRepository,
       flowGroupDefinitionRepository: this.flowGroupDefinitionRepository,
+      flowGroupStateMachine: this.flowGroupStateMachine,
       commandAdapter: this.commandAdapter,
       registries: this.registries,
       blackboard: this.blackboard,
@@ -547,6 +564,7 @@ export class GameLoader {
         triggerGraph: draft.triggerGraph,
         sceneEventDefinitionRepository: draft.sceneEventDefinitionRepository,
         flowGroupDefinitionRepository: draft.flowGroupDefinitionRepository,
+        flowGroupStateMachine: draft.flowGroupStateMachine,
         commandAdapter: draft.commandAdapter,
         registries: draft.registries,
         blackboard: draft.blackboard,
@@ -693,7 +711,7 @@ export class GameLoader {
   }
 
   /**
-   * 序列化运行时状态（存档：黑板 + 触发器 once/cooldown + 角色成长）
+   * 序列化运行时状态（存档：黑板 + 触发器 once/cooldown + FlowGroup 状态机 + 角色成长）
    * @param {string} [characterId] - 提供时一并保存该角色的成长状态
    */
   serialize(characterId = null) {
@@ -701,6 +719,11 @@ export class GameLoader {
       blackboard: this.blackboard.serialize(),
       triggers: this.triggerSystem.serialize()
     };
+
+    // P3：FlowGroup 状态机（phase/progress/completions/activations/currentSceneId）
+    if (this.flowGroupStateMachine) {
+      data.flowGroups = this.flowGroupStateMachine.serialize();
+    }
 
     if (characterId && this.progressionSystem) {
       data.progression = this.progressionSystem.serializeCharacter(characterId);
@@ -720,6 +743,13 @@ export class GameLoader {
 
     const triggerValidation = this.triggerSystem.validateSnapshot(data.triggers);
     if (!triggerValidation.ok) return triggerValidation;
+
+    // P3：FlowGroup 状态机恢复。旧存档无 flowGroups 段时跳过（保持初始状态，
+    // 后续 setScene/黑板变化会照常重估）。机器内部先整体校验再原子应用。
+    if (data.flowGroups && this.flowGroupStateMachine) {
+      const flowGroupResult = this.flowGroupStateMachine.deserialize(data.flowGroups);
+      if (!flowGroupResult.ok) return flowGroupResult;
+    }
 
     this.blackboard.deserialize(data.blackboard);
     const triggerResult = this.triggerSystem.deserialize(data.triggers);

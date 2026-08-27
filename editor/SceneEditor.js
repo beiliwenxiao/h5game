@@ -184,16 +184,22 @@ export class SceneEditor {
     try {
       const definitions = this.options.getProjectDefinitions?.();
       if (definitions && typeof definitions === 'object') return definitions;
-      return { sceneEvents: [], triggers: this.options.getProjectTriggers?.() || [], tutorials: [] };
+      return { flowGroups: [], sceneEvents: [], triggers: this.options.getProjectTriggers?.() || [], tutorials: [] };
     } catch (error) {
       console.warn('SceneEditor: 获取项目事件定义失败', error);
-      return { sceneEvents: [], triggers: [], tutorials: [] };
+      return { flowGroups: [], sceneEvents: [], triggers: [], tutorials: [] };
     }
   }
 
-  getProjectSceneEvents() {
-    const values = this.getProjectDefinitions().sceneEvents;
+  getProjectFlowGroups() {
+    const defs = this.getProjectDefinitions();
+    const values = Array.isArray(defs.flowGroups) && defs.flowGroups.length ? defs.flowGroups : defs.sceneEvents;
     return Array.isArray(values) ? values : [];
+  }
+
+  /** @deprecated 使用 getProjectFlowGroups() */
+  getProjectSceneEvents() {
+    return this.getProjectFlowGroups();
   }
 
   getProjectTriggers() {
@@ -206,8 +212,13 @@ export class SceneEditor {
     return Array.isArray(values) ? values : [];
   }
 
+  getProjectFlowGroup(id) {
+    return this.getProjectFlowGroups().find(fg => fg?.id === id) || null;
+  }
+
+  /** @deprecated 使用 getProjectFlowGroup(id) */
   getProjectSceneEvent(id) {
-    return this.getProjectSceneEvents().find(sceneEvent => sceneEvent?.id === id) || null;
+    return this.getProjectFlowGroup(id);
   }
 
   getProjectTrigger(id) {

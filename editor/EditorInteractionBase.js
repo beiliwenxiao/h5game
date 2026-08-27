@@ -27,7 +27,7 @@ export class EditorInteractionBase {
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
-                this._projectDefinitions = { sceneEvents: [], triggers: [], tutorials: [] };
+                this._projectDefinitions = { flowGroups: [], sceneEvents: [], triggers: [], tutorials: [] };
                 this._projectTriggers = [];
                 this._projectBattles = [];
                 this._presentationProfile = null;
@@ -213,7 +213,13 @@ export class EditorInteractionBase {
                         project = data?.ok && data.content ? JSON.parse(data.content) : null;
                     }
                     this._projectDefinitions = {
-                        sceneEvents: Array.isArray(project?.sceneEvents) ? project.sceneEvents : [],
+                        // 双数组：flowGroups 优先（新名），sceneEvents 回退（旧名）；两者合并去重，供下游双读
+                        flowGroups: Array.isArray(project?.flowGroups) && project.flowGroups.length
+                          ? project.flowGroups
+                          : (Array.isArray(project?.sceneEvents) ? project.sceneEvents : []),
+                        sceneEvents: Array.isArray(project?.sceneEvents)
+                          ? project.sceneEvents
+                          : (Array.isArray(project?.flowGroups) ? project.flowGroups : []),
                         triggers: Array.isArray(project?.triggers) ? project.triggers : [],
                         tutorials: Array.isArray(project?.tutorials) ? project.tutorials : []
                     };
@@ -242,7 +248,7 @@ export class EditorInteractionBase {
                     }
                 } catch (error) {
                     console.warn('[Editor] 加载项目触发器/战役/表现规格失败', error);
-                    this._projectDefinitions = { sceneEvents: [], triggers: [], tutorials: [] };
+                    this._projectDefinitions = { flowGroups: [], sceneEvents: [], triggers: [], tutorials: [] };
                     this._projectTriggers = this._projectDefinitions.triggers;
                     this._projectBattles = [];
                     this._presentationProfile = null;
@@ -256,7 +262,10 @@ export class EditorInteractionBase {
                 this.showPage('trigger-editor');
                 await this.triggerEditor?.init?.();
                 if (definitionId && !this.triggerEditor?.selectById?.(definitionId, target)) {
-                    this.sceneEditor?.ui?.showToast(`项目中不存在 ${target === 'sceneEvents' ? 'SceneEvent' : target === 'tutorials' ? 'Tutorial' : 'Trigger'} ${definitionId}`, 'error');
+                    const label = (target === 'sceneEvents' || target === 'flowGroups')
+                      ? 'FlowGroup(SceneEvent)'
+                      : (target === 'tutorials' ? 'Tutorial' : 'Trigger');
+                    this.sceneEditor?.ui?.showToast(`项目中不存在 ${label} ${definitionId}`, 'error');
                 }
             }
 

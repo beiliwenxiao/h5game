@@ -505,7 +505,16 @@ export class TriggerSystem {
     // 无状态机或无归属的 Trigger（未挂组）不受影响，保持旧行为。
     if (this.flowGroupStateMachine) {
       const flowGroupId = this._flowGroupIdOf(trigger);
-      if (flowGroupId && !this.flowGroupStateMachine.isRunnable(flowGroupId)) return false;
+      if (flowGroupId && !this.flowGroupStateMachine.isRunnable(flowGroupId)) {
+        // 例外：一次性 state.transaction 收尾触发器允许在组 COMPLETED 后补触发。
+        // 组的完成条件常由同组成员提交的事务写入：黑板写入会同步触发状态机完成，
+        // 而该事务的通知事件在提交之后才派发——若此时仍按 active 门控，监听
+        // "完成事务"的 once 触发器将永远无法运行，导致后续流程死锁。
+        const completionNotice = trigger.once === true
+          && trigger?.when?.type === 'state.transaction'
+          && this.flowGroupStateMachine.getPhase(flowGroupId) === 'completed';
+        if (!completionNotice) return false;
+      }
     }
     return true;
   }

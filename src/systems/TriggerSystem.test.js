@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MonotonicClock } from '../core/command/AuthorityClocks.js';
+import { Blackboard } from '../core/Blackboard.js';
+import { FlowGroupDefinitionRepository } from '../core/scene/FlowGroupDefinitionRepository.js';
+import { FlowGroupRuntimeStateMachine, FLOW_GROUP_PHASE } from '../core/scene/FlowGroupRuntimeStateMachine.js';
 import { SceneDiagnostics } from '../core/scene/SceneDiagnostics.js';
 import { canonicalDigestInput, sha256Text, stableDigest } from '../core/StableDigest.js';
 import { TriggerSystem } from './TriggerSystem.js';
@@ -592,5 +595,79 @@ describe('TriggerSystem debug failure exposure contract', () => {
     });
     const playerVisible = JSON.stringify({ events, listenerDetails });
     expect(playerVisible).not.toMatch(/executionContext|fingerprint|stack|cause|private-seed|internal-reference|player-password|service-token|save-secret|signal-token/);
+  });
+});
+
+describe('FlowGroup 完成事务收尾触发器门控', () => {
+  function buildStateMachine() {
+    const blackboard = new Blackboard();
+    blackboard.init({ storyState: { done: false } });
+    const repository = new FlowGroupDefinitionRepository([
+      { id: 'fg-tools', name: '工具', order: 0, scope: { sceneIds: ['S01'] }, completionWhen: { blackboardKey: 'storyState', path: 'done', equals: true } },
+      { id: 'fg-next', name: '下一组', order: 1, scope: { sceneIds: ['S01'] }, dependsOn: ['fg-tools'] }
+    ]);
+    const stateMachine = new FlowGroupRuntimeStateMachine({ definitions: repository, blackboard });
+    stateMachine.evaluate();
+    return { blackboard, stateMachine };
+  }
+
+  function buildTriggerSystem(stateMachine, triggerOverrides = {}) {
+    const calls = [];
+    const system = new TriggerSystem({
+      monotonicClock: new MonotonicClock(100),
+      actionDescriptorRegistry: descriptorRegistry(['action.work']),
+      flowGroupStateMachine: stateMachine,
+      commandAdapter: {
+        async execute(action, context) {
+          calls.push({ operationId: context.operationId, params: action.params });
+          return commandResult(context.operationId);
+        }
+      }
+    });
+    system.register({
+      id: 'trg.done',
+      flowGroupId: 'fg-tools',
+      once: true,
+      when: { type: 'state.transaction', params: { definitionId: 'story.done' } },
+      do: [{ action: 'action.work', stepId: 'after-done-work', params: { token: 'after-done' } }],
+      ...triggerOverrides
+    });
+    return { system, calls };
+  }
+
+  it('完成条件写入使组完成后，once 的 state.transaction 收尾触发器仍可补触发', async () => {
+    const { blackboard, stateMachine } = buildStateMachine();
+    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.ACTIVE);
+
+    // 模拟真实事务提交时序：黑板写入同步完成本组并激活下游，
+    // state.transaction 通知事件在提交之后才派发（此时组已 COMPLETED）。
+    blackboard.set('storyState', { done: true });
+    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.COMPLETED);
+    expect(stateMachine.getPhase('fg-next')).toBe(FLOW_GROUP_PHASE.ACTIVE);
+
+    const { system, calls } = buildTriggerSystem(stateMachine);
+    expect(system.fire('state.transaction', { definitionId: 'story.done', operationId: 'op-done-1' })).toBe(1);
+    await system.waitForIdle();
+    expect(calls).toHaveLength(1);
+    expect(system.hasFiredOnce('trg.done')).toBe(true);
+  });
+
+  it('非 once 或非 state.transaction 的触发器在组完成后仍被门控', async () => {
+    const { blackboard, stateMachine } = buildStateMachine();
+    blackboard.set('storyState', { done: true });
+    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.COMPLETED);
+
+    const repeatable = buildTriggerSystem(stateMachine, { id: 'trg.repeat', once: false });
+    expect(repeatable.system.fire('state.transaction', { definitionId: 'story.done', operationId: 'op-repeat-1' })).toBe(0);
+
+    const signalTrigger = buildTriggerSystem(stateMachine, {
+      id: 'trg.signal',
+      when: { type: 'signal', params: { channel: 'done' } }
+    });
+    expect(signalTrigger.system.fire('signal', { channel: 'done', operationId: 'op-signal-1' })).toBe(0);
+
+    await Promise.all([repeatable.system.waitForIdle(), signalTrigger.system.waitForIdle()]);
+    expect(repeatable.calls).toHaveLength(0);
+    expect(signalTrigger.calls).toHaveLength(0);
   });
 });

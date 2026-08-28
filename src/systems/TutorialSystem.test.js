@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TutorialSystem } from './TutorialSystem.js';
+import { FlowGroupDefinitionRepository } from '../core/scene/FlowGroupDefinitionRepository.js';
 
 describe('TutorialSystem', () => {
   let tutorialSystem;
@@ -294,11 +295,42 @@ describe('TutorialSystem', () => {
     });
   });
 
+  describe('FlowGroup 装配兼容（GameLoader 路径）', () => {
+    it('replaceDefinitions 接受 FlowGroupDefinitionRepository 实例（回归：sanguo 加载失败）', () => {
+      // GameLoader.assemble drafts commit 调用：
+      //   tutorialSystem.replaceDefinitions(project.tutorials, context.sceneEventDefinitionRepository)
+      // 第二参是 repository 对象而非数组——旧实现会误用空定义集导致"未知 FlowGroup"校验失败。
+      const repository = new FlowGroupDefinitionRepository([
+        { id: 's01.event.awakening', name: '寒风苏醒', scope: { sceneIds: ['S01'] }, order: 0 }
+      ]);
+      const result = tutorialSystem.replaceDefinitions([
+        { id: 's01.move', title: '移动教学', steps: [], sceneEventId: 's01.event.awakening' }
+      ], repository);
+
+      expect(result).toBe(true);
+      expect(tutorialSystem.getTutorial('s01.move')).toBeDefined();
+      expect(tutorialSystem.getTutorial('s01.move').flowGroupId).toBe('s01.event.awakening');
+      expect(tutorialSystem.getFlowGroupDefinitions().some(def => def.id === 's01.event.awakening')).toBe(true);
+    });
+
+    it('构造器 config.flowGroupDefinitions 同样接受 repository 实例', () => {
+      const repository = new FlowGroupDefinitionRepository([
+        { id: 'fg-1', name: '组一', scope: { sceneIds: ['S01'] }, order: 0 }
+      ]);
+      const system = new TutorialSystem({
+        flowGroupDefinitions: repository,
+        definitions: [{ id: 'tu-1', title: '教程一', steps: [], flowGroupId: 'fg-1' }]
+      });
+      expect(system.getTutorial('tu-1')).toBeDefined();
+      expect(system.getFlowGroupDefinitions().some(def => def.id === 'fg-1')).toBe(true);
+    });
+  });
+
   describe('教程重置', () => {
     it('应该能重置单个教程', () => {
       tutorialSystem.completedTutorials.add('movement_tutorial');
       tutorialSystem.resetTutorial('movement_tutorial');
-      
+
       expect(tutorialSystem.isTutorialCompleted('movement_tutorial')).toBe(false);
     });
 

@@ -2564,7 +2564,6 @@
           "text": "先起身活动僵硬的身体，再靠近熄灭的篝火设法重新点火。"
         },
         "start": {
-          "nextNode": "move",
           "speaker": "旁白",
           "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。"
         }
@@ -2706,6 +2705,222 @@
     }
   ],
   "quests": [],
+  "flowGroups": [
+    {
+      "id": "s01.event.awakening",
+      "name": "寒风苏醒与点燃篝火",
+      "description": "进入 S01 后恢复荒原现场，完成移动教学并点燃篝火。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 0,
+      "dependsOn": [],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": "S01",
+        "path": "currentSceneId"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.campfireLit"
+      }
+    },
+    {
+      "id": "s01.event.tools",
+      "name": "拾取求生工具",
+      "description": "在篝火显露的物资中拾取破旧斧头和旧剥皮刀。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 1,
+      "dependsOn": [
+        "s01.event.awakening"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.campfireLit"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.initialToolsPicked"
+      }
+    },
+    {
+      "id": "s01.event.foraging",
+      "name": "采集野果",
+      "description": "使用既有采集流程取得两次野果，完成初次觅食。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 2,
+      "dependsOn": [
+        "s01.event.tools"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.initialToolsPicked"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.berriesGathered"
+      }
+    },
+    {
+      "id": "s01.event.firewood",
+      "name": "砍柴与三次添火",
+      "description": "砍取木材并为篝火添柴三次，引出首只野狼。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 3,
+      "dependsOn": [
+        "s01.event.foraging"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.berriesGathered"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.firstWolfSpotted"
+      }
+    },
+    {
+      "id": "s01.event.firstWolf",
+      "name": "猎杀并剥取首狼",
+      "description": "击杀首只野狼并从成立的尸体剥取狼皮。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 4,
+      "dependsOn": [
+        "s01.event.firewood"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.firstWolfSpotted"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.wolfSkinned"
+      }
+    },
+    {
+      "id": "s01.event.survivalCraft",
+      "name": "烤肉、制衣与搭建庇护所",
+      "description": "烤制狼肉、制作狼皮装备并完成小庇护所施工。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 5,
+      "dependsOn": [
+        "s01.event.firstWolf"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.wolfSkinned"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.shelterCompleted"
+      }
+    },
+    {
+      "id": "s01.event.overnight",
+      "name": "庇护所过夜",
+      "description": "在建成的庇护所过夜，启动狼群追逐。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 6,
+      "dependsOn": [
+        "s01.event.survivalCraft"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.shelterCompleted"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.overnightCompleted"
+      }
+    },
+    {
+      "id": "s01.event.riverEscape",
+      "name": "狼群追逐与跳石过河",
+      "description": "在狼群追逐中跳石越河并抵达对岸。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 7,
+      "dependsOn": [
+        "s01.event.overnight"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.pursuit.active"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.riverCrossed"
+      }
+    },
+    {
+      "id": "s01.event.cliffEscape",
+      "name": "抵达山崖并攀藤逃生",
+      "description": "抵达山崖后攀藤逃离，完成 S01 生存流程。",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "order": 8,
+      "dependsOn": [
+        "s01.event.riverEscape"
+      ],
+      "activeWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Survival.riverCrossed"
+      },
+      "completionWhen": {
+        "blackboardKey": "storyState",
+        "equals": true,
+        "path": "s01Completed"
+      }
+    }
+  ],
   "sceneEvents": [
     {
       "id": "s01.event.awakening",
@@ -3627,6 +3842,7 @@
           "stepId": "present-entry"
         }
       ],
+      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_spawn_initial",
       "name": "进入 S01：装配初始场景与恢复追逐",
       "once": false,
@@ -3655,6 +3871,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_pickup_worn_axe",
       "name": "拾取破旧斧头",
       "once": false,
@@ -3684,6 +3901,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_pickup_skinning_knife",
       "name": "拾取旧剥皮刀",
       "once": false,
@@ -3715,6 +3933,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_axe_found_check_tools",
       "name": "斧头已获得",
       "once": false,
@@ -3745,6 +3964,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_skinning_knife_found_check_tools",
       "name": "剥皮刀已获得",
       "once": false,
@@ -3779,6 +3999,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_initial_tools_picked",
       "name": "双工具齐全：开放野果采集",
       "once": true,
@@ -3908,6 +4129,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.foraging",
       "id": "trg_s01_berries_gathered",
       "name": "野果目标完成：开放砍柴并启动燃料倒计时",
       "once": true,
@@ -3938,6 +4160,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.firewood",
       "id": "trg_s01_gather_wood_completed",
       "name": "砍伐树木：木材达到三份",
       "once": false,
@@ -4219,6 +4442,7 @@
           "S01"
         ]
       },
+      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_begin_tutorial_after_wake",
       "name": "苏醒对白结束：开始移动教学",
       "once": true,
@@ -4255,6 +4479,7 @@
           "stepId": "show-tutorial-s01-pickup"
         }
       ],
+      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_light_campfire",
       "once": true,
       "sceneEventId": "s01.event.awakening",
@@ -6194,6 +6419,7 @@
       "id": "s01.pickup",
       "title": "拾取求生物资",
       "category": "s01-survival",
+      "flowGroupId": "s01.event.tools",
       "sceneEventId": "s01.event.tools",
       "scope": {
         "sceneIds": [
@@ -6219,6 +6445,7 @@
       "id": "s01.gather",
       "title": "寻找食物",
       "category": "s01-survival",
+      "flowGroupId": "s01.event.foraging",
       "sceneEventId": "s01.event.foraging",
       "scope": {
         "sceneIds": [
@@ -6228,7 +6455,7 @@
       "steps": [
         {
           "id": "s01.gather.step.harvest",
-          "text": "暖和了一些，头脑清醒了，一股饥饿感袭来，靠近野果丛，{harvest}采集野果充饥。",
+          "text": "暖和了一些，一股饥饿感袭来，靠近野果丛，{harvest}采集野果充饥。",
           "highlightTarget": false
         },
         {
@@ -6254,6 +6481,7 @@
       "id": "s01.chopWood",
       "title": "篝火燃料",
       "category": "s01-survival",
+      "flowGroupId": "s01.event.firewood",
       "sceneEventId": "s01.event.firewood",
       "scope": {
         "sceneIds": [
@@ -6398,6 +6626,31 @@
       "canSkip": false,
       "autoTrigger": false,
       "autoAdvance": false
+    },
+    {
+      "id": "tutorial-001",
+      "title": "吃掉食物",
+      "category": "general",
+      "flowGroupId": "s01.event.foraging",
+      "sceneEventId": "s01.event.foraging",
+      "scope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "steps": [
+        {
+          "id": "tutorial-001-step-001",
+          "text": "采集到野果后，按{eat}键吃掉",
+          "highlightTarget": false
+        }
+      ],
+      "completionPolicy": "allSteps",
+      "pauseGame": false,
+      "canSkip": true,
+      "autoTrigger": false,
+      "autoAdvance": false,
+      "priority": 0
     }
   ],
   "library": {

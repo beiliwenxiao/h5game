@@ -204,6 +204,16 @@ export class ScenePlacementRuntime {
     return this.spawn({ group: value });
   }
 
+  /**
+   * 让 spawner 忘记指定放置点已生成（不销毁实体）。
+   * 用于补偿链路：实体已不在场景（被拾取后的重建/清理）而 spawner 仍拒绝重生成时，
+   * 调用方 forget 后重新 spawn 即可恢复。
+   */
+  forgetSpawnedPlacements(ids = []) {
+    if (!this.spawner || typeof this.spawner.forgetPlacements !== 'function') return 0;
+    return this.spawner.forgetPlacements(Array.isArray(ids) ? ids : [ids]);
+  }
+
   async spawnLoadedChunks() {
     const source = this.getLoadedChunks();
     const chunks = [...(source?.values?.() || source || [])]

@@ -59,9 +59,15 @@ export class TutorialDefinitionRepository {
    * @param sceneEventDefinitions SceneEventDefinition[]（兼容旧名，优先级低于 flowGroupDefinitions）
    */
   constructor(definitions = [], { flowGroupDefinitions, sceneEventDefinitions } = {}) {
-    const fgDefs = Array.isArray(flowGroupDefinitions) && flowGroupDefinitions.length > 0
+    // 双轨解析：优先 flowGroupDefinitions，回退 sceneEventDefinitions；两者都允许
+    // 是 FlowGroupDefinitionRepository 实例（GameLoader 装配路径）或定义数组。
+    const fgDefs = flowGroupDefinitions instanceof FlowGroupDefinitionRepository
       ? flowGroupDefinitions
-      : (sceneEventDefinitions || []);
+      : (Array.isArray(flowGroupDefinitions) && flowGroupDefinitions.length > 0
+        ? flowGroupDefinitions
+        : (sceneEventDefinitions instanceof FlowGroupDefinitionRepository
+          ? sceneEventDefinitions
+          : (sceneEventDefinitions || [])));
     this.flowGroupDefinitions = FlowGroupDefinitionRepository.from(fgDefs);
     this.sceneEventDefinitions = this.flowGroupDefinitions; // 兼容：同引用别名
     this._definitions = new Map();

@@ -119,9 +119,12 @@ export class TutorialSystem {
     // 兼容两种签名：(defs, flowGroupDefs) 或 (defs, undefined, sceneEventDefs) 或旧版 (defs, sceneEventDefs)
     let fgDefs;
     if (flowGroupDefinitionsOrLegacy !== undefined) {
-      // 传入的第二个参数：若是对象数组且有 id 字段，视为 flowGroup/sceneEvent 定义
+      // 传入的第二个参数：数组、FlowGroupDefinitionRepository 实例、或有 id 字段的 flowGroup/sceneEvent 定义
       const candidate = flowGroupDefinitionsOrLegacy;
       if (Array.isArray(candidate)) {
+        fgDefs = candidate;
+      } else if (candidate && typeof candidate.all === 'function') {
+        // GameLoader 传入 FlowGroupDefinitionRepository 实例（assemble drafts commit 路径）
         fgDefs = candidate;
       } else {
         fgDefs = sceneEventDefinitions ?? this.definitionRepository.flowGroupDefinitions;

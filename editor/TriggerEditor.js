@@ -32,6 +32,7 @@ import { FlowGroupProjectIndex as _FGIndex, SceneEventProjectIndex } from './Sce
 import { FlowGroupEditorPanel as _FGPanel, SceneEventEditorPanel } from './SceneEventEditorPanel.js';
 import { TutorialEditorPanel } from './TutorialEditorPanel.js';
 import { FlowGroupDebugPanel } from './FlowGroupDebugPanel.js';
+import { FlowGroupStorylinePanel } from './FlowGroupStorylinePanel.js';
 
 const FlowGroupProjectIndex = _FGIndex || SceneEventProjectIndex;
 const FlowGroupEditorPanel = _FGPanel || SceneEventEditorPanel;
@@ -98,6 +99,8 @@ export class TriggerEditor {
     this.tutorialPanel = new TutorialEditorPanel(this);
     // P2：FlowGroup 状态机调试面板（内存模拟，不写回工程）
     this.flowGroupDebugPanel = new FlowGroupDebugPanel(this);
+    // 方案 A：剧情线总览视图（FlowGroup 主视角，展示开始/结束条件与成员）
+    this.storylinePanel = new FlowGroupStorylinePanel(this);
     this._initialized = false;
   }
 
@@ -187,14 +190,29 @@ export class TriggerEditor {
 
   _updateToolbarForTarget() {
     if (!this._initialized) return;
+    const storyline = this.target === 'storyline';
+    // 剧情线总览：列表区与新增/删除隐藏，总览占满详情区
+    for (const id of ['trg-add', 'trg-del']) {
+      const element = this.container.querySelector(`#${id}`);
+      if (element) element.hidden = storyline;
+    }
+    for (const id of ['trg-list', 'trg-list-resizer']) {
+      const element = this.container.querySelector(`#${id}`);
+      if (element) element.style.display = storyline ? 'none' : '';
+    }
+    const detail = this.container.querySelector('#trg-detail');
+    if (detail && storyline) detail.style.flex = '1';
+    else if (detail) detail.style.flex = '';
     const triggerOnly = this.target === 'triggers';
     for (const id of ['trg-filter-enabled', 'trg-filter-when', 'trg-filter-do']) {
       const element = this.container.querySelector(`#${id}`);
       if (element) element.hidden = !triggerOnly;
     }
+    const sceneFilter = this.container.querySelector('#trg-filter-scene');
+    if (sceneFilter) sceneFilter.hidden = storyline;
     const eventFilter = this.container.querySelector('#trg-filter-event');
-    if (eventFilter) eventFilter.hidden = this.target === 'sceneEvents' || this.target === 'flowGroups';
-    this._updateSceneEventFilter();
+    if (eventFilter) eventFilter.hidden = storyline || this.target === 'sceneEvents' || this.target === 'flowGroups';
+    if (!storyline) this._updateSceneEventFilter();
   }
 
   _updateSceneEventFilter() {
@@ -208,13 +226,13 @@ export class TriggerEditor {
     )).join('');
   }
 
-  /** 切换编辑目标（flowGroups(SceneEvent) ↔ triggers ↔ tutorials 引导） */
+  /** 切换编辑目标（storyline 总览 ↔ flowGroups(SceneEvent) ↔ triggers ↔ tutorials） */
   _switchTarget(target) {
     // target 双轨：flowGroups / sceneEvents 等价
     const normalized = target === 'sceneEvents' ? 'flowGroups' : target;
     if (normalized === this.target) return;
     this._commitDetail();
-    this.project[this.target] = this.triggers; // 回写当前
+    if (this.target !== 'storyline') this.project[this.target] = this.triggers; // 回写当前（storyline 无独立数据）
     // 切换时双数组同步：flowGroups→sceneEvents
     if (this.target === 'flowGroups' || this.target === 'sceneEvents') {
       this.project.flowGroups = [...(Array.isArray(this.project.flowGroups) ? this.project.flowGroups : [])];
@@ -224,7 +242,7 @@ export class TriggerEditor {
     // 如果目标是 flowGroups 但数组为空，回退到 sceneEvents（同样内容）
     if (this.target === 'flowGroups' && !Array.isArray(this.project.flowGroups)) this.project.flowGroups = [...(Array.isArray(this.project.sceneEvents) ? this.project.sceneEvents : [])];
     if (this.target === 'flowGroups' && Array.isArray(this.project.sceneEvents) && !this.project.sceneEvents.length) this.project.sceneEvents = [...this.project.flowGroups];
-    this.triggers = this.project[this.target];
+    this.triggers = this.target === 'storyline' ? [] : this.project[this.target];
     this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = -1;
     this._renderTargetTabs();
@@ -251,7 +269,9 @@ export class TriggerEditor {
       return;
     }
     this._commitDetail(); // 先把当前编辑写回数据
-    this.project[this.target] = this.triggers;
+    if (this.target !== 'storyline') this.project[this.target] = this.triggers;
+    // 剧情线总览里指派的对话归属也要写回（storyline 修改的是 dialogues[].flowGroupId）
+    if (this.target === 'storyline') this.project.dialogues = this.project.dialogues || [];
     // 保存前双数组同步：flowGroups ↔ sceneEvents（优先以 flowGroups 为主）
     if (Array.isArray(this.project.flowGroups) || Array.isArray(this.project.sceneEvents)) {
       const fgs = mergeFlowGroups(this.project);
@@ -265,6 +285,7 @@ export class TriggerEditor {
       return;
     }
     const targetLabel = {
+      storyline: '剧情线总览',
       flowGroups: 'FlowGroup(SceneEvent)',
       sceneEvents: 'FlowGroup(SceneEvent)',
       triggers: 'Trigger',
@@ -278,7 +299,8 @@ export class TriggerEditor {
               { path: 'flowGroups', value: this.project.flowGroups },
               { path: 'sceneEvents', value: this.project.sceneEvents },
               { path: 'triggers', value: this.project.triggers },
-              { path: 'tutorials', value: this.project.tutorials }
+              { path: 'tutorials', value: this.project.tutorials },
+              { path: 'dialogues', value: this.project.dialogues }
             ]);
             return this.canonicalSession.save();
           })()
@@ -404,6 +426,7 @@ export class TriggerEditor {
     this.container.innerHTML = `
       <div class="trg-root">
         <div class="trg-target-tabs" id="trg-target-tabs">
+          <button data-target="storyline">📖 剧情线总览</button>
           <button data-target="flowGroups">FlowGroup 剧情流程</button>
           <button data-target="triggers">Trigger 业务规则</button>
           <button data-target="tutorials">Tutorial 教学步骤</button>
@@ -1204,6 +1227,11 @@ export class TriggerEditor {
   _renderDetail() {
     const panel = this.container.querySelector('#trg-detail');
     if (!panel) return;
+    if (this.target === 'storyline') {
+      this.storylinePanel.injectStyles();
+      this.storylinePanel.render(panel);
+      return;
+    }
     const t = this.triggers[this.selectedIndex];
     if (!t) {
       const labels = {

@@ -500,8 +500,9 @@ export class GameLoader {
     });
     registerDefaultActions(triggerSystem);
     triggerSystem.registerAll(project.triggers || []);
-    // TutorialSystem 若由 deps 注入，挂上状态机引用（教程完成 → FlowGroup 进度）。
+    // TutorialSystem / DialogueSystem 若由 deps 注入，挂上状态机引用（完成 → FlowGroup 进度）。
     deps.tutorial?.setFlowGroupStateMachine?.(flowGroupStateMachine);
+    deps.dialogueSystem?.setFlowGroupStateMachine?.(flowGroupStateMachine);
     const progression = this._buildProgressionDraft(project, deps);
     const configConsumption = this.configConsumptionRegistry.build(snapshot);
     const context = {

@@ -122,16 +122,36 @@ export class S01S02Coordinator {
   }
 
   async _ensureSpawnedPlacement(group, placementId) {
+    const findExisting = id => this.scene.entityStore?.getById?.(id)
+      // item/equipment 实体的 id 是定义 id（如 tool.worn_axe）而非 placementId，
+      // 必须按 placementId 在拾取列表里找，否则补偿重试永远判定"实体不存在"。
+      || (this.scene.pickupItems || []).find(item => item?.placementId === id)
+      || (this.scene.equipmentItems || []).find(item => item?.placementId === id)
+      || null;
     let result;
     try {
       result = await this._spawnGroup(group);
     } catch (error) {
       return { ok: false, code: 'placementSpawnFailed', error, result: null };
     }
-    const spawnedTarget = (result?.entities || []).find(
+    let spawnedTarget = (result?.entities || []).find(
       entity => entity?.placementId === placementId || entity?.id === placementId
     ) || null;
-    const existingTarget = this.scene.entityStore?.getById?.(placementId) || null;
+    // 死锁自愈：spawner 因 already-spawned 拒绝重生成（total=0），且场景中
+    // 实体确已不存在（被重建/清理移除）→ forget 后重新生成一次。
+    if (!spawnedTarget && result?.ok === true && (result?.entities || []).length === 0
+      && !findExisting(placementId)) {
+      this.scene.context.services.placements?.forgetSpawnedPlacements?.(placementId);
+      try {
+        result = await this._spawnGroup(group);
+      } catch (error) {
+        return { ok: false, code: 'placementSpawnFailed', error, result: null };
+      }
+      spawnedTarget = (result?.entities || []).find(
+        entity => entity?.placementId === placementId || entity?.id === placementId
+      ) || null;
+    }
+    const existingTarget = findExisting(placementId);
     const target = spawnedTarget || existingTarget;
     if (result?.ok !== true || (result.errors || []).length > 0 || !target) {
       return { ok: false, code: 'placementNotReady', result, target: null };

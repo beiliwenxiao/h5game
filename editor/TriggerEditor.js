@@ -417,6 +417,11 @@ export class TriggerEditor {
     this._toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
   }
 
+  /** 打开全局「按钮写法」弹层（复用剧情线总览的 InputHints 清单）。 */
+  _showButtonHelp() {
+    this.storylinePanel.openButtonHelp();
+  }
+
   _buildUI() {
     // 构建 when.type 筛选选项
     const whenOpts = WHEN_TYPES.map(w => `<option value="${w.v}">${w.label}</option>`).join('');
@@ -427,6 +432,7 @@ export class TriggerEditor {
       <div class="trg-root">
         <div class="trg-target-tabs" id="trg-target-tabs">
           <button data-target="storyline">📖 剧情线总览</button>
+          <button type="button" class="trg-btn-help" data-btn-help>⌨ 按钮写法</button>
           <button data-target="flowGroups">FlowGroup 剧情流程</button>
           <button data-target="triggers">Trigger 业务规则</button>
           <button data-target="tutorials">Tutorial 教学步骤</button>
@@ -471,8 +477,10 @@ export class TriggerEditor {
     this.container.querySelector('#trg-fg-debug').addEventListener('click', () => this.flowGroupDebugPanel.toggle());
     this.container.querySelector('#trg-save').addEventListener('click', () => this.save());
     this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
-      btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
+      if (btn.dataset.target) btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
     });
+    const helpNav = this.container.querySelector('#trg-target-tabs .trg-btn-help');
+    if (helpNav) helpNav.addEventListener('click', () => this._showButtonHelp());
     // 筛选器事件
     this.container.querySelector('#trg-filter-enabled').addEventListener('change', () => this._renderList());
     this.container.querySelector('#trg-filter-scene').addEventListener('change', () => this._renderList());

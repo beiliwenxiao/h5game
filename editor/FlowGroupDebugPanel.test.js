@@ -112,4 +112,79 @@ describe('FlowGroupDebugPanel', () => {
     expect(panel.toggle()).toBe(true);
     expect(panel.machine.getPhase('fg-root')).toBe('active');
   });
+
+  it('下钻展开显示组内教程/触发器及其 beginText/endText 辅助提示', () => {
+    const project = baseProject();
+    project.tutorials = [
+      {
+        id: 'tut-1', title: '吃掉食物', steps: [{ id: 's1', text: '按{eat}键' }],
+        beginText: '采到了野果，肚子饿了', endText: '你吃掉了野果，体力恢复了',
+        flowGroupId: 'fg-root'
+      }
+    ];
+    project.triggers = [
+      {
+        id: 'trg-1',
+        when: { type: 'state.transaction', params: { definitionId: 'story.s01.berryEaten' } },
+        do: [
+          { action: 'tutorial.command', params: { operation: 'complete', tutorialId: 'tut-1' } },
+          { action: 'tutorial.command', params: { operation: 'show', tutorialId: 's02.chopWood' } }
+        ],
+        flowGroupId: 'fg-root'
+      }
+    ];
+    const panel = new FlowGroupDebugPanel(buildEditor(project));
+    panel.show();
+    expect(panel.overlay.querySelectorAll('.fg-drill-block').length).toBe(0); // 默认收起
+
+    // 点击“下钻”按钮展开
+    const drill = panel.overlay.querySelector('button[data-action="drilldown"]');
+    drill.click();
+    expect(panel.overlay.querySelectorAll('.fg-drill-block').length).toBe(2); // tutorial + trigger
+
+    const html = panel.overlay.innerHTML;
+    expect(html).toContain('采到了野果，肚子饿了');   // beginText 预览
+    expect(html).toContain('你吃掉了野果，体力恢复了'); // endText 预览
+    expect(html).toContain('story.s01.berryEaten');     // trigger when 摘要
+    expect(html).toContain('tut-1');
+    expect(html).toContain('s02.chopWood');
+
+    // 再点收起
+    drill.click();
+    expect(panel.overlay.querySelectorAll('.fg-drill-block').length).toBe(0);
+  });
+
+  it('触发器动作顺序可在内存内 ↑↓ 试调出现位置（不写工程）', () => {
+    const project = baseProject();
+    project.triggers = [
+      {
+        id: 'trg-1',
+        when: { type: 'event', the: 'x' },
+        do: [
+          { action: 'tutorial.command', params: { operation: 'show', tutorialId: 'tut-a' } },
+          { action: 'tutorial.command', params: { operation: 'show', tutorialId: 'tut-b' } }
+        ],
+        flowGroupId: 'fg-root'
+      }
+    ];
+    const panel = new FlowGroupDebugPanel(buildEditor(project));
+    panel.show();
+    panel.overlay.querySelector('button[data-action="drilldown"]').click();
+
+    // 初始顺序 tut-a 在前
+    const firstAct = panel.overlay.querySelector('.fg-drill-act');
+    expect(firstAct.textContent).toContain('tut-a');
+
+    // 点击第 0 个动作的 ↓，把 tut-a 移到后面
+    firstAct.querySelector('.fg-drill-move[data-dir="down"]').click();
+    const firstAfter = panel.overlay.querySelector('.fg-drill-act');
+    expect(firstAfter.textContent).toContain('tut-b');
+
+    // 仅内存试调，不写回工程定义
+    expect(project.triggers[0].do[0].params.tutorialId).toBe('tut-a');
+    // 再次重建状态机后试调序重置
+    panel._rebuild();
+    panel.overlay.querySelector('button[data-action="drilldown"]').click();
+    expect(panel.overlay.querySelector('.fg-drill-act').textContent).toContain('tut-a');
+  });
 });

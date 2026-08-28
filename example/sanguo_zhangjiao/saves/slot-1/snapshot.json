@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787928821121,
+  "createdAt": 1787939013228,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1787928819140
+            "timestamp": 1787939011226
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1787928819141
+            "timestamp": 1787939011226
           }
         ],
         "completedDialogues": []
@@ -446,6 +446,18 @@
               },
               {
                 "triggerId": "trg_s01_berries_gathered",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_berry_eaten_advance",
                 "definitionRevision": 1,
                 "operationId": null,
                 "fingerprint": null,
@@ -1914,7 +1926,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.88350000000105
+          "elapsed": 121.93370000000027
         }
       }
     }

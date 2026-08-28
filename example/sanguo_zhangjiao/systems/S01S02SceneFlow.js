@@ -48,13 +48,30 @@ export class S01S02Coordinator {
     return this.scene.context.services.placements?.spawn?.({ group });
   }
 
+  /** 玩家背包/装备中是否已持有指定 instanceId 的物品（用于防止世界放置在持有后重复生成）。 */
+  _heldInstance(instanceId) {
+    if (!instanceId) return false;
+    const player = this.scene.playerEntity;
+    if (!player) return false;
+    const inventory = player.getComponent?.('inventory');
+    if (inventory && (inventory.slots || []).some(stack => stack?.item?.instanceId === instanceId)) return true;
+    const equipment = player.getComponent?.('equipment');
+    if (equipment) {
+      const equipped = equipment.getAllEquipment?.() || equipment.slots || {};
+      for (const value of Object.values(equipped)) {
+        if (value && value.instanceId === instanceId) return true;
+      }
+    }
+    return false;
+  }
+
   async _revealInitialToolKit() {
     const survival = this._story().s01Survival || {};
-    const axe = survival.axeFound === true
+    const axe = survival.axeFound === true || this._heldInstance('S01-tool-axe-1')
       ? { ok: true, created: false }
       : await this._ensureSpawnedPlacement('S01-worn-axe', 'S01-pickup-worn-axe');
     if (!axe.ok) return false;
-    const knife = survival.skinningKnifeFound === true
+    const knife = survival.skinningKnifeFound === true || this._heldInstance('S01-tool-skinning-knife-1')
       ? { ok: true, created: false }
       : await this._ensureSpawnedPlacement('S01-skinning-knife', 'S01-pickup-skinning-knife');
     if (!knife.ok) return false;

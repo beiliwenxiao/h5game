@@ -45,6 +45,8 @@ export class TutorialEditorPanel {
       <div class="row"><label>ID</label><input type="text" id="d-tutorial-id" value="${escape(tutorial.id || '')}"></div>
       <div class="row"><label>标题</label><input type="text" id="d-tutorial-title" value="${escape(tutorial.title || '')}"></div>
       <div class="row"><label>说明</label><textarea id="d-tutorial-description">${escape(tutorial.description || '')}</textarea></div>
+      <div class="row"><label>开场提示 beginText（教程弹出时展示，与步骤独立）</label><textarea id="d-tutorial-begin-text">${escape(tutorial.beginText || '')}</textarea></div>
+      <div class="row"><label>收场提示 endText（教程完成时展示）</label><textarea id="d-tutorial-end-text">${escape(tutorial.endText || '')}</textarea></div>
       <div class="row"><label>所属 FlowGroup 剧情流程（旧名 SceneEvent，仅用于组织不自动展示）</label><select id="d-tutorial-event"><option value="">-- 选择 FlowGroup --</option>${eventOptions}</select></div>
       <div class="row"><label>场景 scope（必须属于 FlowGroup scope）</label><select id="d-tutorial-scenes" multiple size="${Math.min(7, Math.max(3, scenes.size))}">${sceneOptions}</select></div>
       <div class="row"><label>分类 category</label><input type="text" id="d-tutorial-category" value="${escape(tutorial.category || 'general')}"></div>
@@ -100,6 +102,10 @@ export class TutorialEditorPanel {
     const description = text(panel.querySelector('#d-tutorial-description').value);
     if (description) tutorial.description = description;
     else delete tutorial.description;
+    tutorial.beginText = text(panel.querySelector('#d-tutorial-begin-text').value) || tutorial.beginText || undefined;
+    if (!tutorial.beginText) delete tutorial.beginText;
+    tutorial.endText = text(panel.querySelector('#d-tutorial-end-text').value) || tutorial.endText || undefined;
+    if (!tutorial.endText) delete tutorial.endText;
     // 双写保证兼容
     const fgId = text(panel.querySelector('#d-tutorial-event').value);
     tutorial.flowGroupId = fgId;
@@ -148,6 +154,8 @@ export class TutorialEditorPanel {
       id,
       title: '新教学',
       description: '',
+      beginText: '',
+      endText: '',
       category: 'general',
       flowGroupId: fgId,
       sceneEventId: fgId,

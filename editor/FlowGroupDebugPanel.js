@@ -45,6 +45,28 @@ export class FlowGroupDebugPanel {
     this._unsubscribeMachine = null;
     this._logEntries = [];
     this._visible = false;
+    this._expandedGroups = new Set(); // 下钻展开的组 id
+    this._memberOrder = new Map(); // 触发器动作试调顺序（仅内存）
+  }
+
+  /** 汇总 FlowGroup 成员（trigger/tutorial/dialogue），与剧情线设计器同规则。 */
+  _collectGroupMembers(groupId) {
+    const project = this.editor?.project || {};
+    const resolveFgId = obj => {
+      const fromFg = text(obj?.flowGroupId);
+      return fromFg || text(obj?.sceneEventId);
+    };
+    const members = [];
+    for (const trigger of asList(project.triggers)) {
+      if (resolveFgId(trigger) === groupId) members.push({ type: 'trigger', def: trigger });
+    }
+    for (const tutorial of asList(project.tutorials)) {
+      if (resolveFgId(tutorial) === groupId) members.push({ type: 'tutorial', def: tutorial });
+    }
+    for (const dialogue of asList(project.dialogues)) {
+      if (resolveFgId(dialogue) === groupId) members.push({ type: 'dialogue', def: dialogue });
+    }
+    return members.sort((left, right) => left.type.localeCompare(right.type));
   }
 
   /** 显示/隐藏面板；每次显示都从工程定义重建状态机。 */
@@ -144,6 +166,20 @@ export class FlowGroupDebugPanel {
       .fg-debug-evt-unlocked{color:#e8a33d;}
       .fg-debug-evt-reset{color:#c07a9a;}
       .fg-debug-evt-progress{color:#8a93a8;}
+      .fg-drill{background:#0d1428;border:1px solid #223051;border-radius:6px;padding:10px 12px;margin:2px 0;}
+      .fg-drill-hint{color:#6a7a9a;font-size:11px;margin-top:8px;padding-top:8px;border-top:1px dashed #223051;}
+      .fg-drill-block{margin-bottom:8px;padding-bottom:8px;border-bottom:1px dotted #1e2b47;}
+      .fg-drill-block:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+      .fg-drill-head{margin:0;color:#c8d4ee;font-weight:600;margin-bottom:4px;}
+      .fg-drill-head small{color:#8a93a8;font-weight:normal;margin-left:8px;}
+      .fg-drill-id{color:#5a9bd8;font-size:11px;font-weight:500;}
+      .fg-drill-line{font-size:12px;color:#aebce0;padding:2px 0;}
+      .fg-drill-line b{color:#e6ecf7;font-weight:600;}
+      .fg-drill-acts{margin-top:4px;display:flex;flex-direction:column;gap:4px;}
+      .fg-drill-act{display:flex;align-items:center;gap:8px;font-size:12px;color:#aebce0;background:#101a30;border:1px solid #223051;border-radius:4px;padding:4px 8px;}
+      .fg-drill-act-idx{color:#6a7a9a;min-width:18px;text-align:center;background:#1a2440;border-radius:3px;padding:1px 4px;font-size:11px;}
+      .fg-drill-op{color:#8fae6a;margin-left:auto;font-style:italic;font-size:11px;}
+      .fg-drill-move{padding:1px 6px!important;font-size:11px;}
     `;
     document.head.appendChild(style);
   }
@@ -171,6 +207,8 @@ export class FlowGroupDebugPanel {
     this.blackboard = null;
     this.repository = null;
     this._logEntries = [];
+    this._expandedGroups.clear();
+    this._memberOrder.clear();
 
     const project = this.editor?.project || {};
     const definitions = mergeFlowGroups(project)
@@ -246,9 +284,15 @@ export class FlowGroupDebugPanel {
       table.innerHTML = '<tbody><tr><td style="color:#8a93a8;padding:16px;">状态机未构建（定义校验失败或无 FlowGroup）</td></tr></tbody>';
       return;
     }
-    const rows = [...this.repository.values()]
-      .sort((left, right) => left.order - right.order)
-      .map(definition => this._renderRow(definition));
+    const ordered = [...this.repository.values()]
+      .sort((left, right) => left.order - right.order);
+    const rows = [];
+    for (const definition of ordered) {
+      rows.push(this._renderRow(definition));
+      if (this._expandedGroups.has(definition.id)) {
+        rows.push(this._renderDrillRow(definition));
+      }
+    }
     table.innerHTML = `
       <thead><tr>
         <th>FlowGroup</th><th>phase</th><th>progress</th><th>激活/完成</th><th>dependsOn</th><th>操作</th>
@@ -258,6 +302,108 @@ export class FlowGroupDebugPanel {
     for (const button of table.querySelectorAll('button[data-action]')) {
       button.addEventListener('click', () => this._onRowAction(button.dataset.action, button.dataset.id));
     }
+    for (const button of table.querySelectorAll('.fg-drill-move')) {
+      const act = button.closest('.fg-drill-act');
+      button.addEventListener('click', () => this._moveTriggerAction(act.dataset.trigger, button.dataset.dir, Number(act.dataset.idx)));
+    }
+  }
+
+  /** 内存内试调触发器 do[] 中教程/对话动作的出现顺序；不写工程。 */
+  _moveTriggerAction(triggerId, direction, originalIndex) {
+    if (!triggerId || !Number.isFinite(originalIndex)) return;
+    const trigger = asList(this.editor?.project?.triggers).find(t => t.id === triggerId);
+    const actions = asList(trigger?.do);
+    if (!actions.length) return;
+    const order = this._memberOrder.get(triggerId) || actions.map((_, index) => index);
+    const currentPos = order.indexOf(originalIndex);
+    const targetPos = direction === 'up' ? currentPos - 1 : currentPos + 1;
+    if (currentPos < 0 || targetPos < 0 || targetPos >= order.length) return;
+    const [moved] = order.splice(currentPos, 1);
+    order.splice(targetPos, 0, moved);
+    this._memberOrder.set(triggerId, order);
+    this._renderTable();
+  }
+
+  /** 下钻行：列出组内 trigger/tutorial/dialogue 与辅助提示，支持内存内试调出现位置。 */
+  _renderDrillRow(definition) {
+    const members = this._collectGroupMembers(definition.id);
+    if (!members.length) {
+      return `<tr><td colspan="6"><div class="fg-drill" style="color:#8a93a8;">（该 FlowGroup 暂无成员）</div></td></tr>`;
+    }
+    const blocks = members.map(member => {
+      if (member.type === 'tutorial') return this._renderDrillTutorial(member.def);
+      if (member.type === 'dialogue') return this._renderDrillDialogue(member.def);
+      return this._renderDrillTrigger(member.def);
+    }).join('');
+    return `<tr><td colspan="6"><div class="fg-drill">${blocks}</div>
+      <div class="fg-drill-hint">顺序调整、换动作目标、改 begin/end 文案为内存试调预览；持久化请在「剧情线 / 编排设计器」操作后「💾 保存到工程」。</div>
+      </td></tr>`;
+  }
+
+  _renderDrillTutorial(tutorial) {
+    const begin = text(tutorial.beginText);
+    const end = text(tutorial.endText);
+    const steps = asList(tutorial.steps).length;
+    return `
+      <div class="fg-drill-block fg-drill-tutorial">
+        <div class="fg-drill-head">🎓 教程 <span class="fg-drill-id">${this._escape(tutorial.id)}</span>
+          <small>${this._escape(tutorial.title || '')} · ${steps} 步</small></div>
+        <div class="fg-drill-line"><b>开场</b> beginText：${begin ? this._escape(begin) : '<i style="color:#8a93a8">（未设置）</i>'}</div>
+        <div class="fg-drill-line"><b>收场</b> endText：${end ? this._escape(end) : '<i style="color:#8a93a8">（未设置）</i>'}</div>
+      </div>`;
+  }
+
+  _renderDrillDialogue(dialogue) {
+    const starts = asList(dialogue.entryNodes || dialogue.nodes || []).filter(node => node?.isEntry).length;
+    const total = asList(dialogue.nodes).length;
+    return `
+      <div class="fg-drill-block fg-drill-dialogue">
+        <div class="fg-drill-head">💬 对话 <span class="fg-drill-id">${this._escape(dialogue.id)}</span>
+          <small>${this._escape(dialogue.title || '')} · ${total} 节点${starts ? ` · ${starts} 入口` : ''}</small></div>
+        <div class="fg-drill-line"><b>触发即显示</b>：在所属组激活时由开头触发器 show 唤起。</div>
+      </div>`;
+  }
+
+  /** 触发器：显示 when，以及 do[] 里控制教程出现/消失的动作；支持内存内 ↑↓ 试调顺序。 */
+  _renderDrillTrigger(trigger) {
+    const whenType = text(trigger.when?.type) || text(trigger.when) || '?';
+    const themed = trigger.when?.params?.definitionId ? ` · ${this._escape(trigger.when.params.definitionId)}` : '';
+    const actions = asList(trigger.do);
+    const orderedIndices = this._memberOrder.get(trigger.id);
+    const ordered = orderedIndices
+      ? orderedIndices.map(originalIndex => actions[originalIndex]).filter(Boolean)
+      : actions;
+
+    return `
+      <div class="fg-drill-block fg-drill-trigger">
+        <div class="fg-drill-head">⚡ 触发器 <span class="fg-drill-id">${this._escape(trigger.id)}</span>
+          <small>when: ${this._escape(whenType)}${themed}</small></div>
+        ${this._renderActionList(trigger, ordered)}
+      </div>`;
+  }
+
+  _renderActionList(trigger, ordered) {
+    const lines = ordered.map((step, index) => {
+      const originalIndex = asList(trigger.do).indexOf(step);
+      const op = text(step.action);
+      const params = step.params || {};
+      const target = text(params.tutorialId) || text(params.dialogueId) || text(params.topic) || '-';
+      const operation = text(params.operation) || String(op).toLowerCase().replace('.command', '');
+      const tag = /dialogue/i.test(op)
+        ? `<b style="color:#c07a9a;">💬 对话</b>`
+        : /tutorial/i.test(op)
+          ? `<b style="color:#4a9bd8;">🎓 教程</b>`
+          : `<span>${this._escape(op)}</span>`;
+      const opLabel = operation === 'show' ? '▶ 出现' : operation === 'complete' ? '✓ 完成/消失' : operation === 'hide' ? '✕ 隐藏' : this._escape(operation);
+      return `
+        <div class="fg-drill-act" data-trigger="${this._escape(trigger.id)}" data-idx="${originalIndex}">
+          <span class="fg-drill-act-idx">${index + 1}</span>
+          ${tag} ${this._escape(target)} <span class="fg-drill-op">${opLabel}</span>
+          <button class="fg-debug-rowbtn fg-drill-move" data-dir="up" title="上移（试调出现位置）">↑</button>
+          <button class="fg-debug-rowbtn fg-drill-move" data-dir="down" title="下移">↓</button>
+        </div>`;
+    }).join('');
+    return `<div class="fg-drill-acts">${lines || '<div style="color:#8a93a8;">（无教程/对话动作）</div>'}</div>`;
   }
 
   _renderRow(definition) {
@@ -298,6 +444,9 @@ export class FlowGroupDebugPanel {
         <td><small style="color:#93a8cc;">${Number(state.activations) || 0} / ${Number(state.completions) || 0}</small></td>
         <td>${depsCell}</td>
         <td>
+          <button class="fg-debug-rowbtn" data-action="drilldown" data-id="${this._escape(definition.id)}" title="下钻：查看组内 trigger / tutorial / dialogue 及其辅助提示，试调出现位置">
+            ${this._expandedGroups.has(definition.id) ? '▲ 收起成员' : '▼ 成员与提示'}
+          </button>
           <button class="fg-debug-rowbtn" data-action="activate" data-id="${this._escape(definition.id)}" title="manual 激活（绕过 autoActivate）">激活</button>
           <button class="fg-debug-rowbtn" data-action="complete" data-id="${this._escape(definition.id)}" title="manual 完成（绕过 completionWhen）">完成</button>
           <button class="fg-debug-rowbtn" data-action="progress" data-id="${this._escape(definition.id)}" title="模拟一次组内成员成功（progress +1）">+1</button>
@@ -308,6 +457,12 @@ export class FlowGroupDebugPanel {
   }
 
   _onRowAction(action, flowGroupId) {
+    if (action === 'drilldown') {
+      if (this._expandedGroups.has(flowGroupId)) this._expandedGroups.delete(flowGroupId);
+      else this._expandedGroups.add(flowGroupId);
+      this._renderTable();
+      return;
+    }
     if (!this.machine || !flowGroupId) return;
     try {
       if (action === 'activate') this.machine.activateFlowGroup(flowGroupId, 'debug');

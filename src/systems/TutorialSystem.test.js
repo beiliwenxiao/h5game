@@ -180,6 +180,23 @@ describe('TutorialSystem', () => {
       
       expect(callback).toHaveBeenCalledWith('movement_tutorial', expect.any(Object));
     });
+
+    it('显示数据透出 beginText / endText，供 presenter 渲染教程级提示', () => {
+      tutorialSystem.registerTutorial('prompt_tutorial', {
+        title: '带提示的教程',
+        beginText: '开场：采集野果',
+        endText: '收场：野果已采集',
+        steps: [{ text: '按{eat}吃掉' }]
+      });
+      const shown = [];
+      tutorialSystem.onShow(data => shown.push(data));
+      tutorialSystem.showTutorial('prompt_tutorial');
+      expect(shown[0]).toMatchObject({
+        stepIndex: 0,
+        beginText: '开场：采集野果',
+        endText: '收场：野果已采集'
+      });
+    });
   });
 
   describe('回调函数', () => {

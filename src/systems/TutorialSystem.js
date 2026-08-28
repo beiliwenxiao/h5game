@@ -344,6 +344,9 @@ export class TutorialSystem {
         position: step.position || 'center',
         arrow: step.arrow || null
       },
+      // 教程级提示：开场（beginText）/ 收场（endText），随表现生命周期透出，供 presenter 渲染。
+      beginText: this.currentTutorial.beginText || '',
+      endText: this.currentTutorial.endText || '',
       canSkip: this.currentTutorial.canSkip,
       isLastStep: stepIndex === steps.length - 1,
       context

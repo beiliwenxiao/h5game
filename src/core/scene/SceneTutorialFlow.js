@@ -19,7 +19,8 @@ export class SceneTutorialFlow {
     if (!presenter) return false;
     this.tutorialSystem.onShow(data => presenter.show?.(data));
     this.tutorialSystem.onHide(() => presenter.hide?.());
-    this.tutorialSystem.onComplete(null);
+    // 完成回调透出教程定义，供 presenter 展示收场提示（endText）。
+    this.tutorialSystem.onComplete((tutorialId, tutorial) => presenter.complete?.(tutorialId, tutorial));
     this._presentationBound = true;
     return true;
   }

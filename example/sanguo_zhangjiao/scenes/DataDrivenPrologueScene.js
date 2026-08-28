@@ -115,9 +115,12 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       getScope: () => ({ sceneId: this.currentSceneId }),
       presenter: {
         show: data => this._showScreenTip(data?.step?.text || '', {
-          title: data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
+          title: data?.beginText || data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
         }),
-        hide: () => this._hideScreenTip('tutorial')
+        hide: () => this._hideScreenTip('tutorial'),
+        complete: (_tutorialId, tutorial) => {
+          if (tutorial?.endText) this._showScreenTip(tutorial.endText, { title: '✓ 完成', owner: 'tutorial' });
+        }
       },
       scheduler: callback => this.resourceScope?.setTimeout(callback, 0)
     });

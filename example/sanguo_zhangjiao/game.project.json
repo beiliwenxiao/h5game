@@ -4119,6 +4119,42 @@
           "action": "tutorial.command",
           "params": {
             "operation": "show",
+            "tutorialId": "tutorial-001"
+          },
+          "stepId": "show-tutorial-eat-food"
+        }
+      ],
+      "editorScope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "flowGroupId": "s01.event.foraging",
+      "id": "trg_s01_berries_gathered",
+      "name": "野果目标完成：引导吃掉野果并准备砍柴",
+      "once": true,
+      "sceneEventId": "s01.event.foraging",
+      "when": {
+        "params": {
+          "definitionId": "story.s01.berriesGathered"
+        },
+        "type": "state.transaction"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "tutorial.command",
+          "params": {
+            "operation": "complete",
+            "tutorialId": "tutorial-001"
+          },
+          "stepId": "complete-tutorial-eat-food"
+        },
+        {
+          "action": "tutorial.command",
+          "params": {
+            "operation": "show",
             "tutorialId": "s01.chopWood"
           },
           "stepId": "show-tutorial-s01-chop-wood"
@@ -4130,13 +4166,13 @@
         ]
       },
       "flowGroupId": "s01.event.foraging",
-      "id": "trg_s01_berries_gathered",
-      "name": "野果目标完成：开放砍柴并启动燃料倒计时",
+      "id": "trg_s01_berry_eaten_advance",
+      "name": "吃掉野果后：完成吃教程并开启砍柴教程",
       "once": true,
       "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
-          "definitionId": "story.s01.berriesGathered"
+          "definitionId": "story.s01.berryEaten"
         },
         "type": "state.transaction"
       }
@@ -6433,8 +6469,13 @@
           "highlightTarget": false
         }
       ],
-      "signalRules": [],
-      "completionPolicy": "manual",
+      "signalRules": [
+        {
+          "signal": "itemPicked",
+          "threshold": 1
+        }
+      ],
+      "completionPolicy": "signal",
       "pauseGame": false,
       "canSkip": false,
       "autoTrigger": false,
@@ -6495,8 +6536,20 @@
           "highlightTarget": false
         }
       ],
-      "signalRules": [],
-      "completionPolicy": "manual",
+      "signalRules": [
+        {
+          "signal": "gatheringCompleted",
+          "threshold": 1,
+          "conditions": [
+            {
+              "field": "resourceType",
+              "operator": "equals",
+              "value": "wood"
+            }
+          ]
+        }
+      ],
+      "completionPolicy": "signal",
       "pauseGame": false,
       "canSkip": false,
       "autoTrigger": false,
@@ -6641,7 +6694,7 @@
       "steps": [
         {
           "id": "tutorial-001-step-001",
-          "text": "采集到野果后，按{eat}键吃掉",
+          "text": "采集到野果后，{potionHp}吃掉",
           "highlightTarget": false
         }
       ],
@@ -6650,7 +6703,9 @@
       "canSkip": true,
       "autoTrigger": false,
       "autoAdvance": false,
-      "priority": 0
+      "priority": 0,
+      "beginText": "采到了野果，肚子饿了。选中野果，按{eat}键吃掉充饥。",
+      "endText": "你吃掉了野果，体力恢复了。"
     }
   ],
   "library": {
@@ -6695,7 +6750,7 @@
         ],
         "effect": {
           "type": "heal",
-          "value": 4
+          "value": 20
         },
         "maxStack": 10,
         "sprite": {
@@ -7786,8 +7841,8 @@
         "name": "野果丛",
         "resourceType": "food",
         "itemId": "resource.wild_berry",
-        "remaining": 4,
-        "maxRemaining": 4,
+        "remaining": 10,
+        "maxRemaining": 10,
         "yieldPerGather": 2,
         "gatherDuration": 1.6,
         "interactionRadius": 72,

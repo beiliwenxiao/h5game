@@ -430,6 +430,16 @@ export class S01S02Coordinator {
       {},
       `${sourceOperationId}:state:${definitionId}`
     );
+    // 幂等护栏：commitStoryWhenReady 的契约是「条件就绪才提交、未就绪则跳过」。
+    // 提交瞬间事务前置条件不满足（preconditionFailed）只有两种良性含义：
+    //   - 其它路径已抢先提交该事实（completedPath 已为 true）→ alreadyCommitted；
+    //   - 事实前置条件尚未达成（如前置步骤未完成）→ notReady。
+    // 两者都不应视为硬失败（否则会刷红 DebugPanel 并触发事件重试）。
+    if (result.ok === false && result.code === 'preconditionFailed') {
+      const achieved = params.completedPath
+        && this._readStoryPath(params.completedPath) === true;
+      return { ok: true, status: achieved ? 'alreadyCommitted' : 'notReady' };
+    }
     if (result.ok === true && params.successTip) {
       const accepted = Math.max(0, Number(eventData.accepted) || 0);
       this.scene._showScreenTip(String(params.successTip).replaceAll('{accepted}', String(accepted)), {

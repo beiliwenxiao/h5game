@@ -42,6 +42,9 @@ export class TutorialSystem {
     
     // 已完成的教程ID集合
     this.completedTutorials = new Set();
+
+    // 槽位被占用时待显示的教程队列（FIFO，避免阻塞上层状态事务）
+    this.pendingTutorials = [];
     
     // 当前显示只保存稳定 definition id；完整定义始终从只读索引解析。
     this.currentTutorialId = null;
@@ -66,20 +69,13 @@ export class TutorialSystem {
     this.onShowCallback = null;
     this.onHideCallback = null;
     this.onCompleteCallback = null;
+    // 隐藏多监听器（单 Trigger 多教程路径等待用）
+    this._hideListeners = [];
     this.signalProgress = new Map();
     this.movementOrigins = new Map();
 
-    // FlowGroup 运行时状态机（可选；GameLoader 装配注入，教程完成 → 组进度+1）
-    this.flowGroupStateMachine = config.flowGroupStateMachine || null;
-
     // 是否启用教程系统
     this.enabled = true;
-  }
-
-  /** 注入 FlowGroup 状态机（GameLoader 装配时调用）。 */
-  setFlowGroupStateMachine(machine) {
-    this.flowGroupStateMachine = machine || null;
-    return true;
   }
 
   /**
@@ -259,10 +255,11 @@ export class TutorialSystem {
       return false;
     }
 
-    // 检查是否有其他教程正在显示
+    // 检查是否有其他教程正在显示：入队等待，不拒绝请求，避免上层状态事务因槽忙而失败
     if (this.currentTutorial) {
-      console.warn('TutorialSystem: 已有教程正在显示:', this.currentTutorial.id);
-      return false;
+      console.warn(`TutorialSystem: 教程槽忙（当前=${this.currentTutorial.id}），将 ${tutorialId} 加入待显示队列`);
+      this.pendingTutorials.push({ tutorialId, context: context || {} });
+      return true;
     }
 
     console.log(`TutorialSystem: 显示教程 ${tutorialId}`);
@@ -435,7 +432,6 @@ export class TutorialSystem {
     // 如果提供了 tutorialId，直接标记为完成
     if (tutorialId) {
       this.completedTutorials.add(tutorialId);
-      this._notifyFlowGroupProgress(tutorialId);
 
       // 如果是当前教程，也隐藏它
       if (this.currentTutorial && this.currentTutorial.id === tutorialId) {
@@ -457,7 +453,6 @@ export class TutorialSystem {
 
     // 标记为已完成
     this.completedTutorials.add(currentTutorialId);
-    this._notifyFlowGroupProgress(currentTutorialId);
 
     // 触发完成回调
     if (this.onCompleteCallback) {
@@ -468,19 +463,11 @@ export class TutorialSystem {
     this.hideTutorial();
   }
 
-  /** 教程完成 → 所属 FlowGroup 进度+1（状态机异常不得打断教程流程）。 */
-  _notifyFlowGroupProgress(tutorialId) {
-    if (!this.flowGroupStateMachine || !tutorialId) return;
-    try {
-      const definition = this.definitionRepository?.get?.(tutorialId);
-      const flowGroupId = definition
-        ? (typeof definition.flowGroupId === 'string' && definition.flowGroupId.trim()
-          ? definition.flowGroupId
-          : (typeof definition.sceneEventId === 'string' ? definition.sceneEventId : ''))
-        : '';
-      if (flowGroupId) this.flowGroupStateMachine.notifyProgress(flowGroupId, tutorialId, 'tutorial');
-    } catch (error) {
-      console.warn('TutorialSystem: FlowGroup 进度通知失败', error);
+  /** 槽位空闲后，依次补显待显示队列中的教程。 */
+  _flushPendingTutorials() {
+    while (this.pendingTutorials.length && !this.currentTutorial) {
+      const next = this.pendingTutorials.shift();
+      this.showTutorial(next.tutorialId, next.context || {});
     }
   }
 
@@ -503,6 +490,15 @@ export class TutorialSystem {
     if (this.onHideCallback) {
       this.onHideCallback(tutorial);
     }
+    // 多监听器：单 Trigger 多教程路径的等待方在此被唤醒
+    if (this._hideListeners && this._hideListeners.length) {
+      for (const cb of [...this._hideListeners]) {
+        try { cb(tutorial); } catch (error) { console.warn('TutorialSystem: onHide 监听器出错', error); }
+      }
+    }
+
+    // 补显待显示队列
+    this._flushPendingTutorials();
   }
 
   /**
@@ -601,11 +597,21 @@ export class TutorialSystem {
   }
 
   /**
-   * 设置隐藏回调
-   * @param {Function} callback - 回调函数
+   * 注册教程隐藏监听器（支持多个）。
+   * 用于"单 Trigger 多教程路径"：tutorial.command show 动作 await=true 时等待该教程离槽。
+   * @param {Function} callback - 回调函数 (tutorial) => void
+   * @returns {Function} 取消订阅函数
    */
   onHide(callback) {
+    if (typeof callback !== 'function') return () => {};
+    this._hideListeners.push(callback);
+    // 兼容旧代码：保留 onHideCallback 指向最近一个（不影响多监听器）
     this.onHideCallback = callback;
+    return () => {
+      const index = this._hideListeners.indexOf(callback);
+      if (index !== -1) this._hideListeners.splice(index, 1);
+      if (this.onHideCallback === callback) this.onHideCallback = null;
+    };
   }
 
   /**

@@ -86,13 +86,20 @@ describe('TutorialSystem', () => {
       expect(result).toBe(false);
     });
 
-    it('应该在有教程显示时拒绝显示新教程', () => {
+    it('应该在槽忙时入队等待，而非拒绝，空出槽位后自动补显', () => {
       tutorialSystem.showTutorial('movement_tutorial');
-      
       tutorialSystem.registerTutorial('test2', { title: '测试2', steps: [] });
       const result = tutorialSystem.showTutorial('test2');
-      
-      expect(result).toBe(false);
+
+      // 槽忙：不拒绝请求（避免上层状态事务失败），进入待显示队列
+      expect(result).toBe(true);
+      expect(tutorialSystem.getCurrentTutorial().id).toBe('movement_tutorial');
+      expect(tutorialSystem.pendingTutorials.length).toBe(1);
+
+      // 当前教程结束 → 自动补显队列中的教程
+      tutorialSystem.hideTutorial();
+      expect(tutorialSystem.getCurrentTutorial().id).toBe('test2');
+      expect(tutorialSystem.pendingTutorials.length).toBe(0);
     });
   });
 

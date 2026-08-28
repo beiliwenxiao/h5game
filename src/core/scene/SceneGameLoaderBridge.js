@@ -87,10 +87,7 @@ export class SceneGameLoaderBridge {
     const player = this.getPlayer();
     if (player) loader.updateContext({ player });
     if (sceneId && this._isActive(token, loader)) {
-      // FlowGroup 状态机先感知新场景（scope 命中判定），再 fire sceneEnter，
-      // 保证本组 sceneEnter Trigger 的准入门控已经用上新场景。
-      try { loader.flowGroupStateMachine?.setScene(sceneId); }
-      catch (error) { console.warn('SceneGameLoaderBridge: setScene 失败', error); }
+      // 全 Trigger 化后不再有 FlowGroup 状态机；sceneEnter 直接触发（顺序由 when/if 驱动）。
       const sceneEnterResult = await triggerSystem.fireAndWait('sceneEnter', { sceneId });
       if (!sceneEnterResult.ok) {
         const error = new Error(`SceneGameLoaderBridge sceneEnter failed: ${sceneId}`);

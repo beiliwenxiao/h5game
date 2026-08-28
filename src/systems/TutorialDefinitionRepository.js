@@ -78,9 +78,8 @@ export class TutorialDefinitionRepository {
         throw new TypeError(`Invalid or duplicate TutorialDefinition: ${definition.id}`);
       }
       const fgId = definition.flowGroupId || definition.sceneEventId;
-      if (fgId && !this.flowGroupDefinitions.has(fgId)) {
-        throw new TypeError(`TutorialDefinition ${definition.id} 引用了未知 FlowGroup(SceneEvent): ${fgId}`);
-      }
+      // 全 Trigger 化后 flowGroupId 仅为兼容标签：不再要求所属 FlowGroup 已登记
+      // （flowGroups/sceneEvents 目录已清空为 []），教程顺序完全由 Trigger 编排驱动。
       this._definitions.set(definition.id, definition);
       this._definitionIndexes.set(definition.id, index);
     }

@@ -52,9 +52,6 @@ export class DialogueSystem {
     // 已完整播完的对话 id（供 NPC 重复交互、触发器条件判定）
     this.completedDialogues = new Set();
 
-    // FlowGroup 运行时状态机（可选；GameLoader 装配注入，对话完成 → 组进度+1）
-    this.flowGroupStateMachine = null;
-
     // 回调函数
     this.onStartCallback = null;
     this.onNodeChangeCallback = null;
@@ -110,12 +107,6 @@ export class DialogueSystem {
     return true;
   }
 
-  /** 注入 FlowGroup 状态机（GameLoader 装配时调用）。 */
-  setFlowGroupStateMachine(machine) {
-    this.flowGroupStateMachine = machine || null;
-    return true;
-  }
-
   /**
    * 开始对话
    * @param {string} dialogueId - 对话ID
@@ -127,13 +118,6 @@ export class DialogueSystem {
     const dialogue = this.dialogues.get(dialogueId);
     if (!dialogue) {
       console.warn(`DialogueSystem: 对话不存在: ${dialogueId}`);
-      return false;
-    }
-
-    // FlowGroup 门控：所属组未激活（locked/dormant/completed）时拒绝开始
-    if (this.flowGroupStateMachine && dialogue.flowGroupId
-      && !this.flowGroupStateMachine.isRunnable(dialogue.flowGroupId)) {
-      console.warn(`DialogueSystem: 对话 ${dialogueId} 所属 FlowGroup ${dialogue.flowGroupId} 未激活，拒绝开始`);
       return false;
     }
 
@@ -361,15 +345,6 @@ export class DialogueSystem {
 
     // 标记为已完成（在回调之前置位，监听器里查 hasCompleted 才拿得到正确结果）
     if (dialogue.id) this.completedDialogues.add(dialogue.id);
-
-    // FlowGroup 进度回报：对话完成 → 所属组 progress +1
-    if (this.flowGroupStateMachine && dialogue.flowGroupId) {
-      try {
-        this.flowGroupStateMachine.notifyProgress(dialogue.flowGroupId, dialogue.id, 'dialogue');
-      } catch (error) {
-        console.warn('DialogueSystem: FlowGroup 进度通知失败', error);
-      }
-    }
 
     // 触发所有结束监听器（多监听器：场景 fire dialogueEnd + 动作 await 等各自独立）
     if (this._endListeners && this._endListeners.length) {

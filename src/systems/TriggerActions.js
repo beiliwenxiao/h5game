@@ -76,25 +76,16 @@ export function registerDefaultActions(triggerSystem) {
     switchScene: async (p, ctx) => {
       const sm = ctx.sceneManager;
       if (!sm?.switchTo || !p?.scene) return false;
-      // 场景切换成功后同步 FlowGroup 状态机当前场景（scope 命中判定用）
-      const syncFlowGroupScene = async (switched) => {
-        if (switched !== false) {
-          try { ctx.flowGroupStateMachine?.setScene(p.scene); }
-          catch (error) { console.warn('switchScene: FlowGroup setScene 失败', error); }
-        }
-        return switched !== false;
-      };
       if (p.transition === 'text' && sm.startTextTransition) {
         return new Promise(resolve => {
           const started = sm.startTextTransition({
             mainText: p.text || '场景切换中...',
-            onComplete: async () => resolve(await syncFlowGroupScene(await sm.switchTo(p.scene, p.data || null)))
+            onComplete: async () => resolve((await sm.switchTo(p.scene, p.data || null)) !== false)
           });
           if (started === false) resolve(false);
         });
       }
-      const switched = await sm.switchTo(p.scene, p.data || null);
-      return syncFlowGroupScene(switched);
+      return (await sm.switchTo(p.scene, p.data || null)) !== false;
     },
     loadRegion: async (p, ctx) => {
       if (!p?.region) return false;

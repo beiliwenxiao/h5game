@@ -112,15 +112,10 @@ export function normalizeProjectForRuntime(project) {
   if (!project || typeof project !== 'object') return project;
   const copy = { ...project };
 
-  // 1) flowGroups ← sceneEvents
+  // 1) flowGroups：全 Trigger 化后不再从 sceneEvents 生成组。
+  //    只保证 flowGroups 是数组（内容通常为空，trigger/tutorial 的 flowGroupId 仅为兼容标签）。
   if (!Array.isArray(copy.flowGroups)) {
-    if (Array.isArray(copy.sceneEvents) && copy.sceneEvents.length > 0) {
-      copy.flowGroups = copy.sceneEvents
-        .map(migrateSceneEventToFlowGroup)
-        .filter(Boolean);
-    } else {
-      copy.flowGroups = [];
-    }
+    copy.flowGroups = [];
   }
 
   // 2) Trigger.flowGroupId ← sceneEventId（内存补齐）

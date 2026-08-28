@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1787939013228,
+  "createdAt": 1787961176692,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1787939011226
+            "timestamp": 1787961174684
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1787939011226
+            "timestamp": 1787961174684
           }
         ],
         "completedDialogues": []
@@ -494,6 +494,18 @@
               },
               {
                 "triggerId": "trg_s01_gather_wolf_hide_completed",
+                "definitionRevision": 1,
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
+              },
+              {
+                "triggerId": "trg_s01_wolf_skin_fallback",
                 "definitionRevision": 1,
                 "operationId": null,
                 "fingerprint": null,
@@ -1659,75 +1671,6 @@
             ]
           }
         },
-        "flowGroups": {
-          "snapshotSchemaVersion": 1,
-          "currentSceneId": null,
-          "groups": {
-            "s01.event.awakening": {
-              "phase": "active",
-              "progress": 1,
-              "completions": 0,
-              "activations": 1,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.tools": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.foraging": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.firewood": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.firstWolf": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.survivalCraft": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.overnight": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.riverEscape": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            },
-            "s01.event.cliffEscape": {
-              "phase": "locked",
-              "progress": 0,
-              "completions": 0,
-              "activations": 0,
-              "lastNotifiedProgress": 0
-            }
-          }
-        },
         "progression": {
           "state": {
             "characterId": "refugee",
@@ -1926,7 +1869,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.93370000000027
+          "elapsed": 121.95019999999897
         }
       }
     }

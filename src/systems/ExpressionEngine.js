@@ -50,9 +50,16 @@ export class ExpressionEngine {
     if (typeof expr !== 'object') return expr;         // 字面量
     if (Array.isArray(expr)) return expr;              // 数组字面量
 
-    // 取值简写
-    if ('var' in expr) return this._getVar(expr.var);
-    if ('flag' in expr) return !!this._getVar(expr.flag);
+    // 取值简写；带比较 op 与 value 时按紧凑比较语义求值：
+    //   { "op":"==", "var":"x", "value":false }  ≡  x === false
+    if ('var' in expr) {
+      const value = this._getVar(expr.var);
+      return expr.op && 'value' in expr ? this._compare(expr.op, value, expr.value) : value;
+    }
+    if ('flag' in expr) {
+      const value = !!this._getVar(expr.flag);
+      return expr.op && 'value' in expr ? this._compare(expr.op, value, expr.value) : value;
+    }
 
     const op = expr.op;
     switch (op) {
@@ -81,10 +88,37 @@ export class ExpressionEngine {
     }
   }
 
+  /** 紧凑比较：左侧可为任意求值结果，右侧按字面量参与比较。 */
+  _compare(op, left, right) {
+    switch (op) {
+      case '==': return left === right;
+      case '!=': return left !== right;
+      case '>':  return left > right;
+      case '>=': return left >= right;
+      case '<':  return left < right;
+      case '<=': return left <= right;
+      default:   return this.eval(right) === left;
+    }
+  }
+
   _truthy(v) { return !!v; }
 
+  /**
+   * 取值：优先扁平键直接命中；未命中且形如 `story.a.b` 时，回退到
+   * 黑板 `storyState` 的嵌套点路径（触发器/步骤 if / branch when 的统一读法）。
+   */
   _getVar(key) {
-    return this.ctx.blackboard ? this.ctx.blackboard.get(key) : undefined;
+    const board = this.ctx.blackboard;
+    if (!board) return undefined;
+    const direct = board.get(key);
+    if (direct !== undefined) return direct;
+    if (typeof key === 'string' && key.startsWith('story.')) {
+      const story = board.get('storyState');
+      if (story == null) return undefined;
+      const path = key.slice('story.'.length).split('.').filter(Boolean);
+      return path.reduce((value, part) => (value == null ? undefined : value[part]), story);
+    }
+    return direct;
   }
 
   _questState(questId, state) {

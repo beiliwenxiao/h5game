@@ -31,8 +31,8 @@ import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 import { FlowGroupProjectIndex as _FGIndex, SceneEventProjectIndex } from './SceneEventProjectIndex.js';
 import { FlowGroupEditorPanel as _FGPanel, SceneEventEditorPanel } from './SceneEventEditorPanel.js';
 import { TutorialEditorPanel } from './TutorialEditorPanel.js';
-import { FlowGroupDebugPanel } from './FlowGroupDebugPanel.js';
-import { FlowGroupStorylinePanel } from './FlowGroupStorylinePanel.js';
+import { TriggerTracePanel } from './TriggerTracePanel.js';
+import { TriggerStorylinePanel } from './TriggerStorylinePanel.js';
 
 const FlowGroupProjectIndex = _FGIndex || SceneEventProjectIndex;
 const FlowGroupEditorPanel = _FGPanel || SceneEventEditorPanel;
@@ -41,17 +41,6 @@ const resolveFgId = obj => {
   if (!obj) return '';
   const fromFg = text(obj.flowGroupId);
   return fromFg ? fromFg : text(obj.sceneEventId);
-};
-const syncFgFields = (obj, fgId) => {
-  if (!obj) return;
-  const clean = text(fgId);
-  if (clean) {
-    obj.flowGroupId = clean;
-    obj.sceneEventId = clean;
-  } else {
-    delete obj.flowGroupId;
-    delete obj.sceneEventId;
-  }
 };
 // FlowGroup(SceneEvent) 双数组合并去重：flowGroups 优先，sceneEvents 次之
 const mergeFlowGroups = (project = {}) => {
@@ -92,15 +81,16 @@ export class TriggerEditor {
     const normalizedTarget = ['flowGroups', 'sceneEvents', 'triggers', 'tutorials'].includes(options.target)
       ? options.target
       : (['sceneEvents', 'triggers', 'tutorials'].includes(options.target) ? options.target : null);
-    this.target = normalizedTarget || 'flowGroups';
-    // flowGroupPanel（新名）+ sceneEventPanel（旧名别名）同一个实例
+    // 全 Trigger 化后默认进入「Trigger 业务规则」；flowGroups/sceneEvents 入口已收敛（数据已清空）
+    this.target = normalizedTarget || 'triggers';
+    // flowGroupPanel（新名）+ sceneEventPanel（旧名别名）同一个实例（兼容保留，入口已收敛）
     this.flowGroupPanel = new FlowGroupEditorPanel(this);
     this.sceneEventPanel = this.flowGroupPanel;
     this.tutorialPanel = new TutorialEditorPanel(this);
-    // P2：FlowGroup 状态机调试面板（内存模拟，不写回工程）
-    this.flowGroupDebugPanel = new FlowGroupDebugPanel(this);
-    // 方案 A：剧情线总览视图（FlowGroup 主视角，展示开始/结束条件与成员）
-    this.storylinePanel = new FlowGroupStorylinePanel(this);
+    // Trigger 执行轨迹面板（运行时轨迹 + 事件探针，只读调试）
+    this.triggerTracePanel = new TriggerTracePanel(this);
+    // 剧情线总览视图（Trigger 链视角）
+    this.triggerStorylinePanel = new TriggerStorylinePanel(this);
     this._initialized = false;
   }
 
@@ -211,7 +201,8 @@ export class TriggerEditor {
     const sceneFilter = this.container.querySelector('#trg-filter-scene');
     if (sceneFilter) sceneFilter.hidden = storyline;
     const eventFilter = this.container.querySelector('#trg-filter-event');
-    if (eventFilter) eventFilter.hidden = storyline || this.target === 'sceneEvents' || this.target === 'flowGroups';
+    // FlowGroup 筛选已无意义（数据已清空、入口已收敛），始终隐藏
+    if (eventFilter) eventFilter.hidden = true;
     if (!storyline) this._updateSceneEventFilter();
   }
 
@@ -272,11 +263,12 @@ export class TriggerEditor {
     if (this.target !== 'storyline') this.project[this.target] = this.triggers;
     // 剧情线总览里指派的对话归属也要写回（storyline 修改的是 dialogues[].flowGroupId）
     if (this.target === 'storyline') this.project.dialogues = this.project.dialogues || [];
-    // 保存前双数组同步：flowGroups ↔ sceneEvents（优先以 flowGroups 为主）
-    if (Array.isArray(this.project.flowGroups) || Array.isArray(this.project.sceneEvents)) {
-      const fgs = mergeFlowGroups(this.project);
-      this.project.flowGroups = [...fgs];
-      this.project.sceneEvents = [...fgs];
+    // 全 Trigger 化：保存不再写入 flowGroupId / sceneEventId 死字段（旧数据读取兼容，新数据不产生）
+    for (const list of [this.project.triggers, this.project.tutorials, this.project.dialogues]) {
+      for (const definition of Array.isArray(list) ? list : []) {
+        delete definition.flowGroupId;
+        delete definition.sceneEventId;
+      }
     }
     const definitionError = this._validateDefinitions();
     if (definitionError) {
@@ -286,8 +278,6 @@ export class TriggerEditor {
     }
     const targetLabel = {
       storyline: '剧情线总览',
-      flowGroups: 'FlowGroup(SceneEvent)',
-      sceneEvents: 'FlowGroup(SceneEvent)',
       triggers: 'Trigger',
       tutorials: 'Tutorial'
     }[this.target] || '定义';
@@ -296,8 +286,6 @@ export class TriggerEditor {
       const data = this.canonicalSession
         ? await (async () => {
             this.canonicalSession.patchMany([
-              { path: 'flowGroups', value: this.project.flowGroups },
-              { path: 'sceneEvents', value: this.project.sceneEvents },
               { path: 'triggers', value: this.project.triggers },
               { path: 'tutorials', value: this.project.tutorials },
               { path: 'dialogues', value: this.project.dialogues }
@@ -334,10 +322,6 @@ export class TriggerEditor {
       if (errors.length) return `${trigger?.id || '(未命名)'}: ${errors[0]}`;
       if (triggerIds.has(trigger.id)) return `重复 Trigger ID "${trigger.id}"`;
       triggerIds.add(trigger.id);
-      const fgId = resolveFgId(trigger);
-      if (fgId && !fgIds.has(fgId)) {
-        return `${trigger.id}.flowGroupId(sceneEventId) 未登记: ${fgId}`;
-      }
     }
 
     const tutorialErrors = this.tutorialPanel.validate(this.project.tutorials || [], fgIds);
@@ -381,7 +365,7 @@ export class TriggerEditor {
         : [
             panel.querySelector('#d-when-params'),
             panel.querySelector('#d-if'),
-            ...panel.querySelectorAll('.do-params, .do-param-json')
+            ...panel.querySelectorAll('.do-params, .do-param-json, .do-step-if-input, .do-branch-when')
           ];
     let hasError = false;
     for (const el of els) {
@@ -419,7 +403,7 @@ export class TriggerEditor {
 
   /** 打开全局「按钮写法」弹层（复用剧情线总览的 InputHints 清单）。 */
   _showButtonHelp() {
-    this.storylinePanel.openButtonHelp();
+    this.triggerStorylinePanel.openButtonHelp();
   }
 
   _buildUI() {
@@ -433,7 +417,6 @@ export class TriggerEditor {
         <div class="trg-target-tabs" id="trg-target-tabs">
           <button data-target="storyline">📖 剧情线总览</button>
           <button type="button" class="trg-btn-help" data-btn-help>⌨ 按钮写法</button>
-          <button data-target="flowGroups">FlowGroup 剧情流程</button>
           <button data-target="triggers">Trigger 业务规则</button>
           <button data-target="tutorials">Tutorial 教学步骤</button>
         </div>
@@ -459,7 +442,7 @@ export class TriggerEditor {
           </select>
           <button id="trg-add">+ 新增</button>
           <button id="trg-del">🗑 删除</button>
-          <button id="trg-fg-debug" title="在内存中模拟 FlowGroup 状态机（phase/progress 实时展示与手动控制）">🐞 状态机调试</button>
+          <button id="trg-fg-debug" title="实时展示运行时 Trigger 的触发/执行/跳过/失败轨迹与事件仲裁结果">⚙ 执行轨迹</button>
           <button id="trg-save" class="primary">💾 保存到工程</button>
           <span class="trg-hint">数据 → ${this.projectPath}</span>
         </div>
@@ -474,7 +457,7 @@ export class TriggerEditor {
     `;
     this.container.querySelector('#trg-add').addEventListener('click', () => this._addTrigger());
     this.container.querySelector('#trg-del').addEventListener('click', () => this._deleteTrigger());
-    this.container.querySelector('#trg-fg-debug').addEventListener('click', () => this.flowGroupDebugPanel.toggle());
+    this.container.querySelector('#trg-fg-debug').addEventListener('click', () => this.triggerTracePanel.toggle());
     this.container.querySelector('#trg-save').addEventListener('click', () => this.save());
     this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
       if (btn.dataset.target) btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
@@ -641,6 +624,25 @@ export class TriggerEditor {
       .trg-status{padding:6px 16px;font-size:12px;min-height:22px;background:#0a1020;}
       .trg-status.ok{color:#6c6;} .trg-status.err{color:#e66;}
       .trg-mini{padding:4px 8px;background:#3a4a7e;border:none;border-radius:3px;color:#fff;cursor:pointer;font-size:12px;}
+      .trg-do-item.trg-do-branch{border-color:#4a5d9e;background:#121c38;}
+      .trg-do-branch > .do-head{background:#182648;border-radius:3px;padding:6px;}
+      .do-branch-label{color:#c6d4f0;font-weight:bold;font-size:12px;flex:0 0 auto;}
+      .do-branch{margin:6px 0;display:flex;flex-direction:column;gap:6px;}
+      .do-branch-item{border:1px dashed #3a4a7e;border-radius:4px;padding:8px;background:#0c162b;}
+      .do-branch-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;}
+      .do-branch-title{color:#80b9ed;font-size:11px;font-weight:bold;}
+      .do-branch-otherwise{display:flex;align-items:center;gap:4px;margin:0 0 0 auto;color:#e8c46a;font-size:11px;}
+      .do-branch-otherwise input{width:auto;}
+      .do-branch-when{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:6px;border-radius:3px;font-family:monospace;font-size:12px;min-height:44px;margin-bottom:6px;resize:vertical;}
+      .do-branch-empty{color:#5a6a8a;font-size:11px;padding:2px 0 6px;}
+      .do-branch-do{margin-top:4px;}
+      .do-branch-add-step{margin:4px 0 0 16px;}
+      .do-add-branch{margin-top:6px;}
+      .do-step-if{margin-top:7px;color:#91a8cc;font-size:11px;}
+      .do-step-if summary{cursor:pointer;user-select:none;}
+      .do-step-if-input{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:6px;border-radius:3px;font-family:monospace;font-size:12px;min-height:44px;margin-top:6px;resize:vertical;}
+      .do-await{display:flex;align-items:center;gap:5px;margin:7px 0 0;color:#7fc6a4;font-size:11px;}
+      .do-await input{width:auto;}
     `;
     document.head.appendChild(s);
   }
@@ -1159,8 +1161,13 @@ export class TriggerEditor {
   }
 
   _nextActionStepId(trigger) {
-    const actions = Array.isArray(trigger?.do) ? trigger.do : [];
-    const ids = new Set(actions.map(action => String(action?.stepId || '').trim()).filter(Boolean));
+    const ids = new Set();
+    const walk = steps => (steps || []).forEach(action => {
+      const stepId = String(action?.stepId || '').trim();
+      if (stepId) ids.add(stepId);
+      if (Array.isArray(action?.branch)) action.branch.forEach(branch => walk(branch?.do));
+    });
+    walk(Array.isArray(trigger?.do) ? trigger.do : []);
     const prefix = `${String(trigger?.id || 'trigger').trim() || 'trigger'}.step`;
     let sequence = 1;
     let candidate;
@@ -1230,14 +1237,113 @@ export class TriggerEditor {
     return next;
   }
 
+  _doActionOptions(act) {
+    let actOpts = ACTION_TYPES.map(actionType => (
+      `<option value="${this._escapeHtml(actionType.v)}" ${act.action === actionType.v ? 'selected' : ''}>${this._escapeHtml(actionType.label)} (${this._escapeHtml(actionType.v)})</option>`
+    )).join('');
+    // 保留下拉里没有的自定义 action，避免 unknown-but-allowed 字段在 round-trip 时丢失。
+    if (act.action && !ACTION_TYPES.some(actionType => actionType.v === act.action)) {
+      actOpts = `<option value="${this._escapeHtml(act.action)}" selected>自定义: ${this._escapeHtml(act.action)}</option>` + actOpts;
+    }
+    return actOpts;
+  }
+
+  /**
+   * 递归渲染一个步骤：普通动作 或 分支容器。
+   * path 形如 "2" 或 "1.0.3"（父路径.branchIndex.子下标），与 TriggerStorylinePanel 同约定。
+   */
+  _renderDoItem(act, path, depth) {
+    const indent = depth > 0 ? `style="margin-left:${Math.min(depth, 6) * 16}px"` : '';
+    const isBranch = Array.isArray(act?.branch);
+    const head = `
+      <div class="do-head">
+        <button type="button" class="do-drag-handle" draggable="true" title="拖动调整同层步骤顺序" aria-label="拖动步骤 ${this._escapeHtml(path)}">↕</button>
+        ${isBranch
+          ? `<strong class="do-branch-label">🔀 分支容器</strong><input type="text" class="do-step-id" value="${this._escapeHtml(act.stepId || '')}" placeholder="stepId（可空）">`
+          : `<select class="do-action">${this._doActionOptions(act)}</select>`}
+        <button type="button" class="trg-mini do-del" title="删除此步骤">删</button>
+      </div>`;
+    if (isBranch) {
+      const branches = Array.isArray(act.branch) ? act.branch : [];
+      return `
+        <div class="trg-do-item trg-do-branch" data-path="${this._escapeHtml(path)}" ${indent}>
+          ${head}
+          <div class="do-branch">
+            ${branches.map((branch, bIndex) => {
+              const branchPath = `${path}.${bIndex}`;
+              const children = Array.isArray(branch?.do) ? branch.do : [];
+              return `
+                <div class="do-branch-item" data-branch-index="${bIndex}">
+                  <div class="do-branch-head">
+                    <span class="do-branch-title">分支 ${bIndex + 1}</span>
+                    <label class="do-branch-otherwise"><input type="checkbox" class="do-branch-otherwise-cb"${branch.otherwise ? ' checked' : ''}> otherwise 兜底</label>
+                    <button type="button" class="trg-mini do-branch-del" title="删除此分支">✕</button>
+                  </div>
+                  ${branch.otherwise ? '' : `<textarea class="do-branch-when" placeholder='分支条件 when (JSON)，如 {"op":">","left":{"var":"hp"},"right":0}'>${this._escapeHtml(this._json(branch.when))}</textarea>`}
+                  <div class="do-branch-do">
+                    ${children.length
+                      ? children.map((child, cIndex) => this._renderDoItem(child, `${branchPath}.${cIndex}`, depth + 1)).join('')
+                      : '<div class="do-branch-empty">（空分支，可在此追加子步骤）</div>'}
+                    <button type="button" class="trg-mini do-branch-add-step" data-branch-do="${this._escapeHtml(branchPath)}">+ 子步骤</button>
+                  </div>
+                </div>`;
+            }).join('')}
+          </div>
+          <button type="button" class="trg-mini do-add-branch" data-path="${this._escapeHtml(path)}">+ 添加分支</button>
+        </div>`;
+    }
+    const descriptor = getTriggerActionDescriptor(act.action, this.project);
+    const operations = getTriggerActionOperations(act.action, this.project);
+    const operationId = String(act.params?.operation || '').trim();
+    const operation = getTriggerActionOperation(act.action, operationId, this.project);
+    let operationOptions = operations.map(candidate => (
+      `<option value="${this._escapeHtml(candidate.value)}"${candidate.value === operationId ? ' selected' : ''}>${this._escapeHtml(candidate.label)} (${this._escapeHtml(candidate.value)})</option>`
+    )).join('');
+    if (operationId && !operations.some(candidate => candidate.value === operationId)) {
+      operationOptions = `<option value="${this._escapeHtml(operationId)}" selected>未登记: ${this._escapeHtml(operationId)}</option>` + operationOptions;
+    }
+    const operationEditor = operations.length || operationId
+      ? `<label>Operation<select class="do-operation"><option value="">-- 选择 operation --</option>${operationOptions}</select></label>`
+      : '';
+    const paramsSchema = operation?.paramsSchema || descriptor?.paramsSchema;
+    const structuredParams = this._renderStructuredParams(
+      paramsSchema,
+      act.params || {},
+      { excludeOperation: operations.length > 0 }
+    );
+    const rawParamsEditor = act.action === 'spawnPlacements'
+      ? `${this._renderSpawnPlacementControls(act.params)}<textarea class="do-params" style="display:none">${this._escapeHtml(this._json(act.params))}</textarea>`
+      : `${structuredParams}<details class="do-advanced"${structuredParams ? '' : ' open'}><summary>高级 JSON／未登记参数</summary><textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._escapeHtml(this._json(act.params))}</textarea></details>`;
+    const semantics = this._formatResultSemantics(operation?.resultSemantics || descriptor?.resultSemantics);
+    const ifEditor = `
+      <details class="do-step-if"><summary>🛡 前置 if…</summary>
+        <textarea class="do-step-if-input" placeholder='步骤级条件 (JSON)，如 {"op":">","left":{"var":"hp"},"right":0}'>${this._escapeHtml(this._json(act.if))}</textarea>
+      </details>`;
+    const awaitEditor = act.action === 'tutorial.command'
+      ? `<label class="do-await"><input type="checkbox" class="do-await-cb"${act.params?.await ? ' checked' : ''}> ⏳ 串行等待（教程结束后再执行下一步）</label>`
+      : '';
+    return `
+      <div class="trg-do-item" data-path="${this._escapeHtml(path)}" ${indent}>
+        ${head}
+        <div class="do-identity-grid">
+          <label>稳定 stepId<input type="text" class="do-step-id" value="${this._escapeHtml(act.stepId || '')}" placeholder="${this._escapeHtml(this._nextActionStepId(t))}"></label>
+          ${operationEditor}
+        </div>
+        ${semantics ? `<div class="do-result-semantics">结果语义：${this._escapeHtml(semantics)}</div>` : ''}
+        ${rawParamsEditor}
+        ${ifEditor}
+        ${awaitEditor}
+      </div>`;
+  }
+
   // ---- 详情表单 ----
 
   _renderDetail() {
     const panel = this.container.querySelector('#trg-detail');
     if (!panel) return;
     if (this.target === 'storyline') {
-      this.storylinePanel.injectStyles();
-      this.storylinePanel.render(panel);
+      this.triggerStorylinePanel.injectStyles();
+      this.triggerStorylinePanel.render(panel);
       return;
     }
     const t = this.triggers[this.selectedIndex];
@@ -1259,15 +1365,6 @@ export class TriggerEditor {
       return;
     }
 
-    const flowGroups = mergeFlowGroups(this.project)
-      .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
-    const tFgId = resolveFgId(t);
-    let sceneEventOpts = flowGroups.map(fg => (
-      `<option value="${this._escapeHtml(fg.id)}" ${tFgId === fg.id ? 'selected' : ''}>${this._escapeHtml(`${Number(fg.order || 0) + 1}. ${fg.name || fg.id}`)}</option>`
-    )).join('');
-    if (tFgId && !flowGroups.some(fg => fg.id === tFgId)) {
-      sceneEventOpts = `<option value="${this._escapeHtml(tFgId)}" selected>${this._escapeHtml(tFgId)}（未登记）</option>` + sceneEventOpts;
-    }
     const coordination = t.coordination && typeof t.coordination === 'object' ? t.coordination : {};
     let whenOpts = WHEN_TYPES.map(w =>
       `<option value="${w.v}" ${t.when?.type === w.v ? 'selected' : ''}>${w.label} (${w.v})</option>`).join('');
@@ -1289,51 +1386,7 @@ export class TriggerEditor {
 
     let doHtml = '';
     (t.do || []).forEach((act, di) => {
-      let actOpts = ACTION_TYPES.map(actionType => (
-        `<option value="${this._escapeHtml(actionType.v)}" ${act.action === actionType.v ? 'selected' : ''}>${this._escapeHtml(actionType.label)} (${this._escapeHtml(actionType.v)})</option>`
-      )).join('');
-      // 保留下拉里没有的自定义 action，避免 unknown-but-allowed 字段在 round-trip 时丢失。
-      if (act.action && !ACTION_TYPES.some(actionType => actionType.v === act.action)) {
-        actOpts = `<option value="${this._escapeHtml(act.action)}" selected>自定义: ${this._escapeHtml(act.action)}</option>` + actOpts;
-      }
-      const descriptor = getTriggerActionDescriptor(act.action, this.project);
-      const operations = getTriggerActionOperations(act.action, this.project);
-      const operationId = String(act.params?.operation || '').trim();
-      const operation = getTriggerActionOperation(act.action, operationId, this.project);
-      let operationOptions = operations.map(candidate => (
-        `<option value="${this._escapeHtml(candidate.value)}"${candidate.value === operationId ? ' selected' : ''}>${this._escapeHtml(candidate.label)} (${this._escapeHtml(candidate.value)})</option>`
-      )).join('');
-      if (operationId && !operations.some(candidate => candidate.value === operationId)) {
-        operationOptions = `<option value="${this._escapeHtml(operationId)}" selected>未登记: ${this._escapeHtml(operationId)}</option>` + operationOptions;
-      }
-      const operationEditor = operations.length || operationId
-        ? `<label>Operation<select class="do-operation"><option value="">-- 选择 operation --</option>${operationOptions}</select></label>`
-        : '';
-      const paramsSchema = operation?.paramsSchema || descriptor?.paramsSchema;
-      const structuredParams = this._renderStructuredParams(
-        paramsSchema,
-        act.params || {},
-        { excludeOperation: operations.length > 0 }
-      );
-      const rawParamsEditor = act.action === 'spawnPlacements'
-        ? `${this._renderSpawnPlacementControls(act.params)}<textarea class="do-params" style="display:none">${this._escapeHtml(this._json(act.params))}</textarea>`
-        : `${structuredParams}<details class="do-advanced"${structuredParams ? '' : ' open'}><summary>高级 JSON／未登记参数</summary><textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._escapeHtml(this._json(act.params))}</textarea></details>`;
-      const semantics = this._formatResultSemantics(operation?.resultSemantics || descriptor?.resultSemantics);
-      doHtml += `
-        <div class="trg-do-item" data-di="${di}">
-          <div class="do-head">
-            <button type="button" class="do-drag-handle" draggable="true" title="拖动调整动作执行顺序" aria-label="拖动动作 ${di + 1}">↕</button>
-            <span class="do-sequence">${di + 1}</span>
-            <select class="do-action">${actOpts}</select>
-            <button type="button" class="trg-mini do-del">删</button>
-          </div>
-          <div class="do-identity-grid">
-            <label>稳定 stepId<input type="text" class="do-step-id" value="${this._escapeHtml(act.stepId || '')}" placeholder="${this._escapeHtml(this._nextActionStepId(t))}"></label>
-            ${operationEditor}
-          </div>
-          ${semantics ? `<div class="do-result-semantics">结果语义：${this._escapeHtml(semantics)}</div>` : ''}
-          ${rawParamsEditor}
-        </div>`;
+      doHtml += this._renderDoItem(act, String(di), 0);
     });
 
     const scopeSceneIds = Array.isArray(t.editorScope?.sceneIds) ? t.editorScope.sceneIds : [];
@@ -1359,7 +1412,6 @@ export class TriggerEditor {
       </div>
       <div class="row"><label>ID</label><input type="text" id="d-id" value="${this._escapeHtml(t.id || '')}"></div>
       <div class="row"><label>名称</label><input type="text" id="d-name" value="${this._escapeHtml(t.name || '')}" placeholder="如：第三次添柴后出现首狼"></div>
-      <div class="row"><label>所属 SceneEvent</label><select id="d-scene-event"><option value="">-- 选择 SceneEvent --</option>${sceneEventOpts}</select></div>
       <div class="row"><label>协调组 coordination.group（空值表示独立执行）</label><input type="text" id="d-coordination-group" value="${this._escapeHtml(coordination.group || '')}" placeholder="如 s01-survival"></div>
       <div class="row trg-coordination-grid">
         <label>组策略<select id="d-coordination-policy">
@@ -1383,25 +1435,32 @@ export class TriggerEditor {
       </div>
     `;
 
-    let draggedActionIndex = null;
+    let draggedActionPath = null;
     const clearActionDropIndicators = () => {
       panel.querySelectorAll('.trg-do-item').forEach(element => {
         element.classList.remove('drop-before', 'drop-after');
         delete element.dataset.dropPosition;
       });
     };
+    const parentPathOf = pathStr => {
+      const parts = String(pathStr || '').split('.');
+      parts.pop();
+      return parts.join('.');
+    };
     panel.querySelectorAll('.trg-do-item').forEach(item => {
       const handle = item.querySelector('.do-drag-handle');
       handle?.addEventListener('dragstart', event => {
         this._commitDetail();
-        draggedActionIndex = Number(item.dataset.di);
+        draggedActionPath = item.dataset.path;
         event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', String(draggedActionIndex));
+        event.dataTransfer.setData('text/plain', draggedActionPath);
         requestAnimationFrame(() => item.classList.add('dragging'));
       });
       item.addEventListener('dragover', event => {
-        const targetIndex = Number(item.dataset.di);
-        if (!Number.isInteger(draggedActionIndex) || draggedActionIndex === targetIndex) return;
+        const sourcePath = draggedActionPath;
+        const targetPath = item.dataset.path;
+        // 只允许同父级重排（跨分支/跨层级拖动提示不合法）
+        if (!sourcePath || sourcePath === targetPath || parentPathOf(sourcePath) !== parentPathOf(targetPath)) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = 'move';
         const placeAfter = event.clientY >= item.getBoundingClientRect().top + item.offsetHeight / 2;
@@ -1417,15 +1476,15 @@ export class TriggerEditor {
       });
       item.addEventListener('drop', event => {
         event.preventDefault();
-        const sourceIndex = draggedActionIndex;
-        const targetIndex = Number(item.dataset.di);
+        const sourcePath = draggedActionPath;
+        const targetPath = item.dataset.path;
         const placeAfter = item.dataset.dropPosition === 'after';
-        draggedActionIndex = null;
+        draggedActionPath = null;
         clearActionDropIndicators();
-        this._moveAction(sourceIndex, targetIndex, placeAfter);
+        this._moveActionPath(sourcePath, targetPath, placeAfter);
       });
       handle?.addEventListener('dragend', () => {
-        draggedActionIndex = null;
+        draggedActionPath = null;
         item.classList.remove('dragging');
         clearActionDropIndicators();
       });
@@ -1443,9 +1502,55 @@ export class TriggerEditor {
     });
     panel.querySelectorAll('.do-del').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const di = parseInt(e.target.closest('.trg-do-item').dataset.di);
+        const path = e.target.closest('.trg-do-item').dataset.path;
         this._commitDetail();
-        t.do.splice(di, 1);
+        const located = this._resolveStepPath(t, path);
+        if (!located) return;
+        located.array.splice(located.index, 1);
+        this._renderDetail();
+      });
+    });
+    // 分支容器：添加分支 / 分支内添加子步骤 / 删除分支 / 分支条件变化
+    panel.querySelectorAll('.do-add-branch').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const path = btn.dataset.path;
+        this._commitDetail();
+        const located = this._resolveStepPath(t, path);
+        if (!located) return;
+        const container = located.array[located.index];
+        if (!Array.isArray(container.branch)) container.branch = [];
+        container.branch.push({ when: null, do: [] });
+        this._renderDetail();
+      });
+    });
+    panel.querySelectorAll('.do-branch-add-step').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._commitDetail();
+        const branchDo = this._resolveBranchDo(t, btn.dataset.branchDo);
+        if (!branchDo) return;
+        branchDo.push({
+          stepId: this._nextActionStepId(t),
+          action: 'setVar',
+          params: {}
+        });
+        this._renderDetail();
+      });
+    });
+    panel.querySelectorAll('.do-branch-del').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const bIndex = Number(e.target.closest('.do-branch-item').dataset.branchIndex);
+        const containerPath = e.target.closest('.trg-do-branch').dataset.path;
+        this._commitDetail();
+        const located = this._resolveStepPath(t, containerPath);
+        if (!located) return;
+        const container = located.array[located.index];
+        if (Array.isArray(container.branch)) container.branch.splice(bIndex, 1);
+        this._renderDetail();
+      });
+    });
+    panel.querySelectorAll('.do-branch-otherwise-cb, .do-branch-when').forEach(el => {
+      el.addEventListener('change', () => {
+        this._commitDetail();
         this._renderDetail();
       });
     });
@@ -1460,11 +1565,6 @@ export class TriggerEditor {
         this._commitDetail();
         this._renderDetail();
       });
-    });
-    panel.querySelector('#d-scene-event')?.addEventListener('change', () => {
-      this._commitDetail();
-      this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
-      this._renderList();
     });
     for (const selector of ['#d-coordination-group', '#d-coordination-policy', '#d-coordination-priority']) {
       panel.querySelector(selector)?.addEventListener('change', () => {
@@ -1515,7 +1615,7 @@ export class TriggerEditor {
     // JSON 输入框实时校验（合法绿框 / 非法红框 + 悬停提示）
     this._bindJsonValidation(panel.querySelector('#d-when-params'), true);
     this._bindJsonValidation(panel.querySelector('#d-if'), true);
-    panel.querySelectorAll('.do-params, .do-param-json').forEach(el => this._bindJsonValidation(el, true));
+    panel.querySelectorAll('.do-params, .do-param-json, .do-step-if-input, .do-branch-when').forEach(el => this._bindJsonValidation(el, true));
   }
 
   /**
@@ -1548,20 +1648,53 @@ export class TriggerEditor {
     check(); // 初始校验
   }
 
-  _moveAction(fromIndex, targetIndex, placeAfter = false) {
+  /** 按 path 定位 do[] 树中的数组与下标（支持嵌套 branch；约定同 TriggerStorylinePanel）。 */
+  _resolveStepPath(trigger, pathStr) {
+    if (!trigger || !pathStr) return null;
+    const parts = String(pathStr).split('.').map(Number);
+    let array = Array.isArray(trigger.do) ? trigger.do : [];
+    for (let i = 0; i < parts.length - 1; i += 2) {
+      const step = array[parts[i]];
+      if (!step || !Array.isArray(step.branch)) return null;
+      const branch = step.branch[parts[i + 1]];
+      if (!branch || !Array.isArray(branch.do)) return null;
+      array = branch.do;
+    }
+    const index = parts[parts.length - 1];
+    if (!Number.isInteger(index) || index < 0 || index >= array.length) return null;
+    return { array, index };
+  }
+
+  /** 定位分支的 do[] 数组。pathStr 格式 "<step>.<branch>[.<step>.<branch>...]"（偶数段）。 */
+  _resolveBranchDo(trigger, pathStr) {
+    if (!trigger || !pathStr) return null;
+    const parts = String(pathStr).split('.').map(Number);
+    if (!parts.length || parts.length % 2 !== 0) return null;
+    let array = Array.isArray(trigger.do) ? trigger.do : [];
+    for (let i = 0; i < parts.length; i += 2) {
+      const step = array[parts[i]];
+      if (!step || !Array.isArray(step.branch)) return null;
+      const branch = step.branch[parts[i + 1]];
+      if (!branch) return null;
+      array = Array.isArray(branch.do) ? branch.do : [];
+    }
+    return array;
+  }
+
+  _moveActionPath(sourcePath, targetPath, placeAfter = false) {
     const trigger = this.triggers[this.selectedIndex];
-    if (!trigger || !Array.isArray(trigger.do)) return false;
-    if (!Number.isInteger(fromIndex) || !Number.isInteger(targetIndex)
-      || fromIndex < 0 || targetIndex < 0
-      || fromIndex >= trigger.do.length || targetIndex >= trigger.do.length
-      || fromIndex === targetIndex) return false;
+    if (!trigger || !sourcePath || sourcePath === targetPath) return false;
+    const source = this._resolveStepPath(trigger, sourcePath);
+    const target = this._resolveStepPath(trigger, targetPath);
+    if (!source || !target || source.array !== target.array) return false;
+    if (source.index === target.index) return false;
 
     // 拖动完整 action 对象，保留稳定 ID、policy、operationId 和 unknown-but-allowed 字段。
-    const [action] = trigger.do.splice(fromIndex, 1);
-    let insertionIndex = targetIndex + (placeAfter ? 1 : 0);
-    if (fromIndex < insertionIndex) insertionIndex -= 1;
-    trigger.do.splice(insertionIndex, 0, action);
-    this._status(`已调整 ${trigger.name || trigger.id || '触发器'} 的动作顺序，请保存到工程`, 'ok');
+    const [action] = source.array.splice(source.index, 1);
+    let insertionIndex = target.index + (placeAfter ? 1 : 0);
+    if (source.index < insertionIndex) insertionIndex -= 1;
+    target.array.splice(insertionIndex, 0, action);
+    this._status(`已调整 ${trigger.name || trigger.id || '触发器'} 的步骤顺序，请保存到工程`, 'ok');
     this._renderDetail();
     return true;
   }
@@ -1589,8 +1722,6 @@ export class TriggerEditor {
     const name = panel.querySelector('#d-name')?.value.trim() || '';
     if (name) t.name = name;
     else delete t.name;
-    const fgRaw = panel.querySelector('#d-scene-event')?.value.trim() || '';
-    syncFgFields(t, fgRaw);
     const coordinationGroup = panel.querySelector('#d-coordination-group')?.value.trim() || '';
     if (coordinationGroup) {
       const priority = Number(panel.querySelector('#d-coordination-priority')?.value);
@@ -1633,10 +1764,31 @@ export class TriggerEditor {
     const cd = panel.querySelector('#d-cooldown').value.trim();
     if (cd) t.cooldown = parseFloat(cd); else delete t.cooldown;
 
-    // 动作：严格按 DOM 顺序提交完整步骤；stepId 独立于数组下标，拖动不改变幂等身份。
-    const previousActions = Array.isArray(t.do) ? t.do : [];
-    const nextActions = [];
-    const allocatedStepIds = new Set(previousActions.map(action => String(action?.stepId || '').trim()).filter(Boolean));
+    // 动作：严格按 DOM 顺序递归提交完整步骤（支持 branch[]）；stepId 独立于数组下标，拖动不改变幂等身份。
+    const previousSteps = Array.isArray(t.do) ? t.do : [];
+    const collectStepIds = steps => {
+      const ids = [];
+      for (const step of steps || []) {
+        const stepId = String(step?.stepId || '').trim();
+        if (stepId) ids.push(stepId);
+        if (Array.isArray(step?.branch)) {
+          for (const branch of step.branch) ids.push(...collectStepIds(branch?.do));
+        }
+      }
+      return ids;
+    };
+    const prevByPath = new Map();
+    const walkPath = (steps, base) => {
+      (steps || []).forEach((step, index) => {
+        const path = base === '' ? String(index) : `${base}.${index}`;
+        prevByPath.set(path, step);
+        if (Array.isArray(step?.branch)) {
+          step.branch.forEach((branch, bIndex) => walkPath(branch?.do, `${path}.${bIndex}`));
+        }
+      });
+    };
+    walkPath(previousSteps, '');
+    const allocatedStepIds = new Set(collectStepIds(previousSteps));
     let generatedSequence = 1;
     const allocateStepId = () => {
       const prefix = `${String(t.id || 'trigger').trim() || 'trigger'}.step`;
@@ -1646,8 +1798,33 @@ export class TriggerEditor {
       allocatedStepIds.add(candidate);
       return candidate;
     };
-    const doItems = panel.querySelectorAll('.trg-do-item');
-    doItems.forEach((el, index) => {
+    const commitStep = el => {
+      const path = text(el.dataset.path);
+      const prev = path ? prevByPath.get(path) : null;
+      const stepId = text(el.querySelector('.do-step-id')?.value) || allocateStepId();
+      if (el.classList.contains('trg-do-branch')) {
+        const branches = [];
+        for (const branchEl of el.querySelectorAll(':scope > .do-branch > .do-branch-item')) {
+          const branch = { ...(prev?.branch?.[Number(branchEl.dataset.branchIndex)] || {}) };
+          branch.otherwise = branchEl.querySelector('.do-branch-otherwise-cb').checked;
+          const whenRaw = text(branchEl.querySelector('.do-branch-when')?.value);
+          if (branch.otherwise) delete branch.when;
+          else if (whenRaw) branch.when = this._parseJson(whenRaw, null);
+          else delete branch.when;
+          const childSteps = [];
+          for (const childEl of branchEl.querySelectorAll(':scope > .do-branch-do > .trg-do-item')) {
+            childSteps.push(commitStep(childEl));
+          }
+          branch.do = childSteps;
+          branches.push(branch);
+        }
+        const next = { ...(prev || {}), stepId, branch: branches };
+        delete next.action;
+        delete next.params;
+        delete next.if;
+        delete next.await;
+        return next;
+      }
       const action = el.querySelector('.do-action').value;
       let params;
       if (action === 'spawnPlacements') {
@@ -1662,17 +1839,28 @@ export class TriggerEditor {
           else delete params.operation;
         }
       }
-      const requestedStepId = el.querySelector('.do-step-id')?.value.trim() || '';
-      const next = {
-        ...(previousActions[index] || {}),
-        stepId: requestedStepId || allocateStepId(),
-        action,
-        params
-      };
-      // TriggerSystem 总是逐步 await Promise.resolve 并在首个失败处短路；旧 await 字段没有语义。
+      const ifRaw = text(el.querySelector('.do-step-if-input')?.value);
+      const next = { ...(prev || {}), stepId, action, params };
+      if (ifRaw) next.if = this._parseJson(ifRaw, null);
+      else delete next.if;
+      if (action === 'tutorial.command') {
+        const awaitCb = el.querySelector('.do-await-cb');
+        if (awaitCb?.checked) next.params.await = true;
+        else delete next.params.await;
+      } else {
+        delete next.params.await;
+      }
+      delete next.branch;
       delete next.await;
-      nextActions.push(next);
-    });
+      return next;
+    };
+    const doListEl = panel.querySelector('#d-do-list');
+    const nextActions = [];
+    if (doListEl) {
+      for (const itemEl of doListEl.querySelectorAll(':scope > .trg-do-item')) {
+        nextActions.push(commitStep(itemEl));
+      }
+    }
     t.do = nextActions;
   }
 
@@ -1697,7 +1885,6 @@ export class TriggerEditor {
         do: [],
         once: true
       };
-      syncFgFields(definition, selectedEventId);
       if (selectedSceneId) definition.editorScope = { sceneIds: [selectedSceneId] };
     }
     this.triggers.push(definition);

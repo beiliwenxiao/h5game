@@ -108,4 +108,34 @@ describe('ScenarioCommandService ownership boundaries', () => {
     expect(tutorialSystem.showTutorial).toHaveBeenCalledWith('tutorial.one', {});
     expect(dialogueSystem.startDialogue).toHaveBeenCalledTimes(1);
   });
+
+  it('await 教程 show 先提交 revision 释放 reservation，再等待离槽（不阻塞同教程 complete）', async () => {
+    const hideListeners = [];
+    const current = { id: 'tutorial.one' };
+    const tutorialSystem = {
+      showTutorial: vi.fn(() => true),
+      onHide: vi.fn(listener => { hideListeners.push(listener); return () => {}; }),
+      currentTutorial: current,
+      pendingTutorials: [],
+      completedTutorials: new Set()
+    };
+    const service = new ScenarioCommandService({ tutorialSystem });
+    const stateId = 'tutorial:tutorial.one';
+
+    // await show 命令：execute 返回前应已提交 revision（commitStateRevision 被调用）
+    const showCommand = service.execute(command(SCENARIO_COMMANDS.TUTORIAL, {
+      tutorialId: 'tutorial.one', operation: 'show', await: true
+    }), context(stateId));
+    let settled = false;
+    showCommand.then(() => { settled = true; });
+
+    // 等待微任务推进：awaitHide 已挂起，revision 应先提交（释放 reservation）
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(settled).toBe(false); // 仍在等待教程离槽
+    // 模拟 complete 命令（同 stateId）推进：教程离槽并触发 onHide
+    current.id = null;
+    hideListeners.forEach(listener => listener());
+    await showCommand;
+    expect(settled).toBe(true);
+  });
 });

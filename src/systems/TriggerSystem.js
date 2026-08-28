@@ -13,6 +13,12 @@ import { createTriggerFailureEnvelope, TriggerExecutionError } from './TriggerFa
 const REENTRY_POLICIES = new Set(['reject', 'queue', 'restart']);
 const CATCH_UP_POLICIES = new Set(['resume', 'skip', 'single', 'all']);
 const COORDINATION_POLICIES = new Set(['broadcast', 'firstSuccess']);
+// 幂等护栏：这些 code 表示「条件未就绪/已被他路完成」，语义等同步骤级 if 跳过，
+// 不应中断整链、刷红 DebugPanel 或触发事件重试。可通过 config.benignResultCodes 覆盖。
+const DEFAULT_BENIGN_RESULT_CODES = new Set([
+  'preconditionFailed', 'notReady', 'alreadyCommitted', 'alreadyDone',
+  'alreadyProcessed', 'idempotent', 'notApplicable', 'skippedByPolicy'
+]);
 const hasText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => value === undefined ? undefined : JSON.parse(JSON.stringify(value));
 
@@ -75,12 +81,12 @@ export class TriggerSystem {
     this.serviceReferenceResolver = config.serviceReferenceResolver || null;
     this.bindingReferenceResolver = config.bindingReferenceResolver || null;
     this.operationFingerprintValidator = config.operationFingerprintValidator || null;
-    this.sceneEventDefinitionRepository = config.sceneEventDefinitionRepository || null;
-    this.flowGroupDefinitionRepository = config.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
-    this.flowGroupStateMachine = config.flowGroupStateMachine || null;
     this.runtimeConfig = config.runtimeConfig || null;
     this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     this.sceneDiagnostics = config.sceneDiagnostics || null;
+    this.benignResultCodes = new Set(config.benignResultCodes
+      ? (Array.isArray(config.benignResultCodes) ? config.benignResultCodes : Object.keys(config.benignResultCodes))
+      : DEFAULT_BENIGN_RESULT_CODES);
     this.ctx = {};
     this.expr = new ExpressionEngine({});
     this.ledger = new ScenarioExecutionLedger();
@@ -101,12 +107,6 @@ export class TriggerSystem {
     this.runtimeConfig = ctx.runtimeConfig || this.runtimeConfig;
     this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     this.sceneDiagnostics = ctx.sceneDiagnostics || ctx.services?.diagnostics || this.sceneDiagnostics;
-    this.sceneEventDefinitionRepository = ctx.sceneEventDefinitionRepository
-      || this.sceneEventDefinitionRepository;
-    this.flowGroupDefinitionRepository = ctx.flowGroupDefinitionRepository
-      || this.sceneEventDefinitionRepository
-      || this.flowGroupDefinitionRepository;
-    this.flowGroupStateMachine = ctx.flowGroupStateMachine || this.flowGroupStateMachine;
     this.definitionRevision = ctx.runtimeConfig?.definitionRevision
       ?? ctx.definitionRepository?.definitionRevision
       ?? this.definitionRevision;
@@ -120,18 +120,6 @@ export class TriggerSystem {
       this.debugMode = normalizeRuntimeDebugMode(this.runtimeConfig?.debug);
     }
     this.sceneDiagnostics = patch.sceneDiagnostics || patch.services?.diagnostics || this.sceneDiagnostics;
-    if (Object.prototype.hasOwnProperty.call(patch, 'sceneEventDefinitionRepository')) {
-      this.sceneEventDefinitionRepository = patch.sceneEventDefinitionRepository || null;
-      this.flowGroupDefinitionRepository = patch.flowGroupDefinitionRepository
-        || this.sceneEventDefinitionRepository
-        || this.flowGroupDefinitionRepository;
-    } else if (Object.prototype.hasOwnProperty.call(patch, 'flowGroupDefinitionRepository')) {
-      this.flowGroupDefinitionRepository = patch.flowGroupDefinitionRepository || null;
-      this.sceneEventDefinitionRepository = this.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
-    }
-    if (Object.prototype.hasOwnProperty.call(patch, 'flowGroupStateMachine')) {
-      this.flowGroupStateMachine = patch.flowGroupStateMachine || null;
-    }
     this.expr.setContext(this.ctx);
   }
 
@@ -156,7 +144,8 @@ export class TriggerSystem {
   }
 
   _validateSceneEventReference(trigger) {
-    // 双字段兼容：flowGroupId 优先，回退 sceneEventId
+    // 全 Trigger 化后 flowGroupId/sceneEventId 仅为兼容标签：只要求非空字符串，
+    // 不再要求所属 FlowGroup 已登记（flowGroups/sceneEvents 目录已清空为 []）。
     const hasFg = Object.prototype.hasOwnProperty.call(trigger, 'flowGroupId');
     const hasSe = Object.prototype.hasOwnProperty.call(trigger, 'sceneEventId');
     if (!hasFg && !hasSe) return true;
@@ -166,10 +155,6 @@ export class TriggerSystem {
     const label = hasFg ? 'flowGroupId' : 'sceneEventId';
     if (!resolved) {
       throw new Error(`TriggerSystem.register: ${trigger?.id || '<unknown>'}.${label} 必须是非空字符串（兼容 sceneEventId）`);
-    }
-    const repo = this.flowGroupDefinitionRepository || this.sceneEventDefinitionRepository;
-    if (repo?.has && !repo.has(resolved)) {
-      throw new Error(`TriggerSystem.register: ${trigger.id}.${label} 未登记 "${resolved}"（FlowGroup / SceneEvent）`);
     }
     return true;
   }
@@ -488,34 +473,12 @@ export class TriggerSystem {
     return request;
   }
 
-  /** Trigger 所属 FlowGroup（双字段读取：flowGroupId 优先，回退 sceneEventId）。 */
-  _flowGroupIdOf(trigger) {
-    if (hasText(trigger?.flowGroupId)) return trigger.flowGroupId.trim();
-    if (hasText(trigger?.sceneEventId)) return trigger.sceneEventId.trim();
-    return '';
-  }
-
   _eligible(trigger) {
     if (trigger.enabled === false) return false;
     if (trigger.once && this._firedOnce.has(trigger.id)) return false;
     const cooldown = this._cooldowns[trigger.id];
     if (cooldown && this.monotonicClock.now() < cooldown.nextDue) return false;
     if (trigger.if && !this.expr.eval(trigger.if)) return false;
-    // FlowGroup 状态机门控：locked/dormant/completed 阶段组的 Trigger 不可运行。
-    // 无状态机或无归属的 Trigger（未挂组）不受影响，保持旧行为。
-    if (this.flowGroupStateMachine) {
-      const flowGroupId = this._flowGroupIdOf(trigger);
-      if (flowGroupId && !this.flowGroupStateMachine.isRunnable(flowGroupId)) {
-        // 例外：一次性 state.transaction 收尾触发器允许在组 COMPLETED 后补触发。
-        // 组的完成条件常由同组成员提交的事务写入：黑板写入会同步触发状态机完成，
-        // 而该事务的通知事件在提交之后才派发——若此时仍按 active 门控，监听
-        // "完成事务"的 once 触发器将永远无法运行，导致后续流程死锁。
-        const completionNotice = trigger.once === true
-          && trigger?.when?.type === 'state.transaction'
-          && this.flowGroupStateMachine.getPhase(flowGroupId) === 'completed';
-        if (!completionNotice) return false;
-      }
-    }
     return true;
   }
 
@@ -588,55 +551,16 @@ export class TriggerSystem {
     let actionIndex = -1;
     try {
       const actions = trigger.do || [];
-      for (let index = 0; index < actions.length; index++) {
-        actionIndex = index;
-        const action = actions[index];
-        if (token.cancelled) {
-          throw Object.assign(new Error('trigger coordination restarted'), {
-            code: 'reentryRestarted', triggerPhase: 'reentry', triggerActionIndex: index,
-            triggerAction: action, actionOperationId: this._actionOperationId(trigger, action, index, request)
-          });
-        }
-        try {
-          lastResult = await this._executeAction(trigger, action, index, request);
-        } catch (error) {
-          error.triggerActionIndex = index;
-          error.triggerAction = action;
-          error.actionOperationId ||= this._actionOperationId(trigger, action, index, request);
-          throw error;
-        }
-        this.ledger.advance(trigger.id, request.operationId, index, lastResult);
-        if (lastResult.ok !== true) {
-          const failure = new Error(lastResult.error?.message || `action ${action?.action} returned ok:false`);
-          failure.code = lastResult.code || 'actionRejected';
-          failure.result = lastResult;
-          failure.triggerPhase = 'commandResult';
-          failure.triggerActionIndex = index;
-          failure.triggerAction = action;
-          failure.actionOperationId = this._actionOperationId(trigger, action, index, request);
-          throw failure;
-        }
-        if (token.cancelled) {
-          throw Object.assign(new Error('trigger coordination restarted'), {
-            code: 'reentryRestarted', triggerPhase: 'reentry', triggerActionIndex: index,
-            triggerAction: action, actionOperationId: this._actionOperationId(trigger, action, index, request)
-          });
-        }
-      }
+      const executed = await this._runSteps(trigger, request, token, actions, { n: 0 });
+      lastResult = executed.lastResult;
+      actionIndex = executed.actionIndex;
       const record = this.ledger.finish(trigger.id, request.operationId, 'succeeded', lastResult, this.monotonicClock.now());
       if (trigger.once) this._firedOnce.add(trigger.id);
       if (Number(trigger.cooldown) > 0) {
         const duration = Number(trigger.cooldown) * 1000;
         this._cooldowns[trigger.id] = { nextDue: this.monotonicClock.now() + duration, duration };
       }
-      // FlowGroup 状态机进度通知（trigger 成功 → 组 progress+1）。状态机异常不得打断触发流程。
-      if (this.flowGroupStateMachine) {
-        const flowGroupId = this._flowGroupIdOf(trigger);
-        if (flowGroupId) {
-          try { this.flowGroupStateMachine.notifyProgress(flowGroupId, trigger.id, 'trigger'); }
-          catch (error) { console.warn('TriggerSystem: FlowGroup 进度通知失败', error); }
-        }
-      }
+      // 全 Trigger 化后不再有 FlowGroup 进度通知；顺序完全由 when/if + 事务前置条件驱动。
       await this._publishFinal('triggerSucceeded', trigger, record);
       this._emit('triggerEnd', trigger, { operationId: request.operationId, status: 'succeeded', result: technicalResult(lastResult) });
       return lastResult;
@@ -769,6 +693,116 @@ export class TriggerSystem {
       throw error;
     }
     return normalized;
+  }
+
+  /**
+   * 多路径步骤执行内核（递归）。do[] 内每一步可以是：
+   *   - 带 if 前置守卫的动作：条件不满足则跳过该步（幂等护栏，不中断流程）
+   *   - branch[] 分支容器：when/otherwise 命中后递归执行对应子路径（单 Trigger 多教程）
+   *   - 普通动作：严格串行等待（params.await 支持教程生命周期等待）
+   * cursor 为扁平序号计数器（跨分支唯一），保证 ledger.advance 的 actionIndex 与
+   * operationId 的 :action:{index} 后缀全局唯一。
+   */
+  async _runSteps(trigger, request, token, steps, cursor) {
+    let lastResult = normalizeLegacyResult(undefined, request.operationId, trigger.id);
+    let actionIndex = -1;
+    for (const step of steps || []) {
+      const index = cursor.n++;
+      actionIndex = index;
+      if (token.cancelled) {
+        throw Object.assign(new Error('trigger coordination restarted'), {
+          code: 'reentryRestarted', triggerPhase: 'reentry', triggerActionIndex: index,
+          triggerAction: step, actionOperationId: this._actionOperationId(trigger, step, index, request)
+        });
+      }
+      // 步骤级前置守卫：条件不满足则跳过（结果标记 skipped，仍推进账本）
+      if (step?.if && !this.expr.eval(step.if)) {
+        lastResult = this._skippedResult(request, trigger);
+        this.ledger.advance(trigger.id, request.operationId, index, lastResult);
+        continue;
+      }
+      if (Array.isArray(step?.branch)) {
+        const branch = this._selectBranch(step.branch);
+        if (branch) {
+          try {
+            lastResult = (await this._runSteps(trigger, request, token, branch.do || [], cursor)).lastResult;
+          } catch (error) {
+            error.triggerActionIndex = index;
+            error.triggerAction = step;
+            error.actionOperationId ||= this._actionOperationId(trigger, step, index, request);
+            throw error;
+          }
+        } else {
+          lastResult = this._skippedResult(request, trigger);
+        }
+      } else {
+        try {
+          lastResult = await this._executeAction(trigger, step, index, request);
+        } catch (error) {
+          error.triggerActionIndex = index;
+          error.triggerAction = step;
+          error.actionOperationId ||= this._actionOperationId(trigger, step, index, request);
+          throw error;
+        }
+      }
+      // 幂等护栏：良性结果码（条件未就绪/已被他路完成）等同步骤级 if 跳过，
+      // 不中断整链、不刷红 DebugPanel、不触发事件重试。
+      if (lastResult.ok !== true && this._isBenignResult(lastResult)) {
+        lastResult = this._benignSkipResult(request, trigger, lastResult);
+      }
+      this.ledger.advance(trigger.id, request.operationId, index, lastResult);
+      if (lastResult.ok !== true) {
+        const failure = new Error(lastResult.error?.message || `action ${step?.action || 'branch'} returned ok:false`);
+        failure.code = lastResult.code || 'actionRejected';
+        failure.result = lastResult;
+        failure.triggerPhase = 'commandResult';
+        failure.triggerActionIndex = index;
+        failure.triggerAction = step;
+        failure.actionOperationId = this._actionOperationId(trigger, step, index, request);
+        throw failure;
+      }
+      if (token.cancelled) {
+        throw Object.assign(new Error('trigger coordination restarted'), {
+          code: 'reentryRestarted', triggerPhase: 'reentry', triggerActionIndex: index,
+          triggerAction: step, actionOperationId: this._actionOperationId(trigger, step, index, request)
+        });
+      }
+    }
+    return { lastResult, actionIndex };
+  }
+
+  /** 步骤级 if / branch 守卫未命中时的跳过结果（技术上成功，不视为失败）。 */
+  _skippedResult(request, trigger) {
+    return {
+      ok: true, status: 'skipped', committed: false,
+      operationId: request.operationId,
+      stateId: `trigger:${trigger.id}`, stateRevision: null
+    };
+  }
+
+  /** 良性结果码判定：ok:false 且 code 属于幂等护栏集，视为可跳过的良性结果。 */
+  _isBenignResult(result) {
+    return result?.ok === false && this.benignResultCodes.has(result.code);
+  }
+
+  /** 良性结果转跳过结果，保留原 code 供诊断，技术上成功、不中断整链。 */
+  _benignSkipResult(request, trigger, source) {
+    return {
+      ok: true, status: 'skipped', committed: false, code: source?.code || null,
+      operationId: request.operationId,
+      stateId: `trigger:${trigger.id}`, stateRevision: null
+    };
+  }
+
+  /** 分支选择：优先 when 命中的分支（无 when 视为恒真）；全部未命中回退 otherwise 兜底。 */
+  _selectBranch(branches) {
+    let fallback = null;
+    for (const branch of branches || []) {
+      if (branch?.otherwise === true) { fallback = branch; continue; }
+      if (branch?.when == null) return branch;
+      if (this.expr.eval(branch.when)) return branch;
+    }
+    return fallback;
   }
 
   async _publishFinal(type, trigger, record, failureEnvelope = null) {
@@ -1008,21 +1042,41 @@ export class TriggerSystem {
   _validateActionStepDefinitions(trigger) {
     const identities = new Set();
     const requiresStableSteps = hasText(trigger?.flowGroupId) || hasText(trigger?.sceneEventId);
-    for (const [index, action] of (trigger?.do || []).entries()) {
-      const stepId = hasText(action?.stepId) ? action.stepId.trim() : '';
-      if (requiresStableSteps && !stepId) {
-        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}].stepId 必须是非空稳定 ID`);
+    this._validateStepList(trigger, trigger?.do || [], requiresStableSteps, identities, []);
+    return true;
+  }
+
+  /** 递归校验 do[]/branch[] 步骤：稳定 stepId、身份唯一、禁止 action 级 await（用 params.await）。 */
+  _validateStepList(trigger, steps, requiresStableSteps, identities, path) {
+    for (const [index, step] of (steps || []).entries()) {
+      const nodePath = [...path, `do[${index}]`];
+      if (Array.isArray(step?.branch)) {
+        this._requireStableIdentity(trigger, step, requiresStableSteps, identities, nodePath, '分支');
+        for (const [bIndex, branch] of step.branch.entries()) {
+          this._validateStepList(trigger, branch?.do || [], requiresStableSteps, identities, [...nodePath, `branch[${bIndex}]`]);
+        }
+        continue;
       }
-      if (requiresStableSteps && Object.prototype.hasOwnProperty.call(action || {}, 'await')) {
-        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}].await 已废弃；动作始终严格串行等待`);
-      }
-      const identity = stepId || `legacy-${stableDigest(action || {})}`;
-      if (identities.has(identity)) {
-        throw new Error(`TriggerSystem.register: ${trigger.id}.do[${index}] 动作步骤身份重复: ${identity}`);
-      }
-      identities.add(identity);
+      this._requireStableIdentity(trigger, step, requiresStableSteps, identities, nodePath);
     }
     return true;
+  }
+
+  _requireStableIdentity(trigger, step, requiresStableSteps, identities, path, label = '') {
+    const stepId = hasText(step?.stepId) ? step.stepId.trim() : '';
+    const suffix = label ? `（${label}步骤）` : '';
+    if (requiresStableSteps && !stepId) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.${path.join('.')}.stepId 必须是非空稳定 ID${suffix}`);
+    }
+    if (requiresStableSteps && Object.prototype.hasOwnProperty.call(step || {}, 'await')) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.${path.join('.')}.await 已废弃；请用 params.await 使教程串行等待`);
+    }
+    const identity = stepId || `legacy-${stableDigest(step || {})}`;
+    if (identities.has(identity)) {
+      throw new Error(`TriggerSystem.register: ${trigger.id}.${path.join('.')} 动作步骤身份重复: ${identity}`);
+    }
+    identities.add(identity);
+    return identity;
   }
 
   _reentryPolicy(trigger) { return trigger.reentryPolicy || trigger.reentry || 'reject'; }
@@ -1039,16 +1093,26 @@ export class TriggerSystem {
 
   _validateDefinitionReferences(trigger, errors) {
     const policy = this._reentryPolicy(trigger);
-    for (const [index, action] of (trigger.do || []).entries()) {
-      const descriptor = this.actionDescriptorRegistry?.get?.(action?.action);
-      if (!descriptor && typeof this.actions[action?.action] !== 'function') {
-        errors.push({ code: 'invalidReference', path: `triggers.definitions.${trigger.id}.do[${index}].action`, message: `未知 action ${String(action?.action)}` });
+    const validateStepList = (steps, basePath) => {
+      for (const [index, step] of (steps || []).entries()) {
+        const nodePath = `${basePath}.do[${index}]`;
+        if (Array.isArray(step?.branch)) {
+          for (const [bIndex, branch] of step.branch.entries()) {
+            validateStepList(branch?.do || [], `${nodePath}.branch[${bIndex}]`);
+          }
+          continue;
+        }
+        const descriptor = this.actionDescriptorRegistry?.get?.(step?.action);
+        if (!descriptor && typeof this.actions[step?.action] !== 'function') {
+          errors.push({ code: 'invalidReference', path: `${nodePath}.action`, message: `未知 action ${String(step?.action)}` });
+        }
+        if (descriptor && !descriptor.allowedReentryPolicies.includes(policy)) {
+          errors.push({ code: 'invalidReentry', path: `triggers.definitions.${trigger.id}.reentryPolicy`, message: `action ${step.action} 不允许 ${policy}` });
+        }
+        for (const ref of step?.serviceRefs || []) this._validateServiceRef(ref, nodePath, errors);
       }
-      if (descriptor && !descriptor.allowedReentryPolicies.includes(policy)) {
-        errors.push({ code: 'invalidReentry', path: `triggers.definitions.${trigger.id}.reentryPolicy`, message: `action ${action.action} 不允许 ${policy}` });
-      }
-      for (const ref of action?.serviceRefs || []) this._validateServiceRef(ref, `${trigger.id}.do[${index}]`, errors);
-    }
+    };
+    validateStepList(trigger.do || [], `triggers.definitions.${trigger.id}`);
     for (const ref of trigger.serviceRefs || []) this._validateServiceRef(ref, trigger.id, errors);
     for (const raw of trigger.bindingRefs || []) {
       const id = typeof raw === 'string' ? raw : raw?.id;

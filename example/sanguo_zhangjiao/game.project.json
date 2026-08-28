@@ -2705,438 +2705,8 @@
     }
   ],
   "quests": [],
-  "flowGroups": [
-    {
-      "id": "s01.event.awakening",
-      "name": "寒风苏醒与点燃篝火",
-      "description": "进入 S01 后恢复荒原现场，完成移动教学并点燃篝火。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 0,
-      "dependsOn": [],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": "S01",
-        "path": "currentSceneId"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.campfireLit"
-      }
-    },
-    {
-      "id": "s01.event.tools",
-      "name": "拾取求生工具",
-      "description": "在篝火显露的物资中拾取破旧斧头和旧剥皮刀。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 1,
-      "dependsOn": [
-        "s01.event.awakening"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.campfireLit"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.initialToolsPicked"
-      }
-    },
-    {
-      "id": "s01.event.foraging",
-      "name": "采集野果",
-      "description": "使用既有采集流程取得两次野果，完成初次觅食。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 2,
-      "dependsOn": [
-        "s01.event.tools"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.initialToolsPicked"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.berriesGathered"
-      }
-    },
-    {
-      "id": "s01.event.firewood",
-      "name": "砍柴与三次添火",
-      "description": "砍取木材并为篝火添柴三次，引出首只野狼。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 3,
-      "dependsOn": [
-        "s01.event.foraging"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.berriesGathered"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.firstWolfSpotted"
-      }
-    },
-    {
-      "id": "s01.event.firstWolf",
-      "name": "猎杀并剥取首狼",
-      "description": "击杀首只野狼并从成立的尸体剥取狼皮。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 4,
-      "dependsOn": [
-        "s01.event.firewood"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.firstWolfSpotted"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.wolfSkinned"
-      }
-    },
-    {
-      "id": "s01.event.survivalCraft",
-      "name": "烤肉、制衣与搭建庇护所",
-      "description": "烤制狼肉、制作狼皮装备并完成小庇护所施工。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 5,
-      "dependsOn": [
-        "s01.event.firstWolf"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.wolfSkinned"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.shelterCompleted"
-      }
-    },
-    {
-      "id": "s01.event.overnight",
-      "name": "庇护所过夜",
-      "description": "在建成的庇护所过夜，启动狼群追逐。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 6,
-      "dependsOn": [
-        "s01.event.survivalCraft"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.shelterCompleted"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.overnightCompleted"
-      }
-    },
-    {
-      "id": "s01.event.riverEscape",
-      "name": "狼群追逐与跳石过河",
-      "description": "在狼群追逐中跳石越河并抵达对岸。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 7,
-      "dependsOn": [
-        "s01.event.overnight"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.pursuit.active"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.riverCrossed"
-      }
-    },
-    {
-      "id": "s01.event.cliffEscape",
-      "name": "抵达山崖并攀藤逃生",
-      "description": "抵达山崖后攀藤逃离，完成 S01 生存流程。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 8,
-      "dependsOn": [
-        "s01.event.riverEscape"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.riverCrossed"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Completed"
-      }
-    }
-  ],
-  "sceneEvents": [
-    {
-      "id": "s01.event.awakening",
-      "name": "寒风苏醒与点燃篝火",
-      "description": "进入 S01 后恢复荒原现场，完成移动教学并点燃篝火。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 0,
-      "dependsOn": [],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": "S01",
-        "path": "currentSceneId"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.campfireLit"
-      }
-    },
-    {
-      "id": "s01.event.tools",
-      "name": "拾取求生工具",
-      "description": "在篝火显露的物资中拾取破旧斧头和旧剥皮刀。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 1,
-      "dependsOn": [
-        "s01.event.awakening"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.campfireLit"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.initialToolsPicked"
-      }
-    },
-    {
-      "id": "s01.event.foraging",
-      "name": "采集野果",
-      "description": "使用既有采集流程取得两次野果，完成初次觅食。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 2,
-      "dependsOn": [
-        "s01.event.tools"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.initialToolsPicked"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.berriesGathered"
-      }
-    },
-    {
-      "id": "s01.event.firewood",
-      "name": "砍柴与三次添火",
-      "description": "砍取木材并为篝火添柴三次，引出首只野狼。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 3,
-      "dependsOn": [
-        "s01.event.foraging"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.berriesGathered"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.firstWolfSpotted"
-      }
-    },
-    {
-      "id": "s01.event.firstWolf",
-      "name": "猎杀并剥取首狼",
-      "description": "击杀首只野狼并从成立的尸体剥取狼皮。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 4,
-      "dependsOn": [
-        "s01.event.firewood"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.firstWolfSpotted"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.wolfSkinned"
-      }
-    },
-    {
-      "id": "s01.event.survivalCraft",
-      "name": "烤肉、制衣与搭建庇护所",
-      "description": "烤制狼肉、制作狼皮装备并完成小庇护所施工。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 5,
-      "dependsOn": [
-        "s01.event.firstWolf"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.wolfSkinned"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.shelterCompleted"
-      }
-    },
-    {
-      "id": "s01.event.overnight",
-      "name": "庇护所过夜",
-      "description": "在建成的庇护所过夜，启动狼群追逐。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 6,
-      "dependsOn": [
-        "s01.event.survivalCraft"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.shelterCompleted"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.overnightCompleted"
-      }
-    },
-    {
-      "id": "s01.event.riverEscape",
-      "name": "狼群追逐与跳石过河",
-      "description": "在狼群追逐中跳石越河并抵达对岸。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 7,
-      "dependsOn": [
-        "s01.event.overnight"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.pursuit.active"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.riverCrossed"
-      }
-    },
-    {
-      "id": "s01.event.cliffEscape",
-      "name": "抵达山崖并攀藤逃生",
-      "description": "抵达山崖后攀藤逃离，完成 S01 生存流程。",
-      "scope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "order": 8,
-      "dependsOn": [
-        "s01.event.riverEscape"
-      ],
-      "activeWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Survival.riverCrossed"
-      },
-      "completionWhen": {
-        "blackboardKey": "storyState",
-        "equals": true,
-        "path": "s01Completed"
-      }
-    }
-  ],
+  "flowGroups": [],
+  "sceneEvents": [],
   "triggerCatalog": {
     "actions": [
       {
@@ -4119,7 +3689,8 @@
           "action": "tutorial.command",
           "params": {
             "operation": "show",
-            "tutorialId": "tutorial-001"
+            "tutorialId": "tutorial-001",
+            "await": true
           },
           "stepId": "show-tutorial-eat-food"
         }
@@ -4155,7 +3726,8 @@
           "action": "tutorial.command",
           "params": {
             "operation": "show",
-            "tutorialId": "s01.chopWood"
+            "tutorialId": "s01.chopWood",
+            "await": true
           },
           "stepId": "show-tutorial-s01-chop-wood"
         }
@@ -4243,7 +3815,22 @@
             "definitionId": "story.s01.wolfSkinned",
             "operation": "commitStoryWhenReady"
           },
-          "stepId": "commit-wolf-skinned"
+          "stepId": "commit-wolf-skinned",
+          "if": {
+            "op": "and",
+            "args": [
+              {
+                "op": "==",
+                "var": "story.s01Survival.firstWolfKilled",
+                "value": true
+              },
+              {
+                "op": "==",
+                "var": "story.s01Survival.wolfSkinned",
+                "value": false
+              }
+            ]
+          }
         }
       ],
       "editorScope": {
@@ -4260,6 +3847,49 @@
           "itemId": "resource.wolf_hide"
         },
         "type": "gathering.completed"
+      }
+    },
+    {
+      "do": [
+        {
+          "action": "s01Survival",
+          "if": {
+            "op": "and",
+            "args": [
+              {
+                "op": "hasItem",
+                "item": "resource.wolf_hide",
+                "count": 1
+              },
+              {
+                "op": "==",
+                "var": "story.s01Survival.wolfSkinned",
+                "value": false
+              }
+            ]
+          },
+          "params": {
+            "completedPath": "s01Survival.wolfSkinned",
+            "definitionId": "story.s01.wolfSkinned",
+            "operation": "commitStoryWhenReady"
+          },
+          "stepId": "commit-wolf-skinned-fallback"
+        }
+      ],
+      "editorScope": {
+        "sceneIds": [
+          "S01"
+        ]
+      },
+      "id": "trg_s01_wolf_skin_fallback",
+      "name": "狼皮竞态兜底：首狼击杀成立且已持有狼皮时补提剥皮",
+      "once": true,
+      "sceneEventId": "s01.event.firstWolf",
+      "when": {
+        "params": {
+          "definitionId": "story.s01.firstWolfKilled"
+        },
+        "type": "state.transaction"
       }
     },
     {
@@ -4724,7 +4354,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S02-initial"
@@ -4768,14 +4397,12 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s02.summons.accept"
           }
         },
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s02.travel"
           }
@@ -4795,7 +4422,6 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s02.travel"
           }
@@ -4812,7 +4438,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S09-initial"
@@ -4839,7 +4464,6 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s09.refugee.prepare"
           }
@@ -4859,14 +4483,12 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s09.refugee.start"
           }
         },
         {
           "action": "dialogue.command",
-          "await": true,
           "params": {
             "dialogueId": "dialogue.s09.refugeeConflict",
             "operation": "start"
@@ -4884,7 +4506,6 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s09.refugee.branch"
           }
@@ -4920,7 +4541,6 @@
       "do": [
         {
           "action": "state.transaction",
-          "await": true,
           "params": {
             "definitionId": "story.s09.enlist"
           }
@@ -5022,7 +4642,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "yuzhou.travel",
             "scenarioId": "scenario.command.yuzhou.travel"
@@ -5040,7 +4659,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S03-yellow-turban"
@@ -5049,7 +4667,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S03-han-army"
@@ -5077,7 +4694,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s03.yingchuan",
             "operation": "battle.open.s03"
@@ -5096,7 +4712,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "exit.s03",
             "scenarioId": "scenario.command.exit.s03"
@@ -5114,7 +4729,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S04-yellow-turban"
@@ -5123,7 +4737,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S04-han-army"
@@ -5132,7 +4745,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S04-bocai-rescue"
@@ -5141,7 +4753,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S04-herbs"
@@ -5169,7 +4780,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s04.changshe",
             "operation": "battle.open.s04"
@@ -5224,7 +4834,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "route.choose",
             "scenarioId": "scenario.command.route.choose"
@@ -5243,7 +4852,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "mine.prepare",
             "scenarioId": "scenario.command.mine.prepare"
@@ -5262,7 +4870,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "mine.status",
             "scenarioId": "scenario.command.mine.status"
@@ -5281,7 +4888,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "mine.retreat",
             "scenarioId": "scenario.command.mine.retreat"
@@ -5300,7 +4906,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s05_wancheng_outskirts",
             "operation": "battle.open.s05"
@@ -5373,7 +4978,6 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
           "params": {
             "definitionId": "construction.barricade",
             "operation": "construction.start.s06"
@@ -5392,7 +4996,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "recall.s06",
             "scenarioId": "scenario.command.recall.s06"
@@ -5410,7 +5013,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S07-yellow-turban"
@@ -5419,7 +5021,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S07-han-army"
@@ -5447,7 +5048,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s07_xihua_delay",
             "operation": "battle.open.s07"
@@ -5466,7 +5066,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "delay.commit",
             "pointId": "north",
@@ -5486,7 +5085,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "delay.commit",
             "pointId": "center",
@@ -5506,7 +5104,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "delay.commit",
             "pointId": "south",
@@ -5526,7 +5123,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "exit.s07",
             "scenarioId": "scenario.command.exit.s07",
@@ -5566,7 +5162,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "cartId": "S08-retreat-cart",
             "operation": "retreat.choose",
@@ -5587,7 +5182,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "exitId": "S08-recall-exit",
             "operation": "recall.s08",
@@ -5626,7 +5220,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "story.death",
             "scenarioId": "scenario.command.story.death"
@@ -5645,7 +5238,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "camp.inspect",
             "scenarioId": "scenario.command.camp.inspect"
@@ -5664,7 +5256,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "camp.relocate",
             "scenarioId": "scenario.command.camp.relocate"
@@ -5683,7 +5274,6 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
           "params": {
             "definitionId": "construction.campfire",
             "operation": "construction.start.s10",
@@ -5704,7 +5294,6 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
           "params": {
             "definitionId": "construction.barricade",
             "operation": "construction.start.s10",
@@ -5725,7 +5314,6 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
           "params": {
             "definitionId": "construction.simple_wall",
             "operation": "construction.start.s10",
@@ -5746,7 +5334,6 @@
       "do": [
         {
           "action": "construction.command",
-          "await": true,
           "params": {
             "definitionId": "construction.arrow_tower",
             "operation": "construction.start.s10",
@@ -5767,7 +5354,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "exit.s10",
             "scenarioId": "scenario.command.exit.s10"
@@ -5785,7 +5371,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S11-yellow-turban"
@@ -5794,7 +5379,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S11-han-army"
@@ -5803,7 +5387,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S11-zhang-liang-rescue"
@@ -5831,7 +5414,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s11.guangzong",
             "operation": "battle.open.s11"
@@ -5850,7 +5432,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "start",
             "rescueId": "rescue.s11.zhangLiang"
@@ -5869,7 +5450,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "completeStage",
             "rescueId": "rescue.s11.zhangLiang",
@@ -5889,7 +5469,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "completeStage",
             "placementGroup": "S11-rescue-guards",
@@ -5909,7 +5488,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "recordWave",
             "rescueId": "rescue.s11.zhangLiang",
@@ -5930,7 +5508,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "recordWave",
             "rescueId": "rescue.s11.zhangLiang",
@@ -5951,7 +5528,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "recordWave",
             "rescueId": "rescue.s11.zhangLiang",
@@ -5973,7 +5549,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "completeStage",
             "rescueId": "rescue.s11.zhangLiang",
@@ -5993,7 +5568,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "operation": "interact",
             "vehicleId": "vehicle.s11.breakoutHorse"
@@ -6012,7 +5586,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "exit.s11",
             "scenarioId": "scenario.command.exit.s11",
@@ -6031,7 +5604,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S12-yellow-turban"
@@ -6040,7 +5612,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S12-han-army"
@@ -6049,7 +5620,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S12-zhang-bao-rescue"
@@ -6058,7 +5628,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S12-bocai-allies"
@@ -6067,7 +5636,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S12-zhang-liang-reinforcements"
@@ -6095,7 +5663,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s12.xiaquyang",
             "operation": "battle.open.s12"
@@ -6114,7 +5681,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "start",
             "rescueId": "rescue.s12.zhangBao"
@@ -6133,7 +5699,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "completeStage",
             "rescueId": "rescue.s12.zhangBao",
@@ -6153,7 +5718,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "operation": "useEntrance",
             "vehicleId": "vehicle.s12.siegeLadder"
@@ -6172,7 +5736,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "damageType": "fire",
             "operation": "destroy",
@@ -6192,7 +5755,6 @@
       "do": [
         {
           "action": "rescue.command",
-          "await": true,
           "params": {
             "operation": "completeStage",
             "rescueId": "rescue.s12.zhangBao",
@@ -6212,7 +5774,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "eligibleSceneId": "S13",
             "fallbackSceneId": "S14",
@@ -6232,7 +5793,6 @@
       "do": [
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S13-yellow-turban"
@@ -6241,7 +5801,6 @@
         },
         {
           "action": "spawnPlacements",
-          "await": true,
           "params": {
             "selector": {
               "group": "S13-han-army"
@@ -6269,7 +5828,6 @@
       "do": [
         {
           "action": "battle.command",
-          "await": true,
           "params": {
             "battleId": "battle.s13.jingshan",
             "operation": "battle.open.s13"
@@ -6288,7 +5846,6 @@
       "do": [
         {
           "action": "scenario.command",
-          "await": true,
           "params": {
             "operation": "exit.s13",
             "scenarioId": "scenario.command.exit.s13",
@@ -6308,7 +5865,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": false,
           "params": {
             "operation": "openCargo",
             "vehicleId": "vehicle.s14.lastCart"
@@ -6327,7 +5883,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "divergenceKind": "cart",
             "operation": "resolveDivergence",
@@ -6347,7 +5902,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "divergenceKind": "catapult",
             "operation": "resolveDivergence",
@@ -6367,7 +5921,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": true,
           "params": {
             "operation": "operateWeapon",
             "vehicleId": "vehicle.s14.catapult"
@@ -6386,7 +5939,6 @@
       "do": [
         {
           "action": "vehicle.command",
-          "await": false,
           "params": {
             "operation": "leaveSeat",
             "vehicleId": "vehicle.s14.catapult"
@@ -6405,7 +5957,6 @@
       "do": [
         {
           "action": "ending.command",
-          "await": true,
           "params": {
             "checkpointId": "checkpoint.S14.preEnding",
             "endingId": "sanguo-zhangjiao-endings-v1",
@@ -8449,17 +8000,8 @@
         "when": {
           "all": [
             {
-              "equals": true,
-              "path": "story.s01Survival.firstWolfKilled"
-            },
-            {
               "equals": false,
               "path": "story.s01Survival.wolfSkinned"
-            },
-            {
-              "inventory": {
-                "toolType": "skinningKnife"
-              }
             }
           ]
         },

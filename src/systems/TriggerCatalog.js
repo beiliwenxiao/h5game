@@ -234,18 +234,39 @@ export function validateTriggerDefinition(trigger, project = null) {
   const known = new Set(getTriggerActions(project).map(item => item.value));
   const stepIds = new Set();
   const requiresStableSteps = Boolean(text(trigger?.flowGroupId) || text(trigger?.sceneEventId));
-  for (const [index, action] of (trigger?.do || []).entries()) {
-    const path = `do[${index}]`;
-    if (!known.has(action?.action)) errors.push(`${path}.action 未登记: ${action?.action || ''}`);
-    const stepId = text(action?.stepId);
-    if (requiresStableSteps && !stepId) errors.push(`${path}.stepId 不能为空`);
-    if (stepId && stepIds.has(stepId)) errors.push(`${path}.stepId 重复: ${stepId}`);
-    if (stepId) stepIds.add(stepId);
-    if (requiresStableSteps && Object.prototype.hasOwnProperty.call(action || {}, 'await')) {
-      errors.push(`${path}.await 已废弃；TriggerSystem 始终严格串行等待并在失败时短路`);
+  const validateStepList = (actions, path) => {
+    for (const [index, action] of (actions || []).entries()) {
+      const stepPath = `${path}[${index}]`;
+      if (!known.has(action?.action)) errors.push(`${stepPath}.action 未登记: ${action?.action || ''}`);
+      const stepId = text(action?.stepId);
+      if (requiresStableSteps && !stepId) errors.push(`${stepPath}.stepId 不能为空`);
+      if (stepId && stepIds.has(stepId)) errors.push(`${stepPath}.stepId 重复: ${stepId}`);
+      if (stepId) stepIds.add(stepId);
+      if (Array.isArray(action?.branch)) {
+        // 分支容器：递归校验各分支条件与子步骤（单 Trigger 多路径/多教程）
+        action.branch.forEach((branch, bIndex) => {
+          const branchPath = `${stepPath}.branch[${bIndex}]`;
+          if (branch?.otherwise === true && branch?.when != null) {
+            errors.push(`${branchPath} 不能同时设置 otherwise 与 when`);
+          }
+          if (!Array.isArray(branch?.do)) {
+            errors.push(`${branchPath}.do 必须是数组`);
+          } else {
+            validateStepList(branch.do, `${branchPath}.do`);
+          }
+        });
+      } else {
+        if (requiresStableSteps && Object.prototype.hasOwnProperty.call(action || {}, 'await')) {
+          errors.push(`${stepPath}.await 已废弃；TriggerSystem 始终严格串行等待并在失败时短路`);
+        }
+        if (action?.params?.await === true && action.action !== 'tutorial.command') {
+          errors.push(`${stepPath}.params.await 仅允许用于 tutorial.command 步骤`);
+        }
+        errors.push(...validateTriggerActionParams(action, project, stepPath));
+      }
     }
-    errors.push(...validateTriggerActionParams(action, project, path));
-  }
+  };
+  validateStepList(trigger?.do, 'do');
   return errors;
 }
 

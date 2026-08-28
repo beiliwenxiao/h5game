@@ -2,8 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MonotonicClock } from '../core/command/AuthorityClocks.js';
 import { Blackboard } from '../core/Blackboard.js';
-import { FlowGroupDefinitionRepository } from '../core/scene/FlowGroupDefinitionRepository.js';
-import { FlowGroupRuntimeStateMachine, FLOW_GROUP_PHASE } from '../core/scene/FlowGroupRuntimeStateMachine.js';
 import { SceneDiagnostics } from '../core/scene/SceneDiagnostics.js';
 import { canonicalDigestInput, sha256Text, stableDigest } from '../core/StableDigest.js';
 import { TriggerSystem } from './TriggerSystem.js';
@@ -598,25 +596,12 @@ describe('TriggerSystem debug failure exposure contract', () => {
   });
 });
 
-describe('FlowGroup 完成事务收尾触发器门控', () => {
-  function buildStateMachine() {
-    const blackboard = new Blackboard();
-    blackboard.init({ storyState: { done: false } });
-    const repository = new FlowGroupDefinitionRepository([
-      { id: 'fg-tools', name: '工具', order: 0, scope: { sceneIds: ['S01'] }, completionWhen: { blackboardKey: 'storyState', path: 'done', equals: true } },
-      { id: 'fg-next', name: '下一组', order: 1, scope: { sceneIds: ['S01'] }, dependsOn: ['fg-tools'] }
-    ]);
-    const stateMachine = new FlowGroupRuntimeStateMachine({ definitions: repository, blackboard });
-    stateMachine.evaluate();
-    return { blackboard, stateMachine };
-  }
-
-  function buildTriggerSystem(stateMachine, triggerOverrides = {}) {
+describe('全 Trigger 化：flowGroupId 仅为兼容标签，不再门控', () => {
+  function buildTriggerSystem(triggerOverrides = {}) {
     const calls = [];
     const system = new TriggerSystem({
       monotonicClock: new MonotonicClock(100),
       actionDescriptorRegistry: descriptorRegistry(['action.work']),
-      flowGroupStateMachine: stateMachine,
       commandAdapter: {
         async execute(action, context) {
           calls.push({ operationId: context.operationId, params: action.params });
@@ -625,8 +610,8 @@ describe('FlowGroup 完成事务收尾触发器门控', () => {
       }
     });
     system.register({
-      id: 'trg.done',
-      flowGroupId: 'fg-tools',
+      id: 'trg.labeled',
+      flowGroupId: 'fg-nonexistent-catalog', // 目录已清空，仅为标签
       once: true,
       when: { type: 'state.transaction', params: { definitionId: 'story.done' } },
       do: [{ action: 'action.work', stepId: 'after-done-work', params: { token: 'after-done' } }],
@@ -635,39 +620,205 @@ describe('FlowGroup 完成事务收尾触发器门控', () => {
     return { system, calls };
   }
 
-  it('完成条件写入使组完成后，once 的 state.transaction 收尾触发器仍可补触发', async () => {
-    const { blackboard, stateMachine } = buildStateMachine();
-    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.ACTIVE);
+  it('登记时不再校验 flowGroupId 是否在目录中存在', () => {
+    const { system } = buildTriggerSystem();
+    expect(system._triggersById.has('trg.labeled')).toBe(true);
+  });
 
-    // 模拟真实事务提交时序：黑板写入同步完成本组并激活下游，
-    // state.transaction 通知事件在提交之后才派发（此时组已 COMPLETED）。
-    blackboard.set('storyState', { done: true });
-    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.COMPLETED);
-    expect(stateMachine.getPhase('fg-next')).toBe(FLOW_GROUP_PHASE.ACTIVE);
-
-    const { system, calls } = buildTriggerSystem(stateMachine);
+  it('无 FlowGroup 门控：once state.transaction 在事务提交后正常触发', async () => {
+    const { system, calls } = buildTriggerSystem();
     expect(system.fire('state.transaction', { definitionId: 'story.done', operationId: 'op-done-1' })).toBe(1);
     await system.waitForIdle();
     expect(calls).toHaveLength(1);
-    expect(system.hasFiredOnce('trg.done')).toBe(true);
+    expect(system.hasFiredOnce('trg.labeled')).toBe(true);
+  });
+});
+
+describe('多路径进程：步骤级 if + branch[] 分支 + 多教程串行', () => {
+  function buildSystem(triggerOverrides = {}, initialBlackboard = {}) {
+    const calls = [];
+    const system = new TriggerSystem({
+      monotonicClock: new MonotonicClock(100),
+      actionDescriptorRegistry: descriptorRegistry(['action.work', 'tutorial.command']),
+      commandAdapter: {
+        async execute(action, context) {
+          calls.push({ action: action.action, params: action.params, operationId: context.operationId });
+          return commandResult(context.operationId);
+        }
+      }
+    });
+    system.init({ blackboard: Object.assign(new Blackboard(), { get: key => initialBlackboard[key] }) });
+    system.register({
+      id: 'trg.multi',
+      flowGroupId: 'fg-label',
+      when: { type: 'signal', params: { channel: 'go' } },
+      ...triggerOverrides
+    });
+    return { system, calls };
+  }
+
+  it('步骤级 if 命中时执行、未命中时跳过（其余步骤照常）', async () => {
+    const { system, calls } = buildSystem({
+      do: [
+        { stepId: 's1', action: 'action.work', params: { token: 'a' }, if: { op: '==', var: 'hasAxe', value: true } },
+        { stepId: 's2', action: 'action.work', params: { token: 'b' } }
+      ]
+    }, { hasAxe: false });
+    expect(system.fire('signal', { channel: 'go', operationId: 'op-go-1' })).toBe(1);
+    await system.waitForIdle();
+    expect(calls.map(c => c.params.token)).toEqual(['b']);
+    expect(system.ledger.get('trg.multi').status).toBe('succeeded');
   });
 
-  it('非 once 或非 state.transaction 的触发器在组完成后仍被门控', async () => {
-    const { blackboard, stateMachine } = buildStateMachine();
-    blackboard.set('storyState', { done: true });
-    expect(stateMachine.getPhase('fg-tools')).toBe(FLOW_GROUP_PHASE.COMPLETED);
-
-    const repeatable = buildTriggerSystem(stateMachine, { id: 'trg.repeat', once: false });
-    expect(repeatable.system.fire('state.transaction', { definitionId: 'story.done', operationId: 'op-repeat-1' })).toBe(0);
-
-    const signalTrigger = buildTriggerSystem(stateMachine, {
-      id: 'trg.signal',
-      when: { type: 'signal', params: { channel: 'done' } }
+  it('步骤级 if 支持 story.* 点路径紧凑比较：命中 storyState 嵌套值', async () => {
+    const build = storyState => buildSystem({
+      do: [
+        { stepId: 's1', action: 'action.work', params: { token: 'skin' },
+          if: { op: 'and', args: [
+            { op: '==', var: 'story.s01Survival.firstWolfKilled', value: true },
+            { op: '==', var: 'story.s01Survival.wolfSkinned', value: false }
+          ] } },
+        { stepId: 's2', action: 'action.work', params: { token: 'next' } }
+      ]
+    }, { storyState });
+    // 首狼已击杀且未剥皮 → 步骤执行
+    const { system: run, calls: runCalls } = build({
+      s01Survival: { firstWolfKilled: true, wolfSkinned: false }
     });
-    expect(signalTrigger.system.fire('signal', { channel: 'done', operationId: 'op-signal-1' })).toBe(0);
+    expect(run.fire('signal', { channel: 'go', operationId: 'op-run' })).toBe(1);
+    await run.waitForIdle();
+    expect(runCalls.map(c => c.params.token)).toEqual(['skin', 'next']);
+    expect(run.ledger.get('trg.multi').status).toBe('succeeded');
+    // 已剥皮 → 步骤跳过，不重复提交
+    const { system: skip, calls: skipCalls } = build({
+      s01Survival: { firstWolfKilled: true, wolfSkinned: true }
+    });
+    expect(skip.fire('signal', { channel: 'go', operationId: 'op-skip' })).toBe(1);
+    await skip.waitForIdle();
+    expect(skipCalls.map(c => c.params.token)).toEqual(['next']);
+    expect(skip.ledger.get('trg.multi').status).toBe('succeeded');
+  });
 
-    await Promise.all([repeatable.system.waitForIdle(), signalTrigger.system.waitForIdle()]);
-    expect(repeatable.calls).toHaveLength(0);
-    expect(signalTrigger.calls).toHaveLength(0);
+  it('branch[] 按 when 命中执行对应路径；未命中回退 otherwise', async () => {
+    const { system: axe, calls: axeCalls } = buildSystem({
+      do: [{
+        stepId: 'br', branch: [
+          { when: { op: '==', var: 'hasAxe', value: true }, do: [{ stepId: 'br.axe', action: 'action.work', params: { token: 'axe' } }] },
+          { otherwise: true, do: [{ stepId: 'br.none', action: 'action.work', params: { token: 'none' } }] }
+        ]
+      }]
+    }, { hasAxe: true });
+    expect(axe.fire('signal', { channel: 'go', operationId: 'op-axe' })).toBe(1);
+    await axe.waitForIdle();
+    expect(axeCalls.map(c => c.params.token)).toEqual(['axe']);
+
+    const { system: none, calls: noneCalls } = buildSystem({
+      do: [{
+        stepId: 'br', branch: [
+          { when: { op: '==', var: 'hasAxe', value: true }, do: [{ stepId: 'br.axe', action: 'action.work', params: { token: 'axe' } }] },
+          { otherwise: true, do: [{ stepId: 'br.none', action: 'action.work', params: { token: 'none' } }] }
+        ]
+      }]
+    }, { hasAxe: false });
+    expect(none.fire('signal', { channel: 'go', operationId: 'op-none' })).toBe(1);
+    await none.waitForIdle();
+    expect(noneCalls.map(c => c.params.token)).toEqual(['none']);
+  });
+
+  it('单 Trigger 多教程：do[] 顺序执行多个 tutorial.command 步骤', async () => {
+    const { system, calls } = buildSystem({
+      do: [
+        { stepId: 'tut-1', action: 'tutorial.command', params: { operation: 'show', tutorialId: 'tutorial-001', await: true } },
+        { stepId: 'tut-2', action: 'tutorial.command', params: { operation: 'show', tutorialId: 'tutorial-002' } }
+      ]
+    });
+    expect(system.fire('signal', { channel: 'go', operationId: 'op-tut' })).toBe(1);
+    await system.waitForIdle();
+    expect(calls.map(c => c.action)).toEqual(['tutorial.command', 'tutorial.command']);
+    expect(calls.map(c => c.params.tutorialId)).toEqual(['tutorial-001', 'tutorial-002']);
+  });
+
+  it('注册时拒绝 action 级 await（应使用 params.await）', () => {
+    const { system } = buildSystem({});
+    expect(() => system.register({
+      id: 'trg.bad',
+      flowGroupId: 'fg-label',
+      when: { type: 'signal', params: { channel: 'x' } },
+      do: [{ stepId: 's1', await: true, action: 'action.work', params: {} }]
+    })).toThrow(/params\.await/);
+  });
+
+  it('良性结果码（preconditionFailed）等同跳过：不中断整链、不刷红、后续步骤照常', async () => {
+    const calls = [];
+    const events = [];
+    const diagnostics = { recordTriggerFailure: vi.fn() };
+    const system = new TriggerSystem({
+      monotonicClock: new MonotonicClock(100),
+      actionDescriptorRegistry: descriptorRegistry(['action.work']),
+      sceneDiagnostics: diagnostics,
+      applicationEventPublisher: event => events.push(event),
+      commandAdapter: {
+        async execute(action, context) {
+          calls.push(action.params.token);
+          if (action.params.token === 'commit-wolf-skinned') {
+            return {
+              ok: false, operationId: context.operationId, status: 'rejected', committed: false,
+              code: 'preconditionFailed', stateId: null, stateRevision: null,
+              eventFrom: null, eventTo: null, value: null,
+              error: { message: 'canonical transaction precondition failed' }
+            };
+          }
+          return commandResult(context.operationId);
+        }
+      }
+    });
+    system.register({
+      id: 'trg.skin', flowGroupId: 'fg-label', when: { type: 'signal' },
+      do: [
+        { stepId: 'commit-wolf-skinned', action: 'action.work', params: { token: 'commit-wolf-skinned' } },
+        { stepId: 'after-wolf-skinned', action: 'action.work', params: { token: 'after' } }
+      ]
+    });
+    expect(system.fire('signal', { operationId: 'op-skin' })).toBe(1);
+    await system.waitForIdle();
+    // 后续步骤照常执行，整链成功，不产生 triggerFailed 事件、不刷红
+    expect(calls).toEqual(['commit-wolf-skinned', 'after']);
+    expect(system.ledger.get('trg.skin').status).toBe('succeeded');
+    expect(events.some(event => event.type === 'triggerFailed')).toBe(false);
+    expect(diagnostics.recordTriggerFailure).not.toHaveBeenCalled();
+  });
+
+  it('非良性结果码（rejected）仍为硬失败并中断整链', async () => {
+    const calls = [];
+    const events = [];
+    const system = new TriggerSystem({
+      monotonicClock: new MonotonicClock(100),
+      actionDescriptorRegistry: descriptorRegistry(['action.work']),
+      applicationEventPublisher: event => events.push(event),
+      commandAdapter: {
+        async execute(action, context) {
+          calls.push(action.params.token);
+          if (action.params.token === 'bad') {
+            return commandResult(context.operationId, {
+              ok: false, committed: false, status: 'failed', code: 'rejected',
+              error: { message: 'no' }
+            });
+          }
+          return commandResult(context.operationId);
+        }
+      }
+    });
+    system.register({
+      id: 'trg.reject', flowGroupId: 'fg-label', when: { type: 'signal' },
+      do: [
+        { stepId: 'bad', action: 'action.work', params: { token: 'bad' } },
+        { stepId: 'must-not-run', action: 'action.work', params: { token: 'must-not-run' } }
+      ]
+    });
+    expect(system.fire('signal', { operationId: 'op-reject' })).toBe(1);
+    await system.waitForIdle();
+    expect(calls).toEqual(['bad']);
+    expect(system.ledger.get('trg.reject').status).toBe('failed');
+    expect(events.some(event => event.type === 'triggerFailed')).toBe(true);
   });
 });

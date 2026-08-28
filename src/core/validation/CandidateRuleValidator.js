@@ -176,7 +176,12 @@ export class CandidateRuleValidator {
         errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.dependsOn`, `${fgLabel} 不得依赖自身`));
       }
     });
-    validateSceneEventDependencyGraph(flowGroupsAll, flowGroupIds, errors, fgLabel, fgArrayPath);
+    if (flowGroupsAll.length > 0) {
+      validateSceneEventDependencyGraph(flowGroupsAll, flowGroupIds, errors, fgLabel, fgArrayPath);
+    }
+    // 全 Trigger 化：flowGroups/sceneEvents 目录清空后，trigger/tutorial 的
+    // flowGroupId 仅为兼容标签，不再校验其登记存在性（也不再校验场景归属）。
+    const flowGroupsCatalogEmpty = flowGroupsAll.length === 0;
 
     list(candidate?.triggers).forEach((trigger, index) => {
       // 双字段校验：flowGroupId 优先，sceneEventId 次之；两者都存在但不一致时报错
@@ -190,23 +195,7 @@ export class CandidateRuleValidator {
         return;
       }
       if (!fgId) return;
-      const fg = flowGroupsById.get(fgId);
-      if (!fg) {
-        const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `${fgLabel} 不存在: ${fgId}${suffix}`));
-        return;
-      }
-      const fgScenes = new Set(list(fg.scope?.sceneIds));
-      const triggerScenes = [
-        trigger.when?.params?.sceneId,
-        ...list(trigger.editorScope?.sceneIds)
-      ].filter(Boolean);
-      triggerScenes.forEach(sceneId => {
-        if (!fgScenes.has(sceneId)) {
-          const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
-          errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `Trigger 场景 ${sceneId} 不属于 ${fgLabel} ${fg.id}${suffix}`));
-        }
-      });
+      if (flowGroupsCatalogEmpty) return; // 兼容标签：目录清空后不再校验存在性
     });
 
     list(candidate?.tutorials).forEach((tutorial, index) => {
@@ -229,25 +218,12 @@ export class CandidateRuleValidator {
       const hasSceneEvent = own(tutorial, 'sceneEventId');
       if (!hasFlowGroup && !hasSceneEvent) return;
       const fgId = (hasFlowGroup ? String(tutorial.flowGroupId || '') : '') || String(tutorial.sceneEventId || '');
-      const fieldPath = hasFlowGroup ? `${path}.flowGroupId` : `${path}.sceneEventId`;
       if (hasFlowGroup && hasSceneEvent && String(tutorial.flowGroupId || '') !== String(tutorial.sceneEventId || '')) {
         errors.push(makeError(ValidationCode.INVALID_REFERENCE, path, `${fgLabel} 双字段不一致: flowGroupId=${String(tutorial.flowGroupId)}, sceneEventId=${String(tutorial.sceneEventId)}`));
         return;
       }
       if (!fgId) return;
-      const fg = flowGroupsById.get(fgId);
-      if (!fg) {
-        const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
-        errors.push(makeError(ValidationCode.INVALID_REFERENCE, fieldPath, `${fgLabel} 不存在: ${fgId}${suffix}`));
-        return;
-      }
-      const fgScenes = new Set(list(fg.scope?.sceneIds));
-      list(tutorial.scope?.sceneIds).forEach(sceneId => {
-        if (!fgScenes.has(sceneId)) {
-          const suffix = hasSceneEvent && !hasFlowGroup ? '（已弃用，请改用 flowGroupId）' : '';
-          errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${path}.scope.sceneIds`, `Tutorial 场景 ${sceneId} 不属于 ${fgLabel} ${fg.id}${suffix}`));
-        }
-      });
+      if (flowGroupsCatalogEmpty) return; // 兼容标签：目录清空后不再校验存在性
     });
 
     const libraryIds = {};
@@ -329,47 +305,57 @@ export class CandidateRuleValidator {
     };
     if (actionIds.size > 0) {
       list(candidate?.triggers).forEach((trigger, triggerIndex) => {
-        list(trigger?.do).forEach((action, actionIndex) => {
-          const actionPath = `triggers[${triggerIndex}].do[${actionIndex}]`;
-          if (!actionIds.has(action?.action)) {
-            errors.push(makeError(
-              ValidationCode.INVALID_REFERENCE,
-              `${actionPath}.action`,
-              `未登记的 action: ${String(action?.action)}`
-            ));
-          }
-          const catalogDescriptor = actionDescriptorsById.get(action?.action);
-          const operations = list(catalogDescriptor?.operations);
-          if (operations.length > 0) {
-            const operationId = action?.params?.operation;
-            const operationIds = new Set(operations
-              .map(operation => typeof operation === 'string' ? operation : operation?.value || operation?.id)
-              .filter(Boolean));
-            if (typeof operationId !== 'string' || !operationId.trim() || !operationIds.has(operationId)) {
+        const validateActionSteps = (steps, actionPathPrefix) => {
+          list(steps).forEach((action, actionIndex) => {
+            const actionPath = `${actionPathPrefix}.do[${actionIndex}]`;
+            // branch[] 分支容器：递归校验子路径动作
+            if (Array.isArray(action?.branch)) {
+              for (const [bIndex, branch] of action.branch.entries()) {
+                validateActionSteps(branch?.do || [], `${actionPath}.branch[${bIndex}]`);
+              }
+              return;
+            }
+            if (!actionIds.has(action?.action)) {
               errors.push(makeError(
                 ValidationCode.INVALID_REFERENCE,
-                `${actionPath}.params.operation`,
-                `未登记的 operation: ${String(operationId)}`
+                `${actionPath}.action`,
+                `未登记的 action: ${String(action?.action)}`
               ));
             }
-          }
-          const referenceContract = standardActionReferences[action?.action];
-          if (referenceContract) {
-            const [field, ids, label, options = {}] = referenceContract;
-            const referenceId = action?.params?.[field];
-            const canResolveFromScene = options.allowSceneOwned === true && ids.size === 0;
-            if (typeof referenceId !== 'string' || !referenceId.trim() || (!canResolveFromScene && !ids.has(referenceId))) {
-              errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${actionPath}.params.${field}`, `${label}不存在: ${String(referenceId)}`));
+            const catalogDescriptor = actionDescriptorsById.get(action?.action);
+            const operations = list(catalogDescriptor?.operations);
+            if (operations.length > 0) {
+              const operationId = action?.params?.operation;
+              const operationIds = new Set(operations
+                .map(operation => typeof operation === 'string' ? operation : operation?.value || operation?.id)
+                .filter(Boolean));
+              if (typeof operationId !== 'string' || !operationId.trim() || !operationIds.has(operationId)) {
+                errors.push(makeError(
+                  ValidationCode.INVALID_REFERENCE,
+                  `${actionPath}.params.operation`,
+                  `未登记的 operation: ${String(operationId)}`
+                ));
+              }
             }
-          }
-          if (action?.commandType && commandIds.size > 0 && !commandIds.has(action.commandType)) {
-            errors.push(makeError(
-              ValidationCode.INVALID_REFERENCE,
-              `${actionPath}.commandType`,
-              `未登记的 command: ${action.commandType}`
-            ));
-          }
-        });
+            const referenceContract = standardActionReferences[action?.action];
+            if (referenceContract) {
+              const [field, ids, label, options = {}] = referenceContract;
+              const referenceId = action?.params?.[field];
+              const canResolveFromScene = options.allowSceneOwned === true && ids.size === 0;
+              if (typeof referenceId !== 'string' || !referenceId.trim() || (!canResolveFromScene && !ids.has(referenceId))) {
+                errors.push(makeError(ValidationCode.INVALID_REFERENCE, `${actionPath}.params.${field}`, `${label}不存在: ${String(referenceId)}`));
+              }
+            }
+            if (action?.commandType && commandIds.size > 0 && !commandIds.has(action.commandType)) {
+              errors.push(makeError(
+                ValidationCode.INVALID_REFERENCE,
+                `${actionPath}.commandType`,
+                `未登记的 command: ${action.commandType}`
+              ));
+            }
+          });
+        };
+        validateActionSteps(trigger?.do, `triggers[${triggerIndex}]`);
       });
     }
 

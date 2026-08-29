@@ -473,6 +473,7 @@ export class GameLoader {
       audioManager: deps.audioManager,
       floatingText: deps.floatingText,
       tutorial: deps.tutorial,
+      tutorialSystem: deps.tutorialSystem,
       services: deps.services,
       triggerBindings: deps.triggerBindings,
       onItemGained: deps.onItemGained,

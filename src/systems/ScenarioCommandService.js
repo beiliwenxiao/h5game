@@ -51,15 +51,12 @@ export class ScenarioCommandService {
         message: outcome?.errors?.[0]?.message || outcome?.message || 'scenario command rejected'
       });
     }
-    // 幂等：await 教程 show 先提交 revision 释放 stateId reservation，再等待教程离槽。
-    // 否则 reservation 会一直持有到教程隐藏（LocalAuthorityAdapter 的 finally 才释放），
-    // 同 stateId 的 complete 命令会被 stateRevisionBusy 卡死，教程永远无法完成隐藏。
-    const waitForHide = typeof outcome?.awaitHide === 'function' ? outcome.awaitHide : null;
+    // 幂等：教程 show 命令本身不等待教程离槽（等待由 TriggerSystem 步骤层负责），
+    // 保证命令 revision 语义完整——提交即完成，避免跨命令共享 stateId 时的 revision 冲突。
     const revision = context.commitStateRevision(context.preparedStateRevision);
     if (!revision.ok) return rejected(command, revision.code);
-    if (waitForHide) await waitForHide();
     const stateId = context.preparedStateRevision.stateId;
-    const value = clone(outcome === true || waitForHide ? { ok: true } : outcome);
+    const value = clone(outcome === true ? { ok: true } : outcome);
     const result = {
       ok: true, operationId: command.operationId, status: 'committed', committed: true,
       code: null, stateId, stateRevision: revision.stateRevision,
@@ -157,25 +154,6 @@ export class ScenarioCommandService {
     if (payload.operation && payload.operation !== 'show') return { ok: false, code: 'unsupportedTutorialOperation' };
     const started = system.showTutorial(payload.tutorialId, payload.context || {});
     if (started === false) return { ok: false, code: 'tutorialShowRejected' };
-    // 单 Trigger 多教程路径：await=true 时返回 awaitHide 延期，由 execute 在提交 revision
-    // 释放 stateId reservation 后再等待教程离槽，使 do[] 能严格串行展示多个教程，
-    // 且不阻塞同教程的 complete 命令（避免 stateRevisionBusy 死锁）。
-    if (payload.await === true && typeof system.onHide === 'function') {
-      return {
-        ok: true,
-        awaitHide: () => new Promise(resolve => {
-          const done = () => {
-            if (system.completedTutorials?.has?.(payload.tutorialId)) { resolve(true); return true; }
-            if (system.currentTutorial?.id === payload.tutorialId) return false;
-            if ((system.pendingTutorials || []).some(entry => entry?.tutorialId === payload.tutorialId)) return false;
-            resolve(true);
-            return true;
-          };
-          if (done()) return;
-          const off = system.onHide(() => { if (done()) off(); });
-        })
-      };
-    }
     return true;
   }
 }

@@ -2,7 +2,7 @@
   "actions": {
     "move": {
       "pc": {
-        "key": "W/A/S/D",
+        "key": "W A S D",
         "kind": "key"
       },
       "android": "虚拟摇杆",
@@ -227,6 +227,51 @@
       "android": "点击对话框",
       "padKey": "e",
       "padFallback": "X"
+    },
+    "confirm": {
+      "pc": {
+        "key": "E/回车",
+        "kind": "key"
+      },
+      "android": "确认按钮",
+      "padKey": "e",
+      "padFallback": "A"
+    },
+    "modalCancel": {
+      "pc": {
+        "key": "Esc",
+        "kind": "key"
+      },
+      "android": "取消按钮",
+      "padFixed": "B",
+      "padKind": "key"
+    },
+    "modalNavigate": {
+      "pc": {
+        "key": "方向键",
+        "kind": "key"
+      },
+      "android": "点击选项",
+      "padFixed": "十字键",
+      "padKind": "key"
+    },
+    "modalDecrease": {
+      "pc": {
+        "key": "-",
+        "kind": "key"
+      },
+      "android": "减量按钮",
+      "padFixed": "LB",
+      "padKind": "key"
+    },
+    "modalIncrease": {
+      "pc": {
+        "key": "+",
+        "kind": "key"
+      },
+      "android": "加量按钮",
+      "padFixed": "RB",
+      "padKind": "key"
     },
     "cancel": {
       "pc": {

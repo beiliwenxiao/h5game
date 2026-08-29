@@ -28,29 +28,12 @@ import {
   validateTriggerDefinition
 } from '../src/systems/TriggerCatalog.js';
 import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
-import { FlowGroupProjectIndex as _FGIndex, SceneEventProjectIndex } from './SceneEventProjectIndex.js';
-import { FlowGroupEditorPanel as _FGPanel, SceneEventEditorPanel } from './SceneEventEditorPanel.js';
+import { TriggerProjectIndex } from './TriggerProjectIndex.js';
 import { TutorialEditorPanel } from './TutorialEditorPanel.js';
 import { TriggerTracePanel } from './TriggerTracePanel.js';
 import { TriggerStorylinePanel } from './TriggerStorylinePanel.js';
 
-const FlowGroupProjectIndex = _FGIndex || SceneEventProjectIndex;
-const FlowGroupEditorPanel = _FGPanel || SceneEventEditorPanel;
 const text = v => String(v ?? '').trim();
-const resolveFgId = obj => {
-  if (!obj) return '';
-  const fromFg = text(obj.flowGroupId);
-  return fromFg ? fromFg : text(obj.sceneEventId);
-};
-// FlowGroup(SceneEvent) 双数组合并去重：flowGroups 优先，sceneEvents 次之
-const mergeFlowGroups = (project = {}) => {
-  const fgs = new Map();
-  [...(Array.isArray(project.sceneEvents) ? project.sceneEvents : []),
-   ...(Array.isArray(project.flowGroups) ? project.flowGroups : [])].forEach(fg => {
-    if (fg?.id) fgs.set(fg.id, fg);
-  });
-  return [...fgs.values()];
-};
 
 let WHEN_TYPES = getTriggerEvents();
 let ACTION_TYPES = getTriggerActions();
@@ -76,16 +59,10 @@ export class TriggerEditor {
     this.project = null;
     this.triggers = [];
     this.selectedIndex = -1;
-    // 三类 canonical 定义分别编辑：FlowGroup 剧情流程(旧名 SceneEvent)、Trigger 业务规则、Tutorial steps[]。
-    // target 双轨：flowGroups / sceneEvents 等价，前者优先
-    const normalizedTarget = ['flowGroups', 'sceneEvents', 'triggers', 'tutorials'].includes(options.target)
+    // 全 Trigger 化：可编辑目标收敛为 storyline / triggers / tutorials（flowGroups 已删除）
+    this.target = ['storyline', 'triggers', 'tutorials'].includes(options.target)
       ? options.target
-      : (['sceneEvents', 'triggers', 'tutorials'].includes(options.target) ? options.target : null);
-    // 全 Trigger 化后默认进入「Trigger 业务规则」；flowGroups/sceneEvents 入口已收敛（数据已清空）
-    this.target = normalizedTarget || 'triggers';
-    // flowGroupPanel（新名）+ sceneEventPanel（旧名别名）同一个实例（兼容保留，入口已收敛）
-    this.flowGroupPanel = new FlowGroupEditorPanel(this);
-    this.sceneEventPanel = this.flowGroupPanel;
+      : 'triggers';
     this.tutorialPanel = new TutorialEditorPanel(this);
     // Trigger 执行轨迹面板（运行时轨迹 + 事件探针，只读调试）
     this.triggerTracePanel = new TriggerTracePanel(this);
@@ -121,20 +98,13 @@ export class TriggerEditor {
       console.warn('TriggerEditor: 加载工程失败', e);
     }
     if (!this.project) {
-      this.project = { meta: { id: this.gameId }, variables: {}, flowGroups: [], sceneEvents: [], triggers: [], tutorials: [] };
+      this.project = { meta: { id: this.gameId }, variables: {}, triggers: [], tutorials: [] };
     }
-    // 三层定义数组都来自同一个 project candidate。flowGroups（新名）+ sceneEvents（旧名）双数组同步
-    if (!Array.isArray(this.project.flowGroups)) this.project.flowGroups = [...(Array.isArray(this.project.sceneEvents) ? this.project.sceneEvents : [])];
-    if (!Array.isArray(this.project.sceneEvents)) this.project.sceneEvents = [...this.project.flowGroups];
     if (!Array.isArray(this.project.triggers)) this.project.triggers = [];
     if (!Array.isArray(this.project.tutorials)) this.project.tutorials = [];
-    // target 归一化：flowGroups 和 sceneEvents 两种 target 最后都解析为对应数组（双数组内容等价）
-    const resolveArrayKey = t => t === 'flowGroups' || t === 'sceneEvents'
-      ? (Array.isArray(this.project.flowGroups) && this.project.flowGroups.length ? 'flowGroups' : 'sceneEvents')
-      : t;
-    this.target = resolveArrayKey(this.target);
-    this.triggers = this.project[this.target];
-    this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+    if (!['storyline', 'triggers', 'tutorials'].includes(this.target)) this.target = 'triggers';
+    this.triggers = this.project[this.target] || [];
+    this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     WHEN_TYPES = getTriggerEvents(this.project);
     ACTION_TYPES = getTriggerActions(this.project);
     this._refreshCatalogControls();
@@ -210,31 +180,21 @@ export class TriggerEditor {
     const select = this.container.querySelector('#trg-filter-event');
     if (!select || !this.project) return;
     const currentValue = text(select.value);
-    const definitions = mergeFlowGroups(this.project)
-      .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
-    select.innerHTML = '<option value="">全部 FlowGroup(SceneEvent)</option>' + definitions.map(definition => (
-      `<option value="${this._escapeHtml(definition.id)}"${definition.id === currentValue ? ' selected' : ''}>${this._escapeHtml(`${Number(definition.order || 0) + 1}. ${definition.name || definition.id}`)}</option>`
+    const definitions = this.project.triggers || [];
+    select.innerHTML = '<option value="">全部 Trigger</option>' + definitions.map(definition => (
+      `<option value="${this._escapeHtml(definition.id)}"${definition.id === currentValue ? ' selected' : ''}>${this._escapeHtml(definition.name || definition.id)}</option>`
     )).join('');
   }
 
-  /** 切换编辑目标（storyline 总览 ↔ flowGroups(SceneEvent) ↔ triggers ↔ tutorials） */
+  /** 切换编辑目标（storyline 总览 ↔ triggers ↔ tutorials） */
   _switchTarget(target) {
-    // target 双轨：flowGroups / sceneEvents 等价
-    const normalized = target === 'sceneEvents' ? 'flowGroups' : target;
+    const normalized = ['storyline', 'triggers', 'tutorials'].includes(target) ? target : 'triggers';
     if (normalized === this.target) return;
     this._commitDetail();
     if (this.target !== 'storyline') this.project[this.target] = this.triggers; // 回写当前（storyline 无独立数据）
-    // 切换时双数组同步：flowGroups→sceneEvents
-    if (this.target === 'flowGroups' || this.target === 'sceneEvents') {
-      this.project.flowGroups = [...(Array.isArray(this.project.flowGroups) ? this.project.flowGroups : [])];
-      this.project.sceneEvents = [...this.project.flowGroups];
-    }
     this.target = normalized;
-    // 如果目标是 flowGroups 但数组为空，回退到 sceneEvents（同样内容）
-    if (this.target === 'flowGroups' && !Array.isArray(this.project.flowGroups)) this.project.flowGroups = [...(Array.isArray(this.project.sceneEvents) ? this.project.sceneEvents : [])];
-    if (this.target === 'flowGroups' && Array.isArray(this.project.sceneEvents) && !this.project.sceneEvents.length) this.project.sceneEvents = [...this.project.flowGroups];
     this.triggers = this.target === 'storyline' ? [] : this.project[this.target];
-    this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+    this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = -1;
     this._renderTargetTabs();
     this._updateToolbarForTarget();
@@ -310,12 +270,6 @@ export class TriggerEditor {
   }
 
   _validateDefinitions() {
-    const sceneIds = new Set(this._getScenes().map(scene => scene?.id).filter(Boolean));
-    const flowGroups = mergeFlowGroups(this.project);
-    const fgIds = new Set(flowGroups.map(definition => definition?.id).filter(Boolean));
-    const eventErrors = this.flowGroupPanel.validate(flowGroups, sceneIds);
-    if (eventErrors.length) return eventErrors[0];
-
     const triggerIds = new Set();
     for (const trigger of this.project.triggers || []) {
       const errors = validateTriggerDefinition(trigger, this.project);
@@ -324,7 +278,7 @@ export class TriggerEditor {
       triggerIds.add(trigger.id);
     }
 
-    const tutorialErrors = this.tutorialPanel.validate(this.project.tutorials || [], fgIds);
+    const tutorialErrors = this.tutorialPanel.validate(this.project.tutorials || [], triggerIds);
     if (tutorialErrors.length) return tutorialErrors[0];
     return '';
   }
@@ -333,8 +287,8 @@ export class TriggerEditor {
   getTriggerById(id) { return this.getTriggers().find(trigger => trigger.id === id) || null; }
 
   selectById(id, target = 'triggers') {
-    const normalized = target === 'sceneEvents' ? 'flowGroups' : target;
-    if (!id || !this.project || !['flowGroups', 'sceneEvents', 'triggers', 'tutorials'].includes(target)) return false;
+    const normalized = ['storyline', 'triggers', 'tutorials'].includes(target) ? target : 'triggers';
+    if (!id || !this.project) return false;
     if (this.target !== normalized) this._switchTarget(normalized);
     const index = this.triggers.findIndex(definition => definition.id === id);
     if (index < 0) return false;
@@ -358,15 +312,13 @@ export class TriggerEditor {
   _validateAllJson() {
     const panel = this.container.querySelector('#trg-detail');
     if (!panel) return false;
-    const els = (this.target === 'sceneEvents' || this.target === 'flowGroups')
-      ? [panel.querySelector('#d-event-active'), panel.querySelector('#d-event-completion')]
-      : this.target === 'tutorials'
-        ? [panel.querySelector('#d-tutorial-signals'), panel.querySelector('#d-tutorial-movement')]
-        : [
-            panel.querySelector('#d-when-params'),
-            panel.querySelector('#d-if'),
-            ...panel.querySelectorAll('.do-params, .do-param-json, .do-step-if-input, .do-branch-when')
-          ];
+    const els = this.target === 'tutorials'
+      ? [panel.querySelector('#d-tutorial-signals'), panel.querySelector('#d-tutorial-movement')]
+      : [
+          panel.querySelector('#d-when-params'),
+          panel.querySelector('#d-if'),
+          ...panel.querySelectorAll('.do-params, .do-param-json, .do-step-if-input, .do-branch-when')
+        ];
     let hasError = false;
     for (const el of els) {
       if (!el) continue;
@@ -426,11 +378,11 @@ export class TriggerEditor {
             <option value="enabled">启用</option>
             <option value="disabled">停用</option>
           </select>
-          <select id="trg-filter-scene" title="按 FlowGroup(SceneEvent) scope、空间 binding、when.params.sceneId 与 editorScope.sceneIds 的并集筛选" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+          <select id="trg-filter-scene" title="按空间 binding、when.params.sceneId 与 editorScope.sceneIds 的并集筛选" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
             <option value="">全部场景关联</option>
           </select>
-          <select id="trg-filter-event" title="按唯一 FlowGroup 外键筛选（旧字段 sceneEventId 自动同步）" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
-            <option value="">全部 FlowGroup(SceneEvent)</option>
+          <select id="trg-filter-event" title="筛选单个 Trigger" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
+            <option value="">全部 Trigger</option>
           </select>
           <select id="trg-filter-when" title="筛选触发时机" style="padding:4px;background:#26304e;color:#fff;border:1px solid #3a4a7e;border-radius:3px;font-size:12px;">
             <option value="">全部时机</option>
@@ -690,16 +642,11 @@ export class TriggerEditor {
     const condition = trigger?.when?.params?.sceneId === sceneId;
     const editorScope = Array.isArray(trigger?.editorScope?.sceneIds)
       && trigger.editorScope.sceneIds.includes(sceneId);
-    const fgId = resolveFgId(trigger);
-    const flowGroup = fgId ? mergeFlowGroups(this.project).find(definition => definition.id === fgId) : null;
-    const eventScope = Array.isArray(flowGroup?.scope?.sceneIds)
-      && flowGroup.scope.sceneIds.includes(sceneId);
     return {
       spatial,
       condition,
       editorScope,
-      eventScope,
-      associated: spatial || condition || editorScope || eventScope
+      associated: spatial || condition || editorScope
     };
   }
 
@@ -715,34 +662,26 @@ export class TriggerEditor {
   _renderAssociationSummary(sceneId, associationIndex) {
     const summary = this.container.querySelector('#trg-association-summary');
     if (!summary) return;
-    if (this.target === 'sceneEvents' || this.target === 'flowGroups') {
-      const visible = sceneId
-        ? this.triggers.filter(definition => definition.scope?.sceneIds?.includes(sceneId)).length
-        : this.triggers.length;
-      summary.textContent = `${sceneId || '全部场景'}：按 FlowGroup.order 展示 ${visible} 个剧情流程；拖动会重排 order，不改 Trigger/Tutorial 稳定身份。`;
-      return;
-    }
     if (this.target === 'tutorials') {
       const visible = sceneId
         ? this.triggers.filter(definition => definition.scope?.sceneIds?.includes(sceneId)).length
         : this.triggers.length;
-      summary.textContent = `${sceneId || '全部场景'}：${visible} 个 Tutorial；宏观顺序继承 FlowGroup(SceneEvent)，只在详情中调整 steps[]。`;
+      summary.textContent = `${sceneId || '全部场景'}：${visible} 个 Tutorial；展示顺序由 Trigger 事件链显式编排，只在详情中调整 steps[]。`;
       return;
     }
     if (!sceneId) {
-      summary.textContent = `全部 Trigger ${this.triggers.length} 个；场景关联按 FlowGroup(SceneEvent) scope、空间 binding、场景条件和编辑器归属合并。`;
+      summary.textContent = `全部 Trigger ${this.triggers.length} 个；场景关联按空间 binding、场景条件和编辑器归属合并。`;
       return;
     }
-    const stats = { spatial: 0, condition: 0, editorScope: 0, eventScope: 0, total: 0 };
+    const stats = { spatial: 0, condition: 0, editorScope: 0, total: 0 };
     for (const trigger of this.triggers) {
       const association = this._getTriggerAssociation(trigger, sceneId, associationIndex);
       if (association.spatial) stats.spatial++;
       if (association.condition) stats.condition++;
       if (association.editorScope) stats.editorScope++;
-      if (association.eventScope) stats.eventScope++;
       if (association.associated) stats.total++;
     }
-    summary.textContent = `${sceneId}：SceneEvent ${stats.eventScope}，空间绑定 ${stats.spatial}，场景条件 ${stats.condition}，编辑归属 ${stats.editorScope}，合并后 ${stats.total} 个关联 Trigger。`;
+    summary.textContent = `${sceneId}：空间绑定 ${stats.spatial}，场景条件 ${stats.condition}，编辑归属 ${stats.editorScope}，合并后 ${stats.total} 个关联 Trigger。`;
   }
 
   _moveTrigger(source, target, placeAfter) {
@@ -755,11 +694,8 @@ export class TriggerEditor {
     this.triggers.splice(sourceIndex, 1);
     const targetIndex = this.triggers.indexOf(target);
     this.triggers.splice(targetIndex + (placeAfter ? 1 : 0), 0, source);
-    if (this.target === 'sceneEvents') {
-      this.triggers.forEach((definition, index) => { definition.order = index; });
-    }
     this.project[this.target] = this.triggers;
-    this.projectIndex = new SceneEventProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+    this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = selected ? this.triggers.indexOf(selected) : -1;
     this._status(`已调整 ${source.name || source.id || '定义'} 的顺序，请保存到工程`, 'ok');
     this._renderList();
@@ -767,73 +703,10 @@ export class TriggerEditor {
     return true;
   }
 
-  _renderSceneEventList(list, filterScene) {
+  _renderTutorialList(list, filterScene) {
     const definitions = this.triggers
-      .filter(definition => !filterScene || definition.scope?.sceneIds?.includes(filterScene))
-      .slice()
-      .sort((left, right) => Number(left.order || 0) - Number(right.order || 0));
-    if (!definitions.length) {
-      list.innerHTML = '<div class="trg-empty">无匹配的 FlowGroup(SceneEvent)</div>';
-      return;
-    }
-    list.innerHTML = '';
-    let dragged = null;
-    const clearIndicators = () => list.querySelectorAll('.trg-item').forEach(element => {
-      element.classList.remove('drop-before', 'drop-after');
-      delete element.dataset.dropPosition;
-    });
-    definitions.forEach(definition => {
-      const index = this.triggers.indexOf(definition);
-      const fgId = definition?.id;
-      const triggers = (this.project.triggers || []).filter(trigger => fgId && resolveFgId(trigger) === fgId);
-      const tutorials = (this.project.tutorials || []).filter(tutorial => fgId && resolveFgId(tutorial) === fgId);
-      const item = document.createElement('div');
-      item.className = `trg-item scene-event flow-group${index === this.selectedIndex ? ' active' : ''}`;
-      item.draggable = true;
-      item.title = '拖动调整 FlowGroup.order；子 Trigger/Tutorial 只通过 flowGroupId(sceneEventId) 归属，不复制顺序';
-      item.innerHTML = `<span class="trg-order">${Number(definition.order || 0) + 1}</span><div class="trg-item-copy"><div class="tname">${this._escapeHtml(definition.name || definition.id)}</div><div class="tid">${this._escapeHtml(definition.id || '(未命名)')}</div><div class="twhen">依赖 ${(definition.dependsOn || []).length} · Trigger ${triggers.length} · Tutorial ${tutorials.length}</div></div>`;
-      item.addEventListener('dragstart', event => {
-        this._commitDetail();
-        dragged = definition;
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', definition.id || String(index));
-        requestAnimationFrame(() => item.classList.add('dragging'));
-      });
-      item.addEventListener('dragover', event => {
-        if (!dragged || dragged === definition) return;
-        event.preventDefault();
-        const placeAfter = event.clientY >= item.getBoundingClientRect().top + item.offsetHeight / 2;
-        clearIndicators();
-        item.dataset.dropPosition = placeAfter ? 'after' : 'before';
-        item.classList.add(placeAfter ? 'drop-after' : 'drop-before');
-      });
-      item.addEventListener('drop', event => {
-        event.preventDefault();
-        const source = dragged;
-        dragged = null;
-        const placeAfter = item.dataset.dropPosition === 'after';
-        clearIndicators();
-        this._moveTrigger(source, definition, placeAfter);
-      });
-      item.addEventListener('dragend', () => { dragged = null; item.classList.remove('dragging'); clearIndicators(); });
-      item.addEventListener('click', () => {
-        this._commitDetail();
-        this.selectedIndex = index;
-        this._renderList();
-        this._renderDetail();
-      });
-      list.appendChild(item);
-    });
-  }
-
-  _renderTutorialList(list, filterScene, filterSceneEvent) {
-    const index = new FlowGroupProjectIndex(this.project);
-    const fgFilter = text(filterSceneEvent);
-    const definitions = this.triggers
-      .filter(tutorial => !fgFilter || resolveFgId(tutorial) === fgFilter)
       .filter(tutorial => !filterScene || tutorial.scope?.sceneIds?.includes(filterScene))
-      .slice()
-      .sort((left, right) => index.compareTutorials(left, right));
+      .slice();
     if (!definitions.length) {
       list.innerHTML = '<div class="trg-empty">无匹配的 Tutorial</div>';
       return;
@@ -841,12 +714,11 @@ export class TriggerEditor {
     list.innerHTML = '';
     definitions.forEach(tutorial => {
       const definitionIndex = this.triggers.indexOf(tutorial);
-      const sceneEvent = index.getSceneEvent(tutorial.sceneEventId);
       const item = document.createElement('div');
       item.className = `trg-item tutorial${definitionIndex === this.selectedIndex ? ' active' : ''}`;
-      item.title = 'Tutorial 宏观顺序继承 SceneEvent；请在右侧拖动内部 steps[]';
+      item.title = 'Tutorial 展示顺序由 Trigger 事件链显式编排；请在右侧拖动内部 steps[]';
       const stepSummary = (tutorial.steps || []).map((step, stepIndex) => `${stepIndex + 1}.${step.text || step.id || '?'}`).join(' → ');
-      item.innerHTML = `<span class="trg-order">${sceneEvent ? Number(sceneEvent.order || 0) + 1 : '?'}</span><div class="trg-item-copy"><div class="tname">${this._escapeHtml(tutorial.title || tutorial.id)}</div><div class="tid">${this._escapeHtml(tutorial.id || '(未命名)')}</div><div class="twhen">${this._escapeHtml(sceneEvent?.name || tutorial.sceneEventId || '未归属')} · priority ${Number(tutorial.priority || 0)}</div><div class="tsteps">${this._escapeHtml(stepSummary || '无 steps[]')}</div></div>`;
+      item.innerHTML = `<div class="trg-item-copy"><div class="tname">${this._escapeHtml(tutorial.title || tutorial.id)}</div><div class="tid">${this._escapeHtml(tutorial.id || '(未命名)')}</div><div class="twhen">priority ${Number(tutorial.priority || 0)}</div><div class="tsteps">${this._escapeHtml(stepSummary || '无 steps[]')}</div></div>`;
       item.addEventListener('click', () => {
         this._commitDetail();
         this.selectedIndex = definitionIndex;
@@ -863,8 +735,7 @@ export class TriggerEditor {
 
     const filterEnabled = this.container.querySelector('#trg-filter-enabled')?.value || '';
     const filterScene = this.container.querySelector('#trg-filter-scene')?.value || '';
-    const filterSceneEvent = this.container.querySelector('#trg-filter-event')?.value || '';
-    const filterFg = text(filterSceneEvent);
+    const filterTriggerId = text(this.container.querySelector('#trg-filter-event')?.value || '');
     const filterWhen = this.container.querySelector('#trg-filter-when')?.value || '';
     const filterDo = this.container.querySelector('#trg-filter-do')?.value || '';
     const associationIndex = this._buildSceneAssociationIndex();
@@ -872,17 +743,13 @@ export class TriggerEditor {
     this._updateSceneFilter();
     this._updateSceneEventFilter();
     this._renderAssociationSummary(filterScene, associationIndex);
-    if (this.target === 'sceneEvents' || this.target === 'flowGroups') {
-      this._renderSceneEventList(list, filterScene);
-      return;
-    }
     if (this.target === 'tutorials') {
-      this._renderTutorialList(list, filterScene, filterSceneEvent);
+      this._renderTutorialList(list, filterScene);
       return;
     }
 
     const filtered = this.triggers.filter((trigger) => {
-      if (filterFg && resolveFgId(trigger) !== filterFg) return false;
+      if (filterTriggerId && trigger.id !== filterTriggerId) return false;
       if (filterEnabled === 'enabled' && trigger.enabled === false) return false;
       if (filterEnabled === 'disabled' && trigger.enabled !== false) return false;
       if (filterScene && !this._getTriggerAssociation(trigger, filterScene, associationIndex).associated) return false;
@@ -914,8 +781,6 @@ export class TriggerEditor {
       item.draggable = true;
       item.title = '拖动调整触发器定义顺序；同协调组同优先级时按此顺序稳定执行';
       const whenLabel = (WHEN_TYPES.find(event => event.v === trigger.when?.type) || {}).label || trigger.when?.type || '?';
-      const triggerFgId = resolveFgId(trigger);
-      const flowGroup = triggerFgId ? this.projectIndex.getFlowGroup(triggerFgId) : null;
       const priority = Number.isInteger(trigger.coordination?.priority) ? trigger.coordination.priority : 0;
       const coordinationLabel = trigger.coordination?.group
         ? `${trigger.coordination.group} · ${trigger.coordination.policy || 'broadcast'} · priority ${priority}`
@@ -924,7 +789,6 @@ export class TriggerEditor {
       const statusIcon = disabled ? '⏸' : '▶';
       const association = filterScene ? this._getTriggerAssociation(trigger, filterScene, associationIndex) : null;
       const origins = association ? [
-        association.eventScope ? '事件' : '',
         association.spatial ? '空间' : '',
         association.condition ? '条件' : '',
         association.editorScope ? '归属' : ''
@@ -940,7 +804,7 @@ export class TriggerEditor {
       const nameHtml = triggerName
         ? `<div class="tname">${this._escapeHtml(triggerName)}</div>`
         : '';
-      item.innerHTML = `<span class="trg-status" data-toggle="${index}">${statusIcon}</span><div class="trg-item-copy">${nameHtml}<div class="tid">${this._escapeHtml(trigger.id || '(未命名)')}</div>${bindingNamesHtml}<div class="twhen">FlowGroup(SceneEvent): ${this._escapeHtml(flowGroup?.name || triggerFgId || '未归属')}</div><div class="twhen">when: ${this._escapeHtml(whenLabel)} · ${this._escapeHtml(coordinationLabel)} · 定义序 ${definitionOrder}</div></div>${originHtml}`;
+      item.innerHTML = `<span class="trg-status" data-toggle="${index}">${statusIcon}</span><div class="trg-item-copy">${nameHtml}<div class="tid">${this._escapeHtml(trigger.id || '(未命名)')}</div>${bindingNamesHtml}<div class="twhen">when: ${this._escapeHtml(whenLabel)} · ${this._escapeHtml(coordinationLabel)} · 定义序 ${definitionOrder}</div></div>${originHtml}`;
       item.addEventListener('dragstart', (event) => {
         this._commitDetail();
         draggedTrigger = trigger;
@@ -1010,21 +874,12 @@ export class TriggerEditor {
 
     // 保留三层定义中的旧场景引用，避免切换编辑目标或保存时静默抹掉历史 scope。
     for (const definition of this.triggers) {
-      const sceneEvent = this.target === 'sceneEvents'
-        ? definition
-        : (this.project.sceneEvents || []).find(candidate => candidate.id === definition?.sceneEventId);
-      const referencedSceneIds = this.target === 'sceneEvents'
+      const referencedSceneIds = this.target === 'tutorials'
         ? [...(Array.isArray(definition.scope?.sceneIds) ? definition.scope.sceneIds : [])]
-        : this.target === 'tutorials'
-          ? [
-              ...(Array.isArray(definition.scope?.sceneIds) ? definition.scope.sceneIds : []),
-              ...(Array.isArray(sceneEvent?.scope?.sceneIds) ? sceneEvent.scope.sceneIds : [])
-            ]
-          : [
-              definition.when?.params?.sceneId,
-              ...(Array.isArray(definition.editorScope?.sceneIds) ? definition.editorScope.sceneIds : []),
-              ...(Array.isArray(sceneEvent?.scope?.sceneIds) ? sceneEvent.scope.sceneIds : [])
-            ];
+        : [
+            definition.when?.params?.sceneId,
+            ...(Array.isArray(definition.editorScope?.sceneIds) ? definition.editorScope.sceneIds : [])
+          ];
       for (const sceneId of referencedSceneIds) {
         if (sceneId && !scenes.has(sceneId)) scenes.set(sceneId, `${sceneId}（旧引用）`);
       }
@@ -1253,6 +1108,7 @@ export class TriggerEditor {
    * path 形如 "2" 或 "1.0.3"（父路径.branchIndex.子下标），与 TriggerStorylinePanel 同约定。
    */
   _renderDoItem(act, path, depth) {
+    const trigger = this.triggers[this.selectedIndex] || null;
     const indent = depth > 0 ? `style="margin-left:${Math.min(depth, 6) * 16}px"` : '';
     const isBranch = Array.isArray(act?.branch);
     const head = `
@@ -1326,7 +1182,7 @@ export class TriggerEditor {
       <div class="trg-do-item" data-path="${this._escapeHtml(path)}" ${indent}>
         ${head}
         <div class="do-identity-grid">
-          <label>稳定 stepId<input type="text" class="do-step-id" value="${this._escapeHtml(act.stepId || '')}" placeholder="${this._escapeHtml(this._nextActionStepId(t))}"></label>
+          <label>稳定 stepId<input type="text" class="do-step-id" value="${this._escapeHtml(act.stepId || '')}" placeholder="${this._escapeHtml(this._nextActionStepId(trigger))}"></label>
           ${operationEditor}
         </div>
         ${semantics ? `<div class="do-result-semantics">结果语义：${this._escapeHtml(semantics)}</div>` : ''}
@@ -1349,15 +1205,10 @@ export class TriggerEditor {
     const t = this.triggers[this.selectedIndex];
     if (!t) {
       const labels = {
-        sceneEvents: 'SceneEvent',
         triggers: 'Trigger',
         tutorials: 'Tutorial'
       };
       panel.innerHTML = `<div class="trg-empty">选择或新增一个 ${labels[this.target] || '定义'}</div>`;
-      return;
-    }
-    if (this.target === 'sceneEvents') {
-      this.sceneEventPanel.render(panel, t);
       return;
     }
     if (this.target === 'tutorials') {
@@ -1408,7 +1259,7 @@ export class TriggerEditor {
     panel.innerHTML = `
       <div class="trg-definition-heading">
         <strong>Trigger 业务规则</strong>
-        <span>同一 SceneEvent 内按 when、coordination.priority、定义顺序执行；do[] 严格串行</span>
+        <span>按 when、coordination.priority、定义顺序执行；do[] 严格串行</span>
       </div>
       <div class="row"><label>ID</label><input type="text" id="d-id" value="${this._escapeHtml(t.id || '')}"></div>
       <div class="row"><label>名称</label><input type="text" id="d-name" value="${this._escapeHtml(t.name || '')}" placeholder="如：第三次添柴后出现首狼"></div>
@@ -1704,15 +1555,9 @@ export class TriggerEditor {
     const t = this.triggers[this.selectedIndex];
     const panel = this.container.querySelector('#trg-detail');
     if (!t || !panel) return;
-    if (this.target === 'sceneEvents' || this.target === 'flowGroups') {
-      if (this.flowGroupPanel.commit(t, panel)) {
-        this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
-      }
-      return;
-    }
     if (this.target === 'tutorials') {
       if (this.tutorialPanel.commit(t, panel)) {
-        this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+        this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
       }
       return;
     }
@@ -1867,16 +1712,9 @@ export class TriggerEditor {
   _addTrigger() {
     this._commitDetail();
     const selectedSceneId = this.container.querySelector('#trg-filter-scene')?.value || '';
-    const selectedEventId = text(this.container.querySelector('#trg-filter-event')?.value)
-      || mergeFlowGroups(this.project).find(fg => !selectedSceneId
-        || fg.scope?.sceneIds?.includes(selectedSceneId))?.id
-      || mergeFlowGroups(this.project)[0]?.id
-      || '';
     let definition;
-    if (this.target === 'sceneEvents' || this.target === 'flowGroups') {
-      definition = this.flowGroupPanel.create(selectedSceneId);
-    } else if (this.target === 'tutorials') {
-      definition = this.tutorialPanel.create(selectedEventId);
+    if (this.target === 'tutorials') {
+      definition = this.tutorialPanel.create(selectedSceneId);
     } else {
       const id = this._nextStableId('trigger', this.project.triggers || []);
       definition = {
@@ -1889,12 +1727,7 @@ export class TriggerEditor {
     }
     this.triggers.push(definition);
     this.project[this.target] = this.triggers;
-    // 新增后双数组同步
-    if (this.target === 'flowGroups' || this.target === 'sceneEvents') {
-      this.project.flowGroups = [...(Array.isArray(this.project.flowGroups) ? this.project.flowGroups : [])];
-      this.project.sceneEvents = [...this.project.flowGroups];
-    }
-    this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+    this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = this.triggers.length - 1;
     this._updateSceneEventFilter();
     this._renderList();
@@ -1904,26 +1737,9 @@ export class TriggerEditor {
   _deleteTrigger() {
     if (this.selectedIndex < 0) return;
     const definition = this.triggers[this.selectedIndex];
-    if (this.target === 'sceneEvents' || this.target === 'flowGroups') {
-      const fgId = definition?.id;
-      const triggerCount = fgId
-        ? (this.project.triggers || []).filter(trigger => resolveFgId(trigger) === fgId).length
-        : 0;
-      const tutorialCount = fgId
-        ? (this.project.tutorials || []).filter(tutorial => resolveFgId(tutorial) === fgId).length
-        : 0;
-      if (triggerCount || tutorialCount) {
-        this._status(`无法删除 ${definition.name || definition.id}：仍被 ${triggerCount} 个 Trigger、${tutorialCount} 个 Tutorial 引用`, 'err');
-        return;
-      }
-    }
     this.triggers.splice(this.selectedIndex, 1);
     this.project[this.target] = this.triggers;
-    if (this.target === 'flowGroups' || this.target === 'sceneEvents') {
-      this.project.flowGroups = [...(Array.isArray(this.project.flowGroups) ? this.project.flowGroups : [])];
-      this.project.sceneEvents = [...this.project.flowGroups];
-    }
-    this.projectIndex = new FlowGroupProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
+    this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = Math.min(this.selectedIndex, this.triggers.length - 1);
     this._updateSceneEventFilter();
     this._renderList();

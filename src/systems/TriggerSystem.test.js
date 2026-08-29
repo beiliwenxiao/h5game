@@ -821,4 +821,46 @@ describe('多路径进程：步骤级 if + branch[] 分支 + 多教程串行', (
     expect(system.ledger.get('trg.reject').status).toBe('failed');
     expect(events.some(event => event.type === 'triggerFailed')).toBe(true);
   });
+
+  it('tutorial.command show + params.await 在步骤层等待教程离槽后才推进下一步', async () => {
+    const calls = [];
+    const hideListeners = [];
+    const tutorial = {
+      currentTutorial: { id: 'tutorial-a' },
+      pendingTutorials: [],
+      completedTutorials: new Set(),
+      onHide: listener => { hideListeners.push(listener); return () => {}; }
+    };
+    const system = new TriggerSystem({
+      monotonicClock: new MonotonicClock(100),
+      actionDescriptorRegistry: descriptorRegistry(['action.work', 'tutorial.command']),
+      commandAdapter: {
+        async execute(action, context) {
+          calls.push(action.params.token || action.action);
+          return commandResult(context.operationId);
+        }
+      }
+    });
+    system.init({ blackboard: new Blackboard(), tutorial });
+    system.register({
+      id: 'trg.multi',
+      flowGroupId: 'fg-label',
+      when: { type: 'signal', params: { channel: 'go' } },
+      do: [
+        { stepId: 'tut-1', action: 'tutorial.command', params: { operation: 'show', tutorialId: 'tutorial-a', await: true } },
+        { stepId: 'after', action: 'action.work', params: { token: 'after' } }
+      ]
+    });
+    expect(system.fire('signal', { channel: 'go', operationId: 'op-await' })).toBe(1);
+    await Promise.resolve();
+    // show 已执行；教程仍在槽内 → 下一步未推进
+    expect(calls).toContain('tutorial.command');
+    expect(calls).not.toContain('after');
+    // 教程离槽并触发 onHide → 等待解除，下一步推进
+    tutorial.currentTutorial = null;
+    hideListeners.forEach(listener => listener());
+    await system.waitForIdle();
+    expect(calls).toEqual(['tutorial.command', 'after']);
+    expect(system.ledger.get('trg.multi').status).toBe('succeeded');
+  });
 });

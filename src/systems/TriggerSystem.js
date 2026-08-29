@@ -750,6 +750,14 @@ export class TriggerSystem {
       if (lastResult.ok !== true && this._isBenignResult(lastResult)) {
         lastResult = this._benignSkipResult(request, trigger, lastResult);
       }
+      // 单 Trigger 多教程串行：tutorial.command show 成功后，若 params.await=true，
+      // 在此等待该教程离槽（命令已提交完成，等待不占用 state revision）。
+      if (lastResult.ok === true
+        && step?.action === 'tutorial.command'
+        && step?.params?.operation === 'show'
+        && step?.params?.await === true) {
+        await this._awaitTutorialHide(step.params.tutorialId);
+      }
       this.ledger.advance(trigger.id, request.operationId, index, lastResult);
       if (lastResult.ok !== true) {
         const failure = new Error(lastResult.error?.message || `action ${step?.action || 'branch'} returned ok:false`);
@@ -778,6 +786,27 @@ export class TriggerSystem {
       operationId: request.operationId,
       stateId: `trigger:${trigger.id}`, stateRevision: null
     };
+  }
+
+  /**
+   * 等待指定教程离槽（show 已成功提交后的串行编排等待）。
+   * 纯等待不占用 state revision；完成/从未进入/已隐藏 均视为就绪。
+   * 优先用真实 TutorialSystem（ctx.tutorialSystem），回退场景注入的 tutorial facade。
+   */
+  async _awaitTutorialHide(tutorialId) {
+    const tutorial = this.ctx.tutorialSystem
+      || (this.ctx.tutorial && typeof this.ctx.tutorial.onHide === 'function' ? this.ctx.tutorial : null);
+    if (!tutorial || !tutorialId) return;
+    if (typeof tutorial.onHide !== 'function') return;
+    const resolve = () => (
+      tutorial.completedTutorials?.has?.(tutorialId)
+      || tutorial.currentTutorial?.id !== tutorialId
+      || !(tutorial.pendingTutorials || []).some(entry => entry?.tutorialId === tutorialId)
+    );
+    if (resolve()) return;
+    await new Promise(done => {
+      const off = tutorial.onHide(() => { if (resolve()) { off?.(); done(); } });
+    });
   }
 
   /** 良性结果码判定：ok:false 且 code 属于幂等护栏集，视为可跳过的良性结果。 */

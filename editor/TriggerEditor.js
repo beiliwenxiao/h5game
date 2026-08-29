@@ -593,6 +593,16 @@ export class TriggerEditor {
       .do-step-if{margin-top:7px;color:#91a8cc;font-size:11px;}
       .do-step-if summary{cursor:pointer;user-select:none;}
       .do-step-if-input{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:6px;border-radius:3px;font-family:monospace;font-size:12px;min-height:44px;margin-top:6px;resize:vertical;}
+      .do-if-summary{color:#9ab6e0;font-size:11px;}
+      .do-step-if-form{background:#101a30;border:1px solid #24345c;border-radius:4px;padding:8px;margin-top:6px;}
+      .do-step-if-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+      .do-step-if-row label{display:flex;flex-direction:column;gap:3px;color:#93a8cc;font-size:11px;min-width:120px;}
+      .do-step-if-row input,.do-step-if-row select{background:#1a2440;color:#dbe6ff;border:1px solid #2f4168;border-radius:3px;padding:5px 8px;font-size:12px;}
+      .do-step-if-raw{margin-top:6px;}
+      .hidden{display:none !important;}
+      .do-cond-nested{background:#16213e;border:1px solid #3a4a7e;border-radius:4px;padding:8px;margin-top:6px;}
+      .do-cond-nested-note{color:#e8a24a;font-size:11px;margin-bottom:6px;}
+      .do-cond-nested textarea{width:100%;box-sizing:border-box;background:#0a1020;border:1px solid #2a3a5e;color:#fff;padding:6px;border-radius:3px;font-family:monospace;font-size:12px;min-height:64px;resize:vertical;}
       .do-await{display:flex;align-items:center;gap:5px;margin:7px 0 0;color:#7fc6a4;font-size:11px;}
       .do-await input{width:auto;}
     `;
@@ -1135,7 +1145,7 @@ export class TriggerEditor {
                     <label class="do-branch-otherwise"><input type="checkbox" class="do-branch-otherwise-cb"${branch.otherwise ? ' checked' : ''}> otherwise 兜底</label>
                     <button type="button" class="trg-mini do-branch-del" title="删除此分支">✕</button>
                   </div>
-                  ${branch.otherwise ? '' : `<textarea class="do-branch-when" placeholder='分支条件 when (JSON)，如 {"op":">","left":{"var":"hp"},"right":0}'>${this._escapeHtml(this._json(branch.when))}</textarea>`}
+                  ${branch.otherwise ? '' : `<div class="do-branch-when-wrap"><div class="do-branch-when-title">🛡 分支条件 when（满足才进入此分支）</div>${this._renderConditionForm(branch.when, { textareaClass: 'do-branch-when', emptyLabel: '（无条件）' })}</div>`}
                   <div class="do-branch-do">
                     ${children.length
                       ? children.map((child, cIndex) => this._renderDoItem(child, `${branchPath}.${cIndex}`, depth + 1)).join('')
@@ -1171,10 +1181,7 @@ export class TriggerEditor {
       ? `${this._renderSpawnPlacementControls(act.params)}<textarea class="do-params" style="display:none">${this._escapeHtml(this._json(act.params))}</textarea>`
       : `${structuredParams}<details class="do-advanced"${structuredParams ? '' : ' open'}><summary>高级 JSON／未登记参数</summary><textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._escapeHtml(this._json(act.params))}</textarea></details>`;
     const semantics = this._formatResultSemantics(operation?.resultSemantics || descriptor?.resultSemantics);
-    const ifEditor = `
-      <details class="do-step-if"><summary>🛡 前置 if…</summary>
-        <textarea class="do-step-if-input" placeholder='步骤级条件 (JSON)，如 {"op":">","left":{"var":"hp"},"right":0}'>${this._escapeHtml(this._json(act.if))}</textarea>
-      </details>`;
+    const ifEditor = this._renderStepIfEditor(act, path);
     const awaitEditor = act.action === 'tutorial.command'
       ? `<label class="do-await"><input type="checkbox" class="do-await-cb"${act.params?.await ? ' checked' : ''}> ⏳ 串行等待（教程结束后再执行下一步）</label>`
       : '';
@@ -1190,6 +1197,85 @@ export class TriggerEditor {
         ${ifEditor}
         ${awaitEditor}
       </div>`;
+  }
+
+  /** 判断是否嵌套/复合条件（and/or/not 含子条件，或非表单可承载的结构）。 */
+  _isNestedCondition(condition) {
+    if (!condition || typeof condition !== 'object') return false;
+    const op = condition.op;
+    if (op === 'and' || op === 'or' || op === 'not') return true; // 需 args[]/arg
+    if (condition.args || condition.arg) return true; // 显式嵌套
+    return false;
+  }
+
+  /** 通用条件可视化编辑器：扁平条件用表单；嵌套/复合条件降级为只读 JSON（避免静默破坏结构）。 */
+  _renderConditionForm(condition, opts = {}) {
+    const escape = value => this._escapeHtml(value);
+    const textareaClass = opts.textareaClass || 'do-step-if-input';
+    if (this._isNestedCondition(condition)) {
+      return `
+        <div class="do-cond-form do-cond-nested">
+          <div class="do-cond-nested-note">🧩 嵌套条件（and/or/not 组合），请在下方 JSON 中编辑以避免破坏结构</div>
+          <textarea class="${textareaClass}" placeholder='条件 (JSON)'>${this._escapeHtml(this._json(condition))}</textarea>
+        </div>`;
+    }
+    const ops = [
+      { value: '==', label: '等于' },
+      { value: '!=', label: '不等于' },
+      { value: '>', label: '大于' },
+      { value: '>=', label: '大于等于' },
+      { value: '<', label: '小于' },
+      { value: '<=', label: '小于等于' },
+      { value: 'hasItem', label: '持有物品' }
+    ];
+    const currentOp = condition?.op || '';
+    const currentVar = text(condition?.var ?? condition?.flag ?? condition?.left?.var ?? '');
+    const rawValue = condition?.value !== undefined
+      ? condition.value
+      : (condition?.right !== undefined ? condition.right : '');
+    const currentValue = typeof rawValue === 'string' ? rawValue : JSON.stringify(rawValue);
+    const currentItem = condition?.item || '';
+    const currentCount = condition?.count ?? 1;
+    const hasItem = currentOp === 'hasItem';
+    const emptyLabel = opts.emptyLabel || '（无条件，总是执行）';
+    const opOptions = `<option value="">${escape(emptyLabel)}</option>`
+      + ops.map(o => `<option value="${o.value}"${currentOp === o.value ? ' selected' : ''}>${o.label} (${o.value})</option>`).join('');
+    const summary = !condition
+      ? emptyLabel
+      : hasItem
+        ? `持有 ${escape(currentItem || '?')} ×${escape(currentCount)}`
+        : `${escape(currentOp)} ${escape(currentVar)} ${escape(currentValue)}`;
+    return `
+      <div class="do-cond-form">
+        <div class="do-step-if-row">
+          <label>操作 <select class="do-if-op">${opOptions}</select></label>
+          <label class="do-if-var-wrap${hasItem ? ' hidden' : ''}">变量 <input type="text" class="do-if-var" value="${escape(currentVar)}" placeholder="如 story.xxx 或 hp"></label>
+          <label class="do-if-value-wrap${hasItem ? ' hidden' : ''}">值 <input type="text" class="do-if-value" value="${escape(currentValue)}" placeholder="如 true / 0 / &quot;text&quot;"></label>
+          <label class="do-if-item-wrap${hasItem ? '' : ' hidden'}">物品 <input type="text" class="do-if-item" value="${escape(currentItem)}" placeholder="如 resource.wild_berry"></label>
+          <label class="do-if-count-wrap${hasItem ? '' : ' hidden'}">数量 <input type="number" min="1" step="1" class="do-if-count" value="${escape(currentCount)}"></label>
+        </div>
+        <details class="do-step-if-raw">
+          <summary>高级 JSON</summary>
+          <textarea class="${textareaClass}" placeholder='条件 (JSON)'>${this._escapeHtml(this._json(condition))}</textarea>
+        </details>
+      </div>`;
+  }
+
+  /** 步骤级 if 编辑器（复用通用条件表单）。 */
+  _renderStepIfEditor(act, path) {
+    const escape = value => this._escapeHtml(value);
+    const summary = !act.if
+      ? '（无条件，总是执行）'
+      : this._isNestedCondition(act.if)
+        ? `🧩 嵌套条件（${escape(act.if?.op || '复合')}）`
+        : act.if?.op === 'hasItem'
+          ? `持有 ${escape(act.if.item || '?')} ×${escape(act.if.count ?? 1)}`
+          : `${escape(act.if?.op || '')} ${escape(text(act.if?.var ?? act.if?.flag ?? act.if?.left?.var ?? ''))} ${escape(act.if?.value !== undefined ? (typeof act.if.value === 'string' ? act.if.value : JSON.stringify(act.if.value)) : '')}`;
+    return `
+      <details class="do-step-if"${act.if ? ' open' : ''}>
+        <summary>🛡 前置条件 <span class="do-if-summary">${summary}</span></summary>
+        ${this._renderConditionForm(act.if, { textareaClass: 'do-step-if-input' })}
+      </details>`;
   }
 
   // ---- 详情表单 ----
@@ -1409,6 +1495,46 @@ export class TriggerEditor {
       select.addEventListener('change', () => {
         this._commitDetail();
         this._renderDetail();
+      });
+    });
+    // 可视化条件编辑器（步骤 if + 分支 when 通用）：表单→隐藏 JSON textarea 即时同步 + hasItem 字段切换
+    panel.querySelectorAll('.do-cond-form').forEach(form => {
+      const textarea = form.querySelector('.do-step-if-input, .do-branch-when');
+      const itemWrap = form.querySelector('.do-if-item-wrap');
+      const countWrap = form.querySelector('.do-if-count-wrap');
+      const varWrap = form.querySelector('.do-if-var-wrap');
+      const valueWrap = form.querySelector('.do-if-value-wrap');
+      const sync = () => {
+        const op = form.querySelector('.do-if-op')?.value || '';
+        const variable = text(form.querySelector('.do-if-var')?.value || '');
+        const raw = form.querySelector('.do-if-value')?.value || '';
+        const item = text(form.querySelector('.do-if-item')?.value || '');
+        const count = Math.max(1, Number(form.querySelector('.do-if-count')?.value) || 1);
+        let next = null;
+        if (op === 'hasItem') {
+          next = item ? { op, item, count } : null;
+        } else if (op && variable) {
+          let parsed;
+          try { parsed = raw === '' ? undefined : JSON.parse(raw); } catch { parsed = raw; }
+          next = { op, var: variable, value: parsed };
+        }
+        if (textarea) textarea.value = next ? JSON.stringify(next) : '';
+        this._commitDetail();
+      };
+      const applyVisibility = op => {
+        const hasItem = op === 'hasItem';
+        if (itemWrap) itemWrap.classList.toggle('hidden', !hasItem);
+        if (countWrap) countWrap.classList.toggle('hidden', !hasItem);
+        if (varWrap) varWrap.classList.toggle('hidden', hasItem);
+        if (valueWrap) valueWrap.classList.toggle('hidden', hasItem);
+      };
+      form.querySelector('.do-if-op')?.addEventListener('change', event => {
+        applyVisibility(event.target.value);
+        sync();
+      });
+      form.querySelectorAll('.do-if-var, .do-if-value, .do-if-item, .do-if-count').forEach(input => {
+        input.addEventListener('change', sync);
+        input.addEventListener('blur', sync);
       });
     });
     panel.querySelectorAll('.spawn-placement-mode').forEach(select => {

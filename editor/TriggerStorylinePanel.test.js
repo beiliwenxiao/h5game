@@ -42,7 +42,9 @@ describe('TriggerStorylinePanel', () => {
 
   it('按场景分组渲染 Trigger 卡片：when/if 摘要 + 教程步骤高亮 + 多教程步骤', () => {
     const panel = document.createElement('div');
-    new TriggerStorylinePanel(buildEditor(baseProject())).render(panel);
+    const panelInstance = new TriggerStorylinePanel(buildEditor(baseProject()));
+    panelInstance.groupMode = 'scene'; // 显式切回按场景分组，保持既有断言契约
+    panelInstance.render(panel);
     const html = panel.innerHTML;
     expect(html).toContain('场景一');           // 分组标签
     expect(html).toContain('trg-1');
@@ -118,5 +120,32 @@ describe('TriggerStorylinePanel', () => {
     expect(tokens).toContain('{key:attack}');
     overlay.querySelector('.story-btn-help-close').click();
     expect(document.querySelector('.story-btn-help-overlay')).toBeNull();
+  });
+
+  it('事件链分组：按事务依赖拓扑排序（入口 → 阶段1 → 阶段2）', () => {
+    const project = {
+      triggers: [
+        { id: 't-entry', name: '采集野果', when: { type: 'gathering.completed', params: {} }, do: [
+          { action: 's01Survival', params: { operation: 'commitStoryWhenReady', definitionId: 'story.a' }, stepId: 's' }
+        ] },
+        { id: 't-mid', name: '记录', when: { type: 'state.transaction', params: { definitionId: 'story.a' } }, do: [
+          { action: 's01Survival', params: { operation: 'commitStoryWhenReady', definitionId: 'story.b' }, stepId: 's' }
+        ] },
+        { id: 't-end', name: '吃果', when: { type: 'state.transaction', params: { definitionId: 'story.b' } }, do: [
+          { action: 'tutorial.command', params: { operation: 'show', tutorialId: 'x' }, stepId: 's' }
+        ] }
+      ],
+      tutorials: []
+    };
+    const panel = document.createElement('div');
+    new TriggerStorylinePanel(buildEditor(project)).render(panel);
+    const groups = [...panel.querySelectorAll('.story-group .story-head strong')].map(el => el.textContent.trim());
+    expect(groups[0]).toContain('入口事件');
+    expect(groups[1]).toContain('阶段1');
+    expect(groups[2]).toContain('阶段2');
+    // 卡片显示事务链路：t-mid 由 story.a 触发、提交 story.b
+    const mid = panel.querySelector('[data-trigger="t-mid"]');
+    expect(mid.textContent).toContain('story.a');
+    expect(mid.textContent).toContain('story.b');
   });
 });

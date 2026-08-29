@@ -54,7 +54,7 @@ export class TriggerStorylinePanel {
   constructor(editor) {
     this.editor = editor;
     this.expanded = new Set(); // 展开的触发器 id（默认全部展开）
-    this.groupMode = 'scene'; // scene | when | coordination
+    this.groupMode = 'chain'; // chain | scene | when | coordination
   }
 
   /** HTML 转义（优先复用编辑器的 _escapeHtml）。 */
@@ -67,6 +67,7 @@ export class TriggerStorylinePanel {
   render(panel) {
     const project = this.editor.project || {};
     const triggers = asList(project.triggers);
+    this._chainGraphCache = null; // 每次渲染重建依赖图（数据可能已编辑）
     this._injectButtonHelpStyles();
     this.injectStyles();
     if (!triggers.length) {
@@ -85,6 +86,7 @@ export class TriggerStorylinePanel {
   _groupTriggers(triggers) {
     const groups = [];
     const groupOf = trigger => {
+      if (this.groupMode === 'chain') return this._chainStage(trigger);
       if (this.groupMode === 'when') return whenSummary(trigger).split(' ')[0] || '其他';
       if (this.groupMode === 'coordination') return text(trigger.coordination?.group) || '（独立）';
       const sceneIds = asList(trigger.editorScope?.sceneIds);
@@ -105,24 +107,143 @@ export class TriggerStorylinePanel {
       }
       group.items.push(trigger);
     }
-    const order = list => list.sort((left, right) => {
-      const leftScene = asList(left.editorScope?.sceneIds)[0] || 'zzz';
-      const rightScene = asList(right.editorScope?.sceneIds)[0] || 'zzz';
-      if (leftScene !== rightScene) return leftScene.localeCompare(rightScene);
-      return (this.editor.project?.triggers || []).indexOf(left) - (this.editor.project?.triggers || []).indexOf(right);
-    });
-    for (const group of groups) order(group.items);
-    // 无场景归属放最后
+    const definitionOrder = list => list.sort((left, right) =>
+      (this.editor.project?.triggers || []).indexOf(left) - (this.editor.project?.triggers || []).indexOf(right));
+    for (const group of groups) definitionOrder(group.items);
+    // 事件链：按拓扑阶段排序；无场景归属放最后
     return groups.sort((left, right) => {
+      if (this.groupMode === 'chain') {
+        const stageOrder = stage => {
+          const match = stage.match(/^阶段(\d+)$/);
+          if (match) return Number(match[1]);
+          if (stage === '入口事件') return -1;
+          if (stage === '终局/无后续') return 999;
+          return 998; // 游离 Trigger
+        };
+        const orderA = stageOrder(left.key);
+        const orderB = stageOrder(right.key);
+        if (orderA !== orderB) return orderA - orderB;
+      }
       if (left.key === '（无场景归属）') return 1;
       if (right.key === '（无场景归属）') return -1;
       return 0;
     });
   }
 
+  /**
+   * 事件链阶段判定：从 trigger 的「触发事务」与「提交事务」推断它在剧情 DAG 中的深度。
+   *   when.type=state.transaction 的 params.definitionId → 被上游事务触发（有前驱）
+   *   do[] 中 s01Survival.commitStoryWhenReady 的 params.definitionId → 提交下游事务（有后继）
+   * 拓扑排序：无前驱为「入口事件」；否则按最长依赖链求深度 → 阶段N。
+   */
+  _chainStage(trigger) {
+    const graph = this._buildChainGraph();
+    const stage = graph.stages.get(trigger.id);
+    return stage ?? '游离 Trigger';
+  }
+
+  _buildChainGraph() {
+    if (this._chainGraphCache) return this._chainGraphCache;
+    const triggers = asList(this.editor.project?.triggers);
+    const commitId = step => {
+      if (step?.action !== 's01Survival' && step?.action !== 'state.transaction') return null;
+      const definitionId = text(step?.params?.definitionId);
+      if (step?.action === 's01Survival' && step?.params?.operation === 'commitStoryWhenReady') return definitionId;
+      if (step?.action === 'state.transaction') return definitionId;
+      return null;
+    };
+    const collectCommits = steps => {
+      const ids = [];
+      for (const step of asList(steps)) {
+        if (Array.isArray(step?.branch)) for (const branch of step.branch) ids.push(...collectCommits(branch?.do));
+        else {
+          const id = commitId(step);
+          if (id) ids.push(id);
+        }
+      }
+      return ids;
+    };
+    // 事务 → 产出它的 trigger；事务 → 消费它的 trigger
+    const producedBy = new Map(); // definitionId -> Set<triggerId>
+    const consumedBy = new Map(); // definitionId -> Set<triggerId>
+    for (const trigger of triggers) {
+      const incoming = trigger?.when?.type === 'state.transaction'
+        ? text(trigger.when?.params?.definitionId)
+        : '';
+      if (incoming) {
+        const set = consumedBy.get(incoming) || new Set();
+        set.add(trigger.id);
+        consumedBy.set(incoming, set);
+      }
+      for (const definitionId of collectCommits(trigger?.do)) {
+        const set = producedBy.get(definitionId) || new Set();
+        set.add(trigger.id);
+        producedBy.set(definitionId, set);
+      }
+    }
+    // trigger 依赖边：trigger A 产出的事务被 trigger B 消费 → A → B
+    const outEdges = new Map(); // triggerId -> Set<triggerId>
+    const inDegree = new Map(); // triggerId -> number（独立前驱数）
+    const hasPredecessor = new Set();
+    const isChained = new Set();
+    for (const trigger of triggers) {
+      const id = trigger?.id;
+      if (!id) continue;
+      inDegree.set(id, 0);
+      if (!outEdges.has(id)) outEdges.set(id, new Set());
+      const incoming = trigger?.when?.type === 'state.transaction'
+        ? text(trigger.when?.params?.definitionId)
+        : '';
+      if (incoming && producedBy.get(incoming)?.size) hasPredecessor.add(id);
+      for (const definitionId of collectCommits(trigger?.do)) {
+        const consumers = consumedBy.get(definitionId);
+        if (!consumers) continue;
+        isChained.add(id);
+        for (const consumer of consumers) {
+          if (consumer === id) continue;
+          if (!outEdges.get(id).has(consumer)) {
+            outEdges.get(id).add(consumer);
+            inDegree.set(consumer, (inDegree.get(consumer) || 0) + 1);
+            isChained.add(consumer);
+          }
+        }
+      }
+    }
+    // 拓扑求深度（Kahn）；环/无链回退定义序
+    const orderIndex = new Map(triggers.map((trigger, index) => [trigger?.id, index]));
+    const depth = new Map();
+    const queue = [...inDegree.entries()]
+      .filter(([id, degree]) => degree === 0)
+      .map(([id]) => id);
+    for (const id of queue) depth.set(id, 0);
+    let guard = 0;
+    while (queue.length && guard < 10000) {
+      guard++;
+      const current = queue.shift();
+      for (const next of outEdges.get(current) || []) {
+        depth.set(next, Math.max(depth.get(next) ?? 0, (depth.get(current) ?? 0) + 1));
+        inDegree.set(next, inDegree.get(next) - 1);
+        if (inDegree.get(next) === 0) queue.push(next);
+      }
+    }
+    const stages = new Map();
+    for (const trigger of triggers) {
+      const id = trigger?.id;
+      if (!id) continue;
+      if (!isChained.has(id)) {
+        stages.set(id, trigger?.when?.type === 'state.transaction' ? '游离 Trigger' : '入口事件');
+        continue;
+      }
+      const d = depth.get(id) ?? 0;
+      stages.set(id, d === 0 ? '入口事件' : `阶段${d}`);
+    }
+    this._chainGraphCache = { stages };
+    return this._chainGraphCache;
+  }
+
   /** 顶部工具栏：分组维度切换 + 「按钮写法」帮助入口。 */
   _toolbarHtml() {
-    const modeLabel = { scene: '按场景', when: '按事件类型', coordination: '按协调组' };
+    const modeLabel = { chain: '⛓ 事件链（执行顺序）', scene: '按场景', when: '按事件类型', coordination: '按协调组' };
     return `
       <div class="story-toolbar">
         <strong class="story-toolbar-title">剧情线总览（Trigger 链）</strong>
@@ -154,6 +275,10 @@ export class TriggerStorylinePanel {
     const whenLabel = this._whenLabel(trigger);
     const ifSummary = conditionSummary(trigger.if);
     const steps = asList(trigger.do);
+    const incoming = trigger?.when?.type === 'state.transaction'
+      ? text(trigger.when?.params?.definitionId)
+      : '';
+    const outgoing = this._collectCommits(trigger).map(id => `→ ${id}`);
     return `
       <div class="story-card story-trigger" data-trigger="${escape(id)}">
         <div class="story-trigger-head">
@@ -163,6 +288,11 @@ export class TriggerStorylinePanel {
           ${trigger.enabled === false ? '<span class="story-disabled">⏸ 停用</span>' : ''}
           <button class="story-jump" data-jump-target="triggers" data-jump-id="${escape(id)}">编辑 →</button>
         </div>
+        ${incoming || outgoing.length ? `
+          <div class="story-chain">
+            ${incoming ? `<div class="story-chain-in" title="由该事务触发">⇤ ${escape(incoming)}</div>` : ''}
+            ${outgoing.length ? `<div class="story-chain-out" title="提交该事务后触发下游">${escape(outgoing.join(' · '))}</div>` : ''}
+          </div>` : ''}
         <div class="story-cond">
           <div class="story-cond-col">
             <div class="story-cond-title">⚡ 触发时机</div><div>${escape(whenLabel)}</div>
@@ -187,6 +317,27 @@ export class TriggerStorylinePanel {
         </div>
       </div>
     `;
+  }
+
+  /** 收集 trigger do[]（含 branch 递归）中 s01Survival/state.transaction 提交的事务 definitionId。 */
+  _collectCommits(trigger) {
+    const ids = [];
+    const walk = steps => {
+      for (const step of asList(steps)) {
+        if (Array.isArray(step?.branch)) {
+          for (const branch of step.branch) walk(branch?.do);
+          continue;
+        }
+        const action = step?.action;
+        if (action !== 's01Survival' && action !== 'state.transaction') continue;
+        const definitionId = text(step?.params?.definitionId);
+        if (!definitionId) continue;
+        if (action === 's01Survival' && step?.params?.operation !== 'commitStoryWhenReady') continue;
+        ids.push(definitionId);
+      }
+    };
+    walk(trigger?.do);
+    return ids;
   }
 
   /** 递归渲染一个步骤（动作 / 分支容器）。path 形如 "2" 或 "1.0.3"。 */
@@ -570,6 +721,9 @@ export class TriggerStorylinePanel {
       .story-step-actions{margin-top:6px;}
       .story-step-add{background:#1d2a4a;border:1px dashed #3a5490;color:#9ab6e0;border-radius:3px;padding:3px 8px;cursor:pointer;font-size:11px;}
       .story-step-add:hover{background:#2a3a64;color:#fff;}
+      .story-chain{display:flex;flex-direction:column;gap:2px;padding:4px 12px;background:#0f1830;border-bottom:1px solid #1e2b47;font-size:11px;}
+      .story-chain-in{color:#7a9bd8;}
+      .story-chain-out{color:#6fae7f;}
     `;
     document.head.appendChild(style);
   }

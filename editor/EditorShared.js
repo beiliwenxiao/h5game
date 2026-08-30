@@ -8,6 +8,7 @@ import { CanonicalDocumentService } from './CanonicalDocumentService.js';
 import { CanonicalEditorSession } from './CanonicalEditorSession.js';
 import { EditorSceneCommandService } from './EditorSceneCommandService.js';
 import { LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
+import { InputHints } from '../src/core/input/InputHints.js';
 
 // 页面注册表：页面 ID → HTML 文件名
 export const EDITOR_PAGES = Object.freeze({
@@ -22,13 +23,14 @@ export const EDITOR_PAGES = Object.freeze({
   'system-editor': 'system-editor.html'
 });
 
-// 导航项定义（顺序即显示顺序）
+// 导航项定义（顺序即显示顺序）。
+// 「⌨ 按钮写法」「📦 物体写法」是弹层入口（非页面），挂在场景编辑器的标签栏（scene-workflow.html）「⚡ 事件/触发器」之后，
+// 通过 openButtonHelp / openItemReferenceModal 打开，不在顶部导航出现。
 const NAV_ITEMS = Object.freeze([
   { id: 'game-list', label: '🎮 游戏列表', file: 'index.html' },
   { id: 'scene-workflow', label: '🗺️ 场景编辑器', file: 'scene-workflow.html' },
   { id: 'ui-editor', label: '🎨 UI编辑器', file: 'ui-editor.html' },
   { id: 'library-editor', label: '📚 内容库', file: 'library-editor.html' },
-  { id: 'item-reference', label: '📦 物体写法', file: 'item-reference.html' },
   { id: 'dialogue-editor', label: '💬 对话', file: 'dialogue-editor.html' },
   { id: 'world-map-editor', label: '🌍 大地图', file: 'world-map-editor.html' },
   { id: 'panel-editor', label: '🧩 面板', file: 'panel-editor.html' },
@@ -72,8 +74,7 @@ export function renderEditorNav(currentPageId, containerId = 'editor-nav') {
           <button class="${item.id === currentPageId ? 'active' : ''}"
                   onclick="window.location.href='${item.file}${query}'">
             ${item.label}
-          </button>
-        `).join('')}
+          </button>`).join('')}
       </nav>
       <span class="game-selector-label">游戏:</span><select id="game-selector" class="game-selector"></select>
     </div>
@@ -100,6 +101,157 @@ export function renderEditorNav(currentPageId, containerId = 'editor-nav') {
       window.location.href = url.toString();
     });
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/* 「按钮写法」全局弹层（顶部导航入口，所有编辑器页面可用）                     */
+/* -------------------------------------------------------------------------- */
+
+const _escapeHtml = value => String(value ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+let _hintsConfigLoaded = false;
+
+/** 合并项目已保存的提示文案覆盖（config/InputHints.json），与 UIEditor「提示文案」读取同一文件。 */
+async function ensureInputHintsConfig(gameId) {
+  if (_hintsConfigLoaded) return;
+  _hintsConfigLoaded = true;
+  try {
+    const file = `example/${gameId}/config/InputHints.json`;
+    const res = await fetch('/api/read-file?path=' + encodeURIComponent(file));
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !data.ok || !data.content) return;
+    const parsed = JSON.parse(data.content);
+    InputHints.merge(parsed && parsed.actions ? parsed.actions : parsed);
+  } catch (e) {
+    // 无覆盖文件或环境不支持读取时，沿用内部默认表（与 UIEditor 行为一致）
+  }
+}
+
+/** 从 InputHints 汇总全部可用动作写法。 */
+function buttonReferenceRows() {
+  return Object.entries(InputHints.getActions()).map(([name, def]) => {
+    const pc = def?.pc || {};
+    let pcText;
+    try { pcText = InputHints.phrase(name) || pc.key || name; }
+    catch (e) { pcText = (pc.kind === 'raw' ? '点击' : '按 ') + (pc.key || name); }
+    return {
+      tokens: `{${name}}　{key:${name}}`,
+      pc: _escapeHtml(pcText),
+      android: _escapeHtml(def?.android || '—'),
+      pad: _escapeHtml(def?.padKey || def?.padFixed || '—')
+    };
+  });
+}
+
+/** 「按钮写法」全局弹层内容（不含外层 overlay 容器）。 */
+function buttonHelpModalBody() {
+  const rows = buttonReferenceRows();
+  const body = rows.length
+    ? `<div class="story-help-row story-help-head">
+          <span>写法（可直接拷贝）</span><span>键鼠</span><span>触屏</span><span>手柄</span>
+        </div>`
+      + rows.map(row => `
+        <div class="story-help-row">
+          <code class="story-help-tokens" title="点击拷贝">${_escapeHtml(row.tokens)}</code>
+          <span>${row.pc}</span><span>${row.android}</span><span>${row.pad}</span>
+        </div>`).join('')
+    : '<div class="story-help-body"><div class="story-empty">（暂无动作定义）</div></div>';
+  return `
+    <div class="story-btn-help-modal">
+      <div class="story-btn-help-head">
+        <strong>⌨ 按钮写法（文本模板占位符）</strong>
+        <span class="story-btn-help-sub">用于教程 beginText/endText 或对话正文，运行时自动替换成当前设备的按键/控件名</span>
+        <button type="button" class="story-btn-help-close" title="关闭">✕</button>
+      </div>
+      <div class="story-help-note">
+        两种写法：<code>{动作名}</code> 显示完整操作短语（如 <code>{attack}</code> → 点击鼠标左键）；<code>{key:动作名}</code> 只插入按键/控件名（如 <code>{key:attack}</code> → 鼠标左键）。
+        点击下方任一写法即可拷贝。
+      </div>
+      <div class="story-help-body">${body}</div>
+    </div>`;
+}
+
+function injectButtonHelpStyles() {
+  if (document.getElementById('story-btn-help-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'story-btn-help-styles';
+  style.textContent = `
+    .story-btn-help-overlay{position:fixed;inset:0;background:rgba(5,10,25,.72);z-index:10000;display:flex;align-items:center;justify-content:center;}
+    .story-btn-help-modal{width:min(720px,92vw);max-height:86vh;display:flex;flex-direction:column;background:#0d1326;color:#e6ecf7;border:1px solid #2a3a5e;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.55);overflow:hidden;font-size:13px;}
+    .story-btn-help-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#101a30;border-bottom:1px solid #2a3a5e;}
+    .story-btn-help-sub{color:#8aa;font-size:11px;}
+    .story-btn-help-close{margin-left:auto;background:#3a4a7e;border:none;color:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;}
+    .story-help-note{padding:10px 16px;color:#93a8cc;font-size:12px;background:#16213e;border-bottom:1px solid #2a3a5e;}
+    .story-help-note code{background:#26304e;color:#7a9bd8;border-radius:3px;padding:1px 5px;}
+    .story-help-body{flex:1;overflow:auto;padding:8px 16px 16px;}
+    .story-help-row{display:grid;grid-template-columns:minmax(160px,1.4fr) 1fr 1fr 1fr;gap:8px;align-items:center;padding:5px 4px;border-bottom:1px dotted #1e2b47;font-size:12px;color:#aebce0;}
+    .story-help-row.story-help-head{color:#8a93a8;font-size:11px;position:sticky;top:0;background:#0d1326;}
+    .story-help-tokens{color:#7ad;cursor:pointer;white-space:nowrap;}
+    .story-help-tokens:hover{color:#fff;}
+  `;
+  document.head.appendChild(style);
+}
+
+/** 打开全局「按钮写法」弹层（挂在 body，场景编辑器标签栏入口等处可用）。 */
+export async function openButtonHelp({ gameId = '' } = {}) {
+  await ensureInputHintsConfig(gameId);
+  injectButtonHelpStyles();
+  const overlay = document.createElement('div');
+  overlay.className = 'story-btn-help-overlay';
+  overlay.innerHTML = buttonHelpModalBody();
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('.story-btn-help-close').addEventListener('click', close);
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) close();
+  });
+  for (const el of overlay.querySelectorAll('.story-help-tokens')) {
+    el.addEventListener('click', () => {
+      try { navigator.clipboard?.writeText?.(el.textContent || ''); } catch (e) { /* 忽略剪贴板拒绝 */ }
+    });
+  }
+}
+
+function injectItemRefModalStyles() {
+  if (document.getElementById('item-ref-modal-styles')) return;
+  const style = document.createElement('style');
+  style.id = 'item-ref-modal-styles';
+  style.textContent = `
+    .item-ref-overlay{position:fixed;inset:0;background:rgba(5,10,25,.72);z-index:10000;display:flex;align-items:center;justify-content:center;}
+    .item-ref-modal{width:min(960px,94vw);height:86vh;display:flex;flex-direction:column;background:#0a0a1e;color:#fff;border:1px solid #2a3a5e;border-radius:8px;box-shadow:0 12px 40px rgba(0,0,0,.55);overflow:hidden;}
+    .item-ref-modal-head{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#101a30;border-bottom:1px solid #2a3a5e;}
+    .item-ref-modal-sub{color:#8aa;font-size:11px;}
+    .item-ref-modal-close{margin-left:auto;background:#3a4a7e;border:none;color:#fff;border-radius:4px;padding:4px 10px;cursor:pointer;}
+    .item-ref-modal-frame{flex:1;width:100%;border:none;background:#0a0a1e;}
+  `;
+  document.head.appendChild(style);
+}
+
+/** 打开「物体写法」弹窗（iframe 内嵌 item-reference.html，不切换/跳转页面）。 */
+export function openItemReferenceModal({ gameId = '' } = {}) {
+  if (document.querySelector('.item-ref-overlay')) return;
+  injectItemRefModalStyles();
+  const overlay = document.createElement('div');
+  overlay.className = 'item-ref-overlay';
+  const query = gameId ? `?gameId=${encodeURIComponent(gameId)}` : '';
+  overlay.innerHTML = `
+    <div class="item-ref-modal">
+      <div class="item-ref-modal-head">
+        <strong>📦 物体写法</strong>
+        <span class="item-ref-modal-sub">内容库物品/装备/资源节点等 ID 参考，点击物品 ID 可复制</span>
+        <button type="button" class="item-ref-modal-close" title="关闭">✕</button>
+      </div>
+      <iframe class="item-ref-modal-frame" title="物体写法" src="item-reference.html${query}"></iframe>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('.item-ref-modal-close').addEventListener('click', close);
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) close();
+  });
 }
 
 /** 从当前 URL 读取查询参数 */

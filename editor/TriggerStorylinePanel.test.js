@@ -107,11 +107,12 @@ describe('TriggerStorylinePanel', () => {
   });
 
   it('「按钮写法」帮助：打开全局弹层并列出 InputHints 动作清单，可关闭', async () => {
+    // 「按钮写法」入口已移到顶部导航（EditorShared），面板内不再提供重复按钮；
+    // 全局弹层能力仍保留在面板（openButtonHelp 仍可直接调用）。
     const panel = document.createElement('div');
     const storyline = new TriggerStorylinePanel(buildEditor(baseProject()));
     storyline.render(panel);
-    const openBtn = panel.querySelector('.story-btn-help');
-    expect(openBtn).toBeTruthy();
+    expect(panel.querySelector('.story-btn-help')).toBeNull();
     await storyline.openButtonHelp();
     const overlay = document.querySelector('.story-btn-help-overlay');
     expect(overlay).toBeTruthy();

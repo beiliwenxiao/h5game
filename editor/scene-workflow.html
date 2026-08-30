@@ -39,6 +39,9 @@
         .editor-tabs button { padding: 10px 20px; background: transparent; border: none; color: #aaa; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; }
         .editor-tabs button:hover { color: #fff; }
         .editor-tabs button.active { color: #4CAF50; border-bottom-color: #4CAF50; }
+        /* 标签栏右侧弹层入口（按钮写法/物体写法），不参与标签切换 */
+        .editor-tabs button.tab-extra { background: #3a4a7e; color: #fff; border-radius: 4px; padding: 6px 12px; margin: 6px 0 6px 8px; border-bottom: none; }
+        .editor-tabs button.tab-extra:hover { background: #4a5a9e; color: #fff; }
         .editor-panel { flex: 1; overflow: hidden; display: none; }
         .editor-panel.active { display: flex; flex-direction: column; }
         .panel-container { flex: 1; overflow: hidden; min-height: 0; }
@@ -75,6 +78,8 @@
                 <div class="editor-tabs">
                     <button class="active" data-tab="scene">🗺️ 场景编辑</button>
                     <button data-tab="trigger">⚡ 事件/触发器</button>
+                    <button type="button" class="tab-extra" data-action="button-help" style="margin-left:auto;">⌨ 按钮写法</button>
+                    <button type="button" class="tab-extra" data-action="item-reference">📦 物体写法</button>
                 </div>
 
                 <div class="editor-panel active" id="scene-panel">
@@ -89,7 +94,7 @@
     </div>
 
     <script type="module">
-        import { EditorPageContext, navigateTo, getQueryParams, renderEditorNav } from './EditorShared.js';
+        import { EditorPageContext, navigateTo, getQueryParams, renderEditorNav, openButtonHelp, openItemReferenceModal } from './EditorShared.js';
         import { SceneEditor } from './SceneEditor.js';
         import { TriggerEditor } from './TriggerEditor.js';
 
@@ -389,9 +394,14 @@
             if (tab === 'scene') setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
         }
 
-        document.querySelectorAll('.editor-tabs button').forEach(btn => {
+        // 标签切换（仅绑定标签页按钮；「按钮写法/物体写法」是弹层入口，不参与切换）
+        document.querySelectorAll('.editor-tabs button[data-tab]').forEach(btn => {
             btn.addEventListener('click', () => switchTab(btn.dataset.tab));
         });
+
+        // 「按钮写法 / 物体写法」弹层（位于「⚡ 事件/触发器」之后，弹出窗口而非跳转页面）
+        document.querySelector('.editor-tabs [data-action="button-help"]')?.addEventListener('click', () => openButtonHelp({ gameId }));
+        document.querySelector('.editor-tabs [data-action="item-reference"]')?.addEventListener('click', () => openItemReferenceModal({ gameId }));
 
         // 筛选器
         document.getElementById('scene-filter-type').addEventListener('change', renderSceneList);

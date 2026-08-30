@@ -8,6 +8,9 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #0a0a1e; color: #fff; min-height: 100vh; }
         .editor-main { height: calc(100vh - 52px); overflow: auto; padding: 20px; }
+        /* 被 EditorShared 的弹窗以 iframe 内嵌时：占满弹窗高度，不渲染顶部导航 */
+        body.embedded { overflow: hidden; }
+        body.embedded .editor-main { height: 100vh; }
         .item-ref-header { margin-bottom: 16px; }
         .item-ref-header h2 { font-size: 16px; color: #4CAF50; margin-bottom: 8px; }
         .item-ref-header p { font-size: 12px; color: #888; }
@@ -38,12 +41,16 @@
             <select id="item-type-filter">
                 <option value="">全部类型</option>
             </select>
+            <select id="item-category-filter">
+                <option value="">全部类目</option>
+            </select>
         </div>
         <table class="item-table" id="item-table">
             <thead>
                 <tr>
                     <th style="width:200px;">物品 ID</th>
                     <th style="width:120px;">类型</th>
+                    <th style="width:120px;">类目</th>
                     <th style="width:150px;">名称</th>
                     <th>描述</th>
                 </tr>
@@ -58,20 +65,56 @@
         import { EditorPageContext, renderEditorNav } from './EditorShared.js';
 
         (async () => {
-            renderEditorNav('item-reference');
+            // 被「物体写法」弹窗 iframe 内嵌时：跳过顶部导航，避免弹窗内再嵌套导航
+            const embedded = window.self !== window.top;
+            if (embedded) document.body.classList.add('embedded');
+            else renderEditorNav('item-reference');
             const ctx = new EditorPageContext();
             await ctx.init();
             const gameId = new URLSearchParams(location.search).get('gameId');
-            if (!gameId) { alert('请先选择游戏'); window.location.href = 'index.html'; return; }
+            if (!gameId) {
+                if (embedded) {
+                    document.getElementById('empty-state').style.display = 'block';
+                    return;
+                }
+                alert('请先选择游戏');
+                window.location.href = 'index.html';
+                return;
+            }
 
-            // 从内容库加载物品
+            // 类目定义（与内容库分类一一对应；每类独立加载库数组并标注所属类目）。
+            const CATEGORY_DEFS = [
+                { key: 'items', label: '物品' },
+                { key: 'equipment', label: '装备' },
+                { key: 'resourceNodes', label: '资源节点' },
+                { key: 'npcs', label: 'NPC' },
+                { key: 'enemies', label: '敌人/Boss' },
+                { key: 'vehicles', label: '载具' },
+                { key: 'buildings', label: '建筑' }
+            ];
+
+            // 从 game.project.json 的 library 加载各分类内容
             let items = [];
             try {
                 const gamePath = ctx.dataManager.getCurrentGame()?.path || `../example/${gameId}/`;
-                const itemsPath = `${gamePath}assets/data/items.json`.replace(/^\.\.\//g, '');
-                const response = await fetch('/api/read-file?path=' + encodeURIComponent(itemsPath));
+                const projectPath = `${gamePath}game.project.json`.replace(/^\.\.\//g, '');
+                const response = await fetch('/api/read-file?path=' + encodeURIComponent(projectPath));
                 const data = response.ok ? await response.json() : null;
-                items = data?.ok && data.content ? JSON.parse(data.content) : [];
+                const project = data?.ok && data.content ? JSON.parse(data.content) : null;
+                const library = project?.library || {};
+                for (const def of CATEGORY_DEFS) {
+                    const arr = Array.isArray(library[def.key]) ? library[def.key] : [];
+                    for (const entry of arr) {
+                        if (!entry || entry.id == null) continue;
+                        items.push({
+                            id: String(entry.id),
+                            type: entry.type || entry.resourceType || '未分类',
+                            category: def.label,
+                            name: entry.name || entry.id,
+                            description: entry.description || entry.functionDescription || ''
+                        });
+                    }
+                }
             } catch (e) {
                 console.warn('加载物品数据失败:', e);
             }
@@ -80,8 +123,9 @@
             const emptyState = document.getElementById('empty-state');
             const filterInput = document.getElementById('item-filter');
             const typeFilter = document.getElementById('item-type-filter');
+            const categoryFilter = document.getElementById('item-category-filter');
 
-            // 填充类型筛选
+            // 填充类型筛选（从数据实际类型聚合）
             const types = [...new Set(items.map(i => i.type || '未分类'))];
             types.forEach(t => {
                 const opt = document.createElement('option');
@@ -89,6 +133,13 @@
                 opt.textContent = t;
                 typeFilter.appendChild(opt);
             });
+            // 填充类目筛选
+            for (const def of CATEGORY_DEFS) {
+                const opt = document.createElement('option');
+                opt.value = def.label;
+                opt.textContent = def.label;
+                categoryFilter.appendChild(opt);
+            }
 
             function render(filtered) {
                 if (!filtered.length) {
@@ -101,6 +152,7 @@
                     <tr>
                         <td class="item-id" data-id="${item.id}" title="点击复制">${item.id}</td>
                         <td class="item-type">${item.type || '—'}</td>
+                        <td class="item-category">${item.category || '—'}</td>
                         <td class="item-name">${item.name || item.id}</td>
                         <td class="item-desc" title="${item.description || ''}">${item.description || '—'}</td>
                     </tr>
@@ -117,7 +169,9 @@
             function applyFilter() {
                 const text = filterInput.value.toLowerCase();
                 const type = typeFilter.value;
+                const category = categoryFilter.value;
                 const filtered = items.filter(i => {
+                    if (category && i.category !== category) return false;
                     if (type && (i.type || '未分类') !== type) return false;
                     if (text && !i.id.toLowerCase().includes(text) && !(i.name || '').toLowerCase().includes(text)) return false;
                     return true;
@@ -127,6 +181,7 @@
 
             filterInput.addEventListener('input', applyFilter);
             typeFilter.addEventListener('change', applyFilter);
+            categoryFilter.addEventListener('change', applyFilter);
             render(items);
         })();
     </script>

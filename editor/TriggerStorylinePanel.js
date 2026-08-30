@@ -266,7 +266,6 @@ export class TriggerStorylinePanel {
           <select class="story-scene-filter" title="筛选场景">
             ${sceneOptions.map(s => `<option value="${this._escape(s.id)}"${this.sceneFilter === s.id ? ' selected' : ''}>${this._escape(s.name)}</option>`).join('')}
           </select>` : ''}
-        <button type="button" class="story-btn-help" data-btn-help>⌨ 按钮写法</button>
       </div>`;
   }
 
@@ -460,8 +459,7 @@ export class TriggerStorylinePanel {
   }
 
   _bindEvents(panel) {
-    const openBtn = panel.querySelector('.story-btn-help');
-    if (openBtn) openBtn.addEventListener('click', () => { this.openButtonHelp(); });
+    // 「按钮写法」入口已移到顶部导航（EditorShared），本面板内不再提供重复按钮。
     panel.querySelector('.story-group-mode')?.addEventListener('change', event => {
       this.groupMode = event.target.value;
       if (this.groupMode !== 'scene') this.sceneFilter = '';

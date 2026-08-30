@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗺️ 场景工作流 - 游戏编辑器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #0a0a1e; color: #fff; min-height: 100vh; overflow: hidden; }
+        .editor-app { display: flex; flex-direction: column; height: 100vh; }
+        .editor-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #16213e; border-bottom: 1px solid #2a3a5e; flex-shrink: 0; }
+        .editor-header h1 { font-size: 18px; color: #4CAF50; }
+        .editor-header nav { display: flex; gap: 8px; }
+        .editor-header nav button { padding: 6px 12px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 13px; }
+        .editor-header nav button:hover { background: #4a5a9e; }
+        .editor-header nav button.active { background: #4CAF50; color: #000; }
+        .editor-main { flex: 1; display: flex; overflow: hidden; }
+        .scene-sidebar { width: 240px; background: #16213e; border-right: 1px solid #2a3a5e; display: flex; flex-direction: column; flex-shrink: 0; }
+        .scene-sidebar-header { padding: 12px; border-bottom: 1px solid #2a3a5e; }
+        .scene-sidebar-header h3 { font-size: 14px; margin-bottom: 8px; }
+        .scene-filter { display: flex; gap: 6px; }
+        .scene-filter select { flex: 1; padding: 4px 8px; background: #0a0a1e; border: 1px solid #2a3a5e; border-radius: 4px; color: #fff; font-size: 12px; }
+        .scene-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .scene-item { padding: 8px 10px; background: #1a2a4e; border-radius: 4px; margin-bottom: 6px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
+        .scene-item:hover { background: #2a3a5e; }
+        .scene-item.active { background: #4CAF50; color: #000; }
+        .scene-item .scene-id { font-size: 11px; color: #888; }
+        .scene-item.active .scene-id { color: #006600; }
+        .scene-sidebar-footer { padding: 8px; border-top: 1px solid #2a3a5e; display: flex; gap: 6px; }
+        .scene-sidebar-footer button { flex: 1; padding: 6px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px; }
+        .scene-sidebar-footer button:hover { background: #4a5a9e; }
+        .editor-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .editor-tabs { display: flex; background: #16213e; border-bottom: 1px solid #2a3a5e; flex-shrink: 0; }
+        .editor-tabs button { padding: 10px 20px; background: transparent; border: none; color: #aaa; cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent; }
+        .editor-tabs button:hover { color: #fff; }
+        .editor-tabs button.active { color: #4CAF50; border-bottom-color: #4CAF50; }
+        .editor-panel { flex: 1; overflow: hidden; display: none; }
+        .editor-panel.active { display: flex; flex-direction: column; }
+        .panel-container { flex: 1; overflow: hidden; min-height: 0; }
+    </style>
+</head>
+<body>
+    <div class="editor-app">
+        <div id="editor-nav"></div>
+
+        <div class="editor-main">
+            <!-- 场景侧边栏 -->
+            <div class="scene-sidebar">
+                <div class="scene-sidebar-header">
+                    <h3>场景列表</h3>
+                    <div class="scene-filter">
+                        <select id="scene-filter-type">
+                            <option value="">全部类型</option>
+                            <option value="normal">普通场景</option>
+                            <option value="worldChunk">大地图块</option>
+                        </select>
+                        <select id="scene-filter-worldmap" style="display: none;"></select>
+                    </div>
+                </div>
+                <div class="scene-list" id="scene-list"></div>
+                <div class="scene-sidebar-footer">
+                    <button id="new-scene-btn">+ 新建场景</button>
+                    <button id="new-template-btn" title="新建场景模板">+ 模板</button>
+                </div>
+            </div>
+
+            <!-- 主内容区：场景编辑器 + 触发器编辑器 标签切换 -->
+            <div class="editor-content">
+                <div class="editor-tabs">
+                    <button class="active" data-tab="scene">🗺️ 场景编辑</button>
+                    <button data-tab="trigger">⚡ 事件/触发器</button>
+                </div>
+
+                <div class="editor-panel active" id="scene-panel">
+                    <div class="panel-container" id="scene-editor-container"></div>
+                </div>
+
+                <div class="editor-panel" id="trigger-panel">
+                    <div class="panel-container" id="trigger-editor-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { EditorPageContext, navigateTo, getQueryParams, renderEditorNav } from './EditorShared.js';
+        import { SceneEditor } from './SceneEditor.js';
+        import { TriggerEditor } from './TriggerEditor.js';
+
+        (async () => {
+            renderEditorNav('scene-workflow');
+            const ctx = new EditorPageContext();
+            await ctx.init();
+
+            const { gameId, sceneId } = getQueryParams();
+            if (!gameId) {
+                alert('请先选择游戏');
+                navigateTo('game-list');
+                return;
+            }
+
+            // 填充游戏选择器
+            const selector = document.getElementById('game-selector');
+            const games = ctx.dataManager.getAllGames();
+            selector.innerHTML = games.map(g => `<option value="${g.id}" ${g.id === gameId ? 'selected' : ''}>${g.name}</option>`).join('');
+            selector.addEventListener('change', (e) => {
+                navigateTo('scene-workflow', { gameId: e.target.value });
+            });
+
+            // 渲染场景列表
+            function renderSceneList() {
+            const scenes = ctx.dataManager.getGameScenes(gameId);
+            const filter = document.getElementById('scene-filter-type').value;
+            const filtered = filter ? scenes.filter(s => s.type === filter) : scenes;
+            document.getElementById('scene-list').innerHTML = filtered.map(s => `
+                <div class="scene-item ${s.id === ctx.currentSceneId ? 'active' : ''}" data-id="${s.id}">
+                    <span>${s.name || s.id}</span>
+                    <span class="scene-id">${s.id}</span>
+                </div>
+            `).join('') || '<div style="padding: 20px; text-align: center; color: #666;">暂无场景</div>';
+
+            document.querySelectorAll('.scene-item').forEach(item => {
+                item.addEventListener('click', async () => {
+                    const sid = item.dataset.id;
+                    ctx.currentSceneId = sid;
+                    // 更新 URL 但不刷新页面
+                    const url = new URL(window.location);
+                    url.searchParams.set('sceneId', sid);
+                    window.history.replaceState({}, '', url);
+                    await loadSceneEditor(sid);
+                    renderSceneList();
+                });
+            });
+        }
+
+        // 场景编辑器
+        let sceneEditor = null;
+
+        async function loadSceneEditor(sid) {
+            // 先尝试加载预设场景作为基底（提供 terrain / atlases / decoSprites 等完整字段）
+            let presetScene = null;
+            try {
+                const { sceneDataLoader } = await import('./SceneDataLoader.js');
+                presetScene = await sceneDataLoader.loadScene(sid);
+            } catch (e) {
+                console.warn('加载预设场景失败:', e);
+            }
+
+            // 从磁盘文件加载
+            let fileScene = null;
+            try {
+                const gamePath = ctx.dataManager.getCurrentGame()?.path || '../example/sanguo_zhangjiao/';
+                const scenePath = `${gamePath}assets/scenes/${sid}.json`.replace(/^\.\.\//g, '');
+                const response = await fetch('/api/read-file?path=' + encodeURIComponent(scenePath));
+                const data = response.ok ? await response.json() : null;
+                fileScene = data?.ok && data.content ? JSON.parse(data.content) : null;
+            } catch (e) {
+                console.warn('加载场景文件失败:', e);
+            }
+
+            // 从 canonical 服务获取已提交快照
+            let saved = fileScene;
+            if (!saved) {
+                try {
+                    saved = ctx.documentService.requireProject(ctx._canonicalProjectPath()).getCommittedSnapshot().scenes[sid] || null;
+                } catch (e) { saved = null; }
+            }
+
+            // 合并预设和保存数据
+            let sceneToLoad;
+            if (presetScene && saved) {
+                sceneToLoad = {
+                    ...presetScene,
+                    ...saved,
+                    terrain: saved.terrain || presetScene.terrain,
+                    atlases: (saved.atlases && saved.atlases.length) ? saved.atlases : presetScene.atlases,
+                    decoSprites: saved.decoSprites || presetScene.decoSprites,
+                    decorations: (saved.decorations && saved.decorations.length) ? saved.decorations : presetScene.decorations,
+                    centerX: saved.centerX ?? presetScene.centerX,
+                    centerY: saved.centerY ?? presetScene.centerY,
+                    basinRadius: saved.basinRadius ?? presetScene.basinRadius,
+                    basinAspectY: saved.basinAspectY ?? presetScene.basinAspectY
+                };
+            } else if (saved) {
+                sceneToLoad = saved;
+            } else if (presetScene) {
+                sceneToLoad = presetScene;
+            } else {
+                sceneToLoad = {
+                    id: sid,
+                    name: sid.replace('scene_', '').replace('_', ' '),
+                    width: 1280,
+                    height: 720,
+                    backgroundColor: '#2a3a1a'
+                };
+            }
+
+            if (sceneEditor) {
+                sceneEditor.loadScene(sceneToLoad);
+                sceneEditor.refreshTriggerReferences?.();
+                return;
+            }
+            sceneEditor = new SceneEditor(
+                document.getElementById('scene-editor-container'),
+                {
+                    getSceneList: () => ctx.dataManager.getGameScenes(gameId),
+                    getProjectDefinitions: () => ctx._projectDefinitions,
+                    getProjectTriggers: () => ctx._projectDefinitions.triggers,
+                    getBattleDefinitions: () => ctx._projectBattles,
+                    presentationProfile: ctx._presentationProfile,
+                    openTriggerEditor: (definitionId, target = 'triggers') => {
+                        switchTab('trigger');
+                        if (triggerEditor && definitionId) {
+                            triggerEditor.selectById?.(definitionId, target);
+                        }
+                    }
+                }
+            );
+            sceneEditor.loadScene(sceneToLoad);
+            sceneEditor.refreshTriggerReferences?.();
+        }
+
+        // 触发器编辑器
+        let triggerEditor = null;
+        function loadTriggerEditor() {
+            if (triggerEditor) return;
+            triggerEditor = new TriggerEditor(
+                document.getElementById('trigger-editor-container'),
+                {
+                    gameId: gameId,
+                    canonicalSession: ctx._canonicalEditorSession('project'),
+                    getSceneList: () => ctx.dataManager.getGameScenes(gameId),
+                    getSceneDocuments: () => ctx.getSceneDocuments(),
+                    getPlacementOptions: () => ctx.getPlacementOptions(sceneEditor),
+                    onSaved: project => ctx._refreshProjectTriggers(project)
+                }
+            );
+            triggerEditor.init();
+        }
+
+        // 标签切换
+        function switchTab(tab) {
+            document.querySelectorAll('.editor-tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+            document.getElementById('scene-panel').classList.toggle('active', tab === 'scene');
+            document.getElementById('trigger-panel').classList.toggle('active', tab === 'trigger');
+            if (tab === 'trigger') loadTriggerEditor();
+            if (tab === 'scene') setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+        }
+
+        document.querySelectorAll('.editor-tabs button').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+        });
+
+        // 筛选器
+        document.getElementById('scene-filter-type').addEventListener('change', renderSceneList);
+
+        // 新建场景
+        document.getElementById('new-scene-btn').addEventListener('click', () => {
+            const name = prompt('场景名称：');
+            if (!name) return;
+            const id = prompt('场景ID（英文）：');
+            if (!id) return;
+            ctx.dataManager.addScene(gameId, { id, name, type: 'normal', width: 800, height: 600, backgroundColor: '#1a1a2e' });
+            renderSceneList();
+        });
+
+        // 初始化
+        renderSceneList();
+        if (sceneId) {
+            await loadSceneEditor(sceneId);
+        } else {
+            const scenes = ctx.dataManager.getGameScenes(gameId);
+            if (scenes.length > 0) {
+                ctx.currentSceneId = scenes[0].id;
+                await loadSceneEditor(scenes[0].id);
+                renderSceneList();
+            }
+        }
+
+        // 场景模板筛选
+        document.getElementById('new-template-btn').addEventListener('click', () => {
+            alert('模板功能待实现');
+        });
+
+        })();
+    </script>
+</body>
+</html>

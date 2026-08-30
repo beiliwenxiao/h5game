@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 游戏列表 - 游戏编辑器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #0a0a1e; color: #fff; min-height: 100vh; }
+        .editor-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #16213e; border-bottom: 1px solid #2a3a5e; }
+        .editor-header h1 { font-size: 18px; color: #4CAF50; }
+        .game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; padding: 20px; }
+        .game-card { background: #16213e; border-radius: 8px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+        .game-card:hover { transform: translateY(-2px); }
+        .game-card-thumbnail { height: 120px; background: #1a2a4e; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .game-card-thumbnail img { width: 100%; height: 100%; object-fit: cover; }
+        .placeholder { font-size: 48px; color: #4CAF50; }
+        .game-card-info { padding: 12px; }
+        .game-card-info h3 { font-size: 14px; margin-bottom: 6px; }
+        .game-card-info p { font-size: 12px; color: #888; margin-bottom: 10px; }
+        .game-card-actions { display: flex; gap: 8px; }
+        .game-card-actions button { flex: 1; padding: 6px 10px; border: none; border-radius: 4px; background: #3a4a7e; color: #fff; cursor: pointer; font-size: 12px; }
+        .game-card-actions button:hover { background: #4a5a9e; }
+        .game-card-actions button.primary { background: #4CAF50; color: #000; }
+        .new-game-card { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #16213e; border: 2px dashed #2a3a5e; border-radius: 8px; cursor: pointer; min-height: 200px; }
+        .new-game-card:hover { border-color: #4CAF50; }
+        .new-game-card .icon { font-size: 48px; color: #4CAF50; margin-bottom: 8px; }
+        .new-game-card span { font-size: 14px; color: #888; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #16213e; border-radius: 8px; padding: 24px; min-width: 320px; max-width: 480px; }
+        .modal h2 { font-size: 16px; margin-bottom: 16px; }
+        .modal-form .form-group { margin-bottom: 12px; }
+        .modal-form label { display: block; font-size: 12px; color: #aaa; margin-bottom: 4px; }
+        .modal-form input, .modal-form textarea { width: 100%; padding: 8px; background: #0a0a1e; border: 1px solid #2a3a5e; border-radius: 4px; color: #fff; font-size: 13px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+        .modal-actions button { flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+        .modal-actions button:first-child { background: #3a4a7e; color: #fff; }
+        .modal-actions button:last-child { background: #4CAF50; color: #000; }
+    </style>
+</head>
+<body>
+    <div id="editor-nav"></div>
+
+    <main>
+        <h2 style="padding: 16px 20px 8px; font-size: 14px; color: #aaa;">内置游戏</h2>
+        <div class="game-grid" id="builtin-games-grid"></div>
+
+        <h2 style="padding: 16px 20px 8px; font-size: 14px; color: #aaa;">自定义游戏</h2>
+        <div class="game-grid" id="custom-games-grid"></div>
+    </main>
+
+    <!-- 新建游戏模态框 -->
+    <div class="modal-overlay" id="new-game-modal">
+        <div class="modal">
+            <h2>创建新游戏</h2>
+            <form class="modal-form" id="new-game-form">
+                <div class="form-group">
+                    <label>游戏名称 *</label>
+                    <input type="text" id="game-name" required placeholder="输入游戏名称">
+                </div>
+                <div class="form-group">
+                    <label>游戏描述</label>
+                    <textarea id="game-description" placeholder="简要描述你的游戏"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>缩略图</label>
+                    <input type="file" id="game-thumbnail" accept="image/*">
+                </div>
+            </form>
+            <div class="modal-actions">
+                <button id="cancel-new-game">取消</button>
+                <button id="confirm-new-game">创建</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { EditorPageContext, navigateTo, renderEditorNav } from './EditorShared.js';
+
+        (async () => {
+            renderEditorNav('game-list');
+            const ctx = new EditorPageContext();
+            await ctx.init();
+
+            function renderGames() {
+            const builtin = ctx.dataManager.getBuiltinGames();
+            const custom = ctx.dataManager.getCustomGames();
+
+            document.getElementById('builtin-games-grid').innerHTML = builtin.map(g => `
+                <div class="game-card" data-id="${g.id}">
+                    <div class="game-card-thumbnail">
+                        <img src="${g.thumbnail}" alt="${g.name}" onerror="this.style.display='none';this.parentElement.innerHTML='<div class=\\'placeholder\\'>🎮</div>'">
+                    </div>
+                    <div class="game-card-info">
+                        <h3>${g.name}</h3>
+                        <p>${g.description}</p>
+                        <div class="game-card-actions">
+                            <button class="primary" data-action="edit">编辑游戏</button>
+                            <button data-action="play">运行游戏</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            document.getElementById('custom-games-grid').innerHTML = custom.map(g => `
+                <div class="game-card" data-id="${g.id}" data-custom="true">
+                    <div class="game-card-thumbnail">
+                        ${g.thumbnail ? `<img src="${g.thumbnail}" alt="${g.name}">` : '<div class="placeholder">🎮</div>'}
+                    </div>
+                    <div class="game-card-info">
+                        <h3>${g.name}</h3>
+                        <p>${g.description || '暂无描述'}</p>
+                        <div class="game-card-actions">
+                            <button class="primary" data-action="edit">编辑</button>
+                            <button data-action="delete">删除</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('') + `<div class="new-game-card" id="new-game-btn"><div class="icon">+</div><span>创建新游戏</span></div>`;
+        }
+
+        renderGames();
+
+        // 事件绑定
+        document.getElementById('builtin-games-grid').addEventListener('click', handleClick);
+        document.getElementById('custom-games-grid').addEventListener('click', handleClick);
+
+        function handleClick(e) {
+            const card = e.target.closest('.game-card');
+            if (!card) return;
+            const gameId = card.dataset.id;
+            const action = e.target.dataset.action;
+            if (action === 'edit') {
+                navigateTo('scene-workflow', { gameId });
+            } else if (action === 'play') {
+                const game = ctx.dataManager.getAllGames().find(g => g.id === gameId);
+                if (game?.path) window.open(game.path + 'index.html', '_blank');
+            } else if (action === 'delete') {
+                if (confirm('确定删除此游戏？')) {
+                    ctx.dataManager.deleteGame(gameId);
+                    renderGames();
+                }
+            }
+        }
+
+        // 新建游戏
+        document.getElementById('new-game-btn').addEventListener('click', () => {
+            document.getElementById('new-game-modal').classList.add('active');
+        });
+        document.getElementById('cancel-new-game').addEventListener('click', () => {
+            document.getElementById('new-game-modal').classList.remove('active');
+        });
+        document.getElementById('confirm-new-game').addEventListener('click', () => {
+                const name = document.getElementById('game-name').value.trim();
+                if (!name) { alert('请输入游戏名称'); return; }
+                const description = document.getElementById('game-description').value.trim();
+                const file = document.getElementById('game-thumbnail').files[0];
+                const game = ctx.dataManager.createGame({ name, description });
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        game.thumbnail = e.target.result;
+                        ctx.dataManager.updateGame(game.id, { thumbnail: game.thumbnail });
+                        renderGames();
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    renderGames();
+                }
+                document.getElementById('new-game-modal').classList.remove('active');
+                document.getElementById('new-game-form').reset();
+            });
+        })();
+    </script>
+</body>
+</html>

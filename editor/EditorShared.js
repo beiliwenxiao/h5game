@@ -15,6 +15,7 @@ export const EDITOR_PAGES = Object.freeze({
   'scene-workflow': 'scene-workflow.html',
   'ui-editor': 'ui-editor.html',
   'library-editor': 'library-editor.html',
+  'item-reference': 'item-reference.html',
   'dialogue-editor': 'dialogue-editor.html',
   'world-map-editor': 'world-map-editor.html',
   'panel-editor': 'panel-editor.html',
@@ -24,9 +25,10 @@ export const EDITOR_PAGES = Object.freeze({
 // 导航项定义（顺序即显示顺序）
 const NAV_ITEMS = Object.freeze([
   { id: 'game-list', label: '🎮 游戏列表', file: 'index.html' },
-  { id: 'scene-workflow', label: '🗺️ 场景工作流', file: 'scene-workflow.html' },
+  { id: 'scene-workflow', label: '🗺️ 场景编辑器', file: 'scene-workflow.html' },
   { id: 'ui-editor', label: '🎨 UI编辑器', file: 'ui-editor.html' },
   { id: 'library-editor', label: '📚 内容库', file: 'library-editor.html' },
+  { id: 'item-reference', label: '📦 物体写法', file: 'item-reference.html' },
   { id: 'dialogue-editor', label: '💬 对话', file: 'dialogue-editor.html' },
   { id: 'world-map-editor', label: '🌍 大地图', file: 'world-map-editor.html' },
   { id: 'panel-editor', label: '🧩 面板', file: 'panel-editor.html' },
@@ -54,6 +56,7 @@ export function renderEditorNav(currentPageId, containerId = 'editor-nav') {
       .editor-nav button:hover { background: #4a5a9e; }
       .editor-nav button.active { background: #4CAF50; color: #000; }
       .game-selector { padding: 6px 12px; background: #2a3a5e; border: 1px solid #4CAF50; border-radius: 4px; color: #fff; font-size: 13px; margin-left: 12px; }
+      .game-selector-label { color: #aaa; font-size: 12px; margin-right: 4px; }
     `;
     document.head.appendChild(style);
   }
@@ -72,9 +75,31 @@ export function renderEditorNav(currentPageId, containerId = 'editor-nav') {
           </button>
         `).join('')}
       </nav>
-      ${gameId ? `<select id="game-selector" class="game-selector"></select>` : ''}
+      <span class="game-selector-label">游戏:</span><select id="game-selector" class="game-selector"></select>
     </div>
   `;
+
+  // 填充游戏选择器（所有页面统一处理）
+  const selector = container.querySelector('#game-selector');
+  if (selector) {
+    const games = new EditorDataManager().getAllGames();
+    if (gameId) {
+      selector.innerHTML = games.map(g =>
+        `<option value="${g.id}" ${g.id === gameId ? 'selected' : ''}>${g.name}</option>`
+      ).join('');
+    } else {
+      selector.innerHTML = '<option value="">选择游戏...</option>' + games.map(g =>
+        `<option value="${g.id}">${g.name}</option>`
+      ).join('');
+    }
+    selector.addEventListener('change', (e) => {
+      const newGameId = e.target.value;
+      if (!newGameId) return;
+      const url = new URL(window.location);
+      url.searchParams.set('gameId', newGameId);
+      window.location.href = url.toString();
+    });
+  }
 }
 
 /** 从当前 URL 读取查询参数 */
@@ -290,6 +315,34 @@ export class EditorPageContext {
       (layer?.objects || []).filter(object => object?.type === 'ref')
         .map(object => ({ ...object, sceneId: object.sceneId || sceneId }))
     );
+  }
+
+  /**
+   * 获取当前游戏 ID（用于保存时传递）
+   * @returns {string|null}
+   */
+  getGameId() {
+    return this.currentGameId;
+  }
+
+  /**
+   * 获取当前游戏名称（用于保存时传递）
+   * @returns {string|null}
+   */
+  getGameName() {
+    return this.dataManager.getCurrentGame()?.name || null;
+  }
+
+  /**
+   * 保存时附加游戏参数（gameId + gameName）
+   * 所有编辑器保存操作都应通过此方法包装 payload
+   */
+  withGameParams(payload = {}) {
+    return {
+      ...payload,
+      gameId: this.currentGameId,
+      gameName: this.getGameName()
+    };
   }
 }
 

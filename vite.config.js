@@ -27,6 +27,7 @@ export default defineConfig({
         'editor-scene-workflow': path.resolve(__dirname, 'editor/scene-workflow.html'),
         'editor-ui': path.resolve(__dirname, 'editor/ui-editor.html'),
         'editor-library': path.resolve(__dirname, 'editor/library-editor.html'),
+        'editor-item-reference': path.resolve(__dirname, 'editor/item-reference.html'),
         'editor-dialogue': path.resolve(__dirname, 'editor/dialogue-editor.html'),
         'editor-world-map': path.resolve(__dirname, 'editor/world-map-editor.html'),
         'editor-panel': path.resolve(__dirname, 'editor/panel-editor.html'),

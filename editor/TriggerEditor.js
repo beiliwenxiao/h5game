@@ -368,7 +368,6 @@ export class TriggerEditor {
       <div class="trg-root">
         <div class="trg-target-tabs" id="trg-target-tabs">
           <button data-target="storyline">📖 剧情线总览</button>
-          <button type="button" class="trg-btn-help" data-btn-help>⌨ 按钮写法</button>
           <button data-target="triggers">Trigger 业务规则</button>
           <button data-target="tutorials">Tutorial 教学步骤</button>
         </div>
@@ -414,8 +413,6 @@ export class TriggerEditor {
     this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
       if (btn.dataset.target) btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
     });
-    const helpNav = this.container.querySelector('#trg-target-tabs .trg-btn-help');
-    if (helpNav) helpNav.addEventListener('click', () => this._showButtonHelp());
     // 筛选器事件
     this.container.querySelector('#trg-filter-enabled').addEventListener('change', () => this._renderList());
     this.container.querySelector('#trg-filter-scene').addEventListener('change', () => this._renderList());

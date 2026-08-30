@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📦 物体写法 - 游戏编辑器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Microsoft YaHei', Arial, sans-serif; background: #0a0a1e; color: #fff; min-height: 100vh; }
+        .editor-main { height: calc(100vh - 52px); overflow: auto; padding: 20px; }
+        .item-ref-header { margin-bottom: 16px; }
+        .item-ref-header h2 { font-size: 16px; color: #4CAF50; margin-bottom: 8px; }
+        .item-ref-header p { font-size: 12px; color: #888; }
+        .item-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .item-table th { text-align: left; padding: 10px; background: #16213e; border-bottom: 2px solid #2a3a5e; color: #8aa; }
+        .item-table td { padding: 10px; border-bottom: 1px solid #1a2a4e; }
+        .item-table tr:hover { background: #16213e; }
+        .item-id { font-family: monospace; color: #7ad; cursor: pointer; }
+        .item-id:hover { color: #fff; text-decoration: underline; }
+        .item-type { color: #aaa; font-size: 12px; }
+        .item-name { color: #e6ecf7; }
+        .item-desc { color: #888; font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .filter-bar { display: flex; gap: 12px; margin-bottom: 16px; align-items: center; }
+        .filter-bar input { padding: 8px 12px; background: #16213e; border: 1px solid #2a3a5e; border-radius: 4px; color: #fff; font-size: 13px; width: 240px; }
+        .filter-bar select { padding: 8px 12px; background: #16213e; border: 1px solid #2a3a5e; border-radius: 4px; color: #fff; font-size: 13px; }
+        .empty-state { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div id="editor-nav"></div>
+    <div class="editor-main">
+        <div class="item-ref-header">
+            <h2>📦 物体写法（内容库物品 ID 参考）</h2>
+            <p>用于 Trigger 中的 giveReward / state.transaction 等需要引用物品的场景。点击物品 ID 可复制。</p>
+        </div>
+        <div class="filter-bar">
+            <input type="text" id="item-filter" placeholder="搜索物品 ID 或名称...">
+            <select id="item-type-filter">
+                <option value="">全部类型</option>
+            </select>
+        </div>
+        <table class="item-table" id="item-table">
+            <thead>
+                <tr>
+                    <th style="width:200px;">物品 ID</th>
+                    <th style="width:120px;">类型</th>
+                    <th style="width:150px;">名称</th>
+                    <th>描述</th>
+                </tr>
+            </thead>
+            <tbody id="item-tbody">
+            </tbody>
+        </table>
+        <div class="empty-state" id="empty-state" style="display:none;">暂无物品数据</div>
+    </div>
+
+    <script type="module">
+        import { EditorPageContext, renderEditorNav } from './EditorShared.js';
+
+        (async () => {
+            renderEditorNav('item-reference');
+            const ctx = new EditorPageContext();
+            await ctx.init();
+            const gameId = new URLSearchParams(location.search).get('gameId');
+            if (!gameId) { alert('请先选择游戏'); window.location.href = 'index.html'; return; }
+
+            // 从内容库加载物品
+            let items = [];
+            try {
+                const gamePath = ctx.dataManager.getCurrentGame()?.path || `../example/${gameId}/`;
+                const itemsPath = `${gamePath}assets/data/items.json`.replace(/^\.\.\//g, '');
+                const response = await fetch('/api/read-file?path=' + encodeURIComponent(itemsPath));
+                const data = response.ok ? await response.json() : null;
+                items = data?.ok && data.content ? JSON.parse(data.content) : [];
+            } catch (e) {
+                console.warn('加载物品数据失败:', e);
+            }
+
+            const tbody = document.getElementById('item-tbody');
+            const emptyState = document.getElementById('empty-state');
+            const filterInput = document.getElementById('item-filter');
+            const typeFilter = document.getElementById('item-type-filter');
+
+            // 填充类型筛选
+            const types = [...new Set(items.map(i => i.type || '未分类'))];
+            types.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                typeFilter.appendChild(opt);
+            });
+
+            function render(filtered) {
+                if (!filtered.length) {
+                    tbody.innerHTML = '';
+                    emptyState.style.display = 'block';
+                    return;
+                }
+                emptyState.style.display = 'none';
+                tbody.innerHTML = filtered.map(item => `
+                    <tr>
+                        <td class="item-id" data-id="${item.id}" title="点击复制">${item.id}</td>
+                        <td class="item-type">${item.type || '—'}</td>
+                        <td class="item-name">${item.name || item.id}</td>
+                        <td class="item-desc" title="${item.description || ''}">${item.description || '—'}</td>
+                    </tr>
+                `).join('');
+                tbody.querySelectorAll('.item-id').forEach(el => {
+                    el.addEventListener('click', () => {
+                        navigator.clipboard?.writeText(el.dataset.id);
+                        el.style.color = '#4CAF50';
+                        setTimeout(() => el.style.color = '#7ad', 300);
+                    });
+                });
+            }
+
+            function applyFilter() {
+                const text = filterInput.value.toLowerCase();
+                const type = typeFilter.value;
+                const filtered = items.filter(i => {
+                    if (type && (i.type || '未分类') !== type) return false;
+                    if (text && !i.id.toLowerCase().includes(text) && !(i.name || '').toLowerCase().includes(text)) return false;
+                    return true;
+                });
+                render(filtered);
+            }
+
+            filterInput.addEventListener('input', applyFilter);
+            typeFilter.addEventListener('change', applyFilter);
+            render(items);
+        })();
+    </script>
+</body>
+</html>

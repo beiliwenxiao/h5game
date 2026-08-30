@@ -55,6 +55,7 @@ export class TriggerStorylinePanel {
     this.editor = editor;
     this.expanded = new Set(); // 展开的触发器 id（默认全部展开）
     this.groupMode = 'chain'; // chain | scene | when | coordination
+    this.sceneFilter = ''; // 场景筛选（groupMode=scene 时生效）
   }
 
   /** HTML 转义（优先复用编辑器的 _escapeHtml）。 */
@@ -84,6 +85,15 @@ export class TriggerStorylinePanel {
 
   /** 按当前分组维度把 Trigger 排成组。 */
   _groupTriggers(triggers) {
+    // 场景筛选：groupMode=scene 且有选中场景时，只显示该场景的 Trigger
+    let filtered = triggers;
+    if (this.groupMode === 'scene' && this.sceneFilter) {
+      filtered = triggers.filter(trigger => {
+        const sceneIds = asList(trigger.editorScope?.sceneIds);
+        return sceneIds.includes(this.sceneFilter);
+      });
+    }
+
     const groups = [];
     const groupOf = trigger => {
       if (this.groupMode === 'chain') return this._chainStage(trigger);
@@ -98,7 +108,7 @@ export class TriggerStorylinePanel {
       catch (e) { /* 忽略 */ }
       return map.get(id) || id;
     };
-    for (const trigger of triggers) {
+    for (const trigger of filtered) {
       const key = groupOf(trigger);
       let group = groups.find(candidate => candidate.key === key);
       if (!group) {
@@ -244,12 +254,18 @@ export class TriggerStorylinePanel {
   /** 顶部工具栏：分组维度切换 + 「按钮写法」帮助入口。 */
   _toolbarHtml() {
     const modeLabel = { chain: '⛓ 事件链（执行顺序）', scene: '按场景', when: '按事件类型', coordination: '按协调组' };
+    const scenes = this.editor.getSceneList?.() || [];
+    const sceneOptions = [{ id: '', name: '全部场景' }, ...scenes];
     return `
       <div class="story-toolbar">
         <strong class="story-toolbar-title">剧情线总览（Trigger 链）</strong>
         <select class="story-group-mode" title="切换分组维度">
           ${Object.entries(modeLabel).map(([value, label]) => `<option value="${value}"${this.groupMode === value ? ' selected' : ''}>${label}</option>`).join('')}
         </select>
+        ${this.groupMode === 'scene' ? `
+          <select class="story-scene-filter" title="筛选场景">
+            ${sceneOptions.map(s => `<option value="${this._escape(s.id)}"${this.sceneFilter === s.id ? ' selected' : ''}>${this._escape(s.name)}</option>`).join('')}
+          </select>` : ''}
         <button type="button" class="story-btn-help" data-btn-help>⌨ 按钮写法</button>
       </div>`;
   }
@@ -448,6 +464,11 @@ export class TriggerStorylinePanel {
     if (openBtn) openBtn.addEventListener('click', () => { this.openButtonHelp(); });
     panel.querySelector('.story-group-mode')?.addEventListener('change', event => {
       this.groupMode = event.target.value;
+      if (this.groupMode !== 'scene') this.sceneFilter = '';
+      this.render(panel);
+    });
+    panel.querySelector('.story-scene-filter')?.addEventListener('change', event => {
+      this.sceneFilter = event.target.value;
       this.render(panel);
     });
     for (const button of panel.querySelectorAll('.story-jump')) {

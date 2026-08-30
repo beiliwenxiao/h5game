@@ -35,7 +35,7 @@
     "debug": true,
     "loading": {
       "backgroundColor": "#1a1a1a",
-      "icon": "",
+      "icon": "assets/images/闻箫工作室.png",
       "loadingText": "加载中...",
       "progressBarColor": "#4CAF50,#8BC34A",
       "steps": [
@@ -94,6 +94,7 @@
     },
     "time": {
       "enabled": true,
+      "startPeriod": "dusk",
       "startTime": 120
     },
     "weather": {
@@ -3688,9 +3689,9 @@
         {
           "action": "tutorial.command",
           "params": {
+            "await": true,
             "operation": "show",
-            "tutorialId": "tutorial-001",
-            "await": true
+            "tutorialId": "tutorial-001"
           },
           "stepId": "show-tutorial-eat-food"
         }
@@ -3725,9 +3726,9 @@
         {
           "action": "tutorial.command",
           "params": {
+            "await": true,
             "operation": "show",
-            "tutorialId": "s01.chopWood",
-            "await": true
+            "tutorialId": "s01.chopWood"
           },
           "stepId": "show-tutorial-s01-chop-wood"
         }
@@ -3810,27 +3811,27 @@
       "do": [
         {
           "action": "s01Survival",
+          "if": {
+            "args": [
+              {
+                "op": "==",
+                "value": true,
+                "var": "story.s01Survival.firstWolfKilled"
+              },
+              {
+                "op": "==",
+                "value": false,
+                "var": "story.s01Survival.wolfSkinned"
+              }
+            ],
+            "op": "and"
+          },
           "params": {
             "completedPath": "s01Survival.wolfSkinned",
             "definitionId": "story.s01.wolfSkinned",
             "operation": "commitStoryWhenReady"
           },
-          "stepId": "commit-wolf-skinned",
-          "if": {
-            "op": "and",
-            "args": [
-              {
-                "op": "==",
-                "var": "story.s01Survival.firstWolfKilled",
-                "value": true
-              },
-              {
-                "op": "==",
-                "var": "story.s01Survival.wolfSkinned",
-                "value": false
-              }
-            ]
-          }
+          "stepId": "commit-wolf-skinned"
         }
       ],
       "editorScope": {
@@ -3854,19 +3855,19 @@
         {
           "action": "s01Survival",
           "if": {
-            "op": "and",
             "args": [
               {
-                "op": "hasItem",
+                "count": 1,
                 "item": "resource.wolf_hide",
-                "count": 1
+                "op": "hasItem"
               },
               {
                 "op": "==",
-                "var": "story.s01Survival.wolfSkinned",
-                "value": false
+                "value": false,
+                "var": "story.s01Survival.wolfSkinned"
               }
-            ]
+            ],
+            "op": "and"
           },
           "params": {
             "completedPath": "s01Survival.wolfSkinned",

@@ -195,6 +195,13 @@ export class SystemEditor {
             <div class="sys-row"><label>副标题:</label><input type="text" id="sys-ld-subtitle" value="${this._esc(ld.subtitle)}"></div>
             <div class="sys-row"><label>加载文字:</label><input type="text" id="sys-ld-text" value="${this._esc(ld.loadingText)}"></div>
             <div class="sys-row"><label>图标URL:</label><input type="text" id="sys-ld-icon" value="${this._esc(ld.icon)}" placeholder="留空=无图标，如 assets/images/logo.png"></div>
+            <div class="sys-row" id="sys-ld-icon-preview-row" style="display:none;">
+              <label>图标预览:</label>
+              <div id="sys-ld-icon-preview" style="max-width:100%;overflow:auto;border:1px solid #333;padding:8px;background:#0a1020;border-radius:4px;">
+                <img id="sys-ld-icon-preview-img" style="max-width:none;max-height:none;display:block;" alt="图标预览">
+              </div>
+              <span id="sys-ld-icon-size" style="color:#888;font-size:11px;margin-left:8px;"></span>
+            </div>
           </fieldset>
           <fieldset style="border:1px solid #333;padding:12px;border-radius:6px;margin-bottom:12px;">
             <legend style="color:#8cf;">样式</legend>
@@ -304,6 +311,11 @@ export class SystemEditor {
       this._collectFields();
       await this._save();
     });
+    // 图标URL实时预览
+    const iconInput = this.container.querySelector('#sys-ld-icon');
+    if (iconInput) {
+      iconInput.addEventListener('input', (e) => this._updateIconPreview(e.target.value));
+    }
     // 天气保存
     const wtSave = this.container.querySelector('#sys-wt-save');
     if (wtSave) wtSave.addEventListener('click', () => {
@@ -413,11 +425,31 @@ export class SystemEditor {
     if (q('#sys-ld-subtitle')) q('#sys-ld-subtitle').value = ld.subtitle || '';
     if (q('#sys-ld-text')) q('#sys-ld-text').value = ld.loadingText || '';
     if (q('#sys-ld-icon')) q('#sys-ld-icon').value = ld.icon || '';
+    this._updateIconPreview(ld.icon || '');
     if (q('#sys-ld-bg')) q('#sys-ld-bg').value = ld.backgroundColor || '#1a1a1a';
     if (q('#sys-ld-titlecolor')) q('#sys-ld-titlecolor').value = ld.titleColor || '#4CAF50';
     if (q('#sys-ld-barcolor')) q('#sys-ld-barcolor').value = ld.progressBarColor || '#4CAF50,#8BC34A';
     this._renderSteps();
     this._bindStepEvents();
+  }
+
+  _updateIconPreview(url) {
+    const row = this.container.querySelector('#sys-ld-icon-preview-row');
+    const img = this.container.querySelector('#sys-ld-icon-preview-img');
+    const sizeLabel = this.container.querySelector('#sys-ld-icon-size');
+    if (!row || !img) return;
+    if (!url || !url.trim()) {
+      row.style.display = 'none';
+      return;
+    }
+    row.style.display = 'flex';
+    img.onload = () => {
+      sizeLabel.textContent = `原始尺寸: ${img.naturalWidth} × ${img.naturalHeight}`;
+    };
+    img.onerror = () => {
+      sizeLabel.textContent = '加载失败';
+    };
+    img.src = url;
   }
 
   _esc(str) {

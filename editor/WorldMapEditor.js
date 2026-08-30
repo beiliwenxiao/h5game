@@ -531,6 +531,8 @@ export class WorldMapEditor {
         const cell = e.target.closest('.wme-cell');
         cell.querySelector('.wme-cell-label').textContent = val || '(空)';
         this._renderCellThumbnail(cell, val, thumbW, thumbH);
+        // 格子内容变化后刷新小地图
+        this._refreshMinimap(gc, thumbW, thumbH);
       };
     });
 
@@ -542,6 +544,8 @@ export class WorldMapEditor {
       this._renderCellThumbnail(cell, cellValue, thumbW, thumbH);
     });
 
+    // 保存小地图刷新参数，供后续实时更新
+    this._minimapParams = { gc, thumbW, thumbH };
     // 绘制右上角小地图（延迟，等缩略图绘制完成）
     setTimeout(() => this._renderMinimap(gc, thumbW, thumbH), 300);
     requestAnimationFrame(() => this._focusUsedArea());
@@ -570,6 +574,23 @@ export class WorldMapEditor {
       behavior: smooth ? 'smooth' : 'auto'
     });
     return true;
+  }
+
+  /**
+   * 刷新小地图（使用保存的参数或传入新参数）
+   * @param {HTMLElement} [gc] - 网格容器（可选，默认用保存的）
+   * @param {number} [thumbW] - 格子缩略图宽度
+   * @param {number} [thumbH] - 格子缩略图高度
+   */
+  _refreshMinimap(gc = null, thumbW = null, thumbH = null) {
+    const params = this._minimapParams;
+    const container = gc || params?.gc;
+    const w = thumbW || params?.thumbW;
+    const h = thumbH || params?.thumbH;
+    if (container && w && h) {
+      // 延迟执行，等当前帧格子缩略图绘制完成
+      requestAnimationFrame(() => this._renderMinimap(container, w, h));
+    }
   }
 
   /**
@@ -705,10 +726,14 @@ export class WorldMapEditor {
     // 确保图片已加载（首次会触发异步加载，加载完后重绘）
     this._ensureImagesLoaded(scene, () => {
       this._drawSceneToCanvas(ctx, scene, thumbW, thumbH);
+      // 图片加载完成后刷新小地图
+      this._refreshMinimap();
     });
 
     // 同步先画一次（图片可能已缓存）
     this._drawSceneToCanvas(ctx, scene, thumbW, thumbH);
+    // 同步绘制后也刷新小地图（延迟到下一帧，等 canvas 内容更新）
+    requestAnimationFrame(() => this._refreshMinimap());
   }
 
   /**

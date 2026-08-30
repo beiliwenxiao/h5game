@@ -427,8 +427,9 @@ export class UIEditor {
       .uie-actions button.primary { background:#4CAF50; color:#000; font-weight:bold; }
       .uie-main { flex:1; display:flex; overflow:hidden; }
       .uie-stage-wrap { flex:1; display:flex; align-items:center; justify-content:center; overflow:auto; padding:20px; background:#070b18; }
-      .uie-stage { position:relative; background:#1a2238 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M20 0H0V20" fill="none" stroke="%23223" stroke-width="1"/></svg>'); border:2px solid #4CAF50; box-shadow:0 0 30px rgba(0,0,0,0.6); }
+      .uie-stage { position:relative; background:#1a2238; border:2px solid #4CAF50; box-shadow:0 0 30px rgba(0,0,0,0.6); }
       .uie-stage.login-stage { background-color:#211613; background-image:none; background-position:center; background-size:cover; background-repeat:no-repeat; }
+      .uie-stage.no-bg { background-image:none !important; }
       .uie-comp { position:absolute; box-sizing:border-box; border:1.5px solid rgba(120,180,255,0.8); background:rgba(80,140,255,0.18); color:#cfe3ff; font-size:11px; display:flex; align-items:center; justify-content:center; cursor:move; user-select:none; overflow:hidden; }
       .uie-comp.zone { border-style:dashed; background:rgba(255,200,80,0.12); border-color:rgba(255,200,80,0.7); color:#ffe7a8; }
       .uie-comp.button { border-radius:50%; }
@@ -466,6 +467,7 @@ export class UIEditor {
     if (!stage) return;
     const isLoginPreview = LOGIN_LAYOUT_PLATFORMS.has(this.platform);
     stage.classList.toggle('login-stage', isLoginPreview);
+    stage.classList.toggle('no-bg', this.platform === 'gamepad' || this.platform === 'hints');
     const safeLoginBackground = isLoginPreview
       ? this._loginBackgroundImage.replace(/["'()]/g, '')
       : '';

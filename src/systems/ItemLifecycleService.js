@@ -682,7 +682,10 @@ export class ItemLifecycleService {
       ok: true,
       transactionIds,
       commit: () => {
-        result = this.playerDefeatService.resolve({ player: actor, deathId, resolution, deferFinalize: true });
+        result = this.playerDefeatService.resolve({
+          player: actor, deathId, resolution, deferFinalize: true,
+          deferRespawn: command.payload.deferRespawn === true
+        });
         if (!result?.ok) return result || { ok: false, code: 'defeatCommitFailed' };
         const dropPosition = result.drop?.getComponent?.('transform')?.position
           || result.drop?.position

@@ -37,7 +37,7 @@ export class PlayerDefeatService {
     this.nextDeathSequence = 1;
   }
 
-  resolve({ player, deathId = null, resolution = { type: 'normalDeath' }, deferFinalize = false } = {}) {
+  resolve({ player, deathId = null, resolution = { type: 'normalDeath' }, deferFinalize = false, deferRespawn = false } = {}) {
     if (!player) return { ok: false, code: 'invalidInput' };
     const stableDeathId = deathId || `player-death-${this.nextDeathSequence++}`;
     if (this.resolvedDeathIds.has(stableDeathId)) {
@@ -52,7 +52,10 @@ export class PlayerDefeatService {
     this.resolvedDeathIds.add(deathId);
     const sequenceMatch = /^player-death-(\d+)$/.exec(deathId);
     if (sequenceMatch) this.nextDeathSequence = Math.max(this.nextDeathSequence, Number(sequenceMatch[1]) + 1);
-    result.respawnPosition = this._respawn(player, resolution);
+    // deferRespawn：死亡结算（掉落/扣资源）立即生效，但复活与位置写回延迟到
+    // completeDeferredRespawn（灵魂状态走到篝火复活等流程）时执行。
+    result.deferredRespawn = deferRespawn === true;
+    result.respawnPosition = deferRespawn === true ? null : this._respawn(player, resolution);
     const finalize = () => {
       try { this.onResolved(result); } catch (error) {
         console.warn('PlayerDefeatService: onResolved failed', error);
@@ -106,6 +109,22 @@ export class PlayerDefeatService {
       return { ...position };
     }
     return null;
+  }
+
+  /** 完成延迟复活（deferRespawn）：写回复活位置并恢复玩家状态；幂等要求 deathId 已结算。 */
+  completeDeferredRespawn(player, deathId, position = null, resolution = { type: 'normalDeath' }) {
+    if (!player || !deathId) return { ok: false, code: 'invalidInput' };
+    if (!this.resolvedDeathIds.has(deathId)) return { ok: false, code: 'unknownDeath' };
+    const target = Number.isFinite(position?.x) && Number.isFinite(position?.y)
+      ? position
+      : this.respawnResolver({ player, resolution });
+    const transform = player.getComponent?.('transform');
+    if (transform && Number.isFinite(target?.x) && Number.isFinite(target?.y)) {
+      transform.position.x = target.x;
+      transform.position.y = target.y;
+    }
+    this.revivePlayer(player);
+    return { ok: true, deathId, respawnPosition: target ? { ...target } : null };
   }
 
   serialize() {

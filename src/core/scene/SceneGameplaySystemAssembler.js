@@ -17,6 +17,7 @@ import { GatheringPuppetSystem } from '../../systems/GatheringPuppetSystem.js';
 import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
 import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
 import { PlayerDeathCountdown } from './PlayerDeathCountdown.js';
+import { PlayerSoulRespawn } from './PlayerSoulRespawn.js';
 import { SceneCorpseRuntime } from './SceneCorpseRuntime.js';
 import { ItemLifecycleService, ITEM_LIFECYCLE_COMMANDS } from '../../systems/ItemLifecycleService.js';
 import { ToolRepairService } from '../../systems/ToolRepairService.js';
@@ -225,17 +226,23 @@ export class SceneGameplaySystemAssembler {
       },
       getDeathDropPresentation: context => scene.getDeathDropPresentation?.(context) || {},
       onResolved: result => {
+        // 延迟复活（灵魂状态）：结算消息由 PlayerSoulRespawn 呈现，这里只补充掉落信息。
+        if (result?.deferredRespawn === true) {
+          const lost = (result.stacks || []).reduce((sum, stack) => sum + stack.quantity, 0);
+          if (lost > 0) scene._showScreenTip?.(`死亡后遗失 ${lost} 份资源，掉落在你倒下的位置`, { title: '死亡' });
+          return;
+        }
         const policy = scene.context?.services?.defeatPolicy;
         if (policy?.handleResolved?.(result) === true) return;
         scene.onPlayerDefeatResolved?.(result);
       }
     });
 
-    const executePlayerDeath = ({ player, deathId, resolution }) => scene.sceneRuntime?.commandGateway?.execute?.({
+    const executePlayerDeath = ({ player, deathId, resolution, deferRespawn = false }) => scene.sceneRuntime?.commandGateway?.execute?.({
       intentType: ITEM_LIFECYCLE_COMMANDS.DEATH_DROP,
       actorRef: player.id,
       operationId: `death:${player.id}:${deathId}`,
-      payload: { deathId, resolution, checkpointId: `checkpoint.${deathId}` }
+      payload: { deathId, resolution, checkpointId: `checkpoint.${deathId}`, deferRespawn }
     }) || { ok: false, code: 'deathCommandUnavailable' };
     scene.playerDeathCountdown = new PlayerDeathCountdown({
       durationSeconds: 5,
@@ -270,6 +277,31 @@ export class SceneGameplaySystemAssembler {
       },
       'player-death-countdown'
     );
+
+    // 灵魂状态复活流程：普通死亡后保持可移动的灵魂状态，走到篝火附近倒计时 30 秒复活。
+    scene.playerSoulRespawn = new PlayerSoulRespawn({
+      durationSeconds: 30,
+      approachRadius: 150,
+      reviveOffsetY: 46,
+      getCampfirePosition: () => {
+        const campfire = scene.context?.services?.campfire;
+        return campfire?.isConfigured?.() === true ? campfire.getPosition() : null;
+      },
+      getSpawnPosition: () => scene.resolvePlayerRespawnPosition?.({}) || null,
+      showTip: (text, options) => scene._showScreenTip?.(text, options),
+      hideTip: () => scene._hintPresenter?.hideScreen?.('playerSoul'),
+      onCountdown: seconds => scene.context?.services?.campfire?.setRespawnCountdown?.(seconds),
+      onSoulStateChange: active => {
+        scene.playerSoulActive = active === true;
+        if (typeof document !== 'undefined') {
+          document.body.classList.toggle('soul-state', active === true);
+        }
+      },
+      onComplete: ({ player, deathId, position }) => scene.playerDefeatService?.completeDeferredRespawn?.(player, deathId, position)
+        || { ok: false, code: 'defeatServiceMissing' }
+    });
+    scene.sceneRuntime?.onUpdate?.(deltaTime => scene.playerSoulRespawn?.update(deltaTime));
+    scene.sceneRuntime?.addDisposer?.(() => scene.playerSoulRespawn?.dispose?.(), 'player-soul-respawn');
 
     const resolveEntity = id => scene.entityStore?.all?.find?.(entity => entity?.id === id)
       || (scene.playerEntity?.id === id ? scene.playerEntity : null);
@@ -349,9 +381,18 @@ export class SceneGameplaySystemAssembler {
         });
         return { ok: true, pending: true };
       }
-      if (scene.playerDeathCountdown?.pending) {
+      if (scene.playerSoulRespawn?.pending || scene.playerDeathCountdown?.pending) {
         return { ok: true, pending: true, idempotent: true };
       }
+      // 普通死亡优先进入灵魂状态流程：立即结算掉落（deferRespawn），玩家走到篝火倒计时复活。
+      const soulStarted = scene.playerSoulRespawn?.start({ player, deathId, resolution, deathEvent });
+      if (soulStarted) {
+        void Promise.resolve(executePlayerDeath({ player, deathId, resolution, deferRespawn: true })).catch(error => {
+          console.warn('SceneGameplaySystemAssembler: 灵魂状态死亡结算失败', error);
+        });
+        return { ok: true, pending: true };
+      }
+      // 兜底：灵魂流程不可用时沿用原「倒计时 + 确认复活」
       const countdownStarted = scene.playerDeathCountdown?.start({
         player, deathId, resolution, deathEvent
       });

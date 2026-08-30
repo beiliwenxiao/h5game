@@ -4,10 +4,10 @@
  ************************************************************/
 
 const DEFAULT_CONFIG = Object.freeze({
-  // 未显式指定距离时的默认落点距离；蓄力跳跃会显式传入 60~180 的距离。
+  // 未显式指定距离时的默认落点距离；蓄力跳跃会显式传入 30~120 的距离。
   distance: 84, duration: 0.62, peakHeight: 46, deadzone: 0.2,
   // 距离→高度/时长的参考上限（px）
-  distanceReference: 180,
+  distanceReference: 120,
   // 起跳/落地烟雾（类似轻功）：由场景注入 particleSystem 后生效
   smokeParticleCount: 10, smokeRadius: 14, smokeLife: 520,
   smokeSize: { min: 5, max: 9 }, smokeColor: '#d8d8d8', smokeAlpha: 0.5,

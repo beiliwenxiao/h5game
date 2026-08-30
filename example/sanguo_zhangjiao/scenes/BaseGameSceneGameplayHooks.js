@@ -110,13 +110,17 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
       return;
     }
     if (event === 'completed') {
-      this._showScreenTip(data.toolBroken ? `获得资源 ×${data.accepted}，工具已损毁` : `获得资源 ×${data.accepted}`);
+      const itemName = data.itemName || data.itemId || '资源';
+      this._showScreenTip(data.toolBroken
+        ? `获得 ${itemName} ×${data.accepted}，工具已损毁`
+        : `获得 ${itemName} ×${data.accepted}`);
       return;
     }
     if (event !== 'interrupted') return;
+    const itemName = data.itemName || data.itemId || '资源';
     const messages = {
       moved: '位置变化导致采集中断',
-      damaged: data.accepted > 0 ? `受伤中断，获得资源 ×${data.accepted}` : '受伤导致采集中断',
+      damaged: data.accepted > 0 ? `受伤中断，获得 ${itemName} ×${data.accepted}` : '受伤导致采集中断',
       cancelled: '已取消采集',
       inventoryFull: '背包已满，采集未结算',
       insufficientCapacity: '背包容量不足，采集未结算'

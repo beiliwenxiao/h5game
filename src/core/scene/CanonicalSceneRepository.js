@@ -57,6 +57,14 @@ export class CanonicalSceneRepositorySnapshot {
   hasRecord(sceneId) { return this.#records.has(sceneId); }
   getScene(sceneId) { return this.#records.get(sceneId)?.data || null; }
   getRecord(sceneId) { return this.#records.get(sceneId) || null; }
+  /** 丢弃单个场景的已读记录；下次 loadScene 将重新读盘（编辑器热同步用）。 */
+  forget(sceneId) {
+    if (this.#records.has(sceneId)) {
+      this.#records.delete(sceneId);
+      return true;
+    }
+    return false;
+  }
   getProvenance(sceneId) {
     const record = this.#records.get(sceneId);
     if (!record) return null;
@@ -87,6 +95,15 @@ export class CanonicalSceneRepository {
   }
 
   get snapshot() { return this._snapshot; }
+
+  /** 丢弃单个场景的缓存记录（配合编辑器保存后的热同步，下次读取回到磁盘）。 */
+  forgetScene(sceneId) {
+    if (!sceneId) return false;
+    const dropped = this._snapshot?.forget?.(sceneId) === true;
+    const loads = this._snapshot ? this._sceneLoads.get(this._snapshot) : null;
+    loads?.delete?.(sceneId);
+    return dropped;
+  }
 
   async refresh({ mode = this.mode } = {}) {
     const generation = ++this._generation;

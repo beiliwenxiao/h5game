@@ -68,6 +68,8 @@ export class EntityRenderer2D {
           : 0.86;
       }
       if (sprite?.alpha !== undefined) ctx.globalAlpha *= sprite.alpha;
+      // 灵魂状态（死亡待复活）：半透明渲染
+      if (entity.isSoulState === true) ctx.globalAlpha *= 0.45;
       this._renderSprite(ctx, entity, sprite, npc, renderX, renderY, width, height);
       this._renderAppearanceLayers(ctx, sprite, renderX, renderY);
       ctx.restore();

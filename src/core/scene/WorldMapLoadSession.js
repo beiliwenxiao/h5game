@@ -163,6 +163,58 @@ export class WorldMapLoadSession {
     return this._sceneData.get(sceneId) || null;
   }
 
+  /**
+   * 丢弃单个场景的会话内缓存（数据/加载 Promise/已收集对象）。
+   * 用于编辑器保存后的热同步：之后该场景被再次请求时将重新读盘。
+   */
+  forgetScene(sceneId) {
+    if (this._disposed || !sceneId) return false;
+    this.repository?.forgetScene?.(sceneId);
+    this._scenePromises.delete(sceneId);
+    this._sceneData.delete(sceneId);
+    const chunk = this._lastResult?.chunks?.find(entry => entry.sceneId === sceneId);
+    if (chunk && chunk.sceneData) {
+      chunk.sceneData = null;
+      const dropByScene = item => item?.sceneId === sceneId;
+      this._lastResult.sceneObjects = this._lastResult.sceneObjects.filter(item => !dropByScene(item));
+      this._lastResult.placements = this._lastResult.placements.filter(item => !dropByScene(item));
+      this._lastResult.effectZones = this._lastResult.effectZones.filter(item => !dropByScene(item));
+      this._lastResult.triggerBindings = this._lastResult.triggerBindings.filter(item => !dropByScene(item));
+    }
+    return true;
+  }
+
+  /**
+   * 用新的场景数据替换会话缓存中的该场景，并重新收集其对象（编辑器保存后热同步）。
+   * @returns {{ok: boolean, placements?: Array<object>, errors?: Array<Error>}}
+   */
+  replaceSceneData(sceneId, data) {
+    if (this._disposed) return { ok: false, errors: [abortError()] };
+    if (!sceneId || !data || !Array.isArray(data.layers)) return { ok: false, errors: [new TypeError('replaceSceneData requires valid scene data')] };
+    const chunk = this._lastResult?.chunks?.find(entry => entry.sceneId === sceneId);
+    if (!chunk) return { ok: false, errors: [new Error(`场景 ${sceneId} 不在当前世界加载结果中`)] };
+    this._scenePromises.delete(sceneId);
+    this._sceneData.set(sceneId, data);
+    const dropByScene = item => item?.sceneId === sceneId;
+    this._lastResult.sceneObjects = this._lastResult.sceneObjects.filter(item => !dropByScene(item));
+    this._lastResult.placements = this._lastResult.placements.filter(item => !dropByScene(item));
+    this._lastResult.effectZones = this._lastResult.effectZones.filter(item => !dropByScene(item));
+    this._lastResult.triggerBindings = this._lastResult.triggerBindings.filter(item => !dropByScene(item));
+    chunk.sceneData = data;
+    this._collectChunkObjects(
+      chunk,
+      this._lastResult.sceneObjects,
+      this._lastResult.placements,
+      this._lastResult.effectZones,
+      this._lastResult.triggerBindings
+    );
+    return {
+      ok: true,
+      placements: this._lastResult.placements.filter(item => item?.sceneId === sceneId),
+      sceneObjects: this._lastResult.sceneObjects.filter(item => item?.sceneId === sceneId)
+    };
+  }
+
   async loadSceneData(sceneId, projectOrOptions = this._lastResult?.project || null, maybeOptions = {}) {
     if (this._disposed) throw abortError();
     const options = projectOrOptions && typeof projectOrOptions === 'object'

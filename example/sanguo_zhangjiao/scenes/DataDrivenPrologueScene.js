@@ -434,6 +434,73 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.sanguoWorldRuntimeCoordinator.restoreStreamedDomainState(sceneId);
   }
 
+  /** 监听场景编辑器的保存通知（localStorage storage 事件，跨页面触发）。 */
+  _watchEditorSceneCommits() {
+    const KEY = 'yijian18-engine_editor_scene_commit';
+    const handler = event => {
+      if (!event || event.key !== KEY || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue);
+        if (!payload?.sceneId) return;
+        void this._handleEditorSceneCommit(payload);
+      } catch (_error) { /* 忽略无法解析的通知 */ }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }
+
+  /**
+   * 应用编辑器的场景提交：当前场景从磁盘重读并热重建变化的放置点；
+   * 其他场景仅丢弃会话缓存，待世界流式加载时自动读取最新数据。
+   */
+  async _handleEditorSceneCommit({ sceneId } = {}) {
+    if (!sceneId || !this._worldLoadSession) return;
+    if (sceneId !== this.currentSceneId) {
+      this._worldLoadSession.forgetScene?.(sceneId);
+      return;
+    }
+    try {
+      const response = await fetch(`assets/scenes/${encodeURIComponent(sceneId)}.json`, { cache: 'no-store' });
+      if (!response.ok) return;
+      const sceneData = await response.json();
+      const outcome = this._worldLoadSession.replaceSceneData?.(sceneId, sceneData);
+      if (!outcome?.ok) return;
+      // 同步场景级世界加载结果的投影数组（S10 建造 / S12 闸门等流程从这读取）。
+      const loadResult = this._worldLoadResult;
+      if (loadResult && Array.isArray(loadResult.sceneObjects)) {
+        loadResult.sceneObjects = loadResult.sceneObjects
+          .filter(item => item?.sceneId !== sceneId)
+          .concat(outcome.sceneObjects || []);
+        loadResult.placements = (loadResult.placements || [])
+          .filter(item => item?.sceneId !== sceneId)
+          .concat(outcome.placements || []);
+      }
+      const placements = this.context.services.placements;
+      if (!placements) return;
+      const previous = placements.getPlacements?.() || [];
+      const previousById = new Map(
+        previous.filter(entry => entry?.sceneId === sceneId).map(entry => [entry.id, entry])
+      );
+      const fresh = outcome.placements || [];
+      placements.setProjection([...previous.filter(entry => entry?.sceneId !== sceneId), ...fresh]);
+      const freshIds = new Set(fresh.map(entry => entry?.id).filter(Boolean));
+      const changedIds = fresh
+        .filter(entry => {
+          const old = previousById.get(entry.id);
+          return !old || old.x !== entry.x || old.y !== entry.y;
+        })
+        .map(entry => entry.id)
+        .filter(Boolean);
+      const removedIds = [...previousById.keys()].filter(id => !freshIds.has(id));
+      // 只重建真正变化的放置点；有删除时整场景重建以保证实体一致。
+      if (removedIds.length > 0) await placements.rebuild?.(sceneId);
+      else if (changedIds.length > 0) await placements.rebuild?.(sceneId, { placementIds: changedIds });
+      this._showScreenTip?.('编辑器场景改动已同步', { title: '场景同步' });
+    } catch (error) {
+      console.warn('[DDScene] 应用编辑器场景改动失败', error);
+    }
+  }
+
   async _prepareWorldStreamingManager(result, targetSceneId = this.currentSceneId, session = this._worldLoadSession) {
     return this.sanguoWorldRuntimeCoordinator.prepareWorldStreamingManager(result, targetSceneId, session);
   }
@@ -469,6 +536,9 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
     const scope = this.resourceScope;
     this._worldLoadSession = this._createWorldLoadSession(scope);
+    // 编辑器热同步：场景编辑器保存后通知本页面重读场景数据（跨页面 storage 事件）。
+    this._editorSceneSyncUnwatch = this._watchEditorSceneCommits();
+    scope?.track?.(() => this._editorSceneSyncUnwatch?.());
     this._worldReadyGate = new WorldReadyGate({
       required: ['terrains', 'placements'],
       timeout: 3000,

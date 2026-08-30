@@ -255,8 +255,10 @@ export class SceneFramePipeline {
     }
 
     // 更新移动系统：打坐或采集只锁玩家，AI/其他实体继续移动。
+    // 灵魂状态（死亡待复活）保留移动能力：isSoulState 时不把玩家从移动更新中剔除。
+    const soulMovementAllowed = player?.isSoulState === true;
     let movementResult;
-    if ((meditationSystem.isActive() || playerActionLocked) && player) {
+    if ((meditationSystem.isActive() || (playerActionLocked && !soulMovementAllowed)) && player) {
       // 锁定期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
       if (scene._meditationEntitySource !== entities ||
           scene._meditationEntityCount !== entities.length ||

@@ -135,6 +135,21 @@
             color: #4CAF50;
             margin-bottom: 20px;
         }
+
+        /* 加载页图标：按原始图片尺寸显示，不强制缩放 */
+        #loading-icon {
+            display: block;
+            margin-bottom: 16px;
+        }
+
+        /* 死亡灵魂状态：仅保留移动（虚拟摇杆），其余按键全部置灰失效 */
+        body.soul-state #touch-controls .action-btn,
+        body.soul-state #touch-controls .hotbar-btn {
+            opacity: 0.35;
+            filter: grayscale(1);
+            pointer-events: none;
+        }
+
         
         .progress-bar {
             width: 300px;
@@ -2192,10 +2207,16 @@
                         if (pf) pf.style.background = `linear-gradient(90deg, ${loadingConfig.progressBarColor})`;
                     }
                     if (loadingConfig.icon) {
-                        const iconEl = document.createElement('img');
+                        // 按原始图片大小显示（不设置固定宽高）；幂等插入，避免重复创建。
+                        let iconEl = document.getElementById('loading-icon');
+                        if (!iconEl) {
+                            iconEl = document.createElement('img');
+                            iconEl.id = 'loading-icon';
+                            iconEl.alt = 'logo';
+                            if (h1) h1.parentNode.insertBefore(iconEl, h1);
+                            else if (ls) ls.insertBefore(iconEl, ls.firstChild);
+                        }
                         iconEl.src = loadingConfig.icon;
-                        iconEl.style.cssText = 'width:64px;height:64px;margin-bottom:16px;';
-                        if (h1) h1.parentNode.insertBefore(iconEl, h1);
                     }
                     if (loadingConfig.loadingText) {
                         loadingText.textContent = loadingConfig.loadingText;

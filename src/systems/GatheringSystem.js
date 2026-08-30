@@ -228,6 +228,7 @@ export class GatheringSystem {
     const success = {
       ok: true, committed: true, code: terminalEvent === 'completed' ? null : reason, reason, terminalEvent,
       operationId: session.operationId, accepted: result.accepted,
+      itemName: item?.name || null,
       remainder: result.remainder, nodeRemaining: session.node.remaining,
       toolBroken, toolInstanceId: session.tool?.instanceId || null, risk
     };

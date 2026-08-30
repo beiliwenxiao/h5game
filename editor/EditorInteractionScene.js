@@ -690,6 +690,15 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     });
                     if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '保存场景失败'), { result });
                     const editorCacheUpdated = this.dataManager.updateScene(this.currentGameId, this.currentSceneId, result.value.scenes[this.currentSceneId]);
+                    // 通知正在运行的游戏页面：该场景已在磁盘提交，游戏可热同步最新位置/内容。
+                    // storage 事件只在其他页面触发，正好覆盖「编辑器 + 游戏双开」的工作流。
+                    try {
+                        localStorage.setItem('yijian18-engine_editor_scene_commit', JSON.stringify({
+                            gameId: this.currentGameId,
+                            sceneId: this.currentSceneId,
+                            ts: Date.now()
+                        }));
+                    } catch (_notifyError) { /* storage 不可用时跳过热同步通知 */ }
                     if (result.degraded || !editorCacheUpdated) {
                         this.sceneEditor?.ui?.showToast?.('磁盘已提交，但缓存/通知同步失败；已禁用 canonical fallback', 'warn');
                         return { ...result, degraded: true, status: 'committed-with-degradation', code: 'committedWithDegradation' };

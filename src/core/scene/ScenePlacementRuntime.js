@@ -286,16 +286,27 @@ export class ScenePlacementRuntime {
       && (placement.ref === ref || (ref === 'player' && placement.kind === 'player'))) || null;
   }
 
-  rebuild(sceneId = this.getCurrentSceneId()) {
+  /**
+   * 原子重建指定场景的放置实体（销毁旧实体 → 用当前投影重新生成）。
+   * @param {string} sceneId 目标场景
+   * @param {Object} [options]
+   * @param {string[]|null} [options.placementIds=null] 只重建这些放置点（编辑器热同步用）；
+   *   为 null 时重建该场景全部 type==='ref' 放置点。
+   */
+  rebuild(sceneId = this.getCurrentSceneId(), { placementIds: placementIdSelection = null } = {}) {
     if (this.disposed || !this.spawner || !this.entityStore) {
       return { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placementStates', message: '场景放置运行时尚未就绪' }] };
     }
+    const selection = Array.isArray(placementIdSelection) ? new Set(placementIdSelection) : null;
     const restoreIds = new Set([
       ...this.pendingPlacementStates.keys(),
       ...this.pendingResourceNodeStates.keys()
     ]);
     for (const placement of this.placements) {
-      if (placement?.type === 'ref' && placement.sceneId === sceneId && placement.id) restoreIds.add(placement.id);
+      if (placement?.type === 'ref' && placement.sceneId === sceneId && placement.id) {
+        if (selection && !selection.has(placement.id)) continue;
+        restoreIds.add(placement.id);
+      }
     }
     const placementIds = new Set(this.placements
       .filter(placement => placement?.type === 'ref' && placement.id && restoreIds.has(placement.id))

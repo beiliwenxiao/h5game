@@ -9,20 +9,21 @@
  *
  * 规则：
  * - 按下跳跃键（空格/触屏跳跃按钮）开始蓄力；
- * - 按住 < 0.5s 松开 → 短跳 60px；
- * - 按住 ≥ 0.5s → 玩家头顶出现蓄力条，蓄力每多 0.1s 距离增加一部分；
- * - 蓄满 3s → 距离达到最大 180px（蓄力条加满）；
- * - 松开按键 → 按蓄力时间决定落点距离并起跳（60~180px 线性）。
+ * - 按住 < 0.1s 松开 → 短跳 30px；
+ * - 按住 ≥ 0.1s → 玩家头顶出现蓄力条，蓄力每多 0.1s 距离增加一部分；
+ * - 蓄满 3s → 距离达到最大 120px（蓄力条加满）；
+ * - 松开按键 → 按松手时的蓄力时间决定落点距离并立即起跳（30~120px 线性），
+ *   起跳后落点锁定，滞空期间不再调整位置。
  *
  * 本控制器只读输入保持状态与跳转回调，不持有业务规则；渲染头顶蓄力条为世界空间。
  */
 export class JumpChargeController {
   constructor(config = {}) {
     this.config = {
-      tapMaxMs: 500,        // < 0.5s 视为点按短跳
+      tapMaxMs: 100,        // < 0.1s 视为点按短跳
       chargeMaxMs: 3000,    // 蓄满 3s 达到最大距离
-      tapDistance: 60,      // 点按短跳距离（px）
-      maxDistance: 180,     // 满蓄力距离（px）
+      tapDistance: 30,      // 点按短跳距离（px）
+      maxDistance: 120,     // 满蓄力距离（px）
       barWidth: 72,
       barHeight: 8,
       barOffsetY: 22,
@@ -94,7 +95,7 @@ export class JumpChargeController {
     return this.active;
   }
 
-  /** 蓄力条进度 0~1；<0.5s 为 0，3s 为 1。 */
+  /** 蓄力条进度 0~1；<0.1s 为 0（不显示），3s 为 1。 */
   getProgress() {
     if (!this.active) return 0;
     const { tapMaxMs, chargeMaxMs } = this.config;
@@ -102,7 +103,7 @@ export class JumpChargeController {
     return Math.min(1, (this.holdMs - tapMaxMs) / Math.max(1, chargeMaxMs - tapMaxMs));
   }
 
-  /** 蓄力时间 → 落点距离：<0.5s=60px；之后每 0.1s 增加一部分，3s=180px。 */
+  /** 蓄力时间 → 落点距离：<0.1s=30px；之后每多 0.1s 增加一部分，3s=120px。 */
   _distanceForHold(holdMs) {
     const { tapMaxMs, chargeMaxMs, tapDistance, maxDistance } = this.config;
     if (holdMs <= tapMaxMs) return tapDistance;

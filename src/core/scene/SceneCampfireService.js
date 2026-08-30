@@ -561,6 +561,27 @@ const campfireFeatureMethods = {
     ctx.restore();
   },
 
+  renderRespawnCountdown(ctx) {
+    const seconds = this.campfire.respawnCountdownSeconds;
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    const x = this.campfire.x;
+    const y = this.campfire.y - 78;
+    ctx.save();
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const label = `复活倒计时 ${seconds} 秒`;
+    const width = ctx.measureText(label).width + 14;
+    ctx.fillStyle = 'rgba(8, 10, 24, 0.82)';
+    ctx.fillRect(x - width / 2, y - 20, width, 24);
+    ctx.strokeStyle = 'rgba(126, 180, 255, 0.65)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - width / 2, y - 20, width, 24);
+    ctx.fillStyle = '#bfe0ff';
+    ctx.fillText(label, x, y);
+    ctx.restore();
+  },
+
   checkCampfireCollision() {
     if (this.flightSystem?.isPlayerFlying?.()) return;
     // 跳跃（滞空）期间不检查火堆碰撞，允许跳过火堆。
@@ -613,7 +634,8 @@ export class SceneCampfireService {
       frameCount: 1,
       currentFrame: 0,
       frameTime: 0,
-      frameDuration: 1
+      frameDuration: 1,
+      respawnCountdownSeconds: null
     };
     this.fog = { opacity: 0, targetOpacity: 0, fadeSpeed: 0, color: '', active: false };
     this.fuel = {
@@ -651,6 +673,11 @@ export class SceneCampfireService {
         // 与 bottom 使用同一 Y，再以 priority 保证火焰绘制在木柴之上、同脚点实体之前。
         type: 'campfire_top', y: this.campfire.y, sortPriority: 1,
         render: () => campfireFeatureMethods.renderCampfireTop.call(this, this._renderContext)
+      },
+      {
+        // 灵魂状态复活倒计时（玩家灵魂靠近篝火时由 PlayerSoulRespawn 驱动显示）。
+        type: 'campfire_countdown', y: this.campfire.y, sortPriority: 2,
+        render: () => campfireFeatureMethods.renderRespawnCountdown.call(this, this._renderContext)
       }
     ];
     if (config.configView) this.configure(config.configView);
@@ -994,10 +1021,19 @@ export class SceneCampfireService {
     this._renderContext = ctx;
     const bottom = this._campfireRenderItems[0];
     const top = this._campfireRenderItems[1];
+    const countdown = this._campfireRenderItems[2];
     bottom.y = this.campfire.y;
     top.y = this.campfire.y;
-    queue.push(bottom, top);
+    countdown.y = this.campfire.y;
+    queue.push(bottom, top, countdown);
     return true;
+  }
+
+  /** 灵魂状态复活倒计时（秒）；传 null/0 隐藏。 */
+  setRespawnCountdown(seconds = null) {
+    const value = Number.isFinite(Number(seconds)) && Number(seconds) > 0 ? Math.ceil(Number(seconds)) : null;
+    this.campfire.respawnCountdownSeconds = value;
+    return value;
   }
 
   resolvePlayerCollision(runtime = {}) {

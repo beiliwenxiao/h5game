@@ -44,6 +44,7 @@ class MockCombat {
   constructor() {
     this.target = null;
     this.attackRange = 50;
+    this.lastAttackTime = 0;
   }
 
   hasTarget() {
@@ -56,6 +57,14 @@ class MockCombat {
 
   clearTarget() {
     this.target = null;
+  }
+
+  canAttack(currentTime) {
+    return currentTime - this.lastAttackTime >= 1000;
+  }
+
+  recordAttack(currentTime) {
+    this.lastAttackTime = currentTime;
   }
 }
 

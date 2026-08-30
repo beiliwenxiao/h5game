@@ -53,12 +53,13 @@ class AIController {
    * @param {Array<Entity>} allEntities - 所有实体列表
    * @param {number} deltaTime - 帧间隔时间（秒）
    * @param {CombatSystem} combatSystem - 战斗系统
+   * @param {Array<Entity>} [hostileCache] - 预计算的敌对实体列表（可选，消除重复 filter）
    */
-  update(entity, allEntities, deltaTime, combatSystem) {
+  update(entity, allEntities, deltaTime, combatSystem, hostileCache = null) {
     this.timeSinceLastUpdate += deltaTime;
-    
+
     if (this.timeSinceLastUpdate >= this.updateInterval) {
-      this.makeDecision(entity, allEntities, combatSystem);
+      this.makeDecision(entity, allEntities, combatSystem, hostileCache);
       this.timeSinceLastUpdate = 0;
     }
   }
@@ -68,8 +69,9 @@ class AIController {
    * @param {Entity} entity - 实体
    * @param {Array<Entity>} allEntities - 所有实体列表
    * @param {CombatSystem} combatSystem - 战斗系统
+   * @param {Array<Entity>} [hostileCache] - 预计算的敌对实体列表（可选）
    */
-  makeDecision(entity, allEntities, combatSystem) {
+  makeDecision(entity, allEntities, combatSystem, hostileCache = null) {
     // 子类实现
   }
 
@@ -78,13 +80,14 @@ class AIController {
    * @param {Entity} entity - 实体
    * @param {Array<Entity>} allEntities - 所有实体列表
    * @param {number} detectionRange - 检测范围
+   * @param {Array<Entity>} [hostileCache] - 预计算的敌对实体列表（可选，消除重复 filter）
    * @returns {Entity|null}
    */
-  findNearestEnemy(entity, allEntities, detectionRange = 300) {
+  findNearestEnemy(entity, allEntities, detectionRange = 300, hostileCache = null) {
     const transform = entity.getComponent('transform');
     if (!transform) return null;
 
-    const enemies = allEntities.filter(candidate => isHostileTarget(entity, candidate));
+    const enemies = hostileCache || allEntities.filter(candidate => isHostileTarget(entity, candidate));
 
     let nearestEnemy = null;
     let nearestDistance = detectionRange;
@@ -189,7 +192,7 @@ class AggressiveAI extends AIController {
     this.lastAttackTime = 0;   // 上次攻击时间
   }
 
-  makeDecision(entity, allEntities, combatSystem) {
+  makeDecision(entity, allEntities, combatSystem, hostileCache = null) {
     const combat = entity.getComponent('combat');
     if (!combat) return;
 
@@ -199,8 +202,8 @@ class AggressiveAI extends AIController {
       if (combat.hasTarget() && this.isTargetDead(combat.target)) {
         combat.clearTarget();
       }
-      
-      const newTarget = this.findNearestEnemy(entity, allEntities, 400);
+
+      const newTarget = this.findNearestEnemy(entity, allEntities, 400, hostileCache);
       if (newTarget) {
         combat.setTarget(newTarget);
         console.log(`${entity.name} 找到目标: ${newTarget.name} (type: ${newTarget.type}, faction: ${newTarget.faction})`);
@@ -253,13 +256,13 @@ class DefensiveAI extends AIController {
     this.safeDistance = 150; // 安全距离
   }
 
-  makeDecision(entity, allEntities, combatSystem) {
+  makeDecision(entity, allEntities, combatSystem, hostileCache = null) {
     const combat = entity.getComponent('combat');
     const transform = entity.getComponent('transform');
     if (!combat || !transform) return;
 
-    // 查找最近的敌人
-    const nearestEnemy = this.findNearestEnemy(entity, allEntities, 300);
+    // 查找最近的敌人（使用预计算的敌对列表消除重复 filter）
+    const nearestEnemy = this.findNearestEnemy(entity, allEntities, 300, hostileCache);
 
     if (nearestEnemy) {
       const enemyTransform = nearestEnemy.getComponent('transform');
@@ -338,12 +341,12 @@ class SupportAI extends AIController {
     this.updateInterval = 0.5;
   }
 
-  makeDecision(entity, allEntities, combatSystem) {
+  makeDecision(entity, allEntities, combatSystem, hostileCache = null) {
     const combat = entity.getComponent('combat');
     if (!combat) return;
 
     // 查找低血量的敌人
-    const weakEnemy = this.findWeakestEnemy(entity, allEntities, 350);
+    const weakEnemy = this.findWeakestEnemy(entity, allEntities, 350, hostileCache);
 
     if (weakEnemy) {
       combat.setTarget(weakEnemy);
@@ -352,7 +355,7 @@ class SupportAI extends AIController {
       if (this.isInRange(entity, weakEnemy, combat.attackRange)) {
         // 在范围内，停止移动并攻击
         this.stopMovement(entity);
-        
+
         // 执行攻击
         const currentTime = performance.now();
         if (combat.canAttack(currentTime) && combatSystem) {
@@ -364,7 +367,7 @@ class SupportAI extends AIController {
       }
     } else {
       // 没有低血量敌人，查找最近的敌人
-      const nearestEnemy = this.findNearestEnemy(entity, allEntities, 300);
+      const nearestEnemy = this.findNearestEnemy(entity, allEntities, 300, hostileCache);
       
       if (nearestEnemy) {
         combat.setTarget(nearestEnemy);
@@ -393,13 +396,14 @@ class SupportAI extends AIController {
    * @param {Entity} entity - 实体
    * @param {Array<Entity>} allEntities - 所有实体列表
    * @param {number} detectionRange - 检测范围
+   * @param {Array<Entity>} [hostileCache] - 预计算的敌对实体列表（可选，消除重复 filter）
    * @returns {Entity|null}
    */
-  findWeakestEnemy(entity, allEntities, detectionRange) {
+  findWeakestEnemy(entity, allEntities, detectionRange, hostileCache = null) {
     const transform = entity.getComponent('transform');
     if (!transform) return null;
 
-    const enemies = allEntities.filter(candidate => isHostileTarget(entity, candidate));
+    const enemies = hostileCache || allEntities.filter(candidate => isHostileTarget(entity, candidate));
 
     let weakestEnemy = null;
     let lowestHpPercent = 1.0;
@@ -544,6 +548,10 @@ export class AISystem {
     // 建立实体索引避免每只 AI 全量线性查找（多狼追逐时显著降耗）
     const byId = new Map();
     for (const entity of entities || []) byId.set(entity.id, entity);
+
+    // 预计算：按阵营分组，避免每只 AI 重复 filter 全量实体
+    const hostileCache = this._buildHostileCache(entities);
+
     for (const [entityId, controller] of this.aiControllers) {
       const entity = byId.get(entityId);
       if (!entity) {
@@ -553,8 +561,43 @@ export class AISystem {
       }
       if (entity.isDead || entity.isDying) continue;
       if (this._updateLure(entity, deltaTime)) continue;
-      controller.update(entity, entities, deltaTime, combatSystem);
+      // 传入预计算的敌对列表，消除每只 AI 的 O(N) filter
+      controller.update(entity, entities, deltaTime, combatSystem, hostileCache.get(entity));
     }
+  }
+
+  /**
+   * 按实体预计算敌对目标列表，避免每只 AI 重复遍历全量实体
+   * @param {Array<Entity>} entities
+   * @returns {WeakMap<Entity, Array<Entity>>} entity -> hostile entities
+   */
+  _buildHostileCache(entities) {
+    const cache = new WeakMap();
+    if (!entities || entities.length === 0) return cache;
+
+    // 按阵营粗分组；canonical 战斗单位使用 factionId，普通单位使用 faction
+    const byFaction = new Map();
+    for (const entity of entities) {
+      if (!entity || entity.isDead || entity.isDying) continue;
+      const key = entity.factionId || entity.faction || 'neutral';
+      if (!byFaction.has(key)) byFaction.set(key, []);
+      byFaction.get(key).push(entity);
+    }
+
+    // 为每个实体计算敌对列表（利用阵营索引，避免全量 filter）
+    for (const entity of entities) {
+      if (!entity || entity.isDead || entity.isDying) continue;
+      const entityKey = entity.factionId || entity.faction;
+      const hostiles = [];
+      for (const [key, members] of byFaction) {
+        if (key === entityKey) continue;
+        for (const candidate of members) {
+          if (isHostileTarget(entity, candidate)) hostiles.push(candidate);
+        }
+      }
+      cache.set(entity, hostiles);
+    }
+    return cache;
   }
 
   _updateLure(entity, deltaTime) {

@@ -26,6 +26,11 @@
         .scene-item.active { background: #4CAF50; color: #000; }
         .scene-item .scene-id { font-size: 11px; color: #888; }
         .scene-item.active .scene-id { color: #006600; }
+        .scene-item .scene-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .scene-item .scene-actions { display: flex; align-items: center; gap: 4px; }
+        .scene-item .scene-actions button { padding: 2px 6px; background: #3a4a7e; border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 11px; }
+        .scene-item .scene-actions button:hover { background: #4a5a9e; }
+        .scene-item.template-item { border-left: 2px solid #8bc34a; }
         .scene-sidebar-footer { padding: 8px; border-top: 1px solid #2a3a5e; display: flex; gap: 6px; }
         .scene-sidebar-footer button { flex: 1; padding: 6px; background: #3a4a7e; border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px; }
         .scene-sidebar-footer button:hover { background: #4a5a9e; }
@@ -53,6 +58,7 @@
                             <option value="">全部类型</option>
                             <option value="normal">普通场景</option>
                             <option value="worldChunk">大地图块</option>
+                            <option value="template">场景模板</option>
                         </select>
                         <select id="scene-filter-worldmap" style="display: none;"></select>
                     </div>
@@ -107,34 +113,189 @@
                 navigateTo('scene-workflow', { gameId: e.target.value });
             });
 
+            // 当前正在编辑的模板 id（编辑模板而非游戏场景时为非空）
+            let editingTemplateId = null;
+
             // 渲染场景列表
             function renderSceneList() {
-            const scenes = ctx.dataManager.getGameScenes(gameId);
-            const filter = document.getElementById('scene-filter-type').value;
-            const filtered = filter ? scenes.filter(s => s.type === filter) : scenes;
-            document.getElementById('scene-list').innerHTML = filtered.map(s => `
-                <div class="scene-item ${s.id === ctx.currentSceneId ? 'active' : ''}" data-id="${s.id}">
-                    <span>${s.name || s.id}</span>
-                    <span class="scene-id">${s.id}</span>
-                </div>
-            `).join('') || '<div style="padding: 20px; text-align: center; color: #666;">暂无场景</div>';
+                const scenes = ctx.dataManager.getGameScenes(gameId);
+                const list = document.getElementById('scene-list');
+                const filter = document.getElementById('scene-filter-type').value;
+                const worldMapFilter = document.getElementById('scene-filter-worldmap').value;
 
-            document.querySelectorAll('.scene-item').forEach(item => {
-                item.addEventListener('click', async () => {
-                    const sid = item.dataset.id;
-                    ctx.currentSceneId = sid;
-                    // 更新 URL 但不刷新页面
-                    const url = new URL(window.location);
-                    url.searchParams.set('sceneId', sid);
-                    window.history.replaceState({}, '', url);
-                    await loadSceneEditor(sid);
-                    renderSceneList();
+                // 「场景模板」筛选：列表只显示模板分组
+                if (filter === 'template') {
+                    list.innerHTML = buildTemplateSectionHtml();
+                    bindTemplateItems();
+                    return;
+                }
+
+                // 按 sceneType 筛选（场景使用 sceneType 区分，而非 type）
+                let filtered = scenes;
+                const wmSelect = document.getElementById('scene-filter-worldmap');
+                if (filter === 'worldChunk') {
+                    filtered = scenes.filter(s => s.sceneType === 'worldChunk');
+                    if (worldMapFilter) filtered = filtered.filter(s => s.worldMap === worldMapFilter);
+                    populateWorldMapFilter(filtered);
+                    wmSelect.style.display = '';
+                } else {
+                    wmSelect.style.display = 'none';
+                    if (filter === 'normal') filtered = scenes.filter(s => s.sceneType !== 'worldChunk');
+                }
+
+                const listHtml = filtered.map(s => `
+                    <div class="scene-item ${s.id === ctx.currentSceneId ? 'active' : ''}" data-id="${s.id}">
+                        <span>${s.name || s.id}</span>
+                        <span class="scene-id">${s.id}</span>
+                    </div>
+                `).join('') || '<div style="padding: 20px; text-align: center; color: #666;">暂无场景</div>';
+
+                // 末尾始终附上「场景模板」分组，方便直接查看/编辑模板
+                list.innerHTML = listHtml + buildTemplateSectionHtml();
+
+                list.querySelectorAll('.scene-item:not(.template-item)').forEach(item => {
+                    item.addEventListener('click', async () => {
+                        const sid = item.dataset.id;
+                        editingTemplateId = null;
+                        ctx.currentSceneId = sid;
+                        // 更新 URL 但不刷新页面
+                        const url = new URL(window.location);
+                        url.searchParams.set('sceneId', sid);
+                        window.history.replaceState({}, '', url);
+                        await loadSceneEditor(sid);
+                        renderSceneList();
+                    });
                 });
-            });
-        }
+                bindTemplateItems();
+            }
+
+            // 用当前筛选出的 worldChunk 场景填充「大地图」子筛选下拉
+            function populateWorldMapFilter(worldChunkScenes) {
+                const select = document.getElementById('scene-filter-worldmap');
+                const value = select.value;
+                const maps = [...new Set(worldChunkScenes.map(s => s.worldMap).filter(Boolean))];
+                select.innerHTML = '<option value="">所有地图</option>' + maps.map(m =>
+                    `<option value="${m}" ${m === value ? 'selected' : ''}>${m}</option>`).join('');
+            }
+
+            // 构建「场景模板」分组 HTML
+            function buildTemplateSectionHtml() {
+                const { templates } = ctx.dataManager.getSceneTemplates();
+                const items = templates.map(t => `
+                    <div class="scene-item template-item ${editingTemplateId === t.id ? 'active' : ''}" data-tpl-id="${t.id}" title="${t.description || ''}">
+                        <span class="scene-name">📐 ${t.name}</span>
+                        <div class="scene-actions">
+                            <button data-tpl-action="edit" style="margin-right:6px;">编辑</button>
+                            <button data-tpl-action="delete">×</button>
+                        </div>
+                    </div>
+                `).join('');
+                return `
+                    <div class="scene-template-section" style="margin-top:10px;border-top:1px solid #3a3a3a;padding-top:6px;">
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px;color:#8bc34a;font-size:12px;font-weight:bold;">
+                            <span>场景模板</span>
+                            <button id="inline-add-template" title="新建模板" style="padding:0 6px;background:none;border:none;color:#8bc34a;cursor:pointer;font-size:14px;">＋</button>
+                        </div>
+                        ${items || '<div style="padding:8px;color:#666;font-size:12px;text-align:center;">暂无模板</div>'}
+                    </div>`;
+            }
+
+            // 绑定模板项点击（编辑/删除）与「新建模板」按钮
+            function bindTemplateItems() {
+                document.querySelectorAll('#scene-list .template-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        const action = e.target.dataset.tplAction;
+                        const id = item.dataset.tplId;
+                        if (action === 'delete') deleteTemplate(id);
+                        else editSceneTemplate(id);
+                    });
+                });
+                const addBtn = document.getElementById('inline-add-template');
+                if (addBtn) addBtn.addEventListener('click', () => createNewTemplate());
+            }
+
+            // 把模板配置写回 editor/config/scene-templates.json
+            function saveTemplatesToFile() {
+                const cfg = ctx.dataManager.getSceneTemplatesConfig();
+                fetch('/api/save-file', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: 'editor/config/scene-templates.json', content: JSON.stringify(cfg, null, 2) })
+                }).then(r => r.json()).then(d => {
+                    if (d.ok) console.log('场景模板已保存到文件:', d.path);
+                    else console.warn('保存模板文件失败:', d.error);
+                }).catch(err => console.warn('保存模板文件请求失败:', err));
+            }
+
+            // 新建模板：克隆默认模板后进入编辑
+            function createNewTemplate() {
+                const name = prompt('输入新模板名称：', '新模板');
+                if (!name) return;
+                const { template } = ctx.dataManager.createSceneTemplate({ name });
+                saveTemplatesToFile();
+                editSceneTemplate(template.id);
+            }
+
+            // 删除模板
+            function deleteTemplate(templateId) {
+                const tpl = ctx.dataManager.getSceneTemplate(templateId);
+                if (!tpl) return;
+                if (!confirm('确定删除模板「' + tpl.name + '」？')) return;
+                if (editingTemplateId === templateId) editingTemplateId = null;
+                ctx.dataManager.deleteSceneTemplate(templateId);
+                saveTemplatesToFile();
+                renderSceneList();
+            }
+
+            // 用场景编辑器打开模板的 scene 数据，保存时写回 scene-templates.json
+            function editSceneTemplate(templateId) {
+                const tpl = ctx.dataManager.getSceneTemplate(templateId);
+                if (!tpl) return;
+                editingTemplateId = templateId;
+                ctx.currentSceneId = null;
+                const editor = getSceneEditor();
+                editor.loadScene(structuredClone(tpl.scene || {}));
+                if (editor.ui && editor.ui.showToast) {
+                    editor.ui.showToast('正在编辑模板「' + tpl.name + '」，保存将写回模板');
+                }
+                renderSceneList();
+                window.dispatchEvent(new Event('resize'));
+            }
 
         // 场景编辑器
         let sceneEditor = null;
+
+        // 惰性创建场景编辑器（供普通场景与模板共用），并处理模板编辑态的保存回写
+        function getSceneEditor() {
+            if (sceneEditor) return sceneEditor;
+            sceneEditor = new SceneEditor(
+                document.getElementById('scene-editor-container'),
+                {
+                    getSceneList: () => ctx.dataManager.getGameScenes(gameId),
+                    getProjectDefinitions: () => ctx._projectDefinitions,
+                    getProjectTriggers: () => ctx._projectDefinitions.triggers,
+                    getBattleDefinitions: () => ctx._projectBattles,
+                    presentationProfile: ctx._presentationProfile,
+                    onSceneChange: (data) => {
+                        // 模板编辑态：写回 scene-templates.json
+                        if (editingTemplateId) {
+                            ctx.dataManager.upsertSceneTemplate(editingTemplateId, data);
+                            saveTemplatesToFile();
+                            if (sceneEditor && sceneEditor.ui && sceneEditor.ui.showToast) {
+                                sceneEditor.ui.showToast('模板「' + (ctx.dataManager.getSceneTemplate(editingTemplateId)?.name || '') + '」已保存');
+                            }
+                        }
+                    },
+                    openTriggerEditor: (definitionId, target = 'triggers') => {
+                        switchTab('trigger');
+                        if (triggerEditor && definitionId) {
+                            triggerEditor.selectById?.(definitionId, target);
+                        }
+                    }
+                }
+            );
+            return sceneEditor;
+        }
 
         async function loadSceneEditor(sid) {
             // 先尝试加载预设场景作为基底（提供 terrain / atlases / decoSprites 等完整字段）
@@ -195,29 +356,10 @@
                 };
             }
 
-            if (sceneEditor) {
-                sceneEditor.loadScene(sceneToLoad);
-                sceneEditor.refreshTriggerReferences?.();
-                return;
-            }
-            sceneEditor = new SceneEditor(
-                document.getElementById('scene-editor-container'),
-                {
-                    getSceneList: () => ctx.dataManager.getGameScenes(gameId),
-                    getProjectDefinitions: () => ctx._projectDefinitions,
-                    getProjectTriggers: () => ctx._projectDefinitions.triggers,
-                    getBattleDefinitions: () => ctx._projectBattles,
-                    presentationProfile: ctx._presentationProfile,
-                    openTriggerEditor: (definitionId, target = 'triggers') => {
-                        switchTab('trigger');
-                        if (triggerEditor && definitionId) {
-                            triggerEditor.selectById?.(definitionId, target);
-                        }
-                    }
-                }
-            );
-            sceneEditor.loadScene(sceneToLoad);
-            sceneEditor.refreshTriggerReferences?.();
+            editingTemplateId = null;
+            const editor = getSceneEditor();
+            editor.loadScene(sceneToLoad);
+            editor.refreshTriggerReferences?.();
         }
 
         // 触发器编辑器
@@ -279,7 +421,7 @@
 
         // 场景模板筛选
         document.getElementById('new-template-btn').addEventListener('click', () => {
-            alert('模板功能待实现');
+            createNewTemplate();
         });
 
         })();

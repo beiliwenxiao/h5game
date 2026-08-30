@@ -44,7 +44,15 @@ export class MovementSystem {
     this.contactLockDuration = Number.isFinite(contactLockDuration)
       ? Math.max(0.01, contactLockDuration)
       : 0.5;
+    // 被障碍持续阻挡达到该时长（秒）后自动停止运动，需松开方向键才恢复。
+    const blockedAutoStopDuration = Number(config.blockedAutoStopDuration);
+    this.blockedAutoStopDuration = Number.isFinite(blockedAutoStopDuration)
+      ? Math.max(0.2, blockedAutoStopDuration)
+      : 1;
+    // 战斗锁：战斗状态时不累计阻挡、不触发碰撞停顿，避免影响战斗手感。
+    this.combatLock = typeof config.combatLock === 'function' ? config.combatLock : () => false;
     this._contactLocks = new WeakMap();
+    this._blockedTotals = new WeakMap();
     this.pathfindingSystem = config.pathfindingSystem || new PathfindingSystem();
     this.pathfindingCellSize = Math.max(8, Number(config.pathfindingCellSize) || 32);
     this.pathfindingMaxVisited = Math.max(64, Number(config.pathfindingMaxVisited) || 2048);
@@ -228,8 +236,9 @@ export class MovementSystem {
     return true;
   }
 
-  /** 仅锁定实体移动，不影响攻击、交互或 UI。 */
+  /** 仅锁定实体移动，不影响攻击、交互或 UI。战斗状态视为未锁定，防止战前/战中卡住。 */
   isContactMovementLocked(entity) {
+    if (this.combatLock()) return false;
     return Boolean(entity) && Number(this._contactLocks.get(entity)?.remaining) > 0;
   }
 
@@ -241,6 +250,7 @@ export class MovementSystem {
     const movement = entity?.getComponent?.('movement');
     const sprite = entity?.getComponent?.('sprite');
     movement?.clearPath?.();
+    movement?.stop?.(); // 清掉残余速度，彻底停止
     if (sprite?.useAnimatedSprite) sprite.setWalking(false);
     if (sprite && sprite.currentAnimation !== 'idle') sprite.playAnimation?.('idle');
   }
@@ -256,12 +266,56 @@ export class MovementSystem {
     }
   }
 
+  /** 累计被障碍持续阻挡的时长（自动停止判定依据）。战斗状态不累计。 */
+  _accumulateBlockedTime(entity, deltaTime) {
+    if (!entity || this.combatLock()) return;
+    const current = Number(this._blockedTotals.get(entity)) || 0;
+    this._blockedTotals.set(entity, Math.min(current + Math.max(0, Number(deltaTime) || 0), 60));
+  }
+
+  /** 被障碍持续阻挡达到阈值后，是否需松开方向键才恢复移动。战斗状态视为未达标。 */
+  _releaseRequiredToMove(entity) {
+    if (entity && !this.combatLock()
+      && (Number(this._blockedTotals.get(entity)) || 0) >= this.blockedAutoStopDuration) return true;
+    return false;
+  }
+
+  _clearBlockedAccumulator(entity) {
+    if (entity) this._blockedTotals.delete(entity);
+  }
+
+  /** 是否有任意方向输入（键盘/摇杆/触屏摇杆统一）。 */
+  _isAnyDirectionInput() {
+    if (!this.inputManager) return false;
+    if (typeof this.inputManager.getMoveAxis === 'function') {
+      const axis = this.inputManager.getMoveAxis();
+      return Math.abs(Number(axis?.x) || 0) > 0.01 || Math.abs(Number(axis?.y) || 0) > 0.01;
+    }
+    return this.inputManager.isKeyDown?.('up')
+      || this.inputManager.isKeyDown?.('down')
+      || this.inputManager.isKeyDown?.('left')
+      || this.inputManager.isKeyDown?.('right');
+  }
+
   /**
    * 报告本帧玩家是否被阻挡或推出。接触从无到有时启动一次短时移动锁。
    * @returns {boolean} 本次是否新启动锁
    */
+  /**
+   * 本帧是否应向此实体施加碰撞锁。战斗状态跳过；被障碍阻挡达到自动停止阈值也跳过，
+   * 避免重规划循环反复给玩家套上接触锁（导致原地踏步+动画不停）。
+   */
+  _shouldApplyContactLock(entity) {
+    if (!entity) return false;
+    if (this.combatLock()) return false;
+    return !this._releaseRequiredToMove(entity);
+  }
+
   setMovementContact(entity, active, duration = this.contactLockDuration) {
     if (!entity) return false;
+    // 战斗状态完全跳过碰撞锁，避免战斗中被障碍卡住（包含已有的残锁）。
+    // 阻挡时长超过阈值（1秒自动停止）时也不再启动新锁。
+    if (this.combatLock() || this._releaseRequiredToMove(entity)) return false;
     let state = this._contactLocks.get(entity);
     if (!state) {
       if (!active) return false;
@@ -424,7 +478,7 @@ export class MovementSystem {
     }
     
     // 处理键盘移动输入
-    this.handleKeyboardInput(entities);
+    this.handleKeyboardInput(entities, deltaTime);
     
     // 处理点击移动
     this.handleClickMovement(entities);
@@ -445,14 +499,23 @@ export class MovementSystem {
    * 处理键盘输入
    * @param {Array<Entity>} entities - 实体列表
    */
-  handleKeyboardInput(entities) {
+  handleKeyboardInput(entities, deltaTime = 0.016) {
     if (!this.inputManager) return;
 
     const playerEntity = this.playerEntity || entities.find(e => e.type === 'player');
     if (!playerEntity) return;
     if (this.isContactMovementLocked(playerEntity)) {
       this._stopEntityMovement(playerEntity);
+      this._accumulateBlockedTime(playerEntity, deltaTime);
       return;
+    }
+    // 被物品/障碍阻挡达到阈值后，需松开方向键才恢复移动（避免"一直按着却原地踏步"）。
+    if (this._releaseRequiredToMove(playerEntity)) {
+      if (this._isAnyDirectionInput()) {
+        this._stopEntityMovement(playerEntity);
+        return;
+      }
+      this._clearBlockedAccumulator(playerEntity);
     }
 
     // 方向输入统一来自 InputManager；触屏虚拟摇杆和手柄均在采集层映射到这里。
@@ -659,9 +722,10 @@ export class MovementSystem {
       if (canMove) {
         transform.setPosition(newX, newY);
       } else {
-        // 玩家首次撞到地图/瓦片障碍时立即停住；管线会据此启动 0.5 秒移动锁。
+        // 玩家首次撞到地图/瓦片障碍时立即停住并累计阻挡时长。
         if (entity === this.playerEntity || entity.type === 'player') {
           this._stopEntityMovement(entity);
+          this._accumulateBlockedTime(entity, deltaTime);
           return true;
         }
         // 非玩家保持旧行为：路径移动撞墙后停止。

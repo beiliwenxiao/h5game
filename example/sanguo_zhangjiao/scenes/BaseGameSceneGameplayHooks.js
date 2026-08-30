@@ -54,7 +54,8 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
   isPlayerActionLocked() {
     return this.playerEntity?.isDead === true
       || Boolean(this.playerDeathCountdown?.pending)
-      || this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true;
+      || this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true
+      || this.combatSystem?.isInCombat?.() === true;
   }
 
   /** 基础攻击默认只在战斗状态开放；具体场景可覆盖以支持训练或可破坏物。 */
@@ -69,6 +70,10 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
 
   harvestByFacing({ silent = false } = {}) {
     if (!this.playerEntity || !this.gatheringSystem) return false;
+    if (this.isPlayerActionLocked()) {
+      if (!silent) this._showScreenTip('战斗状态下无法采集');
+      return false;
+    }
     const playerPosition = this.playerEntity.getComponent('transform')?.position;
     if (!playerPosition) return false;
     const candidates = (this.entities || [])

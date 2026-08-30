@@ -277,8 +277,14 @@ export class SceneFramePipeline {
       movementSystem.restoreContactLockAnchor?.(player);
     }
     const movementContact = movementResult?.playerBlocked === true || pushedByEntity || pushedByTerrain;
+    if (movementContact && player) {
+      // 地形/实体/重规划失败导致的每帧阻挡都累计时长，保证 1s 阈值可被触达。
+      movementSystem._accumulateBlockedTime?.(player, deltaTime);
+    }
     let rerouted = false;
-    if (movementContact && player && combatSystem?.isInCombat?.() !== true) {
+    // 已被阻挡达到自动停止阈值时，不再重规划，也不启动新接触锁，直接停下。
+    const autoStopEngaged = movementSystem._releaseRequiredToMove?.(player) === true;
+    if (movementContact && player && !autoStopEngaged && combatSystem?.isInCombat?.() !== true) {
       const dynamicEntityBlocked = collisionSystem.createPositionBlocker?.(entities, {
         ignoreEntity: player
       }) || (() => false);
@@ -290,8 +296,12 @@ export class SceneFramePipeline {
         isBlocked
       }) === true;
     }
-    // 非战斗 A* 不可达（以及战斗状态）才回退短时接触锁，避免每帧重复重规划。
-    movementSystem.setMovementContact?.(player, movementContact && !rerouted);
+    // 非战斗 A* 不可达（以及战斗状态）才回退短时接触锁，避免每帧重复重规划；
+    // 战斗状态不启动碰撞停顿，移动保持即时响应，战斗结束后恢复。
+    movementSystem.setMovementContact?.(
+      player,
+      movementContact && !rerouted && combatSystem?.isInCombat?.() !== true
+    );
 
     // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，
     // 避免相机长期落后一帧并放大不均匀 deltaTime 造成的画面跳动。

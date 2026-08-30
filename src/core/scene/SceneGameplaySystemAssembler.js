@@ -58,7 +58,7 @@ export class SceneGameplaySystemAssembler {
       camera: scene.camera,
       now
     });
-    scene.jumpSystem = new JumpSystem();
+    scene.jumpSystem = new JumpSystem({ particleSystem: scene.particleSystem });
     scene.locomotionSystem = new LocomotionSystem({
       jumpSystem: scene.jumpSystem,
       flightSystem: scene.flightSystem,
@@ -118,7 +118,9 @@ export class SceneGameplaySystemAssembler {
       jumpSystem: scene.jumpSystem,
       pathfindingSystem: scene.pathfindingSystem,
       pathfindingCellSize: 32,
-      isMovementLocked: entity => scene.locomotionSystem?.isBusy?.(entity) === true
+      isMovementLocked: entity => scene.locomotionSystem?.isBusy?.(entity) === true,
+      // 战斗状态不进行移动碰撞停顿/阻挡自动停止，保证战斗手感；战斗结束后恢复。
+      combatLock: () => scene.combatSystem?.isInCombat?.() === true
     });
     scene.equipmentSystem = new EquipmentSystem();
     scene.aiSystem = new AISystem();

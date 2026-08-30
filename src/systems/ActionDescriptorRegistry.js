@@ -110,14 +110,19 @@ const RESULT_SCHEMA = {
     eventFrom: {}, eventTo: {}, value: {}, error: {}
   }
 };
-function descriptor(id, commandType, idField, kind, sideEffect = ActionSideEffect.DOMAIN, checkpointPolicy = ActionCheckpointPolicy.ON_COMMIT) {
+function descriptor(id, commandType, idField, kind, sideEffect = ActionSideEffect.DOMAIN, checkpointPolicy = ActionCheckpointPolicy.ON_COMMIT, paramsSchemaOverrides = {}) {
+  const baseProperties = {
+    ...PARAM_META, [idField]: { type: 'string' }, operation: { type: 'string' },
+    ...(paramsSchemaOverrides?.properties || {})
+  };
   return {
     id, commandType, adapterId: 'command', sideEffect,
     requiresOperationId: true, checkpointPolicy,
     allowedReentryPolicies: [ActionReentryPolicy.REJECT, ActionReentryPolicy.QUEUE, ActionReentryPolicy.RESTART],
     paramsSchema: {
       type: 'object', required: [idField], additionalProperties: true,
-      properties: { ...PARAM_META, [idField]: { type: 'string' }, operation: { type: 'string' } }
+      ...paramsSchemaOverrides,
+      properties: baseProperties
     },
     resultSchema: RESULT_SCHEMA,
     referenceFields: kind && !['vehicles', 'endings'].includes(kind)
@@ -135,7 +140,9 @@ export const STANDARD_ACTION_DESCRIPTORS = deepFreeze([
   descriptor('checkpoint.request', 'checkpoint.request', 'checkpointId', null, ActionSideEffect.DOMAIN, ActionCheckpointPolicy.REQUIRED),
   descriptor('ending.command', 'ending.command', 'endingId', 'endings', ActionSideEffect.DOMAIN, ActionCheckpointPolicy.REQUIRED),
   descriptor('dialogue.command', 'dialogue.command', 'dialogueId', 'dialogues'),
-  descriptor('tutorial.command', 'tutorial.command', 'tutorialId', 'tutorials'),
+  descriptor('tutorial.command', 'tutorial.command', 'tutorialId', 'tutorials', ActionSideEffect.DOMAIN, ActionCheckpointPolicy.ON_COMMIT, {
+    properties: { await: { type: 'boolean' } }
+  }),
   descriptor('state.transaction', 'state.transaction', 'definitionId', 'commands'),
   descriptor('scenario.command', 'scenario.command', 'scenarioId', null)
 ]);

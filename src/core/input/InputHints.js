@@ -231,9 +231,18 @@ class InputHintsRegistry {
     });
   }
 
-  /** 便捷方法：按 HTML 高亮包裹按键名（配合 demo 的 .key 样式） */
+  /**
+   * 便捷方法：按 HTML 高亮包裹按键名（配合 demo 的 .key 样式）。
+   * 多键组合（如 PC 的 'W/A/S/D'）拆分为各自独立外框，便于区分单个按键；
+   * 含中文（'空格/E'、'E/回车'）的组合保持单框，避免把中文短语切开。
+   */
   formatHtml(template, className = 'key') {
-    return this.format(template, { keyWrapper: (k) => `<span class="${className}">${k}</span>` });
+    return this.format(template, { keyWrapper: (k) => {
+      const tokens = /^[A-Z0-9][A-Z0-9/]*$/.test(String(k))
+        ? String(k).split('/').filter(Boolean)
+        : [k];
+      return tokens.map(token => `<span class="${className}">${token}</span>`).join('');
+    } });
   }
 
   /**

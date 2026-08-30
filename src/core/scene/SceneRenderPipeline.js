@@ -327,6 +327,10 @@ export class SceneRenderPipeline {
     }
     particleSystem.render(ctx, camera);
     presentation.gatheringProgress?.render?.(ctx);
+    if (scene.eventTargetFlash) {
+      scene.eventTargetFlash.prune();
+      scene.eventTargetFlash.render(ctx);
+    }
     if (scene._debugParticleFrames > 0) {
       console.log('【渲染】粒子系统活跃粒子数:', particleSystem.getActiveCount());
       scene._debugParticleFrames--;

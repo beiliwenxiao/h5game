@@ -3,7 +3,13 @@
  * @project YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
  ************************************************************/
 
-const DEFAULT_CONFIG = Object.freeze({ distance: 56, duration: 0.6, peakHeight: 32, deadzone: 0.2 });
+const DEFAULT_CONFIG = Object.freeze({
+  distance: 56, duration: 0.6, peakHeight: 32, deadzone: 0.2,
+  // 起跳/落地烟雾（类似轻功）：由场景注入 particleSystem 后生效
+  smokeParticleCount: 10, smokeRadius: 14, smokeLife: 520,
+  smokeSize: { min: 5, max: 9 }, smokeColor: '#d8d8d8', smokeAlpha: 0.5,
+  smokeFriction: 0.96, takeoffGravity: -60, landingGravity: 30
+});
 
 /**
  * 通用跳跃系统：elevation 负责视觉高度，地面位移按增量推进，
@@ -12,7 +18,48 @@ const DEFAULT_CONFIG = Object.freeze({ distance: 56, duration: 0.6, peakHeight: 
 export class JumpSystem {
   constructor(config = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.particleSystem = config.particleSystem || null;
     this._active = new Map();
+  }
+
+  setParticleSystem(particleSystem) {
+    this.particleSystem = particleSystem;
+  }
+
+  /** 起跳瞬间烟尘（轻功式下压尘土），需要粒子系统。 */
+  _emitTakeoffSmoke(x, y) {
+    if (!this.particleSystem) return;
+    const c = this.config;
+    for (let i = 0; i < c.smokeParticleCount; i++) {
+      const angle = Math.PI * (i / c.smokeParticleCount);
+      const offsetX = Math.cos(angle) * c.smokeRadius;
+      const offsetY = Math.sin(angle) * c.smokeRadius;
+      this.particleSystem.emit({
+        position: { x: x + offsetX, y: y + offsetY },
+        velocity: { x: Math.cos(angle) * 50, y: Math.sin(angle) * 25 - 30 },
+        life: c.smokeLife,
+        size: c.smokeSize.min + Math.random() * (c.smokeSize.max - c.smokeSize.min),
+        color: c.smokeColor, alpha: c.smokeAlpha, friction: c.smokeFriction, gravity: c.takeoffGravity
+      });
+    }
+  }
+
+  /** 落地瞬间烟尘。 */
+  _emitLandingSmoke(x, y) {
+    if (!this.particleSystem) return;
+    const c = this.config;
+    for (let i = 0; i < c.smokeParticleCount; i++) {
+      const angle = Math.PI * (i / c.smokeParticleCount);
+      const offsetX = Math.cos(angle) * c.smokeRadius;
+      const offsetY = Math.sin(angle) * c.smokeRadius;
+      this.particleSystem.emit({
+        position: { x: x + offsetX, y: y + offsetY },
+        velocity: { x: Math.cos(angle) * 50, y: Math.sin(angle) * 25 + 10 },
+        life: c.smokeLife,
+        size: c.smokeSize.min + Math.random() * (c.smokeSize.max - c.smokeSize.min),
+        color: c.smokeColor, alpha: c.smokeAlpha, friction: c.smokeFriction, gravity: c.landingGravity
+      });
+    }
   }
 
   startJump(entity, direction = { x: 0, y: 0 }, options = {}) {
@@ -22,6 +69,10 @@ export class JumpSystem {
     const moving = magnitude >= this.config.deadzone;
     const movement = entity.getComponent?.('movement');
     movement?.stop?.();
+    // 起跳烟雾：落在玩家脚下（含短暂蓄力时在离地前就冒起）
+    if (transform) {
+      this._emitTakeoffSmoke(transform.position.x, transform.position.y);
+    }
     this._active.set(entity, {
       transform,
       mode: options.mode === 'power' ? 'power' : 'normal',
@@ -67,6 +118,7 @@ export class JumpSystem {
       data.horizontalProgress = horizontal;
       if (progress >= 1) {
         transform.position.elevation = data.baseElevation;
+        this._emitLandingSmoke(transform.position.x, transform.position.y);
         this._active.delete(entity);
       }
     }

@@ -748,12 +748,19 @@ export class S01S02Coordinator {
       console.error('[S01S02Coordinator] 添柴事务已提交但燃料投影未写入');
       return { ok: true, warning: 'fuelProjectionFailed' };
     }
-    this.scene._showScreenTip(fuel.isLit()
-      ? '你把一份枯木投入火堆，火焰又旺了一些。'
+    // 火焰熄灭时投入木柴后立即重新点燃（不再要求再交互一次）。
+    let reignitedByFuel = false;
+    if (fuel.isLit() !== true && fuel.canIgnite?.()) {
+      reignitedByFuel = fuel.ignite({ runtime: { particleSystem: this.scene.particleSystem } });
+    }
+    this.scene._showScreenTip(reignitedByFuel || fuel.isLit()
+      ? reignitedByFuel
+        ? '你把木柴投入余烬，火焰腾地重新燃起。'
+        : '你把一份枯木投入火堆，火焰又旺了一些。'
       : '你把一份枯木放进余烬中。再次靠近火堆，{interact}即可重新点燃。', {
-      title: fuel.isLit() ? '添柴成功' : '木柴已放入'
+      title: reignitedByFuel ? '篝火重燃' : (fuel.isLit() ? '添柴成功' : '木柴已放入')
     });
-    return { ok: true };
+    return { ok: true, status: reignitedByFuel ? 'reignited' : 'refueled' };
   }
 
   async handleAction(params = {}, eventData = {}) {

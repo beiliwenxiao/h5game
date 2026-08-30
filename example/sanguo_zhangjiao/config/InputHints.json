@@ -2,7 +2,7 @@
   "actions": {
     "move": {
       "pc": {
-        "key": "W A S D",
+        "key": "W/A/S/D",
         "kind": "key"
       },
       "android": "虚拟摇杆",

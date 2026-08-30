@@ -858,7 +858,7 @@
           "id": "S01-binding-refuel-campfire",
           "name": "给篝火添柴",
           "pointerRadius": 36,
-          "prompt": "{interact}添柴或重新点燃篝火",
+          "prompt": "{interact}添柴",
           "radius": 80,
           "sceneEventId": "s01.event.firewood",
           "target": "S01-spawn-campfire",

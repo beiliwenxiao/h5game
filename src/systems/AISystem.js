@@ -541,8 +541,11 @@ export class AISystem {
   }
 
   update(deltaTime, entities, combatSystem) {
+    // 建立实体索引避免每只 AI 全量线性查找（多狼追逐时显著降耗）
+    const byId = new Map();
+    for (const entity of entities || []) byId.set(entity.id, entity);
     for (const [entityId, controller] of this.aiControllers) {
-      const entity = entities.find(candidate => candidate.id === entityId);
+      const entity = byId.get(entityId);
       if (!entity) {
         this.aiControllers.delete(entityId);
         this.lureTargets.delete(entityId);

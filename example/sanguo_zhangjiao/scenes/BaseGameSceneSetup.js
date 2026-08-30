@@ -811,6 +811,8 @@ export class BaseGameSceneSetup extends Scene {
           ok: true,
           committed: true
         });
+        // 事件成功触发时，在目标物周围显示星星闪光引导视线；仅事件有位置/实体信息时生效。
+        this.flashEventTarget?.(event);
       }
     });
     applicationEventBridge.bind();

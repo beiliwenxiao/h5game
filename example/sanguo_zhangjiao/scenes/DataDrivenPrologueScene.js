@@ -114,9 +114,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       tutorialSystem: this.tutorialSystem,
       getScope: () => ({ sceneId: this.currentSceneId }),
       presenter: {
-        show: data => this._showScreenTip(data?.step?.text || '', {
-          title: data?.beginText || data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
-        }),
+        show: data => {
+          this._showScreenTip(data?.step?.text || '', {
+            title: data?.beginText || data?.tutorialTitle || '教学', persist: true, owner: 'tutorial'
+          });
+          // 教程步骤指定高亮目标时，若 target 可解析为世界实体，在其周围冒星星闪光引导视线。
+          if (data?.step?.highlightTarget && data?.step?.target) {
+            const entity = (this.entities || []).find(e => e?.id === data.step.target);
+            const pos = entity?.getComponent?.('transform')?.position;
+            if (pos) {
+              this.eventTargetFlash.spawn({ worldX: pos.x, worldY: pos.y });
+            }
+          }
+        },
         hide: () => this._hideScreenTip('tutorial'),
         complete: (_tutorialId, tutorial) => {
           if (tutorial?.endText) this._showScreenTip(tutorial.endText, { title: '✓ 完成', owner: 'tutorial' });

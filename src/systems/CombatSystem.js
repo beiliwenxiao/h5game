@@ -144,8 +144,21 @@ export class CombatSystem {
     this.onKillCallback = null;
     // 尸体保留回调由场景运行时注入，CombatSystem 不解释具体怪物或采集定义。
     this.onCorpseCreateCallback = null;
-    
+
+    // 战斗日志降频：同一 key 每 intervalMs 至多打印一条，避免多狼齐攻时同步 console 卡顿主线程。
+    this._logThrottleMap = new Map();
+    this._logThrottleInterval = 1000;
+
     console.log('CombatSystem: Initialized');
+  }
+
+  /** 降频日志：同 key 在 interval 内只 console.log 一次，其余丢弃。 */
+  _logThrottled(message, key = 'global') {
+    const now = Date.now();
+    const last = this._logThrottleMap.get(key) || 0;
+    if (now - last < this._logThrottleInterval) return;
+    this._logThrottleMap.set(key, now);
+    console.log(message);
   }
 
   /** 注入领域效果量过滤器；返回旧过滤器，便于场景退出时恢复。 */
@@ -812,7 +825,7 @@ export class CombatSystem {
       
       // 如果是敌人攻击，触发敌人武器动画
       if (attacker.type === 'enemy' && this.enemyWeaponRenderer && attackerTransform && targetTransform) {
-        console.log(`[敌人攻击] 触发武器动画: ${attacker.id}`);
+        this._logThrottled(`[敌人攻击] 触发武器动画: ${attacker.id}`);
         this.enemyWeaponRenderer.startAttack(attacker, targetTransform.position);
       }
       
@@ -825,8 +838,8 @@ export class CombatSystem {
       const damage = this.calculateDamage(attacker, target);
       const attackType = this.getAttackText(attacker);
       this.applyDamage(target, damage, null, attackType, { sourceEntity: attacker });
-      
-      console.log(`${attacker.name || attacker.id} 攻击 ${target.name || target.id}，造成 ${damage} 点伤害`);
+
+      this._logThrottled(`${attacker.name || attacker.id} 攻击 ${target.name || target.id}，造成 ${damage} 点伤害`);
     }
   }
   

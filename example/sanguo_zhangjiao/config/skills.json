@@ -82,7 +82,7 @@
       "description": "短距离瞬发跳跃",
       "category": "locomotion",
       "targeting": "position",
-      "params": { "range": 110, "cooldown": 1 },
+      "params": { "cooldown": 1 },
       "costs": { "stamina": 5 },
       "tags": ["locomotion", "jump"]
     },

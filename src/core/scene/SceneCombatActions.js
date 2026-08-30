@@ -120,7 +120,7 @@ export class SceneCombatActions {
     return false;
   }
 
-  jumpByDirection(dirX = 0, dirY = 0) {
+  jumpByDirection(dirX = 0, dirY = 0, chargeDistance = 0) {
     if (this._isLocked()) return false;
     const scene = this.scene;
     if (scene.dialogueSystem?.isDialogueActive?.() || scene.itemGainedPopup?.visible ||
@@ -135,17 +135,24 @@ export class SceneCombatActions {
     }
 
     const transform = player.getComponent?.('transform');
-    if (!transform || !scene.abilitySystem) {
-      return scene.jumpSystem.startJump(player, { x: dirX, y: dirY });
-    }
+    if (!transform) return false;
     const magnitude = Math.hypot(dirX, dirY);
-    const params = scene.abilitySystem.resolveSkillParams?.(player, 'jump', { scene }) || {};
-    const range = Math.max(0, Number(params.range) || scene.jumpSystem.config?.distance || 56);
-    const targetPosition = magnitude > 0
-      ? { x: transform.position.x + (dirX / magnitude) * range, y: transform.position.y + (dirY / magnitude) * range }
-      : { x: transform.position.x, y: transform.position.y };
-    // 普通跳是 S01 教学基线；强化仍由同一技能定义和 EffectResolver 解析。
-    return this._useLocomotion('jump', { targetPosition, requireUnlock: false });
+    // 基础跳跃不走 AbilitySystem（避免被 jump 技能的 range/cooldown/体力消耗拦住，
+    // 尤其蓄力后松开瞬间技能冷却会让起跳被静默拒绝 → “原地蓄力后根本不跳”）。
+    // 蓄力跳按蓄力距离（60~180px）；点按跳用系统默认距离。
+    const range = chargeDistance > 0 ? chargeDistance : (scene.jumpSystem.config?.distance || 56);
+    let direction;
+    if (magnitude > 0) {
+      direction = { x: dirX / magnitude, y: dirY / magnitude };
+    } else if (chargeDistance > 0) {
+      // 无方向输入但为蓄力跳：沿玩家当前朝向跳出蓄力距离。
+      const facing = scene.getPlayerFacingVector?.() || { x: 1, y: 0 };
+      const fm = Math.hypot(facing.x || 0, facing.y || 0) || 1;
+      direction = { x: facing.x / fm, y: facing.y / fm };
+    } else {
+      direction = { x: 0, y: 0 }; // 点按原地跳
+    }
+    return scene.jumpSystem.startJump(player, direction, { distance: range });
   }
 
   flightByFacing() {

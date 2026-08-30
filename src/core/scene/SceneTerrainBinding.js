@@ -125,6 +125,7 @@ export class SceneTerrainBinding {
     const terrains = scene._terrains?.length ? scene._terrains : (scene.terrain ? [scene.terrain] : []);
     if (terrains.length === 0 || !this.SceneTerrainCollision) return;
     if (!scene._terrainCollision) scene._terrainCollision = new this.SceneTerrainCollision({ entityRadius: 12 });
+    if (scene.jumpSystem) scene._terrainCollision.setJumpSystem?.(scene.jumpSystem);
     scene._terrainCollision.resolveTerrains(terrains, scene.entities);
   }
 

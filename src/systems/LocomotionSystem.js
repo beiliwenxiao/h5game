@@ -27,6 +27,8 @@ export class LocomotionSystem {
       const dy = Number(targetPosition?.y) - transform.position.y;
       const magnitude = Math.hypot(dx, dy);
       const direction = magnitude > 0 ? { x: dx / magnitude, y: dy / magnitude } : { x: 0, y: 0 };
+      // 基础跳跃已由 SceneCombatActions 直接走 JumpSystem（距离按蓄力 60~180px），
+      // 此分支仅保留 power_jump/其他能力路径；不再把距离钳制到技能 range。
       return this.jumpSystem.startJump(caster, direction, {
         mode: skillId === 'power_jump' ? 'power' : 'normal',
         distance: magnitude > 0 ? Math.min(magnitude, Number(params.range) || magnitude) : 0,

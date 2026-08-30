@@ -4,7 +4,10 @@
  ************************************************************/
 
 const DEFAULT_CONFIG = Object.freeze({
-  distance: 56, duration: 0.6, peakHeight: 32, deadzone: 0.2,
+  // 未显式指定距离时的默认落点距离；蓄力跳跃会显式传入 60~180 的距离。
+  distance: 84, duration: 0.62, peakHeight: 46, deadzone: 0.2,
+  // 距离→高度/时长的参考上限（px）
+  distanceReference: 180,
   // 起跳/落地烟雾（类似轻功）：由场景注入 particleSystem 后生效
   smokeParticleCount: 10, smokeRadius: 14, smokeLife: 520,
   smokeSize: { min: 5, max: 9 }, smokeColor: '#d8d8d8', smokeAlpha: 0.5,
@@ -14,6 +17,7 @@ const DEFAULT_CONFIG = Object.freeze({
 /**
  * 通用跳跃系统：elevation 负责视觉高度，地面位移按增量推进，
  * 因而仍可由现有碰撞系统逐帧修正，不会穿透静态障碍。
+ * 落点由起跳瞬间的方向与距离决定；距离越长，起跳越高、滞空越久。
  */
 export class JumpSystem {
   constructor(config = {}) {
@@ -73,6 +77,15 @@ export class JumpSystem {
     if (transform) {
       this._emitTakeoffSmoke(transform.position.x, transform.position.y);
     }
+    const distance = moving ? Math.max(0, Number(options.distance) || this.config.distance) : 0;
+    // 距离越长 → 起跳越高、滞空越久；未显式指定时按距离推导。
+    const ratio = Math.min(1, distance / Math.max(1, this.config.distanceReference || 120));
+    const duration = Number(options.duration) > 0
+      ? Number(options.duration)
+      : Math.max(0.28, this.config.duration * (0.45 + 0.75 * ratio));
+    const peakHeight = Number(options.peakHeight) > 0
+      ? Number(options.peakHeight)
+      : Math.max(14, this.config.peakHeight * (0.4 + 0.7 * ratio));
     this._active.set(entity, {
       transform,
       mode: options.mode === 'power' ? 'power' : 'normal',
@@ -83,9 +96,9 @@ export class JumpSystem {
       direction: moving
         ? { x: direction.x / magnitude, y: direction.y / magnitude }
         : { x: 0, y: 0 },
-      distance: moving ? Math.max(0, Number(options.distance) || this.config.distance) : 0,
-      duration: Math.max(0.1, Number(options.duration) || this.config.duration),
-      peakHeight: Math.max(0, Number(options.peakHeight) || this.config.peakHeight)
+      distance,
+      duration,
+      peakHeight
     });
     return true;
   }
@@ -111,6 +124,7 @@ export class JumpSystem {
       // easeOutQuad：起跳立即开始前移，不保留起步预备缓动；落地自然减速。
       const horizontal = 1 - (1 - progress) * (1 - progress);
       const step = (horizontal - data.horizontalProgress) * data.distance;
+      // 落点由起跳瞬间的方向与距离锁定，滞空期间不再调整位置。
       transform.position.x += data.direction.x * step;
       transform.position.y += data.direction.y * step;
       transform.position.elevation = data.baseElevation +

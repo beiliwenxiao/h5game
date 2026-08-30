@@ -48,6 +48,13 @@ export class SceneTerrainCollision {
     this.spatialCellSize = Math.max(32, options.spatialCellSize || 128);
     /** terrain -> 静态碰撞数据空间索引；terrain 生命周期结束后可自动回收。 */
     this._spatialCache = new WeakMap();
+    /** 跳跃系统（可选）；注入后跳跃（滞空）中的实体跳过地形碰撞。 */
+    this.jumpSystem = options.jumpSystem || null;
+  }
+
+  setJumpSystem(jumpSystem) {
+    this.jumpSystem = jumpSystem || null;
+    return this;
   }
 
   /**
@@ -71,6 +78,8 @@ export class SceneTerrainCollision {
       if (entity.isDead || entity.isDying) continue;
       const transform = entity.getComponent && entity.getComponent('transform');
       if (!transform) continue;
+      // 跳跃（滞空）期间不做地形碰撞（可跳过水池、树、火堆等）；由场景注入 jumpSystem。
+      if (this.jumpSystem?.isJumping?.(entity)) continue;
       const p = transform.position;
 
       // 可落脚区域优先于编辑器 collide shape 和盆地边界，与 Scene1Terrain.isBlocked 一致。

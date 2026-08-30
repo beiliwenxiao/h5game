@@ -563,6 +563,8 @@ const campfireFeatureMethods = {
 
   checkCampfireCollision() {
     if (this.flightSystem?.isPlayerFlying?.()) return;
+    // 跳跃（滞空）期间不检查火堆碰撞，允许跳过火堆。
+    if (this.jumpSystem?.isJumping?.(this.playerEntity)) return;
     const transform = this.playerEntity?.getComponent?.('transform');
     if (!transform) return;
 
@@ -822,6 +824,7 @@ export class SceneCampfireService {
     this.camera = runtime.camera || null;
     this.viewBounds = runtime.viewBounds || null;
     this.flightSystem = runtime.flightSystem || null;
+    this.jumpSystem = runtime.jumpSystem || null;
     this.logicalWidth = Number(runtime.width) || this.logicalWidth || 1280;
     this.logicalHeight = Number(runtime.height) || this.logicalHeight || 720;
   }

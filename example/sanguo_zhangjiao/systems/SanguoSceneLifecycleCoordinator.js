@@ -132,7 +132,8 @@ function updateAfterBase(deltaTime) {
   this.observeTutorialEventSources();
   this._campfireService.resolvePlayerCollision({
     playerEntity: this.playerEntity,
-    flightSystem: this.flightSystem
+    flightSystem: this.flightSystem,
+    jumpSystem: this.jumpSystem
   });
   this.context.services.diagnostics?.observeTerrainCollision({
     terrains: this._terrains || [],

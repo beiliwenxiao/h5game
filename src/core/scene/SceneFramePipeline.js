@@ -96,7 +96,10 @@ export class SceneFramePipeline {
     // 顶层输入流程保证手柄帧首 poll、弹窗优先于战斗，并统一路由输入。
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
     inputFlow?.beforeFrame(deltaTime);
-    const playerActionLocked = scene.isPlayerActionLocked?.() === true;
+    // isPlayerActionLocked 含战斗状态（用于禁用采集等动作），但战斗只锁定动作、不能冻结移动，
+    // 否则怪物一出现进入战斗后玩家会被排除在移动更新外而直接卡住。打坐/采集中仍冻结移动。
+    const inCombat = scene.combatSystem?.isInCombat?.() === true;
+    const playerActionLocked = scene.isPlayerActionLocked?.() === true && !inCombat;
 
     // 技能轮盘只冻结世界模拟，不能使用 isPaused，否则下一帧无法读取 LB 松开沿。
     if (scene.isSkillWheelWorldPaused) {
@@ -231,6 +234,16 @@ export class SceneFramePipeline {
     // 更新攀爬等统一位移执行器；Jump/Flight 保持各自既有更新顺序。
     locomotionSystem?.update?.(deltaTime);
 
+    // 蓄力跳跃：按跳跃键保持状态驱动蓄力/松手起跳（键盘 space / 触屏 _jumpHeld 标志）。
+    // 松手触发的起跳要在本帧跳跃更新之前生效，保证落点位移立即推进。
+    scene.jumpChargeController?.update?.({
+      held: scene.inputManager?.isKeyDown?.('space') === true || scene._jumpHeld === true,
+      actor: player,
+      blocked: scene.playerEntity?.isDead === true
+        || scene.dialogueSystem?.isDialogueActive?.() === true
+        || scene.meditationSystem?.isActive?.() === true
+    });
+
     // 更新跳跃系统（先于普通移动；MovementSystem 会跳过正在跳跃的实体）
     if (jumpSystem && player) {
       jumpSystem.update(deltaTime);
@@ -278,8 +291,17 @@ export class SceneFramePipeline {
     }
     const movementContact = movementResult?.playerBlocked === true || pushedByEntity || pushedByTerrain;
     if (movementContact && player) {
-      // 地形/实体/重规划失败导致的每帧阻挡都累计时长，保证 1s 阈值可被触达。
-      movementSystem._accumulateBlockedTime?.(player, deltaTime);
+      // 只有地形/静态障碍/重规划失败才累计“被障碍持续阻挡”的自动停止时长；
+      // 实体（怪物/敌人）顶撞属于动态碰撞，不算障碍，避免怪物一出现就把玩家“卡住”。
+      // 同时战斗状态不累计，防止战前/战中的单帧时序滞后触发自动停止。
+      const obstacleBlocked = movementResult?.playerBlocked === true || pushedByTerrain;
+      if (obstacleBlocked && combatSystem?.isInCombat?.() !== true) {
+        movementSystem._accumulateBlockedTime?.(player, deltaTime);
+      }
+    } else if (player && combatSystem?.isInCombat?.() !== true) {
+      // 本帧未被静态障碍阻挡（或仅被怪物顶撞），清除残留的自动停止累计，
+      // 避免障碍消失（怪物移开等）后玩家仍被“卡住”直到松开方向键。
+      movementSystem._clearBlockedAccumulator?.(player);
     }
     let rerouted = false;
     // 已被阻挡达到自动停止阈值时，不再重规划，也不启动新接触锁，直接停下。
@@ -298,9 +320,11 @@ export class SceneFramePipeline {
     }
     // 非战斗 A* 不可达（以及战斗状态）才回退短时接触锁，避免每帧重复重规划；
     // 战斗状态不启动碰撞停顿，移动保持即时响应，战斗结束后恢复。
+    // 仅地形/静态障碍顶撞才触发碰撞停顿；实体（怪物/NPC）顶撞不算，避免怪物一出现就卡住玩家。
+    const obstacleContact = movementResult?.playerBlocked === true || pushedByTerrain;
     movementSystem.setMovementContact?.(
       player,
-      movementContact && !rerouted && combatSystem?.isInCombat?.() !== true
+      obstacleContact && !rerouted && combatSystem?.isInCombat?.() !== true
     );
 
     // 玩家与实体位置已完成本帧移动和碰撞修正后再更新相机，

@@ -25,6 +25,7 @@ import { MeleeAttackSystem } from '../../systems/MeleeAttackSystem.js';
 import { ZoneEffectSystem } from '../../systems/ZoneEffectSystem.js';
 import { FlightSystem } from '../../systems/FlightSystem.js';
 import { JumpSystem } from '../../systems/JumpSystem.js';
+import { JumpChargeController } from './JumpChargeController.js';
 import { LocomotionSystem } from '../../systems/LocomotionSystem.js';
 import { ClassSystem } from '../../systems/ClassSystem.js';
 import { ConstructionSystem } from '../../systems/ConstructionSystem.js';
@@ -63,6 +64,13 @@ export class SceneGameplaySystemAssembler {
       jumpSystem: scene.jumpSystem,
       flightSystem: scene.flightSystem,
       resolveClimbTarget: request => scene.resolveClimbTarget?.(request) || null
+    });
+    // 蓄力跳跃：松手时按蓄力时间决定落点距离并起跳（30~120px）。
+    scene.jumpChargeController = new JumpChargeController({ now });
+    scene.jumpChargeController.setJumpCallback(({ distance, holdMs }) => {
+      const axis = scene.inputManager?.getMoveAxis?.() || { x: 0, y: 0, magnitude: 0 };
+      const started = scene.jumpByDirection?.(axis.x || 0, axis.y || 0, distance) === true;
+      return { started, distance, holdMs };
     });
 
     scene.combatSystem = new CombatSystem({
@@ -405,6 +413,7 @@ export class SceneGameplaySystemAssembler {
       ['gameplay.inventoryTransactions', scene.inventoryTransactions],
       ['gameplay.pickup', scene.pickupSystem],
       ['gameplay.gatheringProgress', scene.gatheringProgressPresenter, 'dispose'],
+      ['gameplay.jumpCharge', scene.jumpChargeController, 'dispose'],
       ['gameplay.gathering', scene.gatheringSystem],
       ['gameplay.gatheringPuppet', scene.gatheringPuppetSystem, 'dispose'],
       ['gameplay.playerDefeat', scene.playerDefeatService],

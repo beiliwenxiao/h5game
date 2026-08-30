@@ -306,9 +306,11 @@ export class SceneEditorCanvas {
       const color = dangling ? '#ef5350' : '#e0a020';
       const centerX = obj.x + (obj.width || 0) / 2;
       const centerY = obj.y + (obj.height || 0) / 2;
-      if (obj.radius > 0) {
+      // 运行时交互检测优先用 pointerRadius；画布统一用实际生效值显示交互范围。
+      const effectiveRadius = obj.pointerRadius != null ? obj.pointerRadius : obj.radius;
+      if (effectiveRadius > 0) {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, obj.radius, 0, Math.PI * 2);
+        ctx.arc(centerX, centerY, effectiveRadius, 0, Math.PI * 2);
         ctx.strokeStyle = dangling ? 'rgba(239,83,80,0.6)' : 'rgba(224,160,32,0.45)';
         ctx.lineWidth = 1;
         ctx.setLineDash([3, 5]);

@@ -3514,8 +3514,8 @@
                 } else if (btn.dataset.act === 'flight') {
                     // 轻功现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.act === 'jump') {
-                    // 读取虚拟摇杆当前方向；无方向时原地跳跃
-                    if (currentScene.jumpByInput) currentScene.jumpByInput();
+                    // 触屏跳跃改为蓄力：按住设置保持标志（帧轮询驱动蓄力），松手时释放起跳。
+                    if (currentScene.setJumpHeld) currentScene.setJumpHeld(true);
                 } else if (btn.dataset.act === 'throw') {
                     // 投掷现在走瞄准流程,此处不再触发
                 } else if (btn.dataset.action === 'bag') {
@@ -3886,6 +3886,11 @@
                         return;
                     }
                     btn.classList.remove('pressed');
+                    // 触屏跳跃按钮：松手清除保持标志，帧轮询随即按蓄力时间起跳。
+                    if (btn.dataset.act === 'jump') {
+                        const currentScene = sceneManager ? sceneManager.getCurrentScene() : scene;
+                        if (currentScene && currentScene.setJumpHeld) currentScene.setJumpHeld(false);
+                    }
                 };
                 btn.addEventListener('touchstart', onTouch, { passive: false });
                 btn.addEventListener('touchend', release, { passive: false });

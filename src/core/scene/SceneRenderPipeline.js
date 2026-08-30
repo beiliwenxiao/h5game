@@ -327,6 +327,8 @@ export class SceneRenderPipeline {
     }
     particleSystem.render(ctx, camera);
     presentation.gatheringProgress?.render?.(ctx);
+    // 蓄力跳跃的头顶蓄力条（世界空间）。
+    scene.jumpChargeController?.render?.(ctx);
     if (scene.eventTargetFlash) {
       scene.eventTargetFlash.prune();
       scene.eventTargetFlash.render(ctx);

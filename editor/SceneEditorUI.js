@@ -831,6 +831,10 @@ export class SceneEditorUI {
             obj.sortY += value - obj.y;
           }
           obj[prop] = value;
+          // 触发 binding 的交互范围：运行时优先用 pointerRadius，修改时同步二者，确保实际生效。
+          if (prop === 'radius' && obj.type === 'trigger') {
+            obj.pointerRadius = value;
+          }
         }
 
         if (obj.type === 'decoration' && obj._decoRef) {
@@ -1212,7 +1216,8 @@ export class SceneEditorUI {
       <div class="property-row"><label>空间事件:</label><input type="text" value="${escapeHtml(eventType)}" disabled title="由项目行为 when.type 决定"></div>
       <div class="property-row"><label>目标方式:</label><select data-prop="targetMode">${targetModeOptions}</select></div>
       <div class="property-row"><label>目标对象:</label><select data-prop="target" style="min-width:0;flex:1;">${targetOptions}</select><button id="editor-pick-target" title="按当前目标方式点击场景对象拾取">🎯</button></div>
-      <div class="property-row"><label>触发半径:</label><input type="number" value="${obj.radius != null ? obj.radius : 60}" min="0" data-prop="radius"></div>
+      <div class="property-row"><label>交互范围:</label><input type="number" value="${obj.pointerRadius != null ? obj.pointerRadius : (obj.radius != null ? obj.radius : 60)}" min="0" data-prop="radius" title="运行时交互检测范围；修改会同步写入 pointerRadius，确保实际生效"></div>
+      ${obj.pointerRadius != null && obj.pointerRadius !== obj.radius ? '<div class="property-row"><small style="color:#e8a24a;">该对象存在独立的 pointerRadius 值，已显示为当前实际范围；修改将同步两者。</small></div>' : ''}
       <div class="property-row"><label>操作提示:</label><input type="text" value="${escapeHtml(obj.prompt || '')}" data-prop="prompt" placeholder="如 {interact}点燃"></div>
       <div class="property-row"><label>生效条件 activeWhen:</label><textarea rows="5" data-prop="activeWhen" placeholder='如 {"blackboardKey":"storyState","path":"s01Survival.berriesGathered","equals":true}' style="width:100%;font-family:monospace;">${obj.activeWhen ? escapeHtml(JSON.stringify(obj.activeWhen, null, 2)) : ''}</textarea></div>
       <div class="property-row"><small style="color:#8ea4c9;">留空表示始终生效；仅接受 JSON 对象，支持 all/any/not 与 blackboardKey/path/exists/equals/gte/lte/in。</small></div>

@@ -612,22 +612,33 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
     return null;
   }
 
-  /** PC/触屏/手柄：按当前移动输入跳跃；无方向时原地跳。 */
-  jumpByInput(_options = {}) {
+  /** PC/触屏/手柄：按当前移动输入跳跃。键盘 space / 触屏走蓄力；手柄 'jump' 保持原立即跳跃。 */
+  jumpByInput({ event } = {}) {
     if (this.isPlayerActionLocked()) return false;
-    const started = this._ensureCombatActions().jumpByInput() === true;
-    if (started) {
-      const tutorialFlow = this.context?.services?.tutorialFlow;
-      if (tutorialFlow) tutorialFlow.notify('jumpPerformed');
-      else this.onPlayerTutorialAction?.('jump');
+    // 手柄/虚拟 'jump' 键：保持原有立即跳跃（不进入蓄力）。
+    if (event?.key === 'jump') {
+      const started = this._ensureCombatActions().jumpByInput() === true;
+      if (started) {
+        const tutorialFlow = this.context?.services?.tutorialFlow;
+        if (tutorialFlow) tutorialFlow.notify('jumpPerformed');
+        else this.onPlayerTutorialAction?.('jump');
+      }
+      return started;
     }
-    return started;
+    // 键盘 space / 触屏跳跃按钮：返回 true 消费输入；蓄力由 JumpChargeController 每帧轮询驱动，
+    // 松手时才真正起跳（距离按蓄力时间 30~120px）。
+    return true;
   }
 
-  /** 按指定方向短距离跳跃。 */
-  jumpByDirection(dirX, dirY) {
+  /** 触屏跳跃按钮：设置按住状态，驱动蓄力轮询。 */
+  setJumpHeld(held) {
+    this._jumpHeld = !!held;
+  }
+
+  /** 按指定方向起跳；chargeDistance > 0 时使用蓄力距离（30~120px），否则用默认距离。 */
+  jumpByDirection(dirX, dirY, chargeDistance = 0) {
     if (this.isPlayerActionLocked()) return false;
-    const started = this._ensureCombatActions().jumpByDirection(dirX, dirY) === true;
+    const started = this._ensureCombatActions().jumpByDirection(dirX, dirY, chargeDistance) === true;
     if (started) {
       const tutorialFlow = this.context?.services?.tutorialFlow;
       if (tutorialFlow) tutorialFlow.notify('jumpPerformed');

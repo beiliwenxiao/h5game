@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1788108535864,
+  "createdAt": 1788115114405,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "auto",
@@ -21,8 +21,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1885,
-          "y": 1275,
+          "x": 1877.257153560746,
+          "y": 1152.6284323556968,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -62,16 +62,23 @@
         "equipment": {}
       },
       "tutorial": {
-        "completedTutorials": [],
+        "completedTutorials": [
+          "s01.move"
+        ],
         "enabled": true,
-        "currentTutorialId": null,
+        "currentTutorialId": "s01.pickup",
         "currentStepIndex": 0,
         "signalProgress": {},
-        "movementOrigins": {}
+        "movementOrigins": {
+          "s01.move": {
+            "x": 1885,
+            "y": 1275
+          }
+        }
       },
       "dialogue": {
-        "currentDialogueId": "dialogue.s01.wake",
-        "currentNodeId": "start",
+        "currentDialogueId": null,
+        "currentNodeId": null,
         "variables": {},
         "history": [
           {
@@ -79,15 +86,22 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1788107631682
+            "timestamp": 1788114177184
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788107631682
+            "timestamp": 1788114177184
+          },
+          {
+            "type": "end",
+            "dialogueId": "dialogue.s01.wake",
+            "timestamp": 1788114179974
           }
         ],
-        "completedDialogues": []
+        "completedDialogues": [
+          "dialogue.s01.wake"
+        ]
       },
       "quests": {
         "schemaVersion": 1,
@@ -252,7 +266,7 @@
             }
           },
           "storyState": {
-            "currentDay": 3,
+            "currentDay": 1,
             "currentSceneId": "S01",
             "delayedConsequences": [],
             "endingInputs": {
@@ -270,13 +284,13 @@
             "hiddenClues": [],
             "month": 3,
             "s01Survival": {
-              "axeDropped": false,
+              "axeDropped": true,
               "axeFound": false,
               "berriesGathered": false,
               "berryEaten": false,
               "berryGatherCount": 0,
               "campfireExtinguished": false,
-              "campfireLit": false,
+              "campfireLit": true,
               "campfireRefuelCount": 0,
               "cliffReached": false,
               "firestarterAcquired": false,
@@ -316,7 +330,10 @@
         "triggers": {
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
-          "firedOnce": [],
+          "firedOnce": [
+            "trg_s01_begin_tutorial_after_wake",
+            "trg_s01_light_campfire"
+          ],
           "cooldowns": {
             "trg_s01_spawn_initial": {
               "definitionRevision": 1,
@@ -604,26 +621,42 @@
               {
                 "triggerId": "trg_s01_begin_tutorial_after_wake",
                 "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
+                "fingerprint": "sha256-69467262f5e5a34900e9aa879712f3a1dc70c603bd9b044c5944168e87394d09",
+                "status": "succeeded",
+                "actionIndex": 0,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2:trigger:trg_s01_begin_tutorial_after_wake:step:show-tutorial-s01-move",
+                  "status": "committed",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "tutorial:s01.move",
+                  "stateRevision": 1
+                },
+                "startedAt": 2716.9000000000005,
+                "finishedAt": 2733.5999999999995,
+                "ledgerRevision": 4
               },
               {
                 "triggerId": "trg_s01_light_campfire",
                 "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
+                "operationId": "trigger:1:trg_s01_light_campfire:3",
+                "fingerprint": "sha256-e96c79172e9d75515afe0a8470cedba2a300fa7c074c34a2fe20fc675719dcbd",
+                "status": "succeeded",
+                "actionIndex": 2,
+                "result": {
+                  "ok": true,
+                  "operationId": "trigger:1:trg_s01_light_campfire:3:trigger:trg_s01_light_campfire:step:show-tutorial-s01-pickup",
+                  "status": "committed",
+                  "committed": true,
+                  "code": null,
+                  "stateId": "tutorial:s01.pickup",
+                  "stateRevision": 1
+                },
+                "startedAt": 7567.599999999999,
+                "finishedAt": 7600.899999999999,
+                "ledgerRevision": 6
               },
               {
                 "triggerId": "trg_s01_craft_wolf_gear",
@@ -1743,6 +1776,30 @@
                         },
                         "placementSignature": "{\"group\":\"S01-initial\",\"id\":\"S01-spawn-campfire\",\"kind\":\"item\",\"overrides\":null,\"ref\":\"story.s01.campfire\",\"sceneId\":\"S01\",\"spawnWhen\":null,\"type\":\"ref\",\"version\":1,\"x\":599,\"y\":515}"
                       }
+                    },
+                    {
+                      "id": "S01-pickup-worn-axe",
+                      "state": {
+                        "kind": "item",
+                        "removed": true,
+                        "position": {
+                          "x": 1929.71602386511,
+                          "y": 1284.109357963689
+                        },
+                        "placementSignature": "{\"group\":\"S01-worn-axe\",\"id\":\"S01-pickup-worn-axe\",\"kind\":\"item\",\"overrides\":{\"instanceId\":\"S01-tool-axe-1\"},\"ref\":\"tool.worn_axe\",\"sceneId\":\"S01\",\"spawnWhen\":{\"blackboardKey\":\"storyState\",\"equals\":true,\"path\":\"s01Survival.axeDropped\"},\"type\":\"ref\",\"version\":1,\"x\":649.7160238651101,\"y\":564.109357963689}"
+                      }
+                    },
+                    {
+                      "id": "S01-pickup-skinning-knife",
+                      "state": {
+                        "kind": "item",
+                        "removed": true,
+                        "position": {
+                          "x": 1908.4712218397199,
+                          "y": 1287.1231273510411
+                        },
+                        "placementSignature": "{\"group\":\"S01-skinning-knife\",\"id\":\"S01-pickup-skinning-knife\",\"kind\":\"item\",\"overrides\":{\"instanceId\":\"S01-tool-skinning-knife-1\"},\"ref\":\"tool.skinning_knife\",\"sceneId\":\"S01\",\"spawnWhen\":{\"blackboardKey\":\"storyState\",\"equals\":true,\"path\":\"s01Survival.axeDropped\"},\"type\":\"ref\",\"version\":1,\"x\":628.47122183972,\"y\":567.1231273510411}"
+                      }
                     }
                   ],
                   "deathDrops": [],
@@ -1754,10 +1811,10 @@
           ]
         },
         "regionStates": [],
-        "campfireLit": false,
+        "campfireLit": true,
         "campfireState": {
-          "lit": false,
-          "hasBeenIgnited": false,
+          "lit": true,
+          "hasBeenIgnited": true,
           "fuel": {
             "enabled": true,
             "itemId": "resource.wood",
@@ -1869,8 +1926,8 @@
         "timeState": {
           "enabled": true,
           "paused": false,
-          "currentDay": 3,
-          "elapsed": 64.02289999985464
+          "currentDay": 1,
+          "elapsed": 176.02380000003484
         }
       }
     }

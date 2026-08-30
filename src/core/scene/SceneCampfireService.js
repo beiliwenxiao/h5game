@@ -284,6 +284,24 @@ const campfireFeatureMethods = {
 
         fogCtx.globalCompositeOperation = 'source-over';
         ctx.drawImage(this._fogCanvas, 0, 0, fogWidth, fogHeight, 0, 0, width, height);
+
+        // 火堆点燃时在火堆周围叠加柔和光晕，抵消时间/天气的黑暗，使“周围一圈”明显亮起。
+        if (this.campfire.lit) {
+          const campX = this.campfire.x - viewBounds.left;
+          const campY = this.campfire.y - viewBounds.top;
+          const campRadius = Math.max(1, this.presentation.lightRadius * 0.7);
+          const light = ctx.createRadialGradient(campX, campY, 0, campX, campY, campRadius);
+          light.addColorStop(0, 'rgba(255, 200, 100, 0.30)');
+          light.addColorStop(0.5, 'rgba(255, 150, 50, 0.15)');
+          light.addColorStop(1, 'rgba(255, 80, 0, 0)');
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = light;
+          ctx.beginPath();
+          ctx.arc(campX, campY, campRadius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
       } else {
         ctx.fillStyle = `${this.fog.color} ${totalFogOpacity})`;
         ctx.fillRect(0, 0, width, height);

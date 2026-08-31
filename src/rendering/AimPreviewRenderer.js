@@ -68,6 +68,28 @@ export class AimPreviewRenderer {
     return { x: dispX, y: dispY };
   }
 
+  /**
+   * 在指定世界坐标渲染落点目标椭圆（虚线 + 十字准心）。
+   * 供非瞄准模式的落点预览复用（如蓄力跳跃的预计落点圈）。
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} x - 落点世界坐标 X
+   * @param {number} y - 落点世界坐标 Y
+   * @param {number} radius - 椭圆半径（纵向自动压扁 0.5）
+   * @param {string} [color] - 线条颜色
+   * @returns {{x:number,y:number}} 落点坐标
+   */
+  static renderTarget(ctx, x, y, radius, color = '#00ff00') {
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = DASH_LINE_WIDTH;
+    ctx.setLineDash(DASH_PATTERN);
+    this._renderEllipse(ctx, x, y, radius);
+    this._renderCrosshair(ctx, x, y);
+    ctx.restore();
+    return { x, y };
+  }
+
   /** @private 线性穿刺：路径矩形 + 终点椭圆 */
   static _renderPath(ctx, startX, startY, endX, endY) {
     const dx = endX - startX;

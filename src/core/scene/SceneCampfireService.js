@@ -458,6 +458,16 @@ const campfireFeatureMethods = {
           ctx.fillText(this.labels.unlit, x, y - 55);
           ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
           ctx.restore();
+        } else {
+          // 已点燃过但熄灭：提示玩家添柴重燃
+          ctx.save();
+          ctx.fillStyle = '#ffd9a0';
+          ctx.font = '12px Arial';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 4;
+          ctx.fillText(this.formatHint('{interact}添柴重燃'), x, y - 40);
+          ctx.restore();
         }
         return;
       }
@@ -504,6 +514,14 @@ const campfireFeatureMethods = {
         ctx.shadowBlur = 4;
         ctx.fillText(this.labels.unlit, x, y - 55);
         ctx.fillText(this.formatHint(this.labels.ignite), x, y - 40);
+        ctx.shadowBlur = 0;
+      } else {
+        ctx.fillStyle = '#ffd9a0';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#000000';
+        ctx.shadowBlur = 4;
+        ctx.fillText(this.formatHint('{interact}添柴重燃'), x, y - 40);
         ctx.shadowBlur = 0;
       }
       return;

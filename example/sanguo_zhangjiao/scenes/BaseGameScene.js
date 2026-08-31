@@ -1,5 +1,6 @@
 import { BaseGameScenePresentation } from './BaseGameScenePresentation.js';
 import { EventTargetFlash } from '../../../src/rendering/EventTargetFlash.js';
+import { emitWorldItemSparkles } from '../../../src/core/scene/SceneWorldItemEventPresenter.js';
 
 export { CAMPAIGN_ID, SAVE_SCHEMA_VERSION } from './BaseGameSceneSetup.js';
 
@@ -53,6 +54,8 @@ export class BaseGameScene extends BaseGameScenePresentation {
       }
     }
     if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+    // 目标物周围同时冒出与丢弃物品一致的星形粒子闪光。
+    emitWorldItemSparkles(this.particleSystem, { x, y });
     return this.eventTargetFlash.spawn({
       worldX: x,
       worldY: y,

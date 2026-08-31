@@ -526,17 +526,21 @@ export class S01S02Coordinator {
     const isChaseWolf = entity.id.startsWith(CHASE_WOLF_PREFIX);
     const isFirstWolf = entity.id === 'S01-first-wolf-1';
     if (!isChaseWolf && !isFirstWolf) return false;
+    // 尸体采集节点未成立时仍发布击杀事实（corpseReady=false）：
+    // 任务链不能因尸体状态被静默中断；剥皮触发器在尸体可用时才会结算。
+    let corpseReady = false;
     if (isFirstWolf) {
-      const corpse = this.scene.context.services.corpses?.capture?.(entity);
-      if (!corpse || !entity.getComponent?.('resourceNode')) {
-        console.warn('[S01S02Coordinator] 首狼死亡后尸体采集节点未成立，暂不发布击杀事实');
-        return false;
+      const corpses = this.scene.context.services.corpses || this.scene.corpseRuntime;
+      const corpse = corpses?.capture?.(entity);
+      corpseReady = Boolean(corpse) && Boolean(entity.getComponent?.('resourceNode'));
+      if (!corpseReady) {
+        console.warn('[S01S02Coordinator] 首狼尸体采集节点未就绪，先发布击杀事实（corpseReady=false）');
       }
     }
     const published = await this.scene.publishApplicationEvent('enemy.killed', {
       entityId: entity.id,
       enemyRole: isFirstWolf ? 'firstWolf' : 'chaseWolf',
-      corpseReady: isFirstWolf
+      corpseReady
     }, {
       operationId: `application:enemy.killed:${entity.id}`,
       sceneId: 'S01'
@@ -622,7 +626,8 @@ export class S01S02Coordinator {
     const currentFuel = fuel?.getFuelSnapshot?.();
     if (fuel?.isLit?.() !== true && Number(currentFuel?.units) > 0) return false;
     const survival = this._story().s01Survival || {};
-    if (survival.firstWolfSpotted === true || Number(survival.campfireRefuelCount) >= 3) return false;
+    if (survival.firstWolfSpotted === true && survival.firstWolfKilled !== true) return false;
+    if (survival.firstWolfKilled !== true && Number(survival.campfireRefuelCount) >= 3) return false;
     if (fuel?.canAddFuelUnits?.(1) !== true) return false;
     const inventory = this.scene.playerEntity.getComponent?.('inventory');
     return inventory?.getItemCount?.('resource.wood') >= 1
@@ -716,8 +721,12 @@ export class S01S02Coordinator {
       return { ok: false, code: 'campfireIgniteFailed' };
     }
     const survival = this._story().s01Survival || {};
-    if (survival.firstWolfSpotted === true) return { ok: true, status: 'blocked' };
-    if (Number(survival.campfireRefuelCount) >= 3) {
+    // 首狼出现期间（尚未击杀）锁定添柴；击杀后恢复自由添柴/重燃。
+    if (survival.firstWolfSpotted === true && survival.firstWolfKilled !== true) {
+      this.scene._showScreenTip('野狼正在逼近，无暇添柴！先解决眼前的野狼。', { title: '无法添柴' });
+      return { ok: true, status: 'blocked' };
+    }
+    if (survival.firstWolfKilled !== true && Number(survival.campfireRefuelCount) >= 3) {
       const recovery = await this._requestFirstWolfRecovery(sourceOperationId);
       if (recovery?.ok === true) return { ok: true, recovered: true };
       this.scene._showScreenTip('篝火已经添足木材，野狼出现事件暂未提交，请再次交互。', {
@@ -734,11 +743,22 @@ export class S01S02Coordinator {
       this.scene._showScreenTip('背包里没有可用木材，先用破旧斧头砍些枯木。', { title: '木材不足' });
       return { ok: true, status: 'blocked' };
     }
-    const result = await this._submit(
+    let result = await this._submit(
       'story.s01.refuelCampfire',
       {},
       sourceOperationId ? `${sourceOperationId}:state:story.s01.refuelCampfire` : `story:s01:refuel:${++this.sequence}`
     );
+    // 首狼阶段的事务（refuelCount≤2、狼未出现）在前置校验失败时，
+    // 击杀首狼后改走自由添柴事务，保证篝火熄灭后可以继续添柴和点燃。
+    if (result.ok !== true && survival.firstWolfKilled === true) {
+      result = await this._submit(
+        'story.s01.refuelCampfireAfterWolf',
+        {},
+        sourceOperationId
+          ? `${sourceOperationId}:state:story.s01.refuelCampfireAfterWolf`
+          : `story:s01:refuel-after-wolf:${++this.sequence}`
+      );
+    }
     if (result.ok !== true) {
       this.scene._showScreenTip(`添柴结算失败：${result.code || 'unknown'}。木材没有被消耗。`, { title: '添柴失败' });
       return result;

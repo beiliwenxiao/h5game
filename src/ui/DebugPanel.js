@@ -267,6 +267,27 @@ export class DebugPanel {
           </div>
         </div>
         <div class="dp-section dp-actions">
+          <div class="dp-title">时间控制</div>
+          <div class="dp-btn-row">
+            <select id="dp-time-select">
+              <option value="dawn">凌晨</option>
+              <option value="earlyMorning">清晨</option>
+              <option value="morning">上午</option>
+              <option value="noon">中午</option>
+              <option value="afternoon">下午</option>
+              <option value="dusk">黄昏</option>
+              <option value="night">夜晚</option>
+              <option value="lateNight">深夜</option>
+            </select>
+            <button id="dp-time-apply">跳转</button>
+            <button id="dp-time-pause">暂停</button>
+          </div>
+          <div class="dp-btn-row">
+            <button id="dp-time-advance-day">推进一天</button>
+            <button id="dp-time-restore">恢复时间流动</button>
+          </div>
+        </div>
+        <div class="dp-section dp-actions">
           <div class="dp-title">操作</div>
           <div class="dp-btn-row">
             <button id="dp-prev-event">◀ 上一事件</button>
@@ -377,6 +398,33 @@ export class DebugPanel {
       if (!scene?.weatherSystem) return;
       scene.weatherSystem.clearDebugWeatherOverride?.();
       console.log('[DebugPanel] 恢复剧情天气');
+    });
+
+    // ── 时间控制 ──
+    el.querySelector('#dp-time-apply').addEventListener('click', () => {
+      const scene = this._getActiveScene();
+      if (!scene?.timeSystem) return;
+      const period = el.querySelector('#dp-time-select').value;
+      scene.timeSystem.setTimePeriod?.(period);
+      console.log('[DebugPanel] 跳转时间段:', period);
+    });
+    el.querySelector('#dp-time-pause').addEventListener('click', () => {
+      const scene = this._getActiveScene();
+      if (!scene?.timeSystem) return;
+      scene.timeSystem.setPaused?.(true);
+      console.log('[DebugPanel] 时间已暂停');
+    });
+    el.querySelector('#dp-time-restore').addEventListener('click', () => {
+      const scene = this._getActiveScene();
+      if (!scene?.timeSystem) return;
+      scene.timeSystem.setPaused?.(false);
+      console.log('[DebugPanel] 时间恢复流动');
+    });
+    el.querySelector('#dp-time-advance-day').addEventListener('click', () => {
+      const scene = this._getActiveScene();
+      if (!scene?.timeSystem) return;
+      scene.timeSystem.advanceDays?.(1);
+      console.log('[DebugPanel] 推进一天');
     });
 
     // 动态加载场景列表到跳转下拉
@@ -577,9 +625,13 @@ export class DebugPanel {
       const progress = (ts.getProgress() * 100).toFixed(0);
       const brightness = ts.getBrightness().toFixed(2);
       const fogOp = ts.getFogOpacity().toFixed(2);
+      const paused = ts.paused === true ? '（已暂停）' : '';
       this._el.querySelector('#dp-time').innerHTML =
-        `${period} (${progress}%)<br>` +
+        `${period}${paused} (${progress}%)<br>` +
         `明暗: ${brightness} | 雾: ${fogOp}`;
+      // 时间控制下拉跟随当前时间段
+      const timeSel = this._el.querySelector('#dp-time-select');
+      if (timeSel && timeSel.value !== period) timeSel.value = period;
     } else {
       this._el.querySelector('#dp-time').textContent = ts ? '已禁用' : '未加载';
     }

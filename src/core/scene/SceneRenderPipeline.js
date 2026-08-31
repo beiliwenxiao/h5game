@@ -8,6 +8,12 @@ const WORLD_PHASE_NAMES = Object.freeze([
   'renderBackground', 'renderPickups', 'renderWorldObjects', 'renderWorldEffects'
 ]);
 
+/** 天气 id → 中文显示名（时间/气候小窗用）。 */
+const TIME_WEATHER_LABELS = Object.freeze({
+  clear: '晴朗', breeze: '微风', wind: '大风', lightRain: '小雨',
+  heavyRain: '大雨', lightFog: '薄雾', heavyFog: '浓雾', storm: '风暴'
+});
+
 /**
  * SceneRenderPipeline - Canvas 2D 场景渲染编排（框架级）
  *
@@ -56,6 +62,7 @@ export class SceneRenderPipeline {
       (scene, ctx) => scene.settingsButton?.render(ctx),
       (_scene, ctx) => this.context?.ui?.playerStatusHUD?.render?.(ctx),
       (scene, ctx) => scene.minimap?.render(ctx),
+      (_scene, ctx) => this.renderTimeWeatherBadge(ctx),
       (scene, ctx) => scene.renderCombatStateUI(ctx),
       (scene, ctx) => { if (scene.isTransitioning) scene.renderTransition(ctx); },
       (scene, ctx) => { if (scene.performanceMonitor?.enabled) scene.performanceMonitor.render(ctx); }
@@ -77,6 +84,7 @@ export class SceneRenderPipeline {
       'renderSettingsButton',
       'renderPlayerHud',
       'renderMinimap',
+      'renderTimeWeatherBadge',
       'renderCombatState',
       'renderTransition',
       'renderPerformanceMonitor'
@@ -277,27 +285,74 @@ export class SceneRenderPipeline {
       position.y - elevation - height - padding <= bounds.bottom;
   }
 
+  /** 小地图左侧的常驻小窗：显示当前时间（时段/天数）与气候。 */
+  renderTimeWeatherBadge(ctx) {
+    const scene = this.scene;
+    const minimap = scene?.minimap;
+    if (!minimap) return;
+    const timeSystem = scene.timeSystem || this.context?.systems?.time || null;
+    const weatherSystem = scene.weatherSystem || this.context?.systems?.weather || null;
+    if (!timeSystem && !weatherSystem) return;
+
+    const width = 150;
+    const height = 54;
+    const x = Number(minimap.x) - width - 10;
+    const y = Number(minimap.y) || 10;
+    if (!Number.isFinite(x)) return;
+
+    const periodNames = timeSystem?.PERIOD_NAMES || timeSystem?.constructor?.PERIOD_NAMES || null;
+    const period = timeSystem?.getCurrentPeriod?.() || '';
+    const periodLabel = periodNames?.[period] || period || '—';
+    const day = timeSystem?.getCurrentDay?.();
+    const weatherLabel = TIME_WEATHER_LABELS[weatherSystem?.getVisualWeather?.()] || weatherSystem?.getVisualWeather?.() || null;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(10, 14, 30, 0.72)';
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeStyle = 'rgba(122, 155, 216, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x, y, width, height);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#ffe4a3';
+    ctx.font = 'bold 12px Arial';
+    ctx.fillText(`第 ${Number.isFinite(day) ? day : 1} 天`, x + 10, y + 16);
+    ctx.fillStyle = '#bfe0ff';
+    ctx.font = '11px Arial';
+    ctx.fillText(`时间：${periodLabel}`, x + 10, y + 34);
+    if (weatherLabel) {
+      ctx.fillStyle = '#cfe8cf';
+      ctx.fillText(`气候：${weatherLabel}`, x + 10, y + 46);
+    }
+    ctx.restore();
+  }
+
   renderCombatStateUI(ctx) {
     const scene = this.scene;
     const combatSystem = this.context?.systems?.combat || null;
     if (!combatSystem?.isInCombat()) return;
-    const mobileOffset = scene.uiStrategy?.platform === 'mobile' ? 100 : 0;
-    const x = scene.logicalWidth - 90 - mobileOffset;
-    const y = 10;
+    // 放到小地图左侧、时间/气候小窗的下方，避免与小地图叠加。
+    const minimap = scene?.minimap;
+    const width = 80;
+    const height = 30;
+    const x = minimap
+      ? Math.max(4, Number(minimap.x) - width - 10)
+      : scene.logicalWidth - 90 - (scene.uiStrategy?.platform === 'mobile' ? 100 : 0);
+    const y = minimap ? (Number(minimap.y) || 10) + 54 + 8 : 10;
     ctx.save();
     ctx.fillStyle = 'rgba(139, 0, 0, 0.7)';
-    ctx.fillRect(x, y, 80, 30);
+    ctx.fillRect(x, y, width, height);
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x, y, 80, 30);
+    ctx.strokeRect(x, y, width, height);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('战斗中', x + 40, y + 14);
+    ctx.fillText('战斗中', x + width / 2, y + 14);
     const timer = Math.ceil(combatSystem.getCombatExitTimer());
     ctx.fillStyle = timer > 0 ? '#ffff00' : '#ff6666';
     ctx.font = timer > 0 ? '10px Arial' : '9px Arial';
-    ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + 40, y + 26);
+    ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + width / 2, y + 26);
     ctx.restore();
   }
 

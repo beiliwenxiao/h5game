@@ -4029,12 +4029,11 @@
         ]
       },
       "id": "trg_s01_first_wolf_killed",
-      "name": "教学狼死亡且尸体成立：提交首狼击杀事实",
+      "name": "教学狼死亡：提交首狼击杀事实（尸体未就绪时也提交，任务链不中断）",
       "once": false,
       "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
-          "corpseReady": true,
           "enemyRole": "firstWolf"
         },
         "type": "enemy.killed"
@@ -7886,6 +7885,55 @@
             {
               "lte": 2,
               "path": "story.s01Survival.campfireRefuelCount"
+            }
+          ]
+        },
+        "writes": [
+          {
+            "path": "s01Survival.campfireRefuelCount",
+            "target": "story",
+            "value": {
+              "$add": [
+                {
+                  "$get": "story.s01Survival.campfireRefuelCount"
+                },
+                1
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.refuelCampfireAfterWolf",
+      "transaction": {
+        "inventory": {
+          "entries": [
+            {
+              "itemId": "resource.wood",
+              "quantity": 1
+            }
+          ],
+          "type": "batchRemove"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": "S01",
+              "path": "story.currentSceneId"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.campfireLit"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.axeFound"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.firstWolfKilled"
             }
           ]
         },

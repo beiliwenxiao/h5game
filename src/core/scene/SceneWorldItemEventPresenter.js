@@ -6,6 +6,33 @@ const PRESENTED_EVENT_TYPES = new Set([
 
 const finitePosition = value => Number.isFinite(value?.x) && Number.isFinite(value?.y);
 
+/**
+ * 星形粒子闪光（与物品掉落/死亡掉落表现一致）。
+ * 供物品事件表现与事件目标闪光（flashEventTarget）共用。
+ */
+export function emitWorldItemSparkles(particleSystem, position, payload = {}) {
+  const color = payload.sparkleColor || '#ffe27a';
+  particleSystem?.emitBurst?.({
+    position: { x: position.x, y: position.y - 18 },
+    velocity: { x: 0, y: 0 },
+    life: 620,
+    size: 4.5,
+    color,
+    alpha: 1,
+    gravity: 28,
+    friction: 0.985,
+    shape: 'star',
+    isFire: false,
+    renderLayer: 'worldDepth',
+    sortY: position.y
+  }, Math.max(6, Number(payload.sparkleCount) || 10), {
+    velocityRange: { min: 24, max: 70 },
+    angleRange: { min: Math.PI * 1.05, max: Math.PI * 1.95 },
+    sizeRange: { min: 2.5, max: 6 },
+    lifeRange: { min: 460, max: 760 }
+  });
+}
+
 /** 物品发现/掉落的统一只读表现：通知、跳跃 render offset 与星形粒子。 */
 export class SceneWorldItemEventPresenter {
   constructor(config = {}) {
@@ -71,26 +98,7 @@ export class SceneWorldItemEventPresenter {
   }
 
   _emitSparkles(position, payload) {
-    const color = payload.sparkleColor || '#ffe27a';
-    this.particleSystem?.emitBurst?.({
-      position: { x: position.x, y: position.y - 18 },
-      velocity: { x: 0, y: 0 },
-      life: 620,
-      size: 4.5,
-      color,
-      alpha: 1,
-      gravity: 28,
-      friction: 0.985,
-      shape: 'star',
-      isFire: false,
-      renderLayer: 'worldDepth',
-      sortY: position.y
-    }, Math.max(6, Number(payload.sparkleCount) || 10), {
-      velocityRange: { min: 24, max: 70 },
-      angleRange: { min: Math.PI * 1.05, max: Math.PI * 1.95 },
-      sizeRange: { min: 2.5, max: 6 },
-      lifeRange: { min: 460, max: 760 }
-    });
+    emitWorldItemSparkles(this.particleSystem, position, payload);
   }
 
   dispose() {

@@ -17,6 +17,8 @@
  *
  * 本控制器只读输入保持状态与跳转回调，不持有业务规则；渲染头顶蓄力条为世界空间。
  */
+import { AimPreviewRenderer } from '../../rendering/AimPreviewRenderer.js';
+
 export class JumpChargeController {
   constructor(config = {}) {
     this.config = {
@@ -24,6 +26,7 @@ export class JumpChargeController {
       chargeMaxMs: 3000,    // 蓄满 3s 达到最大距离
       tapDistance: 30,      // 点按短跳距离（px）
       maxDistance: 120,     // 满蓄力距离（px）
+      targetRadius: 24,     // 落点目标椭圆半径（与轻功瞄准圈一致）
       barWidth: 72,
       barHeight: 8,
       barOffsetY: 22,
@@ -34,6 +37,7 @@ export class JumpChargeController {
     this.actor = null;
     this.startMs = 0;
     this.holdMs = 0;
+    this.aimDirection = { x: 0, y: 0 };
     this._jumpFn = null;
   }
 
@@ -47,9 +51,16 @@ export class JumpChargeController {
    * @param {Object} options
    * @param {boolean} options.held - 当前跳跃键是否处于按住状态
    * @param {boolean} [options.blocked] - 是否应取消蓄力（如死亡/对话中）
+   * @param {{x:number,y:number}} [options.direction] - 当前移动方向（落点预览用）
    * @returns {Object|null}
    */
-  update({ held = false, blocked = false, actor = null } = {}) {
+  update({ held = false, blocked = false, actor = null, direction = null } = {}) {
+    if (direction && Number.isFinite(direction.x) && Number.isFinite(direction.y)) {
+      const magnitude = Math.hypot(direction.x, direction.y);
+      this.aimDirection = magnitude > 0.01
+        ? { x: direction.x / magnitude, y: direction.y / magnitude }
+        : { x: 0, y: 0 };
+    }
     if (blocked && this.active) {
       this.cancel();
       return { charging: false, cancelled: true };
@@ -144,6 +155,18 @@ export class JumpChargeController {
     ctx.lineWidth = 1;
     ctx.strokeRect(left - 0.5, top - 0.5, barWidth + 1, barHeight + 1);
     ctx.restore();
+
+    // 落点目标椭圆圈：与 Ctrl 轻功瞄准的目标圈同一套虚线椭圆 + 十字准心。
+    // 落点 = 玩家位置 + 移动方向 × 当前蓄力距离。
+    if (this.aimDirection.x !== 0 || this.aimDirection.y !== 0) {
+      const distance = this._distanceForHold(this.holdMs);
+      AimPreviewRenderer.renderTarget(
+        ctx,
+        transform.position.x + this.aimDirection.x * distance,
+        transform.position.y + this.aimDirection.y * distance,
+        this.config.targetRadius
+      );
+    }
     return true;
   }
 

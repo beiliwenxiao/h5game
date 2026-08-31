@@ -462,17 +462,12 @@ export class SceneCombatActions {
 
   _performGamepadAttack(intent) {
     const scene = this.scene;
-    const transform = scene.playerEntity.getComponent('transform');
-    if (!transform) return;
     const direction = intent.isQuickTap || !intent.direction
-      ? directionToVector(scene.playerEntity.getComponent('sprite')?.direction)
+      ? null
       : intent.direction;
-    const distance = intent.isQuickTap || !intent.direction ? 100 : 150;
-    scene.inputManager.mouse.worldX = transform.position.x + direction.x * distance;
-    scene.inputManager.mouse.worldY = transform.position.y + direction.y * distance;
-    scene.inputManager.mouse.clicked = true;
-    scene.inputManager.mouse.button = 0;
-    scene.inputManager._padMouseButtons.add(0);
+    // 直接走扇形攻击路径（与触屏 attackByDirection 一致），
+    // 不再伪造鼠标点击：假点击没有挥动轨迹，挥砍/扇形两条路径都消费不到。
+    return this.attackByDirection(direction?.x || 0, direction?.y || 0);
   }
 
   _syncSkillWheel(controller, gamepadSkills) {

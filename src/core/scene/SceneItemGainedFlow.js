@@ -24,9 +24,10 @@ export class SceneItemGainedFlow {
     this.disposed = false;
   }
 
-  /** 将一件已入背包的装备、消耗品或工具加入待处理队列。 */
+  /** 将一件已入背包的物品加入待处理队列（所有类型都弹窗，材料/资源同样提示）。 */
   onItemGained(item, player = null) {
-    if (this.disposed || !item || !['equipment', 'consumable', 'tool'].includes(item.type)) return;
+    if (this.disposed || !item) return;
+    if (!['equipment', 'consumable', 'tool', 'material', 'resource'].includes(item.type)) return;
 
     const scene = this.scene;
     const quantity = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';

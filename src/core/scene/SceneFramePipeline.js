@@ -234,11 +234,16 @@ export class SceneFramePipeline {
     // 更新攀爬等统一位移执行器；Jump/Flight 保持各自既有更新顺序。
     locomotionSystem?.update?.(deltaTime);
 
-    // 蓄力跳跃：按跳跃键保持状态驱动蓄力/松手起跳（键盘 space / 触屏 _jumpHeld 标志）。
+    // 蓄力跳跃：按跳跃键保持状态驱动蓄力/松手起跳
+    // （键盘 space / 触屏 _jumpHeld 标志 / 手柄 Y 虚拟键 'jump' 三路统一）。
     // 松手触发的起跳要在本帧跳跃更新之前生效，保证落点位移立即推进。
+    const jumpAxis = scene.inputManager?.getMoveAxis?.() || null;
     scene.jumpChargeController?.update?.({
-      held: scene.inputManager?.isKeyDown?.('space') === true || scene._jumpHeld === true,
+      held: scene.inputManager?.isKeyDown?.('space') === true
+        || scene._jumpHeld === true
+        || scene.inputManager?.isKeyDown?.('jump') === true,
       actor: player,
+      direction: jumpAxis,
       blocked: scene.playerEntity?.isDead === true
         || scene.dialogueSystem?.isDialogueActive?.() === true
         || scene.meditationSystem?.isActive?.() === true

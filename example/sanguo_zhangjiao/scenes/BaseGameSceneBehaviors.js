@@ -612,21 +612,11 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
     return null;
   }
 
-  /** PC/触屏/手柄：按当前移动输入跳跃。键盘 space / 触屏走蓄力；手柄 'jump' 保持原立即跳跃。 */
+  /** PC/触屏/手柄：按当前移动输入跳跃。space / 触屏 / 手柄 Y 统一走蓄力，松手起跳。 */
   jumpByInput({ event } = {}) {
     if (this.isPlayerActionLocked()) return false;
-    // 手柄/虚拟 'jump' 键：保持原有立即跳跃（不进入蓄力）。
-    if (event?.key === 'jump') {
-      const started = this._ensureCombatActions().jumpByInput() === true;
-      if (started) {
-        const tutorialFlow = this.context?.services?.tutorialFlow;
-        if (tutorialFlow) tutorialFlow.notify('jumpPerformed');
-        else this.onPlayerTutorialAction?.('jump');
-      }
-      return started;
-    }
-    // 键盘 space / 触屏跳跃按钮：返回 true 消费输入；蓄力由 JumpChargeController 每帧轮询驱动，
-    // 松手时才真正起跳（距离按蓄力时间 30~120px）。
+    // 键盘 space / 触屏跳跃按钮 / 手柄 Y：返回 true 消费输入；蓄力由 JumpChargeController
+    // 每帧轮询驱动，松手时才真正起跳（距离按蓄力时间 30~120px，表现与空格键一致）。
     return true;
   }
 

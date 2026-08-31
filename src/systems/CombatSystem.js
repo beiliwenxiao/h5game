@@ -2246,17 +2246,35 @@ export class CombatSystem {
 
   /**
    * 生成掉落物品列表
+   * 优先按实体定义的 lootTable（数据驱动，{ chance, itemId, minQuantity, maxQuantity }）
+   * 逐项掷骰；实体未声明 lootTable 时才回退到旧的内置药水掉落。
    * @param {Entity} entity - 死亡的实体
    * @returns {Array} 掉落物品列表
    */
   generateLoot(entity) {
+    if (Array.isArray(entity?.lootTable)) {
+      const loot = [];
+      for (const entry of entity.lootTable) {
+        const chance = Math.min(1, Math.max(0, Number(entry?.chance) || 0));
+        const itemId = entry?.itemId || entry?.id;
+        if (!itemId || Math.random() >= chance) continue;
+        const min = Math.max(0, Math.floor(Number(entry?.minQuantity) || 1));
+        const max = Math.max(min, Math.floor(Number(entry?.maxQuantity) || min));
+        loot.push({
+          itemId,
+          name: entry?.name || itemId,
+          quantity: min + Math.floor(Math.random() * (max - min + 1))
+        });
+      }
+      return loot;
+    }
+
+    // 旧场景兜底：30% 不掉落；70% 掉落红瓶/蓝瓶
     const loot = [];
-    
-    // 30%概率不掉落任何东西
     if (Math.random() < 0.3) {
       return loot;
     }
-    
+
     // 70%概率掉落，其中50%红瓶，50%蓝瓶
     if (Math.random() < 0.5) {
       loot.push({
@@ -2271,7 +2289,7 @@ export class CombatSystem {
         value: 30
       });
     }
-    
+
     // 10%概率额外掉落第二瓶
     if (Math.random() < 0.1) {
       loot.push({
@@ -2280,7 +2298,7 @@ export class CombatSystem {
         value: Math.random() < 0.5 ? 50 : 30
       });
     }
-    
+
     return loot;
   }
 

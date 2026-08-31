@@ -846,10 +846,6 @@
               {
                 "equals": true,
                 "path": "s01Survival.axeFound"
-              },
-              {
-                "equals": false,
-                "path": "s01Survival.firstWolfSpotted"
               }
             ]
           },

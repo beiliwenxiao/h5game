@@ -35,6 +35,8 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 
 默认 Y 绑定 `JUMP_ACTION`，不再承担轻功长按判定。轻功与投掷是手柄技能轮盘的固定选项：LB 选择，RB 按住时由右摇杆瞄准、松开释放。轮盘选项由 `SceneCombatActions.getGamepadSkillOptions()` 在普通 `combat.skills` 后追加，仍复用 `FlightSystem` / `WeaponRenderer` 的既有动作入口，不把它们伪装为 Demo 的战斗技能定义。
 
+RT 攻击 intent 必须沿 `GamepadCombatController → SceneCombatActions._performGamepadAttack() → attackByDirection()` 进入键鼠/触屏共用的基础攻击准入和执行链；快按使用 `getPlayerFacingVector()`，长按使用右摇杆方向。禁止硬编码物理按钮索引、在按下沿另建直攻旁路，或绕过可改绑的 `ATTACK_ACTION`。`BaseGameScene.isPlayerActionLocked()` 只表示死亡、灵魂、死亡/复活 pending、采集会话等所有世界动作共同拒绝的硬锁，不得包含 `CombatSystem.isInCombat()`；否则 RT intent 与 canonical `jump` 会同时被提前吞掉。基础攻击资格由 `canPerformBasicAttack()` 单独判断，普通跳跃在战斗中保持可用，灵魂/死亡状态仍同时拒绝攻击和跳跃。
+
 ### 5. 摇杆死区用径向死区 + 重标定
 `_applyDeadzone` 把 `[deadzone,1]` 重映射到 `[0,1]`，避免死区边缘速度突跳。默认死区 0.22。扳机（LT/RT）是模拟量，按 `triggerThreshold`（默认 0.5）离散成按下/松开。
 

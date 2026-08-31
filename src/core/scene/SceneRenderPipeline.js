@@ -285,28 +285,36 @@ export class SceneRenderPipeline {
       position.y - elevation - height - padding <= bounds.bottom;
   }
 
-  /** 小地图左侧的常驻小窗：显示当前时间（时段/天数）与气候。 */
+  /** 常驻时间/气候小窗；位置和尺寸优先消费 UIEditor 的稳定布局矩形。 */
   renderTimeWeatherBadge(ctx) {
     const scene = this.scene;
     const minimap = scene?.minimap;
-    if (!minimap) return;
+    const layoutRect = this.context?.ui?.layout?.getScreenHudRect?.('timeWeatherBadge') || null;
+    if (!layoutRect && !minimap) return;
     const timeSystem = scene.timeSystem || this.context?.systems?.time || null;
     const weatherSystem = scene.weatherSystem || this.context?.systems?.weather || null;
     if (!timeSystem && !weatherSystem) return;
 
-    const width = 150;
-    const height = 54;
-    const x = Number(minimap.x) - width - 10;
-    const y = Number(minimap.y) || 10;
-    if (!Number.isFinite(x)) return;
+    const fallbackX = Number.isFinite(minimap?.x) ? minimap.x - 160 : Math.max(4, scene.logicalWidth - 320);
+    const fallbackY = Number.isFinite(minimap?.y) ? minimap.y : 10;
+    const x = Number.isFinite(layoutRect?.x) ? layoutRect.x : fallbackX;
+    const y = Number.isFinite(layoutRect?.y) ? layoutRect.y : fallbackY;
+    const width = Number.isFinite(layoutRect?.width) && layoutRect.width > 0 ? layoutRect.width : 150;
+    const height = Number.isFinite(layoutRect?.height) && layoutRect.height > 0 ? layoutRect.height : 54;
 
     const periodNames = timeSystem?.PERIOD_NAMES || timeSystem?.constructor?.PERIOD_NAMES || null;
     const period = timeSystem?.getCurrentPeriod?.() || '';
     const periodLabel = periodNames?.[period] || period || '—';
     const day = timeSystem?.getCurrentDay?.();
     const weatherLabel = TIME_WEATHER_LABELS[weatherSystem?.getVisualWeather?.()] || weatherSystem?.getVisualWeather?.() || null;
+    const scale = Math.max(0.55, Math.min(1.6, width / 150, height / 54));
+    const padding = Math.max(3, Math.min(10, width * 0.067));
+    const maxTextWidth = Math.max(1, width - padding * 2);
 
     ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
     ctx.fillStyle = 'rgba(10, 14, 30, 0.72)';
     ctx.fillRect(x, y, width, height);
     ctx.strokeStyle = 'rgba(122, 155, 216, 0.55)';
@@ -315,14 +323,14 @@ export class SceneRenderPipeline {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffe4a3';
-    ctx.font = 'bold 12px Arial';
-    ctx.fillText(`第 ${Number.isFinite(day) ? day : 1} 天`, x + 10, y + 16);
+    ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
+    ctx.fillText(`第 ${Number.isFinite(day) ? day : 1} 天`, x + padding, y + height * 0.28, maxTextWidth);
     ctx.fillStyle = '#bfe0ff';
-    ctx.font = '11px Arial';
-    ctx.fillText(`时间：${periodLabel}`, x + 10, y + 34);
+    ctx.font = `${Math.max(7, Math.round(11 * scale))}px Arial`;
+    ctx.fillText(`时间：${periodLabel}`, x + padding, y + height * 0.61, maxTextWidth);
     if (weatherLabel) {
       ctx.fillStyle = '#cfe8cf';
-      ctx.fillText(`气候：${weatherLabel}`, x + 10, y + 46);
+      ctx.fillText(`气候：${weatherLabel}`, x + padding, y + height * 0.86, maxTextWidth);
     }
     ctx.restore();
   }
@@ -330,29 +338,45 @@ export class SceneRenderPipeline {
   renderCombatStateUI(ctx) {
     const scene = this.scene;
     const combatSystem = this.context?.systems?.combat || null;
-    if (!combatSystem?.isInCombat()) return;
-    // 放到小地图左侧、时间/气候小窗的下方，避免与小地图叠加。
+    const player = this.context?.player?.entity || null;
+    const soulState = player?.isSoulState === true;
+    if (!soulState && !combatSystem?.isInCombat()) return;
+
     const minimap = scene?.minimap;
-    const width = 80;
-    const height = 30;
-    const x = minimap
-      ? Math.max(4, Number(minimap.x) - width - 10)
+    const layoutRect = this.context?.ui?.layout?.getScreenHudRect?.('combatStateBadge') || null;
+    const fallbackX = minimap
+      ? Math.max(4, Number(minimap.x) - 90)
       : scene.logicalWidth - 90 - (scene.uiStrategy?.platform === 'mobile' ? 100 : 0);
-    const y = minimap ? (Number(minimap.y) || 10) + 54 + 8 : 10;
+    const fallbackY = minimap ? (Number(minimap.y) || 10) + 62 : 10;
+    const x = Number.isFinite(layoutRect?.x) ? layoutRect.x : fallbackX;
+    const y = Number.isFinite(layoutRect?.y) ? layoutRect.y : fallbackY;
+    const width = Number.isFinite(layoutRect?.width) && layoutRect.width > 0 ? layoutRect.width : 80;
+    const height = Number.isFinite(layoutRect?.height) && layoutRect.height > 0 ? layoutRect.height : 30;
+    const scale = Math.max(0.55, Math.min(1.6, width / 80, height / 30));
+
     ctx.save();
-    ctx.fillStyle = 'rgba(139, 0, 0, 0.7)';
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
+    ctx.fillStyle = soulState ? 'rgba(36, 47, 96, 0.82)' : 'rgba(139, 0, 0, 0.7)';
     ctx.fillRect(x, y, width, height);
-    ctx.strokeStyle = '#ff0000';
+    ctx.strokeStyle = soulState ? '#8fc7ff' : '#ff0000';
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, width, height);
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('战斗中', x + width / 2, y + 14);
-    const timer = Math.ceil(combatSystem.getCombatExitTimer());
-    ctx.fillStyle = timer > 0 ? '#ffff00' : '#ff6666';
-    ctx.font = timer > 0 ? '10px Arial' : '9px Arial';
-    ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + width / 2, y + 26);
+    ctx.textBaseline = 'middle';
+    if (soulState) {
+      ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
+      ctx.fillText('灵魂状态', x + width / 2, y + height / 2, Math.max(1, width - 4));
+    } else {
+      ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
+      ctx.fillText('战斗中', x + width / 2, y + height * 0.35, Math.max(1, width - 4));
+      const timer = Math.ceil(combatSystem.getCombatExitTimer());
+      ctx.fillStyle = timer > 0 ? '#ffff00' : '#ff6666';
+      ctx.font = `${Math.max(7, Math.round((timer > 0 ? 10 : 9) * scale))}px Arial`;
+      ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + width / 2, y + height * 0.76, Math.max(1, width - 4));
+    }
     ctx.restore();
   }
 

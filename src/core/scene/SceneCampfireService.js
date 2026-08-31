@@ -583,20 +583,51 @@ const campfireFeatureMethods = {
     const seconds = this.campfire.respawnCountdownSeconds;
     if (!Number.isFinite(seconds) || seconds <= 0) return;
     const x = this.campfire.x;
-    const y = this.campfire.y - 78;
+    const y = this.campfire.y;
+    const radius = Math.max(0, Number(this.campfire.respawnApproachRadius) || 0);
+    const duration = Math.max(1, Number(this.campfire.respawnDurationSeconds) || seconds);
+    const remaining = Math.max(0, Math.min(
+      duration,
+      Number(this.campfire.respawnRemainingSeconds) || seconds
+    ));
+    const progress = Math.max(0, Math.min(1, 1 - remaining / duration));
+
     ctx.save();
+    if (radius > 0) {
+      ctx.fillStyle = 'rgba(92, 154, 255, 0.08)';
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(143, 199, 255, 0.72)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.setLineDash([]);
+      ctx.strokeStyle = '#d9efff';
+      ctx.lineWidth = 4;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      ctx.stroke();
+    }
+
+    const labelY = y - 78;
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     const label = `复活倒计时 ${seconds} 秒`;
     const width = ctx.measureText(label).width + 14;
     ctx.fillStyle = 'rgba(8, 10, 24, 0.82)';
-    ctx.fillRect(x - width / 2, y - 20, width, 24);
+    ctx.fillRect(x - width / 2, labelY - 20, width, 24);
     ctx.strokeStyle = 'rgba(126, 180, 255, 0.65)';
     ctx.lineWidth = 1;
-    ctx.strokeRect(x - width / 2, y - 20, width, 24);
+    ctx.strokeRect(x - width / 2, labelY - 20, width, 24);
     ctx.fillStyle = '#bfe0ff';
-    ctx.fillText(label, x, y);
+    ctx.fillText(label, x, labelY);
     ctx.restore();
   },
 
@@ -653,7 +684,10 @@ export class SceneCampfireService {
       currentFrame: 0,
       frameTime: 0,
       frameDuration: 1,
-      respawnCountdownSeconds: null
+      respawnCountdownSeconds: null,
+      respawnDurationSeconds: 20,
+      respawnApproachRadius: 0,
+      respawnRemainingSeconds: null
     };
     this.fog = { opacity: 0, targetOpacity: 0, fadeSpeed: 0, color: '', active: false };
     this.fuel = {
@@ -1047,9 +1081,19 @@ export class SceneCampfireService {
     return true;
   }
 
-  /** 灵魂状态复活倒计时（秒）；传 null/0 隐藏。 */
-  setRespawnCountdown(seconds = null) {
-    const value = Number.isFinite(Number(seconds)) && Number(seconds) > 0 ? Math.ceil(Number(seconds)) : null;
+  /** 灵魂状态复活倒计时及复活圈表现投影；传 null/0 隐藏。 */
+  setRespawnCountdown(seconds = null, presentation = {}) {
+    const value = Number.isFinite(Number(seconds)) && Number(seconds) > 0
+      ? Math.ceil(Number(seconds))
+      : null;
+    const duration = Number(presentation.durationSeconds);
+    const radius = Number(presentation.approachRadius);
+    const remaining = Number(presentation.remainingSeconds);
+    if (Number.isFinite(duration) && duration > 0) this.campfire.respawnDurationSeconds = duration;
+    if (Number.isFinite(radius) && radius > 0) this.campfire.respawnApproachRadius = radius;
+    this.campfire.respawnRemainingSeconds = value === null
+      ? null
+      : (Number.isFinite(remaining) ? Math.max(0, remaining) : value);
     this.campfire.respawnCountdownSeconds = value;
     return value;
   }

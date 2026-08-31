@@ -3400,6 +3400,10 @@ export class CombatSystem {
    * @param {Array} entities - 实体列表
    */
   updateCombatState(deltaTime, entities) {
+    if (this.playerEntity?.isSoulState === true) {
+      if (this.combatState.inCombat) this.exitCombat();
+      return;
+    }
     const currentTime = this.now() / 1000;
     const hasNearby = this.checkNearbyEnemies(entities);
     

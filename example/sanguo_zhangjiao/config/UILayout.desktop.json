@@ -5,6 +5,48 @@
   },
   "components": [
     {
+      "id": "minimap",
+      "label": "小地图",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 1120,
+      "y": 10,
+      "width": 150,
+      "height": 150,
+      "xPct": 0.875,
+      "yPct": 0.01389,
+      "wPct": 0.11719,
+      "hPct": 0.20833
+    },
+    {
+      "id": "timeWeatherBadge",
+      "label": "时间/天气",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 1029,
+      "y": 10,
+      "width": 83,
+      "height": 54,
+      "xPct": 0.80391,
+      "yPct": 0.01389,
+      "wPct": 0.06484,
+      "hPct": 0.075
+    },
+    {
+      "id": "combatStateBadge",
+      "label": "战斗/灵魂状态",
+      "kind": "panel",
+      "anchor": "topleft",
+      "x": 1029,
+      "y": 74,
+      "width": 84,
+      "height": 30,
+      "xPct": 0.80391,
+      "yPct": 0.10278,
+      "wPct": 0.06563,
+      "hPct": 0.04167
+    },
+    {
       "id": "backpackPanel",
       "label": "背包",
       "kind": "panel",

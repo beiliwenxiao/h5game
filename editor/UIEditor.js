@@ -31,6 +31,10 @@ const DEFAULT_COMPONENTS = {
     // 画布逻辑尺寸（仅用于编辑器预览参考）
     canvas: { width: 1280, height: 720 },
     components: [
+      // 右侧 Canvas HUD：Android/PC 共用稳定 ID，运行时按当前平台布局加载。
+      { id: 'minimap', label: '小地图', x: 1120, y: 10, width: 150, height: 150, anchor: 'topleft', kind: 'panel' },
+      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, anchor: 'topleft', kind: 'panel' },
+      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, anchor: 'topleft', kind: 'panel' },
       // 统一背包外框（属性、装备和物品栏的内部部件由 PanelEditor 编辑）
       { id: 'backpackPanel', label: '背包', x: 190, y: 100, width: 900, height: 520, anchor: 'topleft', kind: 'panel' },
       // 底部控制栏拆分为独立小控件（血球/蓝球/2药水/5技能）
@@ -56,6 +60,9 @@ const DEFAULT_COMPONENTS = {
   mobile: {
     canvas: { width: 1280, height: 600 },
     components: [
+      { id: 'minimap', label: '小地图', x: 1120, y: 10, width: 150, height: 150, anchor: 'topleft', kind: 'panel' },
+      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, anchor: 'topleft', kind: 'panel' },
+      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, anchor: 'topleft', kind: 'panel' },
       { id: 'backpackPanel', label: '背包', x: 190, y: 40, width: 900, height: 500, anchor: 'topleft', kind: 'panel' },
       { id: 'joystick', label: '摇杆区', x: 0, y: 270, width: 384, height: 330, anchor: 'topleft', kind: 'zone' },
       { id: 'hud-avatar', label: 'HUD头像', x: 10, y: 10, width: 56, height: 56, anchor: 'topleft', kind: 'button' },

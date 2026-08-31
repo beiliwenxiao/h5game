@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1788188495507,
+  "createdAt": 1788194430826,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -63,19 +63,14 @@
       "tutorial": {
         "completedTutorials": [],
         "enabled": true,
-        "currentTutorialId": "s01.move",
+        "currentTutorialId": null,
         "currentStepIndex": 0,
         "signalProgress": {},
-        "movementOrigins": {
-          "s01.move": {
-            "x": 1885,
-            "y": 1275
-          }
-        }
+        "movementOrigins": {}
       },
       "dialogue": {
-        "currentDialogueId": null,
-        "currentNodeId": null,
+        "currentDialogueId": "dialogue.s01.wake",
+        "currentNodeId": "start",
         "variables": {},
         "history": [
           {
@@ -83,22 +78,15 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1788188493514
+            "timestamp": 1788194428834
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788188493514
-          },
-          {
-            "type": "end",
-            "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788188495142
+            "timestamp": 1788194428834
           }
         ],
-        "completedDialogues": [
-          "dialogue.s01.wake"
-        ]
+        "completedDialogues": []
       },
       "quests": {
         "schemaVersion": 1,
@@ -327,9 +315,7 @@
         "triggers": {
           "snapshotSchemaVersion": 2,
           "definitionRevision": 1,
-          "firedOnce": [
-            "trg_s01_begin_tutorial_after_wake"
-          ],
+          "firedOnce": [],
           "cooldowns": {
             "trg_s01_spawn_initial": {
               "definitionRevision": 1,
@@ -617,22 +603,14 @@
               {
                 "triggerId": "trg_s01_begin_tutorial_after_wake",
                 "definitionRevision": 1,
-                "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2",
-                "fingerprint": "sha256-69467262f5e5a34900e9aa879712f3a1dc70c603bd9b044c5944168e87394d09",
-                "status": "succeeded",
-                "actionIndex": 0,
-                "result": {
-                  "ok": true,
-                  "operationId": "trigger:1:trg_s01_begin_tutorial_after_wake:2:trigger:trg_s01_begin_tutorial_after_wake:step:show-tutorial-s01-move",
-                  "status": "committed",
-                  "committed": true,
-                  "code": null,
-                  "stateId": "tutorial:s01.move",
-                  "stateRevision": 1
-                },
-                "startedAt": 1567,
-                "finishedAt": 1567,
-                "ledgerRevision": 4
+                "operationId": null,
+                "fingerprint": null,
+                "status": "idle",
+                "actionIndex": -1,
+                "result": null,
+                "startedAt": null,
+                "finishedAt": null,
+                "ledgerRevision": 1
               },
               {
                 "triggerId": "trg_s01_light_campfire",
@@ -1891,7 +1869,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.90020000000072
+          "elapsed": 121.93370000000073
         }
       }
     }

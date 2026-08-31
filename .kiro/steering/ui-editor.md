@@ -16,9 +16,9 @@ UI 编辑器（`editor/UIEditor.js`）用于可视化编辑移动端/PC端的 UI
 
 ## 架构关系
 
-### 三处需要同步修改
+### 移动端 DOM 组件需要同步三处
 
-当新增/删除/修改 UI 组件时，必须同步修改以下三处：
+当新增、删除或修改移动端 DOM 按钮时，必须同步修改以下三处：
 
 1. **`editor/UIEditor.js`** — `DEFAULT_COMPONENTS.mobile.components[]`（编辑器默认值）
 2. **`config/UILayout.mobile.json`** — 已保存的布局配置
@@ -28,17 +28,36 @@ UI 编辑器（`editor/UIEditor.js`）用于可视化编辑移动端/PC端的 UI
 
 ### Canvas 面板类组件（非 DOM）
 
-如 `PlayerStatusHUD` 这类纯 Canvas 渲染的面板，不在 `domIds` 映射中，
-而是通过 `BaseGameScene._applyUILayout()` 使用 `UILayoutLoader.applyToCanvasPanel()` 应用布局。
+纯 Canvas 面板不进入 `index.html` 或 `domIds`。运行时统一由 `ScenePanelLayout.applyUILayout()` 使用 `UILayoutLoader.applyToCanvasPanel()` 或 `getRect()` 应用布局；`ScenePanelLayout` 通过 `context.ui.layout` 暴露给 `SceneRenderPipeline`，渲染器不得另存第二份布局状态。
 
-### 平台差异：mobile=DOM 按钮，desktop=Canvas 面板
+### 双端 Canvas 屏幕 HUD
 
-- **移动端(mobile)** UI 是 index.html 里的 **DOM 按钮**，改动需同步上面的三处。
-- **PC 端(desktop)** UI 是 **Canvas 渲染的面板/控件**（PlayerInfoPanel、InventoryPanel、BottomControlBar 等），
-  不涉及 index.html DOM 和 domIds。改动只需同步：
+小地图、时间天气和战斗/灵魂状态徽章在 Android 与 PC 运行时都属于 Canvas，不因 mobile 平台改成 DOM：
+
+| id | label | 运行时所有者 |
+|----|-------|-------------|
+| `minimap` | 小地图 | `Minimap`，由 `ScenePanelLayout` 直接应用矩形 |
+| `timeWeatherBadge` | 时间/天气 | `SceneRenderPipeline` 读取 `context.ui.layout.getScreenHudRect()` |
+| `combatStateBadge` | 战斗/灵魂状态 | `SceneRenderPipeline` 读取 `context.ui.layout.getScreenHudRect()` |
+
+新增或调整这类双端 Canvas HUD 必须同步四处：
+
+1. `DEFAULT_COMPONENTS.desktop.components[]`
+2. `DEFAULT_COMPONENTS.mobile.components[]`
+3. `UILayout.desktop.json`
+4. `UILayout.mobile.json`
+
+`UIEditor._mergeLayout()` 只遍历当前平台的 `DEFAULT_COMPONENTS`；只改 JSON 会让额外 ID 在加载合并时被丢弃。三项 HUD 不需要修改 `index.html` 或 `applyUILayoutToDom()`。天气与战斗徽章必须各自保存独立矩形，拖动其中一项不得再通过“小地图相对位置”隐式带动另一项；旧配置缺失时才允许使用相对小地图的 fallback。
+
+`Minimap` 被 `UILayoutLoader` 命中时必须调用 `setLayoutManaged(true)`，使 `_tryBuildCache()` 只建立地图内容缓存而不按世界宽高比重写编辑器保存的 `width/height`。窗口 resize 只复用已经加载的 `scene.uiLayoutLoader` 重新计算百分比矩形，不得重新 fetch 配置，也不得无条件把小地图重置到右上角。
+
+### 平台差异：mobile 交互按钮以 DOM 为主，desktop 控件以 Canvas 为主
+
+- **移动端(mobile)** 交互按钮主要是 `index.html` 里的 DOM；上述双端屏幕 HUD 和 `PlayerStatusHUD` 等是 Canvas 例外。
+- **PC 端(desktop)** UI 是 **Canvas 渲染的面板/控件**（PlayerInfoPanel、InventoryPanel、BottomControlBar 等），不涉及 index.html DOM 和 domIds。改动只需同步：
   1. `editor/UIEditor.js` — `DEFAULT_COMPONENTS.desktop.components[]`
   2. `config/UILayout.desktop.json`
-  3. 对应 Canvas 面板组件代码 + `BaseGameScene._applyUILayout()` 的应用逻辑
+  3. 对应 Canvas 面板组件代码 + `ScenePanelLayout` 的应用逻辑
 
 ## PC UI 组件列表（desktop，已拆分为独立小控件）
 

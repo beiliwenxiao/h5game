@@ -24,6 +24,10 @@ export class ScenePanelLayout {
     this.scene = scene;
     this.hudDependencies = hudDependencies;
     this._requestedIconKeys = new Set();
+    this._screenHudRects = {
+      timeWeatherBadge: null,
+      combatStateBadge: null
+    };
   }
 
   /**
@@ -92,6 +96,16 @@ export class ScenePanelLayout {
       onEquipmentClick: (slotType, button) => scene._handleEquipmentSlotClick(slotType, button),
       onItemUse: (item, healAmount, manaAmount) => scene.onItemUsed(item, healAmount, manaAmount),
       onEquipmentChange: (messages, info) => scene.onEquipmentChanged(messages, info),
+      canUseItem: () => {
+        const player = scene.playerEntity;
+        const allowed = scene.canPerformPlayerAction?.('item.use', player)
+          ?? (player?.isDead !== true && player?.isSoulState !== true);
+        if (!allowed) {
+          const soulState = player?.isSoulState === true || Boolean(scene.playerSoulRespawn?.pending);
+          scene._showScreenTip?.(soulState ? '灵魂状态无法使用物品' : '当前状态无法使用物品');
+        }
+        return allowed;
+      },
       onIntent: (intentType, payload, options) => scene.submitItemIntent(intentType, payload, options),
       getProjection: () => scene.getItemLifecycleProjection?.()
     });
@@ -333,6 +347,7 @@ export class ScenePanelLayout {
 
       this._applyBottomControlLayout(loader, width, height);
       this._applyHudLayout(loader, width, height);
+      this._applyScreenHudLayout(loader, width, height);
       scene.backpackPanel?.layout();
       if (!scene._pcFnFromEditor) this.layoutPCFunctionButtons(width, height);
       await this.applyPanelLayout();
@@ -369,6 +384,11 @@ export class ScenePanelLayout {
     }
   }
 
+  /** 返回只读使用的屏幕 HUD 像素矩形；矩形只在布局加载或 resize 时更新。 */
+  getScreenHudRect(id) {
+    return this._screenHudRects[id] || null;
+  }
+
   onResize(width, height) {
     const scene = this.scene;
     scene.logicalWidth = width;
@@ -387,11 +407,7 @@ export class ScenePanelLayout {
     if (scene.playerStatusHUD && scene.uiStrategy?.layoutPlayerStatusHUD) {
       scene.uiStrategy.layoutPlayerStatusHUD(scene.playerStatusHUD, width, height);
     }
-    if (scene.minimap) {
-      scene.minimap._anchorRight = width - 10;
-      scene.minimap.x = width - scene.minimap.width - 10;
-      scene.minimap.y = 10;
-    }
+    this._resizeScreenHud(width, height);
   }
 
   syncTouchControlsForBackpack() {
@@ -467,6 +483,43 @@ export class ScenePanelLayout {
       mpRect: loader.getRect('hud-mp', width, height)
     };
     if (Object.values(definition).some(Boolean)) hud.applySubLayout(definition);
+  }
+
+  _applyScreenHudLayout(loader, width, height) {
+    const scene = this.scene;
+    const minimap = scene.minimap;
+    const minimapRect = loader?.getRect?.('minimap', width, height) || null;
+    const isMinimapLayoutManaged = Boolean(minimap && minimapRect);
+
+    minimap?.setLayoutManaged?.(isMinimapLayoutManaged);
+    if (minimap) {
+      if (isMinimapLayoutManaged) {
+        loader.applyToCanvasPanel('minimap', minimap, width, height);
+      } else {
+        minimap._anchorRight = width - 10;
+        minimap.x = width - minimap.width - 10;
+        minimap.y = 10;
+      }
+    }
+
+    const minimapX = Number.isFinite(minimap?.x) ? minimap.x : width - 160;
+    const minimapY = Number.isFinite(minimap?.y) ? minimap.y : 10;
+    this._screenHudRects.timeWeatherBadge = loader?.getRect?.('timeWeatherBadge', width, height) || {
+      x: minimapX - 160,
+      y: minimapY,
+      width: 150,
+      height: 54
+    };
+    this._screenHudRects.combatStateBadge = loader?.getRect?.('combatStateBadge', width, height) || {
+      x: Math.max(4, minimapX - 90),
+      y: minimapY + 62,
+      width: 80,
+      height: 30
+    };
+  }
+
+  _resizeScreenHud(width, height) {
+    this._applyScreenHudLayout(this.scene.uiLayoutLoader, width, height);
   }
 
   _resizeBottomControl(width, height) {

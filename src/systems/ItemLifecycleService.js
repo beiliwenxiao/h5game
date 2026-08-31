@@ -91,6 +91,7 @@ export class ItemLifecycleService {
     this.removeWorldEntity = config.removeWorldEntity || (() => false);
     this.createCheckpoint = config.createCheckpoint || (async () => ({ ok: true, skipped: true }));
     this.playerDefeatService = config.playerDefeatService || null;
+    this.canUseItem = typeof config.canUseItem === 'function' ? config.canUseItem : () => true;
     this.onEquipmentChanged = config.onEquipmentChanged || (() => {});
     this.onItemUsed = config.onItemUsed || (() => {});
     this.onItemGained = config.onItemGained || (() => {});
@@ -392,6 +393,14 @@ export class ItemLifecycleService {
   }
 
   _prepareUse(command, actor, inventory) {
+    const permission = this.canUseItem(actor, command);
+    if (permission === false || permission?.ok === false) {
+      return {
+        ok: false,
+        code: permission?.code || 'itemUseBlocked',
+        error: permission?.message ? { message: permission.message } : undefined
+      };
+    }
     const found = this._itemFromInventory(inventory, command.payload.itemId, command.payload.instanceId);
     if (!found) return { ok: false, code: 'itemMissing' };
     const definition = this._definition(found.item.definitionId || found.item.id) || found.item;

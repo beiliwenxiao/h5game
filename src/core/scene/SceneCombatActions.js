@@ -463,11 +463,11 @@ export class SceneCombatActions {
   _performGamepadAttack(intent) {
     const scene = this.scene;
     const direction = intent.isQuickTap || !intent.direction
-      ? null
+      ? (scene.getPlayerFacingVector?.() || { x: 1, y: 0 })
       : intent.direction;
     // 直接走扇形攻击路径（与触屏 attackByDirection 一致），
-    // 不再伪造鼠标点击：假点击没有挥动轨迹，挥砍/扇形两条路径都消费不到。
-    return this.attackByDirection(direction?.x || 0, direction?.y || 0);
+    // 快按使用角色当前面向，长按使用右摇杆方向。
+    return this.attackByDirection(direction.x, direction.y);
   }
 
   _syncSkillWheel(controller, gamepadSkills) {

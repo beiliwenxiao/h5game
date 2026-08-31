@@ -96,6 +96,19 @@ export class Minimap extends UIElement {
       offsetX: 0, offsetY: 0, scaleX: 0, scaleY: 0,
       clipLeft: 0, clipTop: 0, clipRight: 0, clipBottom: 0
     };
+    this.layoutManaged = options.layoutManaged === true;
+  }
+
+  /**
+   * 声明外框尺寸是否由 UILayoutLoader 管理。
+   * 地图缓存和缩放只更新内容裁剪，不得覆盖编辑器保存的外框。
+   */
+  setLayoutManaged(enabled) {
+    const next = enabled === true;
+    if (this.layoutManaged === next) return;
+    this.layoutManaged = next;
+    this._frameSizeSet = next;
+    if (next) this._anchorRight = undefined;
   }
 
   /**
@@ -201,16 +214,18 @@ export class Minimap extends UIElement {
     if (fullW <= 0 || fullH <= 0) return;
 
     if (!this._frameSizeSet) {
-      const maxDim = Math.max(this.width, this.height);
-      const fullAspect = fullW / fullH;
-      if (fullAspect >= 1) {
-        this.width = maxDim;
-        this.height = Math.round(maxDim / fullAspect);
-      } else {
-        this.height = maxDim;
-        this.width = Math.round(maxDim * fullAspect);
+      if (!this.layoutManaged) {
+        const maxDim = Math.max(this.width, this.height);
+        const fullAspect = fullW / fullH;
+        if (fullAspect >= 1) {
+          this.width = maxDim;
+          this.height = Math.round(maxDim / fullAspect);
+        } else {
+          this.height = maxDim;
+          this.width = Math.round(maxDim * fullAspect);
+        }
+        if (this._anchorRight !== undefined) this.x = this._anchorRight - this.width;
       }
-      if (this._anchorRight !== undefined) this.x = this._anchorRight - this.width;
       this._frameSizeSet = true;
     }
 

@@ -51,11 +51,26 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
       : `你在${location}重新醒来，没有遗失资源`);
   }
 
+  /**
+   * 仅表示所有世界动作都必须拒绝的硬锁；战斗状态不是硬锁，攻击和跳跃必须继续可用。
+   */
   isPlayerActionLocked() {
-    return this.playerEntity?.isDead === true
+    const player = this.playerEntity;
+    return player?.isDead === true
+      || player?.isSoulState === true
+      || Boolean(this.playerSoulRespawn?.pending)
       || Boolean(this.playerDeathCountdown?.pending)
-      || this.gatheringSystem?.isActiveFor?.(this.playerEntity) === true
-      || this.combatSystem?.isInCombat?.() === true;
+      || this.gatheringSystem?.isActiveFor?.(player) === true;
+  }
+
+  /**
+   * 输入设备无关的玩家动作准入。具体攻击资格继续由 canPerformBasicAttack() 负责。
+   */
+  canPerformPlayerAction(action, actor = this.playerEntity) {
+    if (!actor || actor?.isDead === true || actor?.isSoulState === true) return false;
+    if (actor === this.playerEntity && this.isPlayerActionLocked()) return false;
+    if (action === 'gather' && this.combatSystem?.isInCombat?.() === true) return false;
+    return true;
   }
 
   /** 基础攻击默认只在战斗状态开放；具体场景可覆盖以支持训练或可破坏物。 */
@@ -70,8 +85,13 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
 
   harvestByFacing({ silent = false } = {}) {
     if (!this.playerEntity || !this.gatheringSystem) return false;
-    if (this.isPlayerActionLocked()) {
-      if (!silent) this._showScreenTip('战斗状态下无法采集');
+    if (!this.canPerformPlayerAction('gather')) {
+      if (!silent) {
+        const message = this.combatSystem?.isInCombat?.() === true
+          ? '战斗状态下无法采集'
+          : '当前状态无法采集';
+        this._showScreenTip(message);
+      }
       return false;
     }
     const playerPosition = this.playerEntity.getComponent('transform')?.position;

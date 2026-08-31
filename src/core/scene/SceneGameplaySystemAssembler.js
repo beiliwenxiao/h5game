@@ -18,6 +18,7 @@ import { AbilitySystem } from '../../systems/ability/AbilitySystem.js';
 import { PlayerDefeatService } from '../../systems/PlayerDefeatService.js';
 import { PlayerDeathCountdown } from './PlayerDeathCountdown.js';
 import { PlayerSoulRespawn } from './PlayerSoulRespawn.js';
+import { FramePhase } from './GameSceneRuntime.js';
 import { SceneCorpseRuntime } from './SceneCorpseRuntime.js';
 import { ItemLifecycleService, ITEM_LIFECYCLE_COMMANDS } from '../../systems/ItemLifecycleService.js';
 import { ToolRepairService } from '../../systems/ToolRepairService.js';
@@ -267,7 +268,10 @@ export class SceneGameplaySystemAssembler {
       },
       onComplete: executePlayerDeath
     });
-    scene.sceneRuntime?.onUpdate?.(deltaTime => scene.playerDeathCountdown?.update(deltaTime));
+    scene.sceneRuntime?.onFramePhase?.(
+      FramePhase.AFTER_SCENE,
+      deltaTime => scene.playerDeathCountdown?.update(deltaTime)
+    );
     scene.sceneRuntime?.addDisposer?.(
       () => {
         const reviveChoiceOpen = scene.irreversibleChoiceView?.snapshot?.choices
@@ -278,9 +282,9 @@ export class SceneGameplaySystemAssembler {
       'player-death-countdown'
     );
 
-    // 灵魂状态复活流程：普通死亡后保持可移动的灵魂状态，走到篝火附近倒计时 30 秒复活。
+    // 灵魂状态复活流程：普通死亡后保持可移动的灵魂状态，走到篝火复活圈内等待 20 秒。
     scene.playerSoulRespawn = new PlayerSoulRespawn({
-      durationSeconds: 30,
+      durationSeconds: 20,
       approachRadius: 150,
       reviveOffsetY: 46,
       getCampfirePosition: () => {
@@ -290,9 +294,13 @@ export class SceneGameplaySystemAssembler {
       getSpawnPosition: () => scene.resolvePlayerRespawnPosition?.({}) || null,
       showTip: (text, options) => scene._showScreenTip?.(text, options),
       hideTip: () => scene._hintPresenter?.hideScreen?.('playerSoul'),
-      onCountdown: seconds => scene.context?.services?.campfire?.setRespawnCountdown?.(seconds),
+      onCountdown: (seconds, presentation) => scene.context?.services?.campfire
+        ?.setRespawnCountdown?.(seconds, presentation),
       onSoulStateChange: active => {
         scene.playerSoulActive = active === true;
+        if (active === true && scene.combatSystem?.isInCombat?.() === true) {
+          scene.combatSystem.exitCombat();
+        }
         if (typeof document !== 'undefined') {
           document.body.classList.toggle('soul-state', active === true);
         }
@@ -300,7 +308,10 @@ export class SceneGameplaySystemAssembler {
       onComplete: ({ player, deathId, position }) => scene.playerDefeatService?.completeDeferredRespawn?.(player, deathId, position)
         || { ok: false, code: 'defeatServiceMissing' }
     });
-    scene.sceneRuntime?.onUpdate?.(deltaTime => scene.playerSoulRespawn?.update(deltaTime));
+    scene.sceneRuntime?.onFramePhase?.(
+      FramePhase.AFTER_SCENE,
+      deltaTime => scene.playerSoulRespawn?.update(deltaTime)
+    );
     scene.sceneRuntime?.addDisposer?.(() => scene.playerSoulRespawn?.dispose?.(), 'player-soul-respawn');
 
     const resolveEntity = id => scene.entityStore?.all?.find?.(entity => entity?.id === id)
@@ -337,6 +348,20 @@ export class SceneGameplaySystemAssembler {
         reason: 'checkpoint', checkpointId: checkpoint.checkpointId, sceneId: scene.currentSceneId
       }),
       playerDefeatService: scene.playerDefeatService,
+      canUseItem: actor => {
+        if (actor !== scene.playerEntity) {
+          return actor?.isDead !== true && actor?.isSoulState !== true;
+        }
+        const allowed = scene.canPerformPlayerAction?.('item.use', actor)
+          ?? (actor?.isDead !== true && actor?.isSoulState !== true);
+        if (allowed) return true;
+        const soulState = actor?.isSoulState === true || Boolean(scene.playerSoulRespawn?.pending);
+        return {
+          ok: false,
+          code: soulState ? 'soulState' : 'playerActionLocked',
+          message: soulState ? '灵魂状态无法使用物品' : '当前状态无法使用物品'
+        };
+      },
       onEquipmentChanged: (messages, info) => scene.onEquipmentChanged?.(messages, info),
       onItemUsed: ({ item, heal, mana }) => scene.onItemUsed?.(item, heal, mana),
       onItemGained: (item, player) => scene.onItemGained?.(item, player)

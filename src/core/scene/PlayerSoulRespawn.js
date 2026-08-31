@@ -9,7 +9,7 @@
  * 普通死亡后的表现流程：
  * - 玩家进入半透明灵魂状态（isSoulState），保留移动、禁用其他一切操作；
  * - 走到最近的篝火附近（approachRadius 内）后，篝火上显示复活倒计时；
- * - 倒计时（默认 30 秒）结束即在篝火旁复活；
+ * - 倒计时（默认 20 秒）结束即在篝火旁复活；
  * - 场景没有篝火时，倒计时在死亡位置照常流逝，结束时在出生点复活。
  *
  * 死亡结算（资源掉落/检查点）仍由 DEATH_DROP 命令事务在死亡瞬间完成
@@ -17,7 +17,7 @@
  */
 export class PlayerSoulRespawn {
   constructor({
-    durationSeconds = 30,
+    durationSeconds = 20,
     approachRadius = 150,
     reviveOffsetY = 46,
     getCampfirePosition = () => null,
@@ -28,7 +28,7 @@ export class PlayerSoulRespawn {
     onSoulStateChange = () => {},
     onComplete = () => ({ ok: false })
   } = {}) {
-    this.durationSeconds = Math.max(1, Number(durationSeconds) || 30);
+    this.durationSeconds = Math.max(1, Number(durationSeconds) || 20);
     this.approachRadius = Math.max(0, Number(approachRadius) || 0);
     this.reviveOffsetY = Number(reviveOffsetY) || 0;
     this.getCampfirePosition = typeof getCampfirePosition === 'function' ? getCampfirePosition : () => null;
@@ -131,7 +131,11 @@ export class PlayerSoulRespawn {
   _presentCountdown(pending, seconds) {
     if (pending.displayedSeconds === seconds) return;
     pending.displayedSeconds = seconds;
-    this.onCountdown(seconds);
+    this.onCountdown(seconds, {
+      durationSeconds: this.durationSeconds,
+      approachRadius: this.approachRadius,
+      remainingSeconds: pending.remaining
+    });
   }
 
   /** 无篝火时的兜底提示（每秒刷新一次）。 */

@@ -10,12 +10,20 @@ export function registerSceneTriggerActions(triggerSystem, {
   spawnPlacements,
   weatherSystem,
   timeSystem,
+  getWeatherSystem,
+  getTimeSystem,
   logger = console
 } = {}) {
   if (!triggerSystem?.registerAction) {
     throw new TypeError('registerSceneTriggerActions requires TriggerSystem');
   }
   const registered = [];
+  const resolveWeatherSystem = typeof getWeatherSystem === 'function'
+    ? getWeatherSystem
+    : () => weatherSystem;
+  const resolveTimeSystem = typeof getTimeSystem === 'function'
+    ? getTimeSystem
+    : () => timeSystem;
   const register = (name, handler) => {
     if (typeof handler !== 'function') return;
     triggerSystem.registerAction(name, handler);
@@ -25,16 +33,20 @@ export function registerSceneTriggerActions(triggerSystem, {
   if (typeof spawnPlacements === 'function') {
     register('spawnPlacements', params => spawnPlacements(params?.selector || params));
   }
-  if (typeof weatherSystem?.setWeather === 'function') {
+  if (typeof getWeatherSystem === 'function' || typeof weatherSystem?.setWeather === 'function') {
     register('setWeather', (params = {}) => {
       if (!params.type) return false;
-      return weatherSystem.setWeather(params.type, params) !== false;
+      const currentWeatherSystem = resolveWeatherSystem();
+      if (typeof currentWeatherSystem?.setWeather !== 'function') return false;
+      return currentWeatherSystem.setWeather(params.type, params) !== false;
     });
   }
-  if (typeof timeSystem?.setTimePeriod === 'function') {
+  if (typeof getTimeSystem === 'function' || typeof timeSystem?.setTimePeriod === 'function') {
     register('setTime', (params = {}) => {
       if (!params.period) return false;
-      return timeSystem.setTimePeriod(params.period) !== false;
+      const currentTimeSystem = resolveTimeSystem();
+      if (typeof currentTimeSystem?.setTimePeriod !== 'function') return false;
+      return currentTimeSystem.setTimePeriod(params.period) !== false;
     });
   }
   register('completeScene', async (params = {}) => {

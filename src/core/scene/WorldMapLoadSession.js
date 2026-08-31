@@ -193,6 +193,7 @@ export class WorldMapLoadSession {
     if (!sceneId || !data || !Array.isArray(data.layers)) return { ok: false, errors: [new TypeError('replaceSceneData requires valid scene data')] };
     const chunk = this._lastResult?.chunks?.find(entry => entry.sceneId === sceneId);
     if (!chunk) return { ok: false, errors: [new Error(`场景 ${sceneId} 不在当前世界加载结果中`)] };
+    this.repository?.forgetScene?.(sceneId);
     this._scenePromises.delete(sceneId);
     this._sceneData.set(sceneId, data);
     const dropByScene = item => item?.sceneId === sceneId;

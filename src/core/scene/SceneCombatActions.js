@@ -34,6 +34,7 @@ export class SceneCombatActions {
   /** @param {Object} scene - 提供系统、实体和 UI 服务的游戏场景 */
   constructor(scene) {
     this.scene = scene;
+    this._gamepadAttackDirectionLock = null;
   }
 
   _isLocked() {
@@ -47,10 +48,20 @@ export class SceneCombatActions {
       : sceneDecision === true;
   }
 
+  _getPlayerFacingDirection() {
+    const scene = this.scene;
+    const raw = scene.getPlayerFacingVector?.()
+      || directionToVector(scene.playerEntity?.getComponent?.('sprite')?.direction);
+    const x = Number(raw?.x) || 0;
+    const y = Number(raw?.y) || 0;
+    const magnitude = Math.hypot(x, y);
+    return magnitude > 0 ? { x: x / magnitude, y: y / magnitude } : { x: 1, y: 0 };
+  }
+
   attackByFacing() {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    const direction = scene.getPlayerFacingVector?.() || { x: 1, y: 0 };
+    const direction = this._getPlayerFacingDirection();
     if (scene.handleBasicAttackIntent?.({ type: 'attack', direction, source: 'touch' }) === true) return true;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
@@ -67,14 +78,23 @@ export class SceneCombatActions {
     );
   }
 
-  attackByDirection(dirX, dirY, distRatio) {
+  attackByDirection(dirX, dirY, distRatio, intentDetails = {}) {
     if (this._isLocked()) return false;
     const scene = this.scene;
-    const magnitude = Math.hypot(dirX, dirY);
-    const direction = magnitude > 0 ? { x: dirX / magnitude, y: dirY / magnitude } : { x: 1, y: 0 };
-    if (scene.handleBasicAttackIntent?.({
-      type: 'attack', direction, magnitude: distRatio, source: 'directional'
-    }) === true) return true;
+    const x = Number.isFinite(Number(dirX)) ? Number(dirX) : 0;
+    const y = Number.isFinite(Number(dirY)) ? Number(dirY) : 0;
+    const inputMagnitude = Math.hypot(x, y);
+    const direction = inputMagnitude > 0
+      ? { x: x / inputMagnitude, y: y / inputMagnitude }
+      : this._getPlayerFacingDirection();
+    const attackIntent = {
+      ...intentDetails,
+      type: 'attack',
+      direction,
+      magnitude: distRatio ?? intentDetails.magnitude,
+      source: intentDetails.source || 'directional'
+    };
+    if (scene.handleBasicAttackIntent?.(attackIntent) === true) return true;
     if (!scene.playerEntity || !scene.meleeAttackSystem || !this._canAttack()) return false;
     const transform = scene.playerEntity.getComponent('transform');
     if (!transform) return;
@@ -82,19 +102,25 @@ export class SceneCombatActions {
     const spriteHeight = scene.playerEntity.getComponent('sprite')?.height || 64;
     melee.setPlayerEntity(scene.playerEntity);
     melee.setEntities(scene.entities);
-    melee.sectorDirection = magnitude > 0 ? Math.atan2(dirY, dirX) : 0;
+    melee.sectorDirection = Math.atan2(direction.y, direction.x);
+    const previousDirectionLock = melee.sectorDirectionLocked === true;
     melee.sectorDirectionLocked = true;
     melee.sectorIsRanged = melee.checkIsRangedWeapon();
 
-    let weaponDistance = melee.sliceAttackRange;
-    const mainhand = scene.playerEntity.getComponent('equipment')?.getEquipment('mainhand');
-    if (mainhand?.attackDistance != null) weaponDistance = mainhand.attackDistance;
-    const ratio = distRatio !== undefined && distRatio > 0 ? Math.min(distRatio, 1) : 1;
-    return melee.performSectorAttack(
-      { x: transform.position.x, y: transform.position.y - spriteHeight / 2 },
-      performance.now() / 1000,
-      Math.round(weaponDistance * ratio)
-    );
+    try {
+      let weaponDistance = melee.sliceAttackRange;
+      const mainhand = scene.playerEntity.getComponent('equipment')?.getEquipment('mainhand');
+      if (mainhand?.attackDistance != null) weaponDistance = mainhand.attackDistance;
+      const ratio = distRatio !== undefined && distRatio > 0 ? Math.min(distRatio, 1) : 1;
+      return melee.performSectorAttack(
+        { x: transform.position.x, y: transform.position.y - spriteHeight / 2 },
+        performance.now() / 1000,
+        Math.round(weaponDistance * ratio)
+      );
+    } finally {
+      // 只释放本次方向攻击临时取得的锁；触屏等既有 owner 的锁保持原值。
+      melee.sectorDirectionLocked = previousDirectionLock;
+    }
   }
 
   jumpByInput() {
@@ -316,10 +342,7 @@ export class SceneCombatActions {
   updateGamepadCombat() {
     const scene = this.scene;
     if (!scene.gamepadCombat || !scene.inputManager?.gamepad?.isConnected()) {
-      // 手柄断开时必须同时清除控制器状态与独立暂停，避免重连后世界永久冻结。
-      if (scene.gamepadCombat) scene.gamepadCombat.cancelSkillWheel();
-      scene.isSkillWheelWorldPaused = false;
-      scene.skillWheelOverlay?.close?.();
+      this.cancelGamepadCombatInput('disconnect');
       return;
     }
 
@@ -332,11 +355,8 @@ export class SceneCombatActions {
     controller.update(gamepad);
 
     if (scene.isPlayerActionLocked?.()) {
-      controller.cancelSkillWheel();
-      scene.isSkillWheelWorldPaused = false;
-      scene.skillWheelOverlay?.close?.();
+      this.cancelGamepadCombatInput('player-action-locked');
       scene.cancelPCAimMode?.();
-      controller.consumeIntents();
       return true;
     }
 
@@ -345,13 +365,15 @@ export class SceneCombatActions {
     this._syncSkillWheel(controller, gamepadSkills);
     if (scene.isSkillWheelWorldPaused) {
       // 轮盘停住世界期间仍消费当前帧意图，禁止把攻击/技能/格挡延后到恢复帧执行。
+      this._releaseGamepadAttackDirectionLock();
       controller.consumeIntents();
       return;
     }
 
+    this._syncGamepadAttackAim(controller);
     this._syncGamepadAimPreview(controller, gamepadSkills);
     const attack = controller.getIntent(IntentType.ATTACK);
-    if (attack && scene.playerEntity && scene.combatSystem) this._performGamepadAttack(attack);
+    if (attack && scene.playerEntity) this._performGamepadAttack(attack);
 
     const skillIntent = controller.getIntent(IntentType.SKILL_RELEASE);
     if (skillIntent) this._releaseGamepadSkill(gamepadSkills[skillIntent.skillIndex], skillIntent);
@@ -437,9 +459,52 @@ export class SceneCombatActions {
     }
   }
 
+  _syncGamepadAttackAim(controller) {
+    const scene = this.scene;
+    const melee = scene.meleeAttackSystem;
+    if (!controller?.isAttackHolding || !scene.playerEntity || !melee || this._isLocked()) {
+      this._releaseGamepadAttackDirectionLock();
+      return;
+    }
+
+    if (this._gamepadAttackDirectionLock?.melee !== melee) {
+      this._releaseGamepadAttackDirectionLock();
+      this._gamepadAttackDirectionLock = {
+        melee,
+        previousLocked: melee.sectorDirectionLocked === true
+      };
+    }
+
+    const direction = controller.attackDirection || this._getPlayerFacingDirection();
+    melee.setPlayerEntity(scene.playerEntity);
+    melee.setEntities(scene.entities);
+    melee.sectorDirection = Math.atan2(direction.y, direction.x);
+    melee.sectorDirectionLocked = true;
+    melee.sectorIsRanged = melee.checkIsRangedWeapon();
+  }
+
+  _releaseGamepadAttackDirectionLock() {
+    const lock = this._gamepadAttackDirectionLock;
+    this._gamepadAttackDirectionLock = null;
+    if (lock?.melee) lock.melee.sectorDirectionLocked = lock.previousLocked;
+  }
+
+  /** 统一取消断连、模态接管、硬锁与退出后的手柄瞬态。 */
+  cancelGamepadCombatInput(_reason = 'cancelled') {
+    const scene = this.scene;
+    const controller = scene.gamepadCombat;
+    const cancellation = controller?.cancelTransientState?.() || {};
+    this._releaseGamepadAttackDirectionLock();
+    scene.isSkillWheelWorldPaused = false;
+    scene.skillWheelOverlay?.close?.();
+    if (cancellation.skillWasHolding) scene.clearSkillAimPreview?.();
+    if (cancellation.blockWasActive) scene.deactivateBlock?.();
+    return true;
+  }
+
   _syncGamepadAimPreview(controller, gamepadSkills) {
     const scene = this.scene;
-    if (controller._skillHolding) {
+    if (controller.isSkillHolding) {
       const selected = gamepadSkills[controller.currentSkillIndex];
       const magnitude = controller.aimMagnitude;
       const direction = magnitude > 0 ? controller.aimDirection : { x: 0, y: 0.01 };
@@ -461,13 +526,18 @@ export class SceneCombatActions {
   }
 
   _performGamepadAttack(intent) {
-    const scene = this.scene;
-    const direction = intent.isQuickTap || !intent.direction
-      ? (scene.getPlayerFacingVector?.() || { x: 1, y: 0 })
-      : intent.direction;
-    // 直接走扇形攻击路径（与触屏 attackByDirection 一致），
-    // 快按使用角色当前面向，长按使用右摇杆方向。
-    return this.attackByDirection(direction.x, direction.y);
+    const rawDirection = intent?.direction;
+    const magnitude = Math.hypot(Number(rawDirection?.x) || 0, Number(rawDirection?.y) || 0);
+    const direction = magnitude > 0
+      ? { x: rawDirection.x / magnitude, y: rawDirection.y / magnitude }
+      : this._getPlayerFacingDirection();
+    // 快按时只要 RT holding 内出现过有效 RS 方向也采用该方向；死区内稳定回退角色 facing。
+    return this.attackByDirection(direction.x, direction.y, undefined, {
+      source: 'gamepad',
+      holdMs: intent?.holdMs,
+      isQuickTap: intent?.isQuickTap === true,
+      magnitude: intent?.magnitude
+    });
   }
 
   _syncSkillWheel(controller, gamepadSkills) {

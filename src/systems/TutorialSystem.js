@@ -724,28 +724,48 @@ export class TutorialSystem {
    * @param {Object} progressData - 进度数据
    */
   loadProgress(progressData) {
-    if (!progressData) {
-      return;
-    }
+    // 直接丢弃旧表现与等待队列，不触发 onHide；读档不能让陈旧回调推进剧情。
+    this.pendingTutorials.length = 0;
+    this.currentTutorial = null;
+    this.currentStepIndex = 0;
+    this.pauseGame = false;
+    if (!progressData || typeof progressData !== 'object') return;
 
-    // 读档前清除可能由新游戏启动流程显示的旧步骤，完成事实只取存档。
-    if (this.currentTutorial) this.hideTutorial();
-
-    if (progressData.completedTutorials) {
-      this.completedTutorials = new Set(progressData.completedTutorials);
-    }
-
-    if (progressData.enabled !== undefined) {
-      this.enabled = progressData.enabled;
-    }
+    this.completedTutorials = new Set(
+      Array.isArray(progressData.completedTutorials)
+        ? progressData.completedTutorials.filter(id => typeof id === 'string')
+        : []
+    );
+    if (progressData.enabled !== undefined) this.enabled = progressData.enabled === true;
     this.signalProgress = new Map(Object.entries(progressData.signalProgress || {})
       .map(([key, value]) => [key, Math.max(0, Math.floor(Number(value) || 0))]));
     this.movementOrigins = new Map(Object.entries(progressData.movementOrigins || {})
       .filter(([, value]) => Number.isFinite(value?.x) && Number.isFinite(value?.y)));
-    // 读档只恢复完成与进度事实；恢复行为本身不得重放或激活教程 UI。
-    this.currentTutorial = null;
-    this.currentStepIndex = 0;
-    this.pauseGame = false;
+  }
+
+  /**
+   * 在全部领域状态恢复成功后重投影存档中的当前教程步骤。
+   * 此方法不重放 Trigger，也不会恢复已完成或不属于当前场景的教程。
+   */
+  restorePresentation(progressData, context = {}) {
+    if (!progressData || typeof progressData !== 'object' || !this.enabled) return false;
+    const tutorialId = progressData.currentTutorialId;
+    const tutorial = typeof tutorialId === 'string'
+      ? this.definitionRepository.get(tutorialId)
+      : null;
+    const stepIndex = Number(progressData.currentStepIndex);
+    const normalizedContext = context && typeof context === 'object' ? context : {};
+    const scope = normalizedContext.scope ?? normalizedContext;
+    if (!tutorial || this.completedTutorials.has(tutorialId)
+      || !matchesScope(tutorial, scope)
+      || !Number.isInteger(stepIndex)
+      || stepIndex < 0 || stepIndex >= tutorial.steps.length) return false;
+
+    this.pendingTutorials.length = 0;
+    this.currentTutorial = tutorial;
+    this.pauseGame = tutorial.pauseGame;
+    this.showStep(stepIndex, { ...normalizedContext, restored: true });
+    return this.currentTutorial?.id === tutorialId && this.currentStepIndex === stepIndex;
   }
 
   /**

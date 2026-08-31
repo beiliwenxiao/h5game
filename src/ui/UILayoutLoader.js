@@ -12,6 +12,8 @@
 
 import { PlatformProfile } from '../core/PlatformProfile.js';
 
+const TEXT_LAYOUT_FIELDS = ['fontSize', 'textOffsetX', 'textOffsetY'];
+
 /**
  * UILayoutLoader - UI 布局加载器（框架级）
  *
@@ -71,32 +73,40 @@ export class UILayoutLoader {
   }
 
   /**
-   * 取组件的百分比布局
+   * 取组件的百分比布局及可选文字布局参数。
    * @param {string} id
-   * @returns {{xPct:number,yPct:number,wPct:number,hPct:number}|null}
+   * @returns {{xPct:number,yPct:number,wPct:number,hPct:number,fontSize?:number,textOffsetX?:number,textOffsetY?:number}|null}
    */
   getPct(id) {
     const c = this._map[id];
     if (!c || c.xPct === undefined) return null;
-    return { xPct: c.xPct, yPct: c.yPct, wPct: c.wPct, hPct: c.hPct };
+    const result = { xPct: c.xPct, yPct: c.yPct, wPct: c.wPct, hPct: c.hPct };
+    for (const field of TEXT_LAYOUT_FIELDS) {
+      if (Number.isFinite(c[field])) result[field] = c[field];
+    }
+    return result;
   }
 
   /**
-   * 取组件在给定容器尺寸下的像素矩形
+   * 取组件在给定容器尺寸下的像素矩形，并保留不随容器缩放的文字参数。
    * @param {string} id
    * @param {number} containerW
    * @param {number} containerH
-   * @returns {{x:number,y:number,width:number,height:number}|null}
+   * @returns {{x:number,y:number,width:number,height:number,fontSize?:number,textOffsetX?:number,textOffsetY?:number}|null}
    */
   getRect(id, containerW, containerH) {
     const p = this.getPct(id);
     if (!p) return null;
-    return {
+    const result = {
       x: Math.round(p.xPct * containerW),
       y: Math.round(p.yPct * containerH),
       width: Math.round(p.wPct * containerW),
       height: Math.round(p.hPct * containerH)
     };
+    for (const field of TEXT_LAYOUT_FIELDS) {
+      if (Number.isFinite(p[field])) result[field] = p[field];
+    }
+    return result;
   }
 
   /**

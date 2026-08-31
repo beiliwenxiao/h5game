@@ -211,8 +211,8 @@ function configureSharedClassEffects(gameLoader) {
 function registerGameLoaderActions(triggerSystem) {
   const registered = registerSceneTriggerActions(triggerSystem, {
     spawnPlacements: selector => this.context.services.placements?.spawn(selector),
-    weatherSystem: this.weatherSystem,
-    timeSystem: this.timeSystem,
+    getWeatherSystem: () => this.weatherSystem,
+    getTimeSystem: () => this.timeSystem,
     logger: console
   });
   triggerSystem.registerAction('s01Survival', async (params = {}, _context = {}, event = {}) => {

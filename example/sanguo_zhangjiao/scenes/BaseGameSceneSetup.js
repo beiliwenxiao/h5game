@@ -472,6 +472,13 @@ export class BaseGameSceneSetup extends Scene {
     return { ok: errors.length === 0, errors };
   }
 
+  /** 读档替换表现前清空瞬态队列；不得触发旧提示的完成回调。 */
+  _clearTransientPresentationForRestore() {
+    this._hintPresenter?.clearForRestore?.();
+    this._itemGainedFlow?.cancel?.();
+    this.itemGainedPopup?.hide?.();
+  }
+
   /** 恢复通用状态；调用前应等待世界与 GameLoader 初始化完成。 */
   restoreSaveState(data) {
     const check = this.validateSaveState(data);
@@ -495,6 +502,7 @@ export class BaseGameSceneSetup extends Scene {
 
     const apply = snapshot => {
       try {
+        this._clearTransientPresentationForRestore();
         const result = this._applyValidatedSaveState(snapshot);
         return result?.ok === false ? result : { ok: true, errors: [] };
       } catch (error) {
@@ -597,6 +605,14 @@ export class BaseGameSceneSetup extends Scene {
         }))
       };
     }
+    const tutorialRestored = this.tutorialSystem?.restorePresentation?.(data.tutorial, {
+      scope: { sceneId: this.currentSceneId },
+      source: 'saveRestore'
+    }) === true;
+    if (!tutorialRestored) this._s01s02Coordinator?.projectRestoredProgress?.();
+    this._tutorialFlow?.resetMovementOrigin?.(
+      player.getComponent?.('transform')?.position || null
+    );
     this.bindUIPanelsToPlayer(player, { syncCameraPosition: false, log: false });
     return { ok: true, errors: [] };
   }
@@ -802,6 +818,25 @@ export class BaseGameSceneSetup extends Scene {
       presenter: worldItemEvents,
       onContentEvent: event => this.onApplicationEvent?.(event),
       onAuxiliaryEvent: event => {
+        if (event.type === 'item.gained') {
+          const payload = event.payload || {};
+          const definitionId = payload.definitionId || payload.itemId || payload.item?.id;
+          const definition = definitionId
+            ? this.gameLoader?.getRegistry?.('items')?.get?.(definitionId) || {}
+            : {};
+          const quantity = Math.max(0, Math.floor(Number(payload.quantity) || 0));
+          if (definitionId && quantity > 0) {
+            this.onItemGained({
+              ...definition,
+              ...(payload.item || {}),
+              id: payload.itemId || payload.item?.id || definition.id || definitionId,
+              definitionId,
+              quantity,
+              operationId: event.operationId || null,
+              gainedCommitted: true
+            }, this.playerEntity);
+          }
+        }
         const signal = event.payload?.tutorialSignal
           || (event.type === 'item.picked' ? 'itemPicked' : null);
         if (signal) this._tutorialFlow?.notify?.(signal, {

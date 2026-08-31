@@ -148,6 +148,7 @@ export class CanonicalStateTransactionService {
     const beforeInventory = inventory?.exportItems?.();
     const env = this._environment(blackboard, command.payload || {}, context);
     let inventoryOperation = null;
+    let addedItems = [];
     try {
       const delayed = transaction.delayed;
       if (delayed) {
@@ -188,12 +189,21 @@ export class CanonicalStateTransactionService {
             type: 'batchExchange', inventory, removeEntries, addEntries,
             operationId: `${command.operationId}:inventory`
           });
+          if (inventoryOperation.ok && inventoryOperation.idempotent !== true) {
+            addedItems = addEntries.map(entry => ({ item: clone(entry.item), quantity: entry.quantity }));
+          }
         } else {
           const entries = this._value(inventorySpec.entries || [], env).map(entry => inventorySpec.type === 'batchAdd'
             ? { item: { ...this.getItem(entry.itemId), ...(entry.item || {}) }, quantity: entry.quantity }
             : { itemId: entry.itemId, quantity: entry.quantity });
           inventoryOperation = this.inventoryTransactions.commit({ type: inventorySpec.type, inventory, entries,
             allowPartial: false, operationId: `${command.operationId}:inventory` });
+          if (inventorySpec.type === 'batchAdd' && inventoryOperation.ok && inventoryOperation.idempotent !== true) {
+            addedItems = (inventoryOperation.entries || []).map(entry => ({
+              item: clone(entry.item),
+              quantity: entry.accepted
+            }));
+          }
         }
         if (!inventoryOperation.ok) throw Object.assign(new Error(inventoryOperation.code), { code: inventoryOperation.code });
       }
@@ -228,8 +238,34 @@ export class CanonicalStateTransactionService {
       const result = { ok: true, operationId: command.operationId, status: 'committed', committed: true, code: null,
         stateId, stateRevision: revision.stateRevision, eventFrom: null, eventTo: null, value, error: null };
       const base = { stateId, stateType: this.stateType, stateRevision: revision.stateRevision };
-      return { result, committedEvents: [{ ...base, type: 'state.transaction.committed', payload: value }],
-        applicationEvents: [{ ...base, type: 'state.transaction', payload: value }] };
+      const itemGainEvents = addedItems
+        .filter(entry => entry?.item?.id && Number(entry.quantity) > 0)
+        .map((entry, index) => {
+          const item = clone(entry.item);
+          const definitionId = item.definitionId || item.id;
+          const quantity = Math.max(1, Math.floor(Number(entry.quantity) || 1));
+          return {
+            ...base,
+            type: 'item.gained',
+            payload: {
+              source: 'state.transaction',
+              sourceDefinitionId: definition.id,
+              gainIndex: index,
+              definitionId,
+              itemId: item.id || definitionId,
+              quantity,
+              item: { ...item, definitionId, quantity }
+            }
+          };
+        });
+      return {
+        result,
+        committedEvents: [{ ...base, type: 'state.transaction.committed', payload: value }],
+        applicationEvents: [
+          { ...base, type: 'state.transaction', payload: value },
+          ...itemGainEvents
+        ]
+      };
     } catch (error) {
       if (beforeInventory && inventory?.loadItems) inventory.loadItems(beforeInventory);
       if (inventoryOperation) this.inventoryTransactions?.forgetOperation?.(`${command.operationId}:inventory`);

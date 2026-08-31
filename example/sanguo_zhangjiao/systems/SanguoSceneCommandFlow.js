@@ -121,6 +121,11 @@ const commandMethods = {
     return true;
   },
 
+  /** 手柄/触屏方向攻击先交给 S14 武器席；消费后禁止乘员个人武器重复攻击。 */
+  handleBasicAttackIntent(intent = {}) {
+    return this.s11s14SceneCoordinator.handleBasicAttackIntent(intent) === true;
+  },
+
   canPerformBasicAttack() {
     if (this.s11s14SceneCoordinator.handlePointerBasicAttack()) return false;
     return this.canPerformDefaultBasicAttack() || this._s01s02Coordinator.allowsTutorialBasicAttack();

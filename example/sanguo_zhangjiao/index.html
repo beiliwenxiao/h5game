@@ -905,6 +905,8 @@
         import { AssetManager } from '../../src/core/AssetManager.js';
         import { PlatformProfile } from '../../src/core/PlatformProfile.js';
         import { InputHints } from '../../src/core/input/InputHints.js';
+        import { GamepadManager } from '../../src/core/input/GamepadManager.js';
+        import { PadButton, SETTINGS_ACTION } from '../../src/core/input/Xbox360Profile.js';
         import { DialogueBox } from '../../src/ui/DialogueBox.js';
         import { SkillTreePanel } from '../../src/ui/SkillTreePanel.js';
         import { NotificationSystem } from '../../src/ui/NotificationSystem.js';
@@ -1886,6 +1888,7 @@
         }
 
         function startGameFromSelection(mode, selection) {
+            pauseLoginGamepadPolling();
             closeSavePicker({ restoreFocus: false });
             setLoginMessage('');
             // 加载阶段 sceneManager 尚未稳定，必须先用 Promise 锁阻止第二次初始化。
@@ -1922,10 +1925,12 @@
             menuPadIndex = 0;
             loginScreen.classList.remove('hidden');
             document.getElementById('login-start').focus();
+            resumeLoginGamepadPolling();
         }
 
         function closeSystemMenu() {
             if (!gameStarted) return;
+            pauseLoginGamepadPolling();
             closeSavePicker({ restoreFocus: false });
             loginScreen.classList.add('hidden');
             loginScreen.classList.remove('in-game');
@@ -2032,67 +2037,177 @@
             }
         });
 
-        // 登录层不依赖场景 InputManager：初次启动和暂停状态下也可用手柄选择。
+        // 登录层不依赖活动场景，但复用正式 GamepadManager、Xbox360Profile 与项目绑定配置。
         let menuPadArmed = false;
         let menuPadDirection = 0;
         let menuPadIndex = 0;
-        function pollLoginGamepad() {
-            if (!loginScreen.classList.contains('hidden') && navigator.getGamepads) {
-                const pad = Array.from(navigator.getGamepads()).find(Boolean);
-                if (pad) {
-                    const pressed = index => !!pad.buttons[index]?.pressed;
-                    const direction = pressed(12) || (pad.axes[1] || 0) < -0.55 ? -1
-                        : (pressed(13) || (pad.axes[1] || 0) > 0.55 ? 1 : 0);
-                    const isConfirmingOverwrite = isOverwriteConfirmationOpen();
-                    const isEditingProfile = !isConfirmingOverwrite && isNewGameProfileOpen();
-                    const isPickingSave = !isConfirmingOverwrite && saveSlotsElement.classList.contains('visible');
-                    const active = isConfirmingOverwrite
-                        ? [overwriteConfirmAccept, overwriteConfirmCancel]
-                        : isPickingSave
-                            ? [saveSlotConfirm]
-                            : isEditingProfile
-                                ? [newGameProfileConfirm, newGameProfileCancel]
-                                : Array.from(loginScreen.querySelectorAll('.login-action'))
-                                    .filter(button => button.offsetParent !== null && !button.disabled);
-                    if (!menuPadArmed) {
-                        menuPadArmed = !pressed(0) && !pressed(1) && !pressed(9) && direction === 0;
-                    } else {
-                        if (isPickingSave && direction && direction !== menuPadDirection) {
-                            const options = savePickerEntries.filter(entry => !entry.disabled);
-                            const currentIndex = options.findIndex(entry => entry.value === selectedSaveValue);
-                            const nextIndex = (currentIndex + direction + options.length) % options.length;
-                            selectSaveEntry(options[nextIndex]?.value);
-                        } else if (!isPickingSave && direction && direction !== menuPadDirection && active.length) {
-                            menuPadIndex = (menuPadIndex + direction + active.length) % active.length;
-                            active[menuPadIndex].focus();
-                        }
-                        if (pressed(0) && !pollLoginGamepad.aWasDown) {
-                            if (isConfirmingOverwrite) active[menuPadIndex]?.click();
-                            else if (isPickingSave) void confirmSavePicker();
-                            else active[menuPadIndex]?.click();
-                        }
-                        if ((pressed(1) || pressed(9)) && !pollLoginGamepad.cancelWasDown) {
-                            if (isConfirmingOverwrite) settleOverwriteConfirmation(false);
-                            else if (isPickingSave) closeSavePicker();
-                            else if (isEditingProfile) closeNewGameProfile();
-                            else if (loginScreen.classList.contains('in-game')) closeSystemMenu();
-                        }
-                    }
-                    menuPadDirection = direction;
-                    pollLoginGamepad.aWasDown = pressed(0);
-                    pollLoginGamepad.cancelWasDown = pressed(1) || pressed(9);
-                }
-            } else {
-                menuPadArmed = false;
-                menuPadDirection = 0;
-                pollLoginGamepad.aWasDown = false;
-                pollLoginGamepad.cancelWasDown = false;
-            }
-            requestAnimationFrame(pollLoginGamepad);
+        let loginGamepadManager = null;
+        let loginGamepadRafId = null;
+        let loginGamepadGeneration = 0;
+        let loginGamepadPollingRequested = false;
+        let loginGamepadInitPromise = null;
+        let loginGamepadActionButtons = { confirm: [], cancel: [], settings: [] };
+
+        function refreshLoginGamepadActionButtons() {
+            const bindings = loginGamepadManager?.getBindings?.() || {};
+            const findButtons = action => Object.entries(bindings)
+                .filter(([, boundAction]) => boundAction === action)
+                .map(([index]) => Number(index))
+                .filter(Number.isInteger);
+            loginGamepadActionButtons = {
+                confirm: findButtons('e'),
+                cancel: findButtons('escape'),
+                settings: findButtons(SETTINGS_ACTION)
+            };
         }
-        requestAnimationFrame(pollLoginGamepad);
+
+        function resetLoginGamepadNavigation() {
+            menuPadArmed = false;
+            menuPadDirection = 0;
+        }
+
+        function isAnyMenuButtonDown(indices) {
+            return indices.some(index => loginGamepadManager?.isButtonDown(index));
+        }
+
+        function isAnyMenuButtonPressed(indices) {
+            return indices.some(index => loginGamepadManager?.isButtonPressed(index));
+        }
+
+        function scheduleLoginGamepadPoll() {
+            if (!loginGamepadPollingRequested || !loginGamepadManager || loginGamepadRafId !== null) return;
+            const generation = loginGamepadGeneration;
+            loginGamepadRafId = requestAnimationFrame(() => pollLoginGamepad(generation));
+        }
+
+        function pollLoginGamepad(generation) {
+            loginGamepadRafId = null;
+            if (generation !== loginGamepadGeneration || !loginGamepadPollingRequested || !loginGamepadManager) return;
+
+            const connected = loginGamepadManager.poll();
+            if (!loginScreen.classList.contains('hidden') && connected) {
+                const move = loginGamepadManager.getMoveVector();
+                const direction = move.y < 0 ? -1 : (move.y > 0 ? 1 : 0);
+                const confirmDown = isAnyMenuButtonDown(loginGamepadActionButtons.confirm);
+                const cancelDown = loginGamepadManager.isButtonDown(PadButton.B)
+                    || isAnyMenuButtonDown(loginGamepadActionButtons.cancel)
+                    || isAnyMenuButtonDown(loginGamepadActionButtons.settings);
+                const isConfirmingOverwrite = isOverwriteConfirmationOpen();
+                const isEditingProfile = !isConfirmingOverwrite && isNewGameProfileOpen();
+                const isPickingSave = !isConfirmingOverwrite && saveSlotsElement.classList.contains('visible');
+                const active = isConfirmingOverwrite
+                    ? [overwriteConfirmAccept, overwriteConfirmCancel]
+                    : isPickingSave
+                        ? [saveSlotConfirm]
+                        : isEditingProfile
+                            ? [newGameProfileConfirm, newGameProfileCancel]
+                            : Array.from(loginScreen.querySelectorAll('.login-action'))
+                                .filter(button => button.offsetParent !== null && !button.disabled);
+
+                if (!menuPadArmed) {
+                    menuPadArmed = !confirmDown && !cancelDown && direction === 0;
+                } else {
+                    if (active.length > 0) menuPadIndex = Math.min(menuPadIndex, active.length - 1);
+                    else menuPadIndex = 0;
+
+                    if (isPickingSave && direction && direction !== menuPadDirection) {
+                        const options = savePickerEntries.filter(entry => !entry.disabled);
+                        if (options.length > 0) {
+                            const currentIndex = options.findIndex(entry => entry.value === selectedSaveValue);
+                            const baseIndex = currentIndex >= 0 ? currentIndex : 0;
+                            const nextIndex = (baseIndex + direction + options.length) % options.length;
+                            selectSaveEntry(options[nextIndex]?.value);
+                        }
+                    } else if (!isPickingSave && direction && direction !== menuPadDirection && active.length) {
+                        menuPadIndex = (menuPadIndex + direction + active.length) % active.length;
+                        active[menuPadIndex].focus();
+                    }
+
+                    if (isAnyMenuButtonPressed(loginGamepadActionButtons.confirm)) {
+                        if (isConfirmingOverwrite) active[menuPadIndex]?.click();
+                        else if (isPickingSave) void confirmSavePicker();
+                        else active[menuPadIndex]?.click();
+                    }
+
+                    const cancelPressed = loginGamepadManager.isButtonPressed(PadButton.B)
+                        || isAnyMenuButtonPressed(loginGamepadActionButtons.cancel)
+                        || isAnyMenuButtonPressed(loginGamepadActionButtons.settings);
+                    if (cancelPressed) {
+                        if (isConfirmingOverwrite) settleOverwriteConfirmation(false);
+                        else if (isPickingSave) closeSavePicker();
+                        else if (isEditingProfile) closeNewGameProfile();
+                        else if (loginScreen.classList.contains('in-game')) closeSystemMenu();
+                    }
+                }
+                menuPadDirection = direction;
+            } else {
+                resetLoginGamepadNavigation();
+            }
+            scheduleLoginGamepadPoll();
+        }
+
+        async function initializeLoginGamepad() {
+            if (loginGamepadManager) return loginGamepadManager;
+            if (loginGamepadInitPromise) return loginGamepadInitPromise;
+            const generation = loginGamepadGeneration;
+            const manager = new GamepadManager();
+            const pending = (async () => {
+                try {
+                    const response = await fetch('./config/gamepad.json');
+                    if (response.ok) manager.applyConfig(await response.json());
+                    else console.warn('登录页手柄配置加载失败', { status: response.status });
+                } catch (error) {
+                    console.warn('登录页手柄配置加载失败，沿用框架默认绑定', error);
+                }
+                if (generation !== loginGamepadGeneration) {
+                    manager.destroy();
+                    return null;
+                }
+                loginGamepadManager = manager;
+                refreshLoginGamepadActionButtons();
+                scheduleLoginGamepadPoll();
+                return manager;
+            })();
+            loginGamepadInitPromise = pending;
+            try {
+                return await pending;
+            } finally {
+                if (loginGamepadInitPromise === pending) loginGamepadInitPromise = null;
+            }
+        }
+
+        function resumeLoginGamepadPolling() {
+            loginGamepadPollingRequested = true;
+            if (!loginGamepadManager) void initializeLoginGamepad();
+            else scheduleLoginGamepadPoll();
+        }
+
+        function pauseLoginGamepadPolling() {
+            loginGamepadPollingRequested = false;
+            if (loginGamepadRafId !== null) cancelAnimationFrame(loginGamepadRafId);
+            loginGamepadRafId = null;
+            resetLoginGamepadNavigation();
+        }
+
+        function destroyLoginGamepad() {
+            loginGamepadGeneration += 1;
+            pauseLoginGamepadPolling();
+            loginGamepadManager?.destroy();
+            loginGamepadManager = null;
+            loginGamepadActionButtons = { confirm: [], cancel: [], settings: [] };
+        }
+
+        void initializeLoginGamepad();
         globalThis.__openSystemMenu = openSystemMenu;
-        window.addEventListener('pagehide', () => { void autoSaveCurrentGame({ reason: 'pagehide' }); });
+        window.addEventListener('pagehide', () => {
+            destroyLoginGamepad();
+            void autoSaveCurrentGame({ reason: 'pagehide' });
+        });
+        window.addEventListener('pageshow', event => {
+            if (!event.persisted) return;
+            if (!loginScreen.classList.contains('hidden')) resumeLoginGamepadPolling();
+            else void initializeLoginGamepad();
+        });
 
         async function bootGameMenu() {
             const project = await loadProjectConfig();

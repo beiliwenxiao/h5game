@@ -7,6 +7,8 @@ const REFUEL_DURATION_SECONDS = 1;
 const CHASE_WOLF_PREFIX = 'S01-chase-wolf-';
 const MAX_CHASE_WOLVES = 20;
 const PURSUIT_RECONCILE_INTERVAL_SECONDS = 0.75;
+const FIRST_WOLF_CORPSE_RETRY_INTERVAL_SECONDS = 0.1;
+const FIRST_WOLF_CORPSE_MAX_ATTEMPTS = 30;
 
 /** P1.1/P1.3 S01 生存流程协调器；领域写入统一提交 canonical command。 */
 export class S01S02Coordinator {
@@ -26,7 +28,12 @@ export class S01S02Coordinator {
     this.pendingPlacementReveals = new Map();
     this.pendingRevealRetryElapsed = 0;
     this.pendingRevealRetryInFlight = false;
+    this.s01TimePhaseInitialized = false;
     this.s01WeatherPhaseInitialized = false;
+    this.s01TimePauseOwned = false;
+    this.firstWolfCorpsePending = null;
+    this.firstWolfCorpseRetryElapsed = 0;
+    this.firstWolfCorpseRetryInFlight = false;
   }
 
   _story() {
@@ -80,13 +87,95 @@ export class S01S02Coordinator {
     return true;
   }
 
-  _applyS01WeatherPhase(survival = this._story().s01Survival || {}, { force = false } = {}) {
-    if (this.scene.currentSceneId !== 'S01' || (this.s01WeatherPhaseInitialized && !force)) return false;
-    const overnightCompleted = survival.overnightCompleted === true;
-    this.scene.timeSystem?.setTimePeriod?.(overnightCompleted ? 'morning' : 'night');
-    this.scene.weatherSystem?.setWeather?.(overnightCompleted ? 'clear' : 'heavyFog', { immediate: true });
-    this.s01WeatherPhaseInitialized = true;
+  _releaseS01TimePause() {
+    if (!this.s01TimePauseOwned) return false;
+    if (this.scene.timeSystem?.paused === true) this.scene.timeSystem.setPaused(false);
+    this.s01TimePauseOwned = false;
     return true;
+  }
+
+  _resetS01AtmosphereProjection() {
+    this._releaseS01TimePause();
+    this.s01TimePhaseInitialized = false;
+    this.s01WeatherPhaseInitialized = false;
+  }
+
+  _applyS01WeatherPhase(survival = this._story().s01Survival || {}, { force = false } = {}) {
+    if (this.scene.currentSceneId !== 'S01') return false;
+    const applyTime = force || !this.s01TimePhaseInitialized;
+    const applyWeather = force || !this.s01WeatherPhaseInitialized;
+    if (!applyTime && !applyWeather) return false;
+
+    const overnightCompleted = survival.overnightCompleted === true;
+    let applied = false;
+    if (applyTime && this.scene.timeSystem?.setTimePeriod) {
+      const periodApplied = this.scene.timeSystem.setTimePeriod(overnightCompleted ? 'morning' : 'dusk');
+      if (periodApplied !== false) {
+        // S01 拥有这次暂停：默认黄昏（过夜后为上午）不会自然漂移，
+        // setTimePeriod 仍可由代码或 Trigger 显式改期；离开 S01 时释放暂停。
+        this.scene.timeSystem.setPaused?.(true);
+        this.s01TimePauseOwned = true;
+        this.s01TimePhaseInitialized = true;
+        applied = true;
+      }
+    }
+    if (applyWeather && this.scene.weatherSystem?.setWeather) {
+      const weatherApplied = this.scene.weatherSystem.setWeather(
+        overnightCompleted ? 'clear' : 'heavyFog',
+        { immediate: true }
+      );
+      if (weatherApplied !== false) {
+        this.s01WeatherPhaseInitialized = true;
+        applied = true;
+      }
+    }
+    return applied;
+  }
+
+  /** 读档后接管 S01 氛围；有合法快照时保留其时刻与天气，只重建暂停所有权。 */
+  projectRestoredAtmosphere({ hasTimeState = false, hasWeatherState = false } = {}) {
+    // 旧所有权属于被替换状态，不能在反序列化之后再 release，否则会篡改存档 paused。
+    this.s01TimePauseOwned = false;
+    this.s01TimePhaseInitialized = false;
+    this.s01WeatherPhaseInitialized = false;
+    if (this.scene.currentSceneId !== 'S01') return false;
+
+    if (hasTimeState && this.scene.timeSystem) {
+      this.scene.timeSystem.setPaused?.(true);
+      this.s01TimePauseOwned = true;
+      this.s01TimePhaseInitialized = true;
+    }
+    if (hasWeatherState && this.scene.weatherSystem) {
+      this.s01WeatherPhaseInitialized = true;
+    }
+    this._applyS01WeatherPhase(this._story().s01Survival || {});
+    return true;
+  }
+
+  _deriveRestoredTutorialId(survival = this._story().s01Survival || {}) {
+    if (survival.pursuit?.active === true) {
+      return survival.riverCrossed === true ? 's01.capacity' : 's01.jump';
+    }
+    if (survival.firstWolfKilled === true && survival.wolfSkinned !== true) return 's01.durability';
+    if (survival.firstWolfSpotted === true && survival.firstWolfKilled !== true) return 's01.attack';
+    if (survival.berriesGathered === true && survival.woodGathered !== true) return 's01.chopWood';
+    if (survival.initialToolsPicked === true && survival.berriesGathered !== true) return 's01.gather';
+    if (survival.campfireLit === true && survival.initialToolsPicked !== true) return 's01.pickup';
+    if (survival.campfireLit !== true) return 's01.move';
+    return null;
+  }
+
+  /** 存档没有可恢复的活动教程时，仅按已提交 StoryState 投影当前目标，不重放 Trigger。 */
+  projectRestoredProgress() {
+    if (this.scene.currentSceneId !== 'S01' || this.scene.tutorialSystem?.getCurrentTutorial?.()) return false;
+    const tutorialId = this._deriveRestoredTutorialId();
+    if (!tutorialId || this.scene._tutorialFlow?.isCompleted?.(tutorialId) === true) return false;
+    const shown = this.scene._tutorialFlow?.show?.(tutorialId, {
+      restored: true,
+      derivedFromStory: true
+    }) === true;
+    if (shown) console.log('[S01S02Coordinator] 已按存档 StoryState 重投影当前目标', tutorialId);
+    return shown;
   }
 
   _activateWolf(wolf) {
@@ -521,31 +610,119 @@ export class S01S02Coordinator {
     return false;
   }
 
+  _captureFirstWolfCorpse(entity) {
+    const corpses = this.scene.context.services.corpses || this.scene.corpseRuntime;
+    const corpse = corpses?.capture?.(entity);
+    const position = corpse?.position;
+    const resourceNode = entity?.getComponent?.('resourceNode');
+    if (corpse?.kind !== 'corpse'
+      || !Number.isFinite(position?.x) || !Number.isFinite(position?.y)
+      || !corpse.resourceNode || !resourceNode) return null;
+    return corpse;
+  }
+
+  _publishEnemyKilled(entity, enemyRole, corpseReady) {
+    return this.scene.publishApplicationEvent('enemy.killed', {
+      entityId: entity.id,
+      enemyRole,
+      corpseReady: corpseReady === true
+    }, {
+      operationId: `application:enemy.killed:${entity.id}`,
+      sceneId: 'S01'
+    });
+  }
+
+  _queueFirstWolfCorpseCommit(entity) {
+    if (!entity?.id) return false;
+    if (!this.firstWolfCorpsePending) {
+      this.firstWolfCorpsePending = { entity, entityId: entity.id, attempts: 0 };
+      this.firstWolfCorpseRetryElapsed = 0;
+      console.warn('[S01S02Coordinator] 首狼尸体或采集节点尚未完整成立，等待有界补偿', {
+        entityId: entity.id,
+        maxAttempts: FIRST_WOLF_CORPSE_MAX_ATTEMPTS
+      });
+    } else {
+      this.firstWolfCorpsePending.entity = entity;
+    }
+    return true;
+  }
+
+  async _publishFirstWolfKillWhenReady(entity) {
+    if (this._story().s01Survival?.firstWolfKilled === true) {
+      this.firstWolfCorpsePending = null;
+      return true;
+    }
+    const corpse = this._captureFirstWolfCorpse(entity);
+    if (!corpse) return false;
+    const published = await this._publishEnemyKilled(entity, 'firstWolf', true);
+    if (published?.ok === true) this.firstWolfCorpsePending = null;
+    return published?.ok === true;
+  }
+
+  _updateFirstWolfCorpseCommit(deltaTime) {
+    const pending = this.firstWolfCorpsePending;
+    if (!pending || pending.exhausted === true || this.firstWolfCorpseRetryInFlight) return;
+    if (this._story().s01Survival?.firstWolfKilled === true) {
+      this.firstWolfCorpsePending = null;
+      return;
+    }
+    this.firstWolfCorpseRetryElapsed += Math.max(0, Number(deltaTime) || 0);
+    if (this.firstWolfCorpseRetryElapsed < FIRST_WOLF_CORPSE_RETRY_INTERVAL_SECONDS) return;
+    this.firstWolfCorpseRetryElapsed = 0;
+    if (pending.attempts >= FIRST_WOLF_CORPSE_MAX_ATTEMPTS) {
+      console.error('[S01S02Coordinator] 首狼可采集尸体补偿已达上限，拒绝提交击杀剧情', {
+        entityId: pending.entityId,
+        attempts: pending.attempts
+      });
+      pending.exhausted = true;
+      return;
+    }
+
+    pending.attempts += 1;
+    const entity = this.scene.entityStore?.getById?.(pending.entityId) || pending.entity;
+    this.firstWolfCorpseRetryInFlight = true;
+    void this._publishFirstWolfKillWhenReady(entity).then(committed => {
+      if (committed || this.firstWolfCorpsePending !== pending) return;
+      if (pending.attempts >= FIRST_WOLF_CORPSE_MAX_ATTEMPTS) {
+        console.error('[S01S02Coordinator] 首狼尸体始终未形成有效采集节点，剧情保持未提交', {
+          entityId: pending.entityId,
+          attempts: pending.attempts
+        });
+        pending.exhausted = true;
+      }
+    }).catch(error => {
+      console.warn('[S01S02Coordinator] 首狼尸体击杀事实补偿失败', {
+        entityId: pending.entityId,
+        attempt: pending.attempts,
+        error
+      });
+    }).finally(() => {
+      this.firstWolfCorpseRetryInFlight = false;
+    });
+  }
+
   async handleEnemyKilled(entity) {
     if (this.scene.currentSceneId !== 'S01' || !entity?.id) return false;
     const isChaseWolf = entity.id.startsWith(CHASE_WOLF_PREFIX);
     const isFirstWolf = entity.id === 'S01-first-wolf-1';
     if (!isChaseWolf && !isFirstWolf) return false;
-    // 尸体采集节点未成立时仍发布击杀事实（corpseReady=false）：
-    // 任务链不能因尸体状态被静默中断；剥皮触发器在尸体可用时才会结算。
-    let corpseReady = false;
-    if (isFirstWolf) {
-      const corpses = this.scene.context.services.corpses || this.scene.corpseRuntime;
-      const corpse = corpses?.capture?.(entity);
-      corpseReady = Boolean(corpse) && Boolean(entity.getComponent?.('resourceNode'));
-      if (!corpseReady) {
-        console.warn('[S01S02Coordinator] 首狼尸体采集节点未就绪，先发布击杀事实（corpseReady=false）');
-      }
+    if (isChaseWolf) {
+      const published = await this._publishEnemyKilled(entity, 'chaseWolf', false);
+      return published?.ok === true;
     }
-    const published = await this.scene.publishApplicationEvent('enemy.killed', {
-      entityId: entity.id,
-      enemyRole: isFirstWolf ? 'firstWolf' : 'chaseWolf',
-      corpseReady
-    }, {
-      operationId: `application:enemy.killed:${entity.id}`,
-      sceneId: 'S01'
-    });
-    return published?.ok === true;
+
+    if (this.firstWolfCorpseRetryInFlight) {
+      this._queueFirstWolfCorpseCommit(entity);
+      return true;
+    }
+    this.firstWolfCorpseRetryInFlight = true;
+    try {
+      if (await this._publishFirstWolfKillWhenReady(entity)) return true;
+      this._queueFirstWolfCorpseCommit(entity);
+      return true;
+    } finally {
+      this.firstWolfCorpseRetryInFlight = false;
+    }
   }
 
   async handleConstructionEvent(event, data = {}) {
@@ -985,6 +1162,9 @@ export class S01S02Coordinator {
 
   update(deltaTime) {
     if (this.scene.currentSceneId !== 'S01') {
+      if (this.s01TimePhaseInitialized || this.s01WeatherPhaseInitialized || this.s01TimePauseOwned) {
+        this._resetS01AtmosphereProjection();
+      }
       const session = this.refuelCampfireProgress;
       if (session && !session.committing) {
         this._showRefuelProgress('interrupted', 0, session.actor);
@@ -997,6 +1177,7 @@ export class S01S02Coordinator {
     this._updateRefuelProgress(dt);
     const survival = this._story().s01Survival || {};
     this._applyS01WeatherPhase(survival);
+    this._updateFirstWolfCorpseCommit(dt);
     if (survival.pursuit?.active === true) {
       this.pursuitReconcileElapsed += dt;
       if (this.pursuitReconcileElapsed >= PURSUIT_RECONCILE_INTERVAL_SECONDS
@@ -1024,7 +1205,8 @@ export class S01S02Coordinator {
     }
     if (survival.firstWolfSpotted === true && survival.firstWolfKilled !== true) {
       const firstWolf = this.scene.entityStore?.getById?.('S01-first-wolf-1');
-      if (firstWolf) this._activateFirstWolf(firstWolf);
+      if (firstWolf?.isCorpse === true) this._queueFirstWolfCorpseCommit(firstWolf);
+      else if (firstWolf) this._activateFirstWolf(firstWolf);
       else if (!this.pendingWolfDiscovery && !this.pendingPlacementReveals.has('S01-first-wolf-1')) {
         void this._ensureFirstWolfFromCommittedState().catch(error => {
           console.warn('[S01S02Coordinator] 已提交首狼事实的表现恢复失败', error);

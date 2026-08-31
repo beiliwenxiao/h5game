@@ -260,16 +260,19 @@
         }
         
         function openDemo() {
-            const url = `./example/sanguo_zhangjiao/index.html?mode=${currentMode}`;
-            window.open(url, '_blank');
+            const url = new URL('/example/sanguo_zhangjiao/index.html', window.location.origin);
+            url.searchParams.set('mode', currentMode);
+            window.open(url.href, '_blank');
         }
         
         function openDemo3D() {
-            window.open('./example/sanguo_zhangjiao_3d/index.html', '_blank');
+            const url = new URL('/example/sanguo_zhangjiao_3d/index.html', window.location.origin);
+            window.open(url.href, '_blank');
         }
         
         function openEditor() {
-            window.open('./editor/index.html', '_blank');
+            const url = new URL('/editor/index.html', window.location.origin);
+            window.open(url.href, '_blank');
         }
     </script>
 </body>

@@ -148,6 +148,7 @@ function validateCanonicalChangeSet(repoRoot, projectPath, changes) {
 export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {}) {
   const root = path.resolve(repoRoot || '.');
   const projects = allowedProjectPaths.map(normalizeRelative);
+  const sceneRoots = projects.map(projectPath => path.resolve(root, canonicalInfo(projectPath).sceneRoot));
   const adapter = new AtomicDiskAdapter({ repositoryRoot: root });
   let recovery = null;
 
@@ -156,6 +157,90 @@ export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {})
     apply: 'serve',
     configureServer(server) {
       recovery = recovery || adapter.initialize();
+      const notifiedRevisions = new Map();
+      const sceneCommitEvent = 'yijian18:canonical-scene-commit';
+      const canonicalSceneId = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
+      const logger = server.config?.logger || console;
+      const resolveSceneCommit = filePath => {
+        const absolutePath = path.resolve(String(filePath || ''));
+        const relativePath = normalizeRelative(path.relative(root, absolutePath));
+        for (const projectPath of projects) {
+          const info = canonicalInfo(projectPath);
+          if (!relativePath.startsWith(info.sceneRoot)) continue;
+          const fileName = relativePath.slice(info.sceneRoot.length);
+          if (!fileName || fileName.includes('/') || !fileName.endsWith('.json') || fileName.startsWith('_')) continue;
+          const sceneId = fileName.slice(0, -'.json'.length);
+          if (!canonicalSceneId.test(sceneId)) continue;
+          return {
+            absolutePath,
+            relativePath,
+            projectPath: info.projectPath,
+            gameId: path.posix.basename(info.projectRoot),
+            sceneId
+          };
+        }
+        return null;
+      };
+      // watcher.add() 可能为已有文件补发 add；先记录启动基线，避免服务器启动时误报全部场景。
+      for (const sceneRoot of sceneRoots) {
+        try {
+          for (const fileName of fs.readdirSync(sceneRoot)) {
+            const commit = resolveSceneCommit(path.join(sceneRoot, fileName));
+            if (!commit) continue;
+            const stat = fs.statSync(commit.absolutePath);
+            if (stat.isFile()) notifiedRevisions.set(commit.relativePath, `${stat.mtimeMs}:${stat.size}`);
+          }
+        } catch (error) {
+          logger.warn(`[EditorFileApiPlugin][CanonicalHotSync] baselineFailed=${error?.message || error}`);
+        }
+      }
+      const notifySceneCommit = (filePath, source = 'transaction') => {
+        const commit = resolveSceneCommit(filePath);
+        if (!commit) return false;
+        let stat;
+        try {
+          stat = fs.statSync(commit.absolutePath);
+          if (!stat.isFile()) return false;
+        } catch (error) {
+          logger.warn(`[EditorFileApiPlugin][CanonicalHotSync] source=${source} sceneId=${commit.sceneId} statFailed=${error?.message || error}`);
+          return false;
+        }
+        const revision = `${stat.mtimeMs}:${stat.size}`;
+        if (notifiedRevisions.get(commit.relativePath) === revision) {
+          logger.info(`[EditorFileApiPlugin][CanonicalHotSync] source=${source} sceneId=${commit.sceneId} revision=${revision} wsSent=false duplicate=true`);
+          return false;
+        }
+        try {
+          server.ws.send({
+            type: 'custom',
+            event: sceneCommitEvent,
+            data: {
+              gameId: commit.gameId,
+              projectPath: commit.projectPath,
+              sceneId: commit.sceneId,
+              revision,
+              ts: Date.now()
+            }
+          });
+          notifiedRevisions.set(commit.relativePath, revision);
+          logger.info(`[EditorFileApiPlugin][CanonicalHotSync] source=${source} sceneId=${commit.sceneId} revision=${revision} wsSent=true`);
+          return true;
+        } catch (error) {
+          logger.warn(`[EditorFileApiPlugin][CanonicalHotSync] source=${source} sceneId=${commit.sceneId} revision=${revision} wsSent=false error=${error?.message || error}`);
+          return false;
+        }
+      };
+      const handleCanonicalAdd = filePath => { notifySceneCommit(filePath, 'add'); };
+      const handleCanonicalChange = filePath => { notifySceneCommit(filePath, 'change'); };
+      server.watcher.add(sceneRoots);
+      server.watcher.on('add', handleCanonicalAdd);
+      server.watcher.on('change', handleCanonicalChange);
+      server.httpServer?.once('close', () => {
+        server.watcher.off('add', handleCanonicalAdd);
+        server.watcher.off('change', handleCanonicalChange);
+        notifiedRevisions.clear();
+      });
+
       server.middlewares.use(async (req, res, next) => {
         try {
           if (req.method === 'POST' && req.url === '/api/canonical-transaction') {
@@ -169,6 +254,11 @@ export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {})
             const validated = validateCanonicalChangeSet(root, projectPath, body.changes);
             const result = await adapter.commit(validated.changes);
             if (!result.ok) return reply(res, 500, { ...result, error: result.error?.message || '磁盘提交失败' });
+            for (const change of validated.changes) {
+              if (change.operation === 'delete') continue;
+              const target = normalizeRelative(change.path || change.to);
+              if (target) notifySceneCommit(path.resolve(root, target));
+            }
             return reply(res, 200, result);
           }
 

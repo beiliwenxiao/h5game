@@ -50,7 +50,7 @@ export class WeatherSystem {
   }
 
   setWeather(type, options = {}) {
-    if (!this.weatherDefs[type]) return;
+    if (!this.weatherDefs[type]) return false;
     this.targetWeather = type;
     this.transitionProgress = 0;
     this._particles.length = 0;
@@ -59,6 +59,7 @@ export class WeatherSystem {
       this.currentWeather = type;
       this.transitionProgress = 1;
     }
+    return true;
   }
 
   setDebugWeatherOverride(type) {
@@ -99,6 +100,49 @@ export class WeatherSystem {
     const tar = this.weatherDefs[this.targetWeather] || {};
     const t = this.transitionProgress;
     return (cur.fogAdd || 0) * (1 - t) + (tar.fogAdd || 0) * t;
+  }
+
+  /** 只保存天气业务表现状态；粒子、闪电和调试覆盖均为可重建瞬态。 */
+  serialize() {
+    return {
+      currentWeather: this.currentWeather,
+      targetWeather: this.targetWeather,
+      transitionProgress: this.transitionProgress,
+      regions: this.regions.map(region => ({ id: region.id, weather: region.weather }))
+    };
+  }
+
+  /** 原子恢复天气状态；非法快照不修改当前天气。 */
+  deserialize(data = {}) {
+    if (!data || typeof data !== 'object') return false;
+    const isWeather = value => value === null
+      || (typeof value === 'string' && Object.prototype.hasOwnProperty.call(this.weatherDefs, value));
+    const currentWeather = data.currentWeather ?? null;
+    const targetWeather = data.targetWeather ?? null;
+    const transitionProgress = Number(data.transitionProgress);
+    const regions = data.regions ?? [];
+    if (!isWeather(currentWeather) || !isWeather(targetWeather)
+      || !Number.isFinite(transitionProgress) || transitionProgress < 0 || transitionProgress > 1
+      || !Array.isArray(regions)) return false;
+
+    const restoredRegions = [];
+    for (const region of regions) {
+      if (typeof region?.id !== 'string' || !region.id || !isWeather(region.weather ?? null)) return false;
+      restoredRegions.push({ id: region.id, weather: region.weather ?? null });
+    }
+
+    this.currentWeather = currentWeather;
+    this.targetWeather = targetWeather;
+    this.transitionProgress = transitionProgress;
+    this.regions = restoredRegions;
+    this._particles.length = 0;
+    this._fogClouds.length = 0;
+    this._sunbeams.length = 0;
+    this._lightningTimer = 0;
+    this._lightningFlash = 0;
+    this._sunbeamTimer = 0;
+    this._time = 0;
+    return true;
   }
 
   update(deltaTime) {

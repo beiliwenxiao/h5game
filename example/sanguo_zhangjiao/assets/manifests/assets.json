@@ -3604,6 +3604,81 @@
       "assetId": "s01.environment.cliffVine", "imageId": "s01.environment.cliffVine", "category": "environment-module", "usage": ["S01", "climb", "exit"],
       "sourceFile": "assets/images/s01/cliff-vine.svg", "runtime2D": { "path": "assets/images/s01/cliff-vine.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.environment.cliffVine" },
       "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 92, "height": 170 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.resource.wood", "imageId": "inventory.resource.wood", "category": "inventory-icon", "usage": ["inventory", "resource", "wood"],
+      "sourceFile": "assets/images/items/resource-wood.svg", "runtime2D": { "path": "assets/images/items/resource-wood.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.resource.wood" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.resource.herb", "imageId": "inventory.resource.herb", "category": "inventory-icon", "usage": ["inventory", "resource", "herb"],
+      "sourceFile": "assets/images/items/resource-herb.svg", "runtime2D": { "path": "assets/images/items/resource-herb.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.resource.herb" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.resource.food", "imageId": "inventory.resource.food", "category": "inventory-icon", "usage": ["inventory", "resource", "food"],
+      "sourceFile": "assets/images/items/resource-food.svg", "runtime2D": { "path": "assets/images/items/resource-food.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.resource.food" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.resource.iron", "imageId": "inventory.resource.iron", "category": "inventory-icon", "usage": ["inventory", "resource", "iron"],
+      "sourceFile": "assets/images/items/resource-iron.svg", "runtime2D": { "path": "assets/images/items/resource-iron.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.resource.iron" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.salvage.tornCloth", "imageId": "inventory.salvage.tornCloth", "category": "inventory-icon", "usage": ["inventory", "salvage", "cloth"],
+      "sourceFile": "assets/images/items/salvage-torn-cloth.svg", "runtime2D": { "path": "assets/images/items/salvage-torn-cloth.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.salvage.tornCloth" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.salvage.brokenUtensil", "imageId": "inventory.salvage.brokenUtensil", "category": "inventory-icon", "usage": ["inventory", "salvage", "utensil"],
+      "sourceFile": "assets/images/items/salvage-broken-utensil.svg", "runtime2D": { "path": "assets/images/items/salvage-broken-utensil.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.salvage.brokenUtensil" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.ironSword", "imageId": "inventory.equipment.ironSword", "category": "inventory-icon", "usage": ["inventory", "equipment", "weapon"],
+      "sourceFile": "assets/images/items/equipment-iron-sword.svg", "runtime2D": { "path": "assets/images/items/equipment-iron-sword.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.ironSword" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.leatherArmor", "imageId": "inventory.equipment.leatherArmor", "category": "inventory-icon", "usage": ["inventory", "equipment", "armor"],
+      "sourceFile": "assets/images/items/equipment-leather-armor.svg", "runtime2D": { "path": "assets/images/items/equipment-leather-armor.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.leatherArmor" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.woodenShield", "imageId": "inventory.equipment.woodenShield", "category": "inventory-icon", "usage": ["inventory", "equipment", "shield"],
+      "sourceFile": "assets/images/items/equipment-wooden-shield.svg", "runtime2D": { "path": "assets/images/items/equipment-wooden-shield.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.woodenShield" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.shortBow", "imageId": "inventory.equipment.shortBow", "category": "inventory-icon", "usage": ["inventory", "equipment", "weapon", "archer"],
+      "sourceFile": "assets/images/items/equipment-short-bow.svg", "runtime2D": { "path": "assets/images/items/equipment-short-bow.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.shortBow" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.leatherVest", "imageId": "inventory.equipment.leatherVest", "category": "inventory-icon", "usage": ["inventory", "equipment", "armor", "archer"],
+      "sourceFile": "assets/images/items/equipment-leather-vest.svg", "runtime2D": { "path": "assets/images/items/equipment-leather-vest.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.leatherVest" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.woodenArrow", "imageId": "inventory.equipment.woodenArrow", "category": "inventory-icon", "usage": ["inventory", "equipment", "ammo", "archer"],
+      "sourceFile": "assets/images/items/equipment-wooden-arrow.svg", "runtime2D": { "path": "assets/images/items/equipment-wooden-arrow.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.woodenArrow" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.talismanStaff", "imageId": "inventory.equipment.talismanStaff", "category": "inventory-icon", "usage": ["inventory", "equipment", "weapon", "strategist"],
+      "sourceFile": "assets/images/items/equipment-talisman-staff.svg", "runtime2D": { "path": "assets/images/items/equipment-talisman-staff.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.talismanStaff" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.strategistRobe", "imageId": "inventory.equipment.strategistRobe", "category": "inventory-icon", "usage": ["inventory", "equipment", "armor", "strategist"],
+      "sourceFile": "assets/images/items/equipment-strategist-robe.svg", "runtime2D": { "path": "assets/images/items/equipment-strategist-robe.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.strategistRobe" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "inventory.equipment.talisman", "imageId": "inventory.equipment.talisman", "category": "inventory-icon", "usage": ["inventory", "equipment", "accessory", "strategist"],
+      "sourceFile": "assets/images/items/equipment-talisman.svg", "runtime2D": { "path": "assets/images/items/equipment-talisman.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.talisman" },
+      "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
     }
   ]
 }

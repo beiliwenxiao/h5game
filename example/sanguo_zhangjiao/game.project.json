@@ -4029,11 +4029,12 @@
         ]
       },
       "id": "trg_s01_first_wolf_killed",
-      "name": "教学狼死亡：提交首狼击杀事实（尸体未就绪时也提交，任务链不中断）",
+      "name": "教学狼形成可采集尸体：提交首狼击杀事实",
       "once": false,
       "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
+          "corpseReady": true,
           "enemyRole": "firstWolf"
         },
         "type": "enemy.killed"
@@ -6265,28 +6266,48 @@
         "id": "resource.wood",
         "name": "木材",
         "type": "material",
+        "imageId": "inventory.resource.wood",
         "maxStack": 99,
+        "sprite": {
+          "height": 40,
+          "width": 40
+        },
         "subType": "wood"
       },
       {
         "id": "resource.herb",
         "name": "草药",
         "type": "material",
+        "imageId": "inventory.resource.herb",
         "maxStack": 99,
+        "sprite": {
+          "height": 40,
+          "width": 40
+        },
         "subType": "herb"
       },
       {
         "id": "resource.food",
         "name": "粮食",
         "type": "material",
+        "imageId": "inventory.resource.food",
         "maxStack": 99,
+        "sprite": {
+          "height": 40,
+          "width": 40
+        },
         "subType": "food"
       },
       {
         "id": "resource.iron",
         "name": "铁料",
         "type": "material",
+        "imageId": "inventory.resource.iron",
         "maxStack": 99,
+        "sprite": {
+          "height": 40,
+          "width": 40
+        },
         "subType": "iron"
       },
       {
@@ -6672,14 +6693,24 @@
         "id": "salvage.torn_cloth",
         "name": "破损帐布",
         "type": "material",
+        "imageId": "inventory.salvage.tornCloth",
         "maxStack": 1,
+        "sprite": {
+          "height": 44,
+          "width": 44
+        },
         "subType": "salvage"
       },
       {
         "id": "salvage.broken_utensil",
         "name": "破损军需器具",
         "type": "material",
+        "imageId": "inventory.salvage.brokenUtensil",
         "maxStack": 1,
+        "sprite": {
+          "height": 44,
+          "width": 44
+        },
         "subType": "salvage"
       },
       {
@@ -6931,8 +6962,13 @@
         "id": "iron_sword",
         "name": "黄巾铁剑",
         "type": "equipment",
+        "imageId": "inventory.equipment.ironSword",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "attack": 5
         },
@@ -6942,8 +6978,13 @@
         "id": "leather_armor",
         "name": "黄巾皮甲",
         "type": "equipment",
+        "imageId": "inventory.equipment.leatherArmor",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "defense": 3
         },
@@ -6953,8 +6994,13 @@
         "id": "wooden_shield",
         "name": "木盾",
         "type": "equipment",
+        "imageId": "inventory.equipment.woodenShield",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "defense": 2
         },
@@ -6964,8 +7010,13 @@
         "id": "short_bow",
         "name": "短弓",
         "type": "equipment",
+        "imageId": "inventory.equipment.shortBow",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "attack": 4,
           "range": 260
@@ -6976,8 +7027,13 @@
         "id": "leather_vest",
         "name": "轻便皮背心",
         "type": "equipment",
+        "imageId": "inventory.equipment.leatherVest",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "defense": 2,
           "speed": 3
@@ -6988,8 +7044,13 @@
         "id": "wooden_arrow",
         "name": "木箭",
         "type": "equipment",
+        "imageId": "inventory.equipment.woodenArrow",
         "maxStack": 99,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {},
         "subType": "ammo"
       },
@@ -6997,8 +7058,13 @@
         "id": "strategist_talisman_staff",
         "name": "符杖",
         "type": "equipment",
+        "imageId": "inventory.equipment.talismanStaff",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "magicAttack": 5
         },
@@ -7008,8 +7074,13 @@
         "id": "strategist_robe",
         "name": "军师道袍",
         "type": "equipment",
+        "imageId": "inventory.equipment.strategistRobe",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "maxMp": 20
         },
@@ -7019,8 +7090,13 @@
         "id": "strategist_talisman",
         "name": "护身符",
         "type": "equipment",
+        "imageId": "inventory.equipment.talisman",
         "maxStack": 1,
         "rarity": 1,
+        "sprite": {
+          "height": 48,
+          "width": 48
+        },
         "stats": {
           "defense": 1,
           "manaRegen": 1

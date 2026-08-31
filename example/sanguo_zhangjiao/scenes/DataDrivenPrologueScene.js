@@ -33,7 +33,7 @@ import { WorldReadyGate } from '../../../src/core/scene/WorldReadyGate.js';
 import { ChunkNavigator } from '../../../src/core/scene/ChunkNavigator.js';
 import { SceneNavigationProjection } from '../../../src/core/scene/SceneNavigationProjection.js';
 import { SceneWorldQuery } from '../../../src/core/scene/SceneWorldQuery.js';
-import { ScenePlacementRuntime } from '../../../src/core/scene/ScenePlacementRuntime.js';
+import { ScenePlacementRuntime, getPlacementSignature } from '../../../src/core/scene/ScenePlacementRuntime.js';
 import { SceneVehicleRuntime } from '../../../src/core/scene/SceneVehicleRuntime.js';
 import { SceneCityWarStateBridge } from '../../../src/core/scene/SceneCityWarStateBridge.js';
 import { ScenarioCommandService, SCENARIO_COMMANDS } from '../../../src/systems/ScenarioCommandService.js';
@@ -434,70 +434,373 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     return this.sanguoWorldRuntimeCoordinator.restoreStreamedDomainState(sceneId);
   }
 
-  /** 监听场景编辑器的保存通知（localStorage storage 事件，跨页面触发）。 */
+  _debugCanonicalHotSync(stage, detail = {}) {
+    if (!this.debugMode) return;
+    console.log(`[DDScene][CanonicalHotSync] ${stage}`, detail);
+  }
+
+  _refreshCanonicalHotSyncMinimap(sceneId, phase) {
+    if (typeof this.minimap?.prepareBackgroundCache !== 'function') return;
+    try {
+      this.minimap.prepareBackgroundCache();
+      this._debugCanonicalHotSync('minimap-cache', { sceneId, phase });
+    } catch (error) {
+      console.warn('[DDScene][CanonicalHotSync] 小地图静态缓存重建失败', { sceneId, phase, error });
+    }
+  }
+
+  /** 同时监听 Vite custom HMR 与同源 storage fallback 的 canonical 场景提交。 */
   _watchEditorSceneCommits() {
-    const KEY = 'yijian18-engine_editor_scene_commit';
-    const handler = event => {
-      if (!event || event.key !== KEY || !event.newValue) return;
-      try {
-        const payload = JSON.parse(event.newValue);
-        if (!payload?.sceneId) return;
-        void this._handleEditorSceneCommit(payload);
-      } catch (_error) { /* 忽略无法解析的通知 */ }
+    const STORAGE_KEY = 'yijian18-engine_editor_scene_commit';
+    const HMR_EVENT = 'yijian18:canonical-scene-commit';
+    const GAME_ID = 'sanguo_zhangjiao';
+    const PROJECT_PATH = 'example/sanguo_zhangjiao/game.project.json';
+    const CANONICAL_SCENE_ID = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
+    const generations = new Map();
+    const controllers = new Map();
+    const seenRevisions = new Map();
+    const latestStorageTimestamps = new Map();
+    let disposed = false;
+    this._editorSceneCommitGenerations = generations;
+    this._editorSceneCommitControllers = controllers;
+
+    const accept = (payload, source) => {
+      if (disposed || payload?.gameId !== GAME_ID || !CANONICAL_SCENE_ID.test(payload?.sceneId || '')) return false;
+      const projectPath = typeof payload.projectPath === 'string'
+        ? payload.projectPath.replace(/\\/g, '/')
+        : null;
+      if (projectPath && projectPath !== PROJECT_PATH) return false;
+
+      const revision = typeof payload.revision === 'string' && payload.revision.length > 0
+        ? payload.revision
+        : null;
+      const timestamp = Number(payload.ts);
+      if (revision) {
+        let revisions = seenRevisions.get(payload.sceneId);
+        if (!revisions) {
+          revisions = new Set();
+          seenRevisions.set(payload.sceneId, revisions);
+        }
+        if (revisions.has(revision)) {
+          this._debugCanonicalHotSync('notification-duplicate', {
+            source, sceneId: payload.sceneId, revision
+          });
+          return false;
+        }
+        revisions.add(revision);
+        while (revisions.size > 8) revisions.delete(revisions.values().next().value);
+      } else if (Number.isFinite(timestamp)) {
+        const latest = latestStorageTimestamps.get(payload.sceneId) || 0;
+        if (timestamp <= latest) {
+          this._debugCanonicalHotSync('notification-duplicate', {
+            source, sceneId: payload.sceneId, ts: timestamp
+          });
+          return false;
+        }
+        latestStorageTimestamps.set(payload.sceneId, timestamp);
+      }
+
+      this._debugCanonicalHotSync('notification', {
+        source,
+        sceneId: payload.sceneId,
+        revision,
+        ts: Number.isFinite(timestamp) ? timestamp : null
+      });
+      void this._handleEditorSceneCommit({
+        sceneId: payload.sceneId,
+        revision,
+        ts: Number.isFinite(timestamp) ? timestamp : null,
+        source
+      });
+      return true;
     };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
+    const storageHandler = event => {
+      if (!event || event.key !== STORAGE_KEY || !event.newValue) return;
+      try {
+        accept(JSON.parse(event.newValue), 'storage');
+      } catch (_error) { /* 忽略无法解析的 fallback 通知 */ }
+    };
+    const hmrHandler = payload => { accept(payload, 'hmr'); };
+    window.addEventListener('storage', storageHandler);
+    const hot = import.meta.hot || null;
+    hot?.on?.(HMR_EVENT, hmrHandler);
+
+    const dispose = () => {
+      if (disposed) return;
+      disposed = true;
+      window.removeEventListener('storage', storageHandler);
+      hot?.off?.(HMR_EVENT, hmrHandler);
+      for (const controller of controllers.values()) controller.abort();
+      controllers.clear();
+      generations.clear();
+      seenRevisions.clear();
+      latestStorageTimestamps.clear();
+      if (this._editorSceneCommitControllers === controllers) this._editorSceneCommitControllers = null;
+      if (this._editorSceneCommitGenerations === generations) this._editorSceneCommitGenerations = null;
+      if (this._editorSceneSyncUnwatch === dispose) this._editorSceneSyncUnwatch = null;
+    };
+    return dispose;
   }
 
   /**
-   * 应用编辑器的场景提交：当前场景从磁盘重读并热重建变化的放置点；
-   * 其他场景仅丢弃会话缓存，待世界流式加载时自动读取最新数据。
+   * 应用编辑器的场景提交：从磁盘读取 canonical 局部数据，先 detached 准备 terrain，
+   * 再在同一同步段提交 session/chunk/terrain/placement；任一步失败按逆序回滚。
    */
-  async _handleEditorSceneCommit({ sceneId } = {}) {
-    if (!sceneId || !this._worldLoadSession) return;
-    if (sceneId !== this.currentSceneId) {
-      this._worldLoadSession.forgetScene?.(sceneId);
+  async _handleEditorSceneCommit({ sceneId, revision = null, ts = null, source = 'unknown' } = {}) {
+    if (!sceneId) return;
+    const generations = this._editorSceneCommitGenerations || new Map();
+    const controllers = this._editorSceneCommitControllers || new Map();
+    this._editorSceneCommitGenerations = generations;
+    this._editorSceneCommitControllers = controllers;
+    const generation = (generations.get(sceneId) || 0) + 1;
+    generations.set(sceneId, generation);
+    controllers.get(sceneId)?.abort();
+    this._debugCanonicalHotSync('accepted', { source, sceneId, revision, ts, generation });
+
+    const session = this._worldLoadSession;
+    const streamingRuntime = this._worldStreamingRuntime;
+    const manager = streamingRuntime?.manager || null;
+    const loadedChunk = streamingRuntime?.getLoadedChunk?.(sceneId) || null;
+    if (!session || !streamingRuntime) {
+      this._debugCanonicalHotSync('runtime-unavailable', { source, sceneId, revision, generation });
       return;
     }
+    this._debugCanonicalHotSync('loaded-check', {
+      source,
+      sceneId,
+      revision,
+      generation,
+      loaded: !!loadedChunk,
+      chunkKey: loadedChunk?.key || null,
+      regionId: loadedChunk?.regionId || null,
+      row: loadedChunk?.row ?? null,
+      col: loadedChunk?.col ?? null,
+      origin: loadedChunk?.origin ? { ...loadedChunk.origin } : null
+    });
+    if (!loadedChunk) {
+      session.forgetScene?.(sceneId);
+      this._debugCanonicalHotSync('unloaded-cache-forgotten', { sceneId, revision, generation });
+      return;
+    }
+
+    const controller = typeof AbortController === 'function' ? new AbortController() : null;
+    if (controller) controllers.set(sceneId, controller);
+    const isCurrent = () => (
+      generations.get(sceneId) === generation &&
+      this._editorSceneCommitGenerations === generations &&
+      (!controller || (!controller.signal.aborted && controllers.get(sceneId) === controller)) &&
+      this._worldLoadSession === session &&
+      streamingRuntime.manager === manager &&
+      streamingRuntime.getLoadedChunk?.(sceneId) === loadedChunk
+    );
+
+    let previousSceneData = null;
+    let sessionCommitted = false;
+    let runtimeDraft = null;
+    let runtimeOutcome = null;
+    let runtimeCommitAttempted = false;
+    let transactionFinalized = false;
     try {
-      const response = await fetch(`assets/scenes/${encodeURIComponent(sceneId)}.json`, { cache: 'no-store' });
-      if (!response.ok) return;
+      const response = await fetch(`assets/scenes/${encodeURIComponent(sceneId)}.json`, {
+        cache: 'no-store',
+        signal: controller?.signal
+      });
+      if (!response.ok) throw new Error(`读取场景 ${sceneId} 失败: HTTP ${response.status}`);
       const sceneData = await response.json();
-      const outcome = this._worldLoadSession.replaceSceneData?.(sceneId, sceneData);
-      if (!outcome?.ok) return;
-      // 同步场景级世界加载结果的投影数组（S10 建造 / S12 闸门等流程从这读取）。
-      const loadResult = this._worldLoadResult;
-      if (loadResult && Array.isArray(loadResult.sceneObjects)) {
-        loadResult.sceneObjects = loadResult.sceneObjects
-          .filter(item => item?.sceneId !== sceneId)
-          .concat(outcome.sceneObjects || []);
-        loadResult.placements = (loadResult.placements || [])
-          .filter(item => item?.sceneId !== sceneId)
-          .concat(outcome.placements || []);
+      if (sceneData?.id !== sceneId || !Array.isArray(sceneData?.layers)) {
+        throw new Error(`场景 ${sceneId} 的磁盘 canonical 数据无效`);
       }
+      if (!isCurrent()) {
+        this._debugCanonicalHotSync('superseded-after-fetch', { sceneId, revision, generation });
+        return;
+      }
+
+      const diskLocalCoordinates = new Map();
+      const rememberLocal = object => {
+        if (!object?.id || (object.type !== 'ref' && object.type !== 'spawn')) return;
+        diskLocalCoordinates.set(object.id, {
+          x: Number.isFinite(object.x) ? object.x : null,
+          y: Number.isFinite(object.y) ? object.y : null
+        });
+      };
+      for (const layer of sceneData.layers) {
+        for (const object of layer?.objects || []) rememberLocal(object);
+      }
+      const legacyObjects = sceneData.objects || {};
+      for (const list of [legacyObjects.npcs, legacyObjects.spawns, legacyObjects.portals, legacyObjects.regions]) {
+        for (const object of list || []) rememberLocal(object);
+      }
+
       const placements = this.context.services.placements;
-      if (!placements) return;
+      if (!placements) throw new Error('场景放置运行时尚未就绪');
       const previous = placements.getPlacements?.() || [];
       const previousById = new Map(
         previous.filter(entry => entry?.sceneId === sceneId).map(entry => [entry.id, entry])
       );
-      const fresh = outcome.placements || [];
-      placements.setProjection([...previous.filter(entry => entry?.sceneId !== sceneId), ...fresh]);
+      previousSceneData = cloneData(session.getSceneData?.(sceneId));
+      if (!previousSceneData) throw new Error(`场景 ${sceneId} 缺少可回滚的会话数据`);
+
+      this._debugCanonicalHotSync('terrain-prepare-start', {
+        sceneId,
+        revision,
+        generation,
+        chunkKey: loadedChunk.key,
+        regionId: loadedChunk.regionId,
+        diskPlacementCount: diskLocalCoordinates.size
+      });
+      runtimeDraft = await streamingRuntime.prepareLoadedSceneData(sceneId, sceneData, {
+        signal: controller?.signal || null
+      });
+      if (!isCurrent()) {
+        runtimeDraft?.discard?.();
+        this._debugCanonicalHotSync('terrain-prepare-superseded', { sceneId, revision, generation });
+        return;
+      }
+      if (!runtimeDraft?.loaded) throw new Error(`场景 ${sceneId} 已不在当前加载范围`);
+      if (!runtimeDraft.ok) {
+        throw new Error(runtimeDraft.errors?.[0]?.message || `场景 ${sceneId} terrain 草稿准备失败`);
+      }
+      this._debugCanonicalHotSync('terrain-prepare-complete', {
+        sceneId,
+        revision,
+        generation,
+        chunkKey: loadedChunk.key,
+        staticCacheRevision: runtimeDraft.terrain?.staticCacheRevision ?? null
+      });
+
+      const sessionOutcome = session.replaceSceneData?.(sceneId, sceneData);
+      if (!sessionOutcome?.ok) {
+        throw new Error(sessionOutcome?.errors?.[0]?.message || `场景 ${sceneId} 会话缓存替换失败`);
+      }
+      sessionCommitted = true;
+      runtimeCommitAttempted = true;
+      runtimeOutcome = runtimeDraft.commit?.();
+      if (!runtimeOutcome?.loaded) throw new Error(`场景 ${sceneId} 已不在当前加载范围`);
+      if (!runtimeOutcome.ok) {
+        throw new Error(runtimeOutcome.errors?.[0]?.message || `场景 ${sceneId} 流式 terrain/投影替换失败`);
+      }
+      this._debugCanonicalHotSync('terrain-commit', {
+        sceneId,
+        revision,
+        generation,
+        chunkKey: loadedChunk.key,
+        regionId: loadedChunk.regionId,
+        terrainReplaced: runtimeOutcome.previousTerrain !== runtimeOutcome.terrain
+      });
+
+      const fresh = (placements.getPlacements?.() || [])
+        .filter(entry => entry?.sceneId === sceneId);
+      const freshById = new Map(fresh.map(entry => [entry.id, entry]));
       const freshIds = new Set(fresh.map(entry => entry?.id).filter(Boolean));
       const changedIds = fresh
         .filter(entry => {
           const old = previousById.get(entry.id);
-          return !old || old.x !== entry.x || old.y !== entry.y;
+          return !old || getPlacementSignature(old) !== getPlacementSignature(entry);
         })
         .map(entry => entry.id)
         .filter(Boolean);
-      const removedIds = [...previousById.keys()].filter(id => !freshIds.has(id));
-      // 只重建真正变化的放置点；有删除时整场景重建以保证实体一致。
-      if (removedIds.length > 0) await placements.rebuild?.(sceneId);
-      else if (changedIds.length > 0) await placements.rebuild?.(sceneId, { placementIds: changedIds });
+      const retiredIds = [...previousById.entries()]
+        .filter(([id, entry]) => entry?.type === 'ref' && !freshIds.has(id))
+        .map(([id]) => id);
+      const localPosition = entry => entry ? {
+        x: Number.isFinite(entry._localX) ? entry._localX : null,
+        y: Number.isFinite(entry._localY) ? entry._localY : null
+      } : null;
+      const coordinateChanges = [...new Set([...changedIds, ...retiredIds])].map(id => ({
+        id,
+        disk: diskLocalCoordinates.get(id) || null,
+        previous: localPosition(previousById.get(id)),
+        next: localPosition(freshById.get(id))
+      }));
+      this._debugCanonicalHotSync('placement-diff', {
+        sceneId,
+        revision,
+        generation,
+        changedIds,
+        retiredIds,
+        coordinates: coordinateChanges
+      });
+
+      if (changedIds.length > 0 || retiredIds.length > 0) {
+        this._debugCanonicalHotSync('placement-rebuild-start', {
+          sceneId, revision, generation, changedIds, retiredIds
+        });
+        const rebuildResult = placements.rebuild(sceneId, {
+          placementIds: changedIds,
+          retiredPlacementIds: retiredIds
+        });
+        if (rebuildResult?.ok === false) {
+          throw new Error(rebuildResult.errors?.[0]?.message || `场景 ${sceneId} 放置对象重建失败`);
+        }
+        this._debugCanonicalHotSync('placement-rebuild-complete', {
+          sceneId, revision, generation, changedIds, retiredIds
+        });
+      }
+
+      const finalizeResult = runtimeOutcome.finalize?.() || { ok: true, errors: [] };
+      transactionFinalized = true;
+      if (finalizeResult.ok === false) {
+        console.warn('[DDScene][CanonicalHotSync] 旧 terrain 释放失败', {
+          sceneId,
+          errors: finalizeResult.errors || []
+        });
+      }
+      this._debugCanonicalHotSync('finalized', {
+        sceneId,
+        revision,
+        generation,
+        finalizeOk: finalizeResult.ok !== false,
+        superseded: finalizeResult.superseded === true
+      });
+      this._refreshCanonicalHotSyncMinimap(sceneId, 'commit');
       this._showScreenTip?.('编辑器场景改动已同步', { title: '场景同步' });
     } catch (error) {
-      console.warn('[DDScene] 应用编辑器场景改动失败', error);
+      if (error?.name === 'AbortError' || !isCurrent()) {
+        runtimeDraft?.discard?.();
+        this._debugCanonicalHotSync(error?.name === 'AbortError' ? 'aborted' : 'superseded', {
+          sceneId,
+          revision,
+          generation,
+          reason: error?.message || null
+        });
+        return;
+      }
+      if (transactionFinalized) {
+        console.warn('[DDScene] 编辑器场景已同步，但成功提示失败', error);
+        return;
+      }
+
+      const rollbackErrors = [];
+      let runtimeRestored = false;
+      if (runtimeOutcome?.ok && typeof runtimeOutcome.rollback === 'function') {
+        const restored = runtimeOutcome.rollback();
+        runtimeRestored = restored?.ok === true;
+        if (restored?.ok === false && !restored.superseded) {
+          rollbackErrors.push(restored.errors?.[0]?.message || '流式 terrain/投影回滚失败');
+        }
+        this._debugCanonicalHotSync('terrain-rollback', {
+          sceneId,
+          revision,
+          generation,
+          ok: restored?.ok === true,
+          superseded: restored?.superseded === true
+        });
+      }
+      if (sessionCommitted && previousSceneData) {
+        const restored = session.replaceSceneData?.(sceneId, previousSceneData);
+        if (restored?.ok === false) rollbackErrors.push(restored.errors?.[0]?.message || '会话缓存回滚失败');
+      }
+      if (runtimeRestored || (runtimeCommitAttempted && !runtimeOutcome?.superseded)) {
+        this._refreshCanonicalHotSyncMinimap(sceneId, 'rollback');
+      }
+
+      const rollbackSuffix = rollbackErrors.length > 0 ? `；${rollbackErrors.join('；')}` : '';
+      const message = `${error?.message || '编辑器场景改动同步失败'}${rollbackSuffix}`;
+      console.warn('[DDScene] 应用编辑器场景改动失败', error, rollbackErrors);
+      this._showScreenTip?.(message, { title: '场景同步失败' });
+    } finally {
+      runtimeDraft?.discard?.();
+      if (controller && controllers.get(sceneId) === controller) controllers.delete(sceneId);
     }
   }
 
@@ -536,9 +839,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
     const scope = this.resourceScope;
     this._worldLoadSession = this._createWorldLoadSession(scope);
-    // 编辑器热同步：场景编辑器保存后通知本页面重读场景数据（跨页面 storage 事件）。
-    this._editorSceneSyncUnwatch = this._watchEditorSceneCommits();
-    scope?.track?.(() => this._editorSceneSyncUnwatch?.());
+    // 编辑器热同步：Vite HMR 覆盖跨端口，storage 作为同源 fallback。
+    const editorSceneSyncUnwatch = this._watchEditorSceneCommits();
+    this._editorSceneSyncUnwatch = editorSceneSyncUnwatch;
+    scope?.track?.(editorSceneSyncUnwatch);
     this._worldReadyGate = new WorldReadyGate({
       required: ['terrains', 'placements'],
       timeout: 3000,
@@ -825,6 +1129,11 @@ export class DataDrivenPrologueScene extends BaseGameScene {
   /** 波次事件由放置点 coordinator 扫描分组，Scene 仅注入 trigger 与死亡谓词。 */
   _checkWaveEvents() {
     return this.sanguoSceneLifecycleCoordinator.observeWaveEvents();
+  }
+
+  /** S14 武器席优先消费手柄/触屏方向攻击，避免再触发乘员个人武器。 */
+  handleBasicAttackIntent(intent = {}) {
+    return this.sanguoSceneCommandCoordinator.handleBasicAttackIntent(intent);
   }
 
   /** S14 gunner 指针意图和 S01 教学许可均由 Demo coordinator 投影。 */

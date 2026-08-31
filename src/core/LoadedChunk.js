@@ -76,18 +76,13 @@ export class LoadedChunk {
     };
   }
 
-  async prepare({ signal = null, savedState = null } = {}) {
-    if (signal?.aborted) return { ok: false, errors: [{ code: 'aborted', path: '', message: 'Chunk 准备已取消' }] };
-    if (savedState) {
-      const check = this.validateState(savedState);
-      if (!check.ok) return check;
-    }
+  _collectSceneProjection(sceneData = this.sceneData) {
     const placements = [];
     const decorations = [];
     const sceneObjects = [];
     const triggerBindings = [];
     const effectZones = [];
-    for (const layer of this.sceneData?.layers || []) {
+    for (const layer of sceneData?.layers || []) {
       if (!layer || layer.visible === false) continue;
       for (const object of layer.objects || []) {
         if (!object) continue;
@@ -103,7 +98,7 @@ export class LoadedChunk {
         if (object.type === 'deco' || object.type === 'slice' || object.type === 'image') decorations.push(projected);
       }
     }
-    const objects = this.sceneData?.objects || {};
+    const objects = sceneData?.objects || {};
     for (const list of [objects.npcs, objects.spawns, objects.portals, objects.regions]) {
       for (const object of list || []) {
         const projected = this._projectObject(object);
@@ -111,20 +106,92 @@ export class LoadedChunk {
         placements.push(projected);
       }
     }
+    return { placements, decorations, sceneObjects, triggerBindings, effectZones };
+  }
+
+  async prepare({ signal = null, savedState = null } = {}) {
+    if (signal?.aborted) return { ok: false, errors: [{ code: 'aborted', path: '', message: 'Chunk 准备已取消' }] };
+    if (savedState) {
+      const check = this.validateState(savedState);
+      if (!check.ok) return check;
+    }
+    const projection = this._collectSceneProjection();
     let placementDraft = null;
     if (typeof this.placementAdapter?.prepare === 'function') {
-      placementDraft = await this.placementAdapter.prepare(this._context({ placements, signal }));
+      placementDraft = await this.placementAdapter.prepare(this._context({
+        placements: projection.placements,
+        signal
+      }));
       if (placementDraft?.ok === false) return placementDraft;
     }
     return {
       ok: true,
-      placements,
-      decorations,
-      sceneObjects,
-      triggerBindings,
-      effectZones,
+      ...projection,
       placementDraft: placementDraft?.draft ?? placementDraft
     };
+  }
+
+  /**
+   * 从 canonical 局部坐标准备 detached 空间投影，不修改当前 loaded chunk。
+   */
+  prepareSceneData(sceneData) {
+    if (!sceneData || !Array.isArray(sceneData.layers)) {
+      return {
+        ok: false,
+        errors: [{ code: 'invalidSceneData', path: 'sceneData.layers', message: '热替换场景需要有效 layers' }]
+      };
+    }
+    try {
+      const nextSceneData = cloneValue(sceneData);
+      return {
+        ok: true,
+        errors: [],
+        sceneData: nextSceneData,
+        ...this._collectSceneProjection(nextSceneData)
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        errors: [{ code: 'sceneProjectionFailed', path: 'sceneData', message: error?.message || String(error) }]
+      };
+    }
+  }
+
+  /** 同步提交已完整准备的场景投影；调用方负责实体运行态的对应重建。 */
+  commitSceneData(prepared) {
+    if (!prepared?.sceneData || !Array.isArray(prepared.sceneData.layers) ||
+        !Array.isArray(prepared.placements) || !Array.isArray(prepared.decorations) ||
+        !Array.isArray(prepared.sceneObjects) || !Array.isArray(prepared.triggerBindings) ||
+        !Array.isArray(prepared.effectZones)) {
+      return {
+        ok: false,
+        errors: [{ code: 'invalidSceneProjectionDraft', path: 'sceneData', message: '场景热替换草稿无效' }]
+      };
+    }
+    this.sceneData = prepared.sceneData;
+    this.decorations = prepared.decorations;
+    this.sceneObjects = prepared.sceneObjects;
+    this.placements = prepared.placements;
+    this.triggerBindings = prepared.triggerBindings;
+    this.effectZones = prepared.effectZones;
+    return {
+      ok: true,
+      errors: [],
+      placements: this.placements,
+      decorations: this.decorations,
+      sceneObjects: this.sceneObjects,
+      triggerBindings: this.triggerBindings,
+      effectZones: this.effectZones
+    };
+  }
+
+  /**
+   * 原子替换已加载 chunk 的 canonical 场景数据与空间投影。
+   * 输入必须仍是局部坐标；投影器在当前 chunk origin 上只应用一次 worldOffset。
+   */
+  replaceSceneData(sceneData) {
+    const prepared = this.prepareSceneData(sceneData);
+    return prepared.ok ? this.commitSceneData(prepared) : prepared;
   }
 
   validatePrepared(prepared) {

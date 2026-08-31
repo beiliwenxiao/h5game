@@ -35,7 +35,11 @@ fileMatchPattern: '{**/input/**,**/InputManager.js,**/GamepadPanel.js,**/Movemen
 
 默认 Y 绑定 `JUMP_ACTION`，不再承担轻功长按判定。轻功与投掷是手柄技能轮盘的固定选项：LB 选择，RB 按住时由右摇杆瞄准、松开释放。轮盘选项由 `SceneCombatActions.getGamepadSkillOptions()` 在普通 `combat.skills` 后追加，仍复用 `FlightSystem` / `WeaponRenderer` 的既有动作入口，不把它们伪装为 Demo 的战斗技能定义。
 
-RT 攻击 intent 必须沿 `GamepadCombatController → SceneCombatActions._performGamepadAttack() → attackByDirection()` 进入键鼠/触屏共用的基础攻击准入和执行链；快按使用 `getPlayerFacingVector()`，长按使用右摇杆方向。禁止硬编码物理按钮索引、在按下沿另建直攻旁路，或绕过可改绑的 `ATTACK_ACTION`。`BaseGameScene.isPlayerActionLocked()` 只表示死亡、灵魂、死亡/复活 pending、采集会话等所有世界动作共同拒绝的硬锁，不得包含 `CombatSystem.isInCombat()`；否则 RT intent 与 canonical `jump` 会同时被提前吞掉。基础攻击资格由 `canPerformBasicAttack()` 单独判断，普通跳跃在战斗中保持可用，灵魂/死亡状态仍同时拒绝攻击和跳跃。
+RT 攻击 intent 必须沿 `GamepadCombatController → SceneCombatActions._performGamepadAttack() → attackByDirection()` 进入键鼠/触屏共用的基础攻击准入和执行链；`GamepadCombatController` 只在本次 RT holding 内缓存最后一个越过 `GamepadManager` 径向死区的 RS **单位方向**，归中不得把缓存覆盖为零。快按时若本次 holding 已有有效 RS 也使用该方向；没有有效 RS（含长按后归中）才回退 `getPlayerFacingVector()`，禁止把零向量默认成固定向右。释放只产出一次 intent 并立即清缓存；断连、模态/弹窗接管、玩家硬锁和场景退出统一调用 `cancelTransientState()`，清除 RT/RB/LT/LB 瞬态且不得补发陈旧攻击。禁止硬编码物理按钮索引、在按下沿另建直攻旁路，或绕过可改绑的 `ATTACK_ACTION`。
+
+RT holding 的扇形方向锁由 `SceneCombatActions` 临时拥有：按住时实时投影缓存方向（无缓存则 facing），释放/取消时恢复进入前的锁值；实际 `performSectorAttack()` 使用的短锁必须在同步提交后通过 `finally` 恢复，冷却、缺弹、拒绝或异常都不得遗留永久 `sectorDirectionLocked`。载具武器仍走场景可选 `handleBasicAttackIntent(intent)`；Demo Scene 必须显式转发给历史 coordinator，武器席返回 `true` 即表示输入已消费，即使资源不足或 checkpoint 失败也不得回退成乘员个人攻击。
+
+`BaseGameScene.isPlayerActionLocked()` 只表示死亡、灵魂、死亡/复活 pending、采集会话等所有世界动作共同拒绝的硬锁，不得包含 `CombatSystem.isInCombat()`；否则 RT intent 与 canonical `jump` 会同时被提前吞掉。基础攻击资格由 `canPerformBasicAttack()` 单独判断，普通跳跃在战斗中保持可用，灵魂/死亡状态仍同时拒绝攻击和跳跃。
 
 ### 5. 摇杆死区用径向死区 + 重标定
 `_applyDeadzone` 把 `[deadzone,1]` 重映射到 `[0,1]`，避免死区边缘速度突跳。默认死区 0.22。扳机（LT/RT）是模拟量，按 `triggerThreshold`（默认 0.5）离散成按下/松开。
@@ -116,9 +120,10 @@ RS 取消选中
 
 ### 攻击判定
 
-- RT 快速按放（< 150ms）：以角色当前面向方向立刻攻击
-- RT 长按：进入攻击蓄力态，脚下显示扇形预览跟随右摇杆方向，松开释放
-- 右摇杆在死区内时朝向默认为角色面向
+- RT 快速按放（< 150ms）：本次按住期间有有效 RS 时按该方向攻击，否则按角色当前面向攻击
+- RT 长按：进入攻击蓄力态，脚下显示扇形预览并缓存最后有效 RS 单位方向，松开只释放一次
+- RS 回到死区不清除本次 RT 已缓存方向；整次按住均无有效 RS 时才回退角色面向
+- 手柄断连、模态/弹窗接管、玩家硬锁或场景退出会取消本次攻击，不得在恢复输入后补发
 
 ### 自瞄技能特殊处理
 

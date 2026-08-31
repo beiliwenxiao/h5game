@@ -88,7 +88,8 @@ function captureSceneSaveState() {
     rescueState: this.rescueSystem?.serialize?.() || null,
     ...s11s14State,
     gatheringPolicyOperations: this.s09RefugeeCoordinator.captureUnauthorizedHarvestOperations(),
-    timeState: this.timeSystem?.serialize?.() || null
+    timeState: this.timeSystem?.serialize?.() || null,
+    weatherState: this.weatherSystem?.serialize?.() || null
   };
 }
 
@@ -299,7 +300,12 @@ function applySceneSaveState(data) {
     const restoredStoryDay = Math.max(1, Math.floor(Number(
       this.gameLoader?.blackboard?.get?.('storyState')?.currentDay
     ) || 1));
-    if (data.timeState) this.timeSystem?.deserialize?.(data.timeState);
+    if (data.timeState && this.timeSystem?.deserialize?.(data.timeState) !== true) {
+      return failure('timeState', '昼夜状态恢复失败', 'timeStateRestoreFailed');
+    }
+    if (data.weatherState && this.weatherSystem?.deserialize?.(data.weatherState) !== true) {
+      return failure('weatherState', '天气状态恢复失败', 'weatherStateRestoreFailed');
+    }
     this.timeSystem?.setCurrentDay?.(restoredStoryDay);
     if (!data.worldStreamingState) {
       this.context.services.placements?.setPendingStates?.({
@@ -409,9 +415,10 @@ function applySceneSaveState(data) {
       data.campfireState || { lit: data.campfireLit === true },
       { particleSystem: this.particleSystem }
     );
-    this._tutorialFlow.resetMovementOrigin(
-      this.playerEntity?.getComponent?.('transform')?.position || null
-    );
+    this._s01s02Coordinator?.projectRestoredAtmosphere?.({
+      hasTimeState: Boolean(data.timeState),
+      hasWeatherState: Boolean(data.weatherState)
+    });
     this._s09AudioDirector?.syncScene?.(this.currentSceneId);
     void this.sanguoSceneNavigationCoordinator.projectEntryRuntime(this.currentSceneId);
     return { ok: true, errors: [] };

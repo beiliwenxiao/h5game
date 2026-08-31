@@ -127,6 +127,20 @@ const methods = {
         reason: 'checkpoint', checkpointId: 'checkpoint.S09.classSelected', sceneId: 'S09'
       }, `${operationId}:checkpoint`);
       if (!checkpoint?.ok || !checkpoint.committed) throw new Error(checkpoint?.error?.message || '职业检查点未提交');
+      // 初始装备只有在职业与检查点都提交后才进入统一获得物品弹窗；表现失败不回滚领域事实。
+      try {
+        for (const entry of equipmentResult.entries || []) {
+          if (Number(entry.accepted) <= 0 || !entry.item) continue;
+          this.onItemGained({
+            ...entry.item,
+            quantity: entry.accepted,
+            operationId,
+            classSelectionCommitted: true
+          }, player);
+        }
+      } catch (presentationError) {
+        console.warn('[S09ClassSelectionCoordinator] starter equipment presentation failed', presentationError);
+      }
       return { ok: true, classType };
     } catch (error) {
       inventory.loadItems(inventoryBefore);

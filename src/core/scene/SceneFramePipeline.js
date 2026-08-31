@@ -398,7 +398,7 @@ export class SceneFramePipeline {
       skillEffects.update(deltaTime);
     }
     floatingTextManager.update(deltaTime);
-    if (scene.notificationSystem) scene.notificationSystem.update(deltaTime);
+    if (scene.notificationSystem) scene.notificationSystem.update(deltaTime * 1000);
     const particleProfile = scene.debugMode === true && scene._framePerformanceProfile?.current
       ? scene._framePerformanceProfile.current
       : null;

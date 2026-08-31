@@ -23,8 +23,10 @@ import {
   BLOCK_ACTION
 } from './Xbox360Profile.js';
 
-/** 快按阈值（毫秒）：攻击/投掷低于此值使用角色面向方向 */
+/** 快按阈值（毫秒）：无有效右摇杆方向时使用角色面向方向 */
 const QUICK_TAP_MS = 150;
+/** 已由 GamepadManager 应用死区；这里只过滤非零浮点噪声。 */
+const ATTACK_AIM_EPSILON = 0.001;
 /** Y 按住达到此时长后才进入轻功瞄准；此前松开均视为跳跃 */
 const FLIGHT_AIM_HOLD_MS = 1000;
 /** 环形轮盘弹出延迟（毫秒）：LB 按住超过此时间才弹轮盘，否则为快切 */
@@ -55,10 +57,14 @@ export class GamepadCombatController {
 
     // ---- 内部状态 ----
     this._attackHolding = false;
+    this._lastAttackDirection = null;
+    this._lastAttackMagnitude = 0;
     this._skillHolding = false;
     this._flightHolding = false;
     this._flightAiming = false;
     this._throwHolding = false;
+    this._throwDirection = { x: 0, y: 0 };
+    this._throwMagnitude = 0;
     this._blockActive = false;
     this._wheelOpen = false;
     this._wheelHoldStart = 0;
@@ -86,7 +92,10 @@ export class GamepadCombatController {
    */
   update(gamepad) {
     this.intents = [];
-    if (!gamepad || !gamepad.isConnected()) return;
+    if (!gamepad || !gamepad.isConnected()) {
+      this.cancelTransientState();
+      return;
+    }
 
     const rightStick = gamepad.rightStick;
 
@@ -129,8 +138,59 @@ export class GamepadCombatController {
     return this._wheelOpen;
   }
 
+  /** RT 是否处于按住瞄准阶段。 */
+  get isAttackHolding() {
+    return this._attackHolding;
+  }
+
+  /** RB 是否处于按住瞄准阶段。 */
+  get isSkillHolding() {
+    return this._skillHolding;
+  }
+
+  /** RT 本次按住期间最后一个越过死区的单位方向；调用方只能读取副本。 */
+  get attackDirection() {
+    return this._lastAttackDirection ? { ...this._lastAttackDirection } : null;
+  }
+
+  get attackMagnitude() {
+    return this._lastAttackMagnitude;
+  }
+
   /**
-   * 取消当前轮盘选择，供手柄断开等无法收到 LB 松开沿的路径调用。
+   * 取消断连、模态接管或场景退出后不能再收到释放沿的瞬态。
+   * @returns {{blockWasActive:boolean, skillWasHolding:boolean}}
+   */
+  cancelTransientState() {
+    const result = {
+      blockWasActive: this._blockActive,
+      skillWasHolding: this._skillHolding
+    };
+    this._attackHolding = false;
+    this._lastAttackDirection = null;
+    this._lastAttackMagnitude = 0;
+    this._skillHolding = false;
+    this._flightHolding = false;
+    this._flightAiming = false;
+    this._throwHolding = false;
+    this._throwDirection = { x: 0, y: 0 };
+    this._throwMagnitude = 0;
+    this._blockActive = false;
+    this._wheelOpen = false;
+    this._wheelHoldStart = 0;
+    this.wheelSelectedIndex = this.currentSkillIndex;
+    this.aimDirection = { x: 0, y: 0 };
+    this.aimMagnitude = 0;
+    this.flightDirection = { x: 0, y: 0 };
+    this.flightMagnitude = 0;
+    this.jumpDirection = { x: 0, y: 0 };
+    this.jumpMagnitude = 0;
+    this.consumeIntents();
+    return result;
+  }
+
+  /**
+   * 取消当前轮盘选择，供不需要清空其他战斗状态的轮盘路径调用。
    * @returns {void}
    */
   cancelSkillWheel() {
@@ -161,7 +221,10 @@ export class GamepadCombatController {
 
   _processAttack(gamepad, rightStick) {
     const btn = this._getButtonForAction(gamepad, ATTACK_ACTION);
-    if (btn < 0) return;
+    if (btn < 0) {
+      this._resetAttackState();
+      return;
+    }
 
     const pressed = gamepad.isButtonPressed(btn);
     const released = gamepad.buttonsReleased.has(btn);
@@ -169,22 +232,46 @@ export class GamepadCombatController {
 
     if (pressed) {
       this._attackHolding = true;
+      this._lastAttackDirection = null;
+      this._lastAttackMagnitude = 0;
     }
 
+    // 只在本次 RT holding 内缓存越过死区的最后有效单位方向；归中不覆盖它。
+    if (this._attackHolding) this._cacheAttackDirection(rightStick);
+
     if (released && this._attackHolding) {
-      this._attackHolding = false;
       const holdMs = gamepad.getButtonHoldDuration(btn);
-      // 快按：面向方向攻击；长按：右摇杆精确方向
-      const direction = holdMs < QUICK_TAP_MS
-        ? null  // null 表示用角色当前面向
-        : { x: this.aimDirection.x, y: this.aimDirection.y };
+      const direction = this.attackDirection;
+      const magnitude = this.attackMagnitude;
+      this._resetAttackState();
       this.intents.push({
         type: IntentType.ATTACK,
         direction,
+        magnitude,
         holdMs,
         isQuickTap: holdMs < QUICK_TAP_MS
       });
+      return;
     }
+
+    // 若释放沿被模态层消费，下一次可执行帧只清状态，绝不补发陈旧攻击。
+    if (this._attackHolding && !down) this._resetAttackState();
+  }
+
+  _cacheAttackDirection(rightStick = {}) {
+    const x = Number(rightStick.x) || 0;
+    const y = Number(rightStick.y) || 0;
+    const vectorMagnitude = Math.hypot(x, y);
+    const stickMagnitude = Number(rightStick.magnitude) || 0;
+    if (stickMagnitude <= ATTACK_AIM_EPSILON || vectorMagnitude <= ATTACK_AIM_EPSILON) return;
+    this._lastAttackDirection = { x: x / vectorMagnitude, y: y / vectorMagnitude };
+    this._lastAttackMagnitude = Math.min(1, Math.max(0, stickMagnitude));
+  }
+
+  _resetAttackState() {
+    this._attackHolding = false;
+    this._lastAttackDirection = null;
+    this._lastAttackMagnitude = 0;
   }
 
   _processSkillRelease(gamepad, rightStick) {

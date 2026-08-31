@@ -367,6 +367,15 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - `POST /api/save-file` — 仅写入非 canonical 编辑器配置或资源文件
 - `GET /api/list-files?path=xxx` — 列出目录内容
 
+### 已加载场景对象坐标热同步
+- 编辑器只能在 canonical 磁盘 commit point 成功后发布保存通知。`localStorage` 的 `storage` 事件只覆盖同源页面；根 Vite（默认 `3000`）与 Demo Vite（默认 `3100`）属于不同 origin，不能把它作为唯一通知通道。开发服务器必须监听当前项目 `assets/scenes/*.json` 的磁盘变化，并通过各自 Vite WebSocket 发送统一 custom HMR 事件 `yijian18:canonical-scene-commit`；游戏同时监听 HMR 与 `yijian18-engine_editor_scene_commit` storage fallback。该通道只在 Vite `serve` 环境启用，不进入生产业务状态。监听 `add` 前必须用已有 canonical 文件的 `mtimeMs:size` 填充 revision baseline，避免 `watcher.add()` 启动扫描把全部旧文件误报为新提交；revision 只能在 WebSocket 发送成功后记入，发送失败必须允许同 revision 重试。
+- 运行时按 core `WorldStreamingManager.getLoadedChunks()` 中的**物理 sceneId**判断是否热同步，不能用业务 `currentSceneId` 提前排除相邻 chunk 或 `SXX-CNN`。真正未加载的场景只调用 `WorldMapLoadSession.forgetScene()`，不得创建实体。
+- 热同步输入必须是刚从磁盘读取的原始局部 `sceneData`。`WorldMapLoadSession`、`LoadedChunk.prepareSceneData()` 和 detached terrain 都使用同一 chunk origin 重新投影；禁止把已经投影的 decorations 或 world x/y 再喂给 terrain，`worldOffset` 仍只由 `SceneObjectProjector` 应用一次。
+- `image/deco/slice/shape` 在 `Scene1Terrain` 构造时会被复制到 `_editorBackgroundImages/_depthSortedImages/_collisionShapes/_walkableShapes/_editorShapes/decorations`，随后进入静态 Canvas；只替换 LoadedChunk projection 或 ref placement 不会改变当前画面与碰撞。`SceneStreamingRuntime.replaceLoadedSceneData()` 必须先加载新 sceneData 所需资产，创建 detached terrain 并完成 `prepareStaticCaches({signal})`，再一次提交 chunk projection 与 `terrainsByChunk`；失败恢复旧 chunk/旧 terrain，成功 finalize 后才释放旧 terrain。新 terrain 身份会让 `SceneTerrainCollision` 的 WeakMap 空间索引自然重建；若选择原地修改既有 terrain 碰撞数组，则必须显式调用 `invalidate(terrain)`。
+- 异步资产与 terrain prepare 期间不得先把新数据暴露到 session。连续保存继续使用 sceneId 级 AbortController/generation latest-wins，并在 commit 前复核 manager、LoadedChunk、terrain 引用和 generation；过期请求只能释放自己的 detached 资源，不得提交或回滚较新的版本。运行时提交成功后，session 替换、placement rebuild 与 finalize 必须在同一同步提交段完成。
+- `WorldMapLoadSession.replaceSceneData()` 必须同时失效 repository 已读 record、session Promise 与同 sceneId 在途读取 generation；否则画面短暂更新后，chunk 卸载回载会再次取得旧坐标。placement 是否变化统一比较 `getPlacementSignature()`（使用 `_localX/_localY`）；坐标、ref、overrides 或 spawnWhen 改变只重建对应稳定 ID，删除则通过 `retiredPlacementIds` 清理旧实体。任一步失败恢复旧 session/projection/terrain/spawn ledger，并明确报告 rollback failure。
+- `Minimap.setTerrains()` 只会失效 cache version，不会主动生成背景；同 Region 的 `_minimapBackgroundActivation` 门禁还会跳过普通激活入口。terrain 热替换提交后必须显式调用一次 `prepareBackgroundCache()`，回滚后也必须基于恢复的旧 terrain 再建一次；普通 HUD update、缩放和 streaming refresh 仍禁止隐式重画静态小地图。
+
 ## 性能优化（游戏侧 Scene1Terrain）
 
 ### 离屏缓存策略

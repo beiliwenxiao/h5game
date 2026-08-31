@@ -188,15 +188,14 @@ export class ItemGainedPopup extends UIElement {
     ctx.lineWidth = 1.5;
     this._roundRect(ctx, iconX, iconY, ICON_SIZE, ICON_SIZE, 5);
     ctx.stroke();
-    // 图标（ItemIconRenderer 失败时画首字占位）
-    const drawn = ItemIconRenderer.drawIcon(ctx, this.item, iconX + ICON_SIZE / 2, iconY + ICON_SIZE / 2, ICON_SIZE - 10);
-    if (!drawn) {
-      ctx.fillStyle = rarityColor;
-      ctx.font = 'bold 20px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((this.item.name || '?').charAt(0), iconX + ICON_SIZE / 2, iconY + ICON_SIZE / 2);
-    }
+    // 图标只消费稳定图片或已登记的现有图标绘制；缺图不再用名称首字伪装资源。
+    ItemIconRenderer.drawIcon(
+      ctx,
+      this.item,
+      iconX + ICON_SIZE / 2,
+      iconY + ICON_SIZE / 2,
+      ICON_SIZE - 10
+    );
 
     // 名称 + 描述（图标右侧，单行描述）
     const textX = iconX + ICON_SIZE + 12;

@@ -92,17 +92,27 @@ export class CanonicalSceneRepository {
     this._revision = 0;
     this._generation = 0;
     this._sceneLoads = new WeakMap();
+    this._sceneGenerations = new WeakMap();
   }
 
   get snapshot() { return this._snapshot; }
 
-  /** 丢弃单个场景的缓存记录（配合编辑器保存后的热同步，下次读取回到磁盘）。 */
+  /** 丢弃单个场景的缓存记录，并使同 snapshot 下的在途读取失效。 */
   forgetScene(sceneId) {
     if (!sceneId) return false;
-    const dropped = this._snapshot?.forget?.(sceneId) === true;
-    const loads = this._snapshot ? this._sceneLoads.get(this._snapshot) : null;
-    loads?.delete?.(sceneId);
-    return dropped;
+    const snapshot = this._snapshot;
+    const dropped = snapshot?.forget?.(sceneId) === true;
+    const loads = snapshot ? this._sceneLoads.get(snapshot) : null;
+    const hadPendingLoad = loads?.delete?.(sceneId) === true;
+    if (snapshot) {
+      let generations = this._sceneGenerations.get(snapshot);
+      if (!generations) {
+        generations = new Map();
+        this._sceneGenerations.set(snapshot, generations);
+      }
+      generations.set(sceneId, (generations.get(sceneId) || 0) + 1);
+    }
+    return dropped || hadPendingLoad;
   }
 
   async refresh({ mode = this.mode } = {}) {
@@ -162,6 +172,7 @@ export class CanonicalSceneRepository {
     });
     this._snapshot = snapshot;
     this._sceneLoads.set(snapshot, new Map());
+    this._sceneGenerations.set(snapshot, new Map());
     const cacheErrors = this._synchronizeCache(ids, new Map());
     return {
       ok: true,
@@ -186,7 +197,13 @@ export class CanonicalSceneRepository {
 
     const loads = this._sceneLoads.get(snapshot) || new Map();
     if (!this._sceneLoads.has(snapshot)) this._sceneLoads.set(snapshot, loads);
+    let generations = this._sceneGenerations.get(snapshot);
+    if (!generations) {
+      generations = new Map();
+      this._sceneGenerations.set(snapshot, generations);
+    }
     if (!loads.has(sceneId)) {
+      const sceneGeneration = generations.get(sceneId) || 0;
       const promise = (async () => {
         const stagedCache = new Map();
         const outcome = await this._loadScene({
@@ -201,6 +218,9 @@ export class CanonicalSceneRepository {
         if (!outcome.ok) return { ...outcome, cacheErrors: [] };
         if (snapshot !== this._snapshot) {
           return this._sceneFailure('sceneSnapshotSuperseded', `场景 ${sceneId} 完成读取前 snapshot 已被替换`, sceneId, 'superseded');
+        }
+        if ((generations.get(sceneId) || 0) !== sceneGeneration) {
+          return this._sceneFailure('sceneLoadSuperseded', `场景 ${sceneId} 完成读取前缓存 generation 已失效`, sceneId, 'superseded');
         }
         snapshot._storeRecord(outcome.record);
         const cacheErrors = this._synchronizeCache(snapshot.ids, stagedCache);

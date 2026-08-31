@@ -85,7 +85,11 @@ export class SceneHintPresenter {
     return true;
   }
 
-  dispose() {
+  /**
+   * 读档前清空所有瞬态提示但保留 presenter 可继续使用。
+   * 不调用 screen request 的 onHidden，避免旧表现回调推进已替换的剧情状态。
+   */
+  clearForRestore() {
     if (this._disposed) return false;
     this._clearScreenTimer();
     this._screenRequest = null;
@@ -94,6 +98,12 @@ export class SceneHintPresenter {
     this._currentHintText = null;
     this._currentHintTitle = '提示';
     this._hideRenderedScreen();
+    return true;
+  }
+
+  dispose() {
+    if (this._disposed) return false;
+    this.clearForRestore();
     this._disposed = true;
     this._showCallback = null;
     this._hideCallback = null;
@@ -102,6 +112,10 @@ export class SceneHintPresenter {
 
   _createScreenRequest(text, opts) {
     const owner = opts.owner ?? null;
+    const configuredTtl = Number(opts.queueTtlMs);
+    const queueTtlMs = owner === 'tutorial' || opts.queueTtlMs === null
+      ? Infinity
+      : (Number.isFinite(configuredTtl) ? Math.max(0, configuredTtl) : 6000);
     return {
       text: this.formatHtml(text),
       title: opts.title || '提示',
@@ -109,7 +123,9 @@ export class SceneHintPresenter {
       persist: opts.persist === true,
       priority: owner === 'tutorial' ? 1 : 0,
       onHidden: typeof opts.onHidden === 'function' ? opts.onHidden : null,
-      sequence: ++this._screenSequence
+      sequence: ++this._screenSequence,
+      queueTtlMs,
+      expiresAt: Infinity
     };
   }
 
@@ -134,7 +150,30 @@ export class SceneHintPresenter {
     return true;
   }
 
+  _clockNow() {
+    const value = this.window?.performance?.now?.();
+    return Number.isFinite(value) ? value : Date.now();
+  }
+
+  _isScreenExpired(request, now = this._clockNow()) {
+    return Number.isFinite(request?.expiresAt) && request.expiresAt <= now;
+  }
+
+  _purgeExpiredScreens() {
+    if (this._screenQueue.length === 0) return 0;
+    const now = this._clockNow();
+    const before = this._screenQueue.length;
+    // 排队过期属于表现淘汰，不调用 onHidden，避免陈旧流程提示推进叙事回调。
+    this._screenQueue = this._screenQueue.filter(request => !this._isScreenExpired(request, now));
+    return before - this._screenQueue.length;
+  }
+
   _enqueueScreen(request) {
+    this._purgeExpiredScreens();
+    const now = this._clockNow();
+    request.expiresAt = Number.isFinite(request.queueTtlMs)
+      ? now + request.queueTtlMs
+      : Infinity;
     const existingIndex = this._screenQueue.findIndex(entry =>
       entry.owner === request.owner && entry.title === request.title && entry.text === request.text
     );
@@ -154,6 +193,7 @@ export class SceneHintPresenter {
   }
 
   _presentNextScreen() {
+    this._purgeExpiredScreens();
     if (this._screenQueue.length === 0) return false;
     this._screenQueue.sort((left, right) => right.priority - left.priority || left.sequence - right.sequence);
     const next = this._screenQueue.shift();

@@ -24,6 +24,7 @@ export class SceneInputFlow {
     onModalInput = NOOP,
     onPopupConfirm = NOOP,
     onGamepadCombat = NOOP,
+    onGamepadCombatCancel = NOOP,
     onLocomotionInput = NOOP,
     dialogue = null,
     aiming = null,
@@ -40,6 +41,9 @@ export class SceneInputFlow {
     this.onModalInput = typeof onModalInput === 'function' ? onModalInput : NOOP;
     this.onPopupConfirm = typeof onPopupConfirm === 'function' ? onPopupConfirm : NOOP;
     this.onGamepadCombat = typeof onGamepadCombat === 'function' ? onGamepadCombat : NOOP;
+    this.onGamepadCombatCancel = typeof onGamepadCombatCancel === 'function'
+      ? onGamepadCombatCancel
+      : NOOP;
     this.onLocomotionInput = typeof onLocomotionInput === 'function' ? onLocomotionInput : NOOP;
     this.dialogue = dialogue;
     this.aiming = aiming;
@@ -140,7 +144,17 @@ export class SceneInputFlow {
       );
     }
 
-    if (!this._modalConsumed && !this._popupConsumed) this._updateGamepadCombat(dt);
+    if (this._modalConsumed || this._popupConsumed) {
+      this.onGamepadCombatCancel({
+        reason: this._modalConsumed ? 'modal-consumed' : 'popup-consumed',
+        dt,
+        inputManager: this.inputManager,
+        gamepad: this.gamepadManager,
+        combat: this.gamepadCombat
+      });
+    } else {
+      this._updateGamepadCombat(dt);
+    }
 
     if (!this.router?.update) return [];
     return this.router.update(DEFAULT_KEYS);
@@ -172,6 +186,12 @@ export class SceneInputFlow {
 
   dispose() {
     if (this._disposed) return;
+    this.onGamepadCombatCancel({
+      reason: 'dispose',
+      inputManager: this.inputManager,
+      gamepad: this.gamepadManager,
+      combat: this.gamepadCombat
+    });
     this._disposed = true;
     for (let index = this._disposers.length - 1; index >= 0; index--) {
       try { this._disposers[index]?.(); } catch (_) { /* disposer 必须彼此隔离 */ }

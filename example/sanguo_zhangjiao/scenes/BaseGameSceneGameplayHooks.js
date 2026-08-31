@@ -129,6 +129,27 @@ export class BaseGameSceneGameplayHooks extends BaseGameSceneBehaviors {
       this._showScreenTip(data.message || '采集产生了意外动静', { title: '采集风险' });
       return;
     }
+    if ((event === 'completed' || event === 'interrupted')
+      && data.committed === true
+      && data.idempotent !== true
+      && Number(data.accepted) > 0) {
+      const definition = this.gameLoader?.getRegistry?.('items')?.get?.(data.itemId) || {};
+      const gainedItem = {
+        ...definition,
+        id: definition.id || data.itemId,
+        definitionId: definition.id || data.itemId,
+        name: definition.name || data.itemName || data.itemId || '资源',
+        type: definition.type || 'material',
+        quantity: Math.max(1, Math.floor(Number(data.accepted) || 1)),
+        operationId: data.operationId || null,
+        gatheringCommitted: true
+      };
+      try {
+        this.onItemGained(gainedItem, this.playerEntity);
+      } catch (error) {
+        console.warn('[BaseGameSceneGameplayHooks] gathering item presentation failed', error);
+      }
+    }
     if (event === 'completed') {
       const itemName = data.itemName || data.itemId || '资源';
       this._showScreenTip(data.toolBroken

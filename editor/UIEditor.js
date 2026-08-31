@@ -33,8 +33,8 @@ const DEFAULT_COMPONENTS = {
     components: [
       // 右侧 Canvas HUD：Android/PC 共用稳定 ID，运行时按当前平台布局加载。
       { id: 'minimap', label: '小地图', x: 1120, y: 10, width: 150, height: 150, anchor: 'topleft', kind: 'panel' },
-      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, anchor: 'topleft', kind: 'panel' },
-      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, anchor: 'topleft', kind: 'panel' },
+      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, fontSize: 0, textOffsetX: 0, textOffsetY: 0, anchor: 'topleft', kind: 'panel' },
+      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, fontSize: 0, textOffsetX: 0, textOffsetY: 0, anchor: 'topleft', kind: 'panel' },
       // 统一背包外框（属性、装备和物品栏的内部部件由 PanelEditor 编辑）
       { id: 'backpackPanel', label: '背包', x: 190, y: 100, width: 900, height: 520, anchor: 'topleft', kind: 'panel' },
       // 底部控制栏拆分为独立小控件（血球/蓝球/2药水/5技能）
@@ -61,8 +61,8 @@ const DEFAULT_COMPONENTS = {
     canvas: { width: 1280, height: 600 },
     components: [
       { id: 'minimap', label: '小地图', x: 1120, y: 10, width: 150, height: 150, anchor: 'topleft', kind: 'panel' },
-      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, anchor: 'topleft', kind: 'panel' },
-      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, anchor: 'topleft', kind: 'panel' },
+      { id: 'timeWeatherBadge', label: '时间/天气', x: 960, y: 10, width: 150, height: 54, fontSize: 0, textOffsetX: 0, textOffsetY: 0, anchor: 'topleft', kind: 'panel' },
+      { id: 'combatStateBadge', label: '战斗/灵魂状态', x: 1030, y: 72, width: 80, height: 30, fontSize: 0, textOffsetX: 0, textOffsetY: 0, anchor: 'topleft', kind: 'panel' },
       { id: 'backpackPanel', label: '背包', x: 190, y: 40, width: 900, height: 500, anchor: 'topleft', kind: 'panel' },
       { id: 'joystick', label: '摇杆区', x: 0, y: 270, width: 384, height: 330, anchor: 'topleft', kind: 'zone' },
       { id: 'hud-avatar', label: 'HUD头像', x: 10, y: 10, width: 56, height: 56, anchor: 'topleft', kind: 'button' },
@@ -101,6 +101,8 @@ const DEFAULT_COMPONENTS = {
 
 const EDITABLE_LAYOUT_PLATFORMS = ['desktop', 'mobile', 'loginDesktop', 'loginMobile'];
 const LOGIN_LAYOUT_PLATFORMS = new Set(['loginDesktop', 'loginMobile']);
+const BADGE_TEXT_LAYOUT_IDS = new Set(['timeWeatherBadge', 'combatStateBadge']);
+const BADGE_TEXT_LAYOUT_FIELDS = ['fontSize', 'textOffsetX', 'textOffsetY'];
 
 function layoutFileName(platform) {
   if (platform === 'desktop') return 'UILayout.desktop.json';
@@ -217,20 +219,17 @@ export class UIEditor {
 
   /** 保存提示文案覆盖到 config/InputHints.json */
   async _saveHintsConfig() {
-    if (!this._hintActions) return;
+    if (!this._hintActions) throw new Error('提示文案配置尚未加载');
     const file = this.configBase + 'InputHints.json';
     const content = JSON.stringify({ actions: this._hintActions }, null, 2);
-    try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: file, content })
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '保存失败');
-    } catch (e) {
-      this._setStatus(`提示文案保存失败: ${e.message}`, true);
-    }
+    const res = await fetch('/api/save-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: file, content })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+    return true;
   }
 
   /**
@@ -348,6 +347,11 @@ export class UIEditor {
         comp.x = s.x; comp.y = s.y;
         comp.width = s.width; comp.height = s.height;
       }
+      for (const field of BADGE_TEXT_LAYOUT_FIELDS) {
+        if (!Object.prototype.hasOwnProperty.call(s, field)) continue;
+        const value = Number(s[field]);
+        if (Number.isFinite(value)) comp[field] = value;
+      }
     }
     return base;
   }
@@ -380,6 +384,7 @@ export class UIEditor {
           </div>
         </div>
         <div class="uie-status" id="uie-status"></div>
+        <div class="uie-save-feedback" id="uie-save-feedback" role="status" aria-live="polite"></div>
       </div>
     `;
     this._injectStyles();
@@ -426,7 +431,7 @@ export class UIEditor {
     const style = document.createElement('style');
     style.id = 'uie-styles';
     style.textContent = `
-      .uie-root { display:flex; flex-direction:column; height:100%; background:#0d1326; color:#fff; }
+      .uie-root { position:relative; display:flex; flex-direction:column; height:100%; background:#0d1326; color:#fff; }
       .uie-toolbar { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#16213e; border-bottom:1px solid #2a3a5e; }
       .uie-platform-switch button { padding:8px 14px; margin-right:8px; background:#3a4a7e; border:none; border-radius:4px; color:#fff; cursor:pointer; }
       .uie-platform-switch button.active { background:#4CAF50; color:#000; }
@@ -455,6 +460,9 @@ export class UIEditor {
       .uie-prop-row input { flex:1; background:#0a1020; border:1px solid #2a3a5e; color:#fff; padding:5px; border-radius:3px; width:60px; }
       .uie-prop-name { font-weight:bold; color:#fff; margin-bottom:12px; font-size:14px; }
       .uie-status { padding:6px 16px; font-size:12px; color:#8aa; background:#0a1020; min-height:24px; }
+      .uie-save-feedback { position:absolute; z-index:100; top:64px; left:50%; max-width:min(640px, calc(100% - 48px)); padding:12px 20px; border:1px solid #63d471; border-radius:6px; background:rgba(18,72,38,0.96); color:#eaffee; font-size:14px; font-weight:bold; text-align:center; box-shadow:0 8px 28px rgba(0,0,0,0.45); opacity:0; pointer-events:none; transform:translate(-50%, -12px); transition:opacity 160ms ease, transform 160ms ease; }
+      .uie-save-feedback.visible { opacity:1; transform:translate(-50%, 0); }
+      .uie-save-feedback.error { border-color:#ff7777; background:rgba(105,28,35,0.97); color:#fff1f1; }
     `;
     document.head.appendChild(style);
   }
@@ -601,15 +609,31 @@ export class UIEditor {
       props.innerHTML = '<h4>属性</h4><div class="uie-prop-empty">选择一个组件</div>';
       return;
     }
+    const propertyDefinitions = [
+      { key: 'x', label: 'x' },
+      { key: 'y', label: 'y' },
+      { key: 'width', label: 'width' },
+      { key: 'height', label: 'height' }
+    ];
+    if (BADGE_TEXT_LAYOUT_IDS.has(comp.id)) {
+      propertyDefinitions.push(
+        { key: 'fontSize', label: '字号', min: 0, title: '0 表示按徽章尺寸自动计算' },
+        { key: 'textOffsetX', label: '文字 X', title: '文字相对徽章默认位置的水平偏移' },
+        { key: 'textOffsetY', label: '文字 Y', title: '文字相对徽章默认位置的垂直偏移' }
+      );
+    }
     props.innerHTML = `
       <h4>属性</h4>
       <div class="uie-prop-name">${comp.label} <span style="color:#778;font-size:11px">(${comp.id})</span></div>
-      ${['x', 'y', 'width', 'height'].map(k => `
-        <div class="uie-prop-row">
-          <label>${k}</label>
-          <input type="number" data-k="${k}" value="${comp[k]}">
+      ${propertyDefinitions.map(({ key, label, min, title }) => `
+        <div class="uie-prop-row"${title ? ` title="${title}"` : ''}>
+          <label>${label}</label>
+          <input type="number" data-k="${key}" value="${Number.isFinite(comp[key]) ? comp[key] : 0}"${min !== undefined ? ` min="${min}"` : ''}>
         </div>
       `).join('')}
+      ${BADGE_TEXT_LAYOUT_IDS.has(comp.id)
+        ? '<div class="uie-prop-empty" style="margin-top:6px">字号设为 0 时沿用运行时自动字号；文字 X/Y 只移动框内文字，不改变徽章位置。</div>'
+        : ''}
       ${this._getLockedAspect(comp)
         ? '<div class="uie-prop-empty" style="margin-top:6px">比例由面板编辑器维护，仅支持等比缩放（改宽或高会自动联动）。</div>'
         : ''}
@@ -618,8 +642,8 @@ export class UIEditor {
     props.querySelectorAll('input[data-k]').forEach(input => {
       input.addEventListener('input', () => {
         const k = input.dataset.k;
-        const v = parseInt(input.value, 10);
-        if (isNaN(v)) return;
+        const v = Number(input.value);
+        if (!Number.isFinite(v)) return;
         const aspect = this._getLockedAspect(comp);
         if (aspect && k === 'width') {
           comp.width = v;
@@ -628,64 +652,120 @@ export class UIEditor {
           comp.height = v;
           comp.width = Math.max(16, Math.round(v * aspect));
         } else {
-          comp[k] = v;
+          comp[k] = k === 'fontSize' ? Math.max(0, v) : v;
         }
         this._render();
       });
     });
   }
 
-  _setStatus(msg, isError) {
+  _setStatus(msg, isError = false) {
     const el = this.container.querySelector('#uie-status');
-    if (el) { el.textContent = msg; el.style.color = isError ? '#ff8888' : '#8aa'; }
+    if (el) {
+      el.textContent = msg;
+      el.style.color = isError ? '#ff8888' : '#9edb9e';
+    }
+  }
+
+  /** 显示醒目但不阻塞编辑流程的保存结果。 */
+  _showSaveFeedback(msg, isError = false) {
+    const el = this.container.querySelector('#uie-save-feedback');
+    if (!el) return;
+    clearTimeout(this._saveFeedbackTimer);
+    el.textContent = `${isError ? '❌' : '✅'} ${msg}`;
+    el.classList.toggle('error', isError);
+    el.classList.add('visible');
+    this._saveFeedbackTimer = setTimeout(() => {
+      el.classList.remove('visible');
+    }, isError ? 5000 : 2800);
   }
 
   /** 保存 PC、Android 游戏 UI 与两套登录页面布局到 JSON 文件（坐标转为百分比，自适配分辨率） */
   async save() {
-    // 手柄绑定保存到独立文件
-    await this._saveGamepadConfig();
-    // 操作提示文案保存到独立文件
-    await this._saveHintsConfig();
+    if (this._saveInFlight) return;
+    this._saveInFlight = true;
+    const saveButton = this.container.querySelector('#uie-save');
+    const previousButtonText = saveButton?.textContent || '💾 保存到文件';
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.textContent = '保存中…';
+    }
+    this._setStatus('正在保存布局、手柄绑定和提示文案…');
 
-    for (const platform of EDITABLE_LAYOUT_PLATFORMS) {
-      const fileName = layoutFileName(platform);
-      const file = this.configBase + fileName;
-      const layout = this.layouts[platform];
-      const cw = layout.canvas.width;
-      const ch = layout.canvas.height;
-      // 输出：每个组件附带百分比坐标(0~1)，游戏端按实际屏幕尺寸还原
-      const out = {
-        ...(LOGIN_LAYOUT_PLATFORMS.has(platform) ? { version: 1 } : {}),
-        canvas: layout.canvas,
-        components: layout.components.map(c => ({
-          id: c.id,
-          label: c.label,
-          kind: c.kind,
-          anchor: c.anchor || 'topleft',
-          // 像素值（编辑器画布下）
-          x: c.x, y: c.y, width: c.width, height: c.height,
-          // 百分比值（相对画布，0~1）—— 游戏端优先用这个
-          xPct: +(c.x / cw).toFixed(5),
-          yPct: +(c.y / ch).toFixed(5),
-          wPct: +(c.width / cw).toFixed(5),
-          hPct: +(c.height / ch).toFixed(5)
-        }))
-      };
-      const content = JSON.stringify(out, null, 2);
+    const saved = [];
+    const failures = [];
+    const savePart = async (label, operation) => {
       try {
-        const res = await fetch('/api/save-file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: file, content })
+        await operation();
+        saved.push(label);
+      } catch (error) {
+        failures.push({ label, message: error?.message || String(error) });
+      }
+    };
+
+    try {
+      await savePart('手柄绑定', () => this._saveGamepadConfig());
+      await savePart('提示文案', () => this._saveHintsConfig());
+
+      for (const platform of EDITABLE_LAYOUT_PLATFORMS) {
+        const fileName = layoutFileName(platform);
+        const file = this.configBase + fileName;
+        const layout = this.layouts[platform];
+        const cw = layout.canvas.width;
+        const ch = layout.canvas.height;
+        const out = {
+          ...(LOGIN_LAYOUT_PLATFORMS.has(platform) ? { version: 1 } : {}),
+          canvas: layout.canvas,
+          components: layout.components.map(c => ({
+            id: c.id,
+            label: c.label,
+            kind: c.kind,
+            anchor: c.anchor || 'topleft',
+            x: c.x,
+            y: c.y,
+            width: c.width,
+            height: c.height,
+            ...(BADGE_TEXT_LAYOUT_IDS.has(c.id) ? {
+              fontSize: Number.isFinite(c.fontSize) ? c.fontSize : 0,
+              textOffsetX: Number.isFinite(c.textOffsetX) ? c.textOffsetX : 0,
+              textOffsetY: Number.isFinite(c.textOffsetY) ? c.textOffsetY : 0
+            } : {}),
+            xPct: +(c.x / cw).toFixed(5),
+            yPct: +(c.y / ch).toFixed(5),
+            wPct: +(c.width / cw).toFixed(5),
+            hPct: +(c.height / ch).toFixed(5)
+          }))
+        };
+        const content = JSON.stringify(out, null, 2);
+        await savePart(fileName, async () => {
+          const res = await fetch('/api/save-file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: file, content })
+          });
+          const data = await res.json().catch(() => null);
+          if (!res.ok || !data?.ok) throw new Error(data?.error || `HTTP ${res.status}`);
         });
-        const data = await res.json();
-        if (!data.ok) throw new Error(data.error || '保存失败');
-      } catch (e) {
-        this._setStatus(`保存失败(${platform}): ${e.message}`, true);
+      }
+
+      if (failures.length > 0) {
+        const detail = failures.map(item => `${item.label}: ${item.message}`).join('；');
+        const message = `部分文件保存失败（已成功 ${saved.length} 项）：${detail}`;
+        this._setStatus(message, true);
+        this._showSaveFeedback(message, true);
         return;
       }
+
+      const message = `保存成功，共写入 ${saved.length} 项到 ${this.configBase}`;
+      this._setStatus(`✅ ${message}`);
+      this._showSaveFeedback(message);
+    } finally {
+      this._saveInFlight = false;
+      if (saveButton) {
+        saveButton.disabled = false;
+        saveButton.textContent = previousButtonText;
+      }
     }
-    this._setStatus(`✅ 已保存布局、手柄绑定和提示文案到 ${this.configBase}`);
   }
 
   /**
@@ -866,7 +946,7 @@ export class UIEditor {
 
   /** 保存手柄绑定配置到 config/gamepad.json */
   async _saveGamepadConfig() {
-    if (!this._gamepadMeta) return;
+    if (!this._gamepadMeta) throw new Error('手柄配置尚未加载');
     const file = this.configBase + 'gamepad.json';
     const cfg = {
       bindings: this._gamepadBindings,
@@ -874,17 +954,14 @@ export class UIEditor {
       triggerThreshold: this._gamepadTriggerThreshold
     };
     const content = JSON.stringify(cfg, null, 2);
-    try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: file, content })
-      });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '保存失败');
-    } catch (e) {
-      this._setStatus(`手柄配置保存失败: ${e.message}`, true);
-    }
+    const res = await fetch('/api/save-file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: file, content })
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+    return true;
   }
 
   /** 渲染操作提示文案编辑界面（pc / android / gamepad 三套） */

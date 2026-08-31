@@ -292,25 +292,23 @@ export class ScenePlacementRuntime {
    * @param {Object} [options]
    * @param {string[]|null} [options.placementIds=null] 只重建这些放置点（编辑器热同步用）；
    *   为 null 时重建该场景全部 type==='ref' 放置点。
+   * @param {string[]} [options.retiredPlacementIds=[]] 已从 canonical 数据删除、只需销毁的旧放置点。
    */
-  rebuild(sceneId = this.getCurrentSceneId(), { placementIds: placementIdSelection = null } = {}) {
+  rebuild(sceneId = this.getCurrentSceneId(), {
+    placementIds: placementIdSelection = null,
+    retiredPlacementIds = []
+  } = {}) {
     if (this.disposed || !this.spawner || !this.entityStore) {
       return { ok: false, errors: [{ code: 'placementRuntimeUnavailable', path: 'placementStates', message: '场景放置运行时尚未就绪' }] };
     }
     const selection = Array.isArray(placementIdSelection) ? new Set(placementIdSelection) : null;
-    const restoreIds = new Set([
-      ...this.pendingPlacementStates.keys(),
-      ...this.pendingResourceNodeStates.keys()
-    ]);
+    const retiredIds = new Set((retiredPlacementIds || []).filter(Boolean));
+    const placementIds = new Set(retiredIds);
     for (const placement of this.placements) {
-      if (placement?.type === 'ref' && placement.sceneId === sceneId && placement.id) {
-        if (selection && !selection.has(placement.id)) continue;
-        restoreIds.add(placement.id);
-      }
+      if (placement?.type !== 'ref' || placement.sceneId !== sceneId || !placement.id) continue;
+      if (selection && !selection.has(placement.id)) continue;
+      placementIds.add(placement.id);
     }
-    const placementIds = new Set(this.placements
-      .filter(placement => placement?.type === 'ref' && placement.id && restoreIds.has(placement.id))
-      .map(placement => placement.id));
     const oldValues = new Set([
       ...this.entityStore.all,
       ...this.entityStore.pickups,
@@ -320,22 +318,45 @@ export class ScenePlacementRuntime {
       .filter(id => this.spawner.spawnedPlacementIds.has(id));
     const oldAiStates = [...oldValues]
       .filter(value => value?.type === 'enemy' || value?.isAI || value?.aiType)
-      .map(value => ({ value, state: this.aiSystem?.getRuntimeState?.(value) || null }));
+      .map(value => {
+        try {
+          return { value, state: this.aiSystem?.getRuntimeState?.(value) || null };
+        } catch (error) {
+          this.logger.warn('[ScenePlacementRuntime] 捕获 AI 重建快照失败', error);
+          return { value, state: null };
+        }
+      });
     const pendingBefore = this.getPendingStateSnapshot();
-
-    for (const entry of oldAiStates) this.aiSystem?.unregisterAI?.(entry.value);
-    this.spawner.forgetPlacements(placementIds);
-    const result = this.spawner.spawnMatching({
-      selector: { placementIds: [...placementIds] },
-      placements: this.placements,
-      registries: this.getRegistries()
-    });
-    if (result.errors.length > 0) {
-      this._destroyValues(result.entities);
+    const restoreOldState = (newEntities = []) => {
+      this._destroyValues(newEntities);
       this._restoreAIStates(oldAiStates);
       this.restorePendingStateSnapshot(pendingBefore);
       this.spawner.forgetPlacements(placementIds);
       this.spawner.rememberPlacements(previouslySpawnedIds);
+    };
+
+    let result;
+    try {
+      for (const entry of oldAiStates) this.aiSystem?.unregisterAI?.(entry.value);
+      this.spawner.forgetPlacements(placementIds);
+      result = this.spawner.spawnMatching({
+        selector: { placementIds: [...placementIds] },
+        placements: this.placements,
+        registries: this.getRegistries()
+      });
+    } catch (error) {
+      restoreOldState(result?.entities || []);
+      return {
+        ok: false,
+        errors: [{
+          code: 'placementRebuildFailed',
+          path: `placementStates.${sceneId}`,
+          message: error?.message || '放置对象重建异常'
+        }]
+      };
+    }
+    if (result.errors.length > 0) {
+      restoreOldState(result.entities);
       return {
         ok: false,
         errors: result.errors.map((entry, index) => ({
@@ -345,7 +366,23 @@ export class ScenePlacementRuntime {
         }))
       };
     }
-    this._destroyValues(oldValues, { unregisterAI: false });
+    try {
+      this._destroyValues(oldValues, { unregisterAI: false });
+    } catch (error) {
+      restoreOldState(result.entities);
+      return {
+        ok: false,
+        errors: [{
+          code: 'placementRebuildCommitFailed',
+          path: `placementStates.${sceneId}`,
+          message: error?.message || '放置对象重建提交失败'
+        }]
+      };
+    }
+    for (const id of retiredIds) {
+      this.pendingPlacementStates.delete(id);
+      this.pendingResourceNodeStates.delete(id);
+    }
     return { ok: true, errors: [] };
   }
 
@@ -446,10 +483,16 @@ export class ScenePlacementRuntime {
     const unique = new Set(values || []);
     if (unique.size === 0) return [];
     if (unregisterAI) {
-      for (const value of unique) this.aiSystem?.unregisterAI?.(value);
+      for (const value of unique) {
+        try { this.aiSystem?.unregisterAI?.(value); } catch (error) {
+          this.logger.warn('[ScenePlacementRuntime] 注销重建实体 AI 失败', error);
+        }
+      }
     }
     const removed = this.entityStore.removeMany(unique);
-    this.onRemove?.(unique);
+    try { this.onRemove?.(unique); } catch (error) {
+      this.logger.warn('[ScenePlacementRuntime] 重建实体移除回调失败', error);
+    }
     for (const value of unique) {
       try { value?.destroy?.(); } catch (error) { /* best-effort runtime cleanup */ }
     }
@@ -458,7 +501,10 @@ export class ScenePlacementRuntime {
 
   _restoreAIStates(entries = []) {
     for (const { value, state } of entries) {
-      if (state) this.aiSystem?.restoreRuntimeState?.(value, state);
+      if (!state) continue;
+      try { this.aiSystem?.restoreRuntimeState?.(value, state); } catch (error) {
+        this.logger.warn('[ScenePlacementRuntime] 恢复 AI 重建快照失败', error);
+      }
     }
   }
 

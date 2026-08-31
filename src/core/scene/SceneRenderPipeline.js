@@ -301,6 +301,11 @@ export class SceneRenderPipeline {
     const y = Number.isFinite(layoutRect?.y) ? layoutRect.y : fallbackY;
     const width = Number.isFinite(layoutRect?.width) && layoutRect.width > 0 ? layoutRect.width : 150;
     const height = Number.isFinite(layoutRect?.height) && layoutRect.height > 0 ? layoutRect.height : 54;
+    const textOffsetX = Number.isFinite(layoutRect?.textOffsetX) ? layoutRect.textOffsetX : 0;
+    const textOffsetY = Number.isFinite(layoutRect?.textOffsetY) ? layoutRect.textOffsetY : 0;
+    const configuredFontSize = Number.isFinite(layoutRect?.fontSize) && layoutRect.fontSize > 0
+      ? Math.max(6, Math.min(96, layoutRect.fontSize))
+      : null;
 
     const periodNames = timeSystem?.PERIOD_NAMES || timeSystem?.constructor?.PERIOD_NAMES || null;
     const period = timeSystem?.getCurrentPeriod?.() || '';
@@ -309,7 +314,10 @@ export class SceneRenderPipeline {
     const weatherLabel = TIME_WEATHER_LABELS[weatherSystem?.getVisualWeather?.()] || weatherSystem?.getVisualWeather?.() || null;
     const scale = Math.max(0.55, Math.min(1.6, width / 150, height / 54));
     const padding = Math.max(3, Math.min(10, width * 0.067));
-    const maxTextWidth = Math.max(1, width - padding * 2);
+    const maxTextWidth = Math.max(1, width - padding * 2 - Math.abs(textOffsetX));
+    const primaryFontSize = configuredFontSize || Math.max(7, Math.round(12 * scale));
+    const secondaryFontSize = configuredFontSize || Math.max(7, Math.round(11 * scale));
+    const textX = x + padding + textOffsetX;
 
     ctx.save();
     ctx.beginPath();
@@ -323,14 +331,14 @@ export class SceneRenderPipeline {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#ffe4a3';
-    ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
-    ctx.fillText(`第 ${Number.isFinite(day) ? day : 1} 天`, x + padding, y + height * 0.28, maxTextWidth);
+    ctx.font = `bold ${primaryFontSize}px Arial`;
+    ctx.fillText(`第 ${Number.isFinite(day) ? day : 1} 天`, textX, y + height * 0.28 + textOffsetY, maxTextWidth);
     ctx.fillStyle = '#bfe0ff';
-    ctx.font = `${Math.max(7, Math.round(11 * scale))}px Arial`;
-    ctx.fillText(`时间：${periodLabel}`, x + padding, y + height * 0.61, maxTextWidth);
+    ctx.font = `${secondaryFontSize}px Arial`;
+    ctx.fillText(`时间：${periodLabel}`, textX, y + height * 0.61 + textOffsetY, maxTextWidth);
     if (weatherLabel) {
       ctx.fillStyle = '#cfe8cf';
-      ctx.fillText(`气候：${weatherLabel}`, x + padding, y + height * 0.86, maxTextWidth);
+      ctx.fillText(`气候：${weatherLabel}`, textX, y + height * 0.86 + textOffsetY, maxTextWidth);
     }
     ctx.restore();
   }
@@ -352,7 +360,16 @@ export class SceneRenderPipeline {
     const y = Number.isFinite(layoutRect?.y) ? layoutRect.y : fallbackY;
     const width = Number.isFinite(layoutRect?.width) && layoutRect.width > 0 ? layoutRect.width : 80;
     const height = Number.isFinite(layoutRect?.height) && layoutRect.height > 0 ? layoutRect.height : 30;
+    const textOffsetX = Number.isFinite(layoutRect?.textOffsetX) ? layoutRect.textOffsetX : 0;
+    const textOffsetY = Number.isFinite(layoutRect?.textOffsetY) ? layoutRect.textOffsetY : 0;
+    const configuredFontSize = Number.isFinite(layoutRect?.fontSize) && layoutRect.fontSize > 0
+      ? Math.max(6, Math.min(96, layoutRect.fontSize))
+      : null;
     const scale = Math.max(0.55, Math.min(1.6, width / 80, height / 30));
+    const primaryFontSize = configuredFontSize || Math.max(7, Math.round(12 * scale));
+    const secondaryFontSize = configuredFontSize || Math.max(7, Math.round(10 * scale));
+    const textX = x + width / 2 + textOffsetX;
+    const maxTextWidth = Math.max(1, width - 4 - Math.abs(textOffsetX) * 2);
 
     ctx.save();
     ctx.beginPath();
@@ -367,15 +384,18 @@ export class SceneRenderPipeline {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (soulState) {
-      ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
-      ctx.fillText('灵魂状态', x + width / 2, y + height / 2, Math.max(1, width - 4));
+      ctx.font = `bold ${primaryFontSize}px Arial`;
+      ctx.fillText('灵魂状态', textX, y + height / 2 + textOffsetY, maxTextWidth);
     } else {
-      ctx.font = `bold ${Math.max(7, Math.round(12 * scale))}px Arial`;
-      ctx.fillText('战斗中', x + width / 2, y + height * 0.35, Math.max(1, width - 4));
+      ctx.font = `bold ${primaryFontSize}px Arial`;
+      ctx.fillText('战斗中', textX, y + height * 0.35 + textOffsetY, maxTextWidth);
       const timer = Math.ceil(combatSystem.getCombatExitTimer());
       ctx.fillStyle = timer > 0 ? '#ffff00' : '#ff6666';
-      ctx.font = `${Math.max(7, Math.round((timer > 0 ? 10 : 9) * scale))}px Arial`;
-      ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', x + width / 2, y + height * 0.76, Math.max(1, width - 4));
+      const timerFontSize = configuredFontSize || (timer > 0
+        ? secondaryFontSize
+        : Math.max(7, Math.round(9 * scale)));
+      ctx.font = `${timerFontSize}px Arial`;
+      ctx.fillText(timer > 0 ? `${timer}秒` : '敌人附近', textX, y + height * 0.76 + textOffsetY, maxTextWidth);
     }
     ctx.restore();
   }

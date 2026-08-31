@@ -335,10 +335,13 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
         inputManager: this.inputManager,
         runtime: this.sceneRuntime,
         router: this.sceneRuntime?.inputRouter,
-        gamepadCombat: this.gamepadCombatController,
+        gamepadCombat: this.gamepadCombat,
         onModalInput: context => this.handleModalInput(context),
         onPopupConfirm: () => this._handleGainedPopupGamepad(),
         onGamepadCombat: () => this._updateGamepadCombat(),
+        onGamepadCombatCancel: ({ reason }) => (
+          this._ensureCombatActions().cancelGamepadCombatInput(reason)
+        ),
         onLocomotionInput: event => this.jumpByInput({ event }),
         dialogue: this._ensureDialogueFlow(),
         aiming: this._ensureSkillActions(),

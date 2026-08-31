@@ -7,6 +7,8 @@
  * 时间自动推进，段与段之间平滑过渡。
  * 可通过触发器 setTime 跳转到指定时间段。
  */
+const DARKNESS_PERIODS = new Set(['dawn', 'dusk', 'night', 'lateNight']);
+
 export class TimeSystem {
   static PERIODS = ['dawn', 'earlyMorning', 'morning', 'noon', 'afternoon', 'dusk', 'night', 'lateNight'];
 
@@ -65,6 +67,21 @@ export class TimeSystem {
   /** 获取当前明暗度 0~1 */
   getBrightness() { return this._currentBrightness; }
 
+  /**
+   * 获取当前黑暗蒙版透明度。黑幕只在凌晨、黄昏、夜晚和深夜启用；
+   * 清晨至下午仍可保留各时段色调，但不会被黑色蒙版压暗。
+   */
+  getDarknessOpacity() {
+    if (!this.enabled || !DARKNESS_PERIODS.has(this.getCurrentPeriod())) return 0;
+    return Math.max(0, Math.min(0.7, (1 - this._currentBrightness) * 0.7));
+  }
+
+  /** 当前是否存在需要参与 atmosphere 合成的时间覆盖层。 */
+  hasAtmosphereOverlay() {
+    if (!this.enabled) return false;
+    return this.getDarknessOpacity() > 0.01 || this._parseRgba(this._currentTintColor)[3] > 0.001;
+  }
+
   /** 获取当前雾透明度 0~1 */
   getFogOpacity() { return this._currentFogOpacity; }
 
@@ -89,13 +106,18 @@ export class TimeSystem {
     return this.currentDay;
   }
 
-  /** 手动跳转到某时间段开头 */
+  /** 手动跳转到某时间段开头；暂停状态下也允许显式修改。 */
   setTimePeriod(period) {
     let offset = 0;
     for (const p of TimeSystem.PERIODS) {
-      if (p === period) { this.elapsed = offset; this._update(0); return; }
+      if (p === period) {
+        this.elapsed = offset;
+        this._update(0);
+        return true;
+      }
       offset += this.periods[p].duration;
     }
+    return false;
   }
 
   /** 暂停/继续 */
@@ -184,27 +206,30 @@ export class TimeSystem {
     return true;
   }
 
-  /** 渲染时间系统的明暗/色调层（屏幕坐标，renderFogLayer 中调用） */
+  /** 渲染时间系统的明暗/色调层（屏幕坐标，可绘制到独立 atmosphere Canvas）。 */
   render(ctx, width, height) {
-    if (!this.enabled) return;
+    if (!this.enabled) return false;
+    let rendered = false;
 
-    // 明暗：brightness < 1 时覆盖半透明黑色
-    const darkness = 1 - this._currentBrightness;
-    if (darkness > 0.01) {
+    const darknessOpacity = this.getDarknessOpacity();
+    if (darknessOpacity > 0.01) {
       ctx.save();
-      ctx.globalAlpha = darkness * 0.7; // 最暗时约 70% 黑
+      ctx.globalAlpha = darknessOpacity;
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, width, height);
       ctx.restore();
+      rendered = true;
     }
 
-    // 色调叠加
+    // 色调与黑暗门禁分离：白天不画黑幕，但仍保留清晨/下午的环境色。
     if (this._currentTintColor && this._currentTintColor !== 'rgba(0,0,0,0)') {
       ctx.save();
       ctx.fillStyle = this._currentTintColor;
       ctx.fillRect(0, 0, width, height);
       ctx.restore();
+      rendered = true;
     }
+    return rendered;
   }
 }
 

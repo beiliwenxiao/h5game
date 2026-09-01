@@ -327,7 +327,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - 《三国张角传》的 A–D Region 都使用同一全局 20×20 `(row,col)` 坐标；唯一配置事实源是 `game.project.json -> worldMap.regions[].grid`。场景 JSON 只保存 chunk 局部坐标，运行时按 `worldOffset = { x: col * chunkWidth, y: row * chunkHeight }` 派生且只应用一次。
 - 普通字符串单元表示可加载场景；`{ sceneId, reserved: true }` 只表示尚未完成场景的规划位置。reserved 单元必须在世界地图编辑器中可见，但不得进入加载、九宫格流式、传送、调试跳转或存档恢复目标。
 - 所有调用方通过 `src/core/WorldMapCell.js` 解析单元，禁止直接把 `grid[row][col]` 当 sceneId。编辑器需要展示规划位置时显式使用 `includeReserved:true`。
-- 大地图网格和场景缩略图都必须磁盘优先：网格读取当前游戏 `game.project.json`，缩略图读取同项目 `assets/scenes/<sceneId>.json`；localStorage 只在磁盘场景读取失败时 fallback。切换游戏时必须同时更新 `gameId/projectPath`，不能复用旧实例路径。20×20 稀疏网格渲染后应自动定位当前 Region 的有效单元包围盒。
+- 大地图网格和场景缩略图都必须磁盘优先：网格读取当前游戏 `game.project.json`，缩略图读取同项目 `assets/scenes/<sceneId>.json`。localStorage 只允许作为编辑器缩略图/编辑会话缓存，缓存缺少完整 `layers/imageAssets` 时不得覆盖磁盘数据；《三国张角传》正式运行时不读取该缓存，磁盘读取或解析失败直接拒绝。切换游戏时必须同时更新 `gameId/projectPath`，不能复用旧实例路径。20×20 稀疏网格渲染后应自动定位当前 Region 的有效单元包围盒。
 - 场景实现完成后，先确保磁盘场景文件与 `game.project.json.scenes[]` 元数据可加载，再把 reserved 对象替换为同 ID 字符串；不得用空场景文件冒充内容完成。
 
 ## 游戏级表现规格
@@ -347,12 +347,12 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - 场景画布必须同时显示 trigger 标记、触发范围和指向所有匹配目标对象的虚线箭头。空间 trigger 与目标重叠时，连线从触发框边缘绘制，不能因中心重合而不可见。
 - 关联操作复用现有功能：选中 trigger 后点属性面板 🎯 再点目标，或按住 Shift 从 trigger 拖到目标；右键可断开。🎯、Shift 拖线、候选列表、画布连线、右键反向断开和运行时解析必须共用 `SceneObjectSelector` 规则。
 - 项目行为通过 `triggerId` 精确绑定，动作需要目标时从事件第三参数的 `targetSelector/targetObject/targetObjects/targetIds` 读取；不得再用隐藏的 `when.params.target` 与场景 binding 重复绑定。
-- 打开场景时磁盘 JSON 是唯一真实源，始终优先于 localStorage；localStorage 仅在磁盘文件不可读时 fallback，并在磁盘读取成功后刷新，避免旧缓存清空 trigger binding。
+- 编辑器打开场景时磁盘 JSON 是唯一真实源，始终优先于 localStorage；localStorage 只作编辑器会话缓存，缓存缺少完整 `layers/imageAssets` 时必须回到磁盘结果，不得清空 trigger binding。《三国张角传》正式运行不读取该缓存。
 
 ## 场景战役流程参数
 
 - 场景信息面板直接编辑 `gameplay.battleId` 与 `gameplay.battleFlow`：地点、不可用/冲突/进行中/介入提示、战果标题与说明、结算提示、Story 完成键/胜方键、checkpoint，以及对象型 `worldChanges`。
-- 当前游戏磁盘 `assets/scenes/<sceneId>.json` 是这些参数的唯一事实源；`config/battles/*.json` 只保存领域战役定义，不得复制 `sceneFlow`，localStorage 仍只作 fallback/cache。
+- 当前游戏磁盘 `assets/scenes/<sceneId>.json` 是这些参数的唯一事实源；`config/battles/*.json` 只保存领域战役定义，不得复制 `sceneFlow`。localStorage 只作编辑器草稿/缓存，正式运行通过同一个 `WorldMapLoadSession` generation snapshot 按需读取磁盘，失败直接拒绝。
 - 编辑器通过 `SceneBattleFlowRegistry` 对完整候选数据做校验，通过后才一次提交并进入 undo/redo；非法 JSON、数组/null 型 `worldChanges`、缺字段或未登记 battleId 都不得写入当前场景。
 - `battleFlow` 不重复保存 sceneId/battleId；它们分别来自场景 `id` 与 `gameplay.battleId`。编辑时必须保留 `{interact}` 等 InputHints token 原文，禁止替换为单平台硬编码按键。
 - 更新 battle flow 时只合并 `gameplay.battleId/battleFlow`，不得整体覆盖 `gameplay`，否则会删除 S11/S12 rescue/vehicles 和 S13 settlement/choices 等同级配置。
@@ -361,6 +361,9 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 
 ### 提交边界
 - canonical 项目与场景只通过 Vite dev server `POST /api/canonical-transaction` 提交；普通 `/api/save-file` 明确拒绝 `game.project.json` 与 `assets/scenes/*.json`。
+- `scene-workflow.html` 的普通场景 whole-scene 保存必须让 `SceneEditor` 的 `options.onSceneChange` 落到实例回调，并调用 `EditorSceneCommandService.save(projectPath, { sceneId, sourceUri, scene })`；场景编辑器直接修改自己的 `sceneData`，因此不得只调用未 patch 该数据的 `CanonicalEditorSession.save()`，也不得改走 `EditorDataManager.updateScene()` 形成 localStorage-only 正式分支。
+- `SceneEditorHistory.save()` 只有在持久化处理器明确返回 `ok:true` 且 `committed:true` 后才能显示保存成功；未配置处理器、返回 `undefined`、校验拒绝或磁盘失败都必须显示失败，并优先带上首个 validation `path/message`。磁盘已提交但 cache/notifier 失败只能显示降级警告。
+- 场景模板 `editor/config/scene-templates.json` 不是游戏 canonical 文件，继续使用 `/api/save-file`，但保存回调必须 `await` 并核验响应；普通 `SXX.json` 与模板保存分支不得互相替代。
 - 参与跨定义引用闭包的 `$ref` registry entry（如 `battles/rescues/extensions.endings`）必须同时保留被引用文档已有的稳定 `id`；编辑器不得按数组下标、时间戳或随机值生成身份，也不得因当前只编辑 `system` 字段而跳过完整项目校验。保存错误提示必须包含首个 validation `path`，以便定位阻断项。
 - transaction endpoint 只接受当前项目 closure 内 JSON 路径；在仓库独占锁内以 temp、备份和恢复 journal 提交 change set。磁盘 commit point 之前失败恢复原文件并保持 localStorage 不变，commit point 之后的缓存失败不得回滚磁盘。
 - `GET /api/read-file?path=xxx` — 读取文件内容
@@ -368,12 +371,19 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - `GET /api/list-files?path=xxx` — 列出目录内容
 
 ### 已加载场景对象坐标热同步
-- 编辑器只能在 canonical 磁盘 commit point 成功后发布保存通知。`localStorage` 的 `storage` 事件只覆盖同源页面；根 Vite（默认 `3000`）与 Demo Vite（默认 `3100`）属于不同 origin，不能把它作为唯一通知通道。开发服务器必须监听当前项目 `assets/scenes/*.json` 的磁盘变化，并通过各自 Vite WebSocket 发送统一 custom HMR 事件 `yijian18:canonical-scene-commit`；游戏同时监听 HMR 与 `yijian18-engine_editor_scene_commit` storage fallback。该通道只在 Vite `serve` 环境启用，不进入生产业务状态。监听 `add` 前必须用已有 canonical 文件的 `mtimeMs:size` 填充 revision baseline，避免 `watcher.add()` 启动扫描把全部旧文件误报为新提交；revision 只能在 WebSocket 发送成功后记入，发送失败必须允许同 revision 重试。
+- 编辑器只能在 canonical 磁盘 commit point 成功后发布保存通知。开发服务器监听当前项目 `assets/scenes/*.json` 的磁盘变化，并通过当前 Demo 的 Vite WebSocket 发送 custom HMR 事件 `yijian18:canonical-scene-commit`；正式游戏只接受同时携带匹配 `gameId/projectPath/sceneId/revision` 的该事件，不再监听 `storage` 或 `yijian18-engine_editor_scene_commit` fallback。该通道只在 Vite `serve` 环境启用，不进入生产业务状态。监听 `add` 前必须用已有 canonical 文件的 `mtimeMs:size` 填充 revision baseline，避免 `watcher.add()` 启动扫描把全部旧文件误报为新提交；revision 只能在 WebSocket 发送成功后记入，发送失败必须允许同 revision 重试。
 - 运行时按 core `WorldStreamingManager.getLoadedChunks()` 中的**物理 sceneId**判断是否热同步，不能用业务 `currentSceneId` 提前排除相邻 chunk 或 `SXX-CNN`。真正未加载的场景只调用 `WorldMapLoadSession.forgetScene()`，不得创建实体。
 - 热同步输入必须是刚从磁盘读取的原始局部 `sceneData`。`WorldMapLoadSession`、`LoadedChunk.prepareSceneData()` 和 detached terrain 都使用同一 chunk origin 重新投影；禁止把已经投影的 decorations 或 world x/y 再喂给 terrain，`worldOffset` 仍只由 `SceneObjectProjector` 应用一次。
-- `image/deco/slice/shape` 在 `Scene1Terrain` 构造时会被复制到 `_editorBackgroundImages/_depthSortedImages/_collisionShapes/_walkableShapes/_editorShapes/decorations`，随后进入静态 Canvas；只替换 LoadedChunk projection 或 ref placement 不会改变当前画面与碰撞。`SceneStreamingRuntime.replaceLoadedSceneData()` 必须先加载新 sceneData 所需资产，创建 detached terrain 并完成 `prepareStaticCaches({signal})`，再一次提交 chunk projection 与 `terrainsByChunk`；失败恢复旧 chunk/旧 terrain，成功 finalize 后才释放旧 terrain。新 terrain 身份会让 `SceneTerrainCollision` 的 WeakMap 空间索引自然重建；若选择原地修改既有 terrain 碰撞数组，则必须显式调用 `invalidate(terrain)`。
+- canonical 场景对象唯一结构是 `layers[].objects[]`；世界对象、placement、effectZone 与资源预载都只扫描该结构。顶层 `objects/placements/effectZones`、`sceneData.objects.*` 和无 `layers` 的旧数据必须直接拒绝，不得兼容合并。
+- `image/deco/slice/shape` 在 `Scene1Terrain` 构造时会被复制到 `_editorBackgroundImages/_depthSortedImages/_collisionShapes/_walkableShapes/_editorShapes/decorations`，随后进入静态 Canvas；只替换 LoadedChunk projection 或 ref placement 不会改变当前画面与碰撞。`SceneStreamingRuntime.prepareLoadedSceneData()` 必须先加载新 sceneData 所需资产，创建 detached terrain 并完成 `prepareStaticCaches({signal})`，再由调用方一次提交 chunk projection 与 `terrainsByChunk`；外层 session、projection、terrain、placement 与坐标检查全部成功后先 finalize placement，再把旧 terrain 释放作为 best-effort 提交后清理。placement finalize 前失败时恢复旧 chunk/旧 terrain；新 terrain 身份会让 `SceneTerrainCollision` 的 WeakMap 空间索引自然重建；若选择原地修改既有 terrain 碰撞数组，则必须显式调用 `invalidate(terrain)`。
 - 异步资产与 terrain prepare 期间不得先把新数据暴露到 session。连续保存继续使用 sceneId 级 AbortController/generation latest-wins，并在 commit 前复核 manager、LoadedChunk、terrain 引用和 generation；过期请求只能释放自己的 detached 资源，不得提交或回滚较新的版本。运行时提交成功后，session 替换、placement rebuild 与 finalize 必须在同一同步提交段完成。
 - `WorldMapLoadSession.replaceSceneData()` 必须同时失效 repository 已读 record、session Promise 与同 sceneId 在途读取 generation；否则画面短暂更新后，chunk 卸载回载会再次取得旧坐标。placement 是否变化统一比较 `getPlacementSignature()`（使用 `_localX/_localY`）；坐标、ref、overrides 或 spawnWhen 改变只重建对应稳定 ID，删除则通过 `retiredPlacementIds` 清理旧实体。任一步失败恢复旧 session/projection/terrain/spawn ledger，并明确报告 rollback failure。
+- `PlacementSpawner.spawnMatching()` 必须为每个 `matchedPlacements` 项产生且只产生一个结构化 outcome：成功生成是 `spawned`；幂等账本命中、条件不成立和合法非 ref placement 分别是 `alreadySpawned`、`conditionFalse`、`nonRef` skip；未知 ref kind 和生成异常分别是 `unsupportedKind`、`failed` error。合法 `type:'spawn'` 由出生点管线处理，必须返回 `nonRef`，不得在 ref registry 校验阶段误报。`matchedPlacements` 只表示 selector 命中，`counts.total` 只统计实际生成量；`matched=1,total=0,errors=0` 不能证明生成失败或成功，必须读取逐 placement `outcomes/skipped`。
+- `spawnedPlacementIds` 只证明某稳定 placement ID 曾提交到生成账本，不证明当前 live 对象仍存在、类型正确或坐标新鲜。运行时必须用 `ScenePlacementRuntime.findLivePlacementValue()/inspectPlacement()` 按 `placementId` 覆盖 `all/pickups/equipmentItems` 查找并验证；普通 item 的业务 `id` 与 `placementId` 保持分离，不得为了查找方便把两者改成同一个 ID。补偿链路遇到 `alreadySpawned` 但 live 缺失时不能盲目 `forget + spawn`，因为缺失也可能表示已拾取或已死亡的 terminal 事实。
+- 坐标热同步只重建签名发生变化的 active `type:'ref'`。验证顺序固定为磁盘原始局部 `x/y === projection._localX/_localY`，再验证 live 世界坐标约等于 `local + loadedChunk.origin`；禁止把运行时 world 坐标直接与编辑器 local 坐标比较，也禁止在补偿代码中直接改 `x/y`。每个 ref 草稿都必须核对 outcome、实体注册和最终世界坐标；应生成却无 live 对象、outcome 不匹配或坐标不等于新 projection 时整批回滚，不能只检查 matched/counts/errors。
+- placement 重建必须遵守 `validate → prepare draft → commit → emit → checkpoint`。需要纳入编辑器热同步外层事务时调用 `rebuild(..., { deferFinalize:true })`：成功后保留旧对象并返回幂等 `rollback/finalize`，只有外层 session、terrain 和 projection 后置检查全部成功才 finalize；外层失败按 placement → terrain → session 逆序回滚。prepare/commit 任一步失败都要恢复 pending state、AI 注册和 `spawnedPlacementIds` ledger，且当前失败步骤也必须进入回滚，禁止先销毁旧对象再执行仍可能失败的检查。
+- placement 动态状态必须携带 `getPlacementSignature()`；`addPendingPlacementState()` 为当前写入自动补签名。缺少 `placementSignature` 的旧动态状态必须以 `missingPlacementSignature` 拒绝，禁止自动绑定当前定义。只有签名已存在且变化仅限局部坐标时，removed tombstone 才可续签并阻止对象复活；旧动态世界坐标不得覆盖新 canonical 坐标。ref、overrides 或 spawnWhen 等语义变化不能沿用旧 terminal state。live corpse 在 rebuild 前必须通过 `SceneCorpseRuntime.capture()` 注入临时 terminal 状态，使新草稿恢复为尸体而不是活敌。
+- 热同步诊断必须保留逐项 `outcomes/skipped`，并区分 `placement-projection-verified/invalid`、`placement-rebuild-*` 与 `placement-rollback`；排查时先确认 local、chunk origin、world projection 和 outcome，再判断存档污染。只看到 `matched=1,total=0,errors=0` 时不得清空全局生成账本或硬编码对象坐标。
 - `Minimap.setTerrains()` 只会失效 cache version，不会主动生成背景；同 Region 的 `_minimapBackgroundActivation` 门禁还会跳过普通激活入口。terrain 热替换提交后必须显式调用一次 `prepareBackgroundCache()`，回滚后也必须基于恢复的旧 terrain 再建一次；普通 HUD update、缩放和 streaming refresh 仍禁止隐式重画静态小地图。
 
 ## 性能优化（游戏侧 Scene1Terrain）

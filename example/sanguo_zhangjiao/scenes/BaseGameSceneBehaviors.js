@@ -91,7 +91,6 @@ import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { DemoPlayerFactory } from '../entities/DemoPlayerFactory.js';
-import { hasSceneData, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
 import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 import { BaseGameSceneSetup } from './BaseGameSceneSetup.js';

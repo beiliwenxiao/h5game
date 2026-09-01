@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1788218722616,
+  "createdAt": 1788284385613,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -20,8 +20,8 @@
         "id": "refugee",
         "name": null,
         "transform": {
-          "x": 1885,
-          "y": 1275,
+          "x": 1876.5592301814668,
+          "y": 1285.0234141595083,
           "elevation": 0,
           "rotation": 0,
           "scale": {
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1788218720595
+            "timestamp": 1788284383570
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788218720595
+            "timestamp": 1788284383570
           }
         ],
         "completedDialogues": []
@@ -1869,7 +1869,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.95040000000108
+          "elapsed": 121.96690000000069
         },
         "weatherState": {
           "currentWeather": "clear",

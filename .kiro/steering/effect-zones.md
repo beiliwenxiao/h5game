@@ -63,8 +63,9 @@ fileMatchPattern: '{**/EffectZoneRenderer*,**/Particle*,**/ParticleSystem*,**/Sc
 
 ## 接入路径
 
-- 单 chunk 场景：`BaseGameScene._initEditorTerrain` → `_initEffectZones(sceneId)` 异步加载
-- 多 chunk 场景：`WorldMapLoadSession` 在唯一世界加载 Promise 中收集并应用一次 worldOffset → `DataDrivenPrologueScene._initMultiChunkEffectZones(effectZones)` 直接装配已投影区域
+- 《三国张角传》只使用 `DataDrivenPrologueScene` 的多 chunk 世界管线，不再保留 `BaseGameScene._initEditorTerrain/_initEffectZones` 单 chunk 文件读取入口。
+- `WorldMapLoadSession` 只从 canonical `layers[].objects[]` 收集 `effectZone`，并通过 `SceneObjectProjector` 应用一次 worldOffset；`SceneStreamingRuntime` 汇总已加载 chunk 后调用 `SceneTerrainBinding.setEffectZones(effectZones)` 装配已投影区域。
+- `Scene1Terrain` 必须由世界会话注入有效 `sceneData.layers`，不得自行读取磁盘或 localStorage；缺少 canonical 数据直接失败。
 - 每帧 `effectZoneRenderer.update(deltaTime)` 生成粒子，由已有 `particleSystem.update/render` 驱动
 
 ## 编辑器使用提示

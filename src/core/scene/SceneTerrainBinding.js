@@ -7,52 +7,17 @@
 import { SceneObjectProjector } from './SceneObjectProjector.js';
 
 /**
- * SceneTerrainBinding - 将游戏侧 terrain 实现绑定到通用场景生命周期。
+ * SceneTerrainBinding - 将已由世界流式会话创建的 terrain 绑定到通用场景生命周期。
  *
- * 不直接导入 Demo 类型；TerrainClass、场景数据读取、特效区渲染与碰撞解算
- * 均由宿主场景在构造时注入。
+ * 不直接导入 Demo 类型；特效区渲染与碰撞解算由宿主场景注入。
+ * Terrain 数据只来自同一份 canonical chunk 投影，不在 Binding 内再次读盘或读取缓存。
  */
 export class SceneTerrainBinding {
-  constructor({ scene, TerrainClass, hasSceneData, loadSceneFromFile, EffectZoneRenderer, SceneTerrainCollision } = {}) {
+  constructor({ scene, EffectZoneRenderer, SceneTerrainCollision } = {}) {
     this.scene = scene;
-    this.TerrainClass = TerrainClass;
-    this.hasSceneData = hasSceneData;
-    this.loadSceneFromFile = loadSceneFromFile;
     this.EffectZoneRenderer = EffectZoneRenderer;
     this.SceneTerrainCollision = SceneTerrainCollision;
     this.projector = new SceneObjectProjector();
-  }
-
-  initEditorTerrain(config = {}) {
-    const scene = this.scene;
-    if (scene.terrain || scene._skipInitEditorTerrain || !this.TerrainClass) return null;
-    const { gameId, sceneId, ...terrainConfig } = config;
-    if (!sceneId || !this.hasSceneData || !this.hasSceneData(gameId, sceneId)) return null;
-
-    scene.terrain = new this.TerrainClass({
-      ...terrainConfig,
-      editorGameId: gameId,
-      editorSceneId: sceneId
-    });
-    scene._initEffectZones(sceneId, terrainConfig.worldOffset);
-    return scene.terrain;
-  }
-
-  initEffectZones({ sceneId, worldOffset = { x: 0, y: 0 }, resourceScope = null } = {}) {
-    const scene = this.scene;
-    if (!scene.particleSystem || !sceneId || !this.EffectZoneRenderer || !this.loadSceneFromFile) return null;
-    const renderer = new this.EffectZoneRenderer(scene.particleSystem);
-    const scope = resourceScope || scene.resourceScope || null;
-    this.setEffectZoneRenderer(renderer);
-    const applyData = data => {
-      if (scope?.disposed || scene.effectZoneRenderer !== renderer) return;
-      if (data && Array.isArray(data.layers)) renderer.loadFromSceneData(data, worldOffset);
-    };
-    const ignoreFailure = () => { /* 无场景文件或场景已退出，不加载特效区域 */ };
-    this.loadSceneFromFile(sceneId)
-      .then(scope?.guard?.(applyData) || applyData)
-      .catch(scope?.guard?.(ignoreFailure) || ignoreFailure);
-    return renderer;
   }
 
   /** 替换唯一特效区域渲染器，并同步正式 Context 投影。 */

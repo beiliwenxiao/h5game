@@ -228,45 +228,63 @@ export class S01S02Coordinator {
   }
 
   async _ensureSpawnedPlacement(group, placementId) {
-    const findExisting = id => this.scene.entityStore?.getById?.(id)
-      // item/equipment 实体的 id 是定义 id（如 tool.worn_axe）而非 placementId，
-      // 必须按 placementId 在拾取列表里找，否则补偿重试永远判定"实体不存在"。
-      || (this.scene.pickupItems || []).find(item => item?.placementId === id)
-      || (this.scene.equipmentItems || []).find(item => item?.placementId === id)
-      || null;
+    const placements = this.scene.context.services.placements;
+    if (!placements) {
+      return { ok: false, code: 'placementRuntimeUnavailable', result: null, target: null };
+    }
+
     let result;
     try {
       result = await this._spawnGroup(group);
     } catch (error) {
-      return { ok: false, code: 'placementSpawnFailed', error, result: null };
+      return { ok: false, code: 'placementSpawnFailed', error, result: null, target: null };
     }
-    let spawnedTarget = (result?.entities || []).find(
-      entity => entity?.placementId === placementId || entity?.id === placementId
+
+    const outcome = (result?.outcomes || []).find(
+      entry => entry?.placementId === placementId
     ) || null;
-    // 死锁自愈：spawner 因 already-spawned 拒绝重生成（total=0），且场景中
-    // 实体确已不存在（被重建/清理移除）→ forget 后重新生成一次。
-    if (!spawnedTarget && result?.ok === true && (result?.entities || []).length === 0
-      && !findExisting(placementId)) {
-      this.scene.context.services.placements?.forgetSpawnedPlacements?.(placementId);
-      try {
-        result = await this._spawnGroup(group);
-      } catch (error) {
-        return { ok: false, code: 'placementSpawnFailed', error, result: null };
-      }
-      spawnedTarget = (result?.entities || []).find(
-        entity => entity?.placementId === placementId || entity?.id === placementId
-      ) || null;
+    if (result?.ok !== true || (result.errors || []).length > 0 || !outcome) {
+      return { ok: false, code: 'placementSpawnFailed', result, target: null };
     }
-    const existingTarget = findExisting(placementId);
-    const target = spawnedTarget || existingTarget;
-    if (result?.ok !== true || (result.errors || []).length > 0 || !target) {
-      return { ok: false, code: 'placementNotReady', result, target: null };
+    if (outcome.status !== 'spawned' && outcome.status !== 'alreadySpawned') {
+      return {
+        ok: false,
+        code: outcome.status === 'conditionFalse'
+          ? 'placementConditionFalse'
+          : 'placementSpawnRejected',
+        result,
+        target: null
+      };
     }
+
+    const inspection = placements.inspectPlacement?.(placementId) || null;
+    if (!inspection?.placement) {
+      return { ok: false, code: 'placementNotFound', result, target: null };
+    }
+    if (!inspection.live) {
+      return {
+        ok: false,
+        code: inspection.tombstoned ? 'placementAlreadyRemoved' : 'placementLiveObjectMissing',
+        result,
+        target: null
+      };
+    }
+    if (inspection.matchesProjection !== true) {
+      return {
+        ok: false,
+        code: 'placementCoordinateMismatch',
+        result,
+        target: null,
+        actual: inspection.actual || null,
+        expected: inspection.expected || null
+      };
+    }
+
     return {
       ok: true,
-      created: Number(result?.counts?.total) > 0 && Boolean(spawnedTarget),
+      created: outcome.status === 'spawned',
       result,
-      target
+      target: inspection.value
     };
   }
 

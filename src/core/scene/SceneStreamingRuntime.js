@@ -425,13 +425,6 @@ export class SceneStreamingRuntime {
     };
   }
 
-  /** 兼容入口：完整准备 terrain 后再同步提交，调用方仍负责 finalize/rollback。 */
-  async replaceLoadedSceneData(sceneId, sceneData, options = {}) {
-    const prepared = await this.prepareLoadedSceneData(sceneId, sceneData, options);
-    if (!prepared?.ok || !prepared.loaded) return prepared;
-    return prepared.commit();
-  }
-
   syncProjection(currentSceneId = this.getCurrentSceneId?.()) {
     const manager = this.manager;
     if (!manager) return null;

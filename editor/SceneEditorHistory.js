@@ -84,17 +84,65 @@ export class SceneEditorHistory {
   }
 
   /**
-   * 保存场景（触发回调）
+   * 保存场景（触发持久化回调）
    */
   async save() {
     const editor = this.editor;
-    const result = editor.onSceneChange ? await editor.onSceneChange(editor.sceneData) : null;
-    if (result?.committed && result?.degraded) {
-      editor.ui.showToast('磁盘已提交，但缓存/通知同步降级', 'warn');
-    } else {
-      editor.ui.showToast('场景已保存');
+    if (typeof editor.onSceneChange !== 'function') {
+      const failure = {
+        ok: false,
+        committed: false,
+        status: 'rejected',
+        code: 'missingPersistenceHandler',
+        errors: [{ path: '', message: '未配置场景持久化处理器', reason: '未配置场景持久化处理器' }]
+      };
+      console.error('SceneEditorHistory: 场景保存失败，未配置持久化处理器');
+      editor.ui.showToast('场景保存失败：未配置持久化处理器', 'error');
+      return failure;
     }
-    return result || editor.sceneData;
+
+    try {
+      const result = await editor.onSceneChange(editor.sceneData);
+      if (!result?.ok || result.committed !== true) {
+        const firstError = result?.errors?.[0];
+        const detail = [firstError?.path, firstError?.message || firstError?.reason]
+          .filter(Boolean)
+          .join(': ');
+        const message = detail || result?.error?.message || result?.error || '持久化处理器未确认磁盘提交';
+        editor.ui.showToast(`场景保存失败：${message}`, 'error');
+        return result || {
+          ok: false,
+          committed: false,
+          status: 'failed',
+          code: 'unconfirmedPersistence',
+          errors: [{ path: '', message, reason: message }]
+        };
+      }
+
+      if (result.degraded) {
+        editor.ui.showToast('磁盘已提交，但缓存/通知同步降级', 'warn');
+      } else {
+        editor.ui.showToast(result.successMessage || '场景已保存');
+      }
+      return result;
+    } catch (error) {
+      const result = error?.result;
+      const firstError = result?.errors?.[0];
+      const detail = [firstError?.path, firstError?.message || firstError?.reason]
+        .filter(Boolean)
+        .join(': ');
+      const message = detail || error?.message || '未知错误';
+      console.error('SceneEditorHistory: 场景保存失败', error);
+      editor.ui.showToast(`场景保存失败：${message}`, 'error');
+      return result || {
+        ok: false,
+        committed: false,
+        status: 'failed',
+        code: 'persistenceFailed',
+        errors: [{ path: '', message, reason: message }],
+        error
+      };
+    }
   }
   /**
    * 导出 JSON。导出是纯序列化，不清理资源、不舍入、不注入元数据。

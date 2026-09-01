@@ -240,21 +240,6 @@ export class BaseGameScenePresentation extends BaseGameSceneGameplayHooks {
     return this._terrainBinding.renderBuffZones(ctx);
   }
 
-  _initEditorTerrain() {
-    this._terrainConfig.sceneId = this.editorSceneId;
-    return this._terrainBinding.initEditorTerrain({
-      ...this._terrainConfig,
-      centerX: this.logicalWidth / 2,
-      centerY: this.logicalHeight / 2,
-      width: this.logicalWidth,
-      height: this.logicalHeight
-    });
-  }
-
-  _initEffectZones(sceneId, worldOffset = this._terrainConfig.worldOffset) {
-    return this._terrainBinding.initEffectZones({ sceneId, worldOffset, resourceScope: this.resourceScope });
-  }
-
   /**
    * 标准地形碰撞模板：由基类统一提供 terrain/player/diagnostics 上下文。
    * 子场景只有数据来源确实不同才覆写此方法，常规场景不应重复组装同一参数对象。

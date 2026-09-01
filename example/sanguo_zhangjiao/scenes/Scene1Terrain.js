@@ -11,7 +11,6 @@
  */
 
 import { ShapeRenderer } from '../../../src/rendering/ShapeRenderer.js';
-import { loadSceneFromStorage, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { SceneObjectProjector } from '../../../src/core/scene/SceneObjectProjector.js';
 
 /**
@@ -46,6 +45,12 @@ export class Scene1Terrain {
    * @param {{x:number,y:number}} [config.worldOffset] - chunk 在世界中的偏移量
    */
   constructor(config = {}) {
+    const sceneData = config.sceneData;
+    const editorSceneId = config.editorSceneId || sceneData?.id;
+    if (!editorSceneId || !sceneData || !Array.isArray(sceneData.layers)) {
+      throw new TypeError('Scene1Terrain requires canonical editorSceneId and sceneData.layers');
+    }
+
     // 世界偏移量（大地图 chunk 原点）
     this.worldOffset = config.worldOffset || { x: 0, y: 0 };
     this._sceneObjectProjector = config.projector || new SceneObjectProjector();
@@ -184,97 +189,35 @@ export class Scene1Terrain {
     this._editorBackgroundImages = [];
     this._depthSortedImages = [];
 
-    const hasCanonicalSceneData = !!(config.sceneData && Array.isArray(config.sceneData.layers));
-    // canonical chunk 图片已在流式 prepare 阶段按稳定 ID 加载；仅无场景数据的旧程序化地形加载四张 legacy 图。
-    if (!hasCanonicalSceneData) this._loadImages();
     this._buildWaterPatches();
     this._buildDecorations();
-    // 世界会话可直接注入已经加载的完整数据，避免 terrain 自己再次读取缓存/文件。
-    if (hasCanonicalSceneData) {
-      this._editorSceneId = config.editorSceneId || config.sceneData.id || 'scene_Prologue';
-      this._applySceneData(config.sceneData);
-    } else if (!config.skipEditorLoad) {
-      this._applyEditorOverrides(config);
-    }
-
-    // 如果没有编辑器数据（_applySceneData 未执行），也需要对默认数据应用 worldOffset
-    if ((this.worldOffset.x !== 0 || this.worldOffset.y !== 0) && !this._worldOffsetApplied) {
-      this._applyWorldOffsetToDefaults();
-    }
-  }
-
-  /**
-   * 应用游戏编辑器保存的场景覆盖数据
-   *
-   * 编辑器把场景数据存到 localStorage：
-   *   key  = 'yijian18-engine_editor_data_scenes_<gameId>'
-   *   value= JSON 数组，每个元素是一个场景对象
-   * 序章场景的 id 为 'scene_Prologue'。
-   *
-   * 当检测到已保存的序章数据时：
-   *   - 用保存的 decoSprites 覆盖切片配置
-   *   - 用保存的 decorations + 装饰层中的 slice 对象重建装饰物列表
-   * @param {Object} config 构造参数（可指定 editorGameId / editorSceneId）
-   * @private
-   */
-  _applyEditorOverrides(config = {}) {
-    if (typeof localStorage === 'undefined' && typeof fetch === 'undefined') return;
-
-    const gameId = config.editorGameId || 'sanguo_zhangjiao';
-    const sceneId = config.editorSceneId || 'scene_Prologue';
-    this._editorSceneId = sceneId;
-
-    console.log('[Scene1Terrain][Collision] 开始读取场景数据', {
-      gameId,
-      sceneId,
+    // Terrain 只消费世界会话已经加载并验证的 canonical 数据，不自行读取文件或缓存。
+    this._editorSceneId = editorSceneId;
+    console.log('[Scene1Terrain][Collision] 开始应用 canonical 场景数据', {
+      sceneId: editorSceneId,
       worldOffset: { ...this.worldOffset },
       initialCollisionShapes: this._collisionShapes.length,
-      precedence: 'disk-first'
+      source: 'world-load-session'
     });
-
-    const applyScene = (scene, source) => {
-      if (!scene) return false;
-      this._applySceneData(scene);
-      this._grassCanvas = null;
-      console.log(`[Scene1Terrain][Collision] 已应用${source}场景数据`, {
-        requestedSceneId: sceneId,
-        loadedSceneId: scene.id || null,
-        layerCount: scene.layers?.length || 0,
-        collisionShapeCount: this._collisionShapes.length,
-        worldOffset: { ...this.worldOffset },
-        collisionShapes: this._collisionShapes.map(shape => ({
-          id: shape.id || null,
-          shapeType: shape.shapeType,
-          points: shape.points?.length || 0,
-          x: shape.x,
-          y: shape.y
-        }))
-      });
-      return true;
-    };
-
-    // canonical 磁盘 JSON 始终优先；localStorage 仅在磁盘不可用时作 fallback，
-    // 与 CanonicalSceneRepository 的运行时事实源顺序保持一致。
-    loadSceneFromFile(sceneId).then(scene => {
-      if (applyScene(scene, '磁盘')) return;
-      const cached = loadSceneFromStorage(gameId, sceneId);
-      if (applyScene(cached, ' localStorage fallback ')) return;
-      console.warn('[Scene1Terrain][Collision] 磁盘与 localStorage 均无有效场景数据', { sceneId });
-    }).catch(error => {
-      console.warn('[Scene1Terrain][Collision] 磁盘场景加载异常，尝试 localStorage fallback', {
-        sceneId,
-        error
-      });
-      const cached = loadSceneFromStorage(gameId, sceneId);
-      if (!applyScene(cached, ' localStorage fallback ')) {
-        console.warn('[Scene1Terrain][Collision] localStorage fallback 也无有效场景数据', { sceneId });
-      }
+    this._applySceneData(sceneData);
+    console.log('[Scene1Terrain][Collision] 已应用 canonical 场景数据', {
+      sceneId: editorSceneId,
+      layerCount: sceneData.layers.length,
+      collisionShapeCount: this._collisionShapes.length,
+      worldOffset: { ...this.worldOffset },
+      collisionShapes: this._collisionShapes.map(shape => ({
+        id: shape.id || null,
+        shapeType: shape.shapeType,
+        points: shape.points?.length || 0,
+        x: shape.x,
+        y: shape.y
+      }))
     });
   }
 
   /**
-   * 应用场景数据（从 localStorage 或文件加载后调用）
-   * @param {Object} scene - 场景对象
+   * 应用世界会话已加载并验证的 canonical 场景数据。
+   * @param {Object} scene - canonical 场景对象
    * @private
    */
   _applySceneData(scene) {
@@ -288,7 +231,7 @@ export class Scene1Terrain {
     // 保存场景原始数据引用（供外部系统如小地图使用）
     this._sceneDataRaw = scene;
 
-    // 打印碰撞 shapes 的原始坐标，诊断是否 localStorage 中已带偏移
+    // 打印 canonical 碰撞 shape 原始局部坐标，诊断是否在投影前被错误提前偏移。
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
         if (!layer || !Array.isArray(layer.objects)) continue;
@@ -560,43 +503,6 @@ export class Scene1Terrain {
       this._combinedGroundCache = null;
       this._grassCanvas = null;
     }
-  }
-
-  /**
-   * 对程序化默认数据应用 worldOffset（无编辑器数据时的兜底）
-   * @private
-   */
-  _applyWorldOffsetToDefaults() {
-    const ox = this.worldOffset.x;
-    const oy = this.worldOffset.y;
-
-    this.centerX += ox;
-    this.centerY += oy;
-    this.basinLeft += ox;
-    this.basinRight += ox;
-    this.basinTop += oy;
-    this.basinBottom += oy;
-    this.entranceCenterX = this.centerX;
-
-    for (const d of this.decorations) {
-      d.x += ox;
-      d.y += oy;
-    }
-    this._treeColliders = null;
-
-    for (const p of this.waterPatches) {
-      p.x += ox;
-      p.y += oy;
-    }
-
-    if (this._terrainEllipse) {
-      this._terrainEllipse.cx += ox;
-      this._terrainEllipse.cy += oy;
-    }
-
-    this._combinedGroundCache = null;
-    this._grassCanvas = null;
-    this._worldOffsetApplied = true;
   }
 
   /**

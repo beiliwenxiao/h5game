@@ -85,7 +85,6 @@ import { SceneHudUpdater } from '../../../src/core/scene/SceneHudUpdater.js';
 import { SceneTriggerBindingSystem } from '../../../src/core/scene/SceneTriggerBindingSystem.js';
 import { createEntitySpatialTarget } from '../../../src/core/scene/SceneSpatialGeometry.js';
 import { SceneInputFlow } from '../../../src/core/input/SceneInputFlow.js';
-import { Scene1Terrain } from './Scene1Terrain.js';
 import { ParticleSystem } from '../../../src/rendering/ParticleSystem.js';
 import { EffectZoneRenderer } from '../../../src/rendering/EffectZoneRenderer.js';
 import { EntityLifecycleSystem } from '../../../src/systems/EntityLifecycleSystem.js';
@@ -94,7 +93,6 @@ import { UISystem } from '../../../src/ui/UISystem.js';
 import { PortraitsConfig } from '../data/PortraitsConfig.js';
 import { SelectedCharacterStore } from '../data/SelectedCharacterStore.js';
 import { DemoPlayerFactory } from '../entities/DemoPlayerFactory.js';
-import { hasSceneData, loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { getNpcRenderStyle } from '../../../src/rendering/NpcRenderStyles.js';
 import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 
@@ -171,20 +169,11 @@ export class BaseGameSceneSetup extends Scene {
     // 调试模式只投影 RuntimeConfig 的规范化结果，不再作为独立事实源。
     this.debugMode = false;
 
-    // 编辑器场景渲染器（通用，默认使用《三国张角传》S01 区块）
+    // Terrain 实例由唯一世界流式会话使用 canonical chunk 数据创建。
     this.terrain = null;
     this.editorSceneId = sceneData.editorSceneId || 'S01';
-    // Demo 保留场景标识和世界偏移配置；核心 binding 不认识任何 Demo 内容。
-    this._terrainConfig = {
-      gameId: 'sanguo_zhangjiao',
-      sceneId: this.editorSceneId,
-      worldOffset: sceneData.worldOffset || { x: 0, y: 0 }
-    };
     this._terrainBinding = new SceneTerrainBinding({
       scene: this,
-      TerrainClass: Scene1Terrain,
-      hasSceneData,
-      loadSceneFromFile,
       EffectZoneRenderer,
       SceneTerrainCollision
     });
@@ -260,7 +249,7 @@ export class BaseGameSceneSetup extends Scene {
     // 粒子系统
     this.particleSystem = new ParticleSystem(500);
     
-    // 特效区域粒子渲染器（加载场景后由 terrain._applySceneData 或 _initEffectZones 填充）
+    // 特效区域只由世界加载结果中的已投影 effectZones 装配。
     this.effectZoneRenderer = null;
     
     // 等距渲染器
@@ -741,8 +730,7 @@ export class BaseGameSceneSetup extends Scene {
     // 生成等距地图
     this.generateIsometricMap();
 
-    // 初始化编辑器场景地形（所有幕通用，如果编辑器有该场景数据就加载渲染）
-    this._initEditorTerrain();
+    // Terrain 由 DataDrivenPrologueScene 的世界流式会话创建并在投影提交时写入 Context。
     this.context.world.terrainBinding = this._terrainBinding;
     this.context.world.terrain = this.terrain;
 

@@ -17,7 +17,7 @@
  * SceneCampfireService 与 GameProject 的 canonical 场景数据装配地形、碰撞、火堆与表现。
  * 流程由 GameProject（game.project.json）的 triggers、领域 command 与区块传送驱动。
  *
- * 当前作为 Demo 唯一运行时大地图场景；?ddscene=preview 进入静态编辑器预览。
+ * 当前作为 Demo 唯一运行时大地图场景；编辑器与运行时共享磁盘 canonical S01–S14。
  * 各场景流程由 GameProject triggers 与区块传送驱动。
  */
 
@@ -92,8 +92,8 @@ function awaitWithAbort(promise, signal, message) {
 }
 
 export class DataDrivenPrologueScene extends BaseGameScene {
-  // 覆盖父类：DDScene 自行通过 _loadWorldTerrains 管理地形，不需要父类创建
-  _initEditorTerrain() { /* 由 _loadWorldTerrains 代替 */ }
+  // 显式空钩子：terrain 只能由 SceneStreamingRuntime 使用 canonical chunk 数据创建。
+  _initEditorTerrain() { /* 由世界流式管线代替 */ }
 
   constructor() {
     super({
@@ -183,7 +183,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         height: chunkHeight,
         editorSceneId: chunk.sceneId,
         worldOffset: chunk.origin,
-        skipEditorLoad: true,
         sceneData,
         resolveImageAsset: imageId => this.assetManager?.resolveManifestAsset?.(imageId, '2d') || null,
         getLoadedImage: imageId => {
@@ -449,9 +448,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     }
   }
 
-  /** 同时监听 Vite custom HMR 与同源 storage fallback 的 canonical 场景提交。 */
+  /** 仅监听带 provenance 与 revision 的 Vite custom HMR canonical 场景提交。 */
   _watchEditorSceneCommits() {
-    const STORAGE_KEY = 'yijian18-engine_editor_scene_commit';
     const HMR_EVENT = 'yijian18:canonical-scene-commit';
     const GAME_ID = 'sanguo_zhangjiao';
     const PROJECT_PATH = 'example/sanguo_zhangjiao/game.project.json';
@@ -459,82 +457,60 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     const generations = new Map();
     const controllers = new Map();
     const seenRevisions = new Map();
-    const latestStorageTimestamps = new Map();
     let disposed = false;
     this._editorSceneCommitGenerations = generations;
     this._editorSceneCommitControllers = controllers;
 
-    const accept = (payload, source) => {
-      if (disposed || payload?.gameId !== GAME_ID || !CANONICAL_SCENE_ID.test(payload?.sceneId || '')) return false;
-      const projectPath = typeof payload.projectPath === 'string'
+    const accept = payload => {
+      const projectPath = typeof payload?.projectPath === 'string'
         ? payload.projectPath.replace(/\\/g, '/')
         : null;
-      if (projectPath && projectPath !== PROJECT_PATH) return false;
-
-      const revision = typeof payload.revision === 'string' && payload.revision.length > 0
+      const revision = typeof payload?.revision === 'string' && payload.revision.length > 0
         ? payload.revision
         : null;
-      const timestamp = Number(payload.ts);
-      if (revision) {
-        let revisions = seenRevisions.get(payload.sceneId);
-        if (!revisions) {
-          revisions = new Set();
-          seenRevisions.set(payload.sceneId, revisions);
-        }
-        if (revisions.has(revision)) {
-          this._debugCanonicalHotSync('notification-duplicate', {
-            source, sceneId: payload.sceneId, revision
-          });
-          return false;
-        }
-        revisions.add(revision);
-        while (revisions.size > 8) revisions.delete(revisions.values().next().value);
-      } else if (Number.isFinite(timestamp)) {
-        const latest = latestStorageTimestamps.get(payload.sceneId) || 0;
-        if (timestamp <= latest) {
-          this._debugCanonicalHotSync('notification-duplicate', {
-            source, sceneId: payload.sceneId, ts: timestamp
-          });
-          return false;
-        }
-        latestStorageTimestamps.set(payload.sceneId, timestamp);
+      if (disposed
+        || payload?.gameId !== GAME_ID
+        || projectPath !== PROJECT_PATH
+        || !CANONICAL_SCENE_ID.test(payload?.sceneId || '')
+        || !revision) return false;
+
+      let revisions = seenRevisions.get(payload.sceneId);
+      if (!revisions) {
+        revisions = new Set();
+        seenRevisions.set(payload.sceneId, revisions);
       }
+      if (revisions.has(revision)) {
+        this._debugCanonicalHotSync('notification-duplicate', {
+          source: 'hmr', sceneId: payload.sceneId, revision
+        });
+        return false;
+      }
+      revisions.add(revision);
+      while (revisions.size > 8) revisions.delete(revisions.values().next().value);
 
       this._debugCanonicalHotSync('notification', {
-        source,
-        sceneId: payload.sceneId,
-        revision,
-        ts: Number.isFinite(timestamp) ? timestamp : null
+        source: 'hmr', sceneId: payload.sceneId, revision, ts: null
       });
       void this._handleEditorSceneCommit({
         sceneId: payload.sceneId,
         revision,
-        ts: Number.isFinite(timestamp) ? timestamp : null,
-        source
+        ts: null,
+        source: 'hmr'
       });
       return true;
     };
-    const storageHandler = event => {
-      if (!event || event.key !== STORAGE_KEY || !event.newValue) return;
-      try {
-        accept(JSON.parse(event.newValue), 'storage');
-      } catch (_error) { /* 忽略无法解析的 fallback 通知 */ }
-    };
-    const hmrHandler = payload => { accept(payload, 'hmr'); };
-    window.addEventListener('storage', storageHandler);
+    const hmrHandler = payload => { accept(payload); };
     const hot = import.meta.hot || null;
     hot?.on?.(HMR_EVENT, hmrHandler);
 
     const dispose = () => {
       if (disposed) return;
       disposed = true;
-      window.removeEventListener('storage', storageHandler);
       hot?.off?.(HMR_EVENT, hmrHandler);
       for (const controller of controllers.values()) controller.abort();
       controllers.clear();
       generations.clear();
       seenRevisions.clear();
-      latestStorageTimestamps.clear();
       if (this._editorSceneCommitControllers === controllers) this._editorSceneCommitControllers = null;
       if (this._editorSceneCommitGenerations === generations) this._editorSceneCommitGenerations = null;
       if (this._editorSceneSyncUnwatch === dispose) this._editorSceneSyncUnwatch = null;
@@ -598,6 +574,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     let sessionCommitted = false;
     let runtimeDraft = null;
     let runtimeOutcome = null;
+    let placementRebuildOutcome = null;
     let runtimeCommitAttempted = false;
     let transactionFinalized = false;
     try {
@@ -625,10 +602,6 @@ export class DataDrivenPrologueScene extends BaseGameScene {
       };
       for (const layer of sceneData.layers) {
         for (const object of layer?.objects || []) rememberLocal(object);
-      }
-      const legacyObjects = sceneData.objects || {};
-      for (const list of [legacyObjects.npcs, legacyObjects.spawns, legacyObjects.portals, legacyObjects.regions]) {
-        for (const object of list || []) rememberLocal(object);
       }
 
       const placements = this.context.services.placements;
@@ -692,6 +665,66 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         .filter(entry => entry?.sceneId === sceneId);
       const freshById = new Map(fresh.map(entry => [entry.id, entry]));
       const freshIds = new Set(fresh.map(entry => entry?.id).filter(Boolean));
+      const localPosition = entry => entry ? {
+        x: Number.isFinite(entry._localX) ? entry._localX : null,
+        y: Number.isFinite(entry._localY) ? entry._localY : null
+      } : null;
+      const origin = {
+        x: Number.isFinite(loadedChunk.origin?.x) ? loadedChunk.origin.x : null,
+        y: Number.isFinite(loadedChunk.origin?.y) ? loadedChunk.origin.y : null
+      };
+      const coordinateEpsilon = 0.001;
+      const projectionChecks = fresh
+        .filter(entry => entry?.id && diskLocalCoordinates.has(entry.id))
+        .map(entry => {
+          const disk = diskLocalCoordinates.get(entry.id);
+          const local = localPosition(entry);
+          const world = {
+            x: Number.isFinite(entry.x) ? entry.x : null,
+            y: Number.isFinite(entry.y) ? entry.y : null
+          };
+          const expectedWorld = Number.isFinite(disk?.x) && Number.isFinite(disk?.y)
+            && origin.x !== null && origin.y !== null
+            ? { x: disk.x + origin.x, y: disk.y + origin.y }
+            : null;
+          const localMatches = Number.isFinite(disk?.x) && Number.isFinite(disk?.y)
+            && local?.x !== null && local?.y !== null
+            && Math.abs(disk.x - local.x) <= coordinateEpsilon
+            && Math.abs(disk.y - local.y) <= coordinateEpsilon;
+          const worldMatches = expectedWorld && world.x !== null && world.y !== null
+            && Math.abs(expectedWorld.x - world.x) <= coordinateEpsilon
+            && Math.abs(expectedWorld.y - world.y) <= coordinateEpsilon;
+          return {
+            id: entry.id,
+            disk,
+            local,
+            world,
+            expectedWorld,
+            localMatches,
+            worldMatches
+          };
+        });
+      const projectionMismatches = projectionChecks.filter(check => (
+        !check.localMatches || !check.worldMatches
+      ));
+      if (projectionMismatches.length > 0) {
+        this._debugCanonicalHotSync('placement-projection-invalid', {
+          sceneId,
+          revision,
+          generation,
+          origin,
+          mismatches: projectionMismatches
+        });
+        throw new Error(`场景 ${sceneId} 的 canonical 坐标未按单次 worldOffset 投影: ${projectionMismatches.map(check => check.id).join(', ')}`);
+      }
+      this._debugCanonicalHotSync('placement-projection-verified', {
+        sceneId,
+        revision,
+        generation,
+        origin,
+        checked: projectionChecks.length
+      });
+
       const changedIds = fresh
         .filter(entry => {
           const old = previousById.get(entry.id);
@@ -699,13 +732,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         })
         .map(entry => entry.id)
         .filter(Boolean);
+      const changedPlacementIds = changedIds.filter(id => freshById.get(id)?.type === 'ref');
       const retiredIds = [...previousById.entries()]
         .filter(([id, entry]) => entry?.type === 'ref' && !freshIds.has(id))
         .map(([id]) => id);
-      const localPosition = entry => entry ? {
-        x: Number.isFinite(entry._localX) ? entry._localX : null,
-        y: Number.isFinite(entry._localY) ? entry._localY : null
-      } : null;
       const coordinateChanges = [...new Set([...changedIds, ...retiredIds])].map(id => ({
         id,
         disk: diskLocalCoordinates.get(id) || null,
@@ -717,40 +747,117 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         revision,
         generation,
         changedIds,
+        changedPlacementIds,
         retiredIds,
         coordinates: coordinateChanges
       });
 
-      if (changedIds.length > 0 || retiredIds.length > 0) {
+      if (changedPlacementIds.length > 0 || retiredIds.length > 0) {
         this._debugCanonicalHotSync('placement-rebuild-start', {
-          sceneId, revision, generation, changedIds, retiredIds
+          sceneId, revision, generation, changedIds, changedPlacementIds, retiredIds
         });
-        const rebuildResult = placements.rebuild(sceneId, {
-          placementIds: changedIds,
-          retiredPlacementIds: retiredIds
+        placementRebuildOutcome = placements.rebuild(sceneId, {
+          placementIds: changedPlacementIds,
+          retiredPlacementIds: retiredIds,
+          deferFinalize: true
         });
+        const rebuildResult = placementRebuildOutcome;
         if (rebuildResult?.ok === false) {
+          this._debugCanonicalHotSync('placement-rebuild-failed', {
+            sceneId,
+            revision,
+            generation,
+            changedIds,
+            changedPlacementIds,
+            retiredIds,
+            outcomes: rebuildResult.outcomes || [],
+            errors: rebuildResult.errors || []
+          });
           throw new Error(rebuildResult.errors?.[0]?.message || `场景 ${sceneId} 放置对象重建失败`);
         }
+
+        const changedOutcomes = new Map();
+        for (const outcome of rebuildResult.outcomes || []) {
+          if (!changedOutcomes.has(outcome.placementId)) changedOutcomes.set(outcome.placementId, []);
+          changedOutcomes.get(outcome.placementId).push(outcome);
+        }
+        const liveCoordinateFailures = [];
+        for (const id of changedPlacementIds) {
+          const outcomes = changedOutcomes.get(id) || [];
+          const accepted = outcomes.find(outcome => outcome.status === 'spawned')
+            || outcomes.find(outcome => outcome.status === 'conditionFalse');
+          if (!accepted) {
+            liveCoordinateFailures.push({ id, reason: 'missingAcceptedOutcome', outcomes });
+            continue;
+          }
+          if (accepted.status === 'conditionFalse'
+            || accepted.tombstoned === true
+            || accepted.restoredDynamicState === true) continue;
+          const inspection = placements.inspectPlacement?.(id);
+          if (!inspection?.live || inspection.matchesProjection !== true) {
+            liveCoordinateFailures.push({
+              id,
+              reason: inspection?.live ? 'coordinateMismatch' : 'liveObjectMissing',
+              actual: inspection?.actual || null,
+              expected: inspection?.expected || null,
+              outcomes
+            });
+          }
+        }
+        if (liveCoordinateFailures.length > 0) {
+          this._debugCanonicalHotSync('placement-live-invalid', {
+            sceneId,
+            revision,
+            generation,
+            failures: liveCoordinateFailures
+          });
+          throw new Error(`场景 ${sceneId} 放置对象未落在最新 canonical 坐标: ${liveCoordinateFailures.map(entry => entry.id).join(', ')}`);
+        }
         this._debugCanonicalHotSync('placement-rebuild-complete', {
-          sceneId, revision, generation, changedIds, retiredIds
+          sceneId,
+          revision,
+          generation,
+          changedIds,
+          changedPlacementIds,
+          retiredIds,
+          counts: rebuildResult.counts || null,
+          outcomes: rebuildResult.outcomes || [],
+          skipped: rebuildResult.skipped || []
         });
       }
 
-      const finalizeResult = runtimeOutcome.finalize?.() || { ok: true, errors: [] };
+      const placementFinalizeResult = placementRebuildOutcome?.finalize?.() || { ok: true, errors: [] };
+      if (placementFinalizeResult.ok === false) {
+        throw new Error(placementFinalizeResult.errors?.[0]?.message || `场景 ${sceneId} 放置对象提交失败`);
+      }
+      // placement 提交后已没有可失败的业务步骤；旧 terrain 释放只做提交后清理，不能再反向破坏新投影。
       transactionFinalized = true;
-      if (finalizeResult.ok === false) {
-        console.warn('[DDScene][CanonicalHotSync] 旧 terrain 释放失败', {
+      let terrainFinalizeResult = { ok: true, errors: [] };
+      try {
+        terrainFinalizeResult = runtimeOutcome.finalize?.() || terrainFinalizeResult;
+        if (terrainFinalizeResult.ok === false) {
+          console.warn('[DDScene][CanonicalHotSync] 旧 terrain 释放失败', {
+            sceneId,
+            errors: terrainFinalizeResult.errors || []
+          });
+        }
+      } catch (finalizeError) {
+        terrainFinalizeResult = {
+          ok: false,
+          errors: [{ message: finalizeError?.message || String(finalizeError) }]
+        };
+        console.warn('[DDScene][CanonicalHotSync] 旧 terrain 释放异常', {
           sceneId,
-          errors: finalizeResult.errors || []
+          error: finalizeError
         });
       }
       this._debugCanonicalHotSync('finalized', {
         sceneId,
         revision,
         generation,
-        finalizeOk: finalizeResult.ok !== false,
-        superseded: finalizeResult.superseded === true
+        terrainFinalizeOk: terrainFinalizeResult.ok !== false,
+        terrainSuperseded: terrainFinalizeResult.superseded === true,
+        placementFinalizeOk: placementFinalizeResult.ok !== false
       });
       this._refreshCanonicalHotSyncMinimap(sceneId, 'commit');
       this._showScreenTip?.('编辑器场景改动已同步', { title: '场景同步' });
@@ -772,6 +879,19 @@ export class DataDrivenPrologueScene extends BaseGameScene {
 
       const rollbackErrors = [];
       let runtimeRestored = false;
+      if (placementRebuildOutcome?.ok && typeof placementRebuildOutcome.rollback === 'function') {
+        const restored = placementRebuildOutcome.rollback();
+        if (restored?.ok === false && !restored.superseded) {
+          rollbackErrors.push(restored.errors?.[0]?.message || '放置对象重建回滚失败');
+        }
+        this._debugCanonicalHotSync('placement-rollback', {
+          sceneId,
+          revision,
+          generation,
+          ok: restored?.ok === true,
+          superseded: restored?.superseded === true
+        });
+      }
       if (runtimeOutcome?.ok && typeof runtimeOutcome.rollback === 'function') {
         const restored = runtimeOutcome.rollback();
         runtimeRestored = restored?.ok === true;
@@ -839,7 +959,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     // 每次 enter 都创建独立 session；地形与放置点只共享这一份世界加载 Promise。
     const scope = this.resourceScope;
     this._worldLoadSession = this._createWorldLoadSession(scope);
-    // 编辑器热同步：Vite HMR 覆盖跨端口，storage 作为同源 fallback。
+    // 编辑器热同步只接受带 provenance/revision 的 canonical Vite HMR 提交。
     const editorSceneSyncUnwatch = this._watchEditorSceneCommits();
     this._editorSceneSyncUnwatch = editorSceneSyncUnwatch;
     scope?.track?.(editorSceneSyncUnwatch);

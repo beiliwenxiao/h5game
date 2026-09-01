@@ -60,27 +60,6 @@ export function collectSceneAssetIds({ sceneData = null, registries = {} } = {})
       }
     }
   }
-  for (const placement of sceneData.placements || []) {
-    collectPlacement(placement, registries, output);
-  }
-  const sceneObjects = sceneData.objects;
-  if (Array.isArray(sceneObjects)) {
-    for (const object of sceneObjects) {
-      collectStableFields(object, output);
-      if (object?.type === 'ref' || object?.type === 'spawn') {
-        collectPlacement(object, registries, output);
-      }
-    }
-  } else {
-    for (const values of Object.values(sceneObjects || {})) {
-      for (const object of Array.isArray(values) ? values : []) {
-        collectStableFields(object, output);
-        if (object?.type === 'ref' || object?.type === 'spawn') {
-          collectPlacement(object, registries, output);
-        }
-      }
-    }
-  }
   collectStableFields(sceneData.gameplay, output);
   collectStableFields(sceneData.presentation, output);
   return output;

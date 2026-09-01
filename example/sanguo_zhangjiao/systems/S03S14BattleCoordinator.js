@@ -2,7 +2,6 @@
  * 三国张角传 - S03-S14 战役历史策略与场景装配
  ************************************************************/
 
-import { loadSceneFromFile } from '../../../src/core/SceneDataReader.js';
 import { SceneBattleRuntime } from '../../../src/core/scene/SceneBattleRuntime.js';
 import { BattleMode, BattleState } from '../../../src/systems/BattleSystem.js';
 import { RescueSystem } from '../../../src/systems/RescueSystem.js';
@@ -61,10 +60,19 @@ export class S03S14BattleCoordinator {
       if (!source) throw new Error(`缺少救援配置 ${rescueId}`);
       this.rescueDefinitions.set(rescueId, clone(source));
     }
+    if (!this.scene._worldLoadPromise) {
+      throw new Error('战役初始化需要 canonical 世界加载 Promise');
+    }
+    await this.scene._worldLoadPromise;
+    const session = this.scene._worldLoadSession;
+    if (!session || typeof session.loadSceneData !== 'function') {
+      throw new Error('战役初始化需要有效的 canonical 世界加载会话');
+    }
     const sceneDataList = await Promise.all(BATTLE_SCENE_IDS.map(async sceneId => {
-      const cached = this.scene._worldLoadSession?.getSceneData?.(sceneId);
-      const sceneData = cached || await loadSceneFromFile(sceneId);
-      if (!sceneData) throw new Error(`缺少 canonical 场景配置 ${sceneId}`);
+      const sceneData = session.getSceneData(sceneId) || await session.loadSceneData(sceneId);
+      if (!sceneData || !Array.isArray(sceneData.layers)) {
+        throw new Error(`缺少 canonical 场景配置 ${sceneId}`);
+      }
       return sceneData;
     }));
     this.scene.configureSceneBattleFlows(sceneDataList, battles);

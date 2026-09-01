@@ -219,17 +219,33 @@
                 if (addBtn) addBtn.addEventListener('click', () => createNewTemplate());
             }
 
-            // 把模板配置写回 editor/config/scene-templates.json
-            function saveTemplatesToFile() {
+            // 把模板配置写回 editor/config/scene-templates.json。模板不是游戏 canonical 文件，继续走 save-file。
+            async function saveTemplatesToFile() {
                 const cfg = ctx.dataManager.getSceneTemplatesConfig();
-                fetch('/api/save-file', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: 'editor/config/scene-templates.json', content: JSON.stringify(cfg, null, 2) })
-                }).then(r => r.json()).then(d => {
-                    if (d.ok) console.log('场景模板已保存到文件:', d.path);
-                    else console.warn('保存模板文件失败:', d.error);
-                }).catch(err => console.warn('保存模板文件请求失败:', err));
+                try {
+                    const response = await fetch('/api/save-file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ path: 'editor/config/scene-templates.json', content: JSON.stringify(cfg, null, 2) })
+                    });
+                    const result = await response.json().catch(() => ({}));
+                    if (!response.ok || !result.ok) {
+                        const message = result.error || `模板保存 HTTP ${response.status}`;
+                        console.warn('保存模板文件失败:', message);
+                        return { ok: false, committed: false, status: 'failed', code: 'templateFileSaveFailed', error: message };
+                    }
+                    console.log('场景模板已保存到文件:', result.path);
+                    return { ok: true, committed: true, status: 'committed', degraded: false, path: result.path };
+                } catch (error) {
+                    console.warn('保存模板文件请求失败:', error);
+                    return {
+                        ok: false,
+                        committed: false,
+                        status: 'failed',
+                        code: 'templateFileSaveFailed',
+                        error: error.message
+                    };
+                }
             }
 
             // 新建模板：克隆默认模板后进入编辑
@@ -281,15 +297,39 @@
                     getProjectTriggers: () => ctx._projectDefinitions.triggers,
                     getBattleDefinitions: () => ctx._projectBattles,
                     presentationProfile: ctx._presentationProfile,
-                    onSceneChange: (data) => {
-                        // 模板编辑态：写回 scene-templates.json
+                    onSceneChange: async (data) => {
+                        // 模板编辑态：写回非 canonical 的 scene-templates.json。
                         if (editingTemplateId) {
-                            ctx.dataManager.upsertSceneTemplate(editingTemplateId, data);
-                            saveTemplatesToFile();
-                            if (sceneEditor && sceneEditor.ui && sceneEditor.ui.showToast) {
-                                sceneEditor.ui.showToast('模板「' + (ctx.dataManager.getSceneTemplate(editingTemplateId)?.name || '') + '」已保存');
+                            const templateId = editingTemplateId;
+                            ctx.dataManager.upsertSceneTemplate(templateId, data);
+                            const result = await saveTemplatesToFile();
+                            if (!result?.ok || result.committed !== true) {
+                                throw Object.assign(new Error(result?.error || '保存场景模板失败'), { result });
                             }
+                            return {
+                                ...result,
+                                successMessage: `模板「${ctx.dataManager.getSceneTemplate(templateId)?.name || templateId}」已保存`
+                            };
                         }
+
+                        // 普通场景只通过 canonical command service 提交；cache/HMR 由服务在磁盘 commit 后同步。
+                        const sceneId = ctx.currentSceneId;
+                        if (!sceneId) throw new Error('未选择要保存的 canonical 场景');
+                        const { service, projectPath } = ctx._sceneCommands();
+                        const result = await service.save(projectPath, {
+                            sceneId,
+                            sourceUri: `${projectPath.slice(0, -'/game.project.json'.length)}/assets/scenes/${sceneId}.json`,
+                            scene: structuredClone(data)
+                        });
+                        if (!result?.ok || result.committed !== true) {
+                            const firstError = result?.errors?.[0];
+                            const detail = [firstError?.path, firstError?.message || firstError?.reason]
+                                .filter(Boolean)
+                                .join(': ');
+                            const message = detail || result?.error?.message || result?.error || '保存 canonical 场景失败';
+                            throw Object.assign(new Error(message), { result });
+                        }
+                        return result;
                     },
                     openTriggerEditor: (definitionId, target = 'triggers') => {
                         switchTab('trigger');

@@ -1,6 +1,6 @@
 import { SceneFlowCoordinator } from '../../../src/core/scene/SceneFlowCoordinator.js';
 import { CanonicalSceneRepository } from '../../../src/core/scene/CanonicalSceneRepository.js';
-import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
+import { FetchDiskSceneAdapter } from '../../../src/core/scene/CanonicalSceneAdapters.js';
 import { WorldMapLoadSession } from '../../../src/core/scene/WorldMapLoadSession.js';
 import { SceneCampfireService } from '../../../src/core/scene/SceneCampfireService.js';
 import { getPlacementSignature } from '../../../src/core/scene/ScenePlacementRuntime.js';
@@ -88,14 +88,13 @@ function validateWorldLoadResult(result) {
   return result;
 }
 
-/** 张角 Demo 的磁盘 canonical 场景会话；缓存仅为运行时 fallback。 */
+/** 张角 Demo 只读取磁盘 canonical 场景；读取或解析失败直接拒绝。 */
 function createWorldLoadSession(scope = this.resourceScope) {
   const repository = new CanonicalSceneRepository({
     diskAdapter: new FetchDiskSceneAdapter({
       projectUrl: 'game.project.json',
       sceneBaseUrl: 'assets/scenes/'
     }),
-    cacheAdapter: new LocalStorageSceneCacheAdapter({ gameId: 'sanguo_zhangjiao' }),
     mode: 'runtime'
   });
   return new WorldMapLoadSession({ scope, repository });
@@ -226,6 +225,14 @@ function createStreamingStateProvider() {
       for (const [index, entry] of (data.placementStates || []).entries()) {
         if (!entry?.id || !entry.state || typeof entry.state !== 'object') {
           errors.push({ code: 'invalidPlacementState', path: `placementStates[${index}]`, message: '放置点状态无效' });
+          continue;
+        }
+        if (typeof entry.state.placementSignature !== 'string' || entry.state.placementSignature.length === 0) {
+          errors.push({
+            code: 'missingPlacementSignature',
+            path: `placementStates[${index}].state.placementSignature`,
+            message: '放置点状态缺少当前 canonical 签名'
+          });
         }
       }
       const deathDropCheck = this._deathDrops.validate(data.deathDrops || []);

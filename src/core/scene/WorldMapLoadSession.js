@@ -366,16 +366,11 @@ export class WorldMapLoadSession {
   }
 
   _collectChunkObjects(chunk, sceneObjects, placements, effectZones, triggerBindings) {
-    if (!chunk.sceneData) return;
+    if (!Array.isArray(chunk.sceneData?.layers)) return;
     const candidates = [];
-    for (const layer of chunk.sceneData.layers || []) candidates.push(...(layer?.objects || []));
-    if (Array.isArray(chunk.sceneData.objects)) candidates.push(...chunk.sceneData.objects);
-    if (Array.isArray(chunk.sceneData.placements)) candidates.push(...chunk.sceneData.placements);
-    if (Array.isArray(chunk.sceneData.effectZones)) candidates.push(...chunk.sceneData.effectZones);
-    const seen = new Set();
+    for (const layer of chunk.sceneData.layers) candidates.push(...(layer?.objects || []));
     for (const object of candidates) {
-      if (!object || typeof object !== 'object' || seen.has(object)) continue;
-      seen.add(object);
+      if (!object || typeof object !== 'object') continue;
       const projected = this.projector.project(object, chunk.offset, {
         sceneId: chunk.sceneId,
         row: chunk.row,

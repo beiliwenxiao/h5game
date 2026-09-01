@@ -899,7 +899,6 @@
     </div>
     
     <script type="module">
-        import { DataDrivenScene } from './scenes/DataDrivenScene.js';
         import { DataDrivenPrologueScene } from './scenes/DataDrivenPrologueScene.js';
         import { SceneManager } from '../../src/core/SceneManager.js';
         import { AssetManager } from '../../src/core/AssetManager.js';
@@ -2385,32 +2384,17 @@
                 await nextStep(); // 步骤 4
 
                 await nextStep(); // 步骤 5
-                // 全部走数据驱动：DataDrivenPrologueScene 管理整个大地图
-                // ?ddscene=preview 仅用于编辑器单场景预览
-                const _ddSceneId = new URLSearchParams(location.search).get('ddscene');
-                if (_ddSceneId === 'preview') {
-                    const dd = new DataDrivenScene('DataDrivenScene', { sceneManager });
-                    try {
-                        await dd.loadProjectUrl('game.project.json');
-                        await dd.loadEditorScene('sanguo_zhangjiao', 'S01', 'assets/scenes/');
-                    } catch (e) {
-                        console.warn('DataDrivenScene 预览加载失败', e);
-                    }
-                    sceneManager.registerScene('DataDrivenScene', dd);
-                    scene = dd;
-                    sceneManager.switchTo('DataDrivenScene');
-                } else {
-                    const dd = new DataDrivenPrologueScene();
-                    dd.assetManager = assetManager;
-                    dd.audioManager = assetManager.getAudioManager();
-                    // 启动意图必须在 enter() 前写入，避免世界加载过快时新档/读档竞态。
-                    dd.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
-                    sceneManager.registerScene('DataDrivenPrologueScene', dd);
-                    dd.setSceneManager(sceneManager);
-                    dd.setSaveGameService(saveGames);
-                    scene = dd;
-                    sceneManager.switchTo('DataDrivenPrologueScene');
-                }
+                // 正式运行只注册唯一的大地图场景；编辑器也读取相同 canonical 磁盘数据。
+                const dd = new DataDrivenPrologueScene();
+                dd.assetManager = assetManager;
+                dd.audioManager = assetManager.getAudioManager();
+                // 启动意图必须在 enter() 前写入，避免世界加载过快时新档/读档竞态。
+                dd.setProgressionBootstrap?.({ isNewGame: !options.loadSave });
+                sceneManager.registerScene('DataDrivenPrologueScene', dd);
+                dd.setSceneManager(sceneManager);
+                dd.setSaveGameService(saveGames);
+                scene = dd;
+                sceneManager.switchTo('DataDrivenPrologueScene');
                 
                 if (scene) {
                     setupSceneCallbacks(scene);

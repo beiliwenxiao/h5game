@@ -150,9 +150,9 @@ export class SceneEditor {
     };
 
     // 回调
-    this.onSceneChange = null;
-    this.onObjectSelect = null;
-    this.onOpenSlicer = null;
+    this.onSceneChange = typeof options.onSceneChange === 'function' ? options.onSceneChange : null;
+    this.onObjectSelect = typeof options.onObjectSelect === 'function' ? options.onObjectSelect : null;
+    this.onOpenSlicer = typeof options.onOpenSlicer === 'function' ? options.onOpenSlicer : null;
 
     // 初始化标志
     this.initialized = false;

@@ -139,30 +139,69 @@ export class PlacementSpawner {
    * @param {Array<Object>} options.placements
    * @param {Object} options.registries
    * @param {Object} options.selector
-   * @returns {{selector:Object, matchedPlacements:Array<Object>, counts:Object, entities:Array, errors:Array}}
+   * @returns {{selector:Object, matchedPlacements:Array<Object>, counts:Object, entities:Array, errors:Array, outcomes:Array<Object>, skipped:Array<Object>}}
    */
   spawnMatching({ placements = [], registries = {}, selector = {} } = {}) {
     const normalized = normalizeSelector(selector);
     const counts = { item: 0, equipment: 0, enemy: 0, npc: 0, building: 0, vehicle: 0, resourceNode: 0, total: 0 };
     const entities = [];
     const errors = [];
+    const outcomes = [];
     const matchedPlacements = (placements || []).filter(placement => placementMatches(placement, normalized));
+    const recordOutcome = (placement, status, reason = null) => {
+      const outcome = {
+        placementId: placement?.id || null,
+        kind: placement?.kind || null,
+        ref: placement?.ref || null,
+        status
+      };
+      if (reason) outcome.reason = reason;
+      outcomes.push(outcome);
+      return outcome;
+    };
+    const recordError = (placement, reason, error = null) => {
+      const entry = {
+        kind: placement?.kind || null,
+        ref: placement?.ref || null,
+        placement,
+        reason
+      };
+      if (error) entry.error = error;
+      errors.push(entry);
+      return entry;
+    };
 
     for (const placement of matchedPlacements) {
       const kind = placement.kind;
-      if (!REGISTRY_KEYS[kind]) continue;
-      if (placement.id && this.spawnedPlacementIds.has(placement.id)) continue;
+      if (placement.type && placement.type !== 'ref') {
+        recordOutcome(placement, 'nonRef');
+        continue;
+      }
+      if (!REGISTRY_KEYS[kind]) {
+        recordError(placement, 'unsupportedKind');
+        recordOutcome(placement, 'unsupportedKind', 'unsupportedKind');
+        continue;
+      }
+      if (placement.id && this.spawnedPlacementIds.has(placement.id)) {
+        recordOutcome(placement, 'alreadySpawned');
+        continue;
+      }
       if (this.shouldSpawn) {
         try {
-          if (this.shouldSpawn({ placement, selector: normalized }) === false) continue;
+          if (this.shouldSpawn({ placement, selector: normalized }) === false) {
+            recordOutcome(placement, 'conditionFalse');
+            continue;
+          }
         } catch (error) {
-          errors.push({ kind, ref: placement.ref, placement, reason: 'spawnConditionFailed', error });
+          recordError(placement, 'spawnConditionFailed', error);
+          recordOutcome(placement, 'failed', 'spawnConditionFailed');
           continue;
         }
       }
       const definition = registryGet(registries, kind, placement.ref);
       if (!definition) {
-        errors.push({ kind, ref: placement.ref, placement, reason: 'definitionNotFound' });
+        recordError(placement, 'definitionNotFound');
+        recordOutcome(placement, 'failed', 'definitionNotFound');
         continue;
       }
 
@@ -171,7 +210,8 @@ export class PlacementSpawner {
         if (kind === 'enemy' && data.corpse?.resourceNodeRef) {
           const resourceNode = registryGet(registries, 'resourceNode', data.corpse.resourceNodeRef);
           if (!resourceNode) {
-            errors.push({ kind, ref: placement.ref, placement, reason: 'corpseResourceNodeNotFound' });
+            recordError(placement, 'corpseResourceNodeNotFound');
+            recordOutcome(placement, 'failed', 'corpseResourceNodeNotFound');
             continue;
           }
           data.corpse = {
@@ -182,7 +222,8 @@ export class PlacementSpawner {
         data.position = { x: Number(placement.x) || 0, y: Number(placement.y) || 0 };
         const entity = this._spawn(kind, data, placement);
         if (!entity) {
-          errors.push({ kind, ref: placement.ref, placement, reason: 'factoryUnavailable' });
+          recordError(placement, 'factoryUnavailable');
+          recordOutcome(placement, 'failed', 'factoryUnavailable');
           continue;
         }
         // 地面可拾取物与装备同样可以声明稳定 imageId，需要一起预载图片。
@@ -196,7 +237,8 @@ export class PlacementSpawner {
             this.aiSystem?.unregisterAI?.(entity);
             this.entityStore?.remove?.(entity);
             try { entity?.destroy?.(); } catch (destroyError) { /* best-effort rollback */ }
-            errors.push({ kind, ref: placement.ref, placement, reason: 'onSpawnFailed', error });
+            recordError(placement, 'onSpawnFailed', error);
+            recordOutcome(placement, 'failed', 'onSpawnFailed');
             continue;
           }
         }
@@ -204,12 +246,19 @@ export class PlacementSpawner {
         if (placement.id) this.spawnedPlacementIds.add(placement.id);
         counts[kind]++;
         counts.total++;
+        recordOutcome(placement, 'spawned');
       } catch (error) {
-        errors.push({ kind, ref: placement.ref, placement, reason: 'spawnFailed', error });
+        recordError(placement, 'spawnFailed', error);
+        recordOutcome(placement, 'failed', 'spawnFailed');
       }
     }
 
-    return { selector: normalized, matchedPlacements, counts, entities, errors };
+    const skipped = outcomes.filter(outcome => (
+      outcome.status === 'alreadySpawned'
+      || outcome.status === 'conditionFalse'
+      || outcome.status === 'nonRef'
+    ));
+    return { selector: normalized, matchedPlacements, counts, entities, errors, outcomes, skipped };
   }
 
   _spawn(kind, data, placement) {

@@ -31,7 +31,8 @@ import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
 import { SceneEditorEventFilter } from './SceneEditorEventFilter.js';
-import { sceneDataLoader, getGlobalImages } from './SceneDataLoader.js';
+import { sceneDataLoader, getGlobalAtlasImageUrl, getGlobalImages } from './SceneDataLoader.js';
+import { AtlasRegistry } from '../src/core/scene/AtlasRegistry.js';
 import { summarizeTrigger } from '../src/systems/TriggerCatalog.js';
 import {
   SCENE_BATTLE_FLOW_STRING_FIELDS,
@@ -151,6 +152,7 @@ export class SceneEditor {
 
     // 回调
     this.onSceneChange = typeof options.onSceneChange === 'function' ? options.onSceneChange : null;
+    this.onSceneMetaChange = typeof options.onSceneMetaChange === 'function' ? options.onSceneMetaChange : null;
     this.onObjectSelect = typeof options.onObjectSelect === 'function' ? options.onObjectSelect : null;
     this.onOpenSlicer = typeof options.onOpenSlicer === 'function' ? options.onOpenSlicer : null;
 
@@ -305,21 +307,35 @@ export class SceneEditor {
 
     // 场景设置
     const sceneNameInput = document.getElementById('editor-scene-name');
+    const commitSceneMetaChange = async (meta, label) => {
+      if (!this.onSceneMetaChange) return null;
+      const saveButton = document.getElementById('editor-save');
+      const wasDisabled = saveButton?.disabled === true;
+      if (saveButton) saveButton.disabled = true;
+      try {
+        return await this.onSceneMetaChange(meta);
+      } catch (error) {
+        this.ui?.showToast?.(`${label}失败：${error?.message || String(error)}`, 'error');
+        return { ok: false, committed: false, status: 'failed', error };
+      } finally {
+        if (saveButton) saveButton.disabled = wasDisabled;
+      }
+    };
     sceneNameInput.addEventListener('input', (e) => {
       this.sceneData.name = e.target.value;
     });
-    // 持久化元数据只在编辑完成（change/blur）时触发，避免每次按键并发提交后旧响应覆盖新名称。
-    sceneNameInput.addEventListener('change', (e) => {
-      if (this.onSceneMetaChange) this.onSceneMetaChange({ name: e.target.value });
+    // 持久化元数据只在编辑完成（change/blur）时触发；提交期间禁用保存，避免正文保存与名称事务并发。
+    sceneNameInput.addEventListener('change', async (e) => {
+      await commitSceneMetaChange({ name: e.target.value }, '名称保存');
     });
     const sceneIdInput = document.getElementById('editor-scene-id');
     if (sceneIdInput) {
-      sceneIdInput.addEventListener('change', (e) => {
+      sceneIdInput.addEventListener('change', async (e) => {
         const newId = e.target.value.trim();
         if (!newId) return;
         const oldId = this.sceneData.id;
         this.sceneData.id = newId;
-        if (this.onSceneMetaChange) this.onSceneMetaChange({ id: newId, oldId });
+        await commitSceneMetaChange({ id: newId, oldId }, '重命名');
       });
     }
     const battleIdInput = document.getElementById('editor-battle-id');
@@ -509,9 +525,9 @@ export class SceneEditor {
       overlay.height = ch;
     }
 
-    // 全局资源只注入新建空白草稿；已加载 canonical 文档保持逐字段无损。
+    // 共享图集始终通过只读 registry 投影，不注入场景正文。
+    // 全局图片仍只用于新建空白草稿的既有兼容流程。
     if (!incoming) {
-      this._mergeGlobalAtlases();
       this._mergeGlobalImages();
     }
 
@@ -527,25 +543,36 @@ export class SceneEditor {
   }
 
   /**
-   * 合并全局图集配置到当前场景。
-   * 读取 editor/config/atlases.json 中定义的所有图集，确保每个场景都能使用全部图集资源。
-   * 已存在相同 id 的图集不重复添加。
-   * @private
+   * 创建当前场景的图集只读投影：游戏级共享定义优先，场景局部定义仅作 legacy fallback。
+   * 完整 atlas 定义不会因此进入 sceneData。
    */
-  _mergeGlobalAtlases() {
-    const globalAtlases = sceneDataLoader.getGlobalAtlases();
-    if (!globalAtlases || globalAtlases.length === 0) return;
-    if (!this.sceneData.atlases) this.sceneData.atlases = [];
-    const existingMap = new Map(this.sceneData.atlases.map((a, i) => [a.id, i]));
-    for (const atlas of globalAtlases) {
-      const copy = JSON.parse(JSON.stringify(atlas));
-      if (existingMap.has(atlas.id)) {
-        // 以全局配置为准覆盖（保证保存后刷新能拿到最新切片属性）
-        this.sceneData.atlases[existingMap.get(atlas.id)] = copy;
-      } else {
-        this.sceneData.atlases.push(copy);
-      }
-    }
+  getAtlasRegistry() {
+    return new AtlasRegistry(
+      sceneDataLoader.getGlobalAtlases(),
+      Array.isArray(this.sceneData?.atlases) ? this.sceneData.atlases : []
+    );
+  }
+
+  getAvailableAtlases() {
+    return this.getAtlasRegistry().getAll();
+  }
+
+  getAtlasDefinition(atlasId) {
+    return this.getAtlasRegistry().getAtlas(atlasId);
+  }
+
+  getAtlasSlice(atlasId, sliceKey) {
+    return this.getAtlasRegistry().getSlice(atlasId, sliceKey);
+  }
+
+  isSharedAtlas(atlasId) {
+    return this.getAtlasRegistry().isShared(atlasId);
+  }
+
+  getAtlasImageUrl(atlasId) {
+    const atlas = this.getAtlasDefinition(atlasId);
+    if (!atlas) return '';
+    return this.isSharedAtlas(atlasId) ? getGlobalAtlasImageUrl(atlas) : String(atlas.path || '');
   }
 
   /**

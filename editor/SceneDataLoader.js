@@ -18,11 +18,12 @@
  */
 
 import { SceneDataExporter } from './SceneDataExporter.js';
+import sharedAtlasConfig from '../example/sanguo_zhangjiao/config/atlases.json';
 
-// 运行时配置缓存
+// 运行时配置缓存。图集失败回退仍引用游戏级同一 JSON，不复制切片坐标。
 let _scenePresetsConfig = null;
 let _decoSpritesConfig = null;
-let _atlasesConfig = null;
+let _atlasesConfig = sharedAtlasConfig;
 let _imagesConfig = null;
 
 /**
@@ -30,7 +31,7 @@ let _imagesConfig = null;
  */
 async function _loadConfigs() {
   try {
-    const [presetsResp, decoResp, atlasResp, imagesResp] = await Promise.all([
+    const [presetsResp, decoResp, atlasIndexResp, imagesResp] = await Promise.all([
       fetch('./config/scene-presets.json'),
       fetch('./config/deco-sprites.json'),
       fetch('./config/atlases.json'),
@@ -38,10 +39,19 @@ async function _loadConfigs() {
     ]);
     _scenePresetsConfig = await presetsResp.json();
     _decoSpritesConfig = await decoResp.json();
-    _atlasesConfig = await atlasResp.json();
+    const atlasIndex = await atlasIndexResp.json();
+    if (atlasIndex && typeof atlasIndex.$ref === 'string') {
+      const atlasUrl = new URL(atlasIndex.$ref, atlasIndexResp.url);
+      const atlasResp = await fetch(atlasUrl);
+      if (!atlasResp.ok) throw new Error(`加载共享图集配置失败: HTTP ${atlasResp.status}`);
+      _atlasesConfig = await atlasResp.json();
+    } else {
+      _atlasesConfig = atlasIndex;
+    }
     _imagesConfig = await imagesResp.json();
   } catch (e) {
-    console.warn('加载场景配置失败，使用内置默认值:', e);
+    _atlasesConfig = sharedAtlasConfig;
+    console.warn('加载场景配置失败；共享图集继续使用游戏级配置:', e);
   }
 }
 
@@ -77,41 +87,17 @@ export class SceneDataLoader {
    */
   async loadScene1Terrain() {
     await this._ensureConfigs();
-    const config = this.exporter.exportPrologueScene();
-    
-    // 添加图片资源列表（从 JSON 配置加载）
-    config.atlases = this._getScene1Atlases();
-    
-    return config;
+    return this.exporter.exportPrologueScene({
+      presets: _scenePresetsConfig,
+      getAtlas: atlasId => this._getScene1Atlases().find(atlas => atlas?.id === atlasId) || null
+    });
   }
   
   /**
-   * 获取场景1使用的图集资源
+   * 获取游戏级共享图集资源。完整定义不合并进任何场景正文。
    */
   _getScene1Atlases() {
-    // 优先使用 JSON 配置
-    if (_atlasesConfig && _atlasesConfig.atlases && _atlasesConfig.atlases.length > 0) {
-      return _atlasesConfig.atlases;
-    }
-    return [
-      {
-        id: 'mountain_landscape',
-        name: '山地景观图集',
-        path: this.assetBase + 'mountain_landscape.png',
-        width: 512,
-        height: 512,
-        slices: {
-          grassTile: { name: '草地', sx: 448, sy: 128, sw: 64, sh: 64 },
-          tree1: { name: '大树', sx: 128, sy: 384, sw: 96, sh: 128, collide: true, colliderRadius: 22 },
-          tree2: { name: '中树', sx: 224, sy: 416, sw: 64, sh: 96, collide: true, colliderRadius: 14 },
-          tree3: { name: '小树', sx: 288, sy: 384, sw: 64, sh: 128, collide: true, colliderRadius: 16 },
-          grass1: { name: '草地装饰', sx: 128, sy: 288, sw: 96, sh: 96, collide: false },
-          bush2: { name: '灌木1', sx: 224, sy: 288, sw: 32, sh: 32, collide: false },
-          bush3: { name: '草莓', sx: 224, sy: 320, sw: 32, sh: 32, collide: false },
-          bush4: { name: '灌木2', sx: 256, sy: 320, sw: 32, sh: 32, collide: false }
-        }
-      }
-    ];
+    return Array.isArray(_atlasesConfig?.atlases) ? _atlasesConfig.atlases : [];
   }
   
   /**
@@ -181,6 +167,20 @@ export class SceneDataLoader {
       colliders: []
     };
   }
+
+  /**
+   * 将旧户外预设规范化为共享 atlas 引用，删除路径和裁剪矩形副本。
+   */
+  _withSharedOutdoorAtlas(terrain = {}) {
+    const normalized = {
+      ...terrain,
+      atlasId: 'mountain_landscape',
+      sliceKey: 'grassTile'
+    };
+    delete normalized.image;
+    delete normalized.grassTile;
+    return normalized;
+  }
   
   /**
    * 第一幕 - 起义军营
@@ -193,11 +193,10 @@ export class SceneDataLoader {
     config.terrain = preset.terrain || {
       type: 'camp',
       tileSize: 64,
-      image: this.assetBase + 'mountain_landscape.png'
+      atlasId: 'mountain_landscape',
+      sliceKey: 'grassTile'
     };
-    if (!config.terrain.image) {
-      config.terrain.image = this.assetBase + 'mountain_landscape.png';
-    }
+    config.terrain = this._withSharedOutdoorAtlas(config.terrain);
     
     config.centerX = preset.centerX || 640;
     config.centerY = preset.centerY || 360;
@@ -205,7 +204,6 @@ export class SceneDataLoader {
     config.basinAspectY = preset.basinAspectY || 0.7;
     
     config.decorations = this._generateCampDecorations(config);
-    config.decoSprites = this._getDefaultDecoSprites();
     
     return config;
   }
@@ -256,11 +254,10 @@ export class SceneDataLoader {
     config.terrain = preset.terrain || {
       type: 'mountain',
       tileSize: 64,
-      image: this.assetBase + 'mountain_landscape.png'
+      atlasId: 'mountain_landscape',
+      sliceKey: 'grassTile'
     };
-    if (!config.terrain.image) {
-      config.terrain.image = this.assetBase + 'mountain_landscape.png';
-    }
+    config.terrain = this._withSharedOutdoorAtlas(config.terrain);
     
     config.centerX = preset.centerX || 640;
     config.centerY = preset.centerY || 350;
@@ -268,7 +265,6 @@ export class SceneDataLoader {
     config.basinAspectY = preset.basinAspectY || 0.6;
     
     config.decorations = this._generateMountainDecorations(config);
-    config.decoSprites = this._getDefaultDecoSprites();
     
     return config;
   }
@@ -283,11 +279,10 @@ export class SceneDataLoader {
     config.terrain = preset.terrain || {
       type: 'battlefield',
       tileSize: 64,
-      image: this.assetBase + 'mountain_landscape.png'
+      atlasId: 'mountain_landscape',
+      sliceKey: 'grassTile'
     };
-    if (!config.terrain.image) {
-      config.terrain.image = this.assetBase + 'mountain_landscape.png';
-    }
+    config.terrain = this._withSharedOutdoorAtlas(config.terrain);
     
     config.centerX = preset.centerX || 640;
     config.centerY = preset.centerY || 360;
@@ -295,7 +290,6 @@ export class SceneDataLoader {
     config.basinAspectY = preset.basinAspectY || 0.65;
     
     config.decorations = this._generateBattlefieldDecorations(config);
-    config.decoSprites = this._getDefaultDecoSprites();
     
     return config;
   }
@@ -450,18 +444,17 @@ export class SceneDataLoader {
    * 获取默认装饰物精灵配置
    */
   _getDefaultDecoSprites() {
-    // 优先使用 JSON 配置
-    if (_decoSpritesConfig && _decoSpritesConfig.outdoor) {
-      return _decoSpritesConfig.outdoor;
-    }
+    const mountainAtlas = this._getScene1Atlases()
+      .find(atlas => atlas?.id === 'mountain_landscape');
+    const sharedSlices = Object.fromEntries(
+      Object.entries(mountainAtlas?.slices || {}).map(([sliceKey, slice]) => [
+        sliceKey,
+        { scale: 1.0, ...slice }
+      ])
+    );
     return {
-      tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true },
-      tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true },
-      tree3: { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true },
-      grass1: { sx: 128, sy: 288, sw: 96, sh: 96, scale: 1.0, collide: false },
-      bush2: { sx: 224, sy: 288, sw: 32, sh: 32, scale: 1.0, collide: false },
-      tent: { sx: 0, sy: 0, sw: 64, sh: 64, scale: 1.0, collide: true },
-      flag: { sx: 0, sy: 0, sw: 32, sh: 64, scale: 1.0, collide: false }
+      ...(_decoSpritesConfig?.outdoor || {}),
+      ...sharedSlices
     };
   }
   
@@ -495,6 +488,42 @@ export const sceneDataLoader = new SceneDataLoader();
  */
 export function updateAtlasesCache(config) {
   _atlasesConfig = config;
+}
+
+/**
+ * 等待编辑器 atlas 索引及其 $ref 完成解析。
+ * @returns {Promise<{schemaVersion?:number,atlases:Array<object>} >}
+ */
+export async function loadGlobalAtlasesConfig() {
+  await sceneDataLoader._ensureConfigs();
+  return getGlobalAtlasesConfig();
+}
+
+/**
+ * 获取游戏级共享图集配置。调用方不得把它合并写入场景正文。
+ * @returns {{schemaVersion?:number,atlases:Array<object>}}
+ */
+export function getGlobalAtlasesConfig() {
+  return _atlasesConfig || sharedAtlasConfig;
+}
+
+/**
+ * 将游戏内 assets/ 路径转换为编辑器页面可加载的 URL。
+ * @param {object|string} atlasOrId
+ * @param {string} [gamePathOverride] 当前游戏目录（含或不含结尾斜杠）
+ * @returns {string}
+ */
+export function getGlobalAtlasImageUrl(atlasOrId, gamePathOverride = '') {
+  const atlas = typeof atlasOrId === 'string'
+    ? sceneDataLoader.getGlobalAtlases().find(item => item?.id === atlasOrId)
+    : atlasOrId;
+  const path = String(atlas?.path || '');
+  if (!path || /^(?:https?:|data:|blob:|\/|\.\.?\/)/.test(path)) return path;
+  const rawGamePath = gamePathOverride
+    || (typeof window !== 'undefined' && window._editorCurrentGame?.path)
+    || '../example/sanguo_zhangjiao/';
+  const gamePath = `${String(rawGamePath).replace(/\\/g, '/').replace(/\/+$/, '')}/`;
+  return `${gamePath}${path.replace(/^\/+/, '')}`;
 }
 
 /**

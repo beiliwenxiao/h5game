@@ -21,21 +21,16 @@
 let _exporterConfig = null;
 
 /**
- * 加载导出器配置
+ * 加载 legacy 预设导出器配置。图集定义由调用方注入，不在导出器复制第二份。
  */
 async function loadExporterConfig() {
   if (_exporterConfig) return _exporterConfig;
   try {
-    const [presetsResp, decoResp] = await Promise.all([
-      fetch('./config/scene-presets.json'),
-      fetch('./config/deco-sprites.json')
-    ]);
-    const presets = await presetsResp.json();
-    const decoSprites = await decoResp.json();
-    _exporterConfig = { presets, decoSprites };
+    const presetsResp = await fetch('./config/scene-presets.json');
+    _exporterConfig = { presets: await presetsResp.json() };
   } catch (e) {
-    console.warn('加载导出器配置失败，使用内置默认值:', e);
-    _exporterConfig = { presets: null, decoSprites: null };
+    console.warn('加载导出器配置失败，使用最小预设:', e);
+    _exporterConfig = { presets: null };
   }
   return _exporterConfig;
 }
@@ -43,19 +38,24 @@ async function loadExporterConfig() {
 export { loadExporterConfig };
 
 export class SceneDataExporter {
-  constructor() {
-    const presets = _exporterConfig && _exporterConfig.presets;
-    this.assetBase = (presets && presets.assetBase) || '../example/sanguo_zhangjiao/assets/images/scene1/';
-  }
-  
   /**
-   * 从Scene1Terrain代码中提取完整数据
+   * 从 Scene1Terrain 旧预设生成可编辑数据。
+   * @param {{presets?:object,getAtlas?:(atlasId:string)=>object|null}} options
    */
-  exportPrologueScene() {
-    // 从 JSON 配置获取序章场景预设
-    const presets = _exporterConfig && _exporterConfig.presets;
-    const prologuePreset = (presets && presets.scenes && presets.scenes['scene_Prologue']) || {};
-    const decoSpritesConfig = _exporterConfig && _exporterConfig.decoSprites;
+  exportPrologueScene({ presets: injectedPresets = null, getAtlas = null } = {}) {
+    const presets = injectedPresets || _exporterConfig?.presets;
+    const prologuePreset = presets?.scenes?.scene_Prologue || {};
+    const mountainAtlas = typeof getAtlas === 'function' ? getAtlas('mountain_landscape') : null;
+    if (typeof getAtlas === 'function' && !mountainAtlas?.slices?.grassTile) {
+      throw new Error('共享图集 mountain_landscape 缺少 grassTile 切片');
+    }
+    const terrain = {
+      ...(prologuePreset.terrain || { type: 'basin', tileSize: 64 }),
+      atlasId: mountainAtlas?.id || 'mountain_landscape',
+      sliceKey: 'grassTile'
+    };
+    delete terrain.image;
+    delete terrain.grassTile;
     
     // 完整复制Scene1Terrain的配置，优先使用 JSON 配置值
     const config = {
@@ -82,66 +82,17 @@ export class SceneDataExporter {
       basinInnerScale: prologuePreset.basinInnerScale || 0.94,
       entranceAngleHalfWidth: prologuePreset.entranceAngleHalfWidth || (Math.PI * 9 / 180),
       
-      // 资源路径
-      assetBase: this.assetBase,
-      
       // 图层（标准格式）
       layers: [
-        { 
-          id: 'layer_bg', 
-          name: '背景层', 
-          visible: true, 
-          locked: false, 
-          objects: [] 
-        },
-        { 
-          id: 'layer_deco', 
-          name: '装饰层', 
-          visible: true, 
-          locked: false, 
-          objects: [] 
-        },
-        { 
-          id: 'layer_entity', 
-          name: '实体层', 
-          visible: true, 
-          locked: false, 
-          objects: [] 
-        }
+        { id: 'layer_bg', name: '背景层', visible: true, locked: false, objects: [] },
+        { id: 'layer_deco', name: '装饰层', visible: true, locked: false, objects: [] },
+        { id: 'layer_entity', name: '实体层', visible: true, locked: false, objects: [] }
       ],
-      
-      // 地形配置
-      terrain: prologuePreset.terrain ? {
-        ...prologuePreset.terrain,
-        image: (prologuePreset.terrain.image || this.assetBase + 'mountain_landscape.png')
-      } : {
-        type: 'basin',
-        grassTile: { sx: 448, sy: 128, sw: 64, sh: 64 },
-        tileSize: 64,
-        image: this.assetBase + 'mountain_landscape.png'
-      },
-      
-      // 装饰物精灵配置（优先使用 JSON 配置）
-      decoSprites: (decoSpritesConfig && decoSpritesConfig.outdoor) ? (() => {
-        // 只取序章需要的 sprites
-        const outdoor = decoSpritesConfig.outdoor;
-        const needed = {};
-        const keys = ['tree1', 'tree2', 'tree3', 'grass1', 'bush2', 'bush3', 'bush4'];
-        for (const k of keys) {
-          if (outdoor[k]) needed[k] = outdoor[k];
-        }
-        return needed;
-      })() : {
-        tree1: { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true, colliderRadius: 22 },
-        tree2: { sx: 224, sy: 416, sw: 64, sh: 96, scale: 1.0, collide: true, colliderRadius: 14 },
-        tree3: { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true, colliderRadius: 16 },
-        grass1: { sx: 128, sy: 288, sw: 96, sh: 96, scale: 1.0, collide: false },
-        bush2: { sx: 224, sy: 288, sw: 32, sh: 32, scale: 1.0, collide: false },
-        bush3: { sx: 224, sy: 320, sw: 32, sh: 32, scale: 1.0, collide: false },
-        bush4: { sx: 256, sy: 320, sw: 32, sh: 32, scale: 1.0, collide: false }
-      },
-      
-      // 装饰物列表（从Scene1Terrain._buildDecorations提取）
+
+      // 地形只保存稳定图集引用；切片裁剪矩形由共享 registry 解析。
+      terrain,
+
+      // 装饰物列表（从 Scene1Terrain._buildDecorations 提取，加载时转成 atlasId/sliceKey 对象）
       decorations: [],
       
       // 碰撞区域

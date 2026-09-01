@@ -302,7 +302,7 @@ export class AssetManager {
         let promise = this._inflightAssets.get(inflightKey);
         if (!promise) {
             promise = (async () => {
-                if (descriptor.type === 'image' || descriptor.type === 'texture') {
+                if (descriptor.type === 'image' || descriptor.type === 'texture' || descriptor.type === 'atlas') {
                     return this.loadImage(key, descriptor.url);
                 }
                 if (descriptor.type === 'audio') return this.loadAudioFile(key, descriptor.url);

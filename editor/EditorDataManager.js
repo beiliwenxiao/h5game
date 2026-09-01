@@ -902,8 +902,8 @@ export class EditorDataManager {
       height: scene.height || terrainDefaults.height || 720,
       basinRadius: scene.basinRadius || terrainDefaults.basinRadius || 640,
       basinAspectY: scene.basinAspectY || terrainDefaults.basinAspectY || 0.65,
-      grassTile: scene.grassTile || (terrainDefaults.terrain && terrainDefaults.terrain.grassTile) || { sx: 448, sy: 128, sw: 64, sh: 64 },
-      decoSprites: scene.decoSprites || {},
+      atlasId: scene.terrain?.atlasId || terrainDefaults.terrain?.atlasId || 'mountain_landscape',
+      sliceKey: scene.terrain?.sliceKey || terrainDefaults.terrain?.sliceKey || 'grassTile',
       decorations: scene.decorations || [],
       waterPatches: scene.waterPatches || []
     };

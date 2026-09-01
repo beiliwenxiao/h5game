@@ -23,6 +23,8 @@
 
 import { BaseGameScene } from './BaseGameScene.js';
 import { Scene1Terrain } from './Scene1Terrain.js';
+import { AtlasRegistry } from '../../../src/core/scene/AtlasRegistry.js';
+import sharedAtlasConfig from '../config/atlases.json';
 import { SceneStreamingRuntime } from '../../../src/core/scene/SceneStreamingRuntime.js';
 import {
   collectManifestUsageAssetIds,
@@ -175,6 +177,8 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     });
     // Promise 仍由 chunk prepare 正式 await；此分支只避免初始化提前失败产生未处理拒绝。
     this._assetManifestReady.catch(() => {});
+    const sharedAtlases = Array.isArray(sharedAtlasConfig.atlases) ? sharedAtlasConfig.atlases : [];
+    const sharedAtlasRegistry = new AtlasRegistry(sharedAtlases);
     this._worldStreamingRuntime = new SceneStreamingRuntime({
       createTerrain: ({ chunk, chunkWidth, chunkHeight, sceneData }) => new Scene1Terrain({
         centerX: chunkWidth / 2,
@@ -184,6 +188,7 @@ export class DataDrivenPrologueScene extends BaseGameScene {
         editorSceneId: chunk.sceneId,
         worldOffset: chunk.origin,
         sceneData,
+        sharedAtlases,
         resolveImageAsset: imageId => this.assetManager?.resolveManifestAsset?.(imageId, '2d') || null,
         getLoadedImage: imageId => {
           const key = this.assetManager?.resolveManifestAsset?.(imageId, '2d')?.key || imageId;
@@ -201,6 +206,17 @@ export class DataDrivenPrologueScene extends BaseGameScene {
           sceneData,
           registries: this.gameLoader?.registries || {}
         });
+        // legacy decoKey 没有 atlasId；按共享切片表补出稳定图集 ID，仍由 AssetManager 懒加载。
+        for (const layer of sceneData?.layers || []) {
+          if (layer?.visible === false) continue;
+          for (const object of layer?.objects || []) {
+            const sliceKey = object?.decoKey || object?.sliceKey;
+            const atlas = object?.atlasId
+              ? sharedAtlasRegistry.getAtlas(object.atlasId)
+              : sharedAtlasRegistry.findAtlasBySliceKey(sliceKey);
+            if (atlas) assetIds.add(atlas.assetId || atlas.id);
+          }
+        }
         for (const id of collectManifestUsageAssetIds(
           this.assetManager?.manifestEntries,
           [sceneId, sceneNamespace]

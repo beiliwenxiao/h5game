@@ -11,7 +11,9 @@
  ************************************************************/
 
 import { SceneEditorCanvas } from './SceneEditorCanvas.js';
+import { loadGlobalAtlasesConfig, getGlobalAtlasImageUrl } from './SceneDataLoader.js';
 import { ProjectWorldIndex } from '../src/core/ProjectWorldIndex.js';
+import { AtlasRegistry } from '../src/core/scene/AtlasRegistry.js';
 import { CanonicalSceneRepository } from '../src/core/scene/CanonicalSceneRepository.js';
 import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
 import { getWorldMapCellSceneId, isReservedWorldMapCell } from '../src/core/WorldMapCell.js';
@@ -71,6 +73,10 @@ export class WorldMapEditor {
     this.worldIndex = null;
     this._sceneDataById = new Map();
     this._repositorySceneIds = null;
+    this._loadedImages = new Map();
+    this._sharedAtlases = [];
+    this._atlasRegistry = new AtlasRegistry();
+    this._defaultDecoSprites = {};
 
     // 项目加载前不生成 Demo 尺寸或入口；加载成功后只从 ProjectWorldIndex 投影可编辑草稿。
     this.region = { id: '', name: '', chunkWidth: '', chunkHeight: '', cols: 0, rows: 0, grid: [] };
@@ -107,7 +113,11 @@ export class WorldMapEditor {
       this.worldIndex = null;
       this._sceneDataById.clear();
       this._repositorySceneIds = null;
-      this._loadedImages?.clear?.();
+      this._loadedImages.clear();
+      this._sharedAtlases = [];
+      this._atlasRegistry = new AtlasRegistry();
+      this._defaultDecoSprites = {};
+      this._canvasRenderer = null;
     }
     return changed;
   }
@@ -155,7 +165,10 @@ export class WorldMapEditor {
     const indexedRegion = this.worldIndex.getRegion(0);
     if (indexedRegion) this.region = this._createRegionDraft(indexedRegion);
 
-    await this._loadSceneDataFromDisk();
+    await Promise.all([
+      this._loadSceneDataFromDisk(),
+      this._loadSharedAtlasCatalog()
+    ]);
     this._populateRegionSelect();
     // 更新输入框
     this._el.querySelector('.wme-region-name').value = this.region.name || '';
@@ -226,6 +239,57 @@ export class WorldMapEditor {
     for (const sceneId of this._collectLoadableSceneIds()) {
       const scene = result.snapshot.getScene(sceneId);
       if (scene) this._sceneDataById.set(sceneId, scene);
+    }
+  }
+
+  _createAtlasSliceProjection(atlas) {
+    return Object.fromEntries(
+      Object.entries(atlas?.slices || {}).map(([sliceKey, slice]) => [
+        sliceKey,
+        { scale: 1, ...slice }
+      ])
+    );
+  }
+
+  async _loadSharedAtlasCatalog() {
+    try {
+      const config = await loadGlobalAtlasesConfig();
+      this._sharedAtlases = Array.isArray(config?.atlases) ? config.atlases : [];
+      this._atlasRegistry = new AtlasRegistry(this._sharedAtlases);
+      this._defaultDecoSprites = this._createAtlasSliceProjection(
+        this._atlasRegistry.getAtlas('mountain_landscape')
+      );
+
+      const gameBasePath = `/${this.projectPath.slice(0, this.projectPath.lastIndexOf('/') + 1)}`;
+      await Promise.all(this._sharedAtlases.map(atlas => new Promise(resolve => {
+        if (!atlas?.id || this._loadedImages.has(atlas.id)) {
+          resolve();
+          return;
+        }
+        const imageUrl = getGlobalAtlasImageUrl(atlas, gameBasePath);
+        if (!imageUrl) {
+          resolve();
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          this._loadedImages.set(atlas.id, img);
+          resolve();
+        };
+        img.onerror = () => {
+          console.warn('[WorldMapEditor] 共享图集图片加载失败', { atlasId: atlas.id, imageUrl });
+          resolve();
+        };
+        img.src = imageUrl;
+      })));
+
+      const terrainAtlas = this._loadedImages.get('mountain_landscape');
+      if (terrainAtlas) this._loadedImages.set('terrain_atlas', terrainAtlas);
+    } catch (error) {
+      this._sharedAtlases = [];
+      this._atlasRegistry = new AtlasRegistry();
+      this._defaultDecoSprites = {};
+      console.warn('[WorldMapEditor] 共享图集配置加载失败', error);
     }
   }
 
@@ -777,18 +841,31 @@ export class WorldMapEditor {
     ctx.fillStyle = scene.backgroundColor || '#1a2a1a';
     ctx.fillRect(0, 0, thumbW, thumbH);
 
-    // 构造 fake editor
+    const atlasRegistry = new AtlasRegistry(
+      this._sharedAtlases,
+      Array.isArray(scene.atlases) ? scene.atlases : []
+    );
+    const sharedDecoSprites = this._createAtlasSliceProjection(
+      atlasRegistry.getAtlas('mountain_landscape')
+    );
+
+    // 缩略图与主场景编辑器共用 AtlasRegistry；完整定义不写入场景。
     const fakeEditor = {
       sceneData: {
         ...scene,
-        // 补充 decoSprites（场景数据可能没存，用默认配置兜底）
-        decoSprites: scene.decoSprites || this._defaultDecoSprites || {}
+        decoSprites: {
+          ...(scene.decoSprites || {}),
+          ...sharedDecoSprites
+        }
       },
       viewport: { scale: 1, offsetX: 0, offsetY: 0 },
       options: { showGrid: false, showBackground: true },
       loadedImages: this._loadedImages,
       selectedObjects: [],
-      activeLayerIndex: 0
+      activeLayerIndex: 0,
+      getAvailableAtlases: () => atlasRegistry.getAll(),
+      getAtlasDefinition: atlasId => atlasRegistry.getAtlas(atlasId),
+      getAtlasSlice: (atlasId, sliceKey) => atlasRegistry.getSlice(atlasId, sliceKey)
     };
 
     if (!this._canvasRenderer) {
@@ -850,39 +927,6 @@ export class WorldMapEditor {
       }
     }
 
-    // 场景没存 atlases 时，用默认图集配置（与场景编辑器一致）
-    if (!scene.atlases && !this._defaultAtlasLoaded) {
-      this._defaultAtlasLoaded = true;
-      // 从 config/atlases.json 异步加载
-      fetch('./config/atlases.json').then(r => r.json()).then(cfg => {
-        if (cfg && Array.isArray(cfg.atlases)) {
-          let loaded2 = 0;
-          for (const atlas of cfg.atlases) {
-            if (this._loadedImages.has(atlas.id)) { loaded2++; continue; }
-            const img = new Image();
-            img.onload = () => {
-              this._loadedImages.set(atlas.id, img);
-              // 也设为 terrain_atlas（场景编辑器惯例）
-              if (!this._loadedImages.has('terrain_atlas')) this._loadedImages.set('terrain_atlas', img);
-              loaded2++;
-              if (loaded2 >= cfg.atlases.length && onComplete) onComplete();
-            };
-            img.onerror = () => { loaded2++; if (loaded2 >= cfg.atlases.length && onComplete) onComplete(); };
-            img.src = atlas.path;
-          }
-        }
-      }).catch(() => {});
-    }
-
-    // 场景没存 decoSprites 时，从 config/deco-sprites.json 加载
-    if (!scene.decoSprites && !this._defaultDecoLoaded) {
-      this._defaultDecoLoaded = true;
-      fetch('./config/deco-sprites.json').then(r => r.json()).then(cfg => {
-        // 合并 outdoor + indoor 到场景 decoSprites
-        this._defaultDecoSprites = { ...(cfg.outdoor || {}), ...(cfg.indoor || {}) };
-      }).catch(() => {});
-    }
-
     // 场景内嵌图片（imageAssets）
     if (scene.imageAssets) {
       for (const [id, asset] of Object.entries(scene.imageAssets)) {
@@ -912,11 +956,14 @@ export class WorldMapEditor {
   }
 
   /**
-   * 解析图片路径（编辑器上下文中直接用原始路径，因为 WorldMapEditor 和场景编辑器在同一 HTML）
+   * 解析当前游戏 assets/ 相对路径；绝对 URL 与编辑器相对路径保持原样。
    * @private
    */
   _resolveImagePath(src) {
-    return src || '';
+    const path = String(src || '').replace(/\\/g, '/');
+    if (!path || /^(?:https?:|data:|blob:|\/|\.\.?\/)/.test(path)) return path;
+    const basePath = this.projectPath.slice(0, this.projectPath.lastIndexOf('/') + 1);
+    return path.startsWith('assets/') ? `/${basePath}${path}` : path;
   }
 
   _showToast(msg, type = 'success') {

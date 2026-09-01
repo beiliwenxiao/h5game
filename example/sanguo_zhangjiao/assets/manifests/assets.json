@@ -35,6 +35,7 @@
     },
     {
       "assetId": "mountain_landscape",
+      "imageId": "mountain_landscape",
       "category": "environment-atlas",
       "usage": [
         "runtime-terrain-atlas",

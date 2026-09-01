@@ -20,7 +20,8 @@
       "entranceAngleHalfWidth": 0.15707963267948966,
       "terrain": {
         "type": "basin",
-        "grassTile": { "sx": 448, "sy": 128, "sw": 64, "sh": 64 },
+        "atlasId": "mountain_landscape",
+        "sliceKey": "grassTile",
         "tileSize": 64
       }
     },

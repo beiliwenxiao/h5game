@@ -32,7 +32,8 @@
       "centerY": 360,
       "basinRadius": 640,
       "basinAspectY": 0.65,
-      "grassTile": { "sx": 448, "sy": 128, "sw": 64, "sh": 64 }
+      "atlasId": "mountain_landscape",
+      "sliceKey": "grassTile"
     }
   }
 }

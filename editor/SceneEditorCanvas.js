@@ -521,29 +521,59 @@ export class SceneEditorCanvas {
    * 渲染切片对象
    * @private
    */
-  _renderSliceObject(ctx, obj) {
+  _resolveSliceSource(obj) {
     const editor = this.editor;
-    let img, sx, sy, sw, sh;
-
-    if (obj.decoKey) {
-      const sprite = editor.sceneData.decoSprites?.[obj.decoKey];
-      img = editor.loadedImages.get('terrain_atlas');
-      if (!img && editor.sceneData.atlases) {
-        for (const atlas of editor.sceneData.atlases) {
-          const a = editor.loadedImages.get(atlas.id);
-          if (a) { img = a; break; }
-        }
+    if (obj?.decoKey) {
+      const atlas = (editor.getAvailableAtlases?.() || [])
+        .find(candidate => candidate?.slices?.[obj.decoKey]);
+      if (atlas) {
+        const slice = editor.getAtlasSlice?.(atlas.id, obj.decoKey) || atlas.slices[obj.decoKey];
+        return {
+          img: editor.loadedImages.get(atlas.id) || null,
+          sx: slice.sx,
+          sy: slice.sy,
+          sw: slice.sw,
+          sh: slice.sh
+        };
       }
-      if (sprite) { sx = sprite.sx; sy = sprite.sy; sw = sprite.sw; sh = sprite.sh; }
-    } else {
-      const atlas = editor.sceneData.atlases?.find(a => a.id === obj.atlasId);
-      const slice = atlas?.slices?.[obj.sliceKey];
-      img = editor.loadedImages.get(obj.atlasId);
-      if (slice) { sx = slice.sx; sy = slice.sy; sw = slice.sw; sh = slice.sh; }
+      const sprite = editor.sceneData.decoSprites?.[obj.decoKey];
+      if (!sprite) return null;
+      return {
+        img: editor.loadedImages.get('terrain_atlas') || null,
+        sx: sprite.sx,
+        sy: sprite.sy,
+        sw: sprite.sw,
+        sh: sprite.sh
+      };
     }
 
-    if (img && sw != null) {
-      ctx.drawImage(img, sx, sy, sw, sh, obj.x, obj.y, obj.width, obj.height);
+    if (!obj?.atlasId || !obj?.sliceKey) return null;
+    const atlas = editor.getAtlasDefinition?.(obj.atlasId);
+    const slice = editor.getAtlasSlice?.(obj.atlasId, obj.sliceKey) || atlas?.slices?.[obj.sliceKey];
+    if (!slice) return null;
+    return {
+      img: editor.loadedImages.get(obj.atlasId) || null,
+      sx: slice.sx,
+      sy: slice.sy,
+      sw: slice.sw,
+      sh: slice.sh
+    };
+  }
+
+  _renderSliceObject(ctx, obj) {
+    const source = this._resolveSliceSource(obj);
+    if (source?.img) {
+      ctx.drawImage(
+        source.img,
+        source.sx,
+        source.sy,
+        source.sw,
+        source.sh,
+        obj.x,
+        obj.y,
+        obj.width,
+        obj.height
+      );
     } else {
       ctx.fillStyle = '#3a5a3a';
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
@@ -557,41 +587,30 @@ export class SceneEditorCanvas {
    * @private
    */
   _renderDecoObject(ctx, obj) {
-    const editor = this.editor;
-    const decoSprites = editor.sceneData.decoSprites;
     const key = obj.decoKey || obj.name;
+    const source = this._resolveSliceSource({ decoKey: key });
 
-    if (!decoSprites || !decoSprites[key]) {
-      ctx.fillStyle = key && key.includes('tree') ? '#2a5a2a' : '#5a8a4a';
-      ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-      ctx.fillStyle = '#fff';
-      ctx.font = '10px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText(key ? key.substring(0, 4) : '?', obj.x + obj.width / 2, obj.y + obj.height / 2);
-      ctx.textAlign = 'left';
-      return;
-    }
-
-    const sprite = decoSprites[key];
-    let img = editor.loadedImages.get('terrain_atlas');
-    if (!img && editor.sceneData.atlases) {
-      for (const atlas of editor.sceneData.atlases) {
-        const a = editor.loadedImages.get(atlas.id);
-        if (a) { img = a; break; }
-      }
-    }
-
-    if (img) {
-      ctx.drawImage(img, sprite.sx, sprite.sy, sprite.sw, sprite.sh, obj.x, obj.y, obj.width, obj.height);
+    if (source?.img) {
+      ctx.drawImage(
+        source.img,
+        source.sx,
+        source.sy,
+        source.sw,
+        source.sh,
+        obj.x,
+        obj.y,
+        obj.width,
+        obj.height
+      );
     } else {
-      ctx.fillStyle = key.includes('tree') ? '#2a5a2a' : '#5a8a4a';
+      ctx.fillStyle = key?.includes('tree') ? '#2a5a2a' : '#5a8a4a';
       ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
       ctx.strokeStyle = '#4a8a4a';
       ctx.strokeRect(obj.x, obj.y, obj.width, obj.height);
       ctx.fillStyle = '#fff';
       ctx.font = '10px Arial';
       ctx.textAlign = 'center';
-      ctx.fillText(key.substring(0, 4), obj.x + obj.width / 2, obj.y + obj.height / 2);
+      ctx.fillText(key ? key.substring(0, 4) : '?', obj.x + obj.width / 2, obj.y + obj.height / 2);
       ctx.textAlign = 'left';
     }
   }
@@ -932,26 +951,8 @@ export class SceneEditorCanvas {
    * @returns {{img, sx, sy, sw, sh}|null}
    */
   _getEllipseSliceSource(obj) {
-    const editor = this.editor;
-    let img, sx, sy, sw, sh;
-    if (obj.decoKey) {
-      const sprite = editor.sceneData.decoSprites?.[obj.decoKey];
-      img = editor.loadedImages.get('terrain_atlas');
-      if (!img && editor.sceneData.atlases) {
-        for (const atlas of editor.sceneData.atlases) {
-          const a = editor.loadedImages.get(atlas.id);
-          if (a) { img = a; break; }
-        }
-      }
-      if (sprite) { sx = sprite.sx; sy = sprite.sy; sw = sprite.sw; sh = sprite.sh; }
-    } else if (obj.atlasId && obj.sliceKey) {
-      const atlas = editor.sceneData.atlases?.find(a => a.id === obj.atlasId);
-      const slice = atlas?.slices?.[obj.sliceKey];
-      img = editor.loadedImages.get(obj.atlasId);
-      if (slice) { sx = slice.sx; sy = slice.sy; sw = slice.sw; sh = slice.sh; }
-    }
-    if (img && sw != null) return { img, sx, sy, sw, sh };
-    return null;
+    const source = this._resolveSliceSource(obj);
+    return source?.img ? source : null;
   }
 
   /**

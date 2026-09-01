@@ -348,6 +348,112 @@
         let sceneEditor = null;
         let sceneLoadGeneration = 0;
 
+        // 场景正文 name 与 `_scene_order.json` 列表条目必须在同一事务中更新。
+        async function handleSceneMetaChange(meta) {
+            if (editingTemplateId) {
+                if (meta.name === undefined) return { ok: false, committed: false, status: 'rejected', code: 'unsupportedTemplateMetaChange' };
+                const templateId = editingTemplateId;
+                const snapshot = structuredClone(ctx.dataManager.getSceneTemplatesConfig());
+                const previousTemplate = structuredClone(ctx.dataManager.getSceneTemplate(templateId));
+                try {
+                    ctx.dataManager.updateSceneTemplateMeta(templateId, { name: meta.name });
+                    const result = await saveTemplatesToFile();
+                    if (result?.ok !== true || result.committed !== true) {
+                        throw Object.assign(new Error(persistenceError(result, '模板名称文件未提交')), { result });
+                    }
+                    renderSceneList();
+                    return result;
+                } catch (error) {
+                    ctx.dataManager.replaceSceneTemplatesConfig(snapshot);
+                    const previousName = previousTemplate?.scene?.name ?? previousTemplate?.name ?? '';
+                    if (sceneEditor?.sceneData) sceneEditor.sceneData.name = previousName;
+                    const input = document.getElementById('editor-scene-name');
+                    if (input) input.value = previousName;
+                    renderSceneList();
+                    const result = error.result || { ok: false, committed: false, status: 'failed', code: 'templateNameSaveFailed', error };
+                    showSceneEditorToast('模板名称保存失败：' + persistenceError(result, error.message), 'error');
+                    return result;
+                }
+            }
+
+            const sceneId = ctx.currentSceneId;
+            if (!sceneId) {
+                const result = { ok: false, committed: false, status: 'rejected', code: 'missingSceneId', error: '未选择 canonical 场景' };
+                showSceneEditorToast('名称保存失败：未选择 canonical 场景', 'error');
+                return result;
+            }
+
+            const { service, projectPath } = ctx._sceneCommands();
+            if (meta.id && meta.oldId) {
+                let result;
+                try {
+                    result = await service.rename(projectPath, { oldId: meta.oldId, newId: meta.id });
+                } catch (error) {
+                    result = { ok: false, committed: false, status: 'failed', code: 'sceneRenameFailed', error };
+                }
+                if (result?.ok !== true || result.committed !== true) {
+                    if (sceneEditor?.sceneData?.id === meta.id) sceneEditor.sceneData.id = meta.oldId;
+                    const input = document.getElementById('editor-scene-id');
+                    if (input) input.value = meta.oldId;
+                    showSceneEditorToast('重命名失败：' + persistenceError(result, '磁盘未提交'), 'error');
+                    return result;
+                }
+
+                ctx.currentSceneId = meta.id;
+                if (sceneEditor?.sceneData) sceneEditor.sceneData.id = meta.id;
+                const url = new URL(window.location);
+                url.searchParams.set('sceneId', meta.id);
+                window.history.replaceState({}, '', url);
+                try {
+                    await ctx.dataManager.initScenesFromFile(gameId);
+                    renderSceneList();
+                } catch (error) {
+                    console.error('[SceneWorkflow] 场景已重命名，但列表刷新失败:', error);
+                    showSceneEditorToast('场景已重命名，但列表刷新失败：' + error.message, 'warn');
+                    return { ...result, degraded: true, refreshError: error };
+                }
+                if (result.degraded) showSceneEditorToast('重命名已提交，但缓存/通知同步降级', 'warn');
+                return result;
+            }
+
+            if (meta.name !== undefined) {
+                const previousListName = ctx.dataManager.getGameScenes(gameId).find(scene => scene.id === sceneId)?.name || sceneId;
+                let result;
+                try {
+                    const model = ctx.documentService.requireProject(projectPath);
+                    const scene = model.getCandidate().scenes[sceneId];
+                    if (!scene) throw new Error(`canonical candidate 缺少场景 ${sceneId}`);
+                    result = await service.update(projectPath, {
+                        sceneId,
+                        scene: { ...structuredClone(scene), name: meta.name },
+                        orderEntry: { name: meta.name }
+                    });
+                } catch (error) {
+                    result = { ok: false, committed: false, status: 'failed', code: 'sceneNameSaveFailed', error };
+                }
+                if (result?.ok !== true || result.committed !== true) {
+                    if (sceneEditor?.sceneData) sceneEditor.sceneData.name = previousListName;
+                    const input = document.getElementById('editor-scene-name');
+                    if (input) input.value = previousListName;
+                    showSceneEditorToast('名称保存失败：' + persistenceError(result, '磁盘未提交'), 'error');
+                    return result;
+                }
+
+                try {
+                    await ctx.dataManager.initScenesFromFile(gameId);
+                    renderSceneList();
+                } catch (error) {
+                    console.error('[SceneWorkflow] 名称已提交，但列表刷新失败:', error);
+                    showSceneEditorToast('名称已提交，但列表刷新失败：' + error.message, 'warn');
+                    return { ...result, degraded: true, refreshError: error };
+                }
+                if (result.degraded) showSceneEditorToast('名称已提交，但缓存/通知同步降级', 'warn');
+                return result;
+            }
+
+            return { ok: false, committed: false, status: 'rejected', code: 'unsupportedSceneMetaChange' };
+        }
+
         // 惰性创建场景编辑器（供普通场景与模板共用），并处理模板编辑态的保存回写
         function getSceneEditor() {
             if (sceneEditor) return sceneEditor;
@@ -368,6 +474,7 @@
                         return session.save();
                     },
                     presentationProfile: ctx._presentationProfile,
+                    onSceneMetaChange: handleSceneMetaChange,
                     onSceneChange: async (data) => {
                         // 模板编辑态：写回非 canonical 的 scene-templates.json。
                         if (editingTemplateId) {
@@ -469,7 +576,6 @@
                     ...presetScene,
                     ...saved,
                     terrain: saved.terrain || presetScene.terrain,
-                    atlases: (saved.atlases && saved.atlases.length) ? saved.atlases : presetScene.atlases,
                     decoSprites: saved.decoSprites || presetScene.decoSprites,
                     decorations: (saved.decorations && saved.decorations.length) ? saved.decorations : presetScene.decorations,
                     centerX: saved.centerX ?? presetScene.centerX,
@@ -477,6 +583,7 @@
                     basinRadius: saved.basinRadius ?? presetScene.basinRadius,
                     basinAspectY: saved.basinAspectY ?? presetScene.basinAspectY
                 };
+                if (!Object.prototype.hasOwnProperty.call(saved, 'atlases')) delete sceneToLoad.atlases;
             } else if (saved) {
                 sceneToLoad = saved;
             } else if (presetScene) {

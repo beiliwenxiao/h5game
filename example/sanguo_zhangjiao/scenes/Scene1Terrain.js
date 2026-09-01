@@ -12,6 +12,7 @@
 
 import { ShapeRenderer } from '../../../src/rendering/ShapeRenderer.js';
 import { SceneObjectProjector } from '../../../src/core/scene/SceneObjectProjector.js';
+import { AtlasRegistry } from '../../../src/core/scene/AtlasRegistry.js';
 
 /**
  * Scene1Terrain - 第一幕盆地地形系统
@@ -60,6 +61,8 @@ export class Scene1Terrain {
     this.getLoadedImage = typeof config.getLoadedImage === 'function'
       ? config.getLoadedImage
       : () => null;
+    this._sharedAtlases = Array.isArray(config.sharedAtlases) ? config.sharedAtlases : [];
+    this._atlasRegistry = new AtlasRegistry(this._sharedAtlases, sceneData.atlases || []);
     this._cacheLifecycleToken = 0;
     this._staticCacheRevision = 0;
     this._staticCachePrepared = false;
@@ -100,40 +103,48 @@ export class Scene1Terrain {
     this.entranceWidth = 0;
     this.entranceCenterX = this.centerX;
 
-    // === 资源 ===
-    this.assetBase = 'assets/images/scene1/';
+    // === 资源与共享图集投影 ===
     this.images = {
-      mountain: null,  // 草地+树木+灌木：mountain_landscape.png 512x512
-      terrain: null,   // 备用：水/沙图块
-      oga: null,       // OGAtilesetsremixed.png 960x960，备用
-      cliff: null      // 备用：cliff_grass.png
+      mountain: null,
+      terrain: null
     };
     this.loaded = {
-      mountain: false, terrain: false, oga: false, cliff: false
+      mountain: false,
+      terrain: false
     };
-
-    // === Tileset 切片配置 ===
-    // 草地：从 mountain_landscape.png (448,128) 取 64×64
-    this.grassTile = { sx: 448, sy: 128, sw: 64, sh: 64 };
     this.terrainTile = 64;
 
-    // 水/沙仍从 terrain_grass_water.png 取（32×32 网格）
-    this.tileWater = { sx: 0, sy: 0,  sw: 32, sh: 32 };
-    this.tileSand  = { sx: 0, sy: 64, sw: 32, sh: 32 };
+    // 水/沙为独立备用图块；mountain_landscape 的 9 个切片只从共享 registry 派生。
+    this.tileWater = { sx: 0, sy: 0, sw: 32, sh: 32 };
+    this.tileSand = { sx: 0, sy: 64, sw: 32, sh: 32 };
 
-    // 树木 / 灌木丛 / 草地切片（全部从 mountain_landscape.png 取，1:1 不缩放）
-    // collide: true  → 实体不能穿过（树）
-    // collide: false → 装饰物不阻挡（灌木、草丛、草地）
-    this.decoSprites = {
-      tree1:  { sx: 128, sy: 384, sw: 96, sh: 128, scale: 1.0, collide: true,  colliderRadius: 22 },
-      tree2:  { sx: 224, sy: 416, sw: 64, sh: 96,  scale: 1.0, collide: true,  colliderRadius: 14 },
-      tree3:  { sx: 288, sy: 384, sw: 64, sh: 128, scale: 1.0, collide: true,  colliderRadius: 16 },
-      // 草地装饰（之前叫 bush1，改为 grass1）
-      grass1: { sx: 128, sy: 288, sw: 96, sh: 96,  scale: 1.0, collide: false },
-      bush2:  { sx: 224, sy: 288, sw: 32, sh: 32,  scale: 1.0, collide: false },
-      bush3:  { sx: 224, sy: 320, sw: 32, sh: 32,  scale: 1.0, collide: false }, // 草莓
-      bush4:  { sx: 256, sy: 320, sw: 32, sh: 32,  scale: 1.0, collide: false }
+    const sharedMountainAtlas = this._atlasRegistry.getAtlas('mountain_landscape');
+    if (!sharedMountainAtlas?.slices) {
+      throw new TypeError('Scene1Terrain requires shared atlas: mountain_landscape');
+    }
+    const sharedGrassTile = sharedMountainAtlas.slices.grassTile;
+    if (!sharedGrassTile) {
+      throw new TypeError('Scene1Terrain requires shared slice: mountain_landscape/grassTile');
+    }
+    this.decoSprites = Object.fromEntries(
+      Object.entries(sharedMountainAtlas.slices).map(([sliceKey, slice]) => [
+        sliceKey,
+        { scale: 1.0, ...slice }
+      ])
+    );
+    this.grassTile = {
+      sx: sharedGrassTile.sx,
+      sy: sharedGrassTile.sy,
+      sw: sharedGrassTile.sw,
+      sh: sharedGrassTile.sh
     };
+
+    const mountainAssetId = sharedMountainAtlas.assetId || sharedMountainAtlas.id;
+    const mountainImage = this.getLoadedImage(mountainAssetId);
+    if (mountainImage) {
+      this.images.mountain = mountainImage;
+      this.loaded.mountain = true;
+    }
     // 树木分类
     this.outerTreeKeys = ['tree1', 'tree2', 'tree3'];   // 外围森林（含 tree1）
     this.innerTreeKeys = ['tree2', 'tree3'];            // 盆地内（不含 tree1）
@@ -184,7 +195,6 @@ export class Scene1Terrain {
     // 编辑器中的可渲染 shape（多边形/矩形/圆等，非地形椭圆），用 ShapeRenderer 绘制
     this._editorShapes = [];
     this._shapeImages = new Map();  // shape 图片填充的图片缓存（key=imageSrc）
-    this._sceneAtlases = null;      // 场景图集定义（切片填充解析用）
     // 普通 image 固定在地面层；显式 depthSort 的 image 与实体共用 Y-sort 队列。
     this._editorBackgroundImages = [];
     this._depthSortedImages = [];
@@ -250,12 +260,7 @@ export class Scene1Terrain {
       }
     }
 
-    // 1. 覆盖切片配置（用户可能在编辑器里调整过切片位置/尺寸/碰撞）
-    if (scene.decoSprites && typeof scene.decoSprites === 'object') {
-      for (const [key, sp] of Object.entries(scene.decoSprites)) {
-        this.decoSprites[key] = { ...this.decoSprites[key], ...sp };
-      }
-    }
+    // 共享 atlas 是切片坐标与碰撞属性的唯一事实源；场景正文不得覆盖它。
 
     // 2. 从图层中收集装饰物
     const decorations = [];
@@ -324,7 +329,7 @@ export class Scene1Terrain {
     this._collisionShapes = [];
     this._walkableShapes = [];  // walkable 可落脚区域：内部即使有碰撞区也不阻塞
     this._editorShapes = [];
-    this._sceneAtlases = scene.atlases || null;
+    this._atlasRegistry.setSources(this._sharedAtlases, scene.atlases || []);
     let foundEllipse = false;
     if (Array.isArray(scene.layers)) {
       for (const layer of scene.layers) {
@@ -362,7 +367,7 @@ export class Scene1Terrain {
             this.basinInnerRadiusY = this.basinRadiusY * this.basinInnerScale;
             this.basinInnerRadius = this.basinInnerRadiusX;
             // 构建数据驱动的地形椭圆（填充图片/切片/纯色 + 边缘淡化）
-            this._terrainEllipse = this._buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry);
+            this._terrainEllipse = this._buildTerrainEllipseFromObject(obj, cx, cy, rx, ry);
             this._grassCanvas = null;          // 重建草地缓存
             this._combinedGroundCache = null;  // 重建合并缓存
             console.log('Scene1Terrain: 应用编辑器椭圆', { cx, cy, rx, ry, fillMode: this._terrainEllipse.fillMode });
@@ -509,19 +514,35 @@ export class Scene1Terrain {
    * 从编辑器椭圆对象构建地形椭圆渲染数据
    * @private
    */
-  _buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry) {
+  _buildTerrainEllipseFromObject(obj, cx, cy, rx, ry) {
     const fillMode = obj.fillMode || 'color';
 
     // 解析切片坐标（slice 模式）
     let sliceRect = null;
     if (fillMode === 'slice') {
-      if (obj.decoKey && this.decoSprites[obj.decoKey]) {
-        const s = this.decoSprites[obj.decoKey];
-        sliceRect = { sx: s.sx, sy: s.sy, sw: s.sw, sh: s.sh };
-      } else if (obj.atlasId && obj.sliceKey && Array.isArray(scene.atlases)) {
-        const atlas = scene.atlases.find(a => a.id === obj.atlasId);
-        const sl = atlas && atlas.slices && atlas.slices[obj.sliceKey];
-        if (sl) sliceRect = { sx: sl.sx, sy: sl.sy, sw: sl.sw, sh: sl.sh };
+      if (obj.decoKey) {
+        const atlas = this._atlasRegistry.findAtlasBySliceKey(obj.decoKey);
+        const slice = atlas?.slices?.[obj.decoKey];
+        if (slice) {
+          sliceRect = {
+            atlasId: atlas.id,
+            sx: slice.sx,
+            sy: slice.sy,
+            sw: slice.sw,
+            sh: slice.sh
+          };
+        }
+      } else if (obj.atlasId && obj.sliceKey) {
+        const slice = this._atlasRegistry.getSlice(obj.atlasId, obj.sliceKey);
+        if (slice) {
+          sliceRect = {
+            atlasId: obj.atlasId,
+            sx: slice.sx,
+            sy: slice.sy,
+            sw: slice.sw,
+            sh: slice.sh
+          };
+        }
       }
     }
 
@@ -573,32 +594,14 @@ export class Scene1Terrain {
       sliceMode: 'tile',
       imageSrc: null,
       _img: null,
-      _slice: { sx: this.grassTile.sx, sy: this.grassTile.sy, sw: this.grassTile.sw, sh: this.grassTile.sh }
+      _slice: {
+        atlasId: 'mountain_landscape',
+        sx: this.grassTile.sx,
+        sy: this.grassTile.sy,
+        sw: this.grassTile.sw,
+        sh: this.grassTile.sh
+      }
     };
-  }
-
-  /**
-   * 加载所有图片
-   * @private
-   */
-  _loadImages() {
-    const list = [
-      ['mountain',   'mountain_landscape.png'],
-      ['terrain',    'terrain_grass_water.png'],
-      ['oga',        'OGAtilesetsremixed.png'],
-      ['cliff',      'cliff_grass.png']
-    ];
-    for (const [key, file] of list) {
-      const img = new Image();
-      img.onload = () => {
-        this.loaded[key] = true;
-        // mountain 是切片草地图集，加载完成后重建合并地面缓存
-        if (key === 'mountain') this._combinedGroundCache = null;
-      };
-      img.onerror = () => console.warn('Scene1Terrain: 图片加载失败', file);
-      img.src = this.assetBase + file;
-      this.images[key] = img;
-    }
   }
 
   /**
@@ -1231,7 +1234,7 @@ export class Scene1Terrain {
   }
 
   /**
-   * 渲染单个装饰物（从 mountain_landscape.png 切片绘制）
+   * 渲染单个装饰物（从共享 mountain_landscape 图集切片绘制）
    * @private
    */
   _renderDecoration(ctx, deco) {
@@ -1370,24 +1373,31 @@ export class Scene1Terrain {
     return this._editorShapeResolverObj;
   }
 
+  _getAtlasImage(atlasId = 'mountain_landscape') {
+    const atlas = this._atlasRegistry.getAtlas(atlasId);
+    const assetId = atlas?.assetId || atlas?.id || atlasId;
+    return this.getLoadedImage(assetId)
+      || (atlasId === 'mountain_landscape' ? this.images.mountain : null);
+  }
+
   /**
-   * 解析 shape 的切片图源（decoKey → decoSprites；atlasId+sliceKey → 场景图集）
-   * 图集图统一用已加载的 mountain 主图集
+   * 解析 shape 的切片图源（decoKey → mountain_landscape；atlasId+sliceKey → 共享 registry）
    * @private
    */
   _resolveShapeSlice(shape) {
-    if (!this.loaded.mountain) return null;
+    let atlasId = 'mountain_landscape';
     let rect = null;
     if (shape.decoKey && this.decoSprites[shape.decoKey]) {
       const s = this.decoSprites[shape.decoKey];
       rect = { sx: s.sx, sy: s.sy, sw: s.sw, sh: s.sh };
-    } else if (shape.atlasId && shape.sliceKey && Array.isArray(this._sceneAtlases)) {
-      const atlas = this._sceneAtlases.find(a => a.id === shape.atlasId);
-      const sl = atlas && atlas.slices && atlas.slices[shape.sliceKey];
+    } else if (shape.atlasId && shape.sliceKey) {
+      atlasId = shape.atlasId;
+      const sl = this._atlasRegistry.getSlice(shape.atlasId, shape.sliceKey);
       if (sl) rect = { sx: sl.sx, sy: sl.sy, sw: sl.sw, sh: sl.sh };
     }
-    if (!rect) return null;
-    return { img: this.images.mountain, sx: rect.sx, sy: rect.sy, sw: rect.sw, sh: rect.sh };
+    const img = this._getAtlasImage(atlasId);
+    if (!rect || !img) return null;
+    return { img, sx: rect.sx, sy: rect.sy, sw: rect.sw, sh: rect.sh };
   }
 
   /**
@@ -1420,9 +1430,13 @@ export class Scene1Terrain {
   _terrainShapeResolver(e) {
     return {
       getImage: () => (e._img && e._img.complete && e._img.naturalWidth) ? e._img : null,
-      getSliceSource: () => (e._slice && this.loaded.mountain)
-        ? { img: this.images.mountain, sx: e._slice.sx, sy: e._slice.sy, sw: e._slice.sw, sh: e._slice.sh }
-        : null
+      getSliceSource: () => {
+        if (!e._slice) return null;
+        const img = this._getAtlasImage(e._slice.atlasId || 'mountain_landscape');
+        return img
+          ? { img, sx: e._slice.sx, sy: e._slice.sy, sw: e._slice.sw, sh: e._slice.sh }
+          : null;
+      }
     };
   }
   
@@ -1437,7 +1451,7 @@ export class Scene1Terrain {
     const e = this._terrainEllipse;
     if (!e) return;
     // 切片模式需图集就绪；图片模式需图片就绪
-    if (e.fillMode === 'slice' && !this.loaded.mountain) return;
+    if (e.fillMode === 'slice' && !this._getAtlasImage(e._slice?.atlasId || 'mountain_landscape')) return;
     if (e.fillMode === 'image' && (!e._img || !e._img.complete || !e._img.naturalWidth)) return;
     // 等背景图片加载完再合并
     if (this._editorBackgroundImages && this._editorBackgroundImages.length > 0) {

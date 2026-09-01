@@ -441,32 +441,36 @@ export class SceneEditorLayers {
     const decoLayer = editor.sceneData.layers.find(l => l.id === 'layer_deco');
     if (!decoLayer) return;
 
-    if (decoLayer.objects.some(o => o.type === 'deco')) return;
+    if (decoLayer.objects.some(o => o.type === 'deco' || o.type === 'slice')) return;
 
-    const decoSprites = editor.sceneData.decoSprites || {};
+    const atlasRegistry = editor.getAtlasRegistry?.();
+    const legacySprites = editor.sceneData.decoSprites || {};
 
     for (const deco of decorations) {
-      const sprite = decoSprites[deco.key];
-      const scale = (deco.scale || 1) * (sprite ? (sprite.scale || 1) : 1);
-      const sw = sprite ? sprite.sw : 64;
-      const sh = sprite ? sprite.sh : 64;
+      const atlas = atlasRegistry?.findAtlasBySliceKey(deco.key) || null;
+      const sprite = atlas?.slices?.[deco.key] || legacySprites[deco.key];
+      const scale = (deco.scale || 1) * (sprite?.scale || 1);
+      const sw = sprite?.sw || 64;
+      const sh = sprite?.sh || 64;
       const w = sw * scale;
       const h = sh * scale;
 
-      const objX = deco.x - w / 2;
-      const objY = deco.y - h;
-
       const obj = {
         id: 'deco_' + Math.floor(Math.random() * 100000000),
-        type: 'deco',
-        decoKey: deco.key,
-        x: Math.round(objX),
-        y: Math.round(objY),
+        type: atlas ? 'slice' : 'deco',
+        x: Math.round(deco.x - w / 2),
+        y: Math.round(deco.y - h),
         width: Math.round(w),
         height: Math.round(h),
         scale: deco.scale || 1,
-        name: deco.key
+        name: sprite?.name || deco.key
       };
+      if (atlas) {
+        obj.atlasId = atlas.id;
+        obj.sliceKey = deco.key;
+      } else {
+        obj.decoKey = deco.key;
+      }
 
       if (deco.belowEntities) obj.belowEntities = true;
       decoLayer.objects.push(obj);

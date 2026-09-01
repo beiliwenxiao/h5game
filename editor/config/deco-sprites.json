@@ -1,12 +1,5 @@
 {
   "outdoor": {
-    "tree1": { "sx": 128, "sy": 384, "sw": 96, "sh": 128, "scale": 1.0, "collide": true, "colliderRadius": 22 },
-    "tree2": { "sx": 224, "sy": 416, "sw": 64, "sh": 96, "scale": 1.0, "collide": true, "colliderRadius": 14 },
-    "tree3": { "sx": 288, "sy": 384, "sw": 64, "sh": 128, "scale": 1.0, "collide": true, "colliderRadius": 16 },
-    "grass1": { "sx": 128, "sy": 288, "sw": 96, "sh": 96, "scale": 1.0, "collide": false },
-    "bush2": { "sx": 224, "sy": 288, "sw": 32, "sh": 32, "scale": 1.0, "collide": false },
-    "bush3": { "sx": 224, "sy": 320, "sw": 32, "sh": 32, "scale": 1.0, "collide": false },
-    "bush4": { "sx": 256, "sy": 320, "sw": 32, "sh": 32, "scale": 1.0, "collide": false },
     "tent": { "sx": 0, "sy": 0, "sw": 64, "sh": 64, "scale": 1.0, "collide": true },
     "flag": { "sx": 0, "sy": 0, "sw": 32, "sh": 64, "scale": 1.0, "collide": false },
     "fence": { "sx": 0, "sy": 0, "sw": 64, "sh": 32, "scale": 1.0, "collide": true },

@@ -7,7 +7,7 @@ fileMatchPattern: 'editor/**'
 
 ## 概述
 
-地图编辑器位于 `editor/` 目录下。编辑器核心已模块化拆分为多个文件，所有默认值外部化到 `editor/config/` 目录下的 JSON 文件中。修改配置时只需编辑对应的 JSON 文件，无需修改 JS 代码。
+地图编辑器位于 `editor/` 目录下。编辑器核心已模块化拆分；通用默认值位于 `editor/config/`，游戏级资源定义保留在当前游戏目录。共享 atlas 由 `editor/config/atlases.json` 的 `$ref` 定位，禁止在编辑器配置、场景正文和运行时代码中再复制切片坐标。
 
 ## 模块架构
 
@@ -22,8 +22,8 @@ editor/
 │   ├── editor-defaults.json      ← 编辑器核心默认值
 │   ├── scene-presets.json        ← 预设场景配置
 │   ├── scene-templates.json      ← 场景模板（多套可复用的新建场景初始数据）
-│   ├── deco-sprites.json         ← 装饰物精灵图配置
-│   ├── atlases.json              ← 图集资源定义
+│   ├── deco-sprites.json         ← 非共享 legacy 装饰物精灵配置
+│   ├── atlases.json              ← 当前游戏共享图集配置的 $ref 索引
 │   └── builtin-games.json        ← 内置游戏列表
 ├── SceneEditor.js                ← 主入口：构造函数 + 事件绑定 + 组合模块 + 兼容 API
 ├── SceneEditorUI.js              ← UI 面板初始化、属性面板更新、缩放、拖拽分隔条
@@ -104,15 +104,17 @@ editor/
 与 `scene-presets.json` 的区别：presets 是三国 demo 里**已有的具体场景实例**；templates 是**通用可复用的初始骨架**（户外/室内/战场/空白等）。与 `editor-defaults.json.scene` 的区别：后者是"无模板时的最小空场景兜底"。
 
 ### `editor/config/deco-sprites.json`
-装饰物精灵图配置：
-- `outdoor` — 室外场景精灵（树/灌木/帐篷/旗帜/围栏/废墟等）
-- `indoor` — 室内场景精灵（锅/桌/蒲团/屏风/宝座等）
-- 每个精灵属性：`sx, sy, sw, sh, scale, collide, colliderRadius`
+非共享 legacy 装饰物精灵配置：
+- `mountain_landscape` 已登记切片不得出现在这里，避免与游戏级 atlas 形成竞争坐标源
+- `outdoor` / `indoor` 只保留尚未迁移为稳定 atlas 引用的旧装饰定义
 
 ### `editor/config/atlases.json`
-图集资源定义：
-- `atlases[]` — 图集列表（id, name, path, width, height, slices）
-- 每个 slice：`{ name, sx, sy, sw, sh, collide?, colliderRadius? }`
+当前游戏共享图集索引：
+- 本文件只保存 `$ref`，指向当前游戏的 `config/atlases.json`
+- 游戏级文件是 atlas 元数据与全部 slice 裁剪区域的单一事实源
+- 每个 atlas 使用稳定 `assetId === imageId`，图片路径由 Manifest 映射；每个场景只保存 `atlasId/sliceKey`
+- `SceneEditor`、`WorldMapEditor` 和运行时统一通过 `AtlasRegistry` 解析；场景内 `atlases` 仅作旧数据只读 fallback，不能覆盖同 ID 的共享定义
+- `WorldMapEditor` 必须在渲染缩略图前等待共享 catalog 与图片加载，并给 fake editor 注入同一组 `getAtlasDefinition/getAtlasSlice`；直接读取 `config.atlases` 会因 `$ref` 得到空列表，是缩略图退化为色块的根因
 
 ### `editor/config/builtin-games.json`
 内置游戏列表：
@@ -121,8 +123,8 @@ editor/
 ## 模块加载流程
 
 1. 编辑器启动时，各模块异步加载对应 JSON 配置
-2. 如果 fetch 失败，回退到代码中的硬编码默认值（确保离线可用）
-3. 配置加载后缓存在模块级变量中，后续不会重复 fetch
+2. atlas 索引若含 `$ref`，必须先解析目标游戏配置再公开 catalog；加载失败只能回退到静态导入的同一游戏级 JSON，禁止回退到代码内切片坐标
+3. 配置加载后缓存在模块级变量中；切换项目的消费者必须失效自身图片和 registry 投影
 
 ### 初始化顺序
 ```javascript
@@ -163,8 +165,8 @@ const sceneEditor = new SceneEditor(containerElement);
 | `SceneEditorAssets.js` | 无 | `setupAssetDragDrop()`, `addImageAsset()`, `updateAssetLibrary()`, `loadAtlasImages()` |
 | `SceneEditorHistory.js` | 无 | `saveHistory()`, `undo()`, `redo()`, `save()`, `exportJSON()`, `importJSON()` |
 | `EditorDataManager.js` | `builtin-games.json`, `scene-presets.json`, `scene-templates.json` | `init()`, `getBuiltinGames()`, `getGameScenes()`, `setCurrentScene()`, `createScene()`, `getSceneTemplates()`, `upsertSceneTemplate()` |
-| `SceneDataLoader.js` | `scene-presets.json`, `deco-sprites.json`, `atlases.json` | `loadScene()`, `getScenePreset()` |
-| `SceneDataExporter.js` | `scene-presets.json`, `deco-sprites.json` | `exportScene()` |
+| `SceneDataLoader.js` | `scene-presets.json`、`deco-sprites.json`、`atlases.json` → 游戏级 `$ref` | `loadScene()`, `loadGlobalAtlasesConfig()` |
+| `SceneDataExporter.js` | `scene-presets.json`；atlas 由调用方注入 | `exportPrologueScene()` |
 
 ## 修改默认值的方式
 
@@ -173,8 +175,8 @@ const sceneEditor = new SceneEditor(containerElement);
 - 想修改默认背景色：编辑 `editor-defaults.json` 的 `scene.backgroundColor`
 - 想添加新场景预设：在 `scene-presets.json` 的 `scenes` 中增加条目
 - 想添加新场景模板：在 `scene-templates.json` 的 `templates` 中增加条目（或在编辑器里点「📐 场景模板 → + 新建模板」可视化编辑并自动写回）
-- 想修改装饰物的精灵图坐标：编辑 `deco-sprites.json` 中对应的 sprite
-- 想添加新图集：在 `atlases.json` 的 `atlases` 数组中追加
+- 想修改未迁移的 legacy 装饰坐标：编辑 `deco-sprites.json`；已属于 atlas 的 key 禁止放入该文件
+- 想添加或修改共享图集：编辑当前游戏 `config/atlases.json`，同步 Manifest 稳定 ID；不要把定义追加到场景 JSON 或 `editor/config/atlases.json`
 
 ## 扩展新功能的方式
 
@@ -189,9 +191,9 @@ const sceneEditor = new SceneEditor(containerElement);
 
 ### 数据统一
 - 旧格式 `sceneData.decorations[]`（`{x, y, key, scale}`，底部中心锚点）已废弃
-- 所有装饰物统一为 `type:'deco'` 对象存储在 `layer_deco.objects` 中
-- 格式：`{type:'deco', decoKey, x, y, width, height, scale, name}`，锚点是**左上角**
-- 场景加载时 `SceneEditorLayers.mergeDecorationsToLayer()` 会将旧 `decorations` 转换合并（仅在 layer_deco 中无 deco 对象时执行，避免重复）
+- atlas 装饰物统一为 `type:'slice'`，格式 `{type:'slice', atlasId, sliceKey, x, y, width, height, scale, name}`；锚点是**左上角**
+- 尚未迁移到 atlas 的 legacy 装饰才使用 `type:'deco' + decoKey`
+- 显式迁移旧 `decorations` 时，`SceneEditorLayers.mergeDecorationsToLayer()` 先通过共享 `AtlasRegistry` 按 key 查切片；命中后生成稳定 `atlasId/sliceKey`，不得把裁剪矩形复制进对象
 
 ### 锚点转换（编辑器 → 游戏）
 - 编辑器存储：左上角锚点 `(x, y, width, height)`
@@ -320,6 +322,7 @@ localStorage                 →  仅作提交后的编辑器缓存，不参与�
 - `index.html` 通过 `getSceneList` 回调注入当前游戏的场景列表；回调必须在调用时读取 `currentGameId`，不得捕获初始化时的游戏 id。
 - `SceneEditorUI._getSceneOptions()` 和 `TriggerEditor._updateSceneFilter()` 只能调用该回调，禁止直接读取固定 localStorage key，也禁止从已存在触发器的 `sceneId` 反推完整列表。
 - `EditorDataManager.initScenesFromFile()` 必须按磁盘 `_scene_order.json` 的顺序和描述整体重建列表缓存；磁盘已删除的旧 ID 必须从 localStorage 移除，不得把旧缓存合并回权威列表。
+- 左侧列表显示名唯一读取 `_scene_order.json -> scenes[sceneId].name`，并应与对应场景 JSON 顶层 `name` 保持一致；不得在 `renderSceneList()` 临时读取场景正文补名。`SceneEditor` 必须保留宿主注入的 `onSceneMetaChange`，名称变更通过 `EditorSceneCommandService.update({ scene, orderEntry:{name} })` 在同一 canonical 事务中同步正文与列表条目，严格提交成功后再从磁盘重建列表缓存；提交期间禁止并发 whole-scene 保存。
 - `renderSceneList()` 直接保持 `getGameScenes()` 的磁盘顺序，禁止再读取 `yijian18-engine_scene_order_*` 等独立排序键；筛选视图拖拽时只重排可见 ID，并把它们合并回完整 order，不能删除隐藏场景。
 - 场景正文与相邻预览只接受磁盘、当前 canonical committed snapshot 或已登记 preset 中带完整 `layers` 的文档，列表 localStorage 元数据不得冒充场景正文。异步切换使用 generation latest-wins，较旧请求不得覆盖新场景、邻居投影、当前 sceneId 或模板编辑态。
 - 触发器中引用已删除场景时可单独标记为“旧引用”，但不得为显示旧引用而把该 ID 重新写入场景列表。
@@ -365,7 +368,7 @@ localStorage                 →  仅作提交后的编辑器缓存，不参与�
 - canonical 项目与场景只通过 Vite dev server `POST /api/canonical-transaction` 提交；普通 `/api/save-file` 明确拒绝 `game.project.json` 与 `assets/scenes/*.json`。
 - `scene-workflow.html` 的普通场景 whole-scene 保存必须让 `SceneEditor` 的 `options.onSceneChange` 落到实例回调，并调用 `EditorSceneCommandService.save(projectPath, { sceneId, sourceUri, scene })`；场景编辑器直接修改自己的 `sceneData`，因此不得只调用未 patch 该数据的 `CanonicalEditorSession.save()`，也不得改走 `EditorDataManager.updateScene()` 形成 localStorage-only 正式分支。
 - `SceneEditorHistory.save()` 只有在持久化处理器明确返回 `ok:true` 且 `committed:true` 后才能显示保存成功；未配置处理器、返回 `undefined`、校验拒绝或磁盘失败都必须显示失败，并优先带上首个 validation `path/message`。磁盘已提交但 cache/notifier 失败只能显示降级警告。
-- 场景模板 `editor/config/scene-templates.json`、`editor/config/atlases.json` 和 `editor/config/images.json` 不是游戏 canonical 文件，继续使用 `/api/save-file`，但必须检查 HTTP 与响应 `ok`，并 `await` 当前场景/模板保存；配置成功而场景失败属于部分提交，只能警告，禁止被后续成功 toast 覆盖。不得再把全局 atlas/images 遍历写入所有场景 localStorage。
+- 场景模板 `editor/config/scene-templates.json` 与图片目录 `editor/config/images.json` 继续使用 `/api/save-file`，但必须检查 HTTP 与响应 `ok`，并 `await` 当前场景/模板保存；配置成功而场景失败属于部分提交，只能警告。`editor/config/atlases.json` 只是只读 `$ref` 索引，场景会话不得通过 `saveAtlases()` 覆盖它；共享定义只在当前游戏 `config/atlases.json` 维护。不得把全局 atlas/images 遍历写入所有场景 localStorage。
 - `game.project.json -> library` 必须从页面共享 `CanonicalDocumentModel` candidate 读取，并由共享 `CanonicalEditorSession.patch('library', ...) → save()` 提交；禁止另读整份工程后用旧副本整文件替换，否则会覆盖同页 Trigger/Tutorial 等未提交或刚提交字段。
 - `SystemEditor` 必须由正式宿主注入同一项目的 `CanonicalEditorSession`，只允许 `patch('system', structuredClone(data)) → await save()`；禁止保留无 session 的 localStorage/整文件读取替换 fallback。所有保存按钮和页面初始化都必须等待 Promise，独立 HTML 的异步 IIFE 还必须在最外层 `.catch(...)` 显示初始化失败，禁止只在 IIFE 内 `await` 后丢弃其返回 Promise；严格双判定后才显示成功；`CanonicalEditorSession` 也只能在 `ok:true && committed:true` 时清除 dirty roots。
 - `TriggerEditor`、`LibraryEditor`、`DialogueGraphEditor` 和 `WorldMapEditor` 同样只能读取共享 session candidate，并分别 patch 自己拥有的 `triggers/tutorials/dialogues`、`library`、`dialogues`、`worldMap` 根字段；缺少 session 必须明确拒绝初始化，禁止回退为 GET 旧工程副本后整文件 replace。保存方法要返回结构化结果，按钮等待 Promise，`degraded` 使用 warning 而不是失败样式。
@@ -458,7 +461,7 @@ localStorage                 →  仅作提交后的编辑器缓存，不参与�
 ### 游戏侧（Scene1Terrain）——已删除写死的 mountain 草地/森林环带渲染
 - **已删除**：`_renderForestRing()`（写死森林环带）、`_renderGrassFill()`（写死 mountain 贴图草地）及 `_grassCanvas`
 - **改为数据驱动**：`_terrainEllipse` 保存椭圆填充数据，`_renderTerrainEllipse(ctx)` 按 fillMode + edgeFade 渲染（移植自编辑器逻辑，带 `_drawImageInBox`/`_drawSliceTiled`）
-- `_buildTerrainEllipseFromObject(obj, scene, cx, cy, rx, ry)`：从编辑器椭圆对象解析填充数据；image 模式加载图片（路径截取 `assets/` 之后），slice 模式从 `scene.atlases` 或 `decoSprites` 解析切片坐标，图集图用 `this.images.mountain`
+- `_buildTerrainEllipseFromObject(obj, cx, cy, rx, ry)`：从编辑器椭圆对象解析填充数据；image 模式保留图片引用，slice 模式统一通过注入的 `AtlasRegistry` 解析 `atlasId/sliceKey`（legacy `decoKey` 也只按 key 查询 registry），图集图片从 AssetManager 的稳定 `assetId` 缓存取得
 - `_ensureTerrainEllipseData()`：**无编辑器椭圆时的兜底**，用 terrain 配置（basinRadius + grassTile 切片）生成默认椭圆（slice 平铺 + edgeFade=0.28 模拟原森林环带过渡）。这不是写死渲染，而是数据驱动的默认值
 - `renderGround()`：`_hasTerrainEllipse===false` 不画草地；否则用合并缓存或 `_renderTerrainEllipse` + 水池 + 背景图
 - `_buildCombinedGroundCache()`：合并 `_renderTerrainEllipse` + 水池 + 背景图（切片模式等 mountain 就绪，图片模式等图片 complete）

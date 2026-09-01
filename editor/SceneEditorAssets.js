@@ -10,7 +10,11 @@
  *            https://gitee.com/coderaaa/yijian18-engine
  */
 
-import { updateAtlasesCache, updateImagesCache, addGlobalImage } from './SceneDataLoader.js';
+import {
+  sceneDataLoader,
+  updateImagesCache,
+  addGlobalImage
+} from './SceneDataLoader.js';
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -22,6 +26,21 @@ export class SceneEditorAssets {
    */
   constructor(editor) {
     this.editor = editor;
+  }
+
+  _availableAtlases() {
+    return this.editor.getAvailableAtlases?.()
+      || (Array.isArray(this.editor.sceneData?.atlases) ? this.editor.sceneData.atlases : []);
+  }
+
+  _getAtlas(atlasId) {
+    return this.editor.getAtlasDefinition?.(atlasId)
+      || this._availableAtlases().find(atlas => atlas?.id === atlasId)
+      || null;
+  }
+
+  _isSharedAtlas(atlasId) {
+    return this.editor.isSharedAtlas?.(atlasId) === true;
   }
 
   /**
@@ -492,7 +511,7 @@ export class SceneEditorAssets {
    */
   _addSliceToScene(atlasId, sliceKey, x, y) {
     const editor = this.editor;
-    const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
+    const atlas = this._getAtlas(atlasId);
     if (!atlas) return;
 
     const slice = atlas.slices?.[sliceKey];
@@ -674,6 +693,11 @@ export class SceneEditorAssets {
     const duplicateIds = [];
     const invalidEntries = [];
     const placeholders = [];
+    const sharedAtlases = new Map(
+      sceneDataLoader.getGlobalAtlases()
+        .filter(atlas => atlas?.id)
+        .map(atlas => [atlas.id, atlas])
+    );
 
     for (const entry of entries) {
       if (!entry?.assetId) invalidEntries.push('Manifest 条目缺少 assetId');
@@ -682,8 +706,11 @@ export class SceneEditorAssets {
       if (entry?.imageId) {
         if (imageIds.has(entry.imageId)) duplicateIds.push(`imageId: ${entry.imageId}`);
         imageIds.add(entry.imageId);
-      } else if (entry?.runtime2D?.mode === 'image') {
-        invalidEntries.push(`${entry?.assetId || '<unknown>'}: 非 atlas/slice 图片缺少稳定 imageId`);
+        if (entry.assetId && entry.imageId !== entry.assetId) {
+          invalidEntries.push(`${entry.assetId}: assetId 与 imageId 必须使用同一稳定 ID`);
+        }
+      } else if (['image', 'atlas', 'texture'].includes(entry?.runtime2D?.mode)) {
+        invalidEntries.push(`${entry?.assetId || '<unknown>'}: 图片或图集源缺少稳定 imageId`);
       }
       const sourcePaths = [entry?.sourceFile, entry?.runtime2D?.path]
         .map(path => this._normalizeGameAssetPath(path))
@@ -712,10 +739,29 @@ export class SceneEditorAssets {
     const missingReferences = [];
     const invalidSlices = [];
     const unusedSceneImages = [];
+    for (const atlas of sharedAtlases.values()) {
+      const assetId = atlas.assetId || atlas.id;
+      if (!assetIds.has(assetId)) {
+        missingReferences.push(`共享图集 ${atlas.id}: assetId ${assetId} 未登记 Manifest`);
+      }
+      const path = this._normalizeGameAssetPath(atlas.path);
+      if (path && !diskPaths.has(path)) {
+        missingReferences.push(`共享图集 ${atlas.id}: 指向缺失文件 ${path}`);
+      }
+      for (const [sliceKey, slice] of Object.entries(atlas.slices || {})) {
+        const values = [slice?.sx, slice?.sy, slice?.sw, slice?.sh];
+        const withinBounds = values.every(Number.isFinite)
+          && slice.sx >= 0 && slice.sy >= 0 && slice.sw > 0 && slice.sh > 0
+          && slice.sx + slice.sw <= atlas.width
+          && slice.sy + slice.sh <= atlas.height;
+        if (!withinBounds) invalidSlices.push(`共享图集 ${atlas.id}/${sliceKey}: 裁剪区域越界或尺寸无效`);
+      }
+    }
     for (const scene of scenes.filter(Boolean)) {
       const sceneId = scene.id || scene.name || '<unknown-scene>';
       const sceneImages = scene.imageAssets || {};
-      const atlases = new Map((scene.atlases || []).map(atlas => [atlas.id, atlas]));
+      const atlases = new Map((scene.atlases || []).filter(atlas => atlas?.id).map(atlas => [atlas.id, atlas]));
+      for (const [atlasId, atlas] of sharedAtlases) atlases.set(atlasId, atlas);
       const usedImageIds = new Set();
       for (const layer of scene.layers || []) {
         for (const object of layer?.objects || []) {
@@ -743,8 +789,8 @@ export class SceneEditorAssets {
         const path = this._normalizeGameAssetPath(image?.src);
         if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: ${imageId} 指向缺失文件 ${path}`);
       }
-      for (const atlas of atlases.values()) {
-        if (!assetIds.has(atlas.id)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 未登记 Manifest`);
+      for (const atlas of (scene.atlases || []).filter(atlas => atlas?.id && !sharedAtlases.has(atlas.id))) {
+        if (!assetIds.has(atlas.assetId || atlas.id)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 未登记 Manifest`);
         const path = this._normalizeGameAssetPath(atlas.path);
         if (path && !diskPaths.has(path)) missingReferences.push(`${sceneId}: atlasId ${atlas.id} 指向缺失文件 ${path}`);
       }
@@ -1289,12 +1335,13 @@ export class SceneEditorAssets {
 
     list.innerHTML = '';
 
-    if (!editor.sceneData.atlases || editor.sceneData.atlases.length === 0) {
+    const atlases = this._availableAtlases();
+    if (atlases.length === 0) {
       list.innerHTML = '<div style="padding:10px;color:#666;text-align:center;font-size:11px;">暂无图集</div>';
       return;
     }
 
-    for (const atlas of editor.sceneData.atlases) {
+    for (const atlas of atlases) {
       const item = document.createElement('div');
       item.className = 'atlas-item';
       if (editor.selectedAtlasId === atlas.id) item.classList.add('selected');
@@ -1314,7 +1361,7 @@ export class SceneEditorAssets {
 
       item.innerHTML = `
         <div class="atlas-header" data-atlas="${atlas.id}">
-          <span>${atlas.name}</span>
+          <span>${atlas.name}${this._isSharedAtlas(atlas.id) ? ' <small style="color:#7ec8ff;">共享</small>' : ''}</span>
           <span style="font-size:10px;color:#666;">${atlas.width}×${atlas.height} · ${sliceCount}片</span>
         </div>
         <div class="slice-grid">${slicesHtml}</div>
@@ -1384,11 +1431,23 @@ export class SceneEditorAssets {
       return;
     }
 
-    const atlas = editor.sceneData.atlases?.find(a => a.id === editor.selectedAtlasId);
+    const atlas = this._getAtlas(editor.selectedAtlasId);
     if (!atlas) return;
 
     if (title) title.textContent = '选中图集';
     const sliceCount = atlas.slices ? Object.keys(atlas.slices).length : 0;
+    if (this._isSharedAtlas(atlas.id)) {
+      propsPanel.innerHTML = `
+        <div class="slice-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
+        <div class="slice-prop-row"><label>资源ID:</label><input value="${atlas.assetId || atlas.id}" disabled style="color:#88ccff;"></div>
+        <div class="slice-prop-row"><label>名称:</label><input value="${atlas.name || ''}" disabled></div>
+        <div class="slice-prop-row"><label>图片路径:</label><input value="${atlas.path || ''}" disabled></div>
+        <div class="slice-prop-row"><label>尺寸:</label><input value="${atlas.width || 0}×${atlas.height || 0}" disabled></div>
+        <div class="slice-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
+        <div style="padding:8px 2px;color:#7ec8ff;font-size:11px;line-height:1.5;">游戏级共享图集：所有场景可用，完整定义不会写入当前场景 JSON。</div>
+      `;
+      return;
+    }
 
     propsPanel.innerHTML = `
       <div class="slice-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
@@ -1720,99 +1779,21 @@ export class SceneEditorAssets {
   }
 
   /**
-   * 新增图集
+   * 共享图集由当前游戏 config/atlases.json 统一维护，不允许在单场景会话创建局部副本。
    */
   addAtlas() {
-    const editor = this.editor;
-    if (!editor.sceneData.atlases) editor.sceneData.atlases = [];
-    const id = 'atlas_' + Date.now().toString(36);
-    const atlas = {
-      id,
-      name: '新图集',
-      path: '',
-      width: 512,
-      height: 512,
-      slices: {}
-    };
-    editor.sceneData.atlases.push(atlas);
-    editor.selectedAtlasId = id;
-    this._updateAtlasList();
-    editor.ui.showToast?.('已新增图集，请设置图片路径');
+    this.editor.ui.showToast?.('图集是游戏级共享资源，请在共享图集配置中登记稳定 ID', 'warn');
+    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
   }
 
-  /**
-   * 删除选中的图集
-   */
   deleteAtlas() {
-    const editor = this.editor;
-    const atlasId = editor.selectedAtlasId;
-    if (!atlasId) { editor.ui.showToast?.('请先选中一个图集', 'error'); return; }
-    const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
-    if (!atlas) return;
-    if (!confirm(`确定删除图集「${atlas.name}」吗？`)) return;
-    editor.sceneData.atlases = editor.sceneData.atlases.filter(a => a.id !== atlasId);
-    editor.loadedImages.delete(atlasId);
-    editor.selectedAtlasId = null;
-    if (editor.selectedSlice && editor.selectedSlice.atlasId === atlasId) editor.selectedSlice = null;
-    this._updateAtlasList();
-    editor.render();
-    editor.ui.showToast?.('已删除图集');
+    this.editor.ui.showToast?.('共享图集不能从单个场景删除', 'warn');
+    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
   }
 
-  /**
-   * 保存所有图集到全局配置 config/atlases.json，并等待当前场景/模板的持久化事务。
-   */
   async saveAtlases() {
-    const editor = this.editor;
-    const atlases = editor.sceneData.atlases || [];
-    const configObj = { atlases };
-    const content = JSON.stringify(configObj, null, 2);
-    let configCommitted = false;
-    try {
-      const res = await fetch('/api/save-file', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: 'editor/config/atlases.json', content })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok !== true) {
-        throw new Error(data.error || `图集配置保存失败（HTTP ${res.status}）`);
-      }
-
-      configCommitted = true;
-      updateAtlasesCache(configObj);
-      const sceneResult = await editor.history.save();
-      if (sceneResult?.ok !== true || sceneResult.committed !== true) {
-        const message = this._persistenceError(sceneResult, '当前场景磁盘未提交');
-        editor.ui.showToast?.(`图集配置已保存，但当前场景保存失败: ${message}`, 'warn');
-        return {
-          ok: false,
-          committed: false,
-          status: 'partial',
-          code: 'sceneSaveFailedAfterAtlasConfigCommit',
-          configCommitted: true,
-          sceneResult
-        };
-      }
-
-      if (sceneResult.degraded) {
-        editor.ui.showToast?.('图集与当前场景已写入磁盘，但缓存/通知同步降级', 'warn');
-      } else {
-        editor.ui.showToast?.('图集与当前场景已保存');
-      }
-      return { ok: true, committed: true, configCommitted: true, sceneResult, degraded: Boolean(sceneResult.degraded) };
-    } catch (error) {
-      const prefix = configCommitted ? '图集配置已保存，但后续处理失败: ' : '图集保存失败: ';
-      editor.ui.showToast?.(prefix + error.message, configCommitted ? 'warn' : 'error');
-      return {
-        ok: false,
-        committed: false,
-        status: configCommitted ? 'partial' : 'failed',
-        code: configCommitted ? 'atlasPostCommitFailed' : 'atlasConfigSaveFailed',
-        configCommitted,
-        error
-      };
-    }
+    this.editor.ui.showToast?.('共享图集为只读投影；场景只保存 atlasId/sliceKey', 'warn');
+    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
   }
 
   /**
@@ -1877,7 +1858,7 @@ export class SceneEditorAssets {
    */
   _selectSlice(atlasId, sliceKey) {
     const editor = this.editor;
-    const atlas = editor.sceneData.atlases?.find(a => a.id === atlasId);
+    const atlas = this._getAtlas(atlasId);
     if (!atlas) return;
 
     const slice = atlas.slices?.[sliceKey];
@@ -1898,6 +1879,21 @@ export class SceneEditorAssets {
     const propsPanel = document.getElementById('slice-properties');
     const title = document.getElementById('slice-panel-title');
     if (title) title.textContent = '选中切片';
+    if (propsPanel && this._isSharedAtlas(atlasId)) {
+      propsPanel.innerHTML = `
+        <div class="slice-prop-row"><label>图集:</label><input value="${atlas.name || atlas.id}" disabled style="color:#FFD700;"></div>
+        <div class="slice-prop-row"><label>名称:</label><input value="${slice.name || sliceKey}" disabled></div>
+        <div class="slice-prop-row"><label>X:</label><input value="${slice.sx}" disabled></div>
+        <div class="slice-prop-row"><label>Y:</label><input value="${slice.sy}" disabled></div>
+        <div class="slice-prop-row"><label>宽度:</label><input value="${slice.sw}" disabled></div>
+        <div class="slice-prop-row"><label>高度:</label><input value="${slice.sh}" disabled></div>
+        <div class="slice-prop-row"><label>碰撞:</label><input value="${slice.collide === true ? '是' : '否'}" disabled></div>
+        <div class="slice-prop-row"><label>碰撞半径:</label><input value="${slice.colliderRadius ?? '—'}" disabled></div>
+        <div style="padding:8px 2px;color:#7ec8ff;font-size:11px;line-height:1.5;">共享切片为只读投影；拖入场景时仅保存 atlasId 与 sliceKey。</div>
+      `;
+      editor.selectedSlice = { atlasId, sliceKey, slice };
+      return;
+    }
     if (propsPanel) {
       propsPanel.innerHTML = `
         <div class="slice-prop-row">
@@ -2220,18 +2216,20 @@ export class SceneEditorAssets {
       timg.src = terrainImage;
     }
 
-    // 2. 加载图集
-    if (!editor.sceneData.atlases) return;
-
-    for (const atlas of editor.sceneData.atlases) {
+    // 2. 加载场景局部与游戏级共享图集；共享定义不写入 sceneData。
+    const atlases = this._availableAtlases();
+    for (const atlas of atlases) {
+      if (editor.loadedImages.has(atlas.id)) continue;
+      const imageUrl = editor.getAtlasImageUrl?.(atlas.id) || atlas.path;
+      if (!imageUrl) continue;
       const img = new Image();
       img.onload = () => {
         editor.loadedImages.set(atlas.id, img);
         editor.render();
         this._updateSlicePreviews();
       };
-      img.onerror = () => console.error('Failed to load atlas:', atlas.id, 'path:', atlas.path);
-      img.src = atlas.path;
+      img.onerror = () => console.error('Failed to load atlas:', atlas.id, 'path:', imageUrl);
+      img.src = imageUrl;
     }
   }
 
@@ -2241,9 +2239,8 @@ export class SceneEditorAssets {
    */
   _updateSlicePreviews() {
     const editor = this.editor;
-    if (!editor.sceneData.atlases) return;
-
-    for (const atlas of editor.sceneData.atlases) {
+    const atlases = this._availableAtlases();
+    for (const atlas of atlases) {
       const img = editor.loadedImages.get(atlas.id);
       if (!img) continue;
 

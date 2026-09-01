@@ -14,6 +14,9 @@
     "$ref": "config/presentation.json"
   },
   "extensions": {
+    "atlases": {
+      "$ref": "config/atlases.json"
+    },
     "endings": {
       "$ref": "config/endings.json",
       "id": "sanguo-zhangjiao-endings-v1"

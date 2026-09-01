@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "atlases": [
+    {
+      "id": "mountain_landscape",
+      "assetId": "mountain_landscape",
+      "imageId": "mountain_landscape",
+      "name": "山地景观图集",
+      "path": "assets/images/scene1/mountain_landscape.png",
+      "width": 512,
+      "height": 512,
+      "slices": {
+        "grassTile": {
+          "name": "草地",
+          "sx": 448,
+          "sy": 128,
+          "sw": 64,
+          "sh": 64
+        },
+        "tree1": {
+          "name": "大树",
+          "sx": 128,
+          "sy": 384,
+          "sw": 96,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 22
+        },
+        "tree2": {
+          "name": "中树",
+          "sx": 224,
+          "sy": 417,
+          "sw": 64,
+          "sh": 96,
+          "collide": true,
+          "colliderRadius": 14
+        },
+        "tree3": {
+          "name": "小树",
+          "sx": 288,
+          "sy": 385,
+          "sw": 64,
+          "sh": 128,
+          "collide": true,
+          "colliderRadius": 16
+        },
+        "grass1": {
+          "name": "草地装饰",
+          "sx": 128,
+          "sy": 288,
+          "sw": 96,
+          "sh": 96,
+          "collide": false
+        },
+        "bush2": {
+          "name": "灌木1",
+          "sx": 223,
+          "sy": 289,
+          "sw": 32,
+          "sh": 32,
+          "collide": false
+        },
+        "bush3": {
+          "name": "草莓",
+          "sx": 224,
+          "sy": 319,
+          "sw": 32,
+          "sh": 32,
+          "collide": false,
+          "colliderRadius": 16
+        },
+        "bush4": {
+          "name": "灌木2",
+          "sx": 255,
+          "sy": 321,
+          "sw": 30,
+          "sh": 30,
+          "collide": false
+        },
+        "slice_mrzbzat3": {
+          "name": "石头左",
+          "sx": 0,
+          "sy": 0,
+          "sw": 64,
+          "sh": 64,
+          "collide": false,
+          "colliderRadius": 16
+        }
+      }
+    }
+  ]
+}

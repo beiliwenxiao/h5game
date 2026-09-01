@@ -304,8 +304,12 @@ export class SceneEditor {
     document.getElementById('editor-place').addEventListener('click', () => this.ui.setMode('place'));
 
     // 场景设置
-    document.getElementById('editor-scene-name').addEventListener('input', (e) => {
+    const sceneNameInput = document.getElementById('editor-scene-name');
+    sceneNameInput.addEventListener('input', (e) => {
       this.sceneData.name = e.target.value;
+    });
+    // 持久化元数据只在编辑完成（change/blur）时触发，避免每次按键并发提交后旧响应覆盖新名称。
+    sceneNameInput.addEventListener('change', (e) => {
       if (this.onSceneMetaChange) this.onSceneMetaChange({ name: e.target.value });
     });
     const sceneIdInput = document.getElementById('editor-scene-id');

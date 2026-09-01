@@ -154,7 +154,9 @@ export class SceneDataLoader {
       case 'scene_Act6':
         return await this.loadAct6Scene();
       default:
-        return this.createEmptyScene(sceneId);
+        // 未登记的 canonical SXX 没有预设基底；调用方必须直接使用磁盘场景，
+        // 禁止把空 legacy preset 合并进 canonical 文档。
+        return null;
     }
   }
   

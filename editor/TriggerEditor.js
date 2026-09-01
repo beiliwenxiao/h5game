@@ -27,7 +27,6 @@ import {
   getTriggerActionOperation,
   validateTriggerDefinition
 } from '../src/systems/TriggerCatalog.js';
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 import { TriggerProjectIndex } from './TriggerProjectIndex.js';
 import { TutorialEditorPanel } from './TutorialEditorPanel.js';
 import { TriggerTracePanel } from './TriggerTracePanel.js';
@@ -82,23 +81,14 @@ export class TriggerEditor {
     this._renderDetail();
   }
 
-  /** 加载工程文件 */
+  /** 加载共享 canonical candidate。 */
   async _load() {
-    if (this.canonicalSession) {
-      this.project = this.canonicalSession.getValue();
-    } else try {
-      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.ok && data.content) {
-          this.project = JSON.parse(data.content);
-        }
-      }
-    } catch (e) {
-      console.warn('TriggerEditor: 加载工程失败', e);
+    if (!this.canonicalSession) {
+      throw new TypeError('TriggerEditor requires a shared CanonicalEditorSession');
     }
-    if (!this.project) {
-      this.project = { meta: { id: this.gameId }, variables: {}, triggers: [], tutorials: [] };
+    this.project = this.canonicalSession.getValue();
+    if (!this.project || typeof this.project !== 'object') {
+      throw new Error('TriggerEditor: canonical project candidate 不可用');
     }
     if (!Array.isArray(this.project.triggers)) this.project.triggers = [];
     if (!Array.isArray(this.project.tutorials)) this.project.tutorials = [];
@@ -215,9 +205,9 @@ export class TriggerEditor {
     // 保存前校验当前详情面板的所有 JSON 框
     const bad = this._validateAllJson();
     if (bad) {
-      this._toast('JSON 格式错误，请修正后再保存（红框处）', false);
+      this._toast('JSON 格式错误，请修正后再保存（红框处）', 'error');
       this._status('❌ JSON 格式错误，未保存', 'err');
-      return;
+      return { ok: false, committed: false, status: 'rejected', code: 'invalidJson' };
     }
     this._commitDetail(); // 先把当前编辑写回数据
     if (this.target !== 'storyline') this.project[this.target] = this.triggers;
@@ -233,8 +223,14 @@ export class TriggerEditor {
     const definitionError = this._validateDefinitions();
     if (definitionError) {
       this._status('❌ ' + definitionError, 'err');
-      this._toast(definitionError, false);
-      return;
+      this._toast(definitionError, 'error');
+      return {
+        ok: false,
+        committed: false,
+        status: 'rejected',
+        code: 'invalidTriggerDefinitions',
+        errors: [{ path: this.target, message: definitionError }]
+      };
     }
     const targetLabel = {
       storyline: '剧情线总览',
@@ -243,29 +239,52 @@ export class TriggerEditor {
     }[this.target] || '定义';
     console.log('[TriggerEditor] 准备保存:', this.projectPath, this.target, '数量:', this.triggers.length, JSON.parse(JSON.stringify(this.triggers)));
     try {
-      const data = this.canonicalSession
-        ? await (async () => {
-            this.canonicalSession.patchMany([
-              { path: 'triggers', value: this.project.triggers },
-              { path: 'tutorials', value: this.project.tutorials },
-              { path: 'dialogues', value: this.project.dialogues }
-            ]);
-            return this.canonicalSession.save();
-          })()
-        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
+      this.canonicalSession.patchMany([
+        { path: 'triggers', value: this.project.triggers },
+        { path: 'tutorials', value: this.project.tutorials },
+        { path: 'dialogues', value: this.project.dialogues }
+      ]);
+      const data = await this.canonicalSession.save();
       console.log('[TriggerEditor] 保存返回:', data);
-      if (data && (data.ok || data.committed)) {
-        this._status(`✅ 已保存到 ${this.projectPath}（${targetLabel} ${this.triggers.length} 条）`, 'ok');
-        this._toast(`保存成功（${targetLabel} ${this.triggers.length} 条）`, true);
-        await this.onSaved?.(this.project);
-      } else {
-        this._status('❌ 保存失败: ' + (data.error || '未知'), 'err');
-        this._toast('保存失败: ' + (data.error || '未知'), false);
+      if (data?.ok === true && data.committed === true) {
+        let refreshError = null;
+        try {
+          await this.onSaved?.(this.project);
+        } catch (error) {
+          refreshError = error;
+          console.warn('[TriggerEditor] 磁盘已提交，但提交后刷新失败:', error);
+        }
+        const finalResult = refreshError
+          ? {
+              ...data,
+              degraded: true,
+              status: 'committed-with-degradation',
+              warnings: [...(data.warnings || []), { category: 'postCommitRefreshFailed', message: refreshError.message }]
+            }
+          : data;
+        if (finalResult.degraded) {
+          const warning = `磁盘已提交，但缓存/通知同步降级（${targetLabel} ${this.triggers.length} 条）`;
+          this._status('⚠️ ' + warning, 'warn');
+          this._toast(warning, 'warn');
+        } else {
+          this._status(`✅ 已保存到 ${this.projectPath}（${targetLabel} ${this.triggers.length} 条）`, 'ok');
+          this._toast(`保存成功（${targetLabel} ${this.triggers.length} 条）`, 'success');
+        }
+        return finalResult;
       }
-    } catch (e) {
-      console.error('[TriggerEditor] 保存异常:', e);
-      this._status('❌ 保存失败: ' + e.message, 'err');
-      this._toast('保存失败: ' + e.message, false);
+      const firstError = data?.errors?.[0];
+      const message = [firstError?.path, firstError?.message || firstError?.reason]
+        .filter(Boolean)
+        .join(': ') || data?.error?.message || data?.error || '未知';
+      this._status('❌ 保存失败: ' + message, 'err');
+      this._toast('保存失败: ' + message, 'error');
+      return data;
+    } catch (error) {
+      console.error('[TriggerEditor] 保存异常:', error);
+      const result = error.result || { ok: false, committed: false, status: 'failed', error };
+      this._status('❌ 保存失败: ' + error.message, 'err');
+      this._toast('保存失败: ' + error.message, 'error');
+      return result;
     }
   }
 
@@ -336,7 +355,7 @@ export class TriggerEditor {
   }
 
   /** 弹出式提示（醒目，2秒后淡出） */
-  _toast(msg, ok) {
+  _toast(msg, type = 'success') {
     let t = document.getElementById('trg-toast');
     if (!t) {
       t = document.createElement('div');
@@ -346,8 +365,16 @@ export class TriggerEditor {
         'z-index:100000;pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
       document.body.appendChild(t);
     }
-    t.textContent = (ok ? '✅ ' : '❌ ') + msg;
-    t.style.background = ok ? '#2e7d32' : '#c62828';
+    const tone = type === true ? 'success' : type === false ? 'error' : type;
+    const presentations = {
+      success: { icon: '✅ ', background: '#2e7d32' },
+      warn: { icon: '⚠️ ', background: '#9a6700' },
+      error: { icon: '❌ ', background: '#c62828' }
+    };
+    const presentation = presentations[tone] || presentations.success;
+    t.textContent = presentation.icon + msg;
+    t.dataset.type = tone;
+    t.style.background = presentation.background;
     t.style.opacity = '1';
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);
@@ -409,7 +436,9 @@ export class TriggerEditor {
     this.container.querySelector('#trg-add').addEventListener('click', () => this._addTrigger());
     this.container.querySelector('#trg-del').addEventListener('click', () => this._deleteTrigger());
     this.container.querySelector('#trg-fg-debug').addEventListener('click', () => this.triggerTracePanel.toggle());
-    this.container.querySelector('#trg-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#trg-save').addEventListener('click', async () => {
+      await this.save();
+    });
     this.container.querySelectorAll('#trg-target-tabs button').forEach(btn => {
       if (btn.dataset.target) btn.addEventListener('click', () => this._switchTarget(btn.dataset.target));
     });

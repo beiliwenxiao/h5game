@@ -13,6 +13,7 @@ import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig, load
         import { CanonicalEditorSession } from './CanonicalEditorSession.js';
         import { EditorSceneCommandService } from './EditorSceneCommandService.js';
         import { LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
+import { getWorldMapCellSceneId } from '../src/core/WorldMapCell.js';
         
         
 import { EditorInteractionBase } from './EditorInteractionBase.js';
@@ -145,32 +146,8 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     return;
                 }
 
-                // 按已保存的排序顺序排列（无保存时按名称排序）
-                const orderKey = `yijian18-engine_scene_order_${gameId}`;
-                let savedOrder = null;
-                try { savedOrder = JSON.parse(localStorage.getItem(orderKey)); } catch(e) {}
-                // localStorage 无数据时，从 JSON 文件异步加载（首次渲染先用名称排序）
-                if (!Array.isArray(savedOrder) || savedOrder.length === 0) {
-                    const game = this.dataManager.getCurrentGame();
-                    const gamePath = game ? game.path : '../example/sanguo_zhangjiao/';
-                    const filePath = `${gamePath}assets/scenes/_scene_order.json`.replace(/^\.\.\//, '');
-                    fetch(filePath).then(r => r.ok ? r.json() : null).then(data => {
-                        if (data && Array.isArray(data.order) && data.order.length > 0) {
-                            localStorage.setItem(orderKey, JSON.stringify(data.order));
-                            this.renderSceneList(gameId); // 重新渲染
-                        }
-                    }).catch(() => {});
-                }
-                if (Array.isArray(savedOrder) && savedOrder.length > 0) {
-                    const orderMap = new Map(savedOrder.map((id, idx) => [id, idx]));
-                    scenes.sort((a, b) => {
-                        const ia = orderMap.has(a.id) ? orderMap.get(a.id) : 9999;
-                        const ib = orderMap.has(b.id) ? orderMap.get(b.id) : 9999;
-                        return ia - ib;
-                    });
-                } else {
-                    scenes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-CN'));
-                }
+                // getGameScenes() 已按磁盘 `_scene_order.json` 的顺序返回；
+                // 过滤只保留相对顺序，禁止再用独立 localStorage key 覆盖权威列表。
                 
                 list.innerHTML = scenes.map(scene => `
                     <div class="scene-item ${scene.id === this.currentSceneId ? 'active' : ''}" data-id="${scene.id}" draggable="true">
@@ -185,17 +162,17 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 
                 // 绑定场景点击事件
                 list.querySelectorAll('.scene-item:not(.template-item)').forEach(item => {
-                    item.addEventListener('click', (e) => {
+                    item.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         const action = e.target.dataset.action;
                         const sceneId = item.dataset.id;
                         
                         if (action === 'edit') {
-                            this.editScene(sceneId);
+                            await this.editScene(sceneId);
                         } else if (action === 'delete') {
-                            this.deleteScene(sceneId);
+                            await this.deleteScene(sceneId);
                         } else {
-                            this.editScene(sceneId);
+                            await this.editScene(sceneId);
                         }
                     });
                 });
@@ -212,15 +189,28 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                         item.style.opacity = '1';
                         dragItem = null;
                         list.querySelectorAll('.scene-item:not(.template-item)').forEach(el => el.classList.remove('drag-over'));
-                        // 磁盘提交成功后才更新 localStorage 排序 cache。
-                        const newOrder = [...list.querySelectorAll('.scene-item:not(.template-item)')].map(el => el.dataset.id);
+                        const visibleOrder = [...list.querySelectorAll('.scene-item:not(.template-item)')]
+                            .map(el => el.dataset.id);
+                        const visibleIds = new Set(visibleOrder);
+                        let visibleIndex = 0;
+                        // 筛选视图只重排可见项，不能把隐藏场景从 canonical order 中删除。
+                        const newOrder = this.dataManager.getGameScenes(gameId).map(scene =>
+                            visibleIds.has(scene.id) ? visibleOrder[visibleIndex++] : scene.id
+                        );
                         try {
                             await this._saveSceneOrder(gameId, newOrder);
-                            localStorage.setItem(orderKey, JSON.stringify(newOrder));
                         } catch (error) {
                             console.warn('保存 canonical 场景排序失败:', error);
                             this.sceneEditor?.ui?.showToast?.(`排序保存失败: ${error.message}`, 'error');
                             this.renderSceneList(gameId);
+                            return;
+                        }
+                        try {
+                            await this.dataManager.initScenesFromFile(gameId);
+                            this.renderSceneList(gameId);
+                        } catch (error) {
+                            console.warn('场景排序已提交，但磁盘列表刷新失败:', error);
+                            this.sceneEditor?.ui?.showToast?.(`排序已提交，但列表刷新失败: ${error.message}`, 'warn');
                         }
                     });
                     item.addEventListener('dragover', (e) => {
@@ -281,6 +271,10 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
             
             // 编辑场景
             async editScene(sceneId) {
+                const loadGeneration = (this._sceneLoadGeneration || 0) + 1;
+                this._sceneLoadGeneration = loadGeneration;
+                const previousSceneId = this.currentSceneId;
+                const previousTemplateId = this._editingTemplateId;
                 this.currentSceneId = sceneId;
                 // 退出模板编辑态（编辑的是普通游戏场景）
                 this._editingTemplateId = null;
@@ -304,21 +298,22 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 } catch (e) {
                     console.warn('加载预设场景失败:', e);
                 }
+                if (loadGeneration !== this._sceneLoadGeneration) return null;
                 
                 // 磁盘 JSON 是唯一事实源；失败时只使用本次打开项目的最近 committed memory，不读无 provenance 的旧编辑器缓存。
                 const fileScene = await this._loadSceneFromFile(sceneId, presetScene);
+                if (loadGeneration !== this._sceneLoadGeneration) return null;
                 let saved = fileScene;
                 if (!saved) {
                     try {
-                        saved = this.documentService.requireProject(this._canonicalProjectPath()).getCommittedSnapshot().scenes[sceneId] || null;
-                    } catch (error) { saved = null; }
+                        const committed = this.documentService
+                            .requireProject(this._canonicalProjectPath())
+                            .getCommittedSnapshot().scenes[sceneId];
+                        saved = Array.isArray(committed?.layers) ? committed : null;
+                    } catch (error) {
+                        saved = null;
+                    }
                 }
-                if (fileScene) {
-                    // 用磁盘事实刷新只用于编辑器列表/显示的 legacy cache；它不具备 canonical fallback 资格。
-                    this.dataManager.updateScene(this.currentGameId, sceneId, fileScene);
-                    this.dataManager.setCurrentScene(sceneId);
-                }
-                
                 let sceneToLoad;
                 if (presetScene && saved) {
                     // 合并：预设提供完整字段，保存数据覆盖用户编辑过的内容
@@ -341,16 +336,21 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 } else if (presetScene) {
                     sceneToLoad = presetScene;
                 } else {
-                    sceneToLoad = {
-                        id: sceneId,
-                        name: sceneId.replace('scene_', '').replace('_', ' '),
-                        width: 1280,
-                        height: 720,
-                        backgroundColor: '#2a3a1a'
-                    };
+                    sceneToLoad = null;
+                }
+
+                if (!sceneToLoad || !Array.isArray(sceneToLoad.layers)) {
+                    const message = `无法加载场景 ${sceneId}：磁盘 canonical 文档、已提交快照与已登记 preset 均不存在有效 layers`;
+                    console.error('[Editor]', message);
+                    this.currentSceneId = previousSceneId;
+                    this._editingTemplateId = previousTemplateId;
+                    this.sceneEditor?.ui?.showToast?.(message, 'error');
+                    this.renderSceneList(this.currentGameId);
+                    return false;
                 }
                 
                 this.sceneEditor.loadScene(sceneToLoad);
+                this.dataManager.setCurrentScene(sceneId);
                 this.sceneEditor.refreshTriggerReferences?.();
                 
                 // 加载地形图集
@@ -359,7 +359,8 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 }
 
                 // 计算相邻场景数据（大地图多场景编辑参考）
-                this._setupNeighborScenes(sceneId);
+                await this._setupNeighborScenes(sceneId, loadGeneration);
+                if (loadGeneration !== this._sceneLoadGeneration) return null;
                 
                 this.renderSceneList(this.currentGameId);
                 
@@ -367,11 +368,13 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 setTimeout(() => {
                     window.dispatchEvent(new Event('resize'));
                 }, 50);
+                return true;
             }
             
             // 计算相邻场景数据，供多场景编辑参考
-            async _setupNeighborScenes(currentSceneId) {
+            async _setupNeighborScenes(currentSceneId, loadGeneration = this._sceneLoadGeneration) {
                 if (!this.sceneEditor) return;
+                if (loadGeneration !== this._sceneLoadGeneration || this.currentSceneId !== currentSceneId) return;
                 this.sceneEditor.neighborScenes = [];
 
                 // 从 game.project.json 的 worldMap 读取 grid
@@ -382,22 +385,32 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     const proj = await res.json();
                     worldMap = proj && proj.worldMap;
                 } catch (e) { return; }
-                if (!worldMap || !worldMap.regions || !worldMap.regions[0]) return;
+                if (loadGeneration !== this._sceneLoadGeneration || this.currentSceneId !== currentSceneId) return;
+                if (!Array.isArray(worldMap?.regions) || worldMap.regions.length === 0) return;
 
-                const region = worldMap.regions[0];
-                const { chunkWidth, chunkHeight, cols, rows, grid } = region;
-                if (!grid) return;
-
-                // 找到当前场景在 grid 中的位置
-                let myCol = -1, myRow = -1;
-                for (let r = 0; r < rows; r++) {
-                    for (let c = 0; c < cols; c++) {
-                        if (grid[r] && grid[r][c] === currentSceneId) {
-                            myCol = c; myRow = r;
+                // 所有 Region 共用全局网格坐标；找到当前场景所属 Region 后再计算九宫格。
+                let region = null;
+                let myCol = -1;
+                let myRow = -1;
+                for (const candidate of worldMap.regions) {
+                    const { cols, rows, grid } = candidate;
+                    if (!Array.isArray(grid)) continue;
+                    for (let r = 0; r < rows; r++) {
+                        for (let c = 0; c < cols; c++) {
+                            if (getWorldMapCellSceneId(grid[r]?.[c]) === currentSceneId) {
+                                region = candidate;
+                                myCol = c;
+                                myRow = r;
+                                break;
+                            }
                         }
+                        if (region) break;
                     }
+                    if (region) break;
                 }
-                if (myCol === -1) return;
+                if (!region) return;
+
+                const { chunkWidth, chunkHeight, cols, rows, grid } = region;
 
                 // 收集九宫格内的相邻场景
                 const neighbors = [];
@@ -406,17 +419,30 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                         if (dr === 0 && dc === 0) continue;
                         const r = myRow + dr, c = myCol + dc;
                         if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
-                        const nId = grid[r] && grid[r][c];
+                        const nId = getWorldMapCellSceneId(grid[r]?.[c]);
                         if (!nId) continue;
 
-                        // 加载邻居场景数据
-                        let nScene = null;
-                        const saved = this.dataManager.loadScenesData(gameId) || [];
-                        nScene = saved.find(s => s.id === nId);
+                        // 邻居预览同样磁盘优先；列表 localStorage 只含缓存元数据，不能冒充场景文档。
+                        let nScene = await this._loadSceneFromFile(nId, null);
+                        if (loadGeneration !== this._sceneLoadGeneration || this.currentSceneId !== currentSceneId) return;
                         if (!nScene) {
                             try {
-                                nScene = await this.sceneLoader.loadScene(nId);
-                            } catch (e) {}
+                                const committed = this.documentService
+                                    .requireProject(this._canonicalProjectPath())
+                                    .getCommittedSnapshot().scenes[nId];
+                                nScene = Array.isArray(committed?.layers) ? committed : null;
+                            } catch (error) {
+                                nScene = null;
+                            }
+                        }
+                        if (!nScene) {
+                            try {
+                                const preset = await this.sceneLoader.loadScene(nId);
+                                if (loadGeneration !== this._sceneLoadGeneration || this.currentSceneId !== currentSceneId) return;
+                                nScene = Array.isArray(preset?.layers) ? preset : null;
+                            } catch (error) {
+                                nScene = null;
+                            }
                         }
                         if (nScene) {
                             neighbors.push({
@@ -428,11 +454,12 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     }
                 }
 
+                if (loadGeneration !== this._sceneLoadGeneration || this.currentSceneId !== currentSceneId) return;
                 this.sceneEditor.neighborScenes = neighbors;
                 if (this.sceneEditor.showNeighbors) this.sceneEditor.render();
             }
 
-            // localStorage 无数据时，从导出的场景 JSON 文件加载（选项2：清缓存不丢数据）
+            // 从当前游戏磁盘 canonical JSON 加载完整场景；localStorage 不参与文档回退。
             async _loadSceneFromFile(sceneId, presetScene) {
                 const gameId = this.currentGameId || 'sanguo_zhangjiao';
                 const name = (presetScene && presetScene.name) || sceneId;
@@ -445,12 +472,13 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     const path = `example/${gameId}/assets/scenes/${filename}.json`;
                     try {
                         const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
+                        if (!res.ok) continue;
                         const data = await res.json();
-                        if (data && data.ok && data.content) {
+                        if (data?.ok === true && data.content) {
                             const parsed = JSON.parse(data.content);
                             const scenes = Array.isArray(parsed) ? parsed : [parsed];
                             const s = scenes.find(x => x && x.id === sceneId) || scenes[0];
-                            if (s && s.layers) {
+                            if (Array.isArray(s?.layers)) {
                                 console.log('[Editor] 从文件恢复场景:', path);
                                 return s;
                             }
@@ -531,61 +559,98 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 window.dispatchEvent(new Event('resize'));
             }
 
-            // 新建模板（克隆默认模板），随后进入编辑
-            createNewTemplate() {
-                const name = prompt('输入新模板名称：', '新模板');
-                if (!name) return;
-                const { template } = this.dataManager.createSceneTemplate({ name });
-                this._saveTemplatesToFile();
-                this.editSceneTemplate(template.id);
+            _persistenceError(result, fallback = '磁盘未提交') {
+                const firstError = result?.errors?.[0];
+                const validationMessage = [firstError?.path, firstError?.message || firstError?.reason]
+                    .filter(Boolean)
+                    .join(': ');
+                if (validationMessage) return validationMessage;
+                if (typeof result?.error?.message === 'string') return result.error.message;
+                if (typeof result?.error === 'string') return result.error;
+                return fallback;
             }
 
-            // 删除模板
-            deleteTemplate(templateId) {
-                const tpl = this.dataManager.getSceneTemplate(templateId);
-                if (!tpl) return;
-                if (!confirm('确定删除模板「' + tpl.name + '」？')) return;
-                if (this._editingTemplateId === templateId) this._editingTemplateId = null;
-                this.dataManager.deleteSceneTemplate(templateId);
-                this._saveTemplatesToFile();
-                // 刷新左侧列表
+            _restoreTemplateSnapshot(snapshot, previousTemplateId) {
+                this.dataManager.replaceSceneTemplatesConfig(snapshot);
+                this._editingTemplateId = previousTemplateId;
                 if (this.currentGameId) this.renderSceneList(this.currentGameId);
             }
 
-            // 把模板配置写回 editor/config/scene-templates.json
-            _saveTemplatesToFile() {
-                const cfg = this.dataManager.getSceneTemplatesConfig();
-                const json = JSON.stringify(cfg, null, 2);
-                fetch('/api/save-file', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: 'editor/config/scene-templates.json', content: json })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.ok) console.log('场景模板已保存到文件:', data.path);
-                    else console.warn('保存模板文件失败:', data.error);
-                })
-                .catch(err => console.warn('保存模板文件请求失败:', err));
+            // 新建模板：文件提交成功后才进入编辑。
+            async createNewTemplate() {
+                const name = prompt('输入新模板名称：', '新模板');
+                if (!name) return;
+                const snapshot = structuredClone(this.dataManager.getSceneTemplatesConfig());
+                const previousTemplateId = this._editingTemplateId;
+                let template;
+                try {
+                    ({ template } = this.dataManager.createSceneTemplate({ name }));
+                    const result = await this._saveTemplatesToFile();
+                    if (result?.ok !== true || result.committed !== true) {
+                        this._restoreTemplateSnapshot(snapshot, previousTemplateId);
+                        this.sceneEditor?.ui?.showToast?.('新建模板失败：' + this._persistenceError(result), 'error');
+                        return;
+                    }
+                } catch (error) {
+                    this._restoreTemplateSnapshot(snapshot, previousTemplateId);
+                    this.sceneEditor?.ui?.showToast?.('新建模板失败：' + error.message, 'error');
+                    return;
+                }
+                this.editSceneTemplate(template.id);
             }
 
-            // 聚合当前游戏所有场景的图片资源（imageAssets）为一个合集，
-            // 使模板编辑时的资源库图片与其他场景一致（含在某个场景新加、但尚未写入全局 images.json 的图片）。
-            _collectAllSceneImages(base = {}) {
-                const merged = { ...(base || {}) };
+            // 删除模板：提交失败时恢复完整配置和编辑态。
+            async deleteTemplate(templateId) {
+                const tpl = this.dataManager.getSceneTemplate(templateId);
+                if (!tpl) return;
+                if (!confirm('确定删除模板「' + tpl.name + '」？')) return;
+                const snapshot = structuredClone(this.dataManager.getSceneTemplatesConfig());
+                const previousTemplateId = this._editingTemplateId;
                 try {
-                    const scenes = this.dataManager.loadScenesData(this.currentGameId) || [];
-                    for (const s of scenes) {
-                        if (s && s.imageAssets) {
-                            for (const [id, data] of Object.entries(s.imageAssets)) {
-                                if (!merged[id]) merged[id] = JSON.parse(JSON.stringify(data));
-                            }
-                        }
+                    if (this._editingTemplateId === templateId) this._editingTemplateId = null;
+                    this.dataManager.deleteSceneTemplate(templateId);
+                    const result = await this._saveTemplatesToFile();
+                    if (result?.ok !== true || result.committed !== true) {
+                        this._restoreTemplateSnapshot(snapshot, previousTemplateId);
+                        this.sceneEditor?.ui?.showToast?.('删除模板失败：' + this._persistenceError(result), 'error');
+                        return;
                     }
-                } catch (e) {
-                    console.warn('[模板] 聚合场景图片失败:', e);
+                } catch (error) {
+                    this._restoreTemplateSnapshot(snapshot, previousTemplateId);
+                    this.sceneEditor?.ui?.showToast?.('删除模板失败：' + error.message, 'error');
+                    return;
                 }
-                return merged;
+                if (this.currentGameId) this.renderSceneList(this.currentGameId);
+            }
+
+            // 把模板配置写回 editor/config/scene-templates.json。
+            async _saveTemplatesToFile() {
+                try {
+                    const config = structuredClone(this.dataManager.getSceneTemplatesConfig());
+                    const response = await fetch('/api/save-file', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            path: 'editor/config/scene-templates.json',
+                            content: JSON.stringify(config, null, 2)
+                        })
+                    });
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok || data?.ok !== true) {
+                        return {
+                            ok: false,
+                            committed: false,
+                            status: 'failed',
+                            code: 'templateFileSaveFailed',
+                            error: data.error || `模板保存 HTTP ${response.status}`
+                        };
+                    }
+                    console.log('场景模板已保存到文件:', data.path);
+                    return { ok: true, committed: true, status: 'committed', degraded: false, path: data.path };
+                } catch (error) {
+                    console.warn('保存模板文件请求失败:', error);
+                    return { ok: false, committed: false, status: 'failed', code: 'templateFileSaveFailed', error };
+                }
             }
 
             // 构建左侧列表底部的「场景模板」分组 HTML
@@ -613,19 +678,22 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
             // 绑定模板项的点击（编辑/删除）与新建模板按钮
             _bindTemplateItems(list) {
                 list.querySelectorAll('.template-item').forEach(item => {
-                    item.addEventListener('click', (e) => {
+                    item.addEventListener('click', async (e) => {
                         e.stopPropagation();
                         const id = item.dataset.tplId;
                         const action = e.target.dataset.tplAction;
-                        if (action === 'delete') this.deleteTemplate(id);
+                        if (action === 'delete') await this.deleteTemplate(id);
                         else this.editSceneTemplate(id);
                     });
                 });
                 const addBtn = list.querySelector('#inline-add-template');
-                if (addBtn) addBtn.addEventListener('click', (e) => { e.stopPropagation(); this.createNewTemplate(); });
+                if (addBtn) addBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await this.createNewTemplate();
+                });
             }
 
-            // 创建场景
+            // 创建 canonical 场景；磁盘提交后再从 _scene_order.json 重建列表缓存。
             async createScene() {
                 const name = document.getElementById('scene-name').value.trim();
                 if (!name) {
@@ -639,118 +707,192 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     height: parseInt(document.getElementById('scene-height').value) || 720,
                     backgroundColor: document.getElementById('scene-bg-color').value
                 });
+
+                let result;
                 try {
                     const { service, projectPath } = this._sceneCommands();
-                    const result = await service.create(projectPath, { scene });
-                    if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '创建场景失败'), { result });
-                    this.dataManager.updateScene(this.currentGameId, scene.id, result.value.scenes[scene.id]);
+                    result = await service.create(projectPath, { scene });
+                } catch (error) {
+                    console.warn('创建 canonical 场景请求失败:', error);
+                    alert(`创建场景失败: ${error.message}`);
+                    return;
+                }
+                if (result?.ok !== true || result.committed !== true) {
+                    alert(`创建场景失败: ${this._persistenceError(result, '磁盘未提交')}`);
+                    return result;
+                }
+
+                try {
+                    await this.dataManager.initScenesFromFile(this.currentGameId);
                     this.hideModal('new-scene-modal');
                     document.getElementById('new-scene-form').reset();
                     this.renderSceneList(this.currentGameId);
-                    await this.editScene(scene.id);
-                    if (result.degraded) this.sceneEditor?.ui?.showToast?.('场景已提交到磁盘，但缓存/通知同步降级', 'warn');
+                    const loaded = await this.editScene(scene.id);
+                    if (loaded === false) {
+                        this.sceneEditor?.ui?.showToast?.('场景已写入磁盘，但编辑器无法加载该 canonical 文档', 'warn');
+                        return { ...result, degraded: true, status: 'committed-with-degradation' };
+                    }
                 } catch (error) {
-                    console.warn('创建 canonical 场景失败:', error);
-                    alert(`创建场景失败: ${error.message}`);
+                    console.warn('场景已创建，但编辑器刷新失败:', error);
+                    this.sceneEditor?.ui?.showToast?.(`场景已写入磁盘，但编辑器刷新失败: ${error.message}`, 'warn');
+                    return { ...result, degraded: true, status: 'committed-with-degradation' };
                 }
+                if (result.degraded) this.sceneEditor?.ui?.showToast?.('场景已提交到磁盘，但缓存/通知同步降级', 'warn');
+                return result;
             }
             
-            // 删除场景
+            // 删除 canonical 场景；磁盘提交后再刷新列表缓存。
             async deleteScene(sceneId) {
                 if (!confirm('确定要删除这个场景吗？')) return;
+                let result;
                 try {
                     const { service, projectPath } = this._sceneCommands();
-                    const result = await service.delete(projectPath, { sceneId });
-                    if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '删除场景失败'), { result });
-                    this.dataManager.deleteScene(this.currentGameId, sceneId);
-                    if (this.currentSceneId === sceneId) this.currentSceneId = null;
-                    this.renderSceneList(this.currentGameId);
-                    if (result.degraded) alert('场景已从磁盘删除，但缓存/通知同步降级；请重新加载项目。');
+                    result = await service.delete(projectPath, { sceneId });
                 } catch (error) {
-                    console.warn('删除 canonical 场景失败:', error);
+                    console.warn('删除 canonical 场景请求失败:', error);
                     alert(`删除场景失败: ${error.message}`);
-                }
-            }
-            
-            // 保存场景
-            async saveScene(sceneData) {
-                // 模板编辑态：写回 scene-templates.json，而非游戏场景
-                if (this._editingTemplateId) {
-                    this.dataManager.upsertSceneTemplate(this._editingTemplateId, sceneData);
-                    this._saveTemplatesToFile();
                     return;
                 }
-                if (!this.currentGameId || !this.currentSceneId) return;
+                if (result?.ok !== true || result.committed !== true) {
+                    alert(`删除场景失败: ${this._persistenceError(result, '磁盘未提交')}`);
+                    return result;
+                }
+
+                if (this.currentSceneId === sceneId) this.currentSceneId = null;
+                try {
+                    await this.dataManager.initScenesFromFile(this.currentGameId);
+                    this.renderSceneList(this.currentGameId);
+                } catch (error) {
+                    console.warn('场景已删除，但编辑器列表刷新失败:', error);
+                    this.sceneEditor?.ui?.showToast?.(`场景已从磁盘删除，但列表刷新失败: ${error.message}`, 'warn');
+                    return { ...result, degraded: true, status: 'committed-with-degradation' };
+                }
+                if (result.degraded) this.sceneEditor?.ui?.showToast?.('场景已从磁盘删除，但缓存/通知同步降级', 'warn');
+                return result;
+            }
+            
+            // 保存场景或模板，统一返回严格的持久化结果供 SceneEditorHistory 判定。
+            async saveScene(sceneData) {
+                if (this._editingTemplateId) {
+                    const templateId = this._editingTemplateId;
+                    const snapshot = structuredClone(this.dataManager.getSceneTemplatesConfig());
+                    try {
+                        this.dataManager.upsertSceneTemplate(templateId, sceneData);
+                        const result = await this._saveTemplatesToFile();
+                        if (result?.ok !== true || result.committed !== true) {
+                            this.dataManager.replaceSceneTemplatesConfig(snapshot);
+                            return result;
+                        }
+                        return {
+                            ...result,
+                            successMessage: `模板「${this.dataManager.getSceneTemplate(templateId)?.name || templateId}」已保存`
+                        };
+                    } catch (error) {
+                        this.dataManager.replaceSceneTemplatesConfig(snapshot);
+                        return {
+                            ok: false,
+                            committed: false,
+                            status: 'failed',
+                            code: 'templateSaveFailed',
+                            error
+                        };
+                    }
+                }
+                if (!this.currentGameId || !this.currentSceneId) {
+                    return {
+                        ok: false,
+                        committed: false,
+                        status: 'rejected',
+                        code: 'missingSceneSelection',
+                        errors: [{ path: 'sceneId', message: '未选择要保存的 canonical 场景' }]
+                    };
+                }
                 try {
                     const { service, projectPath } = this._sceneCommands();
-                    const result = await service.save(projectPath, {
+                    return await service.save(projectPath, {
                         sceneId: this.currentSceneId,
                         sourceUri: `${projectPath.slice(0, -'/game.project.json'.length)}/assets/scenes/${this.currentSceneId}.json`,
-                        scene: sceneData
+                        scene: structuredClone(sceneData)
                     });
-                    if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '保存场景失败'), { result });
-                    const editorCacheUpdated = this.dataManager.updateScene(this.currentGameId, this.currentSceneId, result.value.scenes[this.currentSceneId]);
-                    // 通知正在运行的游戏页面：该场景已在磁盘提交，游戏可热同步最新位置/内容。
-                    // storage 事件只在其他页面触发，正好覆盖「编辑器 + 游戏双开」的工作流。
-                    try {
-                        localStorage.setItem('yijian18-engine_editor_scene_commit', JSON.stringify({
-                            gameId: this.currentGameId,
-                            sceneId: this.currentSceneId,
-                            ts: Date.now()
-                        }));
-                    } catch (_notifyError) { /* storage 不可用时跳过热同步通知 */ }
-                    if (result.degraded || !editorCacheUpdated) {
-                        this.sceneEditor?.ui?.showToast?.('磁盘已提交，但缓存/通知同步失败；已禁用 canonical fallback', 'warn');
-                        return { ...result, degraded: true, status: 'committed-with-degradation', code: 'committedWithDegradation' };
-                    }
-                    return result;
                 } catch (error) {
                     console.warn('保存 canonical 场景失败:', error);
-                    this.sceneEditor?.ui?.showToast?.(`保存失败: ${error.message}`, 'error');
-                    throw error;
+                    return {
+                        ok: false,
+                        committed: false,
+                        status: 'failed',
+                        code: 'canonicalSceneSaveFailed',
+                        error
+                    };
                 }
             }
 
-            // 处理场景元数据变更（名称/ID）
+            // 处理场景元数据变更（名称/ID）。模板与 canonical 场景均等待真实提交。
             async _handleSceneMetaChange(meta) {
-                // 模板编辑态：只更新模板名称（模板 id 不允许改），写回 scene-templates.json
                 if (this._editingTemplateId) {
-                    if (meta.name !== undefined) {
+                    if (meta.name === undefined) return;
+                    const snapshot = structuredClone(this.dataManager.getSceneTemplatesConfig());
+                    try {
                         this.dataManager.updateSceneTemplateMeta(this._editingTemplateId, { name: meta.name });
-                        this._saveTemplatesToFile();
+                        const result = await this._saveTemplatesToFile();
+                        if (result?.ok !== true || result.committed !== true) {
+                            this.dataManager.replaceSceneTemplatesConfig(snapshot);
+                            this.sceneEditor?.ui?.showToast?.('模板名称保存失败: ' + this._persistenceError(result), 'error');
+                            return result;
+                        }
                         if (this.currentGameId) this.renderSceneList(this.currentGameId);
+                        return result;
+                    } catch (error) {
+                        this.dataManager.replaceSceneTemplatesConfig(snapshot);
+                        this.sceneEditor?.ui?.showToast?.(`模板名称保存失败: ${error.message}`, 'error');
+                        return { ok: false, committed: false, status: 'failed', error };
                     }
-                    return;
                 }
                 if (!this.currentGameId || !this.currentSceneId) return;
-                try {
-                    const { service, projectPath } = this._sceneCommands();
-                    if (meta.id && meta.oldId) {
-                        const result = await service.rename(projectPath, { oldId: meta.oldId, newId: meta.id });
-                        if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '重命名失败'), { result });
-                        const cacheUpdated = this.dataManager.renameSceneId(this.currentGameId, meta.oldId, meta.id);
-                        this.currentSceneId = meta.id;
-                        if (this.sceneEditor?.sceneData) this.sceneEditor.sceneData.id = meta.id;
-                        this.renderSceneList(this.currentGameId);
-                        if (result.degraded || !cacheUpdated) {
-                            this.sceneEditor?.ui?.showToast?.('重命名已提交到磁盘，但缓存同步降级；请重新打开项目', 'warn');
-                        }
-                    } else if (meta.name !== undefined) {
+
+                const { service, projectPath } = this._sceneCommands();
+                if (meta.id && meta.oldId) {
+                    let result;
+                    try {
+                        result = await service.rename(projectPath, { oldId: meta.oldId, newId: meta.id });
+                    } catch (error) {
+                        result = { ok: false, committed: false, status: 'failed', error };
+                    }
+                    if (result?.ok !== true || result.committed !== true) {
+                        if (this.sceneEditor?.sceneData?.id === meta.id) this.sceneEditor.sceneData.id = meta.oldId;
+                        const input = document.getElementById('editor-scene-id');
+                        if (input) input.value = meta.oldId;
+                        this.sceneEditor?.ui?.showToast?.('重命名失败: ' + this._persistenceError(result), 'error');
+                        return result;
+                    }
+                    this.currentSceneId = meta.id;
+                    if (this.sceneEditor?.sceneData) this.sceneEditor.sceneData.id = meta.id;
+                    await this.dataManager.initScenesFromFile(this.currentGameId);
+                    this.renderSceneList(this.currentGameId);
+                    if (result.degraded) this.sceneEditor?.ui?.showToast?.('重命名已提交到磁盘，但缓存/通知同步降级', 'warn');
+                    return result;
+                }
+
+                if (meta.name !== undefined) {
+                    let result;
+                    try {
                         const model = this.documentService.requireProject(projectPath);
                         const scene = model.getCandidate().scenes[this.currentSceneId];
-                        const result = await service.update(projectPath, {
+                        result = await service.update(projectPath, {
                             sceneId: this.currentSceneId,
                             scene: { ...scene, name: meta.name },
                             orderEntry: { name: meta.name }
                         });
-                        if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '更新名称失败'), { result });
-                        this.dataManager.updateScene(this.currentGameId, this.currentSceneId, result.value.scenes[this.currentSceneId]);
-                        this.renderSceneList(this.currentGameId);
-                        if (result.degraded) this.sceneEditor?.ui?.showToast?.('名称已提交，但缓存/通知同步降级', 'warn');
+                    } catch (error) {
+                        result = { ok: false, committed: false, status: 'failed', error };
                     }
-                } catch (error) {
-                    console.warn('场景元数据 canonical 提交失败:', error);
-                    this.sceneEditor?.ui?.showToast?.(`修改失败: ${error.message}`, 'error');
+                    if (result?.ok !== true || result.committed !== true) {
+                        this.sceneEditor?.ui?.showToast?.('名称保存失败: ' + this._persistenceError(result), 'error');
+                        return result;
+                    }
+                    await this.dataManager.initScenesFromFile(this.currentGameId);
+                    this.renderSceneList(this.currentGameId);
+                    if (result.degraded) this.sceneEditor?.ui?.showToast?.('名称已提交，但缓存/通知同步降级', 'warn');
+                    return result;
                 }
             }
 

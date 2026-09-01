@@ -25,8 +25,6 @@
  * 通过 Vite dev server 的 /api/read-file、/api/canonical-transaction 读写。
  */
 
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
-
 export class DialogueGraphEditor {
   /**
    * @param {HTMLElement} container
@@ -59,47 +57,51 @@ export class DialogueGraphEditor {
   // ---- 加载 / 保存 ----
 
   async _load() {
-    if (this.canonicalSession) {
-      this.project = this.canonicalSession.getValue();
-    } else try {
-      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.ok && data.content) this.project = JSON.parse(data.content);
-      }
-    } catch (e) {
-      console.warn('DialogueGraphEditor: 加载工程失败', e);
+    if (!this.canonicalSession) {
+      throw new TypeError('DialogueGraphEditor requires a shared CanonicalEditorSession');
     }
-    if (!this.project) this.project = { meta: { id: this.gameId }, variables: {}, dialogues: [] };
+    this.project = this.canonicalSession.getValue();
+    if (!this.project || typeof this.project !== 'object') {
+      throw new Error('DialogueGraphEditor: canonical project candidate 不可用');
+    }
     if (!Array.isArray(this.project.dialogues)) this.project.dialogues = [];
     this.dialogues = this.project.dialogues;
   }
 
   async save() {
     if (this._validateAllJson()) {
-      this._toast('JSON 格式错误，请修正后再保存（红框处）', false);
+      this._toast('JSON 格式错误，请修正后再保存（红框处）', 'error');
       this._status('❌ JSON 格式错误，未保存', 'err');
-      return;
+      return { ok: false, committed: false, status: 'rejected', code: 'invalidJson' };
     }
     this._commitDetail();
     this.project.dialogues = this.dialogues;
     try {
-      const data = this.canonicalSession
-        ? await (async () => {
-            this.canonicalSession.patch('dialogues', this.dialogues);
-            return this.canonicalSession.save();
-          })()
-        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
-      if (data && (data.ok || data.committed)) {
-        this._status('✅ 已保存到 ' + this.projectPath + '（对话 ' + this.dialogues.length + ' 条）', 'ok');
-        this._toast('保存成功（对话 ' + this.dialogues.length + ' 条）', true);
-      } else {
-        this._status('❌ 保存失败: ' + (data.error || '未知'), 'err');
-        this._toast('保存失败: ' + (data.error || '未知'), false);
+      this.canonicalSession.patch('dialogues', this.dialogues);
+      const data = await this.canonicalSession.save();
+      if (data?.ok === true && data.committed === true) {
+        if (data.degraded) {
+          const warning = '磁盘已提交，但缓存/通知同步降级';
+          this._status('⚠️ ' + warning, 'warn');
+          this._toast(warning, 'warn');
+        } else {
+          this._status('✅ 已保存到 ' + this.projectPath + '（对话 ' + this.dialogues.length + ' 条）', 'ok');
+          this._toast('保存成功（对话 ' + this.dialogues.length + ' 条）', 'success');
+        }
+        return data;
       }
-    } catch (e) {
-      this._status('❌ 保存失败: ' + e.message, 'err');
-      this._toast('保存失败: ' + e.message, false);
+      const firstError = data?.errors?.[0];
+      const message = [firstError?.path, firstError?.message || firstError?.reason]
+        .filter(Boolean)
+        .join(': ') || data?.error?.message || data?.error || '未知';
+      this._status('❌ 保存失败: ' + message, 'err');
+      this._toast('保存失败: ' + message, 'error');
+      return data;
+    } catch (error) {
+      const result = error.result || { ok: false, committed: false, status: 'failed', error };
+      this._status('❌ 保存失败: ' + error.message, 'err');
+      this._toast('保存失败: ' + error.message, 'error');
+      return result;
     }
   }
 
@@ -179,8 +181,12 @@ export class DialogueGraphEditor {
       </div>`;
     this.container.querySelector('#dlg-add').addEventListener('click', () => this._addDialogue());
     this.container.querySelector('#dlg-del').addEventListener('click', () => this._deleteDialogue());
-    this.container.querySelector('#dlg-import').addEventListener('click', () => this.importLegacy());
-    this.container.querySelector('#dlg-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#dlg-import').addEventListener('click', async () => {
+      await this.importLegacy();
+    });
+    this.container.querySelector('#dlg-save').addEventListener('click', async () => {
+      await this.save();
+    });
     this.container.querySelector('#dlg-filter-enabled').addEventListener('change', () => this._renderList());
     this.container.querySelector('#dlg-filter-scene').addEventListener('change', () => this._renderList());
   }
@@ -248,7 +254,7 @@ export class DialogueGraphEditor {
     if (el) { el.textContent = msg; el.className = 'dlg-status ' + (kind || ''); }
   }
 
-  _toast(msg, ok) {
+  _toast(msg, type = 'success') {
     let t = document.getElementById('dlg-toast');
     if (!t) {
       t = document.createElement('div');
@@ -258,8 +264,16 @@ export class DialogueGraphEditor {
         'z-index:100000;pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
       document.body.appendChild(t);
     }
-    t.textContent = (ok ? '✅ ' : '❌ ') + msg;
-    t.style.background = ok ? '#2e7d32' : '#c62828';
+    const tone = type === true ? 'success' : type === false ? 'error' : type;
+    const presentations = {
+      success: { icon: '✅ ', background: '#2e7d32' },
+      warn: { icon: '⚠️ ', background: '#9a6700' },
+      error: { icon: '❌ ', background: '#c62828' }
+    };
+    const presentation = presentations[tone] || presentations.success;
+    t.textContent = presentation.icon + msg;
+    t.dataset.type = tone;
+    t.style.background = presentation.background;
     t.style.opacity = '1';
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2400);

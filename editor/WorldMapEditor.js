@@ -15,7 +15,6 @@ import { ProjectWorldIndex } from '../src/core/ProjectWorldIndex.js';
 import { CanonicalSceneRepository } from '../src/core/scene/CanonicalSceneRepository.js';
 import { FetchDiskSceneAdapter, LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
 import { getWorldMapCellSceneId, isReservedWorldMapCell } from '../src/core/WorldMapCell.js';
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 export function validateWorldMapRepositoryClosure(project, repositorySceneIds) {
   const closure = repositorySceneIds instanceof Set
@@ -51,17 +50,23 @@ export function validateWorldMapRepositoryClosure(project, repositorySceneIds) {
  *   - 全局拼接预览（缩略图）
  *   - 读写 game.project.json 的 worldMap 字段
  *
- * 与 EditorDataManager 通信：磁盘 canonical transaction 成功后同步 localStorage 缓存。
+ * 通过共享 CanonicalEditorSession 编辑 project.worldMap；场景缩略图仍从磁盘 repository 读取。
  */
 export class WorldMapEditor {
   /**
    * @param {HTMLElement} container - 编辑器挂载容器
-   * @param {Object} opts - { gameId, projectPath }
+   * @param {Object} opts - { gameId, projectPath, canonicalSession }
    */
   constructor(container, opts = {}) {
+    if (!opts.canonicalSession) {
+      throw new TypeError('WorldMapEditor requires a shared CanonicalEditorSession');
+    }
     this.container = container;
     this.gameId = opts.gameId || 'sanguo_zhangjiao';
-    this.projectPath = this._normalizeProjectPath(opts.projectPath || `example/${this.gameId}/game.project.json`);
+    this.canonicalSession = opts.canonicalSession;
+    this.projectPath = this._normalizeProjectPath(
+      this.canonicalSession.sourceUri || opts.projectPath || `example/${this.gameId}/game.project.json`
+    );
     this.project = null;
     this.worldIndex = null;
     this._sceneDataById = new Map();
@@ -84,12 +89,19 @@ export class WorldMapEditor {
   }
 
   /** 切换当前游戏时同步项目上下文，防止复用旧实例继续读取上一个项目。 */
-  setProjectContext({ gameId, projectPath } = {}) {
+  setProjectContext({ gameId, projectPath, canonicalSession } = {}) {
     const nextGameId = gameId || this.gameId;
-    const nextProjectPath = this._normalizeProjectPath(projectPath || `example/${nextGameId}/game.project.json`);
-    const changed = nextGameId !== this.gameId || nextProjectPath !== this.projectPath;
+    const nextSession = canonicalSession || this.canonicalSession;
+    if (!nextSession) throw new TypeError('WorldMapEditor requires a shared CanonicalEditorSession');
+    const nextProjectPath = this._normalizeProjectPath(
+      nextSession.sourceUri || projectPath || `example/${nextGameId}/game.project.json`
+    );
+    const changed = nextGameId !== this.gameId
+      || nextProjectPath !== this.projectPath
+      || nextSession !== this.canonicalSession;
     this.gameId = nextGameId;
     this.projectPath = nextProjectPath;
+    this.canonicalSession = nextSession;
     if (changed) {
       this.project = null;
       this.worldIndex = null;
@@ -119,12 +131,10 @@ export class WorldMapEditor {
    */
   async loadFromProject() {
     try {
-      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
-      if (!res.ok) { console.warn('[WorldMapEditor] 加载失败', res.status); return; }
-      const data = await res.json();
-      this.project = typeof data.content === 'string' ? JSON.parse(data.content) : data;
-    } catch (e) {
-      console.warn('[WorldMapEditor] 加载异常', e);
+      this.project = structuredClone(this.canonicalSession.getValue() || {});
+    } catch (error) {
+      console.warn('[WorldMapEditor] 从共享 canonical candidate 加载失败', error);
+      this._showToast?.(`加载失败: ${error.message}`, 'error');
       return;
     }
 
@@ -225,36 +235,50 @@ export class WorldMapEditor {
   async save() {
     if (!this.project) {
       this._showToast('无工程数据，请先加载', 'error');
-      return;
+      return { ok: false, committed: false, status: 'rejected', code: 'missingProject' };
     }
 
     const idx = this._currentRegionIndex || 0;
-    const candidate = JSON.parse(JSON.stringify(this.project));
+    const candidate = structuredClone(this.project);
     if (!candidate.worldMap || !Array.isArray(candidate.worldMap.regions)) {
       this._showToast('项目缺少 canonical worldMap.regions', 'error');
-      return;
+      return { ok: false, committed: false, status: 'rejected', code: 'missingWorldMap' };
     }
-    candidate.worldMap.regions[idx] = JSON.parse(JSON.stringify(this.region));
+    candidate.worldMap.regions[idx] = structuredClone(this.region);
     const closureResult = validateWorldMapRepositoryClosure(candidate, this._repositorySceneIds);
     if (!closureResult.ok) {
       this._showToast(closureResult.errors[0].message, 'error');
-      return;
+      return { ok: false, committed: false, status: 'rejected', errors: closureResult.errors };
     }
-    let candidateIndex;
     try {
-      candidateIndex = ProjectWorldIndex.build(candidate);
+      ProjectWorldIndex.build(candidate);
     } catch (error) {
-      this._showToast(error?.errors?.[0]?.message || error.message, 'error');
-      return;
+      const message = error?.errors?.[0]?.message || error.message;
+      this._showToast(message, 'error');
+      return { ok: false, committed: false, status: 'rejected', errors: error?.errors || [], error };
     }
 
     try {
-      await replaceCanonicalFile(this.projectPath, JSON.stringify(candidate, null, 2));
-      this.project = candidate;
-      this.worldIndex = candidateIndex;
-      this._showToast('大地图已保存 ✓');
-    } catch (e) {
-      this._showToast('保存异常: ' + e.message, 'error');
+      this.canonicalSession.patch('worldMap', structuredClone(candidate.worldMap));
+      const result = await this.canonicalSession.save();
+      if (result?.ok !== true || result.committed !== true) {
+        const firstError = result?.errors?.[0];
+        const message = [firstError?.path, firstError?.message || firstError?.reason]
+          .filter(Boolean)
+          .join(': ') || result?.error?.message || result?.error || '磁盘未提交';
+        this._showToast(`保存失败: ${message}`, 'error');
+        return result;
+      }
+      this.project = structuredClone(this.canonicalSession.getValue() || candidate);
+      this.worldIndex = ProjectWorldIndex.build(this.project);
+      this._showToast(
+        result.degraded ? '大地图已提交，但缓存/通知同步降级' : '大地图已保存 ✓',
+        result.degraded ? 'warn' : 'success'
+      );
+      return result;
+    } catch (error) {
+      this._showToast('保存异常: ' + error.message, 'error');
+      return error.result || { ok: false, committed: false, status: 'failed', error };
     }
   }
 
@@ -294,7 +318,9 @@ export class WorldMapEditor {
   }
 
   _bindEvents() {
-    this._el.querySelector('.wme-save').onclick = () => this.save();
+    this._el.querySelector('.wme-save').onclick = async () => {
+      await this.save();
+    };
     this._el.querySelector('.wme-apply-size').onclick = () => this._applySize();
     this._el.querySelector('.wme-focus-used').onclick = () => this._focusUsedArea({ smooth: true });
 
@@ -893,29 +919,47 @@ export class WorldMapEditor {
     return src || '';
   }
 
-  _showToast(msg) {
+  _showToast(msg, type = 'success') {
     const t = this._el.querySelector('.wme-toast');
     if (!t) return;
+    const backgrounds = {
+      success: '#2e7d32',
+      warn: '#9a6700',
+      error: '#b3261e'
+    };
     t.textContent = msg;
-    t.style.display = 'block';
-    t.style.cssText = 'display:block;position:fixed;bottom:20px;right:20px;background:#4CAF50;color:#fff;padding:10px 20px;border-radius:6px;z-index:99999;';
-    setTimeout(() => { t.style.display = 'none'; }, 2000);
+    t.dataset.type = type;
+    t.style.cssText = `display:block;position:fixed;bottom:20px;right:20px;background:${backgrounds[type] || backgrounds.success};color:#fff;padding:10px 20px;border-radius:6px;z-index:99999;`;
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      t.style.display = 'none';
+      this._toastTimer = null;
+    }, 2500);
+  }
+
+  _isCompleteSceneData(scene, sceneId) {
+    return scene?.id === sceneId
+      && Array.isArray(scene.layers)
+      && scene.imageAssets !== null
+      && typeof scene.imageAssets === 'object'
+      && !Array.isArray(scene.imageAssets);
   }
 
   /**
-   * 磁盘场景优先；仅在磁盘读取失败时使用 localStorage 缓存。
+   * 磁盘场景优先；仅在磁盘读取失败时使用完整的 localStorage 场景缓存。
    * @private
    */
   _getSceneData(sceneId) {
     const diskScene = this._sceneDataById.get(sceneId);
-    if (diskScene) return diskScene;
+    if (this._isCompleteSceneData(diskScene, sceneId)) return diskScene;
     try {
       const raw = localStorage.getItem('yijian18-engine_editor_data_scenes_' + this.gameId);
       if (!raw) return null;
       const scenes = JSON.parse(raw);
       if (!Array.isArray(scenes)) return null;
-      return scenes.find(s => s && s.id === sceneId) || null;
-    } catch (e) {
+      const cachedScene = scenes.find(scene => scene?.id === sceneId);
+      return this._isCompleteSceneData(cachedScene, sceneId) ? cachedScene : null;
+    } catch (error) {
       return null;
     }
   }

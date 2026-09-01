@@ -191,6 +191,15 @@ export class EditorInteractionBase {
                     getProjectDefinitions: () => this._projectDefinitions,
                     getProjectTriggers: () => this._projectDefinitions.triggers,
                     getBattleDefinitions: () => this._projectBattles,
+                    getContentLibrary: () => {
+                        const model = this.documentService.requireProject(this._canonicalProjectPath());
+                        return structuredClone(model.getCandidate().project?.library || {});
+                    },
+                    saveContentLibrary: async (library) => {
+                        const session = this._canonicalEditorSession('project');
+                        session.patch('library', structuredClone(library));
+                        return session.save();
+                    },
                     presentationProfile: this._presentationProfile,
                     openTriggerEditor: (definitionId, target = 'triggers') => this._openTriggerEditor(definitionId, target),
                     previewTrigger: (binding, trigger) => {

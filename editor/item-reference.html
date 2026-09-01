@@ -183,7 +183,14 @@
             typeFilter.addEventListener('change', applyFilter);
             categoryFilter.addEventListener('change', applyFilter);
             render(items);
-        })();
+        })().catch(error => {
+            console.error('[ItemReference] 初始化失败', error);
+            const emptyState = document.getElementById('empty-state');
+            if (emptyState) {
+                emptyState.style.display = 'block';
+                emptyState.textContent = `物体引用页初始化失败：${error?.message || String(error)}`;
+            }
+        });
     </script>
 </body>
 </html>

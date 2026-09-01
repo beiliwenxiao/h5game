@@ -400,7 +400,15 @@ export class UIEditor {
       });
     });
 
-    this.container.querySelector('#uie-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#uie-save').addEventListener('click', async () => {
+      try {
+        await this.save();
+      } catch (error) {
+        const message = `保存失败：${error?.message || String(error)}`;
+        this._setStatus(message, true);
+        this._showSaveFeedback(message, true);
+      }
+    });
     this.container.querySelector('#uie-reset').addEventListener('click', () => {
       if (this.platform === 'hints') {
         if (this._hintDefaults && confirm('恢复提示文案为默认？(未保存)')) {

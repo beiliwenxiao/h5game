@@ -49,7 +49,7 @@ export class CanonicalEditorSession {
   async save(extra = {}) {
     const rootPaths = this.dirtyRootPaths.size > 0 ? [...this.dirtyRootPaths] : [this.rootPath];
     const result = await this.commandService.save(this.sourceUri, { ...extra, rootPaths });
-    if (result?.committed) this.dirtyRootPaths.clear();
+    if (result?.ok === true && result.committed === true) this.dirtyRootPaths.clear();
     return result;
   }
 

@@ -38,10 +38,15 @@
 
             const editor = new WorldMapEditor(document.getElementById('world-map-editor-container'), {
                 gameId,
-                projectPath: `${gamePath}game.project.json`
+                projectPath: `${gamePath}game.project.json`,
+                canonicalSession: ctx._canonicalEditorSession('project')
             });
             await editor.init();
-        })();
+        })().catch(error => {
+            console.error('[WorldMapEditor] 初始化失败', error);
+            const container = document.getElementById('world-map-editor-container');
+            if (container) container.textContent = `世界地图编辑器初始化失败：${error?.message || String(error)}`;
+        });
     </script>
 </body>
 </html>

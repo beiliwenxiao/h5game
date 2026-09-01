@@ -98,14 +98,6 @@ export class LoadedChunk {
         if (object.type === 'deco' || object.type === 'slice' || object.type === 'image') decorations.push(projected);
       }
     }
-    const objects = sceneData?.objects || {};
-    for (const list of [objects.npcs, objects.spawns, objects.portals, objects.regions]) {
-      for (const object of list || []) {
-        const projected = this._projectObject(object);
-        sceneObjects.push(projected);
-        placements.push(projected);
-      }
-    }
     return { placements, decorations, sceneObjects, triggerBindings, effectZones };
   }
 

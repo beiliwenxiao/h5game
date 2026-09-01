@@ -126,6 +126,20 @@ function createPipeline() {
       fields: {
         id: { type: FieldType.STRING, required: true, minLength: 1 },
         layers: { type: FieldType.ARRAY, required: true }
+      },
+      validate(value) {
+        const errors = [];
+        const legacyRoots = ['objects', 'placements', 'effectZones'];
+        for (const field of legacyRoots) {
+          if (Object.prototype.hasOwnProperty.call(value, field)) {
+            errors.push({
+              code: 'legacySceneObjectRoot',
+              path: field,
+              message: `canonical 场景禁止顶层 ${field}；对象只能存放在 layers[].objects[]`
+            });
+          }
+        }
+        return { ok: errors.length === 0, errors };
       }
     }
   ]);

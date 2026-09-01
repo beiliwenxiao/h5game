@@ -11,7 +11,6 @@
  */
 
 import { updateAtlasesCache, updateImagesCache, addGlobalImage } from './SceneDataLoader.js';
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -1160,24 +1159,29 @@ export class SceneEditorAssets {
     ];
   }
 
-  /** 加载内容库定义（从 game.project.json 的 library），填充分类下拉并渲染列表 */
+  /** 加载内容库定义（来自页面共享的 canonical project candidate），填充分类下拉并渲染列表。 */
   async updateContentLibrary() {
     if (!this._contentLib) {
-      const path = `example/${this._contentGameId()}/game.project.json`;
-      this._contentProjectPath = path;
+      const loadLibrary = this.editor.options?.getContentLibrary;
+      if (typeof loadLibrary !== 'function') {
+        console.warn('内容库加载失败：未注入共享 canonical 内容库读取器');
+        this.editor.ui.showToast?.('内容库不可用：未配置 canonical 读取器', 'error');
+        return;
+      }
       try {
-        const res = await fetch('/api/read-file?path=' + encodeURIComponent(path));
-        const data = await res.json();
-        this._contentProject = (data && data.ok && data.content) ? JSON.parse(data.content) : { library: {} };
-      } catch (e) {
-        console.warn('内容库加载失败', e);
-        this._contentProject = { library: {} };
+        const library = await loadLibrary();
+        if (!library || typeof library !== 'object' || Array.isArray(library)) {
+          throw new TypeError('canonical project.library 必须是对象');
+        }
+        this._contentLib = structuredClone(library);
+      } catch (error) {
+        console.warn('内容库加载失败', error);
+        this.editor.ui.showToast?.('内容库加载失败: ' + error.message, 'error');
+        return;
       }
-      if (!this._contentProject.library) this._contentProject.library = {};
       for (const c of this._contentCategories()) {
-        if (!Array.isArray(this._contentProject.library[c.key])) this._contentProject.library[c.key] = [];
+        if (!Array.isArray(this._contentLib[c.key])) this._contentLib[c.key] = [];
       }
-      this._contentLib = this._contentProject.library;
       // 填充分类下拉
       const filter = document.getElementById('editor-content-filter');
       if (filter && !filter.dataset.filled) {
@@ -1232,15 +1236,45 @@ export class SceneEditorAssets {
     this.editor.ui.showContentDefinitionEditor?.(catKey, tpl);
   }
 
-  /** 保存内容库定义回 game.project.json（保留其它字段） */
+  _persistenceError(result, fallback = '未知错误') {
+    const firstError = result?.errors?.[0];
+    const validationMessage = [firstError?.path, firstError?.message || firstError?.reason]
+      .filter(Boolean)
+      .join(': ');
+    if (validationMessage) return validationMessage;
+    if (typeof result?.error?.message === 'string') return result.error.message;
+    if (typeof result?.error === 'string') return result.error;
+    return fallback;
+  }
+
+  /** 通过页面共享 CanonicalEditorSession 保存 project.library。 */
   async saveContentLibrary() {
-    if (!this._contentProject) return;
-    this._contentProject.library = this._contentLib;
+    if (!this._contentLib) {
+      const result = { ok: false, committed: false, code: 'contentLibraryNotLoaded' };
+      this.editor.ui.showToast?.('保存失败: 内容库尚未加载', 'error');
+      return result;
+    }
+    const saveLibrary = this.editor.options?.saveContentLibrary;
+    if (typeof saveLibrary !== 'function') {
+      const result = { ok: false, committed: false, code: 'missingCanonicalContentLibraryWriter' };
+      this.editor.ui.showToast?.('保存失败: 未配置 canonical 内容库写入器', 'error');
+      return result;
+    }
     try {
-      const data = await replaceCanonicalFile(this._contentProjectPath, JSON.stringify(this._contentProject, null, 2));
-      this.editor.ui.showToast?.(data && data.ok ? '内容库已保存' : ('保存失败: ' + (data.error || '未知')), data && data.ok ? 'success' : 'error');
-    } catch (e) {
-      this.editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+      const result = await saveLibrary(structuredClone(this._contentLib));
+      if (result?.ok !== true || result.committed !== true) {
+        this.editor.ui.showToast?.('保存失败: ' + this._persistenceError(result, '磁盘未提交'), 'error');
+        return result;
+      }
+      if (result.degraded) {
+        this.editor.ui.showToast?.('内容库已写入磁盘，但缓存/通知同步降级', 'warn');
+      } else {
+        this.editor.ui.showToast?.('内容库已保存', 'success');
+      }
+      return result;
+    } catch (error) {
+      this.editor.ui.showToast?.('保存失败: ' + error.message, 'error');
+      return { ok: false, committed: false, code: 'contentLibrarySaveFailed', error };
     }
   }
 
@@ -1726,133 +1760,114 @@ export class SceneEditorAssets {
   }
 
   /**
-   * 保存所有图集到全局配置 config/atlases.json
-   * 同时把切片属性一并写回。
+   * 保存所有图集到全局配置 config/atlases.json，并等待当前场景/模板的持久化事务。
    */
   async saveAtlases() {
     const editor = this.editor;
     const atlases = editor.sceneData.atlases || [];
     const configObj = { atlases };
     const content = JSON.stringify(configObj, null, 2);
+    let configCommitted = false;
     try {
       const res = await fetch('/api/save-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'editor/config/atlases.json', content })
       });
-      const data = await res.json();
-      if (data && data.ok) {
-        // 同步更新内存缓存，这样下次场景加载不会读到旧值
-        updateAtlasesCache(configObj);
-        // 同时触发当前场景保存
-        editor.history.save();
-        // 更新所有场景的 atlases（图集是全局共享的，修改应影响所有场景）
-        this._syncAtlasesToAllScenes(atlases);
-        editor.ui.showToast?.('图集已保存到 config/atlases.json');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok !== true) {
+        throw new Error(data.error || `图集配置保存失败（HTTP ${res.status}）`);
+      }
+
+      configCommitted = true;
+      updateAtlasesCache(configObj);
+      const sceneResult = await editor.history.save();
+      if (sceneResult?.ok !== true || sceneResult.committed !== true) {
+        const message = this._persistenceError(sceneResult, '当前场景磁盘未提交');
+        editor.ui.showToast?.(`图集配置已保存，但当前场景保存失败: ${message}`, 'warn');
+        return {
+          ok: false,
+          committed: false,
+          status: 'partial',
+          code: 'sceneSaveFailedAfterAtlasConfigCommit',
+          configCommitted: true,
+          sceneResult
+        };
+      }
+
+      if (sceneResult.degraded) {
+        editor.ui.showToast?.('图集与当前场景已写入磁盘，但缓存/通知同步降级', 'warn');
       } else {
-        editor.ui.showToast?.('保存失败: ' + (data.error || '未知'), 'error');
+        editor.ui.showToast?.('图集与当前场景已保存');
       }
-    } catch (e) {
-      editor.ui.showToast?.('保存失败: ' + e.message, 'error');
+      return { ok: true, committed: true, configCommitted: true, sceneResult, degraded: Boolean(sceneResult.degraded) };
+    } catch (error) {
+      const prefix = configCommitted ? '图集配置已保存，但后续处理失败: ' : '图集保存失败: ';
+      editor.ui.showToast?.(prefix + error.message, configCommitted ? 'warn' : 'error');
+      return {
+        ok: false,
+        committed: false,
+        status: configCommitted ? 'partial' : 'failed',
+        code: configCommitted ? 'atlasPostCommitFailed' : 'atlasConfigSaveFailed',
+        configCommitted,
+        error
+      };
     }
   }
 
   /**
-   * 将最新图集数据同步写入 localStorage 中当前游戏的所有场景
-   * @private
-   */
-  _syncAtlasesToAllScenes(atlases) {
-    // 获取当前游戏 ID
-    const gameId = this._contentGameId();
-    // localStorage key 格式与 EditorDataManager 一致
-    const storageKey = `yijian18-engine_editor_data_scenes_${gameId}`;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const scenes = JSON.parse(raw);
-      if (!Array.isArray(scenes)) return;
-      let changed = false;
-      for (const scene of scenes) {
-        if (scene.atlases) {
-          // 以 id 为 key 替换/新增
-          const idMap = new Map(scene.atlases.map((a, i) => [a.id, i]));
-          for (const atlas of atlases) {
-            const copy = JSON.parse(JSON.stringify(atlas));
-            if (idMap.has(atlas.id)) {
-              scene.atlases[idMap.get(atlas.id)] = copy;
-            } else {
-              scene.atlases.push(copy);
-            }
-          }
-          changed = true;
-        } else {
-          scene.atlases = JSON.parse(JSON.stringify(atlases));
-          changed = true;
-        }
-      }
-      if (changed) {
-        localStorage.setItem(storageKey, JSON.stringify(scenes));
-      }
-    } catch (e) {
-      console.warn('[saveAtlases] 同步所有场景 atlases 失败:', e);
-    }
-  }
-
-  /**
-   * 保存所有图片资源到全局配置 config/images.json
-   * 同时同步到所有场景的 localStorage。
+   * 保存所有图片资源到全局配置 config/images.json，并等待当前场景/模板的持久化事务。
    */
   async saveImages() {
     const editor = this.editor;
     const images = editor.sceneData.imageAssets || {};
     const configObj = { images };
     const content = JSON.stringify(configObj, null, 2);
+    let configCommitted = false;
     try {
       const res = await fetch('/api/save-file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'editor/config/images.json', content })
       });
-      const data = await res.json();
-      if (data && data.ok) {
-        updateImagesCache(configObj);
-        editor.history.save();
-        this._syncImagesToAllScenes(images);
-        editor.ui.showToast?.('图片资源已保存到 config/images.json');
-      } else {
-        editor.ui.showToast?.('保存失败: ' + (data.error || '未知'), 'error');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok !== true) {
+        throw new Error(data.error || `图片配置保存失败（HTTP ${res.status}）`);
       }
-    } catch (e) {
-      editor.ui.showToast?.('保存失败: ' + e.message, 'error');
-    }
-  }
 
-  /**
-   * 将最新图片资源同步写入 localStorage 中当前游戏的所有场景
-   * @private
-   */
-  _syncImagesToAllScenes(images) {
-    const gameId = this._contentGameId();
-    const storageKey = `yijian18-engine_editor_data_scenes_${gameId}`;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (!raw) return;
-      const scenes = JSON.parse(raw);
-      if (!Array.isArray(scenes)) return;
-      let changed = false;
-      for (const scene of scenes) {
-        if (!scene.imageAssets) scene.imageAssets = {};
-        // 以全局为准覆盖
-        for (const [id, data] of Object.entries(images)) {
-          scene.imageAssets[id] = JSON.parse(JSON.stringify(data));
-        }
-        changed = true;
+      configCommitted = true;
+      updateImagesCache(configObj);
+      const sceneResult = await editor.history.save();
+      if (sceneResult?.ok !== true || sceneResult.committed !== true) {
+        const message = this._persistenceError(sceneResult, '当前场景磁盘未提交');
+        editor.ui.showToast?.(`图片配置已保存，但当前场景保存失败: ${message}`, 'warn');
+        return {
+          ok: false,
+          committed: false,
+          status: 'partial',
+          code: 'sceneSaveFailedAfterImageConfigCommit',
+          configCommitted: true,
+          sceneResult
+        };
       }
-      if (changed) {
-        localStorage.setItem(storageKey, JSON.stringify(scenes));
+
+      if (sceneResult.degraded) {
+        editor.ui.showToast?.('图片配置与当前场景已写入磁盘，但缓存/通知同步降级', 'warn');
+      } else {
+        editor.ui.showToast?.('图片配置与当前场景已保存');
       }
-    } catch (e) {
-      console.warn('[saveImages] 同步所有场景 imageAssets 失败:', e);
+      return { ok: true, committed: true, configCommitted: true, sceneResult, degraded: Boolean(sceneResult.degraded) };
+    } catch (error) {
+      const prefix = configCommitted ? '图片配置已保存，但后续处理失败: ' : '图片保存失败: ';
+      editor.ui.showToast?.(prefix + error.message, configCommitted ? 'warn' : 'error');
+      return {
+        ok: false,
+        committed: false,
+        status: configCommitted ? 'partial' : 'failed',
+        code: configCommitted ? 'imagePostCommitFailed' : 'imageConfigSaveFailed',
+        configCommitted,
+        error
+      };
     }
   }
 

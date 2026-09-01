@@ -218,7 +218,7 @@ const sceneEditor = new SceneEditor(containerElement);
 2. 在编辑器点“添加图片”，填写 `assets/images/` 下的相对路径，并确认一个稳定 `imageId`；ID 只能包含字母、数字、点、下划线和短横线且以字母开头，禁止再用时间戳自动生成新 ID
 3. 编辑器用相对路径直接加载图片，场景数据 `imageAssets[imageId]` 中保存路径和名称
 4. 图片对象属性中的“图片ID”下拉用于切换到另一个已登记资源；“替换文件”只修改当前 ID 对应路径，必须保留 imageId 和全部场景引用
-5. 保存图片资源时写回 `editor/config/images.json` 并同步当前游戏所有场景缓存
+5. 保存图片资源时先用 `/api/save-file` 写回 `editor/config/images.json`，再 `await SceneEditorHistory.save()` 提交当前场景或模板；任一后续提交失败必须显示“配置已保存、场景未保存”的部分成功警告。全局配置由场景加载时读取，禁止遍历并改写所有场景的 localStorage 副本。
 6. **不使用 base64/dataURL** — 避免 JSON 膨胀和 localStorage 配额溢出
 
 图片切割后的 slice 不分配独立 imageId；slice 继续使用稳定源图集 ID、`sliceKey` 和裁剪数据。
@@ -251,7 +251,8 @@ const sceneEditor = new SceneEditor(containerElement);
 ```
 editor-defaults.json.scene   →  无模板时的最小空场景兜底（保留）
 scene-templates.json         →  多套可命名、可复用的完整初始模板（新建时套用）
-游戏 localStorage / *.json    →  由模板生成的具体场景实例
+游戏 canonical *.json        →  由模板生成的具体场景实例（磁盘唯一事实源）
+localStorage                 →  仅作提交后的编辑器缓存，不参与合并生成场景事实
 ```
 - `scene-presets.json`：三国 demo 里**已有的具体场景**（scene_Prologue 等），是实例配置，不是通用模板。
 
@@ -261,11 +262,9 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 2. **编辑**模板时直接把 `template.scene` 丢给场景编辑器打开，复用全部图层/椭圆/装饰/对象能力
 
 ### 新建流程（应用模板）
-1. 新建场景弹窗有「场景模板」下拉（`#scene-template`），选项来自 `scene-templates.json`，默认选 `defaultTemplateId`
-2. 切换下拉 → `onSceneTemplateChange()` 显示描述并把模板宽高/背景色回填表单（用户仍可改）
-3. `createScene()` 把 `templateId` 传给 `EditorDataManager.createScene(gameId, {templateId,...})`：
-   - 深拷贝模板 `scene` 作为初始内容 → 覆盖用户填的 name/宽高/背景色 → 生成新 id + createdAt
-   - 无 templateId 时回退最小空场景（不破坏旧行为）
+1. `scene-workflow.html` 收集稳定场景 ID 和名称，模板选择来自 `scene-templates.json` 的 `defaultTemplateId` 或显式选择。
+2. 调用 `EditorDataManager.createSceneDraft({ id, name, templateId })` 只生成未持久化候选；不得调用 `createScene()/updateScene()` 先写 localStorage。
+3. 候选只通过 `EditorSceneCommandService.create(projectPath, { scene })` 提交；必须确认 `ok:true && committed:true` 后，才调用 `initScenesFromFile()` 从磁盘 `_scene_order.json` 重建列表缓存、更新 URL 并打开新场景。磁盘已提交但 UI 刷新失败时只能提示“已提交但刷新失败”，不得回滚或伪报创建失败。
 
 ### 模板编辑入口（复用场景编辑器，零新增编辑器 UI）
 入口有两个（管理弹窗已废弃删除）：
@@ -294,8 +293,9 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 |------|------|
 | `getSceneTemplates()` | 返回 `{ defaultTemplateId, templates }` |
 | `getSceneTemplate(id)` | 按 id 取单个模板 |
-| `getSceneTemplatesConfig()` | 取完整配置对象（用于写回文件） |
-| `createScene(gameId, {templateId,...})` | 按模板深拷贝生成新场景实例 |
+| `getSceneTemplatesConfig()` | 取完整配置对象（用于构造文件提交快照） |
+| `replaceSceneTemplatesConfig(config)` | 用独立深拷贝替换内存配置；模板文件提交失败时恢复提交前快照 |
+| `createSceneDraft({id,name,templateId,...})` | 按模板生成未持久化场景候选，正式创建仍交给 canonical command service |
 | `upsertSceneTemplate(id, sceneData, meta)` | 更新/新增模板的 scene（剥离 id/时间戳等实例字段；`sceneData` 为空时只更新 meta 不动 scene） |
 | `updateSceneTemplateMeta(id, meta)` | 只改模板 name/description/category，不动 scene（用于编辑器内改模板名） |
 | `createSceneTemplate({name, baseTemplateId})` | 克隆基模板新建模板 |
@@ -311,7 +311,7 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 | `_saveTemplatesToFile()` | 写回 `editor/config/scene-templates.json` |
 
 ### 数据一致性
-模板的唯一真实数据源是 `editor/config/scene-templates.json`。任何模板增删改都通过 `_saveTemplatesToFile()` 写回该文件（内存 `_sceneTemplatesConfig` 同步更新）。新增内置模板直接编辑此 JSON 即可，编辑器启动时 `loadSceneTemplatesConfig()` 加载。
+模板的唯一真实数据源是 `editor/config/scene-templates.json`。任何模板增删改都必须按“捕获完整配置快照 → 修改内存草稿 → `await /api/save-file` → 严格核验 HTTP 与 `ok`”执行；提交失败使用 `replaceSceneTemplatesConfig()` 恢复快照和模板编辑态，禁止把未提交草稿留在模块级 `_sceneTemplatesConfig`。新增内置模板可直接编辑此 JSON，编辑器启动时由 `loadSceneTemplatesConfig()` 加载。
 
 ## 场景列表共享约定
 
@@ -319,8 +319,10 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 
 - `index.html` 通过 `getSceneList` 回调注入当前游戏的场景列表；回调必须在调用时读取 `currentGameId`，不得捕获初始化时的游戏 id。
 - `SceneEditorUI._getSceneOptions()` 和 `TriggerEditor._updateSceneFilter()` 只能调用该回调，禁止直接读取固定 localStorage key，也禁止从已存在触发器的 `sceneId` 反推完整列表。
-- `renderSceneList()` 在场景创建、删除、改名、切换游戏及排序回填后，会刷新已打开的触发器属性和事件编辑器筛选下拉。
-- 列表中保留已删除场景的旧引用，标记为“旧引用”，避免历史触发器配置被静默丢失。
+- `EditorDataManager.initScenesFromFile()` 必须按磁盘 `_scene_order.json` 的顺序和描述整体重建列表缓存；磁盘已删除的旧 ID 必须从 localStorage 移除，不得把旧缓存合并回权威列表。
+- `renderSceneList()` 直接保持 `getGameScenes()` 的磁盘顺序，禁止再读取 `yijian18-engine_scene_order_*` 等独立排序键；筛选视图拖拽时只重排可见 ID，并把它们合并回完整 order，不能删除隐藏场景。
+- 场景正文与相邻预览只接受磁盘、当前 canonical committed snapshot 或已登记 preset 中带完整 `layers` 的文档，列表 localStorage 元数据不得冒充场景正文。异步切换使用 generation latest-wins，较旧请求不得覆盖新场景、邻居投影、当前 sceneId 或模板编辑态。
+- 触发器中引用已删除场景时可单独标记为“旧引用”，但不得为显示旧引用而把该 ID 重新写入场景列表。
 
 ## 世界地图网格与规划单元
 
@@ -363,7 +365,12 @@ scene-templates.json         →  多套可命名、可复用的完整初始模�
 - canonical 项目与场景只通过 Vite dev server `POST /api/canonical-transaction` 提交；普通 `/api/save-file` 明确拒绝 `game.project.json` 与 `assets/scenes/*.json`。
 - `scene-workflow.html` 的普通场景 whole-scene 保存必须让 `SceneEditor` 的 `options.onSceneChange` 落到实例回调，并调用 `EditorSceneCommandService.save(projectPath, { sceneId, sourceUri, scene })`；场景编辑器直接修改自己的 `sceneData`，因此不得只调用未 patch 该数据的 `CanonicalEditorSession.save()`，也不得改走 `EditorDataManager.updateScene()` 形成 localStorage-only 正式分支。
 - `SceneEditorHistory.save()` 只有在持久化处理器明确返回 `ok:true` 且 `committed:true` 后才能显示保存成功；未配置处理器、返回 `undefined`、校验拒绝或磁盘失败都必须显示失败，并优先带上首个 validation `path/message`。磁盘已提交但 cache/notifier 失败只能显示降级警告。
-- 场景模板 `editor/config/scene-templates.json` 不是游戏 canonical 文件，继续使用 `/api/save-file`，但保存回调必须 `await` 并核验响应；普通 `SXX.json` 与模板保存分支不得互相替代。
+- 场景模板 `editor/config/scene-templates.json`、`editor/config/atlases.json` 和 `editor/config/images.json` 不是游戏 canonical 文件，继续使用 `/api/save-file`，但必须检查 HTTP 与响应 `ok`，并 `await` 当前场景/模板保存；配置成功而场景失败属于部分提交，只能警告，禁止被后续成功 toast 覆盖。不得再把全局 atlas/images 遍历写入所有场景 localStorage。
+- `game.project.json -> library` 必须从页面共享 `CanonicalDocumentModel` candidate 读取，并由共享 `CanonicalEditorSession.patch('library', ...) → save()` 提交；禁止另读整份工程后用旧副本整文件替换，否则会覆盖同页 Trigger/Tutorial 等未提交或刚提交字段。
+- `SystemEditor` 必须由正式宿主注入同一项目的 `CanonicalEditorSession`，只允许 `patch('system', structuredClone(data)) → await save()`；禁止保留无 session 的 localStorage/整文件读取替换 fallback。所有保存按钮和页面初始化都必须等待 Promise，独立 HTML 的异步 IIFE 还必须在最外层 `.catch(...)` 显示初始化失败，禁止只在 IIFE 内 `await` 后丢弃其返回 Promise；严格双判定后才显示成功；`CanonicalEditorSession` 也只能在 `ok:true && committed:true` 时清除 dirty roots。
+- `TriggerEditor`、`LibraryEditor`、`DialogueGraphEditor` 和 `WorldMapEditor` 同样只能读取共享 session candidate，并分别 patch 自己拥有的 `triggers/tutorials/dialogues`、`library`、`dialogues`、`worldMap` 根字段；缺少 session 必须明确拒绝初始化，禁止回退为 GET 旧工程副本后整文件 replace。保存方法要返回结构化结果，按钮等待 Promise，`degraded` 使用 warning 而不是失败样式。
+- 共享 `CanonicalEditorSession` 只消除单个 `EditorPageContext` 内的陈旧整文件覆盖；当前 transaction 协议未提供 `expectedRevision`/`expectedHash`，独立页面或浏览器标签并发编辑同一项目仍无乐观并发冲突拒绝。若扩展该能力，必须由服务端在 commit point 前校验基线并返回明确 conflict，禁止用局部 UI 时间戳或最后写入覆盖伪装解决。
+- `SceneDataLoader.loadScene()` 对未登记 preset 返回 `null`；canonical SXX 直接使用磁盘文档，禁止把 `createEmptyScene()` 的 legacy 默认字段合入。项目/场景编辑器的成功判定统一为严格 `ok === true && committed === true`，`degraded:true` 单独显示磁盘已提交但后置同步降级。
 - 参与跨定义引用闭包的 `$ref` registry entry（如 `battles/rescues/extensions.endings`）必须同时保留被引用文档已有的稳定 `id`；编辑器不得按数组下标、时间戳或随机值生成身份，也不得因当前只编辑 `system` 字段而跳过完整项目校验。保存错误提示必须包含首个 validation `path`，以便定位阻断项。
 - transaction endpoint 只接受当前项目 closure 内 JSON 路径；在仓库独占锁内以 temp、备份和恢复 journal 提交 change set。磁盘 commit point 之前失败恢复原文件并保持 localStorage 不变，commit point 之后的缓存失败不得回滚磁盘。
 - `GET /api/read-file?path=xxx` — 读取文件内容

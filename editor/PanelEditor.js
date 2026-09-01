@@ -282,8 +282,10 @@ export class PanelEditor {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: this.configPath, content })
       });
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || '保存失败');
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok !== true) {
+        throw new Error(data.error || `保存失败（HTTP ${res.status}）`);
+      }
       this._showToast('✅ 已保存到 ' + this.configPath);
     } catch (e) {
       this._showToast('❌ 保存失败: ' + e.message, true);
@@ -373,7 +375,15 @@ export class PanelEditor {
   /** 绑定事件 */
   _bindEvents() {
     // 保存
-    this.container.querySelector('#pe-save').addEventListener('click', () => this.save());
+    const saveButton = this.container.querySelector('#pe-save');
+    saveButton.addEventListener('click', async () => {
+      saveButton.disabled = true;
+      try {
+        await this.save();
+      } finally {
+        saveButton.disabled = false;
+      }
+    });
     this.container.querySelector('#pe-undo').addEventListener('click', () => this.undo());
     this.container.querySelector('#pe-redo').addEventListener('click', () => this.redo());
     // 新增面板

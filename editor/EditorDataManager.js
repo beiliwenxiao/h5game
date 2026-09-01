@@ -405,45 +405,11 @@ export class EditorDataManager {
           }
         }
         
-        if (existing && existing.length > 0) {
-          // 已有数据时：合并新增场景 + 同步 sceneType/worldMap 到已有场景
-          const existingMap = new Map(existing.map(s => [s.id, s]));
-          let changed = false;
-          for (const fs of fileScenes) {
-            if (existingMap.has(fs.id)) {
-              // 已有场景：同步 sceneType 和 worldMap（如果原来没有或不一致）
-              const ex = existingMap.get(fs.id);
-              if (ex.sceneType !== fs.sceneType || ex.worldMap !== fs.worldMap) {
-                ex.sceneType = fs.sceneType;
-                ex.worldMap = fs.worldMap;
-                changed = true;
-              }
-            } else {
-              // 新场景
-              existing.push(fs);
-              changed = true;
-            }
-          }
-          // 对于不在 fileScenes 中的已有场景，也根据 worldMap 推断 sceneType
-          for (const ex of existing) {
-            if (!ex.sceneType) {
-              ex.sceneType = worldChunkIds.has(ex.id) ? 'worldChunk' : 'standalone';
-              ex.worldMap = worldMapForScene[ex.id] || null;
-              changed = true;
-            }
-          }
-          if (changed) {
-            this.saveScenesData(gameId, existing);
-            return true;
-          }
-          return false;
-        }
-        
-        // localStorage 无数据时：整体写入
-        if (fileScenes.length > 0) {
-          this.saveScenesData(gameId, fileScenes);
-          return true;
-        }
+        // `_scene_order.json` 是场景列表权威：按磁盘顺序整体重建缓存，
+        // 同时删除磁盘已移除的旧 ID，禁止把 localStorage 合并成第二份列表事实源。
+        const currentScenes = Array.isArray(existing) ? existing : [];
+        if (JSON.stringify(currentScenes) === JSON.stringify(fileScenes)) return false;
+        return this.saveScenesData(gameId, fileScenes);
       }
       
       // 旧格式文件（只有 order 没有 scenes）：回退到 game.scenes 配置初始化
@@ -588,6 +554,20 @@ export class EditorDataManager {
    */
   getSceneTemplatesConfig() {
     if (!_sceneTemplatesConfig) _sceneTemplatesConfig = { defaultTemplateId: 'tpl_blank', templates: [] };
+    return _sceneTemplatesConfig;
+  }
+
+  /**
+   * 用完整快照替换内存模板配置。用于文件提交失败时原子恢复，
+   * 避免页面直接持有并改写模块级配置引用。
+   * @param {Object} config
+   * @returns {Object} 恢复后的独立配置副本
+   */
+  replaceSceneTemplatesConfig(config) {
+    if (!config || typeof config !== 'object' || Array.isArray(config) || !Array.isArray(config.templates)) {
+      throw new TypeError('场景模板配置必须是包含 templates 数组的对象');
+    }
+    _sceneTemplatesConfig = JSON.parse(JSON.stringify(config));
     return _sceneTemplatesConfig;
   }
 

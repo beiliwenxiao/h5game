@@ -21,8 +21,6 @@
  * 通过 Vite dev server 的受限 canonical transaction endpoint 读写（保留其它字段）。
  */
 
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
-
 // 库分类定义（内容库仅保留角色养成类全局定义；可放置内容 NPC/敌人/物品/装备/商店/载具/建筑
 // 已移到场景编辑器「资源库·内容」Tab 就地定义+放置）。
 const CATEGORIES = [
@@ -116,20 +114,15 @@ export class LibraryEditor {
     this._renderDetail();
   }
 
-  /** 加载工程文件 */
+  /** 加载共享 canonical candidate。 */
   async _load() {
-    if (this.canonicalSession) {
-      this.project = this.canonicalSession.getValue();
-    } else try {
-      const res = await fetch('/api/read-file?path=' + encodeURIComponent(this.projectPath));
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.ok && data.content) this.project = JSON.parse(data.content);
-      }
-    } catch (e) {
-      console.warn('LibraryEditor: 加载工程失败', e);
+    if (!this.canonicalSession) {
+      throw new TypeError('LibraryEditor requires a shared CanonicalEditorSession');
     }
-    if (!this.project) this.project = { meta: { id: this.gameId }, variables: {}, triggers: [], library: {} };
+    this.project = this.canonicalSession.getValue();
+    if (!this.project || typeof this.project !== 'object') {
+      throw new Error('LibraryEditor: canonical project candidate 不可用');
+    }
     if (!this.project.library || typeof this.project.library !== 'object') this.project.library = {};
     // 确保每个分类数组存在
     for (const c of CATEGORIES) {
@@ -141,30 +134,39 @@ export class LibraryEditor {
   /** 保存回工程文件（保留其它字段） */
   async save() {
     if (this._validateDetailJson()) {
-      this._toast('JSON 格式错误，请修正后再保存（红框处）', false);
+      this._toast('JSON 格式错误，请修正后再保存（红框处）', 'error');
       this._status('❌ JSON 格式错误，未保存', 'err');
-      return;
+      return { ok: false, committed: false, status: 'rejected', code: 'invalidJson' };
     }
     this._commitDetail();
     this.project.library = this.library;
     try {
-      const data = this.canonicalSession
-        ? await (async () => {
-            this.canonicalSession.patch('library', this.library);
-            return this.canonicalSession.save();
-          })()
-        : await replaceCanonicalFile(this.projectPath, JSON.stringify(this.project, null, 2));
-      if (data && (data.ok || data.committed)) {
+      this.canonicalSession.patch('library', this.library);
+      const data = await this.canonicalSession.save();
+      if (data?.ok === true && data.committed === true) {
         const n = this._current().length;
-        this._status('✅ 已保存到 ' + this.projectPath, 'ok');
-        this._toast('保存成功（' + this._catLabel() + ' ' + n + ' 条）', true);
-      } else {
-        this._status('❌ 保存失败: ' + (data.error || '未知'), 'err');
-        this._toast('保存失败: ' + (data.error || '未知'), false);
+        if (data.degraded) {
+          const warning = '磁盘已提交，但缓存/通知同步降级';
+          this._status('⚠️ ' + warning, 'warn');
+          this._toast(warning, 'warn');
+        } else {
+          this._status('✅ 已保存到 ' + this.projectPath, 'ok');
+          this._toast('保存成功（' + this._catLabel() + ' ' + n + ' 条）', 'success');
+        }
+        return data;
       }
-    } catch (e) {
-      this._status('❌ 保存失败: ' + e.message, 'err');
-      this._toast('保存失败: ' + e.message, false);
+      const firstError = data?.errors?.[0];
+      const message = [firstError?.path, firstError?.message || firstError?.reason]
+        .filter(Boolean)
+        .join(': ') || data?.error?.message || data?.error || '未知';
+      this._status('❌ 保存失败: ' + message, 'err');
+      this._toast('保存失败: ' + message, 'error');
+      return data;
+    } catch (error) {
+      const result = error.result || { ok: false, committed: false, status: 'failed', error };
+      this._status('❌ 保存失败: ' + error.message, 'err');
+      this._toast('保存失败: ' + error.message, 'error');
+      return result;
     }
   }
 
@@ -194,7 +196,9 @@ export class LibraryEditor {
       </div>`;
     this.container.querySelector('#lib-add').addEventListener('click', () => this._addEntry());
     this.container.querySelector('#lib-del').addEventListener('click', () => this._deleteEntry());
-    this.container.querySelector('#lib-save').addEventListener('click', () => this.save());
+    this.container.querySelector('#lib-save').addEventListener('click', async () => {
+      await this.save();
+    });
     this.container.querySelectorAll('.lib-cat').forEach(btn => {
       btn.addEventListener('click', () => {
         this._commitDetail();
@@ -244,7 +248,7 @@ export class LibraryEditor {
     if (el) { el.textContent = msg; el.className = 'lib-status ' + (kind || ''); }
   }
 
-  _toast(msg, ok) {
+  _toast(msg, type = 'success') {
     let t = document.getElementById('lib-toast');
     if (!t) {
       t = document.createElement('div');
@@ -254,8 +258,16 @@ export class LibraryEditor {
         'z-index:100000;pointer-events:none;transition:opacity 0.3s;box-shadow:0 4px 16px rgba(0,0,0,0.4);';
       document.body.appendChild(t);
     }
-    t.textContent = (ok ? '✅ ' : '❌ ') + msg;
-    t.style.background = ok ? '#2e7d32' : '#c62828';
+    const tone = type === true ? 'success' : type === false ? 'error' : type;
+    const presentations = {
+      success: { icon: '✅ ', background: '#2e7d32' },
+      warn: { icon: '⚠️ ', background: '#9a6700' },
+      error: { icon: '❌ ', background: '#c62828' }
+    };
+    const presentation = presentations[tone] || presentations.success;
+    t.textContent = presentation.icon + msg;
+    t.dataset.type = tone;
+    t.style.background = presentation.background;
     t.style.opacity = '1';
     clearTimeout(this._toastTimer);
     this._toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 2200);

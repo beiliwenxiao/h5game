@@ -4,13 +4,15 @@
  * 配置游戏系统级参数（登录界面、加载页面、全局设置等），保存到 game.project.json 的 system 字段。
  * 标签顺序与运行时一致：登录界面 → 加载页面 → 天气/时间系统。
  */
-import { replaceCanonicalFile } from './CanonicalTransactionClient.js';
 
 export class SystemEditor {
   constructor(container, opts = {}) {
     this.container = container;
     this.gameId = opts.gameId || 'sanguo_zhangjiao';
-    this.canonicalSession = opts.canonicalSession || null;
+    if (!opts.canonicalSession) {
+      throw new TypeError('SystemEditor requires a shared CanonicalEditorSession');
+    }
+    this.canonicalSession = opts.canonicalSession;
     this.schemaFields = this.canonicalSession?.fields || null;
     this._initialized = false;
     this._data = null; // system 配置数据
@@ -27,30 +29,8 @@ export class SystemEditor {
   }
 
   async _loadData() {
-    if (this.canonicalSession) {
-      this._data = this.canonicalSession.getValue('system') || {};
-      return;
-    }
-    this._data = {};
-    const key = 'yijian18-engine_editor_project_' + this.gameId;
-    try {
-      // 磁盘 game.project.json 是唯一真实源；成功读取后同步回 localStorage 缓存。
-      const response = await fetch(`../example/${this.gameId}/game.project.json`);
-      if (response.ok) {
-        const project = await response.json();
-        this._data = project.system || {};
-        localStorage.setItem(key, JSON.stringify(project));
-      } else {
-        throw new Error(`HTTP ${response.status}`);
-      }
-    } catch (error) {
-      try {
-        const raw = localStorage.getItem(key);
-        this._data = raw ? (JSON.parse(raw).system || {}) : {};
-      } catch (_cacheError) {
-        this._data = {};
-      }
-    }
+    this._data = structuredClone(this.canonicalSession.getValue('system') || {});
+
     // 登录页面在运行时位于加载页面之前。
     if (!this._data.login) {
       this._data.login = {
@@ -115,45 +95,40 @@ export class SystemEditor {
     }
   }
 
-  async _save() {
-    try {
-      if (this.canonicalSession) {
-        this.canonicalSession.patch('system', this._data);
-        const result = await this.canonicalSession.save();
-        if (!result?.committed) {
-          const firstError = result?.errors?.[0];
-          const detail = [firstError?.path, firstError?.message].filter(Boolean).join(': ');
-          throw new Error(detail || result?.error || 'canonical 提交失败');
-        }
-        this._showToast(result.degraded ? '磁盘已提交，缓存/通知同步降级' : '已保存到 canonical 配置');
-        return result;
-      }
-      const key = 'yijian18-engine_editor_project_' + this.gameId;
-      let project = {};
-      const raw = localStorage.getItem(key);
-      if (raw) project = JSON.parse(raw);
-      project.system = this._data;
-
-      // 先持久化磁盘，成功后再更新缓存；两处保持一致才报告成功。
-      const savedProject = await this._saveToFile();
-      localStorage.setItem(key, JSON.stringify(savedProject || project));
-      this._showToast('已保存到配置文件和缓存');
-    } catch (e) {
-      console.error('SystemEditor: 保存失败', e);
-      this._showToast(`保存失败：${e.message}`);
-    }
+  _persistenceError(result, fallback = 'canonical 提交失败') {
+    const firstError = result?.errors?.[0];
+    const validationMessage = [firstError?.path, firstError?.message || firstError?.reason]
+      .filter(Boolean)
+      .join(': ');
+    if (validationMessage) return validationMessage;
+    if (typeof result?.error?.message === 'string') return result.error.message;
+    if (typeof result?.error === 'string') return result.error;
+    return fallback;
   }
 
-  async _saveToFile() {
-    // 读取现有 game.project.json 并只合并 system 字段，避免覆盖其它项目配置。
-    const res = await fetch(`../example/${this.gameId}/game.project.json`);
-    if (!res.ok) throw new Error(`读取项目文件失败: HTTP ${res.status}`);
-    const existing = await res.json();
-    existing.system = this._data;
-    const projectPath = `example/${this.gameId}/game.project.json`;
-    const result = await replaceCanonicalFile(projectPath, JSON.stringify(existing, null, 2));
-    if (!result.ok) throw new Error(result.error || '写入项目文件失败');
-    return existing;
+  async _save() {
+    try {
+      this.canonicalSession.patch('system', structuredClone(this._data));
+      const result = await this.canonicalSession.save();
+      if (result?.ok !== true || result.committed !== true) {
+        throw Object.assign(new Error(this._persistenceError(result)), { result });
+      }
+      this._showToast(
+        result.degraded ? '磁盘已提交，但缓存/通知同步降级' : '已保存到 canonical 配置',
+        result.degraded ? 'warn' : 'success'
+      );
+      return result;
+    } catch (error) {
+      console.error('SystemEditor: 保存失败', error);
+      const result = error.result || {
+        ok: false,
+        committed: false,
+        status: 'failed',
+        error
+      };
+      this._showToast(`保存失败：${this._persistenceError(result, error.message)}`, 'error');
+      return result;
+    }
   }
 
   _render() {
@@ -318,7 +293,7 @@ export class SystemEditor {
     }
     // 天气保存
     const wtSave = this.container.querySelector('#sys-wt-save');
-    if (wtSave) wtSave.addEventListener('click', () => {
+    if (wtSave) wtSave.addEventListener('click', async () => {
       this._data.weather.default = this.container.querySelector('#sys-wt-default').value;
       this._data.weather.transitionSpeed = parseFloat(this.container.querySelector('#sys-wt-speed').value);
       // 收集各天气粒子参数
@@ -333,11 +308,11 @@ export class SystemEditor {
           windY: parseFloat(row.querySelector('.wt-wy').value) || 0
         };
       });
-      this._save();
+      await this._save();
     });
     // 时间保存
     const tmSave = this.container.querySelector('#sys-tm-save');
-    if (tmSave) tmSave.addEventListener('click', () => {
+    if (tmSave) tmSave.addEventListener('click', async () => {
       this._data.time.enabled = this.container.querySelector('#sys-tm-enabled').checked;
       this._data.time.startPeriod = this.container.querySelector('#sys-tm-start').value;
       // 收集各时间段参数
@@ -349,7 +324,7 @@ export class SystemEditor {
         this._data.time.periods[p].fogOpacity = parseFloat(row.querySelector('.p-fog').value);
         this._data.time.periods[p].tintColor = row.querySelector('.p-tint').value;
       });
-      this._save();
+      await this._save();
     });
 
     // 添加步骤
@@ -517,17 +492,30 @@ export class SystemEditor {
     if (start) start.value = this._data.time.startPeriod || 'noon';
   }
 
-  _showToast(msg) {
+  _showToast(msg, type = 'success') {
     let toast = document.getElementById('sys-editor-toast');
     if (!toast) {
       toast = document.createElement('div');
       toast.id = 'sys-editor-toast';
-      toast.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:8px 20px;background:#4CAF50;color:#fff;border-radius:4px;font-size:13px;z-index:99999;transition:opacity 0.3s;';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      toast.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);padding:8px 20px;color:#fff;border-radius:4px;font-size:13px;z-index:99999;transition:opacity 0.3s;';
       document.body.appendChild(toast);
     }
+    const backgrounds = {
+      success: '#2e7d32',
+      warn: '#9a6700',
+      error: '#b3261e'
+    };
     toast.textContent = msg;
+    toast.dataset.type = type;
+    toast.style.background = backgrounds[type] || backgrounds.success;
     toast.style.opacity = '1';
-    setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
+      toast.style.opacity = '0';
+      this._toastTimer = null;
+    }, 2500);
   }
 }
 

@@ -103,7 +103,7 @@ export class SceneEditorHistory {
 
     try {
       const result = await editor.onSceneChange(editor.sceneData);
-      if (!result?.ok || result.committed !== true) {
+      if (result?.ok !== true || result.committed !== true) {
         const firstError = result?.errors?.[0];
         const detail = [firstError?.path, firstError?.message || firstError?.reason]
           .filter(Boolean)

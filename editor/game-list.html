@@ -171,7 +171,11 @@
                 document.getElementById('new-game-modal').classList.remove('active');
                 document.getElementById('new-game-form').reset();
             });
-        })();
+        })().catch(error => {
+            console.error('[GameList] 初始化失败', error);
+            const main = document.querySelector('main');
+            if (main) main.textContent = `游戏列表初始化失败：${error?.message || String(error)}`;
+        });
     </script>
 </body>
 </html>

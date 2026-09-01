@@ -37,8 +37,12 @@
                 gameId,
                 canonicalSession: ctx._canonicalEditorSession('project')
             });
-            editor.init();
-        })();
+            await editor.init();
+        })().catch(error => {
+            console.error('[LibraryEditor] 初始化失败', error);
+            const container = document.getElementById('library-editor-container');
+            if (container) container.textContent = `内容库编辑器初始化失败：${error?.message || String(error)}`;
+        });
     </script>
 </body>
 </html>

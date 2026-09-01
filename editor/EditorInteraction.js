@@ -19,23 +19,23 @@ import { EditorInteractionScene } from './EditorInteractionScene.js';
 
 /** 仅协调 DOM 交互和编辑器模块；canonical 持久化始终委托 command service。 */
 export class GameEditor extends EditorInteractionScene {            // 清理本地 localStorage 缓存（下次从工程 JSON 文件重新加载；文件不受影响）
-            clearSceneCache() {
+            async clearSceneCache() {
                 const gameId = this.currentGameId || 'sanguo_zhangjiao';
                 if (!confirm('确定清理本地缓存？\n将删除 localStorage 中该游戏的场景编辑数据，随后从工程 JSON 文件重新加载（文件不受影响）。')) return;
                 try {
                     localStorage.removeItem('yijian18-engine_editor_data_scenes_' + gameId);
                     console.log('[Editor] 已清理 localStorage 场景缓存:', gameId);
-                } catch (e) {
-                    console.warn('[Editor] 清理缓存失败:', e);
-                }
-                // 从工程文件重新加载当前场景（editScene 内已有文件兜底并回写 localStorage）
-                if (this.currentSceneId) {
-                    this.editScene(this.currentSceneId);
-                }
-                if (this.sceneEditor && this.sceneEditor.ui && this.sceneEditor.ui.showToast) {
-                    this.sceneEditor.ui.showToast('已清理缓存，已从工程文件重新加载', 'success');
-                } else {
-                    alert('已清理缓存，已从工程文件重新加载场景。');
+                    await this.dataManager.initScenesFromFile(gameId);
+                    if (this.currentSceneId) {
+                        const loaded = await this.editScene(this.currentSceneId);
+                        if (loaded === false) throw new Error(`场景 ${this.currentSceneId} 未能从磁盘重新加载`);
+                    } else {
+                        this.renderSceneList(gameId);
+                    }
+                    this.sceneEditor?.ui?.showToast?.('已清理缓存，已从工程文件重新加载', 'success');
+                } catch (error) {
+                    console.warn('[Editor] 清理缓存后重新加载失败:', error);
+                    this.sceneEditor?.ui?.showToast?.(`缓存已清理，但磁盘重载失败: ${error.message}`, 'error');
                 }
             }
             
@@ -47,7 +47,9 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                 const result = await service.update(projectPath, {
                     sceneOrder: { ...sceneOrder, order: order.slice() }
                 });
-                if (!result.ok) throw Object.assign(new Error(result.errors?.[0]?.reason || '保存场景排序失败'), { result });
+                if (result?.ok !== true || result.committed !== true) {
+                    throw Object.assign(new Error(this._persistenceError(result, '保存场景排序失败：磁盘未提交')), { result });
+                }
                 if (result.degraded) this.sceneEditor?.ui?.showToast?.('排序已提交，但缓存/通知同步降级', 'warn');
                 return result;
             }
@@ -217,7 +219,7 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                             }
                         );
                     }
-                    this.triggerEditor.init();
+                    void this.triggerEditor.init().catch(error => console.error('TriggerEditor 初始化失败:', error));
                 } else if (page === 'library-editor') {
                     document.getElementById('library-editor-page').classList.add('active');
                     if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
@@ -227,7 +229,7 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                             { gameId: this.currentGameId || 'sanguo_zhangjiao', canonicalSession: this._canonicalEditorSession('project') }
                         );
                     }
-                    this.libraryEditor.init();
+                    void this.libraryEditor.init().catch(error => console.error('LibraryEditor 初始化失败:', error));
                 } else if (page === 'dialogue-editor') {
                     document.getElementById('dialogue-editor-page').classList.add('active');
                     if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
@@ -237,7 +239,7 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                             { gameId: this.currentGameId || 'sanguo_zhangjiao', canonicalSession: this._canonicalEditorSession('project') }
                         );
                     }
-                    this.dialogueEditor.init();
+                    void this.dialogueEditor.init().catch(error => console.error('DialogueGraphEditor 初始化失败:', error));
                 } else if (page === 'world-map-editor') {
                     document.getElementById('world-map-editor-page').classList.add('active');
                     if (this.currentGameId) this._updateGameIndicator(this.currentGameId);
@@ -246,16 +248,20 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                         || this.dataManager.getAllGames().find(item => item.id === gameId);
                     const gamePath = (game?.path || `../example/${gameId}/`)
                         .replace(/\\/g, '/').replace(/^(?:\.\.\/)+/, '').replace(/\/?$/, '/');
-                    const mapContext = { gameId, projectPath: `${gamePath}game.project.json` };
+                    const mapContext = {
+                        gameId,
+                        projectPath: `${gamePath}game.project.json`,
+                        canonicalSession: this._canonicalEditorSession('project')
+                    };
                     if (!this.worldMapEditor) {
                         this.worldMapEditor = new WorldMapEditor(
                             document.getElementById('world-map-editor-container'),
                             mapContext
                         );
-                        void this.worldMapEditor.init();
+                        void this.worldMapEditor.init().catch(error => console.error('WorldMapEditor 初始化失败:', error));
                     } else {
                         this.worldMapEditor.setProjectContext(mapContext);
-                        void this.worldMapEditor.loadFromProject();
+                        void this.worldMapEditor.loadFromProject().catch(error => console.error('WorldMapEditor 加载失败:', error));
                     }
                 } else if (page === 'panel-editor') {
                     document.getElementById('panel-editor-page').classList.add('active');
@@ -276,7 +282,7 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                             { gameId: this.currentGameId || 'sanguo_zhangjiao', canonicalSession: this._canonicalEditorSession('project') }
                         );
                     }
-                    this.systemEditor.init();
+                    void this.systemEditor.init().catch(error => console.error('SystemEditor 初始化失败:', error));
                 }
             }
             

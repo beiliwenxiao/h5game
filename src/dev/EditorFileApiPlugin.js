@@ -5,6 +5,7 @@ import { CanonicalCandidatePipeline } from '../core/validation/CanonicalCandidat
 import { CandidateRuleValidator } from '../core/validation/CandidateRuleValidator.js';
 import { createContentValidator } from '../core/validation/ContentSchemas.js';
 import { CanonicalSceneValidator } from '../core/scene/CanonicalSceneValidation.js';
+import { prepareSharedAtlasTransaction } from './sharedAtlasTransaction.js';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8' };
 
@@ -53,6 +54,15 @@ function isCanonicalPath(filePath, allowedProjects) {
   return allowedProjects.some(projectPath => {
     const info = canonicalInfo(projectPath);
     return normalized === info.projectPath || normalized.startsWith(info.sceneRoot);
+  });
+}
+
+function isSharedAtlasAssetPath(filePath, allowedProjects) {
+  const normalized = normalizeRelative(filePath);
+  return allowedProjects.some(projectPath => {
+    const info = canonicalInfo(projectPath);
+    return normalized === `${info.projectRoot}/config/atlases.json`
+      || normalized === `${info.projectRoot}/assets/manifests/assets.json`;
   });
 }
 
@@ -243,6 +253,38 @@ export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {})
 
       server.middlewares.use(async (req, res, next) => {
         try {
+          if (req.method === 'POST' && req.url === '/api/asset-transaction') {
+            await recovery;
+            const body = await parseBody(req);
+            const projectPath = normalizeRelative(body.projectPath);
+            if (!projects.includes(projectPath)) {
+              return reply(res, 403, { ok: false, committed: false, error: '非当前项目' });
+            }
+            if (!body.catalog || typeof body.catalog !== 'object' || Array.isArray(body.catalog)) {
+              return reply(res, 400, { ok: false, committed: false, error: 'catalog 必须是对象' });
+            }
+            const info = canonicalInfo(projectPath);
+            let prepared;
+            const result = await adapter.commitPrepared(() => {
+              prepared = prepareSharedAtlasTransaction({
+                repoRoot: root,
+                projectPath,
+                projectRoot: info.projectRoot,
+                sceneRoot: info.sceneRoot,
+                catalog: body.catalog
+              });
+              return prepared.changes;
+            });
+            if (!result.ok) {
+              return reply(res, 500, { ...result, error: result.error?.message || '共享图集磁盘提交失败' });
+            }
+            return reply(res, 200, {
+              ...result,
+              catalog: prepared.catalog,
+              manifest: prepared.manifest
+            });
+          }
+
           if (req.method === 'POST' && req.url === '/api/canonical-transaction') {
             await recovery;
             const body = await parseBody(req);
@@ -251,8 +293,11 @@ export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {})
             if (!Array.isArray(body.changes) || body.changes.length === 0) {
               return reply(res, 400, { ok: false, committed: false, error: 'changes 不能为空' });
             }
-            const validated = validateCanonicalChangeSet(root, projectPath, body.changes);
-            const result = await adapter.commit(validated.changes);
+            let validated;
+            const result = await adapter.commitPrepared(() => {
+              validated = validateCanonicalChangeSet(root, projectPath, body.changes);
+              return validated.changes;
+            });
             if (!result.ok) return reply(res, 500, { ...result, error: result.error?.message || '磁盘提交失败' });
             for (const change of validated.changes) {
               if (change.operation === 'delete') continue;
@@ -269,6 +314,12 @@ export function editorFileAPIPlugin({ repoRoot, allowedProjectPaths = [] } = {})
               return reply(res, 409, {
                 ok: false,
                 error: 'canonical 项目/场景只能通过 /api/canonical-transaction 提交'
+              });
+            }
+            if (isSharedAtlasAssetPath(filePath, projects)) {
+              return reply(res, 409, {
+                ok: false,
+                error: '共享图集 catalog 与 Asset Manifest 只能通过 /api/asset-transaction 原子提交'
               });
             }
             if (!filePath || body.content === undefined) return reply(res, 400, { error: '缺少 path 或 content' });

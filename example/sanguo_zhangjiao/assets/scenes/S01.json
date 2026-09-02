@@ -1120,6 +1120,36 @@
       "name": "放置层",
       "objects": [],
       "visible": true
+    },
+    {
+      "id": "layer_deco",
+      "locked": false,
+      "name": "装饰层",
+      "objects": [
+        {
+          "atlasId": "mountain_landscape",
+          "height": 128,
+          "id": "obj_1788365045566_953",
+          "name": "大树",
+          "sliceKey": "tree1",
+          "type": "slice",
+          "width": 96,
+          "x": 261.56256256256256,
+          "y": 255.84384384384384
+        },
+        {
+          "atlasId": "mountain_landscape",
+          "height": 128,
+          "id": "obj_1788365049294_446",
+          "name": "大树",
+          "sliceKey": "tree1",
+          "type": "slice",
+          "width": 96,
+          "x": 113.06306306306305,
+          "y": 352.7807807807808
+        }
+      ],
+      "visible": true
     }
   ],
   "assetBudget": {

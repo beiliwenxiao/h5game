@@ -1,4 +1,5 @@
 /**
+/**
  * Copyright (c) 2026 Liu Xiao (beiliwenxiao)
  * 
  * @project   YiJian18-Engine - 跨平台2D/3D ECS游戏引擎
@@ -11,10 +12,20 @@
  */
 
 import {
-  sceneDataLoader,
+  getGlobalAtlasImageUrl,
+  updateAtlasesCache,
   updateImagesCache,
   addGlobalImage
 } from './SceneDataLoader.js';
+
+const ATLAS_SLICE_MIME = 'application/x-yijian18-atlas-slice+json';
+const STABLE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/;
+const escapeHtml = value => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
 
 /**
  * SceneEditorAssets - 场景编辑器资源管理模块
@@ -26,6 +37,224 @@ export class SceneEditorAssets {
    */
   constructor(editor) {
     this.editor = editor;
+    this._atlasSavePromises = new Map();
+    this._atlasImageLoadGeneration = 0;
+  }
+
+  _currentProjectPath() {
+    return String(this.editor.options?.getProjectPath?.() || this.editor.projectPath || '');
+  }
+
+  _activateSharedAtlasProject() {
+    return this.editor.activateSharedAtlasProject(this._currentProjectPath());
+  }
+
+  _ensureSharedAtlasDraft() {
+    const editor = this.editor;
+    const { projectPath } = this._activateSharedAtlasProject();
+    const existing = editor.getSharedAtlasDraft(projectPath);
+    if (existing) return existing;
+
+    const source = editor.getCommittedSharedAtlasCatalog?.(projectPath);
+    if (!source || typeof source !== 'object' || typeof source.then === 'function' || !Array.isArray(source.atlases)) {
+      throw new Error('共享图集 catalog 尚未就绪');
+    }
+    const baseConfig = structuredClone(source);
+    return editor.setSharedAtlasDraft({
+      projectPath,
+      baseConfig,
+      config: structuredClone(baseConfig),
+      previewImages: new Map(),
+      pendingEditCount: 0,
+      dirty: false
+    });
+  }
+
+  _getSharedAtlasDraft(projectPath) {
+    return this.editor.getSharedAtlasDraft(projectPath);
+  }
+
+  _clearSharedAtlasDraft(draft) {
+    if (!draft) return false;
+    return this.editor.clearSharedAtlasDraft(draft.projectPath, draft);
+  }
+
+  _isSharedAtlasEditCurrent(draft, expectedEpoch = null) {
+    if (!draft) return false;
+    const state = this._activateSharedAtlasProject();
+    return state.projectPath === draft.projectPath
+      && state.draft === draft
+      && this.editor.sharedAtlasDrafts.get(draft.projectPath) === draft
+      && (expectedEpoch === null || state.epoch === expectedEpoch);
+  }
+
+  _markSharedAtlasDraftDirty(draft = this._ensureSharedAtlasDraft(), expectedEpoch = null) {
+    if (!this._isSharedAtlasEditCurrent(draft, expectedEpoch)) {
+      throw new Error('共享图集编辑上下文已失效，请在当前项目重新操作');
+    }
+    draft.dirty = true;
+    return draft;
+  }
+
+  /**
+   * 为异步图片加载或弹窗编辑持有草稿租约，防止保存回包清空仍会被回调写入的对象。
+   * @param {object} [draft]
+   * @returns {() => void}
+   */
+  _beginSharedAtlasDraftEdit(draft = this._ensureSharedAtlasDraft()) {
+    draft.pendingEditCount = Math.max(0, Number(draft.pendingEditCount) || 0) + 1;
+    let ended = false;
+    return () => {
+      if (ended) return;
+      ended = true;
+      draft.pendingEditCount = Math.max(0, (Number(draft.pendingEditCount) || 0) - 1);
+      if (
+        draft.pendingEditCount === 0
+        && !draft.dirty
+        && JSON.stringify(draft.config) === JSON.stringify(draft.baseConfig)
+      ) {
+        this._clearSharedAtlasDraft(draft);
+      }
+    };
+  }
+
+  _getAtlasImage(atlasId) {
+    return this.editor.getAtlasImage?.(atlasId)
+      || this.editor.loadedImages.get(atlasId)
+      || null;
+  }
+
+  _resolveAtlasImageUrl(atlas, projectPath = this._currentProjectPath()) {
+    const normalizedProjectPath = String(projectPath || '')
+      .replace(/\\/g, '/')
+      .replace(/^(?:\.\.\/)+/, '')
+      .replace(/^\/+/, '');
+    const gameRoot = normalizedProjectPath.slice(0, normalizedProjectPath.lastIndexOf('/') + 1);
+    const gamePath = gameRoot ? `../${gameRoot}` : '';
+    return getGlobalAtlasImageUrl(atlas, gamePath, normalizedProjectPath);
+  }
+
+  _loadAtlasPreview(atlas, projectPath = this._currentProjectPath()) {
+    const imageUrl = this._resolveAtlasImageUrl(atlas, projectPath);
+    return new Promise((resolve, reject) => {
+      if (!imageUrl) {
+        reject(new Error('图集图片路径不能为空'));
+        return;
+      }
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error(`图片加载失败: ${atlas.path}`));
+      image.src = imageUrl;
+    });
+  }
+
+  _normalizeAtlasPath(value) {
+    let normalized = String(value || '').trim().replace(/\\/g, '/');
+    const gamePath = String(window._editorCurrentGame?.path || '')
+      .replace(/\\/g, '/')
+      .replace(/\/+$/, '');
+    if (gamePath && normalized.startsWith(`${gamePath}/`)) {
+      normalized = normalized.slice(gamePath.length + 1);
+    }
+    normalized = normalized.replace(/^\.\//, '').replace(/^\/+/, '');
+    if (!normalized.startsWith('assets/images/') && !normalized.startsWith('assets/atlases/')) {
+      normalized = `assets/images/${normalized}`;
+    }
+    const segments = normalized.split('/');
+    if (segments.some(segment => !segment || segment === '.' || segment === '..')) {
+      throw new Error('图集路径不能包含空目录、. 或 ..');
+    }
+    return segments.join('/');
+  }
+
+  _deriveAtlasId(pathValue, atlases) {
+    const samePath = atlases.find(atlas => atlas?.path === pathValue);
+    if (samePath?.id) return samePath.id;
+    const semantic = pathValue
+      .replace(/^assets\/(?:images|atlases)\//, '')
+      .replace(/\.[^.\/]+$/, '')
+      .split('/')
+      .map(segment => segment.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, ''))
+      .filter(Boolean)
+      .join('.') || 'resource';
+    const baseId = `atlas.${semantic}`;
+    const ids = new Set(atlases.map(atlas => atlas?.id).filter(Boolean));
+    if (!ids.has(baseId)) return baseId;
+    let suffix = 2;
+    while (ids.has(`${baseId}.${suffix}`)) suffix += 1;
+    return `${baseId}.${suffix}`;
+  }
+
+  _nextSliceKey(atlas) {
+    const slices = atlas?.slices || {};
+    let index = 1;
+    while (Object.prototype.hasOwnProperty.call(slices, `slice_${index}`)) index += 1;
+    return `slice_${index}`;
+  }
+
+  /**
+   * 在修改共享草稿前验证切片候选，避免局部输入把 catalog 留在不可提交状态。
+   * @param {object} candidate
+   * @param {object} atlas
+   * @param {HTMLImageElement|null} image
+   * @returns {string}
+   */
+  _validateSliceCandidate(candidate, atlas, image = null) {
+    if (!candidate || typeof candidate !== 'object') return '切片数据无效';
+    if (!String(candidate.name || '').trim()) return '切片名称不能为空';
+
+    const coordinateFields = ['sx', 'sy', 'sw', 'sh'];
+    if (coordinateFields.some(field => !Number.isInteger(candidate[field]))) {
+      return '切片坐标和尺寸必须是整数';
+    }
+    if (candidate.sx < 0 || candidate.sy < 0 || candidate.sw <= 0 || candidate.sh <= 0) {
+      return '切片坐标必须非负，宽高必须大于 0';
+    }
+
+    const imageWidth = Number(image?.naturalWidth || atlas?.width || 0);
+    const imageHeight = Number(image?.naturalHeight || atlas?.height || 0);
+    if (
+      (imageWidth > 0 && candidate.sx + candidate.sw > imageWidth)
+      || (imageHeight > 0 && candidate.sy + candidate.sh > imageHeight)
+    ) {
+      return '切片范围必须完整位于图集图片内';
+    }
+    if (candidate.colliderRadius !== undefined) {
+      if (typeof candidate.colliderRadius !== 'number' || !Number.isFinite(candidate.colliderRadius)) {
+        return '碰撞半径必须是有限数字';
+      }
+      if (candidate.colliderRadius <= 0) return '碰撞半径必须大于 0';
+    }
+    return '';
+  }
+
+  _findCurrentSceneAtlasReferences(atlasId, sliceKey = null) {
+    const references = [];
+    const visit = (value, currentPath = '') => {
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => visit(item, `${currentPath}[${index}]`));
+        return;
+      }
+      if (!value || typeof value !== 'object') return;
+      if (
+        value.atlasId === atlasId
+        && (sliceKey === null || value.sliceKey === sliceKey)
+      ) {
+        references.push(currentPath || '<scene>');
+      }
+      for (const [key, child] of Object.entries(value)) {
+        visit(child, currentPath ? `${currentPath}.${key}` : key);
+      }
+    };
+    visit(this.editor.sceneData);
+    return references;
+  }
+
+  _changedAtlasIds(baseConfig, nextConfig) {
+    const base = new Map((baseConfig?.atlases || []).map(atlas => [atlas.id, atlas]));
+    const next = new Map((nextConfig?.atlases || []).map(atlas => [atlas.id, atlas]));
+    const ids = new Set([...base.keys(), ...next.keys()]);
+    return [...ids].filter(id => JSON.stringify(base.get(id) || null) !== JSON.stringify(next.get(id) || null));
   }
 
   _availableAtlases() {
@@ -76,20 +305,32 @@ export class SceneEditorAssets {
     container.addEventListener('drop', (e) => {
       e.preventDefault();
       const id = e.dataTransfer.getData('text/plain');
-      const pos = editor.interactionModule.screenToScene(e.offsetX, e.offsetY);
+      const rect = container.getBoundingClientRect();
+      const pos = editor.interactionModule.screenToScene(
+        e.clientX - rect.left,
+        e.clientY - rect.top
+      );
 
-      // 处理切片拖拽 - 优先使用临时变量
-      if (editor.draggingSlice) {
-        const { atlasId, sliceKey } = editor.draggingSlice;
-        this._addSliceToScene(atlasId, sliceKey, pos.x, pos.y);
-        editor.draggingSlice = null;
-        return;
+      let slicePayload = editor.draggingSlice;
+      if (!slicePayload) {
+        const encoded = e.dataTransfer.getData(ATLAS_SLICE_MIME);
+        if (encoded) {
+          try { slicePayload = JSON.parse(encoded); }
+          catch (_error) { /* 继续尝试 text/plain 兼容格式 */ }
+        }
       }
-
-      // 备用方案：从 dataTransfer 获取
-      if (id && id.startsWith('slice:')) {
-        const parts = id.split(':');
-        this._addSliceToScene(parts[1], parts[2], pos.x, pos.y);
+      if (!slicePayload && id?.startsWith('slice:')) {
+        const separator = id.indexOf(':', 'slice:'.length);
+        if (separator > 0) {
+          slicePayload = {
+            atlasId: id.slice('slice:'.length, separator),
+            sliceKey: id.slice(separator + 1)
+          };
+        }
+      }
+      editor.draggingSlice = null;
+      if (slicePayload?.atlasId && slicePayload?.sliceKey) {
+        this._addSliceToScene(slicePayload.atlasId, slicePayload.sliceKey, pos.x, pos.y);
         return;
       }
 
@@ -512,18 +753,30 @@ export class SceneEditorAssets {
   _addSliceToScene(atlasId, sliceKey, x, y) {
     const editor = this.editor;
     const atlas = this._getAtlas(atlasId);
-    if (!atlas) return;
+    if (!atlas) {
+      editor.ui.showToast?.(`图集不存在: ${atlasId}`, 'error');
+      return { ok: false, code: 'missingAtlas' };
+    }
 
     const slice = atlas.slices?.[sliceKey];
-    if (!slice) return;
+    if (!slice) {
+      editor.ui.showToast?.(`图集 ${atlasId} 中不存在切片 ${sliceKey}`, 'error');
+      return { ok: false, code: 'missingSlice' };
+    }
 
-    const decoLayer = editor.sceneData.layers.find(l => l.id === 'layer_deco');
-    if (!decoLayer) return;
+    let decoLayer;
+    try {
+      decoLayer = editor.layers.ensureLayer('layer_deco', '装饰层');
+    } catch (error) {
+      editor.ui.showToast?.(`无法创建装饰层: ${error.message}`, 'error');
+      return { ok: false, code: 'invalidDecorationLayer', error };
+    }
 
     const obj = {
       id: 'obj_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
       type: 'slice',
-      atlasId, sliceKey,
+      atlasId,
+      sliceKey,
       x: Math.round(x - slice.sw / 2),
       y: Math.round(y - slice.sh / 2),
       width: slice.sw,
@@ -533,12 +786,13 @@ export class SceneEditorAssets {
 
     decoLayer.objects.push(obj);
     editor.activeLayerIndex = editor.sceneData.layers.indexOf(decoLayer);
+    editor.selectedObjects = [obj];
+    editor.layers.updateLayerList();
     editor.history.saveHistory();
     editor.ui.updateObjectCount();
-    editor.render();
-
-    editor.selectedObjects = [obj];
     editor.ui.updateObjectProperties();
+    editor.render();
+    return { ok: true, object: obj, layer: decoLayer };
   }
 
   /**
@@ -693,8 +947,10 @@ export class SceneEditorAssets {
     const duplicateIds = [];
     const invalidEntries = [];
     const placeholders = [];
+    const { projectPath, draft } = this._activateSharedAtlasProject();
+    const sharedCatalog = draft?.config || this.editor.getCommittedSharedAtlasCatalog(projectPath);
     const sharedAtlases = new Map(
-      sceneDataLoader.getGlobalAtlases()
+      (sharedCatalog?.atlases || [])
         .filter(atlas => atlas?.id)
         .map(atlas => [atlas.id, atlas])
     );
@@ -741,8 +997,15 @@ export class SceneEditorAssets {
     const unusedSceneImages = [];
     for (const atlas of sharedAtlases.values()) {
       const assetId = atlas.assetId || atlas.id;
+      const imageId = atlas.imageId || null;
+      if (!atlas.assetId || !imageId || atlas.assetId !== imageId) {
+        invalidEntries.push(`共享图集 ${atlas.id}: assetId 与 imageId 必须存在且使用同一稳定 ID`);
+      }
       if (!assetIds.has(assetId)) {
         missingReferences.push(`共享图集 ${atlas.id}: assetId ${assetId} 未登记 Manifest`);
+      }
+      if (imageId && !imageIds.has(imageId)) {
+        missingReferences.push(`共享图集 ${atlas.id}: imageId ${imageId} 未登记 Manifest`);
       }
       const path = this._normalizeGameAssetPath(atlas.path);
       if (path && !diskPaths.has(path)) {
@@ -1389,7 +1652,9 @@ export class SceneEditorAssets {
         e.stopPropagation();
         const atlasId = sliceItem.dataset.atlas;
         const sliceKey = sliceItem.dataset.slice;
-        editor.draggingSlice = { atlasId, sliceKey };
+        const payload = { atlasId, sliceKey };
+        editor.draggingSlice = payload;
+        e.dataTransfer.setData(ATLAS_SLICE_MIME, JSON.stringify(payload));
         e.dataTransfer.setData('text/plain', `slice:${atlasId}:${sliceKey}`);
         e.dataTransfer.effectAllowed = 'copy';
         sliceItem.classList.add('dragging');
@@ -1397,6 +1662,7 @@ export class SceneEditorAssets {
 
       sliceItem.addEventListener('dragend', () => {
         sliceItem.classList.remove('dragging');
+        editor.draggingSlice = null;
       });
     });
   }
@@ -1407,6 +1673,13 @@ export class SceneEditorAssets {
    */
   _selectAtlas(atlasId) {
     const editor = this.editor;
+    if (this._isSharedAtlas(atlasId)) {
+      try { this._ensureSharedAtlasDraft(); }
+      catch (error) {
+        editor.ui.showToast?.(`共享图集不可编辑: ${error.message}`, 'error');
+        return;
+      }
+    }
     // 再次点击已选中的图集则取消选中
     editor.selectedAtlasId = (editor.selectedAtlasId === atlasId) ? null : atlasId;
     editor.selectedSlice = null;
@@ -1431,70 +1704,106 @@ export class SceneEditorAssets {
       return;
     }
 
-    const atlas = this._getAtlas(editor.selectedAtlasId);
+    const selectedAtlasId = editor.selectedAtlasId;
+    const shared = this._isSharedAtlas(selectedAtlasId);
+    const propertyDraft = shared ? this._ensureSharedAtlasDraft() : null;
+    const propertyEpoch = shared ? editor.sharedAtlasProjectEpoch : null;
+    const atlas = this._getAtlas(selectedAtlasId);
     if (!atlas) return;
 
     if (title) title.textContent = '选中图集';
     const sliceCount = atlas.slices ? Object.keys(atlas.slices).length : 0;
-    if (this._isSharedAtlas(atlas.id)) {
-      propsPanel.innerHTML = `
-        <div class="slice-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
-        <div class="slice-prop-row"><label>资源ID:</label><input value="${atlas.assetId || atlas.id}" disabled style="color:#88ccff;"></div>
-        <div class="slice-prop-row"><label>名称:</label><input value="${atlas.name || ''}" disabled></div>
-        <div class="slice-prop-row"><label>图片路径:</label><input value="${atlas.path || ''}" disabled></div>
-        <div class="slice-prop-row"><label>尺寸:</label><input value="${atlas.width || 0}×${atlas.height || 0}" disabled></div>
-        <div class="slice-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
-        <div style="padding:8px 2px;color:#7ec8ff;font-size:11px;line-height:1.5;">游戏级共享图集：所有场景可用，完整定义不会写入当前场景 JSON。</div>
-      `;
-      return;
-    }
-
     propsPanel.innerHTML = `
-      <div class="slice-prop-row"><label>ID:</label><input value="${atlas.id}" disabled style="color:#FFD700;"></div>
-      <div class="slice-prop-row"><label>名称:</label><input type="text" id="atlas-prop-name" value="${atlas.name || ''}"></div>
-      <div class="slice-prop-row"><label>图片路径:</label><input type="text" id="atlas-prop-path" value="${atlas.path || ''}" title="图集图片相对路径或 URL"></div>
-      <div class="slice-prop-row"><label>宽度:</label><input type="number" id="atlas-prop-width" value="${atlas.width || 0}"></div>
-      <div class="slice-prop-row"><label>高度:</label><input type="number" id="atlas-prop-height" value="${atlas.height || 0}"></div>
+      <div class="slice-prop-row"><label>ID:</label><input value="${escapeHtml(atlas.id)}" disabled style="color:#FFD700;"></div>
+      <div class="slice-prop-row"><label>资源ID:</label><input value="${escapeHtml(atlas.assetId || atlas.id)}" disabled style="color:#88ccff;"></div>
+      <div class="slice-prop-row"><label>名称:</label><input type="text" id="atlas-prop-name" value="${escapeHtml(atlas.name || '')}"></div>
+      <div class="slice-prop-row"><label>图片路径:</label><input type="text" id="atlas-prop-path" value="${escapeHtml(atlas.path || '')}" title="当前游戏 assets/images/ 或 assets/atlases/ 下的路径"></div>
+      <div class="slice-prop-row"><label>宽度:</label><input id="atlas-prop-width" value="${atlas.width || 0}" disabled></div>
+      <div class="slice-prop-row"><label>高度:</label><input id="atlas-prop-height" value="${atlas.height || 0}" disabled></div>
       <div class="slice-prop-row"><label>切片数:</label><input value="${sliceCount}" disabled style="color:#88ccff;"></div>
       <div class="slice-prop-row" style="margin-top:8px;">
         <button id="atlas-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
         <button id="atlas-new-slice-btn" style="flex:1;padding:5px;cursor:pointer;">+ 新建切片</button>
       </div>
       <div class="slice-prop-row">
-        <button id="atlas-save-btn" style="width:100%;padding:5px;cursor:pointer;">💾 保存图集</button>
+        <button id="atlas-save-btn" style="width:100%;padding:5px;cursor:pointer;">💾 保存共享图集</button>
+      </div>
+      <div style="padding:8px 2px;color:${shared ? '#7ec8ff' : '#e5b567'};font-size:11px;line-height:1.5;">
+        ${shared
+          ? '游戏级共享草稿：保存时自动同步稳定 ID 与 Asset Manifest，完整定义不会写入场景 JSON。'
+          : '场景局部 legacy 图集仅作兼容；请新建游戏级共享图集替代。'}
       </div>
     `;
 
-    // 绑定属性修改
     const nameInput = document.getElementById('atlas-prop-name');
     const pathInput = document.getElementById('atlas-prop-path');
     const widthInput = document.getElementById('atlas-prop-width');
     const heightInput = document.getElementById('atlas-prop-height');
-
-    nameInput.addEventListener('change', () => { atlas.name = nameInput.value; this._updateAtlasList(); });
-    pathInput.addEventListener('change', () => {
-      atlas.path = pathInput.value;
-      editor.loadedImages.delete(atlas.id);
-      this.loadAtlasImages();
+    nameInput.addEventListener('change', () => {
+      if (shared && !this._isSharedAtlasEditCurrent(propertyDraft, propertyEpoch)) {
+        nameInput.value = atlas.name || '';
+        editor.ui.showToast?.('项目已切换，请重新选择图集后编辑', 'error');
+        return;
+      }
+      atlas.name = nameInput.value.trim() || atlas.name;
+      if (shared) this._markSharedAtlasDraftDirty(propertyDraft, propertyEpoch);
       this._updateAtlasList();
     });
-    widthInput.addEventListener('change', () => { atlas.width = parseInt(widthInput.value) || 0; });
-    heightInput.addEventListener('change', () => { atlas.height = parseInt(heightInput.value) || 0; });
+    pathInput.addEventListener('change', async () => {
+      if (!shared) {
+        pathInput.value = atlas.path || '';
+        editor.ui.showToast?.('场景局部 legacy 图集不能写回共享 catalog', 'warn');
+        return;
+      }
+      if (!this._isSharedAtlasEditCurrent(propertyDraft, propertyEpoch)) {
+        pathInput.value = atlas.path || '';
+        editor.ui.showToast?.('项目已切换，请重新选择图集后编辑', 'error');
+        return;
+      }
+      const previousPath = atlas.path;
+      const endEdit = this._beginSharedAtlasDraftEdit(propertyDraft);
+      try {
+        const nextPath = this._normalizeAtlasPath(pathInput.value);
+        const image = await this._loadAtlasPreview(
+          { ...atlas, path: nextPath },
+          propertyDraft.projectPath
+        );
+        if (!this._isSharedAtlasEditCurrent(propertyDraft, propertyEpoch)) {
+          throw new Error('图片加载期间项目已切换，请重新选择图集图片');
+        }
+        atlas.path = nextPath;
+        atlas.width = image.naturalWidth;
+        atlas.height = image.naturalHeight;
+        const draft = this._markSharedAtlasDraftDirty(propertyDraft, propertyEpoch);
+        draft.previewImages.set(atlas.id, image);
+        if (pathInput.isConnected) pathInput.value = nextPath;
+        if (widthInput?.isConnected) widthInput.value = atlas.width;
+        if (heightInput?.isConnected) heightInput.value = atlas.height;
+        this._updateSlicePreviews();
+        editor.render();
+      } catch (error) {
+        if (pathInput.isConnected) pathInput.value = previousPath;
+        editor.ui.showToast?.(error.message, 'error');
+      } finally {
+        endEdit();
+      }
+    });
 
-    // 编辑按钮：弹窗展示图集图片，可更换路径
     document.getElementById('atlas-edit-btn').addEventListener('click', () => {
+      if (!shared) {
+        editor.ui.showToast?.('请先迁移为游戏级共享图集', 'warn');
+        return;
+      }
       this._openAtlasEditorModal(atlas);
     });
-
-    // 新建切片按钮
     document.getElementById('atlas-new-slice-btn').addEventListener('click', () => {
+      if (!shared) {
+        editor.ui.showToast?.('请先迁移为游戏级共享图集', 'warn');
+        return;
+      }
       this._openNewSliceModal(atlas);
     });
-
-    // 保存按钮
-    document.getElementById('atlas-save-btn').addEventListener('click', () => {
-      this.saveAtlases();
-    });
+    document.getElementById('atlas-save-btn').addEventListener('click', () => this.saveAtlases());
   }
 
   /**
@@ -1503,26 +1812,27 @@ export class SceneEditorAssets {
    */
   _openAtlasEditorModal(atlas) {
     const editor = this.editor;
-    const img = editor.loadedImages.get(atlas.id);
+    let previewImage = this._getAtlasImage(atlas.id);
+    let previewPath = atlas.path;
 
     const overlay = document.createElement('div');
     overlay.id = 'slice-editor-overlay';
     overlay.innerHTML = `
       <div id="slice-editor-modal">
         <div class="slice-modal-header">
-          <span>图集编辑 - ${atlas.name || atlas.id}</span>
+          <span>图集编辑 - ${escapeHtml(atlas.name || atlas.id)}</span>
           <button id="slice-modal-close" title="关闭">✕</button>
         </div>
         <div class="slice-modal-body">
           <div class="slice-modal-canvas-wrap">
             <canvas id="atlas-modal-canvas"></canvas>
-            ${!img ? '<div style="padding:20px;color:#f88;font-size:12px;">图片未加载，请设置正确路径</div>' : ''}
+            ${!previewImage ? '<div id="atlas-modal-load-error" style="padding:20px;color:#f88;font-size:12px;">图片未加载，请设置正确路径后刷新</div>' : ''}
           </div>
           <div class="slice-modal-params">
-            <div class="smp-row"><label>名称:</label><input type="text" id="amp-name" value="${atlas.name || ''}"></div>
-            <div class="smp-row"><label>图片路径:</label><input type="text" id="amp-path" value="${atlas.path || ''}" style="min-width:180px;"></div>
-            <div class="smp-row"><label>宽度:</label><input type="number" id="amp-width" value="${atlas.width || 0}"></div>
-            <div class="smp-row"><label>高度:</label><input type="number" id="amp-height" value="${atlas.height || 0}"></div>
+            <div class="smp-row"><label>名称:</label><input type="text" id="amp-name" value="${escapeHtml(atlas.name || '')}"></div>
+            <div class="smp-row"><label>图片路径:</label><input type="text" id="amp-path" value="${escapeHtml(atlas.path || '')}" style="min-width:180px;"></div>
+            <div class="smp-row"><label>宽度:</label><input id="amp-width" value="${atlas.width || 0}" disabled></div>
+            <div class="smp-row"><label>高度:</label><input id="amp-height" value="${atlas.height || 0}" disabled></div>
             <div class="smp-info">切片数: ${atlas.slices ? Object.keys(atlas.slices).length : 0}</div>
             <div class="smp-row" style="margin-top:6px;">
               <button id="amp-reload" style="flex:1;">刷新图片</button>
@@ -1536,65 +1846,121 @@ export class SceneEditorAssets {
       </div>
     `;
     document.body.appendChild(overlay);
+    const editDraft = this._isSharedAtlas(atlas.id)
+      ? this._ensureSharedAtlasDraft()
+      : null;
+    const editEpoch = editDraft ? editor.sharedAtlasProjectEpoch : null;
+    const endModalEdit = editDraft ? this._beginSharedAtlasDraftEdit(editDraft) : null;
 
-    // 绘制图集预览
-    const canvas = document.getElementById('atlas-modal-canvas');
+    const canvas = overlay.querySelector('#atlas-modal-canvas');
+    const nameInput = overlay.querySelector('#amp-name');
+    const pathInput = overlay.querySelector('#amp-path');
+    const widthInput = overlay.querySelector('#amp-width');
+    const heightInput = overlay.querySelector('#amp-height');
+    const reloadButton = overlay.querySelector('#amp-reload');
+    const confirmButton = overlay.querySelector('#amp-confirm');
+    let closed = false;
+
     const drawAtlas = () => {
-      const curImg = editor.loadedImages.get(atlas.id);
-      if (!curImg || !canvas) return;
+      if (!previewImage || !canvas?.isConnected) return;
       const maxCW = Math.min(700, window.innerWidth - 320);
       const maxCH = Math.min(500, window.innerHeight - 160);
-      const scale = Math.min(maxCW / curImg.naturalWidth, maxCH / curImg.naturalHeight, 2);
-      canvas.width = Math.round(curImg.naturalWidth * scale);
-      canvas.height = Math.round(curImg.naturalHeight * scale);
+      const scale = Math.min(maxCW / previewImage.naturalWidth, maxCH / previewImage.naturalHeight, 2);
+      canvas.width = Math.round(previewImage.naturalWidth * scale);
+      canvas.height = Math.round(previewImage.naturalHeight * scale);
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(curImg, 0, 0, canvas.width, canvas.height);
-      // 画所有切片线框
-      if (atlas.slices) {
-        ctx.strokeStyle = 'rgba(76,175,80,0.7)';
-        ctx.lineWidth = 1;
-        for (const slice of Object.values(atlas.slices)) {
-          ctx.strokeRect(slice.sx * scale, slice.sy * scale, slice.sw * scale, slice.sh * scale);
-        }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(previewImage, 0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = 'rgba(76,175,80,0.7)';
+      ctx.lineWidth = 1;
+      for (const slice of Object.values(atlas.slices || {})) {
+        ctx.strokeRect(slice.sx * scale, slice.sy * scale, slice.sw * scale, slice.sh * scale);
       }
     };
     drawAtlas();
 
-    const close = () => overlay.remove();
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-    document.getElementById('slice-modal-close').addEventListener('click', close);
-    document.getElementById('amp-cancel').addEventListener('click', close);
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      overlay.remove();
+      endModalEdit?.();
+    };
 
-    // 刷新图片
-    document.getElementById('amp-reload').addEventListener('click', () => {
-      const newPath = document.getElementById('amp-path').value.trim();
-      if (!newPath) return;
-      const newImg = new Image();
-      newImg.onload = () => {
-        editor.loadedImages.set(atlas.id, newImg);
-        document.getElementById('amp-width').value = newImg.naturalWidth;
-        document.getElementById('amp-height').value = newImg.naturalHeight;
-        drawAtlas();
-      };
-      newImg.onerror = () => editor.ui.showToast?.('图片加载失败: ' + newPath, 'error');
-      newImg.src = newPath;
+    const loadInputPreview = async (nextPath) => {
+      const image = await this._loadAtlasPreview(
+        { ...atlas, path: nextPath },
+        editDraft?.projectPath || this._currentProjectPath()
+      );
+      if (
+        closed
+        || (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch))
+      ) {
+        throw new Error('图片加载期间项目或弹窗已切换，请重新打开图集');
+      }
+      previewImage = image;
+      previewPath = nextPath;
+      pathInput.value = nextPath;
+      widthInput.value = image.naturalWidth;
+      heightInput.value = image.naturalHeight;
+      overlay.querySelector('#atlas-modal-load-error')?.remove();
+      drawAtlas();
+      return image;
+    };
+
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector('#slice-modal-close').addEventListener('click', close);
+    overlay.querySelector('#amp-cancel').addEventListener('click', close);
+    reloadButton.addEventListener('click', async () => {
+      if (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch)) {
+        editor.ui.showToast?.('项目已切换，请重新打开图集', 'error');
+        close();
+        return;
+      }
+      const endAsyncEdit = editDraft ? this._beginSharedAtlasDraftEdit(editDraft) : null;
+      reloadButton.disabled = true;
+      try {
+        const requestedPath = this._normalizeAtlasPath(pathInput.value);
+        await loadInputPreview(requestedPath);
+      } catch (error) {
+        if (!closed) editor.ui.showToast?.(error.message, 'error');
+      } finally {
+        endAsyncEdit?.();
+        if (!closed) reloadButton.disabled = false;
+      }
     });
 
-    // 确定
-    document.getElementById('amp-confirm').addEventListener('click', () => {
-      atlas.name = document.getElementById('amp-name').value.trim() || atlas.name;
-      const newPath = document.getElementById('amp-path').value.trim();
-      if (newPath && newPath !== atlas.path) {
-        atlas.path = newPath;
-        editor.loadedImages.delete(atlas.id);
-        this.loadAtlasImages();
+    confirmButton.addEventListener('click', async () => {
+      if (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch)) {
+        editor.ui.showToast?.('项目已切换，请重新打开图集', 'error');
+        close();
+        return;
       }
-      atlas.width = parseInt(document.getElementById('amp-width').value) || atlas.width;
-      atlas.height = parseInt(document.getElementById('amp-height').value) || atlas.height;
-      this._updateAtlasList();
-      this._showAtlasProperties();
-      editor.render();
-      close();
+      const endAsyncEdit = editDraft ? this._beginSharedAtlasDraftEdit(editDraft) : null;
+      confirmButton.disabled = true;
+      try {
+        const requestedPath = this._normalizeAtlasPath(pathInput.value);
+        const requestedName = nameInput.value.trim();
+        if (!previewImage || requestedPath !== previewPath) await loadInputPreview(requestedPath);
+        if (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch)) {
+          throw new Error('编辑期间项目已切换，请在当前项目重新打开图集');
+        }
+        atlas.name = requestedName || atlas.name;
+        atlas.path = previewPath;
+        atlas.width = previewImage.naturalWidth;
+        atlas.height = previewImage.naturalHeight;
+        const draft = this._markSharedAtlasDraftDirty(editDraft, editEpoch);
+        draft.previewImages.set(atlas.id, previewImage);
+        this._updateAtlasList();
+        this._updateSlicePreviews();
+        this._showAtlasProperties();
+        editor.render();
+        close();
+      } catch (error) {
+        if (!closed) editor.ui.showToast?.(error.message, 'error');
+      } finally {
+        endAsyncEdit?.();
+        if (!closed) confirmButton.disabled = false;
+      }
     });
   }
 
@@ -1604,16 +1970,26 @@ export class SceneEditorAssets {
    */
   _openNewSliceModal(atlas) {
     const editor = this.editor;
-    const img = editor.loadedImages.get(atlas.id);
+    const img = this._getAtlasImage(atlas.id);
     if (!img) {
       editor.ui.showToast?.('图集图片未加载，请先设置路径', 'error');
       return;
     }
+    const editDraft = this._isSharedAtlas(atlas.id)
+      ? this._ensureSharedAtlasDraft()
+      : null;
+    const editEpoch = editDraft ? editor.sharedAtlasProjectEpoch : null;
+    const endEdit = editDraft ? this._beginSharedAtlasDraftEdit(editDraft) : null;
 
     // 默认切片参数
-    const state = { sx: 0, sy: 0, sw: 64, sh: 64 };
-    let sliceName = '新切片';
-    let sliceKey = 'slice_' + Date.now().toString(36);
+    const state = {
+      sx: 0,
+      sy: 0,
+      sw: Math.min(64, img.naturalWidth),
+      sh: Math.min(64, img.naturalHeight)
+    };
+    const sliceName = '新切片';
+    const sliceKey = this._nextSliceKey(atlas);
 
     const overlay = document.createElement('div');
     overlay.id = 'slice-editor-overlay';
@@ -1748,7 +2124,13 @@ export class SceneEditorAssets {
       });
     });
 
-    const close = () => overlay.remove();
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      overlay.remove();
+      endEdit?.();
+    };
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     document.getElementById('slice-modal-close').addEventListener('click', close);
     document.getElementById('smp-cancel').addEventListener('click', close);
@@ -1756,19 +2138,37 @@ export class SceneEditorAssets {
     document.getElementById('smp-confirm').addEventListener('click', () => {
       const key = document.getElementById('smp-key').value.trim() || sliceKey;
       const name = document.getElementById('smp-name').value.trim() || '新切片';
+      const sx = Math.round(state.sx);
+      const sy = Math.round(state.sy);
+      const sw = Math.round(state.sw);
+      const sh = Math.round(state.sh);
+      if (!STABLE_ID_PATTERN.test(key)) {
+        editor.ui.showToast?.('切片 Key 必须以字母开头，且只能包含字母、数字、点、下划线和短横线', 'error');
+        return;
+      }
       if (atlas.slices[key]) {
         editor.ui.showToast?.(`切片 Key "${key}" 已存在，请换一个`, 'error');
         return;
       }
+      if (sx < 0 || sy < 0 || sw <= 0 || sh <= 0 || sx + sw > img.naturalWidth || sy + sh > img.naturalHeight) {
+        editor.ui.showToast?.('切片范围必须完整位于图集图片内', 'error');
+        return;
+      }
+      if (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch)) {
+        editor.ui.showToast?.('编辑期间项目已切换，请在当前项目重新新建切片', 'error');
+        close();
+        return;
+      }
       atlas.slices[key] = {
         name,
-        sx: Math.round(state.sx),
-        sy: Math.round(state.sy),
-        sw: Math.round(state.sw),
-        sh: Math.round(state.sh),
+        sx,
+        sy,
+        sw,
+        sh,
         collide: document.getElementById('smp-collide').checked,
         colliderRadius: parseInt(document.getElementById('smp-radius').value) || 16
       };
+      this._markSharedAtlasDraftDirty(editDraft, editEpoch);
       this._updateAtlasList();
       this._updateSlicePreviews();
       this._showAtlasProperties();
@@ -1779,21 +2179,266 @@ export class SceneEditorAssets {
   }
 
   /**
-   * 共享图集由当前游戏 config/atlases.json 统一维护，不允许在单场景会话创建局部副本。
+   * 新建游戏级共享图集草稿。稳定 ID 从项目内图片路径确定生成，无需用户另行登记。
    */
-  addAtlas() {
-    this.editor.ui.showToast?.('图集是游戏级共享资源，请在共享图集配置中登记稳定 ID', 'warn');
-    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
+  async addAtlas() {
+    const editor = this.editor;
+    const requestedPath = prompt(
+      '请输入图集图片在当前游戏中的路径：\n（如 assets/images/environment/forest.png）',
+      'assets/images/'
+    );
+    if (requestedPath === null) return { ok: false, committed: false, code: 'cancelled' };
+
+    let endEdit = null;
+    try {
+      const pathValue = this._normalizeAtlasPath(requestedPath);
+      const draft = this._ensureSharedAtlasDraft();
+      const editEpoch = editor.sharedAtlasProjectEpoch;
+      const existing = draft.config.atlases.find(atlas => atlas?.path === pathValue);
+      if (existing) {
+        editor.selectedAtlasId = existing.id;
+        editor.selectedSlice = null;
+        this._updateAtlasList();
+        this._showAtlasProperties();
+        editor.ui.showToast?.(`该图片已登记为共享图集: ${existing.name || existing.id}`, 'warn');
+        return { ok: true, committed: false, status: 'existing', atlasId: existing.id };
+      }
+
+      const defaultName = pathValue.split('/').pop()?.replace(/\.[^.]+$/, '') || '新图集';
+      const requestedName = prompt('请输入图集名称：', defaultName);
+      if (requestedName === null) return { ok: false, committed: false, code: 'cancelled' };
+      endEdit = this._beginSharedAtlasDraftEdit(draft);
+      const image = await this._loadAtlasPreview({ path: pathValue }, draft.projectPath);
+      if (!this._isSharedAtlasEditCurrent(draft, editEpoch)) {
+        throw new Error('图片加载期间项目已切换，请在当前项目重新添加图集');
+      }
+      const id = this._deriveAtlasId(pathValue, draft.config.atlases);
+      const atlas = {
+        id,
+        assetId: id,
+        imageId: id,
+        name: requestedName.trim() || defaultName,
+        path: pathValue,
+        width: image.naturalWidth,
+        height: image.naturalHeight,
+        slices: {}
+      };
+      draft.config.atlases.push(atlas);
+      draft.previewImages.set(id, image);
+      this._markSharedAtlasDraftDirty(draft, editEpoch);
+
+      editor.selectedAtlasId = id;
+      editor.selectedSlice = null;
+      this._updateAtlasList();
+      this._updateSlicePreviews();
+      this._showAtlasProperties();
+      editor.render();
+      editor.ui.showToast?.(`已创建共享图集草稿 ${id}；保存时会自动同步 Manifest`);
+      return { ok: true, committed: false, status: 'draft', atlasId: id, atlas };
+    } catch (error) {
+      editor.ui.showToast?.(`新建图集失败: ${error.message}`, 'error');
+      return { ok: false, committed: false, code: 'atlasDraftCreateFailed', error };
+    } finally {
+      endEdit?.();
+    }
   }
 
   deleteAtlas() {
-    this.editor.ui.showToast?.('共享图集不能从单个场景删除', 'warn');
-    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
+    const editor = this.editor;
+    const atlasId = editor.selectedAtlasId;
+    if (!atlasId) {
+      editor.ui.showToast?.('请先选择要删除的图集', 'warn');
+      return { ok: false, committed: false, code: 'missingSelection' };
+    }
+
+    try {
+      const draft = this._ensureSharedAtlasDraft();
+      const editEpoch = editor.sharedAtlasProjectEpoch;
+      const atlas = draft.config.atlases.find(candidate => candidate?.id === atlasId);
+      if (!atlas) {
+        editor.ui.showToast?.('场景局部 legacy 图集不能从共享 catalog 删除', 'warn');
+        return { ok: false, committed: false, code: 'legacyAtlasReadOnly' };
+      }
+      const references = this._findCurrentSceneAtlasReferences(atlasId);
+      if (references.length > 0) {
+        editor.ui.showToast?.(`当前场景仍引用该图集: ${references.slice(0, 3).join(', ')}`, 'error');
+        return { ok: false, committed: false, code: 'atlasStillReferenced', references };
+      }
+      if (!confirm(`确定删除共享图集「${atlas.name || atlasId}」吗？保存时会同时更新 Manifest。`)) {
+        return { ok: false, committed: false, code: 'cancelled' };
+      }
+
+      draft.config.atlases = draft.config.atlases.filter(candidate => candidate?.id !== atlasId);
+      draft.previewImages.delete(atlasId);
+      this._markSharedAtlasDraftDirty(draft, editEpoch);
+      editor.selectedAtlasId = null;
+      if (editor.selectedSlice?.atlasId === atlasId) editor.selectedSlice = null;
+      this._updateAtlasList();
+      this._showAtlasProperties();
+      editor.render();
+      editor.ui.showToast?.('图集已从草稿删除；保存前不会修改磁盘', 'warn');
+      return { ok: true, committed: false, status: 'draft', atlasId };
+    } catch (error) {
+      editor.ui.showToast?.(`删除图集失败: ${error.message}`, 'error');
+      return { ok: false, committed: false, code: 'atlasDraftDeleteFailed', error };
+    }
   }
 
   async saveAtlases() {
-    this.editor.ui.showToast?.('共享图集为只读投影；场景只保存 atlasId/sliceKey', 'warn');
-    return { ok: false, committed: false, code: 'sharedAtlasCatalogReadOnly' };
+    const requestedProjectPath = this._currentProjectPath();
+    const inFlight = this._atlasSavePromises.get(requestedProjectPath);
+    if (inFlight) return inFlight;
+    const save = async () => {
+      const editor = this.editor;
+      let draft;
+      try { draft = this._ensureSharedAtlasDraft(); }
+      catch (error) {
+        editor.ui.showToast?.(`共享图集保存失败: ${error.message}`, 'error');
+        return { ok: false, committed: false, code: 'sharedAtlasCatalogUnavailable', error };
+      }
+      if (!draft.dirty) {
+        editor.ui.showToast?.('共享图集没有待保存修改');
+        return { ok: true, committed: false, status: 'noChanges', code: 'noChanges' };
+      }
+
+      const saveSharedAtlasCatalog = editor.options?.saveSharedAtlasCatalog;
+      if (typeof saveSharedAtlasCatalog !== 'function') {
+        const result = {
+          ok: false,
+          committed: false,
+          status: 'rejected',
+          code: 'missingSharedAtlasPersistence',
+          error: '宿主未配置共享图集提交服务'
+        };
+        editor.ui.showToast?.(result.error, 'error');
+        return result;
+      }
+
+      // 保存候选与在途草稿分离；请求期间产生的新编辑必须继续保留为 dirty 草稿。
+      const candidate = structuredClone(draft.config);
+      const candidateFingerprint = JSON.stringify(candidate);
+      const baseConfigAtSave = structuredClone(draft.baseConfig);
+      const previewImagesAtSave = new Map(draft.previewImages);
+      const projectPathAtSave = draft.projectPath;
+      const projectEpochAtSave = editor.sharedAtlasProjectEpoch;
+      let result;
+      try { result = await saveSharedAtlasCatalog(projectPathAtSave, candidate); }
+      catch (error) {
+        result = { ok: false, committed: false, status: 'failed', code: 'sharedAtlasCommitFailed', error };
+      }
+      if (result?.ok !== true || result.committed !== true) {
+        editor.ui.showToast?.(`共享图集保存失败: ${this._persistenceError(result, '磁盘未提交')}`, 'error');
+        return result;
+      }
+
+      // 先把提交事实归档到请求所属项目；切换项目只影响当前 UI，不得丢弃迟到成功。
+      const committedCatalog = editor.setCommittedSharedAtlasCatalog(
+        projectPathAtSave,
+        result.catalog || candidate
+      );
+      // 无论当前 UI 是否已切走，都先把提交事实写回请求所属项目的权威缓存分区。
+      updateAtlasesCache(projectPathAtSave, structuredClone(committedCatalog));
+      const changedIds = this._changedAtlasIds(baseConfigAtSave, committedCatalog);
+      const projectDraft = this._getSharedAtlasDraft(projectPathAtSave);
+      let hasPendingDraftChanges = false;
+      if (projectDraft) {
+        const configChangedSinceSave = projectDraft !== draft
+          || JSON.stringify(projectDraft.config) !== candidateFingerprint;
+        const hasPendingEdits = (Number(projectDraft.pendingEditCount) || 0) > 0;
+        projectDraft.baseConfig = structuredClone(committedCatalog);
+        if (!configChangedSinceSave && !hasPendingEdits) {
+          projectDraft.dirty = false;
+          this._clearSharedAtlasDraft(projectDraft);
+        } else {
+          projectDraft.dirty = JSON.stringify(projectDraft.config) !== JSON.stringify(committedCatalog);
+          hasPendingDraftChanges = projectDraft.dirty || hasPendingEdits;
+          if (!hasPendingDraftChanges) this._clearSharedAtlasDraft(projectDraft);
+        }
+      }
+
+      const activeState = this._activateSharedAtlasProject();
+      if (
+        activeState.projectPath !== projectPathAtSave
+        || activeState.epoch !== projectEpochAtSave
+      ) {
+        const warning = {
+          category: 'postCommitProjectChanged',
+          message: hasPendingDraftChanges
+            ? '共享图集已写入磁盘，原项目的在途修改仍保留；编辑器已切换项目，当前界面未刷新'
+            : '共享图集已写入磁盘，但编辑器已切换项目，当前界面未刷新'
+        };
+        editor.ui.showToast?.(warning.message, 'warn');
+        return {
+          ...result,
+          degraded: true,
+          status: 'committed-with-degradation',
+          pendingDraftChanges: hasPendingDraftChanges || undefined,
+          warnings: [...(Array.isArray(result.warnings) ? result.warnings : []), warning]
+        };
+      }
+
+      try {
+        for (const atlasId of changedIds) editor.loadedImages.delete(atlasId);
+        const committedIds = new Set(committedCatalog.atlases.map(atlas => atlas.id));
+        for (const [atlasId, image] of previewImagesAtSave.entries()) {
+          if (committedIds.has(atlasId)) editor.loadedImages.set(atlasId, image);
+        }
+
+        const selectedSliceRef = editor.selectedSlice
+          ? { atlasId: editor.selectedSlice.atlasId, sliceKey: editor.selectedSlice.sliceKey }
+          : null;
+        const visibleDraft = this._getSharedAtlasDraft(projectPathAtSave);
+        const visibleCatalog = visibleDraft?.config || committedCatalog;
+        const visibleIds = new Set(visibleCatalog.atlases.map(atlas => atlas.id));
+        if (editor.selectedAtlasId && !visibleIds.has(editor.selectedAtlasId)) editor.selectedAtlasId = null;
+        const selectedSliceExists = Boolean(
+          selectedSliceRef
+          && visibleCatalog.atlases.some(atlas => (
+            atlas.id === selectedSliceRef.atlasId
+            && Object.prototype.hasOwnProperty.call(atlas.slices || {}, selectedSliceRef.sliceKey)
+          ))
+        );
+        if (selectedSliceRef && !selectedSliceExists) editor.selectedSlice = null;
+        this.loadAtlasImages();
+        this._updateAtlasList();
+        this._updateSlicePreviews();
+        if (selectedSliceExists) {
+          this._selectSlice(selectedSliceRef.atlasId, selectedSliceRef.sliceKey);
+        } else {
+          this._showAtlasProperties();
+        }
+        editor.render();
+      } catch (error) {
+        editor.ui.showToast?.(`共享图集已写入磁盘，但编辑器缓存刷新失败: ${error.message}`, 'warn');
+        return {
+          ...result,
+          degraded: true,
+          status: 'committed-with-degradation',
+          pendingDraftChanges: hasPendingDraftChanges || undefined,
+          warnings: [
+            ...(Array.isArray(result.warnings) ? result.warnings : []),
+            { category: 'postCommitAtlasCacheRefreshFailed', message: error.message }
+          ]
+        };
+      }
+
+      editor.ui.showToast?.(
+        hasPendingDraftChanges
+          ? '共享图集已提交发送前修改；保存期间的新修改仍待保存'
+          : (result.degraded ? '共享图集已提交，但磁盘后置同步降级' : '共享图集与 Asset Manifest 已原子保存'),
+        hasPendingDraftChanges || result.degraded ? 'warn' : 'success'
+      );
+      return hasPendingDraftChanges ? { ...result, pendingDraftChanges: true } : result;
+    };
+
+    const savePromise = save();
+    this._atlasSavePromises.set(requestedProjectPath, savePromise);
+    try { return await savePromise; }
+    finally {
+      if (this._atlasSavePromises.get(requestedProjectPath) === savePromise) {
+        this._atlasSavePromises.delete(requestedProjectPath);
+      }
+    }
   }
 
   /**
@@ -1858,8 +2503,23 @@ export class SceneEditorAssets {
    */
   _selectSlice(atlasId, sliceKey) {
     const editor = this.editor;
+    let shared = this._isSharedAtlas(atlasId);
+    let sharedDraft = null;
+    let sharedEpoch = null;
+    if (shared) {
+      try {
+        sharedDraft = this._ensureSharedAtlasDraft();
+        sharedEpoch = editor.sharedAtlasProjectEpoch;
+      }
+      catch (error) {
+        editor.ui.showToast?.(`共享切片不可编辑: ${error.message}`, 'error');
+        return;
+      }
+    }
+
     const atlas = this._getAtlas(atlasId);
     if (!atlas) return;
+    shared = this._isSharedAtlas(atlasId);
 
     const slice = atlas.slices?.[sliceKey];
     if (!slice) return;
@@ -1875,34 +2535,22 @@ export class SceneEditorAssets {
     const selectedEl = editor.container.querySelector(`.slice-item[data-atlas="${atlasId}"][data-slice="${sliceKey}"]`);
     if (selectedEl) selectedEl.classList.add('selected');
 
-    // 显示切片属性
     const propsPanel = document.getElementById('slice-properties');
     const title = document.getElementById('slice-panel-title');
     if (title) title.textContent = '选中切片';
-    if (propsPanel && this._isSharedAtlas(atlasId)) {
-      propsPanel.innerHTML = `
-        <div class="slice-prop-row"><label>图集:</label><input value="${atlas.name || atlas.id}" disabled style="color:#FFD700;"></div>
-        <div class="slice-prop-row"><label>名称:</label><input value="${slice.name || sliceKey}" disabled></div>
-        <div class="slice-prop-row"><label>X:</label><input value="${slice.sx}" disabled></div>
-        <div class="slice-prop-row"><label>Y:</label><input value="${slice.sy}" disabled></div>
-        <div class="slice-prop-row"><label>宽度:</label><input value="${slice.sw}" disabled></div>
-        <div class="slice-prop-row"><label>高度:</label><input value="${slice.sh}" disabled></div>
-        <div class="slice-prop-row"><label>碰撞:</label><input value="${slice.collide === true ? '是' : '否'}" disabled></div>
-        <div class="slice-prop-row"><label>碰撞半径:</label><input value="${slice.colliderRadius ?? '—'}" disabled></div>
-        <div style="padding:8px 2px;color:#7ec8ff;font-size:11px;line-height:1.5;">共享切片为只读投影；拖入场景时仅保存 atlasId 与 sliceKey。</div>
-      `;
-      editor.selectedSlice = { atlasId, sliceKey, slice };
-      return;
-    }
     if (propsPanel) {
       propsPanel.innerHTML = `
         <div class="slice-prop-row">
           <label>图集:</label>
-          <input value="${atlas.name || atlas.id}" disabled style="color:#FFD700;">
+          <input value="${escapeHtml(atlas.name || atlas.id)}" disabled style="color:#FFD700;">
+        </div>
+        <div class="slice-prop-row">
+          <label>Key:</label>
+          <input value="${escapeHtml(sliceKey)}" disabled style="color:#88ccff;">
         </div>
         <div class="slice-prop-row">
           <label>名称:</label>
-          <input type="text" id="slice-name" value="${slice.name || sliceKey}">
+          <input type="text" id="slice-name" value="${escapeHtml(slice.name || sliceKey)}">
         </div>
         <div class="slice-prop-row">
           <label>X:</label>
@@ -1926,60 +2574,110 @@ export class SceneEditorAssets {
         </div>
         <div class="slice-prop-row">
           <label>碰撞半径:</label>
-          <input type="number" id="slice-radius" value="${slice.colliderRadius || 16}">
+          <input type="number" id="slice-radius" value="${slice.colliderRadius ?? 16}">
         </div>
         <div class="slice-prop-row" style="margin-top:8px;">
           <button id="slice-edit-btn" style="flex:1;padding:5px;cursor:pointer;">编辑</button>
           <button id="slice-delete-btn" style="flex:1;padding:5px;cursor:pointer;color:#f88;">删除</button>
         </div>
+        ${shared ? `
+          <div class="slice-prop-row">
+            <button id="slice-save-btn" style="width:100%;padding:5px;cursor:pointer;">💾 保存共享图集</button>
+          </div>
+          <div style="padding:8px 2px;color:#7ec8ff;font-size:11px;line-height:1.5;">
+            游戏级共享草稿：保存时与 Asset Manifest 原子提交；场景对象只引用 atlasId 与 sliceKey。
+          </div>
+        ` : ''}
       `;
 
-      // 绑定属性修改事件
+      const geometryProps = new Set(['sx', 'sy', 'sw', 'sh']);
       ['name', 'sx', 'sy', 'sw', 'sh', 'collide', 'radius'].forEach(prop => {
         const el = document.getElementById(`slice-${prop}`);
-        if (el) {
-          el.addEventListener('change', () => {
-            let value;
-            if (el.type === 'checkbox') value = el.checked;
-            else if (el.type === 'number') value = parseFloat(el.value);
-            else value = el.value;
+        if (!el) return;
+        el.addEventListener('change', () => {
+          const actualProp = prop === 'radius' ? 'colliderRadius' : prop;
+          let value;
+          if (el.type === 'checkbox') {
+            value = el.checked;
+          } else if (el.type === 'number') {
+            value = el.value.trim() === '' ? Number.NaN : Number(el.value);
+            if (geometryProps.has(actualProp) && Number.isFinite(value)) value = Math.round(value);
+          } else {
+            value = el.value.trim();
+          }
 
-            const actualProp = prop === 'radius' ? 'colliderRadius' : prop;
-            slice[actualProp] = value;
+          const candidate = { ...slice, [actualProp]: value };
+          const validationError = this._validateSliceCandidate(
+            candidate,
+            atlas,
+            this._getAtlasImage(atlas.id)
+          );
+          if (validationError) {
+            if (el.type === 'checkbox') el.checked = Boolean(slice[actualProp]);
+            else el.value = slice[actualProp] ?? '';
+            editor.ui.showToast?.(validationError, 'error');
+            return;
+          }
 
-            if (editor.sceneData.decoSprites && editor.sceneData.decoSprites[sliceKey]) {
-              editor.sceneData.decoSprites[sliceKey][actualProp] = value;
-            }
+          if (shared && !this._isSharedAtlasEditCurrent(sharedDraft, sharedEpoch)) {
+            if (el.type === 'checkbox') el.checked = Boolean(slice[actualProp]);
+            else el.value = slice[actualProp] ?? '';
+            editor.ui.showToast?.('项目已切换，请重新选择切片后编辑', 'error');
+            return;
+          }
 
-            editor.render();
-          });
-        }
+          Object.assign(slice, candidate);
+          if (shared) {
+            this._markSharedAtlasDraftDirty(sharedDraft, sharedEpoch);
+          } else if (editor.sceneData.decoSprites?.[sliceKey]) {
+            editor.sceneData.decoSprites[sliceKey][actualProp] = value;
+          }
+
+          if (actualProp === 'name') this._updateAtlasList();
+          this._updateSlicePreviews();
+          editor.render();
+        });
       });
 
-      // 编辑按钮：弹出切片编辑弹窗
-      const editBtn = document.getElementById('slice-edit-btn');
-      editBtn.addEventListener('click', () => {
+      document.getElementById('slice-edit-btn')?.addEventListener('click', () => {
         this._openSliceEditorModal(atlas, sliceKey, slice);
       });
 
-      // 删除按钮：从图集中移除该切片
-      const deleteBtn = document.getElementById('slice-delete-btn');
-      deleteBtn.addEventListener('click', () => {
+      document.getElementById('slice-delete-btn')?.addEventListener('click', () => {
+        if (shared) {
+          const references = this._findCurrentSceneAtlasReferences(atlasId, sliceKey);
+          if (references.length > 0) {
+            editor.ui.showToast?.(
+              `当前场景仍引用该切片: ${references.slice(0, 3).join(', ')}`,
+              'error'
+            );
+            return;
+          }
+        }
         if (!confirm(`确定删除切片「${slice.name || sliceKey}」吗？`)) return;
+        if (shared && !this._isSharedAtlasEditCurrent(sharedDraft, sharedEpoch)) {
+          editor.ui.showToast?.('项目已切换，请重新选择切片后删除', 'error');
+          return;
+        }
+
         delete atlas.slices[sliceKey];
-        // 同步 decoSprites
-        if (editor.sceneData.decoSprites && editor.sceneData.decoSprites[sliceKey]) {
+        if (shared) {
+          this._markSharedAtlasDraftDirty(sharedDraft, sharedEpoch);
+        } else if (editor.sceneData.decoSprites?.[sliceKey]) {
           delete editor.sceneData.decoSprites[sliceKey];
         }
         editor.selectedSlice = null;
-        // 清空切片属性面板
-        const propsPanel = document.getElementById('slice-properties');
         if (propsPanel) propsPanel.innerHTML = '<div class="no-selection">未选中切片</div>';
         this._updateAtlasList();
         this._updateSlicePreviews();
         editor.render();
-        editor.ui.showToast?.('切片已删除');
+        editor.ui.showToast?.(
+          shared ? '切片已从共享草稿删除；保存前不会修改磁盘' : '切片已删除',
+          shared ? 'warn' : 'success'
+        );
       });
+
+      document.getElementById('slice-save-btn')?.addEventListener('click', () => this.saveAtlases());
     }
 
     editor.selectedSlice = { atlasId, sliceKey, slice };
@@ -1991,11 +2689,27 @@ export class SceneEditorAssets {
    */
   _openSliceEditorModal(atlas, sliceKey, slice) {
     const editor = this.editor;
-    const img = editor.loadedImages.get(atlas.id);
+    const shared = this._isSharedAtlas(atlas.id);
+    if (shared) {
+      try {
+        this._ensureSharedAtlasDraft();
+        atlas = this._getAtlas(atlas.id);
+        slice = atlas?.slices?.[sliceKey];
+      } catch (error) {
+        editor.ui.showToast?.(`共享切片不可编辑: ${error.message}`, 'error');
+        return;
+      }
+    }
+    if (!atlas || !slice) return;
+
+    const img = this._getAtlasImage(atlas.id);
     if (!img) {
       editor.ui.showToast?.('图集图片未加载，请先设置路径并保存', 'error');
       return;
     }
+    const editDraft = shared ? this._ensureSharedAtlasDraft() : null;
+    const editEpoch = editDraft ? editor.sharedAtlasProjectEpoch : null;
+    const endEdit = editDraft ? this._beginSharedAtlasDraftEdit(editDraft) : null;
 
     // 创建遮罩 + 弹窗
     const overlay = document.createElement('div');
@@ -2016,7 +2730,7 @@ export class SceneEditorAssets {
             <div class="smp-row"><label>宽:</label><input type="number" id="smp-sw" value="${slice.sw}"></div>
             <div class="smp-row"><label>高:</label><input type="number" id="smp-sh" value="${slice.sh}"></div>
             <div class="smp-row"><label>碰撞:</label><input type="checkbox" id="smp-collide" ${slice.collide ? 'checked' : ''}></div>
-            <div class="smp-row"><label>碰撞半径:</label><input type="number" id="smp-radius" value="${slice.colliderRadius || 16}"></div>
+            <div class="smp-row"><label>碰撞半径:</label><input type="number" id="smp-radius" value="${slice.colliderRadius ?? 16}"></div>
             <div class="smp-info" id="smp-info">图集: ${img.naturalWidth}×${img.naturalHeight}</div>
             <div class="smp-row" style="margin-top:12px;">
               <button id="smp-confirm" style="flex:1;">确定</button>
@@ -2144,7 +2858,13 @@ export class SceneEditorAssets {
     });
 
     // 关闭/确定/取消
-    const close = () => { overlay.remove(); };
+    let closed = false;
+    const close = () => {
+      if (closed) return;
+      closed = true;
+      overlay.remove();
+      endEdit?.();
+    };
     document.getElementById('slice-modal-close').addEventListener('click', close);
     document.getElementById('smp-cancel').addEventListener('click', () => {
       // 恢复原始值
@@ -2152,26 +2872,44 @@ export class SceneEditorAssets {
       close();
     });
     document.getElementById('smp-confirm').addEventListener('click', () => {
-      // 写回 slice 数据
-      slice.sx = Math.round(state.sx);
-      slice.sy = Math.round(state.sy);
-      slice.sw = Math.round(state.sw);
-      slice.sh = Math.round(state.sh);
-      const collideEl = document.getElementById('smp-collide');
-      const radiusEl = document.getElementById('smp-radius');
-      slice.collide = collideEl.checked;
-      slice.colliderRadius = parseInt(radiusEl.value) || 16;
-      // 同步 decoSprites
-      if (editor.sceneData.decoSprites && editor.sceneData.decoSprites[sliceKey]) {
+      const radiusValue = document.getElementById('smp-radius').value.trim();
+      const candidate = {
+        ...slice,
+        sx: Math.round(state.sx),
+        sy: Math.round(state.sy),
+        sw: Math.round(state.sw),
+        sh: Math.round(state.sh),
+        collide: document.getElementById('smp-collide').checked,
+        colliderRadius: radiusValue === '' ? Number.NaN : Number(radiusValue)
+      };
+      const validationError = this._validateSliceCandidate(candidate, atlas, img);
+      if (validationError) {
+        editor.ui.showToast?.(validationError, 'error');
+        return;
+      }
+      if (editDraft && !this._isSharedAtlasEditCurrent(editDraft, editEpoch)) {
+        editor.ui.showToast?.('编辑期间项目已切换，请在当前项目重新编辑切片', 'error');
+        close();
+        return;
+      }
+
+      Object.assign(slice, candidate);
+      if (shared) {
+        this._markSharedAtlasDraftDirty(editDraft, editEpoch);
+      } else if (editor.sceneData.decoSprites?.[sliceKey]) {
         Object.assign(editor.sceneData.decoSprites[sliceKey], {
-          sx: slice.sx, sy: slice.sy, sw: slice.sw, sh: slice.sh,
-          collide: slice.collide, colliderRadius: slice.colliderRadius
+          sx: slice.sx,
+          sy: slice.sy,
+          sw: slice.sw,
+          sh: slice.sh,
+          collide: slice.collide,
+          colliderRadius: slice.colliderRadius
         });
       }
-      // 刷新左侧切片属性面板和预览
       this._selectSlice(atlas.id, sliceKey);
       this._updateSlicePreviews();
       editor.render();
+      editor.ui.showToast?.(shared ? '共享切片已更新，请保存共享图集' : '切片已更新');
       close();
     });
     // 点遮罩空白区也关闭
@@ -2199,16 +2937,23 @@ export class SceneEditorAssets {
   }
 
   /**
-   * 加载图集图片
+   * 加载图集图片。共享草稿图片只进入 draft.previewImages，提交前不污染已提交缓存。
    */
   loadAtlasImages() {
     const editor = this.editor;
+    const generation = ++this._atlasImageLoadGeneration;
+    const { projectPath, epoch: projectEpoch } = this._activateSharedAtlasProject();
 
     // 1. 加载地形底图
     const terrainImage = editor.sceneData.terrain?.image;
     if (terrainImage && !editor.loadedImages.has('terrain_atlas')) {
       const timg = new Image();
       timg.onload = () => {
+        if (
+          generation !== this._atlasImageLoadGeneration
+          || projectPath !== this._currentProjectPath()
+          || projectEpoch !== editor.sharedAtlasProjectEpoch
+        ) return;
         editor.loadedImages.set('terrain_atlas', timg);
         editor.render();
       };
@@ -2219,16 +2964,57 @@ export class SceneEditorAssets {
     // 2. 加载场景局部与游戏级共享图集；共享定义不写入 sceneData。
     const atlases = this._availableAtlases();
     for (const atlas of atlases) {
-      if (editor.loadedImages.has(atlas.id)) continue;
-      const imageUrl = editor.getAtlasImageUrl?.(atlas.id) || atlas.path;
+      const shared = this._isSharedAtlas(atlas.id);
+      const draftAtRequest = shared ? this._getSharedAtlasDraft(projectPath) : null;
+      const targetMap = draftAtRequest?.previewImages || editor.loadedImages;
+      if (targetMap.has(atlas.id)) continue;
+
+      const imageUrl = shared
+        ? this._resolveAtlasImageUrl(atlas, projectPath)
+        : (editor.getAtlasImageUrl?.(atlas.id) || atlas.path);
       if (!imageUrl) continue;
+
+      const requestedPath = String(atlas.path || '');
       const img = new Image();
       img.onload = () => {
-        editor.loadedImages.set(atlas.id, img);
+        if (
+          generation !== this._atlasImageLoadGeneration
+          || projectPath !== this._currentProjectPath()
+          || projectEpoch !== editor.sharedAtlasProjectEpoch
+        ) return;
+
+        if (shared) {
+          const currentDraft = this._getSharedAtlasDraft(projectPath);
+          if (draftAtRequest && currentDraft !== draftAtRequest) return;
+          if (currentDraft) {
+            const currentAtlas = currentDraft.config.atlases.find(candidate => candidate?.id === atlas.id);
+            if (!currentAtlas || this._resolveAtlasImageUrl(currentAtlas, projectPath) !== imageUrl) return;
+            currentDraft.previewImages.set(atlas.id, img);
+          } else {
+            const currentAtlas = this._getAtlas(atlas.id);
+            if (!currentAtlas || !this._isSharedAtlas(atlas.id) || this._resolveAtlasImageUrl(currentAtlas, projectPath) !== imageUrl) {
+              return;
+            }
+            editor.loadedImages.set(atlas.id, img);
+          }
+        } else {
+          const currentAtlas = this._getAtlas(atlas.id);
+          if (!currentAtlas || String(currentAtlas.path || '') !== requestedPath) return;
+          editor.loadedImages.set(atlas.id, img);
+        }
+
         editor.render();
         this._updateSlicePreviews();
       };
-      img.onerror = () => console.error('Failed to load atlas:', atlas.id, 'path:', imageUrl);
+      img.onerror = () => {
+        if (
+          generation === this._atlasImageLoadGeneration
+          && projectPath === this._currentProjectPath()
+          && projectEpoch === editor.sharedAtlasProjectEpoch
+        ) {
+          console.error('Failed to load atlas:', atlas.id, 'path:', imageUrl);
+        }
+      };
       img.src = imageUrl;
     }
   }
@@ -2241,7 +3027,7 @@ export class SceneEditorAssets {
     const editor = this.editor;
     const atlases = this._availableAtlases();
     for (const atlas of atlases) {
-      const img = editor.loadedImages.get(atlas.id);
+      const img = this._getAtlasImage(atlas.id);
       if (!img) continue;
 
       for (const [sliceKey, slice] of Object.entries(atlas.slices || {})) {
@@ -2255,7 +3041,7 @@ export class SceneEditorAssets {
           canvas.height = slice.sh;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, slice.sx, slice.sy, slice.sw, slice.sh, 0, 0, slice.sw, slice.sh);
-          previewEl.innerHTML = `<img src="${canvas.toDataURL()}" alt="${slice.name || sliceKey}">`;
+          previewEl.innerHTML = `<img src="${canvas.toDataURL()}" alt="${escapeHtml(slice.name || sliceKey)}">`;
         }
       }
     }

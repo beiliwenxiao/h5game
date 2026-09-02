@@ -89,16 +89,23 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
 
             // 切换当前游戏（重新加载各子编辑器数据）
             async _switchGame(gameId) {
+                const gameContextGeneration = ++this._gameContextGeneration;
                 this.currentGameId = gameId;
                 this.currentSceneId = null;
                 const game = this.dataManager.setCurrentGame(gameId);
                 window._editorCurrentGame = game;
                 if (!game) return;
 
-                // 首次使用时从 _scene_order.json 初始化场景列表
-                await this.dataManager.initScenesFromFile(gameId);
+                // 与 editGame 相同：真实项目切换必须在首个 await 前推进 SceneEditor epoch。
+                const atlasContext = this._activateSharedAtlasProjectContext(game);
                 try {
+                    await Promise.all([
+                        this.dataManager.initScenesFromFile(gameId),
+                        atlasContext.ready
+                    ]);
+                    if (gameContextGeneration !== this._gameContextGeneration) return;
                     await this._ensureCanonicalProject(game);
+                    if (gameContextGeneration !== this._gameContextGeneration) return;
                     const bindCanonical = editor => {
                         if (!editor) return;
                         editor.gameId = game.id;
@@ -112,6 +119,7 @@ export class GameEditor extends EditorInteractionScene {            // 清理本
                     return;
                 }
                 await this._refreshProjectTriggers();
+                if (gameContextGeneration !== this._gameContextGeneration) return;
 
                 document.getElementById('current-game-name').textContent = game.name;
                 this.renderSceneList(gameId);

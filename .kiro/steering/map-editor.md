@@ -114,6 +114,8 @@ editor/
 - 游戏级文件是 atlas 元数据与全部 slice 裁剪区域的单一事实源
 - 每个 atlas 使用稳定 `assetId === imageId`，图片路径由 Manifest 映射；每个场景只保存 `atlasId/sliceKey`
 - `SceneEditor`、`WorldMapEditor` 和运行时统一通过 `AtlasRegistry` 解析；场景内 `atlases` 仅作旧数据只读 fallback，不能覆盖同 ID 的共享定义
+- 运行时硬依赖的 atlas/slice 必须登记在 `game.project.json -> extensions.atlases.requiredReferences[]`（`atlasId + sliceKeys[]`）；`/api/asset-transaction` 在磁盘 commit point 前验证这组项目级引用，禁止只靠运行时 JS 抛错而让编辑器先删除依赖
+- 共享 catalog 保存必须对发送候选做独立快照；请求期间继续产生的编辑保留为 dirty 草稿并提示再次保存，只有草稿仍等于已发送候选时才允许清空，切换项目后的迟到成功也不得刷新当前项目缓存
 - `WorldMapEditor` 必须在渲染缩略图前等待共享 catalog 与图片加载，并给 fake editor 注入同一组 `getAtlasDefinition/getAtlasSlice`；直接读取 `config.atlases` 会因 `$ref` 得到空列表，是缩略图退化为色块的根因
 
 ### `editor/config/builtin-games.json`
@@ -124,7 +126,8 @@ editor/
 
 1. 编辑器启动时，各模块异步加载对应 JSON 配置
 2. atlas 索引若含 `$ref`，必须先解析目标游戏配置再公开 catalog；加载失败只能回退到静态导入的同一游戏级 JSON，禁止回退到代码内切片坐标
-3. 配置加载后缓存在模块级变量中；切换项目的消费者必须失效自身图片和 registry 投影
+3. 配置加载后按规范化 `projectPath` 缓存在 `SceneDataLoader` 的 catalog/loadPromise Map 中；无参读取只投影当前活动项目。项目切换入口必须在首个 `await` 前同步调用 activation，使未加载项目的 legacy 投影立即清空并推进 `SceneEditor` epoch；显式项目 cache miss 禁止回退其他项目，图片异步请求也必须使用发起时捕获的 projectPath。
+4. 切换项目的消费者必须同时失效自身图片和 registry 投影；保存迟到成功先更新请求所属项目分区，只有 activation epoch 仍匹配时才刷新当前 UI。
 
 ### 初始化顺序
 ```javascript

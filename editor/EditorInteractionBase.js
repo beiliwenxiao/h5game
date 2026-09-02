@@ -1,7 +1,12 @@
 import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig, loadSceneTemplatesConfig } from './EditorDataManager.js';
         import { SceneEditor, loadEditorDefaults } from './SceneEditor.js';
         import { ImageSlicer } from './ImageSlicer.js';
-        import { SceneDataLoader } from './SceneDataLoader.js';
+        import {
+            SceneDataLoader,
+            activateGlobalAtlasesProject,
+            getGlobalAtlasesConfig,
+            loadGlobalAtlasesConfig
+        } from './SceneDataLoader.js';
         import { UIEditor } from './UIEditor.js';
         import { TriggerEditor } from './TriggerEditor.js';
         import { LibraryEditor } from './LibraryEditor.js';
@@ -12,6 +17,7 @@ import { EditorDataManager, loadBuiltinGamesConfig, loadScenePresetsConfig, load
         import { CanonicalDocumentService } from './CanonicalDocumentService.js';
         import { CanonicalEditorSession } from './CanonicalEditorSession.js';
         import { EditorSceneCommandService } from './EditorSceneCommandService.js';
+        import { SharedAtlasCommandService } from './SharedAtlasCommandService.js';
         import { LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
         
         
@@ -27,12 +33,14 @@ export class EditorInteractionBase {
                 this.imageSlicer = null;
                 this.currentGameId = null;
                 this.currentSceneId = null;
+                this._gameContextGeneration = 0;
                 this._projectDefinitions = { triggers: [], tutorials: [] };
                 this._projectTriggers = [];
                 this._projectBattles = [];
                 this._presentationProfile = null;
                 this.documentService = new CanonicalDocumentService();
                 this._sceneCommandServices = new Map();
+                this.sharedAtlasCommandService = new SharedAtlasCommandService();
                 
                 this._initAsync();
             }
@@ -185,12 +193,34 @@ export class EditorInteractionBase {
                 }
             }
             
+            /**
+             * 在任何项目异步加载前同步推进共享图集活动上下文，封闭 A→B→A 迟到回调窗口。
+             */
+            _activateSharedAtlasProjectContext(game = this.dataManager.getCurrentGame()) {
+                const projectPath = this._canonicalProjectPath(game);
+                activateGlobalAtlasesProject(projectPath);
+                this.sceneEditor?.activateSharedAtlasProject(projectPath);
+                return {
+                    projectPath,
+                    ready: loadGlobalAtlasesConfig(projectPath)
+                };
+            }
+
             _sceneEditorOptions() {
                 return {
                     getSceneList: () => this.dataManager.getGameScenes(this.currentGameId),
                     getProjectDefinitions: () => this._projectDefinitions,
                     getProjectTriggers: () => this._projectDefinitions.triggers,
                     getBattleDefinitions: () => this._projectBattles,
+                    getProjectPath: () => this._canonicalProjectPath(),
+                    getSharedAtlasCatalog: projectPath => {
+                        const catalog = getGlobalAtlasesConfig(projectPath);
+                        return catalog ? structuredClone(catalog) : null;
+                    },
+                    saveSharedAtlasCatalog: (projectPath, catalog) => this.sharedAtlasCommandService.save(
+                        projectPath,
+                        catalog
+                    ),
                     getContentLibrary: () => {
                         const model = this.documentService.requireProject(this._canonicalProjectPath());
                         return structuredClone(model.getCandidate().project?.library || {});

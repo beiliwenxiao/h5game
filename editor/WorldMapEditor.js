@@ -77,6 +77,7 @@ export class WorldMapEditor {
     this._sharedAtlases = [];
     this._atlasRegistry = new AtlasRegistry();
     this._defaultDecoSprites = {};
+    this._atlasLoadGeneration = 0;
 
     // 项目加载前不生成 Demo 尺寸或入口；加载成功后只从 ProjectWorldIndex 投影可编辑草稿。
     this.region = { id: '', name: '', chunkWidth: '', chunkHeight: '', cols: 0, rows: 0, grid: [] };
@@ -252,43 +253,59 @@ export class WorldMapEditor {
   }
 
   async _loadSharedAtlasCatalog() {
+    const projectPath = this.projectPath;
+    const generation = ++this._atlasLoadGeneration;
+    const isCurrent = () => (
+      generation === this._atlasLoadGeneration
+      && projectPath === this.projectPath
+    );
     try {
-      const config = await loadGlobalAtlasesConfig();
-      this._sharedAtlases = Array.isArray(config?.atlases) ? config.atlases : [];
-      this._atlasRegistry = new AtlasRegistry(this._sharedAtlases);
-      this._defaultDecoSprites = this._createAtlasSliceProjection(
-        this._atlasRegistry.getAtlas('mountain_landscape')
+      const config = await loadGlobalAtlasesConfig(projectPath);
+      if (!isCurrent()) return;
+      const sharedAtlases = Array.isArray(config?.atlases) ? config.atlases : [];
+      const atlasRegistry = new AtlasRegistry(sharedAtlases);
+      const defaultDecoSprites = this._createAtlasSliceProjection(
+        atlasRegistry.getAtlas('mountain_landscape')
       );
-
-      const gameBasePath = `/${this.projectPath.slice(0, this.projectPath.lastIndexOf('/') + 1)}`;
-      await Promise.all(this._sharedAtlases.map(atlas => new Promise(resolve => {
-        if (!atlas?.id || this._loadedImages.has(atlas.id)) {
+      const loadedImages = new Map();
+      const gameBasePath = `/${projectPath.slice(0, projectPath.lastIndexOf('/') + 1)}`;
+      await Promise.all(sharedAtlases.map(atlas => new Promise(resolve => {
+        if (!atlas?.id) {
           resolve();
           return;
         }
-        const imageUrl = getGlobalAtlasImageUrl(atlas, gameBasePath);
+        const imageUrl = getGlobalAtlasImageUrl(atlas, gameBasePath, projectPath);
         if (!imageUrl) {
           resolve();
           return;
         }
         const img = new Image();
         img.onload = () => {
-          this._loadedImages.set(atlas.id, img);
+          if (isCurrent()) loadedImages.set(atlas.id, img);
           resolve();
         };
         img.onerror = () => {
-          console.warn('[WorldMapEditor] 共享图集图片加载失败', { atlasId: atlas.id, imageUrl });
+          if (isCurrent()) {
+            console.warn('[WorldMapEditor] 共享图集图片加载失败', { atlasId: atlas.id, imageUrl });
+          }
           resolve();
         };
         img.src = imageUrl;
       })));
+      if (!isCurrent()) return;
 
-      const terrainAtlas = this._loadedImages.get('mountain_landscape');
-      if (terrainAtlas) this._loadedImages.set('terrain_atlas', terrainAtlas);
+      this._sharedAtlases = sharedAtlases;
+      this._atlasRegistry = atlasRegistry;
+      this._defaultDecoSprites = defaultDecoSprites;
+      this._loadedImages = loadedImages;
+      const terrainAtlas = loadedImages.get('mountain_landscape');
+      if (terrainAtlas) loadedImages.set('terrain_atlas', terrainAtlas);
     } catch (error) {
+      if (!isCurrent()) return;
       this._sharedAtlases = [];
       this._atlasRegistry = new AtlasRegistry();
       this._defaultDecoSprites = {};
+      this._loadedImages.clear();
       console.warn('[WorldMapEditor] 共享图集配置加载失败', error);
     }
   }

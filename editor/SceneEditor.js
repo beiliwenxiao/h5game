@@ -31,7 +31,13 @@ import { SceneEditorLayers } from './SceneEditorLayers.js';
 import { SceneEditorAssets } from './SceneEditorAssets.js';
 import { SceneEditorHistory } from './SceneEditorHistory.js';
 import { SceneEditorEventFilter } from './SceneEditorEventFilter.js';
-import { sceneDataLoader, getGlobalAtlasImageUrl, getGlobalImages } from './SceneDataLoader.js';
+import {
+  activateGlobalAtlasesProject,
+  getGlobalAtlasImageUrl,
+  getGlobalAtlasesConfig,
+  getGlobalImages,
+  normalizeAtlasProjectPath
+} from './SceneDataLoader.js';
 import { AtlasRegistry } from '../src/core/scene/AtlasRegistry.js';
 import { summarizeTrigger } from '../src/systems/TriggerCatalog.js';
 import {
@@ -127,6 +133,13 @@ export class SceneEditor {
     this.selectedSlice = null;
     this.draggingSlice = null;
     this.selectedAtlasId = null;
+    // 共享图集编辑始终基于独立草稿；磁盘提交成功前不替换 SceneDataLoader 权威缓存。
+    // 两个 Map 是按项目状态权威，sharedAtlasDraft 仅是当前活动项目的兼容投影。
+    this.sharedAtlasDraft = null;
+    this.sharedAtlasDrafts = new Map();
+    this.sharedAtlasCommittedCatalogs = new Map();
+    this.sharedAtlasActiveProjectPath = null;
+    this.sharedAtlasProjectEpoch = 0;
 
     // 相邻场景参考（大地图多场景编辑模式）
     // 格式: [{ sceneData, offsetX, offsetY }]
@@ -459,6 +472,9 @@ export class SceneEditor {
    * 加载场景数据
    */
   loadScene(sceneData) {
+    // 宿主可复用同一编辑器实例切换游戏；场景加载是项目激活代际的明确边界。
+    this.activateSharedAtlasProject();
+
     const defaults = _editorDefaults || {};
     const sceneCfg = defaults.scene || {};
     const defaultLayers = (sceneCfg.layers || [
@@ -525,7 +541,7 @@ export class SceneEditor {
       overlay.height = ch;
     }
 
-    // 共享图集始终通过只读 registry 投影，不注入场景正文。
+    // 共享图集通过 registry 投影；可编辑草稿优先，但完整定义始终不注入场景正文。
     // 全局图片仍只用于新建空白草稿的既有兼容流程。
     if (!incoming) {
       this._mergeGlobalImages();
@@ -543,14 +559,101 @@ export class SceneEditor {
   }
 
   /**
-   * 创建当前场景的图集只读投影：游戏级共享定义优先，场景局部定义仅作 legacy fallback。
-   * 完整 atlas 定义不会因此进入 sceneData。
+   * 激活当前共享图集项目，并把单一兼容指针投影到对应的按项目草稿。
+   * 每次真实项目切换都会递增 epoch，供异步编辑拒绝 A→B→A 的迟到回调。
+   */
+  activateSharedAtlasProject(projectPath = this.options.getProjectPath?.() || this.projectPath || '') {
+    const { projectPath: normalizedProjectPath } = activateGlobalAtlasesProject(projectPath);
+    if (this.sharedAtlasActiveProjectPath !== normalizedProjectPath) {
+      const previousDraft = this.sharedAtlasDraft;
+      if (previousDraft?.projectPath) {
+        this.sharedAtlasDrafts.set(previousDraft.projectPath, previousDraft);
+      }
+      this.sharedAtlasActiveProjectPath = normalizedProjectPath;
+      this.sharedAtlasProjectEpoch += 1;
+      this.sharedAtlasDraft = this.sharedAtlasDrafts.get(normalizedProjectPath) || null;
+      // 图片缓存没有项目命名空间；真实项目切换时必须失效，禁止复用同 ID 的旧项目图片。
+      this.loadedImages?.clear();
+      this.selectedAtlasId = null;
+      this.selectedSlice = null;
+    } else {
+      this.sharedAtlasDraft = this.sharedAtlasDrafts.get(normalizedProjectPath) || null;
+    }
+    return {
+      projectPath: normalizedProjectPath,
+      epoch: this.sharedAtlasProjectEpoch,
+      draft: this.sharedAtlasDraft
+    };
+  }
+
+  setSharedAtlasDraft(draft) {
+    if (!draft || typeof draft !== 'object') throw new TypeError('共享图集草稿无效');
+    const projectPath = normalizeAtlasProjectPath(draft.projectPath)
+      || this.sharedAtlasActiveProjectPath
+      || activateGlobalAtlasesProject('').projectPath;
+    draft.projectPath = projectPath;
+    this.sharedAtlasDrafts.set(projectPath, draft);
+    if (this.sharedAtlasActiveProjectPath === projectPath) this.sharedAtlasDraft = draft;
+    return draft;
+  }
+
+  getSharedAtlasDraft(projectPath = this.options.getProjectPath?.() || this.projectPath || '') {
+    const normalizedProjectPath = normalizeAtlasProjectPath(projectPath)
+      || this.sharedAtlasActiveProjectPath
+      || activateGlobalAtlasesProject('').projectPath;
+    const currentProjectPath = normalizeAtlasProjectPath(
+      this.options.getProjectPath?.() || this.projectPath || ''
+    ) || this.sharedAtlasActiveProjectPath;
+    if (normalizedProjectPath === currentProjectPath) {
+      return this.activateSharedAtlasProject(normalizedProjectPath).draft;
+    }
+    return this.sharedAtlasDrafts.get(normalizedProjectPath) || null;
+  }
+
+  clearSharedAtlasDraft(projectPath, expectedDraft) {
+    const normalizedProjectPath = normalizeAtlasProjectPath(projectPath)
+      || this.sharedAtlasActiveProjectPath
+      || activateGlobalAtlasesProject('').projectPath;
+    const currentDraft = this.sharedAtlasDrafts.get(normalizedProjectPath);
+    if (expectedDraft && currentDraft !== expectedDraft) return false;
+    if (!currentDraft) return false;
+    this.sharedAtlasDrafts.delete(normalizedProjectPath);
+    if (this.sharedAtlasDraft === currentDraft) this.sharedAtlasDraft = null;
+    return true;
+  }
+
+  setCommittedSharedAtlasCatalog(projectPath, catalog) {
+    if (!catalog || typeof catalog !== 'object' || !Array.isArray(catalog.atlases)) {
+      throw new TypeError('共享图集 catalog 无效');
+    }
+    const normalizedProjectPath = normalizeAtlasProjectPath(projectPath)
+      || this.sharedAtlasActiveProjectPath
+      || activateGlobalAtlasesProject('').projectPath;
+    const snapshot = structuredClone(catalog);
+    this.sharedAtlasCommittedCatalogs.set(normalizedProjectPath, snapshot);
+    return snapshot;
+  }
+
+  /**
+   * 创建当前场景的图集投影：共享编辑草稿优先，场景局部定义仅作 legacy fallback。
+   * 草稿与 SceneDataLoader 权威缓存相互隔离，完整 atlas 定义不会进入 sceneData。
    */
   getAtlasRegistry() {
-    return new AtlasRegistry(
-      sceneDataLoader.getGlobalAtlases(),
-      Array.isArray(this.sceneData?.atlases) ? this.sceneData.atlases : []
-    );
+    const { projectPath, draft } = this.activateSharedAtlasProject();
+    const committedCatalog = this.getCommittedSharedAtlasCatalog(projectPath);
+    const sharedAtlases = Array.isArray(draft?.config?.atlases)
+      ? draft.config.atlases
+      : (Array.isArray(committedCatalog?.atlases) ? committedCatalog.atlases : []);
+    const removedSharedIds = new Set();
+    if (draft) {
+      const nextIds = new Set(sharedAtlases.map(atlas => atlas?.id).filter(Boolean));
+      for (const atlas of draft.baseConfig?.atlases || []) {
+        if (atlas?.id && !nextIds.has(atlas.id)) removedSharedIds.add(atlas.id);
+      }
+    }
+    const localAtlases = (Array.isArray(this.sceneData?.atlases) ? this.sceneData.atlases : [])
+      .filter(atlas => !removedSharedIds.has(atlas?.id));
+    return new AtlasRegistry(sharedAtlases, localAtlases);
   }
 
   getAvailableAtlases() {
@@ -569,10 +672,37 @@ export class SceneEditor {
     return this.getAtlasRegistry().isShared(atlasId);
   }
 
+  getAtlasImage(atlasId) {
+    const { draft } = this.activateSharedAtlasProject();
+    return draft?.previewImages?.get(atlasId)
+      || this.loadedImages.get(atlasId)
+      || null;
+  }
+
   getAtlasImageUrl(atlasId) {
+    const { projectPath } = this.activateSharedAtlasProject();
     const atlas = this.getAtlasDefinition(atlasId);
     if (!atlas) return '';
-    return this.isSharedAtlas(atlasId) ? getGlobalAtlasImageUrl(atlas) : String(atlas.path || '');
+    return this.isSharedAtlas(atlasId)
+      ? getGlobalAtlasImageUrl(atlas, '', projectPath)
+      : String(atlas.path || '');
+  }
+
+  getCommittedSharedAtlasCatalog(projectPath = this.options.getProjectPath?.() || this.projectPath || '') {
+    const normalizedProjectPath = normalizeAtlasProjectPath(projectPath)
+      || this.sharedAtlasActiveProjectPath
+      || activateGlobalAtlasesProject('').projectPath;
+    const cached = this.sharedAtlasCommittedCatalogs.get(normalizedProjectPath);
+    if (cached) return cached;
+
+    const configured = this.options.getSharedAtlasCatalog?.(normalizedProjectPath);
+    const source = configured && typeof configured.then !== 'function'
+      ? configured
+      : getGlobalAtlasesConfig(normalizedProjectPath);
+    if (source && typeof source === 'object' && Array.isArray(source.atlases)) {
+      return this.setCommittedSharedAtlasCatalog(normalizedProjectPath, source);
+    }
+    return null;
   }
 
   /**

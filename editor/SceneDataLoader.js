@@ -20,11 +20,45 @@
 import { SceneDataExporter } from './SceneDataExporter.js';
 import sharedAtlasConfig from '../example/sanguo_zhangjiao/config/atlases.json';
 
-// 运行时配置缓存。图集失败回退仍引用游戏级同一 JSON，不复制切片坐标。
+const DEFAULT_ATLAS_PROJECT_PATH = 'example/sanguo_zhangjiao/game.project.json';
+
+/**
+ * 规范化编辑器项目路径，作为共享图集缓存的稳定分区键。
+ * @param {unknown} value
+ * @returns {string}
+ */
+export function normalizeAtlasProjectPath(value) {
+  const normalized = String(value || '')
+    .trim()
+    .replace(/\\/g, '/')
+    .replace(/^(?:\.\.\/)+/, '')
+    .replace(/^(?:\.\/)+/, '')
+    .replace(/^\/+/, '');
+  if (normalized.split('/').some(segment => segment === '.' || segment === '..')) {
+    throw new TypeError('共享图集项目路径不能包含 . 或 ..');
+  }
+  return normalized;
+}
+
+// 运行时配置缓存。catalog/loadPromise 按项目分区；_atlasesConfig 只投影当前活动项目。
 let _scenePresetsConfig = null;
 let _decoSpritesConfig = null;
-let _atlasesConfig = sharedAtlasConfig;
+const _atlasCatalogs = new Map([[DEFAULT_ATLAS_PROJECT_PATH, structuredClone(sharedAtlasConfig)]]);
+const _atlasLoadPromises = new Map();
+let _activeAtlasProjectPath = DEFAULT_ATLAS_PROJECT_PATH;
+let _atlasesConfig = _atlasCatalogs.get(DEFAULT_ATLAS_PROJECT_PATH);
 let _imagesConfig = null;
+
+function _storeAtlasCatalog(projectPath, config) {
+  if (!config || typeof config !== 'object' || !Array.isArray(config.atlases)) {
+    throw new TypeError('共享图集 catalog 必须包含 atlases 数组');
+  }
+  const normalizedProjectPath = normalizeAtlasProjectPath(projectPath) || DEFAULT_ATLAS_PROJECT_PATH;
+  const snapshot = structuredClone(config);
+  _atlasCatalogs.set(normalizedProjectPath, snapshot);
+  if (_activeAtlasProjectPath === normalizedProjectPath) _atlasesConfig = snapshot;
+  return snapshot;
+}
 
 /**
  * 加载场景配置
@@ -44,14 +78,14 @@ async function _loadConfigs() {
       const atlasUrl = new URL(atlasIndex.$ref, atlasIndexResp.url);
       const atlasResp = await fetch(atlasUrl);
       if (!atlasResp.ok) throw new Error(`加载共享图集配置失败: HTTP ${atlasResp.status}`);
-      _atlasesConfig = await atlasResp.json();
+      _storeAtlasCatalog(DEFAULT_ATLAS_PROJECT_PATH, await atlasResp.json());
     } else {
-      _atlasesConfig = atlasIndex;
+      _storeAtlasCatalog(DEFAULT_ATLAS_PROJECT_PATH, atlasIndex);
     }
     _imagesConfig = await imagesResp.json();
   } catch (e) {
-    _atlasesConfig = sharedAtlasConfig;
-    console.warn('加载场景配置失败；共享图集继续使用游戏级配置:', e);
+    _storeAtlasCatalog(DEFAULT_ATLAS_PROJECT_PATH, sharedAtlasConfig);
+    console.warn('加载场景配置失败；默认项目共享图集继续使用游戏级配置:', e);
   }
 }
 
@@ -483,43 +517,109 @@ export class SceneDataLoader {
 export const sceneDataLoader = new SceneDataLoader();
 
 /**
- * 外部更新图集缓存（保存图集后调用，避免刷新前缓存过时）
- * @param {object} config - { atlases: [...] }
+ * 同步切换共享图集活动项目。未加载项目会把 legacy 投影清空，禁止保留上一项目 catalog。
+ * @param {string} projectPath
+ * @returns {{projectPath:string,catalog:object|null}}
  */
-export function updateAtlasesCache(config) {
-  _atlasesConfig = config;
+export function activateGlobalAtlasesProject(projectPath) {
+  const normalizedProjectPath = normalizeAtlasProjectPath(projectPath) || DEFAULT_ATLAS_PROJECT_PATH;
+  _activeAtlasProjectPath = normalizedProjectPath;
+  _atlasesConfig = _atlasCatalogs.get(normalizedProjectPath) || null;
+  return { projectPath: normalizedProjectPath, catalog: _atlasesConfig };
 }
 
 /**
- * 等待编辑器 atlas 索引及其 $ref 完成解析。
- * @returns {Promise<{schemaVersion?:number,atlases:Array<object>} >}
+ * 外部更新指定项目的图集缓存（保存图集后调用，避免刷新前缓存过时）。
+ * 单参数 overload 仅用于仍绑定活动项目的 legacy 调用方。
+ * @param {string|object} projectPathOrConfig
+ * @param {object} [config]
+ * @returns {object}
  */
-export async function loadGlobalAtlasesConfig() {
+export function updateAtlasesCache(projectPathOrConfig, config) {
+  if (config === undefined && projectPathOrConfig && typeof projectPathOrConfig === 'object') {
+    return _storeAtlasCatalog(_activeAtlasProjectPath, projectPathOrConfig);
+  }
+  return _storeAtlasCatalog(projectPathOrConfig, config);
+}
+
+/**
+ * 按项目加载共享图集 catalog；同项目并发请求复用同一 Promise。
+ * @param {string} [projectPath]
+ * @returns {Promise<{schemaVersion?:number,atlases:Array<object>}|null>}
+ */
+export async function loadGlobalAtlasesConfig(projectPath = '') {
   await sceneDataLoader._ensureConfigs();
-  return getGlobalAtlasesConfig();
+  const normalizedProjectPath = normalizeAtlasProjectPath(projectPath);
+  if (!normalizedProjectPath) return getGlobalAtlasesConfig();
+
+  const cached = _atlasCatalogs.get(normalizedProjectPath);
+  if (cached) return cached;
+  const inFlight = _atlasLoadPromises.get(normalizedProjectPath);
+  if (inFlight) return inFlight;
+  if (!normalizedProjectPath.endsWith('/game.project.json') && normalizedProjectPath !== 'game.project.json') {
+    throw new TypeError(`共享图集项目路径无效: ${normalizedProjectPath}`);
+  }
+
+  const catalogPath = `${normalizedProjectPath.slice(0, normalizedProjectPath.lastIndexOf('/') + 1)}config/atlases.json`;
+  const loadPromise = (async () => {
+    const response = await fetch('/api/read-file?path=' + encodeURIComponent(catalogPath));
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload?.ok === false) {
+      throw new Error(payload?.error || `加载共享图集配置失败: HTTP ${response.status}`);
+    }
+    let config = payload;
+    if (typeof payload?.content === 'string') {
+      try {
+        config = JSON.parse(payload.content);
+      } catch (error) {
+        throw new Error(`共享图集配置 JSON 无效 (${catalogPath}): ${error.message}`);
+      }
+    }
+    return _storeAtlasCatalog(normalizedProjectPath, config);
+  })();
+
+  _atlasLoadPromises.set(normalizedProjectPath, loadPromise);
+  try {
+    return await loadPromise;
+  } finally {
+    if (_atlasLoadPromises.get(normalizedProjectPath) === loadPromise) {
+      _atlasLoadPromises.delete(normalizedProjectPath);
+    }
+  }
 }
 
 /**
- * 获取游戏级共享图集配置。调用方不得把它合并写入场景正文。
- * @returns {{schemaVersion?:number,atlases:Array<object>}}
+ * 获取游戏级共享图集配置。显式 projectPath 只查询对应分区，未命中返回 null。
+ * @param {string} [projectPath]
+ * @returns {{schemaVersion?:number,atlases:Array<object>}|null}
  */
-export function getGlobalAtlasesConfig() {
-  return _atlasesConfig || sharedAtlasConfig;
+export function getGlobalAtlasesConfig(projectPath = '') {
+  const normalizedProjectPath = normalizeAtlasProjectPath(projectPath);
+  return normalizedProjectPath
+    ? (_atlasCatalogs.get(normalizedProjectPath) || null)
+    : _atlasesConfig;
 }
 
 /**
  * 将游戏内 assets/ 路径转换为编辑器页面可加载的 URL。
  * @param {object|string} atlasOrId
  * @param {string} [gamePathOverride] 当前游戏目录（含或不含结尾斜杠）
+ * @param {string} [projectPath] atlas ID 所属项目；显式传入时不读取可变全局宿主
  * @returns {string}
  */
-export function getGlobalAtlasImageUrl(atlasOrId, gamePathOverride = '') {
+export function getGlobalAtlasImageUrl(atlasOrId, gamePathOverride = '', projectPath = '') {
+  const normalizedProjectPath = normalizeAtlasProjectPath(projectPath);
+  const catalog = normalizedProjectPath ? getGlobalAtlasesConfig(normalizedProjectPath) : _atlasesConfig;
   const atlas = typeof atlasOrId === 'string'
-    ? sceneDataLoader.getGlobalAtlases().find(item => item?.id === atlasOrId)
+    ? (catalog?.atlases || []).find(item => item?.id === atlasOrId)
     : atlasOrId;
   const path = String(atlas?.path || '');
   if (!path || /^(?:https?:|data:|blob:|\/|\.\.?\/)/.test(path)) return path;
+  const projectGamePath = normalizedProjectPath
+    ? `../${normalizedProjectPath.slice(0, normalizedProjectPath.lastIndexOf('/') + 1)}`
+    : '';
   const rawGamePath = gamePathOverride
+    || projectGamePath
     || (typeof window !== 'undefined' && window._editorCurrentGame?.path)
     || '../example/sanguo_zhangjiao/';
   const gamePath = `${String(rawGamePath).replace(/\\/g, '/').replace(/\/+$/, '')}/`;

@@ -20,6 +20,7 @@ import { EditorInteractionBase } from './EditorInteractionBase.js';
 
 export class EditorInteractionScene extends EditorInteractionBase {            // 编辑游戏
             async editGame(gameId) {
+                const gameContextGeneration = ++this._gameContextGeneration;
                 this.currentGameId = gameId;
                 this.currentSceneId = null;
                 const game = this.dataManager.setCurrentGame(gameId);
@@ -28,11 +29,17 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                 window._editorCurrentGame = game;
                 
                 if (!game) return;
-                
-                // 首次使用时从 _scene_order.json 初始化场景列表
-                await this.dataManager.initScenesFromFile(gameId);
+
+                // 同步激活必须早于首个 await，使旧项目所有异步图集编辑 lease 立即失效。
+                const atlasContext = this._activateSharedAtlasProjectContext(game);
                 try {
+                    await Promise.all([
+                        this.dataManager.initScenesFromFile(gameId),
+                        atlasContext.ready
+                    ]);
+                    if (gameContextGeneration !== this._gameContextGeneration) return;
                     await this._ensureCanonicalProject(game);
+                    if (gameContextGeneration !== this._gameContextGeneration) return;
                     const bindCanonical = editor => {
                         if (!editor) return;
                         editor.gameId = game.id;
@@ -47,6 +54,7 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     return;
                 }
                 await this._refreshProjectTriggers();
+                if (gameContextGeneration !== this._gameContextGeneration) return;
                 
                 // 更新游戏选择器
                 this._updateGameIndicator(gameId);
@@ -66,6 +74,8 @@ export class EditorInteractionScene extends EditorInteractionBase {            /
                     this.sceneEditor.onClearCache = () => this.clearSceneCache();
                     this.sceneEditor.onSceneMetaChange = (meta) => this._handleSceneMetaChange(meta);
                 }
+                // 新实例在 catalog 已加载后幂等绑定同一项目；复用实例已在首个 await 前切换。
+                this.sceneEditor.activateSharedAtlasProject(atlasContext.projectPath);
                 
                 // 触发resize以正确显示编辑器
                 setTimeout(() => {

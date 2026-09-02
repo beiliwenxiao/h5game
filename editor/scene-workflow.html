@@ -96,6 +96,11 @@
     <script type="module">
         import { EditorPageContext, navigateTo, getQueryParams, renderEditorNav, openButtonHelp, openItemReferenceModal } from './EditorShared.js';
         import { SceneEditor } from './SceneEditor.js';
+        import {
+            activateGlobalAtlasesProject,
+            getGlobalAtlasesConfig,
+            loadGlobalAtlasesConfig
+        } from './SceneDataLoader.js';
         import { TriggerEditor } from './TriggerEditor.js';
 
         (async () => {
@@ -464,6 +469,15 @@
                     getProjectDefinitions: () => ctx._projectDefinitions,
                     getProjectTriggers: () => ctx._projectDefinitions.triggers,
                     getBattleDefinitions: () => ctx._projectBattles,
+                    getProjectPath: () => ctx._canonicalProjectPath(),
+                    getSharedAtlasCatalog: projectPath => {
+                        const catalog = getGlobalAtlasesConfig(projectPath);
+                        return catalog ? structuredClone(catalog) : null;
+                    },
+                    saveSharedAtlasCatalog: (projectPath, catalog) => {
+                        const { service } = ctx._sharedAtlasCommands();
+                        return service.save(projectPath, catalog);
+                    },
                     getContentLibrary: () => {
                         const model = ctx.documentService.requireProject(ctx._canonicalProjectPath());
                         return structuredClone(model.getCandidate().project?.library || {});
@@ -532,6 +546,18 @@
 
         async function loadSceneEditor(sid) {
             const loadGeneration = ++sceneLoadGeneration;
+            const atlasProjectPath = ctx._canonicalProjectPath();
+            activateGlobalAtlasesProject(atlasProjectPath);
+            sceneEditor?.activateSharedAtlasProject(atlasProjectPath);
+            try {
+                await loadGlobalAtlasesConfig(atlasProjectPath);
+            } catch (error) {
+                if (loadGeneration !== sceneLoadGeneration) return null;
+                console.error('[SceneWorkflow] 加载共享图集 catalog 失败:', error);
+                showSceneEditorToast(`加载共享图集失败：${error.message}`, 'error');
+                return false;
+            }
+            if (loadGeneration !== sceneLoadGeneration) return null;
             // 先尝试加载预设场景作为基底（提供 terrain / atlases / decoSprites 等完整字段）
             let presetScene = null;
             try {

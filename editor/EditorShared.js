@@ -7,6 +7,7 @@ import { EditorDataManager } from './EditorDataManager.js';
 import { CanonicalDocumentService } from './CanonicalDocumentService.js';
 import { CanonicalEditorSession } from './CanonicalEditorSession.js';
 import { EditorSceneCommandService } from './EditorSceneCommandService.js';
+import { SharedAtlasCommandService } from './SharedAtlasCommandService.js';
 import { LocalStorageSceneCacheAdapter } from '../src/core/scene/CanonicalSceneAdapters.js';
 import { InputHints } from '../src/core/input/InputHints.js';
 
@@ -289,6 +290,7 @@ export class EditorPageContext {
     this.dataManager = new EditorDataManager();
     this.documentService = new CanonicalDocumentService();
     this._sceneCommandServices = new Map();
+    this.sharedAtlasCommandService = new SharedAtlasCommandService();
     this.currentGameId = null;
     this.currentSceneId = null;
     this._projectDefinitions = { triggers: [], tutorials: [] };
@@ -384,6 +386,13 @@ export class EditorPageContext {
     const service = this._sceneCommandServices.get(projectPath);
     if (!service) throw new Error('canonical 项目尚未打开');
     return { service, projectPath };
+  }
+
+  _sharedAtlasCommands() {
+    return {
+      service: this.sharedAtlasCommandService,
+      projectPath: this._canonicalProjectPath()
+    };
   }
 
   _canonicalEditorSession(rootPath = 'project', schemaId = 'gameProject') {

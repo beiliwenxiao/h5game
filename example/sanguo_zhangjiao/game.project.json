@@ -15,7 +15,22 @@
   },
   "extensions": {
     "atlases": {
-      "$ref": "config/atlases.json"
+      "$ref": "config/atlases.json",
+      "requiredReferences": [
+        {
+          "atlasId": "mountain_landscape",
+          "sliceKeys": [
+            "grassTile",
+            "tree1",
+            "tree2",
+            "tree3",
+            "grass1",
+            "bush2",
+            "bush3",
+            "bush4"
+          ]
+        }
+      ]
     },
     "endings": {
       "$ref": "config/endings.json",

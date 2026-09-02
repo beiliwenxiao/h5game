@@ -41,6 +41,34 @@ export class SceneEditorLayers {
   }
 
   /**
+   * 在用户明确执行放置操作时按稳定 ID 取得或创建图层。
+   * 本方法不写 history、不刷新 UI，调用方应把创建图层与对象放置合并为一次历史提交。
+   */
+  ensureLayer(id, name, { beforeId = 'layer_entity' } = {}) {
+    const editor = this.editor;
+    if (!Array.isArray(editor.sceneData?.layers)) {
+      throw new Error('当前场景缺少 layers 数组');
+    }
+    const matches = editor.sceneData.layers.filter(layer => layer?.id === id);
+    if (matches.length > 1) throw new Error(`场景包含重复图层 ID: ${id}`);
+    if (matches[0]) {
+      if (!Array.isArray(matches[0].objects)) matches[0].objects = [];
+      return matches[0];
+    }
+
+    const layer = {
+      id,
+      name: name || id,
+      visible: true,
+      locked: false,
+      objects: []
+    };
+    const beforeIndex = editor.sceneData.layers.findIndex(candidate => candidate?.id === beforeId);
+    editor.sceneData.layers.splice(beforeIndex >= 0 ? beforeIndex : editor.sceneData.layers.length, 0, layer);
+    return layer;
+  }
+
+  /**
    * 删除当前激活图层
    */
   deleteLayer() {

@@ -70,6 +70,22 @@ export class AtomicDiskAdapter {
     });
   }
 
+  /**
+   * 在 repository 独占锁内读取并准备 change set，再执行同一原子提交。
+   * 用于跨文件引用闭包，避免 validate 与 commit 之间被其他事务改写。
+   * @param {() => Array<object>|Promise<Array<object>>} prepareChangeSet
+   */
+  commitPrepared(prepareChangeSet) {
+    if (typeof prepareChangeSet !== 'function') {
+      throw new TypeError('AtomicDiskAdapter.commitPrepared requires prepareChangeSet');
+    }
+    return runExclusive(this.repositoryRoot, async () => {
+      this._recoverUnlocked();
+      const changeSet = await prepareChangeSet();
+      return this._commitUnlocked(changeSet);
+    });
+  }
+
   _fault(phase, context = {}) {
     this.faultInjector?.(phase, context);
   }

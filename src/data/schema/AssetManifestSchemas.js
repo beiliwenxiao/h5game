@@ -133,11 +133,18 @@ export const ASSET_MANIFEST_SCHEMA = {
           ));
         }
         imageIds.add(asset.imageId);
-      } else if (asset.runtime2D?.mode === 'image') {
+        if (['image', 'atlas'].includes(asset.runtime2D?.mode) && asset.imageId !== asset.assetId) {
+          errors.push(makeError(
+            ValidationCode.INVALID_REFERENCE,
+            `assets[${index}].imageId`,
+            'image/atlas 资产的 imageId 必须与 assetId 相同'
+          ));
+        }
+      } else if (['image', 'atlas'].includes(asset.runtime2D?.mode)) {
         errors.push(makeError(
           ValidationCode.MISSING_FIELD,
           `assets[${index}].imageId`,
-          '非 atlas/slice 图片必须提供稳定 imageId'
+          'image/atlas 资产必须提供稳定 imageId'
         ));
       }
 

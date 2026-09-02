@@ -529,7 +529,7 @@ export class SceneEditorCanvas {
       if (atlas) {
         const slice = editor.getAtlasSlice?.(atlas.id, obj.decoKey) || atlas.slices[obj.decoKey];
         return {
-          img: editor.loadedImages.get(atlas.id) || null,
+          img: editor.getAtlasImage?.(atlas.id) || editor.loadedImages.get(atlas.id) || null,
           sx: slice.sx,
           sy: slice.sy,
           sw: slice.sw,
@@ -552,7 +552,7 @@ export class SceneEditorCanvas {
     const slice = editor.getAtlasSlice?.(obj.atlasId, obj.sliceKey) || atlas?.slices?.[obj.sliceKey];
     if (!slice) return null;
     return {
-      img: editor.loadedImages.get(obj.atlasId) || null,
+      img: editor.getAtlasImage?.(obj.atlasId) || editor.loadedImages.get(obj.atlasId) || null,
       sx: slice.sx,
       sy: slice.sy,
       sw: slice.sw,

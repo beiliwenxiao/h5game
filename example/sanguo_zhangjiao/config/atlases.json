@@ -29,7 +29,7 @@
         "tree2": {
           "name": "中树",
           "sx": 224,
-          "sy": 417,
+          "sy": 416,
           "sw": 64,
           "sh": 96,
           "collide": true,
@@ -38,7 +38,7 @@
         "tree3": {
           "name": "小树",
           "sx": 288,
-          "sy": 385,
+          "sy": 384,
           "sw": 64,
           "sh": 128,
           "collide": true,

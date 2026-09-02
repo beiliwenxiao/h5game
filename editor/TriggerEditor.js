@@ -1076,10 +1076,11 @@ export class TriggerEditor {
       .join('；');
   }
 
-  _renderStructuredParams(schema, params = {}, { excludeOperation = false } = {}) {
+  _renderStructuredParams(schema, params = {}, { excludeOperation = false, excludeNames = [] } = {}) {
     if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return '';
+    const excluded = new Set(excludeNames);
     const properties = Object.entries(schema.properties || {})
-      .filter(([name]) => !excludeOperation || name !== 'operation');
+      .filter(([name]) => (!excludeOperation || name !== 'operation') && !excluded.has(name));
     if (!properties.length) return '';
     const required = new Set(schema.required || []);
     const rows = properties.map(([name, property = {}]) => {
@@ -1201,14 +1202,17 @@ export class TriggerEditor {
     const structuredParams = this._renderStructuredParams(
       paramsSchema,
       act.params || {},
-      { excludeOperation: operations.length > 0 }
+      {
+        excludeOperation: operations.length > 0,
+        excludeNames: act.action === 'tutorial.command' ? ['await'] : []
+      }
     );
     const rawParamsEditor = act.action === 'spawnPlacements'
       ? `${this._renderSpawnPlacementControls(act.params)}<textarea class="do-params" style="display:none">${this._escapeHtml(this._json(act.params))}</textarea>`
       : `${structuredParams}<details class="do-advanced"${structuredParams ? '' : ' open'}><summary>高级 JSON／未登记参数</summary><textarea class="do-params" placeholder='params JSON，如 {"id":"dlg1"}'>${this._escapeHtml(this._json(act.params))}</textarea></details>`;
     const semantics = this._formatResultSemantics(operation?.resultSemantics || descriptor?.resultSemantics);
     const ifEditor = this._renderStepIfEditor(act, path);
-    const awaitEditor = act.action === 'tutorial.command'
+    const awaitEditor = act.action === 'tutorial.command' && operationId === 'show'
       ? `<label class="do-await"><input type="checkbox" class="do-await-cb"${act.params?.await ? ' checked' : ''}> ⏳ 串行等待（教程结束后再执行下一步）</label>`
       : '';
     return `
@@ -1840,7 +1844,7 @@ export class TriggerEditor {
       const next = { ...(prev || {}), stepId, action, params };
       if (ifRaw) next.if = this._parseJson(ifRaw, null);
       else delete next.if;
-      if (action === 'tutorial.command') {
+      if (action === 'tutorial.command' && String(next.params.operation || '').trim() === 'show') {
         const awaitCb = el.querySelector('.do-await-cb');
         if (awaitCb?.checked) next.params.await = true;
         else delete next.params.await;

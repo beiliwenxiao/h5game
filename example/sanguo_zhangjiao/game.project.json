@@ -3275,6 +3275,9 @@
             "paramsSchema": {
               "additionalProperties": false,
               "properties": {
+                "await": {
+                  "type": "boolean"
+                },
                 "operation": {
                   "enum": [
                     "show"
@@ -3431,11 +3434,9 @@
           "stepId": "present-entry"
         }
       ],
-      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_spawn_initial",
       "name": "进入 S01：装配初始场景与恢复追逐",
       "once": false,
-      "sceneEventId": "s01.event.awakening",
       "when": {
         "params": {
           "sceneId": "S01"
@@ -3460,11 +3461,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_pickup_worn_axe",
       "name": "拾取破旧斧头",
       "once": false,
-      "sceneEventId": "s01.event.tools",
       "when": {
         "params": {
           "complete": true,
@@ -3490,11 +3489,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_pickup_skinning_knife",
       "name": "拾取旧剥皮刀",
       "once": false,
-      "sceneEventId": "s01.event.tools",
       "when": {
         "params": {
           "complete": true,
@@ -3522,11 +3519,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_axe_found_check_tools",
       "name": "斧头已获得",
       "once": false,
-      "sceneEventId": "s01.event.tools",
       "when": {
         "params": {
           "definitionId": "story.s01.axeFound"
@@ -3553,11 +3548,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_skinning_knife_found_check_tools",
       "name": "剥皮刀已获得",
       "once": false,
-      "sceneEventId": "s01.event.tools",
       "when": {
         "params": {
           "definitionId": "story.s01.skinningKnifeFound"
@@ -3588,11 +3581,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.tools",
       "id": "trg_s01_initial_tools_picked",
       "name": "双工具齐全：开放野果采集",
       "once": true,
-      "sceneEventId": "s01.event.tools",
       "when": {
         "params": {
           "definitionId": "story.s01.initialToolsPicked"
@@ -3621,7 +3612,6 @@
       "id": "trg_s01_gather_berry_completed",
       "name": "采集野果：记录一次采集",
       "once": false,
-      "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
           "itemId": "resource.wild_berry"
@@ -3649,7 +3639,6 @@
       "id": "trg_s01_first_berry_gathered_tutorial_step",
       "name": "首次采集野果：提示使用野果",
       "once": true,
-      "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
           "itemId": "resource.wild_berry"
@@ -3664,7 +3653,7 @@
           "params": {
             "completedPath": "s01Survival.berriesGathered",
             "definitionId": "story.s01.berriesGathered",
-            "gte": 2,
+            "gte": 1,
             "operation": "commitStoryWhenReady",
             "storyPath": "s01Survival.berryGatherCount"
           },
@@ -3677,9 +3666,8 @@
         ]
       },
       "id": "trg_s01_berry_count_updated",
-      "name": "野果计数达到两次：完成觅食目标",
+      "name": "野果计数达到一次：完成觅食目标",
       "once": false,
-      "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
           "definitionId": "story.s01.berryGathered"
@@ -3719,11 +3707,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.foraging",
       "id": "trg_s01_berries_gathered",
       "name": "野果目标完成：引导吃掉野果并准备砍柴",
       "once": true,
-      "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
           "definitionId": "story.s01.berriesGathered"
@@ -3756,11 +3742,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.foraging",
       "id": "trg_s01_berry_eaten_advance",
       "name": "吃掉野果后：完成吃教程并开启砍柴教程",
       "once": true,
-      "sceneEventId": "s01.event.foraging",
       "when": {
         "params": {
           "definitionId": "story.s01.berryEaten"
@@ -3787,11 +3771,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.firewood",
       "id": "trg_s01_gather_wood_completed",
       "name": "砍伐树木：木材达到三份",
       "once": false,
-      "sceneEventId": "s01.event.firewood",
       "when": {
         "params": {
           "resourceType": "wood"
@@ -3817,7 +3799,6 @@
       "id": "trg_s01_wood_gathered",
       "name": "木材目标完成：提示返回篝火",
       "once": true,
-      "sceneEventId": "s01.event.firewood",
       "when": {
         "params": {
           "definitionId": "story.s01.woodGathered"
@@ -3860,7 +3841,6 @@
       "id": "trg_s01_gather_wolf_hide_completed",
       "name": "剥取狼皮：提交剥皮事实",
       "once": false,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "itemId": "resource.wolf_hide"
@@ -3903,7 +3883,6 @@
       "id": "trg_s01_wolf_skin_fallback",
       "name": "狼皮竞态兜底：首狼击杀成立且已持有狼皮时补提剥皮",
       "once": true,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "definitionId": "story.s01.firstWolfKilled"
@@ -3929,7 +3908,6 @@
       "id": "trg_s01_wolf_skinned",
       "name": "狼皮剥取完成：提示烤制狼肉",
       "once": true,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "definitionId": "story.s01.wolfSkinned"
@@ -3959,7 +3937,6 @@
       "id": "trg_s01_refuel_committed",
       "name": "添柴计数达到三次：提交首狼出现事实",
       "once": false,
-      "sceneEventId": "s01.event.firewood",
       "when": {
         "params": {
           "definitionId": "story.s01.refuelCampfire"
@@ -3989,7 +3966,6 @@
       "id": "trg_s01_first_wolf_recovery_requested",
       "name": "首狼故障恢复：不重复扣除木材",
       "once": false,
-      "sceneEventId": "s01.event.firewood",
       "when": {
         "params": {},
         "type": "s01.firstWolfRecoveryRequested"
@@ -4021,7 +3997,6 @@
       "id": "trg_s01_first_wolf_spotted",
       "name": "首狼出现事实成立：生成并激活教学狼",
       "once": true,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "definitionId": "story.s01.firstWolfSpotted"
@@ -4049,7 +4024,6 @@
       "id": "trg_s01_first_wolf_killed",
       "name": "教学狼形成可采集尸体：提交首狼击杀事实",
       "once": false,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "corpseReady": true,
@@ -4077,7 +4051,6 @@
       "id": "trg_s01_first_wolf_killed_committed",
       "name": "首狼击杀事实成立：提示剥皮",
       "once": true,
-      "sceneEventId": "s01.event.firstWolf",
       "when": {
         "params": {
           "definitionId": "story.s01.firstWolfKilled"
@@ -4103,7 +4076,6 @@
       "id": "trg_s01_chase_wolf_killed",
       "name": "追逐狼死亡：增加追逐压力并补充狼群",
       "once": false,
-      "sceneEventId": "s01.event.riverEscape",
       "when": {
         "params": {
           "enemyRole": "chaseWolf"
@@ -4127,11 +4099,9 @@
           "S01"
         ]
       },
-      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_begin_tutorial_after_wake",
       "name": "苏醒对白结束：开始移动教学",
       "once": true,
-      "sceneEventId": "s01.event.awakening",
       "when": {
         "params": {
           "id": "dialogue.s01.wake"
@@ -4164,10 +4134,8 @@
           "stepId": "show-tutorial-s01-pickup"
         }
       ],
-      "flowGroupId": "s01.event.awakening",
       "id": "trg_s01_light_campfire",
       "once": true,
-      "sceneEventId": "s01.event.awakening",
       "when": {
         "params": {},
         "type": "interact"
@@ -4186,7 +4154,6 @@
       ],
       "id": "trg_s01_craft_wolf_gear",
       "once": false,
-      "sceneEventId": "s01.event.survivalCraft",
       "when": {
         "params": {},
         "type": "interact"
@@ -4205,7 +4172,6 @@
       ],
       "id": "trg_s01_cook_meat",
       "once": false,
-      "sceneEventId": "s01.event.survivalCraft",
       "when": {
         "params": {},
         "type": "interact"
@@ -4224,7 +4190,6 @@
       ],
       "id": "trg_s01_refuel_campfire",
       "once": false,
-      "sceneEventId": "s01.event.firewood",
       "when": {
         "params": {},
         "type": "interact"
@@ -4245,7 +4210,6 @@
       ],
       "id": "trg_s01_build_shelter",
       "once": false,
-      "sceneEventId": "s01.event.survivalCraft",
       "when": {
         "params": {},
         "type": "interact"
@@ -4269,7 +4233,6 @@
       "id": "trg_s01_shelter_completed",
       "name": "庇护所建成：推进过夜目标",
       "once": true,
-      "sceneEventId": "s01.event.survivalCraft",
       "when": {
         "params": {
           "siteId": "site.s01.small_shelter"
@@ -4298,7 +4261,6 @@
       ],
       "id": "trg_s01_overnight",
       "once": false,
-      "sceneEventId": "s01.event.overnight",
       "when": {
         "params": {},
         "type": "interact"
@@ -4317,7 +4279,6 @@
       ],
       "id": "trg_s01_river_crossed",
       "once": false,
-      "sceneEventId": "s01.event.riverEscape",
       "when": {
         "params": {},
         "type": "interact"
@@ -4344,7 +4305,6 @@
       ],
       "id": "trg_s01_cliff_reached",
       "once": false,
-      "sceneEventId": "s01.event.cliffEscape",
       "when": {
         "params": {},
         "type": "interact"
@@ -4363,7 +4323,6 @@
       ],
       "id": "trg_s01_climb_vine",
       "once": false,
-      "sceneEventId": "s01.event.cliffEscape",
       "when": {
         "params": {},
         "type": "interact"
@@ -5996,7 +5955,6 @@
       "id": "s01.move",
       "title": "寒风中醒来",
       "category": "s01-survival",
-      "sceneEventId": "s01.event.awakening",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6025,8 +5983,6 @@
       "id": "s01.pickup",
       "title": "拾取求生物资",
       "category": "s01-survival",
-      "flowGroupId": "s01.event.tools",
-      "sceneEventId": "s01.event.tools",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6056,8 +6012,6 @@
       "id": "s01.gather",
       "title": "寻找食物",
       "category": "s01-survival",
-      "flowGroupId": "s01.event.foraging",
-      "sceneEventId": "s01.event.foraging",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6092,8 +6046,6 @@
       "id": "s01.chopWood",
       "title": "篝火燃料",
       "category": "s01-survival",
-      "flowGroupId": "s01.event.firewood",
-      "sceneEventId": "s01.event.firewood",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6130,7 +6082,6 @@
       "id": "s01.attack",
       "title": "猎狼反击",
       "category": "s01-survival",
-      "sceneEventId": "s01.event.firstWolf",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6160,7 +6111,6 @@
       "id": "s01.durability",
       "title": "工具使用",
       "category": "s01-survival",
-      "sceneEventId": "s01.event.firstWolf",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6197,7 +6147,6 @@
       "id": "s01.jump",
       "title": "跳石过河",
       "category": "s01-survival",
-      "sceneEventId": "s01.event.riverEscape",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6227,7 +6176,6 @@
       "id": "s01.capacity",
       "title": "容量规划与攀藤",
       "category": "s01-survival",
-      "sceneEventId": "s01.event.cliffEscape",
       "scope": {
         "sceneIds": [
           "S01"
@@ -6254,8 +6202,6 @@
       "id": "tutorial-001",
       "title": "吃掉食物",
       "category": "general",
-      "flowGroupId": "s01.event.foraging",
-      "sceneEventId": "s01.event.foraging",
       "scope": {
         "sceneIds": [
           "S01"

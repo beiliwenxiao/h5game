@@ -1134,6 +1134,7 @@ export class SceneEditorUI {
       Object.assign(def, parsed);
       modal.style.display = 'none';
       this.editor.assets.updateContentList?.();
+      void this.editor.assets.refreshPlacementVisuals?.();
       this.showToast('已应用（记得点"保存库"）', 'success');
     };
   }

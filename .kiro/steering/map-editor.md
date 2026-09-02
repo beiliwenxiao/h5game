@@ -218,6 +218,11 @@ const sceneEditor = new SceneEditor(containerElement);
 
 ## 图片资源管理
 
+### 内容库 ref 所见即所得
+- `type:'ref'` 的 NPC、敌人、资源节点、道具、装备、载具和建筑由 `SceneEditorAssets` 统一按 `kind/ref → project.library definition → placement.overrides → imageId/assetId → Manifest runtime2D.path` 解析；Canvas 禁止在渲染帧内发起 fetch，也不得在 Demo 另建图片解析器。
+- 场景 JSON 仍只保存 `kind/ref/overrides`，不得把定义或 Manifest 表现字段复制进 placement。画布尺寸优先使用合并定义的 `sprite.width/height`，随后为定义宽高、Manifest bounds、图片自然尺寸；pivot 优先使用合并定义，再使用 Manifest，世界物件默认脚底中心 `{x:0.5,y:1}`。
+- 图片主体、选中框、点击和框选必须消费同一视觉 bounds；触发区、碰撞 shape、`buffZone`、`effectZone` 等逻辑范围继续显示辅助几何，不能用图片替代其真实编辑范围。
+
 ### 添加图片流程
 1. 用户先将图片文件放到项目 `example/sanguo_zhangjiao/assets/images/` 目录下（支持子文件夹）
 2. 在编辑器点“添加图片”，填写 `assets/images/` 下的相对路径，并确认一个稳定 `imageId`；ID 只能包含字母、数字、点、下划线和短横线且以字母开头，禁止再用时间戳自动生成新 ID

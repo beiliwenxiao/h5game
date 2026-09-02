@@ -547,9 +547,10 @@ export class SceneEditor {
       this._mergeGlobalImages();
     }
 
-    // 加载图集和图片
+    // 加载图集、场景图片与内容库 ref 的 Manifest 稳定图片。
     this.assets.loadAtlasImages();
     this.assets.loadImageAssets();
+    void this.assets.loadPlacementVisualImages();
 
     this.ui.fitToContainer();
     this.layers.updateLayerList();

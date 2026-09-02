@@ -252,34 +252,57 @@ export class SceneEditorCanvas {
   }
 
   /**
-   * 渲染内容库放置引用（type:'ref'，P4-5/资源库联动）
-   * 编辑期标记：图标底色按 kind 区分 + 名称 + 组名（group）。
+   * 渲染内容库放置引用（type:'ref'）。
+   * 优先使用内容定义 + placement overrides + Manifest 的稳定图片链；解析失败时保留诊断标记。
    * @private
    */
   _renderRefObject(ctx, obj) {
     const colors = {
       item: '#e0c040', equipment: '#c0a0e0', npc: '#50c88c',
-      enemy: '#d05050', shop: '#e08040', vehicle: '#5a78c0', building: '#a0885a'
+      enemy: '#d05050', resourceNode: '#78a84f', shop: '#e08040',
+      vehicle: '#5a78c0', building: '#a0885a'
     };
-    const icons = { item: '道', equipment: '装', npc: '☺', enemy: '⚔', shop: '$', vehicle: '车', building: '城' };
-    const c = colors[obj.kind] || '#8888aa';
-    const r = 15;
+    const icons = {
+      item: '道', equipment: '装', npc: '☺', enemy: '⚔', resourceNode: '资',
+      shop: '$', vehicle: '车', building: '城'
+    };
+    const color = colors[obj.kind] || '#8888aa';
+    const visual = this.editor.assets.resolvePlacementVisual?.(obj);
+    const label = (obj.name || visual?.definition?.name || obj.ref) + (obj.group ? ` [${obj.group}]` : '');
+
     ctx.save();
+    if (visual?.image && visual.bounds) {
+      const { x, y, width, height, right } = visual.bounds;
+      ctx.drawImage(visual.image, x, y, width, height);
+      this._drawLogicLabel(ctx, label, right + 3, y + 14, color);
+
+      // placement 坐标是业务脚点；小十字仅辅助精确拖放，不覆盖主体图片。
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(obj.x - 3, obj.y);
+      ctx.lineTo(obj.x + 3, obj.y);
+      ctx.moveTo(obj.x, obj.y - 3);
+      ctx.lineTo(obj.x, obj.y + 3);
+      ctx.stroke();
+      ctx.restore();
+      return;
+    }
+
+    const radius = 15;
     ctx.beginPath();
-    ctx.arc(obj.x, obj.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = c + '44';
+    ctx.arc(obj.x, obj.y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = color + '44';
     ctx.fill();
-    ctx.strokeStyle = c;
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = c;
+    ctx.fillStyle = color;
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(icons[obj.kind] || '?', obj.x, obj.y);
-    // 名称 + 组名
-    const label = (obj.name || obj.ref) + (obj.group ? ` [${obj.group}]` : '');
-    this._drawLogicLabel(ctx, label, obj.x + r + 3, obj.y + 4, c);
+    this._drawLogicLabel(ctx, label, obj.x + radius + 3, obj.y + 4, color);
     ctx.restore();
   }
 
@@ -1094,8 +1117,22 @@ export class SceneEditorCanvas {
         w = (obj.width || 0) + 4;
         h = (obj.height || 0) + 4;
         ctx.strokeRect(x, y, w, h);
-      } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
-        // 点状逻辑对象/放置引用：圆形选中框，无缩放手柄
+      } else if (obj.type === 'ref') {
+        const visual = editor.assets.resolvePlacementVisual?.(obj);
+        if (visual?.image && visual.bounds) {
+          x = visual.bounds.x - 2;
+          y = visual.bounds.y - 2;
+          w = visual.bounds.width + 4;
+          h = visual.bounds.height + 4;
+          ctx.strokeRect(x, y, w, h);
+        } else {
+          ctx.beginPath();
+          ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        continue;
+      } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+        // 点状逻辑对象：圆形选中框，无缩放手柄
         ctx.beginPath();
         ctx.arc(obj.x, obj.y, 18, 0, Math.PI * 2);
         ctx.stroke();

@@ -131,8 +131,19 @@ export class SceneEditorInteraction {
             editor.activeLayerIndex = li;
             return obj;
           }
-        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
-          // 点状逻辑对象/放置引用：18px 半径命中
+        } else if (obj.type === 'ref') {
+          const visual = editor.assets.resolvePlacementVisual?.(obj);
+          const bounds = visual?.image ? visual.bounds : null;
+          const hitVisual = bounds
+            && x >= bounds.x && x <= bounds.right
+            && y >= bounds.y && y <= bounds.bottom;
+          // 图片主体可直接命中，同时保留脚点附近的小范围精确拖放入口。
+          if (hitVisual || Math.hypot(x - obj.x, y - obj.y) <= 8) {
+            editor.activeLayerIndex = li;
+            return obj;
+          }
+        } else if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
+          // 点状逻辑对象：18px 半径命中
           if (Math.hypot(x - obj.x, y - obj.y) <= 18) {
             editor.activeLayerIndex = li;
             return obj;
@@ -1397,7 +1408,16 @@ export class SceneEditorInteraction {
       return obj.x >= left && obj.x <= right && obj.y >= top && obj.y <= bottom;
     }
 
-    if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc' || obj.type === 'ref') {
+    if (obj.type === 'ref') {
+      const visual = this.editor.assets.resolvePlacementVisual?.(obj);
+      const bounds = visual?.image ? visual.bounds : null;
+      if (bounds) {
+        return !(bounds.x > right || bounds.right < left || bounds.y > bottom || bounds.bottom < top);
+      }
+      return obj.x >= left && obj.x <= right && obj.y >= top && obj.y <= bottom;
+    }
+
+    if (obj.type === 'spawn' || obj.type === 'portal' || obj.type === 'npc') {
       // 点状对象：位置在框内
       return obj.x >= left && obj.x <= right && obj.y >= top && obj.y <= bottom;
     }

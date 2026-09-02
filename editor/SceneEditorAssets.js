@@ -17,6 +17,7 @@ import {
   updateImagesCache,
   addGlobalImage
 } from './SceneDataLoader.js';
+import { mergeOverrides } from '../src/core/scene/PlacementSpawner.js';
 
 const ATLAS_SLICE_MIME = 'application/x-yijian18-atlas-slice+json';
 const STABLE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/;
@@ -39,10 +40,283 @@ export class SceneEditorAssets {
     this.editor = editor;
     this._atlasSavePromises = new Map();
     this._atlasImageLoadGeneration = 0;
+    this._placementVisualGeneration = 0;
+    this._placementProjectEpoch = 0;
+    this._placementProjectPath = '';
+    this._contentLibraryPromise = null;
+    this._contentLibraryPromiseEpoch = -1;
+    this._manifestPromise = null;
+    this._manifestPromiseEpoch = -1;
+    this._manifestEntriesById = new Map();
   }
 
   _currentProjectPath() {
     return String(this.editor.options?.getProjectPath?.() || this.editor.projectPath || '');
+  }
+
+  _normalizeProjectPath(value = this._currentProjectPath()) {
+    return String(value || '')
+      .trim()
+      .replace(/\\/g, '/')
+      .replace(/^(?:\.\.\/)+/, '')
+      .replace(/^\/+/, '')
+      .replace(/\/+$/, '');
+  }
+
+  _activatePlacementProject() {
+    const projectPath = this._normalizeProjectPath();
+    if (projectPath !== this._placementProjectPath) {
+      this._placementProjectPath = projectPath;
+      this._placementProjectEpoch += 1;
+      this._placementVisualGeneration += 1;
+      this._contentLib = null;
+      this._contentLibraryPromise = null;
+      this._contentLibraryPromiseEpoch = -1;
+      this._manifestPromise = null;
+      this._manifestPromiseEpoch = -1;
+      this._manifestEntriesById = new Map();
+    }
+    return { projectPath, epoch: this._placementProjectEpoch };
+  }
+
+  _isPlacementProjectCurrent(projectPath, epoch) {
+    const current = this._activatePlacementProject();
+    return current.projectPath === projectPath && current.epoch === epoch;
+  }
+
+  _projectRoot(projectPath = this._placementProjectPath) {
+    const normalized = this._normalizeProjectPath(projectPath);
+    return normalized.endsWith('/game.project.json')
+      ? normalized.slice(0, -'/game.project.json'.length)
+      : normalized.replace(/\/$/, '');
+  }
+
+  async _ensureContentLibrary() {
+    const { projectPath, epoch } = this._activatePlacementProject();
+    if (this._contentLib) return this._contentLib;
+    if (this._contentLibraryPromise && this._contentLibraryPromiseEpoch === epoch) {
+      return this._contentLibraryPromise;
+    }
+
+    const loadLibrary = this.editor.options?.getContentLibrary;
+    if (typeof loadLibrary !== 'function') {
+      throw new Error('未注入共享 canonical 内容库读取器');
+    }
+
+    const promise = Promise.resolve(loadLibrary()).then(library => {
+      if (!library || typeof library !== 'object' || Array.isArray(library)) {
+        throw new TypeError('canonical project.library 必须是对象');
+      }
+      const candidate = structuredClone(library);
+      for (const category of this._contentCategories()) {
+        if (!Array.isArray(candidate[category.key])) candidate[category.key] = [];
+      }
+      if (this._isPlacementProjectCurrent(projectPath, epoch)) this._contentLib = candidate;
+      return candidate;
+    });
+
+    this._contentLibraryPromise = promise;
+    this._contentLibraryPromiseEpoch = epoch;
+    try {
+      return await promise;
+    } finally {
+      if (this._contentLibraryPromise === promise) {
+        this._contentLibraryPromise = null;
+        this._contentLibraryPromiseEpoch = -1;
+      }
+    }
+  }
+
+  _indexManifest(manifest) {
+    const index = new Map();
+    for (const entry of Array.isArray(manifest?.assets) ? manifest.assets : []) {
+      if (!entry || typeof entry !== 'object') continue;
+      for (const id of [entry.assetId, entry.imageId]) {
+        if (typeof id === 'string' && id.trim()) index.set(id.trim(), entry);
+      }
+    }
+    return index;
+  }
+
+  async _ensureAssetManifest() {
+    const { projectPath, epoch } = this._activatePlacementProject();
+    if (this._manifestEntriesById.size > 0) return this._manifestEntriesById;
+    if (this._manifestPromise && this._manifestPromiseEpoch === epoch) return this._manifestPromise;
+
+    const projectRoot = this._projectRoot(projectPath);
+    if (!projectRoot) throw new Error('当前游戏工程路径为空');
+    const promise = this._fetchJson(`/${projectRoot}/assets/manifests/assets.json`).then(manifest => {
+      const index = this._indexManifest(manifest);
+      if (this._isPlacementProjectCurrent(projectPath, epoch)) this._manifestEntriesById = index;
+      return index;
+    });
+
+    this._manifestPromise = promise;
+    this._manifestPromiseEpoch = epoch;
+    try {
+      return await promise;
+    } finally {
+      if (this._manifestPromise === promise) {
+        this._manifestPromise = null;
+        this._manifestPromiseEpoch = -1;
+      }
+    }
+  }
+
+  _findPlacementDefinition(placement) {
+    if (!placement || placement.type !== 'ref' || !this._contentLib) return null;
+    const categoryByKind = {
+      item: 'items',
+      equipment: 'equipment',
+      npc: 'npcs',
+      enemy: 'enemies',
+      resourceNode: 'resourceNodes',
+      shop: 'shops',
+      vehicle: 'vehicles',
+      building: 'buildings'
+    };
+    const keys = [categoryByKind[placement.kind]];
+    if (placement.kind === 'equipment') keys.push('items');
+    for (const key of keys) {
+      if (!key) continue;
+      const definition = (this._contentLib[key] || []).find(entry => entry?.id === placement.ref);
+      if (definition) return definition;
+    }
+    return null;
+  }
+
+  _resolveManifestImageUrl(entry, projectPath = this._placementProjectPath) {
+    const rawPath = entry?.runtime2D?.path || entry?.sourceFile;
+    if (typeof rawPath !== 'string' || !rawPath.trim()) return '';
+    const normalizedPath = rawPath.trim()
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+      .replace(/^\/+/, '');
+    const projectRoot = this._projectRoot(projectPath);
+    if (normalizedPath.startsWith('example/')) return `/${normalizedPath}`;
+    if (projectRoot && normalizedPath.startsWith(`${projectRoot}/`)) return `/${normalizedPath}`;
+    return projectRoot ? `/${projectRoot}/${normalizedPath}` : `/${normalizedPath}`;
+  }
+
+  _positiveNumber(...values) {
+    for (const value of values) {
+      const number = Number(value);
+      if (Number.isFinite(number) && number > 0) return number;
+    }
+    return 0;
+  }
+
+  /**
+   * 同步解析 ref 放置物的内容定义、Manifest 映射、图片及画布视觉边界。
+   * 场景正文继续只保存 kind/ref/overrides，表现字段不复制进 placement。
+   */
+  resolvePlacementVisual(placement) {
+    if (!placement || placement.type !== 'ref') return null;
+    const definition = this._findPlacementDefinition(placement);
+    if (!definition) return { status: 'missingDefinition', definition: null, image: null, bounds: null };
+
+    const merged = mergeOverrides(definition, placement.overrides);
+    const imageId = [merged.imageId, merged.assetId]
+      .find(value => typeof value === 'string' && value.trim())?.trim() || '';
+    if (!imageId) {
+      return { status: 'missingAssetId', definition: merged, imageId: '', image: null, bounds: null };
+    }
+
+    const manifestEntry = this._manifestEntriesById.get(imageId) || null;
+    const image = this.editor.loadedImages.get(imageId)
+      || (manifestEntry?.imageId ? this.editor.loadedImages.get(manifestEntry.imageId) : null)
+      || (manifestEntry?.assetId ? this.editor.loadedImages.get(manifestEntry.assetId) : null)
+      || null;
+    const width = this._positiveNumber(
+      merged.sprite?.width,
+      merged.width,
+      manifestEntry?.bounds?.width,
+      image?.naturalWidth,
+      image?.width
+    );
+    const height = this._positiveNumber(
+      merged.sprite?.height,
+      merged.height,
+      manifestEntry?.bounds?.height,
+      image?.naturalHeight,
+      image?.height
+    );
+    const pivotSource = merged.pivot || merged.sprite?.pivot || manifestEntry?.pivot || {};
+    const pivotX = Number.isFinite(Number(pivotSource.x)) ? Number(pivotSource.x) : 0.5;
+    const pivotY = Number.isFinite(Number(pivotSource.y)) ? Number(pivotSource.y) : 1;
+    const anchorX = Number.isFinite(Number(placement.x)) ? Number(placement.x) : 0;
+    const anchorY = Number.isFinite(Number(placement.y)) ? Number(placement.y) : 0;
+    const bounds = width > 0 && height > 0 ? {
+      x: anchorX - width * pivotX,
+      y: anchorY - height * pivotY,
+      width,
+      height,
+      right: anchorX + width * (1 - pivotX),
+      bottom: anchorY + height * (1 - pivotY)
+    } : null;
+    const url = manifestEntry ? this._resolveManifestImageUrl(manifestEntry) : '';
+    const status = !manifestEntry
+      ? 'missingManifestEntry'
+      : !url
+        ? 'missingRuntimePath'
+        : image && bounds
+          ? 'ready'
+          : 'loading';
+    return { status, definition: merged, imageId, manifestEntry, image, width, height, pivot: { x: pivotX, y: pivotY }, bounds, url };
+  }
+
+  /** 异步加载当前场景全部 ref 放置物使用的 Manifest 图片。 */
+  async loadPlacementVisualImages() {
+    const editor = this.editor;
+    const { projectPath, epoch } = this._activatePlacementProject();
+    const generation = ++this._placementVisualGeneration;
+
+    try {
+      await Promise.all([this._ensureContentLibrary(), this._ensureAssetManifest()]);
+    } catch (error) {
+      if (this._isPlacementProjectCurrent(projectPath, epoch) && generation === this._placementVisualGeneration) {
+        console.warn('[SceneEditorAssets] ref 图片资源准备失败:', error);
+        editor.render();
+      }
+      return;
+    }
+    if (!this._isPlacementProjectCurrent(projectPath, epoch) || generation !== this._placementVisualGeneration) return;
+    this.updateContentList();
+
+    const placements = (editor.sceneData.layers || [])
+      .flatMap(layer => Array.isArray(layer?.objects) ? layer.objects : [])
+      .filter(object => object?.type === 'ref');
+    const requests = new Map();
+    for (const placement of placements) {
+      const visual = this.resolvePlacementVisual(placement);
+      if (!visual?.url || !visual.imageId || visual.image) continue;
+      if (!requests.has(visual.imageId)) requests.set(visual.imageId, visual);
+    }
+
+    for (const [imageId, visual] of requests) {
+      const image = new Image();
+      image.onload = () => {
+        if (!this._isPlacementProjectCurrent(projectPath, epoch) || generation !== this._placementVisualGeneration) return;
+        const currentEntry = this._manifestEntriesById.get(imageId);
+        if (!currentEntry || this._resolveManifestImageUrl(currentEntry, projectPath) !== visual.url) return;
+        for (const alias of [imageId, currentEntry.imageId, currentEntry.assetId]) {
+          if (typeof alias === 'string' && alias.trim()) editor.loadedImages.set(alias.trim(), image);
+        }
+        editor.render();
+        this.updateContentList();
+      };
+      image.onerror = () => {
+        if (this._isPlacementProjectCurrent(projectPath, epoch) && generation === this._placementVisualGeneration) {
+          console.warn(`[SceneEditorAssets] ref 图片加载失败: ${imageId} (${visual.url})`);
+        }
+      };
+      image.src = visual.url;
+    }
+    editor.render();
+  }
+
+  refreshPlacementVisuals() {
+    return this.loadPlacementVisualImages();
   }
 
   _activateSharedAtlasProject() {
@@ -744,6 +1018,7 @@ export class SceneEditorAssets {
     editor.ui.updateObjectCount();
     editor.ui.updateObjectProperties();
     editor.render();
+    void this.loadPlacementVisualImages();
   }
 
   /**
@@ -1470,34 +1745,19 @@ export class SceneEditorAssets {
 
   /** 加载内容库定义（来自页面共享的 canonical project candidate），填充分类下拉并渲染列表。 */
   async updateContentLibrary() {
-    if (!this._contentLib) {
-      const loadLibrary = this.editor.options?.getContentLibrary;
-      if (typeof loadLibrary !== 'function') {
-        console.warn('内容库加载失败：未注入共享 canonical 内容库读取器');
-        this.editor.ui.showToast?.('内容库不可用：未配置 canonical 读取器', 'error');
-        return;
-      }
-      try {
-        const library = await loadLibrary();
-        if (!library || typeof library !== 'object' || Array.isArray(library)) {
-          throw new TypeError('canonical project.library 必须是对象');
-        }
-        this._contentLib = structuredClone(library);
-      } catch (error) {
-        console.warn('内容库加载失败', error);
-        this.editor.ui.showToast?.('内容库加载失败: ' + error.message, 'error');
-        return;
-      }
-      for (const c of this._contentCategories()) {
-        if (!Array.isArray(this._contentLib[c.key])) this._contentLib[c.key] = [];
-      }
-      // 填充分类下拉
-      const filter = document.getElementById('editor-content-filter');
-      if (filter && !filter.dataset.filled) {
-        filter.innerHTML = this._contentCategories()
-          .map(c => `<option value="${c.key}">${c.label}</option>`).join('');
-        filter.dataset.filled = '1';
-      }
+    try {
+      await this._ensureContentLibrary();
+    } catch (error) {
+      console.warn('内容库加载失败', error);
+      this.editor.ui.showToast?.('内容库加载失败: ' + error.message, 'error');
+      return;
+    }
+
+    const filter = document.getElementById('editor-content-filter');
+    if (filter && !filter.dataset.filled) {
+      filter.innerHTML = this._contentCategories()
+        .map(category => `<option value="${category.key}">${category.label}</option>`).join('');
+      filter.dataset.filled = '1';
     }
     this.updateContentList();
   }
@@ -1508,27 +1768,33 @@ export class SceneEditorAssets {
     if (!list || !this._contentLib) return;
     const filter = document.getElementById('editor-content-filter');
     const catKey = (filter && filter.value) || 'items';
-    const cat = this._contentCategories().find(c => c.key === catKey);
+    const cat = this._contentCategories().find(category => category.key === catKey);
+    if (!cat) return;
     const entries = this._contentLib[catKey] || [];
     if (entries.length === 0) {
       list.innerHTML = '<div style="padding:10px;color:#666;text-align:center;font-size:11px;">该分类暂无定义<br>点「+ 新增定义」</div>';
       return;
     }
-    list.innerHTML = entries.map(def => `
+    list.innerHTML = entries.map(definition => {
+      const visual = this.resolvePlacementVisual({ type: 'ref', kind: cat.kind, ref: definition.id, x: 0, y: 0 });
+      const preview = visual?.url
+        ? `<img src="${escapeHtml(visual.url)}" alt="${escapeHtml(definition.name || definition.id)}" style="width:100%;height:100%;object-fit:contain;">`
+        : escapeHtml(cat.label.slice(0, 1));
+      return `
       <div class="asset-item content-item" draggable="true"
-           data-id="content:${cat.kind}:${def.id}" data-cat="${catKey}" data-ref="${def.id}"
+           data-id="content:${cat.kind}:${escapeHtml(definition.id)}" data-cat="${catKey}" data-ref="${escapeHtml(definition.id)}"
            title="拖入场景放置；点击编辑定义">
-        <div class="asset-preview" style="width:30px;height:30px;background:rgba(80,200,140,0.2);border:1px solid #50c88c;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8fe;">${cat.label.slice(0,1)}</div>
-        <span>${def.name || def.id}</span>
-      </div>
-    `).join('');
+        <div class="asset-preview" style="width:30px;height:30px;background:rgba(80,200,140,0.2);border:1px solid #50c88c;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#8fe;overflow:hidden;">${preview}</div>
+        <span>${escapeHtml(definition.name || definition.id)}</span>
+      </div>`;
+    }).join('');
     this._bindAssetDrag(list);
     // 点击条目 → 在右侧属性面板编辑该定义
-    list.querySelectorAll('.content-item').forEach(el => {
-      el.addEventListener('click', () => {
-        const ref = el.dataset.ref;
-        const def = (this._contentLib[catKey] || []).find(d => d.id === ref);
-        if (def) this.editor.ui.showContentDefinitionEditor?.(catKey, def);
+    list.querySelectorAll('.content-item').forEach(element => {
+      element.addEventListener('click', () => {
+        const ref = element.dataset.ref;
+        const definition = (this._contentLib[catKey] || []).find(entry => entry.id === ref);
+        if (definition) this.editor.ui.showContentDefinitionEditor?.(catKey, definition);
       });
     });
   }
@@ -1580,6 +1846,7 @@ export class SceneEditorAssets {
       } else {
         this.editor.ui.showToast?.('内容库已保存', 'success');
       }
+      void this.refreshPlacementVisuals();
       return result;
     } catch (error) {
       this.editor.ui.showToast?.('保存失败: ' + error.message, 'error');

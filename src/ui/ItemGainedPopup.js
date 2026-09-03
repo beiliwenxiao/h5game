@@ -28,6 +28,7 @@
 
 import { UIElement } from './UIElement.js';
 import { ItemIconRenderer } from './ItemIconRenderer.js';
+import { InputHints } from '../core/input/InputHints.js';
 import { PadButton } from '../core/input/Xbox360Profile.js';
 
 // 用户约定：涨红跌绿
@@ -62,6 +63,7 @@ export class ItemGainedPopup extends UIElement {
     this.showStore = false;
     this.actions = [];
     this._selectedActionId = null;
+    this._defaultActionId = null;
     this._buttons = []; // [{x,y,w,h,action}]
     this._autoStoreAction = null;
     this._autoStoreRemaining = 0;
@@ -106,7 +108,11 @@ export class ItemGainedPopup extends UIElement {
       || this.actions.find(action => action.id === 'primary')
       || this.actions[0]
       || null;
-    this._selectedActionId = defaultAction?.id || null;
+    this._defaultActionId = defaultAction?.id || null;
+    // 只有手柄需要打开弹窗时预选动作；PC/触屏通过鼠标或触摸直接点击，避免弹窗抢占焦点。
+    this._selectedActionId = InputHints.scheme === 'gamepad'
+      ? this._defaultActionId
+      : null;
     this._autoStoreAction = this.actions.find(action => action.id === 'store'
       && Number(action.autoTriggerSeconds) > 0) || null;
     this._autoStoreRemaining = this._autoStoreAction
@@ -133,6 +139,7 @@ export class ItemGainedPopup extends UIElement {
     this.showStore = false;
     this.actions = [];
     this._selectedActionId = null;
+    this._defaultActionId = null;
     this._buttons = [];
     this._resetAutoStore();
     this._resetLeftStickNavigation();
@@ -182,24 +189,25 @@ export class ItemGainedPopup extends UIElement {
   }
 
   /**
-   * 设备无关模态输入入口。可见期间始终消费输入，防止确认和导航输入穿透到世界。
-   * 键盘只读取纯键盘按下沿；手柄读取物理 A 与左摇杆水平轴，不混入 D-pad。
+   * 设备无关弹窗输入入口。PC/触屏只在实际指针点击时消费输入；
+   * 手柄持续接管焦点导航与物理 A 确认，避免其输入穿透到世界。
    */
   handleInput({ inputManager = null, gamepad = null } = {}) {
     if (!this.visible) return false;
 
+    let pointerConsumed = false;
     if (inputManager?.isMouseClicked?.() && !inputManager.isMouseClickHandled?.()) {
       const point = inputManager.getMousePosition?.() || { x: 0, y: 0 };
       const button = inputManager.getMouseButton?.() === 2 ? 'right' : 'left';
       this.handleMouseClick(point.x, point.y, button);
-      // 弹窗显示期间，框外点击同样属于模态输入，不能落到世界层。
+      // 弹窗显示期间，框外点击同样属于弹窗输入，不能落到世界层。
       inputManager.markMouseClickHandled?.();
+      pointerConsumed = true;
     }
 
-    const keyboardPressed = key => (
-      inputManager?.isKeyboardKeyPressed?.(key) === true
-      || (!inputManager?.isKeyboardKeyPressed && inputManager?.keysPressed?.get?.(key) === true)
-    );
+    if (InputHints.scheme !== 'gamepad') return pointerConsumed;
+    if (!this._selectedActionId) this._selectedActionId = this._defaultActionId;
+
     const padPressed = button => gamepad?.isButtonPressed?.(button) === true;
 
     // 使用 GamepadManager 已经过径向死区的纯左摇杆快照，避免 getMoveVector() 回退 D-pad。
@@ -216,13 +224,8 @@ export class ItemGainedPopup extends UIElement {
     }
     this._leftStickDirection = stickDirection;
 
-    const previous = keyboardPressed('left') || keyboardPressed('up') || stickStep < 0;
-    const next = keyboardPressed('right') || keyboardPressed('down') || stickStep > 0;
-    if (previous && !next) this.moveSelection(-1);
-    else if (next && !previous) this.moveSelection(1);
-
-    const confirmed = keyboardPressed('e') || padPressed(PadButton.A);
-    if (confirmed) this.activateSelected();
+    if (stickStep !== 0) this.moveSelection(stickStep);
+    if (padPressed(PadButton.A)) this.activateSelected();
     return true;
   }
 
@@ -339,7 +342,8 @@ export class ItemGainedPopup extends UIElement {
 
   /** @private 画按钮并登记命中区 */
   _drawButton(ctx, bx, by, bw, bh, label, bg, action) {
-    const selected = action?.id === this._selectedActionId;
+    const selected = InputHints.scheme === 'gamepad'
+      && action?.id === this._selectedActionId;
     ctx.save();
     if (selected) {
       ctx.shadowColor = 'rgba(255, 210, 77, 0.75)';

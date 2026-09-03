@@ -46,7 +46,6 @@ import { FloatingTextManager } from '../../../src/ui/FloatingText.js';
 import { NotificationSystem } from '../../../src/ui/NotificationSystem.js';
 import { ItemGainedPopup } from '../../../src/ui/ItemGainedPopup.js';
 import { GamepadPanel } from '../../../src/ui/GamepadPanel.js';
-import { PadButton } from '../../../src/core/input/Xbox360Profile.js';
 import { GamepadCombatController } from '../../../src/core/input/GamepadCombatController.js';
 import { InputHints } from '../../../src/core/input/InputHints.js';
 import { SkillWheelOverlay } from '../../../src/ui/SkillWheelOverlay.js';
@@ -336,7 +335,7 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
         router: this.sceneRuntime?.inputRouter,
         gamepadCombat: this.gamepadCombat,
         onModalInput: context => this.handleModalInput(context),
-        onPopupConfirm: () => this._handleGainedPopupGamepad(),
+        onPopupConfirm: context => this._handleGainedPopupInput(context),
         onGamepadCombat: () => this._updateGamepadCombat(),
         onGamepadCombatCancel: ({ reason }) => (
           this._ensureCombatActions().cancelGamepadCombatInput(reason)
@@ -714,23 +713,16 @@ export class BaseGameSceneBehaviors extends BaseGameSceneSetup {  /**
   }
 
   /**
-   * 手柄 A 键确认获得物品弹窗的主操作（装备或使用）。
-   * A 默认也映射为攻击，因此必须在攻击处理前消费同帧虚拟点击。
-   * @returns {boolean} 是否已处理
+   * 获得物品弹窗的设备无关模态输入入口。
+   * 焦点和 action 选择由 ItemGainedPopup 拥有，场景层只负责接入统一输入流。
+   * @returns {boolean} 弹窗是否接管本帧输入
    * @private
    */
-  _handleGainedPopupGamepad() {
-    const input = this.inputManager;
-    const popup = this.itemGainedPopup;
-    if (!input?.isGamepadConnected?.() || !popup?.visible ||
-        !input.gamepad?.isButtonPressed(PadButton.A)) {
-      return false;
-    }
-
-    if (typeof popup.onPrimary !== 'function') return false;
-    popup.onPrimary();
-    input.markMouseClickHandled();
-    return true;
+  _handleGainedPopupInput(context = {}) {
+    return this.itemGainedPopup?.handleInput?.({
+      inputManager: context.inputManager || this.inputManager,
+      gamepad: context.gamepad || this.inputManager?.gamepad
+    }) === true;
   }
 
   /** 手柄战斗控制器每帧驱动：产出意图并执行对应操作。 */

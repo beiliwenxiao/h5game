@@ -160,6 +160,11 @@ export class SceneInputFlow {
     return this.router.update(DEFAULT_KEYS);
   }
 
+  /** 当前帧是否由模态 UI 或物品弹窗接管，供持续轴/按住态输入停止驱动玩家。 */
+  isWorldInputBlocked() {
+    return !this._disposed && (this._modalConsumed || this._popupConsumed);
+  }
+
   afterSystems() {
     if (this._disposed || !this.dialogue) return false;
     for (const name of ['checkContinue', 'checkDialogueContinue', 'handleContinueInput']) {

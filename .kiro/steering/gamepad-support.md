@@ -44,6 +44,8 @@ RT holding 的扇形方向锁由 `SceneCombatActions` 临时拥有：按住时�
 ### 5. 摇杆死区用径向死区 + 重标定
 `_applyDeadzone` 把 `[deadzone,1]` 重映射到 `[0,1]`，避免死区边缘速度突跳。默认死区 0.22。扳机（LT/RT）是模拟量，按 `triggerThreshold`（默认 0.5）离散成按下/松开。
 
+模态 UI 需要“仅左摇杆”导航时直接读取已过死区的 `gamepad.leftStick.x/y`，再应用 UI 导航阈值；不得使用 `getMoveVector()` / `getMoveAxis()`，因为两者会回退 D-pad。焦点切换采用“显示后先归中武装 + 方向锁存”，同方向持续推杆只触发一次，归中或直接反向后才能再次触发；生命周期隐藏/重显时必须重置锁存。物品获得弹窗固定使用左摇杆水平轴左右切换，D-pad 不参与该弹窗导航。
+
 ### 6. 移动优先用 getMoveAxis()
 `MovementSystem.handleKeyboardInput` 先取 `inputManager.getMoveAxis()`（返回归一化方向 + magnitude 推杆量，手柄摇杆可轻推慢走），拿不到再退回逐键判断。`getMoveAxis` 不存在时（旧 InputManager / 测试替身）走兜底分支，测试不受影响。摇杆同时补出数字方向键（`up/left` 等），让只读 `isKeyDown('up')` 的朝向/动画代码也能跟随。
 

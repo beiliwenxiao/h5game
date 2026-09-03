@@ -358,12 +358,22 @@ export class InputManager {
     }
 
     /**
+     * 检查纯键盘按键是否在本帧按下，不合并手柄虚拟键。
+     * 模态 UI 需要区分键盘确认键与物理手柄按钮时使用。
+     * @param {string} key - 归一化后的键名
+     * @returns {boolean}
+     */
+    isKeyboardKeyPressed(key) {
+        return this.keysPressed.get(key) === true;
+    }
+
+    /**
      * 检查键是否在本帧按下（键盘或手柄）
      * @param {string} key - 键名
      * @returns {boolean}
      */
     isKeyPressed(key) {
-        return this.keysPressed.get(key) === true || this._padPressed.has(key);
+        return this.isKeyboardKeyPressed(key) || this._padPressed.has(key);
     }
 
     /**

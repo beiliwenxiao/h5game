@@ -82,7 +82,14 @@ export class SceneItemGainedFlow {
       onClick: () => advance(() => this._drop(item))
     });
 
-    popup.show({ item, comparison, actions, remaining: this.queue.length });
+    const defaultActionId = item.type === 'consumable' && item.usable ? 'primary' : 'store';
+    popup.show({
+      item,
+      comparison,
+      actions,
+      defaultActionId,
+      remaining: this.queue.length
+    });
   }
 
   /** 当前弹窗的一个决策完成后，再显示 FIFO 中的下一件，避免并发命令交叠。 */

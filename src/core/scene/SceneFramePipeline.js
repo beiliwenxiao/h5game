@@ -96,6 +96,7 @@ export class SceneFramePipeline {
     // 顶层输入流程保证手柄帧首 poll、弹窗优先于战斗，并统一路由输入。
     // DataDriven 子场景若已在 super.update 前开始本帧，内部守卫会跳过重复编排。
     inputFlow?.beforeFrame(deltaTime);
+    const worldInputBlocked = inputFlow?.isWorldInputBlocked?.() === true;
     // isPlayerActionLocked 含战斗状态（用于禁用采集等动作），但战斗只锁定动作、不能冻结移动，
     // 否则怪物一出现进入战斗后玩家会被排除在移动更新外而直接卡住。打坐/采集中仍冻结移动。
     const inCombat = scene.combatSystem?.isInCombat?.() === true;
@@ -161,7 +162,7 @@ export class SceneFramePipeline {
         weaponRenderer.updateMouseAngle(mouseWorldPos, playerCenter, currentTime);
 
         // PC：按下 Ctrl 进入轻功瞄准、Shift 进入投掷瞄准（随后左键确认）
-        if (!playerActionLocked && !scene.isMobileLayout) {
+        if (!playerActionLocked && !worldInputBlocked && !scene.isMobileLayout) {
           if (inputManager.isKeyPressed('ctrl')) {
             scene.enterPCAimMode('flight');
           } else if (inputManager.isKeyPressed('shift')) {
@@ -169,8 +170,8 @@ export class SceneFramePipeline {
           }
         }
 
-        // PC 瞄准模式：采集中取消既有瞄准并禁止攻击，其余世界系统继续更新。
-        if (playerActionLocked) {
+        // PC 瞄准模式：领域硬锁或模态 UI 接管时取消，避免按住输入在弹窗后继续释放。
+        if (playerActionLocked || worldInputBlocked) {
           scene.cancelPCAimMode?.();
         } else {
           if (services.skills) services.skills.updatePCAimMode();
@@ -237,14 +238,17 @@ export class SceneFramePipeline {
     // 蓄力跳跃：按跳跃键保持状态驱动蓄力/松手起跳
     // （键盘 space / 触屏 _jumpHeld 标志 / 手柄 Y 虚拟键 'jump' 三路统一）。
     // 松手触发的起跳要在本帧跳跃更新之前生效，保证落点位移立即推进。
-    const jumpAxis = scene.inputManager?.getMoveAxis?.() || null;
+    const jumpAxis = worldInputBlocked ? null : (scene.inputManager?.getMoveAxis?.() || null);
     scene.jumpChargeController?.update?.({
-      held: scene.inputManager?.isKeyDown?.('space') === true
+      held: !worldInputBlocked && (
+        scene.inputManager?.isKeyDown?.('space') === true
         || scene._jumpHeld === true
-        || scene.inputManager?.isKeyDown?.('jump') === true,
+        || scene.inputManager?.isKeyDown?.('jump') === true
+      ),
       actor: player,
       direction: jumpAxis,
-      blocked: scene.playerEntity?.isDead === true
+      blocked: worldInputBlocked
+        || scene.playerEntity?.isDead === true
         || scene.dialogueSystem?.isDialogueActive?.() === true
         || scene.meditationSystem?.isActive?.() === true
     });
@@ -259,11 +263,12 @@ export class SceneFramePipeline {
       flightSystem.update(deltaTime, player);
     }
 
-    // 更新移动系统：打坐或采集只锁玩家，AI/其他实体继续移动。
-    // 灵魂状态（死亡待复活）保留移动能力：isSoulState 时不把玩家从移动更新中剔除。
+    // 更新移动系统：模态 UI、打坐或采集只锁玩家，AI/其他实体继续移动。
+    // 灵魂状态只绕过领域硬锁；模态 UI 仍必须阻止方向键/摇杆穿透。
     const soulMovementAllowed = player?.isSoulState === true;
     let movementResult;
-    if ((meditationSystem.isActive() || (playerActionLocked && !soulMovementAllowed)) && player) {
+    if ((worldInputBlocked || meditationSystem.isActive()
+      || (playerActionLocked && !soulMovementAllowed)) && player) {
       // 锁定期间复用非玩家实体列表；实体数组或玩家变化时才重建，避免每帧 filter 分配。
       if (scene._meditationEntitySource !== entities ||
           scene._meditationEntityCount !== entities.length ||

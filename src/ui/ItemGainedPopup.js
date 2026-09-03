@@ -28,6 +28,7 @@
 
 import { UIElement } from './UIElement.js';
 import { ItemIconRenderer } from './ItemIconRenderer.js';
+import { PadButton } from '../core/input/Xbox360Profile.js';
 
 // 用户约定：涨红跌绿
 const COLOR_UP = '#ff4d4d';   // 属性增加：红
@@ -40,6 +41,7 @@ const ICON_SIZE = 48; // 图标框边长
 const ROW_H = 18;     // 属性对比行高
 const BTN_H = 44;     // 按钮高度（为自动入包倒计时保留第二行）
 const AUTO_STORE_SECONDS = 5;
+const LEFT_STICK_NAV_THRESHOLD = 0.5;
 
 export class ItemGainedPopup extends UIElement {
   constructor(options = {}) {
@@ -59,10 +61,13 @@ export class ItemGainedPopup extends UIElement {
     this.onStore = null;
     this.showStore = false;
     this.actions = [];
+    this._selectedActionId = null;
     this._buttons = []; // [{x,y,w,h,action}]
     this._autoStoreAction = null;
     this._autoStoreRemaining = 0;
     this._actionPending = false;
+    this._leftStickNavArmed = false;
+    this._leftStickDirection = 0;
     // 底部锚点：设置后 show() 会把弹窗底边对齐到 anchorBottom 上方（紧贴底部控制栏）
     this.anchorBottom = options.anchorBottom || null;
     this.anchorGap = options.anchorGap != null ? options.anchorGap : 8;
@@ -75,6 +80,7 @@ export class ItemGainedPopup extends UIElement {
    */
   show(cfg = {}) {
     this._resetAutoStore();
+    this._resetLeftStickNavigation();
     this._buttons = [];
     this.item = cfg.item || null;
     this.comparison = Array.isArray(cfg.comparison) ? cfg.comparison : [];
@@ -91,6 +97,16 @@ export class ItemGainedPopup extends UIElement {
     this.actions = (Array.isArray(cfg.actions) ? cfg.actions : legacyActions)
       .filter(action => action && typeof action.label === 'string' && typeof action.onClick === 'function')
       .slice(0, 3);
+    const requestedActionId = String(cfg.defaultActionId || '').trim();
+    const defaultAction = this.actions.find(action => action.id === requestedActionId)
+      || (this.item?.type === 'consumable' && this.item?.usable
+        ? this.actions.find(action => action.id === 'primary')
+        : null)
+      || this.actions.find(action => action.id === 'store')
+      || this.actions.find(action => action.id === 'primary')
+      || this.actions[0]
+      || null;
+    this._selectedActionId = defaultAction?.id || null;
     this._autoStoreAction = this.actions.find(action => action.id === 'store'
       && Number(action.autoTriggerSeconds) > 0) || null;
     this._autoStoreRemaining = this._autoStoreAction
@@ -116,8 +132,10 @@ export class ItemGainedPopup extends UIElement {
     this.comparison = [];
     this.showStore = false;
     this.actions = [];
+    this._selectedActionId = null;
     this._buttons = [];
     this._resetAutoStore();
+    this._resetLeftStickNavigation();
   }
 
   update(deltaTime) {
@@ -132,10 +150,80 @@ export class ItemGainedPopup extends UIElement {
     this._actionPending = false;
   }
 
+  _resetLeftStickNavigation() {
+    this._leftStickNavArmed = false;
+    this._leftStickDirection = 0;
+  }
+
   _actionLabel(action) {
     if (action !== this._autoStoreAction || this._autoStoreRemaining <= 0) return action.label;
     const seconds = Math.max(1, Math.ceil(this._autoStoreRemaining));
     return `${action.label}\n${seconds}秒后自动放入背包`;
+  }
+
+  /** 按当前动作顺序循环移动焦点，不依赖 render 后才生成的按钮命中区。 */
+  moveSelection(delta) {
+    if (!this.visible || this._actionPending || this.actions.length === 0) return false;
+    const direction = Math.sign(Number(delta) || 0);
+    if (direction === 0) return false;
+    const current = this.actions.findIndex(action => action.id === this._selectedActionId);
+    const start = current >= 0 ? current : 0;
+    const next = (start + direction + this.actions.length) % this.actions.length;
+    this._selectedActionId = this.actions[next]?.id || null;
+    return true;
+  }
+
+  /** 执行当前焦点动作。 */
+  activateSelected() {
+    const selected = this.actions.find(action => action.id === this._selectedActionId)
+      || this.actions[0]
+      || null;
+    return this._activateAction(selected);
+  }
+
+  /**
+   * 设备无关模态输入入口。可见期间始终消费输入，防止确认和导航输入穿透到世界。
+   * 键盘只读取纯键盘按下沿；手柄读取物理 A 与左摇杆水平轴，不混入 D-pad。
+   */
+  handleInput({ inputManager = null, gamepad = null } = {}) {
+    if (!this.visible) return false;
+
+    if (inputManager?.isMouseClicked?.() && !inputManager.isMouseClickHandled?.()) {
+      const point = inputManager.getMousePosition?.() || { x: 0, y: 0 };
+      const button = inputManager.getMouseButton?.() === 2 ? 'right' : 'left';
+      this.handleMouseClick(point.x, point.y, button);
+      // 弹窗显示期间，框外点击同样属于模态输入，不能落到世界层。
+      inputManager.markMouseClickHandled?.();
+    }
+
+    const keyboardPressed = key => (
+      inputManager?.isKeyboardKeyPressed?.(key) === true
+      || (!inputManager?.isKeyboardKeyPressed && inputManager?.keysPressed?.get?.(key) === true)
+    );
+    const padPressed = button => gamepad?.isButtonPressed?.(button) === true;
+
+    // 使用 GamepadManager 已经过径向死区的纯左摇杆快照，避免 getMoveVector() 回退 D-pad。
+    const stickX = Number(gamepad?.leftStick?.x) || 0;
+    const stickDirection = stickX <= -LEFT_STICK_NAV_THRESHOLD
+      ? -1
+      : (stickX >= LEFT_STICK_NAV_THRESHOLD ? 1 : 0);
+    let stickStep = 0;
+    if (!this._leftStickNavArmed) {
+      // 弹窗打开后必须先归中，不能继承玩家仍推住的世界移动方向。
+      if (stickDirection === 0) this._leftStickNavArmed = true;
+    } else if (stickDirection !== 0 && stickDirection !== this._leftStickDirection) {
+      stickStep = stickDirection;
+    }
+    this._leftStickDirection = stickDirection;
+
+    const previous = keyboardPressed('left') || keyboardPressed('up') || stickStep < 0;
+    const next = keyboardPressed('right') || keyboardPressed('down') || stickStep > 0;
+    if (previous && !next) this.moveSelection(-1);
+    else if (next && !previous) this.moveSelection(1);
+
+    const confirmed = keyboardPressed('e') || padPressed(PadButton.A);
+    if (confirmed) this.activateSelected();
+    return true;
   }
 
   _activateAction(action) {
@@ -251,13 +339,26 @@ export class ItemGainedPopup extends UIElement {
 
   /** @private 画按钮并登记命中区 */
   _drawButton(ctx, bx, by, bw, bh, label, bg, action) {
+    const selected = action?.id === this._selectedActionId;
+    ctx.save();
+    if (selected) {
+      ctx.shadowColor = 'rgba(255, 210, 77, 0.75)';
+      ctx.shadowBlur = 10;
+    }
     ctx.fillStyle = bg;
     this._roundRect(ctx, bx, by, bw, bh, 6);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-    ctx.lineWidth = 1;
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = selected ? '#ffd24d' : 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = selected ? 3 : 1;
     this._roundRect(ctx, bx, by, bw, bh, 6);
     ctx.stroke();
+    if (selected) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = 1;
+      this._roundRect(ctx, bx + 3, by + 3, bw - 6, bh - 6, 4);
+      ctx.stroke();
+    }
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -272,7 +373,7 @@ export class ItemGainedPopup extends UIElement {
       ctx.font = 'bold 14px "Microsoft YaHei", Arial';
       ctx.fillText(lines[0], bx + bw / 2, by + bh / 2);
     }
-    ctx.textAlign = 'left';
+    ctx.restore();
     this._buttons.push({ x: bx, y: by, w: bw, h: bh, action });
   }
 
@@ -281,6 +382,7 @@ export class ItemGainedPopup extends UIElement {
     if (button === 'left') {
       for (const b of this._buttons) {
         if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) {
+          this._selectedActionId = b.action?.id || this._selectedActionId;
           this._activateAction(b.action);
           return true;
         }

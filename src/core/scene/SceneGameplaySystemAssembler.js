@@ -137,9 +137,15 @@ export class SceneGameplaySystemAssembler {
     scene.collisionSystem = new CollisionSystem();
     scene.corpseRuntime = new SceneCorpseRuntime({
       entityStore: scene.entityStore,
-      aiSystem: scene.aiSystem
+      aiSystem: scene.aiSystem,
+      retirePlacement: (entity, state) => scene.context?.services?.placements
+        ?.tombstonePlacement?.(entity?.placementId, state) || { ok: false, code: 'placementsUnavailable' }
     });
     scene.combatSystem.setOnCorpseCreateCallback(entity => scene.corpseRuntime.retain(entity));
+    scene.sceneRuntime?.onFramePhase?.(
+      FramePhase.AFTER_SCENE,
+      deltaTime => scene.corpseRuntime?.update?.(deltaTime)
+    );
 
     const inventoryTransactionsOwned = !scene.inventoryTransactions;
     scene.inventoryTransactions = scene.inventoryTransactions || new InventoryTransactionService();

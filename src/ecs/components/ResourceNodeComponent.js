@@ -77,6 +77,8 @@ export class ResourceNodeComponent extends Component {
 
   deserialize(data = {}) {
     if (Number.isInteger(data.remaining) && data.remaining >= 0) this.remaining = data.remaining;
+    if (Number.isInteger(data.maxRemaining) && data.maxRemaining >= this.remaining) this.maxRemaining = data.maxRemaining;
+    if (Number.isInteger(data.yieldPerGather) && data.yieldPerGather >= 1) this.yieldPerGather = data.yieldPerGather;
     if (Number.isInteger(data.refreshProgressDays) && data.refreshProgressDays >= 0) this.refreshProgressDays = data.refreshProgressDays;
     if (data.refreshMode === 'timed' || data.refreshMode === 'none') this.refreshMode = data.refreshMode;
     if (Number.isFinite(data.refreshIntervalSeconds) && data.refreshIntervalSeconds >= 0) {

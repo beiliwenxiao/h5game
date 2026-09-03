@@ -159,6 +159,20 @@ export const RESOURCE_NODE_RISK_EVENT_SCHEMA = {
   }
 };
 
+export const RESOURCE_NODE_HARVEST_YIELD_RANGE_SCHEMA = {
+  id: 'resourceNodeHarvestYieldRange',
+  allowUnknown: false,
+  fields: {
+    min: { type: FieldType.INTEGER, required: true, min: 1 },
+    max: { type: FieldType.INTEGER, required: true, min: 1 }
+  },
+  validate(range) {
+    return range.min <= range.max
+      ? { ok: true, errors: [] }
+      : { ok: false, errors: [makeError(ValidationCode.OUT_OF_RANGE, 'min', 'harvestYieldRange.min 不能大于 max')] };
+  }
+};
+
 /** 内容库中的资源节点定义；与存档里的动态 resourceNode 状态分离。 */
 export const RESOURCE_NODE_DEFINITION_SCHEMA = {
   id: 'resourceNodeDefinition',
@@ -175,6 +189,7 @@ export const RESOURCE_NODE_DEFINITION_SCHEMA = {
     remaining: nonNegativeInteger(true),
     maxRemaining: nonNegativeInteger(true),
     yieldPerGather: { type: FieldType.INTEGER, required: true, min: 1 },
+    harvestYieldRange: { type: FieldType.OBJECT, schema: 'resourceNodeHarvestYieldRange' },
     gatherDuration: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
     interactionRadius: { type: FieldType.NUMBER, required: true, min: Number.MIN_VALUE },
     requiredToolType: { nullable: true },
@@ -752,6 +767,7 @@ export const CANONICAL_SCHEMAS = [
   ARMY_SCHEMA,
   RESOURCE_NODE_SCHEMA,
   RESOURCE_NODE_RISK_EVENT_SCHEMA,
+  RESOURCE_NODE_HARVEST_YIELD_RANGE_SCHEMA,
   RESOURCE_NODE_DEFINITION_SCHEMA,
   ITEM_CAPABILITY_SCHEMA,
   ITEM_DEFINITION_SCHEMA,

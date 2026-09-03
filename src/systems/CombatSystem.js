@@ -2258,12 +2258,16 @@ export class CombatSystem {
         const chance = Math.min(1, Math.max(0, Number(entry?.chance) || 0));
         const itemId = entry?.itemId || entry?.id;
         if (!itemId || Math.random() >= chance) continue;
-        const min = Math.max(0, Math.floor(Number(entry?.minQuantity) || 1));
-        const max = Math.max(min, Math.floor(Number(entry?.maxQuantity) || min));
+        const parsedMin = Number(entry?.minQuantity);
+        const min = Math.max(0, Math.floor(Number.isFinite(parsedMin) ? parsedMin : 1));
+        const parsedMax = Number(entry?.maxQuantity);
+        const max = Math.max(min, Math.floor(Number.isFinite(parsedMax) ? parsedMax : min));
+        const quantity = min + Math.floor(Math.random() * (max - min + 1));
+        if (quantity <= 0) continue;
         loot.push({
           itemId,
           name: entry?.name || itemId,
-          quantity: min + Math.floor(Math.random() * (max - min + 1))
+          quantity
         });
       }
       return loot;

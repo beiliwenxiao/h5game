@@ -74,6 +74,20 @@ const commandMethods = {
   async handleGatheringEvent(event, data = {}) {
     if (event === 'completed' && (data.ok !== true || data.committed !== true)) return false;
     if (event === 'completed') {
+      const depletedCorpse = Number(data.nodeRemaining) <= 0
+        ? this.entityStore?.getById?.(data.nodeId)
+        : null;
+      if (this.currentSceneId === 'S01'
+        && data.itemId === 'resource.wolf_hide'
+        && depletedCorpse?.isCorpse === true) {
+        const decay = this.context.services.corpses?.startDecay?.(depletedCorpse, {
+          durationSeconds: 20,
+          operationId: data.operationId || data.gatheringOperationId || null
+        });
+        if (decay?.ok !== true) {
+          console.warn('[SanguoSceneCommandCoordinator] 狼尸体衰减未启动，已提交剥皮不受影响', decay);
+        }
+      }
       const sourceOperationId = data.operationId || data.gatheringOperationId;
       if (!sourceOperationId) {
         console.warn('[SanguoSceneCommandCoordinator] 已提交采集缺少稳定 operationId，未发布 gathering.completed');

@@ -45,6 +45,7 @@ import { SanguoDomainCommandFacade } from '../systems/SanguoDomainCommandFacade.
 import { WeatherSystem } from '../../../src/systems/WeatherSystem.js';
 import { TimeSystem } from '../../../src/systems/TimeSystem.js';
 import { CargoTransferView } from '../../../src/ui/CargoTransferView.js';
+import { RecipeSelectionView } from '../../../src/ui/RecipeSelectionView.js';
 import { SanguoProgressionPresentationCoordinator } from '../systems/SanguoProgressionPresentationCoordinator.js';
 import { SanguoSceneLifecycleCoordinator } from '../systems/SanguoSceneLifecycleCoordinator.js';
 import { SanguoPlacementCoordinator } from '../systems/SanguoPlacementCoordinator.js';
@@ -339,6 +340,10 @@ export class DataDrivenPrologueScene extends BaseGameScene {
     this.cargoTransferView = new CargoTransferView({
       width: 680,
       onCommand: command => { void this.s11s14SceneCoordinator?._handleCargoTransferCommand(command); }
+    });
+    this.recipeSelectionView = new RecipeSelectionView({
+      width: 700,
+      onCommand: command => { void this._s01s02Coordinator?.handleRecipeCommand(command); }
     });
     this._cargoTransferBusy = false;
     this._cargoTransferPendingOperation = null;

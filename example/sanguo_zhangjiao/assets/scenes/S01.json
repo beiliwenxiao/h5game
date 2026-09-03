@@ -247,24 +247,14 @@
           "y": 210
         },
         {
-          "height": 70,
-          "id": "S01-craft-marker",
-          "name": "简易制作点",
-          "semanticRole": "craftingPoint",
-          "type": "region",
-          "width": 70,
-          "x": 505,
-          "y": 455
-        },
-        {
           "height": 115,
           "id": "S01-shelter-site",
           "name": "小庇护所施工点",
           "semanticRole": "constructionSite",
           "type": "region",
           "width": 150,
-          "x": 650,
-          "y": 435
+          "x": 556.4164525802458,
+          "y": 351.07668973325275
         },
         {
           "height": 75,
@@ -273,8 +263,8 @@
           "semanticRole": "restPoint",
           "type": "region",
           "width": 75,
-          "x": 790,
-          "y": 475
+          "x": 643.285148238708,
+          "y": 404.9632806407001
         },
         {
           "height": 90,
@@ -323,6 +313,20 @@
       "name": "出生与动态放置",
       "objects": [
         {
+          "group": "S01-small-shelter",
+          "id": "S01-small-shelter-1",
+          "kind": "item",
+          "ref": "story.s01.small_shelter",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.shelterCompleted"
+          },
+          "type": "ref",
+          "x": 643.3572884621749,
+          "y": 464.7103449032338
+        },
+        {
           "id": "S01-spawn-player",
           "ref": "player",
           "type": "spawn",
@@ -339,6 +343,34 @@
           "y": 515
         },
         {
+          "group": "S01-cooking-rack",
+          "id": "S01-prop-cooking-rack",
+          "kind": "item",
+          "ref": "story.s01.cooking_rack",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.wolfSkinned"
+          },
+          "type": "ref",
+          "x": 566.6101798325936,
+          "y": 475.96304842536756
+        },
+        {
+          "group": "S01-tanning-rack",
+          "id": "S01-prop-tanning-rack",
+          "kind": "item",
+          "ref": "story.s01.tanning_rack",
+          "spawnWhen": {
+            "blackboardKey": "storyState",
+            "equals": true,
+            "path": "s01Survival.meatCooked"
+          },
+          "type": "ref",
+          "x": 476.62626086830784,
+          "y": 502.3916343806775
+        },
+        {
           "group": "S01-berries",
           "id": "S01-node-berry-1",
           "kind": "resourceNode",
@@ -353,8 +385,8 @@
             "berry"
           ],
           "type": "ref",
-          "x": 484.26362113868703,
-          "y": 597.4073504159003
+          "x": 431.1323167971492,
+          "y": 581.709465042264
         },
         {
           "group": "S01-worn-axe",
@@ -388,8 +420,8 @@
             "wood"
           ],
           "type": "ref",
-          "x": 446.16611757932657,
-          "y": 489.4625622400092
+          "x": 366.4691610670198,
+          "y": 505.1604476136454
         },
         {
           "group": "S01-wood",
@@ -456,7 +488,7 @@
               "speed": 88
             }
           },
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_first_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "equals": true,
@@ -474,7 +506,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-1",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 1,
@@ -492,7 +524,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-2",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 2,
@@ -510,7 +542,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-3",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 3,
@@ -528,7 +560,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-4",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 4,
@@ -546,7 +578,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-5",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 5,
@@ -557,14 +589,14 @@
             "pursuit"
           ],
           "type": "ref",
-          "x": 410,
-          "y": 565
+          "x": 363.3893557367418,
+          "y": 665.587219355684
         },
         {
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-6",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 6,
@@ -582,7 +614,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-7",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 7,
@@ -600,7 +632,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-8",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 8,
@@ -618,7 +650,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-9",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 9,
@@ -629,14 +661,14 @@
             "pursuit"
           ],
           "type": "ref",
-          "x": 465,
-          "y": 540
+          "x": 378.6012539627947,
+          "y": 540.5433883398566
         },
         {
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-10",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 10,
@@ -654,7 +686,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-11",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 11,
@@ -672,7 +704,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-12",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 12,
@@ -690,7 +722,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-13",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 13,
@@ -708,7 +740,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-14",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 14,
@@ -726,7 +758,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-15",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 15,
@@ -744,7 +776,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-16",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 16,
@@ -762,7 +794,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-17",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 17,
@@ -780,7 +812,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-18",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 18,
@@ -798,7 +830,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-19",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 19,
@@ -816,7 +848,7 @@
           "group": "S01-chase-wolves",
           "id": "S01-chase-wolf-20",
           "kind": "enemy",
-          "ref": "enemy.s01_wolf",
+          "ref": "enemy.s01_chase_wolf",
           "spawnWhen": {
             "blackboardKey": "storyState",
             "gte": 20,
@@ -829,20 +861,6 @@
           "type": "ref",
           "x": 240,
           "y": 305
-        },
-        {
-          "group": "S01-small-shelter",
-          "id": "S01-small-shelter-1",
-          "kind": "item",
-          "ref": "story.s01.small_shelter",
-          "spawnWhen": {
-            "blackboardKey": "storyState",
-            "equals": true,
-            "path": "s01Survival.shelterCompleted"
-          },
-          "type": "ref",
-          "x": 681.9982370742024,
-          "y": 490.068467429877
         }
       ],
       "visible": true
@@ -899,18 +917,18 @@
           "event": "interact",
           "height": 70,
           "id": "S01-binding-craft-wolf-gear",
-          "name": "制作狼皮装备",
-          "pointerRadius": 42,
-          "prompt": "{interact}制作狼皮背心和狼皮护腕",
-          "radius": 90,
+          "name": "使用制皮木支架",
+          "pointerRadius": 24,
+          "prompt": "{interact}制作狼皮装备",
+          "radius": 44,
           "sceneEventId": "s01.event.survivalCraft",
-          "target": "S01-craft-marker",
+          "target": "S01-prop-tanning-rack",
           "targetMode": "id",
           "triggerId": "trg_s01_craft_wolf_gear",
           "type": "trigger",
           "width": 70,
-          "x": 498.25657292993907,
-          "y": 444.57833998263317
+          "x": 466,
+          "y": 446
         },
         {
           "activeWhen": {
@@ -957,18 +975,18 @@
           "event": "interact",
           "height": 60,
           "id": "S01-binding-cook-meat",
-          "name": "烤制狼肉",
-          "pointerRadius": 36,
-          "prompt": "{interact}添柴烤制狼肉",
-          "radius": 80,
+          "name": "使用烤肉架",
+          "pointerRadius": 24,
+          "prompt": "{interact}使用烤肉架",
+          "radius": 44,
           "sceneEventId": "s01.event.survivalCraft",
-          "target": "S01-spawn-campfire",
+          "target": "S01-prop-cooking-rack",
           "targetMode": "id",
           "triggerId": "trg_s01_cook_meat",
           "type": "trigger",
           "width": 60,
-          "x": 610,
-          "y": 500
+          "x": 488,
+          "y": 530
         },
         {
           "activeWhen": {

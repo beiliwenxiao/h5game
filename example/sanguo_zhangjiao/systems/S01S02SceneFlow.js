@@ -566,7 +566,8 @@ export class S01S02Coordinator {
 
   _presentWolfSkinnedCommitted() {
     if (this._story().s01Survival?.wolfSkinned !== true) return false;
-    this.scene._showScreenTip('狼皮已经剥下。带一份木材回到篝火旁烤制狼肉。', {
+    void this._spawnWorkstation('S01-cooking-rack');
+    this.scene._showScreenTip('狼皮已经剥下。去烤肉架烤制狼肉。', {
       title: '获得狼皮'
     });
     return true;
@@ -978,8 +979,147 @@ export class S01S02Coordinator {
     return { ok: true, status: reignitedByFuel ? 'reignited' : 'refueled' };
   }
 
+  _createRecipeSnapshot(workstationId, { statusMessage = '', statusType = 'info' } = {}) {
+    const survival = this._story().s01Survival || {};
+    const inventory = this.scene.playerEntity?.getComponent?.('inventory');
+    const count = itemId => Math.max(0, Number(inventory?.getItemCount?.(itemId)) || 0);
+    const recipes = workstationId === 's01.cookingRack'
+      ? [{
+        id: 's01.roastedWolfMeat',
+        name: '烤狼肉',
+        description: '恢复生命 50 点。',
+        summary: '狼肉 ×1，木柴 ×1',
+        enabled: survival.wolfSkinned === true && survival.meatCooked !== true
+          && count('resource.raw_wolf_meat') >= 1 && count('resource.wood') >= 1,
+        disabledReason: survival.meatCooked === true ? '狼肉已经烤熟。' : '需要生狼肉 1 块与木柴 1 根。',
+        materials: [
+          { name: '生狼肉', available: count('resource.raw_wolf_meat'), quantity: 1 },
+          { name: '木柴', available: count('resource.wood'), quantity: 1 }
+        ]
+      }]
+      : [
+        {
+          id: 's01.wolfHideVest',
+          name: '狼皮背心',
+          description: '防御 +10，生命 +5。',
+          summary: '狼皮 ×2',
+          enabled: survival.meatCooked === true && survival.wolfVestCrafted !== true
+            && count('resource.wolf_hide') >= 2,
+          disabledReason: survival.wolfVestCrafted === true ? '狼皮背心已经制作完成。' : '需要狼皮 2 张。',
+          materials: [{ name: '狼皮', available: count('resource.wolf_hide'), quantity: 2 }]
+        },
+        {
+          id: 's01.wolfHideBracers',
+          name: '狼皮护腕',
+          description: '防御 +3，攻击 +1。',
+          summary: '狼皮 ×1',
+          enabled: survival.meatCooked === true && survival.wolfBracersCrafted !== true
+            && count('resource.wolf_hide') >= 1,
+          disabledReason: survival.wolfBracersCrafted === true ? '狼皮护腕已经制作完成。' : '需要狼皮 1 张。',
+          materials: [{ name: '狼皮', available: count('resource.wolf_hide'), quantity: 1 }]
+        }
+      ];
+    return Object.freeze({
+      title: workstationId === 's01.cookingRack' ? '烤肉架' : '制皮木支架',
+      workstationId,
+      actionLabel: workstationId === 's01.cookingRack' ? '烤制' : '制作',
+      statusMessage,
+      statusType,
+      recipes: Object.freeze(recipes.map(recipe => Object.freeze({
+        ...recipe,
+        materials: Object.freeze(recipe.materials.map(material => Object.freeze({ ...material })))
+      })))
+    });
+  }
+
+  openRecipeSelection(workstationId) {
+    const view = this.scene.recipeSelectionView;
+    if (!view) return { ok: false, code: 'recipeViewUnavailable' };
+    view.open(this._createRecipeSnapshot(workstationId));
+    return { ok: true };
+  }
+
+  async _spawnWorkstation(group) {
+    try {
+      const result = await this._spawnGroup(group);
+      if (result?.ok === false) console.warn('[S01S02Coordinator] 工作站放置失败，将由状态重建恢复', result);
+      return result || { ok: true };
+    } catch (error) {
+      console.warn('[S01S02Coordinator] 工作站放置异常，将由状态重建恢复', error);
+      return { ok: false, code: 'workstationSpawnFailed' };
+    }
+  }
+
+  _refreshRecipeView(workstationId, options = {}) {
+    const view = this.scene.recipeSelectionView;
+    if (view?.visible) view.setSnapshot(this._createRecipeSnapshot(workstationId, options));
+  }
+
+  async handleRecipeCommand(command = {}) {
+    const view = this.scene.recipeSelectionView;
+    if (!view?.visible) return { ok: false, code: 'recipeViewClosed' };
+    if (command.type === 'close') {
+      view.close();
+      return { ok: true };
+    }
+    const workstationId = command.workstationId;
+    const recipeId = command.recipeId;
+    if (command.type !== 'selectRecipe' || !workstationId || !recipeId) {
+      return { ok: false, code: 'recipeCommandInvalid' };
+    }
+    const recipe = this._createRecipeSnapshot(workstationId).recipes.find(entry => entry.id === recipeId);
+    if (!recipe?.enabled) {
+      this._refreshRecipeView(workstationId, { statusMessage: recipe?.disabledReason || '当前不能制作该物品。', statusType: 'error' });
+      return { ok: true, status: 'blocked' };
+    }
+    view.setBusy(true);
+    let result;
+    if (recipeId === 's01.roastedWolfMeat') {
+      result = await this._submit('story.s01.cookMeat', {}, 'story:s01:cook-meat');
+      if (result.ok === true) {
+        const campfire = this.scene._campfireService;
+        if (campfire?.canAddFuelUnits?.(1) === true) campfire.addFuelUnits(1);
+        campfire?.ignite?.({ runtime: { particleSystem: this.scene.particleSystem } });
+        await this._spawnWorkstation('S01-tanning-rack');
+        view.close();
+        this.scene._showScreenTip('狼肉已经烤熟。到制皮木支架制作狼皮装备。', { title: '烤狼肉' });
+      }
+    } else {
+      const definitionId = recipeId === 's01.wolfHideVest'
+        ? 'story.s01.craftWolfVest'
+        : recipeId === 's01.wolfHideBracers' ? 'story.s01.craftWolfBracers' : null;
+      const operationId = recipeId === 's01.wolfHideVest'
+        ? 'story:s01:craft-wolf-vest'
+        : 'story:s01:craft-wolf-bracers';
+      result = definitionId ? await this._submit(definitionId, {}, operationId) : { ok: false, code: 'recipeUnknown' };
+      if (result.ok === true) {
+        const survival = this._story().s01Survival || {};
+        if (survival.wolfVestCrafted === true && survival.wolfBracersCrafted === true) {
+          const aggregate = await this._submit('story.s01.wolfGearCrafted', {}, 'story:s01:craft-wolf-gear-complete');
+          if (aggregate.ok === true) {
+            view.close();
+            this.scene._showScreenTip('狼皮背心和狼皮护腕已经做好。接下来搭建小庇护所。', { title: '狼皮装备完成' });
+            return aggregate;
+          }
+          result = aggregate;
+        }
+      }
+    }
+    view.setBusy(false);
+    this._refreshRecipeView(workstationId, result?.ok === true
+      ? { statusMessage: '制作完成。', statusType: 'success' }
+      : { statusMessage: `结算失败：${result?.code || 'unknown'}。材料和剧情状态未改变。`, statusType: 'error' });
+    return result;
+  }
+
   async handleAction(params = {}, eventData = {}) {
     const operation = params.operation || params.type;
+    if (operation === 'openCookingRecipes' || operation === 'cookMeat') {
+      return this.openRecipeSelection('s01.cookingRack');
+    }
+    if (operation === 'openTanningRecipes' || operation === 'craftWolfGear') {
+      return this.openRecipeSelection('s01.tanningRack');
+    }
     if (operation === 'commitStoryWhenReady') {
       return this._commitStoryWhenReady(params, eventData);
     }

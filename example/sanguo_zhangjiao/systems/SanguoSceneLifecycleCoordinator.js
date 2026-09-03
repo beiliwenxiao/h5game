@@ -199,6 +199,14 @@ function handleModalInput({ inputManager, gamepad } = {}) {
       this.s11s14SceneCoordinator._createEndingInputContext({ inputManager, gamepad })
     );
   }
+  if (this.recipeSelectionView?.visible) {
+    return this.recipeSelectionView.handleInput({
+      inputManager,
+      gamepad,
+      viewWidth: this.logicalWidth,
+      viewHeight: this.logicalHeight
+    });
+  }
   if (this.cargoTransferView?.visible) {
     return this.cargoTransferView.handleInput({
       inputManager,
@@ -261,6 +269,7 @@ function disposeEnteredRuntime() {
   this._classSelectionBusy = false;
   this.rescueObjectiveView?.clear?.();
   this.irreversibleChoiceView?.close?.();
+  this.recipeSelectionView?.close?.();
   this.cargoTransferView?.close?.();
   this._cargoTransferBusy = false;
   this._cargoTransferPendingOperation = null;
@@ -299,6 +308,7 @@ function renderPostPipeline(ctx) {
   this.s03s14BattleCoordinator.renderLayer('mode', ctx, this.logicalWidth, this.logicalHeight);
   this.irreversibleChoiceView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   this.s03s14BattleCoordinator.renderLayer('result', ctx, this.logicalWidth, this.logicalHeight);
+  this.recipeSelectionView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   this.cargoTransferView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
   this.endingPresentationView?.render?.(ctx, this.logicalWidth, this.logicalHeight);
 }

@@ -3680,6 +3680,16 @@
       "assetId": "inventory.equipment.talisman", "imageId": "inventory.equipment.talisman", "category": "inventory-icon", "usage": ["inventory", "equipment", "accessory", "strategist"],
       "sourceFile": "assets/images/items/equipment-talisman.svg", "runtime2D": { "path": "assets/images/items/equipment-talisman.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "inventory.equipment.talisman" },
       "pivot": { "x": 0.5, "y": 0.5 }, "bounds": { "width": 64, "height": 64 }, "animations": [], "targetPhase": "P2", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.prop.cookingRack", "imageId": "s01.prop.cookingRack", "category": "world-prop", "usage": ["S01", "survival", "cooking-rack"],
+      "sourceFile": "assets/images/s01/cooking-rack.svg", "runtime2D": { "path": "assets/images/s01/cooking-rack.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.prop.cookingRack" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 88, "height": 78 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
+    },
+    {
+      "assetId": "s01.prop.tanningRack", "imageId": "s01.prop.tanningRack", "category": "world-prop", "usage": ["S01", "survival", "tanning-rack"],
+      "sourceFile": "assets/images/s01/tanning-rack.svg", "runtime2D": { "path": "assets/images/s01/tanning-rack.svg", "mode": "image" }, "runtime3D": { "mode": "billboard", "sourceAssetId": "s01.prop.tanningRack" },
+      "pivot": { "x": 0.5, "y": 1 }, "bounds": { "width": 92, "height": 92 }, "animations": [], "targetPhase": "P1", "status": "ai-generated", "revision": 1
     }
   ]
 }

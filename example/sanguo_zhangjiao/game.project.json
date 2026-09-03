@@ -3051,14 +3051,14 @@
             "value": "refuelCampfire"
           },
           {
-            "id": "craftWolfGear",
-            "label": "制作狼皮装备",
+            "id": "openTanningRecipes",
+            "label": "使用制皮木支架",
             "paramsSchema": {
               "additionalProperties": false,
               "properties": {
                 "operation": {
                   "enum": [
-                    "craftWolfGear"
+                    "openTanningRecipes"
                   ],
                   "type": "string"
                 }
@@ -3068,18 +3068,18 @@
               ],
               "type": "object"
             },
-            "resultSemantics": "材料与前置满足时原子制作两件狼皮装备；已完成或材料不足为成功阻断，系统或事务错误为失败。",
-            "value": "craftWolfGear"
+            "resultSemantics": "打开配方选择；选中配方后才以独立原子事务扣除狼皮并制作对应装备。",
+            "value": "openTanningRecipes"
           },
           {
-            "id": "cookMeat",
-            "label": "烤制狼肉",
+            "id": "openCookingRecipes",
+            "label": "使用烤肉架",
             "paramsSchema": {
               "additionalProperties": false,
               "properties": {
                 "operation": {
                   "enum": [
-                    "cookMeat"
+                    "openCookingRecipes"
                   ],
                   "type": "string"
                 }
@@ -3089,8 +3089,8 @@
               ],
               "type": "object"
             },
-            "resultSemantics": "材料与前置满足时原子交换生肉、木材和熟食；已完成或材料不足为成功阻断，系统或事务错误为失败。",
-            "value": "cookMeat"
+            "resultSemantics": "打开烹饪配方选择；选中后才以原子事务交换生狼肉、木柴与熟食。",
+            "value": "openCookingRecipes"
           },
           {
             "id": "buildShelter",
@@ -3919,51 +3919,10 @@
       "once": false,
       "when": {
         "params": {
-          "itemId": "resource.wolf_hide"
+          "itemId": "resource.wolf_hide",
+          "nodeId": "S01-first-wolf-1"
         },
         "type": "gathering.completed"
-      }
-    },
-    {
-      "do": [
-        {
-          "action": "s01Survival",
-          "if": {
-            "args": [
-              {
-                "count": 1,
-                "item": "resource.wolf_hide",
-                "op": "hasItem"
-              },
-              {
-                "op": "==",
-                "value": false,
-                "var": "story.s01Survival.wolfSkinned"
-              }
-            ],
-            "op": "and"
-          },
-          "params": {
-            "completedPath": "s01Survival.wolfSkinned",
-            "definitionId": "story.s01.wolfSkinned",
-            "operation": "commitStoryWhenReady"
-          },
-          "stepId": "commit-wolf-skinned-fallback"
-        }
-      ],
-      "editorScope": {
-        "sceneIds": [
-          "S01"
-        ]
-      },
-      "id": "trg_s01_wolf_skin_fallback",
-      "name": "狼皮竞态兜底：首狼击杀成立且已持有狼皮时补提剥皮",
-      "once": true,
-      "when": {
-        "params": {
-          "definitionId": "story.s01.firstWolfKilled"
-        },
-        "type": "state.transaction"
       }
     },
     {
@@ -4223,7 +4182,7 @@
         {
           "action": "s01Survival",
           "params": {
-            "operation": "craftWolfGear"
+            "operation": "openTanningRecipes"
           },
           "stepId": "craft-wolf-gear"
         }
@@ -4241,7 +4200,7 @@
         {
           "action": "s01Survival",
           "params": {
-            "operation": "cookMeat"
+            "operation": "openCookingRecipes"
           },
           "stepId": "cook-meat"
         }
@@ -6449,8 +6408,8 @@
           "width": 46
         },
         "stats": {
-          "defense": 2,
-          "maxHp": 6
+          "defense": 10,
+          "maxHp": 5
         },
         "subType": "armor"
       },
@@ -6468,7 +6427,7 @@
         },
         "stats": {
           "attack": 1,
-          "defense": 1
+          "defense": 3
         },
         "subType": "accessory"
       },
@@ -6484,7 +6443,7 @@
         ],
         "effect": {
           "type": "heal",
-          "value": 28
+          "value": 50
         },
         "maxStack": 5,
         "sprite": {
@@ -6506,6 +6465,38 @@
           "width": 40
         },
         "subType": "quest"
+      },
+      {
+        "id": "story.s01.cooking_rack",
+        "name": "烤肉架",
+        "type": "story",
+        "imageId": "s01.prop.cookingRack",
+        "assetId": "s01.prop.cookingRack",
+        "maxStack": 1,
+        "showName": false,
+        "sprite": {
+          "width": 88,
+          "height": 78,
+          "isStatic": true
+        },
+        "subType": "worldProp",
+        "worldProp": true
+      },
+      {
+        "id": "story.s01.tanning_rack",
+        "name": "制皮木支架",
+        "type": "story",
+        "imageId": "s01.prop.tanningRack",
+        "assetId": "s01.prop.tanningRack",
+        "maxStack": 1,
+        "showName": false,
+        "sprite": {
+          "width": 92,
+          "height": 92,
+          "isStatic": true
+        },
+        "subType": "worldProp",
+        "worldProp": true
       },
       {
         "id": "story.s01.campfire",
@@ -7157,18 +7148,61 @@
           },
           "resourceNodeRef": "node.wolf_carcass"
         },
-        "id": "enemy.s01_wolf",
+        "id": "enemy.s01_first_wolf",
+        "imageId": "s01.enemy.wolf",
+        "level": 1,
+        "lootTable": [
+          {
+            "chance": 1,
+            "itemId": "resource.wolf_hide",
+            "maxQuantity": 3,
+            "minQuantity": 3
+          },
+          {
+            "chance": 1,
+            "itemId": "resource.raw_wolf_meat",
+            "maxQuantity": 5,
+            "minQuantity": 5
+          }
+        ],
+        "name": "饥饿野狼",
+        "sprite": {
+          "height": 48,
+          "isStatic": true,
+          "width": 68
+        },
+        "stats": {
+          "attack": 5,
+          "defense": 1,
+          "maxHp": 32,
+          "speed": 88
+        },
+        "templateId": "wild_wolf"
+      },
+      {
+        "aiType": "aggressive",
+        "corpse": {
+          "name": "野狼尸体",
+          "presentation": {
+            "alpha": 0.86,
+            "offsetY": 0,
+            "rotationDegrees": 0,
+            "sortYOffset": -48
+          },
+          "resourceNodeRef": "node.wolf_carcass"
+        },
+        "id": "enemy.s01_chase_wolf",
         "imageId": "s01.enemy.wolf",
         "level": 1,
         "lootTable": [
           {
             "chance": 1,
             "itemId": "resource.raw_wolf_meat",
-            "maxQuantity": 1,
-            "minQuantity": 1
+            "maxQuantity": 5,
+            "minQuantity": 0
           }
         ],
-        "name": "饥饿野狼",
+        "name": "追逐野狼",
         "sprite": {
           "height": 48,
           "isStatic": true,
@@ -7535,6 +7569,10 @@
         "remaining": 2,
         "maxRemaining": 2,
         "yieldPerGather": 2,
+        "harvestYieldRange": {
+          "min": 1,
+          "max": 2
+        },
         "gatherDuration": 1.8,
         "interactionRadius": 70,
         "requiredToolType": "skinningKnife",
@@ -8225,16 +8263,12 @@
     },
     {
       "commandType": "state.transaction",
-      "id": "story.s01.craftWolfGear",
+      "id": "story.s01.craftWolfVest",
       "transaction": {
         "inventory": {
           "addEntries": [
             {
               "itemId": "equipment.s01.wolf_hide_vest",
-              "quantity": 1
-            },
-            {
-              "itemId": "equipment.s01.wolf_hide_bracers",
               "quantity": 1
             }
           ],
@@ -8254,7 +8288,7 @@
             },
             {
               "equals": false,
-              "path": "story.s01Survival.wolfGearCrafted"
+              "path": "story.s01Survival.wolfVestCrafted"
             }
           ]
         },
@@ -8263,12 +8297,71 @@
             "path": "s01Survival.wolfVestCrafted",
             "target": "story",
             "value": true
-          },
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.craftWolfBracers",
+      "transaction": {
+        "inventory": {
+          "addEntries": [
+            {
+              "itemId": "equipment.s01.wolf_hide_bracers",
+              "quantity": 1
+            }
+          ],
+          "removeEntries": [
+            {
+              "itemId": "resource.wolf_hide",
+              "quantity": 1
+            }
+          ],
+          "type": "batchExchange"
+        },
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.meatCooked"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfBracersCrafted"
+            }
+          ]
+        },
+        "writes": [
           {
             "path": "s01Survival.wolfBracersCrafted",
             "target": "story",
             "value": true
-          },
+          }
+        ]
+      }
+    },
+    {
+      "commandType": "state.transaction",
+      "id": "story.s01.wolfGearCrafted",
+      "transaction": {
+        "when": {
+          "all": [
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfVestCrafted"
+            },
+            {
+              "equals": true,
+              "path": "story.s01Survival.wolfBracersCrafted"
+            },
+            {
+              "equals": false,
+              "path": "story.s01Survival.wolfGearCrafted"
+            }
+          ]
+        },
+        "writes": [
           {
             "path": "s01Survival.wolfGearCrafted",
             "target": "story",

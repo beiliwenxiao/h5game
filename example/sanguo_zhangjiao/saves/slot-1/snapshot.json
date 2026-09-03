@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1788458145313,
+  "createdAt": 1788464730805,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1788458143227
+            "timestamp": 1788464728793
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788458143227
+            "timestamp": 1788464728794
           }
         ],
         "completedDialogues": []
@@ -315,7 +315,7 @@
         "triggers": {
           "snapshotSchemaVersion": 3,
           "definitionRevision": 1,
-          "definitionDigest": "sha256-697f4243269b03f9bbfbcaec8fc23bbc5d4431650a50e0d325502a4dcd355840",
+          "definitionDigest": "sha256-5838a4f4e09b44e9f5a1ed637fb0aeb529579c0ae0a5bb396a7aca13af61e5b3",
           "firedOnce": [],
           "cooldowns": {
             "trg_s01_spawn_initial": {
@@ -495,18 +495,6 @@
               },
               {
                 "triggerId": "trg_s01_gather_wolf_hide_completed",
-                "definitionRevision": 1,
-                "operationId": null,
-                "fingerprint": null,
-                "status": "idle",
-                "actionIndex": -1,
-                "result": null,
-                "startedAt": null,
-                "finishedAt": null,
-                "ledgerRevision": 1
-              },
-              {
-                "triggerId": "trg_s01_wolf_skin_fallback",
                 "definitionRevision": 1,
                 "operationId": null,
                 "fingerprint": null,
@@ -1870,7 +1858,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.9670000000001
+          "elapsed": 121.93346800000063
         },
         "weatherState": {
           "currentWeather": "clear",

@@ -210,6 +210,35 @@ export class ScenePlacementRuntime {
     return updated;
   }
 
+  /**
+   * 永久移除动态 placement，并保留与 canonical 定义绑定的 tombstone。
+   * 该状态会参与流式快照；因此尸体等动态对象不会在重载后复活。
+   */
+  tombstonePlacement(placementId, state = {}) {
+    if (this.disposed || !placementId) {
+      return { ok: false, code: 'placementRuntimeUnavailable' };
+    }
+    const placement = this._findPlacement(placementId);
+    if (!placement) return { ok: false, code: 'placementNotFound' };
+    const previous = this.pendingPlacementStates.get(placementId);
+    const tombstone = {
+      ...state,
+      kind: state.kind || 'placement',
+      removed: true,
+      placementSignature: getPlacementSignature(placement)
+    };
+    try {
+      this.pendingPlacementStates.set(placementId, JSON.parse(JSON.stringify(tombstone)));
+      const live = this.findLivePlacementValue(placementId);
+      if (live) this._destroyValues([live]);
+      return { ok: true, placementId, removed: !!live };
+    } catch (error) {
+      if (previous) this.pendingPlacementStates.set(placementId, previous);
+      else this.pendingPlacementStates.delete(placementId);
+      return { ok: false, code: 'placementTombstoneFailed', error };
+    }
+  }
+
   shouldSpawn(placement = {}) {
     const condition = placement.spawnWhen;
     if (!condition || typeof condition !== 'object') return true;
@@ -741,7 +770,7 @@ export class ScenePlacementRuntime {
       state = { ...state, placementSignature: currentSignature };
       this.pendingPlacementStates.set(placementId, state);
     }
-    const shouldRestoreCorpse = state.kind === 'corpse'
+    const shouldRestoreCorpse = (state.kind === 'corpse' && state.removed !== true)
       || (state.kind === 'enemy' && state.removed === true);
     if (shouldRestoreCorpse && this.corpseRuntime?.retain?.(value, state) === true) {
       this.pendingPlacementStates.delete(placementId);

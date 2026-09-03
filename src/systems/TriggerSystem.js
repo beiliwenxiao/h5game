@@ -13,6 +13,7 @@ import { createTriggerFailureEnvelope, TriggerExecutionError } from './TriggerFa
 const REENTRY_POLICIES = new Set(['reject', 'queue', 'restart']);
 const CATCH_UP_POLICIES = new Set(['resume', 'skip', 'single', 'all']);
 const COORDINATION_POLICIES = new Set(['broadcast', 'firstSuccess']);
+const TRIGGER_SNAPSHOT_SCHEMA_VERSION = 3;
 // 幂等护栏：这些 code 表示「条件未就绪/已被他路完成」，语义等同步骤级 if 跳过，
 // 不应中断整链、刷红 DebugPanel 或触发事件重试。可通过 config.benignResultCodes 覆盖。
 const DEFAULT_BENIGN_RESULT_CODES = new Set([
@@ -897,8 +898,9 @@ export class TriggerSystem {
       maxCatchUp: timer.maxCatchUp
     }));
     return {
-      snapshotSchemaVersion: 2,
+      snapshotSchemaVersion: TRIGGER_SNAPSHOT_SCHEMA_VERSION,
       definitionRevision: this.definitionRevision,
+      definitionDigest: this.getDefinitionDigest(),
       firedOnce: [...this._firedOnce], cooldowns, timers,
       ledger: this.ledger.snapshot()
     };
@@ -906,11 +908,22 @@ export class TriggerSystem {
 
   validateSnapshot(data) {
     const errors = [];
-    if (!data || data.snapshotSchemaVersion !== 2) {
-      return { ok: false, errors: [{ code: 'invalidSnapshotSchema', path: 'triggers.snapshotSchemaVersion', message: 'Trigger snapshot schema 必须为 2' }] };
+    if (!data || data.snapshotSchemaVersion !== TRIGGER_SNAPSHOT_SCHEMA_VERSION) {
+      return {
+        ok: false,
+        errors: [{
+          code: 'invalidSnapshotSchema',
+          path: 'triggers.snapshotSchemaVersion',
+          message: `Trigger snapshot schema 必须为 ${TRIGGER_SNAPSHOT_SCHEMA_VERSION}`
+        }]
+      };
     }
-    if (data.definitionRevision !== this.definitionRevision) {
-      errors.push({ code: 'definitionRevisionMismatch', path: 'triggers.definitionRevision', message: 'Trigger definition revision 不匹配' });
+    if (!hasText(data.definitionDigest) || data.definitionDigest !== this.getDefinitionDigest()) {
+      errors.push({
+        code: 'definitionDigestMismatch',
+        path: 'triggers.definitionDigest',
+        message: 'Trigger 执行定义与存档不兼容'
+      });
     }
     if (!Array.isArray(data.firedOnce) || !data.cooldowns || typeof data.cooldowns !== 'object' || !Array.isArray(data.timers)) {
       errors.push({ code: 'invalidTriggerSnapshot', path: 'triggers', message: 'once/cooldown/timer snapshot 非法' });
@@ -924,7 +937,7 @@ export class TriggerSystem {
     }
     for (const [id, value] of Object.entries(data.cooldowns || {})) {
       if (!this._triggersById.has(id)) errors.push({ code: 'invalidReference', path: `triggers.cooldowns.${id}`, message: `未知 trigger ${id}` });
-      if (value?.definitionRevision !== this.definitionRevision || !this._validTiming(value)) {
+      if (value?.definitionRevision !== data.definitionRevision || !this._validTiming(value)) {
         errors.push({ code: 'invalidTiming', path: `triggers.cooldowns.${id}`, message: 'cooldown revision/timing 非法' });
       }
     }
@@ -935,12 +948,12 @@ export class TriggerSystem {
       if (!trigger || trigger.when?.type !== 'timer' || !currentTimer) errors.push({ code: 'invalidReference', path: `triggers.timers[${index}].triggerId`, message: 'timer trigger 引用无效' });
       if (timerIds.has(timer?.triggerId)) errors.push({ code: 'duplicateId', path: `triggers.timers[${index}].triggerId`, message: 'timer trigger 重复' });
       timerIds.add(timer?.triggerId);
-      if (timer?.definitionRevision !== this.definitionRevision || !this._validTiming(timer)
+      if (timer?.definitionRevision !== data.definitionRevision || !this._validTiming(timer)
         || !CATCH_UP_POLICIES.has(timer?.catchUpPolicy) || !Number.isInteger(timer?.maxCatchUp) || timer.maxCatchUp < 1
         || (currentTimer && (timer.interval !== currentTimer.interval
           || timer.catchUpPolicy !== currentTimer.catchUpPolicy
           || timer.maxCatchUp !== currentTimer.maxCatchUp))) {
-        errors.push({ code: 'invalidTiming', path: `triggers.timers[${index}]`, message: 'timer 必须匹配当前 definition 的 revision/catch-up/timing' });
+        errors.push({ code: 'invalidTiming', path: `triggers.timers[${index}]`, message: 'timer 必须匹配当前 definition 的 catch-up/timing' });
       }
     }
     for (const currentTimer of this._timers) {
@@ -951,7 +964,9 @@ export class TriggerSystem {
     for (const record of data.ledger?.records || []) {
       const trigger = this._triggersById.get(record.triggerId);
       if (!trigger) errors.push({ code: 'invalidReference', path: `triggers.ledger.${record.triggerId}`, message: 'ledger trigger 引用无效' });
-      if (record.definitionRevision !== this.definitionRevision) errors.push({ code: 'definitionRevisionMismatch', path: `triggers.ledger.${record.triggerId}.definitionRevision`, message: 'ledger definition revision 不匹配' });
+      if (record.definitionRevision !== data.definitionRevision) {
+        errors.push({ code: 'definitionRevisionMismatch', path: `triggers.ledger.${record.triggerId}.definitionRevision`, message: 'ledger definition revision 与快照不一致' });
+      }
       if (record.operationId && record.fingerprint !== this._operationFingerprint(trigger, record.operationId)) {
         errors.push({ code: 'invalidFingerprint', path: `triggers.ledger.${record.triggerId}.fingerprint`, message: 'operation fingerprint 不匹配' });
       }
@@ -967,7 +982,14 @@ export class TriggerSystem {
     const validation = this.validateSnapshot(data);
     if (!validation.ok) return validation;
     const now = this.monotonicClock.now();
-    const nextLedger = new ScenarioExecutionLedger().restore(data.ledger);
+    const normalizedLedger = {
+      ...data.ledger,
+      records: data.ledger.records.map(record => ({
+        ...record,
+        definitionRevision: this.definitionRevision
+      }))
+    };
+    const nextLedger = new ScenarioExecutionLedger().restore(normalizedLedger);
     const nextOnce = new Set(data.firedOnce);
     const nextCooldowns = Object.create(null);
     for (const [id, saved] of Object.entries(data.cooldowns)) {
@@ -1110,13 +1132,58 @@ export class TriggerSystem {
 
   _reentryPolicy(trigger) { return trigger.reentryPolicy || trigger.reentry || 'reject'; }
 
+  /** 当前全部 Trigger 的跨会话稳定执行定义摘要；不包含装配 generation。 */
+  getDefinitionDigest() {
+    return stableDigest(this.triggers.map(trigger => this._semanticTriggerDefinition(trigger)));
+  }
+
+  _triggerDefinitionDigest(trigger) {
+    return trigger ? stableDigest(this._semanticTriggerDefinition(trigger)) : '';
+  }
+
+  _semanticTriggerDefinition(trigger) {
+    const whenParams = Object.fromEntries(Object.entries(trigger.when?.params || {}).filter(([key, value]) => (
+      !['seconds', 'catchUpPolicy', 'maxCatchUp'].includes(key)
+      && value !== undefined && value !== null && value !== ''
+    )));
+    const coordination = coordinationOf(trigger);
+    const cooldown = Number(trigger.cooldown);
+    const references = values => (values || []).map(value => (
+      typeof value === 'string' ? value.trim() : String(value?.id || '').trim()
+    )).filter(Boolean).sort();
+    let timer = null;
+    if (trigger.when?.type === 'timer') {
+      const seconds = Number(trigger.when.params?.seconds || 0);
+      timer = {
+        interval: Number.isFinite(seconds) ? seconds * 1000 : null,
+        catchUpPolicy: trigger.catchUpPolicy || trigger.when.params?.catchUpPolicy || 'resume',
+        maxCatchUp: Math.max(1, Math.floor(Number(
+          trigger.maxCatchUp || trigger.when.params?.maxCatchUp || 100
+        )))
+      };
+    }
+    return {
+      id: trigger.id,
+      enabled: trigger.enabled !== false,
+      when: { type: trigger.when?.type, params: whenParams },
+      condition: trigger.if ?? null,
+      once: Boolean(trigger.once),
+      cooldown: Number.isFinite(cooldown) && cooldown > 0 ? cooldown : 0,
+      reentryPolicy: this._reentryPolicy(trigger),
+      coordination: coordination.group ? coordination : null,
+      timer,
+      serviceRefs: references(trigger.serviceRefs),
+      bindingRefs: references(trigger.bindingRefs),
+      actions: trigger.do || []
+    };
+  }
+
   _operationFingerprint(trigger, operationId) {
     if (!trigger) return '';
     return stableDigest({
       triggerId: trigger.id,
-      definitionRevision: this.definitionRevision,
-      operationId,
-      actions: trigger.do || []
+      definitionDigest: this._triggerDefinitionDigest(trigger),
+      operationId
     });
   }
 

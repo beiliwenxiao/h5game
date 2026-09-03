@@ -3728,7 +3728,7 @@
           "params": {
             "completedPath": "s01Survival.berriesGathered",
             "definitionId": "story.s01.berriesGathered",
-            "equals": "1",
+            "gte": 1,
             "operation": "commitStoryWhenReady",
             "storyPath": "s01Survival.berryGatherCount",
             "successTitle": "您已经采集了{s01Survival.berryGatherCount}个野果"
@@ -7924,7 +7924,7 @@
               "path": "story.s01Survival.initialToolsPicked"
             },
             {
-              "gte": 2,
+              "gte": 1,
               "path": "story.s01Survival.berryGatherCount"
             },
             {

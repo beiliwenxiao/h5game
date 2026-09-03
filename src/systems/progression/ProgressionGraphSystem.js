@@ -608,14 +608,21 @@ export class ProgressionGraphSystem {
   }
 
   /**
-   * 从存档恢复角色成长数据，恢复后重新同步效果来源
-   * @param {string} characterId
+   * 纯校验角色成长存档，不修改状态、点数账本或效果来源。
    * @param {Object} data
    * @returns {{ok: boolean, errors: Array<Object>}}
    */
-  deserializeCharacter(characterId, data) {
+  validateSerializedCharacter(data) {
+    const prepared = this._prepareSerializedCharacter(data);
+    return { ok: prepared.ok, errors: prepared.errors };
+  }
+
+  _prepareSerializedCharacter(data) {
     if (!data || !data.state) {
-      return { ok: false, errors: [{ code: 'missingField', path: 'state', message: '缺少成长状态' }] };
+      return {
+        ok: false,
+        errors: [{ code: 'missingField', path: 'state', message: '缺少成长状态' }]
+      };
     }
 
     const errors = [];
@@ -661,10 +668,28 @@ export class ProgressionGraphSystem {
     }
 
     if (errors.length > 0) return { ok: false, errors };
+    return {
+      ok: true,
+      errors: [],
+      state,
+      ledger: PointLedger.deserialize(data.ledger),
+      operations
+    };
+  }
 
-    this.states.set(characterId, state);
-    this.ledgers.set(characterId, PointLedger.deserialize(data.ledger));
-    this.pointGrantOperations.set(characterId, operations);
+  /**
+   * 从存档恢复角色成长数据，恢复后重新同步效果来源
+   * @param {string} characterId
+   * @param {Object} data
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  deserializeCharacter(characterId, data) {
+    const prepared = this._prepareSerializedCharacter(data);
+    if (!prepared.ok) return { ok: false, errors: prepared.errors };
+
+    this.states.set(characterId, prepared.state);
+    this.ledgers.set(characterId, prepared.ledger);
+    this.pointGrantOperations.set(characterId, prepared.operations);
     this.syncAllEffectSources(characterId);
 
     return { ok: true, errors: [] };

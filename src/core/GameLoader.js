@@ -709,16 +709,46 @@ export class GameLoader {
   }
 
   /**
+   * 纯校验序列化内容；供存档 inspect 在任何状态写入前发现深层不兼容。
+   * @param {Object} data
+   * @param {string} [characterId]
+   * @returns {{ok: boolean, errors: Array<Object>}}
+   */
+  validateSerialized(data, characterId = null) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return { ok: false, errors: [{ code: 'missingField', path: '', message: '存档为空' }] };
+    }
+
+    const errors = [];
+    if (!data.blackboard || typeof data.blackboard !== 'object' || Array.isArray(data.blackboard)) {
+      errors.push({ code: 'invalidField', path: 'blackboard', message: 'Blackboard 存档必须是对象' });
+    }
+
+    const triggerValidation = this.triggerSystem.validateSnapshot(data.triggers);
+    if (!triggerValidation.ok) errors.push(...triggerValidation.errors);
+
+    if (characterId && data.progression && this.progressionSystem) {
+      const progressionValidation = this.progressionSystem.validateSerializedCharacter(data.progression);
+      if (!progressionValidation.ok) {
+        errors.push(...progressionValidation.errors.map(error => ({
+          ...error,
+          path: `progression.${error.path || ''}`.replace(/\.$/, '')
+        })));
+      }
+    }
+
+    return { ok: errors.length === 0, errors };
+  }
+
+  /**
    * 从存档恢复
    * @param {Object} data
    * @param {string} [characterId]
    * @returns {{ok: boolean, errors: Array<Object>}}
    */
   deserialize(data, characterId = null) {
-    if (!data) return { ok: false, errors: [{ code: 'missingField', path: '', message: '存档为空' }] };
-
-    const triggerValidation = this.triggerSystem.validateSnapshot(data.triggers);
-    if (!triggerValidation.ok) return triggerValidation;
+    const validation = this.validateSerialized(data, characterId);
+    if (!validation.ok) return validation;
 
     this.blackboard.deserialize(data.blackboard);
     const triggerResult = this.triggerSystem.deserialize(data.triggers);

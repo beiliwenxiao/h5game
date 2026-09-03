@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "createdAt": 1788448542299,
+  "createdAt": 1788451849184,
   "meta": {
     "gameId": "sanguo_zhangjiao",
     "kind": "manual",
@@ -14,7 +14,7 @@
   "data": {
     "game": {
       "campaignId": "sanguo-zhangjiao-s01-s14",
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "currentSceneId": "S01",
       "player": {
         "id": "refugee",
@@ -78,12 +78,12 @@
             "nodeId": "start",
             "speaker": "旁白",
             "text": "寒风卷过龟裂的荒原。你从熄灭的火堆旁醒来，四肢冻得僵硬，远处只有枯草与河水的声响。",
-            "timestamp": 1788448540292
+            "timestamp": 1788451847136
           },
           {
             "type": "start",
             "dialogueId": "dialogue.s01.wake",
-            "timestamp": 1788448540292
+            "timestamp": 1788451847136
           }
         ],
         "completedDialogues": []
@@ -313,8 +313,9 @@
           "ddScene": true
         },
         "triggers": {
-          "snapshotSchemaVersion": 2,
+          "snapshotSchemaVersion": 3,
           "definitionRevision": 1,
+          "definitionDigest": "sha256-697f4243269b03f9bbfbcaec8fc23bbc5d4431650a50e0d325502a4dcd355840",
           "firedOnce": [],
           "cooldowns": {
             "trg_s01_spawn_initial": {
@@ -332,7 +333,7 @@
                 "triggerId": "trg_s01_spawn_initial",
                 "definitionRevision": 1,
                 "operationId": "trigger:1:trg_s01_spawn_initial:1",
-                "fingerprint": "sha256-edcb4078b20a674bca5cc3c98c10bcb58c6ba3691283960d3547c272b33a0e96",
+                "fingerprint": "sha256-f637b740e9bb44430e4c2cdc1c665ea44371e0c8985e2f9d2742604a9006bf92",
                 "status": "succeeded",
                 "actionIndex": 2,
                 "result": {
@@ -1869,7 +1870,7 @@
           "enabled": true,
           "paused": false,
           "currentDay": 1,
-          "elapsed": 121.90020000000106
+          "elapsed": 121.93359999999996
         },
         "weatherState": {
           "currentWeather": "clear",

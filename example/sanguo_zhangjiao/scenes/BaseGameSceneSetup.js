@@ -99,7 +99,7 @@ import { EntityRenderer2D } from '../../../src/rendering/EntityRenderer2D.js';
 const ZONE_STAT_NAMES = Object.freeze({ hp: '生命', mp: '法力', attack: '攻击', defense: '防御', speed: '速度' });
 
 export const CAMPAIGN_ID = 'sanguo-zhangjiao-s01-s14';
-export const SAVE_SCHEMA_VERSION = 2;
+export const SAVE_SCHEMA_VERSION = 3;
 const CANONICAL_SCENE_ID = /^S(?:0[1-9]|1[0-4])(?:-C\d{2})?$/;
 const LEGACY_SCENE_ID = /^(?:s\d+-\d+|scene_Prologue)$/;
 
@@ -440,6 +440,30 @@ export class BaseGameSceneSetup extends Scene {
     if (!CANONICAL_SCENE_ID.test(data.currentSceneId || '')) incompatible('currentSceneId');
     const legacyPath = findLegacySavePath(data);
     if (legacyPath) incompatible(legacyPath);
+
+    if (!data.content || typeof data.content !== 'object' || Array.isArray(data.content)) {
+      errors.push({ code: 'missingField', path: 'content', message: '缺少游戏内容状态' });
+    } else if (typeof this.gameLoader?.validateSerialized === 'function') {
+      const contentCheck = this.gameLoader.validateSerialized(data.content, data.player?.id || null);
+      const incompatibleTriggerCodes = new Set([
+        'invalidSnapshotSchema',
+        'definitionDigestMismatch',
+        'definitionRevisionMismatch',
+        'invalidFingerprint'
+      ]);
+      for (const error of contentCheck.errors || []) {
+        const path = `content.${error.path || ''}`.replace(/\.$/, '');
+        const triggerIncompatible = error.path?.startsWith('triggers.')
+          && incompatibleTriggerCodes.has(error.code);
+        errors.push(triggerIncompatible ? {
+          ...error,
+          code: 'incompatibleSave',
+          originalCode: error.code,
+          path,
+          message: '版本不兼容，请开始新游戏'
+        } : { ...error, path });
+      }
+    }
 
     if (!data.player || typeof data.player !== 'object') {
       errors.push({ code: 'missingField', path: 'player', message: '缺少玩家状态' });

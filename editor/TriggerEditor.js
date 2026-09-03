@@ -21,12 +21,14 @@
 
 import {
   getTriggerEvents,
+  getTriggerEventDescriptor,
   getTriggerActions,
   getTriggerActionDescriptor,
   getTriggerActionOperations,
   getTriggerActionOperation,
   validateTriggerDefinition
 } from '../src/systems/TriggerCatalog.js';
+import { analyzeTriggerFlow } from './TriggerFlowAnalyzer.js';
 import { TriggerProjectIndex } from './TriggerProjectIndex.js';
 import { TutorialEditorPanel } from './TutorialEditorPanel.js';
 import { TriggerTracePanel } from './TriggerTracePanel.js';
@@ -106,7 +108,7 @@ export class TriggerEditor {
     const action = this.container.querySelector('#trg-filter-do');
     if (when) when.innerHTML = '<option value="">全部时机</option>' + WHEN_TYPES.map(item => `<option value="${item.v}">${item.label}</option>`).join('');
     if (action) action.innerHTML = '<option value="">全部动作</option>' + ACTION_TYPES.map(item => `<option value="${item.v}">${item.label}</option>`).join('');
-    this._updateSceneEventFilter();
+    this._updateTriggerFilter();
   }
 
   _getScenes() {
@@ -163,10 +165,10 @@ export class TriggerEditor {
     const eventFilter = this.container.querySelector('#trg-filter-event');
     // FlowGroup 筛选已无意义（数据已清空、入口已收敛），始终隐藏
     if (eventFilter) eventFilter.hidden = true;
-    if (!storyline) this._updateSceneEventFilter();
+    if (!storyline) this._updateTriggerFilter();
   }
 
-  _updateSceneEventFilter() {
+  _updateTriggerFilter() {
     const select = this.container.querySelector('#trg-filter-event');
     if (!select || !this.project) return;
     const currentValue = text(select.value);
@@ -582,6 +584,44 @@ export class TriggerEditor {
       .trg-definition-heading{display:flex;flex-direction:column;gap:4px;padding:10px 12px;margin-bottom:14px;border:1px solid #355285;border-radius:5px;background:#13213b;}
       .trg-definition-heading strong{color:#d9e7ff;font-size:14px;}
       .trg-definition-heading span{color:#91a8cc;font-size:11px;line-height:1.45;}
+      .trg-flow-card{margin:12px 0;padding:12px;border:1px solid #355285;border-radius:6px;background:#101b31;}
+      .trg-flow-start{border-left:4px solid #62a8e5;}
+      .trg-flow-end{border-left:4px solid #78c58c;}
+      .trg-flow-card-title{display:flex;align-items:center;gap:9px;margin-bottom:10px;}
+      .trg-flow-card-title>span{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;background:#31598f;color:#fff;font-weight:bold;flex:0 0 auto;}
+      .trg-flow-card-title>div{display:flex;flex-direction:column;gap:2px;flex:1;}
+      .trg-flow-card-title strong{color:#e0edff;font-size:13px;}
+      .trg-flow-card-title small{color:#8298ba;font-size:10px;}
+      .trg-flow-event-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin-bottom:9px;}
+      .trg-flow-readonly{display:flex;flex-direction:column;gap:5px;padding:6px 8px;border:1px solid #263c61;border-radius:3px;background:#0a1020;box-sizing:border-box;}
+      .trg-flow-readonly span,.trg-flow-meta>span{color:#8298ba;font-size:10px;}
+      .trg-flow-readonly strong{font-size:12px;color:#d9e7ff;overflow-wrap:anywhere;}
+      .trg-flow-meta{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px;align-items:start;margin:7px 0;color:#c6d4ed;font-size:11px;line-height:1.45;}
+      .trg-flow-identities{display:flex;gap:6px;flex-wrap:wrap;}
+      .trg-flow-id{display:inline-flex;gap:5px;align-items:center;padding:3px 6px;border:1px solid #3c5d86;border-radius:3px;background:#111f38;}
+      .trg-flow-id b{color:#89bcea;font-weight:normal;}
+      .trg-flow-id code{color:#f0d38a;overflow-wrap:anywhere;}
+      .trg-flow-id.missing{border-color:#8a4d4d;background:#2a1820;}
+      .trg-flow-id.missing code,.trg-flow-warning,.trg-flow-unconnected{color:#ef9d8f;}
+      .trg-flow-empty-id{color:#7f91ad;font-style:italic;}
+      .trg-flow-connected{color:#7fd29a;font-size:10px;}
+      .trg-flow-warning{font-size:10px;}
+      .trg-flow-advanced{margin-top:7px;color:#91a8cc;font-size:11px;}
+      .trg-flow-advanced summary{cursor:pointer;user-select:none;}
+      .trg-flow-advanced textarea{margin-top:6px;}
+      .trg-flow-contract{display:grid;gap:6px;padding:8px;border:1px solid #284262;border-radius:4px;background:#0c1628;}
+      .trg-flow-contract>div{display:grid;grid-template-columns:82px minmax(0,1fr);gap:8px;font-size:11px;line-height:1.45;}
+      .trg-flow-contract b{color:#88b9dd;}
+      .trg-flow-contract span{color:#c6d4ed;}
+      .trg-flow-output-list{display:grid;gap:8px;margin-top:10px;}
+      .trg-flow-output{padding:9px;border:1px solid #2d4a68;border-radius:4px;background:#0d172a;}
+      .trg-flow-output-head{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:7px;}
+      .trg-flow-output-head strong{color:#d7e7ff;font-size:12px;}
+      .trg-flow-output-head code{color:#86bce8;font-size:10px;}
+      .trg-flow-targets{display:flex;gap:6px;flex-wrap:wrap;}
+      .trg-flow-target{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;padding:4px 7px;border:1px solid #496f9c;border-radius:3px;background:#18304d;color:#d8e8ff;cursor:pointer;font-size:11px;}
+      .trg-flow-target:hover{border-color:#76b8ef;background:#214568;}
+      .trg-flow-target code{color:#8fb4d7;font-size:9px;overflow-wrap:anywhere;}
       .trg-order{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:12px;background:#31598f;color:#fff;font-weight:bold;font-size:11px;flex:0 0 auto;}
       .tsteps{margin-top:4px;color:#7fc6a4;font-size:10px;line-height:1.45;overflow-wrap:anywhere;}
       .trg-inline-options{display:flex;gap:14px;flex-wrap:wrap;align-items:center;}
@@ -777,7 +817,7 @@ export class TriggerEditor {
     const associationIndex = this._buildSceneAssociationIndex();
 
     this._updateSceneFilter();
-    this._updateSceneEventFilter();
+    this._updateTriggerFilter();
     this._renderAssociationSummary(filterScene, associationIndex);
     if (this.target === 'tutorials') {
       this._renderTutorialList(list, filterScene);
@@ -1308,6 +1348,59 @@ export class TriggerEditor {
       </details>`;
   }
 
+  _renderEventIdentities(event) {
+    const identities = Array.isArray(event?.identities) ? event.identities : [];
+    if (!identities.length) {
+      return '<span class="trg-flow-empty-id">无身份参数（仅按事件类型监听）</span>';
+    }
+    return identities.map(identity => `
+      <span class="trg-flow-id${identity.missing ? ' missing' : ''}">
+        <b>${this._escapeHtml(identity.field)}</b>
+        <code>${this._escapeHtml(identity.displayValue)}</code>
+      </span>`).join('');
+  }
+
+  _renderCompletionFlow(flow) {
+    if (!flow) return '';
+    const outputs = flow.outputs.map((output, index) => {
+      const source = output.source?.kind === 'automatic'
+        ? 'TriggerSystem 自动发布'
+        : [output.source?.stepId || output.source?.path, output.source?.actionName, output.source?.operationName]
+          .filter(Boolean).join(' · ');
+      const condition = output.condition === 'triggerSucceeded'
+        ? '所有实际执行步骤成功后'
+        : output.condition === 'committed'
+          ? '动作实际提交（committed=true）后'
+          : `动作结果为 ${output.condition} 后`;
+      const targets = output.targets.length
+        ? output.targets.map(target => `<button type="button" class="trg-flow-target" data-next-trigger="${this._escapeHtml(target.id)}">${this._escapeHtml(target.name)}<code>${this._escapeHtml(target.id)}</code></button>`).join('')
+        : '<span class="trg-flow-unconnected">未连接下游 Trigger</span>';
+      const connectionLabel = output.connectionStatus === 'ambiguous'
+        ? `<span class="trg-flow-warning">多重连接：${output.targets.length} 个 Trigger 都会匹配</span>`
+        : output.connectionStatus === 'connected'
+          ? '<span class="trg-flow-connected">已连接</span>'
+          : '<span class="trg-flow-warning">未连接</span>';
+      return `
+        <div class="trg-flow-output" data-output-index="${index}">
+          <div class="trg-flow-output-head"><strong>${this._escapeHtml(output.name)}</strong><code>${this._escapeHtml(output.type)}</code>${connectionLabel}</div>
+          <div class="trg-flow-meta"><span>事件 ID</span><div class="trg-flow-identities">${this._renderEventIdentities(output)}</div></div>
+          <div class="trg-flow-meta"><span>发布条件</span><div>${this._escapeHtml(condition)}</div></div>
+          <div class="trg-flow-meta"><span>来源</span><div>${this._escapeHtml(source || '未知')}</div></div>
+          <div class="trg-flow-meta"><span>下游 Trigger</span><div class="trg-flow-targets">${targets}</div></div>
+        </div>`;
+    }).join('');
+    return `
+      <section class="trg-flow-card trg-flow-end">
+        <div class="trg-flow-card-title"><span>②</span><div><strong>结束与后继</strong><small>只读派生，不保存 next/stage</small></div></div>
+        <div class="trg-flow-contract">
+          <div><b>准入条件</b><span>${this._escapeHtml(flow.completion.admission)}</span></div>
+          <div><b>成功条件</b><span>${this._escapeHtml(flow.completion.success)}</span></div>
+          <div><b>条件步骤</b><span>step.if ${flow.completion.stepIfCount} 个；branch ${flow.completion.branchCount} 个</span></div>
+        </div>
+        <div class="trg-flow-output-list">${outputs || '<div class="trg-flow-unconnected">没有可识别的输出事件</div>'}</div>
+      </section>`;
+  }
+
   // ---- 详情表单 ----
 
   _renderDetail() {
@@ -1337,8 +1430,14 @@ export class TriggerEditor {
       `<option value="${w.v}" ${t.when?.type === w.v ? 'selected' : ''}>${w.label} (${w.v})</option>`).join('');
     // 保留下拉里没有的自定义 when.type（避免编辑保存时被重置丢失）
     if (t.when?.type && !WHEN_TYPES.some(w => w.v === t.when.type)) {
-      whenOpts = `<option value="${t.when.type}" selected>自定义: ${t.when.type}</option>` + whenOpts;
+      whenOpts = `<option value="${this._escapeHtml(t.when.type)}" selected>自定义: ${this._escapeHtml(t.when.type)}</option>` + whenOpts;
     }
+    const startDescriptor = getTriggerEventDescriptor(t.when?.type, this.project);
+    const flow = analyzeTriggerFlow(t, this.project?.triggers || [], this.project);
+    const structuredWhenParams = this._renderStructuredParams(startDescriptor?.paramsSchema, t.when?.params || {});
+    const startRegistration = flow?.start?.registered
+      ? '<span class="trg-flow-connected">已登记事件契约</span>'
+      : '<span class="trg-flow-warning">自定义事件未登记：保留原值，但无法校验名称和身份字段</span>';
 
     // timer 专用间隔输入框（每隔多少秒触发一次）
     const isTimer = t.when?.type === 'timer';
@@ -1389,10 +1488,21 @@ export class TriggerEditor {
       </div>
       <div class="row"><label>编辑器归属场景（可多选，不改变运行条件）</label><select id="d-editor-scope-scenes" multiple size="${Math.min(6, Math.max(3, scopeScenes.size))}">${scopeOptions}</select></div>
       <div class="row"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="d-enabled" ${t.enabled !== false ? 'checked' : ''}> 启用</label></div>
-      <div class="row"><label>触发时机 when.type</label><select id="d-when-type">${whenOpts}</select></div>
-      ${timerRow}
-      <div class="row"><label>when.params (JSON)</label><textarea id="d-when-params" placeholder='如 {"sceneId":"scene_a"}'>${this._json(t.when?.params)}</textarea></div>
-      <div class="row"><label>条件 if (JSON，可空)</label><textarea id="d-if" placeholder='如 {"op":"==","left":{"var":"act"},"right":0}'>${t.if ? this._json(t.if) : ''}</textarea></div>
+      <section class="trg-flow-card trg-flow-start">
+        <div class="trg-flow-card-title"><span>①</span><div><strong>开始事件</strong><small>直接编辑运行时 when.type / when.params</small></div>${startRegistration}</div>
+        <div class="trg-flow-event-grid">
+          <label>事件类型<select id="d-when-type">${whenOpts}</select></label>
+          <div class="trg-flow-readonly"><span>事件名称</span><strong>${this._escapeHtml(flow?.start?.name || t.when?.type || '未设置')}</strong></div>
+        </div>
+        <div class="trg-flow-meta"><span>事件 ID</span><div class="trg-flow-identities">${this._renderEventIdentities(flow?.start)}</div></div>
+        <div id="d-when-structured" class="trg-start-params">${structuredWhenParams}</div>
+        ${timerRow}
+        <details class="trg-flow-advanced"${structuredWhenParams ? '' : ' open'}>
+          <summary>高级 JSON／未登记参数</summary>
+          <textarea id="d-when-params" placeholder='如 {"sceneId":"S01"}'>${this._escapeHtml(this._json(t.when?.params))}</textarea>
+        </details>
+      </section>
+      <div class="row"><label>执行准入条件 if (JSON，可空)</label><textarea id="d-if" placeholder='如 {"op":"==","left":{"var":"act"},"right":0}'>${t.if ? this._escapeHtml(this._json(t.if)) : ''}</textarea></div>
       <div class="row"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="d-once" ${t.once ? 'checked' : ''}> 只触发一次(once)</label></div>
       <div class="row"><label>冷却 cooldown (秒，可空)</label><input type="text" id="d-cooldown" value="${t.cooldown != null ? t.cooldown : ''}"></div>
       <div class="row">
@@ -1400,6 +1510,7 @@ export class TriggerEditor {
         <div id="d-do-list">${doHtml || '<div style="color:#778;font-size:12px;">暂无动作</div>'}</div>
         <button class="trg-mini" id="d-add-do" style="margin-top:6px;">+ 添加动作</button>
       </div>
+      ${this._renderCompletionFlow(flow)}
     `;
 
     let draggedActionPath = null;
@@ -1604,6 +1715,28 @@ export class TriggerEditor {
       this._renderDetail();
     });
 
+    panel.querySelectorAll('#d-when-structured .do-param-field').forEach(field => {
+      field.addEventListener('change', () => {
+        this._commitDetail();
+        this._renderList();
+        this._renderDetail();
+      });
+    });
+    for (const selector of ['#d-when-params', '#d-if']) {
+      panel.querySelector(selector)?.addEventListener('change', event => {
+        const raw = event.target.value.trim();
+        if (raw) {
+          try { JSON.parse(raw); } catch { return; }
+        }
+        this._commitDetail();
+        this._renderList();
+        this._renderDetail();
+      });
+    }
+    panel.querySelectorAll('.trg-flow-target[data-next-trigger]').forEach(button => {
+      button.addEventListener('click', () => this.selectById(button.dataset.nextTrigger, 'triggers'));
+    });
+
     // timer 专用「间隔(秒)」输入框（若存在），双向同步 when.params.seconds
     const secInput = panel.querySelector('#d-timer-seconds');
     if (secInput) {
@@ -1755,8 +1888,12 @@ export class TriggerEditor {
     t.when = t.when || {};
     t.when.type = panel.querySelector('#d-when-type').value;
     const whenParamsText = panel.querySelector('#d-when-params').value.trim();
-    if (whenParamsText) t.when.params = this._parseJson(whenParamsText, {});
-    else if (Object.prototype.hasOwnProperty.call(t.when, 'params')) t.when.params = {};
+    let whenParams = whenParamsText
+      ? this._parseJson(whenParamsText, t.when.params || {})
+      : {};
+    const structuredWhen = panel.querySelector('#d-when-structured');
+    if (structuredWhen) whenParams = this._readStructuredParams(structuredWhen, whenParams);
+    t.when.params = whenParams;
     const ifVal = panel.querySelector('#d-if').value.trim();
     if (ifVal) t.if = this._parseJson(ifVal, null); else delete t.if;
     const onceChecked = panel.querySelector('#d-once').checked;
@@ -1885,7 +2022,7 @@ export class TriggerEditor {
     this.project[this.target] = this.triggers;
     this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = this.triggers.length - 1;
-    this._updateSceneEventFilter();
+    this._updateTriggerFilter();
     this._renderList();
     this._renderDetail();
   }
@@ -1897,7 +2034,7 @@ export class TriggerEditor {
     this.project[this.target] = this.triggers;
     this.projectIndex = new TriggerProjectIndex(this.project, { sceneDocuments: this._getSceneDocuments() });
     this.selectedIndex = Math.min(this.selectedIndex, this.triggers.length - 1);
-    this._updateSceneEventFilter();
+    this._updateTriggerFilter();
     this._renderList();
     this._renderDetail();
   }

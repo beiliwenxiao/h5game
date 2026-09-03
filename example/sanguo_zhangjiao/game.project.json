@@ -2748,6 +2748,13 @@
         "label": "荒原生存流程",
         "operations": [
           {
+            "emits": [
+              {
+                "condition": "committed",
+                "idParam": "definitionId",
+                "type": "state.transaction"
+              }
+            ],
             "id": "commitStoryWhenReady",
             "label": "条件满足时提交剧情事实",
             "paramsSchema": {
@@ -3389,19 +3396,87 @@
     ],
     "events": [
       {
-        "label": "采集完成 gathering.completed",
+        "identityFields": [
+          "itemId",
+          "resourceType"
+        ],
+        "label": "采集完成",
+        "paramsSchema": {
+          "additionalProperties": true,
+          "properties": {
+            "itemId": {
+              "title": "物品 ID",
+              "type": "string"
+            },
+            "nodeId": {
+              "title": "资源节点 ID",
+              "type": "string"
+            },
+            "resourceType": {
+              "title": "资源类型",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "value": "gathering.completed"
       },
       {
-        "label": "状态事务已提交 state.transaction",
+        "identityFields": [
+          "definitionId"
+        ],
+        "label": "状态事务已提交",
+        "paramsSchema": {
+          "additionalProperties": true,
+          "properties": {
+            "definitionId": {
+              "minLength": 1,
+              "title": "状态事务 ID",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "value": "state.transaction"
       },
       {
-        "label": "S01 首狼恢复请求 s01.firstWolfRecoveryRequested",
+        "identityFields": [],
+        "label": "S01 首狼恢复请求",
+        "paramsSchema": {
+          "additionalProperties": true,
+          "properties": {
+            "reason": {
+              "title": "请求原因",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "value": "s01.firstWolfRecoveryRequested"
       },
       {
-        "label": "敌人死亡已提交 enemy.killed",
+        "identityFields": [
+          "enemyRole"
+        ],
+        "label": "敌人死亡已提交",
+        "paramsSchema": {
+          "additionalProperties": true,
+          "properties": {
+            "corpseReady": {
+              "title": "尸体已成立",
+              "type": "boolean"
+            },
+            "enemyRole": {
+              "title": "敌人角色 ID",
+              "type": "string"
+            },
+            "entityId": {
+              "title": "实体 ID",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "value": "enemy.killed"
       }
     ]
@@ -3653,9 +3728,10 @@
           "params": {
             "completedPath": "s01Survival.berriesGathered",
             "definitionId": "story.s01.berriesGathered",
-            "gte": 1,
+            "equals": "1",
             "operation": "commitStoryWhenReady",
-            "storyPath": "s01Survival.berryGatherCount"
+            "storyPath": "s01Survival.berryGatherCount",
+            "successTitle": "您已经采集了{s01Survival.berryGatherCount}个野果"
           },
           "stepId": "commit-berries-gathered"
         }

@@ -479,35 +479,30 @@ localStorage                 →  仅作提交后的编辑器缓存，不参与�
 - 森林环带的边缘过渡效果现由椭圆 `edgeFade` 替代
 - 改椭圆填充/特效后清 `_combinedGroundCache = null` 强制重建
 
-## SceneEvent、Trigger 与 Tutorial 顺序职责
+## Trigger-only 事件链职责
 
-| 层级 | 表示什么 | 如何决定顺序 |
-|---|---|---|
-| `SceneEvent` | 玩家经历的宏观流程 | 流程依赖、激活条件、完成条件 |
-| `Trigger` | 对领域事实作出反应的业务规则 | `when` 事件、角色、协调组、优先级、`do[]` |
-| `Tutorial` | 当前事件的教学表现 | 继承 `SceneEvent` 顺序，只管理内部 `steps[]` |
-
-- `SceneEvent` 是逻辑场景事件的唯一业务身份与宏观流程权威；场景空间 binding、Trigger 和 Tutorial 都只能引用它，不得各自复制第二份事件顺序。
-- 三层顺序必须分别显式展示和管理：`SceneEvent` 管宏观先后与依赖，Trigger 管同一事件下的业务响应与动作顺序，Tutorial 只管所属事件内的教学步骤；不得用 `triggers[]`、`tutorials[]` 或场景图层对象的偶然数组位置冒充跨层流程顺序。
-- SceneEvent 顺序变化时，所属 Tutorial 随事件移动但内部 `steps[]` 顺序保持不变；Trigger 的稳定身份、动作步骤身份和幂等键也不得因编辑器拖动而改变。
-- `SceneEventDefinitionRepository` 只管理 canonical SceneEvent 的稳定身份、依赖关系和顺序索引，不拥有 StoryState 或第二份完成状态；`activeWhen/completionWhen` 只读取既有 StoryState 路径。编辑器不得把条件求值结果、完成勾选或其他派生运行状态回写 SceneEvent。
-- 事件编辑器模块职责固定：`SceneEventEditorPanel` 编辑 SceneEvent 定义与宏观顺序，`TutorialEditorPanel` 编辑 Tutorial 定义与完整 `steps[]`，`SceneEventProjectIndex` 只构建跨 SceneEvent／Trigger／Tutorial／binding 的反向只读投影，`TriggerEditor` 负责组合三个标签页并提交同一 candidate；不得让任一子面板维护第二份成员关系或独立保存项目。
+- 当前流程唯一事实是 `Trigger.when(type + params) → 顶层 if 准入 → 串行 do[]/step.if/branch.when → application event → 下游 Trigger`。不得再创建或恢复 SceneEvent、宏观阶段、`stage/next` 或其他第二份流程顺序。
+- `Trigger.name/id` 是规则名称和规则稳定 ID，不是输入事件名称或事件 ID。开始事件名称从 `triggerCatalog.events[].label` 派生，开始事件身份从该事件的 `identityFields` 对应 `when.params` 字段派生，不复制保存显示名称或通用 eventId。
+- `when.params` 是运行时事件 payload 的浅层过滤子集，字段省略表示通配；事件 `paramsSchema` 只校验已填写过滤字段的类型和范围，不得把 payload 本体必有的身份字段设为 Trigger 监听必填。编辑器对未填写 `identityFields` 显示“未设置/按类型监听”，不能擅自补值。
+- Trigger 成功条件固定为：顶层 `if` 准入后，`do[]` 中所有实际执行步骤成功；`step.if` 不满足的步骤跳过，`branch.when` 只选择执行分支。成功后 TriggerSystem 自动发布 `triggerSucceeded { triggerId }`。
+- 业务后继只能从确实发布 application event 的 action/operation `emits` metadata 推导；下游 Trigger 仍以相同 `when.type/when.params` 监听。编辑器只显示这条真实链，并对未连接或多重匹配明确提示，不把派生目标回写为 `next`。
+- Tutorial 只管理自身定义和 `steps[]`；需要进入业务链时通过已有 Trigger/action 契约接线，不持有另一份跨 Trigger 顺序。
 
 ## 当前场景事件视图筛选
 
-- `SceneEditorEventFilter` 是 `SceneEventProjectIndex` 生成的纯编辑器只读投影：横向事件条先按当前场景 `SceneEvent.order` 展示宏观流程，再按项目 `triggers[]` 定义顺序展示所属 Trigger、按 Trigger 展示空间 binding，并按 SceneEvent 顺序／Tutorial priority／定义顺序展示 Tutorial。成员关系只由 Trigger、Tutorial 和 binding 的 `sceneEventId` 外键反向建立，不在 SceneEvent 内复制子 ID；无法归属的 binding 进入“未归属 SceneEvent”，binding 与 Trigger 外键不一致时必须明确警告。筛选支持“全部 / SceneEvent / Trigger / binding”；“显示全部”及每个 binding 旁的复选框只控制当前编辑器会话显隐，默认全选，切换场景时恢复“全部 + 全选 + 不包含关联对象”，禁止进入 sceneData、history、保存、导出或 canonical transaction。
-- TriggerEditor 的“场景关联”不是只检查 `when.params.sceneId`：必须取所属 SceneEvent 的 `scope.sceneIds`、canonical 场景 `type:'trigger'` binding 形成的 `sceneId -> triggerId` 反向索引、运行条件 `when.params.sceneId` 与显式编辑器归属 `editorScope.sceneIds` 的并集。反向索引读取 committed canonical 场景快照，并允许当前未保存场景覆盖同 ID 投影；禁止按 `trg_s01_*` 等 ID 前缀、action 参数或无 provenance 的 localStorage 猜测归属。`editorScope.sceneIds` 只服务编辑器组织，不改变 TriggerSystem 运行匹配；事件视图只为场景内实际存在的空间 binding 提供显隐与对象投影，因此其 binding 数量可以小于 TriggerEditor 的场景关联总数。
-- `TriggerEditor` 由 `EditorInteraction` 注入当前项目的同一个 `CanonicalEditorSession`，使用 SceneEvent／Trigger／Tutorial 三个独立标签页，并通过一次 `patchMany(sceneEvents,triggers,tutorials)` 和一次 `save()` 提交同一 candidate；正式编辑器宿主不得把无 session 的整文件替换 fallback 当作 canonical 正常保存路径。SceneEvent 左侧列表拖动完整定义并重排 `order`；Trigger 左侧列表拖动完整定义调整 `triggers[]` tie-break，同 coordination 组同优先级候选按该定义顺序稳定仲裁；Tutorial 左侧不允许拖动跨 SceneEvent 顺序，只能在详情内拖动完整 `steps[]`。筛选状态下隐藏项保持原相对顺序，任何拖动都不能按表单下标重建对象，否则会让 action／step 稳定 ID、policy、operationId 或 unknown-but-allowed 字段串位；调整后仍需通过“保存到工程”提交 canonical JSON。
+- `SceneEditorEventFilter` 是 `TriggerProjectIndex` 生成的纯编辑器只读投影：横向事件条按项目 `triggers[]` 定义顺序展示当前场景实际绑定的 Trigger，再按 Trigger 展示空间 binding，并按 Tutorial priority／定义顺序展示当前场景 Tutorial。成员关系只由 binding 的 `triggerId`、Trigger/Tutorial 的显式场景归属和 canonical 场景文档反向建立，不复制子 ID。筛选支持“全部 / Trigger / binding”；“显示全部”及每个 binding 旁的复选框只控制当前编辑器会话显隐，默认全选，切换场景时恢复“全部 + 全选 + 不包含关联对象”，禁止进入 sceneData、history、保存、导出或 canonical transaction。
+- TriggerEditor 的“场景关联”不是只检查 `when.params.sceneId`：必须取 canonical 场景 `type:'trigger'` binding 形成的 `sceneId -> triggerId` 反向索引、运行条件 `when.params.sceneId` 与显式编辑器归属 `editorScope.sceneIds` 的并集。反向索引读取 committed canonical 场景快照，并允许当前未保存场景覆盖同 ID 投影；禁止按 `trg_s01_*` 等 ID 前缀、action 参数或无 provenance 的 localStorage 猜测归属。`editorScope.sceneIds` 只服务编辑器组织，不改变 TriggerSystem 运行匹配；事件视图只为场景内实际存在的空间 binding 提供显隐与对象投影，因此其 binding 数量可以小于 TriggerEditor 的场景关联总数。
+- `TriggerEditor` 由 `EditorInteraction` 注入当前项目的同一个 `CanonicalEditorSession`，使用剧情线总览／Trigger／Tutorial 三个标签页，并通过一次 `patchMany(triggers,tutorials,dialogues)` 和一次 `save()` 提交同一 candidate；正式编辑器宿主不得把无 session 的整文件替换 fallback 当作 canonical 正常保存路径。Trigger 左侧列表拖动完整定义调整 `triggers[]` tie-break，同 coordination 组同优先级候选按该定义顺序稳定仲裁；Tutorial 左侧按定义顺序管理，只能在详情内拖动完整 `steps[]`。筛选状态下隐藏项保持原相对顺序，任何拖动都不能按表单下标重建对象，否则会让 action／step 稳定 ID、policy、operationId 或 unknown-but-allowed 字段串位；调整后仍需通过“保存到工程”提交 canonical JSON。
 - TriggerEditor 的 `do[]` 同样使用拖拽手柄排序；拖动开始前必须先提交当前表单，再搬运完整 action 对象并重渲染，禁止仅移动 DOM 或按新下标把可见字段合并回旧 action。触发器可选 `name` 是编辑器可读名称，左侧优先显示名称并始终保留完整稳定 ID；空名称不写入 canonical 数据。
 - `ContentValidator` 校验对象字段时默认允许 unknown，只有 schema 显式设置 `allowUnknown:false` 才拒绝；编辑器仍必须在 round-trip 中主动保留这些字段。因此所有结构化表单回写都必须以原 definition／action／Tutorial step／`params` 完整对象为基底，只覆盖控件实际拥有的字段。保存表单和拖动排序都不得按可见字段重建对象，否则会静默删除扩展字段或让稳定身份串位。
 - `spawnPlacements` 控件只管理 selector 的 `placementId/placementIds/group/tag/tags` 五类互斥选择字段：未改变 mode/target 时原样返回完整 `params`；实际切换时只清除并重写这五类字段。必须保留既有 `sceneId`、`kinds`、其他 unknown 字段以及嵌套／扁平 selector 形态，禁止从 `<option>` 元数据隐式改写 `sceneId`；只有创建全新的空 selector 时才可补默认 `kinds:['item']`。
 - 场景画布事件筛选条的样式归 `editor/styles/scene-editor.css`；独立事件编辑器的三标签、顺序编号、动作／Tutorial step 拖动和分隔条样式归 `TriggerEditor._injectStyles()` 创建的 `#trg-styles`。新增样式应放回对应所有者，避免在两处复制同一选择器或误以为全部事件编辑器样式都在外部 CSS。
-- Trigger 动作目录固定为两级：`action` 表示已注册处理器类型，`params.operation` 表示该处理器内的稳定子命令；游戏专属 operation 只登记在项目 `triggerCatalog.actions[].operations[]`，每项同时提供独立中文 `label`、结构化 `paramsSchema` 与 `resultSemantics`，不得把固定历史 operation 硬编码进引擎目录。operation 的 `paramsSchema` 命中后会整体替换 action descriptor 的参数 Schema，不会自动合并基础 properties；使用 `additionalProperties:false` 时必须重复登记该 operation 实际允许的全部字段。operation 选项的 `id` 与 `value` 使用同一稳定英文 token，`label` 只用于 UI 展示，保存时只能把稳定值写入 `params.operation`。已归属 SceneEvent 的每个 `do[]` 步骤必须有触发器内唯一且不随拖动改变的 `stepId`；运行时始终严格串行等待并在首个失败处短路，action 顶层 `await` 已废弃。教程离槽等待仅允许 `tutorial.command/show` 使用 `params.await:true`，对应 operation Schema 必须登记 boolean `await`；其他 operation 不得显示或保存该字段。未显式提供 action `operationId` 时，幂等身份由请求 operationId、Trigger ID 与稳定 `stepId` 组合，禁止退回数组下标。
+- Trigger 动作目录固定为两级：`action` 表示已注册处理器类型，`params.operation` 表示该处理器内的稳定子命令；游戏专属 operation 只登记在项目 `triggerCatalog.actions[].operations[]`，每项同时提供独立中文 `label`、结构化 `paramsSchema` 与 `resultSemantics`，确实发布后继 application event 的 operation 还必须登记只读 `emits` metadata。不得把固定历史 operation 硬编码进引擎目录。operation 的 `paramsSchema` 命中后会整体替换 action descriptor 的参数 Schema，不会自动合并基础 properties；使用 `additionalProperties:false` 时必须重复登记该 operation 实际允许的全部字段。operation 选项的 `id` 与 `value` 使用同一稳定英文 token，`label` 只用于 UI 展示，保存时只能把稳定值写入 `params.operation`。每个 `do[]` 步骤必须有触发器内唯一且不随拖动改变的 `stepId`；运行时始终严格串行等待并在首个失败处短路，action 顶层 `await` 已废弃。教程离槽等待仅允许 `tutorial.command/show` 使用 `params.await:true`，对应 operation Schema 必须登记 boolean `await`；其他 operation 不得显示或保存该字段。未显式提供 action `operationId` 时，幂等身份由请求 operationId、Trigger ID 与稳定 `stepId` 组合，禁止退回数组下标。
 - 场景 trigger binding 的 `activeWhen` 在右侧属性栏以 JSON 对象编辑：空值删除字段，数组、`null` 或非法 JSON 必须保持原对象不变并恢复输入；合法修改先进入 history，再重建事件视图。该入口只编辑既有 `SceneTriggerBindingSystem` 条件，不创建第二套阶段状态。
 - TriggerEditor 左侧列表中的触发器 ID 与 when 文本必须完整换行显示，不使用省略号截断；空间触发器还必须从同一 canonical binding 反向索引投影事件视图的 `binding.name`，当前场景有多个同 triggerId 名称时全部显示，未选择场景时以 `sceneId · name` 区分。列表与详情之间的竖向分隔条支持指针左右拖动、键盘左右键微调和双击恢复默认宽度，并把宽度保存到本机 UI 偏好；宽度调整只影响编辑器布局，不进入项目 canonical 数据。
 - 右侧“选中对象”属性栏的“是否显示”不是事件条临时筛选，而是 canonical binding 字段 `enabled`（缺省视为 `true`）。`enabled:false` 必须从编辑器画布投影中移除，并在场景加载投影、`SceneTriggerBindingSystem.setBindings()` 和活动判断中统一拒绝，使该空间事件不显示提示、不进入调试热点且不执行；事件条仍保留事件名称作为重新选中和启用入口，其临时显隐框置灰，且不得改写 `enabled`。
-- 场景空间 binding 的 `sceneEventId` 只能由所选 Trigger 自动同步并在属性栏只读展示，不允许 binding 独立选择另一 SceneEvent；重新选择 Trigger 时同步或删除该外键。编辑器投影和 `SceneTriggerBindingSystem` 的提示、候选、最终触发都必须拒绝 binding／Trigger 外键不一致，避免画布归属与运行时业务规则分叉。
-- SceneEvent／Trigger／binding 过滤只显示所选层级包含的空间 binding；启用“显示关联对象”后，复用 `SceneObjectSelector` 解析 binding 的 `targetMode/target` 及 action 显式声明的 selector、targetId/objectId、group、ref/npcRef/enemyRef、entity/actor/vehicle ID。只有显式 group selector 才扩展整组，不得因对象自身带 group 自动扩大。
+- 场景空间 binding 只保存并只读展示所选 Trigger 的稳定 `triggerId`；重新选择 Trigger 时更新该字段。不得再生成 `sceneEventId`、`flowGroupId` 或其他流程外键，编辑器投影和 `SceneTriggerBindingSystem` 的提示、候选、最终触发统一按 `triggerId` 精确解析。
+- Trigger／binding 过滤只显示所选层级包含的空间 binding；启用“显示关联对象”后，复用 `SceneObjectSelector` 解析 binding 的 `targetMode/target` 及 action 显式声明的 selector、targetId/objectId、group、ref/npcRef/enemyRef、entity/actor/vehicle ID。只有显式 group selector 才扩展整组，不得因对象自身带 group 自动扩大。
 - 关联解析使用有界 Set 闭包并防循环；编辑器找不到的稳定目标显示为“运行时动态目标”，不得伪造场景对象。属性面板的目标候选始终读取 canonical 全对象，不受视图筛选影响。
 - Canvas 渲染、触发器连线、命中测试、全选、框选、拖动、缩放、关联拾取必须消费同一可见对象投影；筛选切换要取消旧拖动/缩放/连线状态并清除隐藏 selection。图层计数显示“可见数/总数”，过滤态禁止会重排隐藏对象的批量深度操作，其他批量操作只处理当前可见候选。
 - 事件条必须限制在 `.editor-canvas-area` 宽度内，使用 `minmax(0,1fr)`、`min-width:0` 和内部横向滚动；事件数量增加时不得撑宽编辑器。事件条下方提供独立拖动轨道，滑块只同步事件列表的 `scrollLeft`，不修改场景数据、Canvas 尺寸或编辑器布局宽度。

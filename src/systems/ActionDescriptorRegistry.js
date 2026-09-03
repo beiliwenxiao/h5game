@@ -143,7 +143,10 @@ export const STANDARD_ACTION_DESCRIPTORS = deepFreeze([
   descriptor('tutorial.command', 'tutorial.command', 'tutorialId', 'tutorials', ActionSideEffect.DOMAIN, ActionCheckpointPolicy.ON_COMMIT, {
     properties: { await: { type: 'boolean' } }
   }),
-  descriptor('state.transaction', 'state.transaction', 'definitionId', 'commands'),
+  {
+    ...descriptor('state.transaction', 'state.transaction', 'definitionId', 'commands'),
+    emits: [{ type: 'state.transaction', idParam: 'definitionId', condition: 'committed' }]
+  },
   descriptor('scenario.command', 'scenario.command', 'scenarioId', null)
 ]);
 

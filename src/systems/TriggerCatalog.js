@@ -3,17 +3,56 @@ import { STANDARD_ACTION_DESCRIPTORS } from './ActionDescriptorRegistry.js';
 const isObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' ? value.trim() : '';
 
+const eventSchema = (properties = {}, required = []) => Object.freeze({
+  type: 'object',
+  additionalProperties: true,
+  ...(required.length ? { required } : {}),
+  properties
+});
+
+const CORE_EVENT_PARAMS = Object.freeze({
+  sceneEnter: eventSchema({ sceneId: { type: 'string', title: '场景 ID' } }),
+  enterRegion: eventSchema({ regionId: { type: 'string', title: '区域 ID' } }),
+  dialogueEnd: eventSchema({ id: { type: 'string', title: '对话 ID' } }),
+  dialogueChoice: eventSchema({ id: { type: 'string', title: '对话 ID' }, choiceId: { type: 'string', title: '选项 ID' } }),
+  itemPickup: eventSchema({ placementId: { type: 'string', title: '放置点 ID' }, itemId: { type: 'string', title: '物品 ID' }, complete: { type: 'boolean', title: '拾取完整' } }),
+  interact: eventSchema({ bindingId: { type: 'string', title: '空间 Binding ID' }, target: { type: 'string', title: '目标 ID' }, sceneId: { type: 'string', title: '场景 ID' } }),
+  questComplete: eventSchema({ questId: { type: 'string', title: '任务 ID' } }),
+  questProgress: eventSchema({ questId: { type: 'string', title: '任务 ID' } }),
+  chunkEnter: eventSchema({ sceneId: { type: 'string', title: '场景／Chunk ID' } }),
+  sceneComplete: eventSchema({ sceneId: { type: 'string', title: '场景 ID' } }),
+  equipItem: eventSchema({ slot: { type: 'string', title: '装备槽位' }, item: { type: 'string', title: '物品 ID' } }),
+  unequipItem: eventSchema({ slot: { type: 'string', title: '装备槽位' }, item: { type: 'string', title: '物品 ID' } }),
+  classSelected: eventSchema({ classId: { type: 'string', title: '职业 ID' } }),
+  triggerSucceeded: eventSchema({ triggerId: { type: 'string', title: 'Trigger ID' } }),
+  triggerFailed: eventSchema({ triggerId: { type: 'string', title: 'Trigger ID' }, code: { type: 'string', title: '失败代码' } })
+});
+
+const CORE_EVENT_IDENTITIES = Object.freeze({
+  sceneEnter: ['sceneId'], enterRegion: ['regionId'], dialogueEnd: ['id'], dialogueChoice: ['id', 'choiceId'],
+  itemPickup: ['placementId', 'itemId'], interact: ['bindingId', 'target'], questComplete: ['questId'],
+  questProgress: ['questId'], chunkEnter: ['sceneId'], sceneComplete: ['sceneId'], equipItem: ['slot', 'item'],
+  unequipItem: ['slot', 'item'], classSelected: ['classId'], triggerSucceeded: ['triggerId'], triggerFailed: ['triggerId']
+});
+
 const CORE_EVENTS = [
   ['sceneEnter', '进入场景'], ['enterRegion', '进入区域'], ['dialogueEnd', '对话结束'],
-  ['kill', '击杀敌人'], ['itemPickup', '拾取物品'], ['interact', '交互', true],
+  ['dialogueChoice', '对话选项确认'], ['kill', '击杀敌人'], ['itemPickup', '拾取物品'], ['interact', '交互', true],
   ['questComplete', '任务完成'], ['questProgress', '任务进度'], ['flagChange', '变量变化'],
   ['timer', '定时器'], ['chunkEnter', '进入区块'], ['campfireLit', '火堆点燃'],
   ['waveCleared', '波次清空'], ['gatheringRisk', '采集风险'], ['playerMoved', '玩家移动'], ['panelOpen', '打开面板'],
   ['equipItem', '装备物品'], ['unequipItem', '卸下物品'], ['classSelected', '选择职业'],
   ['approach', '靠近', true], ['enter', '进入范围', true], ['leave', '离开范围', true],
   ['stand', '站立'], ['climb', '攀爬'], ['jump', '跳跃'], ['itemTransform', '物品转化'],
-  ['sceneComplete', '场景完成']
-].map(([value, label, spatial = false]) => Object.freeze({ value, v: value, label, spatial }));
+  ['sceneComplete', '场景完成'], ['triggerSucceeded', 'Trigger 执行成功'], ['triggerFailed', 'Trigger 执行失败']
+].map(([value, label, spatial = false]) => Object.freeze({
+  value,
+  v: value,
+  label,
+  spatial,
+  identityFields: CORE_EVENT_IDENTITIES[value] || [],
+  ...(CORE_EVENT_PARAMS[value] ? { paramsSchema: CORE_EVENT_PARAMS[value] } : {})
+}));
 
 const CORE_ACTIONS = [
   ['setVar', '设置变量'], ['addVar', '变量累加'], ['setFlag', '设置标记'], ['toggleFlag', '切换标记'],
@@ -101,6 +140,11 @@ export const getTriggerActions = project => mergeCatalog(
   [...CORE_ACTIONS, ...STANDARD_CATALOG_ACTIONS],
   project?.triggerCatalog?.actions
 );
+
+export function getTriggerEventDescriptor(eventType, project = null) {
+  const type = text(eventType);
+  return getTriggerEvents(project).find(event => event.value === type) || null;
+}
 
 export function getTriggerActionDescriptor(actionId, project = null) {
   const id = text(actionId);
@@ -199,6 +243,15 @@ export function validateTriggerDefinition(trigger, project = null) {
     errors.push('name 必须是非空字符串');
   }
   if (!trigger?.when?.type) errors.push('when.type 不能为空');
+  const whenParams = trigger?.when?.params;
+  if (whenParams !== undefined && !isObject(whenParams)) {
+    errors.push('when.params 必须是对象');
+  } else if (isObject(whenParams)) {
+    const eventDescriptor = getTriggerEventDescriptor(trigger.when.type, project);
+    if (eventDescriptor?.paramsSchema) {
+      validateSchema(whenParams, eventDescriptor.paramsSchema, 'when.params', errors);
+    }
+  }
   if (!Array.isArray(trigger?.do)) errors.push('do 必须是数组');
   if (trigger?.sceneEventId !== undefined
     && (typeof trigger.sceneEventId !== 'string' || !trigger.sceneEventId.trim())) {
@@ -272,6 +325,7 @@ export function validateTriggerDefinition(trigger, project = null) {
 
 export default {
   getTriggerEvents,
+  getTriggerEventDescriptor,
   getTriggerActions,
   getTriggerActionDescriptor,
   getTriggerActionOperations,
